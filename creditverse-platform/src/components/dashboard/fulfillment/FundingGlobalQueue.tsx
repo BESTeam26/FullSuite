@@ -1,3 +1,4 @@
+import type { ElementType } from "react";
 /**
  * FundingOps Global Queue — cross-partner queue view.
  *
@@ -58,7 +59,7 @@ const QUEUE_SPECS: Record<
   string,
   {
     title: string;
-    icon: any;
+    icon: ElementType;
     color: string;
     filterFn: (c: FundingClient) => boolean;
   }
@@ -342,9 +343,8 @@ export function FundingGlobalQueue({ queueType, onOpenClient }: Props) {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          onOpenClient
-                            ? onOpenClient(c.id)
-                            : setOpenClientId(c.id);
+                          if (onOpenClient) onOpenClient(c.id);
+                          else setOpenClientId(c.id);
                         }}
                         className="inline-flex items-center gap-1 rounded-md bg-primary px-2.5 py-1 text-[10px] font-bold text-primary-foreground hover:opacity-90"
                       >

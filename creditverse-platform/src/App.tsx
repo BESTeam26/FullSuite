@@ -1,12 +1,9 @@
+import { lazy, Suspense, type ComponentType } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/Index";
-import Portal from "./pages/Portal";
-import NotFound from "./pages/NotFound";
-import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { RoleProvider } from "@/lib/role-context";
 import { ReferralProvider } from "@/lib/referral/referral-context";
 import { AgencyProvider } from "@/lib/agency-context";
@@ -15,207 +12,314 @@ import { AgreementsProvider } from "@/lib/agreements-context";
 import { ConnectorsProvider } from "@/lib/connectors-context";
 import { CrmAutomationProvider } from "@/lib/crm-automation-context";
 import { AgencySettingsProvider } from "@/lib/agency-settings-context";
-import Dashboard from "./pages/app/Dashboard";
-import Clients from "./pages/app/Clients";
-import ClientDetail from "./pages/app/ClientDetail";
-import Compliance from "./pages/app/Compliance";
-import Operations from "./pages/app/Operations";
-import Metro2 from "./pages/app/Metro2";
-import Reporting from "./pages/app/Reporting";
-import Education from "./pages/app/Education";
-import Settings from "./pages/app/Settings";
-import { SubAccountsManager } from "@/components/dashboard/SubAccountsManager";
-import { FulfillmentWorkspace } from "@/components/dashboard/FulfillmentWorkspace";
-import AffiliatePortal from "./pages/portals/AffiliatePortal";
-import OutsourcingPortal from "./pages/portals/OutsourcingPortal";
-import DiyPortal from "./pages/DiyPortal";
-import DiyConsumerPortal from "./pages/DiyConsumerPortal";
-import DiyManagement from "./pages/app/DiyManagement";
-// Managed-service division pages
-import CreditOps from "./pages/app/CreditOps";
-import FundingOps from "./pages/app/FundingOps";
-import BesCrm from "./pages/app/BesCrm";
-import TalentOps from "./pages/app/TalentOps";
-// HQ section pages
-import {
-  AttentionCenter,
-  MyWorkPage,
-  MyTimePage,
-  EodPage,
-  NotificationsPage,
-} from "./pages/app/HqPages";
-import {
-  PeoplePage,
-  TeamsPage,
-  WorkforcePage,
-  BillingPage,
-  AnnouncementsPage,
-  CalendarPage,
-  SupportPage,
-} from "./pages/app/HqPages2";
-import DiyCreditPage from "./pages/products/DiyCreditPage";
-import CreditOpsPage from "./pages/products/CreditOpsPage";
-import FundingOpsPage from "./pages/products/FundingOpsPage";
-import FullSuitePage from "./pages/products/FullSuitePage";
-import CrmPage from "./pages/products/CrmPage";
-import CreditRepairSoftwarePage from "./pages/seo/CreditRepairSoftwarePage";
-import FundingOperationsSoftwarePage from "./pages/seo/FundingOperationsSoftwarePage";
-import CreditRepairBusinessSoftwarePage from "./pages/seo/CreditRepairBusinessSoftwarePage";
-import BusinessFundingSoftwarePage from "./pages/seo/BusinessFundingSoftwarePage";
-import CreditRepairAndFundingSoftwarePage from "./pages/seo/CreditRepairAndFundingSoftwarePage";
-import IntegrationsPage from "./pages/seo/IntegrationsPage";
+import { AuthProvider } from "@/lib/auth/auth-context";
+import { RequireAuth } from "@/components/auth/RequireAuth";
+
+/* ------------------------------------------------------------------ */
+/* Route-level code splitting                                          */
+/* Marketing, portals, and the /app workspace load as separate chunks. */
+/* ------------------------------------------------------------------ */
+
+const named =
+  <T extends Record<string, unknown>>(loader: () => Promise<T>, key: keyof T) =>
+  () =>
+    loader().then((m) => ({ default: m[key] as ComponentType }));
+
+// Auth
+const Login = lazy(() => import("./pages/auth/Login"));
+const AuthCallback = lazy(() => import("./pages/auth/AuthCallback"));
+
+// Public / marketing
+const Index = lazy(() => import("./pages/Index"));
+const Portal = lazy(() => import("./pages/Portal"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const DiyPortal = lazy(() => import("./pages/DiyPortal"));
+const DiyConsumerPortal = lazy(() => import("./pages/DiyConsumerPortal"));
+const AffiliatePortal = lazy(() => import("./pages/portals/AffiliatePortal"));
+const OutsourcingPortal = lazy(
+  () => import("./pages/portals/OutsourcingPortal"),
+);
+const DiyCreditPage = lazy(() => import("./pages/products/DiyCreditPage"));
+const CreditOpsPage = lazy(() => import("./pages/products/CreditOpsPage"));
+const FundingOpsPage = lazy(() => import("./pages/products/FundingOpsPage"));
+const FullSuitePage = lazy(() => import("./pages/products/FullSuitePage"));
+const CrmPage = lazy(() => import("./pages/products/CrmPage"));
+const CreditRepairSoftwarePage = lazy(
+  () => import("./pages/seo/CreditRepairSoftwarePage"),
+);
+const FundingOperationsSoftwarePage = lazy(
+  () => import("./pages/seo/FundingOperationsSoftwarePage"),
+);
+const CreditRepairBusinessSoftwarePage = lazy(
+  () => import("./pages/seo/CreditRepairBusinessSoftwarePage"),
+);
+const BusinessFundingSoftwarePage = lazy(
+  () => import("./pages/seo/BusinessFundingSoftwarePage"),
+);
+const CreditRepairAndFundingSoftwarePage = lazy(
+  () => import("./pages/seo/CreditRepairAndFundingSoftwarePage"),
+);
+const IntegrationsPage = lazy(() => import("./pages/seo/IntegrationsPage"));
+
+// Workspace shell
+const DashboardLayout = lazy(
+  named(
+    () => import("@/components/dashboard/DashboardLayout"),
+    "DashboardLayout",
+  ),
+);
+const Dashboard = lazy(() => import("./pages/app/Dashboard"));
+const Clients = lazy(() => import("./pages/app/Clients"));
+const ClientDetail = lazy(() => import("./pages/app/ClientDetail"));
+const Compliance = lazy(() => import("./pages/app/Compliance"));
+const Operations = lazy(() => import("./pages/app/Operations"));
+const Metro2 = lazy(() => import("./pages/app/Metro2"));
+const Reporting = lazy(() => import("./pages/app/Reporting"));
+const Education = lazy(() => import("./pages/app/Education"));
+const Settings = lazy(() => import("./pages/app/Settings"));
+const DiyManagement = lazy(() => import("./pages/app/DiyManagement"));
+const CreditOps = lazy(() => import("./pages/app/CreditOps"));
+const FundingOps = lazy(() => import("./pages/app/FundingOps"));
+const BesCrm = lazy(() => import("./pages/app/BesCrm"));
+const TalentOps = lazy(() => import("./pages/app/TalentOps"));
+const SubAccountsManager = lazy(
+  named(
+    () => import("@/components/dashboard/SubAccountsManager"),
+    "SubAccountsManager",
+  ),
+);
+const FulfillmentWorkspace = lazy(
+  named(
+    () => import("@/components/dashboard/FulfillmentWorkspace"),
+    "FulfillmentWorkspace",
+  ),
+);
+
+// HQ pages (named exports)
+const hq = () => import("./pages/app/HqPages");
+const hq2 = () => import("./pages/app/HqPages2");
+const AttentionCenter = lazy(named(hq, "AttentionCenter"));
+const MyWorkPage = lazy(named(hq, "MyWorkPage"));
+const MyTimePage = lazy(named(hq, "MyTimePage"));
+const EodPage = lazy(named(hq, "EodPage"));
+const NotificationsPage = lazy(named(hq, "NotificationsPage"));
+const PeoplePage = lazy(named(hq2, "PeoplePage"));
+const TeamsPage = lazy(named(hq2, "TeamsPage"));
+const WorkforcePage = lazy(named(hq2, "WorkforcePage"));
+const BillingPage = lazy(named(hq2, "BillingPage"));
+const AnnouncementsPage = lazy(named(hq2, "AnnouncementsPage"));
+const CalendarPage = lazy(named(hq2, "CalendarPage"));
+const SupportPage = lazy(named(hq2, "SupportPage"));
 
 const queryClient = new QueryClient();
+
+const RouteFallback = () => (
+  <div className="flex min-h-screen items-center justify-center bg-background">
+    <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+  </div>
+);
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <ReferralProvider>
-        <RoleProvider>
-          <AgencyProvider>
-            <MonitoringStatusProvider>
-              <AgencySettingsProvider>
-                <BrowserRouter>
-                  <AgreementsProvider>
-                    <ConnectorsProvider>
-                      <CrmAutomationProvider>
-                        <Routes>
-                          <Route path="/" element={<Index />} />
-                          <Route path="/portal" element={<Portal />} />
-                          <Route path="/diy" element={<DiyPortal />} />
-                          <Route
-                            path="/diy-consumer"
-                            element={<DiyConsumerPortal />}
-                          />
-                          <Route
-                            path="/affiliate"
-                            element={<AffiliatePortal />}
-                          />
-                          <Route
-                            path="/outsourcing"
-                            element={<OutsourcingPortal />}
-                          />
+      <BrowserRouter>
+        <AuthProvider>
+          <ReferralProvider>
+            <RoleProvider>
+              <AgencyProvider>
+                <MonitoringStatusProvider>
+                  <AgencySettingsProvider>
+                    <AgreementsProvider>
+                      <ConnectorsProvider>
+                        <CrmAutomationProvider>
+                          <Suspense fallback={<RouteFallback />}>
+                            <Routes>
+                              <Route path="/" element={<Index />} />
+                              <Route path="/login" element={<Login />} />
+                              <Route
+                                path="/auth/callback"
+                                element={<AuthCallback />}
+                              />
+                              <Route path="/portal" element={<Portal />} />
+                              <Route path="/diy" element={<DiyPortal />} />
+                              <Route
+                                path="/diy-consumer"
+                                element={<DiyConsumerPortal />}
+                              />
+                              <Route
+                                path="/affiliate"
+                                element={<AffiliatePortal />}
+                              />
+                              <Route
+                                path="/outsourcing"
+                                element={<OutsourcingPortal />}
+                              />
 
-                          {/* Product pages */}
-                          <Route
-                            path="/diy-credit"
-                            element={<DiyCreditPage />}
-                          />
-                          <Route
-                            path="/creditops"
-                            element={<CreditOpsPage />}
-                          />
-                          <Route
-                            path="/fundingops"
-                            element={<FundingOpsPage />}
-                          />
-                          <Route
-                            path="/full-suite"
-                            element={<FullSuitePage />}
-                          />
-                          <Route path="/crm" element={<CrmPage />} />
+                              {/* Product pages */}
+                              <Route
+                                path="/diy-credit"
+                                element={<DiyCreditPage />}
+                              />
+                              <Route
+                                path="/creditops"
+                                element={<CreditOpsPage />}
+                              />
+                              <Route
+                                path="/fundingops"
+                                element={<FundingOpsPage />}
+                              />
+                              <Route
+                                path="/full-suite"
+                                element={<FullSuitePage />}
+                              />
+                              <Route path="/crm" element={<CrmPage />} />
 
-                          {/* SEO keyword pages */}
-                          <Route
-                            path="/credit-repair-software"
-                            element={<CreditRepairSoftwarePage />}
-                          />
-                          <Route
-                            path="/funding-operations-software"
-                            element={<FundingOperationsSoftwarePage />}
-                          />
-                          <Route
-                            path="/credit-repair-business-software"
-                            element={<CreditRepairBusinessSoftwarePage />}
-                          />
-                          <Route
-                            path="/business-funding-software"
-                            element={<BusinessFundingSoftwarePage />}
-                          />
-                          <Route
-                            path="/credit-repair-and-funding-software"
-                            element={<CreditRepairAndFundingSoftwarePage />}
-                          />
-                          <Route
-                            path="/integrations"
-                            element={<IntegrationsPage />}
-                          />
+                              {/* SEO keyword pages */}
+                              <Route
+                                path="/credit-repair-software"
+                                element={<CreditRepairSoftwarePage />}
+                              />
+                              <Route
+                                path="/funding-operations-software"
+                                element={<FundingOperationsSoftwarePage />}
+                              />
+                              <Route
+                                path="/credit-repair-business-software"
+                                element={<CreditRepairBusinessSoftwarePage />}
+                              />
+                              <Route
+                                path="/business-funding-software"
+                                element={<BusinessFundingSoftwarePage />}
+                              />
+                              <Route
+                                path="/credit-repair-and-funding-software"
+                                element={<CreditRepairAndFundingSoftwarePage />}
+                              />
+                              <Route
+                                path="/integrations"
+                                element={<IntegrationsPage />}
+                              />
 
-                          <Route path="/app" element={<DashboardLayout />}>
-                            <Route index element={<Dashboard />} />
-                            {/* HQ */}
-                            <Route
-                              path="subaccounts"
-                              element={<SubAccountsManager />}
-                            />
-                            <Route
-                              path="attention"
-                              element={<AttentionCenter />}
-                            />
-                            {/* My Work */}
-                            <Route path="my-work" element={<MyWorkPage />} />
-                            <Route path="my-time" element={<MyTimePage />} />
-                            <Route path="eod" element={<EodPage />} />
-                            <Route
-                              path="notifications"
-                              element={<NotificationsPage />}
-                            />
-                            {/* Managed Operations */}
-                            <Route path="creditops" element={<CreditOps />} />
-                            <Route path="fundingops" element={<FundingOps />} />
-                            <Route path="bes-crm" element={<BesCrm />} />
-                            <Route path="talentops" element={<TalentOps />} />
-                            {/* Workforce */}
-                            <Route path="people" element={<PeoplePage />} />
-                            <Route path="teams" element={<TeamsPage />} />
-                            <Route
-                              path="workforce"
-                              element={<WorkforcePage />}
-                            />
-                            {/* Management */}
-                            <Route path="reporting" element={<Reporting />} />
-                            <Route path="billing" element={<BillingPage />} />
-                            <Route path="compliance" element={<Compliance />} />
-                            {/* Company */}
-                            <Route path="education" element={<Education />} />
-                            <Route
-                              path="announcements"
-                              element={<AnnouncementsPage />}
-                            />
-                            <Route path="calendar" element={<CalendarPage />} />
-                            {/* System */}
-                            <Route path="settings" element={<Settings />} />
-                            <Route path="support" element={<SupportPage />} />
-                            {/* Legacy / shared */}
-                            <Route
-                              path="fulfillment"
-                              element={<FulfillmentWorkspace />}
-                            />
-                            <Route
-                              path="diy-management"
-                              element={<DiyManagement />}
-                            />
-                            <Route path="clients" element={<Clients />} />
-                            <Route
-                              path="clients/:id"
-                              element={<ClientDetail />}
-                            />
-                            <Route path="operations" element={<Operations />} />
-                            <Route path="metro2" element={<Metro2 />} />
-                          </Route>
-                          <Route path="*" element={<NotFound />} />
-                        </Routes>
-                      </CrmAutomationProvider>
-                    </ConnectorsProvider>
-                  </AgreementsProvider>
-                </BrowserRouter>
-              </AgencySettingsProvider>
-            </MonitoringStatusProvider>
-          </AgencyProvider>
-        </RoleProvider>
-      </ReferralProvider>
+                              <Route
+                                path="/app"
+                                element={
+                                  <RequireAuth>
+                                    <DashboardLayout />
+                                  </RequireAuth>
+                                }
+                              >
+                                <Route index element={<Dashboard />} />
+                                {/* HQ */}
+                                <Route
+                                  path="subaccounts"
+                                  element={<SubAccountsManager />}
+                                />
+                                <Route
+                                  path="attention"
+                                  element={<AttentionCenter />}
+                                />
+                                {/* My Work */}
+                                <Route
+                                  path="my-work"
+                                  element={<MyWorkPage />}
+                                />
+                                <Route
+                                  path="my-time"
+                                  element={<MyTimePage />}
+                                />
+                                <Route path="eod" element={<EodPage />} />
+                                <Route
+                                  path="notifications"
+                                  element={<NotificationsPage />}
+                                />
+                                {/* Managed Operations */}
+                                <Route
+                                  path="creditops"
+                                  element={<CreditOps />}
+                                />
+                                <Route
+                                  path="fundingops"
+                                  element={<FundingOps />}
+                                />
+                                <Route path="bes-crm" element={<BesCrm />} />
+                                <Route
+                                  path="talentops"
+                                  element={<TalentOps />}
+                                />
+                                {/* Workforce */}
+                                <Route path="people" element={<PeoplePage />} />
+                                <Route path="teams" element={<TeamsPage />} />
+                                <Route
+                                  path="workforce"
+                                  element={<WorkforcePage />}
+                                />
+                                {/* Management */}
+                                <Route
+                                  path="reporting"
+                                  element={<Reporting />}
+                                />
+                                <Route
+                                  path="billing"
+                                  element={<BillingPage />}
+                                />
+                                <Route
+                                  path="compliance"
+                                  element={<Compliance />}
+                                />
+                                {/* Company */}
+                                <Route
+                                  path="education"
+                                  element={<Education />}
+                                />
+                                <Route
+                                  path="announcements"
+                                  element={<AnnouncementsPage />}
+                                />
+                                <Route
+                                  path="calendar"
+                                  element={<CalendarPage />}
+                                />
+                                {/* System */}
+                                <Route path="settings" element={<Settings />} />
+                                <Route
+                                  path="support"
+                                  element={<SupportPage />}
+                                />
+                                {/* Legacy / shared */}
+                                <Route
+                                  path="fulfillment"
+                                  element={<FulfillmentWorkspace />}
+                                />
+                                <Route
+                                  path="diy-management"
+                                  element={<DiyManagement />}
+                                />
+                                <Route path="clients" element={<Clients />} />
+                                <Route
+                                  path="clients/:id"
+                                  element={<ClientDetail />}
+                                />
+                                <Route
+                                  path="operations"
+                                  element={<Operations />}
+                                />
+                                <Route path="metro2" element={<Metro2 />} />
+                              </Route>
+                              <Route path="*" element={<NotFound />} />
+                            </Routes>
+                          </Suspense>
+                        </CrmAutomationProvider>
+                      </ConnectorsProvider>
+                    </AgreementsProvider>
+                  </AgencySettingsProvider>
+                </MonitoringStatusProvider>
+              </AgencyProvider>
+            </RoleProvider>
+          </ReferralProvider>
+        </AuthProvider>
+      </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
 );

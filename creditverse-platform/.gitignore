@@ -15,7 +15,11 @@ dist-ssr
 .tanstack/**
 .nitro
 *.local
-src/tailwind.config.vibe.json
+
+# Environment files — never commit secrets
+.env
+.env.*
+!.env.example
 
 # Wrangler / Cloudflare
 .wrangler/

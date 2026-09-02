@@ -11,9 +11,11 @@ import { Input } from "@/components/ui/input";
 import { CopilotLauncher } from "@/components/copilot/CopilotLauncher";
 import { useAgency } from "@/lib/agency-context";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/lib/auth/auth-context";
 
 export const Topbar = () => {
   const agencyContext = useAgency();
+  const { displayName, mode } = useAuth();
 
   const viewMode = agencyContext?.viewMode || "agency";
   const activeSubAccount = agencyContext?.activeSubAccount || null;
@@ -40,6 +42,7 @@ export const Topbar = () => {
         {viewMode === "agency" ? (
           <Badge className="bg-gradient-gold text-charcoal font-bold flex items-center gap-1.5 px-3 py-1">
             <Building2 className="h-3.5 w-3.5" /> Agency Owner HQ
+            {mode === "demo" ? " · Demo" : ""}
           </Badge>
         ) : (
           <div className="flex items-center gap-2">
@@ -85,7 +88,7 @@ export const Topbar = () => {
           <div className="hidden text-sm leading-tight sm:block">
             <p className="font-medium">
               {viewMode === "agency"
-                ? "Platform Administrator"
+                ? displayName
                 : activeSubAccount?.ownerName}
             </p>
             <p className="text-xs text-muted-foreground">

@@ -90,7 +90,7 @@ export function detectReinsertions(
   const findings: ReinsertionFinding[] = [];
   // Walk snapshots in order; flag accounts that disappear then reappear.
   const presence: Record<string, boolean> = {};
-  let lastDeletionDate: Record<string, string> = {};
+  const lastDeletionDate: Record<string, string> = {};
 
   for (let i = 0; i < snapshots.length; i++) {
     const snap = snapshots[i];

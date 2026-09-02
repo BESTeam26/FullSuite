@@ -177,7 +177,7 @@ export const MyWorkPage = () => {
       <ContentCard title="My Active Work Items">
         <DivisionTable
           columns={["Work Order", "Task", "Division", "Status", "SLA (hrs)"]}
-          rows={work.map((w: any) => [
+          rows={work.map((w) => [
             w.id,
             w.title?.split("—")[1]?.trim() ?? w.title,
             w.relatedType === "fulfillment"

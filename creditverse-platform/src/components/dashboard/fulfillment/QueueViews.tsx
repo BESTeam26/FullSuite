@@ -1,3 +1,4 @@
+import type { ElementType } from "react";
 /**
  * Queue Views and SOPs/Logins for CreditOps Workspace.
  *
@@ -64,7 +65,7 @@ export function QueueView({
     string,
     {
       title: string;
-      icon: any;
+      icon: ElementType;
       color: string;
       filterFn: (c: FulfillmentClient) => boolean;
     }

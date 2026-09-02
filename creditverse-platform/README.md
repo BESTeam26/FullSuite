@@ -1,6 +1,8 @@
-# vibe-template
+# BES Platform
 
-A React + TypeScript template powered by Vite, Tailwind CSS, and shadcn/ui components.
+BES managed-operations platform: Agency HQ, sub-accounts, CreditOps / FundingOps fulfillment, CRM delivery, TalentOps, time tracking, EOD, workforce, reporting, billing.
+
+Frontend: React 18 + TypeScript + Vite + Tailwind CSS + shadcn/ui. Backend: Supabase (Postgres, Auth, RLS, Storage). See `BUILD_STATUS.md` for the current state and build plan.
 
 ## Requirements
 
@@ -44,4 +46,4 @@ npx tsc --noEmit
 
 ## Lockfile policy
 
-This repository does not track `package-lock.json`.
+`package-lock.json` is committed. Use `npm ci` for reproducible installs.

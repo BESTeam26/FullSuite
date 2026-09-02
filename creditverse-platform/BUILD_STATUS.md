@@ -7,6 +7,36 @@
 
 ---
 
+## Progress log
+
+### 2026-09-02 — Phase 0 (housekeeping) ✅ and Phase 1 (tenancy + auth + RBAC) 🟡 built, awaiting a Supabase project
+
+**Phase 0 — done**
+- Git repo initialised at `BES-Platform/` with an untouched baseline commit of the GHL export.
+- `package-lock.json` committed; `.env`, `.env.*` (except `.env.example`) gitignored.
+- GHL residue removed: `@leadconnector/vibe-tagger` plugin, `allowedHosts: [".modal.host"]`.
+- All 12 ESLint errors fixed (0 errors, warnings only). `tsc` clean.
+- Routes are lazy-loaded: the 2.0 MB single bundle is now 163 chunks; marketing visitors no longer download the ops app.
+- The 10 unrouted pages moved to `src/_archive/pages/` (kept, not deleted, excluded from the bundle).
+- **111 unit tests** added for the pure engines (`lib/dispute/*`, `eod-production-engine`, `bes-domain`, `fulfillment-client-domain`, `score-*`, `progress-report-logic`). All pass.
+- Three latent engine bugs found by the tests and documented in-test with `// NOTE: possible bug` (not fixed yet, so behaviour is unchanged):
+  1. `decision-engine.ts` — the Round 3+ "potential-compliance-failure" branch is unreachable; an earlier `round >= 2` branch always returns first.
+  2. `eod-production-engine.ts` — `isEodMissing` cannot wrap past midnight (shift end 23:00 + 2h grace = hour 25, never matched).
+  3. `metro2-taxonomy.ts` — `getFieldMetro2Context` matches on first word, so "Current Balance" resolves to "Current Status".
+
+**Phase 1 — built, not yet exercised against a database**
+- `supabase/migrations/20260902000100_tenancy_and_rbac.sql` (94 statements): `agencies`, `profiles` (auto-created from `auth.users`), `organizations`, `businesses`, `product_entitlements`, `agency_memberships`, `org_memberships`, `external_memberships` + `record_grants`, `invitations`, `user_preferences`, `audit_log`. RLS on every table; `SECURITY DEFINER` helpers (`is_agency_staff`, `is_org_member`, `is_org_admin`, `can_view_org`, …); `log_audit()`; service-role-only `bootstrap_agency_owner(email)`.
+- `supabase/seed.sql` — the 5 demo organizations, idempotent. `supabase/README.md` — setup steps.
+- Both SQL files parse with the real Postgres parser (libpg-query 17). **Semantics are untested** until applied to a project — no Docker on this machine, so the local stack can't run.
+- Frontend: `lib/supabase/client.ts` (+ hand-written `database.types.ts`), `lib/auth/auth-context.tsx` (session, profile, memberships, sign-in/up/magic-link/reset/sign-out), `/login`, `/auth/callback`, `RequireAuth` guard on `/app/*`, `lib/data/organizations.ts` (RLS-scoped reads/writes + audit), `agency-context` now dual-source: **live** (TanStack Query over Supabase) when `.env.local` has Supabase keys, **demo** (seed) otherwise. Topbar/sidebar show the real identity and a Sign out; the role "Preview as" pill is hidden for non-admins in live mode.
+- Demo mode verified in the browser. Live mode cannot be verified here.
+
+**Blocked on the owner:** create a Supabase project and follow `supabase/README.md` (link, `db push`, seed, `.env.local`, sign up, `bootstrap_agency_owner`). Account creation must be done by a human.
+
+**Next (Phase 2):** shared operations engine — `work_items`, `activity_events`, `files` + Storage, assignee scoping; My Work / Attention Center on real data.
+
+---
+
 ## Local run verification
 
 | Check | Command | Result |

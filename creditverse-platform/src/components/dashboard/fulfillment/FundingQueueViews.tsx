@@ -1,3 +1,4 @@
+import type { ElementType } from "react";
 /**
  * Funding Queue Views and SOPs/Logins for the FundingOps Workspace.
  *
@@ -65,7 +66,7 @@ export function FundingQueueView({
     string,
     {
       title: string;
-      icon: any;
+      icon: ElementType;
       color: string;
       filterFn: (c: FundingClient) => boolean;
     }

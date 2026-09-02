@@ -1,4 +1,22 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
+/**
+ * Agency context — HQ ⇄ Sub-Account view switching and the organization list.
+ *
+ * Data source depends on auth mode:
+ *   live  → Supabase via TanStack Query (RLS-scoped), mutations invalidate.
+ *   demo  → in-memory seed data (no backend).
+ *
+ * The public interface is unchanged so every existing consumer keeps working.
+ */
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import type {
   Organization,
   WorkItem,
@@ -12,6 +30,16 @@ import {
   seedWorkItems,
   seedAgencyUsers,
 } from "@/lib/bes-seed-data";
+import { useAuth } from "@/lib/auth/auth-context";
+import {
+  createOrganization,
+  fetchOrganizations,
+  pushRecentOrg,
+  setEntitlement,
+  togglePinnedOrg,
+  updateOrganization,
+  updateOrganizationBranding,
+} from "@/lib/data/organizations";
 
 /* ------------------------------------------------------------------ */
 /* Legacy-compatible SubAccount shape (kept for existing UI consumers) */
@@ -69,10 +97,6 @@ export type FulfillmentWorkOrder = {
   itemCount: number;
 };
 
-/* ------------------------------------------------------------------ */
-/* Map Organization -> legacy SubAccount                               */
-/* ------------------------------------------------------------------ */
-
 const toSubAccount = (org: Organization): SubAccount => ({
   id: org.id,
   name: org.name,
@@ -111,6 +135,9 @@ interface AgencyContextType {
   activeOrganization: Organization | null;
   subAccounts: SubAccount[];
   organizations: Organization[];
+  /** true while live organizations are loading for the first time */
+  orgsLoading: boolean;
+  orgsError: string | null;
   recentSubAccountIds: string[];
   workOrders: FulfillmentWorkOrder[];
   workItems: WorkItem[];
@@ -137,24 +164,51 @@ interface AgencyContextType {
 
 const AgencyContext = createContext<AgencyContextType | undefined>(undefined);
 
+const reportError = (action: string) => (err: unknown) => {
+  const msg = err instanceof Error ? err.message : String(err);
+  toast.error(`${action} failed`, { description: msg });
+};
+
 export const AgencyProvider = ({ children }: { children: ReactNode }) => {
+  const auth = useAuth();
+  const live =
+    auth.mode === "live" && auth.status === "signed-in" && !!auth.user;
+  const userId = auth.user?.id ?? "";
+  const queryClient = useQueryClient();
+
+  /* ---- organizations: live query or local seed ---- */
+  const orgQuery = useQuery({
+    queryKey: ["organizations", userId],
+    queryFn: () => fetchOrganizations(userId),
+    enabled: live,
+    staleTime: 30_000,
+  });
+  const [localOrgs, setLocalOrgs] = useState<Organization[]>(seedOrganizations);
+  const organizations = live ? (orgQuery.data ?? []) : localOrgs;
+  const invalidateOrgs = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: ["organizations"] }),
+    [queryClient],
+  );
+
+  /* ---- view state ---- */
   const [viewMode, setViewMode] = useState<"agency" | "subaccount">("agency");
   const [activeSubAccountId, setActiveSubAccountId] = useState<string | null>(
     null,
   );
-  const [recentSubAccountIds, setRecentSubAccountIds] = useState<string[]>([
-    "sub-1",
-    "sub-4",
-  ]);
-  const [organizations, setOrganizations] =
-    useState<Organization[]>(seedOrganizations);
+  const [recentSubAccountIds, setRecentSubAccountIds] = useState<string[]>(
+    live ? [] : ["sub-1", "sub-4"],
+  );
+
+  /* ---- work items (seed until Phase 2) ---- */
   const [workItems, setWorkItems] = useState<WorkItem[]>(seedWorkItems);
   const agencyUsers = seedAgencyUsers;
 
   const activeOrganization =
     organizations.find((o) => o.id === activeSubAccountId) || null;
-
-  const subAccounts = organizations.map(toSubAccount);
+  const subAccounts = useMemo(
+    () => organizations.map(toSubAccount),
+    [organizations],
+  );
   const activeSubAccount =
     subAccounts.find((s) => s.id === activeSubAccountId) || null;
 
@@ -182,6 +236,7 @@ export const AgencyProvider = ({ children }: { children: ReactNode }) => {
       };
     });
 
+  /* ---- actions ---- */
   const switchToAgencyView = () => {
     setViewMode("agency");
     setActiveSubAccountId(null);
@@ -191,18 +246,35 @@ export const AgencyProvider = ({ children }: { children: ReactNode }) => {
     setViewMode("subaccount");
     setActiveSubAccountId(id);
     setRecentSubAccountIds((prev) =>
-      [id, ...prev.filter((rId) => rId !== id)].slice(0, 5),
+      [id, ...prev.filter((r) => r !== id)].slice(0, 5),
     );
+    if (live) void pushRecentOrg(userId, id).catch(() => undefined);
   };
 
   const togglePinSubAccount = (id: string) => {
-    setOrganizations((prev) =>
+    if (live) {
+      void togglePinnedOrg(userId, id)
+        .then(invalidateOrgs)
+        .catch(reportError("Pin"));
+      return;
+    }
+    setLocalOrgs((prev) =>
       prev.map((o) => (o.id === id ? { ...o, isPinned: !o.isPinned } : o)),
     );
   };
 
   const toggleFulfillmentSubscription = (subAccountId: string) => {
-    setOrganizations((prev) =>
+    const org = organizations.find((o) => o.id === subAccountId);
+    if (!org) return;
+    if (live) {
+      void updateOrganization(subAccountId, {
+        is_fulfillment_subscriber: !org.isFulfillmentSubscriber,
+      })
+        .then(invalidateOrgs)
+        .catch(reportError("Fulfillment subscription update"));
+      return;
+    }
+    setLocalOrgs((prev) =>
       prev.map((o) =>
         o.id === subAccountId
           ? { ...o, isFulfillmentSubscriber: !o.isFulfillmentSubscriber }
@@ -215,7 +287,13 @@ export const AgencyProvider = ({ children }: { children: ReactNode }) => {
     subAccountId: string,
     branding: Partial<NonNullable<Organization["branding"]>>,
   ) => {
-    setOrganizations((prev) =>
+    if (live) {
+      void updateOrganizationBranding(subAccountId, branding)
+        .then(invalidateOrgs)
+        .catch(reportError("Branding update"));
+      return;
+    }
+    setLocalOrgs((prev) =>
       prev.map((o) =>
         o.id === subAccountId
           ? { ...o, branding: { ...o.branding, ...branding } }
@@ -251,7 +329,37 @@ export const AgencyProvider = ({ children }: { children: ReactNode }) => {
   const addSubAccount = (
     acc: Omit<SubAccount, "id" | "joinedDate" | "openWorkOrders">,
   ) => {
-    const newId = `sub-${organizations.length + 1}`;
+    if (live) {
+      const agencyId = auth.agencyMembership?.agency_id;
+      if (!agencyId) {
+        toast.error("Only BES agency staff can provision sub-accounts.");
+        return;
+      }
+      void createOrganization({
+        agencyId,
+        name: acc.name,
+        code: acc.code,
+        principalName: acc.ownerName,
+        principalEmail: acc.ownerEmail,
+        address: acc.address,
+        status: acc.status,
+        isFulfillmentSubscriber: acc.isFulfillmentSubscriber,
+        entitlements: {
+          creditOps: acc.modules.creditOps,
+          fundingOps: acc.modules.fundingOps,
+          diyCredit: acc.modules.diyCredit,
+          crm: acc.modules.crm,
+        },
+        branding: acc.branding,
+      })
+        .then(() => {
+          toast.success(`${acc.name} provisioned`);
+          return invalidateOrgs();
+        })
+        .catch(reportError("Provisioning"));
+      return;
+    }
+    const newId = `sub-${localOrgs.length + 1}`;
     const newOrg: Organization = {
       id: newId,
       name: acc.name,
@@ -285,7 +393,7 @@ export const AgencyProvider = ({ children }: { children: ReactNode }) => {
       externalUsers: [],
       branding: acc.branding,
     };
-    setOrganizations((prev) => [...prev, newOrg]);
+    setLocalOrgs((prev) => [...prev, newOrg]);
   };
 
   const agencyWork = workItems.filter((w) => w.scope === "AGENCY");
@@ -308,6 +416,9 @@ export const AgencyProvider = ({ children }: { children: ReactNode }) => {
         activeOrganization,
         subAccounts,
         organizations,
+        orgsLoading: live && orgQuery.isPending,
+        orgsError:
+          live && orgQuery.error ? (orgQuery.error as Error).message : null,
         recentSubAccountIds,
         workOrders,
         workItems,
@@ -337,6 +448,8 @@ const safeAgency: AgencyContextType = {
   activeOrganization: null,
   subAccounts: [],
   organizations: [],
+  orgsLoading: false,
+  orgsError: null,
   recentSubAccountIds: [],
   workOrders: [],
   workItems: [],
@@ -357,4 +470,18 @@ const safeAgency: AgencyContextType = {
 export const useAgency = () => {
   const ctx = useContext(AgencyContext);
   return ctx ?? safeAgency;
+};
+
+/** Convenience: add or remove a product entitlement (live only; no-op in demo). */
+export const useSetEntitlement = () => {
+  const auth = useAuth();
+  const queryClient = useQueryClient();
+  return (orgId: string, product: ProductKey, enabled: boolean) => {
+    if (auth.mode !== "live") return Promise.resolve();
+    return setEntitlement(orgId, product, enabled)
+      .then(() =>
+        queryClient.invalidateQueries({ queryKey: ["organizations"] }),
+      )
+      .catch(reportError("Entitlement update"));
+  };
 };

@@ -48,8 +48,8 @@ export function DealActivitySection({
       action: a.action,
       detail: a.detail,
       timestamp: a.timestamp,
-      pinned: (a as any).pinned || false,
-      mark: (a as any).mark,
+      pinned: (a as FundingActivityEntry & { pinned?: boolean }).pinned ?? false,
+      mark: (a as FundingActivityEntry & { mark?: string }).mark,
     }));
   }, [activity, dealId]);
 

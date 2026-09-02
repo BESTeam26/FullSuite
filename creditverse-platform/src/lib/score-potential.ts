@@ -274,7 +274,7 @@ function scoreMix(items: ClassifiedItem[]): {
   );
   const hasMortgage = items.some((i) => sub(i).includes("mortgage"));
 
-  let mixCount = [hasRevolving, hasInstallment, hasMortgage].filter(
+  const mixCount = [hasRevolving, hasInstallment, hasMortgage].filter(
     Boolean,
   ).length;
   let current = 50 + mixCount * 15; // 50, 65, 80, 95

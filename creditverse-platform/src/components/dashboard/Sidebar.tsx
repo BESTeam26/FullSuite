@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SubAccountSwitcher } from "@/components/dashboard/SubAccountSwitcher";
+import { useAuth } from "@/lib/auth/auth-context";
 
 type NavItem = {
   label: string;
@@ -46,6 +47,7 @@ type NavGroup = {
 export const Sidebar = () => {
   const { pathname } = useLocation();
   const agencyContext = useAgency();
+  const { signOut, mode, displayName } = useAuth();
 
   const viewMode = agencyContext?.viewMode || "agency";
   const subAccounts = agencyContext?.subAccounts || [];
@@ -265,12 +267,28 @@ export const Sidebar = () => {
       </nav>
 
       <div className="border-t border-sidebar-border p-3">
-        <Link
-          to="/"
-          className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-sidebar-foreground/70 hover:bg-sidebar-accent"
-        >
-          <LogOut className="h-4 w-4" /> Back to marketing site
-        </Link>
+        <div className="space-y-1">
+          <div className="px-3 pb-1 text-[11px] text-sidebar-foreground/50 truncate">
+            {displayName}
+            {mode === "demo" ? " · demo session" : ""}
+          </div>
+          {mode === "live" ? (
+            <button
+              type="button"
+              onClick={() => void signOut()}
+              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-sidebar-foreground/70 hover:bg-sidebar-accent w-full"
+            >
+              <LogOut className="h-4 w-4" /> Sign out
+            </button>
+          ) : (
+            <Link
+              to="/"
+              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-sidebar-foreground/70 hover:bg-sidebar-accent"
+            >
+              <LogOut className="h-4 w-4" /> Back to marketing site
+            </Link>
+          )}
+        </div>
       </div>
     </aside>
   );

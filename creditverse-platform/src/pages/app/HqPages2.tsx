@@ -58,7 +58,7 @@ export const PeoplePage = () => {
       <ContentCard title="Agency Employees">
         <DivisionTable
           columns={["Name", "Email", "Role", "Status"]}
-          rows={users.map((u: any) => [
+          rows={users.map((u) => [
             u.name,
             u.email,
             u.role

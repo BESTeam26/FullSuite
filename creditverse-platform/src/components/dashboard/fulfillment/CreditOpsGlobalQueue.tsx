@@ -1,3 +1,4 @@
+import type { ElementType } from "react";
 /**
  * CreditOps Global Queue — cross-partner queue view.
  *
@@ -40,7 +41,7 @@ const QUEUE_SPECS: Record<
   string,
   {
     title: string;
-    icon: any;
+    icon: ElementType;
     color: string;
     filterFn: (c: FulfillmentClient) => boolean;
   }
