@@ -70,21 +70,7 @@ const rest = (path, init = {}) =>
     },
   });
 
-/* ---- 1. reachability + exposed schema ---- */
-console.log("Connectivity & schema");
-let spec;
-try {
-  const res = await rest("/");
-  if (!res.ok) {
-    fail(`PostgREST returned ${res.status} ${res.statusText}`);
-  } else {
-    spec = await res.json();
-    pass("project reachable with the anon key");
-  }
-} catch (e) {
-  fail(`cannot reach ${url}: ${e.message}`);
-}
-
+/* ---- 1. reachability, and does the schema exist? ---- */
 const EXPECTED_TABLES = [
   "agencies",
   "profiles",
@@ -104,77 +90,140 @@ const EXPECTED_TABLES = [
   "work_attention",
 ];
 
-if (spec?.paths) {
-  const exposed = new Set(
-    Object.keys(spec.paths)
-      .filter((p) => p.startsWith("/") && p.length > 1)
-      .map((p) => p.slice(1)),
-  );
-  const missing = EXPECTED_TABLES.filter((t) => !exposed.has(t));
-  if (missing.length === 0) {
-    pass(`all ${EXPECTED_TABLES.length} tables/views exposed`);
-  } else {
-    fail(`missing from the API: ${missing.join(", ")} — did both migrations run?`);
+/**
+ * Probe one relation as the anonymous caller and classify the outcome.
+ *   missing  - PGRST205: not in the schema cache, i.e. the migration has not run
+ *   denied   - 401/403: exists, role cannot touch it
+ *   empty    - 200 with zero rows: exists and RLS filtered everything out (good)
+ *   leaked   - 200 with rows: RLS is not doing its job
+ */
+async function probe(relation) {
+  try {
+    const res = await rest(`/${relation}?select=*&limit=1`);
+    if (res.status === 404) {
+      const body = await res.json().catch(() => ({}));
+      if (body.code === "PGRST205") return { kind: "missing" };
+      return { kind: "error", detail: `404 ${JSON.stringify(body)}` };
+    }
+    if (res.status === 401 || res.status === 403) {
+      return { kind: "denied", detail: String(res.status) };
+    }
+    if (!res.ok) {
+      return { kind: "error", detail: `${res.status} ${await res.text()}` };
+    }
+    const rows = await res.json();
+    return Array.isArray(rows) && rows.length === 0
+      ? { kind: "empty" }
+      : { kind: "leaked", detail: `${rows.length} row(s)` };
+  } catch (e) {
+    return { kind: "error", detail: e.message };
   }
+}
 
+console.log("Connectivity & schema");
+const probes = {};
+for (const t of EXPECTED_TABLES) probes[t] = await probe(t);
+
+const results = Object.values(probes);
+if (results.every((r) => r.kind === "error")) {
+  fail("cannot query the project at all — check the URL and anon key");
+} else {
+  pass("project reachable and the anon key is accepted");
+}
+
+const missing = EXPECTED_TABLES.filter((t) => probes[t].kind === "missing");
+const schemaPushed = missing.length < EXPECTED_TABLES.length;
+
+if (missing.length === 0) {
+  pass(`all ${EXPECTED_TABLES.length} tables/views exist`);
+} else if (!schemaPushed) {
+  fail(
+    "the schema has NOT been applied yet — no expected table exists.\n" +
+      "      Run, from creditverse-platform/:\n" +
+      "        npx supabase login\n" +
+      "        npx supabase link --project-ref " +
+      ref +
+      "\n        npx supabase db push",
+  );
+} else {
+  fail(`partially applied — missing: ${missing.join(", ")}`);
+}
+
+if (schemaPushed) {
   const EXPECTED_RPC = [
-    "rpc/is_agency_staff",
-    "rpc/is_org_member",
-    "rpc/can_view_org",
-    "rpc/can_view_work",
-    "rpc/assignable_profiles",
-    "rpc/log_audit",
-    "rpc/my_org_ids",
+    "is_agency_staff",
+    "is_org_member",
+    "can_view_org",
+    "can_view_work",
+    "log_audit",
+    "my_org_ids",
   ];
-  const missingRpc = EXPECTED_RPC.filter((r) => !exposed.has(r));
+  const missingRpc = [];
+  for (const fn of EXPECTED_RPC) {
+    const res = await rest(`/rpc/${fn}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    // 404 = function absent. Anything else means it exists (400/401/403 are
+    // argument or permission problems, which still prove presence).
+    if (res.status === 404) missingRpc.push(fn);
+  }
   if (missingRpc.length === 0) pass("authorization helper functions present");
-  else fail(`missing functions: ${missingRpc.map((r) => r.slice(4)).join(", ")}`);
+  else fail(`missing functions: ${missingRpc.join(", ")}`);
 
-  if (exposed.has("rpc/bootstrap_agency_owner")) {
-    warn(
-      "bootstrap_agency_owner is exposed over the API — it should be revoked from anon/authenticated",
-    );
+  const boot = await rest("/rpc/bootstrap_agency_owner", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ p_email: "probe@example.com" }),
+  });
+  if (boot.ok) {
+    fail("bootstrap_agency_owner is CALLABLE by anon — it must be revoked");
   } else {
-    pass("bootstrap_agency_owner is not callable from the browser");
+    pass(`bootstrap_agency_owner not callable from the browser (${boot.status})`);
   }
 }
 
 /* ---- 2. RLS denies anonymous reads ---- */
 console.log("\nRow Level Security (anonymous caller)");
-const mustBeEmpty = [
-  "organizations",
-  "profiles",
-  "work_items",
-  "activity_events",
-  "files",
-  "audit_log",
-  "agency_memberships",
-];
-for (const table of mustBeEmpty) {
-  try {
-    const res = await rest(`/${table}?select=*&limit=1`);
-    if (res.status === 401 || res.status === 403) {
-      pass(`${table}: denied (${res.status})`);
-      continue;
+if (!schemaPushed) {
+  warn("skipped — apply the schema first");
+} else {
+  const mustBeEmpty = [
+    "organizations",
+    "profiles",
+    "work_items",
+    "activity_events",
+    "files",
+    "audit_log",
+    "agency_memberships",
+  ];
+  for (const table of mustBeEmpty) {
+    const r = probes[table];
+    switch (r.kind) {
+      case "empty":
+        pass(`${table}: 0 rows visible`);
+        break;
+      case "denied":
+        pass(`${table}: denied (${r.detail})`);
+        break;
+      case "leaked":
+        fail(`${table}: LEAKED ${r.detail} to an anonymous caller — RLS is wrong`);
+        break;
+      case "missing":
+        fail(`${table}: table does not exist`);
+        break;
+      default:
+        fail(`${table}: ${r.detail}`);
     }
-    if (!res.ok) {
-      fail(`${table}: unexpected ${res.status} ${await res.text()}`);
-      continue;
-    }
-    const rows = await res.json();
-    if (Array.isArray(rows) && rows.length === 0) pass(`${table}: 0 rows visible`);
-    else
-      fail(
-        `${table}: LEAKED ${rows.length} row(s) to an anonymous caller — RLS policy is wrong`,
-      );
-  } catch (e) {
-    fail(`${table}: ${e.message}`);
   }
 }
 
 /* ---- 3. anonymous writes must be rejected ---- */
 console.log("\nWrite protection (anonymous caller)");
-try {
+if (!schemaPushed) {
+  warn("skipped — apply the schema first");
+} else try {
   const res = await rest("/organizations", {
     method: "POST",
     headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
@@ -193,6 +242,14 @@ try {
 }
 
 /* ---- verdict ---- */
+if (!schemaPushed) {
+  console.log(
+    "\n\x1b[33mSchema not applied yet.\x1b[0m The URL and anon key are good;\n" +
+      "run `npx supabase db push` (see above), then re-run this script.\n",
+  );
+  process.exit(3);
+}
+
 console.log(
   failures === 0
     ? "\n\x1b[32mAll checks passed.\x1b[0m Sign up in the app, then run\n" +
