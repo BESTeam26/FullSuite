@@ -35,6 +35,20 @@
 
 **Next (Phase 2):** shared operations engine — `work_items`, `activity_events`, `files` + Storage, assignee scoping; My Work / Attention Center on real data.
 
+### 2026-09-02 — Phase 2 (shared operations engine) 🟡 built, awaiting the same Supabase project
+
+- `supabase/migrations/20260902000200_work_engine.sql` (48 statements):
+  - `work_items` — enforces the domain boundary in the database: `scope='ORGANIZATION'` requires `organization_id`, `scope='AGENCY'` forbids it. `subject_organization_id` names the org that AGENCY fulfillment work is *about*, which fixes the lossy "map every work order to the first org" adapter noted in section E.
+  - `activity_events` — append-only timeline (no delete policy). Stage, assignee and priority changes are written by a database trigger, so history cannot be skipped by a client.
+  - `files` + a private `bes-files` Storage bucket. Object paths are `<org-id|agency>/<entity>/<file>`, and the storage policies read that first segment as the tenancy key.
+  - `assignable_profiles(scope, org)` — the scoped assignee picker the EOD doctrine calls for: agency work lists BES staff, org work lists only that org's members. Never a company-wide dump.
+  - `work_attention` view (`security_invoker`) — blocked / overdue / inside-4h, RLS-scoped per caller.
+- Frontend: `lib/data/work-items.ts` (reads, writes, activity, assignee lookup) and `lib/data/use-work.ts` (`useMyWork`, `useAgencyWork`, `useAttention`) — all dual-mode, each returning a `source: "live" | "demo"`.
+- **My Work** and **Attention Center** now render from the engine, with real empty states.
+- Honesty pass on the HQ dashboard: a `DataSourceBadge` marks sample data; the attention panel shows real SLA-risk / overdue / blocked counts and dims the four signals that arrive in later phases; Executive Snapshot's "Needs Attention" is now the real count (it read 12 while the panel below said 2), fabricated trend percentages are gone, and stats with no data source render "—" instead of an invented number.
+- Verified in demo mode: dashboard, My Work, Attention Center, login. No console errors. 111 tests pass, lint 0 errors, build clean, all three SQL files parse.
+- Still unverified: every RLS policy and trigger in this migration. They need a real database.
+
 ---
 
 ## Local run verification

@@ -29,7 +29,10 @@ const Login = () => {
     noindex: true,
   });
 
-  if (auth.status === "signed-in") return <Navigate to={from} replace />;
+  // In demo mode there is no session to return to, so keep this page reachable:
+  // it explains how to configure the backend.
+  if (auth.mode === "live" && auth.status === "signed-in")
+    return <Navigate to={from} replace />;
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();

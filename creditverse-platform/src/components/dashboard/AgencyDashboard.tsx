@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
 import { SubAccountInvoicingMetering } from "./SubAccountInvoicingMetering";
 import { AgencySnapshot } from "./agency/AgencySnapshot";
+import { useAttention } from "@/lib/data/use-work";
 import { AttentionCenter } from "./agency/AttentionCenter";
 import { HealthPanels } from "./agency/HealthPanels";
 import { FulfillmentHealthPanel } from "./agency/FulfillmentHealthPanel";
@@ -13,6 +14,7 @@ import { SubAccountMiniGrid } from "./agency/SubAccountMiniGrid";
 import { HqUpdatesPanel } from "./agency/HqUpdatesPanel";
 
 export const AgencyDashboard = () => {
+  const attention = useAttention();
   const { subAccounts, workOrders, switchToSubAccount } = useAgency();
   const navigate = useNavigate();
 
@@ -64,6 +66,7 @@ export const AgencyDashboard = () => {
         subAccountsCount={subAccounts.length}
         totalClients={totalClients}
         dfyCount={fulfillmentSubscribers.length}
+        needsAttention={attention.items.length}
       />
 
       {/* ===== NEEDS YOUR ATTENTION ===== */}

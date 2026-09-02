@@ -7,6 +7,8 @@ import {
   StatusPill,
 } from "@/components/dashboard/DivisionLayout";
 import { cn } from "@/lib/utils";
+import { DataSourceBadge } from "@/components/dashboard/DataSourceBadge";
+import { useMyWork, useAttention } from "@/lib/data/use-work";
 import {
   AlertTriangle,
   ListTodo,
@@ -56,81 +58,94 @@ export const HqPageShell = ({
 /* ------------------------------------------------------------------ */
 
 export const AttentionCenter = () => {
-  const items = [
-    {
-      sev: "critical",
-      label: "4 Fulfillment SLA risks",
-      detail: "Work orders approaching deadline",
-      icon: AlertTriangle,
-    },
-    {
-      sev: "warning",
-      label: "2 Billing issues",
-      detail: "Failed payments requiring follow-up",
-      icon: Receipt,
-    },
-    {
-      sev: "warning",
-      label: "3 Compliance reviews",
-      detail: "Pending legal review on escalated disputes",
+  const { items, counts, source, isLoading, error } = useAttention();
+
+  const reasonMeta = {
+    blocked: {
+      label: "Blocked",
       icon: ShieldAlert,
+      cls: "border-red-500/30 bg-red-500/5",
     },
-    {
-      sev: "warning",
-      label: "1 Integration problem",
-      detail: "SmartCredit connector needs attention",
+    overdue: {
+      label: "Overdue",
       icon: AlertTriangle,
+      cls: "border-red-500/30 bg-red-500/5",
     },
-    {
-      sev: "info",
-      label: "2 Management escalations",
-      detail: "Sub-account owner requests",
-      icon: AlertTriangle,
+    sla_risk: {
+      label: "SLA risk",
+      icon: Clock,
+      cls: "border-amber-500/30 bg-amber-500/5",
     },
-  ];
+  } as const;
+
   return (
     <HqPageShell
       title="Attention Center"
-      description="All items across the BES ecosystem that need your attention"
+      description="Work across the BES ecosystem that needs a human right now"
       icon={AlertTriangle}
     >
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        <StatCard label="Critical" value={1} icon={AlertTriangle} />
-        <StatCard label="Warnings" value={4} icon={ShieldAlert} />
-        <StatCard label="SLA Risks" value={4} icon={Clock} />
-        <StatCard label="Billing" value={2} icon={Receipt} />
-        <StatCard label="Compliance" value={3} icon={ShieldAlert} />
+      <div className="mb-4 flex items-center gap-2">
+        <DataSourceBadge source={source} />
+        {source === "demo" && (
+          <span className="text-xs text-muted-foreground">
+            Connect a backend to see real SLA and blocker signals.
+          </span>
+        )}
       </div>
+
+      {error && (
+        <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-700">
+          Could not load attention items: {error}
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <StatCard label="Needs attention" value={items.length} icon={AlertTriangle} />
+        <StatCard label="Blocked" value={counts.blocked} icon={ShieldAlert} />
+        <StatCard label="Overdue" value={counts.overdue} icon={AlertTriangle} />
+        <StatCard label="SLA risk (< 4h)" value={counts.sla_risk} icon={Clock} />
+      </div>
+
       <div className="mt-5 space-y-2">
-        {items.map((item) => (
-          <div
-            key={item.label}
-            className={cn(
-              "flex items-center gap-3 rounded-xl border px-4 py-3",
-              item.sev === "critical" && "border-red-500/30 bg-red-500/5",
-              item.sev === "warning" && "border-amber-500/30 bg-amber-500/5",
-              item.sev === "info" && "border-blue-500/30 bg-blue-500/5",
-            )}
-          >
-            <item.icon
-              className={cn(
-                "h-5 w-5 shrink-0",
-                item.sev === "critical" && "text-red-600",
-                item.sev === "warning" && "text-amber-600",
-                item.sev === "info" && "text-blue-600",
-              )}
-            />
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-foreground">
-                {item.label}
-              </p>
-              <p className="text-xs text-muted-foreground">{item.detail}</p>
-            </div>
-            <button className="rounded-lg border border-border px-3 py-1 text-xs font-medium text-foreground hover:bg-muted transition-colors">
-              Resolve
-            </button>
+        {isLoading && (
+          <div className="rounded-xl border border-border px-4 py-8 text-center text-sm text-muted-foreground">
+            Loading…
           </div>
-        ))}
+        )}
+        {!isLoading && items.length === 0 && (
+          <div className="flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-4 py-6 text-sm">
+            <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+            <span className="text-foreground">
+              Nothing needs attention. No blocked work and nothing inside the SLA window.
+            </span>
+          </div>
+        )}
+        {items.map((item) => {
+          const meta = reasonMeta[item.reason];
+          const Icon = meta.icon;
+          return (
+            <div
+              key={item.id}
+              className={cn(
+                "flex items-center gap-3 rounded-xl border px-4 py-3",
+                meta.cls,
+              )}
+            >
+              <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-foreground">
+                  {item.title}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {meta.label} · {item.stage}
+                  {item.hoursRemaining !== null &&
+                    ` · ${item.hoursRemaining < 0 ? `${Math.abs(item.hoursRemaining)}h overdue` : `${item.hoursRemaining}h left`}`}
+                </p>
+              </div>
+              <StatusPill status={item.stage} />
+            </div>
+          );
+        })}
       </div>
     </HqPageShell>
   );
@@ -141,54 +156,57 @@ export const AttentionCenter = () => {
 /* ------------------------------------------------------------------ */
 
 export const MyWorkPage = () => {
-  const { agencyWork = [] } = useAgency() || {};
-  const work =
-    agencyWork.length > 0
-      ? agencyWork.slice(0, 6)
-      : [
-          {
-            id: "WO-9041",
-            title: "Round 2 — Maria Gonzalez",
-            relatedType: "fulfillment",
-            stage: "Processing",
-            slaHoursRemaining: 4,
-          },
-          {
-            id: "WO-9043",
-            title: "CFPB Complaint — Anthony Ramos",
-            relatedType: "fulfillment",
-            stage: "Ready for QA",
-            slaHoursRemaining: 2,
-          },
-          {
-            id: "PRJ-101",
-            title: "GHL CRM Build — Apex Credit",
-            relatedType: "project",
-            stage: "In Processing",
-            slaHoursRemaining: 24,
-          },
-        ];
+  const { items, source, isLoading, error } = useMyWork();
+
+  const divisionOf = (relatedType: string) =>
+    relatedType === "fulfillment" || relatedType === "credit_case"
+      ? "CreditOps"
+      : relatedType === "funding_deal"
+        ? "FundingOps"
+        : relatedType === "project"
+          ? "BES CRM"
+          : relatedType === "support"
+            ? "Support"
+            : relatedType;
+
   return (
     <HqPageShell
       title="My Work"
       description="Work assigned to you across all divisions"
       icon={ListTodo}
     >
+      <div className="mb-4 flex items-center gap-2">
+        <DataSourceBadge source={source} />
+        <span className="text-xs text-muted-foreground">
+          {items.length} open {items.length === 1 ? "item" : "items"}
+        </span>
+      </div>
+
+      {error && (
+        <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-700">
+          Could not load your work: {error}
+        </div>
+      )}
+
       <ContentCard title="My Active Work Items">
-        <DivisionTable
-          columns={["Work Order", "Task", "Division", "Status", "SLA (hrs)"]}
-          rows={work.map((w) => [
-            w.id,
-            w.title?.split("—")[1]?.trim() ?? w.title,
-            w.relatedType === "fulfillment"
-              ? "CreditOps"
-              : w.relatedType === "project"
-                ? "BES CRM"
-                : w.relatedType,
-            <StatusPill status={(w.stage ?? "Processing") as string} />,
-            w.slaHoursRemaining ?? 24,
-          ])}
-        />
+        {isLoading ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p>
+        ) : items.length === 0 ? (
+          <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+            Nothing assigned to you right now.
+          </div>
+        ) : (
+          <DivisionTable
+            columns={["Task", "Division", "Status", "SLA (hrs)"]}
+            rows={items.map((w) => [
+              w.title,
+              divisionOf(w.relatedType),
+              <StatusPill status={w.stage} />,
+              w.slaHoursRemaining ?? "—",
+            ])}
+          />
+        )}
       </ContentCard>
     </HqPageShell>
   );

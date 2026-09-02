@@ -46,3 +46,23 @@ update public.product_entitlements set enabled = true where (organization_id, pr
   ('b0000000-0000-4000-8000-000000000004','diyCredit'),('b0000000-0000-4000-8000-000000000004','oi'),('b0000000-0000-4000-8000-000000000004','crm'),
   ('b0000000-0000-4000-8000-000000000005','creditOps'),('b0000000-0000-4000-8000-000000000005','diyCredit')
 );
+
+-- -----------------------------------------------------------------------------
+-- Work engine sample data (migration 0002). Unassigned: claim them in the app,
+-- or assign with
+--   update public.work_items set assigned_to =
+--     (select id from public.profiles where email = 'you@example.com');
+-- -----------------------------------------------------------------------------
+insert into public.work_items
+  (id, scope, organization_id, subject_organization_id, related_type, related_ref, title, stage, priority, due_at)
+values
+  -- AGENCY scope: BES done-for-you fulfillment for subscribers
+  ('d0000000-0000-4000-8000-000000000001','AGENCY',null,'b0000000-0000-4000-8000-000000000001','fulfillment','CR-2041','Round 2 Escalation — Maria Gonzalez','In Processing','Urgent', now() + interval '4 hours'),
+  ('d0000000-0000-4000-8000-000000000002','AGENCY',null,'b0000000-0000-4000-8000-000000000001','fulfillment','CR-2043','CFPB Complaint — Anthony Ramos','Ready for QA','High', now() + interval '2 hours'),
+  ('d0000000-0000-4000-8000-000000000003','AGENCY',null,'b0000000-0000-4000-8000-000000000004','fulfillment','CR-2044','Experian Manual Upload — Tanya Brooks','Blocked','High', now() - interval '3 hours'),
+  ('d0000000-0000-4000-8000-000000000004','AGENCY',null,'b0000000-0000-4000-8000-000000000002','support','SUP-118','Onboarding follow-up — Pioneer Credit','Queued','Normal', now() + interval '2 days'),
+  -- ORGANIZATION scope: a customer org's own self-managed work
+  ('d0000000-0000-4000-8000-000000000005','ORGANIZATION','b0000000-0000-4000-8000-000000000001',null,'credit_case','CR-2101','Round 1 Processing — Tanya Brooks','In Processing','Normal', now() + interval '12 hours'),
+  ('d0000000-0000-4000-8000-000000000006','ORGANIZATION','b0000000-0000-4000-8000-000000000003',null,'funding_deal','FD-2001','Document Review — Vantage Deal','Queued','Normal', now() + interval '36 hours'),
+  ('d0000000-0000-4000-8000-000000000007','ORGANIZATION','b0000000-0000-4000-8000-000000000004',null,'project','PRJ-101','GHL CRM Build — CreditFix','Attention','High', now() + interval '1 day')
+on conflict (id) do nothing;

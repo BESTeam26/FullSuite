@@ -47,6 +47,7 @@ function SnapshotCard({
   trendLabel,
   tone,
   unit = "",
+  pending = false,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
@@ -55,6 +56,8 @@ function SnapshotCard({
   trendLabel?: string;
   tone: keyof typeof toneMap;
   unit?: string;
+  /** Not yet backed by data — render a dash rather than an invented number. */
+  pending?: boolean;
 }) {
   const t = toneMap[tone];
   return (
@@ -71,8 +74,16 @@ function SnapshotCard({
       </div>
 
       <p className="text-2xl font-extrabold text-foreground leading-tight">
-        {unit}
-        {value}
+        {pending ? (
+          <span className="text-muted-foreground" title="Not yet connected to a data source">
+            —
+          </span>
+        ) : (
+          <>
+            {unit}
+            {value}
+          </>
+        )}
       </p>
 
       {trend && (
@@ -115,11 +126,13 @@ export const AgencySnapshot = ({
   subAccountsCount,
   totalClients,
   dfyCount,
+  needsAttention,
 }: {
   totalMrr: number;
   subAccountsCount: number;
   totalClients: number;
   dfyCount: number;
+  needsAttention: number;
 }) => (
   <div>
     <div className="flex items-center gap-2 mb-3">
@@ -138,25 +151,20 @@ export const AgencySnapshot = ({
         label="Platform MRR"
         value={totalMrr.toLocaleString()}
         unit="$"
-        trend="+14.2%"
-        trendLabel="vs last month"
         tone="emerald"
       />
       <SnapshotCard
         icon={Building2}
         label="Sub-Accounts"
         value={String(subAccountsCount)}
-        trend="+2"
-        trendLabel="this month"
         tone="amber"
       />
       <SnapshotCard
         icon={Users}
         label="End Clients"
         value={String(totalClients)}
-        trend="+38"
-        trendLabel="net change"
         tone="blue"
+        pending={totalClients === 0}
       />
       <SnapshotCard
         icon={Inbox}
@@ -167,17 +175,14 @@ export const AgencySnapshot = ({
       <SnapshotCard
         icon={Zap}
         label="DIY Users"
-        value="418"
-        trend="+56"
-        trendLabel="this month"
+        value="0"
         tone="amber"
+        pending
       />
       <SnapshotCard
         icon={AlertTriangle}
         label="Needs Attention"
-        value="12"
-        trend="-3"
-        trendLabel="vs last week"
+        value={String(needsAttention)}
         tone="red"
       />
     </div>

@@ -383,8 +383,138 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["audit_log"]["Insert"]>;
         Relationships: [];
       };
+      work_items: {
+        Row: {
+          id: string;
+          scope: Database["public"]["Enums"]["work_scope"];
+          organization_id: string | null;
+          subject_organization_id: string | null;
+          related_type: Database["public"]["Enums"]["work_related_type"];
+          related_ref: string | null;
+          title: string;
+          description: string | null;
+          stage: Database["public"]["Enums"]["work_stage"];
+          priority: Database["public"]["Enums"]["work_priority"];
+          assigned_to: string | null;
+          created_by: string | null;
+          due_at: Timestamp | null;
+          completed_at: Timestamp | null;
+          created_at: Timestamp;
+          updated_at: Timestamp;
+        };
+        Insert: {
+          id?: string;
+          scope: Database["public"]["Enums"]["work_scope"];
+          organization_id?: string | null;
+          subject_organization_id?: string | null;
+          related_type: Database["public"]["Enums"]["work_related_type"];
+          related_ref?: string | null;
+          title: string;
+          description?: string | null;
+          stage?: Database["public"]["Enums"]["work_stage"];
+          priority?: Database["public"]["Enums"]["work_priority"];
+          assigned_to?: string | null;
+          created_by?: string | null;
+          due_at?: Timestamp | null;
+          completed_at?: Timestamp | null;
+          created_at?: Timestamp;
+          updated_at?: Timestamp;
+        };
+        Update: Partial<Database["public"]["Tables"]["work_items"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "work_items_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "work_items_assigned_to_fkey";
+            columns: ["assigned_to"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      activity_events: {
+        Row: {
+          id: number;
+          organization_id: string | null;
+          entity_type: string;
+          entity_id: string;
+          actor_id: string | null;
+          actor_name: string | null;
+          action: string;
+          detail: string | null;
+          field: string | null;
+          previous_value: string | null;
+          new_value: string | null;
+          pinned: boolean;
+          mark: string | null;
+          created_at: Timestamp;
+        };
+        Insert: {
+          organization_id?: string | null;
+          entity_type: string;
+          entity_id: string;
+          actor_id?: string | null;
+          actor_name?: string | null;
+          action: string;
+          detail?: string | null;
+          field?: string | null;
+          previous_value?: string | null;
+          new_value?: string | null;
+          pinned?: boolean;
+          mark?: string | null;
+          created_at?: Timestamp;
+        };
+        Update: Partial<Database["public"]["Tables"]["activity_events"]["Insert"]>;
+        Relationships: [];
+      };
+      files: {
+        Row: {
+          id: string;
+          organization_id: string | null;
+          entity_type: string | null;
+          entity_id: string | null;
+          bucket: string;
+          path: string;
+          name: string;
+          mime_type: string | null;
+          size_bytes: number | null;
+          sha256: string | null;
+          uploaded_by: string | null;
+          created_at: Timestamp;
+        };
+        Insert: {
+          id?: string;
+          organization_id?: string | null;
+          entity_type?: string | null;
+          entity_id?: string | null;
+          bucket?: string;
+          path: string;
+          name: string;
+          mime_type?: string | null;
+          size_bytes?: number | null;
+          sha256?: string | null;
+          uploaded_by?: string | null;
+          created_at?: Timestamp;
+        };
+        Update: Partial<Database["public"]["Tables"]["files"]["Insert"]>;
+        Relationships: [];
+      };
     };
-    Views: Record<never, never>;
+    Views: {
+      work_attention: {
+        Row: Database["public"]["Tables"]["work_items"]["Row"] & {
+          attention_reason: "blocked" | "overdue" | "sla_risk" | null;
+          hours_remaining: number | null;
+        };
+        Relationships: [];
+      };
+    };
     Functions: {
       current_agency_role: {
         Args: Record<PropertyKey, never>;
@@ -400,6 +530,26 @@ export type Database = {
       is_org_admin: { Args: { p_org: string }; Returns: boolean };
       can_view_org: { Args: { p_org: string }; Returns: boolean };
       my_org_ids: { Args: Record<PropertyKey, never>; Returns: string[] };
+      can_view_work: {
+        Args: {
+          p_scope: Database["public"]["Enums"]["work_scope"];
+          p_org: string | null;
+          p_subject_org: string | null;
+        };
+        Returns: boolean;
+      };
+      assignable_profiles: {
+        Args: {
+          p_scope: Database["public"]["Enums"]["work_scope"];
+          p_org?: string | null;
+        };
+        Returns: {
+          id: string;
+          full_name: string | null;
+          email: string;
+          role: string;
+        }[];
+      };
       log_audit: {
         Args: {
           p_action: string;
@@ -445,6 +595,23 @@ export type Database = {
         | "affiliate"
         | "client";
       membership_kind: "agency" | "organization" | "external";
+      work_scope: "AGENCY" | "ORGANIZATION";
+      work_related_type:
+        | "credit_case"
+        | "funding_deal"
+        | "project"
+        | "support"
+        | "fulfillment";
+      work_stage:
+        | "Queued"
+        | "Assigned"
+        | "In Processing"
+        | "Ready for QA"
+        | "QA Review"
+        | "Completed"
+        | "Blocked"
+        | "Attention";
+      work_priority: "Normal" | "High" | "Urgent";
     };
     CompositeTypes: Record<never, never>;
   };
@@ -452,5 +619,7 @@ export type Database = {
 
 export type Tables<T extends keyof Database["public"]["Tables"]> =
   Database["public"]["Tables"][T]["Row"];
+export type Views<T extends keyof Database["public"]["Views"]> =
+  Database["public"]["Views"][T]["Row"];
 export type Enums<T extends keyof Database["public"]["Enums"]> =
   Database["public"]["Enums"][T];
