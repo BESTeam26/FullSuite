@@ -1,0 +1,4 @@
+# Root-level ignores (project lives in creditverse-platform/)
+*.zip
+.DS_Store
+node_modules

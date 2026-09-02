@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "creditverse-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "creditverse-platform", "run", "dev"],
+      "port": 8080
+    }
+  ]
+}

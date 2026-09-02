@@ -1,0 +1,17 @@
+{
+  "name": "BES — Credit Repair & Funding Operations Software",
+  "short_name": "BES",
+  "description": "One connected operating system for credit repair and business funding. Start with what you need. Connect more as you grow.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#111314",
+  "theme_color": "#EBAA15",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

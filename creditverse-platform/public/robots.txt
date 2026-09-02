@@ -1,0 +1,29 @@
+User-agent: *
+Allow: /
+Disallow: /app
+Disallow: /portal
+Disallow: /diy-consumer
+Disallow: /affiliate
+Disallow: /outsourcing
+
+# Block private/internal app routes from indexing
+User-agent: GPTBot
+Allow: /
+Disallow: /app
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+Sitemap: https://creditverse-platform.vibepreview.com/sitemap.xml

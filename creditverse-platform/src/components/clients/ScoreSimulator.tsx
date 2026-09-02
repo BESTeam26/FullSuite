@@ -1,0 +1,274 @@
+// Score Simulator — toggle hypothetical actions and watch the estimated ceiling
+// recompute live. Hardcoded smart logic, not a guarantee.
+
+import { useMemo, useState } from "react";
+import {
+  SlidersHorizontal,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  RotateCcw,
+  Sparkles,
+  ShieldCheck,
+} from "lucide-react";
+import {
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  Radar,
+  ResponsiveContainer,
+  Legend,
+} from "recharts";
+import { useClientWorkspace } from "@/lib/client-workspace-context";
+import {
+  analyzeScorePotential,
+  type ScorePotentialResult,
+} from "@/lib/score-potential";
+import {
+  defaultSimActions,
+  simulate,
+  type SimAction,
+} from "@/lib/score-simulator";
+
+const factorLabels: Record<string, string> = {
+  payment: "Payment",
+  utilization: "Utilization",
+  history: "History",
+  mix: "Mix",
+  inquiries: "Inquiries",
+};
+
+const ScoreSimulator = () => {
+  const { items } = useClientWorkspace();
+  const baseline = useMemo<ScorePotentialResult>(
+    () => analyzeScorePotential(items),
+    [items],
+  );
+  const [actions, setActions] = useState<SimAction[]>(() =>
+    defaultSimActions(items),
+  );
+
+  const result = useMemo(
+    () => simulate(items, actions, baseline),
+    [items, actions, baseline],
+  );
+
+  const toggle = (id: string) =>
+    setActions((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, enabled: !a.enabled } : a)),
+    );
+
+  const reset = () =>
+    setActions((prev) => prev.map((a) => ({ ...a, enabled: false })));
+
+  const delta = result.delta;
+  const radarData = [
+    "payment",
+    "utilization",
+    "history",
+    "mix",
+    "inquiries",
+  ].map((key) => {
+    const base = baseline.bureaus[0].factors.find((f) => f.key === key)!;
+    const sim = result.analysis.bureaus[0].factors.find((f) => f.key === key)!;
+    return {
+      factor: factorLabels[key],
+      Current: base.current,
+      Simulated: sim.current,
+    };
+  });
+
+  const DeltaIcon = delta > 0 ? TrendingUp : delta < 0 ? TrendingDown : Minus;
+  const deltaTone =
+    delta > 0
+      ? "text-emerald-600"
+      : delta < 0
+        ? "text-red-600"
+        : "text-muted-foreground";
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-border bg-gradient-to-br from-card via-card to-blue-500/5 p-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <SlidersHorizontal className="h-4 w-4 text-blue-600" />
+              <h2 className="font-semibold">Score Simulator</h2>
+              <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-blue-600">
+                What-if
+              </span>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Toggle hypothetical actions and watch the estimated ceiling
+              recompute live — smart analysis, not a guarantee.
+            </p>
+          </div>
+          <button
+            onClick={reset}
+            className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted/30"
+          >
+            <RotateCcw className="h-3.5 w-3.5" /> Reset
+          </button>
+        </div>
+
+        {/* Live ceiling readout */}
+        <div className="mt-5 grid gap-4 sm:grid-cols-3">
+          <div className="rounded-xl border border-border bg-card p-4">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Baseline ceiling
+            </p>
+            <p className="mt-1 text-3xl font-bold tracking-tight">
+              {baseline.averageCeiling}
+            </p>
+            <p className="text-[11px] text-muted-foreground">current profile</p>
+          </div>
+          <div className="rounded-xl border border-blue-500/30 bg-blue-500/5 p-4">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Simulated ceiling
+            </p>
+            <p className="mt-1 text-3xl font-bold tracking-tight text-blue-600">
+              {result.analysis.averageCeiling}
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              with selected actions
+            </p>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-4">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Estimated change
+            </p>
+            <p
+              className={`mt-1 flex items-center gap-1.5 text-3xl font-bold tracking-tight ${deltaTone}`}
+            >
+              <DeltaIcon className="h-6 w-6" />
+              {delta > 0 ? "+" : ""}
+              {delta}
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              points vs baseline
+            </p>
+          </div>
+        </div>
+
+        {/* Per-bureau simulated scores */}
+        <div className="mt-4 grid grid-cols-3 gap-3">
+          {result.analysis.bureaus.map((b, i) => (
+            <div
+              key={b.bureau}
+              className="rounded-lg border border-border bg-muted/30 p-3 text-center"
+            >
+              <p className="text-[11px] font-medium text-muted-foreground">
+                {b.label}
+              </p>
+              <p className="text-lg font-bold">
+                {b.currentEstimate}
+                <span className="text-xs text-muted-foreground">
+                  {" "}
+                  → {b.ceilingEstimate}
+                </span>
+              </p>
+              <p className="text-[10px] text-emerald-600">
+                +{b.ceilingEstimate - baseline.bureaus[i].ceilingEstimate}{" "}
+                ceiling
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Action toggles */}
+        <div className="rounded-2xl border border-border bg-card p-6">
+          <h3 className="flex items-center gap-2 text-sm font-semibold">
+            <Sparkles className="h-4 w-4 text-blue-600" /> Hypothetical actions
+          </h3>
+          <div className="mt-4 space-y-2.5">
+            {actions.map((a) => (
+              <button
+                key={a.id}
+                onClick={() => toggle(a.id)}
+                className={`flex w-full items-start gap-3 rounded-xl border p-3.5 text-left transition-colors ${
+                  a.enabled
+                    ? "border-blue-500/40 bg-blue-500/5"
+                    : "border-border bg-card hover:bg-muted/30"
+                }`}
+              >
+                <span
+                  className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 ${
+                    a.enabled
+                      ? "border-blue-500 bg-blue-500 text-white"
+                      : "border-border"
+                  }`}
+                >
+                  {a.enabled && (
+                    <svg
+                      viewBox="0 0 16 16"
+                      className="h-3 w-3"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                    >
+                      <path d="M3 8l3 3 7-7" />
+                    </svg>
+                  )}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium">{a.label}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {a.detail}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Radar comparison */}
+        <div className="rounded-2xl border border-border bg-card p-6">
+          <h3 className="flex items-center gap-2 text-sm font-semibold">
+            <SlidersHorizontal className="h-4 w-4 text-blue-600" /> Factor
+            impact comparison
+          </h3>
+          <div className="mt-4 h-[320px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <RadarChart data={radarData} outerRadius="72%">
+                <PolarGrid stroke="hsl(var(--border))" />
+                <PolarAngleAxis
+                  dataKey="factor"
+                  tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                />
+                <PolarRadiusAxis
+                  domain={[0, 100]}
+                  tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }}
+                />
+                <Radar
+                  name="Current"
+                  dataKey="Current"
+                  stroke="#64748b"
+                  fill="#64748b"
+                  fillOpacity={0.15}
+                />
+                <Radar
+                  name="Simulated"
+                  dataKey="Simulated"
+                  stroke="#3b82f6"
+                  fill="#3b82f6"
+                  fillOpacity={0.3}
+                />
+                <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" />
+              </RadarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/20 p-3 text-[11px] leading-relaxed text-muted-foreground">
+        <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
+        <p>{baseline.disclaimer}</p>
+      </div>
+    </div>
+  );
+};
+
+export default ScoreSimulator;

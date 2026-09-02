@@ -1,0 +1,148 @@
+import { useState } from "react";
+import { Check, ArrowRight, LifeBuoy } from "lucide-react";
+import type { ActionPlanItem, ActionType } from "@/lib/diy/diy-domain";
+
+const initialPlan: ActionPlanItem[] = [
+  {
+    id: "ap-1",
+    type: "gather-evidence",
+    label: "Gather evidence for Portfolio Recovery",
+    why: "Your dispute is stronger with supporting documents.",
+    needed: "Settlement agreement, bank payment confirmation",
+    nextStep: "Upload documents to your evidence vault",
+    done: false,
+  },
+  {
+    id: "ap-2",
+    type: "prepare-dispute",
+    label: "Prepare dispute for LVNV Funding DOFD",
+    why: "The DOFD appears inconsistent with your delinquency chronology.",
+    needed: "Confirm the date you first became delinquent",
+    nextStep: "Open the dispute preparation workspace",
+    done: false,
+  },
+  {
+    id: "ap-3",
+    type: "reduce-utilization",
+    label: "Reduce revolving utilization below 9%",
+    why: "High utilization is one of the biggest score factors.",
+    needed: "Pay down balances on open cards",
+    nextStep: "Track your utilization in the progress center",
+    done: false,
+  },
+  {
+    id: "ap-4",
+    type: "monitor-account",
+    label: "Monitor Midland Funding collection",
+    why: "Validate the collector's authority and account ownership.",
+    needed: "Wait for validation response",
+    nextStep: "Log the response when received",
+    done: true,
+  },
+];
+
+const typeTone: Record<ActionType, string> = {
+  "review-information": "text-slate-300",
+  "gather-evidence": "text-sky-300",
+  "correct-personal-info": "text-slate-300",
+  "prepare-dispute": "text-amber-300",
+  "contact-furnisher": "text-amber-300",
+  "request-documentation": "text-sky-300",
+  "monitor-account": "text-purple-300",
+  "reduce-utilization": "text-emerald-300",
+  "build-positive-history": "text-emerald-300",
+  "wait-recheck": "text-slate-300",
+  "human-help-recommended": "text-amber-300",
+};
+
+export const ConsumerActionPlan = () => {
+  const [plan, setPlan] = useState<ActionPlanItem[]>(initialPlan);
+
+  const toggle = (id: string) =>
+    setPlan((p) =>
+      p.map((it) => (it.id === id ? { ...it, done: !it.done } : it)),
+    );
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">My Plan</h1>
+        <p className="mt-1 text-sm text-slate-400">
+          Your personalized action plan. Each step explains what to do, why, and
+          what happens next.
+        </p>
+      </div>
+
+      <div className="space-y-3">
+        {plan.map((it) => (
+          <div
+            key={it.id}
+            className={`rounded-2xl border p-5 transition-colors ${
+              it.done
+                ? "border-emerald-400/30 bg-emerald-500/5"
+                : "border-white/10 bg-white/5"
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              <button
+                onClick={() => toggle(it.id)}
+                className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${
+                  it.done
+                    ? "border-emerald-400 bg-emerald-500 text-charcoal"
+                    : "border-white/20"
+                }`}
+              >
+                {it.done && <Check className="h-3.5 w-3.5" />}
+              </button>
+              <div className="min-w-0 flex-1">
+                <p
+                  className={`text-sm font-semibold ${typeTone[it.type]} ${
+                    it.done ? "line-through opacity-60" : ""
+                  }`}
+                >
+                  {it.label}
+                </p>
+                <div className="mt-2 space-y-1.5 text-[11px] leading-relaxed text-slate-400">
+                  <p>
+                    <span className="font-semibold text-slate-300">Why:</span>{" "}
+                    {it.why}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-slate-300">
+                      What's needed:
+                    </span>{" "}
+                    {it.needed}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-slate-300">
+                      Next step:
+                    </span>{" "}
+                    {it.nextStep}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="rounded-2xl border border-amber-400/30 bg-amber-500/5 p-5">
+        <div className="flex items-start gap-3">
+          <LifeBuoy className="mt-0.5 h-5 w-5 text-amber-300" />
+          <div>
+            <p className="text-sm font-semibold text-amber-200">
+              Human help recommended
+            </p>
+            <p className="mt-1 text-[11px] leading-relaxed text-slate-300">
+              If you'd rather have a professional manage this process, you can
+              request Done-For-You help from your organization.
+            </p>
+            <button className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-amber-300 hover:text-amber-200">
+              Request professional help <ArrowRight className="h-3 w-3" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};

@@ -1,0 +1,159 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* BES Design System — Credit + Funding Operations OS
+   Imperial Charcoal + Empire Gold + Empire Green. Authoritative, premium vertical SaaS.
+   All colors stored as raw HSL channel values. */
+
+@layer base {
+  :root {
+    /* Surfaces */
+    --background: 38 27% 93%; /* Cloud Sand */
+    --foreground: 200 6% 7%; /* Imperial Charcoal */
+
+    --card: 0 0% 100%;
+    --card-foreground: 200 6% 7%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 200 6% 7%;
+
+    /* Primary = Empire Green (deep, premium) */
+    --primary: 166 100% 18%;
+    --primary-foreground: 38 27% 93%;
+
+    --secondary: 38 18% 88%;
+    --secondary-foreground: 200 6% 7%;
+
+    --muted: 38 18% 90%;
+    --muted-foreground: 200 6% 35%;
+
+    /* Accent = Empire Gold */
+    --accent: 42 83% 50%;
+    --accent-foreground: 200 6% 7%;
+
+    /* Brand tokens */
+    --charcoal: 200 6% 7%;
+    --charcoal-deep: 200 8% 4%;
+    --gold: 42 83% 50%;
+    --gold-glow: 45 90% 60%;
+    --sand: 38 27% 93%;
+    --green: 166 100% 18%;
+    --green-bright: 168 80% 32%;
+    --red: 0 63% 55%;
+    --blush: 9 67% 90%;
+
+    --destructive: 0 63% 55%;
+    --destructive-foreground: 38 27% 93%;
+
+    --success: 166 100% 22%;
+    --warning: 42 83% 50%;
+    --info: 199 89% 40%;
+
+    --border: 38 14% 82%;
+    --input: 38 14% 82%;
+    --ring: 42 83% 50%;
+
+    --radius: 0.625rem;
+
+    --gradient-charcoal: linear-gradient(
+      135deg,
+      hsl(200 8% 5%),
+      hsl(200 6% 10%)
+    );
+    --gradient-gold: linear-gradient(135deg, hsl(42 83% 50%), hsl(45 90% 60%));
+    --gradient-green: linear-gradient(
+      135deg,
+      hsl(166 100% 18%),
+      hsl(168 80% 32%)
+    );
+    --shadow-elegant: 0 10px 30px -12px hsl(200 6% 7% / 0.28);
+    --shadow-glow: 0 0 40px -8px hsl(42 83% 50% / 0.35);
+
+    --sidebar-background: 200 8% 5%;
+    --sidebar-foreground: 38 18% 85%;
+    --sidebar-primary: 42 83% 50%;
+    --sidebar-primary-foreground: 200 6% 7%;
+    --sidebar-accent: 200 8% 12%;
+    --sidebar-accent-foreground: 38 27% 93%;
+    --sidebar-border: 200 8% 16%;
+    --sidebar-ring: 42 83% 50%;
+  }
+
+  .dark {
+    --background: 200 8% 5%;
+    --foreground: 38 27% 93%;
+
+    --card: 200 8% 9%;
+    --card-foreground: 38 27% 93%;
+
+    --popover: 200 8% 9%;
+    --popover-foreground: 38 27% 93%;
+
+    --primary: 42 83% 50%;
+    --primary-foreground: 200 6% 7%;
+
+    --secondary: 200 8% 14%;
+    --secondary-foreground: 38 27% 93%;
+
+    --muted: 200 8% 14%;
+    --muted-foreground: 38 12% 65%;
+
+    --accent: 42 83% 50%;
+    --accent-foreground: 200 6% 7%;
+
+    --destructive: 0 63% 55%;
+    --destructive-foreground: 38 27% 93%;
+
+    --border: 200 8% 18%;
+    --input: 200 8% 18%;
+    --ring: 42 83% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+}
+
+@layer utilities {
+  .bg-gradient-charcoal {
+    background-image: var(--gradient-charcoal);
+  }
+  .bg-gradient-gold {
+    background-image: var(--gradient-gold);
+  }
+  .bg-gradient-green {
+    background-image: var(--gradient-green);
+  }
+  .text-gradient-gold {
+    background-image: var(--gradient-gold);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .text-gradient-green {
+    background-image: var(--gradient-green);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .shadow-elegant {
+    box-shadow: var(--shadow-elegant);
+  }
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
+  .grid-pattern {
+    background-image:
+      linear-gradient(to right, hsl(var(--border) / 0.5) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--border) / 0.5) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+}
