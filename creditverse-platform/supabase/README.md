@@ -15,8 +15,10 @@
 6. Sign up in the app at `/login` (confirm the email), then in the SQL editor run:
    `select public.bootstrap_agency_owner('you@example.com');`
    Reload the app — you are now BES agency owner and see all sub-accounts.
-7. Regenerate types after any migration:
-   `npx supabase gen types typescript --linked --schema public > src/lib/supabase/database.types.ts`
+7. Verify the wiring: `npm run verify:live`
+   Checks reachability, that both migrations landed, that RLS denies anonymous
+   reads, and that anonymous writes are rejected. Read-only; creates nothing.
+8. Regenerate types after any migration: `npm run db:types`
 
 ## Security rules of thumb
 - Only the **anon** key goes in the browser. Never the service_role key.
