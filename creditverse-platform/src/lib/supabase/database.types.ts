@@ -598,6 +598,348 @@ export type Database = {
           },
         ];
       };
+      funding_businesses: {
+        Row: {
+          annual_revenue: number | null;
+          client_id: string;
+          created_at: string;
+          dba: string | null;
+          ein_last4: string | null;
+          id: string;
+          industry: string | null;
+          legal_name: string;
+          time_in_business_months: number | null;
+        };
+        Insert: {
+          annual_revenue?: number | null;
+          client_id: string;
+          created_at?: string;
+          dba?: string | null;
+          ein_last4?: string | null;
+          id?: string;
+          industry?: string | null;
+          legal_name: string;
+          time_in_business_months?: number | null;
+        };
+        Update: {
+          annual_revenue?: number | null;
+          client_id?: string;
+          created_at?: string;
+          dba?: string | null;
+          ein_last4?: string | null;
+          id?: string;
+          industry?: string | null;
+          legal_name?: string;
+          time_in_business_months?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "funding_businesses_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "funding_clients";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      funding_clients: {
+        Row: {
+          agency_id: string;
+          assigned_agent_id: string | null;
+          auto_sync: boolean;
+          created_at: string;
+          created_by: string | null;
+          due_at: string | null;
+          email: string;
+          fulfillment_client_id: string | null;
+          id: string;
+          last_activity_at: string;
+          mode: Database["public"]["Enums"]["fulfillment_mode"];
+          name: string;
+          organization_id: string | null;
+          outsourcing_group_id: string | null;
+          partner_scope_id: string | null;
+          phone: string | null;
+          provenance: Database["public"]["Enums"]["funding_provenance"];
+          status: Database["public"]["Enums"]["funding_client_status"];
+          updated_at: string;
+        };
+        Insert: {
+          agency_id: string;
+          assigned_agent_id?: string | null;
+          auto_sync?: boolean;
+          created_at?: string;
+          created_by?: string | null;
+          due_at?: string | null;
+          email: string;
+          fulfillment_client_id?: string | null;
+          id?: string;
+          last_activity_at?: string;
+          mode: Database["public"]["Enums"]["fulfillment_mode"];
+          name: string;
+          organization_id?: string | null;
+          outsourcing_group_id?: string | null;
+          partner_scope_id?: string | null;
+          phone?: string | null;
+          provenance?: Database["public"]["Enums"]["funding_provenance"];
+          status?: Database["public"]["Enums"]["funding_client_status"];
+          updated_at?: string;
+        };
+        Update: {
+          agency_id?: string;
+          assigned_agent_id?: string | null;
+          auto_sync?: boolean;
+          created_at?: string;
+          created_by?: string | null;
+          due_at?: string | null;
+          email?: string;
+          fulfillment_client_id?: string | null;
+          id?: string;
+          last_activity_at?: string;
+          mode?: Database["public"]["Enums"]["fulfillment_mode"];
+          name?: string;
+          organization_id?: string | null;
+          outsourcing_group_id?: string | null;
+          partner_scope_id?: string | null;
+          phone?: string | null;
+          provenance?: Database["public"]["Enums"]["funding_provenance"];
+          status?: Database["public"]["Enums"]["funding_client_status"];
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "funding_clients_agency_id_fkey";
+            columns: ["agency_id"];
+            isOneToOne: false;
+            referencedRelation: "agencies";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "funding_clients_assigned_agent_id_fkey";
+            columns: ["assigned_agent_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "funding_clients_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "funding_clients_fulfillment_client_id_fkey";
+            columns: ["fulfillment_client_id"];
+            isOneToOne: false;
+            referencedRelation: "fulfillment_clients";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "funding_clients_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "funding_clients_outsourcing_group_id_fkey";
+            columns: ["outsourcing_group_id"];
+            isOneToOne: false;
+            referencedRelation: "outsourcing_groups";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      funding_deals: {
+        Row: {
+          amount: number;
+          client_id: string;
+          created_at: string;
+          file_id: string;
+          funded_at: string | null;
+          id: string;
+          lender: string;
+          program: string | null;
+          rate: string | null;
+          status: Database["public"]["Enums"]["funding_deal_status"];
+          stips_outstanding: number;
+          submitted_at: string | null;
+          term: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          amount: number;
+          client_id: string;
+          created_at?: string;
+          file_id: string;
+          funded_at?: string | null;
+          id?: string;
+          lender: string;
+          program?: string | null;
+          rate?: string | null;
+          status?: Database["public"]["Enums"]["funding_deal_status"];
+          stips_outstanding?: number;
+          submitted_at?: string | null;
+          term?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          amount?: number;
+          client_id?: string;
+          created_at?: string;
+          file_id?: string;
+          funded_at?: string | null;
+          id?: string;
+          lender?: string;
+          program?: string | null;
+          rate?: string | null;
+          status?: Database["public"]["Enums"]["funding_deal_status"];
+          stips_outstanding?: number;
+          submitted_at?: string | null;
+          term?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "funding_deals_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "funding_clients";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "funding_deals_file_id_fkey";
+            columns: ["file_id"];
+            isOneToOne: false;
+            referencedRelation: "funding_files";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      funding_department_statuses: {
+        Row: {
+          assignee_id: string | null;
+          client_id: string;
+          department: Database["public"]["Enums"]["funding_department"];
+          status: string;
+          updated_at: string;
+        };
+        Insert: {
+          assignee_id?: string | null;
+          client_id: string;
+          department: Database["public"]["Enums"]["funding_department"];
+          status: string;
+          updated_at?: string;
+        };
+        Update: {
+          assignee_id?: string | null;
+          client_id?: string;
+          department?: Database["public"]["Enums"]["funding_department"];
+          status?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "funding_department_statuses_assignee_id_fkey";
+            columns: ["assignee_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "funding_department_statuses_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "funding_clients";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      funding_files: {
+        Row: {
+          agency_id: string;
+          assigned_agent_id: string | null;
+          business_id: string;
+          client_id: string;
+          created_at: string;
+          created_by: string | null;
+          due_at: string | null;
+          id: string;
+          last_activity_at: string;
+          purpose: string;
+          requested_amount: number;
+          stage: Database["public"]["Enums"]["funding_file_stage"];
+          updated_at: string;
+        };
+        Insert: {
+          agency_id: string;
+          assigned_agent_id?: string | null;
+          business_id: string;
+          client_id: string;
+          created_at?: string;
+          created_by?: string | null;
+          due_at?: string | null;
+          id?: string;
+          last_activity_at?: string;
+          purpose: string;
+          requested_amount: number;
+          stage?: Database["public"]["Enums"]["funding_file_stage"];
+          updated_at?: string;
+        };
+        Update: {
+          agency_id?: string;
+          assigned_agent_id?: string | null;
+          business_id?: string;
+          client_id?: string;
+          created_at?: string;
+          created_by?: string | null;
+          due_at?: string | null;
+          id?: string;
+          last_activity_at?: string;
+          purpose?: string;
+          requested_amount?: number;
+          stage?: Database["public"]["Enums"]["funding_file_stage"];
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "funding_files_agency_id_fkey";
+            columns: ["agency_id"];
+            isOneToOne: false;
+            referencedRelation: "agencies";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "funding_files_assigned_agent_id_fkey";
+            columns: ["assigned_agent_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "funding_files_business_id_fkey";
+            columns: ["business_id"];
+            isOneToOne: false;
+            referencedRelation: "funding_businesses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "funding_files_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "funding_clients";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "funding_files_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       invitations: {
         Row: {
           accepted_at: string | null;
@@ -1487,6 +1829,15 @@ export type Database = {
         Args: never;
         Returns: Database["public"]["Enums"]["agency_role"];
       };
+      find_client_across_divisions: {
+        Args: { p_email: string; p_scope: string };
+        Returns: {
+          client_id: string;
+          client_name: string;
+          division: string;
+          status: string;
+        }[];
+      };
       is_agency_admin: { Args: never; Returns: boolean };
       is_agency_manager_or_above: { Args: never; Returns: boolean };
       is_agency_staff: { Args: never; Returns: boolean };
@@ -1571,6 +1922,46 @@ export type Database = {
         | "Round 3"
         | "Round 4+"
         | "Completed";
+      funding_client_status:
+        | "Onboarding"
+        | "Readiness Review"
+        | "Document Review"
+        | "Lender Matching"
+        | "Submitted"
+        | "Stipulations"
+        | "Offer Received"
+        | "Funded"
+        | "Declined"
+        | "Withdrawn"
+        | "Archived";
+      funding_deal_status:
+        | "Draft"
+        | "Submitted"
+        | "In Review"
+        | "Stipulations"
+        | "Offer Received"
+        | "Funded"
+        | "Declined"
+        | "Withdrawn";
+      funding_department:
+        | "Readiness Review"
+        | "Document Review"
+        | "Lender Matching"
+        | "Submissions"
+        | "Stipulations"
+        | "Offers"
+        | "Funded Deals";
+      funding_file_stage:
+        | "Readiness Review"
+        | "Document Review"
+        | "Lender Matching"
+        | "Submitted"
+        | "Stipulations"
+        | "Offer Received"
+        | "Funded"
+        | "Declined"
+        | "Withdrawn";
+      funding_provenance: "bes_saas_synced" | "agency_manual";
       membership_kind: "agency" | "organization" | "external";
       org_role:
         | "org_admin"
@@ -1805,6 +2196,50 @@ export const Constants = {
         "Round 4+",
         "Completed",
       ],
+      funding_client_status: [
+        "Onboarding",
+        "Readiness Review",
+        "Document Review",
+        "Lender Matching",
+        "Submitted",
+        "Stipulations",
+        "Offer Received",
+        "Funded",
+        "Declined",
+        "Withdrawn",
+        "Archived",
+      ],
+      funding_deal_status: [
+        "Draft",
+        "Submitted",
+        "In Review",
+        "Stipulations",
+        "Offer Received",
+        "Funded",
+        "Declined",
+        "Withdrawn",
+      ],
+      funding_department: [
+        "Readiness Review",
+        "Document Review",
+        "Lender Matching",
+        "Submissions",
+        "Stipulations",
+        "Offers",
+        "Funded Deals",
+      ],
+      funding_file_stage: [
+        "Readiness Review",
+        "Document Review",
+        "Lender Matching",
+        "Submitted",
+        "Stipulations",
+        "Offer Received",
+        "Funded",
+        "Declined",
+        "Withdrawn",
+      ],
+      funding_provenance: ["bes_saas_synced", "agency_manual"],
       membership_kind: ["agency", "organization", "external"],
       org_role: [
         "org_admin",

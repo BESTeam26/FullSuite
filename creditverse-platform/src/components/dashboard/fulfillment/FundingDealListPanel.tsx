@@ -14,7 +14,7 @@
 
 import { useMemo, useState } from "react";
 import { Search, Layers, ChevronRight } from "lucide-react";
-import { seedFundingFiles } from "@/lib/fulfillment/fundingops-seed";
+import { useAllFundingFiles } from "@/lib/data/use-funding";
 import { useFundingOpsStore } from "@/lib/fulfillment/fundingops-client-store";
 import { useFundingDealStore } from "@/lib/fulfillment/funding-deal-store";
 import {
@@ -44,6 +44,9 @@ export function FundingDealListPanel({
 }: Props) {
   const store = useFundingOpsStore();
   const dealStore = useFundingDealStore();
+  // Business names come from the files, loaded once for the whole division
+  // rather than looked up per deal (rule 14).
+  const { data: files } = useAllFundingFiles();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Statuses");
 
@@ -64,7 +67,7 @@ export function FundingDealListPanel({
       if (search) {
         const q = search.toLowerCase();
         const client = store.clients.find((c) => c.id === d.clientId);
-        const file = seedFundingFiles.find((f) => f.id === d.fileId);
+        const file = files.find((f) => f.id === d.fileId);
         const hay = [
           dealCode(d.id),
           d.lender,
@@ -170,7 +173,7 @@ export function FundingDealListPanel({
             ) : (
               deals.map((d) => {
                 const client = store.clients.find((c) => c.id === d.clientId);
-                const file = seedFundingFiles.find((f) => f.id === d.fileId);
+                const file = files.find((f) => f.id === d.fileId);
                 const partner = client
                   ? getFundingPartnerByScope(
                       client.organizationId ?? client.outsourcingGroupId ?? "",

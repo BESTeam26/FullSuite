@@ -15,6 +15,7 @@
 
 import {
   createContext,
+  useEffect,
   useCallback,
   useContext,
   useMemo,
@@ -22,6 +23,11 @@ import {
   type ReactNode,
 } from "react";
 import { seedFundingDeals } from "@/lib/fulfillment/fundingops-seed";
+import { useAuth } from "@/lib/auth/auth-context";
+import {
+  fetchAllFundingDeals,
+  updateFundingDealStatus,
+} from "@/lib/data/funding-clients";
 import type {
   FundingDeal,
   DealStatus,
@@ -78,10 +84,31 @@ export function FundingDealStoreProvider({
 }: {
   children: ReactNode;
 }) {
+  const { mode, status } = useAuth();
+  const live = mode === "live" && status === "signed-in";
+
+  /* Dual-mode, like the client store: live mode loads deals from the database
+     once and keeps them in the same local shape the rest of this store already
+     works with, so behaviour below is identical in both modes. */
   const [deals, setDeals] = useState<FundingDeal[]>(() =>
-    seedFundingDeals.map((d) => ({ ...d })),
+    live ? [] : seedFundingDeals.map((d) => ({ ...d })),
   );
   const [dealActivity, setDealActivity] = useState<DealActivityEntry[]>([]);
+
+  useEffect(() => {
+    if (!live) return;
+    let cancelled = false;
+    fetchAllFundingDeals()
+      .then((rows) => {
+        if (!cancelled) setDeals(rows);
+      })
+      .catch(() => {
+        // A deal list that cannot load must not take the workspace down.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [live]);
 
   const getDeal = useCallback(
     (dealId: string) => deals.find((d) => d.id === dealId),
@@ -95,6 +122,14 @@ export function FundingDealStoreProvider({
 
   const updateDealStatus = useCallback(
     (dealId: string, newStatus: DealStatus, actor: string) => {
+      if (live) {
+        // Fire-and-forget: the optimistic update below is what the operator
+        // sees; a failed write surfaces on the next load rather than blocking.
+        void updateFundingDealStatus(
+          dealId,
+          newStatus as Parameters<typeof updateFundingDealStatus>[1],
+        ).catch(() => {});
+      }
       setDeals((prev) => {
         const deal = prev.find((d) => d.id === dealId);
         if (!deal || deal.status === newStatus) return prev;

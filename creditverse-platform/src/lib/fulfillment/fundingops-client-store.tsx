@@ -6,6 +6,10 @@
  * and write to it. Behaviour lives in createOpsClientStore; this file supplies
  * the FundingOps seed data, stage seeding and id prefixes.
  *
+ * Dual-mode, like CreditOps: live mode reads and writes `funding_clients` and
+ * friends through the data layer; without Supabase credentials it falls back to
+ * seed data so the workspace stays explorable.
+ *
  * NOTE: unlike CreditOps, FundingOps does not currently wire a webhook bridge —
  * setFundingStatusChangeHandler exists but nothing calls it yet.
  */
@@ -23,8 +27,17 @@ import {
 import {
   createOpsClientStore,
   type AddClientOutcome as OpsAddClientOutcome,
+  type OpsClientLiveBackend,
   type StatusChangeHandler as OpsStatusChangeHandler,
 } from "@/lib/fulfillment/ops-client-store";
+import {
+  createFundingClient,
+  fetchFundingClients,
+  fetchFundingDepartmentStatuses,
+  updateFundingClientContact,
+  updateFundingClientStatus,
+} from "@/lib/data/funding-clients";
+import type { Enums } from "@/lib/supabase/database.types";
 
 export type FundingStatusChangeHandler = OpsStatusChangeHandler;
 export type AddFundingClientOutcome = OpsAddClientOutcome<FundingClient>;
@@ -44,14 +57,59 @@ export const FUNDING_ELIGIBLE_ASSIGNEES = [
   "Unassigned",
 ];
 
+/**
+ * The agency these records belong to.
+ *
+ * Still a constant, as in CreditOps. `auth-context` now exposes `agencyId` from
+ * the signed-in user's membership; threading it through the store factory is
+ * the remaining step before white-label resale, and is tracked in BUILD_STATUS.
+ */
+const AGENCY_ID = "a0000000-0000-4000-8000-000000000001";
+
+/**
+ * `updateAssignee` is deliberately ABSENT, exactly as in CreditOps.
+ *
+ * Assignees are still names, not profile rows. Resolving a name to an id would
+ * mean guessing at identity (rule 4), so the store reports `canAssign: false`
+ * and the interface renders the assignee read-only rather than offering a
+ * control that fails after the click (rule 3). Phase 4's Workforce directory
+ * supplies the real picker.
+ */
+const live: OpsClientLiveBackend<FundingClient, FundingDepartmentStatus> = {
+  fetchClients: fetchFundingClients,
+  fetchDepartmentStatuses: fetchFundingDepartmentStatuses,
+  updateStatus: (clientId, status) =>
+    updateFundingClientStatus(
+      clientId,
+      status as Enums<"funding_client_status">,
+    ),
+  updateContact: updateFundingClientContact,
+  addClient: (client) =>
+    createFundingClient({
+      agencyId: AGENCY_ID,
+      name: client.name,
+      email: client.email,
+      phone: client.phone,
+      mode: client.mode,
+      provenance: client.provenance as Enums<"funding_provenance">,
+      organizationId: client.organizationId,
+      outsourcingGroupId: client.outsourcingGroupId,
+      autoSync: client.autoSync,
+      status: client.status as Enums<"funding_client_status">,
+    }),
+  /* FundingOps production is logged against a DEAL, not a dispute unit, so it
+     does not share the CreditOps Complete Work path. Left unimplemented rather
+     than wired to the wrong table. */
+  logProduction: async () => {},
+};
+
 const store = createOpsClientStore<FundingClient, FundingDepartmentStatus>({
   seedClients: seedFundingClients,
   seedDepartmentStatuses: seedFundingDepartmentStatuses,
   activityIdPrefix: "fact",
   clientIdPrefix: "ffc",
   queryKey: "fundingops",
-  /* No `live` backend: FundingOps has no tables yet, so this division stays on
-     seed data even when the app is in live mode. Phase 5 supplies one. */
+  live,
 });
 
 export const FundingOpsStoreProvider = store.Provider;

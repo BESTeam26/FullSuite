@@ -918,6 +918,71 @@ Also refreshed two stale notes in CLAUDE.md: rule 14's branding violation is
 fixed, and rule 2's duplicate-client note now records what was done and what
 still remains.
 
+### 2026-09-03 — Phase 5: FundingOps backend 🟡 data layer live, some screens still on seeds
+
+Five tables, live and verified: `funding_clients`, `funding_businesses`,
+`funding_files`, `funding_deals`, `funding_department_statuses`. Deliberately
+shaped like CreditOps — same partner scoping, same one-email-per-partner index,
+same append-only audit, same grant lockdown — so a reader who knows migration
+0005 recognises all of it.
+
+**On rule 2, stated rather than dodged.** A funding client is not a copy of a
+CreditOps client, and this is not a second people table. `fulfillment_clients`
+today carries CreditOps-specific columns (round, dispute counts), so it is
+really the CreditOps *engagement*, not a canonical person. Rather than duplicate
+quietly, this migration: enforces the same one-email-per-partner rule inside
+FundingOps; carries `fulfillment_client_id`, an explicit link to the same
+human's CreditOps record; and ships `find_client_across_divisions()` so intake
+can SEE the other division's record and link instead of forking. Verified: a
+FundingOps lookup for a CreditOps client's email returns
+`creditops / Tanya Brooks / In Processing`. Full unification of the person
+record belongs with the Phase 6 SaaS client workspace.
+
+**A permissive policy I shipped and then fixed.** Migration 0011 used one
+`FOR ALL` policy per table gated on "agency staff OR org member". Correct for
+SELECT, badly wrong for the rest: any member of a customer organization could
+insert, update and *delete* funding clients, files and deals — deleting
+operational history, which rule 11 forbids. Migration 0012 splits them to match
+CreditOps: select scoped, insert agency-staff, update assigned-agent-or-manager,
+delete agency-admin only.
+
+**Verified against the live database**, driving the data layer the UI calls:
+
+| Check | Result |
+|---|---|
+| Create client → business → file → deal | ✅ |
+| Duplicate email on the same partner refused | ✅ index `23505` |
+| Deal cannot be Funded without a funded date | ✅ check `23514` |
+| Client and deal transitions both audited with the actor | ✅ |
+| Cross-division identity lookup finds the CreditOps record | ✅ |
+| Reads resolve partner name, open-file count, deal count | ✅ |
+| EIN stored and shown as last-4 only | ✅ `••-•••0001` |
+| All 29 tables deny anonymous reads | ✅ `verify:live` |
+
+Test records were deleted afterwards; their `activity_events` rows remain, which
+is the append-only guarantee working as intended.
+
+**What is NOT done, and why it matters.** Six components still import
+`fundingops-seed` directly — `FundingClientWorkspace`,
+`FundingClientWorkWorkspace`, `FundingClientsPanel`, `FundingDealWorkspace`,
+`FundingOpsDashboardView` and `FundingOps.tsx`. That is a pre-existing rule 5
+leak: a component reaching past the data layer is exactly how a screen shows
+sample data while the database is live. The client list, the Deal List and the
+deal store are converted; the rest are not.
+
+The visible consequence: the **FundingOps partner tree still reads seed
+partners**, so its scope ids do not match live organizations and the Add Client
+modal cannot yet attach a client to a real partner through the interface. The
+data layer accepts it (proven above); the tree has to be pointed at
+`organizations` and `outsourcing_groups` first. That is the next task in this
+phase, not a separate one.
+
+Also fixed: `findClientAcrossDivisions` passed `undefined` for the optional
+scope, which PostgREST drops from the body, making it look for a one-argument
+overload that does not exist. NULL now travels explicitly.
+
+tsc clean, 0 lint errors, 133/133 tests, build clean, no circular dependencies.
+
 ## Next steps for Claude Code
 
 1. Connect Supabase Auth + RLS for organization isolation

@@ -101,6 +101,11 @@ const EXPECTED_TABLES = [
   "webhook_deliveries",
   "time_entries",
   "eod_submissions",
+  "funding_clients",
+  "funding_businesses",
+  "funding_files",
+  "funding_deals",
+  "funding_department_statuses",
 ];
 
 /**
@@ -179,6 +184,12 @@ if (schemaPushed) {
     // Added with the branding merge (migration 0009). Writes to a tenant row,
     // so an anonymous caller must never reach it.
     ["merge_organization_branding", { p_org: ZERO_UUID, p_patch: {} }],
+    // Added with FundingOps (migration 0011). Reads client identity across
+    // divisions, so it must never answer an anonymous caller.
+    [
+      "find_client_across_divisions",
+      { p_email: "probe@example.com", p_scope: null },
+    ],
   ];
 
   const missingRpc = [];
@@ -216,6 +227,8 @@ if (schemaPushed) {
   for (const fn of [
     "log_fulfillment_client_activity",
     "log_department_status_activity",
+    "log_funding_client_activity",
+    "log_funding_deal_activity",
   ]) {
     const res = await rest(`/rpc/${fn}`, {
       method: "POST",
@@ -261,6 +274,11 @@ if (!schemaPushed) {
     "webhook_deliveries",
     "time_entries",
     "eod_submissions",
+    "funding_clients",
+    "funding_businesses",
+    "funding_files",
+    "funding_deals",
+    "funding_department_statuses",
   ];
   for (const table of mustBeEmpty) {
     const r = probes[table];
