@@ -12,7 +12,10 @@
 
 import type { ElementType, ReactNode } from "react";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
-import type { OpsClient, OpsPartner } from "@/lib/fulfillment/ops-client-domain";
+import type {
+  OpsClient,
+  OpsPartner,
+} from "@/lib/fulfillment/ops-client-domain";
 import { clientGroupLabel } from "@/lib/fulfillment/ops-client-domain";
 import type { OpsActivityEntry } from "@/lib/fulfillment/ops-activity-domain";
 import type {
@@ -30,7 +33,10 @@ export interface OpsKpi {
   view: string | null;
 }
 
-interface OpsManagementDashboardProps<T extends OpsClient, P extends OpsPartner> {
+interface OpsManagementDashboardProps<
+  T extends OpsClient,
+  P extends OpsPartner,
+> {
   /** e.g. "📊 CREDITOPS MANAGEMENT DASHBOARD" */
   title: ReactNode;
   /** e.g. "🕘 RECENT CREDITOPS ACTIVITY" */

@@ -108,7 +108,9 @@ export interface AttentionResult {
 
 const reasonOf = (row: AttentionRow): AttentionReason =>
   (row.attention_reason as AttentionReason | null) ??
-  (row.stage === "Blocked" || row.stage === "Attention" ? "blocked" : "sla_risk");
+  (row.stage === "Blocked" || row.stage === "Attention"
+    ? "blocked"
+    : "sla_risk");
 
 /** Derive the same attention buckets from domain items (demo mode). */
 function attentionFromWork(items: WorkItem[]): AttentionItem[] {
@@ -141,10 +143,9 @@ const emptyCounts: Record<AttentionReason, number> = {
 };
 
 const tally = (items: AttentionItem[]) =>
-  items.reduce(
-    (acc, i) => ({ ...acc, [i.reason]: acc[i.reason] + 1 }),
-    { ...emptyCounts },
-  );
+  items.reduce((acc, i) => ({ ...acc, [i.reason]: acc[i.reason] + 1 }), {
+    ...emptyCounts,
+  });
 
 export function useAttention(): AttentionResult {
   const live = useLive();

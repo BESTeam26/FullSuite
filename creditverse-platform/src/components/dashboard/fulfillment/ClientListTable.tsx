@@ -54,12 +54,9 @@ export function ClientListTable({
       actions={{
         allClients: store.clients,
         updateStatus: (id, status, actor) =>
-          store.updateStatus(
-            id,
-            status as FulfillmentClient["status"],
-            actor,
-          ),
+          store.updateStatus(id, status as FulfillmentClient["status"], actor),
         updateAssignee: store.updateAssignee,
+        canAssign: store.canAssign,
         updateContact: store.updateContact,
         logActivity: store.addActivity,
       }}

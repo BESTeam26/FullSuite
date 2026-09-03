@@ -11,7 +11,9 @@ import {
 } from "./fulfillment-client-domain";
 import type { WorkStage } from "@/lib/bes-domain";
 
-const client = (o: Partial<FulfillmentClient> & { id: string }): FulfillmentClient => ({
+const client = (
+  o: Partial<FulfillmentClient> & { id: string },
+): FulfillmentClient => ({
   name: o.id,
   email: `${o.id}@example.com`,
   mode: "saas_pulled",
@@ -26,12 +28,19 @@ const client = (o: Partial<FulfillmentClient> & { id: string }): FulfillmentClie
 
 describe("normalizeEmail", () => {
   it("trims whitespace and lower-cases", () => {
-    expect(normalizeEmail("  Foo.Bar@Example.COM ")).toBe("foo.bar@example.com");
+    expect(normalizeEmail("  Foo.Bar@Example.COM ")).toBe(
+      "foo.bar@example.com",
+    );
   });
 });
 
 describe("checkClientConflict", () => {
-  const A = client({ id: "A", email: "jane@x.com", mode: "saas_pulled", organizationId: "org-1" });
+  const A = client({
+    id: "A",
+    email: "jane@x.com",
+    mode: "saas_pulled",
+    organizationId: "org-1",
+  });
   const B = client({
     id: "B",
     email: "Jane@X.com",
@@ -39,7 +48,12 @@ describe("checkClientConflict", () => {
     autoSync: false,
     outsourcingGroupId: "grp-1",
   });
-  const C = client({ id: "C", email: "other@x.com", mode: "saas_pulled", organizationId: "org-1" });
+  const C = client({
+    id: "C",
+    email: "other@x.com",
+    mode: "saas_pulled",
+    organizationId: "org-1",
+  });
   const all = [A, B, C];
 
   it("hard-blocks a duplicate inside the same partner scope and warns about others", () => {
@@ -61,8 +75,12 @@ describe("checkClientConflict", () => {
   });
 
   it("returns no conflicts for an empty or whitespace-only email", () => {
-    expect(checkClientConflict("", "org-1", all)).toEqual({ crossScopeMatches: [] });
-    expect(checkClientConflict("   ", "org-1", all)).toEqual({ crossScopeMatches: [] });
+    expect(checkClientConflict("", "org-1", all)).toEqual({
+      crossScopeMatches: [],
+    });
+    expect(checkClientConflict("   ", "org-1", all)).toEqual({
+      crossScopeMatches: [],
+    });
   });
 
   it("returns no conflicts for an unknown email", () => {
@@ -74,7 +92,11 @@ describe("checkClientConflict", () => {
 
 describe("clientGroupKey / clientGroupLabel", () => {
   it("groups SaaS-pulled clients by organization", () => {
-    const c = client({ id: "s", organizationId: "org-7", organizationName: "Seven LLC" });
+    const c = client({
+      id: "s",
+      organizationId: "org-7",
+      organizationName: "Seven LLC",
+    });
     expect(clientGroupKey(c)).toBe("org-7");
     expect(clientGroupLabel(c)).toBe("Seven LLC");
   });
@@ -124,26 +146,46 @@ describe("stageToClientStatus", () => {
 describe("needsAttention", () => {
   it("flags Attention and Monitoring Issue statuses", () => {
     expect(needsAttention(client({ id: "a", status: "Attention" }))).toBe(true);
-    expect(needsAttention(client({ id: "b", status: "Monitoring Issue" }))).toBe(true);
+    expect(
+      needsAttention(client({ id: "b", status: "Monitoring Issue" })),
+    ).toBe(true);
   });
 
   it("flags SLA at or below 4 hours, but not above", () => {
-    expect(needsAttention(client({ id: "c", slaHoursRemaining: 4 }))).toBe(true);
-    expect(needsAttention(client({ id: "d", slaHoursRemaining: 0 }))).toBe(true);
-    expect(needsAttention(client({ id: "e", slaHoursRemaining: 5 }))).toBe(false);
+    expect(needsAttention(client({ id: "c", slaHoursRemaining: 4 }))).toBe(
+      true,
+    );
+    expect(needsAttention(client({ id: "d", slaHoursRemaining: 0 }))).toBe(
+      true,
+    );
+    expect(needsAttention(client({ id: "e", slaHoursRemaining: 5 }))).toBe(
+      false,
+    );
   });
 
   it("does not flag a healthy client with no SLA value", () => {
-    expect(needsAttention(client({ id: "f", status: "In Processing" }))).toBe(false);
+    expect(needsAttention(client({ id: "f", status: "In Processing" }))).toBe(
+      false,
+    );
   });
 });
 
 describe("isStatusAutoSynced", () => {
   it("is true only for SaaS-pulled clients with autoSync on", () => {
-    expect(isStatusAutoSynced(client({ id: "a", mode: "saas_pulled", autoSync: true }))).toBe(true);
-    expect(isStatusAutoSynced(client({ id: "b", mode: "saas_pulled", autoSync: false }))).toBe(false);
     expect(
-      isStatusAutoSynced(client({ id: "c", mode: "outsourcing_only", autoSync: true })),
+      isStatusAutoSynced(
+        client({ id: "a", mode: "saas_pulled", autoSync: true }),
+      ),
+    ).toBe(true);
+    expect(
+      isStatusAutoSynced(
+        client({ id: "b", mode: "saas_pulled", autoSync: false }),
+      ),
+    ).toBe(false);
+    expect(
+      isStatusAutoSynced(
+        client({ id: "c", mode: "outsourcing_only", autoSync: true }),
+      ),
     ).toBe(false);
   });
 });

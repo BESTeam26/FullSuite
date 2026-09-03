@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
-import { simulate, defaultSimActions, makeSimAction, type SimAction, type SimResult } from "./score-simulator";
+import {
+  simulate,
+  defaultSimActions,
+  makeSimAction,
+  type SimAction,
+  type SimResult,
+} from "./score-simulator";
 import { analyzeScorePotential } from "./score-potential";
 import type { ClassifiedItem } from "./credit-classification";
 
@@ -19,14 +25,42 @@ const item = (o: Partial<ClassifiedItem> & { id: string }): ClassifiedItem => ({
 });
 
 const derog = (id: string, extra: Partial<ClassifiedItem> = {}) =>
-  item({ id, isNegative: true, isDerogatory: true, disposition: "dispute", ...extra });
+  item({
+    id,
+    isNegative: true,
+    isDerogatory: true,
+    disposition: "dispute",
+    ...extra,
+  });
 
 const profile = (): ClassifiedItem[] => [
-  item({ id: "revA", subtype: "Revolving", balance: "$1,500", openDate: "01/2015" }),
-  item({ id: "revB", subtype: "Revolving", balance: "$1,000", openDate: "01/2018" }),
-  derog("col1", { subtype: "Collection", status: "Collection", category: "3rd-Party Collection" }),
-  derog("col2", { subtype: "Collection", status: "Collection", category: "3rd-Party Collection" }),
-  derog("late", { subtype: "Revolving", status: "Late 30", category: "Late Payment" }),
+  item({
+    id: "revA",
+    subtype: "Revolving",
+    balance: "$1,500",
+    openDate: "01/2015",
+  }),
+  item({
+    id: "revB",
+    subtype: "Revolving",
+    balance: "$1,000",
+    openDate: "01/2018",
+  }),
+  derog("col1", {
+    subtype: "Collection",
+    status: "Collection",
+    category: "3rd-Party Collection",
+  }),
+  derog("col2", {
+    subtype: "Collection",
+    status: "Collection",
+    category: "3rd-Party Collection",
+  }),
+  derog("late", {
+    subtype: "Revolving",
+    status: "Late 30",
+    category: "Late Payment",
+  }),
   derog("inq1", { kind: "Inquiry", status: "Inquiry", category: "Inquiry" }),
   derog("inq2", { kind: "Inquiry", status: "Inquiry", category: "Inquiry" }),
 ];
@@ -34,7 +68,8 @@ const profile = (): ClassifiedItem[] => [
 const enable = (actions: SimAction[], ...types: SimAction["type"][]) =>
   actions.map((a) => ({ ...a, enabled: types.includes(a.type) }));
 
-const factor = (r: SimResult, key: string) => r.analysis.bureaus[0].factors.find((f) => f.key === key)!;
+const factor = (r: SimResult, key: string) =>
+  r.analysis.bureaus[0].factors.find((f) => f.key === key)!;
 
 beforeAll(() => {
   vi.useFakeTimers();
@@ -50,7 +85,11 @@ describe("makeSimAction", () => {
     expect(a.amount).toBe(2000);
     expect(b.amount).toBeUndefined();
     expect(a.id).not.toBe(b.id);
-    expect(a).toMatchObject({ type: "pay-off-partial", label: "Pay", detail: "detail" });
+    expect(a).toMatchObject({
+      type: "pay-off-partial",
+      label: "Pay",
+      detail: "detail",
+    });
   });
 });
 
@@ -84,7 +123,9 @@ describe("defaultSimActions", () => {
   });
 
   it("omits 'remove all derogatory' when there is only one derogatory item", () => {
-    const one = [derog("col1", { status: "Collection", category: "3rd-Party Collection" })];
+    const one = [
+      derog("col1", { status: "Collection", category: "3rd-Party Collection" }),
+    ];
     const types = defaultSimActions(one).map((a) => a.type);
     expect(types).toContain("remove-collection");
     expect(types).not.toContain("remove-all-derogatory");
@@ -101,7 +142,11 @@ describe("simulate", () => {
     expect(r.delta).toBe(0);
     expect(r.analysis.averageCeiling).toBe(baseline.averageCeiling);
 
-    simulate(items, enable(actions, "pay-off-revolving", "remove-all-derogatory"), baseline);
+    simulate(
+      items,
+      enable(actions, "pay-off-revolving", "remove-all-derogatory"),
+      baseline,
+    );
     expect(items[0].balance).toBe("$1,500");
     expect(items).toHaveLength(7);
   });
@@ -121,13 +166,19 @@ describe("simulate", () => {
   it("removes exactly one collection, or every derogatory item", () => {
     const one = simulate(items, enable(actions, "remove-collection"), baseline);
     expect(one.analysis.assessment.derogatoryCount).toBe(4);
-    const all = simulate(items, enable(actions, "remove-all-derogatory"), baseline);
+    const all = simulate(
+      items,
+      enable(actions, "remove-all-derogatory"),
+      baseline,
+    );
     expect(all.analysis.assessment.derogatoryCount).toBe(0);
   });
 
   it("removes inquiries and lifts the ceiling", () => {
     const r = simulate(items, enable(actions, "remove-inquiries"), baseline);
-    expect(factor(r, "inquiries").note).toBe("0 hard inquiry/inquiries on file.");
+    expect(factor(r, "inquiries").note).toBe(
+      "0 hard inquiry/inquiries on file.",
+    );
     expect(r.delta).toBeGreaterThan(0);
   });
 
@@ -140,14 +191,22 @@ describe("simulate", () => {
   it("adds a seasoned authorized-user account that lengthens history", () => {
     const empty: ClassifiedItem[] = [];
     const base = analyzeScorePotential(empty);
-    const r = simulate(empty, enable(defaultSimActions(empty), "add-authorized-user"), base);
+    const r = simulate(
+      empty,
+      enable(defaultSimActions(empty), "add-authorized-user"),
+      base,
+    );
     expect(r.analysis.assessment.totalAccounts).toBe(1);
     expect(factor(r, "history").current).toBe(66); // opened 08/2020 -> ~6 years
     expect(r.delta).toBeGreaterThan(0);
   });
 
   it("ignores disabled actions", () => {
-    const r = simulate(items, actions.map((a) => ({ ...a, enabled: false })), baseline);
+    const r = simulate(
+      items,
+      actions.map((a) => ({ ...a, enabled: false })),
+      baseline,
+    );
     expect(factor(r, "utilization").note).toMatch(/^Utilization ~25% across 2/);
   });
 });

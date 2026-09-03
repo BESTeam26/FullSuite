@@ -17,7 +17,13 @@ import {
   type ProductKey,
 } from "@/lib/bes-domain";
 
-const PRODUCT_KEYS: ProductKey[] = ["creditOps", "fundingOps", "diyCredit", "oi", "crm"];
+const PRODUCT_KEYS: ProductKey[] = [
+  "creditOps",
+  "fundingOps",
+  "diyCredit",
+  "oi",
+  "crm",
+];
 
 type OrgRow = Tables<"organizations"> & {
   businesses: Tables<"businesses">[];
@@ -52,7 +58,9 @@ const fmtDate = (d: string) => {
 };
 
 export function mapOrgRow(row: OrgRow, pinnedIds: Set<string>): Organization {
-  const enabled = new Map(row.product_entitlements.map((e) => [e.product, e.enabled]));
+  const enabled = new Map(
+    row.product_entitlements.map((e) => [e.product, e.enabled]),
+  );
   const entitlements: ProductEntitlement[] = PRODUCT_KEYS.map((key) => ({
     key,
     label: PRODUCT_LABELS[key],
@@ -113,10 +121,19 @@ export async function fetchUserPreferences(userId: string) {
     .eq("user_id", userId)
     .maybeSingle();
   if (error) throw error;
-  return data ?? { user_id: userId, pinned_org_ids: [], recent_org_ids: [], updated_at: "" };
+  return (
+    data ?? {
+      user_id: userId,
+      pinned_org_ids: [],
+      recent_org_ids: [],
+      updated_at: "",
+    }
+  );
 }
 
-export async function fetchOrganizations(userId: string): Promise<Organization[]> {
+export async function fetchOrganizations(
+  userId: string,
+): Promise<Organization[]> {
   const sb = requireSupabase();
   const [{ data, error }, prefs] = await Promise.all([
     sb.from("organizations").select(ORG_SELECT).order("name"),
@@ -144,7 +161,9 @@ export interface CreateOrganizationInput {
   branding?: Branding;
 }
 
-export async function createOrganization(input: CreateOrganizationInput): Promise<string> {
+export async function createOrganization(
+  input: CreateOrganizationInput,
+): Promise<string> {
   const sb = requireSupabase();
   const { data, error } = await sb
     .from("organizations")
@@ -183,7 +202,17 @@ export async function createOrganization(input: CreateOrganizationInput): Promis
 
 export async function updateOrganization(
   id: string,
-  patch: Partial<Pick<Tables<"organizations">, "name" | "status" | "address" | "is_fulfillment_subscriber" | "principal_name" | "principal_email">>,
+  patch: Partial<
+    Pick<
+      Tables<"organizations">,
+      | "name"
+      | "status"
+      | "address"
+      | "is_fulfillment_subscriber"
+      | "principal_name"
+      | "principal_email"
+    >
+  >,
 ) {
   const sb = requireSupabase();
   const { error } = await sb.from("organizations").update(patch).eq("id", id);
@@ -197,20 +226,40 @@ export async function updateOrganization(
   });
 }
 
-export async function updateOrganizationBranding(id: string, branding: Partial<Branding>) {
+/**
+ * Merge a branding patch in ONE round trip.
+ *
+ * This used to read the row, merge in JavaScript, then write it back. Besides
+ * the extra round trip (rule 14), that is a lost update: two people editing
+ * different branding fields at once both read the old row, and the second write
+ * silently discards the first. The merge now happens inside a single UPDATE,
+ * under the row's own lock, and records an audit entry.
+ */
+export async function updateOrganizationBranding(
+  id: string,
+  branding: Partial<Branding>,
+): Promise<Branding> {
   const sb = requireSupabase();
-  const { data, error } = await sb.from("organizations").select("branding").eq("id", id).single();
+  const { data, error } = await sb.rpc("merge_organization_branding", {
+    p_org: id,
+    p_patch: branding as Json,
+  });
   if (error) throw error;
-  const merged = { ...asBranding(data.branding), ...branding } as Json;
-  const { error: upErr } = await sb.from("organizations").update({ branding: merged }).eq("id", id);
-  if (upErr) throw upErr;
+  return asBranding(data);
 }
 
-export async function setEntitlement(orgId: string, product: ProductKey, enabled: boolean) {
+export async function setEntitlement(
+  orgId: string,
+  product: ProductKey,
+  enabled: boolean,
+) {
   const sb = requireSupabase();
   const { error } = await sb
     .from("product_entitlements")
-    .upsert({ organization_id: orgId, product, enabled }, { onConflict: "organization_id,product" });
+    .upsert(
+      { organization_id: orgId, product, enabled },
+      { onConflict: "organization_id,product" },
+    );
   if (error) throw error;
   await sb.rpc("log_audit", {
     p_action: enabled ? "entitlement.enabled" : "entitlement.disabled",
@@ -229,17 +278,28 @@ export async function togglePinnedOrg(userId: string, orgId: string) {
     : [...prefs.pinned_org_ids, orgId];
   const { error } = await sb
     .from("user_preferences")
-    .upsert({ user_id: userId, pinned_org_ids: pinned, recent_org_ids: prefs.recent_org_ids });
+    .upsert({
+      user_id: userId,
+      pinned_org_ids: pinned,
+      recent_org_ids: prefs.recent_org_ids,
+    });
   if (error) throw error;
 }
 
 export async function pushRecentOrg(userId: string, orgId: string) {
   const sb = requireSupabase();
   const prefs = await fetchUserPreferences(userId);
-  const recent = [orgId, ...prefs.recent_org_ids.filter((id) => id !== orgId)].slice(0, 5);
+  const recent = [
+    orgId,
+    ...prefs.recent_org_ids.filter((id) => id !== orgId),
+  ].slice(0, 5);
   await sb
     .from("user_preferences")
-    .upsert({ user_id: userId, pinned_org_ids: prefs.pinned_org_ids, recent_org_ids: recent });
+    .upsert({
+      user_id: userId,
+      pinned_org_ids: prefs.pinned_org_ids,
+      recent_org_ids: recent,
+    });
 }
 
 /** Fetch the caller's agency id (first membership). */

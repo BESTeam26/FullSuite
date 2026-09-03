@@ -104,7 +104,8 @@ export function filterAndSortClients<T extends OpsClient>(
   return [...list].sort((a, b) => {
     const av = valueOf(a);
     const bv = valueOf(b);
-    if (typeof av === "number" && typeof bv === "number") return (av - bv) * dir;
+    if (typeof av === "number" && typeof bv === "number")
+      return (av - bv) * dir;
     return String(av).localeCompare(String(bv)) * dir;
   });
 }

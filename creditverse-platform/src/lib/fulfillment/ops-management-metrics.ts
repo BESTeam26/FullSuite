@@ -8,7 +8,10 @@
  * client's open-work count is read (dispute items vs funding files).
  */
 
-import type { OpsClient, OpsPartner } from "@/lib/fulfillment/ops-client-domain";
+import type {
+  OpsClient,
+  OpsPartner,
+} from "@/lib/fulfillment/ops-client-domain";
 import { clientGroupLabel } from "@/lib/fulfillment/ops-client-domain";
 
 /** How one division measures its own work. */

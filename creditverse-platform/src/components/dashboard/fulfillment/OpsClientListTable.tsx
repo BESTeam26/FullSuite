@@ -45,6 +45,8 @@ export interface OpsClientListActions<T extends OpsClient> {
   allClients: T[];
   updateStatus: (clientId: string, status: string, actor: string) => void;
   updateAssignee: (clientId: string, agent: string, actor: string) => void;
+  /** False when the division cannot yet save an assignment; see the store. */
+  canAssign: boolean;
   updateContact: (
     clientId: string,
     field: "email" | "phone",
@@ -104,9 +106,8 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
     value: string;
   } | null>(null);
   /** Active inline-email conflict banner (replaces native alert/confirm). */
-  const [emailConflict, setEmailConflict] = useState<
-    EmailConflictState<T> | null
-  >(null);
+  const [emailConflict, setEmailConflict] =
+    useState<EmailConflictState<T> | null>(null);
 
   const setPref = <K extends keyof ViewPrefs<Id>>(
     key: K,
@@ -179,7 +180,10 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
         scopeId,
         actions.allClients.filter((c) => c.id !== id),
       );
-      if (conflict.sameScopeDuplicate || conflict.crossScopeMatches.length > 0) {
+      if (
+        conflict.sameScopeDuplicate ||
+        conflict.crossScopeMatches.length > 0
+      ) {
         setEmailConflict({
           clientId: id,
           value: value.trim(),
@@ -343,6 +347,22 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
               onDismiss={() => setEditingAgentId(null)}
               options={assignees}
             />
+          );
+        }
+        // Read-only until the division can resolve a person to a profile
+        // record. Rendering an editor that fails on save is worse than showing
+        // the value plainly (rule 3).
+        if (!actions.canAssign) {
+          return (
+            <span
+              className="inline-flex items-center gap-1.5"
+              title="Assignment becomes editable once the Workforce directory is connected."
+            >
+              <Avatar name={client.assignedAgent ?? "Unassigned"} />
+              <span className="text-xs text-foreground">
+                {client.assignedAgent ?? "Unassigned"}
+              </span>
+            </span>
           );
         }
         return (

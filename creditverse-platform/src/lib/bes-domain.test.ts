@@ -63,7 +63,9 @@ describe("orgPlanLabel", () => {
     expect(orgPlanLabel(org([ent("fundingOps")]))).toBe("FundingOps");
     // disabled entitlements do not count toward the plan
     expect(
-      orgPlanLabel(org([ent("fundingOps"), ent("creditOps", false), ent("oi", false)])),
+      orgPlanLabel(
+        org([ent("fundingOps"), ent("creditOps", false), ent("oi", false)]),
+      ),
     ).toBe("FundingOps");
   });
 
@@ -74,12 +76,18 @@ describe("orgPlanLabel", () => {
   });
 
   it("returns 'Full Suite' at three or more enabled", () => {
-    expect(orgPlanLabel(org([ent("creditOps"), ent("fundingOps"), ent("oi")]))).toBe(
-      "Full Suite",
-    );
+    expect(
+      orgPlanLabel(org([ent("creditOps"), ent("fundingOps"), ent("oi")])),
+    ).toBe("Full Suite");
     expect(
       orgPlanLabel(
-        org([ent("creditOps"), ent("fundingOps"), ent("oi"), ent("crm"), ent("diyCredit")]),
+        org([
+          ent("creditOps"),
+          ent("fundingOps"),
+          ent("oi"),
+          ent("crm"),
+          ent("diyCredit"),
+        ]),
       ),
     ).toBe("Full Suite");
   });

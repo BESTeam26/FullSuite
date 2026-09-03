@@ -6,7 +6,8 @@ import {
   type ProgressReportData,
 } from "./progress-report-logic";
 
-const clone = (d: ProgressReportData): ProgressReportData => JSON.parse(JSON.stringify(d));
+const clone = (d: ProgressReportData): ProgressReportData =>
+  JSON.parse(JSON.stringify(d));
 
 describe("generateProgressUpdate (sample report)", () => {
   const out = generateProgressUpdate(sampleProgressReport);
@@ -23,8 +24,12 @@ describe("generateProgressUpdate (sample report)", () => {
   it("lists only Deleted and Positive rows as confirmed deletions", () => {
     const lines = s.deletionsConfirmed.split("\n");
     expect(lines).toHaveLength(9); // 4 EQ positive + 2 EX deleted + 3 TU deleted
-    expect(lines).toContain("• Capital One — Equifax: Updated to positive standing");
-    expect(lines).toContain("• Employers — AC Kelly Production — Experian: Removed from report");
+    expect(lines).toContain(
+      "• Capital One — Equifax: Updated to positive standing",
+    );
+    expect(lines).toContain(
+      "• Employers — AC Kelly Production — Experian: Removed from report",
+    );
     expect(s.deletionsConfirmed).not.toContain("FB&T/Mercury");
   });
 
@@ -53,14 +58,24 @@ describe("generateProgressUpdate (sample report)", () => {
   it("writes an upbeat summary when every bureau rose", () => {
     expect(s.overallSummary).toContain("5 items came off or were corrected");
     expect(s.overallSummary).toContain("32 disputes remain open");
-    expect(s.overallSummary).not.toContain("not every bureau moved the same amount");
-    expect(s.clientFacingSummary.startsWith("Hi Kevin, here is where things stand as of Aug 29th, 2026.")).toBe(true);
+    expect(s.overallSummary).not.toContain(
+      "not every bureau moved the same amount",
+    );
+    expect(
+      s.clientFacingSummary.startsWith(
+        "Hi Kevin, here is where things stand as of Aug 29th, 2026.",
+      ),
+    ).toBe(true);
     expect(s.clientFacingSummary).toContain("Great progress this round.");
   });
 
   it("computes grand totals for the affiliate summary", () => {
-    expect(s.affiliateSummary).toContain("Deleted/updated this round: 5 (grand total 6)");
-    expect(s.affiliateSummary).toContain("Disputes on-going: 32 (grand total 56)");
+    expect(s.affiliateSummary).toContain(
+      "Deleted/updated this round: 5 (grand total 6)",
+    );
+    expect(s.affiliateSummary).toContain(
+      "Disputes on-going: 32 (grand total 56)",
+    );
     expect(s.affiliateSummary).toContain("Un-disputed negative remaining: 19");
   });
 
@@ -73,7 +88,17 @@ describe("generateProgressUpdate (sample report)", () => {
 
     expect(out.full.startsWith(s.heading)).toBe(true);
     expect(out.full.endsWith(s.signOff)).toBe(true);
-    const order = ["📊 Score Movement", "Deletions Confirmed", "Newly Added Items", "Credit Utilization", "FICO Factors", "Overall Summary", "Client-Facing Summary", "Affiliate Summary", "Client SMS Update"];
+    const order = [
+      "📊 Score Movement",
+      "Deletions Confirmed",
+      "Newly Added Items",
+      "Credit Utilization",
+      "FICO Factors",
+      "Overall Summary",
+      "Client-Facing Summary",
+      "Affiliate Summary",
+      "Client SMS Update",
+    ];
     const positions = order.map((h) => out.full.indexOf(h));
     expect(positions.every((p) => p >= 0)).toBe(true);
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
@@ -90,8 +115,12 @@ describe("generateProgressUpdate (edge cases)", () => {
     expect(s.scoreMovement).toContain("Experian: 672 → 660 (-12)");
     expect(s.overallSummary).toContain("1 item came off");
     expect(s.overallSummary).toContain("1 new item appeared");
-    expect(s.overallSummary).toContain("not every bureau moved the same amount");
-    expect(s.clientFacingSummary).toContain("Solid, steady progress this round.");
+    expect(s.overallSummary).toContain(
+      "not every bureau moved the same amount",
+    );
+    expect(s.clientFacingSummary).toContain(
+      "Solid, steady progress this round.",
+    );
     expect(s.clientSms).toContain("1 item resolved");
   });
 
@@ -102,8 +131,12 @@ describe("generateProgressUpdate (edge cases)", () => {
       b.newDisputeRows = [];
     });
     const s = generateProgressUpdate(d).sections;
-    expect(s.deletionsConfirmed).toBe("No confirmed deletions were recorded this round.");
-    expect(s.newlyAdded).toBe("No new negative items appeared on this round's report.");
+    expect(s.deletionsConfirmed).toBe(
+      "No confirmed deletions were recorded this round.",
+    );
+    expect(s.newlyAdded).toBe(
+      "No new negative items appeared on this round's report.",
+    );
   });
 });
 

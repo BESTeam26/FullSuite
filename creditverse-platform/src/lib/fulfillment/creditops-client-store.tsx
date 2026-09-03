@@ -60,21 +60,22 @@ export const ELIGIBLE_ASSIGNEES = [
 const AGENCY_ID = "a0000000-0000-4000-8000-000000000001";
 
 /**
- * Assignees are still names rather than profile rows — the scoped assignee
- * picker becomes real in Phase 4 alongside Workforce. Until then a name cannot
- * be resolved to a profile id, so assignment is not persisted rather than
- * written against the wrong person (rule 4: never infer identity from a name).
+ * `updateAssignee` is deliberately ABSENT, not stubbed.
+ *
+ * Assignees are still names rather than profile rows; the scoped assignee
+ * picker becomes real in Phase 4 alongside Workforce. A name cannot be resolved
+ * to a profile id without guessing, and guessing would attribute work to the
+ * wrong person (rule 4: never infer identity from a display name).
+ *
+ * Omitting the method makes the store report `canAssign: false`, so the
+ * interface hides the control instead of offering it and then failing after the
+ * click (rule 3).
  */
 const live: OpsClientLiveBackend<FulfillmentClient, DepartmentStatus> = {
   fetchClients: fetchFulfillmentClients,
   fetchDepartmentStatuses,
   updateStatus: (clientId, status) =>
     updateClientStatus(clientId, status as Enums<"fulfillment_client_status">),
-  updateAssignee: async () => {
-    throw new Error(
-      "Assignment is not connected yet — it needs the Workforce directory (Phase 4).",
-    );
-  },
   updateContact: updateClientContact,
   addClient: (client) =>
     createFulfillmentClient({

@@ -54,15 +54,21 @@ describe("buildLayerStates", () => {
   it("activates exactly the layers for the round and leaves the rest pending", () => {
     const states = buildLayerStates(3);
     expect(states).toHaveLength(7);
-    expect(states.filter((s) => s.status === "active").map((s) => s.number)).toEqual([1, 2, 3]);
-    expect(states.filter((s) => s.status === "pending").map((s) => s.number)).toEqual([4, 5, 6, 7]);
+    expect(
+      states.filter((s) => s.status === "active").map((s) => s.number),
+    ).toEqual([1, 2, 3]);
+    expect(
+      states.filter((s) => s.status === "pending").map((s) => s.number),
+    ).toEqual([4, 5, 6, 7]);
     expect(states[0].activatedInRound).toBe(1);
     expect(states[2].activatedInRound).toBe(3);
     expect(states[3].activatedInRound).toBeNull();
   });
 
   it("activates only layer 1 at round 1 and all seven at round 7", () => {
-    expect(buildLayerStates(1).filter((s) => s.status === "active")).toHaveLength(1);
+    expect(
+      buildLayerStates(1).filter((s) => s.status === "active"),
+    ).toHaveLength(1);
     expect(buildLayerStates(7).every((s) => s.status === "active")).toBe(true);
   });
 

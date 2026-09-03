@@ -83,6 +83,15 @@ export interface OpsClientStoreValue<T extends OpsClient, D> {
     newAssignee: string,
     actor: string,
   ) => void;
+  /**
+   * Whether assignment can actually be saved right now.
+   *
+   * A division whose backend cannot yet resolve a person to a profile record
+   * reports false, and the interface must not offer the control (rule 3: if a
+   * user cannot use something, do not render it). Previously the control was
+   * rendered and threw an error after the click.
+   */
+  canAssign: boolean;
   updateContact: (
     clientId: string,
     field: "email" | "phone",
@@ -115,7 +124,12 @@ export interface OpsClientLiveBackend<T extends OpsClient, D> {
   fetchClients: () => Promise<T[]>;
   fetchDepartmentStatuses: (clientId: string) => Promise<D[]>;
   updateStatus: (clientId: string, status: string) => Promise<void>;
-  updateAssignee: (clientId: string, assigneeName: string) => Promise<void>;
+  /**
+   * Omit until the division can resolve an assignee to a real profile id.
+   * Names are not identities (rule 4), so a division without a people
+   * directory reports "cannot assign" rather than guessing from a name.
+   */
+  updateAssignee?: (clientId: string, assigneeName: string) => Promise<void>;
   updateContact: (
     clientId: string,
     field: "email" | "phone",
@@ -211,7 +225,9 @@ export function createOpsClientStore<T extends OpsClient, D>(
 
     const togglePin = useCallback((activityId: string) => {
       setActivity((prev) =>
-        prev.map((a) => (a.id === activityId ? { ...a, pinned: !a.pinned } : a)),
+        prev.map((a) =>
+          a.id === activityId ? { ...a, pinned: !a.pinned } : a,
+        ),
       );
     }, []);
 
@@ -437,6 +453,7 @@ export function createOpsClientStore<T extends OpsClient, D>(
         getDepartmentStatuses,
         updateStatus,
         updateAssignee,
+        canAssign: true,
         updateContact,
         checkAddConflict,
         addClient,
@@ -556,8 +573,11 @@ export function createOpsClientStore<T extends OpsClient, D>(
       [clients, invalidate],
     );
 
+    const canAssign = Boolean(backend.updateAssignee);
+
     const updateAssignee = useCallback(
       (clientId: string, newAssignee: string) => {
+        if (!backend.updateAssignee) return;
         void backend
           .updateAssignee(clientId, newAssignee)
           .then(invalidate)
@@ -607,7 +627,11 @@ export function createOpsClientStore<T extends OpsClient, D>(
           .addClient(client)
           .then(invalidate)
           .catch(report("Adding client"));
-        return { id: "", blocked: false, crossScopeMatches: conflict.crossScopeMatches };
+        return {
+          id: "",
+          blocked: false,
+          crossScopeMatches: conflict.crossScopeMatches,
+        };
       },
       // eslint-disable-next-line react-hooks/exhaustive-deps
       [clients, invalidate],
@@ -642,6 +666,7 @@ export function createOpsClientStore<T extends OpsClient, D>(
         getDepartmentStatuses,
         updateStatus,
         updateAssignee,
+        canAssign,
         updateContact,
         checkAddConflict,
         addClient,
@@ -693,6 +718,7 @@ export function createOpsClientStore<T extends OpsClient, D>(
       getDepartmentStatuses: () => [],
       updateStatus: noop,
       updateAssignee: noop,
+      canAssign: false,
       updateContact: noop,
       checkAddConflict: () => ({ crossScopeMatches: [] }),
       addClient: () => ({ id: "", blocked: true, crossScopeMatches: [] }),

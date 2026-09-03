@@ -63,6 +63,7 @@ export function FundingClientListTable({
         updateStatus: (id, status, actor) =>
           store.updateStatus(id, status as FundingClient["status"], actor),
         updateAssignee: store.updateAssignee,
+        canAssign: store.canAssign,
         updateContact: store.updateContact,
         logActivity: store.addActivity,
       }}

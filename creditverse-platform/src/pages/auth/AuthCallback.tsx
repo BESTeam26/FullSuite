@@ -26,7 +26,8 @@ const AuthCallback = () => {
       />
     );
   }
-  if (status === "signed-out" || timedOut) return <Navigate to="/login" replace />;
+  if (status === "signed-out" || timedOut)
+    return <Navigate to="/login" replace />;
   return <FullScreenSpinner />;
 };
 

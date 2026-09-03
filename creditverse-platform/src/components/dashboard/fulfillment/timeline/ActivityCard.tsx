@@ -19,7 +19,6 @@ import {
   type CommentAttachment,
 } from "@/lib/fulfillment/attachment-domain";
 
-
 /** Parse a comment detail string that may embed attachments as a JSON tail. */
 export function parseComment(detail: string): {
   text: string;

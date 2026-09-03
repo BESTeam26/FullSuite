@@ -100,10 +100,18 @@ export const AttentionCenter = () => {
       )}
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatCard label="Needs attention" value={items.length} icon={AlertTriangle} />
+        <StatCard
+          label="Needs attention"
+          value={items.length}
+          icon={AlertTriangle}
+        />
         <StatCard label="Blocked" value={counts.blocked} icon={ShieldAlert} />
         <StatCard label="Overdue" value={counts.overdue} icon={AlertTriangle} />
-        <StatCard label="SLA risk (< 4h)" value={counts.sla_risk} icon={Clock} />
+        <StatCard
+          label="SLA risk (< 4h)"
+          value={counts.sla_risk}
+          icon={Clock}
+        />
       </div>
 
       <div className="mt-5 space-y-2">
@@ -116,7 +124,8 @@ export const AttentionCenter = () => {
           <div className="flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-4 py-6 text-sm">
             <CheckCircle2 className="h-5 w-5 text-emerald-600" />
             <span className="text-foreground">
-              Nothing needs attention. No blocked work and nothing inside the SLA window.
+              Nothing needs attention. No blocked work and nothing inside the
+              SLA window.
             </span>
           </div>
         )}
@@ -190,7 +199,9 @@ export const MyWorkPage = () => {
 
       <ContentCard title="My Active Work Items">
         {isLoading ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p>
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            Loading…
+          </p>
         ) : items.length === 0 ? (
           <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
             <CheckCircle2 className="h-4 w-4 text-emerald-600" />

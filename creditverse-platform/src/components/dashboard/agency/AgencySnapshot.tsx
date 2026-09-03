@@ -75,7 +75,10 @@ function SnapshotCard({
 
       <p className="text-2xl font-extrabold text-foreground leading-tight">
         {pending ? (
-          <span className="text-muted-foreground" title="Not yet connected to a data source">
+          <span
+            className="text-muted-foreground"
+            title="Not yet connected to a data source"
+          >
             —
           </span>
         ) : (

@@ -55,7 +55,10 @@ export const BuilderSelectorPanel = ({
   onGenerateMode,
 }: {
   pkg: DisputePackage;
-  onGenerateMode: (mode: BuilderMode, options?: Record<string, unknown>) => void;
+  onGenerateMode: (
+    mode: BuilderMode,
+    options?: Record<string, unknown>,
+  ) => void;
 }) => {
   const [activeType, setActiveType] = useState<
     "factual" | "metro2" | "other" | "hybrid"

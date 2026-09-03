@@ -49,7 +49,12 @@ describe("deriveEodTotals", () => {
       productionUnitType: "Deals Processed",
       productionUnitQuantity: 5,
     }),
-    log({ id: "c", productionUnitQuantity: 7, isVoided: true, voidReason: "dup" }),
+    log({
+      id: "c",
+      productionUnitQuantity: 7,
+      isVoided: true,
+      voidReason: "dup",
+    }),
     log({ id: "d", employeeId: "emp-2", productionUnitQuantity: 3 }),
     log({ id: "e", workDate: "2026-09-02", productionUnitQuantity: 4 }),
     log({ id: "f", productionUnitQuantity: 2 }), // same type as "a" -> should sum
@@ -121,7 +126,9 @@ describe("isEodMissing", () => {
 
   it("treats draft and needs_clarification like no submission", () => {
     expect(isEodMissing(submission("draft"), 17, 2, 20)).toBe(true);
-    expect(isEodMissing(submission("needs_clarification"), 17, 2, 20)).toBe(true);
+    expect(isEodMissing(submission("needs_clarification"), 17, 2, 20)).toBe(
+      true,
+    );
     expect(isEodMissing(submission("draft"), 17, 2, 12)).toBe(false);
   });
 
@@ -167,10 +174,16 @@ describe("seedProductionLogs", () => {
 
   it("derives the expected per-employee totals", () => {
     const date = seedProductionLogs[0].workDate;
-    expect(deriveEodTotals(seedProductionLogs, "emp-1", date).totalUnits).toBe(22);
-    expect(deriveEodTotals(seedProductionLogs, "emp-2", date).totalUnits).toBe(36);
+    expect(deriveEodTotals(seedProductionLogs, "emp-1", date).totalUnits).toBe(
+      22,
+    );
+    expect(deriveEodTotals(seedProductionLogs, "emp-2", date).totalUnits).toBe(
+      36,
+    );
     expect(
-      deriveEodTotals(seedProductionLogs, "emp-2", date).unitsByType["Dispute Letters"],
+      deriveEodTotals(seedProductionLogs, "emp-2", date).unitsByType[
+        "Dispute Letters"
+      ],
     ).toBe(12);
   });
 });

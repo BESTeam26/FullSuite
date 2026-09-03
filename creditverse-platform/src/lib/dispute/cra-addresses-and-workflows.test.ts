@@ -6,7 +6,10 @@ import {
   type ReportSnapshot,
 } from "./cra-addresses-and-workflows";
 
-const snap = (date: string, accountIds: string[]): ReportSnapshot => ({ date, accountIds });
+const snap = (date: string, accountIds: string[]): ReportSnapshot => ({
+  date,
+  accountIds,
+});
 
 describe("detectReinsertions", () => {
   it("flags an account that disappears and later reappears", () => {
@@ -38,7 +41,9 @@ describe("detectReinsertions", () => {
   });
 
   it("does not treat a brand-new account as a reinsertion", () => {
-    expect(detectReinsertions([snap("d1", ["A"]), snap("d2", ["A", "C"])])).toEqual([]);
+    expect(
+      detectReinsertions([snap("d1", ["A"]), snap("d2", ["A", "C"])]),
+    ).toEqual([]);
   });
 
   it("records the most recent deletion even when snapshots are skipped", () => {

@@ -35,8 +35,12 @@ describe("decideDisputePath", () => {
   });
 
   it("treats 'consumer does not recognize account' as identity theft, but not undefined", () => {
-    expect(decide({ consumerRecognizesAccount: false }).pathway).toBe("identity-theft-block");
-    expect(decide({ consumerRecognizesAccount: undefined }).pathway).toBe("cra-accuracy");
+    expect(decide({ consumerRecognizesAccount: false }).pathway).toBe(
+      "identity-theft-block",
+    );
+    expect(decide({ consumerRecognizesAccount: undefined }).pathway).toBe(
+      "cra-accuracy",
+    );
   });
 
   it("identity theft outranks every other trigger", () => {
@@ -63,31 +67,52 @@ describe("decideDisputePath", () => {
   });
 
   it("uses the FCBA billing-error path only for Late Payment items with qualifying facts", () => {
-    const late = decide({ item: item({ category: "Late Payment" }), hasBillingErrorFacts: true });
+    const late = decide({
+      item: item({ category: "Late Payment" }),
+      hasBillingErrorFacts: true,
+    });
     expect(late.pathway).toBe("billing-error");
     expect(late.legalCitations).toEqual(["15 U.S.C. § 1666"]);
 
-    const chargeOff = decide({ item: item({ category: "Charge-Off" }), hasBillingErrorFacts: true });
+    const chargeOff = decide({
+      item: item({ category: "Charge-Off" }),
+      hasBillingErrorFacts: true,
+    });
     expect(chargeOff.pathway).toBe("cra-accuracy");
   });
 
   it("requests the reinvestigation procedure when verified-but-contradicted at round 2+", () => {
-    const d = decide({ round: 2, wasVerifiedPrior: true, evidenceContradictsVerification: true });
+    const d = decide({
+      round: 2,
+      wasVerifiedPrior: true,
+      evidenceContradictsVerification: true,
+    });
     expect(d.pathway).toBe("procedure-request");
     expect(d.state).toBe("procedure-request");
-    expect(d.legalCitations).toEqual(["15 U.S.C. § 1681i(a)(6)", "15 U.S.C. § 1681i(a)(7)"]);
+    expect(d.legalCitations).toEqual([
+      "15 U.S.C. § 1681i(a)(6)",
+      "15 U.S.C. § 1681i(a)(7)",
+    ]);
   });
 
   it("escalates with new information when verified-but-contradicted at round 1", () => {
-    const base = { round: 1, wasVerifiedPrior: true, evidenceContradictsVerification: true };
+    const base = {
+      round: 1,
+      wasVerifiedPrior: true,
+      evidenceContradictsVerification: true,
+    };
     const without = decide(base);
     expect(without.pathway).toBe("cra-reinvestigation-escalation");
     expect(without.state).toBe("escalation-new-info");
     expect(without.legalCitations).toContain("Reg V 12 C.F.R. § 1022.43");
-    expect(without.flags).not.toContain("New evidence attached — supports non-frivolous escalation");
+    expect(without.flags).not.toContain(
+      "New evidence attached — supports non-frivolous escalation",
+    );
 
     const withNew = decide({ ...base, hasNewEvidence: true });
-    expect(withNew.flags).toContain("New evidence attached — supports non-frivolous escalation");
+    expect(withNew.flags).toContain(
+      "New evidence attached — supports non-frivolous escalation",
+    );
   });
 
   it("escalates to potential compliance failure at round 3+ with repeated verified results", () => {
@@ -150,7 +175,10 @@ describe("decideDisputePath", () => {
   it("goes direct to the furnisher at round 3+ with the Reg V CRO caveat", () => {
     const d = decide({ round: 3 });
     expect(d.pathway).toBe("furnisher-direct");
-    expect(d.legalCitations).toEqual(["15 U.S.C. § 1681s-2", "Reg V 12 C.F.R. § 1022.43"]);
+    expect(d.legalCitations).toEqual([
+      "15 U.S.C. § 1681s-2",
+      "Reg V 12 C.F.R. § 1022.43",
+    ]);
     expect(d.flags[0]).toMatch(/Reg V CRO exception/);
     expect(d.humanReviewRequired).toBe(false);
   });
@@ -158,7 +186,10 @@ describe("decideDisputePath", () => {
   it("defaults to a CRA accuracy dispute, guarding against evidence-less filings", () => {
     const withEvidence = decide({ hasEvidence: true });
     expect(withEvidence.pathway).toBe("cra-accuracy");
-    expect(withEvidence.legalCitations).toEqual(["15 U.S.C. § 1681e(b)", "15 U.S.C. § 1681i"]);
+    expect(withEvidence.legalCitations).toEqual([
+      "15 U.S.C. § 1681e(b)",
+      "15 U.S.C. § 1681i",
+    ]);
     expect(withEvidence.flags).toEqual([]);
     expect(withEvidence.opening).toMatch(/error table/);
 
@@ -203,7 +234,11 @@ describe("buildFactualDisputeRecord", () => {
     const none = buildFactualDisputeRecord({ item: item(), round: 1 });
     expect(none.priorDisputeHistory).toEqual([]);
 
-    const one = buildFactualDisputeRecord({ item: item(), round: 2, priorDisputeCount: 1 });
+    const one = buildFactualDisputeRecord({
+      item: item(),
+      round: 2,
+      priorDisputeCount: 1,
+    });
     expect(one.priorDisputeHistory).toHaveLength(1);
     expect(one.priorDisputeHistory[0].result).toBe("Pending");
 
@@ -214,6 +249,10 @@ describe("buildFactualDisputeRecord", () => {
       wasVerifiedPrior: true,
     });
     expect(many.priorDisputeHistory).toHaveLength(2);
-    expect(many.priorDisputeHistory.every((h) => h.result === "Verified / no change")).toBe(true);
+    expect(
+      many.priorDisputeHistory.every(
+        (h) => h.result === "Verified / no change",
+      ),
+    ).toBe(true);
   });
 });

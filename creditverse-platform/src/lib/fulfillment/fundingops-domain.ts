@@ -260,4 +260,3 @@ export const INACTIVE_FUNDING_STATUSES = [
 
 export const isActiveFunding = (status: string) =>
   !INACTIVE_FUNDING_STATUSES.includes(status);
-

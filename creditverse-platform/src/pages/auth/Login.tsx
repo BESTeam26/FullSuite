@@ -83,17 +83,26 @@ const Login = () => {
               <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm">
                 <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
                 <div>
-                  <p className="font-semibold text-amber-200">Backend not configured</p>
+                  <p className="font-semibold text-amber-200">
+                    Backend not configured
+                  </p>
                   <p className="mt-1 text-white/70">
-                    No Supabase credentials were found, so the platform is running
-                    in <strong>demo mode</strong> over seed data. Nothing is saved.
-                    Copy <code className="rounded bg-white/10 px-1">.env.example</code> to{" "}
-                    <code className="rounded bg-white/10 px-1">.env.local</code> and
-                    restart to enable real sign-in.
+                    No Supabase credentials were found, so the platform is
+                    running in <strong>demo mode</strong> over seed data.
+                    Nothing is saved. Copy{" "}
+                    <code className="rounded bg-white/10 px-1">
+                      .env.example
+                    </code>{" "}
+                    to{" "}
+                    <code className="rounded bg-white/10 px-1">.env.local</code>{" "}
+                    and restart to enable real sign-in.
                   </p>
                 </div>
               </div>
-              <Button asChild className="w-full bg-gradient-gold text-charcoal hover:opacity-90">
+              <Button
+                asChild
+                className="w-full bg-gradient-gold text-charcoal hover:opacity-90"
+              >
                 <Link to="/app">
                   Continue in demo mode <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
@@ -118,7 +127,9 @@ const Login = () => {
 
               {panel === "signup" && (
                 <div className="space-y-1.5">
-                  <Label htmlFor="fullName" className="text-white/80">Full name</Label>
+                  <Label htmlFor="fullName" className="text-white/80">
+                    Full name
+                  </Label>
                   <Input
                     id="fullName"
                     value={fullName}
@@ -130,7 +141,9 @@ const Login = () => {
               )}
 
               <div className="space-y-1.5">
-                <Label htmlFor="email" className="text-white/80">Email</Label>
+                <Label htmlFor="email" className="text-white/80">
+                  Email
+                </Label>
                 <div className="relative">
                   <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
                   <Input
@@ -147,13 +160,17 @@ const Login = () => {
 
               {(panel === "password" || panel === "signup") && (
                 <div className="space-y-1.5">
-                  <Label htmlFor="password" className="text-white/80">Password</Label>
+                  <Label htmlFor="password" className="text-white/80">
+                    Password
+                  </Label>
                   <div className="relative">
                     <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
                     <Input
                       id="password"
                       type="password"
-                      autoComplete={panel === "signup" ? "new-password" : "current-password"}
+                      autoComplete={
+                        panel === "signup" ? "new-password" : "current-password"
+                      }
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
@@ -193,22 +210,38 @@ const Login = () => {
 
               <div className="flex flex-wrap justify-between gap-2 pt-1 text-xs text-white/60">
                 {panel !== "password" && (
-                  <button type="button" onClick={() => setPanel("password")} className="hover:text-white">
+                  <button
+                    type="button"
+                    onClick={() => setPanel("password")}
+                    className="hover:text-white"
+                  >
                     Use password
                   </button>
                 )}
                 {panel !== "magic" && (
-                  <button type="button" onClick={() => setPanel("magic")} className="hover:text-white">
+                  <button
+                    type="button"
+                    onClick={() => setPanel("magic")}
+                    className="hover:text-white"
+                  >
                     Email me a link
                   </button>
                 )}
                 {panel !== "reset" && panel !== "signup" && (
-                  <button type="button" onClick={() => setPanel("reset")} className="hover:text-white">
+                  <button
+                    type="button"
+                    onClick={() => setPanel("reset")}
+                    className="hover:text-white"
+                  >
                     Forgot password
                   </button>
                 )}
                 {panel !== "signup" && (
-                  <button type="button" onClick={() => setPanel("signup")} className="hover:text-white">
+                  <button
+                    type="button"
+                    onClick={() => setPanel("signup")}
+                    className="hover:text-white"
+                  >
                     Create account
                   </button>
                 )}
@@ -218,7 +251,9 @@ const Login = () => {
         </div>
 
         <p className="mt-6 text-center text-xs text-white/40">
-          <Link to="/" className="hover:text-white/70">← Back to site</Link>
+          <Link to="/" className="hover:text-white/70">
+            ← Back to site
+          </Link>
         </p>
       </div>
     </div>

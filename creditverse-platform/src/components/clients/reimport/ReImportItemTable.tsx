@@ -109,7 +109,9 @@ function BureauDetailCard({
         </div>
       )}
       {bureau.note && (
-        <div className={`mt-2 rounded p-2 text-[11px] ${bureau.note.className}`}>
+        <div
+          className={`mt-2 rounded p-2 text-[11px] ${bureau.note.className}`}
+        >
           {bureau.note.text}
         </div>
       )}

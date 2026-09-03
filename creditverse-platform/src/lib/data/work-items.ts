@@ -7,7 +7,12 @@
  */
 import { requireSupabase } from "@/lib/supabase/client";
 import type { Enums, Tables } from "@/lib/supabase/database.types";
-import type { WorkItem, WorkRelatedType, WorkScope, WorkStage } from "@/lib/bes-domain";
+import type {
+  WorkItem,
+  WorkRelatedType,
+  WorkScope,
+  WorkStage,
+} from "@/lib/bes-domain";
 
 export type WorkItemRow = Tables<"work_items">;
 /* The generated Tables<> helper resolves views as well as tables. */
@@ -23,7 +28,9 @@ export type AssignableProfile = {
 /** Hours until due, rounded to one decimal. Undefined when there is no due date. */
 export const hoursUntil = (dueAt: string | null): number | undefined => {
   if (!dueAt) return undefined;
-  return Math.round(((new Date(dueAt).getTime() - Date.now()) / 3_600_000) * 10) / 10;
+  return (
+    Math.round(((new Date(dueAt).getTime() - Date.now()) / 3_600_000) * 10) / 10
+  );
 };
 
 const relativeTime = (iso: string): string => {
@@ -169,13 +176,16 @@ export interface CreateWorkItemInput {
   createdBy: string;
 }
 
-export async function createWorkItem(input: CreateWorkItemInput): Promise<string> {
+export async function createWorkItem(
+  input: CreateWorkItemInput,
+): Promise<string> {
   const sb = requireSupabase();
   const { data, error } = await sb
     .from("work_items")
     .insert({
       scope: input.scope,
-      organization_id: input.scope === "ORGANIZATION" ? (input.organizationId ?? null) : null,
+      organization_id:
+        input.scope === "ORGANIZATION" ? (input.organizationId ?? null) : null,
       subject_organization_id: input.subjectOrganizationId ?? null,
       related_type: input.relatedType,
       related_ref: input.relatedRef ?? null,
@@ -205,7 +215,10 @@ export async function updateWorkStage(id: string, stage: Enums<"work_stage">) {
 
 export async function assignWork(id: string, assigneeId: string | null) {
   const sb = requireSupabase();
-  const { error } = await sb.from("work_items").update({ assigned_to: assigneeId }).eq("id", id);
+  const { error } = await sb
+    .from("work_items")
+    .update({ assigned_to: assigneeId })
+    .eq("id", id);
   if (error) throw error;
 }
 
@@ -234,12 +247,18 @@ export async function addComment(input: {
 
 export async function setActivityPinned(id: number, pinned: boolean) {
   const sb = requireSupabase();
-  const { error } = await sb.from("activity_events").update({ pinned }).eq("id", id);
+  const { error } = await sb
+    .from("activity_events")
+    .update({ pinned })
+    .eq("id", id);
   if (error) throw error;
 }
 
 export async function setActivityMark(id: number, mark: string | null) {
   const sb = requireSupabase();
-  const { error } = await sb.from("activity_events").update({ mark }).eq("id", id);
+  const { error } = await sb
+    .from("activity_events")
+    .update({ mark })
+    .eq("id", id);
   if (error) throw error;
 }

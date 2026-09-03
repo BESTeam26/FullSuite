@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
-import { analyzeScorePotential, type ScorePotentialResult } from "./score-potential";
+import {
+  analyzeScorePotential,
+  type ScorePotentialResult,
+} from "./score-potential";
 import type { ClassifiedItem } from "./credit-classification";
 
 const item = (o: Partial<ClassifiedItem> & { id: string }): ClassifiedItem => ({
@@ -17,8 +20,12 @@ const item = (o: Partial<ClassifiedItem> & { id: string }): ClassifiedItem => ({
   ...o,
 });
 
-const revolving = (id: string, balance: string, openDate: string, extra: Partial<ClassifiedItem> = {}) =>
-  item({ id, subtype: "Revolving", balance, openDate, ...extra });
+const revolving = (
+  id: string,
+  balance: string,
+  openDate: string,
+  extra: Partial<ClassifiedItem> = {},
+) => item({ id, subtype: "Revolving", balance, openDate, ...extra });
 
 const collection = (id: string, extra: Partial<ClassifiedItem> = {}) =>
   item({
@@ -32,8 +39,14 @@ const collection = (id: string, extra: Partial<ClassifiedItem> = {}) =>
     ...extra,
   });
 
-const factor = (r: ScorePotentialResult, bureau: "EQ" | "EX" | "TU", key: string) =>
-  r.bureaus.find((b) => b.bureau === bureau)!.factors.find((f) => f.key === key)!;
+const factor = (
+  r: ScorePotentialResult,
+  bureau: "EQ" | "EX" | "TU",
+  key: string,
+) =>
+  r.bureaus
+    .find((b) => b.bureau === bureau)!
+    .factors.find((f) => f.key === key)!;
 
 beforeAll(() => {
   vi.useFakeTimers();
@@ -44,7 +57,11 @@ afterAll(() => vi.useRealTimers());
 describe("analyzeScorePotential", () => {
   it("produces three bureau analyses whose weighted factors sum to the estimates", () => {
     const r = analyzeScorePotential([]);
-    expect(r.bureaus.map((b) => b.label)).toEqual(["Equifax", "Experian", "TransUnion"]);
+    expect(r.bureaus.map((b) => b.label)).toEqual([
+      "Equifax",
+      "Experian",
+      "TransUnion",
+    ]);
     for (const b of r.bureaus) {
       expect(b.factors.map((f) => f.key)).toEqual([
         "payment",
@@ -54,8 +71,12 @@ describe("analyzeScorePotential", () => {
         "inquiries",
       ]);
       expect(b.factors.reduce((s, f) => s + f.weight, 0)).toBeCloseTo(1);
-      expect(300 + b.factors.reduce((s, f) => s + f.currentPoints, 0)).toBe(b.currentEstimate);
-      expect(300 + b.factors.reduce((s, f) => s + f.ceilingPoints, 0)).toBe(b.ceilingEstimate);
+      expect(300 + b.factors.reduce((s, f) => s + f.currentPoints, 0)).toBe(
+        b.currentEstimate,
+      );
+      expect(300 + b.factors.reduce((s, f) => s + f.ceilingPoints, 0)).toBe(
+        b.ceilingEstimate,
+      );
       expect(b.gap).toBe(b.ceilingEstimate - b.currentEstimate);
       expect(b.factors.every((f) => f.ceiling >= f.current)).toBe(true);
     }
@@ -67,7 +88,9 @@ describe("analyzeScorePotential", () => {
     expect(r.assessment.thinFile).toBe(true);
     expect(r.assessment.primaryLever).toBe("BUILD");
     expect(r.assessment.totalAccounts).toBe(0);
-    expect(factor(r, "EQ", "utilization").note).toMatch(/No open revolving accounts/);
+    expect(factor(r, "EQ", "utilization").note).toMatch(
+      /No open revolving accounts/,
+    );
   });
 
   it("scores a clean, seasoned, diversified profile as BALANCED with strong factors", () => {
@@ -121,7 +144,9 @@ describe("analyzeScorePotential", () => {
     expect(factor(r, "EQ", "payment").current).toBe(90);
     expect(factor(r, "EX", "payment").current).toBe(100);
     expect(factor(r, "TU", "payment").current).toBe(100);
-    expect(r.bureaus[0].currentEstimate).toBeLessThan(r.bureaus[1].currentEstimate);
+    expect(r.bureaus[0].currentEstimate).toBeLessThan(
+      r.bureaus[1].currentEstimate,
+    );
   });
 
   it("penalizes high utilization and flags it as a fast lever", () => {
@@ -152,7 +177,9 @@ describe("analyzeScorePotential", () => {
   });
 
   it("adds a recency penalty for derogatories with a DOFD under two years old", () => {
-    const recent = analyzeScorePotential([collection("k", { dofd: "06/2026" })]);
+    const recent = analyzeScorePotential([
+      collection("k", { dofd: "06/2026" }),
+    ]);
     const old = analyzeScorePotential([collection("k", { dofd: "01/2020" })]);
     expect(factor(recent, "EQ", "payment").current).toBe(87); // 100 - 10 - 3
     expect(factor(old, "EQ", "payment").current).toBe(90);

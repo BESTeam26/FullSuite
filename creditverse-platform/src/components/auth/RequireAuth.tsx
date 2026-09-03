@@ -26,13 +26,20 @@ const NoAccess = () => {
         <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600">
           <ShieldAlert className="h-6 w-6" />
         </div>
-        <h1 className="text-lg font-bold text-foreground">No workspace access</h1>
+        <h1 className="text-lg font-bold text-foreground">
+          No workspace access
+        </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          You are signed in as <span className="font-medium text-foreground">{displayName}</span>, but this
-          account has not been added to an agency or organization yet. Ask your
-          administrator to invite you.
+          You are signed in as{" "}
+          <span className="font-medium text-foreground">{displayName}</span>,
+          but this account has not been added to an agency or organization yet.
+          Ask your administrator to invite you.
         </p>
-        <Button variant="outline" className="mt-6" onClick={() => void signOut()}>
+        <Button
+          variant="outline"
+          className="mt-6"
+          onClick={() => void signOut()}
+        >
           <LogOut className="mr-2 h-4 w-4" /> Sign out
         </Button>
       </div>

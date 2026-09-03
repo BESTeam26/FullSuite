@@ -28,8 +28,12 @@ describe("detectAnomaly", () => {
   });
 
   it("ignores case, surrounding whitespace, blanks and '-' placeholders when comparing", () => {
-    expect(run({ values: vals("Open", " open ", "OPEN") }).classification).toBe("consistent");
-    expect(run({ values: vals("$500", "-", "") }).classification).toBe("consistent");
+    expect(run({ values: vals("Open", " open ", "OPEN") }).classification).toBe(
+      "consistent",
+    );
+    expect(run({ values: vals("$500", "-", "") }).classification).toBe(
+      "consistent",
+    );
   });
 
   it("treats a cross-bureau difference as an investigation trigger, not proof", () => {
@@ -59,7 +63,10 @@ describe("detectAnomaly", () => {
     // NOTE: possible bug — getFieldMetro2Context matches on the first word of
     // each taxonomy entry, so "Current Balance" hits "Current Status" first and
     // is labelled "Account Status Code" instead of "Current Balance".
-    const r = run({ field: "Current Balance", values: vals("$500", "$0", "$500") });
+    const r = run({
+      field: "Current Balance",
+      values: vals("$500", "$0", "$500"),
+    });
     expect(r.classification).toBe("observed-difference");
     expect(r.metro2Context).toBe("Account Status Code");
   });
@@ -81,7 +88,10 @@ describe("detectAnomaly", () => {
   });
 
   it("does not flag a DOFD that is consistent across bureaus", () => {
-    const r = run({ field: "First Delinquency", values: vals("06/2019", "06/2019", "06/2019") });
+    const r = run({
+      field: "First Delinquency",
+      values: vals("06/2019", "06/2019", "06/2019"),
+    });
     expect(r.classification).toBe("consistent");
   });
 
@@ -105,7 +115,10 @@ describe("detectAnomaly", () => {
   });
 
   it("requires a source document when the consumer attests a different value", () => {
-    const r = run({ values: vals("01/2019", "01/2019", "01/2019"), consumerAssertedValue: "01/2018" });
+    const r = run({
+      values: vals("01/2019", "01/2019", "01/2019"),
+      consumerAssertedValue: "01/2018",
+    });
     expect(r.classification).toBe("potential-anomaly");
     expect(r.fieldVerdict).toBe("needs-source-document");
     expect(r.evidenceStrength).toBe("consumer-attested-fact");
@@ -124,17 +137,25 @@ describe("detectAnomaly", () => {
     expect(r.legalContext).toContain("FDCPA § 1692e(8)");
     expect(r.humanReviewRequired).toBe(true);
 
-    expect(run({ ...base, reportCommunicatesDispute: true }).classification).toBe("consistent");
+    expect(
+      run({ ...base, reportCommunicatesDispute: true }).classification,
+    ).toBe("consistent");
   });
 });
 
 describe("detectReinsertion", () => {
   it("flags a reinsertion event with certification and notice gaps", () => {
-    const r = detectReinsertion({ previouslyDeleted: true, reappearedOnNewReport: true });
+    const r = detectReinsertion({
+      previouslyDeleted: true,
+      reappearedOnNewReport: true,
+    });
     expect(r.isReinsertionEvent).toBe(true);
     expect(r.classification).toBe("potential-fcra-reg-v-issue");
     expect(r.flags).toHaveLength(3);
-    expect(r.legalContext).toEqual(["15 U.S.C. § 1681i(a)(5)(B)", "15 U.S.C. § 1681i(a)(5)(C)"]);
+    expect(r.legalContext).toEqual([
+      "15 U.S.C. § 1681i(a)(5)(B)",
+      "15 U.S.C. § 1681i(a)(5)(C)",
+    ]);
   });
 
   it("omits gap flags when certification and notice are on file", () => {
@@ -149,8 +170,16 @@ describe("detectReinsertion", () => {
   });
 
   it("requires both a prior deletion and a reappearance", () => {
-    expect(detectReinsertion({ previouslyDeleted: true, reappearedOnNewReport: false }).isReinsertionEvent).toBe(false);
-    const r = detectReinsertion({ previouslyDeleted: false, reappearedOnNewReport: true });
+    expect(
+      detectReinsertion({
+        previouslyDeleted: true,
+        reappearedOnNewReport: false,
+      }).isReinsertionEvent,
+    ).toBe(false);
+    const r = detectReinsertion({
+      previouslyDeleted: false,
+      reappearedOnNewReport: true,
+    });
     expect(r.isReinsertionEvent).toBe(false);
     expect(r.classification).toBe("consistent");
     expect(r.flags).toEqual([]);
@@ -161,7 +190,10 @@ describe("routeStatutes", () => {
   it("assigns §1681e(b) and §1681i to CRAs only", () => {
     const cra = routeStatutes("cra");
     expect(cra.recipient).toBe("cra");
-    expect(cra.applicableStatutes).toEqual(["15 U.S.C. § 1681e(b)", "15 U.S.C. § 1681i"]);
+    expect(cra.applicableStatutes).toEqual([
+      "15 U.S.C. § 1681e(b)",
+      "15 U.S.C. § 1681i",
+    ]);
     expect(cra.incorrectAssignment[0]).toMatch(/§1681s-2\(b\)/);
   });
 
@@ -178,7 +210,10 @@ describe("routeStatutes", () => {
 
   it("adds FDCPA §1692e(8) for debt collectors with a coverage caveat", () => {
     const dc = routeStatutes("debt-collector");
-    expect(dc.applicableStatutes).toEqual(["FDCPA § 1692e(8)", "15 U.S.C. § 1681s-2"]);
+    expect(dc.applicableStatutes).toEqual([
+      "FDCPA § 1692e(8)",
+      "15 U.S.C. § 1681s-2",
+    ]);
     expect(dc.incorrectAssignment[0]).toMatch(/FDCPA coverage/);
   });
 });
