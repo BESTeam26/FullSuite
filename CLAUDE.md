@@ -249,3 +249,104 @@ integrations, and UI behaviour live.
 
 > Rule 5 states the separation requirement; this rule defines the standard the
 > separation is held to and how it is verified at review time.
+
+## 14. Performance first / no request waterfalls
+
+**Performance is an architectural requirement, not a later optimization.**
+
+This application previously suffered from excessive server, database and auth
+round trips. **Do not recreate that architecture.**
+
+### Hard rules
+
+- Minimize network and database round trips.
+- Avoid **sequential request waterfalls**.
+- Never resolve authentication repeatedly during one request or navigation when
+  the existing verified context can be safely reused.
+- Resolve tenant, user, role, permissions, scope and assignments **once**, then
+  reuse that authorization context.
+- Never repeatedly query the same permissions or grants during one operation.
+- **No N+1 queries.**
+- Never query related records one-by-one when they can be fetched in a bounded
+  or batched query.
+- Fetch only the data required for the **currently visible screen**.
+- Do **not** preload hidden tabs, unopened drawers, dialogs, secondary panels,
+  or optional workflows.
+- Lazy-load secondary or heavy functionality when requested.
+- Do not fetch an entire tenant dataset to calculate a small dashboard metric.
+- Use **server-side** filtering, sorting and pagination for large datasets.
+- Use appropriate database indexes for common filters, joins, tenant scope,
+  statuses, assignments and dates.
+- Avoid duplicate API calls caused by multiple components independently
+  requesting the same canonical data.
+- Share and cache request data **deliberately** when safe.
+- **Parallelize** independent requests when multiple requests are genuinely necessary.
+- Prefer well-shaped queries and endpoints that return what the screen needs,
+  rather than many tiny dependent requests.
+- Do not over-fetch large objects, files, activity histories, documents or
+  relationships when only summaries are currently needed.
+
+### Target interaction pattern
+
+```
+User action
+  → resolve authorization context
+    → minimal bounded data request(s)
+      → render
+        → lazy-load secondary data only when requested
+```
+
+### Never
+
+```
+User action
+  → auth
+  → auth again
+  → permissions
+  → permissions again
+  → record
+  → per-record enrichment
+  → hidden tab queries
+  → modal queries
+  → duplicate related queries
+  → render
+```
+
+### Pre-completion inspection
+
+Before completing any significant page or feature, inspect its data-loading path for:
+
+1. duplicate requests
+2. sequential waterfalls
+3. N+1 queries
+4. unnecessary hidden data
+5. excessive payload size
+6. unnecessary rerenders
+7. repeated authorization or database resolution
+
+**Do not trade security or correctness for speed.** Optimize the architecture so
+security, correctness and performance work together.
+
+**If a proposed implementation creates excessive back-and-forth calls, STOP and
+redesign the data flow before implementing it.**
+
+> Current state, verified rather than assumed:
+>
+> - **Authorization resolves once per session.** `auth-context` fetches profile
+>   plus agency, org and external memberships in a **single parallel batch**, on
+>   auth state change only — not per request, per route or per component. Every
+>   consumer reads the cached context.
+> - **Organizations load in one bounded request.** A single nested select returns
+>   organizations with their businesses, entitlements and memberships; user
+>   preferences load in parallel alongside it. No per-organization follow-ups.
+> - **Duplicate calls are collapsed by query key.** `useAttention` is called by
+>   both the HQ dashboard and its attention panel; the shared key
+>   `["work","attention"]` means one request serves both. Reuse existing keys
+>   rather than inventing near-duplicates.
+>
+> Known violation to fix when that code is next touched:
+> `updateOrganizationBranding` reads the row, merges in memory, then writes —
+> two round trips where one `jsonb` merge in SQL would do.
+>
+> Rule 7 states the performance requirements; this rule defines the request
+> patterns that satisfy them and the inspection that proves it.
