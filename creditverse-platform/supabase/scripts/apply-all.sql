@@ -1,12 +1,12 @@
 -- =============================================================================
 -- BES Platform — complete schema, generated 2026-09-02
--- Paste this whole file into the Supabase SQL editor and Run.
--- Safe to run on an EMPTY project. Combines:
---   migrations/20260902000100_tenancy_and_rbac.sql
---   migrations/20260902000200_work_engine.sql
---   seed.sql  (5 sample organizations + 7 work items)
+-- Paste into the Supabase SQL editor and Run. Safe on an EMPTY project.
+-- Combines all migrations in supabase/migrations/ plus seed.sql.
 -- =============================================================================
 
+-- ---------------------------------------------------------------------------
+-- 20260902000100_tenancy_and_rbac.sql
+-- ---------------------------------------------------------------------------
 -- =============================================================================
 -- BES Platform — Migration 0001: Tenancy + Identity + RBAC
 -- =============================================================================
@@ -530,10 +530,9 @@ grant usage on schema public to anon, authenticated;
 grant select, insert, update, delete on all tables in schema public to authenticated;
 grant usage, select on all sequences in schema public to authenticated;
 
--- =============================================================================
--- migration 0002
--- =============================================================================
-
+-- ---------------------------------------------------------------------------
+-- 20260902000200_work_engine.sql
+-- ---------------------------------------------------------------------------
 -- =============================================================================
 -- BES Platform — Migration 0002: Shared Operations Engine
 -- =============================================================================
@@ -930,10 +929,96 @@ grant select, insert, update on public.activity_events to authenticated;
 grant select, insert, delete on public.files to authenticated;
 grant select on public.work_attention to authenticated;
 
+-- ---------------------------------------------------------------------------
+-- 20260902000300_lock_down_function_grants.sql
+-- ---------------------------------------------------------------------------
 -- =============================================================================
--- seed data
+-- BES Platform — Migration 0003: revoke function EXECUTE from anon
+-- =============================================================================
+-- Found by the live smoke test: an ANONYMOUS caller could POST to
+-- /rest/v1/rpc/log_audit and get 204. Migration 0001 revoked that function from
+-- PUBLIC and granted it to `authenticated`, but Supabase's default privileges on
+-- the public schema also grant EXECUTE to the `anon` role, so the revoke did not
+-- cover it. Unauthenticated audit-log writes are a log-poisoning vector.
+--
+-- Fix: explicitly revoke EXECUTE from `anon` on every function in public, then
+-- re-grant only to `authenticated`. bootstrap_agency_owner stays service-role
+-- only. Belt and braces: also set default privileges so functions added later
+-- do not silently become anon-callable.
 -- =============================================================================
 
+-- 1. Nothing in public is callable by an unauthenticated visitor.
+revoke execute on all functions in schema public from anon;
+
+-- 2. Re-grant the ones a signed-in user legitimately needs.
+grant execute on function public.current_agency_role()               to authenticated;
+grant execute on function public.is_agency_staff()                   to authenticated;
+grant execute on function public.is_agency_admin()                   to authenticated;
+grant execute on function public.is_agency_manager_or_above()        to authenticated;
+grant execute on function public.is_org_member(uuid)                 to authenticated;
+grant execute on function public.org_role_for(uuid)                  to authenticated;
+grant execute on function public.is_org_admin(uuid)                  to authenticated;
+grant execute on function public.is_external_member(uuid)            to authenticated;
+grant execute on function public.can_view_org(uuid)                  to authenticated;
+grant execute on function public.shares_scope_with(uuid)             to authenticated;
+grant execute on function public.my_org_ids()                        to authenticated;
+grant execute on function public.log_audit(text, text, text, uuid, jsonb, jsonb) to authenticated;
+grant execute on function public.can_view_work(public.work_scope, uuid, uuid)    to authenticated;
+grant execute on function public.can_write_work(public.work_scope, uuid)         to authenticated;
+grant execute on function public.assignable_profiles(public.work_scope, uuid)    to authenticated;
+
+-- 3. Service-role only. Never reachable from a browser.
+revoke all on function public.bootstrap_agency_owner(citext, citext) from public, anon, authenticated;
+
+-- 4. Future functions default to authenticated-only.
+alter default privileges in schema public revoke execute on functions from anon;
+
+-- 5. Tables: anon gets nothing. Every policy is `to authenticated` anyway, but
+--    removing the grant means a missing policy cannot become a data leak.
+revoke all on all tables in schema public from anon;
+
+-- ---------------------------------------------------------------------------
+-- 20260902000400_revoke_public_execute.sql
+-- ---------------------------------------------------------------------------
+-- =============================================================================
+-- BES Platform — Migration 0004: revoke function EXECUTE from PUBLIC
+-- =============================================================================
+-- Migration 0003 revoked EXECUTE from the `anon` role, but Postgres grants
+-- EXECUTE to PUBLIC on every newly created function, and `anon` is a member of
+-- PUBLIC. So helpers such as is_agency_staff() and my_org_ids() still answered
+-- unauthenticated callers (returning false / [] — no data leak, but they should
+-- not be reachable at all, and a future helper might be less careful).
+--
+-- Revoke from PUBLIC, then re-grant only to `authenticated`.
+-- =============================================================================
+
+revoke execute on all functions in schema public from public;
+revoke execute on all functions in schema public from anon;
+
+grant execute on function public.current_agency_role()               to authenticated;
+grant execute on function public.is_agency_staff()                   to authenticated;
+grant execute on function public.is_agency_admin()                   to authenticated;
+grant execute on function public.is_agency_manager_or_above()        to authenticated;
+grant execute on function public.is_org_member(uuid)                 to authenticated;
+grant execute on function public.org_role_for(uuid)                  to authenticated;
+grant execute on function public.is_org_admin(uuid)                  to authenticated;
+grant execute on function public.is_external_member(uuid)            to authenticated;
+grant execute on function public.can_view_org(uuid)                  to authenticated;
+grant execute on function public.shares_scope_with(uuid)             to authenticated;
+grant execute on function public.my_org_ids()                        to authenticated;
+grant execute on function public.log_audit(text, text, text, uuid, jsonb, jsonb) to authenticated;
+grant execute on function public.can_view_work(public.work_scope, uuid, uuid)    to authenticated;
+grant execute on function public.can_write_work(public.work_scope, uuid)         to authenticated;
+grant execute on function public.assignable_profiles(public.work_scope, uuid)    to authenticated;
+
+-- Trigger functions run as the table owner, not the caller; no grant needed.
+revoke all on function public.bootstrap_agency_owner(citext, citext) from public, anon, authenticated;
+
+alter default privileges in schema public revoke execute on functions from public, anon;
+
+-- ---------------------------------------------------------------------------
+-- seed data
+-- ---------------------------------------------------------------------------
 -- =============================================================================
 -- Development seed — mirrors src/lib/bes-seed-data.ts so live mode looks like
 -- demo mode on first run. Idempotent. Does NOT create auth users: sign up in the
@@ -1003,5 +1088,4 @@ values
   ('d0000000-0000-4000-8000-000000000007','ORGANIZATION','b0000000-0000-4000-8000-000000000004',null,'project','PRJ-101','GHL CRM Build — CreditFix','Attention','High', now() + interval '1 day')
 on conflict (id) do nothing;
 
--- Tell PostgREST to pick up the new tables immediately.
 notify pgrst, 'reload schema';

@@ -150,27 +150,45 @@ if (missing.length === 0) {
 }
 
 if (schemaPushed) {
+  // Probe with REAL arguments: PostgREST matches on signature, so posting {}
+  // to a function that takes parameters returns 404 and looks "missing".
+  const ZERO_UUID = "00000000-0000-4000-8000-000000000000";
   const EXPECTED_RPC = [
-    "is_agency_staff",
-    "is_org_member",
-    "can_view_org",
-    "can_view_work",
-    "log_audit",
-    "my_org_ids",
+    ["is_agency_staff", {}],
+    ["my_org_ids", {}],
+    ["is_org_member", { p_org: ZERO_UUID }],
+    ["can_view_org", { p_org: ZERO_UUID }],
+    ["can_view_work", { p_scope: "AGENCY", p_org: null, p_subject_org: null }],
+    ["log_audit", { p_action: "probe", p_entity_type: "probe", p_entity_id: "probe" }],
   ];
+
   const missingRpc = [];
-  for (const fn of EXPECTED_RPC) {
+  // Functions an unauthenticated caller must NOT be able to execute.
+  const anonCallable = [];
+  for (const [fn, args] of EXPECTED_RPC) {
     const res = await rest(`/rpc/${fn}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: "{}",
+      body: JSON.stringify(args),
     });
-    // 404 = function absent. Anything else means it exists (400/401/403 are
-    // argument or permission problems, which still prove presence).
-    if (res.status === 404) missingRpc.push(fn);
+    const body = await res.text();
+    // 404 + PGRST202 means no function with that signature exists.
+    if (res.status === 404 && body.includes("PGRST202")) {
+      missingRpc.push(fn);
+    } else if (res.ok) {
+      anonCallable.push(fn);
+    }
   }
   if (missingRpc.length === 0) pass("authorization helper functions present");
   else fail(`missing functions: ${missingRpc.join(", ")}`);
+
+  if (anonCallable.length === 0) {
+    pass("no helper function is executable by an anonymous caller");
+  } else {
+    fail(
+      `anon can EXECUTE: ${anonCallable.join(", ")} — revoke EXECUTE from public and anon`,
+    );
+  }
 
   const boot = await rest("/rpc/bootstrap_agency_owner", {
     method: "POST",
