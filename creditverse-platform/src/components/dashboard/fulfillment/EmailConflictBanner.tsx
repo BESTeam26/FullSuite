@@ -1,6 +1,7 @@
 /**
  * EmailConflictBanner — in-app warning helper for the ONE EMAIL = ONE FILE
- * PER PARTNER rule, used by the inline email edit in the client list table.
+ * PER PARTNER rule, used by the inline email edit in both the CreditOps and
+ * FundingOps client list tables.
  *
  *   - Same email on THIS partner  → hard block (red), edit cannot be saved.
  *   - Same email on ANOTHER partner → warn (amber) + "Confirm separate
@@ -11,15 +12,22 @@
  */
 
 import { ShieldAlert, AlertTriangle } from "lucide-react";
-import type { FulfillmentClient } from "@/lib/fulfillment/fulfillment-client-domain";
-import { clientGroupLabel } from "@/lib/fulfillment/fulfillment-client-domain";
+import {
+  clientGroupLabel,
+  type OpsClient,
+} from "@/lib/fulfillment/ops-client-domain";
 import { cn } from "@/lib/utils";
 
-export interface EmailConflictState {
+/**
+ * Generic over the division's client type so CreditOps and FundingOps call
+ * sites keep their own precise types while sharing one component. The banner
+ * itself only ever reads fields that every ops client has.
+ */
+export interface EmailConflictState<T extends OpsClient = OpsClient> {
   clientId: string;
   value: string;
-  sameScopeDuplicate?: FulfillmentClient;
-  crossScopeMatches: FulfillmentClient[];
+  sameScopeDuplicate?: T;
+  crossScopeMatches: T[];
 }
 
 interface EmailConflictBannerProps {

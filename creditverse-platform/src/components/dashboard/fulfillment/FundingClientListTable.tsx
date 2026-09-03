@@ -34,9 +34,9 @@ import {
   FUNDING_PHONE_RE,
 } from "./funding-client-list-helpers";
 import {
-  FundingEmailConflictBanner,
-  type FundingEmailConflictState,
-} from "./FundingEmailConflictBanner";
+  EmailConflictBanner,
+  type EmailConflictState,
+} from "./EmailConflictBanner";
 import { cn } from "@/lib/utils";
 
 interface FundingClientListTableProps {
@@ -63,7 +63,7 @@ export function FundingClientListTable({
     value: string;
   } | null>(null);
   const [emailConflict, setEmailConflict] =
-    useState<FundingEmailConflictState | null>(null);
+    useState<EmailConflictState<FundingClient> | null>(null);
 
   const setPref = <K extends keyof FundingViewPrefs>(
     key: K,
@@ -377,7 +377,7 @@ export function FundingClientListTable({
   return (
     <div className="space-y-3">
       {emailConflict && (
-        <FundingEmailConflictBanner
+        <EmailConflictBanner
           conflict={emailConflict}
           onDismiss={() => setEmailConflict(null)}
           onConfirmCrossPartner={confirmCrossPartnerEmail}

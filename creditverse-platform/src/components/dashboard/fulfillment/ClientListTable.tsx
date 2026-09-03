@@ -41,7 +41,7 @@ import { cn } from "@/lib/utils";
 
 interface ClientListTableProps {
   clients: FulfillmentClient[];
-  visibleCols: ColDef[];
+  visibleCols: ColDef<ColId>[];
   prefs: ViewPrefs;
   setPrefs: React.Dispatch<React.SetStateAction<ViewPrefs>>;
   onOpenClient: (id: string) => void;
