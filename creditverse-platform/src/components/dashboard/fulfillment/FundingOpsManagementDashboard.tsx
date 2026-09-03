@@ -40,6 +40,7 @@ import {
   type OpsMetricsConfig,
 } from "@/lib/fulfillment/ops-management-metrics";
 import { OpsManagementDashboard, type OpsKpi } from "./OpsManagementDashboard";
+import { usePartners } from "@/lib/data/use-partners";
 
 /**
  * How FundingOps measures its own work. There is no escalation status in this
@@ -67,6 +68,10 @@ export function FundingOpsManagementDashboard({
   onNavigateToView,
   onOpenClient,
 }: Props) {
+  const { partners: livePartners } = usePartners(
+    "fundingOps",
+    FUNDING_OPS_PARTNERS,
+  );
   const store = useFundingOpsStore();
   const allClients = store.clients;
 
@@ -106,7 +111,7 @@ export function FundingOpsManagementDashboard({
   const kpis: OpsKpi[] = [
     {
       label: "Active Partners",
-      value: FUNDING_OPS_PARTNERS.length,
+      value: livePartners.length,
       icon: Landmark,
       tone: "text-foreground",
       view: null,
@@ -191,7 +196,7 @@ export function FundingOpsManagementDashboard({
   ];
 
   const partnerHealth = useMemo(
-    () => computePartnerHealth(FUNDING_OPS_PARTNERS, allClients, METRICS),
+    () => computePartnerHealth(livePartners, allClients, METRICS),
     [allClients],
   );
 

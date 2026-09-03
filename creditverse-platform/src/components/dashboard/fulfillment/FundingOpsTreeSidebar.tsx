@@ -42,9 +42,11 @@ import {
 } from "lucide-react";
 import { useFundingDealStore } from "@/lib/fulfillment/funding-deal-store";
 import {
-  FUNDING_OPS_PARTNERS,
   type FundingOpsPartner,
+  FUNDING_OPS_PARTNERS,
 } from "@/lib/fulfillment/fundingops-partners";
+import { usePartners } from "@/lib/data/use-partners";
+import type { OpsPartner } from "@/lib/fulfillment/ops-client-domain";
 import { useFundingOpsAccess } from "@/lib/fulfillment/fundingops-access";
 import { useFundingOpsStore } from "@/lib/fulfillment/fundingops-client-store";
 import {
@@ -94,6 +96,10 @@ const dealCode = (dealId: string) =>
   `FD-${dealId.replace(/^fd-/, "").toUpperCase()}`;
 
 export function FundingOpsTreeSidebar({ selected, onSelect }: Props) {
+  /* Live organizations and outsourcing groups, falling back to the demo
+     constants without a backend. The constants' scope ids are invented, so a
+     live session must navigate by real ones or intake cannot save (rule 2). */
+  const { partners } = usePartners("fundingOps", FUNDING_OPS_PARTNERS);
   const { canAccessManagement } = useFundingOpsAccess();
   const store = useFundingOpsStore();
   const dealsForClient = useDealsForClient();
@@ -106,10 +112,8 @@ export function FundingOpsTreeSidebar({ selected, onSelect }: Props) {
   const toggleFolder = (key: string) =>
     setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
 
-  const outsourcingPartners = FUNDING_OPS_PARTNERS.filter(
-    (p) => p.group === "outsourcing",
-  );
-  const fundingopsUserPartners = FUNDING_OPS_PARTNERS.filter(
+  const outsourcingPartners = partners.filter((p) => p.group === "outsourcing");
+  const fundingopsUserPartners = partners.filter(
     (p) => p.group === "fundingops_users",
   );
 
@@ -118,7 +122,7 @@ export function FundingOpsTreeSidebar({ selected, onSelect }: Props) {
       (c) => clientGroupKey(c) === scopeId && isActiveFunding(c.status),
     ).length;
 
-  const totalActive = FUNDING_OPS_PARTNERS.reduce(
+  const totalActive = partners.reduce(
     (sum, p) => sum + countActiveForPartner(p.scopeId),
     0,
   );
@@ -278,7 +282,7 @@ export function FundingOpsTreeSidebar({ selected, onSelect }: Props) {
   const renderGroup = (
     key: string,
     label: string,
-    partners: FundingOpsPartner[],
+    partners: OpsPartner[],
     accent: string,
   ) => (
     <OpsTreeFolder

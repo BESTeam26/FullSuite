@@ -27,12 +27,15 @@ const STATUS_OPTIONS = [
 ];
 
 interface FundingAddClientModalProps {
+  /** Passed through when the caller has no partner in context. */
+  partnerOptions?: { scopeId: string; name: string; mode: string }[];
   open: boolean;
   onClose: () => void;
   partner: FundingOpsPartner | undefined;
 }
 
 export function FundingAddClientModal({
+  partnerOptions,
   open,
   onClose,
   partner,
@@ -47,6 +50,7 @@ export function FundingAddClientModal({
       isNative={partner?.mode === "native_fundingops"}
       nativeNotice="This Partner uses the native BES FundingOps SaaS connection. New clients are typically pulled from their workspace. Use this form only to add a manual record that is not in their system."
       partnerName={partner?.name}
+      partnerOptions={partnerOptions}
       statusOptions={STATUS_OPTIONS}
       defaultStatus="Onboarding"
       assignees={FUNDING_ELIGIBLE_ASSIGNEES}
@@ -64,8 +68,14 @@ export function FundingAddClientModal({
           />
         </div>
       }
-      buildPayload={(common) => {
-        const scopeId = partner?.scopeId ?? "all";
+      buildPayload={(common, chosen) => {
+        // No sentinel. "all" is a UI filter value, not a partner; sending it
+        // put the literal string into a uuid column and the insert failed with
+        // a raw Postgres error (22P02). Use the partner in context, or the one
+        // picked in the modal when opened from the management-level list.
+        const scope = partner ?? chosen;
+        if (!scope) throw new Error("Select a partner before adding a client.");
+        const scopeId = scope.scopeId;
         const requestedNum = requested
           ? Number(requested.replace(/[^0-9]/g, "")) || 0
           : 0;
@@ -77,13 +87,13 @@ export function FundingAddClientModal({
           assignedAgent: common.assignee,
           openFiles: requestedNum > 0 ? 1 : 0,
           totalRequested: requestedNum,
-          autoSync: partner?.mode === "native_fundingops",
+          autoSync: scope.mode === "native_fundingops",
           provenance:
-            partner?.mode === "outsourcing_only"
+            scope.mode === "outsourcing_only"
               ? ("agency_manual" as const)
               : ("bes_saas_synced" as const),
         };
-        return partner?.mode === "outsourcing_only"
+        return scope.mode === "outsourcing_only"
           ? {
               ...base,
               mode: "outsourcing_only" as const,

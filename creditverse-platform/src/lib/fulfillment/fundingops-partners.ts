@@ -37,10 +37,14 @@ import type { OpsPartner } from "@/lib/fulfillment/ops-client-domain";
 
 export type FundingPartnerGroup = "outsourcing" | "fundingops_users";
 
-export interface FundingOpsPartner extends OpsPartner {
-  group: FundingPartnerGroup;
-  mode: "outsourcing_only" | "native_fundingops";
-}
+/**
+ * Partners now arrive from the database (`lib/data/partners.ts`), where the
+ * group and mode are ordinary columns. Narrowing them to a literal union here
+ * would make every live partner fail to typecheck against a constant that no
+ * longer describes reality, so the base shape is used as-is. The union above
+ * remains the documented vocabulary for the demo constants below.
+ */
+export type FundingOpsPartner = OpsPartner;
 
 export const FUNDING_OPS_PARTNERS: FundingOpsPartner[] = [
   /* ===== 1. Outsourcing — Fulfillment Only for External Funding Partners ===== */

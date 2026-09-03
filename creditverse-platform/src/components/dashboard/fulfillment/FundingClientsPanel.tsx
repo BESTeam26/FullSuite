@@ -32,6 +32,8 @@ import { OpsClientListToolbar } from "./OpsClientListToolbar";
 import { OutsourcingGroupCard } from "./OutsourcingGroupCard";
 import { FundingAddClientModal } from "./FundingAddClientModal";
 import { FundingClientWorkWorkspace } from "./FundingClientWorkWorkspace";
+import { usePartners } from "@/lib/data/use-partners";
+import { FUNDING_OPS_PARTNERS } from "@/lib/fulfillment/fundingops-partners";
 
 const ALL_STATUSES = "All Statuses";
 const CURRENT_AGENT = "Keila Betancourt";
@@ -50,6 +52,13 @@ export function FundingClientsPanel({
   assignedOnlyFilter = false,
   partner,
 }: FundingClientsPanelProps) {
+  /* Offered in the Add Client modal when this panel has no partner in context
+     (the management-level list). Cached by query key, so asking here costs
+     nothing extra. */
+  const { partners: livePartners } = usePartners(
+    "fundingOps",
+    FUNDING_OPS_PARTNERS,
+  );
   const store = useFundingOpsStore();
   const [prefs, setPrefs] = useState<FundingViewPrefs>(() =>
     loadFundingPrefs(),
@@ -172,6 +181,15 @@ export function FundingClientsPanel({
         open={showAddClient}
         onClose={() => setShowAddClient(false)}
         partner={partner}
+        partnerOptions={
+          partner
+            ? undefined
+            : livePartners.map((p) => ({
+                scopeId: p.scopeId,
+                name: p.name,
+                mode: p.mode,
+              }))
+        }
       />
     </div>
   );

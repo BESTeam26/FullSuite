@@ -30,6 +30,7 @@ import {
 import { FundingStatusPill } from "./funding-client-list-helpers";
 import { FundingClientWorkWorkspace } from "./FundingClientWorkWorkspace";
 import { OpsGlobalQueue } from "./OpsGlobalQueue";
+import { usePartners } from "@/lib/data/use-partners";
 
 interface Props {
   queueType: string;
@@ -124,6 +125,10 @@ const QUEUE_SPECS: Record<
 };
 
 export function FundingGlobalQueue({ queueType, onOpenClient }: Props) {
+  const { partners: livePartners } = usePartners(
+    "fundingOps",
+    FUNDING_OPS_PARTNERS,
+  );
   const store = useFundingOpsStore();
   const [openClientId, setOpenClientId] = useState<string | null>(null);
 
@@ -148,7 +153,7 @@ export function FundingGlobalQueue({ queueType, onOpenClient }: Props) {
       icon={spec.icon}
       color={spec.color}
       clients={queueClients}
-      partners={FUNDING_OPS_PARTNERS}
+      partners={livePartners}
       resolvePartner={(c) =>
         getFundingPartnerByScope(c.organizationId ?? c.outsourcingGroupId ?? "")
       }

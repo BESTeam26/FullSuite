@@ -71,8 +71,14 @@ export function AddClientModal({
           />
         </div>
       }
-      buildPayload={(common) => {
-        const scopeId = partner?.scopeId ?? "all";
+      buildPayload={(common, chosen) => {
+        // No sentinel. "all" is a UI filter value, not a partner; sending it
+        // put the literal string into a uuid column and the insert failed with
+        // a raw Postgres error (22P02). Use the partner in context, or the one
+        // picked in the modal when opened from the management-level list.
+        const scope = partner ?? chosen;
+        if (!scope) throw new Error("Select a partner before adding a client.");
+        const scopeId = scope.scopeId;
         const base = {
           name: common.name,
           email: common.email,
@@ -83,7 +89,7 @@ export function AddClientModal({
           openItems: 0,
           autoSync: partner?.mode === "saas_pulled",
         };
-        return partner?.mode === "outsourcing_only"
+        return scope.mode === "outsourcing_only"
           ? {
               ...base,
               mode: "outsourcing_only" as const,

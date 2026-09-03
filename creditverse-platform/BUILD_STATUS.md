@@ -983,6 +983,45 @@ overload that does not exist. NULL now travels explicitly.
 
 tsc clean, 0 lint errors, 133/133 tests, build clean, no circular dependencies.
 
+### 2026-09-03 — Partner trees go live, and the intake bug that hid behind them
+
+**Both divisions hardcoded their partner lists.** `creditops-partners.ts` and
+`fundingops-partners.ts` carry invented scope ids. Seeded clients already had
+real organization ids, so navigation looked fine — but a client created through
+the interface was attached to a partner that does not exist. New shared source:
+`lib/data/partners.ts` + `use-partners.ts`, reading `organizations` and
+`outsourcing_groups` once and serving both divisions (rules 2 and 5). The
+constants remain only as the demo fallback.
+
+**The bug that exposed it.** Adding a client from the management-level list sent
+`organization_id: "all"` — a UI filter sentinel — into a `uuid` column, and
+Postgres rejected it with `22P02`. The modal swallowed the failure and closed as
+if it had saved. Present in **both** divisions, unnoticed because the seeded
+rows were inserted directly.
+
+Fixed three ways: the sentinel is gone; the modal now offers a **partner picker**
+when opened without a partner in context (previously there was no way to add a
+client at all from that screen, since the partner workspace has no client tab by
+design); and submit is disabled with a stated reason until a partner is chosen
+(rules 3 and 15).
+
+**Verified end-to-end through the interface**, not the API: management Client
+List → Add Client → picker lists the five live partners → choose Vantage Funding
+Group → save → the row lands with the correct `organization_id`,
+`partner_scope_id` and derived `provenance`, and the list renders it. Test rows
+deleted afterwards.
+
+**Still outstanding in Phase 5.** Six components read `fundingops-seed`
+directly for businesses, files, deals and groups:
+`FundingClientWorkspace`, `FundingClientWorkWorkspace`, `FundingClientsPanel`,
+`FundingDealWorkspace`, `FundingOpsDashboardView`, `FundingOps.tsx`. The client
+list, Deal List, deal store, partner tree, management dashboard and global queue
+are converted; the client-detail workspaces are not. The hooks they need
+(`useFundingFiles`, `useFundingDeals`, `useFundingBusinesses`) already exist —
+this is call-site conversion, not new plumbing.
+
+tsc clean, 0 lint errors, 133/133 tests, build clean, no circular dependencies.
+
 ## Next steps for Claude Code
 
 1. Connect Supabase Auth + RLS for organization isolation

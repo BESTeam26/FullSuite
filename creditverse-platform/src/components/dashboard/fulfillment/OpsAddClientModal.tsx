@@ -35,6 +35,14 @@ export interface CommonClientFields {
 interface OpsAddClientModalProps<T extends OpsClient> {
   open: boolean;
   onClose: () => void;
+  /**
+   * Partners the user may file this client under. Supplied when the modal is
+   * opened outside a partner workspace (the management-level client list),
+   * where there is no partner in context. A client must belong to exactly one
+   * partner, so intake asks rather than guessing — the previous behaviour was
+   * to invent the string "all", which reached a uuid column and failed.
+   */
+  partnerOptions?: { scopeId: string; name: string; mode: string }[];
   /** Shown when the partner runs on the division's native SaaS connection. */
   isNative: boolean;
   nativeNotice: ReactNode;
@@ -52,6 +60,8 @@ interface OpsAddClientModalProps<T extends OpsClient> {
   /** Build the division's record from the common fields. */
   buildPayload: (
     common: CommonClientFields,
+    /** The partner chosen in the modal, when the caller had none in context. */
+    chosen?: { scopeId: string; name: string; mode: string },
   ) => Omit<T, "id" | "lastActivity" | "createdAt">;
   /** Reports what this record would collide with, WITHOUT writing anything. */
   onCheckConflict: (
@@ -73,6 +83,7 @@ export function OpsAddClientModal<T extends OpsClient>({
   extraField,
   onResetExtras,
   buildPayload,
+  partnerOptions,
   onCheckConflict,
   onAdd,
 }: OpsAddClientModalProps<T>) {
@@ -84,6 +95,10 @@ export function OpsAddClientModal<T extends OpsClient>({
   const [errors, setErrors] = useState<Record<string, string>>({});
   /** Cross-partner matches awaiting explicit confirmation. */
   const [pendingConfirm, setPendingConfirm] = useState<T[] | null>(null);
+  const [pickedScope, setPickedScope] = useState("");
+
+  const needsPartnerChoice = Boolean(partnerOptions?.length);
+  const chosenPartner = partnerOptions?.find((p) => p.scopeId === pickedScope);
 
   if (!open) return null;
 
@@ -98,13 +113,16 @@ export function OpsAddClientModal<T extends OpsClient>({
   };
 
   const currentPayload = () =>
-    buildPayload({
-      name: name.trim(),
-      email: email.trim(),
-      phone: phone.trim() || undefined,
-      status,
-      assignee,
-    });
+    buildPayload(
+      {
+        name: name.trim(),
+        email: email.trim(),
+        phone: phone.trim() || undefined,
+        status,
+        assignee,
+      },
+      chosenPartner,
+    );
 
   const reset = () => {
     setName("");
@@ -259,6 +277,30 @@ export function OpsAddClientModal<T extends OpsClient>({
             </div>
           </div>
 
+          {needsPartnerChoice && (
+            <div>
+              <label className="text-xs font-semibold text-foreground">
+                Partner
+              </label>
+              <OpsSelect
+                value={pickedScope}
+                onValueChange={setPickedScope}
+                options={(partnerOptions ?? []).map((p) => ({
+                  value: p.scopeId,
+                  label: p.name,
+                }))}
+                size="field"
+                placeholder="Choose a partner…"
+                aria-label="Partner"
+                className="mt-1"
+              />
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                A client belongs to exactly one partner. This decides the
+                duplicate-email scope.
+              </p>
+            </div>
+          )}
+
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="text-xs font-semibold text-foreground">
@@ -315,7 +357,13 @@ export function OpsAddClientModal<T extends OpsClient>({
           ) : (
             <button
               onClick={handleSave}
-              className="rounded-lg bg-primary px-4 py-2 text-xs font-bold text-primary-foreground hover:opacity-90"
+              disabled={needsPartnerChoice && !chosenPartner}
+              title={
+                needsPartnerChoice && !chosenPartner
+                  ? "Choose which partner this client belongs to."
+                  : undefined
+              }
+              className="rounded-lg bg-primary px-4 py-2 text-xs font-bold text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Add Client
             </button>

@@ -54,6 +54,7 @@ import { seedFundingClients } from "@/lib/fulfillment/fundingops-seed";
 import { isActiveFunding } from "@/lib/fulfillment/fundingops-domain";
 import { LayoutDashboard } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePartners } from "@/lib/data/use-partners";
 
 export default function FundingOps() {
   return (
@@ -69,10 +70,13 @@ export default function FundingOps() {
 
 function FundingOpsWorkspace() {
   const { canAccessManagement } = useFundingOpsAccess();
+  /* Live partners, so a selected partner's scope id is one the database
+     recognises and intake can actually save against (rule 2). */
+  const { partners } = usePartners("fundingOps", FUNDING_OPS_PARTNERS);
   const [selection, setSelection] = useState<FundingOpsSelection>(() =>
     canAccessManagement
       ? { kind: "management", view: "mgmt-dashboard" }
-      : { kind: "partner", partnerId: FUNDING_OPS_PARTNERS[0]?.id ?? "" },
+      : { kind: "partner", partnerId: partners[0]?.id ?? "" },
   );
   const [activeView, setActiveView] =
     useState<FundingPartnerViewId>("dashboard");
@@ -83,14 +87,14 @@ function FundingOpsWorkspace() {
     if (!canAccessManagement && selection.kind === "management") {
       setSelection({
         kind: "partner",
-        partnerId: FUNDING_OPS_PARTNERS[0]?.id ?? "",
+        partnerId: partners[0]?.id ?? "",
       });
     }
   }, [canAccessManagement, selection]);
 
   const partner =
     selection.kind === "partner"
-      ? FUNDING_OPS_PARTNERS.find((p) => p.id === selection.partnerId)
+      ? partners.find((p) => p.id === selection.partnerId)
       : undefined;
 
   const partnerActiveCount = partner
@@ -155,7 +159,7 @@ function FundingOpsWorkspace() {
                 onBack={() =>
                   setSelection({
                     kind: "partner",
-                    partnerId: FUNDING_OPS_PARTNERS[0]?.id ?? "",
+                    partnerId: partners[0]?.id ?? "",
                   })
                 }
               />
@@ -167,7 +171,7 @@ function FundingOpsWorkspace() {
                 onBack={() =>
                   setSelection({
                     kind: "partner",
-                    partnerId: FUNDING_OPS_PARTNERS[0]?.id ?? "",
+                    partnerId: partners[0]?.id ?? "",
                   })
                 }
                 onOpenDeal={openDeal}
