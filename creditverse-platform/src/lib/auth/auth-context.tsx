@@ -20,7 +20,12 @@ import {
   type ReactNode,
 } from "react";
 import type { Session, User } from "@supabase/supabase-js";
-import { authMode, siteUrl, supabase, type AuthMode } from "@/lib/supabase/client";
+import {
+  authMode,
+  siteUrl,
+  supabase,
+  type AuthMode,
+} from "@/lib/supabase/client";
 import type { Enums, Tables } from "@/lib/supabase/database.types";
 
 export type Profile = Tables<"profiles">;
@@ -41,6 +46,12 @@ export interface AuthContextValue {
   orgMemberships: OrgMembership[];
   externalMemberships: ExternalMembership[];
   /** Derived helpers */
+  /**
+   * The agency this user acts for, from their own membership. Read this rather
+   * than hardcoding an id: under white-label resale the same code runs for a
+   * different agency, and a constant would write records to the wrong tenant.
+   */
+  agencyId: string | null;
   isAgencyStaff: boolean;
   agencyRole: AgencyRole | null;
   isAgencyAdmin: boolean;
@@ -48,8 +59,15 @@ export interface AuthContextValue {
   displayName: string;
   /** Actions */
   signInWithPassword: [removed]
+    email: string,
+    password: string,
+  ) => Promise<{ error: string | null }>;
   signInWithMagicLink: (email: string) => Promise<{ error: string | null }>;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ error: string | null }>;
+  signUp: (
+    email: string,
+    password: string,
+    fullName: string,
+  ) => Promise<{ error: string | null }>;
   resetPassword: [removed]
   signOut: () => Promise<void>;
   refreshMemberships: () => Promise<void>;
@@ -106,7 +124,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!supabase) return;
     const [p, am, om, em] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
-      supabase.from("agency_memberships").select("*").eq("user_id", userId).maybeSingle(),
+      supabase
+        .from("agency_memberships")
+        .select("*")
+        .eq("user_id", userId)
+        .maybeSingle(),
       supabase.from("org_memberships").select("*").eq("user_id", userId),
       supabase.from("external_memberships").select("*").eq("user_id", userId),
     ]);
@@ -156,7 +178,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signInWithPassword = useCallback(
     async (email: string, password: string) => {
       if (!supabase) return { error: "Backend not configured." };
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
       return { error: error?.message ?? null };
     },
     [],
@@ -217,12 +242,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       agencyMembership,
       orgMemberships,
       externalMemberships,
+      agencyId: agencyMembership?.agency_id ?? null,
       isAgencyStaff,
       agencyRole,
       isAgencyAdmin:
         agencyRole === "agency_owner" || agencyRole === "agency_admin",
       hasAnyAccess:
-        isAgencyStaff || orgMemberships.length > 0 || externalMemberships.length > 0,
+        isAgencyStaff ||
+        orgMemberships.length > 0 ||
+        externalMemberships.length > 0,
       displayName:
         profile?.full_name?.trim() ||
         profile?.email ||

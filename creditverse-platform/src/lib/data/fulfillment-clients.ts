@@ -12,7 +12,11 @@
  */
 
 import { requireSupabase } from "@/lib/supabase/client";
-import type { Enums, Tables, TablesInsert } from "@/lib/supabase/database.types";
+import type {
+  Enums,
+  Tables,
+  TablesInsert,
+} from "@/lib/supabase/database.types";
 import type {
   FulfillmentClient,
   FulfillmentClientRound,
@@ -43,7 +47,9 @@ const CLIENT_SELECT = `
 /** Hours until the SLA deadline, to one decimal. Undefined when no deadline. */
 const hoursUntil = (dueAt: string | null): number | undefined => {
   if (!dueAt) return undefined;
-  return Math.round(((new Date(dueAt).getTime() - Date.now()) / 3_600_000) * 10) / 10;
+  return (
+    Math.round(((new Date(dueAt).getTime() - Date.now()) / 3_600_000) * 10) / 10
+  );
 };
 
 const relativeTime = (iso: string): string => {
@@ -336,6 +342,24 @@ export async function logProduction(input: LogProductionInput) {
 /* ------------------------------------------------------------------ */
 /* Webhook deliveries — the outbound CRM signal log                    */
 /* ------------------------------------------------------------------ */
+
+/**
+ * The most recent outbound signals, newest first.
+ *
+ * Bounded deliberately: this is a log that grows forever, and the panel only
+ * ever shows a recent window (rule 14 — never fetch a whole tenant dataset to
+ * fill one screen).
+ */
+export async function fetchWebhookDeliveries(limit = 200) {
+  const sb = requireSupabase();
+  const { data, error } = await sb
+    .from("webhook_deliveries")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return data ?? [];
+}
 
 export async function recordWebhookDelivery(input: {
   agencyId: string;
