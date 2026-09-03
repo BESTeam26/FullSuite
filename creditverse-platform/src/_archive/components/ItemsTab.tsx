@@ -25,7 +25,7 @@ import {
   type ItemKind,
 } from "@/lib/credit-classification";
 import { useClientWorkspace } from "@/lib/client-workspace-context";
-import { ItemDetailPanel } from "./ItemDetailPanel";
+import { ItemDetailPanel } from "@/components/clients/ItemDetailPanel";
 
 const kindIcon: Record<ItemKind, typeof CreditCard> = {
   Account: CreditCard,

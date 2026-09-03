@@ -156,6 +156,46 @@ These diverge more than the ones already merged, so each needs its own
 abstraction rather than a mechanical lift. Same discipline applies: one pair per
 commit, verified on screen before moving on.
 
+### 2026-09-03 — Cleanup pass
+
+- **Self-duplication removed:** `ReImportItemTable` wrote the same bureau detail
+  card three times (Equifax / Experian / TransUnion), differing only in accent
+  colour and a footnote. Now one `BureauDetailCard` driven by a small config.
+  429 → 368 lines; a field added there now appears on all three bureaus.
+- **Eight orphaned components archived** to `src/_archive/components/`, following
+  the existing convention rather than deleting: `NavLink`, `ItemsTab`,
+  `CategoryLettersPanel`, `LetterPreview`, `SubAccountsBoardView`,
+  `SubAccountsCardsView`, `DiySection`, `Features`. Checked first that the
+  sub-account card/board views were not behind a broken toggle — only the list
+  view is rendered and there is no toggle, so they are unbuilt alternatives.
+- **Removed** the unused `lib/dispute/index.ts` barrel (every consumer imports
+  the specific module) and a dead `CreditOpsWebhookPanel` import.
+- **Three real warning fixes**, not suppressions:
+  - `use-password-reveal` captured `timers.current` at cleanup time, so timeouts
+    could survive unmount. Now captured inside the effect.
+  - `agency-context` rebuilt `organizations` every render, forcing the derived
+    sub-account list to recompute each time (rule 14). Now memoised.
+  - Removed an `eslint-disable` in `CopilotPanel` that suppressed nothing.
+
+**Left as visible warnings, deliberately:** two context value-memos
+(`referral-context`, `diy-management-context`) list state in their dependency
+arrays but not the callbacks that close over it. Checked each — every callback
+only reads state that IS listed, so they are correct today, just fragile if
+extended. A visible warning is safer than a suppression that hides the day
+someone adds a callback reading something else.
+
+**Two components remain built but not routed** — both product decisions, not
+code problems:
+- `CreditOpsWebhookPanel` — the GHL/DisputeFox signal log. This is the audit
+  trail for what the platform pushed to an external CRM, and it currently has
+  no screen (rule 10 gap).
+- `FundingClientsPanel` — the FundingOps client list. CreditOps has the
+  equivalent wired; FundingOps navigates by Deal List instead.
+
+**Duplication, final:** 159 → 67 clones, 5,393 → 1,233 lines (6.35% → 1.55%).
+77% of the original duplication removed. Zero circular dependencies, zero lint
+errors, 116 tests passing.
+
 **Next (Phase 3):** CreditOps Agency Fulfillment Workspace on live data — `fulfillment_enrollments` (both intake modes), outsourcing groups, department statuses, Complete Work writing `production_logs`, outbound webhook deliveries.
 
 ---

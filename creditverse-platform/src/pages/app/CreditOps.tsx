@@ -18,7 +18,6 @@ import {
 } from "@/components/dashboard/fulfillment/CreditOpsTreeSidebar";
 import { CreditOpsManagementDashboard } from "@/components/dashboard/fulfillment/CreditOpsManagementDashboard";
 import { CreditOpsGlobalQueue } from "@/components/dashboard/fulfillment/CreditOpsGlobalQueue";
-import { CreditOpsWebhookPanel } from "@/components/dashboard/fulfillment/CreditOpsWebhookPanel";
 import { CreditOpsDashboardView } from "@/components/dashboard/fulfillment/CreditOpsDashboardView";
 import { FulfillmentClientsPanel } from "@/components/dashboard/fulfillment/FulfillmentClientsPanel";
 import { QueueView } from "@/components/dashboard/fulfillment/QueueViews";

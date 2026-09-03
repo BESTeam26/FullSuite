@@ -25,8 +25,11 @@ export function usePasswordReveal(timeoutMs = 8000) {
   );
 
   useEffect(() => {
+    // Capture the map now: on unmount `timers.current` may already have been
+    // reassigned, which would leave the original timeouts running.
+    const pending = timers.current;
     return () => {
-      Object.values(timers.current).forEach(clearTimeout);
+      Object.values(pending).forEach(clearTimeout);
     };
   }, []);
 

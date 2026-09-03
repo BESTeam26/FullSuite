@@ -75,7 +75,6 @@ export const CopilotPanel = () => {
       ]);
       setMode("chat");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, topic]);
 
   const send = (text: string) => {

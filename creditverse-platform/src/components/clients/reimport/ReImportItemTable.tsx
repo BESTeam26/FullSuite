@@ -28,6 +28,95 @@ function bureauStatus(
 
 // ─── Item Row ──────────────────────────────────────────────────────────────────
 
+/* ------------------------------------------------------------------ */
+/* Per-bureau detail card                                              */
+/*                                                                     */
+/* The three bureaus show the same fields; only the accent colour and  */
+/* the closing note differ. Written once so a field added here appears */
+/* on all three (rule 13).                                             */
+/* ------------------------------------------------------------------ */
+
+interface BureauCard {
+  name: string;
+  border: string;
+  heading: string;
+  /** Bureau-specific footnote, omitted when there is nothing to say. */
+  note?: { text: string; className: string };
+}
+
+const BUREAU_CARDS: BureauCard[] = [
+  {
+    name: "Equifax",
+    border: "border-blue-200",
+    heading: "text-blue-600",
+  },
+  {
+    name: "Experian",
+    border: "border-purple-200",
+    heading: "text-purple-600",
+    note: {
+      text: "Account was in dispute — now resolved — report updated.",
+      className: "bg-purple-500/5 text-purple-700",
+    },
+  },
+  {
+    name: "TransUnion",
+    border: "border-emerald-200",
+    heading: "text-emerald-600",
+    note: {
+      text: "Chapter 7 bankruptcy filed — verify discharge documentation.",
+      className: "bg-emerald-500/5 text-emerald-700",
+    },
+  },
+];
+
+function BureauDetailCard({
+  bureau,
+  item,
+  inDispute,
+}: {
+  bureau: BureauCard;
+  item: ClassifiedItem;
+  inDispute: boolean;
+}) {
+  return (
+    <div className={`rounded-lg border ${bureau.border} bg-card p-3`}>
+      <p
+        className={`mb-2 text-center text-xs font-semibold uppercase ${bureau.heading}`}
+      >
+        {bureau.name}
+      </p>
+      <DetailField label="Account Name" value={item.name} />
+      <DetailField
+        label="Account Number"
+        value={"••••••••" + item.id.slice(-4)}
+      />
+      <DetailField label="Account Type" value={item.subtype ?? item.kind} />
+      <DetailField label="Account Status" value={item.status} />
+      {item.openDate && (
+        <DetailField label="Date Opened" value={item.openDate} />
+      )}
+      <DetailField label="Balance" value={item.balance ?? "$0.00"} />
+      {item.dofd && <DetailField label="DOFD" value={item.dofd} />}
+      <DetailField
+        label="Dispute Status"
+        value={inDispute ? "In Dispute" : "Not disputed"}
+      />
+      {/* Equifax additionally surfaces the AI reason when one exists. */}
+      {bureau.name === "Equifax" && item.aiReason && (
+        <div className="mt-2 rounded bg-blue-500/5 p-2 text-[11px] text-blue-700">
+          {item.aiReason}
+        </div>
+      )}
+      {bureau.note && (
+        <div className={`mt-2 rounded p-2 text-[11px] ${bureau.note.className}`}>
+          {bureau.note.text}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ItemRow({
   item,
   showActions,
@@ -144,98 +233,14 @@ export function ItemRow({
         <tr className="bg-muted/10">
           <td colSpan={6} className="px-3 py-3">
             <div className="grid gap-4 md:grid-cols-3">
-              {/* Equifax */}
-              <div className="rounded-lg border border-blue-200 bg-card p-3">
-                <p className="mb-2 text-center text-xs font-semibold uppercase text-blue-600">
-                  Equifax
-                </p>
-                <DetailField label="Account Name" value={item.name} />
-                <DetailField
-                  label="Account Number"
-                  value={"••••••••" + item.id.slice(-4)}
+              {BUREAU_CARDS.map((bureau) => (
+                <BureauDetailCard
+                  key={bureau.name}
+                  bureau={bureau}
+                  item={item}
+                  inDispute={localDisp === "dispute"}
                 />
-                <DetailField
-                  label="Account Type"
-                  value={item.subtype ?? item.kind}
-                />
-                <DetailField label="Account Status" value={item.status} />
-                {item.openDate && (
-                  <DetailField label="Date Opened" value={item.openDate} />
-                )}
-                <DetailField label="Balance" value={item.balance ?? "$0.00"} />
-                {item.dofd && <DetailField label="DOFD" value={item.dofd} />}
-                <DetailField
-                  label="Dispute Status"
-                  value={
-                    localDisp === "dispute" ? "In Dispute" : "Not disputed"
-                  }
-                />
-                {item.aiReason && (
-                  <div className="mt-2 rounded bg-blue-500/5 p-2 text-[11px] text-blue-700">
-                    {item.aiReason}
-                  </div>
-                )}
-              </div>
-              {/* Experian */}
-              <div className="rounded-lg border border-purple-200 bg-card p-3">
-                <p className="mb-2 text-center text-xs font-semibold uppercase text-purple-600">
-                  Experian
-                </p>
-                <DetailField label="Account Name" value={item.name} />
-                <DetailField
-                  label="Account Number"
-                  value={"••••••••" + item.id.slice(-4)}
-                />
-                <DetailField
-                  label="Account Type"
-                  value={item.subtype ?? item.kind}
-                />
-                <DetailField label="Account Status" value={item.status} />
-                {item.openDate && (
-                  <DetailField label="Date Opened" value={item.openDate} />
-                )}
-                <DetailField label="Balance" value={item.balance ?? "$0.00"} />
-                {item.dofd && <DetailField label="DOFD" value={item.dofd} />}
-                <DetailField
-                  label="Dispute Status"
-                  value={
-                    localDisp === "dispute" ? "In Dispute" : "Not disputed"
-                  }
-                />
-                <div className="mt-2 rounded bg-purple-500/5 p-2 text-[11px] text-purple-700">
-                  Account was in dispute — now resolved — report updated.
-                </div>
-              </div>
-              {/* TransUnion */}
-              <div className="rounded-lg border border-emerald-200 bg-card p-3">
-                <p className="mb-2 text-center text-xs font-semibold uppercase text-emerald-600">
-                  TransUnion
-                </p>
-                <DetailField label="Account Name" value={item.name} />
-                <DetailField
-                  label="Account Number"
-                  value={"••••••••" + item.id.slice(-4)}
-                />
-                <DetailField
-                  label="Account Type"
-                  value={item.subtype ?? item.kind}
-                />
-                <DetailField label="Account Status" value={item.status} />
-                {item.openDate && (
-                  <DetailField label="Date Opened" value={item.openDate} />
-                )}
-                <DetailField label="Balance" value={item.balance ?? "$0.00"} />
-                {item.dofd && <DetailField label="DOFD" value={item.dofd} />}
-                <DetailField
-                  label="Dispute Status"
-                  value={
-                    localDisp === "dispute" ? "In Dispute" : "Not disputed"
-                  }
-                />
-                <div className="mt-2 rounded bg-emerald-500/5 p-2 text-[11px] text-emerald-700">
-                  Chapter 7 bankruptcy filed — verify discharge documentation.
-                </div>
-              </div>
+              ))}
             </div>
           </td>
         </tr>

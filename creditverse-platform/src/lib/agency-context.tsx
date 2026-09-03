@@ -184,7 +184,12 @@ export const AgencyProvider = ({ children }: { children: ReactNode }) => {
     staleTime: 30_000,
   });
   const [localOrgs, setLocalOrgs] = useState<Organization[]>(seedOrganizations);
-  const organizations = live ? (orgQuery.data ?? []) : localOrgs;
+  /* Memoised so the derived subAccounts list keeps a stable identity between
+     renders; a fresh array each render would rebuild it every time. */
+  const organizations = useMemo(
+    () => (live ? (orgQuery.data ?? []) : localOrgs),
+    [live, orgQuery.data, localOrgs],
+  );
   const invalidateOrgs = useCallback(
     () => queryClient.invalidateQueries({ queryKey: ["organizations"] }),
     [queryClient],
