@@ -77,6 +77,61 @@ The owner-session figures come from impersonating the real JWT claims inside a r
 
 **Smoke test corrected too:** it had probed RPCs with `{}`, and PostgREST matches on signature, so any function taking parameters looked missing. It now probes with real arguments and additionally asserts that no helper is anon-executable — the check that would have caught the hole above on the first run.
 
+### 2026-09-02 — Rule 13/14 repair pass: CreditOps/FundingOps deduplication (in progress)
+
+The audit found the codebase's real structural problem: CreditOps and FundingOps
+were **copy-paste twins** — 159 clones, 5,393 duplicated lines (6.35%), almost
+all of it `Something.tsx` beside `FundingSomething.tsx`. Every change to a client
+list, queue or timeline had to be made twice or the divisions would silently
+diverge.
+
+**Done (5 commits, each independently verified):**
+
+| Step | Result |
+|---|---|
+| Circular dependency | The codebase's only one, eliminated. `AttachmentFile` moved out of a UI component into `lib/fulfillment/attachment-domain.ts`; `isImageFile`/`isPdfFile` collapsed from five inline copies to one |
+| Shared domain | `ops-client-domain.ts` — `OpsClient`, intake modes, grouping, the ONE EMAIL = ONE FILE conflict check (now generic), `formatCurrency`. Both division clients extend it |
+| Shared activity domain | `ops-activity-domain.ts` — `OpsActivityEntry` and the comment-mark palette, previously declared identically in both store-type modules |
+| List helpers | `ops-client-list-helpers.tsx` — avatar, mode badge, status pill, column defs, `createViewPrefsStore`. Division modules: 216+211 → 109+103 lines |
+| Email conflict banner | One generic component; the duplicate deleted |
+| Client card grid | `OpsClientListGrid`; division files 51+57 → 26+32 lines |
+| Queue views | `OpsQueueView`; division files 215+228 → 146+153 lines |
+| Activity timelines | `OpsActivityTimeline`; three files 362+362+371 → 31+32+38 lines |
+
+**Measured:** 159 → 129 clones, 5,393 → 4,021 duplicated lines (6.35% → 4.81%).
+1,372 duplicated lines removed. Zero circular dependencies.
+
+**Two regressions caught before shipping:**
+
+1. `formatCurrency` abbreviates (`$1.4M`, `$75K`). Reaching for `Intl.NumberFormat`
+   in the shared version would have rewritten every money figure across 13 files
+   with no test failing — a rule 8 violation. Original behaviour preserved and
+   verified on screen.
+2. Intake-mode *labels* differ by design ("SaaS-Pulled" in CreditOps reads as
+   "SaaS Synced" in FundingOps). Nearly merged as duplication; kept separate.
+
+**Verified beyond the build:** posted a real comment on a CreditOps client file
+and watched it land in Activity History with author and timestamp; confirmed the
+CreditOps queue still shows Round / Queue Status and FundingOps shows
+Requested / Stage Status with abbreviated currency.
+
+**Remaining twin pairs (~2,900 duplicated lines), largest and most divergent:**
+
+| Pair | Duplicated | Note |
+|---|---|---|
+| `ClientListTable` / `FundingClientListTable` | 560 | 442 + 458 lines |
+| `CreditOpsManagementDashboard` / `FundingOpsManagementDashboard` | 548 | |
+| `FulfillmentClientsPanel` / `FundingClientsPanel` | 528 | |
+| `CreditOpsGlobalQueue` / `FundingGlobalQueue` | 307 | 256 of 354 lines differ — genuinely divergent |
+| `creditops-client-store` / `fundingops-client-store` | 307 | |
+| `AddClientModal` / `FundingAddClientModal` | 297 | ~50% shared; needs a form abstraction, not a copy |
+| Tree sidebars | 198 | |
+| Work workspaces | 189 | |
+
+These diverge more than the ones already merged, so each needs its own
+abstraction rather than a mechanical lift. Same discipline applies: one pair per
+commit, verified on screen before moving on.
+
 **Next (Phase 3):** CreditOps Agency Fulfillment Workspace on live data — `fulfillment_enrollments` (both intake modes), outsourcing groups, department statuses, Complete Work writing `production_logs`, outbound webhook deliveries.
 
 ---
