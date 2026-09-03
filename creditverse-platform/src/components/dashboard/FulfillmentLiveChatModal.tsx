@@ -84,7 +84,7 @@ export const FulfillmentLiveChatModal = ({ workOrder, onClose }: Props) => {
         </div>
         <Badge
           variant="outline"
-          className="border-amber-500/40 text-amber-500 text-[10px] flex items-center gap-1"
+          className="border-amber-500/40 text-status-warning text-[10px] flex items-center gap-1"
         >
           <Clock className="h-3 w-3" /> SLA: {workOrder.slaHoursRemaining}h
           remaining

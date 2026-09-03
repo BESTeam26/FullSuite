@@ -48,7 +48,7 @@ const BUREAU_CARDS: BureauCard[] = [
   {
     name: "Equifax",
     border: "border-blue-200",
-    heading: "text-blue-600",
+    heading: "text-status-info",
   },
   {
     name: "Experian",
@@ -62,10 +62,10 @@ const BUREAU_CARDS: BureauCard[] = [
   {
     name: "TransUnion",
     border: "border-emerald-200",
-    heading: "text-emerald-600",
+    heading: "text-status-success",
     note: {
       text: "Chapter 7 bankruptcy filed — verify discharge documentation.",
-      className: "bg-emerald-500/5 text-emerald-700",
+      className: "bg-emerald-500/5 text-status-success",
     },
   },
 ];
@@ -141,11 +141,11 @@ export function ItemRow({
 
   const statusIcon =
     localDisp === "dispute" || item.isNegative ? (
-      <Frown className="h-4 w-4 text-red-500" />
+      <Frown className="h-4 w-4 text-status-danger" />
     ) : localDisp === "open-positive" || localDisp === "closed-positive" ? (
-      <Smile className="h-4 w-4 text-emerald-500" />
+      <Smile className="h-4 w-4 text-status-success" />
     ) : (
-      <Meh className="h-4 w-4 text-amber-500" />
+      <Meh className="h-4 w-4 text-status-warning" />
     );
 
   const eq = bureauStatus(item, "EQ");
@@ -161,9 +161,9 @@ export function ItemRow({
       variant="outline"
       className={
         status === "Positive"
-          ? "border-emerald-500/30 text-emerald-600"
+          ? "border-emerald-500/30 text-status-success"
           : status === "Negative"
-            ? "border-red-500/30 text-red-600"
+            ? "border-red-500/30 text-status-danger"
             : "text-muted-foreground"
       }
     >
@@ -178,7 +178,7 @@ export function ItemRow({
       <tr className="border-b border-border transition-colors hover:bg-muted/20">
         <td className="px-3 py-2.5">
           <div className="flex items-center gap-2">
-            <CircleDot className="h-4 w-4 shrink-0 text-slate-400" />
+            <CircleDot className="h-4 w-4 shrink-0 text-muted-foreground" />
             <div>
               <p className="text-xs font-semibold uppercase">{item.name}</p>
               {item.kind === "Account" && item.subtype && (
@@ -217,14 +217,14 @@ export function ItemRow({
                     localDisp === "dispute" ? "undisputed" : "dispute",
                   )
                 }
-                className="rounded-md px-2 py-0.5 text-[11px] font-medium text-blue-600 hover:bg-blue-50"
+                className="rounded-md px-2 py-0.5 text-[11px] font-medium text-status-info hover:bg-blue-50"
               >
                 Skip
               </button>
             )}
             <button
               onClick={() => onExpand(item.id)}
-              className="rounded-md px-2 py-0.5 text-[11px] font-medium text-emerald-600 hover:bg-emerald-50"
+              className="rounded-md px-2 py-0.5 text-[11px] font-medium text-status-success hover:bg-emerald-50"
             >
               {expanded ? "Collapse" : "Expand"}
             </button>

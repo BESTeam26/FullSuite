@@ -122,7 +122,7 @@ export const SubAccountsSection = () => {
                 <td className="px-4 py-3">
                   <button
                     onClick={() => toggleFulfillmentSubscription(s.id)}
-                    className={`text-[11px] font-medium ${s.isFulfillmentSubscriber ? "text-emerald-600" : "text-muted-foreground"}`}
+                    className={`text-[11px] font-medium ${s.isFulfillmentSubscriber ? "text-status-success" : "text-muted-foreground"}`}
                   >
                     {s.isFulfillmentSubscriber ? "Subscribed" : "Self-managed"}
                   </button>
@@ -307,7 +307,7 @@ export const RolesPermissionsSection = () => {
                 {cols.map((c) => (
                   <td key={c.key} className="px-3 py-3 text-center">
                     {p[c.key] ? (
-                      <span className="text-emerald-600">✓</span>
+                      <span className="text-status-success">✓</span>
                     ) : (
                       <span className="text-muted-foreground/40">—</span>
                     )}

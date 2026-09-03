@@ -170,14 +170,14 @@ export function OpsAddClientModal<T extends OpsClient>({
 
         <div className="space-y-4 p-5">
           {isNative && (
-            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-700">
+            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-status-success">
               {nativeNotice}
             </div>
           )}
 
           {/* Cross-partner duplicate warning — requires confirmation */}
           {pendingConfirm && (
-            <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-700">
+            <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-status-warning">
               <div className="flex items-start gap-2">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                 <div className="space-y-1.5">
@@ -213,7 +213,9 @@ export function OpsAddClientModal<T extends OpsClient>({
               className="mt-1 w-full rounded-lg border border-border bg-background p-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
             />
             {errors.name && (
-              <p className="mt-1 text-[11px] text-red-600">{errors.name}</p>
+              <p className="mt-1 text-[11px] text-status-danger">
+                {errors.name}
+              </p>
             )}
           </div>
 
@@ -233,7 +235,7 @@ export function OpsAddClientModal<T extends OpsClient>({
                 className="mt-1 w-full rounded-lg border border-border bg-background p-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
               />
               {errors.email && (
-                <p className="mt-1 flex items-start gap-1 text-[11px] text-red-600">
+                <p className="mt-1 flex items-start gap-1 text-[11px] text-status-danger">
                   <ShieldAlert className="mt-0.5 h-3 w-3 shrink-0" />
                   {errors.email}
                 </p>
@@ -250,7 +252,9 @@ export function OpsAddClientModal<T extends OpsClient>({
                 className="mt-1 w-full rounded-lg border border-border bg-background p-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
               />
               {errors.phone && (
-                <p className="mt-1 text-[11px] text-red-600">{errors.phone}</p>
+                <p className="mt-1 text-[11px] text-status-danger">
+                  {errors.phone}
+                </p>
               )}
             </div>
           </div>

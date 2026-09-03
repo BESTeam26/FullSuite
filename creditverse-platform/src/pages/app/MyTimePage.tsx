@@ -95,7 +95,7 @@ export const MyTimePage = () => {
           <button
             onClick={t.clockOut}
             disabled={t.isMutating}
-            className="flex items-center gap-2 rounded-xl border border-border bg-card px-5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+            className="flex items-center gap-2 rounded-xl border border-border bg-card px-5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
           >
             <PauseCircle className="h-4 w-4" /> Clock Out
           </button>
@@ -104,7 +104,7 @@ export const MyTimePage = () => {
             <button
               onClick={() => t.clockIn(division, taskNote || undefined)}
               disabled={t.isMutating || !t.entries || t.source === "demo"}
-              className="flex items-center gap-2 rounded-xl bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-800 disabled:opacity-50"
+              className="flex items-center gap-2 rounded-xl bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <PlayCircle className="h-4 w-4" /> Clock In
             </button>
@@ -132,7 +132,7 @@ export const MyTimePage = () => {
       </div>
 
       {t.actionError && (
-        <p className="mt-2 text-xs font-semibold text-red-600">
+        <p className="mt-2 text-xs font-semibold text-status-danger">
           {t.actionError}
         </p>
       )}

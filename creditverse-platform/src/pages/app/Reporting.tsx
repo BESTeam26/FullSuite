@@ -1,4 +1,5 @@
 import { TrendingUp, Award, Target, Percent } from "lucide-react";
+import { ChartLegend } from "@/components/charts/ChartLegend";
 import {
   ResponsiveContainer,
   LineChart,
@@ -10,7 +11,6 @@ import {
   PieChart,
   Pie,
   Cell,
-  Legend,
 } from "recharts";
 
 const monthly = [
@@ -66,12 +66,12 @@ const Reporting = () => (
           key={k.label}
           className="rounded-2xl border border-border bg-card p-5"
         >
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/10 text-status-success">
             <k.icon className="h-5 w-5" />
           </div>
           <p className="mt-4 text-2xl font-bold">{k.value}</p>
           <p className="text-sm text-muted-foreground">{k.label}</p>
-          <p className="mt-1 text-xs text-emerald-600">{k.sub}</p>
+          <p className="mt-1 text-xs text-status-success">{k.sub}</p>
         </div>
       ))}
     </div>
@@ -103,7 +103,7 @@ const Reporting = () => (
               <Tooltip
                 contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0" }}
               />
-              <Legend />
+              <ChartLegend />
               <Line
                 type="monotone"
                 dataKey="filed"
@@ -143,7 +143,7 @@ const Reporting = () => (
               <Tooltip
                 contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0" }}
               />
-              <Legend />
+              <ChartLegend />
             </PieChart>
           </ResponsiveContainer>
         </div>

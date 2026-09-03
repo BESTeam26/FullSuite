@@ -44,7 +44,7 @@ export function ProgressReportNarrative({
   return (
     <div className="rounded-2xl border border-border bg-card">
       <div className="flex items-center gap-2 border-b border-border p-5">
-        <Sparkles className="h-5 w-5 text-emerald-600" />
+        <Sparkles className="h-5 w-5 text-status-success" />
         <div>
           <h2 className="font-semibold">AI-Generated Progress Update</h2>
           <p className="text-xs text-muted-foreground">
@@ -100,7 +100,7 @@ export function ProgressReportNarrative({
           </Button>
           <Button size="sm" variant="outline" onClick={handleCopy}>
             {copied ? (
-              <Check className="h-3.5 w-3.5 text-emerald-600" />
+              <Check className="h-3.5 w-3.5 text-status-success" />
             ) : (
               <Copy className="h-3.5 w-3.5" />
             )}

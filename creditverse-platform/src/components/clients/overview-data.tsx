@@ -72,10 +72,10 @@ export const notifications = [
 ];
 
 export const scoreBand = (score: number) => {
-  if (score >= 740) return { label: "Excellent", tone: "text-emerald-600" };
+  if (score >= 740) return { label: "Excellent", tone: "text-status-success" };
   if (score >= 670) return { label: "Good", tone: "text-sky-600" };
-  if (score >= 580) return { label: "Fair", tone: "text-amber-600" };
-  return { label: "Poor", tone: "text-red-600" };
+  if (score >= 580) return { label: "Fair", tone: "text-status-warning" };
+  return { label: "Poor", tone: "text-status-danger" };
 };
 
 export const DeltaPill = ({
@@ -97,11 +97,11 @@ export const DeltaPill = ({
   const cls =
     tone === "total"
       ? positive
-        ? "bg-emerald-500/15 text-emerald-600"
-        : "bg-red-500/15 text-red-600"
+        ? "bg-emerald-500/15 text-status-success"
+        : "bg-red-500/15 text-status-danger"
       : positive
         ? "bg-sky-500/15 text-sky-600"
-        : "bg-red-500/15 text-red-600";
+        : "bg-red-500/15 text-status-danger";
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${cls}`}

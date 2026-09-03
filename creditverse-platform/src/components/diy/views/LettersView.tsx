@@ -54,7 +54,7 @@ export const LettersView = () => {
                 value={draft.reason}
                 onChange={(e) => setDraft(active, { reason: e.target.value })}
                 placeholder="e.g. The balance shows $4,820 but I settled this account on March 12, 2025 for $0."
-                className="mt-1.5 min-h-24 w-full rounded-lg border border-white/10 bg-navy-deep/60 p-3 text-sm text-white placeholder:text-slate-500 focus:border-emerald-400/40 focus:outline-none"
+                className="mt-1.5 min-h-24 w-full rounded-lg border border-white/10 bg-navy-deep/60 p-3 text-sm text-white placeholder:text-slate-500 focus-visible:border-emerald-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               />
             </div>
 
@@ -128,7 +128,7 @@ export const LettersView = () => {
                   setDraft(active, { status: "ready" });
                   setView("mail");
                 }}
-                className="bg-gradient-emerald text-white hover:opacity-90 disabled:opacity-40"
+                className="bg-gradient-emerald text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Send className="h-4 w-4" /> Approve & prepare to mail
               </Button>

@@ -80,14 +80,14 @@ const LettersTab = () => {
       <div className="rounded-2xl border border-border bg-card p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-emerald-600" />
+            <FileText className="h-5 w-5 text-status-success" />
             <h2 className="font-semibold">Letter Builder</h2>
             <Badge className="bg-muted text-muted-foreground">
               Round {round} · {pkg.totalItems} items
             </Badge>
           </div>
           <div className="flex items-center gap-2 text-xs">
-            <span className="flex items-center gap-1 font-semibold text-emerald-600 bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20">
+            <span className="flex items-center gap-1 font-semibold text-status-success bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20">
               1. Build Letters
             </span>
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
@@ -117,12 +117,12 @@ const LettersTab = () => {
       <div className="rounded-2xl border border-border bg-card p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-emerald-600" />
+            <Sparkles className="h-4 w-4 text-status-success" />
             <h2 className="font-semibold">
               Dispute items — create & edit letters
             </h2>
           </div>
-          <Badge className="bg-emerald-500/10 text-emerald-600">
+          <Badge className="bg-emerald-500/10 text-status-success">
             {pkg.totalItems} ready
           </Badge>
         </div>
@@ -141,7 +141,7 @@ const LettersTab = () => {
                 className="flex flex-col gap-3 rounded-xl border border-border bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="flex items-start gap-3">
-                  <FileText className="mt-0.5 h-4 w-4 text-emerald-600" />
+                  <FileText className="mt-0.5 h-4 w-4 text-status-success" />
                   <div>
                     <p className="text-sm font-medium">{pkgItem.item.name}</p>
                     <p className="text-xs text-muted-foreground">
@@ -158,7 +158,7 @@ const LettersTab = () => {
                 <div className="flex items-center gap-2">
                   {pkgItem.experianUploadOnly &&
                     pkgItem.item.bureaus.includes("EX") && (
-                      <Badge className="bg-blue-500/10 text-blue-600 text-[10px]">
+                      <Badge className="bg-blue-500/10 text-status-info text-[10px]">
                         Experian: Upload only
                       </Badge>
                     )}
@@ -248,13 +248,13 @@ const LetterEditorModal = ({
       >
         <div className="flex items-center justify-between border-b border-border p-5">
           <div className="flex items-center gap-2">
-            <Edit3 className="h-5 w-5 text-emerald-600" />
+            <Edit3 className="h-5 w-5 text-status-success" />
             <h2 className="font-semibold">View & edit dispute letter</h2>
             <Badge className="bg-muted text-muted-foreground">
               {cat?.label ?? "Dispute"}
             </Badge>
             {builderMode && (
-              <Badge className="bg-emerald-500/10 text-emerald-600 text-[10px] capitalize">
+              <Badge className="bg-emerald-500/10 text-status-success text-[10px] capitalize">
                 {builderMode}
               </Badge>
             )}

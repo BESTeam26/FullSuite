@@ -12,9 +12,11 @@ export const CreditMonitoringCard = ({ provider }: { provider: string }) => {
   return (
     <div className="rounded-2xl border border-border bg-card p-6">
       <div className="flex items-center gap-2">
-        <ShieldCheck className="h-4 w-4 text-emerald-600" />
+        <ShieldCheck className="h-4 w-4 text-status-success" />
         <h2 className="font-semibold">Credit monitoring</h2>
-        <Badge className="bg-emerald-500/10 text-emerald-600">{provider}</Badge>
+        <Badge className="bg-emerald-500/10 text-status-success">
+          {provider}
+        </Badge>
       </div>
       <p className="mt-1 text-xs text-muted-foreground">
         Monitoring provider is set on the client account. If automatic import is

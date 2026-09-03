@@ -85,7 +85,7 @@ export function BureauScoreCard({ bureau }: { bureau: BureauProgress }) {
           <span>300</span>
           <span>850</span>
         </div>
-        <p className="mt-1 text-center text-sm font-bold text-emerald-600">
+        <p className="mt-1 text-center text-sm font-bold text-status-success">
           {isUp ? "+" : ""}
           {change} since last report
         </p>
@@ -100,7 +100,7 @@ export function BureauScoreCard({ bureau }: { bureau: BureauProgress }) {
               <div key={h.label} className="flex-1 text-center">
                 <p className="text-sm font-bold">{h.score}</p>
                 <p
-                  className={`text-[10px] font-medium ${h.change >= 0 ? "text-emerald-600" : "text-red-600"}`}
+                  className={`text-[10px] font-medium ${h.change >= 0 ? "text-status-success" : "text-status-danger"}`}
                 >
                   {h.change >= 0 ? "+" : ""}
                   {h.change}
@@ -116,19 +116,19 @@ export function BureauScoreCard({ bureau }: { bureau: BureauProgress }) {
           <StatChip
             value={bureau.itemsDeleted}
             label="Items deleted"
-            tone="text-emerald-600"
+            tone="text-status-success"
             icon={Trash2}
           />
           <StatChip
             value={bureau.updatedToPositive}
             label="Updated positive"
-            tone="text-blue-600"
+            tone="text-status-info"
             icon={Smile}
           />
           <StatChip
             value={bureau.newItemsAdded}
             label="New items"
-            tone="text-amber-600"
+            tone="text-status-warning"
             icon={Plus}
           />
           <StatChip
@@ -172,10 +172,10 @@ export function BureauScoreCard({ bureau }: { bureau: BureauProgress }) {
                         <span
                           className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
                             r.status === "Deleted"
-                              ? "bg-emerald-500/10 text-emerald-600"
+                              ? "bg-emerald-500/10 text-status-success"
                               : r.status === "Positive"
-                                ? "bg-emerald-500/10 text-emerald-600"
-                                : "bg-red-500/10 text-red-600"
+                                ? "bg-emerald-500/10 text-status-success"
+                                : "bg-red-500/10 text-status-danger"
                           }`}
                         >
                           {r.status}
@@ -192,7 +192,7 @@ export function BureauScoreCard({ bureau }: { bureau: BureauProgress }) {
         {/* New dispute rows */}
         {bureau.newDisputeRows.length > 0 && (
           <div className="mt-3">
-            <p className="mb-2 text-xs font-semibold text-amber-700">
+            <p className="mb-2 text-xs font-semibold text-status-warning">
               New dispute items for this round
             </p>
             <ul className="space-y-1">

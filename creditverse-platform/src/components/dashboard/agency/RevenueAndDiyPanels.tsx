@@ -19,7 +19,7 @@ const revenueStreams = [
     icon: CreditCard,
     colorBar: "bg-emerald-500",
     colorDot: "bg-emerald-500",
-    colorText: "text-emerald-600 dark:text-emerald-400",
+    colorText: "text-status-success",
   },
   {
     label: "Usage / Metering",
@@ -27,7 +27,7 @@ const revenueStreams = [
     icon: Gauge,
     colorBar: "bg-amber-500",
     colorDot: "bg-amber-500",
-    colorText: "text-amber-600 dark:text-amber-400",
+    colorText: "text-status-warning",
   },
   {
     label: "DFY Fulfillment",
@@ -35,7 +35,7 @@ const revenueStreams = [
     icon: Wallet,
     colorBar: "bg-blue-500",
     colorDot: "bg-blue-500",
-    colorText: "text-blue-600 dark:text-blue-400",
+    colorText: "text-status-info",
   },
   {
     label: "DIY / Other",
@@ -91,7 +91,7 @@ const diyToneStyle: Record<
   { value: string; bg: string; border: string }
 > = {
   emerald: {
-    value: "text-emerald-700 dark:text-emerald-400",
+    value: "text-status-success",
     bg: "bg-emerald-500/5",
     border: "border-emerald-500/20",
   },
@@ -101,7 +101,7 @@ const diyToneStyle: Record<
     border: "border-blue-500/20",
   },
   amber: {
-    value: "text-amber-700 dark:text-amber-400",
+    value: "text-status-warning",
     bg: "bg-amber-500/5",
     border: "border-amber-500/20",
   },
@@ -121,7 +121,7 @@ export const RevenueAndDiyPanels = () => {
       <Card className="p-5 border-border shadow-sm">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <Receipt className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+            <Receipt className="h-5 w-5 text-status-success" />
             <h2 className="text-base font-bold tracking-tight text-foreground">
               Revenue Mix
             </h2>
@@ -141,8 +141,8 @@ export const RevenueAndDiyPanels = () => {
             ${totalRevenue.toLocaleString()}
           </p>
           <div className="flex items-center gap-2 mt-1">
-            <TrendingUp className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-            <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+            <TrendingUp className="h-3.5 w-3.5 text-status-success" />
+            <span className="text-sm font-semibold text-status-success">
               +14.2% vs last month
             </span>
             <span className="text-[10px] text-muted-foreground">
@@ -189,7 +189,7 @@ export const RevenueAndDiyPanels = () => {
       <Card className="p-5 border-amber-500/30 shadow-sm">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10 text-status-warning">
               <Zap className="h-5 w-5" />
             </div>
             <div>
@@ -205,7 +205,7 @@ export const RevenueAndDiyPanels = () => {
             size="sm"
             variant="outline"
             onClick={() => navigate("/app/diy-management")}
-            className="shrink-0 border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10"
+            className="shrink-0 border-amber-500/30 text-status-warning hover:bg-amber-500/10"
           >
             Manage DIY <ArrowRight className="h-3.5 w-3.5 ml-1" />
           </Button>

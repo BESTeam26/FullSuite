@@ -16,31 +16,31 @@ const leverConfig = {
   REPAIR: {
     icon: Wrench,
     label: "REPAIR FIRST",
-    tone: "text-amber-600",
+    tone: "text-status-warning",
     bg: "bg-amber-500/10",
     border: "border-amber-500/30",
   },
   BUILD: {
     icon: Building2,
     label: "BUILD FIRST",
-    tone: "text-blue-600",
+    tone: "text-status-info",
     bg: "bg-blue-500/10",
     border: "border-blue-500/30",
   },
   BALANCED: {
     icon: Scale,
     label: "BALANCED APPROACH",
-    tone: "text-emerald-600",
+    tone: "text-status-success",
     bg: "bg-emerald-500/10",
     border: "border-emerald-500/30",
   },
 } as const;
 
 const factorStatusTone: Record<string, string> = {
-  excellent: "text-emerald-600 bg-emerald-500/10",
+  excellent: "text-status-success bg-emerald-500/10",
   good: "text-sky-600 bg-sky-500/10",
-  fair: "text-amber-600 bg-amber-500/10",
-  poor: "text-red-600 bg-red-500/10",
+  fair: "text-status-warning bg-amber-500/10",
+  poor: "text-status-danger bg-red-500/10",
 };
 
 const ScorePotentialCard = ({ items }: { items: ClassifiedItem[] }) => {
@@ -58,9 +58,9 @@ const ScorePotentialCard = ({ items }: { items: ClassifiedItem[] }) => {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-blue-600" />
+            <TrendingUp className="h-4 w-4 text-status-info" />
             <h2 className="font-semibold">FICO Score Potential Analysis</h2>
-            <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-blue-600">
+            <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-status-info">
               Smart Logic
             </span>
           </div>
@@ -103,7 +103,7 @@ const ScorePotentialCard = ({ items }: { items: ClassifiedItem[] }) => {
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Achievable Ceiling
           </p>
-          <p className="mt-1 text-3xl font-bold tracking-tight text-emerald-600">
+          <p className="mt-1 text-3xl font-bold tracking-tight text-status-success">
             {analysis.averageCeiling}
           </p>
           <p className="text-[11px] text-muted-foreground">
@@ -174,7 +174,7 @@ const ScorePotentialCard = ({ items }: { items: ClassifiedItem[] }) => {
                     style={{ width: `${Math.max(5, f.current)}%` }}
                   />
                 </div>
-                <span className="w-14 text-right text-xs font-bold text-blue-600 dark:text-blue-400">
+                <span className="w-14 text-right text-xs font-bold text-status-info">
                   +{f.currentPoints} pts
                 </span>
               </div>
@@ -188,7 +188,7 @@ const ScorePotentialCard = ({ items }: { items: ClassifiedItem[] }) => {
                     style={{ width: `${Math.max(5, f.ceiling)}%` }}
                   />
                 </div>
-                <span className="w-14 text-right text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                <span className="w-14 text-right text-xs font-bold text-status-success">
                   +{f.ceilingPoints} pts
                 </span>
               </div>
@@ -230,7 +230,7 @@ const ScorePotentialCard = ({ items }: { items: ClassifiedItem[] }) => {
         onClick={() => setExpanded((e) => !e)}
         className="mt-4 flex w-full items-center gap-2 rounded-lg border border-border bg-muted/20 px-3 py-2 text-left text-xs text-muted-foreground hover:bg-muted/40"
       >
-        <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+        <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-status-success" />
         <span className="flex-1">
           Human verification required — this is smart analysis, not a guarantee
           or recommendation.

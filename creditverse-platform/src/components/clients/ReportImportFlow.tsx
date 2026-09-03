@@ -181,7 +181,7 @@ export const ReportImportFlow = ({
     <div className="rounded-2xl border border-border bg-card p-6">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <UploadCloud className="h-5 w-5 text-emerald-600" />
+          <UploadCloud className="h-5 w-5 text-status-success" />
           <h2 className="font-semibold">
             Credit report import & auto-analysis
           </h2>
@@ -200,7 +200,7 @@ export const ReportImportFlow = ({
       </p>
 
       {monitoring.attempts > 0 && (
-        <div className="mt-4 flex items-start gap-2 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-700">
+        <div className="mt-4 flex items-start gap-2 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-status-warning">
           <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>
             <strong>{monitoring.attempts}</strong> blocked import attempt
@@ -224,7 +224,7 @@ export const ReportImportFlow = ({
                   onClick={() => setProvider(p)}
                   className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
                     provider === p
-                      ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-600"
+                      ? "border-emerald-500/50 bg-emerald-500/10 text-status-success"
                       : "border-border bg-muted/30 text-muted-foreground hover:bg-muted"
                   }`}
                 >
@@ -255,7 +255,7 @@ export const ReportImportFlow = ({
       {phase === "pdf-upload" && (
         <div className="mt-5 space-y-4">
           <div className="flex items-start gap-3 rounded-xl border border-blue-500/20 bg-blue-500/5 p-4">
-            <ScanLine className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
+            <ScanLine className="mt-0.5 h-4 w-4 shrink-0 text-status-info" />
             <div className="text-sm">
               <p className="font-medium text-blue-700">
                 Manual PDF upload — OCR &amp; data extraction
@@ -300,16 +300,16 @@ export const ReportImportFlow = ({
       {phase === "pdf-ocr" && (
         <div className="mt-6 space-y-3">
           <div className="flex items-center gap-3 text-sm">
-            <Loader2 className="h-4 w-4 animate-spin text-emerald-600" />
+            <Loader2 className="h-4 w-4 animate-spin text-status-success" />
             Running OCR on {pdfFiles.EQ?.name}, {pdfFiles.EX?.name},{" "}
             {pdfFiles.TU?.name}…
           </div>
           <div className="flex items-center gap-3 text-sm">
-            <Loader2 className="h-4 w-4 animate-spin text-emerald-600" />
+            <Loader2 className="h-4 w-4 animate-spin text-status-success" />
             Extracting tradelines, balances, dates &amp; payment history…
           </div>
           <div className="flex items-center gap-3 text-sm">
-            <Loader2 className="h-4 w-4 animate-spin text-emerald-600" />
+            <Loader2 className="h-4 w-4 animate-spin text-status-success" />
             Cross-referencing 3 bureaus for accuracy…
           </div>
         </div>
@@ -318,7 +318,7 @@ export const ReportImportFlow = ({
       {phase === "importing" && (
         <div className="mt-6 space-y-3">
           <div className="flex items-center gap-3 text-sm">
-            <Loader2 className="h-4 w-4 animate-spin text-emerald-600" />
+            <Loader2 className="h-4 w-4 animate-spin text-status-success" />
             Connecting to {provider} and pulling three-bureau report…
           </div>
         </div>
@@ -327,7 +327,7 @@ export const ReportImportFlow = ({
       {phase === "blocked" && (
         <div className="mt-6 rounded-xl border border-red-500/20 bg-red-500/5 p-5">
           <div className="flex items-start gap-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-600">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-status-danger">
               <AlertTriangle className="h-4 w-4" />
             </span>
             <div className="flex-1">
@@ -338,12 +338,14 @@ export const ReportImportFlow = ({
                 {blockReason}.
               </p>
               <div className="mt-3 flex items-center gap-2 rounded-lg bg-card px-3 py-2 text-xs">
-                <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-status-success" />
                 <span>
                   Status automatically set to{" "}
-                  <strong className="text-red-600">Monitoring Issue</strong> and
-                  this attempt was logged (attempt #{monitoring.attempts}) — no
-                  manual tracking needed.
+                  <strong className="text-status-danger">
+                    Monitoring Issue
+                  </strong>{" "}
+                  and this attempt was logged (attempt #{monitoring.attempts}) —
+                  no manual tracking needed.
                 </span>
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
@@ -370,11 +372,11 @@ export const ReportImportFlow = ({
       {phase === "analyzing" && (
         <div className="mt-6 space-y-3">
           <div className="flex items-center gap-3 text-sm">
-            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+            <CheckCircle2 className="h-4 w-4 text-status-success" />
             Report imported — {sampleRaw.length} items detected
           </div>
           <div className="flex items-center gap-3 text-sm">
-            <Loader2 className="h-4 w-4 animate-spin text-emerald-600" />
+            <Loader2 className="h-4 w-4 animate-spin text-status-success" />
             AI engine normalizing tradelines & marking negatives…
           </div>
         </div>
@@ -386,12 +388,12 @@ export const ReportImportFlow = ({
             <Stat
               label="Negatives flagged"
               value={negatives}
-              tone="text-red-600"
+              tone="text-status-danger"
             />
             <Stat
               label="Positive accounts"
               value={positives}
-              tone="text-blue-600"
+              tone="text-status-info"
             />
             <Stat
               label="Inquiries protected"
@@ -400,9 +402,9 @@ export const ReportImportFlow = ({
             />
           </div>
           <div className="flex items-start gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
-            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-status-success" />
             <div className="text-sm">
-              <p className="font-medium text-emerald-700">
+              <p className="font-medium text-status-success">
                 Auto-analysis complete — status set to Connected
               </p>
               <p className="mt-0.5 text-muted-foreground">
@@ -414,7 +416,7 @@ export const ReportImportFlow = ({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-emerald-600" />
+            <Sparkles className="h-4 w-4 text-status-success" />
             <span className="text-sm font-medium">
               Credit Analysis & Progress report ready
             </span>
@@ -440,9 +442,9 @@ function MonitoringStatusBadge({
   onCorrect: (s: MonitoringStatus) => void;
 }) {
   const tone: Record<MonitoringStatus, string> = {
-    connected: "bg-emerald-500/10 text-emerald-600",
-    "monitoring-issue": "bg-red-500/10 text-red-600",
-    "needs-review": "bg-amber-500/10 text-amber-600",
+    connected: "bg-emerald-500/10 text-status-success",
+    "monitoring-issue": "bg-red-500/10 text-status-danger",
+    "needs-review": "bg-amber-500/10 text-status-warning",
   };
   return (
     <DropdownMenu>

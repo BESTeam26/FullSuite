@@ -30,8 +30,8 @@ type Mode = "chat" | "fcra" | "metro2" | "violations";
 
 const severityStyle: Record<string, string> = {
   info: "bg-sky-500/10 text-sky-600",
-  caution: "bg-amber-500/10 text-amber-600",
-  high: "bg-red-500/10 text-red-600",
+  caution: "bg-amber-500/10 text-status-warning",
+  high: "bg-red-500/10 text-status-danger",
 };
 
 const suggestions = [
@@ -247,7 +247,7 @@ export const CopilotPanel = () => {
 
         {mode === "metro2" && (
           <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
-            <div className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400">
+            <div className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-status-warning">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               Metro 2 is a furnisher reporting format, not a consumer dispute
               format. These are conceptual references for factual analysis only.

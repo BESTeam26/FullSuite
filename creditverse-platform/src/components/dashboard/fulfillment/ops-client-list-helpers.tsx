@@ -47,7 +47,7 @@ export const StatusPill = ({
 
 export const ModeBadge = ({ client }: { client: OpsClient }) =>
   client.mode === "saas_pulled" ? (
-    <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
+    <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-status-success">
       <RefreshCw className="h-2.5 w-2.5" /> SaaS-Pulled
     </span>
   ) : (

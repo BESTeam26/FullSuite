@@ -104,7 +104,7 @@ const Metro2 = () => {
 
       {/* Corrected positioning banner */}
       <div className="flex items-start gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4">
-        <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+        <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-status-warning" />
         <p className="text-sm text-muted-foreground">
           Metro 2 is an industry data-reporting specification, not a federal
           consumer-protection statute. A Metro 2 anomaly is powerful{" "}
@@ -117,7 +117,7 @@ const Metro2 = () => {
       {/* Metro 2 Intelligence Engine results */}
       <div className="space-y-4">
         <div className="flex items-center gap-2">
-          <FileText className="h-5 w-5 text-emerald-600" />
+          <FileText className="h-5 w-5 text-status-success" />
           <h2 className="text-lg font-bold tracking-tight">
             Credit Reporting Accuracy & Metro 2 Intelligence Engine
           </h2>
@@ -151,7 +151,7 @@ const Metro2 = () => {
         <div className="rounded-2xl border border-border bg-card p-6 lg:col-span-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-emerald-600" />
+              <FileText className="h-5 w-5 text-status-success" />
               <h2 className="font-semibold">Dispute record — DSP-2040</h2>
             </div>
             <Badge className="bg-purple-500/10 text-purple-600">Metro2</Badge>
@@ -207,7 +207,7 @@ const Metro2 = () => {
                 "FCRA basis cited",
               ].map((c) => (
                 <li key={c} className="flex items-center gap-2">
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/10 text-status-success">
                     <Check className="h-3 w-3" />
                   </span>
                   {c}
@@ -231,7 +231,7 @@ const Metro2 = () => {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-bold tracking-tight flex items-center gap-2">
-              <Building2 className="h-5 w-5 text-amber-600" /> Secondary &
+              <Building2 className="h-5 w-5 text-status-warning" /> Secondary &
               Freeze Bureau Registry
             </h2>
             <p className="text-sm text-muted-foreground">
@@ -239,7 +239,7 @@ const Metro2 = () => {
               secondary credit databases.
             </p>
           </div>
-          <Badge className="bg-amber-500/10 text-amber-600 border-none">
+          <Badge className="bg-amber-500/10 text-status-warning border-none">
             {frozenBureaus.size} Frozen
           </Badge>
         </div>
@@ -286,7 +286,9 @@ const Metro2 = () => {
                   <p>
                     {sec.city}, {sec.state} {sec.zip}
                   </p>
-                  {sec.phone && <p className="text-emerald-600">{sec.phone}</p>}
+                  {sec.phone && (
+                    <p className="text-status-success">{sec.phone}</p>
+                  )}
                 </div>
               </div>
             );

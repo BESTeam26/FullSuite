@@ -324,7 +324,7 @@ export function FundingOpsTreeSidebar({ selected, onSelect }: Props) {
             "fundingops_users",
             "FUNDINGOPS USERS",
             fundingopsUserPartners,
-            "text-emerald-500",
+            "text-status-success",
           )}
         </div>
       </div>

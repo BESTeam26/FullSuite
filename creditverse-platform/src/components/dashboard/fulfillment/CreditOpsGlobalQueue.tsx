@@ -56,7 +56,7 @@ const QUEUE_SPECS: Record<
   "dispute-queue": {
     title: "GLOBAL DISPUTE PROCESSING QUEUE",
     icon: FileText,
-    color: "text-emerald-600",
+    color: "text-status-success",
     filterFn: (c) =>
       [
         "In Processing",
@@ -68,7 +68,7 @@ const QUEUE_SPECS: Record<
   "onboarding-queue": {
     title: "GLOBAL ONBOARDING QUEUE",
     icon: UserPlus,
-    color: "text-amber-600",
+    color: "text-status-warning",
     filterFn: (c) =>
       ["Onboarding", "NEW ONBOARDING", "INCOMPLETE ONBOARDING"].includes(
         c.status,
@@ -77,14 +77,14 @@ const QUEUE_SPECS: Record<
   "support-queue": {
     title: "GLOBAL CLIENT SUCCESS & SUPPORT QUEUE",
     icon: HelpCircle,
-    color: "text-blue-600",
+    color: "text-status-info",
     filterFn: (c) =>
       ["Monitoring Issue", "Attention", "Awaiting Response"].includes(c.status),
   },
   "escalation-queue": {
     title: "GLOBAL ESCALATION & MANAGEMENT QUEUE",
     icon: AlertTriangle,
-    color: "text-red-600",
+    color: "text-status-danger",
     filterFn: (c) =>
       c.status === "Attention" ||
       (c.slaHoursRemaining !== undefined && c.slaHoursRemaining <= 4),
@@ -98,7 +98,7 @@ const QUEUE_SPECS: Record<
   "bureau-queue": {
     title: "GLOBAL BUREAU CALLING QUEUE",
     icon: Phone,
-    color: "text-indigo-600",
+    color: "text-status-info",
     filterFn: () => true,
   },
 };

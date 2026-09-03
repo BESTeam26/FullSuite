@@ -153,7 +153,7 @@ export function CreditOpsWebhookPanel() {
                   className={cn(
                     "flex h-9 w-9 items-center justify-center rounded-lg",
                     ep.type === "ghl"
-                      ? "bg-blue-500/10 text-blue-600"
+                      ? "bg-blue-500/10 text-status-info"
                       : ep.type === "disputefox"
                         ? "bg-purple-500/10 text-purple-600"
                         : "bg-muted text-muted-foreground",
@@ -177,7 +177,7 @@ export function CreditOpsWebhookPanel() {
                   className={cn(
                     "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[11px] font-bold",
                     ep.enabled
-                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
+                      ? "border-emerald-500/30 bg-emerald-500/10 text-status-success"
                       : "border-border bg-muted/40 text-muted-foreground",
                   )}
                 >
@@ -246,7 +246,9 @@ export function CreditOpsWebhookPanel() {
                 <p
                   className={cn(
                     "mt-0.5 text-sm font-bold",
-                    ep.enabled ? "text-emerald-600" : "text-muted-foreground",
+                    ep.enabled
+                      ? "text-status-success"
+                      : "text-muted-foreground",
                   )}
                 >
                   {ep.enabled ? "Active" : "Inactive"}
@@ -287,7 +289,7 @@ export function CreditOpsWebhookPanel() {
                     className={cn(
                       "rounded-full px-2 py-0.5 text-[10px] font-bold",
                       entry.status === "emitted"
-                        ? "bg-emerald-500/10 text-emerald-700"
+                        ? "bg-emerald-500/10 text-status-success"
                         : entry.status === "failed"
                           ? "bg-red-500/10 text-red-700"
                           : "bg-muted text-muted-foreground",

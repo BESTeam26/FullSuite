@@ -13,7 +13,7 @@ import type { ClassifiedItem, Bureau } from "@/lib/credit-classification";
 const bureauHeaderBg: Record<Bureau, string> = {
   EQ: "bg-red-500/10 text-red-700 dark:text-red-300",
   EX: "bg-blue-500/10 text-blue-700 dark:text-blue-300",
-  TU: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+  TU: "bg-emerald-500/10 text-status-success",
 };
 
 const bureauLabel: Record<Bureau, string> = {
@@ -307,7 +307,7 @@ export const CreditReportDetailGrid = ({
         return { code: "CO", cls: "bg-red-600 text-white font-bold" };
       return {
         code: "OK",
-        cls: "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 font-semibold",
+        cls: "bg-emerald-500/20 text-status-success font-semibold",
       };
     }
     if (item.category === "Late Payment") {
@@ -317,12 +317,12 @@ export const CreditReportDetailGrid = ({
         return { code: "30", cls: "bg-amber-500 text-white font-semibold" };
       return {
         code: "OK",
-        cls: "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 font-semibold",
+        cls: "bg-emerald-500/20 text-status-success font-semibold",
       };
     }
     return {
       code: "OK",
-      cls: "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 font-semibold",
+      cls: "bg-emerald-500/20 text-status-success font-semibold",
     };
   };
 
@@ -332,7 +332,7 @@ export const CreditReportDetailGrid = ({
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-            <Building2 className="h-4 w-4 text-emerald-600" />
+            <Building2 className="h-4 w-4 text-status-success" />
             3-Bureau Detailed Report Comparison
           </h4>
           <span className="text-[11px] text-muted-foreground">
@@ -343,9 +343,9 @@ export const CreditReportDetailGrid = ({
         <div className="rounded-lg border border-border overflow-hidden bg-card">
           <div className="grid grid-cols-4 bg-muted/60 p-2.5 text-center text-xs font-bold border-b border-border">
             <span className="text-left text-muted-foreground">Field</span>
-            <span className="text-red-600">Equifax</span>
-            <span className="text-blue-600">Experian</span>
-            <span className="text-emerald-600">Transunion</span>
+            <span className="text-status-danger">Equifax</span>
+            <span className="text-status-info">Experian</span>
+            <span className="text-status-success">Transunion</span>
           </div>
           <div className="divide-y divide-border text-xs">
             {fields.map((row, idx) => (
@@ -378,7 +378,7 @@ export const CreditReportDetailGrid = ({
           className="flex w-full items-center justify-between bg-muted/40 p-3 text-xs font-bold text-foreground hover:bg-muted/60"
         >
           <span className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-emerald-600" />
+            <Clock className="h-4 w-4 text-status-success" />
             3-Year Payment History & Delinquency Record
           </span>
           {showPaymentHistory ? (
@@ -453,7 +453,7 @@ export const CreditReportDetailGrid = ({
           className="flex w-full items-center justify-between bg-muted/40 p-3 text-xs font-bold text-foreground hover:bg-muted/60"
         >
           <span className="flex items-center gap-2">
-            <FileSearch className="h-4 w-4 text-blue-600" />
+            <FileSearch className="h-4 w-4 text-status-info" />
             Historical Dispute Rounds & Result Log
           </span>
           {showDisputeHistory ? (
@@ -478,19 +478,21 @@ export const CreditReportDetailGrid = ({
               </thead>
               <tbody className="divide-y divide-border">
                 <tr className="hover:bg-muted/20">
-                  <td className="p-2 font-mono text-emerald-600">
+                  <td className="p-2 font-mono text-status-success">
                     August 24th, 2026
                   </td>
                   <td className="p-2 font-semibold">Experian (Upload)</td>
                   <td className="p-2">
                     <Badge
                       variant="outline"
-                      className="text-[10px] text-emerald-600"
+                      className="text-[10px] text-status-success"
                     >
                       Active
                     </Badge>
                   </td>
-                  <td className="p-2 font-medium text-amber-600">In Dispute</td>
+                  <td className="p-2 font-medium text-status-warning">
+                    In Dispute
+                  </td>
                   <td className="p-2 font-medium">In Dispute</td>
                   <td className="p-2 text-muted-foreground">—</td>
                 </tr>

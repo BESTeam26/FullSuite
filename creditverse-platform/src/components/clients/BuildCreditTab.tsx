@@ -53,10 +53,10 @@ const BuildCreditTab = () => {
 
   const utilTone =
     state.currentUtilization <= 9
-      ? "text-emerald-600"
+      ? "text-status-success"
       : state.currentUtilization <= 29
         ? "text-sky-600"
-        : "text-amber-600";
+        : "text-status-warning";
 
   const utilData = [
     { month: "Mar", util: 22 },
@@ -80,8 +80,8 @@ const BuildCreditTab = () => {
         <div
           className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
             state.isThinFile
-              ? "bg-blue-500/10 text-blue-600"
-              : "bg-emerald-500/10 text-emerald-600"
+              ? "bg-blue-500/10 text-status-info"
+              : "bg-emerald-500/10 text-status-success"
           }`}
         >
           {state.isThinFile ? (
@@ -93,7 +93,7 @@ const BuildCreditTab = () => {
         <div>
           <p
             className={`text-sm font-bold ${
-              state.isThinFile ? "text-blue-600" : "text-emerald-600"
+              state.isThinFile ? "text-status-info" : "text-status-success"
             }`}
           >
             {state.isThinFile
@@ -111,7 +111,7 @@ const BuildCreditTab = () => {
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="rounded-2xl border border-border bg-card p-5">
           <div className="flex items-center gap-2">
-            <Target className="h-4 w-4 text-emerald-600" />
+            <Target className="h-4 w-4 text-status-success" />
             <h3 className="text-sm font-semibold">Utilization target</h3>
           </div>
           <p className={`mt-3 text-3xl font-bold ${utilTone}`}>
@@ -142,10 +142,10 @@ const BuildCreditTab = () => {
 
         <div className="rounded-2xl border border-border bg-card p-5">
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+            <CheckCircle2 className="h-4 w-4 text-status-success" />
             <h3 className="text-sm font-semibold">On-time payments</h3>
           </div>
-          <p className="mt-3 text-3xl font-bold text-emerald-600">
+          <p className="mt-3 text-3xl font-bold text-status-success">
             {state.onTimeRate}%
           </p>
           <p className="text-[11px] text-muted-foreground">6-month rolling</p>
@@ -158,10 +158,10 @@ const BuildCreditTab = () => {
                 <div
                   className={`flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-semibold ${
                     p.status === "paid"
-                      ? "bg-emerald-500/15 text-emerald-600"
+                      ? "bg-emerald-500/15 text-status-success"
                       : p.status === "pending"
-                        ? "bg-amber-500/15 text-amber-600"
-                        : "bg-red-500/15 text-red-600"
+                        ? "bg-amber-500/15 text-status-warning"
+                        : "bg-red-500/15 text-status-danger"
                   }`}
                 >
                   {p.status === "paid" ? (
@@ -180,7 +180,7 @@ const BuildCreditTab = () => {
 
         <div className="rounded-2xl border border-border bg-card p-5">
           <div className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-emerald-600" />
+            <TrendingUp className="h-4 w-4 text-status-success" />
             <h3 className="text-sm font-semibold">Utilization trend</h3>
           </div>
           <div className="mt-3 h-[120px]">
@@ -229,7 +229,7 @@ const BuildCreditTab = () => {
       {/* Build flows */}
       <div className="space-y-4">
         <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-blue-600" />
+          <Sparkles className="h-4 w-4 text-status-info" />
           <h2 className="font-semibold">Guided build flows</h2>
         </div>
 
@@ -254,7 +254,7 @@ const BuildCreditTab = () => {
                   <span
                     className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
                       flow.recommended
-                        ? "bg-blue-500/10 text-blue-600"
+                        ? "bg-blue-500/10 text-status-info"
                         : "bg-muted/40 text-muted-foreground"
                     }`}
                   >
@@ -264,12 +264,12 @@ const BuildCreditTab = () => {
                     <div className="flex items-center gap-2">
                       <p className="font-semibold">{flow.title}</p>
                       {flow.recommended && (
-                        <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold text-blue-600">
+                        <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold text-status-info">
                           Recommended
                         </span>
                       )}
                       {completedSteps === flow.steps.length && (
-                        <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600">
+                        <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-status-success">
                           Complete
                         </span>
                       )}
@@ -294,7 +294,7 @@ const BuildCreditTab = () => {
                   </p>
                   {flow.utilizationTarget > 0 && (
                     <div className="mt-3 flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-xs">
-                      <Target className="h-3.5 w-3.5 text-emerald-600" />
+                      <Target className="h-3.5 w-3.5 text-status-success" />
                       <span>
                         Utilization target: keep balance under{" "}
                         {flow.utilizationTarget}% of the limit
@@ -315,7 +315,7 @@ const BuildCreditTab = () => {
                           }`}
                         >
                           {done ? (
-                            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-status-success" />
                           ) : (
                             <Circle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                           )}
@@ -345,7 +345,7 @@ const BuildCreditTab = () => {
         onClick={() => setExpanded((e) => !e)}
         className="flex w-full items-center gap-2 rounded-lg border border-border bg-muted/20 px-3 py-2 text-left text-xs text-muted-foreground hover:bg-muted/40"
       >
-        <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+        <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-status-success" />
         <span className="flex-1">
           Human verification required — build-flow estimates are smart analysis,
           not a guarantee or recommendation.

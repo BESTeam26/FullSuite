@@ -6,14 +6,14 @@ export const PermissionScopeCard = ({ role }: { role: Role }) => {
   return (
     <div className="rounded-2xl border border-border bg-card p-6">
       <div className="flex items-center gap-2">
-        <ShieldCheck className="h-5 w-5 text-emerald-600" />
+        <ShieldCheck className="h-5 w-5 text-status-success" />
         <h2 className="font-semibold">Your permission scope</h2>
       </div>
       <p className="mt-1 text-sm text-muted-foreground">{def.description}</p>
 
       <div className="mt-5 grid gap-5 sm:grid-cols-2">
         <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-emerald-600">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-status-success">
             Granted to you
           </p>
           <div className="space-y-1.5">
@@ -22,7 +22,7 @@ export const PermissionScopeCard = ({ role }: { role: Role }) => {
                 key={g.key}
                 className="flex items-center gap-2 rounded-lg bg-emerald-500/5 px-2.5 py-1.5 text-sm"
               >
-                <Check className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                <Check className="h-3.5 w-3.5 shrink-0 text-status-success" />
                 {g.label}
               </div>
             ))}

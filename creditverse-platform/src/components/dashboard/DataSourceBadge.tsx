@@ -16,8 +16,8 @@ export const DataSourceBadge = ({
     className={cn(
       "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
       source === "live"
-        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
-        : "border-amber-500/30 bg-amber-500/10 text-amber-700",
+        ? "border-emerald-500/30 bg-emerald-500/10 text-status-success"
+        : "border-amber-500/30 bg-amber-500/10 text-status-warning",
       className,
     )}
     title={

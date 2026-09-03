@@ -29,31 +29,31 @@ const opsToday = [
     label: "Need review",
     value: 42,
     icon: AlertTriangle,
-    cls: "text-amber-600 bg-amber-500/10",
+    cls: "text-status-warning bg-amber-500/10",
   },
   {
     label: "Await consumer",
     value: 18,
     icon: Clock,
-    cls: "text-blue-600 bg-blue-500/10",
+    cls: "text-status-info bg-blue-500/10",
   },
   {
     label: "Ready for QA",
     value: 31,
     icon: FileCheck2,
-    cls: "text-indigo-600 bg-indigo-500/10",
+    cls: "text-status-info bg-indigo-500/10",
   },
   {
     label: "Responses",
     value: 27,
     icon: Inbox,
-    cls: "text-emerald-600 bg-emerald-500/10",
+    cls: "text-status-success bg-emerald-500/10",
   },
   {
     label: "Over SLA",
     value: 8,
     icon: MailWarning,
-    cls: "text-red-600 bg-red-500/10",
+    cls: "text-status-danger bg-red-500/10",
   },
   {
     label: "Compliance holds",
@@ -110,12 +110,12 @@ const Dashboard = () => {
               </h1>
               <Badge
                 variant="outline"
-                className="text-xs border-emerald-500/40 text-emerald-600"
+                className="text-xs border-emerald-500/40 text-status-success"
               >
                 {activeSubAccount?.plan} Plan
               </Badge>
               {activeSubAccount?.isFulfillmentSubscriber && (
-                <Badge className="bg-amber-500/20 text-amber-500 border border-amber-500/30 text-[10px]">
+                <Badge className="bg-amber-500/20 text-status-warning border border-amber-500/30 text-[10px]">
                   HQ Fulfillment Subscriber
                 </Badge>
               )}
@@ -130,7 +130,7 @@ const Dashboard = () => {
 
         <button
           onClick={switchToAgencyView}
-          className="text-xs font-semibold text-amber-500 hover:underline flex items-center gap-1"
+          className="text-xs font-semibold text-status-warning hover:underline flex items-center gap-1"
         >
           <Building2 className="h-3.5 w-3.5" /> Return to Master Agency HQ
         </button>
@@ -176,7 +176,7 @@ const Dashboard = () => {
             {creditOn && (
               <Link
                 to="/app/operations"
-                className="flex items-center gap-1 text-sm font-medium text-emerald-600 hover:underline"
+                className="flex items-center gap-1 text-sm font-medium text-status-success hover:underline"
               >
                 Open console <ArrowRight className="h-3.5 w-3.5" />
               </Link>
@@ -207,7 +207,7 @@ const Dashboard = () => {
                 ) : (
                   activeOrgWork.map((w) => (
                     <tr key={w.id} className="hover:bg-muted/30">
-                      <td className="px-5 py-4 font-mono text-xs font-medium text-emerald-600">
+                      <td className="px-5 py-4 font-mono text-xs font-medium text-status-success">
                         {w.id}
                       </td>
                       <td className="px-5 py-4 font-medium">{w.title}</td>
@@ -218,10 +218,10 @@ const Dashboard = () => {
                         <span
                           className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                             w.stage === "Ready for QA"
-                              ? "bg-amber-500/10 text-amber-600"
+                              ? "bg-amber-500/10 text-status-warning"
                               : w.stage === "Queued"
                                 ? "bg-slate-500/10 text-slate-600"
-                                : "bg-emerald-500/10 text-emerald-600"
+                                : "bg-emerald-500/10 text-status-success"
                           }`}
                         >
                           {w.stage}
@@ -250,13 +250,15 @@ const Dashboard = () => {
                   <span className="text-muted-foreground">
                     Contracts active
                   </span>
-                  <span className="font-semibold text-emerald-600">100%</span>
+                  <span className="font-semibold text-status-success">
+                    100%
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">
                     Registration state
                   </span>
-                  <span className="font-semibold text-emerald-600">
+                  <span className="font-semibold text-status-success">
                     Verified
                   </span>
                 </div>
@@ -264,7 +266,7 @@ const Dashboard = () => {
                   <span className="text-muted-foreground">
                     Fulfillment sync
                   </span>
-                  <span className="font-semibold text-emerald-600">
+                  <span className="font-semibold text-status-success">
                     {activeSubAccount?.isFulfillmentSubscriber
                       ? "Auto-Streaming to HQ"
                       : "Self-Managed"}
@@ -273,7 +275,7 @@ const Dashboard = () => {
               </div>
               <Link
                 to="/app/compliance"
-                className="mt-4 flex items-center gap-1 text-sm font-medium text-emerald-600 hover:underline"
+                className="mt-4 flex items-center gap-1 text-sm font-medium text-status-success hover:underline"
               >
                 Review compliance <ArrowRight className="h-3.5 w-3.5" />
               </Link>
@@ -299,7 +301,7 @@ const Dashboard = () => {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">QA pass rate</span>
-                <span className="font-semibold text-emerald-600">98.4%</span>
+                <span className="font-semibold text-status-success">98.4%</span>
               </div>
             </div>
           </div>
@@ -310,8 +312,8 @@ const Dashboard = () => {
         <div className="flex items-center justify-between">
           <h2 className="font-semibold">Client portfolio score trend</h2>
           <span className="flex items-center gap-1 text-xs text-muted-foreground">
-            <TrendingUp className="h-3.5 w-3.5 text-emerald-600" /> Avg client
-            FICO
+            <TrendingUp className="h-3.5 w-3.5 text-status-success" /> Avg
+            client FICO
           </span>
         </div>
         <div className="mt-6 h-64">

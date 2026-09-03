@@ -250,7 +250,7 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
                   value: e.target.value,
                 })
               }
-              className="w-full rounded border border-primary bg-background px-1.5 py-1 text-xs text-foreground focus:outline-none"
+              className="w-full rounded border border-primary bg-background px-1.5 py-1 text-xs text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
             />
           );
         }
@@ -289,7 +289,7 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
                   value: e.target.value,
                 })
               }
-              className="w-full rounded border border-primary bg-background px-1.5 py-1 text-xs text-foreground focus:outline-none"
+              className="w-full rounded border border-primary bg-background px-1.5 py-1 text-xs text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
             />
           );
         }
@@ -382,7 +382,7 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
             className={cn(
               "font-medium",
               client.slaHoursRemaining <= slaWarningHours
-                ? "text-red-600"
+                ? "text-status-danger"
                 : "text-foreground",
             )}
           >

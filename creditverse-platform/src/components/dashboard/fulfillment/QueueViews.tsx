@@ -74,7 +74,7 @@ export function QueueView({
     "dispute-queue": {
       title: "DISPUTE PROCESSING QUEUE",
       icon: FileText,
-      color: "text-emerald-600",
+      color: "text-status-success",
       filterFn: (c) =>
         [
           "In Processing",
@@ -86,7 +86,7 @@ export function QueueView({
     "onboarding-queue": {
       title: "ONBOARDING QUEUE",
       icon: UserPlus,
-      color: "text-amber-600",
+      color: "text-status-warning",
       filterFn: (c) =>
         ["Onboarding", "NEW ONBOARDING", "INCOMPLETE ONBOARDING"].includes(
           c.status,
@@ -95,7 +95,7 @@ export function QueueView({
     "support-queue": {
       title: "CLIENT SUCCESS & SUPPORT QUEUE",
       icon: HelpCircle,
-      color: "text-blue-600",
+      color: "text-status-info",
       filterFn: (c) =>
         ["Monitoring Issue", "Attention", "Awaiting Response"].includes(
           c.status,
@@ -104,7 +104,7 @@ export function QueueView({
     "escalation-queue": {
       title: "ESCALATION & MANAGEMENT QUEUE",
       icon: AlertTriangle,
-      color: "text-red-600",
+      color: "text-status-danger",
       filterFn: (c) =>
         c.status === "Attention" ||
         (c.slaHoursRemaining !== undefined && c.slaHoursRemaining <= 4),
@@ -118,7 +118,7 @@ export function QueueView({
     "bureau-queue": {
       title: "BUREAU CALLING QUEUE",
       icon: Phone,
-      color: "text-indigo-600",
+      color: "text-status-info",
       filterFn: () => true,
     },
   };

@@ -101,7 +101,7 @@ export const SubAccountsManager = () => {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <Badge className="bg-amber-500/20 text-amber-500 border border-amber-500/30">
+            <Badge className="bg-amber-500/20 text-status-warning border border-amber-500/30">
               Platform Sub-Accounts Hub
             </Badge>
           </div>
@@ -140,8 +140,8 @@ export const SubAccountsManager = () => {
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Palette className="h-5 w-5 text-amber-500" /> Whitelabel Branding
-              — {editingBrandingSub?.name}
+              <Palette className="h-5 w-5 text-status-warning" /> Whitelabel
+              Branding — {editingBrandingSub?.name}
             </DialogTitle>
           </DialogHeader>
           {editingBrandingSub && (

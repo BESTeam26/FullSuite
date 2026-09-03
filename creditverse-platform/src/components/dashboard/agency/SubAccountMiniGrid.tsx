@@ -59,10 +59,10 @@ function SubAccountMiniCard({
         <span
           className={`text-[10px] font-medium ${
             sub.status === "Active"
-              ? "text-emerald-600 dark:text-emerald-400"
+              ? "text-status-success"
               : sub.status === "At Risk"
-                ? "text-amber-600 dark:text-amber-400"
-                : "text-blue-600 dark:text-blue-400"
+                ? "text-status-warning"
+                : "text-status-info"
           }`}
         >
           {sub.status}
@@ -87,7 +87,7 @@ export const SubAccountMiniGrid = ({
     <div>
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <Building2 className="h-4 w-4 text-amber-500" />
+          <Building2 className="h-4 w-4 text-status-warning" />
           <h2 className="text-sm font-bold uppercase tracking-wider text-foreground">
             Connected Sub-Accounts
           </h2>

@@ -170,7 +170,7 @@ export function OpsManagementDashboard<
                         "rounded-full px-2 py-0.5 text-[10px] font-bold",
                         row.slaRisk
                           ? "bg-red-500/10 text-red-700"
-                          : "bg-emerald-500/10 text-emerald-700",
+                          : "bg-emerald-500/10 text-status-success",
                       )}
                     >
                       {row.slaRisk ? "At Risk" : "Clear"}
@@ -181,8 +181,8 @@ export function OpsManagementDashboard<
                       className={cn(
                         "rounded-full px-2 py-0.5 text-[10px] font-bold",
                         row.health === "Healthy"
-                          ? "bg-emerald-500/10 text-emerald-700"
-                          : "bg-amber-500/10 text-amber-700",
+                          ? "bg-emerald-500/10 text-status-success"
+                          : "bg-amber-500/10 text-status-warning",
                       )}
                     >
                       {row.health}
@@ -230,8 +230,12 @@ export function OpsManagementDashboard<
                       {row.agent}
                     </td>
                     <td className="px-3 py-2 text-foreground">{row.open}</td>
-                    <td className="px-3 py-2 text-amber-600">{row.dueToday}</td>
-                    <td className="px-3 py-2 text-red-600">{row.overdue}</td>
+                    <td className="px-3 py-2 text-status-warning">
+                      {row.dueToday}
+                    </td>
+                    <td className="px-3 py-2 text-status-danger">
+                      {row.overdue}
+                    </td>
                     <td className="px-3 py-2 text-muted-foreground">
                       {row.partners.length}
                     </td>
@@ -283,7 +287,7 @@ export function OpsManagementDashboard<
                         {resolvePartnerName(c) ?? clientGroupLabel(c)}
                       </td>
                       <td className="px-3 py-2 text-foreground">{c.status}</td>
-                      <td className="px-3 py-2 text-red-600">
+                      <td className="px-3 py-2 text-status-danger">
                         {c.slaHoursRemaining !== undefined
                           ? `${c.slaHoursRemaining}h`
                           : "—"}
@@ -326,7 +330,7 @@ export function OpsManagementDashboard<
                   className="flex items-center justify-between rounded-lg border border-border bg-muted/20 px-3 py-2"
                 >
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                    <CheckCircle2 className="h-3.5 w-3.5 text-status-success" />
                     <span className="font-semibold text-foreground">
                       {a.action}
                     </span>

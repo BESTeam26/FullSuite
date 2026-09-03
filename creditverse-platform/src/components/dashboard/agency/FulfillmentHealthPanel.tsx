@@ -29,23 +29,23 @@ const toneStyle: Record<string, { value: string; label: string; bg: string }> =
       bg: "bg-muted/30",
     },
     warn: {
-      value: "text-amber-700 dark:text-amber-400",
-      label: "text-amber-600/70 dark:text-amber-500/50",
+      value: "text-status-warning",
+      label: "text-status-warning/70/50",
       bg: "bg-amber-500/5",
     },
     danger: {
       value: "text-red-700 dark:text-red-400",
-      label: "text-red-600/70 dark:text-red-500/50",
+      label: "text-status-danger/70/50",
       bg: "bg-red-500/5",
     },
     info: {
       value: "text-blue-700 dark:text-blue-400",
-      label: "text-blue-600/70 dark:text-blue-500/50",
+      label: "text-status-info/70/50",
       bg: "bg-blue-500/5",
     },
     good: {
-      value: "text-emerald-700 dark:text-emerald-400",
-      label: "text-emerald-600/70 dark:text-emerald-500/50",
+      value: "text-status-success",
+      label: "text-status-success/70/50",
       bg: "bg-emerald-500/5",
     },
   };
@@ -56,7 +56,7 @@ const statusBadgeConfig: Record<string, string> = {
   "Ready for QA":
     "bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20 font-semibold",
   Pending:
-    "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20 font-semibold",
+    "bg-amber-500/10 text-status-warning border-amber-500/20 font-semibold",
   Blocked:
     "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20 font-semibold",
 };
@@ -72,7 +72,7 @@ export const FulfillmentHealthPanel = ({
     <Card className="p-5 border-border shadow-sm">
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-2">
-          <Inbox className="h-5 w-5 text-amber-500" />
+          <Inbox className="h-5 w-5 text-status-warning" />
           <h2 className="text-base font-bold tracking-tight text-foreground">
             Fulfillment Health
           </h2>
@@ -119,7 +119,7 @@ export const FulfillmentHealthPanel = ({
         <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2.5 flex items-center gap-1.5">
           <Clock className="h-3.5 w-3.5" />
           Urgent Work Queue
-          <span className="font-normal normal-case text-muted-foreground/70">
+          <span className="font-normal normal-case text-muted-foreground">
             — sorted by SLA proximity
           </span>
         </p>
@@ -142,7 +142,7 @@ export const FulfillmentHealthPanel = ({
             <tbody className="divide-y divide-border">
               {pendingWorkOrders.slice(0, 5).map((wo) => (
                 <tr key={wo.id} className="hover:bg-muted/30 transition-colors">
-                  <td className="px-4 py-3 font-mono text-xs font-bold text-amber-600 dark:text-amber-400">
+                  <td className="px-4 py-3 font-mono text-xs font-bold text-status-warning">
                     {wo.id}
                   </td>
                   <td className="px-4 py-3 text-xs font-semibold text-foreground">
@@ -163,10 +163,10 @@ export const FulfillmentHealthPanel = ({
                     <span
                       className={`text-xs font-bold tabular-nums flex items-center justify-end gap-1 ${
                         wo.slaHoursRemaining <= 24
-                          ? "text-red-600 dark:text-red-400"
+                          ? "text-status-danger"
                           : wo.slaHoursRemaining <= 48
-                            ? "text-amber-600 dark:text-amber-400"
-                            : "text-emerald-600 dark:text-emerald-400"
+                            ? "text-status-warning"
+                            : "text-status-success"
                       }`}
                     >
                       <Clock className="h-3 w-3" /> {wo.slaHoursRemaining}h

@@ -211,7 +211,7 @@ export function ClientWorkWorkspace({ clientId, onBack }: Props) {
           {/* Workability */}
           <div className="flex items-center justify-between rounded-xl border border-border bg-card p-4 shadow-sm">
             <div className="flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4 text-emerald-600" />
+              <ShieldCheck className="h-4 w-4 text-status-success" />
               <div>
                 <p className="font-bold text-foreground">Workability</p>
                 <p className="text-[11px] text-muted-foreground">

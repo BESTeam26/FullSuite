@@ -78,8 +78,8 @@ const Compliance = () => (
   <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
     <div className="border-b border-border/60 pb-5">
       <div className="flex items-center gap-2">
-        <Badge className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-semibold px-2.5 py-0.5 shadow-sm">
-          <Scale className="h-3.5 w-3.5 mr-1 text-amber-500" /> Regulatory
+        <Badge className="bg-amber-500/10 text-status-warning border border-amber-500/30 font-semibold px-2.5 py-0.5 shadow-sm">
+          <Scale className="h-3.5 w-3.5 mr-1 text-status-warning" /> Regulatory
           Protection & Audit
         </Badge>
       </div>
@@ -96,7 +96,7 @@ const Compliance = () => (
     <div className="grid gap-6 lg:grid-cols-3">
       <div className="rounded-2xl border border-border bg-card p-6 lg:col-span-2">
         <div className="flex items-center gap-2">
-          <Lock className="h-5 w-5 text-emerald-600" />
+          <Lock className="h-5 w-5 text-status-success" />
           <h2 className="font-semibold">Billing eligibility engine</h2>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -131,11 +131,11 @@ const Compliance = () => (
                   </td>
                   <td className="px-4 py-3">
                     {b.eligible ? (
-                      <span className="flex items-center gap-1 text-xs font-medium text-emerald-600">
+                      <span className="flex items-center gap-1 text-xs font-medium text-status-success">
                         <ShieldCheck className="h-3.5 w-3.5" /> Eligible
                       </span>
                     ) : (
-                      <span className="flex items-center gap-1 text-xs font-medium text-red-600">
+                      <span className="flex items-center gap-1 text-xs font-medium text-status-danger">
                         <AlertTriangle className="h-3.5 w-3.5" /> Locked
                       </span>
                     )}
@@ -148,7 +148,7 @@ const Compliance = () => (
 
         <div className="mt-6 rounded-2xl border border-red-500/30 bg-card p-6">
           <div className="flex items-center gap-2">
-            <Lock className="h-5 w-5 text-red-600" />
+            <Lock className="h-5 w-5 text-status-danger" />
             <h2 className="font-semibold">
               Billing eligibility · Consumer Jane Doe
             </h2>
@@ -162,9 +162,9 @@ const Compliance = () => (
                 <p className="text-xs text-muted-foreground">{c.label}</p>
                 <p className="mt-1 flex items-center gap-1.5 text-sm font-medium">
                   {c.ok ? (
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                    <CheckCircle2 className="h-4 w-4 text-status-success" />
                   ) : (
-                    <XCircle className="h-4 w-4 text-red-600" />
+                    <XCircle className="h-4 w-4 text-status-danger" />
                   )}
                   {c.value}
                 </p>
@@ -173,7 +173,7 @@ const Compliance = () => (
           </div>
 
           <div className="mt-6 rounded-xl border border-red-500/40 bg-red-500/10 p-6 text-center">
-            <p className="text-lg font-bold uppercase tracking-wider text-red-600">
+            <p className="text-lg font-bold uppercase tracking-wider text-status-danger">
               Payment currently blocked
             </p>
             <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">
@@ -206,7 +206,7 @@ const Compliance = () => (
       <div className="space-y-6">
         <div className="rounded-2xl border border-border bg-card p-6">
           <div className="flex items-center gap-2">
-            <MapPin className="h-5 w-5 text-emerald-600" />
+            <MapPin className="h-5 w-5 text-status-success" />
             <h2 className="font-semibold">Registration & bond tracker</h2>
           </div>
           <div className="mt-4 space-y-2">
@@ -223,9 +223,9 @@ const Compliance = () => (
                   <Badge
                     className={
                       r.status === "Registered"
-                        ? "bg-emerald-500/10 text-emerald-600"
+                        ? "bg-emerald-500/10 text-status-success"
                         : r.status === "Pending"
-                          ? "bg-amber-500/10 text-amber-600"
+                          ? "bg-amber-500/10 text-status-warning"
                           : "bg-muted text-muted-foreground"
                     }
                   >
@@ -261,7 +261,7 @@ const Compliance = () => (
 
     <div className="mt-6 rounded-2xl border border-border bg-card p-6">
       <div className="flex items-center gap-2">
-        <Sparkles className="h-5 w-5 text-emerald-600" />
+        <Sparkles className="h-5 w-5 text-status-success" />
         <h2 className="font-semibold">AI marketing-compliance linter</h2>
       </div>
       <p className="mt-1 text-sm text-muted-foreground">
@@ -278,8 +278,8 @@ const Compliance = () => (
             <Badge
               className={
                 f.severity === "Block"
-                  ? "bg-red-500/10 text-red-600"
-                  : "bg-amber-500/10 text-amber-600"
+                  ? "bg-red-500/10 text-status-danger"
+                  : "bg-amber-500/10 text-status-warning"
               }
             >
               {f.severity}
@@ -290,7 +290,7 @@ const Compliance = () => (
     </div>
 
     <div className="mt-6 flex items-start gap-3 rounded-2xl border border-border bg-muted/40 p-5">
-      <Scale className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
+      <Scale className="mt-0.5 h-5 w-5 shrink-0 text-status-success" />
       <p className="text-sm text-muted-foreground">
         Compliance guidance shown here is product-strategy support, not legal
         advice. Have qualified counsel review your configuration, contracts, and

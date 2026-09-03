@@ -87,7 +87,7 @@ const PrintTab = () => {
       <div className="rounded-2xl border border-border bg-card p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Printer className="h-5 w-5 text-emerald-600" />
+            <Printer className="h-5 w-5 text-status-success" />
             <h2 className="font-semibold">Print & download letters</h2>
             <Badge className="bg-muted text-muted-foreground">
               {activeLetters.length} letter
@@ -97,7 +97,7 @@ const PrintTab = () => {
           <div className="flex items-center gap-2 text-xs">
             <span className="text-muted-foreground px-2 py-1">1. Build</span>
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            <span className="flex items-center gap-1 font-semibold text-emerald-600 bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20">
+            <span className="flex items-center gap-1 font-semibold text-status-success bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20">
               2. Print
             </span>
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
@@ -119,7 +119,7 @@ const PrintTab = () => {
           <div className="flex items-center gap-3">
             <button
               onClick={selectAll}
-              className="flex h-5 w-5 items-center justify-center rounded border border-emerald-500 text-emerald-600"
+              className="flex h-5 w-5 items-center justify-center rounded border border-emerald-500 text-status-success"
             >
               {selected.size === activeLetters.length && (
                 <CheckCircle2 className="h-3.5 w-3.5" />
@@ -197,7 +197,7 @@ const PrintTab = () => {
                       onClick={() => toggleSelect(letter.id)}
                       className={`mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
                         selected.has(letter.id)
-                          ? "border-emerald-500 bg-emerald-500/10 text-emerald-600"
+                          ? "border-emerald-500 bg-emerald-500/10 text-status-success"
                           : "border-border text-transparent hover:border-emerald-500/50"
                       }`}
                     >
@@ -206,7 +206,7 @@ const PrintTab = () => {
                     <span
                       className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
                         isPrinted
-                          ? "bg-emerald-500/10 text-emerald-600"
+                          ? "bg-emerald-500/10 text-status-success"
                           : "bg-muted text-muted-foreground"
                       }`}
                     >
@@ -224,16 +224,16 @@ const PrintTab = () => {
                       </p>
                       <div className="mt-2 flex flex-wrap gap-1.5">
                         {hasExperian && (
-                          <span className="flex items-center gap-1 rounded-full bg-blue-500/10 px-2.5 py-1 text-[10px] font-medium text-blue-600">
+                          <span className="flex items-center gap-1 rounded-full bg-blue-500/10 px-2.5 py-1 text-[10px] font-medium text-status-info">
                             <Upload className="h-3 w-3" /> Experian: Upload only
                           </span>
                         )}
                         {hasNonExperian && (
-                          <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[10px] font-medium text-emerald-600">
+                          <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[10px] font-medium text-status-success">
                             <Mail className="h-3 w-3" /> Mail via LetterStream
                           </span>
                         )}
-                        <span className="flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-1 text-[10px] font-medium text-amber-600">
+                        <span className="flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-1 text-[10px] font-medium text-status-warning">
                           <Scale className="h-3 w-3" /> CFPB by category
                         </span>
                       </div>
@@ -243,7 +243,7 @@ const PrintTab = () => {
                     <p className="text-[10px] uppercase text-muted-foreground">
                       Due date
                     </p>
-                    <p className="flex items-center gap-1 text-sm font-semibold text-emerald-600">
+                    <p className="flex items-center gap-1 text-sm font-semibold text-status-success">
                       <Calendar className="h-3.5 w-3.5" /> {letter.dueDate}
                     </p>
                     <p className="text-[10px] text-muted-foreground">
@@ -265,7 +265,7 @@ const PrintTab = () => {
                           showAttachPicker === letter.id ? null : letter.id,
                         )
                       }
-                      className="flex items-center gap-1 text-[11px] font-medium text-emerald-600 hover:underline"
+                      className="flex items-center gap-1 text-[11px] font-medium text-status-success hover:underline"
                     >
                       <Plus className="h-3 w-3" /> Add attachment
                     </button>
@@ -279,7 +279,7 @@ const PrintTab = () => {
                           onClick={() => toggleAttachment(letter.id, att)}
                           className={`rounded-full px-2.5 py-1 text-[10px] font-medium transition-colors ${
                             letterAttachments.includes(att)
-                              ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/30"
+                              ? "bg-emerald-500/10 text-status-success border border-emerald-500/30"
                               : "bg-background border border-border text-muted-foreground hover:bg-muted"
                           }`}
                         >
@@ -294,7 +294,7 @@ const PrintTab = () => {
                       {letterAttachments.map((att) => (
                         <span
                           key={att}
-                          className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[10px] font-medium text-emerald-600"
+                          className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[10px] font-medium text-status-success"
                         >
                           <Paperclip className="h-2.5 w-2.5" /> {att}
                         </span>
@@ -323,7 +323,7 @@ const PrintTab = () => {
                       sent
                     </Button>
                   ) : (
-                    <Badge className="bg-emerald-500/10 text-emerald-600">
+                    <Badge className="bg-emerald-500/10 text-status-success">
                       <CheckCircle2 className="h-3 w-3" /> In Dispute
                     </Badge>
                   )}
@@ -336,9 +336,9 @@ const PrintTab = () => {
 
       {/* Experian reminder */}
       <div className="flex items-start gap-3 rounded-2xl border border-blue-500/20 bg-blue-500/5 p-5">
-        <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
+        <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-status-info" />
         <p className="text-sm text-muted-foreground">
-          <span className="font-medium text-blue-600">
+          <span className="font-medium text-status-info">
             Experian = upload only.
           </span>{" "}
           Do not mail Experian dispute letters. Upload to the Experian Upload

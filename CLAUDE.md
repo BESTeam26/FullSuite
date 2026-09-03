@@ -40,9 +40,11 @@ are recorded in `creditverse-platform/BUILD_STATUS.md`.
 - Manual external-system records remain clearly marked by **provenance**
   (`saas_pulled` vs `outsourcing_only`; `bes_saas_synced` vs `agency_manual`).
 
-> Known outstanding violation: `pages/app/Clients.tsx` carries its own inline
-> client array unrelated to `FulfillmentClient` and `FundingClient`. One person
-> can appear under three shapes. This must be reconciled, not extended.
+> Partly addressed: the CreditOps SaaS client list no longer carries its data
+> inline — it reads `lib/clients/client-seed.ts` and is labelled "Sample data"
+> in the interface. **Still outstanding:** those records remain a third shape of
+> a person, unrelated to `FulfillmentClient` and `FundingClient`. Reconciling
+> them onto the canonical record needs the Phase 6 backend. Do not extend them.
 
 ## 3. User and permission logic
 
@@ -344,9 +346,97 @@ redesign the data flow before implementing it.**
 >   `["work","attention"]` means one request serves both. Reuse existing keys
 >   rather than inventing near-duplicates.
 >
-> Known violation to fix when that code is next touched:
-> `updateOrganizationBranding` reads the row, merges in memory, then writes —
-> two round trips where one `jsonb` merge in SQL would do.
+> Fixed: `updateOrganizationBranding` no longer reads, merges in memory, then
+> writes. It calls one `jsonb` merge in SQL. The round trip was the smaller
+> half — read-modify-write across a network is a **lost update**, where two
+> people editing different fields silently discard one of the changes. Treat
+> that shape as a correctness bug, not just a slow one.
 >
 > Rule 7 states the performance requirements; this rule defines the request
 > patterns that satisfy them and the inspection that proves it.
+
+## 15. Visual contrast, hover, focus and interaction states
+
+All UI elements must remain readable and visually clear in **every state** —
+buttons, badges, pills, tabs, cards, inputs, dropdowns, menus, table rows and
+cells, links, icons, tooltips, banners, modals, selected rows, active
+navigation, and disabled/loading states.
+
+### Hard contrast rules
+
+- Never white/light text on white/light backgrounds.
+- Never dark text on dark backgrounds.
+- Never let an inherited text colour become unreadable on a different surface.
+- Coloured buttons and badges must set an intentional, readable foreground.
+- Muted text must still be readable.
+- Disabled states must remain legible.
+- Do not rely on borders or colour differences that are too subtle to see.
+
+### Hover
+
+Hover must **improve** clarity, never reduce it.
+
+- Text and icons stay readable; foreground keeps contrast against the new background.
+- Do not turn a light button into another light surface with white text.
+- Do not turn a dark element into a dark surface with dark text.
+- Do not make content disappear or hide important labels.
+- No abrupt layout shifts, and no dimension changes that move neighbouring elements.
+- No aggressive scaling.
+
+Prefer a small background change, slight border emphasis, subtle shadow, or a
+minor translate — with a smooth transition and stable layout.
+
+### Focus
+
+Keyboard focus must be **clearly visible**.
+
+- Never remove focus indication without replacing it.
+- The focus ring must contrast with the surrounding surface.
+- Focus must not make text unreadable.
+- Focused elements stay distinguishable.
+
+### Active / selected
+
+Active sidebar items, selected tabs, rows, filters and toggles must be obvious
+**and** readable. Never a selected state where the text or icon disappears, or
+where background and foreground converge.
+
+### Disabled
+
+Disabled does **not** mean invisible. A disabled control stays readable, looks
+inactive, keeps sufficient contrast, and never looks broken or missing.
+
+### Loading
+
+Loading preserves layout. No flashing text, no disappearing controls, no major
+layout shift, no unreadable skeletons.
+
+### Light / dark
+
+Every interaction state must work in **both** themes where both are supported.
+Never assume a hover colour that only works in one.
+
+### Design tokens
+
+Use semantic tokens — background, foreground, muted foreground, primary /
+primary-foreground, secondary / secondary-foreground, accent / accent-foreground,
+destructive / destructive-foreground, border, focus ring. Do not scatter
+hardcoded text/background combinations across components.
+
+### Visual QA before completion
+
+Inspect, every time: **default, hover, focus, active/selected, disabled,
+loading, and both themes.** If any state produces poor contrast, hidden content,
+clipping, overlap or layout shift, fix it before reporting completion.
+
+**Visual polish is not complete until every interactive state is readable,
+stable, obvious and consistent at first glance.**
+
+> This is the rule that catches what a screenshot of the default state hides.
+> A control that reads perfectly at rest can still be unusable the moment a
+> keyboard user tabs to it or a pointer hovers it.
+>
+> Rule 8 protects the existing GHL AI Studio design from being casually
+> replaced; this rule governs how that design must behave once a user touches
+> it. They are not in tension: preserving a layout does not license leaving a
+> hover state that erases its own label.

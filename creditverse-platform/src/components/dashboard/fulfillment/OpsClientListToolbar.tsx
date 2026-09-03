@@ -83,7 +83,7 @@ export function OpsClientListToolbar<Id extends string>({
           className={cn(
             "ml-1 inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors",
             assignedOnly
-              ? "border-emerald-600 bg-emerald-500/10 text-emerald-700"
+              ? "border-emerald-600 bg-emerald-500/10 text-status-success"
               : "border-border bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground",
           )}
         >

@@ -55,7 +55,7 @@ export default function TalentOps() {
                 r[2],
                 <StatusPill status={r[3] as string} />,
                 <span className="flex items-center gap-1">
-                  <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />
+                  <Star className="h-3.5 w-3.5 text-status-warning fill-amber-500" />
                   {r[4]}
                 </span>,
               ])}
@@ -150,7 +150,7 @@ export default function TalentOps() {
               r[2],
               <StatusPill status={r[3] as string} />,
               <span className="flex items-center gap-1">
-                <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />
+                <Star className="h-3.5 w-3.5 text-status-warning fill-amber-500" />
                 {r[4]}
               </span>,
             ])}
@@ -180,7 +180,7 @@ export default function TalentOps() {
         <ContentCard title="Active Escalations">
           <div className="space-y-2">
             <div className="flex items-center gap-2 rounded-lg border border-border px-3 py-2">
-              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <AlertTriangle className="h-4 w-4 text-status-warning" />
               <span className="text-sm text-foreground">
                 Performance concern — Carlos Tan (Vantage Funding)
               </span>

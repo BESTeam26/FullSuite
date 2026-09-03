@@ -49,9 +49,9 @@ const pathwayIcon: Record<LegalPathway, typeof Building2> = {
 };
 
 const confidenceTone: Record<ConfidenceState, string> = {
-  "detected-fact": "bg-emerald-500/10 text-emerald-600",
-  "potential-issue": "bg-amber-500/10 text-amber-600",
-  "legal-conclusion": "bg-red-500/10 text-red-600",
+  "detected-fact": "bg-emerald-500/10 text-status-success",
+  "potential-issue": "bg-amber-500/10 text-status-warning",
+  "legal-conclusion": "bg-red-500/10 text-status-danger",
 };
 
 const confidenceLabel: Record<ConfidenceState, string> = {
@@ -70,7 +70,7 @@ export const LegalPathPanel = () => {
     return (
       <div className="rounded-2xl border border-border bg-card p-6">
         <div className="flex items-center gap-2">
-          <FileSearch className="h-5 w-5 text-emerald-600" />
+          <FileSearch className="h-5 w-5 text-status-success" />
           <h2 className="font-semibold">Legal path decision engine</h2>
         </div>
         <p className="mt-2 text-sm text-muted-foreground">
@@ -87,9 +87,9 @@ export const LegalPathPanel = () => {
       {/* Header */}
       <div className="rounded-2xl border border-border bg-card p-6">
         <div className="flex items-center gap-2">
-          <FileSearch className="h-5 w-5 text-emerald-600" />
+          <FileSearch className="h-5 w-5 text-status-success" />
           <h2 className="font-semibold">Legal path decision engine</h2>
-          <Badge className="bg-emerald-500/10 text-emerald-600">
+          <Badge className="bg-emerald-500/10 text-status-success">
             {disputeItems.length} item{disputeItems.length === 1 ? "" : "s"}{" "}
             routed
           </Badge>
@@ -162,7 +162,7 @@ export const LegalPathPanel = () => {
                     {confidenceLabel[decision.confidence]}
                   </span>
                   {decision.humanReviewRequired && (
-                    <span className="flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-medium text-red-600">
+                    <span className="flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-medium text-status-danger">
                       <Lock className="h-2.5 w-2.5" /> Human review
                     </span>
                   )}
@@ -203,7 +203,7 @@ export const LegalPathPanel = () => {
 
                   {/* Factual opening */}
                   <div className="mb-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
-                    <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-emerald-600">
+                    <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-status-success">
                       <Sparkles className="h-3.5 w-3.5" /> Factual opening (AI
                       assists, never decides)
                     </p>
@@ -251,7 +251,7 @@ export const LegalPathPanel = () => {
                                 </td>
                                 <td className="px-3 py-2">
                                   {e.evidence === "Pending" ? (
-                                    <span className="text-amber-600">
+                                    <span className="text-status-warning">
                                       {e.evidence}
                                     </span>
                                   ) : (
@@ -275,7 +275,7 @@ export const LegalPathPanel = () => {
                       {decision.legalCitations.map((c) => (
                         <span
                           key={c}
-                          className="rounded-full bg-blue-500/10 px-2.5 py-1 text-[11px] font-medium text-blue-600"
+                          className="rounded-full bg-blue-500/10 px-2.5 py-1 text-[11px] font-medium text-status-info"
                         >
                           {c}
                         </span>
@@ -298,7 +298,7 @@ export const LegalPathPanel = () => {
                   {/* Compliance flags */}
                   {decision.flags.length > 0 && (
                     <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
-                      <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-amber-600">
+                      <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-status-warning">
                         <AlertTriangle className="h-3.5 w-3.5" /> Compliance
                         flags
                       </p>
@@ -308,7 +308,9 @@ export const LegalPathPanel = () => {
                             key={i}
                             className="flex items-start gap-2 text-xs text-muted-foreground"
                           >
-                            <span className="mt-0.5 text-amber-600">⚠</span>
+                            <span className="mt-0.5 text-status-warning">
+                              ⚠
+                            </span>
                             {f}
                           </li>
                         ))}
@@ -337,7 +339,7 @@ function StateIcon({ state }: { state: string }) {
   };
   const Icon = map[state] ?? FileSearch;
   return (
-    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-card text-emerald-600">
+    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-card text-status-success">
       <Icon className="h-4 w-4" />
     </span>
   );

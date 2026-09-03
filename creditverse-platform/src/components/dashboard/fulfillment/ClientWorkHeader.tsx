@@ -49,7 +49,7 @@ export function ClientWorkHeader({ client, onBack }: Props) {
       <div className="flex items-center gap-3 text-xs">
         <span className="text-muted-foreground">
           Due 6/8/2026{" "}
-          <span className="ml-1 inline-flex items-center gap-1 rounded bg-red-500/10 px-1.5 py-0.5 font-bold text-red-600">
+          <span className="ml-1 inline-flex items-center gap-1 rounded bg-red-500/10 px-1.5 py-0.5 font-bold text-status-danger">
             <AlertTriangle className="h-3 w-3" /> 83d overdue
           </span>
         </span>

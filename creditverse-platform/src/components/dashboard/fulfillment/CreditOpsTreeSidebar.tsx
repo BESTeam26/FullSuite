@@ -196,7 +196,7 @@ export function CreditOpsTreeSidebar({
             "managed",
             "MANAGED OPS",
             managedPartners,
-            "text-amber-500",
+            "text-status-warning",
           )}
         </div>
         <div className="pt-1">
@@ -212,7 +212,7 @@ export function CreditOpsTreeSidebar({
             "creditops_users",
             "CREDITOPS USERS",
             creditopsUserPartners,
-            "text-emerald-500",
+            "text-status-success",
           )}
         </div>
       </div>

@@ -48,7 +48,7 @@ export const Topbar = () => {
           <div className="flex items-center gap-2">
             <Badge
               variant="outline"
-              className="border-emerald-500/40 text-emerald-600 bg-emerald-500/10 font-medium flex items-center gap-1.5 px-3 py-1"
+              className="border-emerald-500/40 text-status-success bg-emerald-500/10 font-medium flex items-center gap-1.5 px-3 py-1"
             >
               <CheckCircle2 className="h-3.5 w-3.5" /> Sub-Account:{" "}
               {activeSubAccount?.name}

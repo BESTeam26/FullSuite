@@ -53,7 +53,7 @@ export function ScoreGauge({ data }: { data: BureauScore }) {
       </div>
       <div className="mt-1 text-center">
         <span
-          className={`text-lg font-bold ${isPositive ? "text-emerald-600" : "text-red-600"}`}
+          className={`text-lg font-bold ${isPositive ? "text-status-success" : "text-status-danger"}`}
         >
           {isPositive ? "+" : ""}
           {change}

@@ -92,7 +92,7 @@ export const ImportAnalysisTab = ({ clientId }: { clientId: string }) => {
       <div className="rounded-2xl border border-border bg-card p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <UploadCloud className="h-5 w-5 text-emerald-600" />
+            <UploadCloud className="h-5 w-5 text-status-success" />
             <div>
               <h2 className="font-semibold">Credit report import & analysis</h2>
               <p className="text-xs text-muted-foreground">
@@ -125,9 +125,9 @@ export const ImportAnalysisTab = ({ clientId }: { clientId: string }) => {
         <div>
           <div className="mb-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <FileText className="h-4 w-4 text-emerald-600" />
+              <FileText className="h-4 w-4 text-status-success" />
               <h2 className="font-semibold">Latest credit analysis</h2>
-              <Badge className="bg-emerald-500/10 text-emerald-600">
+              <Badge className="bg-emerald-500/10 text-status-success">
                 Aug 29, 2026
               </Badge>
             </div>
@@ -142,7 +142,7 @@ export const ImportAnalysisTab = ({ clientId }: { clientId: string }) => {
       {/* Report history */}
       <div className="rounded-2xl border border-border bg-card p-6">
         <div className="flex items-center gap-2">
-          <History className="h-4 w-4 text-emerald-600" />
+          <History className="h-4 w-4 text-status-success" />
           <h2 className="font-semibold">Report & analysis history</h2>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
@@ -160,10 +160,10 @@ export const ImportAnalysisTab = ({ clientId }: { clientId: string }) => {
                 <span
                   className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
                     r.type === "Initial Analysis"
-                      ? "bg-blue-500/10 text-blue-600"
+                      ? "bg-blue-500/10 text-status-info"
                       : r.type === "Re-Import"
-                        ? "bg-emerald-500/10 text-emerald-600"
-                        : "bg-amber-500/10 text-amber-600"
+                        ? "bg-emerald-500/10 text-status-success"
+                        : "bg-amber-500/10 text-status-warning"
                   }`}
                 >
                   {r.type === "Initial Analysis" ? (
@@ -190,9 +190,9 @@ export const ImportAnalysisTab = ({ clientId }: { clientId: string }) => {
                     </p>
                   )}
                   <div className="mt-1 flex gap-3 text-xs">
-                    <span className="text-red-600">EQ {r.scoreEQ}</span>
-                    <span className="text-blue-600">EX {r.scoreEX}</span>
-                    <span className="text-emerald-600">TU {r.scoreTU}</span>
+                    <span className="text-status-danger">EQ {r.scoreEQ}</span>
+                    <span className="text-status-info">EX {r.scoreEX}</span>
+                    <span className="text-status-success">TU {r.scoreTU}</span>
                   </div>
                 </div>
               </div>

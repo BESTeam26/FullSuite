@@ -69,7 +69,7 @@ export const FulfillmentWorkspace = () => {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <Badge className="bg-amber-500/20 text-amber-500 border border-amber-500/30">
+            <Badge className="bg-amber-500/20 text-status-warning border border-amber-500/30">
               <Inbox className="h-3.5 w-3.5 mr-1" /> HQ Done-For-You Fulfillment
               Desk
             </Badge>
@@ -85,7 +85,7 @@ export const FulfillmentWorkspace = () => {
       </div>
 
       {/* SLA Alert Header */}
-      <div className="flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-amber-500">
+      <div className="flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-status-warning">
         <Sparkles className="h-5 w-5 shrink-0" />
         <div className="text-xs">
           <span className="font-bold">
@@ -147,7 +147,7 @@ export const FulfillmentWorkspace = () => {
           <tbody className="divide-y divide-border">
             {filtered.map((wo) => (
               <tr key={wo.id} className="hover:bg-muted/30 transition-colors">
-                <td className="px-6 py-4 font-mono text-xs font-bold text-amber-500">
+                <td className="px-6 py-4 font-mono text-xs font-bold text-status-warning">
                   {wo.id}
                 </td>
                 <td className="px-6 py-4">
@@ -176,7 +176,7 @@ export const FulfillmentWorkspace = () => {
                   {wo.assignedTo}
                 </td>
                 <td className="px-6 py-4">
-                  <span className="text-xs font-medium text-amber-600 flex items-center gap-1">
+                  <span className="text-xs font-medium text-status-warning flex items-center gap-1">
                     <Clock className="h-3.5 w-3.5" /> {wo.slaHoursRemaining}h
                     remaining
                   </span>
@@ -185,12 +185,12 @@ export const FulfillmentWorkspace = () => {
                   <Badge
                     className={
                       wo.status === "In Processing"
-                        ? "bg-blue-500/10 text-blue-600 border-blue-500/20"
+                        ? "bg-blue-500/10 text-status-info border-blue-500/20"
                         : wo.status === "Ready for QA"
                           ? "bg-purple-500/10 text-purple-600 border-purple-500/20"
                           : wo.status === "Queued"
-                            ? "bg-amber-500/10 text-amber-600 border-amber-500/20"
-                            : "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                            ? "bg-amber-500/10 text-status-warning border-amber-500/20"
+                            : "bg-emerald-500/10 text-status-success border-emerald-500/20"
                     }
                   >
                     {wo.status}
@@ -202,7 +202,7 @@ export const FulfillmentWorkspace = () => {
                       variant="outline"
                       size="sm"
                       onClick={() => setActiveChatOrder(wo)}
-                      className="h-8 text-xs font-semibold text-amber-500 border-amber-500/30 hover:bg-amber-500/10"
+                      className="h-8 text-xs font-semibold text-status-warning border-amber-500/30 hover:bg-amber-500/10"
                     >
                       <MessageSquare className="h-3.5 w-3.5 mr-1" /> Live Stream
                       Chat
@@ -223,7 +223,7 @@ export const FulfillmentWorkspace = () => {
                         <DropdownMenuItem
                           onClick={() => setActiveChatOrder(wo)}
                         >
-                          <MessageSquare className="h-3.5 w-3.5 mr-1.5 text-amber-500" />{" "}
+                          <MessageSquare className="h-3.5 w-3.5 mr-1.5 text-status-warning" />{" "}
                           Open Fulfillment Stream Chat
                         </DropdownMenuItem>
                         <DropdownMenuItem
@@ -262,8 +262,8 @@ export const FulfillmentWorkspace = () => {
           <DialogContent className="sm:max-w-lg">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <MessageSquare className="h-5 w-5 text-amber-500" /> Live Stream
-                Chat — Work Order Activity
+                <MessageSquare className="h-5 w-5 text-status-warning" /> Live
+                Stream Chat — Work Order Activity
               </DialogTitle>
             </DialogHeader>
             {activeChatOrder && (

@@ -89,7 +89,7 @@ export const ItemDetailPanel = ({
       {/* 1. Header Toolbar & Quick Actions */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
         <div className="flex flex-wrap items-center gap-2">
-          <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
+          <Badge className="bg-emerald-500/10 text-status-success border-emerald-500/20">
             {item.disposition.toUpperCase()}
           </Badge>
           <span className="font-semibold text-base">{item.name}</span>
@@ -99,12 +99,12 @@ export const ItemDetailPanel = ({
           {item.autoSelected && (
             <Badge
               variant="outline"
-              className="text-[10px] border-emerald-500/40 text-emerald-600"
+              className="text-[10px] border-emerald-500/40 text-status-success"
             >
               AI Auto-Selected
             </Badge>
           )}
-          <Badge className="bg-blue-500/10 text-blue-600 border-none text-[10px]">
+          <Badge className="bg-blue-500/10 text-status-info border-none text-[10px]">
             {pathMeta.shortStatute}
           </Badge>
         </div>
@@ -116,7 +116,7 @@ export const ItemDetailPanel = ({
             onClick={() => setIsEditingReason((prev) => !prev)}
             className="h-8 text-xs gap-1 border-border"
           >
-            <Edit2 className="h-3.5 w-3.5 text-emerald-600" />
+            <Edit2 className="h-3.5 w-3.5 text-status-success" />
             {isEditingReason ? "Done Editing" : "Reason & Instructions"}
           </Button>
           <Button
@@ -125,7 +125,7 @@ export const ItemDetailPanel = ({
             onClick={onPreview}
             className="h-8 text-xs gap-1 border-border"
           >
-            <Eye className="h-3.5 w-3.5 text-blue-600" /> Letter Preview
+            <Eye className="h-3.5 w-3.5 text-status-info" /> Letter Preview
           </Button>
           <Button
             size="sm"
@@ -142,12 +142,12 @@ export const ItemDetailPanel = ({
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+                <Sparkles className="h-3.5 w-3.5 text-status-success" />
                 Dispute Reason:
               </label>
               <button
                 onClick={() => setIsEditingReason(true)}
-                className="text-[11px] text-emerald-600 hover:underline font-medium"
+                className="text-[11px] text-status-success hover:underline font-medium"
               >
                 + Custom Reason
               </button>
@@ -191,7 +191,7 @@ export const ItemDetailPanel = ({
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                <FileText className="h-3.5 w-3.5 text-blue-600" />
+                <FileText className="h-3.5 w-3.5 text-status-info" />
                 Instruction to Bureau / Furnisher:
               </label>
             </div>
@@ -211,7 +211,7 @@ export const ItemDetailPanel = ({
             <span className="font-bold">Active Instruction:</span>{" "}
             {selectedReason} — {selectedInstruction}
           </span>
-          <span className="text-[10px] font-mono text-emerald-700 dark:text-emerald-400 shrink-0 ml-2">
+          <span className="text-[10px] font-mono text-status-success shrink-0 ml-2">
             Targeting: {item.bureaus.join(", ")}
           </span>
         </div>
@@ -227,7 +227,7 @@ export const ItemDetailPanel = ({
           className="flex w-full items-center justify-between text-left text-xs font-semibold text-emerald-800 dark:text-emerald-300"
         >
           <span className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-emerald-600" />
+            <Sparkles className="h-4 w-4 text-status-success" />
             Preview Generated Factual Dispute Letter for Round {round}
           </span>
           {showDraft ? (

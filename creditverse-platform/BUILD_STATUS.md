@@ -862,6 +862,62 @@ dependencies.
 directory before `canAssign` can be true, and the hardcoded `AGENCY_ID` in
 `creditops-client-store` should move to `auth.agencyId` now that it exists.
 
+### 2026-09-03 — Rule 15 added, and the interaction-state audit it triggered
+
+Rule 15 (visual contrast, hover, focus, active, disabled, loading, both themes)
+added to CLAUDE.md. The audit behind it was **measured in the browser**, not
+eyeballed: a WCAG relative-luminance probe walked every text node on 19 routes,
+composited every semi-transparent layer down to the first solid background, and
+compared against the 4.5:1 floor (3:1 for large text).
+
+**Three bugs that a screenshot of the default state could not show.**
+
+1. **`bg-gradient-emerald` was never defined.** 32 components used it; it
+   computed to `background-image: none`. Those elements pair it with
+   `text-white`, so they were rendering **white text on the page background** —
+   invisible. Nothing looked broken precisely because the content had vanished.
+   Aliased to Empire Green in one line, which repaired all 32.
+2. **The active sidebar item hid its own count.** The selected row's background
+   is Empire Gold, and the badge on it is amber — measured **1.24:1**. The badge
+   now inverts on the active row. It was only ever wrong on the row you were
+   looking at.
+3. **Chart legends inherited the series colour.** Recharts paints legend labels
+   in the line's colour: fine for a thick stroke at 3:1, unreadable for 11px
+   text at 2.15:1. `ChartLegend` keeps the coloured swatch and switches the
+   label to the foreground token.
+
+**Systemic fixes.**
+
+- **Focus.** ~175 controls relied on the browser default, which is tuned for a
+  white page and is hard to see on the dark sidebar. One `:focus-visible`
+  baseline now paints a 2px `--ring` outline — an outline, not a box-shadow, so
+  focus can never shift layout. Deliberately NOT wrapped in `:where()`: that
+  would give it zero specificity and Tailwind's `focus:outline-none` would win.
+  Three places that opted out and supplied nothing were fixed.
+- **Status colours are now tokens.** `--status-success/warning/info/danger`,
+  defined per theme. The raw Tailwind 400–700 shades measured **2.15–4.06:1** on
+  the tinted chips they sat in — even `amber-700` failed at 3.82 on
+  `bg-amber-500/10`. 671 utilities across 111 files migrated; dark-surface
+  usages (the sidebar, the `bg-emerald-950` banners) were detected and left
+  alone, since light ink is correct there.
+- **Disabled** was four different opacities from 40 to 70; now one value (60)
+  plus `cursor-not-allowed`, so the state does not rest on contrast alone.
+- Sidebar muted labels were at 3.07:1 and 4.17:1; `text-muted-foreground/70`
+  at 3.39. Both raised.
+
+**Result, measured:** every route audited reports **0 contrast failures in both
+light and dark**. Focus verified with real Tab presses (2px gold,
+`:focus-visible` true). Hover pairings checked for light-on-light and
+dark-on-dark — none. Loading states preserve layout. Note this does change
+appearance slightly: status text is darker in light theme than the original GHL
+export, which is the point.
+
+tsc clean, 0 lint errors, 133/133 tests, build clean, no circular dependencies.
+
+Also refreshed two stale notes in CLAUDE.md: rule 14's branding violation is
+fixed, and rule 2's duplicate-client note now records what was done and what
+still remains.
+
 ## Next steps for Claude Code
 
 1. Connect Supabase Auth + RLS for organization isolation

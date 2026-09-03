@@ -31,7 +31,7 @@ export const AgencyDashboard = () => {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <Badge className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-semibold">
+            <Badge className="bg-amber-500/10 text-status-warning border border-amber-500/30 font-semibold">
               <Crown className="h-3 w-3 mr-1" /> Blessed Empire Services HQ
             </Badge>
           </div>
@@ -53,7 +53,7 @@ export const AgencyDashboard = () => {
           </Button>
           <Button
             variant="outline"
-            className="border-emerald-500/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 font-semibold"
+            className="border-emerald-500/30 text-status-success hover:bg-emerald-500/10 font-semibold"
           >
             <Sparkles className="h-4 w-4 mr-1.5" /> Ask Lina
           </Button>
@@ -90,7 +90,7 @@ export const AgencyDashboard = () => {
       {/* ===== METERED INVOICING ===== */}
       <div>
         <div className="flex items-center gap-2 mb-3">
-          <Receipt className="h-4 w-4 text-amber-500" />
+          <Receipt className="h-4 w-4 text-status-warning" />
           <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
             Sub-Account Invoicing & Usage Metering
           </h2>

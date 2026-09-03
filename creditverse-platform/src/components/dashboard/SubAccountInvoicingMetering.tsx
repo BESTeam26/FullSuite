@@ -84,12 +84,12 @@ export const SubAccountInvoicingMetering = () => {
           <p className="text-xs text-muted-foreground font-medium">
             Total B2B Platform Recurring Revenue
           </p>
-          <p className="text-2xl font-black text-emerald-500 mt-1">
+          <p className="text-2xl font-black text-status-success mt-1">
             ${totalPlatformMRR.toLocaleString()}/mo
           </p>
           <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
-            <TrendingUp className="h-3 w-3 text-emerald-500" /> SaaS + Metering
-            + DFY Fees
+            <TrendingUp className="h-3 w-3 text-status-success" /> SaaS +
+            Metering + DFY Fees
           </p>
         </Card>
 
@@ -122,7 +122,7 @@ export const SubAccountInvoicingMetering = () => {
           <p className="text-xs text-muted-foreground font-medium">
             HQ DFY Fulfillment Metered Revenue
           </p>
-          <p className="text-2xl font-bold text-amber-500 mt-1">
+          <p className="text-2xl font-bold text-status-warning mt-1">
             $
             {items
               .reduce((acc, c) => acc + c.dfyFulfillmentFee, 0)
@@ -139,8 +139,8 @@ export const SubAccountInvoicingMetering = () => {
         <div className="p-4 border-b bg-muted/30 flex items-center justify-between">
           <div>
             <h3 className="font-bold text-base flex items-center gap-2">
-              <Receipt className="h-4 w-4 text-amber-500" /> Automated Metered
-              Invoicing Ledger
+              <Receipt className="h-4 w-4 text-status-warning" /> Automated
+              Metered Invoicing Ledger
             </h3>
             <p className="text-xs text-muted-foreground">
               Real-time usage metering for active end-clients, base plans, and
@@ -168,7 +168,7 @@ export const SubAccountInvoicingMetering = () => {
           <TableBody>
             {items.map((item) => (
               <TableRow key={item.id} className="hover:bg-muted/30">
-                <TableCell className="font-mono text-xs font-bold text-amber-500">
+                <TableCell className="font-mono text-xs font-bold text-status-warning">
                   {item.id}
                 </TableCell>
                 <TableCell className="font-bold text-sm">
@@ -177,10 +177,10 @@ export const SubAccountInvoicingMetering = () => {
                 <TableCell className="text-xs font-semibold">
                   ${item.planFee.toLocaleString()}
                 </TableCell>
-                <TableCell className="text-xs font-semibold text-emerald-600">
+                <TableCell className="text-xs font-semibold text-status-success">
                   ${item.perClientFee.toLocaleString()}
                 </TableCell>
-                <TableCell className="text-xs font-semibold text-amber-500">
+                <TableCell className="text-xs font-semibold text-status-warning">
                   {item.dfyFulfillmentFee > 0
                     ? `$${item.dfyFulfillmentFee.toLocaleString()}`
                     : "—"}
@@ -192,8 +192,8 @@ export const SubAccountInvoicingMetering = () => {
                   <Badge
                     className={
                       item.status === "Paid"
-                        ? "bg-emerald-500/10 text-emerald-600"
-                        : "bg-amber-500/10 text-amber-600"
+                        ? "bg-emerald-500/10 text-status-success"
+                        : "bg-amber-500/10 text-status-warning"
                     }
                   >
                     {item.status}
@@ -204,7 +204,7 @@ export const SubAccountInvoicingMetering = () => {
                     size="sm"
                     variant="outline"
                     onClick={() => handleGenerateInvoice(item.subAccountName)}
-                    className="h-8 text-xs font-semibold text-amber-500 border-amber-500/30 hover:bg-amber-500/10"
+                    className="h-8 text-xs font-semibold text-status-warning border-amber-500/30 hover:bg-amber-500/10"
                   >
                     <Zap className="h-3.5 w-3.5 mr-1" /> Dispatch Stripe Invoice
                   </Button>

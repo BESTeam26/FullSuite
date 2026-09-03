@@ -30,10 +30,10 @@ export const AgreementCard = () => {
     <div className="rounded-2xl border border-border bg-card p-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <FileText className="h-4 w-4 text-emerald-600" />
+          <FileText className="h-4 w-4 text-status-success" />
           <h2 className="font-semibold">Agreement &amp; pricing</h2>
         </div>
-        <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-600">
+        <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-status-success">
           Billing eligibility: cleared
         </span>
       </div>
@@ -56,9 +56,9 @@ export const AgreementCard = () => {
           {agr && (
             <p className="mt-1.5 flex items-center gap-1 text-[11px] text-muted-foreground">
               {agr.hasCroaDisclosures ? (
-                <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                <CheckCircle2 className="h-3 w-3 text-status-success" />
               ) : (
-                <AlertCircle className="h-3 w-3 text-amber-600" />
+                <AlertCircle className="h-3 w-3 text-status-warning" />
               )}
               {agr.hasCroaDisclosures
                 ? "CROA disclosures included"
@@ -83,7 +83,7 @@ export const PortalCard = () => {
     <div className="rounded-2xl border border-border bg-card p-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Globe className="h-4 w-4 text-emerald-600" />
+          <Globe className="h-4 w-4 text-status-success" />
           <h2 className="font-semibold">Portal &amp; communication</h2>
         </div>
         <label className="flex items-center gap-2">
@@ -105,16 +105,16 @@ export const PortalCard = () => {
         </label>
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
-        <span className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-600">
+        <span className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-status-success">
           <Mail className="h-3.5 w-3.5" /> Email opt-in
         </span>
-        <span className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-600">
+        <span className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-status-success">
           <MessageSquare className="h-3.5 w-3.5" /> SMS opt-in
         </span>
         <span
           className={`rounded-full px-3 py-1.5 text-xs font-medium ${
             portalActive
-              ? "bg-emerald-500/10 text-emerald-600"
+              ? "bg-emerald-500/10 text-status-success"
               : "bg-muted text-muted-foreground"
           }`}
         >

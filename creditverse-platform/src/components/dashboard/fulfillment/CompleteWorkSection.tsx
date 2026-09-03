@@ -137,7 +137,7 @@ export function CompleteWorkSection({
     <div className="space-y-3 rounded-xl border border-border bg-card p-4 shadow-sm">
       <div className="flex items-center justify-between">
         <h3 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-foreground">
-          <CheckCircle2 className="h-4 w-4 text-emerald-600" /> Complete Work
+          <CheckCircle2 className="h-4 w-4 text-status-success" /> Complete Work
         </h3>
         <span className="rounded bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
           {access.roleDef.shortLabel}
@@ -179,7 +179,7 @@ export function CompleteWorkSection({
           {/* Dynamic production-action library for the selected department */}
           {activeDept && (
             <div className="space-y-1.5">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                 Work completed — {activeDept}
               </p>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -202,7 +202,7 @@ export function CompleteWorkSection({
                         checked={isSel}
                         onChange={() => {}}
                         onClick={(e) => e.stopPropagation()}
-                        className="h-3.5 w-3.5 rounded border-border text-emerald-600 focus:ring-emerald-500 shrink-0 pointer-events-none"
+                        className="h-3.5 w-3.5 rounded border-border text-status-success focus:ring-emerald-500 shrink-0 pointer-events-none"
                       />
                       <span className="leading-tight">{item.label}</span>
                     </button>

@@ -55,8 +55,8 @@ export const ProvisionSubAccountModal = ({ onClose, onCreate }: Props) => {
     <DialogContent className="sm:max-w-md">
       <DialogHeader>
         <DialogTitle className="flex items-center gap-2">
-          <Building2 className="h-5 w-5 text-amber-500" /> Provision Sub-Account
-          Company
+          <Building2 className="h-5 w-5 text-status-warning" /> Provision
+          Sub-Account Company
         </DialogTitle>
       </DialogHeader>
 
@@ -124,7 +124,7 @@ export const ProvisionSubAccountModal = ({ onClose, onCreate }: Props) => {
 
         <div className="flex items-center justify-between rounded-xl border border-amber-500/30 bg-amber-500/10 p-3">
           <div>
-            <p className="font-semibold text-amber-500 text-xs flex items-center gap-1">
+            <p className="font-semibold text-status-warning text-xs flex items-center gap-1">
               <Inbox className="h-3.5 w-3.5" /> Done-For-You Fulfillment
               Subscriber
             </p>

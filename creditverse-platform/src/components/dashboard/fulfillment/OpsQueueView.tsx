@@ -110,12 +110,12 @@ export function OpsQueueView<T extends OpsClient>({
             </p>
           </div>,
           detailColumn.render(c),
-          <span className="inline-flex rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-bold text-amber-700 border border-amber-500/30">
+          <span className="inline-flex rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-bold text-status-warning border border-amber-500/30">
             {c.status}
           </span>,
           c.assignedAgent || "Unassigned",
           <span
-            className={`font-extrabold ${c.slaHoursRemaining && c.slaHoursRemaining <= slaWarningHours ? "text-red-600" : "text-foreground"}`}
+            className={`font-extrabold ${c.slaHoursRemaining && c.slaHoursRemaining <= slaWarningHours ? "text-status-danger" : "text-foreground"}`}
           >
             {c.slaHoursRemaining ? `${c.slaHoursRemaining}h` : "—"}
           </span>,

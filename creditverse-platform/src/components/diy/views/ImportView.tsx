@@ -65,7 +65,7 @@ export const ImportView = () => {
         <Button
           onClick={run}
           disabled={importing || imported}
-          className="mt-5 w-full bg-gradient-emerald text-white hover:opacity-90 disabled:opacity-50"
+          className="mt-5 w-full bg-gradient-emerald text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {importing ? (
             <>

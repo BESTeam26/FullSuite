@@ -45,9 +45,9 @@ const INITIAL_TRACKING: TrackingEntry[] = [
 ];
 
 const statusTone: Record<TrackingEntry["status"], string> = {
-  pending: "bg-amber-500/10 text-amber-600",
-  "in-transit": "bg-blue-500/10 text-blue-600",
-  delivered: "bg-emerald-500/10 text-emerald-600",
+  pending: "bg-amber-500/10 text-status-warning",
+  "in-transit": "bg-blue-500/10 text-status-info",
+  delivered: "bg-emerald-500/10 text-status-success",
 };
 
 const statusIcon = {
@@ -108,7 +108,7 @@ export const UspsTrackingPanel = () => {
     <div className="rounded-2xl border border-border bg-card p-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <PackageCheck className="h-5 w-5 text-emerald-600" />
+          <PackageCheck className="h-5 w-5 text-status-success" />
           <h2 className="font-semibold">USPS tracking integration</h2>
         </div>
         <Button

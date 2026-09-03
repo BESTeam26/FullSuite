@@ -54,6 +54,15 @@
     --input: 38 14% 82%;
     --ring: 42 83% 50%;
 
+    /* Status colours (rule 15).
+       Chosen so they clear 4.5:1 on the cream surface AND on the 10-20%
+       tinted chips they usually sit inside — the raw Tailwind 500/600 shades
+       measured 2.5-3.8:1 there, which is why these exist. */
+    --status-success: 162 88% 20%;
+    --status-warning: 26 90% 31%;
+    --status-info: 217 80% 38%;
+    --status-danger: 0 72% 38%;
+
     --radius: 0.625rem;
 
     --gradient-charcoal: linear-gradient(
@@ -108,6 +117,12 @@
     --border: 200 8% 18%;
     --input: 200 8% 18%;
     --ring: 42 83% 50%;
+
+    /* Dark theme: the same roles, light enough to read on near-black. */
+    --status-success: 158 64% 62%;
+    --status-warning: 43 96% 64%;
+    --status-info: 213 94% 72%;
+    --status-danger: 0 91% 74%;
   }
 }
 
@@ -128,6 +143,15 @@
   }
   .bg-gradient-gold {
     background-image: var(--gradient-gold);
+  }
+  /* `bg-gradient-emerald` is used in 32 components but was never defined, so
+     every one of them rendered `background-image: none` — and they nearly all
+     pair it with `text-white`, i.e. white text on the page background.
+     Found by measuring contrast, not by looking: the elements were invisible,
+     so nothing looked "wrong" on screen. Aliased to Empire Green, which is the
+     brand green those call sites intend (rule 15). */
+  .bg-gradient-emerald {
+    background-image: var(--gradient-green);
   }
   .bg-gradient-green {
     background-image: var(--gradient-green);
@@ -157,3 +181,57 @@
     background-size: 32px 32px;
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * Keyboard focus baseline (rule 15)
+ *
+ * One visible, branded focus indicator for every interactive element, instead
+ * of relying on ~175 call sites to remember one, or on the browser default —
+ * which is tuned for a white page and is hard to see on the dark sidebar and
+ * in dark theme.
+ *
+ * Deliberate choices:
+ *  - `:focus-visible`, not `:focus`, so a mouse click leaves no ring.
+ *  - `outline`, not a box-shadow ring: an outline paints outside the box and
+ *    never affects layout, so focusing something cannot shift the page.
+ *  - `--ring` (Empire Gold) is defined in BOTH themes and contrasts with the
+ *    cream light surface and the near-black dark one.
+ *  - NOT wrapped in `:where()`. That would give the rule zero specificity and
+ *    Tailwind's `focus:outline-none` would silently win — the exact failure
+ *    this is here to prevent.
+ *
+ * A component may still opt out with `focus:outline-none`, but only if it
+ * supplies its own visible focus state (a ring or a background change). Opting
+ * out and supplying nothing is a rule 15 violation.
+ * ------------------------------------------------------------------------ */
+a[href]:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible,
+[tabindex]:not([tabindex="-1"]):focus-visible,
+[role="button"]:focus-visible,
+[role="tab"]:focus-visible,
+[role="option"]:focus-visible,
+[role="menuitem"]:focus-visible,
+[role="combobox"]:focus-visible,
+[role="switch"]:focus-visible,
+[role="checkbox"]:focus-visible,
+[role="radio"]:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Status text (rule 15)
+ *
+ * One named colour per meaning, defined per theme and measured once, instead
+ * of each component picking a Tailwind shade and hoping. The raw shades this
+ * replaces measured 2.15-4.06:1 on the tinted chips they sat in — all below
+ * the 4.5:1 floor.
+ * ------------------------------------------------------------------------ */
+.text-status-success { color: hsl(var(--status-success)); }
+.text-status-warning { color: hsl(var(--status-warning)); }
+.text-status-info    { color: hsl(var(--status-info)); }
+.text-status-danger  { color: hsl(var(--status-danger)); }

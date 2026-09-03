@@ -32,28 +32,28 @@ const NextStepsTab = () => {
       icon: Mail,
       title: "Mail certified letters via LetterStream",
       desc: "Mail all non-Experian letters through the approved mailing workflow. Use certified mail with tracking for paper trail.",
-      tone: "text-emerald-600 bg-emerald-500/10",
+      tone: "text-status-success bg-emerald-500/10",
       done: true,
     },
     {
       icon: Upload,
       title: "Upload Experian disputes to Upload Center",
       desc: "Do NOT mail Experian letters. Upload directly to the Experian Upload Center portal.",
-      tone: "text-blue-600 bg-blue-500/10",
+      tone: "text-status-info bg-blue-500/10",
       done: true,
     },
     {
       icon: ShieldAlert,
       title: "File FTC reports (collections & inquiries)",
       desc: "Use identitytheft.gov for third-party collections and reportfraud.ftc.gov for unauthorized inquiries. Attach FTC reports to dispute letters and CFPB complaints.",
-      tone: "text-red-600 bg-red-500/10",
+      tone: "text-status-danger bg-red-500/10",
       done: false,
     },
     {
       icon: Scale,
       title: "File CFPB complaints by category",
       desc: "File separate CFPB complaints for each category: collections, charge-offs, late payments, inquiries, and personal info disputes.",
-      tone: "text-amber-600 bg-amber-500/10",
+      tone: "text-status-warning bg-amber-500/10",
       done: false,
     },
     {
@@ -71,9 +71,9 @@ const NextStepsTab = () => {
       <div className="rounded-2xl border border-border bg-card p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <ArrowRight className="h-5 w-5 text-emerald-600" />
+            <ArrowRight className="h-5 w-5 text-status-success" />
             <h2 className="font-semibold">Next steps & escalation route</h2>
-            <Badge className="bg-emerald-500/10 text-emerald-600">
+            <Badge className="bg-emerald-500/10 text-status-success">
               Round {round} · In Dispute
             </Badge>
           </div>
@@ -82,7 +82,7 @@ const NextStepsTab = () => {
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
             <span className="text-muted-foreground px-2 py-1">2. Print</span>
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            <span className="flex items-center gap-1 font-semibold text-emerald-600 bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20">
+            <span className="flex items-center gap-1 font-semibold text-status-success bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20">
               3. Next Steps
             </span>
           </div>
@@ -111,7 +111,7 @@ const NextStepsTab = () => {
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-medium">{step.title}</p>
                   {step.done ? (
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                    <CheckCircle2 className="h-3.5 w-3.5 text-status-success" />
                   ) : (
                     <Clock className="h-3.5 w-3.5 text-muted-foreground" />
                   )}
@@ -131,7 +131,7 @@ const NextStepsTab = () => {
       {/* Escalation route preview */}
       <div className="rounded-2xl border border-border bg-card p-6">
         <div className="flex items-center gap-2">
-          <Send className="h-4 w-4 text-emerald-600" />
+          <Send className="h-4 w-4 text-status-success" />
           <h3 className="font-semibold">Escalation route</h3>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
@@ -149,7 +149,7 @@ const NextStepsTab = () => {
                   Round {round}: {roundDef.name}
                 </span>
               </div>
-              <span className="text-xs text-emerald-600">In progress</span>
+              <span className="text-xs text-status-success">In progress</span>
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
               {roundDef.focus}
@@ -158,7 +158,7 @@ const NextStepsTab = () => {
               {roundDef.layersActivated.map((l) => (
                 <span
                   key={l}
-                  className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600"
+                  className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-status-success"
                 >
                   Layer {l}
                 </span>
@@ -198,9 +198,9 @@ const NextStepsTab = () => {
       {/* DIY mailing instructions */}
       <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5">
         <div className="flex items-start gap-3">
-          <Printer className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+          <Printer className="mt-0.5 h-5 w-5 shrink-0 text-status-warning" />
           <div className="text-sm text-muted-foreground">
-            <p className="font-medium text-amber-600">
+            <p className="font-medium text-status-warning">
               DIY mailing instructions
             </p>
             <p className="mt-1">
@@ -217,7 +217,7 @@ const NextStepsTab = () => {
       {/* Security freeze option */}
       <div className="rounded-2xl border border-border bg-card p-5">
         <div className="flex items-start gap-3">
-          <Snowflake className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
+          <Snowflake className="mt-0.5 h-5 w-5 shrink-0 text-status-info" />
           <div className="flex-1">
             <p className="font-medium">Security freeze option</p>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -241,7 +241,7 @@ const NextStepsTab = () => {
       {activeLetters.length > 0 && (
         <div className="rounded-2xl border border-border bg-card p-6">
           <div className="flex items-center gap-2">
-            <FileText className="h-4 w-4 text-emerald-600" />
+            <FileText className="h-4 w-4 text-status-success" />
             <h3 className="font-semibold">Active letters this round</h3>
           </div>
           <div className="mt-3 space-y-2">
@@ -256,7 +256,7 @@ const NextStepsTab = () => {
                     {l.category} · Due {l.dueDate}
                   </p>
                 </div>
-                <Badge className="bg-emerald-500/10 text-emerald-600">
+                <Badge className="bg-emerald-500/10 text-status-success">
                   <CheckCircle2 className="h-3 w-3" /> In Dispute
                 </Badge>
               </div>

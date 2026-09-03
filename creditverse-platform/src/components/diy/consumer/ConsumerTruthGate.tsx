@@ -126,7 +126,7 @@ export const ConsumerTruthGate = () => {
         <Button
           onClick={save}
           disabled={!complete}
-          className="w-full bg-gradient-green text-white hover:opacity-90 disabled:opacity-50"
+          className="w-full bg-gradient-green text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <ShieldCheck className="h-4 w-4" />
           {saved ? "Facts confirmed" : "Confirm facts"}

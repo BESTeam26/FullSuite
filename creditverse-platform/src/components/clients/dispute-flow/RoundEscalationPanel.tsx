@@ -23,7 +23,7 @@ export const RoundEscalationPanel = ({
       {/* Round selector */}
       <div className="rounded-2xl border border-border bg-card p-6">
         <div className="flex items-center gap-2">
-          <Shield className="h-5 w-5 text-emerald-600" />
+          <Shield className="h-5 w-5 text-status-success" />
           <h2 className="font-semibold">Round escalation</h2>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -42,14 +42,14 @@ export const RoundEscalationPanel = ({
                 onClick={() => onRoundChange(r)}
                 className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition-colors ${
                   isActive
-                    ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-600"
+                    ? "border-emerald-500/50 bg-emerald-500/10 text-status-success"
                     : isPast
                       ? "border-border bg-muted/40 text-muted-foreground"
                       : "border-border bg-card text-muted-foreground hover:bg-muted/30"
                 }`}
               >
                 {isPast ? (
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                  <CheckCircle2 className="h-3.5 w-3.5 text-status-success" />
                 ) : isActive ? (
                   <Circle className="h-3.5 w-3.5 fill-emerald-500/20" />
                 ) : (
@@ -62,7 +62,7 @@ export const RoundEscalationPanel = ({
         </div>
 
         <div className="mt-5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
-          <p className="text-sm font-semibold text-emerald-700">
+          <p className="text-sm font-semibold text-status-success">
             {roundDef.name}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">{roundDef.focus}</p>
@@ -72,7 +72,7 @@ export const RoundEscalationPanel = ({
                 key={action}
                 className="flex items-start gap-2 text-xs text-foreground"
               >
-                <ArrowRight className="mt-0.5 h-3 w-3 shrink-0 text-emerald-600" />
+                <ArrowRight className="mt-0.5 h-3 w-3 shrink-0 text-status-success" />
                 {action}
               </p>
             ))}
@@ -108,7 +108,7 @@ export const RoundEscalationPanel = ({
       {/* 7-Layer Compliance Method */}
       <div className="rounded-2xl border border-border bg-card p-6">
         <div className="flex items-center gap-2">
-          <Layers className="h-5 w-5 text-emerald-600" />
+          <Layers className="h-5 w-5 text-status-success" />
           <h2 className="font-semibold">7-Layer Compliance Method</h2>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -131,7 +131,7 @@ export const RoundEscalationPanel = ({
                 <div
                   className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${
                     isActive
-                      ? "bg-emerald-500/20 text-emerald-600"
+                      ? "bg-emerald-500/20 text-status-success"
                       : "bg-muted text-muted-foreground"
                   }`}
                 >
@@ -140,7 +140,7 @@ export const RoundEscalationPanel = ({
                 <div className="flex-1">
                   <p
                     className={`text-sm font-semibold ${
-                      isActive ? "text-emerald-700" : "text-foreground"
+                      isActive ? "text-status-success" : "text-foreground"
                     }`}
                   >
                     {layer.name}
@@ -150,7 +150,7 @@ export const RoundEscalationPanel = ({
                   </p>
                 </div>
                 {isActive && (
-                  <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-600">
+                  <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-status-success">
                     <CheckCircle2 className="h-3 w-3" /> Active
                   </span>
                 )}

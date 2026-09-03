@@ -120,7 +120,7 @@ export const AttentionCenter = () => {
         )}
         {!isLoading && items.length === 0 && (
           <div className="flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-4 py-6 text-sm">
-            <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+            <CheckCircle2 className="h-5 w-5 text-status-success" />
             <span className="text-foreground">
               Nothing needs attention. No blocked work and nothing inside the
               SLA window.
@@ -202,7 +202,7 @@ export const MyWorkPage = () => {
           </p>
         ) : items.length === 0 ? (
           <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
-            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+            <CheckCircle2 className="h-4 w-4 text-status-success" />
             Nothing assigned to you right now.
           </div>
         ) : (

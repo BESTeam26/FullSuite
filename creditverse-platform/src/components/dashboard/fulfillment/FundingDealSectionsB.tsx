@@ -50,7 +50,7 @@ export function DealNextActionWorkabilitySection({
       <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-emerald-600" />
+            <ShieldCheck className="h-4 w-4 text-status-success" />
             <div>
               <p className="font-bold text-foreground">Workability</p>
               <p className="text-[11px] text-muted-foreground">
@@ -216,7 +216,7 @@ export function DealWorkCompletionSection({
         <button
           onClick={submitWork}
           disabled={selectedWork.length === 0}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <Handshake className="h-3.5 w-3.5" /> Log Production (
           {selectedWork.length})

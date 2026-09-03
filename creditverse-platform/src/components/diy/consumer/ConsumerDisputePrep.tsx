@@ -127,14 +127,14 @@ export const ConsumerDisputePrep = () => {
       <div className="flex flex-wrap gap-3">
         <Button
           disabled={!approved}
-          className="bg-gradient-green text-white hover:opacity-90 disabled:opacity-50"
+          className="bg-gradient-green text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <ShieldCheck className="h-4 w-4" /> Approve & send
         </Button>
         <Button
           disabled={!approved}
           variant="outline"
-          className="border-white/20 text-slate-200 hover:bg-white/10 disabled:opacity-50"
+          className="border-white/20 text-slate-200 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <Download className="h-4 w-4" /> Approve & download
         </Button>

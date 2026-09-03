@@ -14,18 +14,18 @@ import { Card } from "@/components/ui/card";
 const toneMap: Record<string, { bg: string; text: string; icon: string }> = {
   emerald: {
     bg: "bg-emerald-500/10",
-    text: "text-emerald-700 dark:text-emerald-400",
-    icon: "text-emerald-600 dark:text-emerald-400",
+    text: "text-status-success",
+    icon: "text-status-success",
   },
   amber: {
     bg: "bg-amber-500/10",
-    text: "text-amber-700 dark:text-amber-400",
-    icon: "text-amber-600 dark:text-amber-400",
+    text: "text-status-warning",
+    icon: "text-status-warning",
   },
   blue: {
     bg: "bg-blue-500/10",
     text: "text-blue-700 dark:text-blue-400",
-    icon: "text-blue-600 dark:text-blue-400",
+    icon: "text-status-info",
   },
   purple: {
     bg: "bg-purple-500/10",
@@ -35,7 +35,7 @@ const toneMap: Record<string, { bg: string; text: string; icon: string }> = {
   red: {
     bg: "bg-red-500/10",
     text: "text-red-700 dark:text-red-400",
-    icon: "text-red-600 dark:text-red-400",
+    icon: "text-status-danger",
   },
 };
 
@@ -139,7 +139,7 @@ export const AgencySnapshot = ({
 }) => (
   <div>
     <div className="flex items-center gap-2 mb-3">
-      <Activity className="h-4 w-4 text-amber-500" />
+      <Activity className="h-4 w-4 text-status-warning" />
       <h2 className="text-sm font-bold uppercase tracking-wider text-foreground">
         Executive Snapshot
       </h2>

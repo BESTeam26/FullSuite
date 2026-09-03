@@ -83,11 +83,11 @@ export const PortalShell = ({
       <div className="flex flex-1 flex-col overflow-hidden">
         <header className="flex h-16 items-center justify-between gap-4 border-b border-border bg-background px-6">
           <div className="flex items-center gap-2 lg:hidden">
-            <Icon className="h-5 w-5 text-emerald-600" />
+            <Icon className="h-5 w-5 text-status-success" />
             <span className="font-semibold">{title}</span>
           </div>
           <span className="hidden items-center gap-1.5 text-xs text-muted-foreground lg:flex">
-            <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+            <ShieldCheck className="h-3.5 w-3.5 text-status-success" />
             Scoped access — this portal only shows data permitted for your role
           </span>
           <div className="flex items-center gap-3">

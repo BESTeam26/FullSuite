@@ -10,10 +10,10 @@ import {
   PolarRadiusAxis,
   Radar,
   ResponsiveContainer,
-  Legend,
 } from "recharts";
 import { useClientWorkspace } from "@/lib/client-workspace-context";
 import { analyzeScorePotential } from "@/lib/score-potential";
+import { ChartLegend } from "@/components/charts/ChartLegend";
 
 const factorLabels: Record<string, string> = {
   payment: "Payment",
@@ -55,9 +55,9 @@ const BureauRadarCharts = () => {
     <div className="rounded-2xl border border-border bg-card p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <RadarIcon className="h-4 w-4 text-emerald-600" />
+          <RadarIcon className="h-4 w-4 text-status-success" />
           <h2 className="font-semibold">Per-Bureau Factor Comparison</h2>
-          <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-600">
+          <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-status-success">
             Smart Logic
           </span>
         </div>
@@ -104,7 +104,7 @@ const BureauRadarCharts = () => {
                 strokeWidth={2}
               />
             ))}
-            <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" />
+            <ChartLegend />
           </RadarChart>
         </ResponsiveContainer>
       </div>
@@ -121,7 +121,7 @@ const BureauRadarCharts = () => {
             </p>
             <p className="mt-1 text-lg font-bold">
               {b.currentEstimate}
-              <span className="text-xs font-normal text-emerald-600">
+              <span className="text-xs font-normal text-status-success">
                 {" "}
                 → {b.ceilingEstimate}
               </span>

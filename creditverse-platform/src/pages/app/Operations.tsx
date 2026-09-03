@@ -96,8 +96,8 @@ const throughput = [
 ];
 
 const stageColor: Record<string, string> = {
-  Drafting: "bg-indigo-500/10 text-indigo-600",
-  QA: "bg-amber-500/10 text-amber-600",
+  Drafting: "bg-indigo-500/10 text-status-info",
+  QA: "bg-amber-500/10 text-status-warning",
 };
 
 const Operations = () => {
@@ -112,8 +112,8 @@ const Operations = () => {
     <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
       <div className="border-b border-border/60 pb-5">
         <div className="flex items-center gap-2">
-          <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 font-semibold px-2.5 py-0.5 shadow-sm">
-            <Workflow className="h-3.5 w-3.5 mr-1 text-emerald-600 dark:text-emerald-400" />{" "}
+          <Badge className="bg-emerald-500/10 text-status-success border border-emerald-500/30 font-semibold px-2.5 py-0.5 shadow-sm">
+            <Workflow className="h-3.5 w-3.5 mr-1 text-status-success" />{" "}
             Fulfillment Operations
           </Badge>
         </div>
@@ -132,7 +132,7 @@ const Operations = () => {
             key={m.label}
             className="rounded-2xl border border-border bg-card p-5 shadow-sm hover:shadow-md transition-all"
           >
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-status-success border border-emerald-500/20">
               <m.icon className="h-5 w-5" />
             </div>
             <p className="mt-3 text-3xl font-extrabold tracking-tight text-foreground">
@@ -148,7 +148,7 @@ const Operations = () => {
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
         <div className="rounded-2xl border border-border bg-card p-6 lg:col-span-2">
           <div className="flex items-center gap-2">
-            <Workflow className="h-5 w-5 text-emerald-600" />
+            <Workflow className="h-5 w-5 text-status-success" />
             <h2 className="font-semibold">Priority work queue</h2>
           </div>
           <div className="mt-5 overflow-hidden rounded-xl border border-border">
@@ -166,7 +166,7 @@ const Operations = () => {
               <tbody className="divide-y divide-border">
                 {queue.map((t) => (
                   <tr key={t.id} className="hover:bg-muted/30">
-                    <td className="px-4 py-3 font-mono text-xs font-medium text-emerald-600">
+                    <td className="px-4 py-3 font-mono text-xs font-medium text-status-success">
                       {t.id}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
@@ -187,7 +187,7 @@ const Operations = () => {
                       <span
                         className={`text-xs font-medium ${
                           t.sla === "over"
-                            ? "text-red-600"
+                            ? "text-status-danger"
                             : "text-muted-foreground"
                         }`}
                       >
@@ -203,7 +203,7 @@ const Operations = () => {
 
         <div className="rounded-2xl border border-border bg-card p-6">
           <div className="flex items-center gap-2">
-            <Gauge className="h-5 w-5 text-emerald-600" />
+            <Gauge className="h-5 w-5 text-status-success" />
             <h2 className="font-semibold">Daily throughput</h2>
           </div>
           <div className="mt-6 h-56">
@@ -261,8 +261,8 @@ const Operations = () => {
         </div>
 
         {testSent && (
-          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-xs font-semibold text-emerald-700 flex items-center gap-2 animate-in fade-in">
-            <Sparkles className="h-4 w-4 text-emerald-600" />
+          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-xs font-semibold text-status-success flex items-center gap-2 animate-in fade-in">
+            <Sparkles className="h-4 w-4 text-status-success" />
             <span>
               Simulated Trigger Success: <strong>{testSent}</strong> dispatched
               via SMS & Client Portal.
@@ -317,12 +317,12 @@ const Operations = () => {
 
           <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="font-semibold text-sm text-red-600">
+              <span className="font-semibold text-sm text-status-danger">
                 Monitoring Issue Alert
               </span>
               <Badge
                 variant="outline"
-                className="text-[10px] text-red-600 border-red-500/30"
+                className="text-[10px] text-status-danger border-red-500/30"
               >
                 Immediate Priority
               </Badge>
@@ -335,7 +335,7 @@ const Operations = () => {
               size="sm"
               variant="outline"
               onClick={() => simulateTrigger("Monitoring Password Alert")}
-              className="w-full text-xs text-red-600 border-red-500/30 hover:bg-red-500/10"
+              className="w-full text-xs text-status-danger border-red-500/30 hover:bg-red-500/10"
             >
               <ShieldAlert className="h-3 w-3 mr-1.5" /> Test Dispatch
             </Button>
@@ -344,7 +344,7 @@ const Operations = () => {
       </div>
 
       <div className="mt-6 flex items-start gap-3 rounded-2xl border border-border bg-muted/40 p-5">
-        <Users className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
+        <Users className="mt-0.5 h-5 w-5 shrink-0 text-status-success" />
         <p className="text-sm text-muted-foreground">
           Outsourced workers get time-limited delegated scopes (CASE_READ,
           ISSUE_REVIEW, LETTER_DRAFT, LETTER_QA) — never full SSN, payment, or

@@ -244,7 +244,7 @@ export function OpsGlobalQueue<T extends OpsClient, P extends OpsPartner>({
                         "px-3 py-2.5 font-extrabold",
                         c.slaHoursRemaining !== undefined &&
                           c.slaHoursRemaining <= slaWarningHours
-                          ? "text-red-600"
+                          ? "text-status-danger"
                           : "text-foreground",
                       )}
                     >

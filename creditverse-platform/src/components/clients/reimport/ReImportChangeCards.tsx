@@ -66,7 +66,7 @@ export function ChangeSummarySection() {
           thisRound={c.deleted}
           lastRound={1}
           grandTotal={c.deleted + 1}
-          tone="text-indigo-600"
+          tone="text-status-info"
         />
         <ChangeCard
           label="Disputes On-Going"
@@ -80,21 +80,21 @@ export function ChangeSummarySection() {
           thisRound={c.undisputedNegative}
           lastRound={24}
           grandTotal={c.undisputedNegative + 24}
-          tone="text-red-600"
+          tone="text-status-danger"
         />
         <ChangeCard
           label="Updated To Positive"
           thisRound={c.updatedToPositive}
           lastRound={0}
           grandTotal={c.updatedToPositive}
-          tone="text-emerald-600"
+          tone="text-status-success"
         />
         <ChangeCard
           label="New Items Added"
           thisRound={c.newItemsAdded}
           lastRound={2}
           grandTotal={c.newItemsAdded + 2}
-          tone="text-blue-600"
+          tone="text-status-info"
         />
       </div>
 

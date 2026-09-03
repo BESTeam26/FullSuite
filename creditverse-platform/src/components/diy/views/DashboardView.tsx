@@ -121,7 +121,7 @@ export const DashboardView = () => {
             <button
               onClick={handleProfessional}
               disabled={requested === "professional"}
-              className="flex w-full items-start gap-3 rounded-xl border border-white/10 bg-white/5 p-4 text-left transition-colors hover:border-amber-400/40 hover:bg-white/10 disabled:opacity-60"
+              className="flex w-full items-start gap-3 rounded-xl border border-white/10 bg-white/5 p-4 text-left transition-colors hover:border-amber-400/40 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-300">
                 <HandHelping className="h-4 w-4" />
@@ -143,7 +143,7 @@ export const DashboardView = () => {
             <button
               onClick={handleFunding}
               disabled={requested === "funding"}
-              className="flex w-full items-start gap-3 rounded-xl border border-white/10 bg-white/5 p-4 text-left transition-colors hover:border-emerald-400/40 hover:bg-white/10 disabled:opacity-60"
+              className="flex w-full items-start gap-3 rounded-xl border border-white/10 bg-white/5 p-4 text-left transition-colors hover:border-emerald-400/40 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-300">
                 <Banknote className="h-4 w-4" />

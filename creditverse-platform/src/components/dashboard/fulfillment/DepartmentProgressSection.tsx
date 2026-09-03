@@ -194,7 +194,7 @@ export function DepartmentProgressSection({ clientId }: Props) {
               "inline-flex items-center gap-1 text-xs font-bold",
               canEdit
                 ? "text-primary hover:underline"
-                : "cursor-not-allowed text-muted-foreground/50",
+                : "cursor-not-allowed text-muted-foreground",
             )}
           >
             <ArrowRightLeft className="h-3.5 w-3.5" /> Handoff
@@ -215,7 +215,7 @@ export function DepartmentProgressSection({ clientId }: Props) {
               className={cn(
                 "rounded-full border px-2.5 py-1 text-[11px] font-bold transition-colors",
                 isActive
-                  ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                  ? "border-emerald-500/50 bg-emerald-500/10 text-status-success"
                   : "border-border bg-muted/30 text-muted-foreground",
                 !canEdit && "cursor-default opacity-70",
                 !authorized && canEdit && "opacity-50",
@@ -251,7 +251,7 @@ export function DepartmentProgressSection({ clientId }: Props) {
                   className={cn(
                     "rounded px-1.5 py-0.5 text-[10px] font-bold",
                     authorized
-                      ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                      ? "bg-emerald-500/10 text-status-success"
                       : "bg-muted text-muted-foreground",
                   )}
                 >
@@ -282,7 +282,7 @@ export function DepartmentProgressSection({ clientId }: Props) {
                         checked={isSel}
                         onChange={() => {}}
                         disabled={!editable}
-                        className="h-3.5 w-3.5 rounded border-border text-emerald-600 focus:ring-emerald-500"
+                        className="h-3.5 w-3.5 rounded border-border text-status-success focus:ring-emerald-500"
                       />
                       <span>{step}</span>
                     </label>

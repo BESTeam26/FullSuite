@@ -40,7 +40,7 @@ export const TrapStrategyPanel = ({ pkg }: { pkg: DisputePackage }) => {
   return (
     <div className="rounded-2xl border border-border bg-card p-6">
       <div className="flex items-center gap-2">
-        <ShieldAlert className="h-5 w-5 text-emerald-600" />
+        <ShieldAlert className="h-5 w-5 text-status-success" />
         <h2 className="font-semibold">TRAP Strategy</h2>
         <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
           CRA + FTC + CFPB
@@ -60,7 +60,7 @@ export const TrapStrategyPanel = ({ pkg }: { pkg: DisputePackage }) => {
               className="rounded-xl border border-border bg-muted/30 p-4"
             >
               <div className="flex items-center gap-2">
-                <Icon className="h-4 w-4 text-emerald-600" />
+                <Icon className="h-4 w-4 text-status-success" />
                 <span className="text-sm font-semibold">{c.label}</span>
               </div>
               <p className="mt-2 text-2xl font-bold">{c.count}</p>

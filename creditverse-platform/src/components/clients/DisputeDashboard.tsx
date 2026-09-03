@@ -164,7 +164,7 @@ export const DisputeDashboard = () => {
       {/* Bulk action bar */}
       {selected.size > 0 && (
         <div className="sticky top-2 z-20 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-500/30 bg-card p-4 shadow-lg">
-          <span className="flex items-center gap-2 text-sm font-semibold text-emerald-600">
+          <span className="flex items-center gap-2 text-sm font-semibold text-status-success">
             <CheckSquare className="h-4 w-4" />
             {selected.size} item{selected.size === 1 ? "" : "s"} selected
           </span>
@@ -226,7 +226,7 @@ export const DisputeDashboard = () => {
       {showInspector && (
         <div className="space-y-4 rounded-2xl border border-amber-500/30 bg-amber-500/5 p-5">
           <div className="flex items-start gap-3">
-            <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+            <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-status-warning" />
             <p className="text-sm text-muted-foreground">
               Metro 2 is an industry data-reporting specification, not a federal
               statute. A Metro 2 anomaly is <strong>evidence</strong> of a
@@ -238,7 +238,7 @@ export const DisputeDashboard = () => {
           <div className="grid gap-4 lg:grid-cols-3">
             <div className="space-y-3 lg:col-span-2">
               <div className="flex items-center gap-2">
-                <ScanSearch className="h-5 w-5 text-emerald-600" />
+                <ScanSearch className="h-5 w-5 text-status-success" />
                 <h3 className="font-semibold">Tradeline field analysis</h3>
                 <Badge className="bg-muted text-muted-foreground">
                   Midland Funding LLC · acct *5678
@@ -310,7 +310,7 @@ export const DisputeDashboard = () => {
                       e.stopPropagation();
                       selectAllInSection(sectionItems);
                     }}
-                    className="flex items-center gap-1 text-xs font-medium text-emerald-600 hover:underline"
+                    className="flex items-center gap-1 text-xs font-medium text-status-success hover:underline"
                   >
                     {allSelected ? (
                       <CheckSquare className="h-3.5 w-3.5" />
@@ -353,7 +353,7 @@ export const DisputeDashboard = () => {
                             className="mt-0.5 shrink-0"
                           >
                             {isItemSelected ? (
-                              <CheckSquare className="h-4 w-4 text-emerald-600" />
+                              <CheckSquare className="h-4 w-4 text-status-success" />
                             ) : (
                               <Square className="h-4 w-4 text-muted-foreground" />
                             )}
@@ -365,7 +365,7 @@ export const DisputeDashboard = () => {
                             <div className="flex items-center gap-2">
                               <p className="text-sm font-medium">{item.name}</p>
                               {item.autoSelected && (
-                                <Badge className="bg-emerald-500/10 text-[10px] text-emerald-600">
+                                <Badge className="bg-emerald-500/10 text-[10px] text-status-success">
                                   AI selected
                                 </Badge>
                               )}
@@ -477,10 +477,10 @@ function SectionIcon({ disposition }: { disposition: Disposition }) {
   };
   const Icon = map[disposition];
   const tone: Record<Disposition, string> = {
-    dispute: "bg-emerald-500/10 text-emerald-600",
-    undisputed: "bg-amber-500/10 text-amber-600",
+    dispute: "bg-emerald-500/10 text-status-success",
+    undisputed: "bg-amber-500/10 text-status-warning",
     never: "bg-slate-500/10 text-slate-600",
-    "open-positive": "bg-blue-500/10 text-blue-600",
+    "open-positive": "bg-blue-500/10 text-status-info",
     "closed-positive": "bg-muted text-muted-foreground",
   };
   return (

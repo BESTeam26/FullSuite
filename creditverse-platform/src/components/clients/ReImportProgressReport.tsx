@@ -73,7 +73,7 @@ export const ReImportProgressReport = ({
       {/* Header Action Bar */}
       <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-emerald-500/30 bg-gradient-to-r from-emerald-500/5 to-blue-500/5 px-5 py-4">
         <div>
-          <p className="text-sm font-semibold text-emerald-700">
+          <p className="text-sm font-semibold text-status-success">
             Next Action: Save Auto Re-Import
           </p>
           <p className="mt-0.5 text-xs text-muted-foreground">
@@ -103,7 +103,7 @@ export const ReImportProgressReport = ({
           </Button>
           <button
             onClick={onDiscardReimport}
-            className="text-xs font-medium text-red-600 underline hover:text-red-700"
+            className="text-xs font-medium text-status-danger underline hover:text-red-700"
           >
             Discard and Auto Re-Import again?
           </button>
@@ -115,7 +115,7 @@ export const ReImportProgressReport = ({
         <div className="space-y-5">
           {/* Title Block */}
           <div className="rounded-2xl border border-border bg-card p-6 text-center">
-            <p className="text-sm font-semibold text-blue-600">
+            <p className="text-sm font-semibold text-status-info">
               MY FREE SCORE NOW
             </p>
             <p className="text-xs text-muted-foreground">
@@ -147,7 +147,7 @@ export const ReImportProgressReport = ({
             title="Disputed Items Updates"
             subtitle={`${disputedUpdates.length} Items Changed — Below are all the items you disputed from the last round with results`}
             items={disputedUpdates}
-            tone="bg-indigo-500/10 text-indigo-700 border-indigo-200"
+            tone="bg-indigo-500/10 text-status-info border-indigo-200"
             exposedSectionsKey="disputed"
             exposed={!!exposed["disputed"]}
             onExpose={() => toggleExpose("disputed")}
@@ -194,7 +194,7 @@ export const ReImportProgressReport = ({
             title="Positive Items"
             subtitle="All positive items have been automatically marked and saved"
             items={positiveItems}
-            tone="bg-emerald-500/10 text-emerald-700 border-emerald-200"
+            tone="bg-emerald-500/10 text-status-success border-emerald-200"
             exposedSectionsKey="positive"
             exposed={!!exposed["positive"]}
             onExpose={() => toggleExpose("positive")}

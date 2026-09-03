@@ -120,11 +120,11 @@ export function FundingOpsDashboardView({
           <span className="font-bold text-foreground uppercase tracking-wide">
             🏦 {partnerName}
           </span>
-          <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-extrabold text-amber-600">
+          <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-extrabold text-status-warning">
             {activeClients.length} clients in scope
           </span>
         </div>
-        <span className="text-[11px] font-bold text-emerald-600">
+        <span className="text-[11px] font-bold text-status-success">
           {formatCurrency(totalRequested)} requested
         </span>
       </div>
@@ -149,32 +149,36 @@ export function FundingOpsDashboardView({
           onClick={() => onNavigateToView?.("stipulations")}
           className="cursor-pointer rounded-xl border border-amber-500/30 bg-amber-500/5 p-3.5 shadow-sm hover:border-amber-500 transition-all"
         >
-          <div className="flex items-center gap-1.5 text-amber-600">
+          <div className="flex items-center gap-1.5 text-status-warning">
             <AlertTriangle className="h-4 w-4" />
             <span className="text-[10px] font-extrabold uppercase tracking-wider">
               OVERDUE (24H)
             </span>
           </div>
-          <p className="mt-1 text-2xl font-black text-amber-600">{overdue}</p>
+          <p className="mt-1 text-2xl font-black text-status-warning">
+            {overdue}
+          </p>
         </div>
         <div
           onClick={() => onNavigateToView?.("stipulations")}
           className="cursor-pointer rounded-xl border border-red-500/30 bg-red-500/5 p-3.5 shadow-sm hover:border-red-500 transition-all"
         >
-          <div className="flex items-center gap-1.5 text-red-600">
+          <div className="flex items-center gap-1.5 text-status-danger">
             <ShieldAlert className="h-4 w-4" />
             <span className="text-[10px] font-extrabold uppercase tracking-wider">
               CRITICAL (8H)
             </span>
           </div>
-          <p className="mt-1 text-2xl font-black text-red-600">{critical}</p>
+          <p className="mt-1 text-2xl font-black text-status-danger">
+            {critical}
+          </p>
         </div>
         <div
           onClick={() => onNavigateToView?.("stipulations")}
           className="cursor-pointer rounded-xl border border-border bg-card p-3.5 shadow-sm hover:border-primary/50 transition-all"
         >
           <div className="flex items-center gap-1.5 text-muted-foreground">
-            <FileText className="h-4 w-4 text-amber-600" />
+            <FileText className="h-4 w-4 text-status-warning" />
             <span className="text-[10px] font-extrabold uppercase tracking-wider">
               STIPS OPEN
             </span>
@@ -188,7 +192,7 @@ export function FundingOpsDashboardView({
           className="cursor-pointer rounded-xl border border-border bg-card p-3.5 shadow-sm hover:border-primary/50 transition-all"
         >
           <div className="flex items-center gap-1.5 text-muted-foreground">
-            <Send className="h-4 w-4 text-blue-600" />
+            <Send className="h-4 w-4 text-status-info" />
             <span className="text-[10px] font-extrabold uppercase tracking-wider">
               SUBMITTED
             </span>
@@ -202,7 +206,7 @@ export function FundingOpsDashboardView({
           className="cursor-pointer rounded-xl border border-border bg-card p-3.5 shadow-sm hover:border-primary/50 transition-all"
         >
           <div className="flex items-center gap-1.5 text-muted-foreground">
-            <DollarSign className="h-4 w-4 text-emerald-600" />
+            <DollarSign className="h-4 w-4 text-status-success" />
             <span className="text-[10px] font-extrabold uppercase tracking-wider">
               FUNDED
             </span>
@@ -284,8 +288,8 @@ export function FundingOpsDashboardView({
                       "h-4 w-4",
                       f.slaHoursRemaining !== undefined &&
                         f.slaHoursRemaining <= 8
-                        ? "text-red-600"
-                        : "text-amber-600",
+                        ? "text-status-danger"
+                        : "text-status-warning",
                     )}
                   />
                   <span className="text-sm text-foreground">

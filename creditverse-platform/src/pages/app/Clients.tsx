@@ -30,15 +30,15 @@ import {
 } from "@/lib/clients/client-seed";
 
 const statusVariant: Record<Client["status"], string> = {
-  Active: "bg-emerald-500/10 text-emerald-600",
-  Onboarding: "bg-blue-500/10 text-blue-600",
-  Dispute: "bg-amber-500/10 text-amber-600",
+  Active: "bg-emerald-500/10 text-status-success",
+  Onboarding: "bg-blue-500/10 text-status-info",
+  Dispute: "bg-amber-500/10 text-status-warning",
   Paused: "bg-slate-500/10 text-slate-600",
 };
 
 const actionTone: Record<Client["nextActionTone"], string> = {
-  ready: "bg-emerald-500/10 text-emerald-600",
-  attention: "bg-red-500/10 text-red-600",
+  ready: "bg-emerald-500/10 text-status-success",
+  attention: "bg-red-500/10 text-status-danger",
   waiting: "bg-slate-500/10 text-slate-600",
 };
 
@@ -235,9 +235,9 @@ const Clients = () => {
                     <span
                       className={`rounded-full px-2.5 py-1 text-xs font-medium ${
                         c.leadSource === "BES DIY Credit"
-                          ? "bg-amber-500/10 text-amber-700"
+                          ? "bg-amber-500/10 text-status-warning"
                           : c.leadSource === "Partner Referral"
-                            ? "bg-emerald-500/10 text-emerald-600"
+                            ? "bg-emerald-500/10 text-status-success"
                             : "bg-slate-500/10 text-slate-600"
                       }`}
                     >
@@ -249,7 +249,7 @@ const Clients = () => {
                       <Sparkline data={c.trend} positive={c.change >= 0} />
                       <div>
                         <p className="font-semibold">{c.score}</p>
-                        <p className="text-xs font-medium text-emerald-600">
+                        <p className="text-xs font-medium text-status-success">
                           +{c.change}
                         </p>
                       </div>
@@ -285,10 +285,10 @@ const Clients = () => {
                     <span
                       className={`flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
                         monitoring.status === "monitoring-issue"
-                          ? "bg-red-500/10 text-red-600"
+                          ? "bg-red-500/10 text-status-danger"
                           : monitoring.status === "needs-review"
-                            ? "bg-amber-500/10 text-amber-600"
-                            : "bg-emerald-500/10 text-emerald-600"
+                            ? "bg-amber-500/10 text-status-warning"
+                            : "bg-emerald-500/10 text-status-success"
                       }`}
                     >
                       {monitoring.status === "monitoring-issue" && (

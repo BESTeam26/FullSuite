@@ -48,7 +48,7 @@ export const WhitelabelConfigurator = ({
     <div className="space-y-4 py-2 text-sm">
       <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 flex items-center justify-between">
         <div>
-          <p className="font-semibold text-amber-500 text-xs">
+          <p className="font-semibold text-status-warning text-xs">
             Sub-Account White-Label Customization
           </p>
           <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -58,7 +58,7 @@ export const WhitelabelConfigurator = ({
         </div>
         <Badge
           variant="outline"
-          className="border-amber-500/40 text-amber-500 text-[10px]"
+          className="border-amber-500/40 text-status-warning text-[10px]"
         >
           Whitelabel Active
         </Badge>
@@ -73,7 +73,7 @@ export const WhitelabelConfigurator = ({
         />
         <p className="text-[10px] text-muted-foreground">
           Point CNAME record to{" "}
-          <code className="text-amber-500 font-mono">
+          <code className="text-status-warning font-mono">
             cname.blessedempireservices.com
           </code>
         </p>

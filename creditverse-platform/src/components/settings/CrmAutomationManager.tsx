@@ -26,15 +26,15 @@ import {
 } from "@/lib/crm-automation-context";
 
 const statusTone: Record<string, string> = {
-  connected: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30",
+  connected: "bg-emerald-500/10 text-status-success border-emerald-500/30",
   disconnected: "bg-muted text-muted-foreground border-border",
-  error: "bg-red-500/10 text-red-600 border-red-500/30",
+  error: "bg-red-500/10 text-status-danger border-red-500/30",
 };
 
 const logTone: Record<string, string> = {
-  emitted: "text-emerald-600",
-  skipped: "text-amber-600",
-  failed: "text-red-600",
+  emitted: "text-status-success",
+  skipped: "text-status-warning",
+  failed: "text-status-danger",
 };
 
 export const CrmAutomationManager = () => {
@@ -84,7 +84,7 @@ export const CrmAutomationManager = () => {
       <div className="rounded-2xl border border-border bg-card p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-start gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-status-success">
               <Radio className="h-5 w-5" />
             </span>
             <div>
@@ -185,7 +185,7 @@ export const CrmAutomationManager = () => {
                 className="mt-1.5"
               />
             </div>
-            <div className="sm:col-span-2 flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-[11px] text-amber-700">
+            <div className="sm:col-span-2 flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-[11px] text-status-warning">
               <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               Credentials are stored encrypted in the secrets vault. The bridge
               only emits signals — it cannot read your CRM contacts or send
@@ -198,7 +198,7 @@ export const CrmAutomationManager = () => {
       {/* Event mapping table */}
       <div className="rounded-2xl border border-border bg-card p-6">
         <div className="flex items-center gap-2">
-          <ListChecks className="h-5 w-5 text-emerald-600" />
+          <ListChecks className="h-5 w-5 text-status-success" />
           <h2 className="font-semibold">Event mapping</h2>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
@@ -255,7 +255,7 @@ export const CrmAutomationManager = () => {
                               <p className="text-[11px] text-muted-foreground">
                                 {meta?.description}
                               </p>
-                              <p className="mt-1 font-mono text-[10px] text-emerald-600">
+                              <p className="mt-1 font-mono text-[10px] text-status-success">
                                 {m.event}
                               </p>
                             </td>
@@ -322,7 +322,7 @@ export const CrmAutomationManager = () => {
       <div className="rounded-2xl border border-border bg-card p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Webhook className="h-5 w-5 text-emerald-600" />
+            <Webhook className="h-5 w-5 text-status-success" />
             <h2 className="font-semibold">Signal log</h2>
             <Badge variant="outline" className="text-xs">
               {log.length} {log.length === 1 ? "entry" : "entries"}
@@ -369,7 +369,7 @@ export const CrmAutomationManager = () => {
                       {entry.at}
                     </td>
                     <td className="px-3 py-2">
-                      <span className="font-mono text-[10px] text-emerald-600">
+                      <span className="font-mono text-[10px] text-status-success">
                         {entry.event}
                       </span>
                     </td>

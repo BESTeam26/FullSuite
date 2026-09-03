@@ -18,9 +18,9 @@ import {
   PolarRadiusAxis,
   Radar,
   ResponsiveContainer,
-  Legend,
 } from "recharts";
 import { useClientWorkspace } from "@/lib/client-workspace-context";
+import { ChartLegend } from "@/components/charts/ChartLegend";
 import {
   analyzeScorePotential,
   type ScorePotentialResult,
@@ -82,9 +82,9 @@ const ScoreSimulator = () => {
   const DeltaIcon = delta > 0 ? TrendingUp : delta < 0 ? TrendingDown : Minus;
   const deltaTone =
     delta > 0
-      ? "text-emerald-600"
+      ? "text-status-success"
       : delta < 0
-        ? "text-red-600"
+        ? "text-status-danger"
         : "text-muted-foreground";
 
   return (
@@ -93,9 +93,9 @@ const ScoreSimulator = () => {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <SlidersHorizontal className="h-4 w-4 text-blue-600" />
+              <SlidersHorizontal className="h-4 w-4 text-status-info" />
               <h2 className="font-semibold">Score Simulator</h2>
-              <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-blue-600">
+              <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-status-info">
                 What-if
               </span>
             </div>
@@ -127,7 +127,7 @@ const ScoreSimulator = () => {
             <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
               Simulated ceiling
             </p>
-            <p className="mt-1 text-3xl font-bold tracking-tight text-blue-600">
+            <p className="mt-1 text-3xl font-bold tracking-tight text-status-info">
               {result.analysis.averageCeiling}
             </p>
             <p className="text-[11px] text-muted-foreground">
@@ -168,7 +168,7 @@ const ScoreSimulator = () => {
                   → {b.ceilingEstimate}
                 </span>
               </p>
-              <p className="text-[10px] text-emerald-600">
+              <p className="text-[10px] text-status-success">
                 +{b.ceilingEstimate - baseline.bureaus[i].ceilingEstimate}{" "}
                 ceiling
               </p>
@@ -181,7 +181,8 @@ const ScoreSimulator = () => {
         {/* Action toggles */}
         <div className="rounded-2xl border border-border bg-card p-6">
           <h3 className="flex items-center gap-2 text-sm font-semibold">
-            <Sparkles className="h-4 w-4 text-blue-600" /> Hypothetical actions
+            <Sparkles className="h-4 w-4 text-status-info" /> Hypothetical
+            actions
           </h3>
           <div className="mt-4 space-y-2.5">
             {actions.map((a) => (
@@ -227,7 +228,7 @@ const ScoreSimulator = () => {
         {/* Radar comparison */}
         <div className="rounded-2xl border border-border bg-card p-6">
           <h3 className="flex items-center gap-2 text-sm font-semibold">
-            <SlidersHorizontal className="h-4 w-4 text-blue-600" /> Factor
+            <SlidersHorizontal className="h-4 w-4 text-status-info" /> Factor
             impact comparison
           </h3>
           <div className="mt-4 h-[320px]">
@@ -256,7 +257,7 @@ const ScoreSimulator = () => {
                   fill="#3b82f6"
                   fillOpacity={0.3}
                 />
-                <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" />
+                <ChartLegend />
               </RadarChart>
             </ResponsiveContainer>
           </div>
@@ -264,7 +265,7 @@ const ScoreSimulator = () => {
       </div>
 
       <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/20 p-3 text-[11px] leading-relaxed text-muted-foreground">
-        <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
+        <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-status-success" />
         <p>{baseline.disclaimer}</p>
       </div>
     </div>

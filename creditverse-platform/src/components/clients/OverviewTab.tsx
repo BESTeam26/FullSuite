@@ -73,9 +73,9 @@ const OverviewTab = () => {
             </h2>
             <div className="mt-3 flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
-                <TrendingUp className="h-4 w-4 text-emerald-600" />
+                <TrendingUp className="h-4 w-4 text-status-success" />
                 <div>
-                  <p className="text-lg font-bold leading-none text-emerald-600">
+                  <p className="text-lg font-bold leading-none text-status-success">
                     +{Math.round(totalGain)}
                   </p>
                   <p className="text-[11px] text-muted-foreground">
@@ -257,7 +257,7 @@ const OverviewTab = () => {
         <div className="rounded-2xl border border-border bg-card p-6">
           <div className="flex items-center justify-between">
             <h2 className="font-semibold">Client checklist</h2>
-            <span className="text-xs font-semibold text-emerald-600">
+            <span className="text-xs font-semibold text-status-success">
               {progress}%
             </span>
           </div>
@@ -271,9 +271,9 @@ const OverviewTab = () => {
             {checklist.map((c) => (
               <li key={c.label} className="flex items-start gap-2 text-sm">
                 {c.done ? (
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-status-success" />
                 ) : c.warn ? (
-                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-status-warning" />
                 ) : (
                   <Circle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                 )}
@@ -299,7 +299,7 @@ const OverviewTab = () => {
                   key={r.label}
                   className="rounded-xl border border-border bg-muted/30 p-4"
                 >
-                  <Icon className="h-4 w-4 text-emerald-600" />
+                  <Icon className="h-4 w-4 text-status-success" />
                   <p className="mt-2 text-xl font-bold">{r.value}</p>
                   <p className="text-xs text-muted-foreground">{r.label}</p>
                 </div>
@@ -312,7 +312,7 @@ const OverviewTab = () => {
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="rounded-2xl border border-border bg-card p-5">
           <div className="flex items-center gap-2">
-            <Bell className="h-4 w-4 text-emerald-600" />
+            <Bell className="h-4 w-4 text-status-success" />
             <h2 className="text-sm font-semibold">Notifications</h2>
           </div>
           <ul className="mt-3 space-y-3">
@@ -368,7 +368,7 @@ const OverviewTab = () => {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Deletions</span>
-              <span className="font-semibold text-emerald-600">32</span>
+              <span className="font-semibold text-status-success">32</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">On-going</span>

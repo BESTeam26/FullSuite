@@ -202,7 +202,7 @@ const Portal = () => {
           </label>
           <Button
             disabled={!attested}
-            className="mt-4 w-full bg-gradient-emerald text-white hover:opacity-90 disabled:opacity-40"
+            className="mt-4 w-full bg-gradient-emerald text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Prepare my dispute for final review
           </Button>

@@ -71,7 +71,7 @@ export const SubAccountsListView = ({
                   title={sub.isPinned ? "Unpin account" : "Pin to top"}
                 >
                   <Pin
-                    className={`h-4 w-4 ${sub.isPinned ? "fill-amber-500 text-amber-500" : ""}`}
+                    className={`h-4 w-4 ${sub.isPinned ? "fill-amber-500 text-status-warning" : ""}`}
                   />
                 </button>
               </TableCell>
@@ -89,7 +89,7 @@ export const SubAccountsListView = ({
                       {sub.branding?.customDomain && (
                         <Badge
                           variant="outline"
-                          className="text-[9px] px-1 py-0 text-amber-500 border-amber-500/30"
+                          className="text-[9px] px-1 py-0 text-status-warning border-amber-500/30"
                         >
                           {sub.branding.customDomain}
                         </Badge>
@@ -126,19 +126,19 @@ export const SubAccountsListView = ({
                 {sub.activeClients}
               </TableCell>
 
-              <TableCell className="font-bold text-emerald-600">
+              <TableCell className="font-bold text-status-success">
                 ${sub.monthlyRevenue.toLocaleString()}
               </TableCell>
 
               <TableCell>
                 {sub.isFulfillmentSubscriber ? (
-                  <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-[10px]">
+                  <Badge className="bg-emerald-500/10 text-status-success border-emerald-500/20 text-[10px]">
                     <CheckCircle2 className="h-3 w-3 mr-1" /> HQ DFY Subscriber
                   </Badge>
                 ) : (
                   <Badge
                     variant="outline"
-                    className="text-slate-400 text-[10px]"
+                    className="text-muted-foreground text-[10px]"
                   >
                     Self-Managed
                   </Badge>
@@ -149,8 +149,8 @@ export const SubAccountsListView = ({
                 <Badge
                   className={
                     sub.status === "Active"
-                      ? "bg-emerald-500/10 text-emerald-600"
-                      : "bg-amber-500/10 text-amber-600"
+                      ? "bg-emerald-500/10 text-status-success"
+                      : "bg-amber-500/10 text-status-warning"
                   }
                 >
                   {sub.status}
@@ -163,7 +163,7 @@ export const SubAccountsListView = ({
                     size="sm"
                     variant="outline"
                     onClick={() => onSwitch(sub.id)}
-                    className="h-8 px-2 text-xs font-semibold text-amber-500 border-amber-500/30 hover:bg-amber-500/10"
+                    className="h-8 px-2 text-xs font-semibold text-status-warning border-amber-500/30 hover:bg-amber-500/10"
                   >
                     Enter Workspace <ArrowUpRight className="h-3 w-3 ml-1" />
                   </Button>
@@ -181,7 +181,7 @@ export const SubAccountsListView = ({
                       <DropdownMenuItem
                         onClick={() => onConfigureBranding(sub)}
                       >
-                        <Palette className="h-3.5 w-3.5 mr-1.5 text-amber-500" />{" "}
+                        <Palette className="h-3.5 w-3.5 mr-1.5 text-status-warning" />{" "}
                         Whitelabel Branding
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => onToggleDFY(sub.id)}>

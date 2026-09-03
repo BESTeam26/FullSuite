@@ -22,11 +22,11 @@ import type {
 } from "@/lib/referral/referral-types";
 
 const diyStatusTone: Record<string, string> = {
-  active: "bg-emerald-500/10 text-emerald-600",
-  trial: "bg-amber-500/10 text-amber-600",
+  active: "bg-emerald-500/10 text-status-success",
+  trial: "bg-amber-500/10 text-status-warning",
   paused: "bg-slate-500/10 text-slate-600",
-  canceled: "bg-red-500/10 text-red-600",
-  churned: "bg-red-500/10 text-red-600",
+  canceled: "bg-red-500/10 text-status-danger",
+  churned: "bg-red-500/10 text-status-danger",
 };
 
 const convStatus = (p: Person): string => {
@@ -49,10 +49,10 @@ const interestLabel = (p: Person): string => {
 
 const commissionTone: Record<string, string> = {
   pending: "bg-slate-500/10 text-slate-600",
-  eligible: "bg-amber-500/10 text-amber-600",
+  eligible: "bg-amber-500/10 text-status-warning",
   approved: "bg-sky-500/10 text-sky-600",
-  paid: "bg-emerald-500/10 text-emerald-600",
-  reversed: "bg-red-500/10 text-red-600",
+  paid: "bg-emerald-500/10 text-status-success",
+  reversed: "bg-red-500/10 text-status-danger",
 };
 
 const leadTypeLabel: Record<string, string> = {
@@ -90,55 +90,55 @@ export const PartnerReferralDashboard = () => {
       label: "Signups",
       value: stats.signups,
       icon: UserPlus,
-      tone: "text-blue-600",
+      tone: "text-status-info",
     },
     {
       label: "Paying consumers",
       value: stats.payingConsumers,
       icon: CreditCard,
-      tone: "text-emerald-600",
+      tone: "text-status-success",
     },
     {
       label: "Active DIY",
       value: stats.activeDiy,
       icon: Activity,
-      tone: "text-emerald-600",
+      tone: "text-status-success",
     },
     {
       label: "Professional help requests",
       value: stats.professionalHelpRequests,
       icon: HandHelping,
-      tone: "text-amber-600",
+      tone: "text-status-warning",
     },
     {
       label: "Funding requests",
       value: stats.fundingRequests,
       icon: Banknote,
-      tone: "text-amber-600",
+      tone: "text-status-warning",
     },
     {
       label: "Conversions",
       value: stats.conversions,
       icon: ArrowRightLeft,
-      tone: "text-emerald-600",
+      tone: "text-status-success",
     },
     {
       label: "Commission earned",
       value: `$${stats.commissionEarned.toFixed(2)}`,
       icon: DollarSign,
-      tone: "text-emerald-600",
+      tone: "text-status-success",
     },
     {
       label: "Pending commission",
       value: `$${stats.pendingCommission.toFixed(2)}`,
       icon: Clock,
-      tone: "text-amber-600",
+      tone: "text-status-warning",
     },
     {
       label: "Paid commission",
       value: `$${stats.paidCommission.toFixed(2)}`,
       icon: CheckCircle2,
-      tone: "text-emerald-600",
+      tone: "text-status-success",
     },
   ];
 
@@ -179,7 +179,7 @@ export const PartnerReferralDashboard = () => {
               onClick={() => setCurrentPartnerId(p.id)}
               className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
                 p.id === currentPartnerId
-                  ? "border-amber-500/50 bg-amber-500/10 text-amber-700"
+                  ? "border-amber-500/50 bg-amber-500/10 text-status-warning"
                   : "border-border bg-card text-muted-foreground hover:bg-muted"
               }`}
             >
@@ -206,7 +206,7 @@ export const PartnerReferralDashboard = () => {
       <div className="rounded-2xl border border-border bg-card p-6">
         <div className="flex items-center justify-between">
           <h2 className="flex items-center gap-2 font-semibold">
-            <Link2 className="h-4 w-4 text-amber-600" /> Your DIY referrals
+            <Link2 className="h-4 w-4 text-status-warning" /> Your DIY referrals
           </h2>
           <Badge className="bg-muted text-muted-foreground">
             {people.length} attributed
@@ -243,7 +243,7 @@ export const PartnerReferralDashboard = () => {
                       <p className="text-xs text-muted-foreground">{p.email}</p>
                     </td>
                     <td className="py-3 pr-4">
-                      <Badge className="bg-amber-500/10 text-amber-700">
+                      <Badge className="bg-amber-500/10 text-status-warning">
                         BES DIY Credit
                       </Badge>
                     </td>
@@ -278,11 +278,11 @@ export const PartnerReferralDashboard = () => {
                     </td>
                     <td className="py-3 text-xs">
                       {p.professionalHelpInterest ? (
-                        <span className="text-amber-600">
+                        <span className="text-status-warning">
                           Contact re: credit
                         </span>
                       ) : p.fundingInterest ? (
-                        <span className="text-amber-600">
+                        <span className="text-status-warning">
                           Contact re: funding
                         </span>
                       ) : (
@@ -312,7 +312,7 @@ export const PartnerReferralDashboard = () => {
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-2xl border border-border bg-card p-6">
           <h2 className="flex items-center gap-2 font-semibold">
-            <HandHelping className="h-4 w-4 text-amber-600" /> Routed
+            <HandHelping className="h-4 w-4 text-status-warning" /> Routed
             opportunities
           </h2>
           <p className="mt-1 text-xs text-muted-foreground">
@@ -330,7 +330,7 @@ export const PartnerReferralDashboard = () => {
                     <p className="text-sm font-medium">
                       {person?.name ?? "Unknown"}
                     </p>
-                    <Badge className="bg-amber-500/10 text-amber-700">
+                    <Badge className="bg-amber-500/10 text-status-warning">
                       {leadTypeLabel[l.type] ?? l.type}
                     </Badge>
                   </div>
@@ -351,7 +351,7 @@ export const PartnerReferralDashboard = () => {
 
         <div className="rounded-2xl border border-border bg-card p-6">
           <h2 className="flex items-center gap-2 font-semibold">
-            <DollarSign className="h-4 w-4 text-emerald-600" /> Commission
+            <DollarSign className="h-4 w-4 text-status-success" /> Commission
             ledger
           </h2>
           <p className="mt-1 text-xs text-muted-foreground">

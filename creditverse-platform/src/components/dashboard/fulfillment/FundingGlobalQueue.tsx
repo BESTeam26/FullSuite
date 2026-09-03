@@ -69,19 +69,19 @@ const QUEUE_SPECS: Record<
   "readiness-queue": {
     title: "GLOBAL READINESS REVIEW QUEUE",
     icon: CheckCircle2,
-    color: "text-amber-600",
+    color: "text-status-warning",
     filterFn: (c) => ["Onboarding", "Readiness Review"].includes(c.status),
   },
   "document-queue": {
     title: "GLOBAL DOCUMENT REVIEW QUEUE",
     icon: FileText,
-    color: "text-blue-600",
+    color: "text-status-info",
     filterFn: (c) => c.status === "Document Review",
   },
   "lender-matching-queue": {
     title: "GLOBAL LENDER MATCHING QUEUE",
     icon: Landmark,
-    color: "text-indigo-600",
+    color: "text-status-info",
     filterFn: (c) => c.status === "Lender Matching",
   },
   "submissions-queue": {
@@ -93,7 +93,7 @@ const QUEUE_SPECS: Record<
   "stipulations-queue": {
     title: "GLOBAL STIPULATIONS QUEUE",
     icon: FileText,
-    color: "text-amber-600",
+    color: "text-status-warning",
     filterFn: (c) => c.status === "Stipulations",
   },
   "offers-queue": {
@@ -105,20 +105,20 @@ const QUEUE_SPECS: Record<
   "funded-queue": {
     title: "GLOBAL FUNDED DEALS QUEUE",
     icon: CheckCircle2,
-    color: "text-emerald-600",
+    color: "text-status-success",
     filterFn: (c) => c.status === "Funded",
   },
   "escalation-queue": {
     title: "GLOBAL ESCALATION & SLA QUEUE",
     icon: AlertTriangle,
-    color: "text-red-600",
+    color: "text-status-danger",
     filterFn: (c) =>
       c.slaHoursRemaining !== undefined && c.slaHoursRemaining <= 8,
   },
   "onboarding-queue": {
     title: "GLOBAL ONBOARDING QUEUE",
     icon: UserPlus,
-    color: "text-amber-600",
+    color: "text-status-warning",
     filterFn: (c) => c.status === "Onboarding",
   },
 };

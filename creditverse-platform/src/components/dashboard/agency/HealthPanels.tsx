@@ -89,17 +89,17 @@ const subAccountHealth: {
 
 const statusConfig: Record<string, { dot: string; badge: string }> = {
   Healthy: {
-    dot: "text-emerald-500",
+    dot: "text-status-success",
     badge:
-      "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 font-semibold",
+      "bg-emerald-500/10 text-status-success border-emerald-500/30 font-semibold",
   },
   Attention: {
-    dot: "text-amber-500",
+    dot: "text-status-warning",
     badge:
-      "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30 font-semibold",
+      "bg-amber-500/10 text-status-warning border-amber-500/30 font-semibold",
   },
   Billing: {
-    dot: "text-red-500",
+    dot: "text-status-danger",
     badge:
       "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/30 font-semibold",
   },
@@ -130,7 +130,7 @@ export const HealthPanels = () => {
     <div className="grid gap-6 lg:grid-cols-5">
       <Card className="p-5 border-border shadow-sm lg:col-span-2">
         <div className="flex items-center gap-2 mb-4">
-          <Gauge className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+          <Gauge className="h-5 w-5 text-status-success" />
           <h2 className="text-base font-bold tracking-tight text-foreground">
             Platform Health
           </h2>
@@ -175,7 +175,7 @@ export const HealthPanels = () => {
       <Card className="p-5 border-border shadow-sm lg:col-span-3">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <Building2 className="h-5 w-5 text-amber-500" />
+            <Building2 className="h-5 w-5 text-status-warning" />
             <h2 className="text-base font-bold tracking-tight text-foreground">
               Sub-Account Health
             </h2>
@@ -237,10 +237,10 @@ export const HealthPanels = () => {
                           s.sla === "—"
                             ? "text-muted-foreground"
                             : parseFloat(s.sla) >= 95
-                              ? "text-emerald-600 dark:text-emerald-400"
+                              ? "text-status-success"
                               : parseFloat(s.sla) >= 90
-                                ? "text-amber-600 dark:text-amber-400"
-                                : "text-red-600 dark:text-red-400"
+                                ? "text-status-warning"
+                                : "text-status-danger"
                         }`}
                       >
                         {s.sla}
@@ -250,8 +250,8 @@ export const HealthPanels = () => {
                       <span
                         className={`text-xs font-bold tabular-nums ${
                           s.attention > 0
-                            ? "text-amber-600 dark:text-amber-400"
-                            : "text-emerald-600 dark:text-emerald-400"
+                            ? "text-status-warning"
+                            : "text-status-success"
                         }`}
                       >
                         {s.attention > 0 ? `${s.attention} flags` : "Clear"}

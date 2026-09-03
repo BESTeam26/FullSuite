@@ -95,7 +95,7 @@ export const AdditionalLoginsCard = () => {
     <div className="rounded-2xl border border-border bg-card p-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Building2 className="h-4 w-4 text-emerald-600" />
+          <Building2 className="h-4 w-4 text-status-success" />
           <h2 className="font-semibold">Additional logins collected</h2>
         </div>
         <Button
@@ -204,7 +204,7 @@ export const AdditionalLoginsCard = () => {
                   {l.isCustom && (
                     <Badge
                       variant="outline"
-                      className="text-[9px] text-emerald-600"
+                      className="text-[9px] text-status-success"
                     >
                       custom
                     </Badge>

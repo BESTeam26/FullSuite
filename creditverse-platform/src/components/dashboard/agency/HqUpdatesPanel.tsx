@@ -47,32 +47,31 @@ const configs: Record<
 > = {
   process: {
     icon: FileText,
-    color: "text-amber-600 dark:text-amber-400",
+    color: "text-status-warning",
     bg: "bg-amber-500/10",
   },
   milestone: {
     icon: Rocket,
-    color: "text-emerald-600 dark:text-emerald-400",
+    color: "text-status-success",
     bg: "bg-emerald-500/10",
   },
   feature: {
     icon: Link2,
-    color: "text-blue-600 dark:text-blue-400",
+    color: "text-status-info",
     bg: "bg-blue-500/10",
   },
 };
 
 const priorityStyles: Record<string, string> = {
   high: "bg-red-500/10 text-red-700 dark:text-red-300 border-red-500/20",
-  medium:
-    "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20",
-  low: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20",
+  medium: "bg-amber-500/10 text-status-warning border-amber-500/20",
+  low: "bg-emerald-500/10 text-status-success border-emerald-500/20",
 };
 
 export const HqUpdatesPanel = () => (
   <Card className="p-5 border-border shadow-sm">
     <div className="flex items-center gap-2 mb-4">
-      <Sparkles className="h-5 w-5 text-amber-500" />
+      <Sparkles className="h-5 w-5 text-status-warning" />
       <h2 className="text-base font-bold tracking-tight text-foreground">
         HQ Updates
       </h2>

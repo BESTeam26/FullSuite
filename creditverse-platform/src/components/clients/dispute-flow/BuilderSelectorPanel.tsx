@@ -400,7 +400,7 @@ export const BuilderSelectorPanel = ({
         >
           <div className="grid grid-cols-1 md:grid-cols-12 items-center p-5 gap-4">
             <div className="md:col-span-4 flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-600">
+              <div className="p-3 rounded-xl bg-emerald-500/10 text-status-success">
                 <Sparkles className="h-8 w-8" />
               </div>
               <div>
@@ -412,7 +412,7 @@ export const BuilderSelectorPanel = ({
                     Factual + Metro2
                   </Badge>
                 </div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                <p className="text-xs font-semibold uppercase tracking-wider text-status-success">
                   Combined Strategy
                 </p>
               </div>
@@ -442,7 +442,7 @@ export const BuilderSelectorPanel = ({
             </div>
 
             <div className="md:col-span-3 flex flex-col items-center justify-center border-t md:border-t-0 md:border-l border-border pt-3 md:pt-0 md:pl-4 text-center">
-              <div className="flex items-center gap-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+              <div className="flex items-center gap-1 text-xs font-medium text-status-success">
                 <ShieldCheck className="h-4 w-4" /> Truth Gate Protected
               </div>
               <p className="text-[10px] text-muted-foreground mt-1">

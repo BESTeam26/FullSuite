@@ -49,7 +49,7 @@ export function SideBySideCompareView({
           </ul>
         </div>
         <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
-          <p className="mb-2 text-xs font-semibold uppercase text-emerald-700">
+          <p className="mb-2 text-xs font-semibold uppercase text-status-success">
             New report — Aug 29, 2026
           </p>
           <ul className="space-y-1.5 text-sm">
@@ -59,7 +59,7 @@ export function SideBySideCompareView({
                 className="flex items-center justify-between border-b border-border/50 pb-1"
               >
                 <span>{i.name}</span>
-                <span className="text-xs font-medium text-emerald-600">
+                <span className="text-xs font-medium text-status-success">
                   {i.category}
                 </span>
               </li>

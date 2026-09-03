@@ -153,7 +153,7 @@ export const AnomalyCard = ({ result }: { result: AnomalyResult }) => {
               {result.flags.map((f, i) => (
                 <div
                   key={i}
-                  className="flex items-start gap-2 rounded-lg bg-amber-500/5 p-2 text-xs text-amber-700 dark:text-amber-400"
+                  className="flex items-start gap-2 rounded-lg bg-amber-500/5 p-2 text-xs text-status-warning"
                 >
                   <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                   <span>{f}</span>
@@ -164,7 +164,7 @@ export const AnomalyCard = ({ result }: { result: AnomalyResult }) => {
 
           {/* Human review badge */}
           {result.humanReviewRequired && (
-            <div className="flex items-center gap-2 rounded-lg bg-red-500/10 p-3 text-xs font-medium text-red-600">
+            <div className="flex items-center gap-2 rounded-lg bg-red-500/10 p-3 text-xs font-medium text-status-danger">
               <ShieldCheck className="h-4 w-4" />
               Human / counsel review required — the AI never declares a legal
               conclusion.
@@ -196,9 +196,9 @@ export const TruthGatePanel = ({
   >
     <div className="flex items-center gap-2">
       {passed ? (
-        <Lock className="h-5 w-5 text-emerald-600" />
+        <Lock className="h-5 w-5 text-status-success" />
       ) : (
-        <Lock className="h-5 w-5 text-red-600" />
+        <Lock className="h-5 w-5 text-status-danger" />
       )}
       <h3 className="font-semibold">
         Truth Gate — {passed ? "Passed" : "Blocked"}
@@ -212,7 +212,10 @@ export const TruthGatePanel = ({
     {blocks.length > 0 && (
       <div className="mt-3 space-y-1.5">
         {blocks.map((b, i) => (
-          <div key={i} className="flex items-start gap-2 text-xs text-red-600">
+          <div
+            key={i}
+            className="flex items-start gap-2 text-xs text-status-danger"
+          >
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <span>{b}</span>
           </div>
@@ -228,7 +231,7 @@ export const TruthGatePanel = ({
         {requiredForFiling.map((r, i) => (
           <div
             key={i}
-            className="flex items-start gap-2 text-xs text-amber-700 dark:text-amber-400"
+            className="flex items-start gap-2 text-xs text-status-warning"
           >
             <FileSearch className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <span>{r}</span>
@@ -238,7 +241,7 @@ export const TruthGatePanel = ({
     )}
 
     {passed && (
-      <p className="mt-3 text-xs text-emerald-600">
+      <p className="mt-3 text-xs text-status-success">
         Consumer attestation complete — dispute may proceed to drafting.
       </p>
     )}
@@ -260,7 +263,7 @@ export const StatuteRoutingCard = ({
 }) => (
   <div className="rounded-xl border border-border bg-card p-5">
     <div className="flex items-center gap-2">
-      <Scale className="h-5 w-5 text-emerald-600" />
+      <Scale className="h-5 w-5 text-status-success" />
       <h3 className="font-semibold">Recipient-Aware Statute Routing</h3>
     </div>
     <p className="mt-1 text-xs text-muted-foreground">
@@ -274,7 +277,7 @@ export const StatuteRoutingCard = ({
       </p>
       <div className="mt-1 flex flex-wrap gap-1.5">
         {applicableStatutes.map((s) => (
-          <Badge key={s} className="bg-emerald-500/10 text-emerald-600">
+          <Badge key={s} className="bg-emerald-500/10 text-status-success">
             {s}
           </Badge>
         ))}
@@ -286,7 +289,7 @@ export const StatuteRoutingCard = ({
         {incorrectAssignment.map((c, i) => (
           <div
             key={i}
-            className="flex items-start gap-2 rounded-lg bg-red-500/5 p-2 text-xs text-red-600"
+            className="flex items-start gap-2 rounded-lg bg-red-500/5 p-2 text-xs text-status-danger"
           >
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <span>{c}</span>
@@ -301,7 +304,7 @@ export const StatuteRoutingCard = ({
           key={i}
           className="flex items-start gap-2 rounded-lg bg-muted/40 p-2 text-xs text-muted-foreground"
         >
-          <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
+          <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-status-success" />
           <span>{n}</span>
         </div>
       ))}
@@ -323,7 +326,7 @@ export const ClassificationLegend = () => {
   return (
     <div className="rounded-xl border border-border bg-card p-5">
       <div className="flex items-center gap-2">
-        <FileSearch className="h-5 w-5 text-emerald-600" />
+        <FileSearch className="h-5 w-5 text-status-success" />
         <h3 className="font-semibold">Classification Scale</h3>
       </div>
       <p className="mt-1 text-xs text-muted-foreground">
@@ -363,7 +366,7 @@ export const EvidenceStrengthLegend = () => {
   return (
     <div className="rounded-xl border border-border bg-card p-5">
       <div className="flex items-center gap-2">
-        <FileWarning className="h-5 w-5 text-emerald-600" />
+        <FileWarning className="h-5 w-5 text-status-success" />
         <h3 className="font-semibold">Evidence Strength</h3>
       </div>
       <p className="mt-1 text-xs text-muted-foreground">
@@ -404,7 +407,7 @@ export const FieldVerdictLegend = () => {
   return (
     <div className="rounded-xl border border-border bg-card p-5">
       <div className="flex items-center gap-2">
-        <HelpCircle className="h-5 w-5 text-emerald-600" />
+        <HelpCircle className="h-5 w-5 text-status-success" />
         <h3 className="font-semibold">Field Verdict Model</h3>
       </div>
       <p className="mt-1 text-xs text-muted-foreground">

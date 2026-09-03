@@ -55,9 +55,9 @@ const trackerSteps = [
 ];
 
 const monitoringTone: Record<MonitoringStatus, string> = {
-  connected: "bg-emerald-500/10 text-emerald-600",
-  "monitoring-issue": "bg-red-500/10 text-red-600",
-  "needs-review": "bg-amber-500/10 text-amber-600",
+  connected: "bg-emerald-500/10 text-status-success",
+  "monitoring-issue": "bg-red-500/10 text-status-danger",
+  "needs-review": "bg-amber-500/10 text-status-warning",
 };
 
 const ClientDetailInner = () => {
@@ -88,7 +88,7 @@ const ClientDetailInner = () => {
               <h1 className="text-2xl font-bold tracking-tight">
                 Maria Gonzalez
               </h1>
-              <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-600">
+              <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-status-success">
                 Active · Round {round}
               </span>
               <DropdownMenu>
@@ -158,7 +158,7 @@ const ClientDetailInner = () => {
                     s.done
                       ? "bg-gradient-emerald text-white"
                       : s.current
-                        ? "border-2 border-emerald-500 text-emerald-600"
+                        ? "border-2 border-emerald-500 text-status-success"
                         : "border border-border text-muted-foreground"
                   }`}
                 >
@@ -172,7 +172,7 @@ const ClientDetailInner = () => {
                 </div>
                 <span
                   className={`whitespace-nowrap text-[11px] font-medium ${
-                    s.current ? "text-emerald-600" : "text-muted-foreground"
+                    s.current ? "text-status-success" : "text-muted-foreground"
                   }`}
                 >
                   {s.label}

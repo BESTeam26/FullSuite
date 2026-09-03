@@ -9,9 +9,9 @@ export interface PdfFile {
 
 const BUREAU_META: Record<"EQ" | "EX" | "TU", { label: string; tone: string }> =
   {
-    EQ: { label: "Equifax", tone: "text-red-600 bg-red-500/10" },
-    EX: { label: "Experian", tone: "text-blue-600 bg-blue-500/10" },
-    TU: { label: "TransUnion", tone: "text-emerald-600 bg-emerald-500/10" },
+    EQ: { label: "Equifax", tone: "text-status-danger bg-red-500/10" },
+    EX: { label: "Experian", tone: "text-status-info bg-blue-500/10" },
+    TU: { label: "TransUnion", tone: "text-status-success bg-emerald-500/10" },
   };
 
 export const PdfDropZone = ({
@@ -56,8 +56,8 @@ export const PdfDropZone = ({
       </p>
       {file ? (
         <div className="mt-1.5 flex items-center justify-center gap-1.5 text-xs">
-          <FileText className="h-3 w-3 text-emerald-600" />
-          <span className="font-medium text-emerald-700">{file.name}</span>
+          <FileText className="h-3 w-3 text-status-success" />
+          <span className="font-medium text-status-success">{file.name}</span>
         </div>
       ) : (
         <p className="mt-1.5 text-xs text-muted-foreground">

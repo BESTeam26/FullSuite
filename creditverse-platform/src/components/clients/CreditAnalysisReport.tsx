@@ -67,7 +67,7 @@ export const CreditAnalysisReport = ({ items }: CreditAnalysisReportProps) => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge className="bg-emerald-500/10 text-emerald-600">
+          <Badge className="bg-emerald-500/10 text-status-success">
             Saved to dashboard
           </Badge>
           <Button variant="outline" size="sm">
@@ -82,7 +82,7 @@ export const CreditAnalysisReport = ({ items }: CreditAnalysisReportProps) => {
             key={r.label}
             className="rounded-xl border border-border bg-muted/30 p-4"
           >
-            <r.icon className="h-4 w-4 text-emerald-600" />
+            <r.icon className="h-4 w-4 text-status-success" />
             <p className="mt-2 text-xl font-bold">{r.value}</p>
             <p className="text-xs text-muted-foreground">{r.label}</p>
           </div>
@@ -97,7 +97,7 @@ export const CreditAnalysisReport = ({ items }: CreditAnalysisReportProps) => {
           {Object.entries(categoryBreakdown).map(([cat, count]) => (
             <span
               key={cat}
-              className="flex items-center gap-1.5 rounded-full bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-600"
+              className="flex items-center gap-1.5 rounded-full bg-red-500/10 px-3 py-1.5 text-xs font-medium text-status-danger"
             >
               {cat}{" "}
               <span className="rounded-full bg-white/40 px-1.5">{count}</span>
@@ -107,11 +107,11 @@ export const CreditAnalysisReport = ({ items }: CreditAnalysisReportProps) => {
       </div>
 
       <div className="mt-5 flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-sm">
-        <ArrowRight className="h-4 w-4 text-emerald-600" />
+        <ArrowRight className="h-4 w-4 text-status-success" />
         <span className="text-muted-foreground">
           Import complete. Review the categorized items below in the Dispute
           Dashboard, then build factual letters for the{" "}
-          <span className="font-semibold text-emerald-600">
+          <span className="font-semibold text-status-success">
             {disputeItems.length} selected items
           </span>
           .

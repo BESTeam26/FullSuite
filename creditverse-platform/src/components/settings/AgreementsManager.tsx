@@ -102,7 +102,7 @@ export const AgreementsManager = () => {
     <div className="rounded-2xl border border-border bg-card p-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Scale className="h-5 w-5 text-emerald-600" />
+          <Scale className="h-5 w-5 text-status-success" />
           <h2 className="font-semibold">Agreements &amp; CROA disclosures</h2>
         </div>
         <Button
@@ -128,8 +128,8 @@ export const AgreementsManager = () => {
               <span
                 className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
                   a.hasCroaDisclosures
-                    ? "bg-emerald-500/10 text-emerald-600"
-                    : "bg-amber-500/10 text-amber-600"
+                    ? "bg-emerald-500/10 text-status-success"
+                    : "bg-amber-500/10 text-status-warning"
                 }`}
               >
                 <FileText className="h-4 w-4" />
@@ -143,7 +143,7 @@ export const AgreementsManager = () => {
                   <Badge
                     className={
                       a.status === "active"
-                        ? "bg-emerald-500/10 text-emerald-600"
+                        ? "bg-emerald-500/10 text-status-success"
                         : "bg-muted text-muted-foreground"
                     }
                   >
@@ -153,11 +153,11 @@ export const AgreementsManager = () => {
                 <p className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">
                   {a.version} · Updated {a.updatedAt}
                   {a.hasCroaDisclosures ? (
-                    <span className="flex items-center gap-0.5 text-emerald-600">
+                    <span className="flex items-center gap-0.5 text-status-success">
                       <CheckCircle2 className="h-3 w-3" /> CROA disclosures
                     </span>
                   ) : (
-                    <span className="flex items-center gap-0.5 text-amber-600">
+                    <span className="flex items-center gap-0.5 text-status-warning">
                       <AlertCircle className="h-3 w-3" /> Missing CROA
                     </span>
                   )}
@@ -173,7 +173,7 @@ export const AgreementsManager = () => {
                 variant="ghost"
                 onClick={() => removeAgreement(a.id)}
               >
-                <Trash2 className="h-3.5 w-3.5 text-red-600" />
+                <Trash2 className="h-3.5 w-3.5 text-status-danger" />
               </Button>
             </div>
           </div>

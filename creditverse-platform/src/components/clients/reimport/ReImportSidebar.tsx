@@ -21,11 +21,11 @@ export function ReImportSidebar() {
         </div>
         <div className="p-4 space-y-3">
           <div className="rounded-xl bg-indigo-500/10 p-3 text-center">
-            <p className="text-sm font-bold text-indigo-700">
+            <p className="text-sm font-bold text-status-info">
               CLIENT PROGRESS REPORT
             </p>
             <div className="mt-2 inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 shadow-sm">
-              <Sparkles className="h-4 w-4 text-indigo-500" />
+              <Sparkles className="h-4 w-4 text-status-info" />
               <span className="text-xs font-medium">Generating…</span>
             </div>
           </div>
@@ -94,10 +94,10 @@ export function ReImportSidebar() {
           </div>
 
           <div className="mt-4 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3">
-            <p className="text-xs font-semibold text-emerald-700">
+            <p className="text-xs font-semibold text-status-success">
               Report Auto-Saved
             </p>
-            <p className="mt-1 text-[11px] text-emerald-600">
+            <p className="mt-1 text-[11px] text-status-success">
               This report will be saved to the &ldquo;Documents&rdquo; tab on
               the Client&rsquo;s record, as well as inside the Customer Portal
               under &ldquo;Documents&rdquo;

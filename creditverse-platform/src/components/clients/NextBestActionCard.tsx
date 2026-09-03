@@ -19,30 +19,30 @@ const categoryConfig = {
   REPAIR: {
     icon: Wrench,
     label: "Repair",
-    tone: "text-amber-600",
+    tone: "text-status-warning",
     bg: "bg-amber-500/10",
     border: "border-amber-500/30",
   },
   BUILD: {
     icon: Building2,
     label: "Build",
-    tone: "text-blue-600",
+    tone: "text-status-info",
     bg: "bg-blue-500/10",
     border: "border-blue-500/30",
   },
   MAINTAIN: {
     icon: ShieldCheck,
     label: "Maintain",
-    tone: "text-emerald-600",
+    tone: "text-status-success",
     bg: "bg-emerald-500/10",
     border: "border-emerald-500/30",
   },
 } as const;
 
 const timeframeTone: Record<string, string> = {
-  Immediate: "bg-emerald-500/10 text-emerald-600",
+  Immediate: "bg-emerald-500/10 text-status-success",
   "1-2 cycles": "bg-sky-500/10 text-sky-600",
-  "3-6 months": "bg-amber-500/10 text-amber-600",
+  "3-6 months": "bg-amber-500/10 text-status-warning",
   "Long-term": "bg-muted text-muted-foreground",
 };
 
@@ -74,9 +74,9 @@ const NextBestActionCard = ({ items }: { items: ClassifiedItem[] }) => {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <Zap className="h-4 w-4 text-emerald-600" />
+            <Zap className="h-4 w-4 text-status-success" />
             <h2 className="font-semibold">Next Best Actions</h2>
-            <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-600">
+            <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-status-success">
               Smart Logic
             </span>
           </div>
@@ -86,7 +86,9 @@ const NextBestActionCard = ({ items }: { items: ClassifiedItem[] }) => {
           </p>
         </div>
         <div className="text-right">
-          <p className="text-2xl font-bold text-emerald-600">+{totalImpact}</p>
+          <p className="text-2xl font-bold text-status-success">
+            +{totalImpact}
+          </p>
           <p className="text-[11px] text-muted-foreground">
             potential pts remaining
           </p>
@@ -155,7 +157,7 @@ const NextBestActionCard = ({ items }: { items: ClassifiedItem[] }) => {
                     {action.title}
                   </p>
                   <span className="flex items-center gap-1.5">
-                    <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-bold text-emerald-600">
+                    <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-bold text-status-success">
                       +{action.impact} pts
                     </span>
                     <span
@@ -180,7 +182,7 @@ const NextBestActionCard = ({ items }: { items: ClassifiedItem[] }) => {
 
       {completedImpact > 0 && (
         <div className="mt-3 flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-xs">
-          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+          <CheckCircle2 className="h-3.5 w-3.5 text-status-success" />
           <span className="text-muted-foreground">
             {doneIds.size} action(s) marked complete · +{completedImpact} pts
             accounted for
@@ -193,7 +195,7 @@ const NextBestActionCard = ({ items }: { items: ClassifiedItem[] }) => {
         onClick={() => setExpanded((e) => !e)}
         className="mt-4 flex w-full items-center gap-2 rounded-lg border border-border bg-muted/20 px-3 py-2 text-left text-xs text-muted-foreground hover:bg-muted/40"
       >
-        <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+        <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-status-success" />
         <span className="flex-1">
           Human verification required — estimates are smart analysis, not a
           guarantee or recommendation.

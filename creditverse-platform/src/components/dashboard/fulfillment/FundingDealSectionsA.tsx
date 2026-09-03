@@ -144,7 +144,8 @@ export function DealReadinessSection() {
   return (
     <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
       <h3 className="flex items-center gap-2 border-b border-border/50 pb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-        <ShieldCheck className="h-4 w-4 text-emerald-600" /> Funding Readiness
+        <ShieldCheck className="h-4 w-4 text-status-success" /> Funding
+        Readiness
       </h3>
       <p className="mt-2 text-[11px] text-muted-foreground">
         Operational readiness — is this file complete enough to match &amp;
@@ -214,7 +215,7 @@ export function DealStipulationsSection({
   return (
     <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
       <h3 className="flex items-center gap-2 border-b border-border/50 pb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-        <ListChecks className="h-4 w-4 text-amber-600" /> Stipulations —{" "}
+        <ListChecks className="h-4 w-4 text-status-warning" /> Stipulations —{" "}
         {lender}
       </h3>
       <p className="mt-2 text-[11px] text-muted-foreground">

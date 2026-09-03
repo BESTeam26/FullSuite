@@ -208,7 +208,7 @@ export const Sidebar = () => {
           if (visibleItems.length === 0) return null;
           return (
             <div key={group.label} className="pt-3 first:pt-0">
-              <p className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-sidebar-foreground/40">
+              <p className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-sidebar-foreground/70">
                 {group.label}
               </p>
               {visibleItems.map((n) => {
@@ -227,7 +227,18 @@ export const Sidebar = () => {
                     <n.icon className="h-4 w-4 shrink-0" />
                     <span className="flex-1 truncate">{n.label}</span>
                     {n.badge !== undefined && n.badge > 0 && (
-                      <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-400 border border-amber-500/30">
+                      /* The active item's background IS Empire Gold, so the
+                         amber badge measured 1.24:1 on it — the count was
+                         invisible on exactly the row you were looking at. The
+                         badge inverts on the active row (rule 15). */
+                      <span
+                        className={cn(
+                          "rounded-full border px-2 py-0.5 text-[10px] font-bold",
+                          active
+                            ? "border-sidebar-primary-foreground/30 bg-sidebar-primary-foreground/15 text-sidebar-primary-foreground"
+                            : "border-amber-500/30 bg-amber-500/20 text-amber-400",
+                        )}
+                      >
                         {n.badge}
                       </span>
                     )}
@@ -239,7 +250,7 @@ export const Sidebar = () => {
         })}
 
         <div className="pt-4">
-          <p className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-sidebar-foreground/40">
+          <p className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-sidebar-foreground/70">
             Portals & Apps
           </p>
           <Link
@@ -268,7 +279,7 @@ export const Sidebar = () => {
 
       <div className="border-t border-sidebar-border p-3">
         <div className="space-y-1">
-          <div className="px-3 pb-1 text-[11px] text-sidebar-foreground/50 truncate">
+          <div className="px-3 pb-1 text-[11px] text-sidebar-foreground/70 truncate">
             {displayName}
             {mode === "demo" ? " · demo session" : ""}
           </div>

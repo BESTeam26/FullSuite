@@ -286,7 +286,7 @@ function PartnerWorkspace({
             className={cn(
               "whitespace-nowrap border-b-2 px-3.5 py-3 text-xs font-bold transition-all",
               activeView === view.id
-                ? "border-emerald-600 bg-emerald-500/10 text-emerald-700"
+                ? "border-emerald-600 bg-emerald-500/10 text-status-success"
                 : "border-transparent text-muted-foreground hover:bg-muted/40 hover:text-foreground",
             )}
           >

@@ -17,10 +17,10 @@ import { Badge } from "@/components/ui/badge";
 import { useConnectors } from "@/lib/connectors-context";
 
 const statusTone: Record<string, string> = {
-  connected: "bg-emerald-500/10 text-emerald-600",
-  pending: "bg-amber-500/10 text-amber-600",
+  connected: "bg-emerald-500/10 text-status-success",
+  pending: "bg-amber-500/10 text-status-warning",
   disconnected: "bg-muted text-muted-foreground",
-  error: "bg-red-500/10 text-red-600",
+  error: "bg-red-500/10 text-status-danger",
 };
 
 export const ConnectorWizard = () => {
@@ -54,7 +54,7 @@ export const ConnectorWizard = () => {
   return (
     <div className="rounded-2xl border border-border bg-card p-6">
       <div className="flex items-center gap-2">
-        <Plug className="h-5 w-5 text-emerald-600" />
+        <Plug className="h-5 w-5 text-status-success" />
         <h2 className="font-semibold">Credit data connectors</h2>
       </div>
       <p className="mt-1 text-xs text-muted-foreground">
@@ -93,7 +93,7 @@ export const ConnectorWizard = () => {
                         </>
                       )}
                       {c.status === "pending" && (
-                        <span className="text-amber-600">
+                        <span className="text-status-warning">
                           Credentials requested — not yet entered
                         </span>
                       )}
@@ -126,7 +126,7 @@ export const ConnectorWizard = () => {
               </div>
               {def.note && (
                 <p className="mt-3 flex items-start gap-1.5 rounded-lg bg-card p-2.5 text-[11px] text-muted-foreground">
-                  <ShieldCheck className="mt-0.5 h-3 w-3 shrink-0 text-emerald-600" />
+                  <ShieldCheck className="mt-0.5 h-3 w-3 shrink-0 text-status-success" />
                   {def.note}
                 </p>
               )}
@@ -147,7 +147,7 @@ export const ConnectorWizard = () => {
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Plug className="h-5 w-5 text-emerald-600" />
+                <Plug className="h-5 w-5 text-status-success" />
                 <h3 className="font-semibold">Connect {providerDef.name}</h3>
               </div>
               <button
@@ -190,7 +190,7 @@ export const ConnectorWizard = () => {
                   />
                 </div>
               )}
-              <div className="flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-[11px] text-amber-700">
+              <div className="flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-[11px] text-status-warning">
                 <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
                 Credentials are stored encrypted in the secrets vault. Never
                 exposed to processors or logged in plaintext.

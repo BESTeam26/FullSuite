@@ -333,7 +333,7 @@ export function EditableSopsAndLoginsView({
       {/* SECTION 1: SOPs & Instructions */}
       <section className="rounded-xl border border-border bg-card shadow-sm">
         <div className="flex items-center gap-2 border-b border-border px-4 py-3">
-          <BookOpen className="h-4 w-4 text-emerald-600" />
+          <BookOpen className="h-4 w-4 text-status-success" />
           <h3 className="text-xs font-black uppercase tracking-wider text-foreground">
             SOPs & Instructions
           </h3>

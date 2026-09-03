@@ -161,7 +161,7 @@ export const ConsumerImport = () => {
             state === "analysis-complete" ||
             (isManual && pdfs.length < 3)
           }
-          className="mt-5 w-full bg-gradient-green text-white hover:opacity-90 disabled:opacity-50"
+          className="mt-5 w-full bg-gradient-green text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <UploadCloud className="h-4 w-4" />
           {state === "analysis-complete"

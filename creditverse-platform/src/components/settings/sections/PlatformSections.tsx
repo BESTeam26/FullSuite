@@ -199,7 +199,7 @@ export const AuditSection = () => {
   const { audit } = useAgencySettings();
   const sevTone: Record<string, string> = {
     info: "bg-blue-500/10 text-blue-700 border-blue-500/30",
-    warning: "bg-amber-500/10 text-amber-700 border-amber-500/30",
+    warning: "bg-amber-500/10 text-status-warning border-amber-500/30",
     critical: "bg-red-500/10 text-red-700 border-red-500/30",
   };
   return (
@@ -305,7 +305,7 @@ export const DangerZoneSection = () => (
           <Button
             size="sm"
             variant="outline"
-            className="border-red-500/40 text-red-600 hover:bg-red-500/10"
+            className="border-red-500/40 text-status-danger hover:bg-red-500/10"
           >
             Execute
           </Button>

@@ -39,15 +39,15 @@ const severityConfig: Record<
   high: {
     border: "border-red-500/40",
     bg: "bg-red-500/5",
-    dot: "text-red-500",
+    dot: "text-status-danger",
     countText: "text-red-700 dark:text-red-300",
     badge: "bg-red-500/15 text-red-800 dark:text-red-300 border-red-500/30",
   },
   medium: {
     border: "border-amber-500/40",
     bg: "bg-amber-500/5",
-    dot: "text-amber-500",
-    countText: "text-amber-700 dark:text-amber-300",
+    dot: "text-status-warning",
+    countText: "text-status-warning",
     badge:
       "bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-500/30",
   },
@@ -148,7 +148,7 @@ export const AttentionCenter = () => {
     <Card className="p-5 border-border shadow-sm">
       <div className="flex items-center justify-between mb-4">
         <div className="flex flex-wrap items-center gap-2.5">
-          <Bell className="h-5 w-5 text-red-500" />
+          <Bell className="h-5 w-5 text-status-danger" />
           <h2 className="text-base font-bold tracking-tight text-foreground">
             Needs Your Attention
           </h2>

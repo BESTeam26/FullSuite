@@ -262,7 +262,7 @@ export function FundingDealWorkspace({ dealId, onBack }: Props) {
                   "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-semibold",
                   d.status === "NOT STARTED"
                     ? "border-border bg-muted/40 text-muted-foreground"
-                    : "border-emerald-500/30 bg-emerald-500/10 text-emerald-700",
+                    : "border-emerald-500/30 bg-emerald-500/10 text-status-success",
                 )}
               >
                 {d.department}: {d.status}

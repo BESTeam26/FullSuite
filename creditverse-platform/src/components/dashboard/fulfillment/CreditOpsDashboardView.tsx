@@ -108,7 +108,7 @@ export function CreditOpsDashboardView({
           <span className="font-bold text-foreground uppercase tracking-wide">
             📁 {partnerName}
           </span>
-          <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-extrabold text-amber-600">
+          <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-extrabold text-status-warning">
             {activeClients.length} clients in scope
           </span>
         </div>
@@ -135,26 +135,30 @@ export function CreditOpsDashboardView({
           onClick={() => onNavigateToView?.("escalation-queue")}
           className="cursor-pointer rounded-xl border border-amber-500/30 bg-amber-500/5 p-3.5 shadow-sm hover:border-amber-500 transition-all"
         >
-          <div className="flex items-center gap-1.5 text-amber-600">
+          <div className="flex items-center gap-1.5 text-status-warning">
             <AlertTriangle className="h-4 w-4" />
             <span className="text-[10px] font-extrabold uppercase tracking-wider">
               OVERDUE (7+)
             </span>
           </div>
-          <p className="mt-1 text-2xl font-black text-amber-600">{overdue7}</p>
+          <p className="mt-1 text-2xl font-black text-status-warning">
+            {overdue7}
+          </p>
         </div>
 
         <div
           onClick={() => onNavigateToView?.("escalation-queue")}
           className="cursor-pointer rounded-xl border border-red-500/30 bg-red-500/5 p-3.5 shadow-sm hover:border-red-500 transition-all"
         >
-          <div className="flex items-center gap-1.5 text-red-600">
+          <div className="flex items-center gap-1.5 text-status-danger">
             <ShieldAlert className="h-4 w-4" />
             <span className="text-[10px] font-extrabold uppercase tracking-wider">
               CRITICAL (30+)
             </span>
           </div>
-          <p className="mt-1 text-2xl font-black text-red-600">{critical30}</p>
+          <p className="mt-1 text-2xl font-black text-status-danger">
+            {critical30}
+          </p>
         </div>
 
         <div
@@ -162,7 +166,7 @@ export function CreditOpsDashboardView({
           className="cursor-pointer rounded-xl border border-border bg-card p-3.5 shadow-sm hover:border-primary/50 transition-all"
         >
           <div className="flex items-center gap-1.5 text-muted-foreground">
-            <HelpCircle className="h-4 w-4 text-blue-600" />
+            <HelpCircle className="h-4 w-4 text-status-info" />
             <span className="text-[10px] font-extrabold uppercase tracking-wider">
               SUPPORT OPEN
             </span>
@@ -177,7 +181,7 @@ export function CreditOpsDashboardView({
           className="cursor-pointer rounded-xl border border-border bg-card p-3.5 shadow-sm hover:border-primary/50 transition-all"
         >
           <div className="flex items-center gap-1.5 text-muted-foreground">
-            <Phone className="h-4 w-4 text-indigo-600" />
+            <Phone className="h-4 w-4 text-status-info" />
             <span className="text-[10px] font-extrabold uppercase tracking-wider">
               BUREAU QUEUE
             </span>
@@ -239,7 +243,7 @@ export function CreditOpsDashboardView({
                     READY FOR ROUND 1
                   </span>
                 </div>
-                <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[11px] font-black text-amber-700 dark:text-amber-400">
+                <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[11px] font-black text-status-warning">
                   {readyRound1}
                 </span>
               </div>
@@ -251,7 +255,7 @@ export function CreditOpsDashboardView({
                     READY FOR PROCESSING
                   </span>
                 </div>
-                <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[11px] font-black text-emerald-700 dark:text-emerald-400">
+                <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[11px] font-black text-status-success">
                   {readyProcessing}
                 </span>
               </div>
@@ -369,19 +373,19 @@ export function CreditOpsDashboardView({
               <p className="mt-1 text-xl font-black text-foreground">5</p>
             </div>
             <div className="rounded-lg border border-border/80 bg-muted/20 p-2.5">
-              <p className="text-[10px] font-extrabold uppercase text-amber-600">
+              <p className="text-[10px] font-extrabold uppercase text-status-warning">
                 BC NEEDED
               </p>
-              <p className="mt-1 text-xl font-black text-amber-600">0</p>
+              <p className="mt-1 text-xl font-black text-status-warning">0</p>
             </div>
             <div className="rounded-lg border border-border/80 bg-muted/20 p-2.5">
-              <p className="text-[10px] font-extrabold uppercase text-blue-600">
+              <p className="text-[10px] font-extrabold uppercase text-status-info">
                 BC IN PROGRESS
               </p>
               <p className="mt-1 text-xl font-black text-foreground">0</p>
             </div>
             <div className="rounded-lg border border-border/80 bg-muted/20 p-2.5">
-              <p className="text-[10px] font-extrabold uppercase text-emerald-600">
+              <p className="text-[10px] font-extrabold uppercase text-status-success">
                 BC COMPLETED
               </p>
               <p className="mt-1 text-xl font-black text-foreground">0</p>
@@ -408,13 +412,13 @@ export function CreditOpsDashboardView({
               <p className="mt-1 text-lg font-black text-foreground">5</p>
             </div>
             <div className="rounded-lg border border-border/80 bg-muted/20 p-2">
-              <p className="text-[9px] font-extrabold text-amber-600">
+              <p className="text-[9px] font-extrabold text-status-warning">
                 LETTERS PENDING
               </p>
-              <p className="mt-1 text-lg font-black text-amber-600">0</p>
+              <p className="mt-1 text-lg font-black text-status-warning">0</p>
             </div>
             <div className="rounded-lg border border-border/80 bg-muted/20 p-2">
-              <p className="text-[9px] font-extrabold text-blue-600">
+              <p className="text-[9px] font-extrabold text-status-info">
                 LETTERS MAILED
               </p>
               <p className="mt-1 text-lg font-black text-foreground">0</p>
@@ -426,13 +430,13 @@ export function CreditOpsDashboardView({
               <p className="mt-1 text-lg font-black text-foreground">0</p>
             </div>
             <div className="rounded-lg border border-border/80 bg-muted/20 p-2">
-              <p className="text-[9px] font-extrabold text-indigo-600">
+              <p className="text-[9px] font-extrabold text-status-info">
                 FTC FILED
               </p>
               <p className="mt-1 text-lg font-black text-foreground">0</p>
             </div>
             <div className="rounded-lg border border-border/80 bg-muted/20 p-2">
-              <p className="text-[9px] font-extrabold text-emerald-600">
+              <p className="text-[9px] font-extrabold text-status-success">
                 CM COMPLETED
               </p>
               <p className="mt-1 text-lg font-black text-foreground">0</p>
@@ -460,13 +464,13 @@ export function CreditOpsDashboardView({
             <p className="mt-1 text-lg font-black text-foreground">5</p>
           </div>
           <div className="rounded-lg border border-border/80 bg-muted/20 p-2">
-            <p className="text-[9px] font-extrabold text-amber-600">
+            <p className="text-[9px] font-extrabold text-status-warning">
               OB IN REVIEW
             </p>
             <p className="mt-1 text-lg font-black text-foreground">0</p>
           </div>
           <div className="rounded-lg border border-border/80 bg-muted/20 p-2">
-            <p className="text-[9px] font-extrabold text-red-600">
+            <p className="text-[9px] font-extrabold text-status-danger">
               DOCS PENDING
             </p>
             <p className="mt-1 text-lg font-black text-foreground">0</p>
@@ -478,13 +482,13 @@ export function CreditOpsDashboardView({
             <p className="mt-1 text-lg font-black text-foreground">0</p>
           </div>
           <div className="rounded-lg border border-border/80 bg-muted/20 p-2">
-            <p className="text-[9px] font-extrabold text-blue-600">
+            <p className="text-[9px] font-extrabold text-status-info">
               ACCESS VERIFIED
             </p>
             <p className="mt-1 text-lg font-black text-foreground">0</p>
           </div>
           <div className="rounded-lg border border-border/80 bg-muted/20 p-2">
-            <p className="text-[9px] font-extrabold text-emerald-600">
+            <p className="text-[9px] font-extrabold text-status-success">
               OB READY FOR R1
             </p>
             <p className="mt-1 text-lg font-black text-foreground">0</p>
@@ -559,7 +563,7 @@ export function CreditOpsDashboardView({
 
       {/* Auto-Escalation Banner */}
       <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs font-semibold text-amber-800 dark:text-amber-300 flex items-center gap-2">
-        <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+        <AlertTriangle className="h-4 w-4 shrink-0 text-status-warning" />
         <span>
           AUTO-ESCALATION SUGGESTIONS — CLIENT ISSUE &gt; 5 DAYS: All open
           issues are currently within safe SLA thresholds.

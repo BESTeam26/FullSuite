@@ -10,8 +10,8 @@ const stateMeta: Record<
   ComplianceCheck["severity"],
   { icon: typeof ShieldCheck; cls: string }
 > = {
-  block: { icon: XCircle, cls: "text-red-600" },
-  warn: { icon: AlertTriangle, cls: "text-amber-600" },
+  block: { icon: XCircle, cls: "text-status-danger" },
+  warn: { icon: AlertTriangle, cls: "text-status-warning" },
 };
 
 export const ComplianceGuardrailPanel = ({
@@ -35,14 +35,14 @@ export const ComplianceGuardrailPanel = ({
     >
       <div className="flex items-center gap-2">
         <ShieldCheck
-          className={`h-5 w-5 ${allPassed ? "text-emerald-600" : "text-red-600"}`}
+          className={`h-5 w-5 ${allPassed ? "text-status-success" : "text-status-danger"}`}
         />
         <h2 className="font-semibold">Compliance guardrails</h2>
         <span
           className={`ml-auto rounded-full px-3 py-1 text-xs font-semibold ${
             allPassed
-              ? "bg-emerald-500/10 text-emerald-600"
-              : "bg-red-500/10 text-red-600"
+              ? "bg-emerald-500/10 text-status-success"
+              : "bg-red-500/10 text-status-danger"
           }`}
         >
           {allPassed ? "All passed" : `${blocked} blocking`}
@@ -67,10 +67,10 @@ export const ComplianceGuardrailPanel = ({
               <Icon
                 className={`mt-0.5 h-4 w-4 shrink-0 ${
                   check.passed
-                    ? "text-emerald-600"
+                    ? "text-status-success"
                     : check.severity === "block"
-                      ? "text-red-600"
-                      : "text-amber-600"
+                      ? "text-status-danger"
+                      : "text-status-warning"
                 }`}
               />
               <div>
@@ -83,7 +83,7 @@ export const ComplianceGuardrailPanel = ({
       </div>
 
       <div className="mt-5 flex items-start gap-2 rounded-xl border border-border bg-muted/30 p-4 text-xs text-muted-foreground">
-        <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
+        <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-status-success" />
         <p>
           These checks are hardcoded logic, not AI. The AI never decides a legal
           conclusion — it only assists with drafting language. A human must

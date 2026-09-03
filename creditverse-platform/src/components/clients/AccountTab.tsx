@@ -93,12 +93,12 @@ const AccountTab = () => {
               }`}
             />
             {emailError && (
-              <p className="mt-1 flex items-center gap-1 text-[11px] text-red-600">
+              <p className="mt-1 flex items-center gap-1 text-[11px] text-status-danger">
                 <AlertCircle className="h-3 w-3" /> Enter a valid, unique email
               </p>
             )}
             {emailTouched && emailValid && (
-              <p className="mt-1 flex items-center gap-1 text-[11px] text-emerald-600">
+              <p className="mt-1 flex items-center gap-1 text-[11px] text-status-success">
                 <CheckCircle2 className="h-3 w-3" /> Valid &amp; unique
               </p>
             )}
@@ -116,7 +116,7 @@ const AccountTab = () => {
               <p className="text-xs text-muted-foreground">Previous address</p>
               <button
                 onClick={() => setShowPrevAddress((s) => !s)}
-                className="text-[11px] font-medium text-emerald-600 hover:underline"
+                className="text-[11px] font-medium text-status-success hover:underline"
               >
                 {showPrevAddress ? "Hide" : "Add previous address"}
               </button>

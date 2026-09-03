@@ -48,7 +48,7 @@ export function EmailConflictBanner({
         "rounded-xl border p-4 text-xs",
         blocked
           ? "border-red-500/40 bg-red-500/10 text-red-700"
-          : "border-amber-500/40 bg-amber-500/10 text-amber-700",
+          : "border-amber-500/40 bg-amber-500/10 text-status-warning",
       )}
     >
       <div className="flex items-start gap-2">

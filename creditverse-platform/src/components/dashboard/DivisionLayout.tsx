@@ -33,14 +33,14 @@ export const StatCard = ({
   <div className="rounded-xl border border-border bg-card p-4">
     <div className="flex items-center justify-between">
       <p className="text-xs font-medium text-muted-foreground">{label}</p>
-      {Icon && <Icon className="h-4 w-4 text-muted-foreground/60" />}
+      {Icon && <Icon className="h-4 w-4 text-muted-foreground" />}
     </div>
     <p className="mt-1.5 text-2xl font-bold text-foreground">{value}</p>
     {trend && (
       <p
         className={cn(
           "mt-0.5 text-xs font-medium",
-          trend.startsWith("-") ? "text-red-600" : "text-emerald-600",
+          trend.startsWith("-") ? "text-status-danger" : "text-status-success",
         )}
       >
         {trend}
@@ -119,20 +119,21 @@ export const EmptyTab = ({ label }: { label: string }) => (
 
 export const StatusPill = ({ status }: { status: string }) => {
   const tone: Record<string, string> = {
-    Active: "bg-emerald-500/10 text-emerald-700 border-emerald-500/30",
-    Healthy: "bg-emerald-500/10 text-emerald-700 border-emerald-500/30",
+    Active: "bg-emerald-500/10 text-status-success border-emerald-500/30",
+    Healthy: "bg-emerald-500/10 text-status-success border-emerald-500/30",
     Processing: "bg-blue-500/10 text-blue-700 border-blue-500/30",
-    "Ready for QA": "bg-amber-500/10 text-amber-700 border-amber-500/30",
+    "Ready for QA": "bg-amber-500/10 text-status-warning border-amber-500/30",
     Queued: "bg-slate-500/10 text-slate-700 border-slate-500/30",
-    Completed: "bg-emerald-500/10 text-emerald-700 border-emerald-500/30",
+    Completed: "bg-emerald-500/10 text-status-success border-emerald-500/30",
     Blocked: "bg-red-500/10 text-red-700 border-red-500/30",
     Attention: "bg-red-500/10 text-red-700 border-red-500/30",
     "At Risk": "bg-red-500/10 text-red-700 border-red-500/30",
-    "Pending Onboarding": "bg-amber-500/10 text-amber-700 border-amber-500/30",
-    Funded: "bg-emerald-500/10 text-emerald-700 border-emerald-500/30",
+    "Pending Onboarding":
+      "bg-amber-500/10 text-status-warning border-amber-500/30",
+    Funded: "bg-emerald-500/10 text-status-success border-emerald-500/30",
     Submitted: "bg-blue-500/10 text-blue-700 border-blue-500/30",
     Offer: "bg-purple-500/10 text-purple-700 border-purple-500/30",
-    Review: "bg-amber-500/10 text-amber-700 border-amber-500/30",
+    Review: "bg-amber-500/10 text-status-warning border-amber-500/30",
     Draft: "bg-slate-500/10 text-slate-700 border-slate-500/30",
   };
   return (

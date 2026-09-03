@@ -174,7 +174,7 @@ export function FundingClientWorkWorkspace({ clientId, onBack }: Props) {
                 "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-semibold",
                 d.status === "NOT STARTED"
                   ? "border-border bg-muted/40 text-muted-foreground"
-                  : "border-emerald-500/30 bg-emerald-500/10 text-emerald-700",
+                  : "border-emerald-500/30 bg-emerald-500/10 text-status-success",
               )}
             >
               {d.department}: {d.status}
@@ -256,7 +256,8 @@ export function FundingClientWorkWorkspace({ clientId, onBack }: Props) {
           {/* Funding Files */}
           <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
             <h3 className="flex items-center gap-2 border-b border-border/50 pb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              <DollarSign className="h-4 w-4 text-emerald-600" /> Funding Files
+              <DollarSign className="h-4 w-4 text-status-success" /> Funding
+              Files
             </h3>
             <div className="mt-3 space-y-2">
               {files.map((f) => (
@@ -313,7 +314,7 @@ export function FundingClientWorkWorkspace({ clientId, onBack }: Props) {
           <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                <ShieldCheck className="h-4 w-4 text-status-success" />
                 <div>
                   <p className="font-bold text-foreground">Workability</p>
                   <p className="text-[11px] text-muted-foreground">

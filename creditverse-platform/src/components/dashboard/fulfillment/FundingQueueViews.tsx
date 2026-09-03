@@ -72,19 +72,19 @@ export function FundingQueueView({
     "readiness-queue": {
       title: "READINESS REVIEW QUEUE",
       icon: CheckCircle2,
-      color: "text-amber-600",
+      color: "text-status-warning",
       filterFn: (c) => ["Onboarding", "Readiness Review"].includes(c.status),
     },
     "document-queue": {
       title: "DOCUMENT REVIEW QUEUE",
       icon: FileText,
-      color: "text-blue-600",
+      color: "text-status-info",
       filterFn: (c) => c.status === "Document Review",
     },
     "lender-matching-queue": {
       title: "LENDER MATCHING QUEUE",
       icon: Landmark,
-      color: "text-indigo-600",
+      color: "text-status-info",
       filterFn: (c) => c.status === "Lender Matching",
     },
     "submissions-queue": {
@@ -96,7 +96,7 @@ export function FundingQueueView({
     "stipulations-queue": {
       title: "STIPULATIONS QUEUE",
       icon: FileText,
-      color: "text-amber-600",
+      color: "text-status-warning",
       filterFn: (c) => c.status === "Stipulations",
     },
     "offers-queue": {
@@ -108,20 +108,20 @@ export function FundingQueueView({
     "funded-queue": {
       title: "FUNDED DEALS QUEUE",
       icon: CheckCircle2,
-      color: "text-emerald-600",
+      color: "text-status-success",
       filterFn: (c) => c.status === "Funded",
     },
     "escalation-queue": {
       title: "ESCALATION & SLA QUEUE",
       icon: AlertTriangle,
-      color: "text-red-600",
+      color: "text-status-danger",
       filterFn: (c) =>
         c.slaHoursRemaining !== undefined && c.slaHoursRemaining <= 8,
     },
     "onboarding-queue": {
       title: "ONBOARDING QUEUE",
       icon: UserPlus,
-      color: "text-amber-600",
+      color: "text-status-warning",
       filterFn: (c) => c.status === "Onboarding",
     },
   };

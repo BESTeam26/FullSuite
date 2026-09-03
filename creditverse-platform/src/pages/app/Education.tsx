@@ -52,8 +52,8 @@ const courses = [
 ];
 
 const levelColor: Record<string, string> = {
-  Beginner: "bg-emerald-500/10 text-emerald-600",
-  Intermediate: "bg-amber-500/10 text-amber-600",
+  Beginner: "bg-emerald-500/10 text-status-success",
+  Intermediate: "bg-amber-500/10 text-status-warning",
   Advanced: "bg-purple-500/10 text-purple-600",
 };
 
@@ -82,17 +82,17 @@ const Education = () => {
 
       <div className="mb-8 grid gap-4 sm:grid-cols-4">
         <div className="rounded-2xl border border-border bg-card p-5">
-          <BookOpen className="h-5 w-5 text-emerald-600" />
+          <BookOpen className="h-5 w-5 text-status-success" />
           <p className="mt-3 text-2xl font-bold">16</p>
           <p className="text-sm text-muted-foreground">Active modules</p>
         </div>
         <div className="rounded-2xl border border-border bg-card p-5">
-          <Trophy className="h-5 w-5 text-emerald-600" />
+          <Trophy className="h-5 w-5 text-status-success" />
           <p className="mt-3 text-2xl font-bold">847</p>
           <p className="text-sm text-muted-foreground">Enrolled consumers</p>
         </div>
         <div className="rounded-2xl border border-border bg-card p-5">
-          <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+          <CheckCircle2 className="h-5 w-5 text-status-success" />
           <p className="mt-3 text-2xl font-bold">68%</p>
           <p className="text-sm text-muted-foreground">Completion rate</p>
         </div>
@@ -208,7 +208,7 @@ const Education = () => {
                         key={k}
                         className="flex items-start gap-2 text-xs text-muted-foreground"
                       >
-                        <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                        <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-status-success" />
                         {k}
                       </li>
                     ))}
@@ -243,7 +243,7 @@ const Education = () => {
                   {f.meaning}
                 </p>
                 {f.note && (
-                  <div className="mt-4 flex items-start gap-2 rounded-xl bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400">
+                  <div className="mt-4 flex items-start gap-2 rounded-xl bg-amber-500/10 p-3 text-xs text-status-warning">
                     <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                     {f.note}
                   </div>
@@ -274,9 +274,9 @@ const Education = () => {
                   <span
                     className={`rounded-full px-2.5 py-1 text-xs font-medium ${
                       v.severity === "high"
-                        ? "bg-red-500/10 text-red-600"
+                        ? "bg-red-500/10 text-status-danger"
                         : v.severity === "caution"
-                          ? "bg-amber-500/10 text-amber-600"
+                          ? "bg-amber-500/10 text-status-warning"
                           : "bg-sky-500/10 text-sky-600"
                     }`}
                   >

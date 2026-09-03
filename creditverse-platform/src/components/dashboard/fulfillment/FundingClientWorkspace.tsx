@@ -131,7 +131,7 @@ export function FundingClientWorkspace({
             className={cn(
               "whitespace-nowrap border-b-2 px-3.5 py-3 text-xs font-bold transition-all",
               tab === t.id
-                ? "border-emerald-600 bg-emerald-500/10 text-emerald-700"
+                ? "border-emerald-600 bg-emerald-500/10 text-status-success"
                 : "border-transparent text-muted-foreground hover:bg-muted/40 hover:text-foreground",
             )}
           >
@@ -216,7 +216,8 @@ export function FundingClientWorkspace({
           {/* Funding Files summary */}
           <div className="rounded-xl border border-border bg-card p-4 shadow-sm lg:col-span-2">
             <h3 className="flex items-center gap-2 border-b border-border/50 pb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              <DollarSign className="h-4 w-4 text-emerald-600" /> Funding Files
+              <DollarSign className="h-4 w-4 text-status-success" /> Funding
+              Files
             </h3>
             <div className="mt-3 space-y-2">
               {files.map((f) => (

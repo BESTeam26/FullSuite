@@ -220,8 +220,8 @@ export function FundingDealListPanel({
                         className={cn(
                           "inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold",
                           d.stipsOutstanding > 0
-                            ? "bg-amber-500/10 text-amber-700"
-                            : "bg-emerald-500/10 text-emerald-700",
+                            ? "bg-amber-500/10 text-status-warning"
+                            : "bg-emerald-500/10 text-status-success",
                         )}
                       >
                         {d.stipsOutstanding} open

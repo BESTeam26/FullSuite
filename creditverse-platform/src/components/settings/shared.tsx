@@ -78,12 +78,13 @@ export const ToggleRow = ({
 
 export const StatusBadge = ({ state }: { state: string }) => {
   const tone: Record<string, string> = {
-    Active: "bg-emerald-500/10 text-emerald-700 border-emerald-500/30",
+    Active: "bg-emerald-500/10 text-status-success border-emerald-500/30",
     Trial: "bg-blue-500/10 text-blue-700 border-blue-500/30",
-    Suspended: "bg-amber-500/10 text-amber-700 border-amber-500/30",
+    Suspended: "bg-amber-500/10 text-status-warning border-amber-500/30",
     Cancelled: "bg-red-500/10 text-red-700 border-red-500/30",
-    Connected: "bg-emerald-500/10 text-emerald-700 border-emerald-500/30",
-    "Needs Attention": "bg-amber-500/10 text-amber-700 border-amber-500/30",
+    Connected: "bg-emerald-500/10 text-status-success border-emerald-500/30",
+    "Needs Attention":
+      "bg-amber-500/10 text-status-warning border-amber-500/30",
     Disconnected: "bg-red-500/10 text-red-700 border-red-500/30",
   };
   return (
@@ -105,7 +106,7 @@ export const SaveBar = ({
 }) => (
   <div className="sticky bottom-0 z-10 flex items-center justify-end gap-3 border-t border-border bg-card/95 px-6 py-3 backdrop-blur">
     {saved && (
-      <span className="text-xs font-medium text-emerald-600">Saved ✓</span>
+      <span className="text-xs font-medium text-status-success">Saved ✓</span>
     )}
     <button
       onClick={onSave}
