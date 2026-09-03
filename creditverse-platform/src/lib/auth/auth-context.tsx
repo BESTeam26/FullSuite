@@ -58,7 +58,7 @@ export interface AuthContextValue {
   hasAnyAccess: boolean;
   displayName: string;
   /** Actions */
-  signInWithPassword: [removed]
+  signInWithPassword: (
     email: string,
     password: string,
   ) => Promise<{ error: string | null }>;
@@ -68,7 +68,7 @@ export interface AuthContextValue {
     password: string,
     fullName: string,
   ) => Promise<{ error: string | null }>;
-  resetPassword: [removed]
+  resetPassword: (email: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   refreshMemberships: () => Promise<void>;
 }
