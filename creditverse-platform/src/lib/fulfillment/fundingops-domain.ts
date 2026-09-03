@@ -23,11 +23,38 @@
  * Provenance is kept on every client: "BES SaaS Synced" or "Agency Manual".
  */
 
+import {
+  checkClientConflict,
+  clientGroupKey,
+  clientGroupLabel,
+  formatCurrency,
+  isSaasPulled,
+  normalizeEmail,
+  type ClientConflictResult,
+  type OpsClient,
+  type OpsIntakeMode,
+} from "@/lib/fulfillment/ops-client-domain";
+
+/* Shared rules live in ops-client-domain and are re-exported here so existing
+   FundingOps call sites keep one obvious import path. One implementation. */
+export {
+  clientGroupKey,
+  clientGroupLabel,
+  formatCurrency,
+  isSaasPulled,
+  normalizeEmail,
+};
+export type { OpsClient };
+
+/** The shared conflict check, bound to the FundingOps client type. */
+export type FundingClientConflictResult = ClientConflictResult<FundingClient>;
+export const checkFundingClientConflict = checkClientConflict<FundingClient>;
+
 /* ------------------------------------------------------------------ */
 /* Intake mode + provenance                                            */
 /* ------------------------------------------------------------------ */
 
-export type FundingMode = "saas_pulled" | "outsourcing_only";
+export type FundingMode = OpsIntakeMode;
 
 export const FUNDING_MODE_LABEL: Record<FundingMode, string> = {
   saas_pulled: "SaaS Synced",
@@ -53,38 +80,18 @@ export type FundingClientStatus =
   | "Withdrawn"
   | "Archived";
 
-export interface FundingClient {
-  id: string;
-  /** Display name of the person / business owner. */
-  name: string;
-  email: string;
-  phone?: string;
-
-  /** Which intake mode this client arrived through. */
-  mode: FundingMode;
+/**
+ * A FundingOps client: the shared ops client, narrowed to this division's
+ * status vocabulary and given its funding-file fields.
+ */
+export interface FundingClient extends OpsClient {
   /** Provenance: BES SaaS Synced vs Agency Manual. */
   provenance: FundingProvenance;
-
-  /* ---- Mode 1: SaaS-Pulled fields ---- */
-  organizationId?: string;
-  organizationName?: string;
-  autoSync: boolean;
-
-  /* ---- Mode 2: Outsourcing-Only fields ---- */
-  outsourcingGroupId?: string;
-  outsourcingGroupName?: string;
-
-  /* ---- Shared operational fields ---- */
   status: FundingClientStatus;
-  /** BES agent assigned to this client's funding work. */
-  assignedAgent?: string;
   /** Number of active funding files. */
   openFiles: number;
   /** Total requested funding across active files. */
   totalRequested?: number;
-  slaHoursRemaining?: number;
-  lastActivity: string;
-  createdAt: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -169,19 +176,6 @@ export interface FundingDeal {
 /* Pure helper functions — the business rules, centralized             */
 /* ------------------------------------------------------------------ */
 
-export const isSaasPulled = (c: FundingClient): boolean =>
-  c.mode === "saas_pulled";
-
-export const clientGroupKey = (c: FundingClient): string =>
-  c.mode === "saas_pulled"
-    ? (c.organizationId ?? "unassigned")
-    : (c.outsourcingGroupId ?? "unassigned");
-
-export const clientGroupLabel = (c: FundingClient): string =>
-  c.mode === "saas_pulled"
-    ? (c.organizationName ?? "Unassigned Org")
-    : (c.outsourcingGroupName ?? "Unassigned Group");
-
 export const provenanceLabel = (c: FundingClient): string =>
   c.provenance === "bes_saas_synced" ? "BES SaaS Synced" : "Agency Manual";
 
@@ -209,32 +203,6 @@ export const provenanceLabel = (c: FundingClient): string =>
  * duplicates are blocked/warned. Manual (outsourcing_only) clients are
  * FundingOps-scoped and are never auto-merged across divisions.
  */
-export const normalizeEmail = (email: string): string =>
-  email.trim().toLowerCase();
-
-export interface FundingClientConflictResult {
-  /** Same email already exists in the SAME partner scope → hard block. */
-  sameScopeDuplicate?: FundingClient;
-  /** Same email exists in one or more OTHER partner scopes → warn + confirm. */
-  crossScopeMatches: FundingClient[];
-}
-
-export const checkFundingClientConflict = (
-  email: string,
-  scopeId: string,
-  allClients: FundingClient[],
-): FundingClientConflictResult => {
-  const normalized = normalizeEmail(email);
-  if (!normalized) return { crossScopeMatches: [] };
-  const matches = allClients.filter(
-    (c) => normalizeEmail(c.email) === normalized,
-  );
-  return {
-    sameScopeDuplicate: matches.find((c) => clientGroupKey(c) === scopeId),
-    crossScopeMatches: matches.filter((c) => clientGroupKey(c) !== scopeId),
-  };
-};
-
 /* ------------------------------------------------------------------ */
 /* Status tone + formatting helpers                                    */
 /* ------------------------------------------------------------------ */
@@ -277,8 +245,3 @@ export const INACTIVE_FUNDING_STATUSES = [
 export const isActiveFunding = (status: string) =>
   !INACTIVE_FUNDING_STATUSES.includes(status);
 
-export const formatCurrency = (amount: number): string => {
-  if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(1)}M`;
-  if (amount >= 1_000) return `$${Math.round(amount / 1_000)}K`;
-  return `$${amount}`;
-};
