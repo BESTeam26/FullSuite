@@ -31,8 +31,17 @@ export function ClientWorkWorkspace({ clientId, onBack }: Props) {
   const store = useCreditOpsStore();
   const client = store.clients.find((c) => c.id === clientId);
 
+  /**
+   * Sample text only, and deliberately free of personal data.
+   *
+   * This field previously carried a hardcoded SSN, date of birth, home address
+   * and a consumer's plaintext portal password, shown for EVERY client. Rule 1:
+   * identifiers and credentials never live in frontend code. When this panel is
+   * backed by a real column, it must also never be the place a password is
+   * stored — those belong in a secrets store, not a free-text note.
+   */
   const [description, setDescription] = useState(
-    `Imported from ClickUp - sample note\n\n${client?.name ?? "Client"}\n1 Sample Street\nSample City, CA 00000\n\nSSN: 000-00-0000\nDOB: 01/01/1970\n\n${client?.email ?? "email@example.com"}\nCell: ${client?.phone ?? "+1 (555) 000-0000"}\n\nCFPB from client:\nEmail: ${client?.email ?? "email@example.com"}\nPassword: [removed]`,
+    `Sample note - not real client data.\n\n${client?.name ?? "Client"}\n${client?.email ?? "email@example.com"}\n\nRound 4 responses received from two bureaus. Reinvestigation results are inconsistent with the documents on file; preparing the next round.`,
   );
   const [isEditingDesc, setIsEditingDesc] = useState(false);
   const [nextAction, setNextAction] = useState(

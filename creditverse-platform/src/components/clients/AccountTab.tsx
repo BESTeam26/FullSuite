@@ -60,6 +60,9 @@ const AccountTab = () => {
           <Field label="Last name" value="Gonzalez" />
           <Field label="Date of birth" value="10/29/1994" />
           <div>
+            {/* Placeholder only. A real SSN must never be a literal in frontend
+                code (rule 1); when this is wired up it comes from the record,
+                masked server-side, and is revealed through an audited action. */}
             <p className="text-xs text-muted-foreground">Social Security</p>
             <button
               onClick={() => setShowSSN((s) => !s)}

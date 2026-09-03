@@ -27,6 +27,9 @@ const ADDITIONAL_LOGIN_OPTIONS = [
   "LexisNexis",
 ];
 
+/* Placeholder credentials for the sample screen. Real bureau logins must never
+   be literals in frontend code, and must not be stored in a plain column when
+   this is wired up — they belong in a secrets store (rule 1). */
 const DEFAULT_LOGINS: LoginEntry[] = [
   {
     id: "exp",
