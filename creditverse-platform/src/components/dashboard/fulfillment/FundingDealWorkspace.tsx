@@ -12,12 +12,13 @@
  */
 
 import { useState } from "react";
-import { ArrowLeft, Clock, ChevronDown } from "lucide-react";
+import { ArrowLeft, Clock } from "lucide-react";
 import { useFundingOpsStore } from "@/lib/fulfillment/fundingops-client-store";
 import { useFundingDealStore } from "@/lib/fulfillment/funding-deal-store";
 import {
   clientGroupLabel,
   formatCurrency,
+  DEAL_STATUSES,
   type DealStatus,
   type FundingDeal,
 } from "@/lib/fulfillment/fundingops-domain";
@@ -25,10 +26,7 @@ import {
   seedFundingBusinesses,
   seedFundingFiles,
 } from "@/lib/fulfillment/fundingops-seed";
-import {
-  FundingStatusPill,
-  FundingModeBadge,
-} from "./funding-client-list-helpers";
+import { FundingModeBadge } from "./funding-client-list-helpers";
 import { dealCode, SEED_STIPS } from "./funding-deal-data";
 import {
   DealClientBusinessSection,
@@ -46,17 +44,7 @@ import {
 import { DealActivitySection } from "./DealActivitySection";
 import { WORK_GROUPS } from "./funding-deal-data";
 import { cn } from "@/lib/utils";
-
-const DEAL_STATUSES: DealStatus[] = [
-  "Draft",
-  "Submitted",
-  "In Review",
-  "Stipulations",
-  "Offer Received",
-  "Funded",
-  "Declined",
-  "Withdrawn",
-];
+import { OpsSelect } from "@/components/ui/ops-select";
 
 interface Props {
   dealId: string;
@@ -243,20 +231,13 @@ export function FundingDealWorkspace({ dealId, onBack }: Props) {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative">
-              <select
+              <OpsSelect
                 value={deal.status}
-                onChange={(e) =>
-                  handleStatusChange(e.target.value as DealStatus)
-                }
-                className="appearance-none rounded-lg border border-border bg-background py-1.5 pl-3 pr-8 text-xs font-bold text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-              >
-                {DEAL_STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                onValueChange={(v) => handleStatusChange(v as DealStatus)}
+                options={DEAL_STATUSES}
+                aria-label="Deal status"
+                className="font-bold"
+              />
             </div>
             {file?.slaHoursRemaining !== undefined && (
               <span

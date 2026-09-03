@@ -9,6 +9,7 @@
  */
 
 import { useState, useRef, useCallback } from "react";
+import { OpsSelect } from "@/components/ui/ops-select";
 import {
   Paperclip,
   Upload,
@@ -104,19 +105,14 @@ export function ClientWorkAttachments({
           {attachments.length})
         </h3>
         <div className="flex items-center gap-2">
-          <select
+          <OpsSelect
             value={uploadCategory}
-            onChange={(e) =>
-              setUploadCategory(e.target.value as AttachmentCategory)
-            }
-            className="rounded border border-border bg-background px-2 py-1 text-[11px] text-foreground"
-          >
-            {ATTACHMENT_CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
+            onValueChange={(v) => setUploadCategory(v as AttachmentCategory)}
+            options={ATTACHMENT_CATEGORIES}
+            size="inline"
+            aria-label="Attachment category"
+            className="border-border"
+          />
           <input
             type="file"
             multiple
@@ -191,64 +187,66 @@ export function ClientWorkAttachments({
       ) : view === "grid" ? (
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
           {attachments.map((att, i) => (
-            <button
-              key={att.id}
-              onClick={() => setViewerIndex(i)}
-              className="group relative flex flex-col overflow-hidden rounded-lg border border-border bg-muted/20 text-left transition-all hover:border-primary/40 hover:shadow-md"
-            >
-              {/* Thumbnail */}
-              <div className="relative flex h-24 items-center justify-center overflow-hidden bg-muted/40">
-                {isImageFile(att) ? (
-                  <img
-                    src={att.url}
-                    alt={att.name}
-                    loading="lazy"
-                    className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                  />
-                ) : isPdfFile(att) ? (
-                  <div className="flex flex-col items-center gap-1 text-primary">
-                    <FileText className="h-9 w-9" />
-                    <span className="text-[9px] font-bold">PDF</span>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center gap-1 text-muted-foreground">
-                    <FileText className="h-9 w-9" />
-                    <span className="text-[9px] font-bold uppercase">
-                      {att.type?.split("/")[1]?.slice(0, 4) || "FILE"}
-                    </span>
-                  </div>
-                )}
-                <span className="absolute right-1 top-1 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-bold text-white">
-                  {att.size}
-                </span>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeAttachment(att.id);
-                  }}
-                  className="absolute left-1 top-1 rounded bg-black/60 p-0.5 text-white opacity-0 transition-opacity group-hover:opacity-100"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </div>
-              {/* Meta */}
-              <div className="flex flex-col gap-1 p-2">
-                <p
-                  className="line-clamp-2 text-[11px] font-bold text-foreground group-hover:text-primary"
-                  title={att.name}
-                >
-                  {att.name}
-                </p>
-                <div className="flex items-center justify-between">
-                  <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground">
-                    {att.category}
-                  </span>
-                  <span className="text-[9px] text-muted-foreground">
-                    {att.uploadedBy}
+            /* The remove control is a SIBLING of the card button, not a child:
+               a button inside a button is invalid HTML and browsers hoist it
+               out, which silently breaks both click targets. */
+            <div key={att.id} className="group relative">
+              <button
+                onClick={() => setViewerIndex(i)}
+                className="flex w-full flex-col overflow-hidden rounded-lg border border-border bg-muted/20 text-left transition-all hover:border-primary/40 hover:shadow-md"
+              >
+                {/* Thumbnail */}
+                <div className="relative flex h-24 items-center justify-center overflow-hidden bg-muted/40">
+                  {isImageFile(att) ? (
+                    <img
+                      src={att.url}
+                      alt={att.name}
+                      loading="lazy"
+                      className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                    />
+                  ) : isPdfFile(att) ? (
+                    <div className="flex flex-col items-center gap-1 text-primary">
+                      <FileText className="h-9 w-9" />
+                      <span className="text-[9px] font-bold">PDF</span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-1 text-muted-foreground">
+                      <FileText className="h-9 w-9" />
+                      <span className="text-[9px] font-bold uppercase">
+                        {att.type?.split("/")[1]?.slice(0, 4) || "FILE"}
+                      </span>
+                    </div>
+                  )}
+                  <span className="absolute right-1 top-1 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-bold text-white">
+                    {att.size}
                   </span>
                 </div>
-              </div>
-            </button>
+                {/* Meta */}
+                <div className="flex flex-col gap-1 p-2">
+                  <p
+                    className="line-clamp-2 text-[11px] font-bold text-foreground group-hover:text-primary"
+                    title={att.name}
+                  >
+                    {att.name}
+                  </p>
+                  <div className="flex items-center justify-between">
+                    <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground">
+                      {att.category}
+                    </span>
+                    <span className="text-[9px] text-muted-foreground">
+                      {att.uploadedBy}
+                    </span>
+                  </div>
+                </div>
+              </button>
+              <button
+                onClick={() => removeAttachment(att.id)}
+                aria-label={`Remove ${att.name}`}
+                className="absolute left-1 top-1 rounded bg-black/60 p-0.5 text-white opacity-0 transition-opacity hover:bg-black/80 group-hover:opacity-100"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
           ))}
         </div>
       ) : (

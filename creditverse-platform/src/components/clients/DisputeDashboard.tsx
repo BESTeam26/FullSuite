@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
+import { OpsSelect } from "@/components/ui/ops-select";
 import {
   Send,
   Clock,
@@ -35,6 +36,15 @@ import {
 } from "@/lib/credit-classification";
 import { useClientWorkspace } from "@/lib/client-workspace-context";
 import { ItemDetailPanel } from "./ItemDetailPanel";
+
+/** Where an item sits in the dispute plan. Value is stored; label is shown. */
+const DISPOSITION_OPTIONS = [
+  { value: "dispute", label: "Dispute" },
+  { value: "undisputed", label: "Undisputed" },
+  { value: "never", label: "Never dispute" },
+  { value: "open-positive", label: "Open positive" },
+  { value: "closed-positive", label: "Closed positive" },
+];
 import {
   detectAnomaly,
   routeStatutes,
@@ -390,21 +400,15 @@ export const DisputeDashboard = () => {
                               {item.linkedOpenAccount}
                             </span>
                           )}
-                          <select
+                          <OpsSelect
                             value={item.disposition}
-                            onChange={(e) =>
-                              bulkMove([item.id], e.target.value as Disposition)
+                            onValueChange={(v) =>
+                              bulkMove([item.id], v as Disposition)
                             }
-                            className="rounded-lg border border-border bg-background px-2 py-1.5 text-xs font-medium"
-                          >
-                            <option value="dispute">Dispute</option>
-                            <option value="undisputed">Undisputed</option>
-                            <option value="never">Never dispute</option>
-                            <option value="open-positive">Open positive</option>
-                            <option value="closed-positive">
-                              Closed positive
-                            </option>
-                          </select>
+                            options={DISPOSITION_OPTIONS}
+                            size="sm"
+                            aria-label="Disposition"
+                          />
                           <button
                             onClick={() =>
                               setExpandedItem(isItemExpanded ? null : item.id)

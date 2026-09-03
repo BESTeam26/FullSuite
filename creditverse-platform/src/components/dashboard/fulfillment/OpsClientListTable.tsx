@@ -37,6 +37,7 @@ import {
   type EmailConflictState,
 } from "./EmailConflictBanner";
 import { cn } from "@/lib/utils";
+import { OpsSelect } from "@/components/ui/ops-select";
 
 /** The store operations the table needs, supplied by the owning division. */
 export interface OpsClientListActions<T extends OpsClient> {
@@ -312,19 +313,16 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
       case "status":
         if (editingStatusId === client.id) {
           return (
-            <select
+            <OpsSelect
               autoFocus
-              defaultValue={client.status}
-              onBlur={(e) => commitStatus(client.id, e.target.value)}
-              onChange={(e) => commitStatus(client.id, e.target.value)}
-              className="rounded border border-primary bg-background px-1.5 py-1 text-[11px] text-foreground focus:outline-none"
-            >
-              {statusOptions.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
+              openOnMount
+              size="inline"
+              aria-label="Status"
+              value={client.status}
+              onValueChange={(v) => commitStatus(client.id, v)}
+              onDismiss={() => setEditingStatusId(null)}
+              options={statusOptions}
+            />
           );
         }
         return (
@@ -335,19 +333,16 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
       case "agent":
         if (editingAgentId === client.id) {
           return (
-            <select
+            <OpsSelect
               autoFocus
-              defaultValue={client.assignedAgent ?? "Unassigned"}
-              onBlur={(e) => commitAgent(client.id, e.target.value)}
-              onChange={(e) => commitAgent(client.id, e.target.value)}
-              className="rounded border border-primary bg-background px-1.5 py-1 text-[11px] text-foreground focus:outline-none"
-            >
-              {assignees.map((a) => (
-                <option key={a} value={a}>
-                  {a}
-                </option>
-              ))}
-            </select>
+              openOnMount
+              size="inline"
+              aria-label="Assignee"
+              value={client.assignedAgent ?? "Unassigned"}
+              onValueChange={(v) => commitAgent(client.id, v)}
+              onDismiss={() => setEditingAgentId(null)}
+              options={assignees}
+            />
           );
         }
         return (

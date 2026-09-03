@@ -5,6 +5,7 @@
  */
 
 import { useState } from "react";
+import { OpsSelect } from "@/components/ui/ops-select";
 import { Plus, Trash2, Webhook, Zap, Radio } from "lucide-react";
 import { useCreditOpsWebhooks } from "@/lib/fulfillment/creditops-webhooks";
 import { cn } from "@/lib/utils";
@@ -84,17 +85,20 @@ export function CreditOpsWebhookPanel() {
               <label className="text-[11px] font-semibold text-muted-foreground">
                 Type
               </label>
-              <select
+              <OpsSelect
                 value={newType}
-                onChange={(e) =>
-                  setNewType(e.target.value as "ghl" | "disputefox" | "generic")
+                onValueChange={(v) =>
+                  setNewType(v as "ghl" | "disputefox" | "generic")
                 }
-                className="mt-1 w-full rounded-lg border border-border bg-background p-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-              >
-                <option value="ghl">GHL</option>
-                <option value="disputefox">DisputeFox</option>
-                <option value="generic">Generic Webhook</option>
-              </select>
+                options={[
+                  { value: "ghl", label: "GHL" },
+                  { value: "disputefox", label: "DisputeFox" },
+                  { value: "generic", label: "Generic Webhook" },
+                ]}
+                size="field"
+                aria-label="Endpoint type"
+                className="mt-1"
+              />
             </div>
             <div>
               <label className="text-[11px] font-semibold text-muted-foreground">

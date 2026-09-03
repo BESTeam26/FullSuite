@@ -642,6 +642,54 @@ Each phase leaves the app runnable and demo-able.
 | SEO product pages + keyword pages | ✅ |
 | Rebranded to Imperial Charcoal / Empire Gold / Cloud Sand / Empire Green | ✅ |
 
+### 2026-09-03 — Dropdowns and document viewing
+
+**Every native `<select>` is gone.** 23 dropdowns across 17 files rendered with
+the operating system's own menu — a different font, palette and highlight than
+the rest of the app, and different again on every machine. They are now one
+component, `components/ui/ops-select.tsx`, wrapping the Radix `Select` that was
+already in the shadcn kit but unused. It keeps a native-shaped API (`value`,
+`onValueChange`, `options`) so no screen grows a five-component nest just to
+show a dropdown (rule 13), with three size variants matching the densities
+already in use: `inline` (in-cell editors), `sm` (toolbars/filters), `field`
+(labelled form fields).
+
+Two behaviour improvements fell out of it:
+
+- **Inline editors open on one click.** The native element needed a second
+  click to reveal its options; `openOnMount` opens the menu with the editor.
+- **Dismissing an inline editor now closes it.** The old `onBlur` commit was
+  the only exit; `onDismiss` handles Escape and click-away explicitly.
+
+**The PDF viewer was unusable for real documents.** `FileViewer` capped the
+iframe at `max-w-4xl` (896px). A frame that narrow makes the browser's built-in
+PDF viewer choose a fit-*page* zoom — 53% on a laptop — which cannot be widened
+from inside the frame, so a reviewer saw a quarter of a page of illegible text.
+Fixed three ways: the document gets the viewport (91% × 92% measured, capped at
+a 1400px reading column with a full-width toggle), `#view=FitH&navpanes=0` asks
+the viewer to fit page *width* and drop its thumbnail sidebar, and the viewer's
+own chrome collapsed from two bars to one. Verified with a real multi-page PDF:
+**134% instead of 53%**. Navigation arrows now sit in a gutter beside the page
+rather than on top of it, and a zoomed image can be panned instead of clipped.
+
+The dispute-letter editor got the same treatment — `max-w-3xl` → `max-w-5xl`,
+18 → 26 rows, since it holds a full page of prose.
+
+**Two real bugs found while working there.**
+
+- `ClientWorkAttachments` nested the remove-file `<button>` inside the card
+  `<button>`. That is invalid HTML; browsers hoist the inner button out of its
+  parent, which silently breaks both click targets. The remove control is now a
+  sibling positioned over the card.
+- `DEAL_STATUSES` was a module-local const in `FundingDealWorkspace` while
+  `FundingDealListPanel` maintained its own inline copy of the same eight
+  statuses. Moved beside the `DealStatus` type in `fundingops-domain.ts` so the
+  status picker and the status filter cannot drift apart (rule 13).
+
+Also removed 11 dead imports (most pre-existing) found by scanning the touched
+files. Verified: tsc clean, 0 lint errors, 119/119 tests, build clean, no
+circular dependencies, no orphans, duplicated lines 1,233 → 1,146.
+
 ## Next steps for Claude Code
 
 1. Connect Supabase Auth + RLS for organization isolation

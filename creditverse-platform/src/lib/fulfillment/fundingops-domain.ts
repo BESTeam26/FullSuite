@@ -156,6 +156,22 @@ export type DealStatus =
   | "Declined"
   | "Withdrawn";
 
+/**
+ * Every deal status, in lifecycle order. Kept beside the type so a new status
+ * cannot be added to one without the other, and so the status picker and the
+ * status filter can never drift apart.
+ */
+export const DEAL_STATUSES: readonly DealStatus[] = [
+  "Draft",
+  "Submitted",
+  "In Review",
+  "Stipulations",
+  "Offer Received",
+  "Funded",
+  "Declined",
+  "Withdrawn",
+];
+
 export interface FundingDeal {
   id: string;
   fileId: string;

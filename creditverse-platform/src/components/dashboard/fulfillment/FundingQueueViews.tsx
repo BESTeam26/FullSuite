@@ -14,7 +14,6 @@ import {
   FileText,
   UserPlus,
   AlertTriangle,
-  Search,
   Landmark,
   DollarSign,
   CheckCircle2,
@@ -23,7 +22,6 @@ import type { FundingClient } from "@/lib/fulfillment/fundingops-domain";
 import { formatCurrency } from "@/lib/fulfillment/fundingops-domain";
 import { useFundingOpsStore } from "@/lib/fulfillment/fundingops-client-store";
 import { OpsQueueView } from "./OpsQueueView";
-import { DivisionTable } from "@/components/dashboard/DivisionLayout";
 import { FundingClientWorkWorkspace } from "./FundingClientWorkWorkspace";
 
 interface FundingQueueProps {
@@ -137,7 +135,9 @@ export function FundingQueueView({
       icon={spec.icon}
       color={spec.color}
       clients={queueClients}
-      onOpenClient={(id) => (onOpenClient ? onOpenClient(id) : setOpenClientId(id))}
+      onOpenClient={(id) =>
+        onOpenClient ? onOpenClient(id) : setOpenClientId(id)
+      }
       statusColumnLabel="Stage Status"
       slaWarningHours={8}
       detailColumn={{

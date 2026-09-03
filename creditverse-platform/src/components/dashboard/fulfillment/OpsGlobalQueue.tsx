@@ -20,6 +20,7 @@ import {
 } from "@/lib/fulfillment/ops-client-domain";
 import { Avatar } from "./ops-client-list-helpers";
 import { cn } from "@/lib/utils";
+import { OpsSelect } from "@/components/ui/ops-select";
 
 export interface OpsGlobalQueueColumn<T extends OpsClient> {
   label: string;
@@ -120,18 +121,15 @@ export function OpsGlobalQueue<T extends OpsClient, P extends OpsPartner>({
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <select
+          <OpsSelect
             value={partnerFilter}
-            onChange={(e) => setPartnerFilter(e.target.value)}
-            className="rounded-lg border border-border bg-background py-1.5 px-3 text-xs font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-          >
-            <option value="all">All Partners</option>
-            {partners.map((p) => (
-              <option key={p.id} value={p.scopeId}>
-                {p.name}
-              </option>
-            ))}
-          </select>
+            onValueChange={setPartnerFilter}
+            aria-label="Filter by partner"
+            options={[
+              { value: "all", label: "All Partners" },
+              ...partners.map((p) => ({ value: p.scopeId, label: p.name })),
+            ]}
+          />
           <div className="relative min-w-[200px]">
             <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <input
@@ -211,19 +209,16 @@ export function OpsGlobalQueue<T extends OpsClient, P extends OpsPartner>({
                       }}
                     >
                       {editingStatusId === c.id ? (
-                        <select
+                        <OpsSelect
                           autoFocus
-                          defaultValue={c.status}
-                          onBlur={(e) => commit(c, e.target.value)}
-                          onChange={(e) => commit(c, e.target.value)}
-                          className="rounded border border-primary bg-background px-1.5 py-1 text-[11px] text-foreground focus:outline-none"
-                        >
-                          {statusOptions.map((s) => (
-                            <option key={s} value={s}>
-                              {s}
-                            </option>
-                          ))}
-                        </select>
+                          openOnMount
+                          size="inline"
+                          aria-label="Status"
+                          value={c.status}
+                          onValueChange={(v) => commit(c, v)}
+                          onDismiss={() => setEditingStatusId(null)}
+                          options={statusOptions}
+                        />
                       ) : (
                         <button
                           onClick={(e) => {

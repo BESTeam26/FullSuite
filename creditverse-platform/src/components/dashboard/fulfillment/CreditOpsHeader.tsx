@@ -11,7 +11,7 @@ import {
   CREDITOPS_ROLE_LIST,
   CREDITOPS_ROLES,
 } from "@/lib/fulfillment/creditops-access";
-import { cn } from "@/lib/utils";
+import { OpsSelect } from "@/components/ui/ops-select";
 
 interface CreditOpsHeaderProps {
   partnerName: string;
@@ -46,20 +46,16 @@ export function CreditOpsHeader({
         {/* CreditOps role switcher (demo of access control) */}
         <div className="flex items-center gap-1.5 rounded-lg border border-border bg-muted/30 px-2 py-1">
           <Shield className="h-3.5 w-3.5 text-primary" />
-          <select
+          <OpsSelect
             value={access.role}
-            onChange={(e) =>
-              access.setRole(e.target.value as typeof access.role)
-            }
-            className="cursor-pointer bg-transparent text-xs font-semibold text-foreground focus:outline-none"
-            title="Switch CreditOps role to preview access control"
-          >
-            {CREDITOPS_ROLE_LIST.map((r) => (
-              <option key={r} value={r}>
-                {CREDITOPS_ROLES[r].shortLabel}
-              </option>
-            ))}
-          </select>
+            onValueChange={(v) => access.setRole(v as typeof access.role)}
+            aria-label="Switch CreditOps role to preview access control"
+            options={CREDITOPS_ROLE_LIST.map((r) => ({
+              value: r,
+              label: CREDITOPS_ROLES[r].shortLabel,
+            }))}
+            className="border-0 bg-transparent px-0 font-semibold shadow-none focus:ring-0 data-[state=open]:ring-0"
+          />
         </div>
 
         <button

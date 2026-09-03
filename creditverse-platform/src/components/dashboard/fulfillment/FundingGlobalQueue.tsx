@@ -165,7 +165,9 @@ export function FundingGlobalQueue({ queueType, onOpenClient }: Props) {
         store.updateStatus(client.id, newStatus, "Manager (BES HQ)")
       }
       slaWarningHours={SLA_WARNING_HOURS}
-      onOpenClient={(id) => (onOpenClient ? onOpenClient(id) : setOpenClientId(id))}
+      onOpenClient={(id) =>
+        onOpenClient ? onOpenClient(id) : setOpenClientId(id)
+      }
     />
   );
 }

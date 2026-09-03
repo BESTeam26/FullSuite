@@ -21,11 +21,13 @@ import {
   clientGroupLabel,
   formatCurrency,
   clientGroupKey,
+  DEAL_STATUSES,
 } from "@/lib/fulfillment/fundingops-domain";
 import { getFundingPartnerByScope } from "@/lib/fulfillment/fundingops-partners";
 import { dealCode } from "./funding-deal-data";
 import { FundingStatusPill } from "./funding-client-list-helpers";
 import { cn } from "@/lib/utils";
+import { OpsSelect } from "@/components/ui/ops-select";
 
 interface Props {
   /** Partner scope id, or "all" for management (cross-partner). */
@@ -122,27 +124,12 @@ export function FundingDealListPanel({
               className="w-full rounded-lg border border-border bg-background py-1.5 pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
-          <select
+          <OpsSelect
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="rounded-lg border border-border bg-background py-1.5 px-3 text-xs font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-          >
-            {[
-              "All Statuses",
-              "Draft",
-              "Submitted",
-              "In Review",
-              "Stipulations",
-              "Offer Received",
-              "Funded",
-              "Declined",
-              "Withdrawn",
-            ].map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
+            onValueChange={setStatusFilter}
+            aria-label="Filter by status"
+            options={["All Statuses", ...DEAL_STATUSES]}
+          />
         </div>
       </div>
 

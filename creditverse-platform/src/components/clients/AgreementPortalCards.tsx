@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { OpsSelect } from "@/components/ui/ops-select";
 import {
   FileText,
   AlertCircle,
@@ -41,17 +42,17 @@ export const AgreementCard = () => {
           <Label className="text-xs text-muted-foreground">
             Assigned agreement
           </Label>
-          <select
+          <OpsSelect
             value={selectedAgreement}
-            onChange={(e) => setSelectedAgreement(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium focus:outline-none focus:ring-1 focus:ring-emerald-500"
-          >
-            {activeAgreements.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name} ({a.version})
-              </option>
-            ))}
-          </select>
+            onValueChange={setSelectedAgreement}
+            options={activeAgreements.map((a) => ({
+              value: a.id,
+              label: `${a.name} (${a.version})`,
+            }))}
+            size="field"
+            aria-label="Agreement"
+            className="mt-1 text-sm font-medium"
+          />
           {agr && (
             <p className="mt-1.5 flex items-center gap-1 text-[11px] text-muted-foreground">
               {agr.hasCroaDisclosures ? (

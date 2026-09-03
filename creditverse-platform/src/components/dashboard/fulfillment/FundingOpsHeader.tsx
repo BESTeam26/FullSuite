@@ -6,6 +6,7 @@
  */
 
 import { Landmark, Shield } from "lucide-react";
+import { OpsSelect } from "@/components/ui/ops-select";
 import {
   useFundingOpsAccess,
   FUNDINGOPS_ROLE_LIST,
@@ -38,18 +39,16 @@ export function FundingOpsHeader({ partnerName, clientCount }: Props) {
 
       <div className="flex items-center gap-1.5 rounded-lg border border-border bg-muted/30 px-2 py-1">
         <Shield className="h-3.5 w-3.5 text-primary" />
-        <select
+        <OpsSelect
           value={access.role}
-          onChange={(e) => access.setRole(e.target.value as typeof access.role)}
-          className="cursor-pointer bg-transparent text-xs font-semibold text-foreground focus:outline-none"
-          title="Switch FundingOps role to preview access control"
-        >
-          {FUNDINGOPS_ROLE_LIST.map((r) => (
-            <option key={r} value={r}>
-              {FUNDINGOPS_ROLES[r].shortLabel}
-            </option>
-          ))}
-        </select>
+          onValueChange={(v) => access.setRole(v as typeof access.role)}
+          aria-label="Switch FundingOps role to preview access control"
+          options={FUNDINGOPS_ROLE_LIST.map((r) => ({
+            value: r,
+            label: FUNDINGOPS_ROLES[r].shortLabel,
+          }))}
+          className="border-0 bg-transparent px-0 font-semibold shadow-none focus:ring-0 data-[state=open]:ring-0"
+        />
       </div>
     </div>
   );

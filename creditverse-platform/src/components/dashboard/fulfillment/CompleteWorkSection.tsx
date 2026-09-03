@@ -29,6 +29,7 @@ import {
   type CreditOpsDepartment,
 } from "@/lib/fulfillment/creditops-access";
 import { cn } from "@/lib/utils";
+import { OpsSelect } from "@/components/ui/ops-select";
 
 interface Props {
   clientId: string;
@@ -165,17 +166,14 @@ export function CompleteWorkSection({
             <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
               Log as department
             </label>
-            <select
+            <OpsSelect
               value={activeDept}
-              onChange={(e) => handleDeptChange(e.target.value)}
-              className="flex-1 rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-            >
-              {workingDepts.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </select>
+              onValueChange={handleDeptChange}
+              options={workingDepts}
+              size="sm"
+              aria-label="Log as department"
+              className="flex-1 font-semibold"
+            />
           </div>
 
           {/* Dynamic production-action library for the selected department */}
@@ -227,15 +225,14 @@ export function CompleteWorkSection({
             <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
               After this work
             </label>
-            <select
+            <OpsSelect
               value={statusChange}
-              onChange={(e) => setStatusChange(e.target.value)}
-              className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-            >
-              {statusOptions.map((s) => (
-                <option key={s}>{s}</option>
-              ))}
-            </select>
+              onValueChange={setStatusChange}
+              options={statusOptions}
+              size="sm"
+              aria-label="Status after this work"
+              className="w-full"
+            />
           </div>
 
           <div className="flex items-center justify-between pt-1">

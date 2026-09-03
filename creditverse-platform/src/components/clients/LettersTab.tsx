@@ -2,7 +2,6 @@ import { useState } from "react";
 import {
   FileText,
   Send,
-  Eye,
   ArrowRight,
   CheckCircle2,
   Sparkles,
@@ -244,7 +243,7 @@ const LetterEditorModal = ({
       onClick={onClose}
     >
       <div
-        className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-border bg-card"
+        className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-border bg-card"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-border p-5">
@@ -319,7 +318,7 @@ const LetterEditorModal = ({
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            rows={18}
+            rows={26}
             className="w-full rounded-xl border border-border bg-muted/20 p-4 font-sans text-sm leading-relaxed text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
           />
         </div>

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { OpsSelect } from "@/components/ui/ops-select";
 import { KeyRound, Eye, EyeOff, Plus, Trash2, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -141,17 +142,14 @@ export const AdditionalLoginsCard = () => {
                   className="mt-1"
                 />
               ) : (
-                <select
+                <OpsSelect
                   value={newLoginLabel}
-                  onChange={(e) => setNewLoginLabel(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                >
-                  {ADDITIONAL_LOGIN_OPTIONS.map((o) => (
-                    <option key={o} value={o}>
-                      {o}
-                    </option>
-                  ))}
-                </select>
+                  onValueChange={setNewLoginLabel}
+                  options={ADDITIONAL_LOGIN_OPTIONS}
+                  size="field"
+                  aria-label="Login type"
+                  className="mt-1 text-sm"
+                />
               )}
             </div>
             <div>

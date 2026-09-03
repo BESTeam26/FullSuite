@@ -6,10 +6,6 @@ import { useState } from "react";
 import {
   ChevronDown,
   ChevronUp,
-  ShieldAlert,
-  Mail,
-  Upload,
-  Paperclip,
   Sparkles,
   FileText,
   Eye,
@@ -31,6 +27,7 @@ import {
 import { getLegalPathwayMeta } from "@/lib/dispute/legal-paths";
 import { CreditReportDetailGrid } from "./CreditReportDetailGrid";
 import type { ClassifiedItem } from "@/lib/credit-classification";
+import { OpsSelect } from "@/components/ui/ops-select";
 
 const PRESET_REASONS = [
   "Inaccurate Account Balance & Credit Limit reported",
@@ -176,20 +173,18 @@ export const ItemDetailPanel = ({
                 </Button>
               </div>
             ) : (
-              <select
+              <OpsSelect
                 value={selectedReason}
-                onChange={(e) => setSelectedReason(e.target.value)}
-                className="w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-xs font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
-              >
-                {PRESET_REASONS.map((r) => (
-                  <option key={r} value={r}>
-                    {r}
-                  </option>
-                ))}
-                {customReasonInput && (
-                  <option value={customReasonInput}>{customReasonInput}</option>
-                )}
-              </select>
+                onValueChange={setSelectedReason}
+                aria-label="Dispute reason"
+                size="field"
+                className="rounded-md py-1.5 font-medium"
+                options={
+                  customReasonInput
+                    ? [...PRESET_REASONS, customReasonInput]
+                    : PRESET_REASONS
+                }
+              />
             )}
           </div>
 
@@ -200,17 +195,14 @@ export const ItemDetailPanel = ({
                 Instruction to Bureau / Furnisher:
               </label>
             </div>
-            <select
+            <OpsSelect
               value={selectedInstruction}
-              onChange={(e) => setSelectedInstruction(e.target.value)}
-              className="w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-xs font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
-            >
-              {PRESET_INSTRUCTIONS.map((i) => (
-                <option key={i} value={i}>
-                  {i}
-                </option>
-              ))}
-            </select>
+              onValueChange={setSelectedInstruction}
+              options={PRESET_INSTRUCTIONS}
+              aria-label="Dispute instruction"
+              size="field"
+              className="rounded-md py-1.5 font-medium"
+            />
           </div>
         </div>
 

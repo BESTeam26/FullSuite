@@ -226,9 +226,8 @@ export function FundingOpsManagementDashboard({
       showEscalations={false}
       groupLabel={(g) => GROUP_LABELS[g] ?? g}
       resolvePartnerName={(c) =>
-        getFundingPartnerByScope(
-          c.organizationId ?? c.outsourcingGroupId ?? "",
-        )?.name
+        getFundingPartnerByScope(c.organizationId ?? c.outsourcingGroupId ?? "")
+          ?.name
       }
       onNavigateToView={onNavigateToView}
       onOpenClient={onOpenClient}

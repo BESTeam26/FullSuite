@@ -13,6 +13,7 @@ import {
 import type { FulfillmentClient } from "@/lib/fulfillment/fulfillment-client-domain";
 import type { CreditOpsPartner } from "@/lib/fulfillment/creditops-partners";
 import { OpsAddClientModal } from "./OpsAddClientModal";
+import { OpsSelect } from "@/components/ui/ops-select";
 
 const STATUS_OPTIONS = [
   "Onboarding",
@@ -60,17 +61,14 @@ export function AddClientModal({
       extraField={
         <div>
           <label className="text-xs font-semibold text-foreground">Round</label>
-          <select
+          <OpsSelect
             value={round}
-            onChange={(e) =>
-              setRound(e.target.value as FulfillmentClient["round"])
-            }
-            className="mt-1 w-full rounded-lg border border-border bg-background p-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-          >
-            {ROUND_OPTIONS.map((r) => (
-              <option key={r}>{r}</option>
-            ))}
-          </select>
+            onValueChange={(v) => setRound(v as FulfillmentClient["round"])}
+            options={ROUND_OPTIONS}
+            size="field"
+            aria-label="Round"
+            className="mt-1"
+          />
         </div>
       }
       buildPayload={(common) => {

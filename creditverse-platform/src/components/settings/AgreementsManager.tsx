@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useAgreements, type Agreement } from "@/lib/agreements-context";
+import { OpsSelect } from "@/components/ui/ops-select";
 
 const CROA_DISCLOSURE_TEMPLATE = `CROA MANDATED DISCLOSURES (15 U.S.C. §1679)
 
@@ -215,21 +216,16 @@ export const AgreementsManager = () => {
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">Type</Label>
-                  <select
+                  <OpsSelect
                     value={form.type}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        type: e.target.value as Agreement["type"],
-                      })
+                    onValueChange={(v) =>
+                      setForm({ ...form, type: v as Agreement["type"] })
                     }
-                    className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                  >
-                    <option>Standard</option>
-                    <option>Couples</option>
-                    <option>DIY</option>
-                    <option>Custom</option>
-                  </select>
+                    options={["Standard", "Couples", "DIY", "Custom"]}
+                    size="field"
+                    aria-label="Agreement type"
+                    className="mt-1 text-sm"
+                  />
                 </div>
               </div>
               <label className="flex items-center gap-2 text-sm">

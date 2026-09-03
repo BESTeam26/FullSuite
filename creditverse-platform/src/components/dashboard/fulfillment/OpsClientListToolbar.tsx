@@ -10,6 +10,7 @@
 import { Search, List, LayoutGrid, Plus, Columns3, X } from "lucide-react";
 import type { ColDef } from "./ops-client-list-helpers";
 import { cn } from "@/lib/utils";
+import { OpsSelect } from "@/components/ui/ops-select";
 
 interface OpsClientListToolbarProps<Id extends string> {
   view: "list" | "grid";
@@ -168,17 +169,12 @@ export function OpsClientListToolbar<Id extends string>({
           />
         </div>
 
-        <select
+        <OpsSelect
           value={statusFilter}
-          onChange={(e) => onStatusFilterChange(e.target.value)}
-          className="rounded-lg border border-border bg-background py-1.5 px-3 text-xs font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-        >
-          {statusOptions.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
+          onValueChange={onStatusFilterChange}
+          options={statusOptions}
+          aria-label="Filter by status"
+        />
       </div>
     </div>
   );

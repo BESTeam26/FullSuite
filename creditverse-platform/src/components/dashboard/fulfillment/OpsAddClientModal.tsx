@@ -13,6 +13,7 @@
 
 import { useState, type ReactNode } from "react";
 import { X, UserPlus, AlertTriangle, ShieldAlert } from "lucide-react";
+import { OpsSelect } from "@/components/ui/ops-select";
 import {
   clientGroupLabel,
   type ClientConflictResult,
@@ -259,30 +260,28 @@ export function OpsAddClientModal<T extends OpsClient>({
               <label className="text-xs font-semibold text-foreground">
                 Status
               </label>
-              <select
+              <OpsSelect
                 value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-border bg-background p-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-              >
-                {statusOptions.map((s) => (
-                  <option key={s}>{s}</option>
-                ))}
-              </select>
+                onValueChange={setStatus}
+                options={statusOptions}
+                size="field"
+                aria-label="Status"
+                className="mt-1"
+              />
             </div>
             {extraField}
             <div>
               <label className="text-xs font-semibold text-foreground">
                 Assignee
               </label>
-              <select
+              <OpsSelect
                 value={assignee}
-                onChange={(e) => setAssignee(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-border bg-background p-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-              >
-                {assignees.map((a) => (
-                  <option key={a}>{a}</option>
-                ))}
-              </select>
+                onValueChange={setAssignee}
+                options={assignees}
+                size="field"
+                aria-label="Assignee"
+                className="mt-1"
+              />
             </div>
           </div>
         </div>
