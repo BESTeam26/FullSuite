@@ -19,9 +19,7 @@ import {
   Phone,
 } from "lucide-react";
 import type { FulfillmentClient } from "@/lib/fulfillment/fulfillment-client-domain";
-import { clientGroupLabel } from "@/lib/fulfillment/fulfillment-client-domain";
 import { useCreditOpsStore } from "@/lib/fulfillment/creditops-client-store";
-import { useCreditOpsWebhooks } from "@/lib/fulfillment/creditops-webhooks";
 import {
   CREDIT_OPS_PARTNERS,
   getPartnerByScope,
@@ -107,7 +105,6 @@ const QUEUE_SPECS: Record<
 
 export function CreditOpsGlobalQueue({ queueType }: Props) {
   const store = useCreditOpsStore();
-  const webhooks = useCreditOpsWebhooks();
   const [openClientId, setOpenClientId] = useState<string | null>(null);
 
   const spec = QUEUE_SPECS[queueType] ?? QUEUE_SPECS["dispute-queue"];
@@ -125,17 +122,13 @@ export function CreditOpsGlobalQueue({ queueType }: Props) {
     );
   }
 
-  /** A manager transition here is also pushed to the external CRM. */
+  /**
+   * The store already forwards every status change to the webhook bridge
+   * (see WebhookBridge in CreditOps.tsx), so this must NOT push again — doing
+   * both emitted the signal twice and would double-post to the external CRM.
+   */
   const commitStatus = (client: FulfillmentClient, newStatus: string) => {
-    const previousStatus = client.status;
     store.updateStatus(client.id, newStatus, "Manager (BES HQ)");
-    webhooks.pushStatusChange({
-      clientId: client.id,
-      clientName: client.name,
-      partnerName: clientGroupLabel(client),
-      previousStatus,
-      newStatus,
-    });
   };
 
   return (

@@ -32,6 +32,7 @@ import {
   Layers,
   LayoutDashboard,
   ListChecks,
+  Users,
   ClipboardCheck,
   FileText,
   Send,
@@ -71,6 +72,9 @@ interface Props {
 
 const MANAGEMENT_VIEWS = [
   { id: "mgmt-dashboard", label: "Dashboard", icon: LayoutDashboard },
+  /* Client-level view, the counterpart to CreditOps' Main Client List. Deal
+     List stays alongside it for deal-level navigation. */
+  { id: "mgmt-client-list", label: "Client List", icon: Users },
   { id: "mgmt-deal-list", label: "Deal List", icon: ListChecks },
   { id: "mgmt-readiness", label: "Readiness", icon: ClipboardCheck },
   { id: "mgmt-document", label: "Documents", icon: FileText },

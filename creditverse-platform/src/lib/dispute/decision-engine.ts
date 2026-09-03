@@ -120,6 +120,43 @@ export function decideDisputePath(
     };
   }
 
+  // ── Round 3+ and prior disputes failed → potential compliance failure (human) ──
+  //
+  // ORDER MATTERS. This case is a strict subset of the "verified but evidence
+  // contradicts" branch below, so it must be tested first. When it sat second,
+  // the broader branch always returned before it and the strongest escalation
+  // state — the only one that sets humanReviewRequired — could never be
+  // produced.
+  if (
+    round >= 3 &&
+    input.priorDisputeCount &&
+    input.priorDisputeCount >= 2 &&
+    input.wasVerifiedPrior &&
+    input.evidenceContradictsVerification &&
+    input.hasEvidence
+  ) {
+    flags.push(
+      "Repeated verified results contradicting evidence — potential compliance failure",
+    );
+    flags.push(
+      "Willfulness requires more than ordinary carelessness (Safeco v. Burr) — human review required",
+    );
+    flags.push("AI must not declare liability — a human/counsel decides");
+    humanReviewRequired = true;
+    return {
+      state: "potential-compliance-failure",
+      pathway: "potential-compliance",
+      confidence: "potential-issue",
+      legalCitations: ["15 U.S.C. § 1681n", "15 U.S.C. § 1681o"],
+      opening:
+        "I have disputed the specific information identified below on multiple occasions and provided supporting documentation each time. The same discrepancy persists. I am requesting a reasonable reinvestigation and review of all enclosed evidence, and I am escalating this matter for compliance review.",
+      remedy:
+        "Reinvestigate, review all evidence, and delete or correct as appropriate. This matter is flagged for compliance review and potential further escalation.",
+      humanReviewRequired: true,
+      flags,
+    };
+  }
+
   // ── Verified but evidence contradicts → procedure request or escalation ──
   if (input.wasVerifiedPrior && input.evidenceContradictsVerification) {
     if (round >= 2) {
@@ -157,37 +194,6 @@ export function decideDisputePath(
       remedy:
         "Reinvestigate the unresolved field in light of the new information, review all enclosed evidence, and delete or correct the information as appropriate.",
       humanReviewRequired: false,
-      flags,
-    };
-  }
-
-  // ── Round 3+ and prior disputes failed → potential compliance failure (human) ──
-  if (
-    round >= 3 &&
-    input.priorDisputeCount &&
-    input.priorDisputeCount >= 2 &&
-    input.wasVerifiedPrior &&
-    input.evidenceContradictsVerification &&
-    input.hasEvidence
-  ) {
-    flags.push(
-      "Repeated verified results contradicting evidence — potential compliance failure",
-    );
-    flags.push(
-      "Willfulness requires more than ordinary carelessness (Safeco v. Burr) — human review required",
-    );
-    flags.push("AI must not declare liability — a human/counsel decides");
-    humanReviewRequired = true;
-    return {
-      state: "potential-compliance-failure",
-      pathway: "potential-compliance",
-      confidence: "potential-issue",
-      legalCitations: ["15 U.S.C. § 1681n", "15 U.S.C. § 1681o"],
-      opening:
-        "I have disputed the specific information identified below on multiple occasions and provided supporting documentation each time. The same discrepancy persists. I am requesting a reasonable reinvestigation and review of all enclosed evidence, and I am escalating this matter for compliance review.",
-      remedy:
-        "Reinvestigate, review all evidence, and delete or correct as appropriate. This matter is flagged for compliance review and potential further escalation.",
-      humanReviewRequired: true,
       flags,
     };
   }

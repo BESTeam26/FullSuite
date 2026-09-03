@@ -125,8 +125,18 @@ export function isEodMissing(
   ) {
     return false;
   }
-  const cutoffHour = shiftEndHour24 + gracePeriodHours;
-  return currentHour24 >= cutoffHour;
+  // The deadline is shift end plus grace. For a night shift that deadline can
+  // land after midnight, in which case the plain sum exceeds 23 and no
+  // hour-of-day could ever reach it — a late shift was never flagged missing.
+  const rawCutoff = shiftEndHour24 + gracePeriodHours;
+  if (rawCutoff < 24) {
+    return currentHour24 >= rawCutoff;
+  }
+
+  // Wrapped: the EOD is overdue from the small-hours cutoff until the next
+  // shift begins winding down, i.e. up to the shift-end hour itself.
+  const cutoffHour = rawCutoff % 24;
+  return currentHour24 >= cutoffHour && currentHour24 < shiftEndHour24;
 }
 
 /** Sample seed production logs for Agency HQ workspace */

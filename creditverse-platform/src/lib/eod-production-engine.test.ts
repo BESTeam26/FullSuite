@@ -133,11 +133,26 @@ describe("isEodMissing", () => {
     expect(isEodMissing(null)).toBe(false);
   });
 
-  it("does not wrap past midnight", () => {
-    // NOTE: possible bug — shiftEnd 23 + grace 2 yields cutoff 25, which no
-    // hour-of-day can reach, so a late-night shift is never flagged missing
-    // (01:00 the next morning still returns false).
-    expect(isEodMissing(null, 23, 2, 1)).toBe(false);
+  it("wraps past midnight for a night shift", () => {
+    // Shift ends 23:00 with 2h grace, so the EOD is overdue from 01:00.
+    expect(isEodMissing(null, 23, 2, 1)).toBe(true);
+    expect(isEodMissing(null, 23, 2, 6)).toBe(true);
+    expect(isEodMissing(null, 23, 2, 22)).toBe(true);
+    // Not yet overdue: still inside the grace window.
+    expect(isEodMissing(null, 23, 2, 0)).toBe(false);
+    // The shift-end hour itself is the new shift's window, not overdue.
+    expect(isEodMissing(null, 23, 2, 23)).toBe(false);
+  });
+
+  it("still reports a submitted night-shift EOD as present", () => {
+    expect(isEodMissing(submission("submitted"), 23, 2, 6)).toBe(false);
+  });
+
+  it("handles a cutoff landing exactly on midnight", () => {
+    // 22:00 + 2h = 24:00 -> wraps to 00:00, overdue from midnight to 21:00.
+    expect(isEodMissing(null, 22, 2, 0)).toBe(true);
+    expect(isEodMissing(null, 22, 2, 21)).toBe(true);
+    expect(isEodMissing(null, 22, 2, 22)).toBe(false);
   });
 });
 

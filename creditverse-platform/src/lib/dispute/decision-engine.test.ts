@@ -90,12 +90,10 @@ describe("decideDisputePath", () => {
     expect(withNew.flags).toContain("New evidence attached — supports non-frivolous escalation");
   });
 
-  it("never reaches the potential-compliance-failure branch", () => {
-    // NOTE: possible bug — the "Round 3+ and prior disputes failed" branch
-    // requires wasVerifiedPrior && evidenceContradictsVerification, but the
-    // earlier verified-but-contradicted branch returns first for every round
-    // >= 2, so this input yields "procedure-request" instead of
-    // "potential-compliance-failure" and never sets humanReviewRequired.
+  it("escalates to potential compliance failure at round 3+ with repeated verified results", () => {
+    // The narrowest case: repeatedly verified despite contradicting evidence.
+    // This is the only state that demands human review, so it must win over
+    // the broader verified-but-contradicted branch.
     const d = decide({
       round: 3,
       priorDisputeCount: 2,
@@ -103,9 +101,50 @@ describe("decideDisputePath", () => {
       evidenceContradictsVerification: true,
       hasEvidence: true,
     });
-    expect(d.pathway).toBe("procedure-request");
-    expect(d.state).not.toBe("potential-compliance-failure");
-    expect(d.humanReviewRequired).toBe(false);
+    expect(d.state).toBe("potential-compliance-failure");
+    expect(d.pathway).toBe("potential-compliance");
+    expect(d.humanReviewRequired).toBe(true);
+    expect(d.legalCitations).toEqual([
+      "15 U.S.C. § 1681n",
+      "15 U.S.C. § 1681o",
+    ]);
+    // It must never assert liability on its own (rule 9).
+    expect(d.flags.join(" ")).toMatch(/human\/counsel decides/);
+  });
+
+  it("still uses procedure-request when the compliance preconditions are not met", () => {
+    // Round 2 is too early for a compliance escalation.
+    expect(
+      decide({
+        round: 2,
+        priorDisputeCount: 2,
+        wasVerifiedPrior: true,
+        evidenceContradictsVerification: true,
+        hasEvidence: true,
+      }).pathway,
+    ).toBe("procedure-request");
+
+    // Round 3 but only one prior dispute.
+    expect(
+      decide({
+        round: 3,
+        priorDisputeCount: 1,
+        wasVerifiedPrior: true,
+        evidenceContradictsVerification: true,
+        hasEvidence: true,
+      }).pathway,
+    ).toBe("procedure-request");
+
+    // Round 3, enough priors, but no evidence attached.
+    expect(
+      decide({
+        round: 3,
+        priorDisputeCount: 2,
+        wasVerifiedPrior: true,
+        evidenceContradictsVerification: true,
+        hasEvidence: false,
+      }).pathway,
+    ).toBe("procedure-request");
   });
 
   it("goes direct to the furnisher at round 3+ with the Reg V CRO caveat", () => {

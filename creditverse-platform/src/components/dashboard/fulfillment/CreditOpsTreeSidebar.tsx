@@ -29,6 +29,7 @@ import {
   Building2,
   LayoutDashboard,
   BarChart3,
+  Webhook,
 } from "lucide-react";
 import { seedFulfillmentClients } from "@/lib/fulfillment/fulfillment-client-seed";
 import {
@@ -81,6 +82,9 @@ const MANAGEMENT_VIEWS = [
     icon: BarChart3,
   },
   { id: "mgmt-bureau-queue", label: "Bureau Calling", icon: BarChart3 },
+  /* The outbound-CRM signal log: what this platform pushed to GHL /
+     DisputeFox and when. An audit trail needs a screen (rule 10). */
+  { id: "mgmt-webhooks", label: "CRM Signal Log", icon: Webhook },
 ];
 
 export function CreditOpsTreeSidebar({

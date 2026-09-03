@@ -7,10 +7,6 @@
  * Filtering, the toolbar and the outsourcing-group card are shared with
  * CreditOps; this file supplies the FundingOps store, columns, statuses and
  * its own sort fields.
- *
- * NOTE: this panel is not currently routed anywhere — FundingOps navigates via
- * the Deal List instead. Kept because it is the FundingOps counterpart to the
- * live CreditOps client list; wiring or archiving it is a product decision.
  */
 
 import { useEffect, useMemo, useState } from "react";

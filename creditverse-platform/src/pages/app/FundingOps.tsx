@@ -31,6 +31,7 @@ import { FundingOpsManagementDashboard } from "@/components/dashboard/fulfillmen
 import { FundingGlobalQueue } from "@/components/dashboard/fulfillment/FundingGlobalQueue";
 import { FundingOpsDashboardView } from "@/components/dashboard/fulfillment/FundingOpsDashboardView";
 import { FundingDealListPanel } from "@/components/dashboard/fulfillment/FundingDealListPanel";
+import { FundingClientsPanel } from "@/components/dashboard/fulfillment/FundingClientsPanel";
 import { FundingClientWorkspace } from "@/components/dashboard/fulfillment/FundingClientWorkspace";
 import { FundingQueueView } from "@/components/dashboard/fulfillment/FundingQueueViews";
 import { FundingDealWorkspace } from "@/components/dashboard/fulfillment/FundingDealWorkspace";
@@ -250,6 +251,14 @@ function ManagementView({
           onNavigateToView={onNavigateToView}
           onOpenClient={onOpenClient}
         />
+      </div>
+    );
+  }
+
+  if (view === "mgmt-client-list") {
+    return (
+      <div className="p-6">
+        <FundingClientsPanel selectedScope="all" />
       </div>
     );
   }

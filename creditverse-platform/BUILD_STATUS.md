@@ -196,6 +196,45 @@ code problems:
 77% of the original duplication removed. Zero circular dependencies, zero lint
 errors, 116 tests passing.
 
+### 2026-09-03 — Four outstanding items closed, plus one found while closing them
+
+**1. EOD "missing" could not wrap past midnight.** `isEodMissing` computed
+`shiftEnd + grace` without modulo, so a 23:00 shift produced a cutoff of 25 —
+an hour no clock reaches — and a night-shift EOD was never flagged. Now wraps:
+overdue from the small-hours cutoff until the shift-end hour. Non-wrapping
+shifts (the 17:00 + 2h default) behave exactly as before. 3 new tests.
+
+**2. The strongest dispute escalation was unreachable.** In
+`decideDisputePath`, the "potential compliance failure" branch is a strict
+subset of the broader "verified but evidence contradicts" branch — but sat
+*below* it, so the broader branch always returned first. The only state that
+sets `humanReviewRequired` could never be produced. Branches reordered
+(specific before general) with a comment explaining why the order matters.
+Tests now assert both that the escalation fires at round 3+ with 2+ priors and
+evidence, and that it does NOT fire when any precondition is missing.
+
+**3. The CRM signal log had no screen.** `CreditOpsWebhookPanel` records what
+the platform pushed to GHL / DisputeFox and when — an audit trail with no way
+to view it (rule 10 gap). Now a "CRM Signal Log" management view in CreditOps.
+
+**4. FundingOps had no client list.** CreditOps has one; FundingOps navigated
+only by Deal List, leaving `FundingClientsPanel` orphaned. Added a "Client
+List" management view alongside Deal List, giving the divisions parity.
+
+**5. Found by doing #3 — every status change posted to the CRM twice.** With
+the signal log finally visible, a single transition logged two identical
+emissions. Cause: `CreditOpsGlobalQueue.commitStatus` called
+`webhooks.pushStatusChange` directly *and* `store.updateStatus`, which already
+forwards to the same bridge via `WebhookBridge`. Pre-existing. In production
+this would have double-posted every status change to GHL — duplicate pipeline
+moves and duplicate automation triggers. The redundant push is removed;
+verified one transition now records exactly one emission (was two).
+
+**Orphans: zero.** Every component in `src/` outside `_archive/` and the
+shadcn UI kit is now reachable.
+
+119 tests, 0 lint errors, 0 circular dependencies, build clean.
+
 **Next (Phase 3):** CreditOps Agency Fulfillment Workspace on live data — `fulfillment_enrollments` (both intake modes), outsourcing groups, department statuses, Complete Work writing `production_logs`, outbound webhook deliveries.
 
 ---
