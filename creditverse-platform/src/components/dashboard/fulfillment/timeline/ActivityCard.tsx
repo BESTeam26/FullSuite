@@ -3,7 +3,6 @@
  * Human comments get rich formatting + attachments + pin/mark controls;
  * system events render as plain activity rows.
  */
-import { useRef, useState, useEffect } from "react";
 import { User, FileText, Pin, PinOff } from "lucide-react";
 import type {
   ActivityEntry,

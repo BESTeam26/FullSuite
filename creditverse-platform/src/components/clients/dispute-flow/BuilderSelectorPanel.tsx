@@ -10,24 +10,16 @@ import { useState } from "react";
 import {
   FileText,
   Layers,
-  Clock,
   Building2,
-  CheckCircle2,
   Sparkles,
-  Zap,
   Snowflake,
-  ShieldAlert,
   PlayCircle,
   ChevronRight,
   ShieldCheck,
-  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  SECONDARY_BUREAUS,
-  type SecondaryBureau,
-} from "@/lib/dispute/letters-and-channels";
+import { SECONDARY_BUREAUS } from "@/lib/dispute/letters-and-channels";
 import type { DisputePackage } from "@/lib/dispute/package-builder";
 
 export type BuilderMode =

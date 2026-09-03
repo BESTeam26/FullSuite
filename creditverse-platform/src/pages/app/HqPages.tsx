@@ -1,5 +1,4 @@
 import type { ReactNode, ElementType } from "react";
-import { useAgency } from "@/lib/agency-context";
 import {
   DivisionTable,
   ContentCard,
@@ -19,7 +18,6 @@ import {
   PlayCircle,
   PauseCircle,
   ShieldAlert,
-  Receipt,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */

@@ -762,6 +762,50 @@ reports `canAssign: false`, and the cell renders as text with an explanation.
   store should be threaded onto it before white-label resale.
 - **FundingOps has no backend at all** (Phase 5).
 
+### 2026-09-03 — History scrub completed, and the damage it caused
+
+**The sensitive values are gone from every commit.** Confirmed with
+`git grep` across all 35 revisions — not with `git log -S`, which only reads
+commit diffs and misses a value sitting unchanged in a file. Zero hits for the
+SSN, the date of birth, the address, the phone number, the note's author name,
+and the password. The only SSN-shaped string left anywhere in history is the
+`000-00-0000` placeholder.
+
+Two passes were needed. The first left a bare `(408) …` phone number in
+`supabase/seed_creditops.sql` because the pattern only matched the `+1 (408) …`
+form. That number was also live in the database on a seeded client row and has
+been replaced there too.
+
+**The scrub damaged `auth-context.tsx`, and that damage is permanent in
+history.** The `Password:` pattern is a substring of `signInWithPassword:` and
+`resetPassword:`, so it matched both signatures in `AuthContextValue` and
+deleted the rest of each line. HEAD is repaired and compiles; **the historical
+commits do not**.
+
+This is **accepted, not fixed**, and the reasoning matters. A repair pass cannot
+reconstruct what was deleted: the signature was a single line in earlier commits
+and prettier-wrapped across four lines in later ones, so the correct replacement
+differs per commit and the original text no longer exists anywhere to copy from.
+Weighed against that: the security objective is fully met, HEAD builds and
+tests clean, there is no remote and no other clone, and a third full-history
+rewrite carries its own risk — the first one is what caused this. The cost of
+older commits not compiling is that `git bisect` across them would fail. That
+is the whole impact.
+
+**Lesson recorded for anyone scripting a scrub here:** anchor patterns to a word
+boundary, and diff the result against the original before rewriting history. A
+substring match inside an identifier is exactly how this happened.
+
+**Verified after all of it:** tsc clean, 0 lint errors, 119/119 tests, build
+clean, no circular dependencies, no orphans, duplication 1.60%. `verify:live`
+passes all checks, now including the three functions added this session and the
+append-only assertions on `activity_events`. Driving the live app end-to-end
+through the interface: a status change writes the row, produces exactly one
+audit event and one webhook delivery record, and the test data was restored.
+
+Backups of every stage are at `~/BES-Platform-backup-*.bundle`,
+`~/pre-rewrite-*.bundle` and `~/post-pass1-*.bundle`.
+
 ## Next steps for Claude Code
 
 1. Connect Supabase Auth + RLS for organization isolation

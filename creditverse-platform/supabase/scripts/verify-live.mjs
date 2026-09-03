@@ -167,6 +167,9 @@ if (schemaPushed) {
     ["can_view_org", { p_org: ZERO_UUID }],
     ["can_view_work", { p_scope: "AGENCY", p_org: null, p_subject_org: null }],
     ["log_audit", { p_action: "probe", p_entity_type: "probe", p_entity_id: "probe" }],
+    // Added with the branding merge (migration 0009). Writes to a tenant row,
+    // so an anonymous caller must never reach it.
+    ["merge_organization_branding", { p_org: ZERO_UUID, p_patch: {} }],
   ];
 
   const missingRpc = [];
@@ -195,6 +198,23 @@ if (schemaPushed) {
     fail(
       `anon can EXECUTE: ${anonCallable.join(", ")} — revoke EXECUTE from public and anon`,
     );
+  }
+
+  // Trigger functions run as their definer. They are not reachable through
+  // PostgREST, but migrations 0003/0004 taught us that a function can be
+  // exposed by two independent grants, so absence is asserted rather than
+  // assumed.
+  for (const fn of [
+    "log_fulfillment_client_activity",
+    "log_department_status_activity",
+  ]) {
+    const res = await rest(`/rpc/${fn}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    if (res.ok) fail(`${fn} is CALLABLE by anon — revoke EXECUTE`);
+    else pass(`${fn} not callable by anon (${res.status})`);
   }
 
   const boot = await rest("/rpc/bootstrap_agency_owner", {
@@ -270,6 +290,30 @@ if (!schemaPushed) {
   else pass(`anonymous insert rejected (${res.status})`);
 } catch (e) {
   pass(`anonymous insert rejected (${e.message})`);
+}
+
+/* ---- 4. the audit trail must be append-only ---- */
+// Migration 0008 exists because DELETE was refused but UPDATE was not, letting
+// a signed-in manager silently rewrite what a record said had happened. The
+// anonymous case is asserted here; the authenticated case is covered by the
+// column-level grant, which no anonymous probe can observe.
+console.log("\nAudit trail is append-only (anonymous caller)");
+if (!schemaPushed) {
+  warn("skipped — apply the schema first");
+} else {
+  for (const [verb, method] of [["UPDATE", "PATCH"], ["DELETE", "DELETE"]]) {
+    try {
+      const res = await rest("/activity_events?id=eq.0", {
+        method,
+        headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
+        ...(method === "PATCH" ? { body: JSON.stringify({ new_value: "probe" }) } : {}),
+      });
+      if (res.ok) fail(`anonymous ${verb} on activity_events SUCCEEDED`);
+      else pass(`anonymous ${verb} rejected (${res.status})`);
+    } catch (e) {
+      pass(`anonymous ${verb} rejected (${e.message})`);
+    }
+  }
 }
 
 /* ---- verdict ---- */
