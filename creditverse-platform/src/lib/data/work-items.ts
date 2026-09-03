@@ -6,11 +6,12 @@
  * FOR their organization (done-for-you transparency).
  */
 import { requireSupabase } from "@/lib/supabase/client";
-import type { Enums, Tables, Views } from "@/lib/supabase/database.types";
+import type { Enums, Tables } from "@/lib/supabase/database.types";
 import type { WorkItem, WorkRelatedType, WorkScope, WorkStage } from "@/lib/bes-domain";
 
 export type WorkItemRow = Tables<"work_items">;
-export type AttentionRow = Views<"work_attention">;
+/* The generated Tables<> helper resolves views as well as tables. */
+export type AttentionRow = Tables<"work_attention">;
 export type ActivityRow = Tables<"activity_events">;
 export type AssignableProfile = {
   id: string;

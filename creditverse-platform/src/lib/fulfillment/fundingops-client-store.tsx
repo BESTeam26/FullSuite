@@ -49,6 +49,9 @@ const store = createOpsClientStore<FundingClient, FundingDepartmentStatus>({
   seedDepartmentStatuses: seedFundingDepartmentStatuses,
   activityIdPrefix: "fact",
   clientIdPrefix: "ffc",
+  queryKey: "fundingops",
+  /* No `live` backend: FundingOps has no tables yet, so this division stays on
+     seed data even when the app is in live mode. Phase 5 supplies one. */
 });
 
 export const FundingOpsStoreProvider = store.Provider;

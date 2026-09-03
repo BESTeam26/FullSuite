@@ -10,6 +10,7 @@
 import { describe, it, expect } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import type { ReactNode } from "react";
+import { AuthProvider } from "@/lib/auth/auth-context";
 import { createOpsClientStore } from "./ops-client-store";
 import type { OpsClient } from "./ops-client-domain";
 
@@ -63,9 +64,16 @@ function setup() {
     seedDepartmentStatuses: () => [{ department: "Dispute" }],
     activityIdPrefix: "test",
     clientIdPrefix: "tc",
+    queryKey: "test",
+    /* No live backend: these tests exercise the seed-data path deliberately. */
   });
+  /* The store picks its implementation from auth mode, so it needs the auth
+     context. With no Supabase credentials in the test environment that mode is
+     "demo", which is the seed-data path these tests target. */
   const wrapper = ({ children }: { children: ReactNode }) => (
-    <store.Provider>{children}</store.Provider>
+    <AuthProvider>
+      <store.Provider>{children}</store.Provider>
+    </AuthProvider>
   );
   return renderHook(() => store.useStore(), { wrapper });
 }

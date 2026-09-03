@@ -3,8 +3,13 @@
  *
  * This is the SINGLE source of truth for the CreditOps fulfillment workspace:
  * the Main Client List, every Queue and the Client Work workspace all read from
- * and write to it. Behaviour lives in createOpsClientStore; this file supplies
- * the CreditOps seed data, department seeding and id prefixes.
+ * and write to it.
+ *
+ * Dual-mode. In live mode it reads and writes `fulfillment_clients` and friends
+ * through the data layer; without Supabase credentials it falls back to seed
+ * data so the workspace stays explorable. Behaviour lives in
+ * createOpsClientStore; this file supplies the CreditOps seed data, department
+ * seeding, id prefixes and the live backend.
  */
 
 import { seedFulfillmentClients } from "@/lib/fulfillment/fulfillment-client-seed";
@@ -20,8 +25,18 @@ import {
 import {
   createOpsClientStore,
   type AddClientOutcome as OpsAddClientOutcome,
+  type OpsClientLiveBackend,
   type StatusChangeHandler as OpsStatusChangeHandler,
 } from "@/lib/fulfillment/ops-client-store";
+import {
+  createFulfillmentClient,
+  fetchDepartmentStatuses,
+  fetchFulfillmentClients,
+  logProduction,
+  updateClientContact,
+  updateClientStatus,
+} from "@/lib/data/fulfillment-clients";
+import type { Enums } from "@/lib/supabase/database.types";
 
 export type StatusChangeHandler = OpsStatusChangeHandler;
 export type AddClientOutcome = OpsAddClientOutcome<FulfillmentClient>;
@@ -38,11 +53,60 @@ export const ELIGIBLE_ASSIGNEES = [
   "Unassigned",
 ];
 
+/**
+ * The agency these records belong to. Seeded as the single BES agency; when
+ * white-label resale arrives this comes from the signed-in user's membership.
+ */
+const AGENCY_ID = "a0000000-0000-4000-8000-000000000001";
+
+/**
+ * Assignees are still names rather than profile rows — the scoped assignee
+ * picker becomes real in Phase 4 alongside Workforce. Until then a name cannot
+ * be resolved to a profile id, so assignment is not persisted rather than
+ * written against the wrong person (rule 4: never infer identity from a name).
+ */
+const live: OpsClientLiveBackend<FulfillmentClient, DepartmentStatus> = {
+  fetchClients: fetchFulfillmentClients,
+  fetchDepartmentStatuses,
+  updateStatus: (clientId, status) =>
+    updateClientStatus(clientId, status as Enums<"fulfillment_client_status">),
+  updateAssignee: async () => {
+    throw new Error(
+      "Assignment is not connected yet — it needs the Workforce directory (Phase 4).",
+    );
+  },
+  updateContact: updateClientContact,
+  addClient: (client) =>
+    createFulfillmentClient({
+      agencyId: AGENCY_ID,
+      name: client.name,
+      email: client.email,
+      phone: client.phone,
+      mode: client.mode,
+      organizationId: client.organizationId,
+      outsourcingGroupId: client.outsourcingGroupId,
+      autoSync: client.autoSync,
+      status: client.status as Enums<"fulfillment_client_status">,
+      round: client.round as Enums<"fulfillment_round">,
+    }),
+  logProduction: async (input) =>
+    logProduction({
+      agencyId: AGENCY_ID,
+      clientId: input.clientId,
+      department: input.department as Enums<"fulfillment_department">,
+      productionUnitType: input.department,
+      actions: input.actions,
+      workNotes: input.workNotes,
+    }),
+};
+
 const store = createOpsClientStore<FulfillmentClient, DepartmentStatus>({
   seedClients: seedFulfillmentClients,
   seedDepartmentStatuses,
   activityIdPrefix: "act",
   clientIdPrefix: "fc",
+  queryKey: "creditops",
+  live,
 });
 
 export const CreditOpsStoreProvider = store.Provider;
