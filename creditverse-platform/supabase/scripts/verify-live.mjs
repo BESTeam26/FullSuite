@@ -88,6 +88,13 @@ const EXPECTED_TABLES = [
   "activity_events",
   "files",
   "work_attention",
+  // Phase 3 — CreditOps fulfillment
+  "outsourcing_groups",
+  "fulfillment_clients",
+  "client_department_statuses",
+  "production_logs",
+  "webhook_endpoints",
+  "webhook_deliveries",
 ];
 
 /**
@@ -215,6 +222,12 @@ if (!schemaPushed) {
     "files",
     "audit_log",
     "agency_memberships",
+    "fulfillment_clients",
+    "outsourcing_groups",
+    "client_department_statuses",
+    "production_logs",
+    "webhook_endpoints",
+    "webhook_deliveries",
   ];
   for (const table of mustBeEmpty) {
     const r = probes[table];
