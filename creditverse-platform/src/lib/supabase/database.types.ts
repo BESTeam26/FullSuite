@@ -318,6 +318,85 @@ export type Database = {
           },
         ];
       };
+      eod_submissions: {
+        Row: {
+          additional_notes: string | null;
+          agency_id: string;
+          blockers: string | null;
+          created_at: string;
+          employee_id: string;
+          escalations: string | null;
+          id: string;
+          next_workday_priority: string | null;
+          review_note: string | null;
+          reviewed_at: string | null;
+          reviewed_by: string | null;
+          state: Database["public"]["Enums"]["eod_state"];
+          submitted_at: string | null;
+          unfinished_work: string | null;
+          updated_at: string;
+          work_date: string;
+        };
+        Insert: {
+          additional_notes?: string | null;
+          agency_id: string;
+          blockers?: string | null;
+          created_at?: string;
+          employee_id: string;
+          escalations?: string | null;
+          id?: string;
+          next_workday_priority?: string | null;
+          review_note?: string | null;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          state?: Database["public"]["Enums"]["eod_state"];
+          submitted_at?: string | null;
+          unfinished_work?: string | null;
+          updated_at?: string;
+          work_date: string;
+        };
+        Update: {
+          additional_notes?: string | null;
+          agency_id?: string;
+          blockers?: string | null;
+          created_at?: string;
+          employee_id?: string;
+          escalations?: string | null;
+          id?: string;
+          next_workday_priority?: string | null;
+          review_note?: string | null;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          state?: Database["public"]["Enums"]["eod_state"];
+          submitted_at?: string | null;
+          unfinished_work?: string | null;
+          updated_at?: string;
+          work_date?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "eod_submissions_agency_id_fkey";
+            columns: ["agency_id"];
+            isOneToOne: false;
+            referencedRelation: "agencies";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "eod_submissions_employee_id_fkey";
+            columns: ["employee_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "eod_submissions_reviewed_by_fkey";
+            columns: ["reviewed_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       external_memberships: {
         Row: {
           created_at: string;
@@ -947,6 +1026,97 @@ export type Database = {
           },
         ];
       };
+      time_entries: {
+        Row: {
+          agency_id: string;
+          client_id: string | null;
+          created_at: string;
+          division_id: string;
+          duration_minutes: number | null;
+          employee_id: string;
+          ended_at: string | null;
+          id: string;
+          organization_id: string | null;
+          started_at: string;
+          task_note: string | null;
+          work_date: string;
+          work_item_id: string | null;
+        };
+        Insert: {
+          agency_id: string;
+          client_id?: string | null;
+          created_at?: string;
+          division_id?: string;
+          duration_minutes?: number | null;
+          employee_id: string;
+          ended_at?: string | null;
+          id?: string;
+          organization_id?: string | null;
+          started_at?: string;
+          task_note?: string | null;
+          work_date?: string;
+          work_item_id?: string | null;
+        };
+        Update: {
+          agency_id?: string;
+          client_id?: string | null;
+          created_at?: string;
+          division_id?: string;
+          duration_minutes?: number | null;
+          employee_id?: string;
+          ended_at?: string | null;
+          id?: string;
+          organization_id?: string | null;
+          started_at?: string;
+          task_note?: string | null;
+          work_date?: string;
+          work_item_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "time_entries_agency_id_fkey";
+            columns: ["agency_id"];
+            isOneToOne: false;
+            referencedRelation: "agencies";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "time_entries_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "fulfillment_clients";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "time_entries_employee_id_fkey";
+            columns: ["employee_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "time_entries_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "time_entries_work_item_id_fkey";
+            columns: ["work_item_id"];
+            isOneToOne: false;
+            referencedRelation: "work_attention";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "time_entries_work_item_id_fkey";
+            columns: ["work_item_id"];
+            isOneToOne: false;
+            referencedRelation: "work_items";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       user_preferences: {
         Row: {
           pinned_org_ids: string[];
@@ -1352,6 +1522,8 @@ export type Database = {
         | "agency_manager"
         | "agency_team_lead"
         | "agency_agent";
+      eod_state:
+        "draft" | "submitted" | "needs_clarification" | "reviewed" | "approved";
       external_role:
         | "brm"
         | "sales_partner"
@@ -1570,6 +1742,13 @@ export const Constants = {
         "agency_manager",
         "agency_team_lead",
         "agency_agent",
+      ],
+      eod_state: [
+        "draft",
+        "submitted",
+        "needs_clarification",
+        "reviewed",
+        "approved",
       ],
       external_role: [
         "brm",

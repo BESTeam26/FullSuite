@@ -806,6 +806,62 @@ audit event and one webhook delivery record, and the test data was restored.
 Backups of every stage are at `~/BES-Platform-backup-*.bundle`,
 `~/pre-rewrite-*.bundle` and `~/post-pass1-*.bundle`.
 
+### 2026-09-03 — Phase 4: Time Tracking and auto-derived EOD ✅ live
+
+The engine was already written and unit-tested, and `production_logs` was
+already being written by Complete Work, so EOD had a real source from the first
+day. What was missing was where clock events live and where shift context is
+kept.
+
+**Schema (migration 0010).** `time_entries` and `eod_submissions`, with the
+engine's rules enforced in the database rather than the interface:
+
+- *One EOD per employee per work date* — a unique index, not a UI check.
+- *Employees never enter production totals* — there is no totals column to
+  write. Totals are derived at read time from the logs, so a stored figure can
+  never drift from the rows it claims to summarise.
+- *One running clock per person* — a partial unique index on the open entry. A
+  double-click on Clock In now returns a clear message instead of two
+  overlapping entries that quietly corrupt every total after them.
+- `duration_minutes` is a generated column, so no caller repeats the arithmetic.
+- No DELETE policy on either table: time and EOD are operational history
+  (rule 11). Corrections are status transitions.
+- EOD state changes write to `activity_events`, the same treatment CreditOps
+  status changes got.
+
+**Layers.** `time-domain.ts` holds the deterministic rules (14 new tests);
+`data/time-entries.ts` and `data/eod.ts` are the repositories;
+`data/use-time.ts` is the dual-mode application layer; the pages render and
+compute nothing. My Time and EOD were extracted out of `HqPages.tsx` while
+being wired — that file already carried six unrelated pages, and it dropped
+from 520 to 303 lines.
+
+**Verified against the live database by driving the interface**, not by calling
+the API:
+
+| Check | Result |
+|---|---|
+| Clock In writes a row with division and note | ✅ |
+| Second Clock In refused by the index | ✅ `23505` |
+| Clock Out closes it, database computes the duration | ✅ |
+| EOD derives totals from real production logs | ✅ 2 units from 2 logs |
+| Save draft, then Submit, sets state and timestamp | ✅ |
+| Second EOD for the same day refused | ✅ `23505` |
+| Audit trail records both transitions with the actor | ✅ |
+| **Voiding a log drops the total and keeps the log visible** | ✅ 2 → 1 |
+
+Test data was restored: the voided log un-voided, the EOD returned to draft with
+its test text cleared. One 0-minute time entry remains — it is a real record of
+a real action and the table is append-only by design.
+
+`verify:live` now covers 24 tables and asserts both new tables deny anonymous
+reads. tsc clean, 0 lint errors, 133/133 tests, build clean, no circular
+dependencies.
+
+**Not done in this phase:** assignment still needs the Workforce people
+directory before `canAssign` can be true, and the hardcoded `AGENCY_ID` in
+`creditops-client-store` should move to `auth.agencyId` now that it exists.
+
 ## Next steps for Claude Code
 
 1. Connect Supabase Auth + RLS for organization isolation

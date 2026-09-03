@@ -100,8 +100,12 @@ const hq = () => import("./pages/app/HqPages");
 const hq2 = () => import("./pages/app/HqPages2");
 const AttentionCenter = lazy(named(hq, "AttentionCenter"));
 const MyWorkPage = lazy(named(hq, "MyWorkPage"));
-const MyTimePage = lazy(named(hq, "MyTimePage"));
-const EodPage = lazy(named(hq, "EodPage"));
+// Time and EOD now load real data, so they live in their own modules and
+// lazy-load independently of the other HQ pages.
+const MyTimePage = lazy(
+  named(() => import("./pages/app/MyTimePage"), "MyTimePage"),
+);
+const EodPage = lazy(named(() => import("./pages/app/EodPage"), "EodPage"));
 const NotificationsPage = lazy(named(hq, "NotificationsPage"));
 const PeoplePage = lazy(named(hq2, "PeoplePage"));
 const TeamsPage = lazy(named(hq2, "TeamsPage"));

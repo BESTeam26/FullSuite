@@ -276,13 +276,11 @@ export async function togglePinnedOrg(userId: string, orgId: string) {
   const pinned = prefs.pinned_org_ids.includes(orgId)
     ? prefs.pinned_org_ids.filter((id) => id !== orgId)
     : [...prefs.pinned_org_ids, orgId];
-  const { error } = await sb
-    .from("user_preferences")
-    .upsert({
-      user_id: userId,
-      pinned_org_ids: pinned,
-      recent_org_ids: prefs.recent_org_ids,
-    });
+  const { error } = await sb.from("user_preferences").upsert({
+    user_id: userId,
+    pinned_org_ids: pinned,
+    recent_org_ids: prefs.recent_org_ids,
+  });
   if (error) throw error;
 }
 
@@ -293,13 +291,11 @@ export async function pushRecentOrg(userId: string, orgId: string) {
     orgId,
     ...prefs.recent_org_ids.filter((id) => id !== orgId),
   ].slice(0, 5);
-  await sb
-    .from("user_preferences")
-    .upsert({
-      user_id: userId,
-      pinned_org_ids: prefs.pinned_org_ids,
-      recent_org_ids: recent,
-    });
+  await sb.from("user_preferences").upsert({
+    user_id: userId,
+    pinned_org_ids: prefs.pinned_org_ids,
+    recent_org_ids: recent,
+  });
 }
 
 /** Fetch the caller's agency id (first membership). */

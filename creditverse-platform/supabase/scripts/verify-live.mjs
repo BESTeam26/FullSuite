@@ -25,7 +25,9 @@ function loadEnv() {
   const out = {};
   for (const file of [".env.local", ".env"]) {
     try {
-      for (const line of readFileSync(resolve(root, file), "utf8").split("\n")) {
+      for (const line of readFileSync(resolve(root, file), "utf8").split(
+        "\n",
+      )) {
         const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
         if (m && !(m[1] in out)) out[m[1]] = m[2].replace(/^["']|["']$/g, "");
       }
@@ -57,7 +59,9 @@ if (!url || !key) {
 }
 
 const ref = url.replace(/^https:\/\//, "").split(".")[0];
-console.log(`\nProject: ${ref}  (anon key ${key.slice(0, 6)}…${key.slice(-4)})\n`);
+console.log(
+  `\nProject: ${ref}  (anon key ${key.slice(0, 6)}…${key.slice(-4)})\n`,
+);
 
 const rest = (path, init = {}) =>
   fetch(`${url}/rest/v1${path}`, {
@@ -95,6 +99,8 @@ const EXPECTED_TABLES = [
   "production_logs",
   "webhook_endpoints",
   "webhook_deliveries",
+  "time_entries",
+  "eod_submissions",
 ];
 
 /**
@@ -166,7 +172,10 @@ if (schemaPushed) {
     ["is_org_member", { p_org: ZERO_UUID }],
     ["can_view_org", { p_org: ZERO_UUID }],
     ["can_view_work", { p_scope: "AGENCY", p_org: null, p_subject_org: null }],
-    ["log_audit", { p_action: "probe", p_entity_type: "probe", p_entity_id: "probe" }],
+    [
+      "log_audit",
+      { p_action: "probe", p_entity_type: "probe", p_entity_id: "probe" },
+    ],
     // Added with the branding merge (migration 0009). Writes to a tenant row,
     // so an anonymous caller must never reach it.
     ["merge_organization_branding", { p_org: ZERO_UUID, p_patch: {} }],
@@ -225,7 +234,9 @@ if (schemaPushed) {
   if (boot.ok) {
     fail("bootstrap_agency_owner is CALLABLE by anon — it must be revoked");
   } else {
-    pass(`bootstrap_agency_owner not callable from the browser (${boot.status})`);
+    pass(
+      `bootstrap_agency_owner not callable from the browser (${boot.status})`,
+    );
   }
 }
 
@@ -248,6 +259,8 @@ if (!schemaPushed) {
     "production_logs",
     "webhook_endpoints",
     "webhook_deliveries",
+    "time_entries",
+    "eod_submissions",
   ];
   for (const table of mustBeEmpty) {
     const r = probes[table];
@@ -259,7 +272,9 @@ if (!schemaPushed) {
         pass(`${table}: denied (${r.detail})`);
         break;
       case "leaked":
-        fail(`${table}: LEAKED ${r.detail} to an anonymous caller — RLS is wrong`);
+        fail(
+          `${table}: LEAKED ${r.detail} to an anonymous caller — RLS is wrong`,
+        );
         break;
       case "missing":
         fail(`${table}: table does not exist`);
@@ -274,23 +289,27 @@ if (!schemaPushed) {
 console.log("\nWrite protection (anonymous caller)");
 if (!schemaPushed) {
   warn("skipped — apply the schema first");
-} else try {
-  const res = await rest("/organizations", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
-    body: JSON.stringify({
-      agency_id: "00000000-0000-0000-0000-000000000000",
-      name: "smoke-test-should-fail",
-      code: "SMOKE",
-      principal_name: "x",
-      principal_email: "x@example.com",
-    }),
-  });
-  if (res.ok) fail("an anonymous INSERT into organizations SUCCEEDED — policy is wrong");
-  else pass(`anonymous insert rejected (${res.status})`);
-} catch (e) {
-  pass(`anonymous insert rejected (${e.message})`);
-}
+} else
+  try {
+    const res = await rest("/organizations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
+      body: JSON.stringify({
+        agency_id: "00000000-0000-0000-0000-000000000000",
+        name: "smoke-test-should-fail",
+        code: "SMOKE",
+        principal_name: "x",
+        principal_email: "x@example.com",
+      }),
+    });
+    if (res.ok)
+      fail(
+        "an anonymous INSERT into organizations SUCCEEDED — policy is wrong",
+      );
+    else pass(`anonymous insert rejected (${res.status})`);
+  } catch (e) {
+    pass(`anonymous insert rejected (${e.message})`);
+  }
 
 /* ---- 4. the audit trail must be append-only ---- */
 // Migration 0008 exists because DELETE was refused but UPDATE was not, letting
@@ -301,12 +320,20 @@ console.log("\nAudit trail is append-only (anonymous caller)");
 if (!schemaPushed) {
   warn("skipped — apply the schema first");
 } else {
-  for (const [verb, method] of [["UPDATE", "PATCH"], ["DELETE", "DELETE"]]) {
+  for (const [verb, method] of [
+    ["UPDATE", "PATCH"],
+    ["DELETE", "DELETE"],
+  ]) {
     try {
       const res = await rest("/activity_events?id=eq.0", {
         method,
-        headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
-        ...(method === "PATCH" ? { body: JSON.stringify({ new_value: "probe" }) } : {}),
+        headers: {
+          "Content-Type": "application/json",
+          Prefer: "return=minimal",
+        },
+        ...(method === "PATCH"
+          ? { body: JSON.stringify({ new_value: "probe" }) }
+          : {}),
       });
       if (res.ok) fail(`anonymous ${verb} on activity_events SUCCEEDED`);
       else pass(`anonymous ${verb} rejected (${res.status})`);
