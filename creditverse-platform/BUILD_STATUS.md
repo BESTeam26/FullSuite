@@ -690,6 +690,78 @@ Also removed 11 dead imports (most pre-existing) found by scanning the touched
 files. Verified: tsc clean, 0 lint errors, 119/119 tests, build clean, no
 circular dependencies, no orphans, duplicated lines 1,233 → 1,146.
 
+### 2026-09-03 — Live verification, and the security work it turned up
+
+**Signed in against the live database as an agency owner and drove the app.**
+Phases 1–3 confirmed working on real data: profile and agency membership
+resolve, 5 organizations readable under RLS, and the CreditOps client list
+renders database rows — proven by the record ids being real UUIDs, not the
+seed's `fc-101`. A status change written through the interface landed in
+Postgres and was set back. The list *looked* like demo data only because the
+database was seeded with the same ten sample people; nothing distinguished
+them on screen, which is itself worth remembering.
+
+Also confirmed **nothing is sent to GHL or DisputeFox** — the outbound `fetch`
+is still commented out, so no traffic leaves the machine.
+
+**🔴 Personal data and credentials were hardcoded in the frontend.**
+`ClientWorkWorkspace` used an SSN, date of birth, home address and a consumer's
+plaintext portal password as the DEFAULT description for *every* client, so it
+rendered on every client screen. `AccountTab` held a full SSN behind a reveal
+toggle, and `AdditionalLoginsCard` held three bureau passwords. All present
+since the original GHL export (`8ca3c99`). Replaced with unambiguously fake
+placeholders and labelled as sample data. **The values remain in git history**
+until the rewrite below is run, and the exposed password should be treated as
+compromised regardless of what happens to the code.
+
+**Status changes were completely unaudited.** Changing a client's status — the
+most common daily action in CreditOps — wrote no activity row and no audit row;
+the client's Activity History read "No system activity logged yet". The
+`activity_events` triggers had been built on `work_items` only. Migration 0007
+adds the same pattern to `fulfillment_clients` and `client_department_statuses`,
+in the database so it cannot be skipped by a caller that forgets. Contact edits
+record *that* a field changed, never the value — an append-only timeline that
+quotes an email address becomes a second, unerasable copy of personal data.
+
+**The timeline was not actually append-only.** DELETE was correctly refused, but
+UPDATE succeeded: the policy meant to let an author pin their own comment also
+allowed rewriting `action`, `previous_value` and `new_value` on system rows.
+Demonstrated by rewriting a live row and restoring it. RLS cannot restrict
+columns, so migration 0008 revokes table-wide UPDATE and grants it back for
+`(pinned, mark)` only. Verified live: tampering is now "permission denied",
+deleting still fails, pinning still works.
+
+**`webhook_deliveries` had never held a row.** `recordWebhookDelivery` existed
+and nothing called it, so the CRM signal log vanished on refresh. Both the
+emitted and skipped paths now go through one `commit()` helper; the panel reads
+the recent log back on load. Skipped signals are recorded too — "we did not tell
+the CRM, and why" is the question the log exists to answer. "Clear log" now only
+clears the view, and says so.
+
+**Three older violations closed.** `updateOrganizationBranding` did
+read-merge-write across the network — not just two round trips (rule 14) but a
+lost update, where two people editing different fields lose one of the changes.
+Now one server-side `jsonb` merge under the row's lock, plus the audit row
+branding edits never wrote; verified with two concurrent patches, both survived.
+`pages/app/Clients.tsx` no longer carries its own client array: the data moved
+to a clearly-named seed module and the page wears the "Sample data" badge, since
+it was linked from the sidebar and showed invented credit scores as if real.
+Assignment stopped offering a control that always failed — `updateAssignee` is
+now *absent* from the CreditOps backend rather than a throwing stub, the store
+reports `canAssign: false`, and the cell renders as text with an explanation.
+
+**Outstanding.**
+
+- **Git history still contains the SSN and password.** The rewrite is prepared
+  (`~/bes-scrub-history.py`, backups at `~/*.bundle`) but is blocked from
+  running automatically because it rewrites all 33 commits. Dee runs it.
+- **Assignment needs the Workforce directory (Phase 4).** Names are not
+  identities (rule 4), so this stays read-only until profiles carry ids.
+- **The hardcoded `AGENCY_ID`** in `creditops-client-store` is still a constant.
+  `auth-context` now exposes `agencyId` from the user's own membership; the
+  store should be threaded onto it before white-label resale.
+- **FundingOps has no backend at all** (Phase 5).
+
 ## Next steps for Claude Code
 
 1. Connect Supabase Auth + RLS for organization isolation
