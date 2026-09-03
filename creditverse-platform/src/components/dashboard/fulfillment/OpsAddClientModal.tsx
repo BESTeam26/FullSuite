@@ -15,9 +15,9 @@ import { useState, type ReactNode } from "react";
 import { X, UserPlus, AlertTriangle, ShieldAlert } from "lucide-react";
 import {
   clientGroupLabel,
+  type ClientConflictResult,
   type OpsClient,
 } from "@/lib/fulfillment/ops-client-domain";
-import type { AddClientOutcome } from "@/lib/fulfillment/ops-client-store";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^[\d\s()+-]{7,}$/;
@@ -52,9 +52,12 @@ interface OpsAddClientModalProps<T extends OpsClient> {
   buildPayload: (
     common: CommonClientFields,
   ) => Omit<T, "id" | "lastActivity" | "createdAt">;
-  onAdd: (
+  /** Reports what this record would collide with, WITHOUT writing anything. */
+  onCheckConflict: (
     payload: Omit<T, "id" | "lastActivity" | "createdAt">,
-  ) => AddClientOutcome<T>;
+  ) => ClientConflictResult<T>;
+  /** Commits the record. Only called once the add is actually authorised. */
+  onAdd: (payload: Omit<T, "id" | "lastActivity" | "createdAt">) => void;
 }
 
 export function OpsAddClientModal<T extends OpsClient>({
@@ -69,6 +72,7 @@ export function OpsAddClientModal<T extends OpsClient>({
   extraField,
   onResetExtras,
   buildPayload,
+  onCheckConflict,
   onAdd,
 }: OpsAddClientModalProps<T>) {
   const [name, setName] = useState("");
@@ -114,30 +118,35 @@ export function OpsAddClientModal<T extends OpsClient>({
 
   const handleSave = () => {
     if (!validate()) return;
-    const outcome = onAdd(currentPayload());
+    const payload = currentPayload();
+
+    // Ask what this WOULD collide with before writing anything. Checking first
+    // is what makes the confirmation below a real gate rather than a notice
+    // after the fact.
+    const conflict = onCheckConflict(payload);
 
     // HARD BLOCK — same email already exists on this partner.
-    if (outcome.blocked && outcome.existing) {
+    if (conflict.sameScopeDuplicate) {
       setErrors({
-        email: `This email already exists on ${partnerName ?? "this partner"} as "${outcome.existing.name}". One email = one file per partner.`,
+        email: `This email already exists on ${partnerName ?? "this partner"} as "${conflict.sameScopeDuplicate.name}". One email = one file per partner.`,
       });
       return;
     }
 
     // CROSS-PARTNER — warn and require explicit confirmation before adding.
-    if (outcome.crossScopeMatches.length > 0 && !pendingConfirm) {
-      setPendingConfirm(outcome.crossScopeMatches);
+    if (conflict.crossScopeMatches.length > 0 && !pendingConfirm) {
+      setPendingConfirm(conflict.crossScopeMatches);
       return;
     }
 
-    // Confirmed (or no conflict) → done.
+    onAdd(payload);
     reset();
     onClose();
   };
 
   const handleConfirmCrossPartner = () => {
-    // Re-add now that the user has confirmed; onAdd will still block a
-    // same-scope dup (shouldn't happen here) but allow the cross-scope add.
+    // The agent has confirmed this is a legitimate separate enrollment; this is
+    // the first and only write for the cross-partner path.
     onAdd(currentPayload());
     reset();
     onClose();

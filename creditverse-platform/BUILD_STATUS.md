@@ -115,6 +115,30 @@ and watched it land in Activity History with author and timestamp; confirmed the
 CreditOps queue still shows Round / Queue Status and FundingOps shows
 Requested / Stage Status with abbreviated currency.
 
+**Bug found and fixed during the dedup pass — cross-partner enrollment was not gated**
+
+The add-client modal called `addClient` and *then* asked the agent to confirm a
+cross-partner enrollment. The record therefore already existed when the prompt
+appeared, and clicking Cancel or Go back did not remove it. Verified in the
+pre-existing code (commit 9d4fc3d), so this predates the refactor.
+
+Why it mattered: the warning is the control that stops an agent silently
+enrolling someone already on another partner's list. It was decorative.
+
+Fix: the store gained `checkAddConflict`, which reports collisions and performs
+no write. The modal now checks first and calls `addClient` only after the add is
+authorised. Confirmed in the browser on Apex Credit Co.:
+
+| Path | Before | After |
+|---|---|---|
+| Cross-partner warning shown | record already added | nothing written |
+| Decline (Cancel / Go back) | record remained | nothing written |
+| Confirm | added | added exactly once |
+| Same-partner duplicate | blocked | blocked |
+
+Locked down by five new tests in `ops-client-store.test.tsx` asserting that
+`checkAddConflict` never mutates the client list. Suite is now 116 tests.
+
 **Remaining twin pairs (~2,900 duplicated lines), largest and most divergent:**
 
 | Pair | Duplicated | Note |

@@ -31,6 +31,7 @@ import {
 import {
   checkClientConflict,
   clientGroupLabel,
+  type ClientConflictResult,
   type OpsClient,
 } from "@/lib/fulfillment/ops-client-domain";
 import type { OpsActivityEntry } from "@/lib/fulfillment/ops-activity-domain";
@@ -84,6 +85,13 @@ export interface OpsClientStoreValue<T extends OpsClient, D> {
     value: string,
     actor: string,
   ) => void;
+  /**
+   * What would adding this client collide with? Performs NO write, so intake
+   * surfaces can warn and take a decision BEFORE the record exists.
+   */
+  checkAddConflict: (
+    client: Omit<T, "id" | "lastActivity" | "createdAt">,
+  ) => ClientConflictResult<T>;
   addClient: (
     client: Omit<T, "id" | "lastActivity" | "createdAt">,
   ) => AddClientOutcome<T>;
@@ -105,6 +113,16 @@ export interface OpsClientStoreConfig<T extends OpsClient, D> {
 }
 
 const nowISO = () => new Date().toISOString();
+
+/** The partner scope a candidate client would belong to. */
+const scopeIdOf = (client: {
+  mode: string;
+  organizationId?: string;
+  outsourcingGroupId?: string;
+}): string =>
+  client.mode === "saas_pulled"
+    ? (client.organizationId ?? "")
+    : (client.outsourcingGroupId ?? "");
 
 export function createOpsClientStore<T extends OpsClient, D>(
   config: OpsClientStoreConfig<T, D>,
@@ -292,18 +310,22 @@ export function createOpsClientStore<T extends OpsClient, D>(
       [],
     );
 
+    const checkAddConflict = useCallback(
+      (client: Omit<T, "id" | "lastActivity" | "createdAt">) =>
+        checkClientConflict(client.email, scopeIdOf(client), clients),
+      [clients],
+    );
+
     const addClient = useCallback(
       (
         client: Omit<T, "id" | "lastActivity" | "createdAt">,
       ): AddClientOutcome<T> => {
-        // Resolve the scope this client would belong to.
-        const scopeId =
-          client.mode === "saas_pulled"
-            ? (client.organizationId ?? "")
-            : (client.outsourcingGroupId ?? "");
-
         // HARD RULE: one email = one file per Partner. Block same-scope dupes.
-        const conflict = checkClientConflict(client.email, scopeId, clients);
+        const conflict = checkClientConflict(
+          client.email,
+          scopeIdOf(client),
+          clients,
+        );
         if (conflict.sameScopeDuplicate) {
           return {
             id: conflict.sameScopeDuplicate.id,
@@ -385,6 +407,7 @@ export function createOpsClientStore<T extends OpsClient, D>(
         updateStatus,
         updateAssignee,
         updateContact,
+        checkAddConflict,
         addClient,
         addActivity,
         togglePin,
@@ -399,6 +422,7 @@ export function createOpsClientStore<T extends OpsClient, D>(
         updateStatus,
         updateAssignee,
         updateContact,
+        checkAddConflict,
         addClient,
         addActivity,
         togglePin,
@@ -427,6 +451,7 @@ export function createOpsClientStore<T extends OpsClient, D>(
       updateStatus: noop,
       updateAssignee: noop,
       updateContact: noop,
+      checkAddConflict: () => ({ crossScopeMatches: [] }),
       addClient: () => ({ id: "", blocked: true, crossScopeMatches: [] }),
       addActivity: noop,
       togglePin: noop,

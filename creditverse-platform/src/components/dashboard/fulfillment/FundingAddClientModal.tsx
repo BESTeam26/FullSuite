@@ -97,6 +97,7 @@ export function FundingAddClientModal({
               organizationName: partner?.name ?? "FundingOps",
             };
       }}
+      onCheckConflict={(payload) => store.checkAddConflict(payload)}
       onAdd={(payload) => store.addClient(payload)}
     />
   );

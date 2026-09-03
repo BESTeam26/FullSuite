@@ -99,6 +99,7 @@ export function AddClientModal({
               organizationName: partner?.name ?? "Managed Ops",
             };
       }}
+      onCheckConflict={(payload) => store.checkAddConflict(payload)}
       onAdd={(payload) => store.addClient(payload)}
     />
   );
