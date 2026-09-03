@@ -162,3 +162,90 @@ Before implementing:
 Report honestly: if something is unverified, say so. If a test fails, show the
 output. Never describe seed or sample data as if it were real operational data —
 label it in the interface.
+
+## 13. Code quality / no spaghetti code
+
+**This project will be reviewed and maintained by a professional development team.**
+Code must be easy to read, trace, debug, test, and hand off.
+
+### Hard rules
+
+- No spaghetti code.
+- No giant files that mix unrelated responsibilities.
+- No business logic buried inside UI components.
+- No duplicated logic across pages.
+- No deeply nested conditionals when clearer abstractions are possible.
+- No mystery helper functions with unclear names.
+- No hidden side effects.
+- No circular dependencies.
+- No copy/paste implementations for similar features.
+- No temporary hacks that become permanent architecture.
+- No commented-out dead code left behind.
+- No meaningless names like `data2`, `tempFinal`, `handleThing`, `miscUtils`, `newVersion`.
+- No files named `Final`, `Final2`, `Copy`, `New`, `Updated`, `Backup`, `Test2`, etc.
+
+### Layers
+
+Dependencies point **downward only**. A lower layer never imports an upper one.
+
+```
+UI / Components
+  → application / use-case logic
+    → domain / business logic
+      → data / services / repositories
+        → database / integrations
+```
+
+In this repository that maps to:
+
+| Layer | Location |
+|---|---|
+| UI / Components | `src/components/`, `src/pages/` |
+| Application / use-case | `src/lib/*-context.tsx`, `src/lib/data/use-*.ts` |
+| Domain / business logic | `src/lib/bes-domain.ts`, `src/lib/dispute/`, `src/lib/fulfillment/*-domain.ts`, `src/lib/eod-production-engine.ts`, `src/lib/score-*.ts` |
+| Data / repositories | `src/lib/data/` |
+| Database / integrations | `supabase/migrations/`, `src/lib/supabase/` |
+
+Keep each module focused on **one responsibility**.
+
+### Prefer
+
+- small readable functions
+- descriptive names
+- typed interfaces
+- explicit inputs and outputs
+- reusable domain services
+- centralized permission logic
+- centralized status / lifecycle logic
+- centralized constants and enums where appropriate
+
+### Comments
+
+For complex logic, add short comments explaining **why** the rule exists — not
+obvious line-by-line comments explaining what the code does.
+
+### Traceability
+
+Every important feature must be traceable from:
+
+```
+UI action → handler / use case → domain rule → data mutation → audit event
+```
+
+If any link in that chain is missing or cannot be pointed at, the feature is not done.
+
+### Before adding new code
+
+Check whether the same responsibility already exists elsewhere.
+
+**If an implementation becomes difficult to explain simply, stop and refactor
+before adding more features.**
+
+Optimize for **maintainability and troubleshooting, not cleverness**.
+
+A developer unfamiliar with this project should be able to inspect the codebase
+later and understand where permissions, business rules, data access,
+integrations, and UI behaviour live.
+
+> Rule 5 states the separation requirement; this rule defines the standard the
+> separation is held to and how it is verified at review time.
