@@ -49,6 +49,36 @@
 - Verified in demo mode: dashboard, My Work, Attention Center, login. No console errors. 111 tests pass, lint 0 errors, build clean, all three SQL files parse.
 - Still unverified: every RLS policy and trigger in this migration. They need a real database.
 
+### 2026-09-02 — Backend connected. Phases 1 and 2 verified against the live database ✅
+
+Project `wiojlgkzxlaiajwwrzuj` ("FullSuite"). Applied migrations 0001–0004; **15 tables, 1 view, 34 RLS policies, 5 organizations, 7 work items**. Owner account `dee@blessedempireservices.com` promoted to `agency_owner`.
+
+**A real security hole, found by running the smoke test against a live database.**
+An *unauthenticated* caller could `POST /rest/v1/rpc/log_audit` and receive 204 — writing arbitrary rows into the audit log. Migration 0001 had done `revoke all ... from public` on that function and granted it to `authenticated`, which reads correctly. What it missed: Supabase separately grants EXECUTE to the `anon` role, and Postgres grants EXECUTE to `PUBLIC` on every new function, which `anon` inherits. Two independent grants, neither removed.
+
+- **Migration 0003** revokes EXECUTE from `anon` on all public functions and re-grants only to `authenticated`.
+- **Migration 0004** additionally revokes the inherited `PUBLIC` grant — without it, `is_agency_staff()` and `my_org_ids()` still answered anonymous callers (returning `false` / `[]`, so no data leaked, but they should not be reachable). Also revokes all table privileges from `anon`, so a future missing policy cannot become a leak, and sets default privileges so functions added later are locked by default.
+
+The lesson worth keeping: the migration looked correct on paper and passed a Postgres parser. Only a live request proved otherwise. Every future phase gets the same treatment before it is called done.
+
+**Verified, both directions:**
+
+| Check | Anonymous | Owner session |
+|---|---|---|
+| organizations | 0 rows (401) | 5 |
+| work_items | 0 rows (401) | 7 |
+| work_attention | — | 4 |
+| product_entitlements | 0 rows (401) | 25 |
+| helper functions | not executable | `is_agency_staff() = true`, role `agency_owner` |
+| anonymous INSERT | rejected (401) | n/a |
+| `bootstrap_agency_owner` | not callable | service role only |
+
+The owner-session figures come from impersonating the real JWT claims inside a rolled-back transaction, so RLS was genuinely exercised rather than bypassed by the service role.
+
+**Smoke test corrected too:** it had probed RPCs with `{}`, and PostgREST matches on signature, so any function taking parameters looked missing. It now probes with real arguments and additionally asserts that no helper is anon-executable — the check that would have caught the hole above on the first run.
+
+**Next (Phase 3):** CreditOps Agency Fulfillment Workspace on live data — `fulfillment_enrollments` (both intake modes), outsourcing groups, department statuses, Complete Work writing `production_logs`, outbound webhook deliveries.
+
 ---
 
 ## Local run verification
