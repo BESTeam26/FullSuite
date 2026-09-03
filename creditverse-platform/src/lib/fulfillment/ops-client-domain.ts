@@ -45,6 +45,29 @@ export interface OutsourcingGroup {
 }
 
 /* ------------------------------------------------------------------ */
+/* Partner — a company whose work a division fulfils                   */
+/*                                                                     */
+/* Both divisions describe partners identically; only the group and    */
+/* mode vocabularies differ, which each division narrows.              */
+/* ------------------------------------------------------------------ */
+
+export interface OpsPartner {
+  id: string;
+  name: string;
+  /** Division-specific grouping, e.g. managed / outsourcing / users. */
+  group: string;
+  /** Organization id, or outsourcing group id for outsourced partners. */
+  scopeId: string;
+  /** Division-specific operational mode. */
+  mode: string;
+  contactName?: string;
+  contactEmail?: string;
+  /** Contract reference for outsourcing partners. */
+  contractRef?: string;
+  status: "Active" | "Paused" | "Onboarding";
+}
+
+/* ------------------------------------------------------------------ */
 /* The client record shared by every division                          */
 /* ------------------------------------------------------------------ */
 

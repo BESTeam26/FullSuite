@@ -6,22 +6,13 @@
  * (Dashboard, SOPs & Logins, queues) are filtered views of those same records.
  */
 
+import type { OpsPartner } from "@/lib/fulfillment/ops-client-domain";
+
 export type PartnerGroup = "managed" | "outsourcing" | "creditops_users";
 
-export interface CreditOpsPartner {
-  id: string;
-  name: string;
+export interface CreditOpsPartner extends OpsPartner {
   group: PartnerGroup;
-  /** Sub-account organization id (managed / creditops_users) or outsourcing group id (outsourcing) */
-  scopeId: string;
-  /** Operational mode */
   mode: "saas_pulled" | "outsourcing_only" | "native_creditops";
-  /** Partner contact / principal */
-  contactName?: string;
-  contactEmail?: string;
-  /** Contract reference for outsourcing partners */
-  contractRef?: string;
-  status: "Active" | "Paused" | "Onboarding";
 }
 
 export const CREDIT_OPS_PARTNERS: CreditOpsPartner[] = [

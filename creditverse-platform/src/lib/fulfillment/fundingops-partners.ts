@@ -33,22 +33,13 @@
  * shopping both companies).
  */
 
+import type { OpsPartner } from "@/lib/fulfillment/ops-client-domain";
+
 export type FundingPartnerGroup = "outsourcing" | "fundingops_users";
 
-export interface FundingOpsPartner {
-  id: string;
-  name: string;
+export interface FundingOpsPartner extends OpsPartner {
   group: FundingPartnerGroup;
-  /** Sub-account organization id (fundingops_users) or outsourcing group id (outsourcing) */
-  scopeId: string;
-  /** Operational mode */
   mode: "outsourcing_only" | "native_fundingops";
-  /** Partner contact / principal */
-  contactName?: string;
-  contactEmail?: string;
-  /** Contract reference for outsourcing partners */
-  contractRef?: string;
-  status: "Active" | "Paused" | "Onboarding";
 }
 
 export const FUNDING_OPS_PARTNERS: FundingOpsPartner[] = [
