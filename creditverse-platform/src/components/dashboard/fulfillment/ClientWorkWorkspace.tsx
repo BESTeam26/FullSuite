@@ -12,11 +12,11 @@ import { Edit2, Check, ShieldCheck, CheckSquare, Plus } from "lucide-react";
 import { useCreditOpsStore } from "@/lib/fulfillment/creditops-client-store";
 import { clientGroupLabel } from "@/lib/fulfillment/fulfillment-client-domain";
 import { ClientWorkHeader } from "./ClientWorkHeader";
+import { ClientWorkAttachments } from "./ClientWorkAttachments";
 import {
-  ClientWorkAttachments,
   DEFAULT_ATTACHMENTS,
   type AttachmentFile,
-} from "./ClientWorkAttachments";
+} from "@/lib/fulfillment/attachment-domain";
 import { ClientWorkActivityTimeline } from "./ClientWorkActivityTimeline";
 import { DepartmentProgressSection } from "./DepartmentProgressSection";
 import { CompleteWorkSection } from "./CompleteWorkSection";

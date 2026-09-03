@@ -15,9 +15,13 @@ import {
 import { useFundingDealStore } from "@/lib/fulfillment/funding-deal-store";
 import type { FundingActivityEntry } from "@/lib/fulfillment/fundingops-store-types";
 import { ActivityCard, parseComment } from "./timeline/ActivityCard";
-import type { CommentAttachment } from "./timeline/ActivityCard";
+
 import { FileViewer } from "./FileViewer";
-import type { AttachmentFile } from "./ClientWorkAttachments";
+import {
+  isImageFile,
+  type AttachmentFile,
+  type CommentAttachment,
+} from "@/lib/fulfillment/attachment-domain";
 
 type ActivityEntry = FundingActivityEntry;
 
@@ -295,7 +299,7 @@ export function DealActivitySection({
                 className="relative flex items-center gap-2 overflow-hidden rounded-lg border border-border bg-muted/30 p-1.5 pr-2"
               >
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded bg-muted/40">
-                  {att.type?.startsWith("image/") ? (
+                  {isImageFile(att) ? (
                     <img
                       src={att.url}
                       alt={att.name}

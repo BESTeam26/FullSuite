@@ -19,7 +19,11 @@ import {
   Download,
   FileText,
 } from "lucide-react";
-import type { AttachmentFile } from "./ClientWorkAttachments";
+import {
+  isImageFile,
+  isPdfFile,
+  type AttachmentFile,
+} from "@/lib/fulfillment/attachment-domain";
 
 interface Props {
   files: AttachmentFile[];
@@ -33,10 +37,8 @@ export function FileViewer({ files, startIndex, onClose }: Props) {
 
   const file = files[index];
 
-  const isImage = file?.type?.startsWith("image/");
-  const isPdf =
-    file?.type === "application/pdf" ||
-    file?.name?.toLowerCase().endsWith(".pdf");
+  const isImage = isImageFile(file);
+  const isPdf = isPdfFile(file);
 
   const goPrev = useCallback(() => {
     setZoom(1);

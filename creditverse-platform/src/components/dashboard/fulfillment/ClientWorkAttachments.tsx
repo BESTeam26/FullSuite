@@ -20,108 +20,26 @@ import {
 } from "lucide-react";
 import { useCreditOpsStore } from "@/lib/fulfillment/creditops-client-store";
 import { FileViewer } from "./FileViewer";
-import { cn } from "@/lib/utils";
+import {
+  ATTACHMENT_CATEGORIES,
+  isImageFile,
+  isPdfFile,
+  type AttachmentCategory,
+  type AttachmentFile,
+} from "@/lib/fulfillment/attachment-domain";
 
-export const ATTACHMENT_CATEGORIES = [
-  "Credit Report",
-  "ID",
-  "Proof of Address",
-  "SSN / Identity Document",
-  "Dispute Evidence",
-  "Client Correspondence",
-  "Mailing Proof",
-  "CFPB",
-  "FTC",
-  "BBB",
-  "Attorney General",
-  "Bureau Calling Evidence",
-  "Monitoring Screenshot",
-  "Client Upload",
-  "Screenshot",
-  "Other",
-] as const;
-
-export type AttachmentCategory = (typeof ATTACHMENT_CATEGORIES)[number];
-
-export interface AttachmentFile {
-  id: string;
-  name: string;
-  size: string;
-  type: string;
-  category: AttachmentCategory;
-  url: string;
-  uploadedBy: string;
-  uploadedAt: string;
-}
-
-export const DEFAULT_ATTACHMENTS: AttachmentFile[] = [
-  {
-    id: "att-1",
-    name: "Driver_License_Front_Back.pdf",
-    size: "144 KB",
-    type: "application/pdf",
-    category: "ID",
-    url: "/placeholder.svg",
-    uploadedBy: "Admin",
-    uploadedAt: "Jul 14, 2026",
-  },
-  {
-    id: "att-2",
-    name: "Utility_Bill_Proof_Residency.pdf",
-    size: "1.4 MB",
-    type: "application/pdf",
-    category: "Proof of Address",
-    url: "/placeholder.svg",
-    uploadedBy: "Admin",
-    uploadedAt: "Jul 14, 2026",
-  },
-  {
-    id: "att-3",
-    name: "Credit_Report_IdentityIQ.pdf",
-    size: "1.5 MB",
-    type: "application/pdf",
-    category: "Credit Report",
-    url: "/placeholder.svg",
-    uploadedBy: "Admin",
-    uploadedAt: "Jul 20, 2026",
-  },
-  {
-    id: "att-4",
-    name: "CFPB_Submission_Confirmation.png",
-    size: "169 KB",
-    type: "image/png",
-    category: "CFPB",
-    url: "/placeholder.svg",
-    uploadedBy: "Jezel Ane Mirambel",
-    uploadedAt: "Aug 14, 2026",
-  },
-  {
-    id: "att-5",
-    name: "Experian_Dispute_Response.jpg",
-    size: "212 KB",
-    type: "image/jpeg",
-    category: "Bureau Calling Evidence",
-    url: "/placeholder.svg",
-    uploadedBy: "Keila Betancourt",
-    uploadedAt: "Aug 18, 2026",
-  },
-];
-
-interface Props {
+interface ClientWorkAttachmentsProps {
   clientId: string;
   attachments: AttachmentFile[];
   setAttachments: React.Dispatch<React.SetStateAction<AttachmentFile[]>>;
 }
-
-const isImage = (f: AttachmentFile) => f.type?.startsWith("image/");
-const isPdf = (f: AttachmentFile) =>
-  f.type === "application/pdf" || f.name?.toLowerCase().endsWith(".pdf");
+import { cn } from "@/lib/utils";
 
 export function ClientWorkAttachments({
   clientId,
   attachments,
   setAttachments,
-}: Props) {
+}: ClientWorkAttachmentsProps) {
   const store = useCreditOpsStore();
   const [uploadCategory, setUploadCategory] =
     useState<AttachmentCategory>("Other");
@@ -280,14 +198,14 @@ export function ClientWorkAttachments({
             >
               {/* Thumbnail */}
               <div className="relative flex h-24 items-center justify-center overflow-hidden bg-muted/40">
-                {isImage(att) ? (
+                {isImageFile(att) ? (
                   <img
                     src={att.url}
                     alt={att.name}
                     loading="lazy"
                     className="h-full w-full object-cover transition-transform group-hover:scale-105"
                   />
-                ) : isPdf(att) ? (
+                ) : isPdfFile(att) ? (
                   <div className="flex flex-col items-center gap-1 text-primary">
                     <FileText className="h-9 w-9" />
                     <span className="text-[9px] font-bold">PDF</span>
@@ -342,7 +260,7 @@ export function ClientWorkAttachments({
               className="group flex w-full items-center gap-3 rounded-lg border border-border bg-muted/20 p-2.5 text-left transition-colors hover:border-primary/40 hover:bg-muted/40"
             >
               <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded bg-muted/40">
-                {isImage(att) ? (
+                {isImageFile(att) ? (
                   <img
                     src={att.url}
                     alt={att.name}
@@ -365,7 +283,7 @@ export function ClientWorkAttachments({
                   {att.uploadedAt}
                 </p>
               </div>
-              {isImage(att) && (
+              {isImageFile(att) && (
                 <ImageIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
               )}
             </button>

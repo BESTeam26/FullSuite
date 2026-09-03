@@ -29,11 +29,15 @@ import {
 } from "lucide-react";
 import { useCreditOpsStore } from "@/lib/fulfillment/creditops-client-store";
 import { FileViewer } from "./FileViewer";
-import type { AttachmentFile } from "./ClientWorkAttachments";
+import {
+  isImageFile,
+  isPdfFile,
+  type AttachmentFile,
+  type CommentAttachment,
+} from "@/lib/fulfillment/attachment-domain";
 import {
   ActivityCard,
   parseComment,
-  type CommentAttachment,
 } from "./timeline/ActivityCard";
 import { cn } from "@/lib/utils";
 
@@ -41,7 +45,6 @@ interface Props {
   clientId: string;
 }
 
-const isImage = (a: CommentAttachment) => a.type?.startsWith("image/");
 
 export function ClientWorkActivityTimeline({ clientId }: Props) {
   const store = useCreditOpsStore();
@@ -287,7 +290,7 @@ export function ClientWorkActivityTimeline({ clientId }: Props) {
                 className="relative flex items-center gap-2 overflow-hidden rounded-lg border border-border bg-muted/30 p-1.5 pr-2"
               >
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded bg-muted/40">
-                  {isImage(att) ? (
+                  {isImageFile(att) ? (
                     <img
                       src={att.url}
                       alt={att.name}

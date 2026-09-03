@@ -13,18 +13,12 @@ import { getMark } from "@/lib/fulfillment/creditops-client-store";
 import { RichComment } from "./RichComment";
 import { MarkMenu } from "./MarkMenu";
 import { cn } from "@/lib/utils";
+import {
+  isImageFile,
+  isPdfFile,
+  type CommentAttachment,
+} from "@/lib/fulfillment/attachment-domain";
 
-export interface CommentAttachment {
-  id: string;
-  name: string;
-  size: string;
-  type: string;
-  url: string;
-}
-
-const isImage = (a: CommentAttachment) => a.type?.startsWith("image/");
-const isPdf = (a: CommentAttachment) =>
-  a.type === "application/pdf" || a.name?.toLowerCase().endsWith(".pdf");
 
 /** Parse a comment detail string that may embed attachments as a JSON tail. */
 export function parseComment(detail: string): {
@@ -120,14 +114,14 @@ export function ActivityCard({
                   className="group flex items-center gap-2 overflow-hidden rounded-lg border border-border bg-background p-1.5 pr-3 transition-colors hover:border-primary/40"
                 >
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded bg-muted/40">
-                    {isImage(att) ? (
+                    {isImageFile(att) ? (
                       <img
                         src={att.url}
                         alt={att.name}
                         loading="lazy"
                         className="h-full w-full object-cover"
                       />
-                    ) : isPdf(att) ? (
+                    ) : isPdfFile(att) ? (
                       <FileText className="h-5 w-5 text-primary" />
                     ) : (
                       <FileText className="h-5 w-5 text-muted-foreground" />
