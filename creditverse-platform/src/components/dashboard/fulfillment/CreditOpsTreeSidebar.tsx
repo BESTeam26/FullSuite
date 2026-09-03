@@ -26,10 +26,6 @@
 
 import { useState } from "react";
 import {
-  Folder,
-  FolderOpen,
-  ChevronRight,
-  ChevronDown,
   Building2,
   LayoutDashboard,
   BarChart3,
@@ -41,6 +37,11 @@ import {
 } from "@/lib/fulfillment/creditops-partners";
 import { useCreditOpsAccess } from "@/lib/fulfillment/creditops-access";
 import { cn } from "@/lib/utils";
+import {
+  OpsTreeFolder,
+  OpsTreeHeader,
+  OpsTreeManagementSection,
+} from "./OpsTreeSidebarParts";
 
 export type CreditOpsSelection =
   { kind: "management"; view: string } | { kind: "partner"; partnerId: string };
@@ -158,101 +159,37 @@ export function CreditOpsTreeSidebar({
     label: string,
     partners: CreditOpsPartner[],
     accent: string,
-  ) => {
-    const groupActive = partners.reduce(
-      (sum, p) => sum + countActiveForPartner(p.scopeId),
-      0,
-    );
-    return (
-      <div>
-        <button
-          onClick={() => toggleFolder(key)}
-          className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 font-semibold text-foreground hover:bg-muted"
-        >
-          <div className="flex items-center gap-2">
-            {expanded[key] ? (
-              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-            ) : (
-              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-            )}
-            <FolderOpen className={cn("h-3.5 w-3.5", accent)} />
-            <span className="text-xs">{label}</span>
-          </div>
-          <span className="text-[10px] font-semibold text-muted-foreground">
-            {groupActive}
-          </span>
-        </button>
-        {expanded[key] && (
-          <div className="ml-4 mt-1 space-y-1 border-l border-border pl-2">
-            {partners.map(renderPartner)}
-          </div>
-        )}
-      </div>
-    );
-  };
+  ) => (
+    <OpsTreeFolder
+      label={label}
+      accent={accent}
+      count={partners.reduce(
+        (sum, p) => sum + countActiveForPartner(p.scopeId),
+        0,
+      )}
+      open={!!expanded[key]}
+      onToggle={() => toggleFolder(key)}
+    >
+      {partners.map(renderPartner)}
+    </OpsTreeFolder>
+  );
 
   return (
     <div className="w-64 shrink-0 space-y-4 border-r border-border bg-card p-4 hidden md:block">
-      <div className="flex items-center justify-between border-b border-border pb-3">
-        <div className="flex items-center gap-2">
-          <Folder className="h-4 w-4 text-primary" />
-          <span className="text-xs font-bold text-foreground">
-            CREDITOPS SPACE
-          </span>
-        </div>
-        <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
-          {totalActive} active
-        </span>
-      </div>
+      <OpsTreeHeader label="CREDITOPS SPACE" totalActive={totalActive} />
 
       <div className="space-y-2 text-xs">
         {/* Management layer — management role only. Agents are scoped to
             their Partner workspace and never see cross-partner aggregate views. */}
         {canAccessManagement && (
-          <div>
-            <button
-              onClick={() => toggleFolder("management")}
-              className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 font-semibold text-foreground hover:bg-muted"
-            >
-              <div className="flex items-center gap-2">
-                {expanded.management ? (
-                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                ) : (
-                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                )}
-                <LayoutDashboard className="h-3.5 w-3.5 text-primary" />
-                <span className="text-xs">MANAGEMENT</span>
-              </div>
-              <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold text-primary">
-                ALL
-              </span>
-            </button>
-            {expanded.management && (
-              <div className="ml-4 mt-1 space-y-0.5 border-l border-border pl-2">
-                {MANAGEMENT_VIEWS.map((v) => {
-                  const Icon = v.icon;
-                  const active = isMgmtViewActive(v.id);
-                  return (
-                    <button
-                      key={v.id}
-                      onClick={() =>
-                        onSelect({ kind: "management", view: v.id })
-                      }
-                      className={cn(
-                        "flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors",
-                        active
-                          ? "bg-primary/10 font-bold text-primary"
-                          : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-                      )}
-                    >
-                      <Icon className="h-3 w-3" />
-                      <span>{v.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          <OpsTreeManagementSection
+            views={MANAGEMENT_VIEWS}
+            icon={LayoutDashboard}
+            open={!!expanded.management}
+            onToggle={() => toggleFolder("management")}
+            isActive={isMgmtViewActive}
+            onSelect={(view) => onSelect({ kind: "management", view })}
+          />
         )}
 
         <div className="pt-1">
