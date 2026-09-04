@@ -1,5 +1,5 @@
 import type { ReactNode, ElementType } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   DivisionTable,
   ContentCard,
@@ -9,6 +9,12 @@ import {
 import { cn } from "@/lib/utils";
 import { DataSourceBadge } from "@/components/dashboard/DataSourceBadge";
 import { useMyWork, useAttention } from "@/lib/data/use-work";
+import {
+  useMarkAllNotificationsRead,
+  useMarkNotificationRead,
+  useNotifications,
+} from "@/lib/data/use-notifications";
+import { hrefForEntity, type Notification } from "@/lib/data/notifications";
 import { useAuth } from "@/lib/auth/auth-context";
 import { describeScope } from "@/lib/auth/scope";
 import {
@@ -18,6 +24,12 @@ import {
   Timer,
   Bell,
   CheckCircle2,
+  Check,
+  CheckCheck,
+  MessageSquare,
+  UserPlus,
+  UserMinus,
+  ArrowRightLeft,
   PlayCircle,
   PauseCircle,
   ShieldAlert,
@@ -183,6 +195,14 @@ export const AttentionCenter = () => {
 
 export const MyWorkPage = () => {
   const { items, source, isLoading, error } = useMyWork();
+  // Deep link from a notification: /app/my-work?item=<id>. The row is
+  // highlighted if it is in the caller's list; if RLS no longer returns it,
+  // nothing is highlighted and nothing is claimed.
+  const [searchParams] = useSearchParams();
+  const linkedItem = searchParams.get("item");
+  const activeRow = linkedItem
+    ? items.findIndex((w) => w.id === linkedItem)
+    : -1;
 
   const divisionOf = (relatedType: string) =>
     relatedType === "fulfillment" || relatedType === "credit_case"
@@ -227,6 +247,7 @@ export const MyWorkPage = () => {
         ) : (
           <DivisionTable
             columns={["Task", "Division", "Status", "SLA (hrs)"]}
+            activeRow={activeRow >= 0 ? activeRow : undefined}
             rows={items.map((w) => [
               w.title,
               divisionOf(w.relatedType),
@@ -263,36 +284,193 @@ export const MyWorkPage = () => {
  * and a list that is always the same. It stays until the real model exists —
  * recipient, entity, read state, and RLS on `recipient_id = auth.uid()`.
  */
-export const NotificationsPage = () => (
-  <HqPageShell
-    title="Notifications"
-    description="Alerts routed to you"
-    icon={Bell}
-  >
-    <div className="rounded-xl border border-dashed border-border bg-muted/20 px-6 py-10 text-center">
-      <Bell className="mx-auto mb-3 h-6 w-6 text-muted-foreground" />
-      <p className="text-sm font-semibold text-foreground">
-        Notifications are not available yet
-      </p>
-      <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
-        Assignments, mentions and SLA alerts will appear here once notification
-        delivery is built. Nothing is being held back — there is no queue behind
-        this screen. Work needing attention is on{" "}
-        <Link
-          to="/app/attention"
-          className="font-semibold text-primary underline underline-offset-2 hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-        >
-          Attention Center
-        </Link>{" "}
-        and{" "}
-        <Link
-          to="/app/my-work"
-          className="font-semibold text-primary underline underline-offset-2 hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-        >
-          My Work
-        </Link>
-        .
-      </p>
-    </div>
-  </HqPageShell>
-);
+const KIND_ICON: Record<Notification["kind"], ElementType> = {
+  assigned: UserPlus,
+  unassigned: UserMinus,
+  note: MessageSquare,
+  status: ArrowRightLeft,
+};
+
+const ENTITY_LABEL: Record<string, string> = {
+  work_item: "Work item",
+  fulfillment_client: "CreditOps client",
+  funding_client: "FundingOps client",
+};
+
+const formatWhen = (iso: string) => {
+  const d = new Date(iso);
+  const mins = Math.round((Date.now() - d.getTime()) / 60_000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs} hr ago`;
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+};
+
+const NotificationRow = ({
+  n,
+  onOpen,
+  onMarkRead,
+}: {
+  n: Notification;
+  onOpen: (n: Notification) => void;
+  onMarkRead: (id: number) => void;
+}) => {
+  const Icon = KIND_ICON[n.kind];
+  // A record you were moved off is, by definition, one you may no longer
+  // open. Say so instead of linking to a page that would show nothing.
+  const href =
+    n.kind === "unassigned" ? null : hrefForEntity(n.entityType, n.entityId);
+  const unread = !n.readAt;
+  return (
+    <li
+      className={cn(
+        "flex items-start gap-3 px-4 py-3 transition-colors",
+        unread ? "bg-primary/5" : "bg-card",
+      )}
+    >
+      <span
+        className={cn(
+          "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+          unread ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground",
+        )}
+      >
+        <Icon className="h-4 w-4" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-baseline gap-x-2">
+          <p
+            className={cn(
+              "text-sm text-foreground",
+              unread ? "font-semibold" : "font-medium",
+            )}
+          >
+            {n.title}
+          </p>
+          <span className="text-xs text-muted-foreground">
+            {formatWhen(n.createdAt)}
+          </span>
+        </div>
+        <p className="truncate text-xs text-muted-foreground">
+          {ENTITY_LABEL[n.entityType] ?? n.entityType}
+          {n.entityLabel ? ` · ${n.entityLabel}` : ""}
+          {n.detail ? ` — ${n.detail}` : ""}
+        </p>
+        <div className="mt-1.5 flex items-center gap-3">
+          {href ? (
+            <button
+              type="button"
+              onClick={() => onOpen(n)}
+              className="text-xs font-semibold text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-sm"
+            >
+              Open
+            </button>
+          ) : (
+            <span className="text-xs text-muted-foreground">
+              {n.kind === "unassigned"
+                ? "You no longer have access to this record"
+                : "No page opens this record yet"}
+            </span>
+          )}
+          {unread && (
+            <button
+              type="button"
+              onClick={() => onMarkRead(n.id)}
+              className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-sm"
+            >
+              <Check className="h-3 w-3" /> Mark read
+            </button>
+          )}
+        </div>
+      </div>
+      {unread && (
+        <span
+          aria-label="Unread"
+          className="mt-2 h-2 w-2 shrink-0 rounded-full bg-primary"
+        />
+      )}
+    </li>
+  );
+};
+
+/**
+ * Real notifications. Rows are written only by the database when an
+ * activity event names a recipient (assignment, note, status change), and
+ * are read under the recipient's own RLS, which re-checks that the record is
+ * still visible to them. Opening one marks it read, then navigates.
+ */
+export const NotificationsPage = () => {
+  const { items, isLoading, error, live } = useNotifications();
+  const markRead = useMarkNotificationRead();
+  const markAll = useMarkAllNotificationsRead();
+  const navigate = useNavigate();
+  const unread = items.filter((n) => !n.readAt).length;
+
+  const open = (n: Notification) => {
+    const href = hrefForEntity(n.entityType, n.entityId);
+    if (!href) return;
+    if (!n.readAt) markRead.mutate(n.id);
+    navigate(href);
+  };
+
+  return (
+    <HqPageShell
+      title="Notifications"
+      description="Assignments, notes and status changes routed to you"
+      icon={Bell}
+    >
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <span className="text-xs text-muted-foreground">
+          {live
+            ? `${unread} unread · ${items.length} shown`
+            : "Available when signed in"}
+        </span>
+        {unread > 0 && (
+          <button
+            type="button"
+            onClick={() => markAll.mutate()}
+            disabled={markAll.isPending}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
+            <CheckCheck className="h-3.5 w-3.5" /> Mark all read
+          </button>
+        )}
+      </div>
+
+      {error && (
+        <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-700">
+          Could not load notifications: {error}
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="rounded-xl border border-border bg-card px-6 py-10 text-center text-sm text-muted-foreground">
+          Loading…
+        </div>
+      ) : items.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border bg-muted/20 px-6 py-10 text-center">
+          <Bell className="mx-auto mb-3 h-6 w-6 text-muted-foreground" />
+          <p className="text-sm font-semibold text-foreground">
+            Nothing routed to you yet
+          </p>
+          <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
+            You are notified when work is assigned to you, when someone notes
+            or comments on a record you own, and when its status is moved by
+            someone else.
+          </p>
+        </div>
+      ) : (
+        <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border">
+          {items.map((n) => (
+            <NotificationRow
+              key={n.id}
+              n={n}
+              onOpen={open}
+              onMarkRead={(id) => markRead.mutate(id)}
+            />
+          ))}
+        </ul>
+      )}
+    </HqPageShell>
+  );
+};

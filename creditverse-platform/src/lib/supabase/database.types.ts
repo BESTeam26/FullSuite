@@ -1187,6 +1187,96 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          activity_id: number | null
+          actor_id: string | null
+          agency_id: string
+          created_at: string
+          detail: string | null
+          entity_id: string
+          entity_label: string | null
+          entity_type: string
+          id: number
+          kind: string
+          organization_id: string | null
+          read_at: string | null
+          recipient_id: string
+          title: string
+          visibility: Database["public"]["Enums"]["activity_visibility"]
+        }
+        Insert: {
+          activity_id?: number | null
+          actor_id?: string | null
+          agency_id: string
+          created_at?: string
+          detail?: string | null
+          entity_id: string
+          entity_label?: string | null
+          entity_type: string
+          id?: never
+          kind: string
+          organization_id?: string | null
+          read_at?: string | null
+          recipient_id: string
+          title: string
+          visibility: Database["public"]["Enums"]["activity_visibility"]
+        }
+        Update: {
+          activity_id?: number | null
+          actor_id?: string | null
+          agency_id?: string
+          created_at?: string
+          detail?: string | null
+          entity_id?: string
+          entity_label?: string | null
+          entity_type?: string
+          id?: never
+          kind?: string
+          organization_id?: string | null
+          read_at?: string | null
+          recipient_id?: string
+          title?: string
+          visibility?: Database["public"]["Enums"]["activity_visibility"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "activity_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       org_memberships: {
         Row: {
           assigned_only: boolean
@@ -2109,6 +2199,7 @@ export type Database = {
         Returns: Database["public"]["Enums"]["fulfillment_service"]
       }
       agency_of_org: { Args: { p_org: string }; Returns: string }
+      as_uuid: { Args: { p: string }; Returns: string }
       assignable_profiles: {
         Args: {
           p_org?: string
@@ -2243,6 +2334,10 @@ export type Database = {
       org_scope_allows: {
         Args: { p_assignee: string; p_org: string }
         Returns: boolean
+      }
+      record_owner: {
+        Args: { p_entity_id: string; p_entity_type: string }
+        Returns: Record<string, unknown>
       }
       shares_scope_with: { Args: { p_user: string }; Returns: boolean }
       to_service: {

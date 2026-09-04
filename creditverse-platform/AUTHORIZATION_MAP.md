@@ -147,3 +147,19 @@ caller can already see. And *creation must land inside the creator's own reach*:
 `INSERT … RETURNING` evaluates the SELECT policy, so a scope-limited creator
 self-assigns work; ceiling holders may queue it unassigned. Stated in
 `work_items_insert`.
+
+
+### 0025 — notifications (Phase 5)
+
+| Object | Rule | How |
+|---|---|---|
+| `notifications` SELECT | mine, and the record is still visible to me — except `unassigned`, which is readable after access is lost and carries no detail (0026) | `recipient_id = auth.uid() AND (kind = 'unassigned' OR (can_view_activity(…) AND entity_visible(…)))` |
+| `notifications` UPDATE | mine; only `read_at` | policy `recipient_id = auth.uid()` + column grant `update (read_at)` |
+| `notifications` INSERT / DELETE | nobody via API | no grant; rows written only by `notify_from_activity()` (definer trigger) |
+| `record_owner`, `as_uuid`, `notify_from_activity` | internal | EXECUTE revoked from `public`, `anon`, `authenticated` |
+| all public tables | TRUNCATE / TRIGGER / REFERENCES | revoked from `anon`, `authenticated`, and from default privileges |
+
+Recipient rules live in one function and read only stable IDs the loggers
+already record (`previous_value` / `new_value` as UUID text, `assigned_to`,
+`assigned_agent_id`, `team_memberships.is_lead`). Names and emails are never
+used to route.

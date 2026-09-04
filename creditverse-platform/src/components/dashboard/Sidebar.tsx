@@ -29,6 +29,7 @@ import {
 import { cn } from "@/lib/utils";
 import { SubAccountSwitcher } from "@/components/dashboard/SubAccountSwitcher";
 import { useMyWork, useAttention } from "@/lib/data/use-work";
+import { useUnreadNotificationCount } from "@/lib/data/use-notifications";
 import { useAuth } from "@/lib/auth/auth-context";
 
 type NavItem = {
@@ -69,6 +70,7 @@ export const Sidebar = () => {
   const attention = useAttention();
 
   const attentionCount = attention.items.length;
+  const unreadNotifications = useUnreadNotificationCount();
   const myWorkCount = myWork.items.length;
 
   const isActive = (href: string) => {
@@ -107,9 +109,12 @@ export const Sidebar = () => {
         },
         { label: "My Time", icon: Clock, href: "/app/my-time" },
         { label: "End of Day", icon: Timer, href: "/app/eod" },
-        /* No badge: there is no notification model yet, so any number here
-           would be invented. It returns when the count can be real. */
-        { label: "Notifications", icon: Bell, href: "/app/notifications" },
+        {
+          label: "Notifications",
+          icon: Bell,
+          href: "/app/notifications",
+          badge: unreadNotifications,
+        },
       ],
     },
     {

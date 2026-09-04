@@ -1754,58 +1754,60 @@ the owner: "your reach: Agency-wide", badge 6 = page 6, My Work 0 = 0.
 
 ---
 
-## Phase 5 — Notification engine · PROPOSAL (not built)
+## Phase 5 — Notification engine · DONE (migrations 0025, 0026)
 
-Everything here is design; nothing exists yet. Facts it rests on: no
-notification table (verified); `activity_events` is trigger-written, append-only,
-with `previous_value`/`new_value` for assignee changes; `entity_visible()` now
-answers "may this caller see this record" for every entity type; `work_items`
-has `assigned_to`, `team_id`, `division`; `related_ref` is free text and null on
-3 of 10 rows.
+**What exists now (verified live, not from docs):**
 
-**One table.**
+- `notifications` — one row per recipient per event: recipient, actor, agency,
+  organization, kind (`assigned` · `unassigned` · `note` · `status`), entity
+  type/id/label, the `activity_events.id` it came from, the event's visibility,
+  title, detail, `created_at`, `read_at`. Unique on
+  `(recipient_id, activity_id, kind)`, so a person is told once.
+- `notify_from_activity()` — an AFTER INSERT trigger on `activity_events`, the
+  single choke point every logger already writes through. Four deterministic
+  rules, never the actor:
+  1. `Assignee changed` → the new assignee (`assigned`) and the previous one
+     (`unassigned`), read from the UUIDs the loggers already store.
+  2. `Work item created` / `Client added` → the assignee, if created assigned.
+  3. `Note` / `Comment posted` → the record's current assignee and the leads of
+     its team.
+  4. A `stage` / `status` / `department_status` / `deal_status` change → the
+     assignee.
+  `record_owner()` resolves assignee, team and label for work items and both
+  client types; it and `as_uuid()` are not executable by API roles.
+- **Authorization at read time.** `notifications_select` is
+  `recipient_id = auth.uid() AND can_view_activity(...) AND entity_visible(...)`.
+  Both helpers are SECURITY INVOKER, so they answer as the reader. A note
+  notification about a client you were later moved off disappears — the row is
+  kept, the read is denied. Badge and list use the same predicate. The one
+  exemption (migration 0026, found by the matrix) is `unassigned`: its whole
+  meaning is that you lost the record, so it stays readable and carries no
+  detail — you learn you were moved off, not who received the work.
+- Clients may `SELECT` and `UPDATE (read_at)` only. No INSERT, no DELETE.
+- **Hardening found on the way:** Supabase's default grants gave `anon` and
+  `authenticated` TRUNCATE, TRIGGER and REFERENCES on all 33 tables. None of
+  the three is governed by RLS. Revoked table-wide and in default privileges.
 
-```
-notifications (
-  id bigint identity pk,
-  recipient_id uuid → profiles           -- exactly one person per row
-  actor_id uuid → profiles null,
-  agency_id uuid → agencies, organization_id uuid → organizations null,
-  kind text,                              -- 'assigned' | 'reassigned' | 'mention' | 'overdue' | 'sla_risk' | 'blocked' | 'note'
-  entity_type text, entity_id text,       -- the canonical record; same vocabulary as activity_events
-  activity_id bigint → activity_events null,
-  created_at timestamptz, read_at timestamptz null
-)
-unique (recipient_id, activity_id, kind) where activity_id is not null   -- one notification per person per event
-index (recipient_id, read_at) where read_at is null                      -- the badge
-```
+**Frontend:** `lib/data/notifications.ts` (fetch, unread head-count, mark
+read/all, `hrefForEntity`), `use-notifications.ts` (list + unread count on one
+key; sidebar badge and topbar bell share the unread query), NotificationsPage
+rewritten (unread styling, Open, Mark read, Mark all read, honest "No page
+opens this record yet" when an entity has no addressable surface). Deep links:
+`/app/my-work?item=` highlights the row if RLS returns it; `/app/creditops?
+client=` resolves the client through the RLS-scoped store, selects its Partner
+and opens the client workspace; `/app/fundingops?client=` opens the client
+workspace. All three drop the parameter after use and claim nothing on a miss.
 
-**Recipients are computed by the same triggers that write activity, in the
-same transaction, deterministically:**
-- `assigned` / `reassigned` → `new.assigned_to` (and `old.assigned_to` gets an
-  `unassigned` note only if a business rule wants it — not by default).
-- `note` on a record → the record's assignee, plus the lead(s) of its team; never
-  anyone who fails `entity_visible` for that record at delivery time.
-- `mention` → a `mention` node in the structured body (`@user` → `profiles.id`,
-  never a name); recipient must pass `entity_visible` at delivery.
-- `overdue` / `sla_risk` / `blocked` → assignee + the record's team leads +
-  division managers of the record's division. Produced by a scheduled job
-  (pg_cron) that scans `work_attention`, not by clients.
-- Division events go only to people whose scope reaches that division;
-  organization events never leave the organization; `bes_internal` never
-  reaches a customer user — all of which falls out of routing through
-  `entity_visible` + `can_view_activity` at write time.
+**Not built, on purpose:** mentions (the composer has no mention node — nothing
+real to derive them from), overdue/SLA notifications (would need pg_cron, which
+is available but not installed; `work_attention` already surfaces these live),
+email/SMS delivery, digests.
 
-**RLS:** `select using (recipient_id = auth.uid())`; `update (read_at only) using
-(recipient_id = auth.uid())` via column grant; no client insert/delete. Badge =
-`count(*) where recipient_id = me and read_at is null`; list = the same
-predicate ordered by `created_at desc`, bounded. Same table, same predicate —
-no second counter.
-
-**Deep links (Phase 5b):** one resolver `hrefFor(entity_type, entity_id)` that
-maps the activity vocabulary to a route; on click, re-read the record (RLS
-decides), and render "no longer available" when it returns nothing. `related_ref`
-is not used as an address until it becomes a typed FK.
-
-**Explicitly out of scope until Team Scope is exercised in production:** email/SMS
-delivery, digests, escalation ladders beyond lead + division manager.
+**Verified:** typecheck clean, 233 tests, 0 lint errors, build, no circular
+deps, verify-live (anon denied on `notifications`), migrations 30/30.
+RLS matrix **131/131** (`--phase=5`, 12 new checks: recipient rules, actor
+exclusion, read-time revocation, mark-read ownership, grant hardening).
+Browser, as the owner: two real rows from a manager's assign/unassign of the
+Dana Doyle fixture; Mark read moved header, topbar and sidebar from 2 to 1
+together; Open landed on Dana's CreditOps client workspace with the parameter
+dropped.

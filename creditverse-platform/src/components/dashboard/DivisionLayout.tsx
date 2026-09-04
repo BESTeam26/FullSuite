@@ -52,9 +52,12 @@ export const StatCard = ({
 export const DivisionTable = ({
   columns,
   rows,
+  activeRow,
 }: {
   columns: string[];
   rows: (string | number | ReactNode)[][];
+  /** Index of the row a deep link points at; highlighted, still readable. */
+  activeRow?: number;
 }) => (
   <div className="overflow-x-auto rounded-xl border border-border">
     <table className="w-full text-sm">
@@ -72,7 +75,14 @@ export const DivisionTable = ({
       </thead>
       <tbody className="divide-y divide-border">
         {rows.map((row, i) => (
-          <tr key={i} className="hover:bg-muted/30 transition-colors">
+          <tr
+            key={i}
+            aria-current={activeRow === i ? "true" : undefined}
+            className={cn(
+              "transition-colors hover:bg-muted/30",
+              activeRow === i && "bg-primary/5 shadow-[inset_3px_0_0_0_hsl(var(--primary))]",
+            )}
+          >
             {row.map((cell, j) => (
               <td
                 key={j}

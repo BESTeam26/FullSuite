@@ -11,6 +11,8 @@
  */
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
+import { clientGroupKey } from "@/lib/fulfillment/ops-client-domain";
 import { CreditOpsHeader } from "@/components/dashboard/fulfillment/CreditOpsHeader";
 import {
   CreditOpsTreeSidebar,
@@ -25,6 +27,7 @@ import { QueueView } from "@/components/dashboard/fulfillment/QueueViews";
 import { StatusGuideModal } from "@/components/dashboard/fulfillment/StatusGuideModal";
 import {
   CreditOpsStoreProvider,
+  useCreditOpsStore,
   setStatusChangeHandler,
 } from "@/lib/fulfillment/creditops-client-store";
 import {
@@ -88,6 +91,30 @@ function CreditOpsWorkspace() {
   );
   const [activeView, setActiveView] = useState<PartnerViewId>("dashboard");
   const [isStatusGuideOpen, setIsStatusGuideOpen] = useState(false);
+
+  // Deep link (notifications): /app/creditops?client=<id>. The client is
+  // resolved through the store, which is already RLS-scoped, so an id the
+  // caller may not see resolves to nothing and nothing is claimed. On a hit:
+  // select its Partner, open the client list on that record, drop the param.
+  const { clients } = useCreditOpsStore();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const linkedClient = searchParams.get("client");
+  const [linkedOpenClientId, setLinkedOpenClientId] = useState<string | null>(null);
+  useEffect(() => {
+    // The store exposes no loading flag; an empty list means "not yet" (or
+    // nothing visible), so wait rather than conclude the record is gone.
+    if (!linkedClient || clients.length === 0) return;
+    const client = clients.find((c) => c.id === linkedClient);
+    const owner = client
+      ? partners.find((p) => p.scopeId === clientGroupKey(client))
+      : undefined;
+    if (client && owner) {
+      setSelection({ kind: "partner", partnerId: owner.id });
+      setActiveView("main-list");
+      setLinkedOpenClientId(client.id);
+    }
+    setSearchParams({}, { replace: true });
+  }, [linkedClient, clients, partners, setSearchParams]);
 
   // If the role loses Management access while a Management view is selected,
   // fall back to the first Partner workspace so nothing restricted renders.
@@ -158,6 +185,7 @@ function CreditOpsWorkspace() {
                 partner={partner}
                 activeView={activeView}
                 onViewChange={setActiveView}
+                openClientId={linkedOpenClientId}
               />
             ) : (
               <div className="flex h-full items-center justify-center p-10 text-center">
@@ -266,6 +294,8 @@ function ManagementView({
 /* ------------------------------------------------------------------ */
 
 interface PartnerWorkspaceProps {
+  /** Client to open on arrival (deep link); null means none. */
+  openClientId?: string | null;
   scopeId: string;
   partner: OpsPartner;
   activeView: PartnerViewId;
@@ -277,6 +307,7 @@ function PartnerWorkspace({
   partner,
   activeView,
   onViewChange,
+  openClientId = null,
 }: PartnerWorkspaceProps) {
   return (
     <div className="flex flex-col">
@@ -300,7 +331,11 @@ function PartnerWorkspace({
 
       <div className="p-6">
         {activeView === "main-list" ? (
-          <FulfillmentClientsPanel selectedScope={scopeId} partner={partner} />
+          <FulfillmentClientsPanel
+            selectedScope={scopeId}
+            partner={partner}
+            initialOpenClientId={openClientId}
+          />
         ) : activeView === "dashboard" ? (
           <CreditOpsDashboardView
             selectedScope={scopeId}

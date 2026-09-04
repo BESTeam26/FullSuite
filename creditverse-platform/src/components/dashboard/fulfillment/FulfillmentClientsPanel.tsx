@@ -43,12 +43,15 @@ interface FulfillmentClientsPanelProps {
   selectedScope?: string;
   assignedOnlyFilter?: boolean;
   partner?: CreditOpsPartner | undefined;
+  /** Opens this client's workspace on mount / when it changes (deep link). */
+  initialOpenClientId?: string | null;
 }
 
 export function FulfillmentClientsPanel({
   selectedScope = "all",
   assignedOnlyFilter = false,
   partner,
+  initialOpenClientId = null,
 }: FulfillmentClientsPanelProps) {
   const store = useCreditOpsStore();
   const [prefs, setPrefs] = useState<ViewPrefs>(() => loadPrefs());
@@ -57,7 +60,13 @@ export function FulfillmentClientsPanel({
   const [assignedOnly, setAssignedOnly] = useState(assignedOnlyFilter);
   const [showColumns, setShowColumns] = useState(false);
   const [showAddClient, setShowAddClient] = useState(false);
-  const [openClientId, setOpenClientId] = useState<string | null>(null);
+  const [openClientId, setOpenClientId] = useState<string | null>(
+    initialOpenClientId,
+  );
+
+  useEffect(() => {
+    if (initialOpenClientId) setOpenClientId(initialOpenClientId);
+  }, [initialOpenClientId]);
 
   useEffect(() => savePrefs(prefs), [prefs]);
   const setPref = <K extends keyof ViewPrefs>(key: K, value: ViewPrefs[K]) =>

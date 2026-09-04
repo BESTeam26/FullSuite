@@ -22,6 +22,7 @@
  */
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { FundingOpsHeader } from "@/components/dashboard/fulfillment/FundingOpsHeader";
 import {
   FundingOpsTreeSidebar,
@@ -80,6 +81,17 @@ function FundingOpsWorkspace() {
   );
   const [activeView, setActiveView] =
     useState<FundingPartnerViewId>("dashboard");
+
+  // Deep link (notifications): /app/fundingops?client=<id> opens that client
+  // workspace once. The workspace itself reads the record under RLS, so an
+  // id the caller may not see renders as not found, never as someone else's.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const linkedClient = searchParams.get("client");
+  useEffect(() => {
+    if (!linkedClient) return;
+    setSelection({ kind: "client", clientId: linkedClient });
+    setSearchParams({}, { replace: true });
+  }, [linkedClient, setSearchParams]);
 
   // If the role loses Management access while a Management view is selected,
   // fall back to the first Partner workspace.

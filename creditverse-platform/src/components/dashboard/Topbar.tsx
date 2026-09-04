@@ -1,3 +1,4 @@
+import { useUnreadNotificationCount } from "@/lib/data/use-notifications";
 import { Link } from "react-router-dom";
 import {
   Search,
@@ -19,6 +20,7 @@ export const Topbar = () => {
   const { displayName, mode } = useAuth();
 
   const viewMode = agencyContext?.viewMode || "agency";
+  const unreadNotifications = useUnreadNotificationCount();
   const activeSubAccount = agencyContext?.activeSubAccount || null;
   const switchToAgencyView = agencyContext?.switchToAgencyView || (() => {});
 
@@ -75,15 +77,24 @@ export const Topbar = () => {
           {viewMode === "agency" ? "Add Sub-Account" : "New Client"}
         </Button>
 
-        {/* The dot was unconditional — it signalled "unread" permanently,
-            with nothing behind it. The bell now simply opens the page. */}
+        {/* The dot means exactly one thing: unread rows in `notifications`
+            for this user, under their own RLS. Same query as the sidebar. */}
         <Link
           to="/app/notifications"
-          aria-label="Notifications"
+          aria-label={
+            unreadNotifications > 0
+              ? `Notifications, ${unreadNotifications} unread`
+              : "Notifications"
+          }
           title="Notifications"
-          className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          className="relative rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           <Bell className="h-5 w-5" />
+          {unreadNotifications > 0 && (
+            <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-primary-foreground">
+              {unreadNotifications > 99 ? "99+" : unreadNotifications}
+            </span>
+          )}
         </Link>
 
         <div className="flex items-center gap-2">

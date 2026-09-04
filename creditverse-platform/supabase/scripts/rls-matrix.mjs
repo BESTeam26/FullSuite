@@ -255,5 +255,48 @@ if (PHASE >= 3) {
   }
 }
 
+
+/* ---------------- Phase 5: notifications ----------------
+   Recipients are computed by the database from activity events; rows are read
+   under the recipient's own RLS, which re-checks the record is still visible.
+   Every probe runs inside one rolled-back transaction, switching the JWT
+   subject mid-transaction to read as a different person. Rows created inside
+   the transaction carry created_at = now() (transaction start), which is how
+   the counts ignore anything that already existed. */
+if (PHASE >= 5) {
+  const credit = U["bes.credit@bes.test"], manager = U["bes.manager@bes.test"],
+        lead = U["bes.lead@bes.test"], restricted = U["bes.restricted@bes.test"];
+  const dana = q(`select id from public.fulfillment_clients where name='[TEST] Dana Doyle'`)[0]?.id;
+  const as = (uid) => `set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'`;
+  const W5 = (uid, stmt) => { try { return q(`begin; set local role authenticated; ${as(uid)}; ${stmt}; rollback;`)[0]; } catch (e) { return { rows: "ERR " + String(e.message).slice(0, 60) }; } };
+  const assignToCredit = `update public.fulfillment_clients set assigned_agent_id='${credit}' where id='${dana}'`;
+  const assignToLead   = `update public.fulfillment_clients set assigned_agent_id='${lead}' where id='${dana}'`;
+  const leadNotes = `${as(lead)}; insert into public.activity_events (agency_id, organization_id, entity_type, entity_id, actor_id, action, detail, visibility)
+      select agency_id, organization_id, 'fulfillment_client', id::text, auth.uid(), 'Note', 'probe note', 'bes_internal' from public.fulfillment_clients where id='${dana}'`;
+  const fresh = (extra = "") => `select count(*)::int as rows from public.notifications where created_at >= now() ${extra}`;
+
+  const P5 = [
+    ["manager assigns Dana → credit has 1 unread 'assigned'",        () => W5(manager, `${assignToCredit}; ${as(credit)}; ${fresh(`and kind='assigned' and entity_id='${dana}' and read_at is null`)}`).rows, 1],
+    ["…the actor (manager) is not notified",                          () => W5(manager, `${assignToCredit}; ${fresh()}`).rows, 0],
+    ["…an unrelated agent (restricted) sees nothing",                 () => W5(manager, `${assignToCredit}; ${as(restricted)}; ${fresh()}`).rows, 0],
+    ["recipient can mark their own notification read",                () => W5(manager, `${assignToCredit}; ${as(credit)}; with u as (update public.notifications set read_at = now() where created_at >= now() returning 1) select count(*)::int as rows from u`).rows, 1],
+    ["another user cannot mark it read (0 rows touched)",             () => W5(manager, `${assignToCredit}; ${as(restricted)}; with u as (update public.notifications set read_at = now() returning 1) select count(*)::int as rows from u`).rows, 0],
+    ["reassigning away → credit gets 1 'unassigned'",                 () => W5(manager, `${assignToCredit}; ${assignToLead}; ${as(credit)}; ${fresh(`and kind='unassigned'`)}`).rows, 1],
+    ["lead notes credit's client → credit gets 1 'note'",             () => W5(manager, `${assignToCredit}; ${leadNotes}; ${as(credit)}; ${fresh(`and kind='note'`)}`).rows, 1],
+    ["…the note's author is not notified",                            () => W5(manager, `${assignToCredit}; ${leadNotes}; ${fresh(`and kind='note'`)}`).rows, 0],
+    ["after losing the record, credit's note notification is hidden", () => W5(manager, `${assignToCredit}; ${leadNotes}; ${as(manager)}; ${assignToLead}; ${as(credit)}; ${fresh(`and kind='note'`)}`).rows, 0],
+    ["API roles hold no INSERT/DELETE/TRUNCATE on notifications",     () => q(`select count(*)::int as rows from information_schema.role_table_grants where table_schema='public' and table_name='notifications' and grantee in ('anon','authenticated') and privilege_type in ('INSERT','DELETE','TRUNCATE','TRIGGER','REFERENCES')`)[0].rows, 0],
+    ["API roles hold TRUNCATE/TRIGGER/REFERENCES on no public table", () => q(`select count(*)::int as rows from information_schema.role_table_grants where table_schema='public' and grantee in ('anon','authenticated') and privilege_type in ('TRUNCATE','TRIGGER','REFERENCES')`)[0].rows, 0],
+    ["recipient-resolution functions not callable from the API",      () => q(`select count(*)::int as rows from information_schema.routine_privileges where specific_schema='public' and routine_name in ('record_owner','notify_from_activity','as_uuid') and grantee in ('anon','authenticated','PUBLIC')`)[0].rows, 0],
+  ];
+  console.log("\nphase 5:");
+  for (const [label, fn, want] of P5) {
+    checks++;
+    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
+    const ok = got === want; if (!ok) fails++;
+    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
+  }
+}
+
 console.log(`\n${checks - fails}/${checks} checks passed (phase ≤ ${PHASE})`);
 process.exit(fails ? 1 : 0);
