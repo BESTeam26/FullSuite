@@ -81,6 +81,16 @@ export function mayPostAs(
   return allowedVisibilities(author, hasActiveEngagement).includes(visibility);
 }
 
+/**
+ * The canonical cache identity for one record's timeline.
+ *
+ * Exported so the reader (`useTimeline`) and the writer (the ops store) name
+ * the same cache. Two hand-built key arrays is how a posted comment ends up
+ * invalidating something other than the list it belongs to (rule 13).
+ */
+export const timelineKey = (entityType: string, entityId: string | undefined) =>
+  ["activity", entityType, entityId] as const;
+
 export interface TimelineEntry extends OpsActivityEntry {
   visibility: ActivityVisibility;
   /** True for trigger-written events; false for a note somebody typed. */
@@ -151,20 +161,32 @@ export interface PostNoteInput {
  *
  * `field` is deliberately left null, which is what marks a row as a human note
  * rather than a system event.
+ *
+ * Returns the **persisted** row, not the input. The caller needs the database's
+ * own id and `created_at` to place the note in the timeline; echoing the input
+ * back would put a record on screen that does not exist yet, and leave it there
+ * if the write later failed.
  */
-export async function postNote(input: PostNoteInput): Promise<void> {
+export async function postNote(input: PostNoteInput): Promise<TimelineEntry> {
   const sb = requireSupabase();
-  const { error } = await sb.from("activity_events").insert({
-    agency_id: input.agencyId,
-    organization_id: input.organizationId ?? null,
-    entity_type: input.entityType,
-    entity_id: input.entityId,
-    actor_id: input.actorId,
-    actor_name: input.actorName,
-    action: input.action,
-    detail: input.detail,
-    visibility: input.visibility,
-    mark: input.mark ?? null,
-  });
+  const { data, error } = await sb
+    .from("activity_events")
+    .insert({
+      agency_id: input.agencyId,
+      organization_id: input.organizationId ?? null,
+      entity_type: input.entityType,
+      entity_id: input.entityId,
+      actor_id: input.actorId,
+      actor_name: input.actorName,
+      action: input.action,
+      detail: input.detail,
+      visibility: input.visibility,
+      mark: input.mark ?? null,
+    })
+    .select()
+    .single();
   if (error) throw error;
+  // Guaranteed present: the insert policy's first conjunct is
+  // `can_view_activity(...)`, so a row that may be written may be read back.
+  return mapRow(data as Row);
 }

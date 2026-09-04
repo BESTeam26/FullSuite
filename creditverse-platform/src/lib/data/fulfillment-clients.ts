@@ -196,6 +196,13 @@ export async function checkAddConflict(
  * or — worse — attribute the work to the wrong record (rule 4).
  */
 async function currentUserId(): Promise<string> {
+  /* Deliberately a server call, and deliberately still here.
+     `created_by` is the one actor column NO policy constrains — there is no
+     `created_by = auth.uid()` check anywhere — so a client-supplied value could
+     forge who created a record (rules 4 and 10). `employee_id` on
+     production_logs IS constrained, which is why that path could stop asking.
+     Do not "optimize" this one away without first giving the column a
+     `default auth.uid()` and a matching check. */
   const sb = requireSupabase();
   const { data, error } = await sb.auth.getUser();
   if (error || !data.user) {
@@ -210,46 +217,64 @@ const withActivityStamp = <T extends object>(patch: T) => ({
   last_activity_at: new Date().toISOString(),
 });
 
+/**
+ * Writes return the updated row.
+ *
+ * `.select()` costs nothing extra — PostgREST returns it from the same
+ * statement — and it is what lets the caller patch one row into the cached
+ * list instead of refetching all seventeen to see one field change (rule 14).
+ * It also means the interface renders what the database actually stored,
+ * triggers and all, rather than what the client hoped it would store.
+ */
 export async function updateClientStatus(
   clientId: string,
   status: Enums<"fulfillment_client_status">,
-) {
+): Promise<FulfillmentClient> {
   const sb = requireSupabase();
-  const { error } = await sb
+  const { data, error } = await sb
     .from("fulfillment_clients")
     .update(withActivityStamp({ status }))
-    .eq("id", clientId);
+    .eq("id", clientId)
+    .select(CLIENT_SELECT)
+    .single();
   if (error) throw error;
+  return mapClientRow(data as unknown as ClientRow);
 }
 
 export async function updateClientAssignee(
   clientId: string,
   assignedAgentId: string | null,
-) {
+): Promise<FulfillmentClient> {
   const sb = requireSupabase();
-  const { error } = await sb
+  const { data, error } = await sb
     .from("fulfillment_clients")
     .update(withActivityStamp({ assigned_agent_id: assignedAgentId }))
-    .eq("id", clientId);
+    .eq("id", clientId)
+    .select(CLIENT_SELECT)
+    .single();
   if (error) throw error;
+  return mapClientRow(data as unknown as ClientRow);
 }
 
 export async function updateClientContact(
   clientId: string,
   field: "email" | "phone",
   value: string,
-) {
+): Promise<FulfillmentClient> {
   const sb = requireSupabase();
   // Written out rather than computed so the column stays a known key.
   const patch =
     field === "email"
       ? withActivityStamp({ email: value })
       : withActivityStamp({ phone: value });
-  const { error } = await sb
+  const { data, error } = await sb
     .from("fulfillment_clients")
     .update(patch)
-    .eq("id", clientId);
+    .eq("id", clientId)
+    .select(CLIENT_SELECT)
+    .single();
   if (error) throw error;
+  return mapClientRow(data as unknown as ClientRow);
 }
 
 export interface CreateFulfillmentClientInput {
@@ -311,6 +336,8 @@ export async function createFulfillmentClient(
 
 export interface LogProductionInput {
   agencyId: string;
+  /** The signed-in user, from the auth context. RLS re-checks it. */
+  employeeId: string;
   clientId: string;
   organizationId?: string;
   outsourcingGroupId?: string;
@@ -320,11 +347,24 @@ export interface LogProductionInput {
   workNotes?: string;
 }
 
+/**
+ * Record one production unit.
+ *
+ * `employeeId` comes from the caller's already-resolved auth context. It used
+ * to call `supabase.auth.getUser()` here, which is a **network round trip** to
+ * GoTrue — 299ms measured, on the critical path, in front of the insert, to
+ * learn an id the session already held.
+ *
+ * That is not a weakening. `production_logs_insert` checks
+ * `employee_id = auth.uid() and is_staff_of(agency_id)`, so the database
+ * refuses a forged id no matter what the client sends. The round trip was
+ * re-asking a question RLS answers authoritatively anyway.
+ */
 export async function logProduction(input: LogProductionInput) {
   const sb = requireSupabase();
   const { error } = await sb.from("production_logs").insert({
     agency_id: input.agencyId,
-    employee_id: await currentUserId(),
+    employee_id: input.employeeId,
     client_id: input.clientId,
     organization_id: input.organizationId ?? null,
     outsourcing_group_id: input.outsourcingGroupId ?? null,

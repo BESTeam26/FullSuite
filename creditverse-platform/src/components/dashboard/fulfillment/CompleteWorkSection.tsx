@@ -20,8 +20,8 @@
  *   6. Submit creates ONE Work Completion event → Activity + Production (1 unit).
  */
 
-import { useMemo, useState } from "react";
-import { CheckCircle2, FileText } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { CheckCircle2, FileText, Loader2 } from "lucide-react";
 import { useCreditOpsStore } from "@/lib/fulfillment/creditops-client-store";
 import {
   useCreditOpsAccess,
@@ -74,6 +74,11 @@ export function CompleteWorkSection({
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [workNotes, setWorkNotes] = useState("");
   const [statusChange, setStatusChange] = useState("Keep current status");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  /* Synchronous guard — see the note in OpsActivityTimeline. `isSubmitting`
+     drives the label; this is what actually stops a second production row. */
+  const submittingRef = useRef(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Production-action library for the selected department.
   const deptActions = useMemo(
@@ -95,42 +100,68 @@ export function CompleteWorkSection({
     setSelectedItems([]);
   };
 
-  const handleCompleteWork = () => {
-    if (selectedItems.length === 0 || !activeDept) return;
+  /**
+   * Complete the work, then reset — in that order.
+   *
+   * `isSubmitting` is what makes a double-click produce one production row
+   * rather than two. The form used to reset synchronously beside a
+   * fire-and-forget write, so a second click landed on a still-populated
+   * request and a failure cleared the agent's notes anyway.
+   *
+   * Note the honest limit: this guards the *interface*. There is no natural
+   * idempotency key for production — the same agent may legitimately work the
+   * same file twice in a day — so a genuinely idempotent write would need a
+   * client-generated request id column. Recorded rather than pretended.
+   */
+  const handleCompleteWork = async () => {
+    if (selectedItems.length === 0 || !activeDept || submittingRef.current)
+      return;
+    submittingRef.current = true;
     const actionLabels = selectedItems
       .map((id) => WORK_ITEMS.find((w) => w.id === id)?.label ?? id)
       .sort();
 
-    // ONE Work Completion event → ONE production unit (1 file worked).
-    // The selected items become the production actions under that unit.
-    store.logProduction({
-      clientId,
-      clientName,
-      partnerName,
-      department: activeDept,
-      actions: actionLabels,
-      workNotes: workNotes.trim() || undefined,
-      actor: "Agent (BES HQ)",
-    });
-
-    // Status change stays SEPARATE from completion actions.
-    if (statusChange !== "Keep current status") {
-      const newStatus = statusChange.replace("Move to ", "");
-      store.addActivity({
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      // ONE Work Completion event → ONE production unit (1 file worked).
+      // The selected items become the production actions under that unit.
+      await store.logProduction({
         clientId,
+        clientName,
+        partnerName,
+        department: activeDept,
+        actions: actionLabels,
+        workNotes: workNotes.trim() || undefined,
         actor: "Agent (BES HQ)",
-        action: "Status change",
-        detail: `${newStatus}`,
-        field: "status",
-        previousValue: "—",
-        newValue: newStatus,
       });
-    }
 
-    // Reset the form.
-    setSelectedItems([]);
-    setWorkNotes("");
-    setStatusChange("Keep current status");
+      // Status change stays SEPARATE from completion actions.
+      if (statusChange !== "Keep current status") {
+        const newStatus = statusChange.replace("Move to ", "");
+        await store.addActivity({
+          clientId,
+          actor: "Agent (BES HQ)",
+          action: "Status change",
+          detail: `${newStatus}`,
+          field: "status",
+          previousValue: "—",
+          newValue: newStatus,
+        });
+      }
+
+      // Reset the form only once the work is recorded.
+      setSelectedItems([]);
+      setWorkNotes("");
+      setStatusChange("Keep current status");
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error ? err.message : "Could not record this work.",
+      );
+    } finally {
+      submittingRef.current = false;
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -240,17 +271,29 @@ export function CompleteWorkSection({
               {selectedItems.length} action
               {selectedItems.length === 1 ? "" : "s"} · 1 file
             </span>
+            {submitError && (
+              <p
+                role="alert"
+                className="flex-1 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-[11px] font-medium text-destructive"
+              >
+                {submitError} Your selection has been kept.
+              </p>
+            )}
             <button
-              onClick={handleCompleteWork}
-              disabled={selectedItems.length === 0}
+              onClick={() => void handleCompleteWork()}
+              disabled={selectedItems.length === 0 || isSubmitting}
+              aria-busy={isSubmitting}
               className={cn(
-                "rounded-lg px-4 py-2 font-bold text-white shadow",
+                "inline-flex items-center gap-1.5 rounded-lg px-4 py-2 font-bold shadow transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-card",
                 selectedItems.length === 0
                   ? "cursor-not-allowed bg-muted text-muted-foreground"
-                  : "bg-emerald-700 hover:bg-emerald-800",
+                  : isSubmitting
+                    ? "cursor-not-allowed bg-emerald-700/60 text-white/90"
+                    : "bg-emerald-700 text-white hover:bg-emerald-800",
               )}
             >
-              Complete Work
+              {isSubmitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {isSubmitting ? "Recording…" : "Complete Work"}
             </button>
           </div>
         </>

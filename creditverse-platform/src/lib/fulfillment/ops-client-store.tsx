@@ -32,7 +32,12 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth/auth-context";
-import { DEFAULT_VISIBILITY, postNote } from "@/lib/data/activity";
+import {
+  DEFAULT_VISIBILITY,
+  postNote,
+  timelineKey,
+  type TimelineEntry,
+} from "@/lib/data/activity";
 import {
   checkClientConflict,
   clientGroupLabel,
@@ -78,12 +83,21 @@ export interface OpsClientStoreValue<T extends OpsClient, D> {
   activity: OpsActivityEntry[];
   getActivity: (clientId: string) => OpsActivityEntry[];
   getDepartmentStatuses: (clientId: string) => D[];
-  updateStatus: (clientId: string, newStatus: string, actor: string) => void;
+  /**
+   * Mutations resolve when the database has accepted the write, and reject
+   * when it has not. Callers await them so a control can show a pending state
+   * and, on failure, keep what the user typed instead of clearing it.
+   */
+  updateStatus: (
+    clientId: string,
+    newStatus: string,
+    actor: string,
+  ) => Promise<void>;
   updateAssignee: (
     clientId: string,
     newAssignee: string,
     actor: string,
-  ) => void;
+  ) => Promise<void>;
   /**
    * Whether assignment can actually be saved right now.
    *
@@ -98,7 +112,7 @@ export interface OpsClientStoreValue<T extends OpsClient, D> {
     field: "email" | "phone",
     value: string,
     actor: string,
-  ) => void;
+  ) => Promise<void>;
   /**
    * What would adding this client collide with? Performs NO write, so intake
    * surfaces can warn and take a decision BEFORE the record exists.
@@ -109,11 +123,13 @@ export interface OpsClientStoreValue<T extends OpsClient, D> {
   addClient: (
     client: Omit<T, "id" | "lastActivity" | "createdAt">,
   ) => AddClientOutcome<T>;
-  addActivity: (entry: Omit<OpsActivityEntry, "id" | "timestamp">) => void;
+  addActivity: (
+    entry: Omit<OpsActivityEntry, "id" | "timestamp">,
+  ) => Promise<void>;
   togglePin: (activityId: string) => void;
   setMark: (activityId: string, mark: string | undefined) => void;
   /** Record one production unit (one file worked) with the selected actions. */
-  logProduction: (input: ProductionLogInput) => void;
+  logProduction: (input: ProductionLogInput) => Promise<void>;
 }
 
 /**
@@ -124,18 +140,25 @@ export interface OpsClientStoreValue<T extends OpsClient, D> {
 export interface OpsClientLiveBackend<T extends OpsClient, D> {
   fetchClients: () => Promise<T[]>;
   fetchDepartmentStatuses: (clientId: string) => Promise<D[]>;
-  updateStatus: (clientId: string, status: string) => Promise<void>;
+  /**
+   * Writes resolve to the updated canonical row.
+   *
+   * That row is what lets the store patch one entry in the cached list rather
+   * than invalidating the whole thing. A backend that returned `void` left the
+   * caller no way to see the result except refetching 13.2kb (rule 14).
+   */
+  updateStatus: (clientId: string, status: string) => Promise<T>;
   /**
    * Omit until the division can resolve an assignee to a real profile id.
    * Names are not identities (rule 4), so a division without a people
    * directory reports "cannot assign" rather than guessing from a name.
    */
-  updateAssignee?: (clientId: string, assigneeName: string) => Promise<void>;
+  updateAssignee?: (clientId: string, assigneeName: string) => Promise<T>;
   updateContact: (
     clientId: string,
     field: "email" | "phone",
     value: string,
-  ) => Promise<void>;
+  ) => Promise<T>;
   /**
    * Tenant-owned writes receive the agency from the authenticated context —
    * never from a component, a constant, or anything a caller could choose.
@@ -145,7 +168,11 @@ export interface OpsClientLiveBackend<T extends OpsClient, D> {
     client: Omit<T, "id" | "lastActivity" | "createdAt">,
     agencyId: string,
   ) => Promise<string>;
-  logProduction: (input: ProductionLogInput, agencyId: string) => Promise<void>;
+  logProduction: (
+    input: ProductionLogInput,
+    agencyId: string,
+    employeeId: string,
+  ) => Promise<void>;
 }
 
 export interface OpsClientStoreConfig<T extends OpsClient, D> {
@@ -163,6 +190,27 @@ export interface OpsClientStoreConfig<T extends OpsClient, D> {
   /** Omit to keep the division on seed data. */
   live?: OpsClientLiveBackend<T, D>;
 }
+
+/**
+ * Wrap a mutation so its rejection is never "unhandled", without swallowing it.
+ *
+ * Store mutations toast their own failure and then rethrow, so an awaiting
+ * caller — the comment composer, Complete Work — can keep what the user typed
+ * and offer a retry. Most callers do not await; for them the toast is the whole
+ * error surface, and an un-awaited rejection would reach the console as an
+ * unhandled rejection.
+ *
+ * Attaching a no-op handler marks the promise handled but does not consume it:
+ * rejection tracking is per-promise, and `await` still throws for callers that
+ * want it. One place, so no call site has to remember either behaviour.
+ */
+const handled =
+  <A extends unknown[]>(fn: (...args: A) => Promise<void>) =>
+  (...args: A): Promise<void> => {
+    const p = fn(...args);
+    p.catch(() => {});
+    return p;
+  };
 
 const nowISO = () => new Date().toISOString();
 
@@ -223,7 +271,7 @@ export function createOpsClientStore<T extends OpsClient, D>(
     );
 
     const addActivity = useCallback(
-      (entry: Omit<OpsActivityEntry, "id" | "timestamp">) => {
+      async (entry: Omit<OpsActivityEntry, "id" | "timestamp">) => {
         setActivity((prev) => [
           { ...entry, id: newActId(), timestamp: nowISO() },
           ...prev,
@@ -264,7 +312,7 @@ export function createOpsClientStore<T extends OpsClient, D>(
     );
 
     const updateStatus = useCallback(
-      (clientId: string, newStatus: string, actor: string) => {
+      async (clientId: string, newStatus: string, actor: string) => {
         setClients((prev) => {
           const client = prev.find((c) => c.id === clientId);
           if (!client) return prev;
@@ -302,7 +350,7 @@ export function createOpsClientStore<T extends OpsClient, D>(
     );
 
     const updateAssignee = useCallback(
-      (clientId: string, newAssignee: string, actor: string) => {
+      async (clientId: string, newAssignee: string, actor: string) => {
         setClients((prev) =>
           prev.map((c) => {
             if (c.id !== clientId) return c;
@@ -334,7 +382,7 @@ export function createOpsClientStore<T extends OpsClient, D>(
     );
 
     const updateContact = useCallback(
-      (
+      async (
         clientId: string,
         field: "email" | "phone",
         value: string,
@@ -430,7 +478,7 @@ export function createOpsClientStore<T extends OpsClient, D>(
       [clients],
     );
 
-    const logProduction = useCallback((input: ProductionLogInput) => {
+    const logProduction = useCallback(async (input: ProductionLogInput) => {
       setActivity((a) => [
         {
           id: newActId(),
@@ -533,6 +581,29 @@ export function createOpsClientStore<T extends OpsClient, D>(
     const [deptStatuses, setDeptStatuses] = useState<Record<string, D[]>>({});
     const requested = useRef<Set<string>>(new Set());
 
+    /**
+     * Replace one client in the cached list with the row the database just
+     * returned.
+     *
+     * Every mutation used to invalidate `clientsKey`, which refetched all
+     * seventeen clients (13.2kb) to show one changed field. Every queue in the
+     * division filters this same cached array — there are no separate queue
+     * queries — so patching the row here updates the list, every queue and
+     * every count at once, with no request at all (rule 14).
+     */
+    const patchClient = useCallback(
+      (updated: T) => {
+        queryClient.setQueryData<T[]>(clientsKey, (prev) =>
+          prev
+            ? prev.map((c) => (c.id === updated.id ? updated : c))
+            : prev,
+        );
+      },
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      [queryClient],
+    );
+
+    /** For writes that change list MEMBERSHIP, not just one row's fields. */
     const invalidate = useCallback(
       () => queryClient.invalidateQueries({ queryKey: clientsKey }),
       // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -566,50 +637,57 @@ export function createOpsClientStore<T extends OpsClient, D>(
     );
 
     const updateStatus = useCallback(
-      (clientId: string, newStatus: string) => {
+      async (clientId: string, newStatus: string) => {
         const client = clients.find((c) => c.id === clientId);
         if (!client || client.status === newStatus) return;
-        void backend
-          .updateStatus(clientId, newStatus)
-          .then(() => {
-            notifyStatusChange({
-              clientId,
-              clientName: client.name,
-              partnerName: clientGroupLabel(client),
-              previousStatus: client.status,
-              newStatus,
-            });
-            return invalidate();
-          })
-          .catch(report("Status update"));
+        try {
+          const updated = await backend.updateStatus(clientId, newStatus);
+          patchClient(updated);
+          /* Fired after the write is durable, never before — a signal that
+             says the status changed must not go out if it did not. */
+          notifyStatusChange({
+            clientId,
+            clientName: client.name,
+            partnerName: clientGroupLabel(client),
+            previousStatus: client.status,
+            newStatus,
+          });
+        } catch (err) {
+          report("Status update")(err);
+          throw err;
+        }
       },
       // eslint-disable-next-line react-hooks/exhaustive-deps
-      [clients, invalidate],
+      [clients, patchClient],
     );
 
     const canAssign = Boolean(backend.updateAssignee);
 
     const updateAssignee = useCallback(
-      (clientId: string, newAssignee: string) => {
+      async (clientId: string, newAssignee: string) => {
         if (!backend.updateAssignee) return;
-        void backend
-          .updateAssignee(clientId, newAssignee)
-          .then(invalidate)
-          .catch(report("Assignment update"));
+        try {
+          patchClient(await backend.updateAssignee(clientId, newAssignee));
+        } catch (err) {
+          report("Assignment update")(err);
+          throw err;
+        }
       },
       // eslint-disable-next-line react-hooks/exhaustive-deps
-      [invalidate],
+      [patchClient],
     );
 
     const updateContact = useCallback(
-      (clientId: string, field: "email" | "phone", value: string) => {
-        void backend
-          .updateContact(clientId, field, value)
-          .then(invalidate)
-          .catch(report("Contact update"));
+      async (clientId: string, field: "email" | "phone", value: string) => {
+        try {
+          patchClient(await backend.updateContact(clientId, field, value));
+        } catch (err) {
+          report("Contact update")(err);
+          throw err;
+        }
       },
       // eslint-disable-next-line react-hooks/exhaustive-deps
-      [invalidate],
+      [patchClient],
     );
 
     const checkAddConflict = useCallback(
@@ -668,51 +746,85 @@ export function createOpsClientStore<T extends OpsClient, D>(
      * audience it is not entitled to.
      */
     const postLiveNote = useCallback(
-      (entry: Omit<OpsActivityEntry, "id" | "timestamp">) => {
+      async (entry: Omit<OpsActivityEntry, "id" | "timestamp">) => {
         const client = clients.find((c) => c.id === entry.clientId);
-        if (!agencyId || !userId) return;
-        void postNote({
-          agencyId,
-          organizationId: client?.organizationId,
-          entityType: config.activityEntityType,
-          entityId: entry.clientId,
-          actorId: userId,
-          actorName: entry.actor,
-          action: entry.action,
-          detail: entry.detail,
-          visibility: entry.visibility ?? DEFAULT_VISIBILITY,
-          mark: entry.mark,
-        })
-          .then(invalidate)
-          .catch(report("Posting note"));
+        if (!agencyId || !userId) {
+          // Default deny, and say so. Silently returning let the composer
+          // clear itself as though the note had been saved.
+          const err = new Error(
+            "No authenticated agency context — cannot post this note.",
+          );
+          report("Posting note")(err);
+          throw err;
+        }
+        try {
+          const created = await postNote({
+            agencyId,
+            organizationId: client?.organizationId,
+            entityType: config.activityEntityType,
+            entityId: entry.clientId,
+            actorId: userId,
+            actorName: entry.actor,
+            action: entry.action,
+            detail: entry.detail,
+            visibility: entry.visibility ?? DEFAULT_VISIBILITY,
+            mark: entry.mark,
+          });
+          /* Place the PERSISTED row — the one the database returned, with its
+             real id, created_at and visibility — at the head of the timeline
+             cache. `fetchTimeline` orders newest first, so the head is where
+             it belongs.
+
+             This replaces two wrongs. The write was fire-and-forget and the
+             timeline was then invalidated separately by the caller, so the
+             refetch raced the insert and usually won: the note was missing
+             until the query went stale seconds later. And the write
+             invalidated the CLIENT LIST, which the note does not change. */
+          queryClient.setQueryData<TimelineEntry[]>(
+            timelineKey(config.activityEntityType, entry.clientId),
+            (prev) => (prev ? [created, ...prev] : [created]),
+          );
+        } catch (err) {
+          report("Posting note")(err);
+          // Rethrown so the composer keeps the text and can offer a retry.
+          throw err;
+        }
       },
-      [agencyId, userId, clients, invalidate],
+      [agencyId, userId, clients, queryClient],
     );
 
     const logProduction = useCallback(
-      (input: ProductionLogInput) => {
-        if (!agencyId) {
-          report("Logging production")(
-            new Error("No agency context — cannot record this work."),
+      async (input: ProductionLogInput) => {
+        if (!agencyId || !userId) {
+          const err = new Error(
+            "No authenticated agency context — cannot record this work.",
           );
-          return;
+          report("Logging production")(err);
+          throw err;
         }
-        void backend
-          .logProduction(input, agencyId)
-          .then(() => {
-            notifyStatusChange({
-              clientId: input.clientId,
-              clientName: input.clientName,
-              partnerName: input.partnerName,
-              previousStatus: "—",
-              newStatus: `Work completed (${input.department})`,
-            });
-            return invalidate();
-          })
-          .catch(report("Logging production"));
+        try {
+          /* `employeeId` comes from the resolved session. It used to be read
+             back from GoTrue inside the insert — a 299ms network call in front
+             of every write, for an id already in hand. RLS still enforces
+             `employee_id = auth.uid()`, so the guarantee is unchanged. */
+          await backend.logProduction(input, agencyId, userId);
+          notifyStatusChange({
+            clientId: input.clientId,
+            clientName: input.clientName,
+            partnerName: input.partnerName,
+            previousStatus: "—",
+            newStatus: `Work completed (${input.department})`,
+          });
+          /* Production is its own table; no client row changed, so nothing in
+             the client list needs refetching. The open-items count comes from
+             `fulfillment_clients` and is not touched by a production insert. */
+        } catch (err) {
+          report("Logging production")(err);
+          throw err;
+        }
       },
       // eslint-disable-next-line react-hooks/exhaustive-deps
-      [invalidate],
+      [agencyId, userId],
     );
 
     const noop = () => {};
@@ -722,16 +834,19 @@ export function createOpsClientStore<T extends OpsClient, D>(
         activity,
         getActivity: () => [],
         getDepartmentStatuses,
-        updateStatus,
-        updateAssignee,
+        /* `handled` keeps the rejection reachable for callers that await it
+           while ensuring callers that do not never produce an unhandled
+           rejection — the toast is their error surface. */
+        updateStatus: handled(updateStatus),
+        updateAssignee: handled(updateAssignee),
         canAssign,
-        updateContact,
+        updateContact: handled(updateContact),
         checkAddConflict,
         addClient,
-        addActivity: postLiveNote,
+        addActivity: handled(postLiveNote),
         togglePin: noop,
         setMark: noop,
-        logProduction,
+        logProduction: handled(logProduction),
       }),
       // eslint-disable-next-line react-hooks/exhaustive-deps
       [
@@ -769,21 +884,25 @@ export function createOpsClientStore<T extends OpsClient, D>(
     const ctx = useContext(Context);
     if (ctx) return ctx;
     const noop = () => {};
+    /* Outside a provider there is no tenant, so every write refuses rather
+       than resolving as though it had succeeded (rule 1: default deny). */
+    const denied = () =>
+      Promise.reject(new Error("No operations context — write refused."));
     return {
       clients: [],
       activity: [],
       getActivity: () => [],
       getDepartmentStatuses: () => [],
-      updateStatus: noop,
-      updateAssignee: noop,
+      updateStatus: denied,
+      updateAssignee: denied,
       canAssign: false,
-      updateContact: noop,
+      updateContact: denied,
       checkAddConflict: () => ({ crossScopeMatches: [] }),
       addClient: () => ({ id: "", blocked: true, crossScopeMatches: [] }),
-      addActivity: noop,
+      addActivity: denied,
       togglePin: noop,
       setMark: noop,
-      logProduction: noop,
+      logProduction: denied,
     };
   }
 

@@ -339,6 +339,13 @@ export async function findClientAcrossDivisions(
 /* ------------------------------------------------------------------ */
 
 async function currentUserId(): Promise<string> {
+  /* Deliberately a server call, and deliberately still here.
+     `created_by` is the one actor column NO policy constrains — there is no
+     `created_by = auth.uid()` check anywhere — so a client-supplied value could
+     forge who created a record (rules 4 and 10). `employee_id` on
+     production_logs IS constrained, which is why that path could stop asking.
+     Do not "optimize" this one away without first giving the column a
+     `default auth.uid()` and a matching check. */
   const sb = requireSupabase();
   const { data, error } = await sb.auth.getUser();
   if (error || !data.user) {
@@ -352,34 +359,45 @@ const withActivityStamp = <T extends object>(patch: T) => ({
   last_activity_at: new Date().toISOString(),
 });
 
+/**
+ * Writes return the updated row — see the note on the CreditOps equivalent.
+ * One statement, one round trip, and the caller can patch the cached list
+ * instead of refetching it whole.
+ */
 export async function updateFundingClientStatus(
   clientId: string,
   status: Enums<"funding_client_status">,
-) {
+): Promise<FundingClient> {
   const sb = requireSupabase();
-  const { error } = await sb
+  const { data, error } = await sb
     .from("funding_clients")
     .update(withActivityStamp({ status }))
-    .eq("id", clientId);
+    .eq("id", clientId)
+    .select(CLIENT_SELECT)
+    .single();
   if (error) throw error;
+  return mapFundingClientRow(data as unknown as ClientRow);
 }
 
 export async function updateFundingClientContact(
   clientId: string,
   field: "email" | "phone",
   value: string,
-) {
+): Promise<FundingClient> {
   const sb = requireSupabase();
   // Written out rather than computed so the column stays a known key.
   const patch =
     field === "email"
       ? withActivityStamp({ email: value })
       : withActivityStamp({ phone: value });
-  const { error } = await sb
+  const { data, error } = await sb
     .from("funding_clients")
     .update(patch)
-    .eq("id", clientId);
+    .eq("id", clientId)
+    .select(CLIENT_SELECT)
+    .single();
   if (error) throw error;
+  return mapFundingClientRow(data as unknown as ClientRow);
 }
 
 export interface CreateFundingClientInput {

@@ -31,18 +31,20 @@ export function FundingOpsActivityTimeline({ clientId }: { clientId: string }) {
       actor={ACTOR}
       emptyMessage="No activity yet. Status changes, comments, and updates are logged here."
       allowedVisibilities={allowed}
-      onPostComment={(detail, visibility) => {
+      /* Returns the store's promise so the composer can await persistence.
+         It used to call `timeline.refresh()` immediately after a
+         fire-and-forget write: the refetch beat the insert and returned the
+         timeline as it was, so the new note simply did not appear. The store
+         now places the persisted row into the timeline cache itself. */
+      onPostComment={(detail, visibility) =>
         store.addActivity({
           clientId,
           actor: ACTOR,
           action: "Comment posted",
           detail,
           visibility,
-        });
-        // The store writes optimistically; refetch so the persisted row (and
-        // its badge) replaces the local echo.
-        timeline.refresh();
-      }}
+        })
+      }
       onTogglePin={(id) => store.togglePin(id)}
       onSetMark={(id, mark) => store.setMark(id, mark)}
     />

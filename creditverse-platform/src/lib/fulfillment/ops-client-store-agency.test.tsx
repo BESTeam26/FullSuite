@@ -64,8 +64,9 @@ function makeBackend() {
     backend: {
       fetchClients: async () => [] as TestClient[],
       fetchDepartmentStatuses: async () => [],
-      updateStatus: async () => {},
-      updateContact: async () => {},
+      // Writes resolve to the updated canonical row, as the real backends do.
+      updateStatus: async () => seedClient,
+      updateContact: async () => seedClient,
       addClient: async (
         c: Omit<TestClient, "id" | "lastActivity" | "createdAt">,
         agencyId: string,

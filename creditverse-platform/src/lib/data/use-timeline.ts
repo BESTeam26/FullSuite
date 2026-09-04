@@ -8,7 +8,11 @@
  */
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth/auth-context";
-import { fetchTimeline, type TimelineEntry } from "@/lib/data/activity";
+import {
+  fetchTimeline,
+  timelineKey,
+  type TimelineEntry,
+} from "@/lib/data/activity";
 import type { DataSource } from "@/lib/data/use-work";
 
 export interface TimelineResult {
@@ -16,7 +20,14 @@ export interface TimelineResult {
   source: DataSource;
   isLoading: boolean;
   error: string | null;
-  /** Call after posting so the new note appears without a page reload. */
+  /**
+   * Re-read from the database.
+   *
+   * Not the way a newly posted note reaches the screen — the write returns the
+   * persisted row and `appendToTimeline` places it directly. Calling this after
+   * a fire-and-forget insert is what made a posted comment vanish: the refetch
+   * raced the write and won, returning the timeline as it was a moment earlier.
+   */
   refresh: () => void;
 }
 
@@ -27,7 +38,7 @@ export function useTimeline(
   const auth = useAuth();
   const qc = useQueryClient();
   const live = auth.mode === "live" && auth.status === "signed-in";
-  const key = ["activity", entityType, entityId];
+  const key = timelineKey(entityType, entityId);
 
   const q = useQuery({
     queryKey: key,

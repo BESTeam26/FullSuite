@@ -29,6 +29,7 @@ import {
   Code,
   Heading,
   List,
+  Loader2,
 } from "lucide-react";
 import { FileViewer } from "./FileViewer";
 import {
@@ -54,7 +55,14 @@ interface OpsActivityTimelineProps {
   actor: string;
   /** Shown when the timeline is empty — divisions word this differently. */
   emptyMessage: string;
-  onPostComment: (detail: string, visibility: ActivityVisibility) => void;
+  /**
+   * Resolves when the note is persisted, rejects when it is not. The composer
+   * clears only on resolve — a rejected post keeps what the author typed.
+   */
+  onPostComment: (
+    detail: string,
+    visibility: ActivityVisibility,
+  ) => Promise<void> | void;
   /**
    * Levels this author may create, computed centrally by
    * `allowedVisibilities()`. The timeline never derives them (rule 13).
@@ -81,6 +89,18 @@ export function OpsActivityTimeline({
   const [pendingAttachments, setPendingAttachments] = useState<
     CommentAttachment[]
   >([]);
+  const [isPosting, setIsPosting] = useState(false);
+  /**
+   * The real double-submit guard.
+   *
+   * `isPosting` drives the button's label and disabled attribute, but React
+   * state is not applied synchronously: several clicks dispatched before the
+   * next render all read the stale `false` and all post. Measured — three
+   * rapid clicks produced three activity rows. A ref flips on the current
+   * tick, so the second click returns immediately.
+   */
+  const postingRef = useRef(false);
+  const [postError, setPostError] = useState<string | null>(null);
   const [viewerFiles, setViewerFiles] = useState<AttachmentFile[]>([]);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -147,25 +167,49 @@ export function OpsActivityTimeline({
     return () => el.removeEventListener("paste", onPaste);
   }, []);
 
-  const handlePostComment = () => {
-    if (!commentText.trim() && pendingAttachments.length === 0) return;
+  const canPost =
+    (commentText.trim().length > 0 || pendingAttachments.length > 0) &&
+    !isPosting;
+
+  /**
+   * Post, then clear — in that order, and only on success.
+   *
+   * The composer used to clear synchronously beside a fire-and-forget write,
+   * so a failed post looked identical to a successful one and took the text
+   * with it. `isPosting` also makes a second click a no-op, which is what
+   * stops an impatient double-click becoming two activity rows.
+   */
+  const handlePostComment = async () => {
+    if (!canPost || postingRef.current) return;
+    postingRef.current = true;
     const attachmentPayload =
       pendingAttachments.length > 0
         ? `\n__ATTACHMENTS__:${JSON.stringify(pendingAttachments)}`
         : "";
-    onPostComment(
-      `${commentText.trim() || "(attachment only)"}${attachmentPayload}`,
-      visibility,
-    );
-    setCommentText("");
-    setPendingAttachments([]);
-    setVisibility(DEFAULT_VISIBILITY);
+    setIsPosting(true);
+    setPostError(null);
+    try {
+      await onPostComment(
+        `${commentText.trim() || "(attachment only)"}${attachmentPayload}`,
+        visibility,
+      );
+      setCommentText("");
+      setPendingAttachments([]);
+      setVisibility(DEFAULT_VISIBILITY);
+    } catch (err) {
+      setPostError(
+        err instanceof Error ? err.message : "Could not post this note.",
+      );
+    } finally {
+      postingRef.current = false;
+      setIsPosting(false);
+    }
   };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
       e.preventDefault();
-      handlePostComment();
+      void handlePostComment();
     }
   };
 
@@ -345,6 +389,15 @@ export function OpsActivityTimeline({
           </div>
         )}
 
+        {postError && (
+          <p
+            role="alert"
+            className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-[11px] font-medium text-destructive"
+          >
+            {postError} Your text has been kept — try posting again.
+          </p>
+        )}
+
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-muted-foreground">
             <input
@@ -375,10 +428,17 @@ export function OpsActivityTimeline({
               options={allowed}
             />
             <button
-              onClick={handlePostComment}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-700 px-4 py-2 font-bold text-white shadow hover:bg-emerald-800"
+              onClick={() => void handlePostComment()}
+              disabled={!canPost}
+              aria-busy={isPosting}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-700 px-4 py-2 font-bold text-white shadow transition-colors hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-card disabled:cursor-not-allowed disabled:bg-emerald-700/50 disabled:text-white/80"
             >
-              <Send className="h-3.5 w-3.5" /> Post Comment
+              {isPosting ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Send className="h-3.5 w-3.5" />
+              )}
+              {isPosting ? "Posting…" : "Post Comment"}
             </button>
           </div>
         </div>

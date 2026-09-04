@@ -1,6 +1,7 @@
 # Mutation performance diagnostic — measured
 
-**Diagnosis only for the mutation layer. No mutation code was changed.**
+**Status: diagnosed, then fixed. Findings below are the BEFORE state; measured
+results are at the end.**
 Cold-load fixes were implemented separately — see `PERFORMANCE_DIAGNOSTIC.md`.
 
 Measured against the live development database with a signed-in BES owner, on
@@ -135,3 +136,110 @@ status change 1227ms → ~600ms.
 
 **Not implemented.** The implementation authorized in this task was
 `PERFORMANCE_DIAGNOSTIC.md` priorities 1–5; these are reported for your decision.
+
+
+---
+
+# Results — after implementing the mutation fixes
+
+Same method: fetch interception on the `[TEST] Evan Ellis` seed client, plus
+direct database reads to confirm what was actually written.
+
+## Measured
+
+| Action | Calls | Wire time | Auth calls | Wasted refetch | Time to visible change |
+|---|---|---|---|---|---|
+| **Post Comment** | 3 → **1** | 558 → **357ms** | 0 → 0 | 13.2kb → **0** | **never** → **361ms** |
+| **Complete Work** | 4 → **2** | 892 → **717ms** | 1 → **0** | 13.2kb → **0** | 617 → **367ms** |
+| **Status change** | 4 → **3** | 1227 → **504ms** | 0 → 0 | 13.2kb → **0** | instant, from cache |
+| **Agent assignment** | unchanged | — | — | — | — |
+
+Payload per status change fell 15.1kb → 5.8kb. The remaining calls are the
+write itself, the fire-and-forget webhook signal, and — on status change from a
+list row — the timeline read caused by the row opening the workspace, which
+happened before this work too.
+
+**Assignment is still not reachable in live mode.** Neither division wires
+`updateAssignee`, so `canAssign` is false and the control is not rendered. The
+same `.select()` + cache-patch treatment was applied to that code path so it is
+correct when a division does wire it, but nothing was measured because nothing
+runs.
+
+## Verified against the database, not the screen
+
+| Check | Result |
+|---|---|
+| Posted note appears immediately | ✅ 361ms, correct `BES INTERNAL` badge, correct author and position |
+| Note survives a page refresh | ✅ |
+| Five rapid clicks on Post | ✅ **one** `activity_events` row |
+| Three rapid clicks on Complete Work | ✅ **one** `production_logs` row |
+| Production row correctness | ✅ department `Onboarding`, actions `["Client File Reviewed"]`, quantity 1 |
+| `employee_id` populated from context | ✅ and accepted by RLS, which still checks `employee_id = auth.uid()` |
+| Audit trail | ✅ trigger-written `Status changed` at `shared_with_partner`, notes at `bes_internal` |
+| Status change persists | ✅ confirmed by re-reading `fulfillment_clients` |
+| List reflects change with no refetch | ✅ returning to the list showed the new status with **0 requests** |
+| EOD still derives on read | ✅ 3 units, live aggregation, nothing recalculated synchronously |
+| Forced write failure | ✅ text kept, control restored, error shown, **no phantom timeline entry** |
+| Retry after failure | ✅ one POST, composer clears, error clears |
+
+## What changed
+
+| Fix | Where |
+|---|---|
+| `postNote` returns the persisted row (`.select().single()`), so the timeline gets the real record — id, `created_at`, visibility — instead of a refetch | `lib/data/activity.ts` |
+| `timelineKey()` is exported, so the reader and the writer name the same cache | `lib/data/activity.ts`, `lib/data/use-timeline.ts` |
+| `postLiveNote` awaits the write, then `setQueryData`s the row into the timeline. No client-list invalidation | `lib/fulfillment/ops-client-store.tsx` |
+| The racing `timeline.refresh()` after a fire-and-forget write is gone | `ClientWorkActivityTimeline.tsx`, `FundingOpsActivityTimeline.tsx` |
+| Status / assignee / contact writes return the updated row; `patchClient` replaces that one row in the cached list. Every queue filters that same array, so all queues update with no request | `fulfillment-clients.ts`, `funding-clients.ts`, `ops-client-store.tsx` |
+| `logProduction` takes `employeeId` from the resolved session — the `auth/v1/user` round trip is gone | `fulfillment-clients.ts`, `ops-client-store.tsx` |
+| Composer and Complete Work: pending state, disabled control, content kept on failure, error surfaced | `OpsActivityTimeline.tsx`, `CompleteWorkSection.tsx` |
+| `handled()` keeps rejections reachable for awaiting callers while preventing unhandled rejections for the rest — one place, no call-site churn | `ops-client-store.tsx` |
+
+## Two things worth flagging
+
+**The double-submit guard had to be a ref, not state.** My first attempt used
+`isSubmitting` state and *failed the measurement*: three rapid clicks still
+produced three inserts, because React state is not applied synchronously and
+every click dispatched before the next render read the stale `false`. The
+guard is now a ref, flipped on the current tick. The test pins it and fails
+with "expected 1 times, but got 3 times" if the ref is removed.
+
+**Production is not idempotent at the database level, and this does not make
+it so.** The guard is client-side. There is no natural idempotency key — the
+same agent may legitimately work the same file twice in a day — so a genuinely
+idempotent write would need a client-generated request id column and a unique
+index. Out of scope here; recorded rather than pretended.
+
+## Deliberately unchanged
+
+`currentUserId()` still makes its network call for `created_by` on client
+creation. Unlike `employee_id`, **no policy constrains `created_by`** — there is
+no `created_by = auth.uid()` check anywhere — so a client-supplied value could
+forge who created a record (rules 4 and 10). Removing that round trip safely
+needs a `default auth.uid()` on the column plus a matching check, which is a
+schema change. A comment in both data modules records this so it is not
+"optimized" away.
+
+## Security
+
+**No RLS change, no policy change, no migration.** `verify-live.mjs` passes all
+checks. `.select()` after insert is itself RLS-gated and cannot leak: the
+`activity_events` insert policy's first conjunct is `can_view_activity(...)`,
+so a row that may be written may be read back — and one that may not, is not.
+
+## Regression gate
+
+Typecheck clean · 200 tests / 20 files · lint 0 errors, 77 warnings (baseline) ·
+build succeeds · no circular dependencies · live security verification passes.
+
+Five new tests in `ops-composer-mutation.test.tsx` count mutation invocations
+and assert what survives a rejection, rather than asserting on spinner markup
+which would still pass if the duplicate write returned.
+
+## Test artifacts
+
+The measurements wrote real rows to the dev database on the `[TEST] Evan Ellis`
+client: several `[perf-after]` notes, two production logs and a few status
+changes. Three of those notes are duplicates from the run that *proved* the
+double-click defect before it was fixed. `activity_events` is append-only by
+design, so they stay.
