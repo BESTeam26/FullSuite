@@ -1,16 +1,7 @@
 # Comment / internal-note composer — rebuild
 
-**One step is outstanding and only you can run it: apply the migration.**
-Until then, posting a note fails with *"Could not find the 'body' column"*.
-Everything else below is built, tested and verified.
-
-```bash
-npx supabase db push
-```
-
-(or paste `supabase/migrations/20260903002000_activity_rich_notes_and_attachments.sql`
-into the Supabase SQL editor). I have no database password here — only the
-browser's anon key — so I could not apply it myself.
+**Applied and verified end-to-end.** Migration `20260903002000` is live;
+`migration list` reports 24 local, 24 remote, nothing pending.
 
 ---
 
@@ -124,9 +115,61 @@ message above became visible at all.
 | Mobile 375×812 | ✅ no horizontal overflow, toolbar wraps, Post reachable |
 | Typecheck · 211 tests · lint (0 errors) · build · no circular deps · live security | ✅ |
 
-## Not verified, because it needs the migration
+## End-to-end verification (all passed)
 
-Attachment upload, attachment persistence across refresh, rich-text persistence
-across refresh, and the cross-audience attachment check (a user who cannot read
-the note cannot fetch its file). The code is written and unit-tested; these are
-live checks I will run once the migration is applied.
+| # | Check | Result |
+|---|---|---|
+| 1 | Post a rich-text note | ✅ bold + checklist, typed with real keyboard input |
+| 2 | Formatting persists after refresh | ✅ `<strong>` and the checkbox both re-render; no raw Markdown |
+| 3 | Paste an image into the composer | ✅ `ClipboardEvent` with a real PNG |
+| 4 | Thumbnail before posting | ✅ blob preview + size, upload finished while composing |
+| 5 | Image uploads to Storage | ✅ `storage.objects` 7352 bytes, matching `files.size_bytes` |
+| 6 | Image still displays after refresh | ✅ served from a **signed** URL, loaded at its true 240×120 |
+| 7 | PDF persists and opens in-app | ✅ existing FileViewer, signed URL, `#view=FitH` preserved |
+| 8 | Org users cannot reach BES-internal attachments | ✅ see below |
+| 9 | Unauthorized BES users cannot reach org-internal attachments | ✅ see below |
+| 10 | Shared / Client-Visible follow the activity model | ✅ see below |
+| 11 | Direct Storage / `files` access denied | ✅ see below |
+| 12 | Triple-click posts once | ✅ **one** `activity_events` row in the database |
+| 13 | Post performance with an attachment | ✅ note on screen at ~285ms; 4 calls / 897ms total |
+| 14 | Tests · typecheck · lint · build · live security | ✅ 211 tests, 0 lint errors, no circular deps |
+
+### The access matrix, measured
+
+Tested by impersonating each user's JWT inside a rolled-back transaction, so
+Postgres evaluated the real policies — no passwords, no UI, nothing mocked.
+
+| Note / attachment | BES owner | Lakeside org admin | Northgate (unrelated) |
+|---|---|---|---|
+| `bes_internal` (real .png + .pdf uploads) | ✅ | **❌** | ❌ |
+| `organization_internal` — Lakeside *(engaged)* | ✅ | ✅ | ❌ |
+| `shared_with_partner` — Lakeside | ✅ | ✅ | ❌ |
+| `client_visible` — Lakeside | ✅ | ✅ | ❌ |
+| `organization_internal` — Ironwood *(**no** BES engagement)* | **❌** | n/a | ❌ |
+
+The same matrix held at all three layers independently — the note row, the
+`files` row queried directly, and `storage.objects` queried directly. **The
+attachment was readable exactly when its note was, in every cell.**
+
+Two cells carry the weight. Lakeside's admin cannot read the BES-internal
+attachment even by querying `files` and `storage.objects` directly, which is
+the "another route" leak this migration existed to close. And BES staff cannot
+read Ironwood's organization-internal material, because Ironwood has no
+fulfillment engagement — staff status is not access (rule 16).
+
+It is not blanket denial: Lakeside's admin reads 3 of the 5 objects. Both the
+positive and negative cases are proven.
+
+## Known residue
+
+- Four synthetic `storage.objects` rows from the access-matrix fixtures remain
+  (`.../activity/fulfillment_client/sec-1*.png`). Their `files` rows are
+  deleted, so the storage policy makes them **readable by nobody**, and they
+  contain no bytes. Supabase blocks direct deletes from storage tables (a good
+  guard), and they are owned by `bes.owner@bes.test`, so they need the Storage
+  API or the dashboard to clear. Harmless; listed so they are not a mystery.
+- Posting a **text-only** note still costs two background requests (re-read and
+  re-sign the timeline's attachments), because the attachment query is keyed on
+  the list of visible note ids and that list just changed. Non-blocking — the
+  note itself renders at ~285ms — and correct, since expiry means signed URLs
+  must be re-minted anyway. Recorded rather than over-engineered.

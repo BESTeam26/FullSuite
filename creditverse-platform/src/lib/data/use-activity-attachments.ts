@@ -9,7 +9,8 @@
  * the note is, and signing runs under the caller's own storage policies. A note
  * the viewer cannot read contributes no rows and no URLs.
  */
-import { useQuery } from "@tanstack/react-query";
+import { useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth/auth-context";
 import {
   fetchAttachmentsFor,
@@ -26,12 +27,21 @@ export interface AttachmentsResult {
   /** Keyed by activity id. */
   byActivity: Record<string, TimelineAttachment[]>;
   isLoading: boolean;
+  /**
+   * Re-read after attaching files to a note.
+   *
+   * Scoped to this query alone. Refreshing the whole timeline instead would
+   * refetch every note to show a file on one of them — the same over-broad
+   * invalidation that made posting a comment reload the client list.
+   */
+  refresh: () => void;
 }
 
 export function useActivityAttachments(
   activityIds: string[],
 ): AttachmentsResult {
   const auth = useAuth();
+  const qc = useQueryClient();
   const live = auth.mode === "live" && auth.status === "signed-in";
   /* Sorted so the key is stable when the same notes arrive in a different
      order — otherwise the query refires on every render. */
@@ -56,5 +66,10 @@ export function useActivityAttachments(
     staleTime: 5 * 60_000,
   });
 
-  return { byActivity: q.data ?? {}, isLoading: live ? q.isLoading : false };
+  const refresh = useCallback(
+    () => void qc.invalidateQueries({ queryKey: ["activity-attachments"] }),
+    [qc],
+  );
+
+  return { byActivity: q.data ?? {}, isLoading: live ? q.isLoading : false, refresh };
 }

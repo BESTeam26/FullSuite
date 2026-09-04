@@ -33,7 +33,8 @@ export function FundingOpsActivityTimeline({ clientId }: { clientId: string }) {
 
   /* One query for every attachment on the visible notes, not one per note. */
   const activityIds = useMemo(() => entries.map((e) => e.id), [entries]);
-  const { byActivity } = useActivityAttachments(activityIds);
+  const { byActivity, refresh: refreshAttachments } =
+    useActivityAttachments(activityIds);
 
   return (
     <OpsActivityTimeline
@@ -70,9 +71,10 @@ export function FundingOpsActivityTimeline({ clientId }: { clientId: string }) {
               uploaderId: auth.user.id,
               objects,
             });
-            /* The note is already on screen; its attachments arrive with the
-               next read of the attachment query, which this invalidates. */
-            timeline.refresh();
+            /* The note is already on screen. Only the attachment query is
+               stale, so only that is invalidated — refreshing the timeline
+               would refetch every note to show a file on one of them. */
+            refreshAttachments();
           }}
         />
       }
