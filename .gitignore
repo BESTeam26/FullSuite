@@ -2,3 +2,16 @@
 *.zip
 .DS_Store
 node_modules
+
+# The Supabase project lives in creditverse-platform/supabase/ — never here.
+#
+# Running `supabase link` (or any CLI command) from this directory creates a
+# root-level supabase/.temp holding link state but NO migrations. A later
+# `supabase db push` run from here then reads that empty directory, finds none
+# of the applied versions, and reports "Remote migration versions not found in
+# local migrations directory" — which looks exactly like migration drift and
+# invites a `migration repair` that would falsify a correct history.
+#
+# Ignored so a stray one is never committed again. If this path reappears,
+# delete it and re-run the command from creditverse-platform/.
+/supabase/

@@ -10,6 +10,29 @@ specific case, stop and ask rather than choosing the permissive interpretation.
 schema lives in `creditverse-platform/supabase/`. Current state and build order
 are recorded in `creditverse-platform/BUILD_STATUS.md`.
 
+**Always run `supabase` and `npm` commands from `creditverse-platform/`, never
+from the repository root.**
+
+```bash
+cd creditverse-platform
+npx supabase migration list      # local ⇄ remote
+npx supabase db push             # apply pending migrations
+```
+
+The CLI resolves `supabase/migrations/` relative to the working directory. Run
+it from the repository root and it creates a root-level `supabase/.temp` holding
+link state but **no migrations** — and a later `db push` from there reports
+every applied version as *"Remote migration versions not found in local
+migrations directory"*. That reads exactly like migration drift and invites a
+`supabase migration repair`, which would mark a correct history as reverted.
+It happened once; `/supabase/` is now git-ignored at the root so a stray copy
+cannot be committed again.
+
+**Diagnose before repairing.** If `db push` reports missing versions, first
+confirm the working directory, then compare `migration list` output against the
+live schema. Only use `migration repair` with evidence that a specific remote
+history row is genuinely wrong.
+
 ---
 
 ## 1. Security first
