@@ -197,3 +197,15 @@ used to route.
 | `work_items_select`, customer branch | only BES CRM projects, only when entitled | `scope='AGENCY' AND subject_organization_id IS NOT NULL AND division='bes_crm' AND is_org_admin(subject) AND org_entitled(subject,'crm')` |
 | customer reads of activity | only what BES published | existing `can_view_activity`: org members read `organization_internal` / `shared_with_partner` / `client_visible`, never `bes_internal` |
 | customer writes | comment, upload; never status/assignment/dates/completion | `activity_events_insert` and `files_insert` (existing); no customer UPDATE branch on AGENCY work items |
+
+
+### 0035 — service-aware production
+
+| Object | Rule | How |
+|---|---|---|
+| `production_logs` INSERT | producer is the caller, staff, and can see the subject | `employee_id = auth.uid() AND is_staff_of(agency_id) AND entity_visible(fulfillment_client \| funding_client \| work_item by service)` |
+| `production_logs` SELECT | own rows, or manager within the service's scope | `is_staff_of AND (employee_id = auth.uid() OR (is_manager_of AND in_scope(agency, service, …)))` |
+| `production_logs` UPDATE (void) | manager within the service's scope | same predicate, USING and WITH CHECK |
+| tenancy columns | derived from the subject | `production_logs_derive_context` (definer BEFORE trigger, not executable by API roles) |
+| `production_departments` SELECT | agency staff | `is_agency_staff()`; no writes via API |
+| `work_items_completion_production` | one production row per BES-completed work-item-service item | definer AFTER trigger; `is_staff_of` guard; deterministic `request_id` |

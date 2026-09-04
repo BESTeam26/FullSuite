@@ -2068,3 +2068,71 @@ commit: 0024 (creation inside reach), 0026 (unassigned notification readable),
 a share), 0032 (BES could not read its own published work-item activity), 0034
 (both branding merges broken since 0023). One test expectation corrected
 (fixture's trigger-written creation event), with the reasoning recorded.
+
+
+---
+
+## Service-aware production · DONE (migration 0035)
+
+Designed in `ARCHITECTURE_PROPOSAL_PRODUCTION.md` after checking every consumer
+of `production_logs` (no DB function or view read it; the frontend readers and
+writers are listed there with the change each took).
+
+**Model:** `production_logs.service fulfillment_service NOT NULL` is the
+canonical dimension; `department_key` references `production_departments
+(service, key)` — taxonomy as data, seeded only from the two existing enums
+(CreditOps 5, FundingOps 7); the subject is service-specific — `client_id`
+(creditops), `funding_client_id` + optional `funding_deal_id` (fundingops),
+`work_item_id` (bes_crm, talentops, workspaces) — enforced by a CHECK.
+`division_id` lost its `creditops` default and is written only by the derive
+trigger from `service`; legacy `department` is set by the trigger for CreditOps
+and never by clients. Subject FKs are `ON DELETE RESTRICT` (history keeps its
+subject). One engine, no fork.
+
+**Derivation:** `production_logs_derive_context` (BEFORE) derives agency,
+organization and outsourcing group from the subject record; a payload cannot
+place production under a tenant it did not work (matrix: wrong org in payload →
+stored org is the client's).
+
+**Authorization:** insert = `employee_id = auth.uid() AND is_staff_of AND
+entity_visible(<subject>)` per service; read/void = self or manager within
+`in_scope(agency, service, …)`. A CreditOps-division manager sees no
+FundingOps production.
+
+**Completion → production:** `work_items_completion_production` (AFTER UPDATE,
+first `completed_at`) inserts one row for `bes_crm`, `talentops` or Custom
+Workspace items completed by BES staff, `request_id = md5('work_item_completion:'
+|| id)::uuid` — reopen and complete again: still one. Organization completers
+produce no BES production. CreditOps/FundingOps items are excluded (their
+production is logged from their own surfaces; including them would double
+count).
+
+**Frontend:** `lib/data/production.ts` is the one write path (service-
+discriminated input, 23505 = success); both store backends call it; the
+FundingOps deal panel logs real production with the deal and a funding
+department mapped from its work group (Document / Processing → Document Review,
+Underwriting / Readiness → Readiness Review, Lender / Submission → Submissions,
+Client Support → none); `unavailableReason` removed; EOD maps `service` onto
+the engine's `DivisionId` (`bes_crm → bes-crm`) and carries deal and work item
+ids. `fulfillment-clients.logProduction` retired.
+
+**Tests:** `production.test.ts` (5: shapes per service, idempotent 23505,
+errors), `eod.test.ts` (2: service→division mapping; totals reconcile with the
+row sum, voided excluded). Concurrency: three parallel committed inserts with
+one request id → **1** row stored, two 23505 (probe rows removed by the probe).
+
+**QA where applicable:** the work item's stage. Production rows carry no QA
+state until a consumer exists.
+
+**Verified:** typecheck clean, 240 tests, 0 lint errors, build, no circular
+deps, verify-live (taxonomy denied to anon), migrations 40/40. RLS matrix:
+**206/206** (`--phase=10`, 18 new probes; first run had three probe faults —
+same-statement visibility, `ON CONFLICT` after `RETURNING`, a count that saw
+the browser's real row — and one contention error from a concurrent read;
+all corrected on the probe side, none in the model). FundingOps browser workflow, as the owner: FundingOps → Lakeside → Deal
+List → the Juno Logistics deal → one completion item → Log Production. The
+stored row: `service = fundingops`, `department_key = Readiness Review` (mapped
+from the "Underwriting / Readiness" group), deal attached, organization derived
+as Lakeside by the trigger, work date today. The row was then voided as a
+verification artifact (void reason recorded), which is the canonical
+correction path.

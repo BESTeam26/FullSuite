@@ -338,67 +338,7 @@ export async function createFulfillmentClient(
   return data.id;
 }
 
-/* ------------------------------------------------------------------ */
-/* Production logs — one row per unit of work completed                */
-/* ------------------------------------------------------------------ */
-
-export interface LogProductionInput {
-  agencyId: string;
-  /** The signed-in user, from the auth context. RLS re-checks it. */
-  employeeId: string;
-  clientId: string;
-  organizationId?: string;
-  outsourcingGroupId?: string;
-  department: Enums<"fulfillment_department">;
-  productionUnitType: string;
-  actions: string[];
-  workNotes?: string;
-  /**
-   * Client-generated once per submission intent and reused across every retry
-   * of that submission. The database holds a unique index on
-   * `(agency_id, request_id)`, so a double-click, a network retry or a replay
-   * lands on the same row instead of creating a second one. React guards stay
-   * for UX; this is what enforces "exactly once".
-   */
-  requestId: string;
-}
-
-/**
- * Record one production unit.
- *
- * `employeeId` comes from the caller's already-resolved auth context. It used
- * to call `supabase.auth.getUser()` here, which is a **network round trip** to
- * GoTrue — 299ms measured, on the critical path, in front of the insert, to
- * learn an id the session already held.
- *
- * That is not a weakening. `production_logs_insert` checks
- * `employee_id = auth.uid() and is_staff_of(agency_id)`, so the database
- * refuses a forged id no matter what the client sends. The round trip was
- * re-asking a question RLS answers authoritatively anyway.
- */
-export async function logProduction(input: LogProductionInput) {
-  const sb = requireSupabase();
-  const { error } = await sb.from("production_logs").insert({
-    request_id: input.requestId,
-    agency_id: input.agencyId,
-    employee_id: input.employeeId,
-    client_id: input.clientId,
-    organization_id: input.organizationId ?? null,
-    outsourcing_group_id: input.outsourcingGroupId ?? null,
-    division_id: "creditops",
-    department: input.department,
-    production_unit_type: input.productionUnitType,
-    production_unit_quantity: 1,
-    actions: input.actions,
-    work_notes: input.workNotes ?? null,
-    work_date: new Date().toISOString().slice(0, 10),
-  });
-  // 23505 on (agency_id, request_id) means THIS submission already landed —
-  // an earlier attempt succeeded but its response was lost. That is the
-  // idempotent success case, not a failure to surface.
-  if (error && error.code === "23505") return;
-  if (error) throw error;
-}
+/* Production moved to lib/data/production.ts — one canonical, service-aware path. */
 
 /* ------------------------------------------------------------------ */
 /* Webhook deliveries — the outbound CRM signal log                    */

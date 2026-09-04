@@ -137,3 +137,18 @@ export const WORK_GROUPS: WorkGroup[] = [
 
 export const dealCode = (dealId: string) =>
   `FD-${dealId.replace(/^fd-/, "").toUpperCase()}`;
+
+
+/**
+ * Production taxonomy: which funding department a work group's unit is logged
+ * under. Three groups map onto the funding_department vocabulary; "Client
+ * Support" has no funding department, so its unit carries no department and is
+ * typed by its label only. Nothing here is invented — see
+ * ARCHITECTURE_PROPOSAL_PRODUCTION.md.
+ */
+export const FUNDING_DEPARTMENT_FOR_GROUP: Record<string, string | null> = {
+  "Document / Processing": "Document Review",
+  "Underwriting / Readiness": "Readiness Review",
+  "Lender / Submission": "Submissions",
+  "Client Support": null,
+};

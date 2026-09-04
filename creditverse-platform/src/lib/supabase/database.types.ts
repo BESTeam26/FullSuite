@@ -1454,6 +1454,27 @@ export type Database = {
           },
         ]
       }
+      production_departments: {
+        Row: {
+          key: string
+          label: string
+          position: number
+          service: Database["public"]["Enums"]["fulfillment_service"]
+        }
+        Insert: {
+          key: string
+          label: string
+          position?: number
+          service: Database["public"]["Enums"]["fulfillment_service"]
+        }
+        Update: {
+          key?: string
+          label?: string
+          position?: number
+          service?: Database["public"]["Enums"]["fulfillment_service"]
+        }
+        Relationships: []
+      }
       production_logs: {
         Row: {
           actions: string[]
@@ -1464,8 +1485,11 @@ export type Database = {
           department:
             | Database["public"]["Enums"]["fulfillment_department"]
             | null
+          department_key: string | null
           division_id: string
           employee_id: string
+          funding_client_id: string | null
+          funding_deal_id: string | null
           id: string
           is_voided: boolean
           organization_id: string | null
@@ -1473,10 +1497,12 @@ export type Database = {
           production_unit_quantity: number
           production_unit_type: string
           request_id: string | null
+          service: Database["public"]["Enums"]["fulfillment_service"]
           void_reason: string | null
           voided_at: string | null
           voided_by: string | null
           work_date: string
+          work_item_id: string | null
           work_notes: string | null
         }
         Insert: {
@@ -1488,8 +1514,11 @@ export type Database = {
           department?:
             | Database["public"]["Enums"]["fulfillment_department"]
             | null
-          division_id?: string
+          department_key?: string | null
+          division_id: string
           employee_id: string
+          funding_client_id?: string | null
+          funding_deal_id?: string | null
           id?: string
           is_voided?: boolean
           organization_id?: string | null
@@ -1497,10 +1526,12 @@ export type Database = {
           production_unit_quantity?: number
           production_unit_type: string
           request_id?: string | null
+          service: Database["public"]["Enums"]["fulfillment_service"]
           void_reason?: string | null
           voided_at?: string | null
           voided_by?: string | null
           work_date: string
+          work_item_id?: string | null
           work_notes?: string | null
         }
         Update: {
@@ -1512,8 +1543,11 @@ export type Database = {
           department?:
             | Database["public"]["Enums"]["fulfillment_department"]
             | null
+          department_key?: string | null
           division_id?: string
           employee_id?: string
+          funding_client_id?: string | null
+          funding_deal_id?: string | null
           id?: string
           is_voided?: boolean
           organization_id?: string | null
@@ -1521,10 +1555,12 @@ export type Database = {
           production_unit_quantity?: number
           production_unit_type?: string
           request_id?: string | null
+          service?: Database["public"]["Enums"]["fulfillment_service"]
           void_reason?: string | null
           voided_at?: string | null
           voided_by?: string | null
           work_date?: string
+          work_item_id?: string | null
           work_notes?: string | null
         }
         Relationships: [
@@ -1543,10 +1579,31 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "production_logs_department_fk"
+            columns: ["service", "department_key"]
+            isOneToOne: false
+            referencedRelation: "production_departments"
+            referencedColumns: ["service", "key"]
+          },
+          {
             foreignKeyName: "production_logs_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_logs_funding_client_id_fkey"
+            columns: ["funding_client_id"]
+            isOneToOne: false
+            referencedRelation: "funding_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_logs_funding_deal_id_fkey"
+            columns: ["funding_deal_id"]
+            isOneToOne: false
+            referencedRelation: "funding_deals"
             referencedColumns: ["id"]
           },
           {
@@ -1568,6 +1625,20 @@ export type Database = {
             columns: ["voided_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_logs_work_item_id_fkey"
+            columns: ["work_item_id"]
+            isOneToOne: false
+            referencedRelation: "work_attention"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_logs_work_item_id_fkey"
+            columns: ["work_item_id"]
+            isOneToOne: false
+            referencedRelation: "work_items"
             referencedColumns: ["id"]
           },
         ]

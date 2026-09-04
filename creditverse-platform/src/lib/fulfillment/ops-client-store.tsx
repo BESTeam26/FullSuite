@@ -74,11 +74,15 @@ export interface ProductionLogInput {
   clientId: string;
   clientName: string;
   partnerName: string;
+  /** Department key for the service's taxonomy; null when the work has none (e.g. FundingOps "Client Support"). */
   department: string;
+  departmentKey?: string | null;
   /** Labels of the selected Work Completion actions. */
   actions: string[];
   workNotes?: string;
   actor: string;
+  /** FundingOps: the deal the unit was produced on. */
+  dealId?: string;
 }
 
 export interface OpsClientStoreValue<T extends OpsClient, D> {

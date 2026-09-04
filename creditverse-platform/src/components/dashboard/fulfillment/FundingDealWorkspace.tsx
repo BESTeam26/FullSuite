@@ -42,7 +42,7 @@ import {
   DealWorkCompletionSection,
 } from "./FundingDealSectionsB";
 import { DealActivitySection } from "./DealActivitySection";
-import { WORK_GROUPS } from "./funding-deal-data";
+import { WORK_GROUPS, FUNDING_DEPARTMENT_FOR_GROUP } from "./funding-deal-data";
 import { cn } from "@/lib/utils";
 import { OpsSelect } from "@/components/ui/ops-select";
 
@@ -193,9 +193,11 @@ export function FundingDealWorkspace({ dealId, onBack }: Props) {
     store.logProduction({
       requestId: crypto.randomUUID(),
       clientId: client.id,
+      dealId: deal.id,
       clientName: `${client.name} — ${dealCode(deal.id)} (${deal.lender})`,
       partnerName: clientGroupLabel(client),
       department: dept,
+      departmentKey: FUNDING_DEPARTMENT_FOR_GROUP[dept] ?? null,
       actions: selectedWork,
       workNotes: workNotes.trim() || undefined,
       actor: "Agent (BES HQ)",
@@ -326,9 +328,6 @@ export function FundingDealWorkspace({ dealId, onBack }: Props) {
             workNotes={workNotes}
             setWorkNotes={setWorkNotes}
             submitWork={submitWork}
-            /* production_logs.department is the CreditOps enum and division_id
-               defaults to creditops: FundingOps units have nowhere to go yet. */
-            unavailableReason="Production logging for FundingOps needs the production engine to accept funding departments. Nothing is recorded from this panel today."
           />
         </div>
 

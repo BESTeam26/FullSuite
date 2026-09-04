@@ -33,9 +33,15 @@ const DIVISIONS: DivisionId[] = [
   "general",
 ];
 
-/** Unknown division ids fall into `general` rather than breaking the tally. */
-const asDivision = (v: string): DivisionId =>
-  (DIVISIONS as string[]).includes(v) ? (v as DivisionId) : "general";
+/**
+ * `production_logs.service` is the canonical dimension; the engine's
+ * `DivisionId` predates it and spells BES CRM with a hyphen. Unknown values
+ * fall into `general` rather than breaking the tally.
+ */
+export const asDivision = (service: string): DivisionId => {
+  const v = service === "bes_crm" ? "bes-crm" : service;
+  return (DIVISIONS as string[]).includes(v) ? (v as DivisionId) : "general";
+};
 
 /* ------------------------------------------------------------------ */
 /* Production logs — the source of every EOD number                    */
@@ -70,9 +76,11 @@ export async function fetchProductionLogs(
     employeeName: r.employee?.full_name?.trim() || r.employee?.email || "—",
     partnerId: r.organization_id ?? undefined,
     partnerName: r.organizations?.name ?? undefined,
-    divisionId: asDivision(r.division_id),
-    departmentId: r.department ?? undefined,
+    divisionId: asDivision(r.service),
+    departmentId: r.department_key ?? undefined,
     clientId: r.client_id ?? undefined,
+    fundingDealId: r.funding_deal_id ?? undefined,
+    workItemId: r.work_item_id ?? undefined,
     productionUnitType: r.production_unit_type,
     productionUnitQuantity: r.production_unit_quantity,
     actions: (r.actions ?? []).join(", "),

@@ -32,10 +32,10 @@ import {
   createFulfillmentClient,
   fetchDepartmentStatuses,
   fetchFulfillmentClients,
-  logProduction,
   updateClientContact,
   updateClientStatus,
 } from "@/lib/data/fulfillment-clients";
+import { logProduction } from "@/lib/data/production";
 import type { Enums } from "@/lib/supabase/database.types";
 
 export type StatusChangeHandler = OpsStatusChangeHandler;
@@ -87,12 +87,13 @@ const live: OpsClientLiveBackend<FulfillmentClient, DepartmentStatus> = {
     }),
   logProduction: async (input, agencyId, employeeId) =>
     logProduction({
+      service: "creditops",
       agencyId,
       employeeId,
       requestId: input.requestId,
-      clientId: input.clientId,
-      department: input.department as Enums<"fulfillment_department">,
-      productionUnitType: input.department,
+      fulfillmentClientId: input.clientId,
+      departmentKey: input.department,
+      unitType: input.department,
       actions: input.actions,
       workNotes: input.workNotes,
     }),

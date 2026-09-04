@@ -225,10 +225,10 @@ if (PHASE >= 3) {
   const tryIns = (...a) => { try { return ins(...a); } catch (e) { return { rows: 0, stored_agency: null, refused: true }; } };
   const prod = (uid, reqA, reqB) =>
     q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}';
-       with a as (insert into public.production_logs (agency_id, employee_id, client_id, division_id, department, production_unit_type, production_unit_quantity, actions, work_date, request_id)
+       with a as (insert into public.production_logs (agency_id, employee_id, client_id, service, department_key, production_unit_type, production_unit_quantity, actions, work_date, request_id)
                   values ('${AGENCY}','${uid}','${creditClient}','creditops','Onboarding','Onboarding',1,array['Client File Reviewed'],current_date,'${reqA}')
                   on conflict (agency_id, request_id) where request_id is not null do nothing returning id),
-            b as (insert into public.production_logs (agency_id, employee_id, client_id, division_id, department, production_unit_type, production_unit_quantity, actions, work_date, request_id)
+            b as (insert into public.production_logs (agency_id, employee_id, client_id, service, department_key, production_unit_type, production_unit_quantity, actions, work_date, request_id)
                   values ('${AGENCY}','${uid}','${creditClient}','creditops','Onboarding','Onboarding',1,array['Client File Reviewed'],current_date,'${reqB}')
                   on conflict (agency_id, request_id) where request_id is not null do nothing returning id)
        select (select count(*) from a)::int + (select count(*) from b)::int as rows; rollback;`)[0].rows;
@@ -446,6 +446,56 @@ if (PHASE >= 9) {
   ];
   console.log("\nphase 9:");
   for (const [label, fn, want] of P9) {
+    checks++;
+    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
+    const ok = got === want; if (!ok) fails++;
+    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
+  }
+}
+
+
+/* ---------------- Phase 10: service-aware production ----------------
+   One production table; the service decides the subject; tenancy is derived
+   from the subject; the subject must be visible to the producer; completion
+   of a work-item-service item by BES staff produces exactly once. */
+if (PHASE >= 10) {
+  const besOwner = U["bes.owner@bes.test"], besManager = U["bes.manager@bes.test"], besFunding = U["bes.funding@bes.test"],
+        besCredit = U["bes.credit@bes.test"], orgOwner = U["org.owner@bes.test"];
+  const AGENCY = "a0000000-0000-4000-8000-000000000001";
+  const WS_ITEM = "ee000000-0000-4000-8000-000000000102", DONE = "ee000000-0000-4000-8000-000000000024", BACKLOG = "ee000000-0000-4000-8000-000000000021";
+  const CRM_L = "ee000000-0000-4000-8000-000000000201";
+  const myFunding = q(`select id, organization_id from public.funding_clients where assigned_agent_id='${besFunding}' limit 1`)[0];
+  const otherFunding = q(`select id from public.funding_clients where assigned_agent_id is distinct from '${besFunding}' limit 1`)[0]?.id;
+  const myDeal = q(`select id from public.funding_deals where client_id='${myFunding?.id}' limit 1`)[0]?.id;
+  const otherDeal = q(`select id from public.funding_deals where client_id is distinct from '${myFunding?.id}' limit 1`)[0]?.id;
+  const creditClientId = q(`select id from public.fulfillment_clients where assigned_agent_id='${besCredit}' limit 1`)[0]?.id;
+  const as = (uid) => `set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'`;
+  const W10 = (uid, stmt) => { try { return q(`begin; set local role authenticated; ${as(uid)}; ${stmt}; rollback;`)[0]; } catch (e) { return { rows: 0, refused: true }; } };
+  const fundIns = (uid, client, extra = "", req = "44444444-4444-4444-8444-444444444444") =>
+    `with i as (insert into public.production_logs (agency_id, employee_id, service, funding_client_id, department_key, production_unit_type, production_unit_quantity, actions, work_date, request_id, division_id ${extra ? "," + extra.split("=")[0] : ""})
+       values ('${AGENCY}','${uid}','fundingops','${client}','Submissions','Submissions',1,array['Lender Submission Sent'],current_date,'${req}','fundingops' ${extra ? "," + extra.split("=")[1] : ""}) returning organization_id, service) select count(*)::int as rows, max(organization_id::text) as org, max(service::text) as svc from i`;
+  const P10 = [
+    ["funding agent logs FundingOps production on an assigned client",  () => W10(besFunding, fundIns(besFunding, myFunding.id)).rows, 1],
+    ["…tenancy is derived from the client, not the payload",            () => W10(besFunding, fundIns(besFunding, myFunding.id, "organization_id='dddddddd-0000-4000-8000-0caba65a1343'")).org, String(myFunding.organization_id)],
+    ["…on a client they cannot see: refused",                           () => W10(besFunding, fundIns(besFunding, otherFunding)).rows, 0],
+    ["credit agent cannot log FundingOps production",                   () => W10(besCredit, fundIns(besCredit, myFunding.id)).rows, 0],
+    ["service/subject mismatch is rejected (creditops on a funding client)", () => W10(besFunding, `with i as (insert into public.production_logs (agency_id, employee_id, service, funding_client_id, production_unit_type, production_unit_quantity, actions, work_date, division_id) values ('${AGENCY}','${besFunding}','creditops','${myFunding.id}','x',1,array['x'],current_date,'creditops') returning 1) select count(*)::int as rows from i`).rows, 0],
+    ["a deal of another client is rejected",                            () => W10(besFunding, fundIns(besFunding, myFunding.id, `funding_deal_id='${otherDeal}'`)).rows, 0],
+    ["the client's own deal is accepted",                               () => myDeal ? W10(besFunding, fundIns(besFunding, myFunding.id, `funding_deal_id='${myDeal}'`)).rows : 1, 1],
+    ["a department outside the service taxonomy is rejected",           () => W10(besFunding, fundIns(besFunding, myFunding.id).replace("'Submissions','Submissions'", "'Dispute','Dispute'")).rows, 0],
+    ["same request_id twice → one FundingOps row",                      () => W10(besFunding, `with a as (insert into public.production_logs (agency_id, employee_id, service, funding_client_id, department_key, production_unit_type, production_unit_quantity, actions, work_date, request_id, division_id) values ('${AGENCY}','${besFunding}','fundingops','${myFunding.id}','Submissions','Submissions',1,array['x'],current_date,'44444444-4444-4444-8444-444444444444','fundingops') on conflict (agency_id, request_id) where request_id is not null do nothing returning id), b as (insert into public.production_logs (agency_id, employee_id, service, funding_client_id, department_key, production_unit_type, production_unit_quantity, actions, work_date, request_id, division_id) values ('${AGENCY}','${besFunding}','fundingops','${myFunding.id}','Submissions','Submissions',1,array['x'],current_date,'44444444-4444-4444-8444-444444444444','fundingops') on conflict (agency_id, request_id) where request_id is not null do nothing returning id) select (select count(*) from a)::int + (select count(*) from b)::int as rows`).rows, 1],
+    ["CreditOps manager sees no FundingOps production",                 () => W10(besManager, `select count(*)::int as rows from public.production_logs where service='fundingops'`).rows, 0],
+    ["…but the owner (agency scope) does, once one exists",             () => W10(besOwner, `set local role postgres; insert into public.production_logs (agency_id, employee_id, service, funding_client_id, department_key, production_unit_type, production_unit_quantity, actions, work_date, division_id) values ('${AGENCY}','${besFunding}','fundingops','${myFunding.id}','Submissions','Submissions',1,array['x'],current_date,'fundingops'); set local role authenticated; ${as(besOwner)}; select count(*)::int as rows from public.production_logs where service='fundingops' and created_at >= now()`).rows, 1],
+    ["BES completes a shared workspace item → exactly one TalentOps production row", () => W10(besOwner, `update public.work_items set status_id='${DONE}' where id='${WS_ITEM}'; select count(*)::int as rows from public.production_logs where work_item_id='${WS_ITEM}' and service='talentops' and employee_id='${besOwner}'`).rows, 1],
+    ["…reopen and complete again → still one",                          () => W10(besOwner, `update public.work_items set status_id='${DONE}' where id='${WS_ITEM}'; update public.work_items set status_id='${BACKLOG}' where id='${WS_ITEM}'; update public.work_items set status_id='${DONE}' where id='${WS_ITEM}'; select count(*)::int as rows from public.production_logs where work_item_id='${WS_ITEM}'`).rows, 1],
+    ["an org user completing their own item produces no BES production", () => W10(orgOwner, `update public.work_items set status_id='${DONE}' where id='${WS_ITEM}'; set local role postgres; select count(*)::int as rows from public.production_logs where work_item_id='${WS_ITEM}'`).rows, 0],
+    ["BES completes a BES CRM project → one bes_crm production row",    () => W10(besOwner, `update public.work_items set stage='Completed' where id='${CRM_L}'; select count(*)::int as rows from public.production_logs where work_item_id='${CRM_L}' and service='bes_crm'`).rows, 1],
+    ["CreditOps regression: agent still sees exactly their own production", () => W10(besCredit, `select count(*)::int as rows from public.production_logs`).rows, q(`select count(*)::int n from public.production_logs where employee_id='${besCredit}'`)[0].n],
+    ["CreditOps regression: legacy department is derived from department_key", () => W10(besCredit, `with i as (insert into public.production_logs (agency_id, employee_id, service, client_id, department_key, production_unit_type, production_unit_quantity, actions, work_date, division_id) values ('${AGENCY}','${besCredit}','creditops','${creditClientId}','Dispute','Dispute',1,array['x'],current_date,'creditops') returning department::text d, division_id) select count(*)::int as rows from i where d='Dispute' and division_id='creditops'`).rows, 1],
+    ["EOD reconciliation: today's FundingOps units land under service fundingops for the producer", () => W10(besFunding, `insert into public.production_logs (agency_id, employee_id, service, funding_client_id, department_key, production_unit_type, production_unit_quantity, actions, work_date, division_id) values ('${AGENCY}','${besFunding}','fundingops','${myFunding.id}','Submissions','Submissions',1,array['x'],current_date,'fundingops'); select coalesce(sum(production_unit_quantity),0)::int as rows from public.production_logs where employee_id=auth.uid() and work_date=current_date and not is_voided and service='fundingops' and created_at >= now()`).rows, 1],
+  ];
+  console.log("\nphase 10:");
+  for (const [label, fn, want] of P10) {
     checks++;
     let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
     const ok = got === want; if (!ok) fails++;
