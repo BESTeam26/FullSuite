@@ -440,3 +440,114 @@ stable, obvious and consistent at first glance.**
 > replaced; this rule governs how that design must behave once a user touches
 > it. They are not in tension: preserving a layout does not license leaving a
 > hover state that erases its own label.
+
+## 16. Platform and tenancy architecture (permanent doctrine)
+
+```
+BES Platform
+  → One BES Agency HQ
+    → Unlimited Customer Organizations / Sub-Accounts
+      → Organization Users
+        → Modular Product Entitlements
+```
+
+**BES is NOT a multi-agency or reseller platform.** Customers may refer new
+customers to BES, but they cannot create agencies, resell, or repackage the
+platform. **Do not redesign the platform for multiple agencies.**
+
+### Customer organizations
+
+Each has its own `organization_id`, users and memberships, roles and
+permissions, teams and assignments, branding, enabled modules, configuration,
+internal KPI definitions and targets, and configurable operational rules where
+permitted.
+
+Module access is **entitlement-driven**, and entitlement is enforced in data
+access, not only in the interface:
+
+| Organization | Entitled to |
+|---|---|
+| A | CreditOps + FundingOps + Operations |
+| B | FundingOps + Operations |
+| C | CreditOps only |
+
+**Do not render a module the organization is not entitled to use** — and do not
+serve its records either.
+
+### One source of truth
+
+Do **not** create duplicate copies of the same client, business, case, funding
+deal, work item, document or operational record merely because BES Agency HQ and
+a sub-account both need to see it.
+
+When both contexts are authorized, use **one canonical record with controlled
+views and scoped access**:
+
+```
+Canonical Client Record
+  → visible in the Customer Organization
+  → visible in BES Agency HQ when BES provides fulfillment
+```
+
+If BES updates an authorized shared record the customer sees the same current
+state, and the reverse. **Build around canonical shared data + scoped access,
+not duplicated records + constant synchronization.**
+
+Every meaningful change preserves: audit history, actor, source/context of the
+change, timestamp, organization, assignment, and previous/new values where
+applicable.
+
+### KPI ownership
+
+Customer internal KPIs and BES fulfillment KPIs are **not** automatically the
+same.
+
+- A customer organization **may** define its own internal KPIs, targets and rules.
+- BES Agency HQ defines BES operational and fulfillment KPIs.
+- Where BES provides fulfillment, **BES owns the KPIs that measure BES
+  performance**; the customer cannot modify those definitions or targets, but
+  may still define separate internal KPIs for its own team.
+
+Both calculate actual performance from **canonical operational data**. Never
+duplicate operational records to support a different KPI definition.
+
+### Fulfillment is not subscription
+
+An organization subscription and a BES fulfillment relationship are **separate
+concepts**. A company may use SaaS only, SaaS plus BES fulfillment, or eligible
+modules without BES fulfillment.
+
+**BES Agency HQ access to an organization's operational records depends on the
+authorized fulfillment/service relationship and permissions** — not on being BES
+staff alone.
+
+### Security
+
+`organization_id` is the primary SaaS tenant boundary. Enforce, in order:
+
+```
+authenticated user
+  → organization membership
+    → role
+      → permission
+        → scope / assignment
+          → entitlement
+            → record authorization
+```
+
+**Never trust an `organization_id` supplied by the frontend as proof of access.**
+It may narrow a query; it may never widen one. BES Agency HQ privileges must be
+explicitly authorized and audited.
+
+### Branding
+
+Organizations may customize approved branding — logo, colours, organization
+identity, and appropriate customer-facing presentation. **Brand customization
+does not create another agency or a reseller platform.**
+
+> On the agency layer that already exists: `agency_id` columns and the
+> `is_staff_of(agency)` helpers are a **safety net, not a reseller feature**.
+> There is one agency row and there is meant to be one. They stay because
+> defence in depth costs nothing here and a blanket "is staff anywhere" check
+> is the weaker default — but no work should be done to support a second
+> agency, and `organization_id` is the boundary that matters.

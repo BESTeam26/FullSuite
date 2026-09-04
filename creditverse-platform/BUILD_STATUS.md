@@ -1135,6 +1135,72 @@ recording it here rather than redesigning, since the task asked for a report and
 nothing about it is unsafe. If full provenance is wanted later, the fix is a
 denormalised `organization_name` snapshot on the event, not a foreign key.
 
+### 2026-09-03 — Tenancy doctrine locked in (rule 16), and the two gates it exposed
+
+Doctrine recorded in CLAUDE.md as rule 16: one BES Agency HQ, unlimited customer
+organizations, entitlement-driven modules, canonical shared records with scoped
+access, customer-vs-BES KPI ownership, and `organization_id` as the primary
+tenant boundary. **BES is not a multi-agency or reseller platform**, and no work
+should go toward supporting a second agency.
+
+On last session's agency work: `agency_id` and `is_staff_of(agency)` stay, but
+they are recorded as a **safety net, not a reseller feature**. A blanket "is
+staff anywhere" check was the weaker default; keeping the scoped version costs
+nothing. The boundary that matters is the organization.
+
+**Reviewed the architecture against the doctrine. Two real conflicts.**
+
+**1. Fulfillment was not distinguished from subscription.**
+`organizations.is_fulfillment_subscriber` existed as a column no policy read.
+BES staff could read and write every organization's operational records whether
+or not BES was engaged to work them. The doctrine is explicit that HQ access
+depends on the authorized service relationship. Live data made it concrete: of
+five organizations, **Empire Capital & Credit** and **Vantage Funding Group**
+are SaaS-only, and BES had full access to both.
+
+**2. Entitlement was interface-only.** `product_entitlements` gated nothing but
+itself, so an organization entitled to FundingOps only still had its CreditOps
+tables readable. Rule 1: enforced in data access, not only in the interface.
+
+Migration 0015 adds `bes_may_fulfil(org)` and `org_has_product(org, product)`
+and applies both to the CreditOps and FundingOps client tables and their
+department-status children, so the gate cannot be side-stepped by reading the
+child directly. What deliberately does **not** change: BES always sees the
+organization *record* (it is BES's customer — billing, settings, support) and
+always sees outsourcing-only clients, which have no organization and are BES's
+own contract work.
+
+**Verified live:**
+
+| | Result |
+|---|---|
+| Apex (fulfillment + entitled) | ✅ BES may fulfil |
+| Vantage / Empire (SaaS-only) | ✅ BES may **not** fulfil |
+| Vantage / creditOps | ✅ not entitled |
+| Write to a fulfillment org | ✅ allowed |
+| Write to a SaaS-only org | ✅ refused by RLS |
+| Write to a non-entitled module | ✅ refused by RLS |
+| BES's existing visibility | ✅ all 10 clients still visible — nothing lost |
+
+**3. Route-level entitlement was missing.** The sidebar already gated the
+customer view (`show: isProductOn(...)`), and the database now refuses the
+records, but typing `/app/fundingops` still rendered the module. Rule 3 wants
+both layers. Added `RequireEntitlement`, a small centralized guard — BES HQ is
+deliberately exempt, since its division screens are the fulfillment workspace,
+gated by the relationship in the database rather than an entitlement on BES.
+
+**Checked and found already compliant:** no duplicate-record synchronization
+logic exists; organization context is never read from URL or localStorage and
+trusted; the frontend can narrow a query by `organization_id` but RLS decides
+what comes back, so it can never widen one.
+
+**Not built, because nothing exists to correct yet:** customer-defined KPIs and
+BES-owned fulfillment KPIs. The doctrine is recorded; when KPIs are built they
+derive from canonical operational data and BES-owned definitions are not
+customer-editable.
+
+144 tests (11 new), tsc clean, 0 lint errors, build clean, 32 live checks green.
+
 ## Next steps for Claude Code
 
 1. Connect Supabase Auth + RLS for organization isolation

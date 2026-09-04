@@ -14,6 +14,7 @@ import { CrmAutomationProvider } from "@/lib/crm-automation-context";
 import { AgencySettingsProvider } from "@/lib/agency-settings-context";
 import { AuthProvider } from "@/lib/auth/auth-context";
 import { RequireAuth } from "@/components/auth/RequireAuth";
+import { RequireEntitlement } from "./components/auth/RequireEntitlement";
 
 /* ------------------------------------------------------------------ */
 /* Route-level code splitting                                          */
@@ -241,13 +242,37 @@ const App = () => (
                                 {/* Managed Operations */}
                                 <Route
                                   path="creditops"
-                                  element={<CreditOps />}
+                                  element={
+                                    <RequireEntitlement
+                                      product="creditOps"
+                                      label="CreditOps"
+                                    >
+                                      <CreditOps />
+                                    </RequireEntitlement>
+                                  }
                                 />
                                 <Route
                                   path="fundingops"
-                                  element={<FundingOps />}
+                                  element={
+                                    <RequireEntitlement
+                                      product="fundingOps"
+                                      label="FundingOps"
+                                    >
+                                      <FundingOps />
+                                    </RequireEntitlement>
+                                  }
                                 />
-                                <Route path="bes-crm" element={<BesCrm />} />
+                                <Route
+                                  path="bes-crm"
+                                  element={
+                                    <RequireEntitlement
+                                      product="crm"
+                                      label="BES CRM"
+                                    >
+                                      <BesCrm />
+                                    </RequireEntitlement>
+                                  }
+                                />
                                 <Route
                                   path="talentops"
                                   element={<TalentOps />}
@@ -307,9 +332,26 @@ const App = () => (
                                 />
                                 <Route
                                   path="operations"
-                                  element={<Operations />}
+                                  element={
+                                    <RequireEntitlement
+                                      product="creditOps"
+                                      label="CreditOps"
+                                    >
+                                      <Operations />
+                                    </RequireEntitlement>
+                                  }
                                 />
-                                <Route path="metro2" element={<Metro2 />} />
+                                <Route
+                                  path="metro2"
+                                  element={
+                                    <RequireEntitlement
+                                      product="fundingOps"
+                                      label="FundingOps"
+                                    >
+                                      <Metro2 />
+                                    </RequireEntitlement>
+                                  }
+                                />
                               </Route>
                               <Route path="*" element={<NotFound />} />
                             </Routes>
