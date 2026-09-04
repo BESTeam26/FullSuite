@@ -126,31 +126,69 @@ export const PortalsSection = () => (
 );
 
 /* ---------------- Notifications ---------------- */
+/**
+ * Notification delivery — shown as unavailable, not as settings.
+ *
+ * These controls looked live: three toggles rendered `checked` with
+ * `onChange={() => {}}`, and four recipient fields with plausible addresses
+ * that nothing read. There is no `notifications` table, no recipient model and
+ * no delivery, so every one of them implied a preference that was never stored
+ * and rules that never ran — the worst kind of settings screen, because an
+ * operator would reasonably believe escalations were going to `admin@bes.io`.
+ *
+ * The fields stay visible so the shape of the eventual feature is legible, but
+ * they are disabled and labelled. They become real controls when delivery does.
+ */
 export const NotificationsSection = () => (
   <SectionCard
     icon={Bell}
     title="Notifications"
-    description="System-wide delivery rules: in-app, email, SMS via connected system, urgent alerts, digest frequency, EOD recipients, and escalation recipients."
+    description="Delivery rules for in-app, email and SMS alerts, digests, and escalation recipients."
   >
-    <div className="grid gap-4 sm:grid-cols-2">
-      <Field label="EOD digest recipients">
-        <Input defaultValue="ops@bes.io" />
-      </Field>
-      <Field label="Escalation recipients">
-        <Input defaultValue="admin@bes.io" />
-      </Field>
-      <Field label="Digest frequency">
-        <Input defaultValue="Daily 6:00 PM" />
-      </Field>
-      <Field label="Urgent alert channel">
-        <Input defaultValue="SMS + In-app" />
-      </Field>
+    <div
+      role="note"
+      className="mb-4 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground"
+    >
+      <span className="font-semibold text-foreground">
+        Not active yet.
+      </span>{" "}
+      Notification delivery has not been built, so nothing here is saved or
+      sent. These fields show what will be configurable.
     </div>
-    <div className="mt-4 space-y-2">
-      <ToggleRow label="In-app notifications" checked onChange={() => {}} />
-      <ToggleRow label="Email notifications" checked onChange={() => {}} />
-      <ToggleRow label="SMS via connected system" checked onChange={() => {}} />
-    </div>
+
+    <fieldset disabled className="opacity-60">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="EOD digest recipients">
+          <Input placeholder="e.g. ops@example.com" />
+        </Field>
+        <Field label="Escalation recipients">
+          <Input placeholder="e.g. admin@example.com" />
+        </Field>
+        <Field label="Digest frequency">
+          <Input placeholder="e.g. Daily 6:00 PM" />
+        </Field>
+        <Field label="Urgent alert channel">
+          <Input placeholder="e.g. SMS + In-app" />
+        </Field>
+      </div>
+      <div className="mt-4 space-y-2">
+        <ToggleRow
+          label="In-app notifications"
+          checked={false}
+          onChange={() => {}}
+        />
+        <ToggleRow
+          label="Email notifications"
+          checked={false}
+          onChange={() => {}}
+        />
+        <ToggleRow
+          label="SMS via connected system"
+          checked={false}
+          onChange={() => {}}
+        />
+      </div>
+    </fieldset>
   </SectionCard>
 );
 

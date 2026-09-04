@@ -787,10 +787,18 @@ reconstruct what was deleted: the signature was a single line in earlier commits
 and prettier-wrapped across four lines in later ones, so the correct replacement
 differs per commit and the original text no longer exists anywhere to copy from.
 Weighed against that: the security objective is fully met, HEAD builds and
-tests clean, there is no remote and no other clone, and a third full-history
-rewrite carries its own risk — the first one is what caused this. The cost of
-older commits not compiling is that `git bisect` across them would fail. That
-is the whole impact.
+tests clean, and a third full-history rewrite carries its own risk — the first
+one is what caused this. The cost of older commits not compiling is that
+`git bisect` across them would fail. That is the whole impact.
+
+**Updated once the remote existed.** Part of the original reasoning was that
+there was no remote and no other clone, so a rewrite would have been cheap to
+coordinate. The repository is now published to
+[BESTeam26/FullSuite](https://github.com/BESTeam26/FullSuite), which means those
+older non-compiling commits are on `origin` too. The decision still stands — the
+defect is in history, not in HEAD, and rewriting published history is worse than
+the `git bisect` limitation it would remove — but it is now a shared fact rather
+than a local one, and anyone cloning the repo inherits it.
 
 **Lesson recorded for anyone scripting a scrub here:** anchor patterns to a word
 boundary, and diff the result against the original before rewriting history. A
