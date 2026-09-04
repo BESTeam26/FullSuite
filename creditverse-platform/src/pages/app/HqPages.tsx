@@ -9,6 +9,8 @@ import {
 import { cn } from "@/lib/utils";
 import { DataSourceBadge } from "@/components/dashboard/DataSourceBadge";
 import { useMyWork, useAttention } from "@/lib/data/use-work";
+import { useAuth } from "@/lib/auth/auth-context";
+import { describeScope } from "@/lib/auth/scope";
 import {
   AlertTriangle,
   ListTodo,
@@ -58,6 +60,18 @@ export const HqPageShell = ({
 
 export const AttentionCenter = () => {
   const { items, counts, source, isLoading, error } = useAttention();
+  /* The database now scopes this list per person (migration 0021). The header
+     must say so: "across the BES ecosystem" was true when every staff member
+     saw everything, and is false for an assigned-only agent who sees only
+     their own exceptions. Labelling only — RLS decides the rows. */
+  const auth = useAuth();
+  const reach = describeScope({
+    userId: auth.user?.id ?? null,
+    scope: auth.agencyScope,
+    scopeDivision: auth.agencyMembership?.scope_division ?? null,
+    teamIds: auth.teamIds,
+    ledTeamIds: auth.ledTeamIds,
+  });
 
   const reasonMeta = {
     blocked: {
@@ -80,7 +94,11 @@ export const AttentionCenter = () => {
   return (
     <HqPageShell
       title="Attention Center"
-      description="Work across the BES ecosystem that needs a human right now"
+      description={
+        auth.isAgencyStaff
+          ? `Exceptions you own or supervise · your reach: ${reach}`
+          : "Exceptions on your organization's work that need a human right now"
+      }
       icon={AlertTriangle}
     >
       <div className="mb-4 flex items-center gap-2">

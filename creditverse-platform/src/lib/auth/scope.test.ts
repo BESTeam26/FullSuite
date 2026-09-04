@@ -4,7 +4,7 @@
  * deny. These are the same cases the RLS matrix proves server-side.
  */
 import { describe, expect, it } from "vitest";
-import { likelyInScope, seesUnassignedTeamQueue, type ScopeContext } from "./scope";
+import { describeScope, likelyInScope, seesUnassignedTeamQueue, type ScopeContext } from "./scope";
 
 const me = "u-me";
 const ctx = (over: Partial<ScopeContext>): ScopeContext => ({
@@ -62,5 +62,17 @@ describe("seesUnassignedTeamQueue", () => {
     expect(seesUnassignedTeamQueue("assigned")).toBe(false);
     expect(seesUnassignedTeamQueue("self")).toBe(false);
     expect(seesUnassignedTeamQueue(null)).toBe(false);
+  });
+});
+
+describe("describeScope", () => {
+  const base: ScopeContext = { userId: "u", scope: null, scopeDivision: null, teamIds: [], ledTeamIds: [] };
+  it("names the ceiling, and the teams a lead supervises", () => {
+    expect(describeScope({ ...base, scope: "assigned" })).toBe("Assigned only");
+    expect(describeScope({ ...base, scope: "team", teamIds: ["A"], ledTeamIds: ["A"] })).toBe("Team · leads 1 team");
+    expect(describeScope({ ...base, scope: "agency", ledTeamIds: ["A", "B"] })).toBe("Agency-wide · leads 2 teams");
+  });
+  it("is honest when there is no BES membership", () => {
+    expect(describeScope(base)).toBe("No BES scope");
   });
 });
