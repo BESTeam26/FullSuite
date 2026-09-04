@@ -36,14 +36,14 @@ export type { ColDef };
 
 const FULFILLMENT_STATUS_TONE: StatusToneMap = {
   Onboarding: "bg-amber-500/10 text-status-warning border-amber-500/30",
-  "Ready for Processing": "bg-blue-500/10 text-blue-700 border-blue-500/30",
-  "In Processing": "bg-blue-500/10 text-blue-700 border-blue-500/30",
+  "Ready for Processing": "bg-blue-500/10 text-status-info border-blue-500/30",
+  "In Processing": "bg-blue-500/10 text-status-info border-blue-500/30",
   "Ready for QA": "bg-amber-500/10 text-status-warning border-amber-500/30",
-  "In Dispute": "bg-purple-500/10 text-purple-700 border-purple-500/30",
-  "Awaiting Response": "bg-slate-500/10 text-slate-700 border-slate-500/30",
-  "Monitoring Issue": "bg-red-500/10 text-red-700 border-red-500/30",
+  "In Dispute": "bg-purple-500/10 text-status-accent border-purple-500/30",
+  "Awaiting Response": "bg-slate-500/10 text-muted-foreground border-slate-500/30",
+  "Monitoring Issue": "bg-red-500/10 text-status-danger border-red-500/30",
   Completed: "bg-emerald-500/10 text-status-success border-emerald-500/30",
-  Attention: "bg-red-500/10 text-red-700 border-red-500/30",
+  Attention: "bg-red-500/10 text-status-danger border-red-500/30",
 };
 
 export const FulfillmentStatusPill = ({ status }: { status: string }) => (

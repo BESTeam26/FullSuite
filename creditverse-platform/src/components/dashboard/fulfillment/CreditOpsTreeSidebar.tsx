@@ -24,9 +24,8 @@
  * Counts show ACTIVE clients only (excludes Completed / Archived / Graduated).
  */
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Building2, LayoutDashboard, BarChart3, Webhook } from "lucide-react";
-import { seedFulfillmentClients } from "@/lib/fulfillment/fulfillment-client-seed";
 import {
   CREDIT_OPS_PARTNERS,
   type CreditOpsPartner,
@@ -34,6 +33,7 @@ import {
 import { useCreditOpsAccess } from "@/lib/fulfillment/creditops-access";
 import { cn } from "@/lib/utils";
 import { usePartners } from "@/lib/data/use-partners";
+import { useCreditOpsStore } from "@/lib/fulfillment/creditops-client-store";
 import type { OpsPartner } from "@/lib/fulfillment/ops-client-domain";
 import {
   OpsTreeFolder,
@@ -59,8 +59,20 @@ const INACTIVE_STATUSES = [
 
 const isActive = (status: string) => !INACTIVE_STATUSES.includes(status);
 
-const countActiveForPartner = (scopeId: string) =>
-  seedFulfillmentClients.filter(
+/**
+ * Active clients per partner, counted from the canonical list.
+ *
+ * This counted `seedFulfillmentClients` while the partner tree above it
+ * listed *live* partners. Seed clients carry invented scope ids, so nothing
+ * ever matched a real partner and every count in the tree read 0 — beside a
+ * client list showing seventeen. The array is the one the store already holds
+ * for this page, so deriving the count from it costs no request (rule 14).
+ */
+const countActiveForPartner = (
+  clients: readonly { organizationId?: string; outsourcingGroupId?: string; status: string }[],
+  scopeId: string,
+) =>
+  clients.filter(
     (c) =>
       (c.organizationId === scopeId || c.outsourcingGroupId === scopeId) &&
       isActive(c.status),
@@ -93,6 +105,13 @@ export function CreditOpsTreeSidebar({
      navigate by real ones or intake cannot save (rule 2). */
   const { partners } = usePartners("creditOps", CREDIT_OPS_PARTNERS);
   const { canAccessManagement } = useCreditOpsAccess();
+  /* The same array the client list renders — one source, so the tree count and
+     the list can never disagree. */
+  const { clients } = useCreditOpsStore();
+  const countFor = useCallback(
+    (scopeId: string) => countActiveForPartner(clients, scopeId),
+    [clients],
+  );
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
     management: true,
     managed: true,
@@ -110,7 +129,7 @@ export function CreditOpsTreeSidebar({
   );
 
   const totalActive = partners.reduce(
-    (sum, p) => sum + countActiveForPartner(p.scopeId),
+    (sum, p) => sum + countFor(p.scopeId),
     0,
   );
 
@@ -121,7 +140,7 @@ export function CreditOpsTreeSidebar({
     selected.kind === "partner" && selected.partnerId === partnerId;
 
   const renderPartner = (partner: OpsPartner) => {
-    const count = countActiveForPartner(partner.scopeId);
+    const count = countFor(partner.scopeId);
     const isSelected = isPartnerActive(partner.id);
     return (
       <button
@@ -165,7 +184,7 @@ export function CreditOpsTreeSidebar({
       label={label}
       accent={accent}
       count={partners.reduce(
-        (sum, p) => sum + countActiveForPartner(p.scopeId),
+        (sum, p) => sum + countFor(p.scopeId),
         0,
       )}
       open={!!expanded[key]}

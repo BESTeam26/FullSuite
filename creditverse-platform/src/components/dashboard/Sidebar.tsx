@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SubAccountSwitcher } from "@/components/dashboard/SubAccountSwitcher";
+import { useMyWork, useAttention } from "@/lib/data/use-work";
 import { useAuth } from "@/lib/auth/auth-context";
 
 type NavItem = {
@@ -53,12 +54,22 @@ export const Sidebar = () => {
   const subAccounts = agencyContext?.subAccounts || [];
   const isProductOn = agencyContext?.isProductOn || (() => false);
   const activeSubAccount = agencyContext?.activeSubAccount || null;
-  const agencyWork = agencyContext?.agencyWork || [];
+  /**
+   * Badges read the same hooks their pages read.
+   *
+   * They used to count `agencyContext.agencyWork`, which is the seed array —
+   * so the chrome and the screens disagreed: My Work showed 2 while the page
+   * said "nothing assigned", and Attention showed nothing while six items were
+   * blocked or overdue. Both hooks are already cached under their own query
+   * keys (`["work","mine",userId]`, `["work","attention"]`) and are the very
+   * queries the pages use, so this adds no request — the sidebar simply reads
+   * the answer the page already fetched.
+   */
+  const myWork = useMyWork();
+  const attention = useAttention();
 
-  const attentionCount = agencyWork.filter(
-    (w) => w.stage === "Attention" || w.stage === "Blocked",
-  ).length;
-  const myWorkCount = agencyWork.filter((w) => w.stage !== "Completed").length;
+  const attentionCount = attention.items.length;
+  const myWorkCount = myWork.items.length;
 
   const isActive = (href: string) => {
     if (href === "/app") return pathname === "/app";
@@ -96,12 +107,9 @@ export const Sidebar = () => {
         },
         { label: "My Time", icon: Clock, href: "/app/my-time" },
         { label: "End of Day", icon: Timer, href: "/app/eod" },
-        {
-          label: "Notifications",
-          icon: Bell,
-          href: "/app/notifications",
-          badge: 3,
-        },
+        /* No badge: there is no notification model yet, so any number here
+           would be invented. It returns when the count can be real. */
+        { label: "Notifications", icon: Bell, href: "/app/notifications" },
       ],
     },
     {

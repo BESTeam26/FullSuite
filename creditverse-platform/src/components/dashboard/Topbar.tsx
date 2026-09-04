@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import {
   Search,
   Bell,
@@ -74,10 +75,16 @@ export const Topbar = () => {
           {viewMode === "agency" ? "Add Sub-Account" : "New Client"}
         </Button>
 
-        <button className="relative rounded-lg p-2 text-muted-foreground hover:bg-muted">
+        {/* The dot was unconditional — it signalled "unread" permanently,
+            with nothing behind it. The bell now simply opens the page. */}
+        <Link
+          to="/app/notifications"
+          aria-label="Notifications"
+          title="Notifications"
+          className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        >
           <Bell className="h-5 w-5" />
-          <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-emerald-500" />
-        </button>
+        </Link>
 
         <div className="flex items-center gap-2">
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-gold font-bold text-charcoal text-sm">

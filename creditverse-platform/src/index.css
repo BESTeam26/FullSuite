@@ -62,6 +62,8 @@
     --status-warning: 26 90% 31%;
     --status-info: 217 80% 38%;
     --status-danger: 0 72% 38%;
+    /* Distinguishes review/offer states from informational blue. */
+    --status-accent: 271 62% 40%;
 
     --radius: 0.625rem;
 
@@ -123,6 +125,7 @@
     --status-warning: 43 96% 64%;
     --status-info: 213 94% 72%;
     --status-danger: 0 91% 74%;
+    --status-accent: 271 85% 80%;
   }
 }
 
@@ -235,3 +238,24 @@ summary:focus-visible,
 .text-status-warning { color: hsl(var(--status-warning)); }
 .text-status-info    { color: hsl(var(--status-info)); }
 .text-status-danger  { color: hsl(var(--status-danger)); }
+.text-status-accent  { color: hsl(var(--status-accent)); }
+
+/* Opaque status tints for badges and pills.
+   A translucent wash lets whatever is behind it through, so a table row's own
+   hover shifted the composite under the pill and its contrast drifted (6.91 →
+   5.66 measured). Mixing the status hue into the card surface gives the same
+   appearance at a fixed value, so a chip reads identically on a plain row, a
+   hovered row, a selected row or a coloured card — and its contrast cannot be
+   changed by anything underneath it. */
+.bg-status-success-tint { background-color: color-mix(in srgb, hsl(var(--status-success)) 12%, hsl(var(--card))); }
+.bg-status-warning-tint { background-color: color-mix(in srgb, hsl(var(--status-warning)) 14%, hsl(var(--card))); }
+.bg-status-danger-tint  { background-color: color-mix(in srgb, hsl(var(--status-danger))  12%, hsl(var(--card))); }
+.bg-status-info-tint    { background-color: color-mix(in srgb, hsl(var(--status-info))    12%, hsl(var(--card))); }
+.bg-status-accent-tint  { background-color: color-mix(in srgb, hsl(var(--status-accent))  12%, hsl(var(--card))); }
+
+/* Hover deepens the same hue — contrast rises, never falls. */
+.hover\:bg-status-success-tint-strong:hover { background-color: color-mix(in srgb, hsl(var(--status-success)) 20%, hsl(var(--card))); }
+.hover\:bg-status-warning-tint-strong:hover { background-color: color-mix(in srgb, hsl(var(--status-warning)) 22%, hsl(var(--card))); }
+.hover\:bg-status-danger-tint-strong:hover  { background-color: color-mix(in srgb, hsl(var(--status-danger))  20%, hsl(var(--card))); }
+.hover\:bg-status-info-tint-strong:hover    { background-color: color-mix(in srgb, hsl(var(--status-info))    20%, hsl(var(--card))); }
+.hover\:bg-status-accent-tint-strong:hover  { background-color: color-mix(in srgb, hsl(var(--status-accent))  20%, hsl(var(--card))); }

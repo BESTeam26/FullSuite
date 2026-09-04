@@ -14,6 +14,7 @@ import { CrmAutomationProvider } from "@/lib/crm-automation-context";
 import { AgencySettingsProvider } from "@/lib/agency-settings-context";
 import { AuthProvider } from "@/lib/auth/auth-context";
 import { RequireAuth } from "@/components/auth/RequireAuth";
+import { RequireAgencyStaff } from "@/components/auth/RequireAgencyStaff";
 import { RequireEntitlement } from "./components/auth/RequireEntitlement";
 
 /* ------------------------------------------------------------------ */
@@ -219,11 +220,19 @@ const App = () => (
                                 {/* HQ */}
                                 <Route
                                   path="subaccounts"
-                                  element={<SubAccountsManager />}
+                                  element={
+                                    <RequireAgencyStaff label="Sub-Accounts">
+                                      <SubAccountsManager />
+                                    </RequireAgencyStaff>
+                                  }
                                 />
                                 <Route
                                   path="attention"
-                                  element={<AttentionCenter />}
+                                  element={
+                                    <RequireAgencyStaff label="Attention Center">
+                                      <AttentionCenter />
+                                    </RequireAgencyStaff>
+                                  }
                                 />
                                 {/* My Work */}
                                 <Route
@@ -237,7 +246,11 @@ const App = () => (
                                 <Route path="eod" element={<EodPage />} />
                                 <Route
                                   path="notifications"
-                                  element={<NotificationsPage />}
+                                  element={
+                                    <RequireAgencyStaff label="Notifications">
+                                      <NotificationsPage />
+                                    </RequireAgencyStaff>
+                                  }
                                 />
                                 {/* Managed Operations */}
                                 <Route
@@ -278,11 +291,29 @@ const App = () => (
                                   element={<TalentOps />}
                                 />
                                 {/* Workforce */}
-                                <Route path="people" element={<PeoplePage />} />
-                                <Route path="teams" element={<TeamsPage />} />
+                                <Route
+                                  path="people"
+                                  element={
+                                    <RequireAgencyStaff label="People">
+                                      <PeoplePage />
+                                    </RequireAgencyStaff>
+                                  }
+                                />
+                                <Route
+                                  path="teams"
+                                  element={
+                                    <RequireAgencyStaff label="Teams">
+                                      <TeamsPage />
+                                    </RequireAgencyStaff>
+                                  }
+                                />
                                 <Route
                                   path="workforce"
-                                  element={<WorkforcePage />}
+                                  element={
+                                    <RequireAgencyStaff label="Workforce">
+                                      <WorkforcePage />
+                                    </RequireAgencyStaff>
+                                  }
                                 />
                                 {/* Management */}
                                 <Route
@@ -291,7 +322,11 @@ const App = () => (
                                 />
                                 <Route
                                   path="billing"
-                                  element={<BillingPage />}
+                                  element={
+                                    <RequireAgencyStaff label="Billing & Revenue">
+                                      <BillingPage />
+                                    </RequireAgencyStaff>
+                                  }
                                 />
                                 <Route
                                   path="compliance"

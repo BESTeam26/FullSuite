@@ -121,20 +121,20 @@ export const StatusPill = ({ status }: { status: string }) => {
   const tone: Record<string, string> = {
     Active: "bg-emerald-500/10 text-status-success border-emerald-500/30",
     Healthy: "bg-emerald-500/10 text-status-success border-emerald-500/30",
-    Processing: "bg-blue-500/10 text-blue-700 border-blue-500/30",
+    Processing: "bg-blue-500/10 text-status-info border-blue-500/30",
     "Ready for QA": "bg-amber-500/10 text-status-warning border-amber-500/30",
-    Queued: "bg-slate-500/10 text-slate-700 border-slate-500/30",
+    Queued: "bg-slate-500/10 text-muted-foreground border-slate-500/30",
     Completed: "bg-emerald-500/10 text-status-success border-emerald-500/30",
-    Blocked: "bg-red-500/10 text-red-700 border-red-500/30",
-    Attention: "bg-red-500/10 text-red-700 border-red-500/30",
-    "At Risk": "bg-red-500/10 text-red-700 border-red-500/30",
+    Blocked: "bg-red-500/10 text-status-danger border-red-500/30",
+    Attention: "bg-red-500/10 text-status-danger border-red-500/30",
+    "At Risk": "bg-red-500/10 text-status-danger border-red-500/30",
     "Pending Onboarding":
       "bg-amber-500/10 text-status-warning border-amber-500/30",
     Funded: "bg-emerald-500/10 text-status-success border-emerald-500/30",
-    Submitted: "bg-blue-500/10 text-blue-700 border-blue-500/30",
-    Offer: "bg-purple-500/10 text-purple-700 border-purple-500/30",
+    Submitted: "bg-blue-500/10 text-status-info border-blue-500/30",
+    Offer: "bg-purple-500/10 text-status-accent border-purple-500/30",
     Review: "bg-amber-500/10 text-status-warning border-amber-500/30",
-    Draft: "bg-slate-500/10 text-slate-700 border-slate-500/30",
+    Draft: "bg-slate-500/10 text-muted-foreground border-slate-500/30",
   };
   return (
     <span

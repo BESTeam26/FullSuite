@@ -132,14 +132,11 @@ export const SubAccountsListView = ({
 
               <TableCell>
                 {sub.isFulfillmentSubscriber ? (
-                  <Badge className="bg-emerald-500/10 text-status-success border-emerald-500/20 text-[10px]">
+                  <Badge variant="success" className="text-[10px]">
                     <CheckCircle2 className="h-3 w-3 mr-1" /> HQ DFY Subscriber
                   </Badge>
                 ) : (
-                  <Badge
-                    variant="outline"
-                    className="text-muted-foreground text-[10px]"
-                  >
+                  <Badge variant="neutral" className="text-[10px]">
                     Self-Managed
                   </Badge>
                 )}
@@ -147,11 +144,7 @@ export const SubAccountsListView = ({
 
               <TableCell>
                 <Badge
-                  className={
-                    sub.status === "Active"
-                      ? "bg-emerald-500/10 text-status-success"
-                      : "bg-amber-500/10 text-status-warning"
-                  }
+                  variant={sub.status === "Active" ? "success" : "warning"}
                 >
                   {sub.status}
                 </Badge>

@@ -1,4 +1,5 @@
 import type { ReactNode, ElementType } from "react";
+import { Link } from "react-router-dom";
 import {
   DivisionTable,
   ContentCard,
@@ -229,75 +230,51 @@ export const MyWorkPage = () => {
 /* Notifications                                                         */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Notifications — deliberately empty.
+ *
+ * This page previously rendered six hardcoded items ("Apex Credit Co. upgraded
+ * to Full Suite", "Pioneer Credit Solutions added 12 new clients") to every
+ * viewer, with a badge hardcoded to 3. They were not notifications: there is no
+ * `notifications` table, no recipient, no read state, and nothing routed them
+ * to anyone. Worse, they named other customers, and the route has no role gate,
+ * so an organization user reaching it directly saw another organization's
+ * commercial facts.
+ *
+ * An empty state that says so is more honest than a number that is always three
+ * and a list that is always the same. It stays until the real model exists —
+ * recipient, entity, read state, and RLS on `recipient_id = auth.uid()`.
+ */
 export const NotificationsPage = () => (
   <HqPageShell
     title="Notifications"
-    description="Recent system alerts and updates"
+    description="Alerts routed to you"
     icon={Bell}
   >
-    <div className="space-y-2">
-      {[
-        {
-          time: "2 min ago",
-          text: "New work order WO-9045 assigned to you",
-          unread: true,
-        },
-        {
-          time: "15 min ago",
-          text: "Apex Credit Co. upgraded to Full Suite",
-          unread: true,
-        },
-        {
-          time: "1 hr ago",
-          text: "SmartCredit connector needs re-authentication",
-          unread: true,
-        },
-        {
-          time: "3 hrs ago",
-          text: "QA approved — Anthony Ramos CFPB complaint",
-          unread: false,
-        },
-        {
-          time: "Yesterday",
-          text: "Weekly workforce report is ready",
-          unread: false,
-        },
-        {
-          time: "Yesterday",
-          text: "Pioneer Credit Solutions added 12 new clients",
-          unread: false,
-        },
-      ].map((n) => (
-        <div
-          key={n.text}
-          className={cn(
-            "flex items-start gap-3 rounded-xl border px-4 py-3",
-            n.unread
-              ? "border-primary/30 bg-primary/5"
-              : "border-border bg-card",
-          )}
+    <div className="rounded-xl border border-dashed border-border bg-muted/20 px-6 py-10 text-center">
+      <Bell className="mx-auto mb-3 h-6 w-6 text-muted-foreground" />
+      <p className="text-sm font-semibold text-foreground">
+        Notifications are not available yet
+      </p>
+      <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
+        Assignments, mentions and SLA alerts will appear here once notification
+        delivery is built. Nothing is being held back — there is no queue behind
+        this screen. Work needing attention is on{" "}
+        <Link
+          to="/app/attention"
+          className="font-semibold text-primary underline underline-offset-2 hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
-          <div
-            className={cn(
-              "mt-1.5 h-2 w-2 shrink-0 rounded-full",
-              n.unread ? "bg-primary" : "bg-muted",
-            )}
-          />
-          <div className="flex-1">
-            <p
-              className={cn(
-                "text-sm",
-                n.unread
-                  ? "font-medium text-foreground"
-                  : "text-muted-foreground",
-              )}
-            >
-              {n.text}
-            </p>
-            <p className="text-xs text-muted-foreground">{n.time}</p>
-          </div>
-        </div>
-      ))}
+          Attention Center
+        </Link>{" "}
+        and{" "}
+        <Link
+          to="/app/my-work"
+          className="font-semibold text-primary underline underline-offset-2 hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        >
+          My Work
+        </Link>
+        .
+      </p>
     </div>
   </HqPageShell>
 );
