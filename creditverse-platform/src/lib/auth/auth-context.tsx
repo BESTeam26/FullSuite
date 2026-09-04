@@ -33,7 +33,9 @@ export type Profile = Tables<"profiles">;
 export type AgencyMembership = Tables<"agency_memberships">;
 export type OrgMembership = Tables<"org_memberships">;
 export type ExternalMembership = Tables<"external_memberships">;
+export type TeamMembership = Tables<"team_memberships">;
 export type AgencyRole = Enums<"agency_role">;
+export type AccessScope = Enums<"access_scope">;
 
 export type AuthStatus = "loading" | "signed-out" | "signed-in";
 
@@ -56,6 +58,16 @@ export interface AuthContextValue {
   isAgencyStaff: boolean;
   agencyRole: AgencyRole | null;
   isAgencyAdmin: boolean;
+  /**
+   * Person-level scope, read from the membership the database enforces with.
+   * The interface uses this to LABEL and to avoid offering what will be
+   * refused; it never decides access — RLS does (rule 3: both layers, every
+   * time). `null` when the user is not BES staff.
+   */
+  agencyScope: AccessScope | null;
+  /** Teams this user sits on, and the subset they lead. Stable ids only. */
+  teamIds: string[];
+  ledTeamIds: string[];
   hasAnyAccess: boolean;
   displayName: string;
   /** Actions */
@@ -97,6 +109,10 @@ const demoAgencyMembership: AgencyMembership = {
   user_id: DEMO_USER_ID,
   agency_id: DEMO_AGENCY_ID,
   role: "agency_owner",
+  // Demo explores the whole agency; mirrors the columns migration 0021 added.
+  scope: "agency",
+  scope_division: null,
+  scope_department_id: null,
   created_at: new Date(0).toISOString(),
 };
 
@@ -120,10 +136,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [externalMemberships, setExternalMemberships] = useState<
     ExternalMembership[]
   >([]);
+  const [teamMemberships, setTeamMemberships] = useState<TeamMembership[]>([]);
 
   const readIdentity = useCallback(async (userId: string) => {
     if (!supabase) return;
-    const [p, am, om, em] = await Promise.all([
+    /* Team roster rides in the same parallel batch as the rest of identity —
+       one round, resolved once per session, no waterfall (rule 14). */
+    const [p, am, om, em, tm] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
       supabase
         .from("agency_memberships")
@@ -132,11 +151,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .maybeSingle(),
       supabase.from("org_memberships").select("*").eq("user_id", userId),
       supabase.from("external_memberships").select("*").eq("user_id", userId),
+      supabase.from("team_memberships").select("*").eq("user_id", userId),
     ]);
     setProfile(p.data ?? null);
     setAgencyMembership(am.data ?? null);
     setOrgMemberships(om.data ?? []);
     setExternalMemberships(em.data ?? []);
+    setTeamMemberships(tm.data ?? []);
   }, []);
 
   /**
@@ -203,6 +224,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setAgencyMembership(null);
           setOrgMemberships([]);
           setExternalMemberships([]);
+          setTeamMemberships([]);
           setStatus("signed-out");
         }
       },
@@ -288,6 +310,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       agencyRole,
       isAgencyAdmin:
         agencyRole === "agency_owner" || agencyRole === "agency_admin",
+      agencyScope: agencyMembership?.scope ?? null,
+      teamIds: teamMemberships.map((t) => t.team_id),
+      ledTeamIds: teamMemberships.filter((t) => t.is_lead).map((t) => t.team_id),
       hasAnyAccess:
         isAgencyStaff ||
         orgMemberships.length > 0 ||
@@ -311,6 +336,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     agencyMembership,
     orgMemberships,
     externalMemberships,
+    teamMemberships,
     signInWithPassword,
     signInWithMagicLink,
     signUp,

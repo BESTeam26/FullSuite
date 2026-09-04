@@ -1534,3 +1534,48 @@ and the conversion order is obvious.
 7. Add grounded AI (report summary, plain-language, draft prep)
 8. Audit logging
 9. Compliance review before any public launch
+
+
+---
+
+## Phase — Team + Assignment Scope (migration 0021) · DONE
+
+**Problem, measured:** a BES agent assigned nothing read all 10 work items and
+all 6 attention rows. Tenant isolation held; there was no person-level boundary
+on operational records.
+
+**Built:** `access_scope` enum (`agency | division | department | team |
+assigned | self`); `departments` (FK-addressable department identity — the two
+department enums could not serve as one stable id); `teams` (one table, agency
+xor organization owner, archive not delete); `team_memberships` (join table →
+multi-team, `is_lead` on the membership); `agency_memberships.scope /
+scope_division / scope_department_id`; `work_items.division + team_id`,
+`fulfillment_clients.team_id`, `funding_clients.team_id` — all nullable.
+
+**One evaluation point:** `in_scope(agency, division, team, assignee, creator)`
+— responsibility first, ceiling second, supervision third, default deny —
+composed into the BES branch of `work_items`, `fulfillment_clients` and
+`funding_clients` SELECT/UPDATE. `org_scope_allows` enforces the org side's
+existing `assigned_only`. `work_attention` recreated (security_invoker) so it
+inherits the scoped policy and carries `division`/`team_id`.
+
+**Decisions made explicitly, not by query breadth:** roster ≠ ceiling; a lead
+supervises their team regardless of ceiling; the unassigned team queue is
+visible to `team` and above, never to `assigned`; managers backfilled to
+`agency` for parity with today's `is_manager_of` (narrowing a real role is
+policy — the fixture manager demonstrates division scope).
+
+**Audit:** trigger on `team_memberships` (insert/update/delete) and on
+`agency_memberships` scope/role changes → `audit_log` with before/after.
+
+**Verified:** `supabase/scripts/rls-matrix.mjs` — 77/77 as real users via JWT
+impersonation inside rolled-back transactions; `bes.restricted` reads 0 of
+everything; org users unchanged; positive controls prove each record class is
+reachable by the right user. `verify-live.mjs` extended to the three new tables.
+Frontend: team roster joins the single identity batch (5 parallel reads, no
+waterfall); `agencyScope / teamIds / ledTeamIds` exposed; `lib/auth/scope.ts` is
+a pure mirror for labelling only, with 9 unit tests.
+
+**Not yet person-scoped (carried to Phase 2/3):** `activity_events`
+(`bes_internal`) and non-activity `files` are still agency-wide for BES staff;
+`client_department_statuses_write` still uses agency-blind `is_agency_staff()`.

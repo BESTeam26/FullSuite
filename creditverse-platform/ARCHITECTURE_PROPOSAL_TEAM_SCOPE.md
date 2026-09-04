@@ -1,6 +1,23 @@
 # Proposal — Team and Assignment Scope foundation
 
-**Status: proposal. Nothing built.**
+**Status: IMPLEMENTED in migration `20260904000100`, with deviations noted below.**
+See `AUTHORIZATION_MAP.md` for the measured result.
+
+Deviations from this proposal, and why:
+- **No `divisions` table.** `fulfillment_service` is already the canonical
+  service identity used by engagements and activity; a second table would have
+  duplicated it. Division scope points at the enum.
+- **`departments` IS a table**, because department identity is split across two
+  enums today and a scope must reference one stable id, never a label.
+- **`teams` serves both sides** (`agency_id` xor `organization_id`) — one team
+  system, per rule 17.
+- **Managers backfilled to `agency`, not `division`.** `is_manager_of` already
+  granted agency-wide escalation on production, time and EOD; narrowing a real
+  role is a policy decision. The fixture manager demonstrates division scope.
+- **Roster ≠ ceiling.** Team membership alone widens nothing; `scope = 'team'`
+  does. A lead supervises their team regardless of ceiling.
+- Unassigned team queue: visible to `team`/`department`/`division`/`agency`,
+  never to `assigned` or `self`. Decided explicitly.
 
 The finding up front: **the scope model already exists — on the wrong half of the
 schema.** Workforce records (`time_entries`, `production_logs`,

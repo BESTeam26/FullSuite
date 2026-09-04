@@ -45,6 +45,7 @@ export type Database = {
           actor_id: string | null
           actor_name: string | null
           agency_id: string
+          body: Json | null
           created_at: string
           detail: string | null
           entity_id: string
@@ -63,6 +64,7 @@ export type Database = {
           actor_id?: string | null
           actor_name?: string | null
           agency_id: string
+          body?: Json | null
           created_at?: string
           detail?: string | null
           entity_id: string
@@ -81,6 +83,7 @@ export type Database = {
           actor_id?: string | null
           actor_name?: string | null
           agency_id?: string
+          body?: Json | null
           created_at?: string
           detail?: string | null
           entity_id?: string
@@ -151,6 +154,11 @@ export type Database = {
           created_at: string
           id: string
           role: Database["public"]["Enums"]["agency_role"]
+          scope: Database["public"]["Enums"]["access_scope"]
+          scope_department_id: string | null
+          scope_division:
+            | Database["public"]["Enums"]["fulfillment_service"]
+            | null
           user_id: string
         }
         Insert: {
@@ -158,6 +166,11 @@ export type Database = {
           created_at?: string
           id?: string
           role?: Database["public"]["Enums"]["agency_role"]
+          scope?: Database["public"]["Enums"]["access_scope"]
+          scope_department_id?: string | null
+          scope_division?:
+            | Database["public"]["Enums"]["fulfillment_service"]
+            | null
           user_id: string
         }
         Update: {
@@ -165,6 +178,11 @@ export type Database = {
           created_at?: string
           id?: string
           role?: Database["public"]["Enums"]["agency_role"]
+          scope?: Database["public"]["Enums"]["access_scope"]
+          scope_department_id?: string | null
+          scope_division?:
+            | Database["public"]["Enums"]["fulfillment_service"]
+            | null
           user_id?: string
         }
         Relationships: [
@@ -173,6 +191,13 @@ export type Database = {
             columns: ["agency_id"]
             isOneToOne: false
             referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_memberships_scope_department_id_fkey"
+            columns: ["scope_department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
             referencedColumns: ["id"]
           },
           {
@@ -327,6 +352,41 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "fulfillment_clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      departments: {
+        Row: {
+          agency_id: string
+          created_at: string
+          division: Database["public"]["Enums"]["fulfillment_service"]
+          id: string
+          key: string
+          name: string
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          division: Database["public"]["Enums"]["fulfillment_service"]
+          id?: string
+          key: string
+          name: string
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          division?: Database["public"]["Enums"]["fulfillment_service"]
+          id?: string
+          key?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "departments_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
             referencedColumns: ["id"]
           },
         ]
@@ -539,6 +599,7 @@ export type Database = {
           phone: string | null
           round: Database["public"]["Enums"]["fulfillment_round"]
           status: Database["public"]["Enums"]["fulfillment_client_status"]
+          team_id: string | null
           updated_at: string
         }
         Insert: {
@@ -560,6 +621,7 @@ export type Database = {
           phone?: string | null
           round?: Database["public"]["Enums"]["fulfillment_round"]
           status?: Database["public"]["Enums"]["fulfillment_client_status"]
+          team_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -581,6 +643,7 @@ export type Database = {
           phone?: string | null
           round?: Database["public"]["Enums"]["fulfillment_round"]
           status?: Database["public"]["Enums"]["fulfillment_client_status"]
+          team_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -617,6 +680,13 @@ export type Database = {
             columns: ["outsourcing_group_id"]
             isOneToOne: false
             referencedRelation: "outsourcing_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fulfillment_clients_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
             referencedColumns: ["id"]
           },
         ]
@@ -759,6 +829,7 @@ export type Database = {
           phone: string | null
           provenance: Database["public"]["Enums"]["funding_provenance"]
           status: Database["public"]["Enums"]["funding_client_status"]
+          team_id: string | null
           updated_at: string
         }
         Insert: {
@@ -780,6 +851,7 @@ export type Database = {
           phone?: string | null
           provenance?: Database["public"]["Enums"]["funding_provenance"]
           status?: Database["public"]["Enums"]["funding_client_status"]
+          team_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -801,6 +873,7 @@ export type Database = {
           phone?: string | null
           provenance?: Database["public"]["Enums"]["funding_provenance"]
           status?: Database["public"]["Enums"]["funding_client_status"]
+          team_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -844,6 +917,13 @@ export type Database = {
             columns: ["outsourcing_group_id"]
             isOneToOne: false
             referencedRelation: "outsourcing_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funding_clients_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
             referencedColumns: ["id"]
           },
         ]
@@ -1468,6 +1548,94 @@ export type Database = {
           },
         ]
       }
+      team_memberships: {
+        Row: {
+          created_at: string
+          is_lead: boolean
+          team_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          is_lead?: boolean
+          team_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          is_lead?: boolean
+          team_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_memberships_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_memberships_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teams: {
+        Row: {
+          agency_id: string | null
+          archived_at: string | null
+          created_at: string
+          department_id: string | null
+          id: string
+          name: string
+          organization_id: string | null
+        }
+        Insert: {
+          agency_id?: string | null
+          archived_at?: string | null
+          created_at?: string
+          department_id?: string | null
+          id?: string
+          name: string
+          organization_id?: string | null
+        }
+        Update: {
+          agency_id?: string | null
+          archived_at?: string | null
+          created_at?: string
+          department_id?: string | null
+          id?: string
+          name?: string
+          organization_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teams_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teams_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teams_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       time_entries: {
         Row: {
           agency_id: string
@@ -1713,6 +1881,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           description: string | null
+          division: Database["public"]["Enums"]["fulfillment_service"] | null
           due_at: string | null
           id: string
           organization_id: string | null
@@ -1722,6 +1891,7 @@ export type Database = {
           scope: Database["public"]["Enums"]["work_scope"]
           stage: Database["public"]["Enums"]["work_stage"]
           subject_organization_id: string | null
+          team_id: string | null
           title: string
           updated_at: string
         }
@@ -1732,6 +1902,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          division?: Database["public"]["Enums"]["fulfillment_service"] | null
           due_at?: string | null
           id?: string
           organization_id?: string | null
@@ -1741,6 +1912,7 @@ export type Database = {
           scope: Database["public"]["Enums"]["work_scope"]
           stage?: Database["public"]["Enums"]["work_stage"]
           subject_organization_id?: string | null
+          team_id?: string | null
           title: string
           updated_at?: string
         }
@@ -1751,6 +1923,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          division?: Database["public"]["Enums"]["fulfillment_service"] | null
           due_at?: string | null
           id?: string
           organization_id?: string | null
@@ -1760,6 +1933,7 @@ export type Database = {
           scope?: Database["public"]["Enums"]["work_scope"]
           stage?: Database["public"]["Enums"]["work_stage"]
           subject_organization_id?: string | null
+          team_id?: string | null
           title?: string
           updated_at?: string
         }
@@ -1799,18 +1973,27 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "work_items_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
         ]
       }
     }
     Views: {
       work_attention: {
         Row: {
+          agency_id: string | null
           assigned_to: string | null
           attention_reason: string | null
           completed_at: string | null
           created_at: string | null
           created_by: string | null
           description: string | null
+          division: Database["public"]["Enums"]["fulfillment_service"] | null
           due_at: string | null
           hours_remaining: number | null
           id: string | null
@@ -1821,16 +2004,19 @@ export type Database = {
           scope: Database["public"]["Enums"]["work_scope"] | null
           stage: Database["public"]["Enums"]["work_stage"] | null
           subject_organization_id: string | null
+          team_id: string | null
           title: string | null
           updated_at: string | null
         }
         Insert: {
+          agency_id?: string | null
           assigned_to?: string | null
           attention_reason?: never
           completed_at?: string | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null
+          division?: Database["public"]["Enums"]["fulfillment_service"] | null
           due_at?: string | null
           hours_remaining?: never
           id?: string | null
@@ -1841,16 +2027,19 @@ export type Database = {
           scope?: Database["public"]["Enums"]["work_scope"] | null
           stage?: Database["public"]["Enums"]["work_stage"] | null
           subject_organization_id?: string | null
+          team_id?: string | null
           title?: string | null
           updated_at?: string | null
         }
         Update: {
+          agency_id?: string | null
           assigned_to?: string | null
           attention_reason?: never
           completed_at?: string | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null
+          division?: Database["public"]["Enums"]["fulfillment_service"] | null
           due_at?: string | null
           hours_remaining?: never
           id?: string | null
@@ -1861,10 +2050,18 @@ export type Database = {
           scope?: Database["public"]["Enums"]["work_scope"] | null
           stage?: Database["public"]["Enums"]["work_stage"] | null
           subject_organization_id?: string | null
+          team_id?: string | null
           title?: string | null
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "work_items_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "work_items_assigned_to_fkey"
             columns: ["assigned_to"]
@@ -1891,6 +2088,13 @@ export type Database = {
             columns: ["subject_organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_items_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
             referencedColumns: ["id"]
           },
         ]
@@ -1957,6 +2161,11 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["agency_role"]
       }
+      dev_seed_user: {
+        Args: { p_email: string; p_full_name: string; p_password: string }
+        Returns: string
+      }
+      dev_uuid: { Args: { p_key: string }; Returns: string }
       engagement_is_live: {
         Args: {
           p_from: string
@@ -1974,6 +2183,16 @@ export type Database = {
           status: string
         }[]
       }
+      in_scope: {
+        Args: {
+          p_agency: string
+          p_assignee: string
+          p_creator: string
+          p_division: Database["public"]["Enums"]["fulfillment_service"]
+          p_team: string
+        }
+        Returns: boolean
+      }
       is_admin_of: { Args: { p_agency: string }; Returns: boolean }
       is_agency_admin: { Args: never; Returns: boolean }
       is_agency_manager_or_above: { Args: never; Returns: boolean }
@@ -1983,6 +2202,7 @@ export type Database = {
       is_org_admin: { Args: { p_org: string }; Returns: boolean }
       is_org_member: { Args: { p_org: string }; Returns: boolean }
       is_staff_of: { Args: { p_agency: string }; Returns: boolean }
+      is_team_lead_of: { Args: { p_team: string }; Returns: boolean }
       log_audit: {
         Args: {
           p_action: string
@@ -2010,9 +2230,21 @@ export type Database = {
         Args: { p_org: string }
         Returns: Database["public"]["Enums"]["org_role"]
       }
+      org_scope_allows: {
+        Args: { p_assignee: string; p_org: string }
+        Returns: boolean
+      }
       shares_scope_with: { Args: { p_user: string }; Returns: boolean }
+      try_bigint: { Args: { t: string }; Returns: number }
     }
     Enums: {
+      access_scope:
+        | "agency"
+        | "division"
+        | "department"
+        | "team"
+        | "assigned"
+        | "self"
       activity_visibility:
         | "bes_internal"
         | "organization_internal"
@@ -2292,6 +2524,14 @@ export const Constants = {
   },
   public: {
     Enums: {
+      access_scope: [
+        "agency",
+        "division",
+        "department",
+        "team",
+        "assigned",
+        "self",
+      ],
       activity_visibility: [
         "bes_internal",
         "organization_internal",
