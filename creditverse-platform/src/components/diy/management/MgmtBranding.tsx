@@ -156,7 +156,7 @@ export const MgmtBranding = () => {
           This is what your consumer sees as the program name:
         </p>
         <div
-          className="mt-4 rounded-2xl p-6 text-white"
+          className="mt-4 rounded-2xl p-6 text-foreground"
           style={{
             background: `linear-gradient(135deg, ${draft.primaryColor || "#005F4B"}, #003D31)`,
           }}

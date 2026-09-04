@@ -95,7 +95,7 @@ export const SubAccountInvoicingMetering = () => {
 
         <Card className="p-4 border-border bg-card">
           <p className="text-xs text-muted-foreground font-medium">
-            Sub-Account Base Plans
+            Organization Base Plans
           </p>
           <p className="text-2xl font-bold text-foreground mt-1">
             ${items.reduce((acc, c) => acc + c.planFee, 0).toLocaleString()}
@@ -156,7 +156,7 @@ export const SubAccountInvoicingMetering = () => {
           <TableHeader className="bg-muted/50">
             <TableRow>
               <TableHead>Invoice ID</TableHead>
-              <TableHead>Sub-Account Company</TableHead>
+              <TableHead>Organization Company</TableHead>
               <TableHead>Base Plan Fee</TableHead>
               <TableHead>Metered Client Usage ($12/cl)</TableHead>
               <TableHead>DFY Fulfillment Meter ($25/cl)</TableHead>

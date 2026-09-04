@@ -73,7 +73,7 @@ export const ConsumerCreditReview = () => (
   <div className="space-y-6">
     <div>
       <h1 className="text-2xl font-bold tracking-tight">My Credit</h1>
-      <p className="mt-1 text-sm text-slate-400">
+      <p className="mt-1 text-sm text-muted-foreground">
         Your credit profile in plain language. Review each section before
         identifying potential issues.
       </p>
@@ -81,7 +81,7 @@ export const ConsumerCreditReview = () => (
 
     <div className="flex items-start gap-3 rounded-xl border border-amber-400/30 bg-amber-500/5 p-4">
       <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
-      <p className="text-xs leading-relaxed text-slate-300">
+      <p className="text-xs leading-relaxed text-muted-foreground">
         A difference between bureaus is not automatically an error. Different
         reporting dates or data sources can cause legitimate differences. We
         flag items for your review — you confirm the facts.
@@ -91,7 +91,7 @@ export const ConsumerCreditReview = () => (
     {sections.map((s) => (
       <div
         key={s.title}
-        className="rounded-2xl border border-white/10 bg-white/5 p-5"
+        className="rounded-2xl border border-border bg-card p-5"
       >
         <h2 className={`text-sm font-bold ${s.tone}`}>{s.title}</h2>
         <div className="mt-3 space-y-2">
@@ -101,10 +101,10 @@ export const ConsumerCreditReview = () => (
               className="flex items-center justify-between rounded-lg bg-navy-deep/60 p-3"
             >
               <div>
-                <p className="text-sm font-medium text-white">{it.name}</p>
-                <p className="text-[11px] text-slate-400">{it.detail}</p>
+                <p className="text-sm font-medium text-foreground">{it.name}</p>
+                <p className="text-[11px] text-muted-foreground">{it.detail}</p>
               </div>
-              <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-bold text-slate-300">
+              <span className="rounded-full bg-muted px-2.5 py-1 text-[10px] font-bold text-muted-foreground">
                 Review
               </span>
             </div>
@@ -113,15 +113,15 @@ export const ConsumerCreditReview = () => (
       </div>
     ))}
 
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+    <div className="rounded-2xl border border-border bg-card p-5">
       <h2 className="text-sm font-bold text-amber-300">Bureau Differences</h2>
-      <p className="mt-1 text-xs text-slate-400">
+      <p className="mt-1 text-xs text-muted-foreground">
         Where the three bureaus report different values for the same account.
       </p>
       <div className="mt-3 overflow-x-auto">
         <table className="w-full text-left text-xs">
           <thead>
-            <tr className="border-b border-white/10 text-slate-400">
+            <tr className="border-b border-border text-muted-foreground">
               <th className="py-2 pr-4 font-medium">Field</th>
               <th className="py-2 pr-4 font-medium">Equifax</th>
               <th className="py-2 pr-4 font-medium">Experian</th>
@@ -131,10 +131,10 @@ export const ConsumerCreditReview = () => (
           </thead>
           <tbody>
             <tr className="border-b border-white/5">
-              <td className="py-2.5 pr-4 text-slate-300">Balance</td>
-              <td className="py-2.5 pr-4 text-white">$1,284</td>
-              <td className="py-2.5 pr-4 text-white">$0</td>
-              <td className="py-2.5 pr-4 text-white">$1,284</td>
+              <td className="py-2.5 pr-4 text-muted-foreground">Balance</td>
+              <td className="py-2.5 pr-4 text-foreground">$1,284</td>
+              <td className="py-2.5 pr-4 text-foreground">$0</td>
+              <td className="py-2.5 pr-4 text-foreground">$1,284</td>
               <td className="py-2.5">
                 <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-300">
                   Observed Difference
@@ -142,10 +142,10 @@ export const ConsumerCreditReview = () => (
               </td>
             </tr>
             <tr>
-              <td className="py-2.5 pr-4 text-slate-300">Status</td>
-              <td className="py-2.5 pr-4 text-white">Collection</td>
-              <td className="py-2.5 pr-4 text-white">Collection</td>
-              <td className="py-2.5 pr-4 text-white">Collection</td>
+              <td className="py-2.5 pr-4 text-muted-foreground">Status</td>
+              <td className="py-2.5 pr-4 text-foreground">Collection</td>
+              <td className="py-2.5 pr-4 text-foreground">Collection</td>
+              <td className="py-2.5 pr-4 text-foreground">Collection</td>
               <td className="py-2.5">
                 <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
                   Consistent
@@ -159,7 +159,7 @@ export const ConsumerCreditReview = () => (
 
     <div className="flex items-start gap-3 rounded-xl border border-emerald-400/30 bg-emerald-500/5 p-4">
       <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
-      <p className="text-xs leading-relaxed text-slate-300">
+      <p className="text-xs leading-relaxed text-muted-foreground">
         We never use terms like "Violation Detected" or "Illegal Reporting."
         Every item is a potential issue for your review — you decide what's
         accurate.

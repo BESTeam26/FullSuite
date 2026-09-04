@@ -22,7 +22,7 @@ const ent = (key: ProductKey, enabled = true): ProductEntitlement => ({
 const org = (entitlements: ProductEntitlement[]): Organization => ({
   id: "org-1",
   name: "Apex Credit Co.",
-  code: "APEX",
+  code: "APEX", publicId: "BES-TEST01",
   principal: { name: "Owner", email: "owner@apex.test" },
   status: "Active",
   joinedDate: "2026-01-01",

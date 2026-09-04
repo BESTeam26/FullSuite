@@ -72,6 +72,7 @@ const DashboardLayout = lazy(
 );
 const Dashboard = lazy(() => import("./pages/app/Dashboard"));
 const Workspaces = lazy(() => import("./pages/app/Workspaces"));
+const OrganizationDashboard = lazy(() => import("./pages/app/OrganizationDashboard"));
 const Clients = lazy(() => import("./pages/app/Clients"));
 const ClientDetail = lazy(() => import("./pages/app/ClientDetail"));
 const Compliance = lazy(() => import("./pages/app/Compliance"));
@@ -218,11 +219,12 @@ const App = () => (
                                 }
                               >
                                 <Route index element={<Dashboard />} />
+                                <Route path="org/:orgPublicId" element={<OrganizationDashboard />} />
                                 {/* HQ */}
                                 <Route
                                   path="subaccounts"
                                   element={
-                                    <RequireAgencyStaff label="Sub-Accounts">
+                                    <RequireAgencyStaff label="Organizations">
                                       <SubAccountsManager />
                                     </RequireAgencyStaff>
                                   }

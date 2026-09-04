@@ -220,3 +220,12 @@ used to route.
 | `workspace_fields.options` | `{choices: [...]}` or absent | check constraint |
 | `workspaces_select` | member of an entitled org (row-local), or reach via share, or assignee of an item in it | rewritten so `INSERT … RETURNING` no longer fails for the creator |
 | configuration writes | `is_org_admin(org)` — which includes `org_manager` (pre-existing) | unchanged; the UI gate now mirrors it |
+
+
+### 0038–0040 — Organization ID and switching
+
+| Object | Rule | How |
+|---|---|---|
+| `organizations.public_id` | generated, unique, formatted, immutable; never an authorization key | default `gen_org_public_id()`, trigger redraws on collision and refuses UPDATE, unique index, check `^BES-[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}$` |
+| active organization (frontend) | selects among organizations RLS already returned; never widens access | `agency-context` validates the session id against the list on every render; unknown → agency view (staff) or first membership (org users) |
+| `/app/org/:orgPublicId` | resolves through the same list | unknown or unauthorized id renders "not available", never another organization's data |

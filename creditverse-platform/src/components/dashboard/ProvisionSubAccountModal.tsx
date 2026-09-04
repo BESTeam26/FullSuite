@@ -52,7 +52,7 @@ export const ProvisionSubAccountModal = ({ onClose, onCreate }: Props) => {
       <DialogHeader>
         <DialogTitle className="flex items-center gap-2">
           <Building2 className="h-5 w-5 text-status-warning" /> Provision
-          Sub-Account Company
+          Organization Company
         </DialogTitle>
       </DialogHeader>
 
@@ -133,7 +133,7 @@ export const ProvisionSubAccountModal = ({ onClose, onCreate }: Props) => {
           onClick={handleCreate}
           className="bg-gradient-gold text-charcoal font-bold hover:opacity-90"
         >
-          Provision Sub-Account
+          Provision Organization
         </Button>
       </DialogFooter>
     </DialogContent>

@@ -13,7 +13,7 @@ export const DocumentsView = () => (
     <div className="flex items-center justify-between">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">My documents</h1>
-        <p className="mt-1 text-sm text-slate-400">
+        <p className="mt-1 text-sm text-muted-foreground">
           Your evidence vault. Everything attached to your disputes is here.
         </p>
       </div>
@@ -25,16 +25,16 @@ export const DocumentsView = () => (
       {docs.map((d) => (
         <div
           key={d.name}
-          className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-4"
+          className="flex items-center gap-3 rounded-xl border border-border bg-card p-4"
         >
           <FileText className="h-8 w-8 text-emerald-300" />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-white">{d.name}</p>
-            <p className="text-[11px] text-slate-400">
+            <p className="truncate text-sm font-medium text-foreground">{d.name}</p>
+            <p className="text-[11px] text-muted-foreground">
               {d.type} · {d.date}
             </p>
           </div>
-          <button className="text-slate-400 hover:text-white">
+          <button className="text-muted-foreground hover:text-foreground">
             <Download className="h-4 w-4" />
           </button>
         </div>
@@ -47,11 +47,11 @@ export const SettingsView = () => (
   <div className="mx-auto max-w-lg space-y-6">
     <div>
       <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-      <p className="mt-1 text-sm text-slate-400">
+      <p className="mt-1 text-sm text-muted-foreground">
         Your account and communication preferences.
       </p>
     </div>
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+    <div className="rounded-2xl border border-border bg-card p-5">
       <p className="text-sm font-semibold">Communication consent</p>
       <div className="mt-3 space-y-2">
         {[
@@ -61,7 +61,7 @@ export const SettingsView = () => (
         ].map((c) => (
           <label
             key={c}
-            className="flex items-center gap-2.5 text-xs text-slate-300"
+            className="flex items-center gap-2.5 text-xs text-muted-foreground"
           >
             <input
               type="checkbox"

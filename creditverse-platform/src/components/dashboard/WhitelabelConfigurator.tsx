@@ -49,7 +49,7 @@ export const WhitelabelConfigurator = ({
       <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 flex items-center justify-between">
         <div>
           <p className="font-semibold text-status-warning text-xs">
-            Sub-Account White-Label Customization
+            Organization White-Label Customization
           </p>
           <p className="text-[11px] text-muted-foreground mt-0.5">
             Configure custom domain CNAME, logo, and brand theme for{" "}

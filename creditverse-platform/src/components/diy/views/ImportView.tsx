@@ -24,15 +24,15 @@ export const ImportView = () => {
         <h1 className="text-2xl font-bold tracking-tight">
           Import your report
         </h1>
-        <p className="mt-1 text-sm text-slate-400">
+        <p className="mt-1 text-sm text-muted-foreground">
           Pull your three-bureau report from a monitoring provider. The AI
           engine auto-labels negatives and positives and flags items tied to
           open accounts.
         </p>
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-        <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
+      <div className="rounded-2xl border border-border bg-card p-5">
+        <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Monitoring provider
         </p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -43,7 +43,7 @@ export const ImportView = () => {
               className={`rounded-xl border px-3 py-2.5 text-xs font-medium transition-colors ${
                 provider === p
                   ? "border-emerald-400/40 bg-emerald-500/15 text-emerald-200"
-                  : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"
+                  : "border-border bg-card text-muted-foreground hover:bg-muted"
               }`}
             >
               {p}
@@ -52,10 +52,10 @@ export const ImportView = () => {
         </div>
 
         <div className="mt-5 rounded-xl bg-navy-deep/60 p-4">
-          <p className="text-xs text-slate-400">
-            Connecting to <span className="text-white">{provider}</span>…
+          <p className="text-xs text-muted-foreground">
+            Connecting to <span className="text-foreground">{provider}</span>…
           </p>
-          <div className="mt-2 flex items-center gap-2 text-[11px] text-slate-500">
+          <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground">
             <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
             Your credentials stay between you and {provider}. BES receives the
             report data only.

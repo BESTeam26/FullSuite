@@ -49,7 +49,7 @@ export const UsageSection = () => (
   <SectionCard
     icon={Gauge}
     title="Usage & Metering"
-    description="Track pay-per-delete, per-active-client, and fulfillment fees across all Sub-Accounts."
+    description="Track pay-per-delete, per-active-client, and fulfillment fees across all Organizations."
   >
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {[

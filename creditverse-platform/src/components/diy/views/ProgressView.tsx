@@ -10,7 +10,7 @@ export const ProgressView = () => {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">My progress</h1>
-        <p className="mt-1 text-sm text-slate-400">
+        <p className="mt-1 text-sm text-muted-foreground">
           Track your score movement and resolved items across rounds.
         </p>
       </div>
@@ -38,10 +38,10 @@ export const ProgressView = () => {
         ].map((b) => (
           <div
             key={b.label}
-            className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center"
+            className="rounded-2xl border border-border bg-card p-4 text-center"
           >
-            <p className="text-xs text-slate-400">{b.label}</p>
-            <p className="mt-1 text-lg font-bold text-white">{b.score}</p>
+            <p className="text-xs text-muted-foreground">{b.label}</p>
+            <p className="mt-1 text-lg font-bold text-foreground">{b.score}</p>
             <p className={`text-sm font-semibold ${b.tone}`}>{b.delta}</p>
           </div>
         ))}
@@ -74,7 +74,7 @@ export const ProgressView = () => {
         />
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+      <div className="rounded-2xl border border-border bg-card p-5">
         <h2 className="mb-3 text-sm font-semibold">Recent wins</h2>
         <div className="space-y-2">
           {[
@@ -95,8 +95,8 @@ export const ProgressView = () => {
               className="flex items-center justify-between rounded-lg bg-navy-deep/60 p-3"
             >
               <div>
-                <p className="text-sm font-medium text-white">{w.name}</p>
-                <p className="text-[11px] text-slate-400">{w.bureau}</p>
+                <p className="text-sm font-medium text-foreground">{w.name}</p>
+                <p className="text-[11px] text-muted-foreground">{w.bureau}</p>
               </div>
               <span className="rounded-full bg-emerald-500/15 px-2.5 py-1 text-[10px] font-bold text-emerald-300">
                 {w.action}
@@ -111,7 +111,7 @@ export const ProgressView = () => {
         <p className="mt-2 text-sm font-semibold text-emerald-200">
           $8,442 in negative balances removed
         </p>
-        <p className="mt-1 text-xs text-slate-300">
+        <p className="mt-1 text-xs text-muted-foreground">
           Next action: Round 2 review underway for remaining items.
         </p>
       </div>

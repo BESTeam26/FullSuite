@@ -67,7 +67,7 @@ export const ConsumerActionPlan = () => {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">My Plan</h1>
-        <p className="mt-1 text-sm text-slate-400">
+        <p className="mt-1 text-sm text-muted-foreground">
           Your personalized action plan. Each step explains what to do, why, and
           what happens next.
         </p>
@@ -80,7 +80,7 @@ export const ConsumerActionPlan = () => {
             className={`rounded-2xl border p-5 transition-colors ${
               it.done
                 ? "border-emerald-400/30 bg-emerald-500/5"
-                : "border-white/10 bg-white/5"
+                : "border-border bg-card"
             }`}
           >
             <div className="flex items-start gap-3">
@@ -89,7 +89,7 @@ export const ConsumerActionPlan = () => {
                 className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${
                   it.done
                     ? "border-emerald-400 bg-emerald-500 text-charcoal"
-                    : "border-white/20"
+                    : "border-border"
                 }`}
               >
                 {it.done && <Check className="h-3.5 w-3.5" />}
@@ -102,19 +102,19 @@ export const ConsumerActionPlan = () => {
                 >
                   {it.label}
                 </p>
-                <div className="mt-2 space-y-1.5 text-[11px] leading-relaxed text-slate-400">
+                <div className="mt-2 space-y-1.5 text-[11px] leading-relaxed text-muted-foreground">
                   <p>
-                    <span className="font-semibold text-slate-300">Why:</span>{" "}
+                    <span className="font-semibold text-muted-foreground">Why:</span>{" "}
                     {it.why}
                   </p>
                   <p>
-                    <span className="font-semibold text-slate-300">
+                    <span className="font-semibold text-muted-foreground">
                       What's needed:
                     </span>{" "}
                     {it.needed}
                   </p>
                   <p>
-                    <span className="font-semibold text-slate-300">
+                    <span className="font-semibold text-muted-foreground">
                       Next step:
                     </span>{" "}
                     {it.nextStep}
@@ -133,7 +133,7 @@ export const ConsumerActionPlan = () => {
             <p className="text-sm font-semibold text-amber-200">
               Human help recommended
             </p>
-            <p className="mt-1 text-[11px] leading-relaxed text-slate-300">
+            <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
               If you'd rather have a professional manage this process, you can
               request Done-For-You help from your organization.
             </p>

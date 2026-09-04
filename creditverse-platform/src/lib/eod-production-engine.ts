@@ -22,7 +22,7 @@ export interface ProductionLog {
   id: string;
   employeeId: string;
   employeeName: string;
-  partnerId?: string; // Organization ID (Sub-Account)
+  partnerId?: string; // Organization ID (Organization)
   partnerName?: string;
   businessId?: string;
   divisionId: DivisionId;

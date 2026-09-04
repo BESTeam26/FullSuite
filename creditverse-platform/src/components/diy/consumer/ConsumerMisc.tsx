@@ -33,7 +33,7 @@ export const ConsumerIssues = () => (
   <div className="space-y-6">
     <div>
       <h1 className="text-2xl font-bold tracking-tight">Issues</h1>
-      <p className="mt-1 text-sm text-slate-400">
+      <p className="mt-1 text-sm text-muted-foreground">
         Potential issues identified from your report. Each connects to evidence
         and requires your confirmation.
       </p>
@@ -42,15 +42,15 @@ export const ConsumerIssues = () => (
       {issues.map((it, i) => (
         <div
           key={i}
-          className="rounded-2xl border border-white/10 bg-white/5 p-5"
+          className="rounded-2xl border border-border bg-card p-5"
         >
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-sm font-semibold text-white">{it.account}</p>
-              <p className="mt-1 text-xs text-slate-400">
+              <p className="text-sm font-semibold text-foreground">{it.account}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
                 {it.field} · Reported: {it.reported}
               </p>
-              <p className="mt-2 rounded-lg bg-navy-deep/60 p-2.5 text-[11px] leading-relaxed text-slate-400">
+              <p className="mt-2 rounded-lg bg-navy-deep/60 p-2.5 text-[11px] leading-relaxed text-muted-foreground">
                 {it.why}
               </p>
             </div>
@@ -62,11 +62,11 @@ export const ConsumerIssues = () => (
             <Button
               size="sm"
               variant="outline"
-              className="border-white/20 text-slate-200"
+              className="border-border text-slate-200"
             >
               Confirm facts
             </Button>
-            <Button size="sm" variant="ghost" className="text-slate-400">
+            <Button size="sm" variant="ghost" className="text-muted-foreground">
               Add evidence
             </Button>
           </div>
@@ -93,7 +93,7 @@ export const ConsumerEvidence = () => (
   <div className="space-y-6">
     <div>
       <h1 className="text-2xl font-bold tracking-tight">Evidence</h1>
-      <p className="mt-1 text-sm text-slate-400">
+      <p className="mt-1 text-sm text-muted-foreground">
         Your supporting documents. A dispute is only as strong as its facts.
       </p>
     </div>
@@ -104,16 +104,16 @@ export const ConsumerEvidence = () => (
       {evidence.map((e) => (
         <div
           key={e.name}
-          className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-4"
+          className="flex items-center gap-3 rounded-xl border border-border bg-card p-4"
         >
           <FileText className="h-8 w-8 text-emerald-300" />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-white">{e.name}</p>
-            <p className="text-[11px] text-slate-400">
+            <p className="truncate text-sm font-medium text-foreground">{e.name}</p>
+            <p className="text-[11px] text-muted-foreground">
               {e.type} · {e.date}
             </p>
           </div>
-          <button className="text-slate-400 hover:text-white">
+          <button className="text-muted-foreground hover:text-foreground">
             <Download className="h-4 w-4" />
           </button>
         </div>
@@ -132,7 +132,7 @@ export const ConsumerDocuments = () => (
   <div className="space-y-6">
     <div>
       <h1 className="text-2xl font-bold tracking-tight">Documents</h1>
-      <p className="mt-1 text-sm text-slate-400">
+      <p className="mt-1 text-sm text-muted-foreground">
         Everything attached to your disputes and reports.
       </p>
     </div>
@@ -143,16 +143,16 @@ export const ConsumerDocuments = () => (
       {docs.map((d) => (
         <div
           key={d.name}
-          className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-4"
+          className="flex items-center gap-3 rounded-xl border border-border bg-card p-4"
         >
           <FileText className="h-8 w-8 text-emerald-300" />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-white">{d.name}</p>
-            <p className="text-[11px] text-slate-400">
+            <p className="truncate text-sm font-medium text-foreground">{d.name}</p>
+            <p className="text-[11px] text-muted-foreground">
               {d.type} · {d.date}
             </p>
           </div>
-          <button className="text-slate-400 hover:text-white">
+          <button className="text-muted-foreground hover:text-foreground">
             <Download className="h-4 w-4" />
           </button>
         </div>
@@ -192,7 +192,7 @@ export const ConsumerEducation = () => (
   <div className="space-y-6">
     <div>
       <h1 className="text-2xl font-bold tracking-tight">Education</h1>
-      <p className="mt-1 text-sm text-slate-400">
+      <p className="mt-1 text-sm text-muted-foreground">
         Credit Academy — learn how credit works so you can make informed
         decisions.
       </p>
@@ -201,10 +201,10 @@ export const ConsumerEducation = () => (
       {modules.map((m) => (
         <div
           key={m.title}
-          className="rounded-2xl border border-white/10 bg-white/5 p-5"
+          className="rounded-2xl border border-border bg-card p-5"
         >
-          <h2 className="text-sm font-semibold text-white">{m.title}</h2>
-          <p className="mt-1 text-xs leading-relaxed text-slate-400">
+          <h2 className="text-sm font-semibold text-foreground">{m.title}</h2>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
             {m.desc}
           </p>
           <button className="mt-3 text-xs font-semibold text-emerald-400 hover:text-emerald-300">
@@ -222,16 +222,16 @@ export const ConsumerHelp = () => {
     <div className="mx-auto max-w-lg space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Help</h1>
-        <p className="mt-1 text-sm text-slate-400">
+        <p className="mt-1 text-sm text-muted-foreground">
           Need help? Contact your organization's support team.
         </p>
       </div>
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+      <div className="rounded-2xl border border-border bg-card p-5">
         <LifeBuoy className="h-6 w-6 text-amber-300" />
-        <p className="mt-3 text-sm font-semibold text-white">
+        <p className="mt-3 text-sm font-semibold text-foreground">
           {whiteLabel.programName} support
         </p>
-        <div className="mt-3 space-y-2 text-xs text-slate-300">
+        <div className="mt-3 space-y-2 text-xs text-muted-foreground">
           {whiteLabel.supportEmail && (
             <p className="flex items-center gap-2">
               <Mail className="h-3.5 w-3.5" /> {whiteLabel.supportEmail}

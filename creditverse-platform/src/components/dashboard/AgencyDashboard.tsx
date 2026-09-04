@@ -49,7 +49,7 @@ export const AgencyDashboard = () => {
             onClick={() => navigate("/app/subaccounts")}
             className="bg-amber-500 hover:bg-amber-600 text-charcoal font-bold shadow-sm"
           >
-            <Building2 className="h-4 w-4 mr-1.5" /> Add Sub-Account
+            <Building2 className="h-4 w-4 mr-1.5" /> Add Organization
           </Button>
           <Button
             variant="outline"
@@ -72,7 +72,7 @@ export const AgencyDashboard = () => {
       {/* ===== NEEDS YOUR ATTENTION ===== */}
       <AttentionCenter />
 
-      {/* ===== PLATFORM + SUB-ACCOUNT HEALTH ===== */}
+      {/* ===== PLATFORM + ORGANIZATION HEALTH ===== */}
       <HealthPanels />
 
       {/* ===== FULFILLMENT HEALTH ===== */}
@@ -81,7 +81,7 @@ export const AgencyDashboard = () => {
       {/* ===== REVENUE MIX + DIY CREDIT ===== */}
       <RevenueAndDiyPanels />
 
-      {/* ===== SUB-ACCOUNT QUICK SWITCH ===== */}
+      {/* ===== ORGANIZATION QUICK SWITCH ===== */}
       <SubAccountMiniGrid
         subAccounts={subAccounts}
         onSwitch={switchToSubAccount}
@@ -92,7 +92,7 @@ export const AgencyDashboard = () => {
         <div className="flex items-center gap-2 mb-3">
           <Receipt className="h-4 w-4 text-status-warning" />
           <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
-            Sub-Account Invoicing & Usage Metering
+            Organization Invoicing & Usage Metering
           </h2>
         </div>
         <SubAccountInvoicingMetering />

@@ -158,7 +158,7 @@ export const AgencySnapshot = ({
       />
       <SnapshotCard
         icon={Building2}
-        label="Sub-Accounts"
+        label="Organizations"
         value={String(subAccountsCount)}
         tone="amber"
       />

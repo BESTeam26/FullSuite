@@ -561,5 +561,34 @@ if (PHASE >= 11) {
   }
 }
 
+
+/* ---------------- Phase 12: organizations, IDs and switching ----------------
+   Switching is convenience; the organizations a person can see are exactly
+   their memberships (or all, for BES staff). The Organization ID is generated,
+   unique, formatted and immutable. */
+if (PHASE >= 12) {
+  const multi = q(`select id from auth.users where email='org.multi@bes.test'`)[0]?.id;
+  const orgOwner = U["org.owner@bes.test"], besRestricted = U["bes.restricted@bes.test"];
+  const as = (uid) => `set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'`;
+  const W12 = (uid, stmt) => { try { return q(`begin; set local role authenticated; ${as(uid)}; ${stmt}; rollback;`)[0]; } catch (e) { return { rows: 0, refused: true }; } };
+  const P12 = [
+    ["two-organization member sees exactly their two organizations",   () => multi ? W12(multi, `select count(*)::int as rows from public.organizations`).rows : "no fixture", 2],
+    ["…both with an Organization ID",                                    () => multi ? W12(multi, `select count(*)::int as rows from public.organizations where public_id ~ '^BES-[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}$'`).rows : "no fixture", 2],
+    ["single-organization owner sees one",                              () => W12(orgOwner, `select count(*)::int as rows from public.organizations`).rows, 1],
+    ["an unrelated organization's ID resolves to nothing for them",      () => W12(orgOwner, `select count(*)::int as rows from public.organizations where public_id = (select public_id from public.organizations where name='[TEST] Cedar Financial')`).rows, 0],
+    ["BES staff with no scope still lists organizations (containers), not their data", () => W12(besRestricted, `select (select count(*) from public.organizations)::int - (select count(*) from public.work_items)::int as rows`).rows, q(`select count(*)::int n from public.organizations`)[0].n],
+    ["Organization IDs are unique",                                     () => q(`select (count(*) - count(distinct public_id))::int as rows from public.organizations`)[0].rows, 0],
+    ["…and immutable",                                                  () => { try { q(`begin; update public.organizations set public_id='BES-ZZZZZZ' where name='[TEST] Lakeside Partners'; rollback;`); return 1; } catch (e) { return 0; } }, 0],
+    ["…and generated when omitted",                                     () => q(`begin; with i as (insert into public.organizations (agency_id, name, code, principal_name, principal_email) values ('a0000000-0000-4000-8000-000000000001','probe','PRB','p','p@probe.test') returning public_id) select count(*)::int as rows from i where public_id ~ '^BES-[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}$'; rollback;`)[0].rows, 1],
+  ];
+  console.log("\nphase 12:");
+  for (const [label, fn, want] of P12) {
+    checks++;
+    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
+    const ok = got === want; if (!ok) fails++;
+    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
+  }
+}
+
 console.log(`\n${checks - fails}/${checks} checks passed (phase ≤ ${PHASE})`);
 process.exit(fails ? 1 : 0);

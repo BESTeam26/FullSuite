@@ -65,7 +65,7 @@ const org5Businesses: Business[] = [
 ];
 
 /* ------------------------------------------------------------------ */
-/* Customer Organizations (Sub-Accounts)                               */
+/* Customer Organizations (Organizations)                               */
 /* ------------------------------------------------------------------ */
 
 export const seedOrganizations: Organization[] = [
@@ -73,6 +73,7 @@ export const seedOrganizations: Organization[] = [
     id: "sub-1",
     name: "Apex Credit Co.",
     code: "APEX",
+    publicId: "BES-DEMO01",
     principal: { name: "Alex Rivera", email: "alex@apexcredit.com" },
     address: "100 Wilshire Blvd, Ste 400, Los Angeles, CA",
     isPinned: true,
@@ -126,6 +127,7 @@ export const seedOrganizations: Organization[] = [
     id: "sub-2",
     name: "Pioneer Credit Solutions",
     code: "PIONEER",
+    publicId: "BES-DEMO02",
     principal: { name: "Sarah Jenkins", email: "sarah@pioneercredit.com" },
     address: "30 North Gould Street, Ste N, Sheridan, WY",
     isPinned: true,
@@ -153,6 +155,7 @@ export const seedOrganizations: Organization[] = [
     id: "sub-3",
     name: "Vantage Funding Group",
     code: "VANTAGE",
+    publicId: "BES-DEMO03",
     principal: { name: "Marcus Vance", email: "marcus@vantagefunding.com" },
     address: "15720 Brixham Hill Ave, Charlotte, NC",
     isPinned: false,
@@ -189,6 +192,7 @@ export const seedOrganizations: Organization[] = [
     id: "sub-4",
     name: "CreditFix Solutions",
     code: "FIX",
+    publicId: "BES-DEMO04",
     principal: { name: "Derrick Hall", email: "derrick@creditfix.com" },
     address: "444 Alaska Ave Ste #BAN433, Torrance, CA",
     isPinned: true,
@@ -210,6 +214,7 @@ export const seedOrganizations: Organization[] = [
     id: "sub-5",
     name: "Empire Capital & Credit",
     code: "EMPIRE",
+    publicId: "BES-DEMO05",
     principal: { name: "Chloe Sterling", email: "chloe@empirecap.com" },
     address: "6081 Hamilton Blvd, Ste 600, Allentown, PA",
     isPinned: false,

@@ -177,7 +177,7 @@ export const HealthPanels = () => {
           <div className="flex items-center gap-2">
             <Building2 className="h-5 w-5 text-status-warning" />
             <h2 className="text-base font-bold tracking-tight text-foreground">
-              Sub-Account Health
+              Organization Health
             </h2>
             <span className="text-[10px] text-muted-foreground font-medium">
               {subAccountHealth.length} companies

@@ -76,10 +76,10 @@ export function StatCard({
   icon: typeof ShieldCheck;
 }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-      <Icon className="h-4 w-4 text-slate-400" />
+    <div className="rounded-xl border border-border bg-card p-4">
+      <Icon className="h-4 w-4 text-muted-foreground" />
       <p className={`mt-2 text-2xl font-bold ${tone}`}>{value}</p>
-      <p className="mt-0.5 text-xs text-slate-400">{label}</p>
+      <p className="mt-0.5 text-xs text-muted-foreground">{label}</p>
     </div>
   );
 }
@@ -87,11 +87,11 @@ export function StatCard({
 export function ItemRow({ item }: { item: ClassifiedItem }) {
   const { setView } = useDiy();
   return (
-    <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+    <div className="rounded-xl border border-border bg-card p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold">{item.name}</p>
-          <p className="mt-0.5 text-xs text-slate-400">
+          <p className="mt-0.5 text-xs text-muted-foreground">
             {item.category} · {item.balance || "—"} · {item.bureaus.join(" / ")}
           </p>
         </div>
@@ -106,7 +106,7 @@ export function ItemRow({ item }: { item: ClassifiedItem }) {
         </span>
       </div>
       {item.isNegative && (
-        <p className="mt-3 rounded-lg bg-navy-deep/60 p-2.5 text-[11px] leading-relaxed text-slate-400">
+        <p className="mt-3 rounded-lg bg-navy-deep/60 p-2.5 text-[11px] leading-relaxed text-muted-foreground">
           <AlertTriangle className="mr-1 inline h-3 w-3 text-amber-400" />
           {item.aiReason}
         </p>

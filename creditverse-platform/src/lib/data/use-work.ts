@@ -15,6 +15,7 @@ import {
   fetchAgencyWork,
   fetchAttention,
   fetchMyWork,
+  fetchOrganizationWork,
   hoursUntil,
   mapWorkItem,
   type AttentionRow,
@@ -146,6 +147,23 @@ const tally = (items: AttentionItem[]) =>
   items.reduce((acc, i) => ({ ...acc, [i.reason]: acc[i.reason] + 1 }), {
     ...emptyCounts,
   });
+
+/** ORGANIZATION-scope work of one organization — the organization's own operations, never BES fulfillment. */
+export function useOrganizationWork(organizationId: string | null): WorkQueryResult {
+  const live = useLive();
+  const q = useQuery({
+    queryKey: ["work", "organization", organizationId],
+    queryFn: () => fetchOrganizationWork(organizationId as string),
+    enabled: live && !!organizationId,
+    staleTime: 15_000,
+  });
+  return {
+    items: (q.data ?? []).map(mapWorkItem),
+    source: live ? "live" : "demo",
+    isLoading: live && !!organizationId && q.isLoading,
+    error: q.error ? (q.error as Error).message : null,
+  };
+}
 
 export function useAttention(): AttentionResult {
   const live = useLive();

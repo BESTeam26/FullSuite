@@ -65,16 +65,16 @@ export const RoundTracker = ({ itemId }: { itemId: string }) => {
   const currentIdx = ROUND_DEFS.findIndex((r) => r.stage === round.stage);
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+    <div className="rounded-2xl border border-border bg-card p-5">
       <div className="mb-4 flex items-center justify-between">
         <div>
           <p className="text-sm font-bold">{item.name}</p>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-muted-foreground">
             {item.category} · {item.balance || "—"}
           </p>
         </div>
         <div
-          className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${statusConfig[round.status].color} bg-white/5`}
+          className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${statusConfig[round.status].color} bg-card`}
         >
           <span
             className={`h-1.5 w-1.5 rounded-full ${statusConfig[round.status].dot}`}
@@ -85,7 +85,7 @@ export const RoundTracker = ({ itemId }: { itemId: string }) => {
 
       {/* Stage ladder */}
       <div className="relative">
-        <div className="absolute left-4 top-2 bottom-2 w-0.5 bg-white/10" />
+        <div className="absolute left-4 top-2 bottom-2 w-0.5 bg-muted" />
         <div className="space-y-1">
           {ROUND_DEFS.map((def, idx) => {
             const Icon = stageIcon[def.stage];
@@ -101,7 +101,7 @@ export const RoundTracker = ({ itemId }: { itemId: string }) => {
                   className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${
                     isCurrent
                       ? "bg-emerald-500/15 ring-1 ring-emerald-400/30"
-                      : "hover:bg-white/5"
+                      : "hover:bg-muted"
                   }`}
                 >
                   <span
@@ -110,7 +110,7 @@ export const RoundTracker = ({ itemId }: { itemId: string }) => {
                         ? "bg-gradient-emerald text-white"
                         : isPast
                           ? "bg-emerald-500/20 text-emerald-300"
-                          : "bg-white/10 text-slate-400"
+                          : "bg-muted text-muted-foreground"
                     }`}
                   >
                     {isPast ? (
@@ -122,7 +122,7 @@ export const RoundTracker = ({ itemId }: { itemId: string }) => {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <p
-                        className={`text-sm font-semibold ${isFuture ? "text-slate-400" : "text-white"}`}
+                        className={`text-sm font-semibold ${isFuture ? "text-muted-foreground" : "text-foreground"}`}
                       >
                         {def.short}
                       </p>
@@ -132,42 +132,42 @@ export const RoundTracker = ({ itemId }: { itemId: string }) => {
                         </span>
                       )}
                       {isPast && (
-                        <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-medium text-slate-400">
+                        <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
                           Done
                         </span>
                       )}
                     </div>
-                    <p className="truncate text-xs text-slate-400">
+                    <p className="truncate text-xs text-muted-foreground">
                       {def.label}
                     </p>
                   </div>
                   <ChevronRight
-                    className={`h-4 w-4 shrink-0 text-slate-500 transition-transform ${
+                    className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${
                       isOpen ? "rotate-90" : ""
                     }`}
                   />
                 </button>
 
                 {isOpen && (
-                  <div className="ml-11 mt-2 mb-3 rounded-xl border border-white/10 bg-navy-deep/60 p-4">
-                    <p className="text-xs leading-relaxed text-slate-300">
+                  <div className="ml-11 mt-2 mb-3 rounded-xl border border-border bg-navy-deep/60 p-4">
+                    <p className="text-xs leading-relaxed text-muted-foreground">
                       {def.description}
                     </p>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <span className="rounded-md bg-white/5 px-2 py-1 text-[10px] font-medium text-sky-300">
+                      <span className="rounded-md bg-card px-2 py-1 text-[10px] font-medium text-sky-300">
                         Recipient: {def.recipient}
                       </span>
-                      <span className="rounded-md bg-white/5 px-2 py-1 text-[10px] font-medium text-purple-300">
+                      <span className="rounded-md bg-card px-2 py-1 text-[10px] font-medium text-purple-300">
                         {def.legalBasis}
                       </span>
                     </div>
-                    <div className="mt-2 flex items-start gap-1.5 text-[11px] text-slate-400">
+                    <div className="mt-2 flex items-start gap-1.5 text-[11px] text-muted-foreground">
                       <Clock className="mt-0.5 h-3 w-3 shrink-0" />
                       <span>{def.timeline}</span>
                     </div>
 
                     {isCurrent && (
-                      <div className="mt-4 border-t border-white/10 pt-3">
+                      <div className="mt-4 border-t border-border pt-3">
                         <p className="mb-2 text-xs font-semibold text-slate-200">
                           {def.round <= currentIdx + 1
                             ? "Actions for this round:"
@@ -177,7 +177,7 @@ export const RoundTracker = ({ itemId }: { itemId: string }) => {
                           {def.actions.map((a) => (
                             <li
                               key={a}
-                              className="flex items-start gap-1.5 text-[11px] text-slate-400"
+                              className="flex items-start gap-1.5 text-[11px] text-muted-foreground"
                             >
                               <span className="mt-0.5 text-emerald-400">›</span>
                               {a}
@@ -209,7 +209,7 @@ export const RoundTracker = ({ itemId }: { itemId: string }) => {
 
                         {/* Escalation path */}
                         {def.escalation.length > 0 && (
-                          <div className="mt-4 border-t border-white/10 pt-3">
+                          <div className="mt-4 border-t border-border pt-3">
                             <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-amber-300">
                               <AlertTriangle className="h-3.5 w-3.5" />
                               Escalation path — choose your next step
@@ -219,14 +219,14 @@ export const RoundTracker = ({ itemId }: { itemId: string }) => {
                                 <button
                                   key={opt.to}
                                   onClick={() => advanceRound(itemId, opt.to)}
-                                  className="flex w-full items-start gap-2 rounded-lg border border-white/10 bg-white/5 p-3 text-left transition-colors hover:border-emerald-400/40 hover:bg-emerald-500/10"
+                                  className="flex w-full items-start gap-2 rounded-lg border border-border bg-card p-3 text-left transition-colors hover:border-emerald-400/40 hover:bg-emerald-500/10"
                                 >
                                   <ArrowRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />
                                   <div>
-                                    <p className="text-xs font-semibold text-white">
+                                    <p className="text-xs font-semibold text-foreground">
                                       {opt.label}
                                     </p>
-                                    <p className="mt-0.5 text-[11px] leading-relaxed text-slate-400">
+                                    <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
                                       When: {opt.when}
                                     </p>
                                   </div>
@@ -239,7 +239,7 @@ export const RoundTracker = ({ itemId }: { itemId: string }) => {
                     )}
 
                     {isFuture && !isCurrent && (
-                      <p className="mt-3 flex items-center gap-1.5 text-[11px] text-slate-500">
+                      <p className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground">
                         <Clock className="h-3 w-3" /> Complete the current round
                         before escalating here.
                       </p>
@@ -254,17 +254,17 @@ export const RoundTracker = ({ itemId }: { itemId: string }) => {
 
       {/* Audit history */}
       {round.history.length > 0 && (
-        <div className="mt-4 border-t border-white/10 pt-4">
-          <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-slate-300">
+        <div className="mt-4 border-t border-border pt-4">
+          <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
             <History className="h-3.5 w-3.5" /> Case audit trail
           </p>
           <div className="space-y-1.5">
             {round.history.map((h, i) => (
               <div
                 key={i}
-                className="flex items-start gap-2 text-[11px] text-slate-400"
+                className="flex items-start gap-2 text-[11px] text-muted-foreground"
               >
-                <span className="font-mono text-slate-500">{h.date}</span>
+                <span className="font-mono text-muted-foreground">{h.date}</span>
                 <span>{h.note}</span>
               </div>
             ))}

@@ -199,7 +199,7 @@ export default function Workspaces() {
       ) : organizationId ? (
         <OrganizationView organizationId={organizationId} meId={meId} isOrgAdmin={isOrgAdmin} />
       ) : (
-        <Notice title="No organization selected" body="Pick a sub-account to see its workspaces." />
+        <Notice title="No organization selected" body="Pick a organization to see its workspaces." />
       )}
     </HqPageShell>
   );

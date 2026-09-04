@@ -17,7 +17,7 @@ export const MailView = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Mail tracking</h1>
-          <p className="mt-1 text-sm text-slate-400">
+          <p className="mt-1 text-sm text-muted-foreground">
             Track every piece of certified mail you send. Delivery proof is part
             of your audit trail.
           </p>
@@ -48,12 +48,12 @@ export const MailView = () => {
         {mail.map((m) => (
           <div
             key={m.id}
-            className="rounded-2xl border border-white/10 bg-white/5 p-4"
+            className="rounded-2xl border border-border bg-card p-4"
           >
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold">{m.recipient}</p>
-                <p className="mt-0.5 text-xs text-slate-400">
+                <p className="mt-0.5 text-xs text-muted-foreground">
                   Items: {m.items.join(", ")}
                 </p>
               </div>
@@ -65,16 +65,16 @@ export const MailView = () => {
             </div>
             <div className="mt-3 grid grid-cols-3 gap-2 text-[11px]">
               <div className="rounded-lg bg-navy-deep/60 p-2.5">
-                <p className="text-slate-500">Method</p>
-                <p className="mt-0.5 font-semibold text-white">{m.method}</p>
+                <p className="text-muted-foreground">Method</p>
+                <p className="mt-0.5 font-semibold text-foreground">{m.method}</p>
               </div>
               <div className="rounded-lg bg-navy-deep/60 p-2.5">
-                <p className="text-slate-500">Sent</p>
-                <p className="mt-0.5 font-semibold text-white">{m.sentDate}</p>
+                <p className="text-muted-foreground">Sent</p>
+                <p className="mt-0.5 font-semibold text-foreground">{m.sentDate}</p>
               </div>
               <div className="rounded-lg bg-navy-deep/60 p-2.5">
-                <p className="text-slate-500">Tracking</p>
-                <p className="mt-0.5 font-mono text-[10px] text-white">
+                <p className="text-muted-foreground">Tracking</p>
+                <p className="mt-0.5 font-mono text-[10px] text-foreground">
                   {m.tracking}
                 </p>
               </div>

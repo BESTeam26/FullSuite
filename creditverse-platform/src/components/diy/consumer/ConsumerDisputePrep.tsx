@@ -43,7 +43,7 @@ export const ConsumerDisputePrep = () => {
         <h1 className="text-2xl font-bold tracking-tight">
           Prepare your communication
         </h1>
-        <p className="mt-1 text-sm text-slate-400">
+        <p className="mt-1 text-sm text-muted-foreground">
           The system organizes your facts and evidence into a draft. You review,
           edit, and approve before anything is sent.
         </p>
@@ -51,7 +51,7 @@ export const ConsumerDisputePrep = () => {
 
       <div className="flex items-start gap-3 rounded-xl border border-amber-400/30 bg-amber-500/5 p-4">
         <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
-        <div className="text-xs leading-relaxed text-slate-300">
+        <div className="text-xs leading-relaxed text-muted-foreground">
           <p className="font-semibold text-amber-200">AI-assisted draft</p>
           <p className="mt-1">
             This draft was prepared using your confirmed facts and evidence. AI
@@ -61,15 +61,15 @@ export const ConsumerDisputePrep = () => {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+      <div className="rounded-2xl border border-border bg-card p-5">
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <FileText className="h-4 w-4 text-slate-400" />
-            <span className="text-sm font-semibold text-white">
+            <FileText className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-semibold text-foreground">
               Dispute letter — Experian
             </span>
           </div>
-          <label className="flex items-center gap-2 text-[11px] text-slate-400">
+          <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
             <input
               type="checkbox"
               checked={aiAssisted}
@@ -82,15 +82,15 @@ export const ConsumerDisputePrep = () => {
         <textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          className="min-h-[320px] w-full rounded-lg border border-white/10 bg-navy-deep/60 p-4 font-mono text-xs leading-relaxed text-slate-200"
+          className="min-h-[320px] w-full rounded-lg border border-border bg-navy-deep/60 p-4 font-mono text-xs leading-relaxed text-slate-200"
         />
-        <p className="mt-2 text-[10px] text-slate-500">
+        <p className="mt-2 text-[10px] text-muted-foreground">
           Edit freely. This is your communication in your own words.
         </p>
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-        <h2 className="text-sm font-semibold text-white">Attachments</h2>
+      <div className="rounded-2xl border border-border bg-card p-5">
+        <h2 className="text-sm font-semibold text-foreground">Attachments</h2>
         <div className="mt-3 space-y-2">
           {["Settlement_Agreement.pdf", "Bank_Payment_Confirmation.pdf"].map(
             (f) => (
@@ -98,7 +98,7 @@ export const ConsumerDisputePrep = () => {
                 key={f}
                 className="flex items-center justify-between rounded-lg bg-navy-deep/60 px-3 py-2.5"
               >
-                <span className="flex items-center gap-2 text-xs text-slate-300">
+                <span className="flex items-center gap-2 text-xs text-muted-foreground">
                   <FileText className="h-3.5 w-3.5 text-emerald-300" /> {f}
                 </span>
                 <Check className="h-4 w-4 text-emerald-400" />
@@ -134,7 +134,7 @@ export const ConsumerDisputePrep = () => {
         <Button
           disabled={!approved}
           variant="outline"
-          className="border-white/20 text-slate-200 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+          className="border-border text-slate-200 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
         >
           <Download className="h-4 w-4" /> Approve & download
         </Button>
@@ -142,7 +142,7 @@ export const ConsumerDisputePrep = () => {
 
       <div className="flex items-start gap-3 rounded-xl border border-red-400/20 bg-red-500/5 p-4">
         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-400" />
-        <p className="text-[11px] leading-relaxed text-slate-300">
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
           This platform does not guarantee deletions or score increases. A
           dispute asks the bureau to reinvestigate — the outcome depends on the
           facts and the investigation.

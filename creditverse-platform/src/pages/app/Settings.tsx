@@ -63,7 +63,7 @@ const groups: SettingsGroup[] = [
     label: "General",
     items: [
       { key: "branding", label: "Agency & Branding", icon: Building2 },
-      { key: "subaccounts", label: "Sub-Accounts", icon: Network },
+      { key: "subaccounts", label: "Organizations", icon: Network },
       { key: "products", label: "Products & Entitlements", icon: Boxes },
     ],
   },

@@ -22,7 +22,7 @@
 
 /**
  * MODE 1 — saas_pulled: the client runs on the BES system; their record and
- *   status sync from actions inside their sub-account.
+ *   status sync from actions inside their organization.
  * MODE 2 — outsourcing_only: the client has their own external system; BES
  *   keeps a manual list under an outsourcing group and updates it by hand.
  */
@@ -88,7 +88,7 @@ export interface OpsClient {
   mode: OpsIntakeMode;
 
   /* ---- Mode 1: SaaS-pulled ---- */
-  /** The sub-account whose tenant this client lives in. Unset for mode 2. */
+  /** The organization whose tenant this client lives in. Unset for mode 2. */
   organizationId?: string;
   organizationName?: string;
   /** Whether status is auto-synced from the CRM (mode 1 only). */

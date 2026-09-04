@@ -16,7 +16,7 @@ export const LettersView = () => {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">My letters</h1>
-        <p className="mt-1 text-sm text-slate-400">
+        <p className="mt-1 text-sm text-muted-foreground">
           You write the facts. AI helps structure, but you approve every word
           before anything is sent.
         </p>
@@ -31,7 +31,7 @@ export const LettersView = () => {
               className={`flex w-full items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-xs font-semibold transition-colors ${
                 active === it.id
                   ? "border-emerald-400/40 bg-emerald-500/10 text-white"
-                  : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"
+                  : "border-border bg-card text-muted-foreground hover:bg-muted"
               }`}
             >
               {it.name}
@@ -40,26 +40,26 @@ export const LettersView = () => {
         </div>
 
         {item && draft ? (
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+          <div className="rounded-2xl border border-border bg-card p-5">
             <p className="text-sm font-bold">{item.name}</p>
-            <p className="mt-0.5 text-xs text-slate-400">
+            <p className="mt-0.5 text-xs text-muted-foreground">
               {item.category} · {item.bureaus.join(" / ")}
             </p>
 
             <div className="mt-4">
-              <label className="text-xs font-semibold text-slate-300">
+              <label className="text-xs font-semibold text-muted-foreground">
                 What do you believe is inaccurate? (in your own words)
               </label>
               <textarea
                 value={draft.reason}
                 onChange={(e) => setDraft(active, { reason: e.target.value })}
                 placeholder="e.g. The balance shows $4,820 but I settled this account on March 12, 2025 for $0."
-                className="mt-1.5 min-h-24 w-full rounded-lg border border-white/10 bg-navy-deep/60 p-3 text-sm text-white placeholder:text-slate-500 focus-visible:border-emerald-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                className="mt-1.5 min-h-24 w-full rounded-lg border border-border bg-navy-deep/60 p-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:border-emerald-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               />
             </div>
 
             <div className="mt-4">
-              <label className="text-xs font-semibold text-slate-300">
+              <label className="text-xs font-semibold text-muted-foreground">
                 Send to
               </label>
               <div className="mt-1.5 flex gap-2">
@@ -70,7 +70,7 @@ export const LettersView = () => {
                     className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
                       draft.recipient === r
                         ? "bg-gradient-emerald text-white"
-                        : "border border-white/10 bg-white/5 text-slate-300"
+                        : "border border-border bg-card text-muted-foreground"
                     }`}
                   >
                     {r === "CRA" ? "Credit Bureau" : "Furnisher (direct)"}
@@ -80,7 +80,7 @@ export const LettersView = () => {
             </div>
 
             <div className="mt-4">
-              <label className="text-xs font-semibold text-slate-300">
+              <label className="text-xs font-semibold text-muted-foreground">
                 Evidence attached
               </label>
               <div className="mt-1.5 flex flex-wrap gap-2">
@@ -97,7 +97,7 @@ export const LettersView = () => {
                     className={`rounded-lg px-2.5 py-1 text-[11px] ${
                       draft.evidence.includes(e)
                         ? "bg-emerald-500/20 text-emerald-200"
-                        : "bg-white/5 text-slate-400"
+                        : "bg-card text-muted-foreground"
                     }`}
                   >
                     {e}
@@ -106,7 +106,7 @@ export const LettersView = () => {
               </div>
             </div>
 
-            <label className="mt-4 flex items-start gap-2.5 rounded-lg border border-white/10 bg-navy-deep/60 p-3">
+            <label className="mt-4 flex items-start gap-2.5 rounded-lg border border-border bg-navy-deep/60 p-3">
               <input
                 type="checkbox"
                 checked={draft.attested}
@@ -115,7 +115,7 @@ export const LettersView = () => {
                 }
                 className="mt-0.5 h-4 w-4 accent-emerald-500"
               />
-              <span className="text-[11px] leading-relaxed text-slate-300">
+              <span className="text-[11px] leading-relaxed text-muted-foreground">
                 I confirm this explanation is true to the best of my knowledge.
                 This is my dispute, in my own words.
               </span>
@@ -143,7 +143,7 @@ export const LettersView = () => {
             </div>
           </div>
         ) : (
-          <div className="flex h-full min-h-48 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-sm text-slate-500">
+          <div className="flex h-full min-h-48 items-center justify-center rounded-2xl border border-border bg-card text-sm text-muted-foreground">
             Select an item to draft your letter.
           </div>
         )}

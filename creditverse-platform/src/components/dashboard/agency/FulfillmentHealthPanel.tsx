@@ -128,7 +128,7 @@ export const FulfillmentHealthPanel = ({
             <thead>
               <tr className="bg-muted/50 text-[11px] uppercase text-muted-foreground">
                 <th className="px-4 py-2.5 font-semibold">Order ID</th>
-                <th className="px-4 py-2.5 font-semibold">Sub-Account</th>
+                <th className="px-4 py-2.5 font-semibold">Organization</th>
                 <th className="px-4 py-2.5 font-semibold">Client</th>
                 <th className="px-4 py-2.5 font-semibold">Type</th>
                 <th className="px-4 py-2.5 font-semibold text-right">

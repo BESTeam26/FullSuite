@@ -32,8 +32,8 @@ export const Topbar = () => {
           <Input
             placeholder={
               viewMode === "agency"
-                ? "Search sub-accounts, work orders, MRR..."
-                : `Search ${activeSubAccount?.name || "sub-account"} clients...`
+                ? "Search organizations, work orders, MRR..."
+                : `Search ${activeSubAccount?.name || "organization"} clients...`
             }
             className="pl-9"
           />
@@ -53,8 +53,8 @@ export const Topbar = () => {
               variant="outline"
               className="border-emerald-500/40 text-status-success bg-emerald-500/10 font-medium flex items-center gap-1.5 px-3 py-1"
             >
-              <CheckCircle2 className="h-3.5 w-3.5" /> Sub-Account:{" "}
-              {activeSubAccount?.name}
+              <CheckCircle2 className="h-3.5 w-3.5" /> Organization ID:{" "}
+              <span className="font-mono">{activeSubAccount?.publicId}</span>
             </Badge>
             <Button
               variant="ghost"
@@ -74,7 +74,7 @@ export const Topbar = () => {
           className="bg-emerald-700 hover:bg-emerald-800 text-white font-medium shadow-sm"
         >
           <Plus className="h-4 w-4 mr-1" />{" "}
-          {viewMode === "agency" ? "Add Sub-Account" : "New Client"}
+          {viewMode === "agency" ? "Add Organization" : "New Client"}
         </Button>
 
         {/* The dot means exactly one thing: unread rows in `notifications`

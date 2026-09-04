@@ -1,15 +1,15 @@
 /**
  * BES Canonical Domain Model
  * ---------------------------
- * Strict Agency HQ vs Sub-Account boundary.
+ * Strict Agency HQ vs Organization boundary.
  *
  * BES Agency HQ  = the operator of the SaaS and BES-delivered services.
- * Sub-Account    = a Customer Organization (separate company) with its own
+ * Organization    = a Customer Organization (separate company) with its own
  *                   users, clients, products, permissions, work, and reporting.
  *
  * Hierarchy:
  *   BES Agency
- *     -> Customer Organization (Sub-Account)
+ *     -> Customer Organization (Organization)
  *        -> Organization Owner / Principal
  *        -> Business(es)
  *        -> Product Entitlements (CreditOps / FundingOps / DIY / OI)
@@ -165,13 +165,15 @@ export interface ExternalUser {
 }
 
 /* ------------------------------------------------------------------ */
-/* Customer Organization (Sub-Account)                                 */
+/* Customer Organization (Organization)                                 */
 /* ------------------------------------------------------------------ */
 
 export type OrgStatus = "Active" | "Pending Onboarding" | "At Risk" | "Paused";
 
 export interface Organization {
   id: string;
+  /** Permanent, human-readable Organization ID (BES-XXXXXX). Display and support reference only. */
+  publicId: string;
   name: string;
   code: string;
   /** Organization Owner / Principal — the actual owner BES supports. */
@@ -262,7 +264,7 @@ export const isOrgWork = (w: WorkItem, orgId: string): boolean =>
 
 /**
  * The hard boundary rule:
- * Sub-Account activity does NOT automatically become BES Agency work.
+ * Organization activity does NOT automatically become BES Agency work.
  * Work enters the Agency layer only via an explicit BES service.
  */
 export const canAgencySeeWork = (w: WorkItem): boolean => w.scope === "AGENCY";

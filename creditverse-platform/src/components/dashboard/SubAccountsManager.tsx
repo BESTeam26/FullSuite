@@ -89,8 +89,8 @@ export const SubAccountsManager = () => {
     });
 
     toast({
-      title: "Sub-Account Created",
-      description: `${acc.name} has been provisioned as a new sub-account!`,
+      title: "Organization Created",
+      description: `${acc.name} has been provisioned as a new organization!`,
     });
     setOpenAddDialog(false);
   };
@@ -102,11 +102,11 @@ export const SubAccountsManager = () => {
         <div>
           <div className="flex items-center gap-2">
             <Badge className="bg-amber-500/20 text-status-warning border border-amber-500/30">
-              Platform Sub-Accounts Hub
+              Platform Organizations Hub
             </Badge>
           </div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight mt-1">
-            Sub-Account Companies ({subAccounts.length})
+            Organization Companies ({subAccounts.length})
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             Provision, manage, pin, and configure whitelabel settings &
@@ -118,7 +118,7 @@ export const SubAccountsManager = () => {
           onClick={() => setOpenAddDialog(true)}
           className="bg-gradient-gold text-charcoal font-bold hover:opacity-90"
         >
-          <Plus className="h-4 w-4 mr-1.5" /> Provision New Sub-Account
+          <Plus className="h-4 w-4 mr-1.5" /> Provision New Organization
         </Button>
       </div>
 

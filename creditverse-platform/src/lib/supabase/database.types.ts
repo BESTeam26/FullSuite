@@ -1338,6 +1338,7 @@ export type Database = {
           name: string
           principal_email: string
           principal_name: string
+          public_id: string
           status: Database["public"]["Enums"]["org_status"]
           updated_at: string
         }
@@ -1353,6 +1354,7 @@ export type Database = {
           name: string
           principal_email: string
           principal_name: string
+          public_id?: string
           status?: Database["public"]["Enums"]["org_status"]
           updated_at?: string
         }
@@ -1368,6 +1370,7 @@ export type Database = {
           name?: string
           principal_email?: string
           principal_name?: string
+          public_id?: string
           status?: Database["public"]["Enums"]["org_status"]
           updated_at?: string
         }
@@ -2707,6 +2710,7 @@ export type Database = {
           status: string
         }[]
       }
+      gen_org_public_id: { Args: never; Returns: string }
       in_scope: {
         Args: {
           p_agency: string

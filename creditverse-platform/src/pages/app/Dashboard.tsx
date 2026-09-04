@@ -1,3 +1,4 @@
+import { Navigate } from "react-router-dom";
 import { useAgency } from "@/lib/agency-context";
 import { AgencyDashboard } from "@/components/dashboard/AgencyDashboard";
 import {
@@ -88,16 +89,20 @@ const Dashboard = () => {
   if (viewMode === "agency") {
     return <AgencyDashboard />;
   }
+  // Organization view: the organization's own dashboard lives at its ID route.
+  if (activeOrganization?.publicId) {
+    return <Navigate to={`/app/org/${activeOrganization.publicId}`} replace />;
+  }
 
   const creditOn = isProductOn("creditOps");
   const fundingOn = isProductOn("fundingOps");
 
-  // Render Sub-Account Specific Dashboard if in Sub-Account View
+  // Render Organization Specific Dashboard if in Organization View
   // Scope: ORGANIZATION — this org's own self-managed work only.
   // BES fulfillment work (AGENCY scope) is NOT shown here.
   return (
     <div className="p-6 md:p-8">
-      {/* Sub-Account Header Indicator */}
+      {/* Organization Header Indicator */}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-emerald text-white font-bold text-sm">
@@ -106,7 +111,7 @@ const Dashboard = () => {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-lg font-bold text-foreground">
-                {activeSubAccount?.name || "Sub-Account Operational Workspace"}
+                {activeSubAccount?.name || "Organization Operational Workspace"}
               </h1>
               <Badge
                 variant="outline"
@@ -283,7 +288,7 @@ const Dashboard = () => {
           )}
 
           <div className="rounded-2xl border border-border bg-card p-6">
-            <h2 className="font-semibold">Sub-Account Performance</h2>
+            <h2 className="font-semibold">Organization Performance</h2>
             <div className="mt-4 space-y-3 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Client MRR</span>

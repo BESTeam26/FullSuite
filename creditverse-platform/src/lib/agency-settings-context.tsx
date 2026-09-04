@@ -5,7 +5,7 @@ import { fetchAgencyBrand, saveAgencyBrand } from "@/lib/data/agencies";
 
 /**
  * BES Agency Settings — platform control plane state.
- * Manages the entire SaaS, not an individual Sub-Account.
+ * Manages the entire SaaS, not an individual Organization.
  */
 
 export type EntitlementState = "Active" | "Trial" | "Suspended" | "Cancelled";
@@ -238,7 +238,7 @@ const seedAudit: AuditEntry[] = [
     id: "a5",
     at: "Aug 27, 08:00 AM",
     actor: "System",
-    action: "Sub-Account archived",
+    action: "Organization archived",
     target: "Test Org #2",
     severity: "critical",
   },

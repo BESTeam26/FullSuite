@@ -86,7 +86,7 @@ export const Sidebar = () => {
       items: [
         { label: "Home", icon: LayoutDashboard, href: "/app" },
         {
-          label: "Sub-Accounts",
+          label: "Organizations",
           icon: Building2,
           href: "/app/subaccounts",
           badge: subAccounts.length,
@@ -160,10 +160,10 @@ export const Sidebar = () => {
     },
   ];
 
-  /* Sub-Account navigation — product-aware, only activated modules */
+  /* Organization navigation — product-aware, only activated modules */
   const subAccountNavGroups: NavGroup[] = [
     {
-      label: activeSubAccount?.name || "Sub-Account",
+      label: activeSubAccount?.name || "Organization",
       items: [
         { label: "Home", icon: LayoutDashboard, href: "/app" },
         {

@@ -26,7 +26,7 @@ const updates = [
   },
   {
     id: 3,
-    title: "Sub-Account Auto-Sync Live",
+    title: "Organization Auto-Sync Live",
     category: "System Feature",
     type: "feature" as const,
     date: "Aug 27, 2026",

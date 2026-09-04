@@ -147,7 +147,7 @@ export const PRODUCT_PRICING: Record<string, ProductPricing> = {
         features: [
           "Everything in Growth",
           "Cross-tenant fulfillment workspace",
-          "Sub-account management & invoicing",
+          "Organization management & invoicing",
           "API access & Zapier integration",
           "Advanced reporting & analytics",
           "Score potential & simulation engine",
@@ -309,7 +309,7 @@ export const PRODUCT_PRICING: Record<string, ProductPricing> = {
         capacity: "1,500 clients + 1,500 deals",
         features: [
           "Everything in Growth",
-          "Unlimited sub-accounts",
+          "Unlimited organizations",
           "Cross-tenant fulfillment",
           "API access & webhooks",
           "Advanced cross-product analytics",

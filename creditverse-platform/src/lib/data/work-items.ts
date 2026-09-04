@@ -94,6 +94,21 @@ export async function fetchMyWork(userId: string): Promise<WorkItemRow[]> {
   return data ?? [];
 }
 
+/** One organization's own (ORGANIZATION-scope) open work, bounded. */
+export async function fetchOrganizationWork(organizationId: string): Promise<WorkItemRow[]> {
+  const sb = requireSupabase();
+  const { data, error } = await sb
+    .from("work_items")
+    .select("*")
+    .eq("scope", "ORGANIZATION")
+    .eq("organization_id", organizationId)
+    .in("stage", OPEN_STAGES)
+    .order("due_at", { ascending: true, nullsFirst: false })
+    .limit(200);
+  if (error) throw error;
+  return data ?? [];
+}
+
 /** All AGENCY-scope work (BES fulfillment desk). */
 export async function fetchAgencyWork(): Promise<WorkItemRow[]> {
   const sb = requireSupabase();

@@ -18,7 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 interface ChatMessage {
   id: string;
   sender: string;
-  role: "HQ Specialist" | "Sub-Account Manager";
+  role: "HQ Specialist" | "Organization Manager";
   text: string;
   time: string;
 }
@@ -41,7 +41,7 @@ export const FulfillmentLiveChatModal = ({ workOrder, onClose }: Props) => {
     {
       id: "msg-2",
       sender: `${workOrder.subAccountName} Admin`,
-      role: "Sub-Account Manager",
+      role: "Organization Manager",
       text: "Updated proof of address attached to client file in Google Drive vault. Please verify when filing CFPB complaint.",
       time: "10:22 AM",
     },

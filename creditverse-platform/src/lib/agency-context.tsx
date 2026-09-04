@@ -1,5 +1,5 @@
 /**
- * Agency context — HQ ⇄ Sub-Account view switching and the organization list.
+ * Agency context — HQ ⇄ Organization view switching and the organization list.
  *
  * Data source depends on auth mode:
  *   live  → Supabase via TanStack Query (RLS-scoped), mutations invalidate.
@@ -13,9 +13,11 @@ import {
   useContext,
   useMemo,
   useState,
+  useEffect,
   type ReactNode,
 } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import {
   fetchFulfillmentEngagements,
   isEngagementLive,
@@ -51,6 +53,8 @@ import {
 
 export type SubAccount = {
   id: string;
+  /** Permanent Organization ID (BES-XXXXXX). */
+  publicId: string;
   name: string;
   code: string;
   ownerName: string;
@@ -105,6 +109,7 @@ const toSubAccount = (org: Organization): SubAccount => ({
   id: org.id,
   name: org.name,
   code: org.code,
+  publicId: org.publicId,
   ownerName: org.principal.name,
   ownerEmail: org.principal.email,
   address: org.address,
@@ -148,6 +153,10 @@ interface AgencyContextType {
   agencyUsers: AgencyUser[];
   switchToAgencyView: () => void;
   switchToSubAccount: (id: string) => void;
+  /** Route sync for /app/org/:publicId. */
+  activateOrganizationByPublicId: (publicId: string) => "active" | "unknown" | "loading";
+  /** True while the organizations list is still loading (live mode). */
+  organizationsLoading: boolean;
   togglePinSubAccount: (id: string) => void;
   updateSubAccountBranding: (
     subAccountId: string,
@@ -158,7 +167,7 @@ interface AgencyContextType {
     wo: Omit<FulfillmentWorkOrder, "id" | "dateSubmitted">,
   ) => void;
   addSubAccount: (
-    acc: Omit<SubAccount, "id" | "joinedDate" | "openWorkOrders">,
+    acc: Omit<SubAccount, "id" | "publicId" | "joinedDate" | "openWorkOrders">,
   ) => void;
   agencyWork: WorkItem[];
   activeOrgWork: WorkItem[];
@@ -166,6 +175,10 @@ interface AgencyContextType {
 }
 
 const AgencyContext = createContext<AgencyContextType | undefined>(undefined);
+
+const ACTIVE_ORG_SESSION_KEY = "bes.activeOrganizationId";
+/** Query keys that are NOT organization-scoped and survive an organization switch. */
+const GLOBAL_QUERY_KEYS = new Set(["organizations", "fulfillment", "agency", "notifications", "teams", "outsourcing-groups", "user-preferences"]);
 
 const reportError = (action: string) => (err: unknown) => {
   const msg = err instanceof Error ? err.message : String(err);
@@ -213,11 +226,22 @@ export const AgencyProvider = ({ children }: { children: ReactNode }) => {
     [queryClient],
   );
 
-  /* ---- view state ---- */
-  const [viewMode, setViewMode] = useState<"agency" | "subaccount">("agency");
-  const [activeSubAccountId, setActiveSubAccountId] = useState<string | null>(
-    null,
-  );
+  /* ---- view state: ONE canonical active organization ----
+     The id is restored from sessionStorage as a convenience only; every use
+     below validates it against the organizations RLS returned to this user, so
+     a stale or forged id resolves to nothing. Membership + RLS authorize;
+     this state merely selects among what is already authorized. */
+  const navigate = useNavigate();
+  const [activeSubAccountId, setActiveSubAccountIdState] = useState<string | null>(() => {
+    try { return sessionStorage.getItem(ACTIVE_ORG_SESSION_KEY); } catch { return null; }
+  });
+  const [viewMode, setViewMode] = useState<"agency" | "subaccount">(() => {
+    try { return sessionStorage.getItem(ACTIVE_ORG_SESSION_KEY) ? "subaccount" : "agency"; } catch { return "agency"; }
+  });
+  const setActiveSubAccountId = useCallback((id: string | null) => {
+    setActiveSubAccountIdState(id);
+    try { if (id) sessionStorage.setItem(ACTIVE_ORG_SESSION_KEY, id); else sessionStorage.removeItem(ACTIVE_ORG_SESSION_KEY); } catch { /* storage unavailable: state still works */ }
+  }, []);
   const [recentSubAccountIds, setRecentSubAccountIds] = useState<string[]>(
     live ? [] : ["sub-1", "sub-4"],
   );
@@ -259,20 +283,69 @@ export const AgencyProvider = ({ children }: { children: ReactNode }) => {
       };
     });
 
+  /* Organization users never see BES Agency HQ: their view is their
+     organization. Staff may hold a stale session id for an organization RLS
+     no longer returns; that falls back to the agency view rather than an
+     empty organization. */
+  useEffect(() => {
+    if (!live || orgQuery.isLoading) return;
+    const visible = organizations.map((o) => o.id);
+    if (!auth.isAgencyStaff) {
+      if (visible.length === 0) return;
+      if (!activeSubAccountId || !visible.includes(activeSubAccountId)) setActiveSubAccountId(visible[0]);
+      if (viewMode !== "subaccount") setViewMode("subaccount");
+    } else if (activeSubAccountId && organizations.length > 0 && !visible.includes(activeSubAccountId)) {
+      setActiveSubAccountId(null);
+      setViewMode("agency");
+    }
+  }, [live, orgQuery.isLoading, organizations, auth.isAgencyStaff, activeSubAccountId, viewMode, setActiveSubAccountId]);
+
+  /* Switching is a context boundary: everything organization-scoped is
+     dropped from the cache and the user lands on the organization's own
+     dashboard. Global data (the organizations list, engagements, the agency,
+     notifications, agency teams) survives, so the switch costs only the
+     organization's own requests. */
+  const invalidateOrganizationScope = useCallback(() => {
+    void queryClient.invalidateQueries({
+      predicate: (q) => !GLOBAL_QUERY_KEYS.has(String(q.queryKey[0])),
+    });
+  }, [queryClient]);
+
   /* ---- actions ---- */
   const switchToAgencyView = () => {
+    if (live && !auth.isAgencyStaff) return; // not a BES user: no agency view exists for them
     setViewMode("agency");
     setActiveSubAccountId(null);
+    invalidateOrganizationScope();
+    navigate("/app");
   };
 
   const switchToSubAccount = (id: string) => {
+    const org = organizations.find((o) => o.id === id);
+    if (!org) return; // only organizations RLS returned to this user are switchable
+    if (typeof performance !== "undefined") performance.mark("bes:org-switch:start");
     setViewMode("subaccount");
     setActiveSubAccountId(id);
     setRecentSubAccountIds((prev) =>
       [id, ...prev.filter((r) => r !== id)].slice(0, 5),
     );
     if (live) void pushRecentOrg(userId, id).catch(() => undefined);
+    invalidateOrganizationScope();
+    navigate(`/app/org/${org.publicId}`);
   };
+
+  /** Route → context: /app/org/:publicId selects that organization if this user can see it. */
+  const activateOrganizationByPublicId = useCallback(
+    (publicId: string): "active" | "unknown" | "loading" => {
+      if (live && orgQuery.isLoading) return "loading";
+      const org = organizations.find((o) => o.publicId === publicId);
+      if (!org) return "unknown";
+      if (activeSubAccountId !== org.id) setActiveSubAccountId(org.id);
+      if (viewMode !== "subaccount") setViewMode("subaccount");
+      return "active";
+    },
+    [live, orgQuery.isLoading, organizations, activeSubAccountId, viewMode, setActiveSubAccountId],
+  );
 
   const togglePinSubAccount = (id: string) => {
     if (live) {
@@ -330,12 +403,12 @@ export const AgencyProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addSubAccount = (
-    acc: Omit<SubAccount, "id" | "joinedDate" | "openWorkOrders">,
+    acc: Omit<SubAccount, "id" | "publicId" | "joinedDate" | "openWorkOrders">,
   ) => {
     if (live) {
       const agencyId = auth.agencyMembership?.agency_id;
       if (!agencyId) {
-        toast.error("Only BES agency staff can provision sub-accounts.");
+        toast.error("Only BES agency staff can provision organizations.");
         return;
       }
       void createOrganization({
@@ -370,6 +443,7 @@ export const AgencyProvider = ({ children }: { children: ReactNode }) => {
       address: acc.address,
       status: acc.status,
       joinedDate: "Today",
+      publicId: `BES-${acc.code.toUpperCase().padEnd(6, "X").slice(0, 6)}`, // demo only; live ids come from the database
       isFulfillmentSubscriber: false, // demo only; live derives from engagements
       isPinned: acc.isPinned,
       entitlements: [
@@ -427,6 +501,8 @@ export const AgencyProvider = ({ children }: { children: ReactNode }) => {
         agencyUsers,
         switchToAgencyView,
         switchToSubAccount,
+        activateOrganizationByPublicId,
+        organizationsLoading: live && orgQuery.isLoading,
         togglePinSubAccount,
         updateSubAccountBranding,
         updateWorkOrderStatus,
@@ -457,6 +533,8 @@ const safeAgency: AgencyContextType = {
   agencyUsers: [],
   switchToAgencyView: () => {},
   switchToSubAccount: () => {},
+  activateOrganizationByPublicId: () => "unknown",
+  organizationsLoading: false,
   togglePinSubAccount: () => {},
   updateSubAccountBranding: () => {},
   updateWorkOrderStatus: () => {},

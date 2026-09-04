@@ -65,7 +65,7 @@ export const SubAccountSwitcher = () => {
                 <p className="truncate text-xs font-bold text-sidebar-foreground">
                   {viewMode === "agency"
                     ? "BES Agency HQ"
-                    : activeSubAccount?.name || "Sub-Account"}
+                    : activeSubAccount?.name || "Organization"}
                 </p>
                 <p className="truncate text-[10px] text-sidebar-foreground/60 flex items-center gap-1">
                   {viewMode === "agency" ? (
@@ -115,7 +115,7 @@ export const SubAccountSwitcher = () => {
           <DropdownMenuSeparator className="bg-sidebar-border" />
           <div className="px-3 py-1 flex items-center justify-between">
             <span className="text-[10px] uppercase tracking-wider text-sidebar-foreground/50 font-bold">
-              Sub-Accounts ({subAccounts.length})
+              Organizations ({subAccounts.length})
             </span>
             {viewMode === "subaccount" && (
               <button
@@ -135,7 +135,7 @@ export const SubAccountSwitcher = () => {
                 value={subSearch}
                 onChange={(e) => setSubSearch(e.target.value)}
                 onKeyDown={(e) => e.stopPropagation()}
-                placeholder="Search sub-accounts..."
+                placeholder="Search organizations..."
                 className="w-full rounded-md border border-sidebar-border bg-sidebar/80 py-1.5 pl-8 pr-2 text-xs text-sidebar-foreground placeholder:text-sidebar-foreground/40 focus:outline-none focus:ring-1 focus:ring-amber-500/50"
               />
             </div>
@@ -144,7 +144,7 @@ export const SubAccountSwitcher = () => {
           <div className="max-h-64 overflow-y-auto space-y-2 px-1">
             {filteredSubs.length === 0 ? (
               <p className="px-2 py-4 text-center text-[11px] text-sidebar-foreground/40">
-                No sub-accounts match "{subSearch}"
+                No organizations match "{subSearch}"
               </p>
             ) : (
               <>

@@ -16,7 +16,7 @@ export const FulfillmentSection = () => (
   <SectionCard
     icon={Workflow}
     title="Fulfillment Settings"
-    description="HQ Done-For-You services: service types, eligible Sub-Accounts, SLA rules, routing, QA requirements, handoff rules, and escalation thresholds."
+    description="HQ Done-For-You services: service types, eligible Organizations, SLA rules, routing, QA requirements, handoff rules, and escalation thresholds."
   >
     <div className="space-y-3">
       {[

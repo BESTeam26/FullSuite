@@ -46,7 +46,7 @@ export const SubAccountsListView = ({
         <TableHeader className="bg-muted/50">
           <TableRow>
             <TableHead className="w-10 text-center">Pin</TableHead>
-            <TableHead>Sub-Account Company</TableHead>
+            <TableHead>Organization Company</TableHead>
             <TableHead>Plan & Modules</TableHead>
             <TableHead>Owner & Contact</TableHead>
             <TableHead>End-Clients</TableHead>

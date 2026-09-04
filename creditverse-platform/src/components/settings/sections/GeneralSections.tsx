@@ -93,13 +93,13 @@ export const AgencyBrandingSection = () => {
   );
 };
 
-/* ---------------- Sub-Accounts ---------------- */
+/* ---------------- Organizations ---------------- */
 export const SubAccountsSection = () => {
   const { subAccounts, switchToSubAccount } = useAgency();
   return (
     <SectionCard
       icon={Network}
-      title="Sub-Accounts"
+      title="Organizations"
       description="Create, activate, suspend, and configure customer organizations. Archive instead of hard-delete to preserve operational history."
     >
       <div className="overflow-hidden rounded-xl border border-border">
@@ -175,7 +175,7 @@ export const ProductsSection = () => {
     <SectionCard
       icon={Boxes}
       title="Products & Entitlements"
-      description="Control which products exist and what each Sub-Account has activated. Supports Active / Trial / Suspended / Cancelled, plans, limits, and add-ons."
+      description="Control which products exist and what each Organization has activated. Supports Active / Trial / Suspended / Cancelled, plans, limits, and add-ons."
     >
       <div className="space-y-3">
         {products.map((p) => (

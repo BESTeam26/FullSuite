@@ -36,7 +36,7 @@ export default function BesCrm() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   // RLS already limits an organization user to its own entitled projects; the
-  // filter below only narrows the agency's full list to the active sub-account
+  // filter below only narrows the agency's full list to the active organization
   // when BES is looking through a customer's lens.
   const projects = useMemo(
     () =>

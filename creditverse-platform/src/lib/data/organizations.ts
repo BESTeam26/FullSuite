@@ -35,7 +35,7 @@ type OrgRow = Tables<"organizations"> & {
 /**
  * Organizations with the two nested sets the interface actually renders.
  *
- * `businesses` feeds the sub-account revenue roll-up and the dashboard's
+ * `businesses` feeds the organization revenue roll-up and the dashboard's
  * business count; `product_entitlements` gates every module. Both are small
  * and needed on ordinary navigation.
  *
@@ -92,6 +92,7 @@ export function mapOrgRow(row: OrgRow, pinnedIds: Set<string>): Organization {
     id: row.id,
     name: row.name,
     code: row.code,
+    publicId: row.public_id,
     principal: { name: row.principal_name, email: row.principal_email },
     address: row.address ?? undefined,
     status: row.status,

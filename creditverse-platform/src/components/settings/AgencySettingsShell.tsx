@@ -32,7 +32,7 @@ export const AgencySettingsShell = ({
           Agency Settings
         </h1>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          Manage the entire SaaS — branding, Sub-Accounts, products, people,
+          Manage the entire SaaS — branding, Organizations, products, people,
           operations, billing, integrations, security, and system controls.
         </p>
       </div>

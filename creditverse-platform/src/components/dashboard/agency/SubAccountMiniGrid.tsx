@@ -89,7 +89,7 @@ export const SubAccountMiniGrid = ({
         <div className="flex items-center gap-2">
           <Building2 className="h-4 w-4 text-status-warning" />
           <h2 className="text-sm font-bold uppercase tracking-wider text-foreground">
-            Connected Sub-Accounts
+            Connected Organizations
           </h2>
           <Badge
             variant="outline"

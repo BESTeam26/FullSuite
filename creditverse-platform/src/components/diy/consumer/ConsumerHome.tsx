@@ -25,10 +25,10 @@ const StatCard = ({
   tone: string;
   icon: typeof ScanSearch;
 }) => (
-  <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-    <Icon className="h-4 w-4 text-slate-400" />
+  <div className="rounded-xl border border-border bg-card p-4">
+    <Icon className="h-4 w-4 text-muted-foreground" />
     <p className={`mt-2 text-2xl font-bold ${tone}`}>{value}</p>
-    <p className="mt-0.5 text-xs text-slate-400">{label}</p>
+    <p className="mt-0.5 text-xs text-muted-foreground">{label}</p>
   </div>
 );
 
@@ -58,7 +58,7 @@ export const ConsumerHome = () => {
         <h1 className="text-2xl font-bold tracking-tight">
           Good morning, {me?.name.split(" ")[0] || "there"}
         </h1>
-        <p className="mt-1 text-sm text-slate-400">{whiteLabel.welcomeCopy}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{whiteLabel.welcomeCopy}</p>
       </div>
 
       {/* Scores */}
@@ -70,10 +70,10 @@ export const ConsumerHome = () => {
         ].map((b) => (
           <div
             key={b.label}
-            className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center"
+            className="rounded-2xl border border-border bg-card p-4 text-center"
           >
-            <p className="text-xs text-slate-400">{b.label}</p>
-            <p className="mt-1 text-2xl font-bold text-white">{b.score}</p>
+            <p className="text-xs text-muted-foreground">{b.label}</p>
+            <p className="mt-1 text-2xl font-bold text-foreground">{b.score}</p>
             <p className="text-xs font-semibold text-emerald-300">
               +{b.score - b.prev}
             </p>
@@ -109,10 +109,10 @@ export const ConsumerHome = () => {
       </div>
 
       {/* Journey progress tracker */}
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+      <div className="rounded-2xl border border-border bg-card p-5">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold">Your journey</h2>
-          <span className="text-xs text-slate-400">
+          <span className="text-xs text-muted-foreground">
             Step {journeyIdx + 1} of {JOURNEY_STEPS.length}
           </span>
         </div>
@@ -125,7 +125,7 @@ export const ConsumerHome = () => {
                   ? "bg-emerald-500/15 text-emerald-300"
                   : i === journeyIdx
                     ? "bg-gradient-gold text-charcoal"
-                    : "bg-white/5 text-slate-500"
+                    : "bg-card text-muted-foreground"
               }`}
             >
               {i < journeyIdx && "✓ "}
@@ -133,7 +133,7 @@ export const ConsumerHome = () => {
             </div>
           ))}
         </div>
-        <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-white/10">
+        <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted">
           <div
             className="h-full bg-gradient-gold"
             style={{ width: `${me?.diy?.progressPct || 5}%` }}
@@ -142,7 +142,7 @@ export const ConsumerHome = () => {
       </div>
 
       {/* Next actions */}
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+      <div className="rounded-2xl border border-border bg-card p-5">
         <h2 className="mb-3 text-sm font-semibold">Next actions</h2>
         <div className="space-y-2">
           {[
@@ -167,7 +167,7 @@ export const ConsumerHome = () => {
               className="flex items-start gap-3 rounded-lg bg-navy-deep/60 p-3"
             >
               <a.icon className={`mt-0.5 h-4 w-4 shrink-0 ${a.tone}`} />
-              <p className="text-xs leading-relaxed text-slate-300">{a.text}</p>
+              <p className="text-xs leading-relaxed text-muted-foreground">{a.text}</p>
             </div>
           ))}
         </div>
@@ -178,18 +178,18 @@ export const ConsumerHome = () => {
         <button
           onClick={handleProfessional}
           disabled={requested === "professional"}
-          className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/5 p-4 text-left transition-colors hover:border-amber-400/40 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+          className="flex items-start gap-3 rounded-xl border border-border bg-card p-4 text-left transition-colors hover:border-amber-400/40 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
         >
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-300">
             <HandHelping className="h-4 w-4" />
           </span>
           <span>
-            <span className="block text-sm font-semibold text-white">
+            <span className="block text-sm font-semibold text-foreground">
               {requested === "professional"
                 ? "Request sent"
                 : "Want professional credit help?"}
             </span>
-            <span className="mt-0.5 block text-[11px] leading-relaxed text-slate-400">
+            <span className="mt-0.5 block text-[11px] leading-relaxed text-muted-foreground">
               {requested === "professional"
                 ? "Your organization has been notified."
                 : "Request Done-For-You help from your organization."}
@@ -200,18 +200,18 @@ export const ConsumerHome = () => {
         <button
           onClick={handleFunding}
           disabled={requested === "funding"}
-          className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/5 p-4 text-left transition-colors hover:border-emerald-400/40 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+          className="flex items-start gap-3 rounded-xl border border-border bg-card p-4 text-left transition-colors hover:border-emerald-400/40 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
         >
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-300">
             <Banknote className="h-4 w-4" />
           </span>
           <span>
-            <span className="block text-sm font-semibold text-white">
+            <span className="block text-sm font-semibold text-foreground">
               {requested === "funding"
                 ? "Request sent"
                 : "Looking for business funding?"}
             </span>
-            <span className="mt-0.5 block text-[11px] leading-relaxed text-slate-400">
+            <span className="mt-0.5 block text-[11px] leading-relaxed text-muted-foreground">
               {requested === "funding"
                 ? "Your organization has been notified."
                 : "Request a funding readiness review."}
@@ -220,7 +220,7 @@ export const ConsumerHome = () => {
         </button>
       </div>
 
-      <button className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-slate-200 hover:bg-white/10">
+      <button className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold text-slate-200 hover:bg-muted">
         <GraduationCap className="h-4 w-4" /> Learn how this works{" "}
         <ArrowRight className="h-3 w-3" />
       </button>

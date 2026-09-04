@@ -66,7 +66,7 @@ export const FULFILLMENT_MODE_LABEL: Record<FulfillmentMode, string> = {
 
 export const FULFILLMENT_MODE_DESC: Record<FulfillmentMode, string> = {
   saas_pulled:
-    "Client runs on the BES CreditOps system. Status auto-syncs from CRM actions inside their sub-account.",
+    "Client runs on the BES CreditOps system. Status auto-syncs from CRM actions inside their organization.",
   outsourcing_only:
     "Client has their own external system. BES processes their work under an Outsourcing group with manual status updates.",
 };
