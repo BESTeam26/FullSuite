@@ -97,6 +97,7 @@ const live: OpsClientLiveBackend<FundingClient, FundingDepartmentStatus> = {
 const store = createOpsClientStore<FundingClient, FundingDepartmentStatus>({
   seedClients: seedFundingClients,
   seedDepartmentStatuses: seedFundingDepartmentStatuses,
+  activityEntityType: "funding_client",
   activityIdPrefix: "fact",
   clientIdPrefix: "ffc",
   queryKey: "fundingops",

@@ -98,6 +98,7 @@ const live: OpsClientLiveBackend<FulfillmentClient, DepartmentStatus> = {
 const store = createOpsClientStore<FulfillmentClient, DepartmentStatus>({
   seedClients: seedFulfillmentClients,
   seedDepartmentStatuses,
+  activityEntityType: "fulfillment_client",
   activityIdPrefix: "act",
   clientIdPrefix: "fc",
   queryKey: "creditops",

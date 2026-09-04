@@ -1326,6 +1326,74 @@ touched.
 161 tests (17 new covering all three models, the engagement window and default
 deny), tsc clean, 0 lint errors, build clean, 33 live checks green.
 
+### 2026-09-03 — Activity visibility, and live notes turned on behind it
+
+One canonical timeline, four audiences, visibility on every row. The rule
+enforced is **association is not publication**: an event hanging off an
+organization, client, case or deal says nothing about who may read it.
+
+**Model (migration 0017).** `activity_visibility` enum —
+`bes_internal`, `organization_internal`, `shared_with_partner`,
+`client_visible` — as a NOT NULL column defaulting to **`bes_internal`**, the
+most restrictive level. An event whose classification someone forgot is
+BES-only rather than published: default deny lives in the column default.
+
+One table, not four. Splitting per audience would write the same status change
+twice and force every consumer to join across tables to rebuild a timeline
+(rule 2).
+
+**`can_view_activity(agency, org, visibility, entity_type)`** decides, and RLS
+calls it. Customer staff are checked first, because an organization member is
+never BES staff and the two branches answer differently for the same row:
+
+- **Customer staff** see everything except `bes_internal`, on their own
+  organization only.
+- **BES** always sees `bes_internal` (its own notes about its own work) and
+  agency-owned records; for anything belonging to a customer it needs an
+  **active engagement for the governing service**. The service is derived from
+  `entity_type` rather than stored, so it cannot drift from the record.
+
+**System events are classified too**, which was the gap. Every trigger now
+writes an explicit level: status, round, contact and deal movements are
+`shared_with_partner`; assignee changes, per-department workflow, work items
+and EOD are `bes_internal` — who at BES works a file, and BES workforce data,
+are not the customer's business.
+
+**Verified live:**
+
+| | Result |
+|---|---|
+| BES posts `bes_internal` / `shared` / `client_visible` | ✅ allowed |
+| BES posts `organization_internal` | ✅ **refused** — BES cannot speak as the customer's internal voice |
+| BES reads a client timeline, engagement active | ✅ 13 entries |
+| Same timeline, engagement **paused** | ✅ **1 entry** — only BES's own internal row survives |
+| Restored | ✅ 13 again |
+| Timeline distinguishes system events from notes | ✅ via `isSystem` |
+
+That paused case is the proof: with the engagement off, everything belonging to
+the customer relationship disappears and BES keeps only what is genuinely its
+own.
+
+**Live persistence turned on, at the safe level.** `addActivity` was a no-op, so
+internal notes vanished on refresh. It now writes through `postNote` — always
+`bes_internal`, because the composer has no audience control yet and publishing
+is a decision. A note therefore cannot reach a customer by accident. The
+visibility picker is the natural next task; the timeline itself was not
+redesigned, as instructed.
+
+**One correction to my own work.** The backfill's second pass used
+`action like '% status changed'` to catch per-department rows and also matched
+"Deal status changed", demoting it to `bes_internal` after the first pass had
+correctly shared it. Fixed in migration 0018.
+
+**Housekeeping note:** four `activity_events` rows labelled "probe" remain from
+the insert-policy test. The table is append-only by design and has no DELETE
+policy, so they cannot be removed — verified. They are BES-internal or
+client-visible notes on Tanya Brooks and carry no real content.
+
+176 tests (15 new covering all four levels, both audiences, agency-owned records
+and default deny), tsc clean, 0 lint errors, build clean, 33 live checks green.
+
 ## Next steps for Claude Code
 
 1. Connect Supabase Auth + RLS for organization isolation

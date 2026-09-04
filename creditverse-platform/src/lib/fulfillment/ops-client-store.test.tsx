@@ -62,6 +62,7 @@ function setup() {
   const store = createOpsClientStore<TestClient, { department: string }>({
     seedClients: seed,
     seedDepartmentStatuses: () => [{ department: "Dispute" }],
+    activityEntityType: "test_client",
     activityIdPrefix: "test",
     clientIdPrefix: "tc",
     queryKey: "test",

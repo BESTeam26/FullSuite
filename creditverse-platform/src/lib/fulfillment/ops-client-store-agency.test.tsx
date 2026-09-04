@@ -12,7 +12,13 @@
  * signed in.
  */
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
+import {
+  render,
+  screen,
+  waitFor,
+  fireEvent,
+  act,
+} from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createOpsClientStore } from "@/lib/fulfillment/ops-client-store";
 import type { OpsClient } from "@/lib/fulfillment/ops-client-domain";
@@ -21,7 +27,12 @@ const AGENCY_A = "aaaaaaaa-0000-4000-8000-000000000001";
 const AGENCY_B = "bbbbbbbb-0000-4000-8000-000000000002";
 
 /** What `useAuth()` returns for a given test. Reset in beforeEach. */
-let authState: { mode: string; status: string; agencyId: string | null; user: unknown };
+let authState: {
+  mode: string;
+  status: string;
+  agencyId: string | null;
+  user: unknown;
+};
 
 vi.mock("@/lib/auth/auth-context", () => ({
   useAuth: () => authState,
@@ -71,6 +82,7 @@ function buildHarness(backendImpl: ReturnType<typeof makeBackend>["backend"]) {
   const store = createOpsClientStore<TestClient, unknown>({
     seedClients: [seedClient],
     seedDepartmentStatuses: () => [],
+    activityEntityType: "test_client",
     activityIdPrefix: "t",
     clientIdPrefix: "tc",
     queryKey: "test-division",
@@ -99,7 +111,11 @@ function buildHarness(backendImpl: ReturnType<typeof makeBackend>["backend"]) {
 
   return function Harness() {
     return (
-      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        }
+      >
         <store.Provider>
           <AddButton />
         </store.Provider>
@@ -109,7 +125,12 @@ function buildHarness(backendImpl: ReturnType<typeof makeBackend>["backend"]) {
 }
 
 beforeEach(() => {
-  authState = { mode: "live", status: "signed-in", agencyId: AGENCY_A, user: { id: "u1" } };
+  authState = {
+    mode: "live",
+    status: "signed-in",
+    agencyId: AGENCY_A,
+    user: { id: "u1" },
+  };
 });
 
 describe("agency context reaches writes from the authenticated session only", () => {
@@ -176,7 +197,12 @@ describe("agency context reaches writes from the authenticated session only", ()
   });
 
   it("demo mode never reaches the live backend at all", async () => {
-    authState = { mode: "demo", status: "signed-in", agencyId: null, user: null };
+    authState = {
+      mode: "demo",
+      status: "signed-in",
+      agencyId: null,
+      user: null,
+    };
     const { backend, calls } = makeBackend();
     const Harness = buildHarness(backend);
     render(<Harness />);

@@ -32,6 +32,7 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth/auth-context";
+import { postNote } from "@/lib/data/activity";
 import {
   checkClientConflict,
   clientGroupLabel,
@@ -149,6 +150,8 @@ export interface OpsClientLiveBackend<T extends OpsClient, D> {
 
 export interface OpsClientStoreConfig<T extends OpsClient, D> {
   seedClients: T[];
+  /** `activity_events.entity_type` for this division's records. */
+  activityEntityType: string;
   /** Initial per-department / per-stage statuses for a client. */
   seedDepartmentStatuses: (client: T) => D[];
   /** Prefix for generated activity ids, e.g. "act" or "fact". */
@@ -514,7 +517,8 @@ export function createOpsClientStore<T extends OpsClient, D>(
     /* The one place a division learns which agency it is acting for. Read from
        the authenticated context, never passed in — a caller that could choose
        the agency is the vulnerability this removes. */
-    const { agencyId } = useAuth();
+    const { agencyId, user } = useAuth();
+    const userId = user?.id;
     const clientsKey = [config.queryKey, "clients"];
 
     const clientsQuery = useQuery({
@@ -655,6 +659,37 @@ export function createOpsClientStore<T extends OpsClient, D>(
       [clients, invalidate, agencyId],
     );
 
+    /**
+     * Persist a human note onto the canonical timeline.
+     *
+     * Always BES_INTERNAL for now, which is the most restrictive level and the
+     * only one this composer can honestly claim: it has no control for choosing
+     * an audience yet. Publishing is a decision, so the safe default is the one
+     * that publishes to nobody outside BES. A visibility picker is the next
+     * task; until it exists a note cannot accidentally reach a customer.
+     */
+    const postLiveNote = useCallback(
+      (entry: Omit<OpsActivityEntry, "id" | "timestamp">) => {
+        const client = clients.find((c) => c.id === entry.clientId);
+        if (!agencyId || !userId) return;
+        void postNote({
+          agencyId,
+          organizationId: client?.organizationId,
+          entityType: config.activityEntityType,
+          entityId: entry.clientId,
+          actorId: userId,
+          actorName: entry.actor,
+          action: entry.action,
+          detail: entry.detail,
+          visibility: "bes_internal",
+          mark: entry.mark,
+        })
+          .then(invalidate)
+          .catch(report("Posting note"));
+      },
+      [agencyId, userId, clients, invalidate],
+    );
+
     const logProduction = useCallback(
       (input: ProductionLogInput) => {
         if (!agencyId) {
@@ -694,13 +729,7 @@ export function createOpsClientStore<T extends OpsClient, D>(
         updateContact,
         checkAddConflict,
         addClient,
-        /* Internal notes are NOT persisted in live mode yet, and wiring them
-           naively would leak them. `activity_events` is readable by the
-           organization's own members, so a BES internal note written there
-           becomes customer-visible. Rule 16: customers must not reach BES
-           internal notes, QA or management data. Whoever connects this needs a
-           visibility flag on the row and a policy that respects it. */
-        addActivity: noop,
+        addActivity: postLiveNote,
         togglePin: noop,
         setMark: noop,
         logProduction,

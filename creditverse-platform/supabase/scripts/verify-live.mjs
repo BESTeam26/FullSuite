@@ -197,6 +197,17 @@ if (schemaPushed) {
     ["is_staff_of", { p_agency: ZERO_UUID }],
     ["is_manager_of", { p_agency: ZERO_UUID }],
     ["is_admin_of", { p_agency: ZERO_UUID }],
+    // Activity visibility (migration 0017). Decides who may read a timeline
+    // entry, so an anonymous caller must never reach it.
+    [
+      "can_view_activity",
+      {
+        p_agency: ZERO_UUID,
+        p_org: null,
+        p_visibility: "bes_internal",
+        p_entity_type: "fulfillment_client",
+      },
+    ],
     ["org_has_product", { p_org: ZERO_UUID, p_product: "creditOps" }],
     [
       "bes_may_fulfil",

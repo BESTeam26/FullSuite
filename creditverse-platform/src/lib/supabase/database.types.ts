@@ -56,6 +56,7 @@ export type Database = {
           organization_id: string | null
           pinned: boolean
           previous_value: string | null
+          visibility: Database["public"]["Enums"]["activity_visibility"]
         }
         Insert: {
           action: string
@@ -73,6 +74,7 @@ export type Database = {
           organization_id?: string | null
           pinned?: boolean
           previous_value?: string | null
+          visibility?: Database["public"]["Enums"]["activity_visibility"]
         }
         Update: {
           action?: string
@@ -90,6 +92,7 @@ export type Database = {
           organization_id?: string | null
           pinned?: boolean
           previous_value?: string | null
+          visibility?: Database["public"]["Enums"]["activity_visibility"]
         }
         Relationships: [
           {
@@ -1894,6 +1897,10 @@ export type Database = {
       }
     }
     Functions: {
+      activity_service: {
+        Args: { p_entity_type: string }
+        Returns: Database["public"]["Enums"]["fulfillment_service"]
+      }
       agency_of_org: { Args: { p_org: string }; Returns: string }
       assignable_profiles: {
         Args: {
@@ -1918,6 +1925,15 @@ export type Database = {
       bootstrap_agency_owner: {
         Args: { p_agency_slug?: string; p_email: string }
         Returns: string
+      }
+      can_view_activity: {
+        Args: {
+          p_agency: string
+          p_entity_type: string
+          p_org: string
+          p_visibility: Database["public"]["Enums"]["activity_visibility"]
+        }
+        Returns: boolean
       }
       can_view_fulfillment_client: { Args: { p_org: string }; Returns: boolean }
       can_view_funding_client: { Args: { p_org: string }; Returns: boolean }
@@ -1997,6 +2013,11 @@ export type Database = {
       shares_scope_with: { Args: { p_user: string }; Returns: boolean }
     }
     Enums: {
+      activity_visibility:
+        | "bes_internal"
+        | "organization_internal"
+        | "shared_with_partner"
+        | "client_visible"
       agency_role:
         | "agency_owner"
         | "agency_admin"
@@ -2271,6 +2292,12 @@ export const Constants = {
   },
   public: {
     Enums: {
+      activity_visibility: [
+        "bes_internal",
+        "organization_internal",
+        "shared_with_partner",
+        "client_visible",
+      ],
       agency_role: [
         "agency_owner",
         "agency_admin",
