@@ -20,7 +20,7 @@
 import {
   createContext,
   useContext,
-  useEffect,
+  useRef,
   useState,
   useCallback,
   type ReactNode,
@@ -61,6 +61,8 @@ export interface WebhookSignalLogEntry {
 interface CreditOpsWebhookValue {
   endpoints: WebhookEndpoint[];
   signalLog: WebhookSignalLogEntry[];
+  /** Called by the Signal Log panel when it opens. Idempotent. */
+  loadSignalLog: () => void;
   addEndpoint: (
     ep: Omit<WebhookEndpoint, "id" | "lastFiredAt" | "fires">,
   ) => void;
@@ -131,19 +133,26 @@ export const CreditOpsWebhookProvider = ({
     mode === "live" && status === "signed-in" && Boolean(agencyId);
 
   /**
-   * Load the recent log from the database.
+   * Load the recent log from the database, on demand.
    *
    * This log records what the platform told an external CRM to do. Keeping it
    * in memory only meant it vanished on refresh, so there was no way to answer
    * "did we push that status change?" after the fact — an audit trail that
    * forgets is not one (rule 10).
+   *
+   * It is read when the Signal Log is opened, not when CreditOps mounts. The
+   * panel is one tab among nine and is rarely the one in front of the user, so
+   * loading it eagerly spent a request on every CreditOps visit to fill a
+   * screen nobody was looking at (rule 7: do not load hidden tabs). The guard
+   * makes it once per session rather than once per panel mount.
    */
-  useEffect(() => {
-    if (!persist) return;
-    let cancelled = false;
+  const loadRequested = useRef(false);
+
+  const loadSignalLog = useCallback(() => {
+    if (!persist || loadRequested.current) return;
+    loadRequested.current = true;
     fetchWebhookDeliveries()
       .then((rows) => {
-        if (cancelled) return;
         setSignalLog(
           rows.map((r) => ({
             id: String(r.id),
@@ -162,10 +171,9 @@ export const CreditOpsWebhookProvider = ({
       })
       .catch(() => {
         // A log that cannot be read must not take the workspace down with it.
+        // Allow a later open to retry rather than latching the failure.
+        loadRequested.current = false;
       });
-    return () => {
-      cancelled = true;
-    };
   }, [persist]);
 
   const addEndpoint = useCallback(
@@ -315,6 +323,7 @@ export const CreditOpsWebhookProvider = ({
   const value: CreditOpsWebhookValue = {
     endpoints,
     signalLog,
+    loadSignalLog,
     addEndpoint,
     updateEndpoint,
     removeEndpoint,

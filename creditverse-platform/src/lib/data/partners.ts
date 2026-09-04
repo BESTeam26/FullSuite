@@ -16,9 +16,10 @@ import { requireSupabase } from "@/lib/supabase/client";
 import type { OpsPartner } from "@/lib/fulfillment/ops-client-domain";
 import {
   besMayFulfil,
-  fetchFulfillmentEngagements,
+  type FulfillmentEngagement,
   type FulfillmentService,
 } from "@/lib/data/fulfillment-engagements";
+import type { Organization } from "@/lib/bes-domain";
 
 /** Which BES service a division's partner tree is asking about. */
 const SERVICE_FOR: Record<PartnerProduct, FulfillmentService> = {
@@ -33,16 +34,7 @@ const SERVICE_FOR: Record<PartnerProduct, FulfillmentService> = {
  */
 export type PartnerProduct = "creditOps" | "fundingOps";
 
-interface OrgRow {
-  id: string;
-  name: string;
-  principal_name: string;
-  principal_email: string;
-  status: string;
-  product_entitlements: { product: string; enabled: boolean }[] | null;
-}
-
-interface GroupRow {
+export interface GroupRow {
   id: string;
   name: string;
   partner_name: string;
@@ -58,37 +50,36 @@ const asStatus = (s: string): OpsPartner["status"] =>
       ? "Onboarding"
       : "Active";
 
-/**
- * Every partner for one division, in ONE pair of requests rather than a lookup
- * per partner (rule 14). Entitlements ride along with the organization row.
- */
-export async function fetchPartners(
-  product: PartnerProduct,
-): Promise<OpsPartner[]> {
+/** The outsourcing groups BES works for. One bounded read, no per-group lookup. */
+export async function fetchOutsourcingGroups(): Promise<GroupRow[]> {
   const sb = requireSupabase();
-  // Three parallel requests, not a lookup per partner (rule 14).
-  const [orgs, groups, engagements] = await Promise.all([
-    sb
-      .from("organizations")
-      .select(
-        "id,name,principal_name,principal_email,status,product_entitlements(product,enabled)",
-      )
-      .order("name"),
-    sb
-      .from("outsourcing_groups")
-      .select("id,name,partner_name,contact_email,contract_ref,status")
-      .order("name"),
-    fetchFulfillmentEngagements(),
-  ]);
-  if (orgs.error) throw orgs.error;
-  if (groups.error) throw groups.error;
+  const { data, error } = await sb
+    .from("outsourcing_groups")
+    .select("id,name,partner_name,contact_email,contract_ref,status")
+    .order("name");
+  if (error) throw error;
+  return (data ?? []) as GroupRow[];
+}
 
-  const managed: OpsPartner[] = ((orgs.data ?? []) as unknown as OrgRow[])
-    .filter((o) =>
-      (o.product_entitlements ?? []).some(
-        (e) => e.product === product && e.enabled,
-      ),
-    )
+/**
+ * Build one division's partner tree from data the caller already holds.
+ *
+ * Pure: no I/O. This used to fetch organizations and engagements itself, which
+ * meant the ops routes read `organizations` twice (once here, once in the
+ * agency context) and `fulfillment_engagements` twice (once here, once through
+ * `useFulfillment`) under different cache keys — four requests for two answers.
+ * Taking the inputs as arguments lets `usePartners` compose the canonical
+ * cached queries instead of opening a second path to the same tables (rule 2,
+ * rule 14).
+ */
+export function buildPartners(
+  product: PartnerProduct,
+  organizations: Organization[],
+  groups: GroupRow[],
+  engagements: FulfillmentEngagement[],
+): OpsPartner[] {
+  const managed: OpsPartner[] = organizations
+    .filter((o) => o.entitlements.some((e) => e.key === product && e.enabled))
     .map((o) => ({
       id: `org-${o.id}`,
       name: o.name,
@@ -107,24 +98,22 @@ export async function fetchPartners(
           : "creditops_users",
       scopeId: o.id,
       mode: "saas_pulled",
-      contactName: o.principal_name,
-      contactEmail: o.principal_email,
+      contactName: o.principal.name,
+      contactEmail: o.principal.email,
       status: asStatus(o.status),
     }));
 
-  const outsourced: OpsPartner[] = ((groups.data ?? []) as GroupRow[]).map(
-    (g) => ({
-      id: `grp-${g.id}`,
-      name: g.name,
-      group: "outsourcing",
-      scopeId: g.id,
-      mode: "outsourcing_only",
-      contactName: g.partner_name,
-      contactEmail: g.contact_email,
-      contractRef: g.contract_ref ?? undefined,
-      status: asStatus(g.status),
-    }),
-  );
+  const outsourced: OpsPartner[] = groups.map((g) => ({
+    id: `grp-${g.id}`,
+    name: g.name,
+    group: "outsourcing",
+    scopeId: g.id,
+    mode: "outsourcing_only",
+    contactName: g.partner_name,
+    contactEmail: g.contact_email,
+    contractRef: g.contract_ref ?? undefined,
+    status: asStatus(g.status),
+  }));
 
   return [...managed, ...outsourced];
 }

@@ -16,6 +16,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -120,7 +121,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     ExternalMembership[]
   >([]);
 
-  const loadIdentity = useCallback(async (userId: string) => {
+  const readIdentity = useCallback(async (userId: string) => {
     if (!supabase) return;
     const [p, am, om, em] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
@@ -137,6 +138,43 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setOrgMemberships(om.data ?? []);
     setExternalMemberships(em.data ?? []);
   }, []);
+
+  /**
+   * The identity resolution currently in flight, or the last one that
+   * succeeded, keyed by the user it describes.
+   *
+   * Both boot paths below need the same four records: `getSession()` restores
+   * the stored session, and `onAuthStateChange` independently reports
+   * `INITIAL_SESSION` for it. Left alone they each issue the batch, so a cold
+   * load spends eight requests to learn four things, and the duplicates slow
+   * the originals down through contention (rule 14).
+   *
+   * Sharing one promise per user id makes whichever path arrives second await
+   * the first rather than repeat it — a dedupe of the request itself, not of
+   * the symptom. It also absorbs `TOKEN_REFRESHED`, which reports the same
+   * user and needs no membership re-read.
+   */
+  const identityRef = useRef<{
+    userId: string;
+    promise: Promise<void>;
+  } | null>(null);
+
+  const loadIdentity = useCallback(
+    (userId: string, force = false): Promise<void> => {
+      const cached = identityRef.current;
+      if (!force && cached?.userId === userId) return cached.promise;
+
+      const promise = readIdentity(userId).catch((err) => {
+        // A failure is never cached: the next caller must be able to retry
+        // rather than inherit a permanently broken identity.
+        if (identityRef.current?.promise === promise) identityRef.current = null;
+        throw err;
+      });
+      identityRef.current = { userId, promise };
+      return promise;
+    },
+    [readIdentity],
+  );
 
   useEffect(() => {
     if (authMode === "demo" || !supabase) return;
@@ -160,6 +198,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           await loadIdentity(newSession.user.id);
           setStatus("signed-in");
         } else {
+          identityRef.current = null;
           setProfile(null);
           setAgencyMembership(null);
           setOrgMemberships([]);
@@ -226,7 +265,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const refreshMemberships = useCallback(async () => {
-    if (session?.user) await loadIdentity(session.user.id);
+    // Explicit refresh bypasses the dedupe: the caller is asking precisely
+    // because memberships may have changed since they were read.
+    if (session?.user) await loadIdentity(session.user.id, true);
   }, [session, loadIdentity]);
 
   const value = useMemo<AuthContextValue>(() => {

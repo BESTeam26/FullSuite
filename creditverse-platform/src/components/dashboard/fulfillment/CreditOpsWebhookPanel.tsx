@@ -4,7 +4,7 @@
  * generic).
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { OpsSelect } from "@/components/ui/ops-select";
 import { Plus, Trash2, Webhook, Zap, Radio } from "lucide-react";
 import { useCreditOpsWebhooks } from "@/lib/fulfillment/creditops-webhooks";
@@ -19,7 +19,14 @@ export function CreditOpsWebhookPanel() {
     removeEndpoint,
     toggleEndpoint,
     clearLog,
+    loadSignalLog,
   } = useCreditOpsWebhooks();
+
+  /* The log is fetched when this panel opens rather than when CreditOps mounts,
+     so the eight other tabs do not pay for it. `loadSignalLog` is idempotent. */
+  useEffect(() => {
+    loadSignalLog();
+  }, [loadSignalLog]);
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState("");
   const [newType, setNewType] = useState<"ghl" | "disputefox" | "generic">(

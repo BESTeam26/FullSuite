@@ -28,20 +28,27 @@ const PRODUCT_KEYS: ProductKey[] = [
 type OrgRow = Tables<"organizations"> & {
   businesses: Tables<"businesses">[];
   product_entitlements: Tables<"product_entitlements">[];
-  org_memberships: (Tables<"org_memberships"> & {
-    profiles: Pick<Tables<"profiles">, "full_name" | "email"> | null;
-  })[];
-  external_memberships: (Tables<"external_memberships"> & {
-    profiles: Pick<Tables<"profiles">, "full_name" | "email"> | null;
-  })[];
 };
 
+/**
+ * Organizations with the two nested sets the interface actually renders.
+ *
+ * `businesses` feeds the sub-account revenue roll-up and the dashboard's
+ * business count; `product_entitlements` gates every module. Both are small
+ * and needed on ordinary navigation.
+ *
+ * Membership rosters are deliberately absent. `org_memberships(*, profiles(…))`
+ * and `external_memberships(*, profiles(…))` were joined here and mapped onto
+ * `Organization.orgUsers` / `.externalUsers`, but **no screen reads either
+ * field** — they were 11kb of the 14.6kb payload, fetched on every route, for
+ * nothing (rule 14: fetch only what the current view needs). When a roster
+ * screen is built it should query memberships for the one organization being
+ * viewed, not join every roster onto every list read.
+ */
 const ORG_SELECT = `
   *,
   businesses(*),
-  product_entitlements(*),
-  org_memberships(*, profiles(full_name, email)),
-  external_memberships(*, profiles(full_name, email))
+  product_entitlements(*)
 `;
 
 type Branding = NonNullable<Organization["branding"]>;
@@ -75,22 +82,10 @@ export function mapOrgRow(row: OrgRow, pinnedIds: Set<string>): Organization {
     timeInBusinessMonths: b.time_in_business_months ?? undefined,
     monthlyRevenue: b.monthly_revenue ?? undefined,
   }));
-  const orgUsers: OrgUser[] = row.org_memberships.map((m) => ({
-    id: m.user_id,
-    name: m.profiles?.full_name ?? m.profiles?.email ?? "Member",
-    email: m.profiles?.email ?? "",
-    role: m.role,
-    product: (m.product ?? "creditOps") as ProductKey,
-    assignedOnly: m.assigned_only,
-    teamScope: m.team_scope ?? undefined,
-  }));
-  const externalUsers: ExternalUser[] = row.external_memberships.map((m) => ({
-    id: m.user_id,
-    name: m.profiles?.full_name ?? m.profiles?.email ?? "External user",
-    email: m.profiles?.email ?? "",
-    role: m.role,
-    scopedRecordIds: [], // populated from record_grants in a later phase
-  }));
+  // Rosters are not selected — see ORG_SELECT. The fields stay on the domain
+  // type so the shape is stable for the screen that will eventually load them.
+  const orgUsers: OrgUser[] = [];
+  const externalUsers: ExternalUser[] = [];
   return {
     id: row.id,
     name: row.name,
