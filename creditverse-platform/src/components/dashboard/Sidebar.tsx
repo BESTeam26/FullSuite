@@ -206,7 +206,10 @@ export const Sidebar = () => {
     viewMode === "agency" ? agencyNavGroups : subAccountNavGroups;
 
   return (
-    <aside className="hidden w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:flex">
+    <aside
+      data-bes-chrome="dark"
+      className="hidden w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:flex"
+    >
       <SubAccountSwitcher />
 
       <nav className="flex-1 overflow-y-auto px-3 py-3">

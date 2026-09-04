@@ -33,6 +33,33 @@ confirm the working directory, then compare `migration list` output against the
 live schema. Only use `migration repair` with evidence that a specific remote
 history row is genuinely wrong.
 
+**Canonical working directory:** `/Users/dee_gallardo/BES-Platform/creditverse-platform`.
+Every `npm`, `git`, `supabase`, test, build, lint, typecheck and migration
+command targets that directory. The git root is the *parent*
+(`BES-Platform/`) — one repository, application in a subdirectory — so `git`
+works from either place, but everything else does not. Do not infer the target
+from the current shell location; state it.
+
+---
+
+## Theme scope
+
+BES is a **light operational workspace with dark branded navigation**. The main
+field of work — pages, cards, tables, forms, modals — stays light; only the
+sidebar and branded shell accents are dark.
+
+- `tailwind.config.ts` sets `darkMode: ["class"]`, no theme provider is mounted,
+  and nothing adds `.dark`. The dark palette exists but is dormant.
+- `:root` declares `color-scheme: light` so the browser paints scrollbars,
+  `<select>` popups, pickers and autofill light **even on a machine set to dark
+  mode**. Without it those follow the OS and dark furniture appears inside the
+  light workspace.
+- The sidebar is dark via dedicated `--sidebar-*` tokens defined in the *light*
+  palette, and carries `data-bes-chrome="dark"` so its own scrollbar matches.
+  It is branding, not a theme.
+
+**Do not enable dark mode for the main workspace unless explicitly asked.**
+
 ---
 
 ## 1. Security first

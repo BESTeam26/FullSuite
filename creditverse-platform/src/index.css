@@ -7,6 +7,42 @@
    All colors stored as raw HSL channel values. */
 
 @layer base {
+  /**
+   * BES is a light operational workspace.
+   *
+   * The palette was already light-only — `darkMode: ["class"]`, no theme
+   * provider, and nothing in the app ever adds `.dark` — but the browser was
+   * never told. With `color-scheme` unset, a machine set to dark mode has the
+   * user agent paint everything the app does not paint itself: scrollbars,
+   * `<select>` popups, date and time pickers, autofill backgrounds, number
+   * spinners, and the canvas behind the page before first paint. The result is
+   * dark furniture inside a light workspace — the field of work looking like a
+   * developer dashboard rather than a finance tool.
+   *
+   * Declaring it fixes all of those at once, and keeps working if the dark
+   * palette is ever deliberately enabled: `.dark` flips the declaration too,
+   * so native UI follows the app rather than the operating system either way.
+   */
+  :root {
+    color-scheme: light;
+  }
+
+  .dark {
+    color-scheme: dark;
+  }
+
+  /**
+   * The navigation is branded chrome, not a theme.
+   *
+   * `--sidebar-*` are dark values defined in the *light* palette, so the rail
+   * stays BES-dark while the workspace stays light. Its own scrollbar should
+   * match it rather than the page, which is the one place a dark
+   * `color-scheme` genuinely belongs.
+   */
+  [data-bes-chrome="dark"] {
+    color-scheme: dark;
+  }
+
   :root {
     /* Surfaces */
     --background: 38 27% 93%; /* Cloud Sand */
