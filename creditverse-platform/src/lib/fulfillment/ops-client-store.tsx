@@ -135,10 +135,16 @@ export interface OpsClientLiveBackend<T extends OpsClient, D> {
     field: "email" | "phone",
     value: string,
   ) => Promise<void>;
+  /**
+   * Tenant-owned writes receive the agency from the authenticated context —
+   * never from a component, a constant, or anything a caller could choose.
+   * The database checks it again through RLS.
+   */
   addClient: (
     client: Omit<T, "id" | "lastActivity" | "createdAt">,
+    agencyId: string,
   ) => Promise<string>;
-  logProduction: (input: ProductionLogInput) => Promise<void>;
+  logProduction: (input: ProductionLogInput, agencyId: string) => Promise<void>;
 }
 
 export interface OpsClientStoreConfig<T extends OpsClient, D> {
@@ -505,6 +511,10 @@ export function createOpsClientStore<T extends OpsClient, D>(
     children: ReactNode;
   }) {
     const queryClient = useQueryClient();
+    /* The one place a division learns which agency it is acting for. Read from
+       the authenticated context, never passed in — a caller that could choose
+       the agency is the vulnerability this removes. */
+    const { agencyId } = useAuth();
     const clientsKey = [config.queryKey, "clients"];
 
     const clientsQuery = useQuery({
@@ -623,8 +633,16 @@ export function createOpsClientStore<T extends OpsClient, D>(
             crossScopeMatches: conflict.crossScopeMatches,
           };
         }
+        if (!agencyId) {
+          // Default deny. Without a resolved agency there is no tenant to file
+          // this under, and guessing one is exactly the failure this guards.
+          report("Adding client")(
+            new Error("No agency context — cannot create this record."),
+          );
+          return { id: "", blocked: true, crossScopeMatches: [] };
+        }
         void backend
-          .addClient(client)
+          .addClient(client, agencyId)
           .then(invalidate)
           .catch(report("Adding client"));
         return {
@@ -634,13 +652,19 @@ export function createOpsClientStore<T extends OpsClient, D>(
         };
       },
       // eslint-disable-next-line react-hooks/exhaustive-deps
-      [clients, invalidate],
+      [clients, invalidate, agencyId],
     );
 
     const logProduction = useCallback(
       (input: ProductionLogInput) => {
+        if (!agencyId) {
+          report("Logging production")(
+            new Error("No agency context — cannot record this work."),
+          );
+          return;
+        }
         void backend
-          .logProduction(input)
+          .logProduction(input, agencyId)
           .then(() => {
             notifyStatusChange({
               clientId: input.clientId,

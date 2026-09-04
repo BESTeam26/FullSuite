@@ -58,15 +58,6 @@ export const FUNDING_ELIGIBLE_ASSIGNEES = [
 ];
 
 /**
- * The agency these records belong to.
- *
- * Still a constant, as in CreditOps. `auth-context` now exposes `agencyId` from
- * the signed-in user's membership; threading it through the store factory is
- * the remaining step before white-label resale, and is tracked in BUILD_STATUS.
- */
-const AGENCY_ID = "a0000000-0000-4000-8000-000000000001";
-
-/**
  * `updateAssignee` is deliberately ABSENT, exactly as in CreditOps.
  *
  * Assignees are still names, not profile rows. Resolving a name to an id would
@@ -84,9 +75,9 @@ const live: OpsClientLiveBackend<FundingClient, FundingDepartmentStatus> = {
       status as Enums<"funding_client_status">,
     ),
   updateContact: updateFundingClientContact,
-  addClient: (client) =>
+  addClient: (client, agencyId) =>
     createFundingClient({
-      agencyId: AGENCY_ID,
+      agencyId,
       name: client.name,
       email: client.email,
       phone: client.phone,

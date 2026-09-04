@@ -54,12 +54,6 @@ export const ELIGIBLE_ASSIGNEES = [
 ];
 
 /**
- * The agency these records belong to. Seeded as the single BES agency; when
- * white-label resale arrives this comes from the signed-in user's membership.
- */
-const AGENCY_ID = "a0000000-0000-4000-8000-000000000001";
-
-/**
  * `updateAssignee` is deliberately ABSENT, not stubbed.
  *
  * Assignees are still names rather than profile rows; the scoped assignee
@@ -77,9 +71,9 @@ const live: OpsClientLiveBackend<FulfillmentClient, DepartmentStatus> = {
   updateStatus: (clientId, status) =>
     updateClientStatus(clientId, status as Enums<"fulfillment_client_status">),
   updateContact: updateClientContact,
-  addClient: (client) =>
+  addClient: (client, agencyId) =>
     createFulfillmentClient({
-      agencyId: AGENCY_ID,
+      agencyId,
       name: client.name,
       email: client.email,
       phone: client.phone,
@@ -90,9 +84,9 @@ const live: OpsClientLiveBackend<FulfillmentClient, DepartmentStatus> = {
       status: client.status as Enums<"fulfillment_client_status">,
       round: client.round as Enums<"fulfillment_round">,
     }),
-  logProduction: async (input) =>
+  logProduction: async (input, agencyId) =>
     logProduction({
-      agencyId: AGENCY_ID,
+      agencyId,
       clientId: input.clientId,
       department: input.department as Enums<"fulfillment_department">,
       productionUnitType: input.department,

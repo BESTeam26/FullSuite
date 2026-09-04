@@ -1070,6 +1070,71 @@ keys pointing at it.
 
 tsc clean, 133/133 tests, build clean, `verify:live` green.
 
+### 2026-09-03 — Hardcoded agency id removed, and the enforcement gap behind it
+
+The constant was the smaller half. Tracing the write paths first turned up the
+real problem: **`is_agency_staff()` takes no agency argument.** It answers "is
+this user staff of ANY agency", and 104 policy clauses across 85 policies were
+gated on it. Sending the correct `agency_id` from the app would have meant
+nothing — the database was not checking it. "Agency A cannot read Agency B" was
+not enforced anywhere.
+
+Three things were missing, all now closed (migration 0014):
+
+1. **Agency-scoped helpers.** `is_staff_of(agency)`, `is_manager_of(agency)`,
+   `is_admin_of(agency)` test membership of *that* agency. EXISTS checks, not a
+   scalar "my agency", because `agency_memberships` allows a user to belong to
+   more than one.
+2. **Missing tenant anchors.** `activity_events`, `work_items` and `files` had
+   no `agency_id` at all — their only anchor was `organization_id`. Each now
+   carries one, NOT NULL, backfilled from the owning organization. A trigger
+   stamps it on every audit insert, so a writer cannot mis-attribute it.
+3. **Write-side policies.** A correct SELECT is no use if another agency can
+   INSERT. Every write policy on a tenant-owned table now tests the row's
+   agency too.
+
+**App side.** The two `AGENCY_ID` constants are gone. `LiveProvider` resolves
+`agencyId` once from the authenticated context and passes it to the backend;
+the payload type has no agency field, so a component cannot choose one. Writes
+default-deny with a stated error when no agency resolved. Two `agencyId!`
+non-null assertions in the time/EOD hooks were replaced with explicit
+rejections.
+
+**Verified live, both layers.**
+
+| Check | Result |
+|---|---|
+| Write into another agency | ✅ refused — "new row violates row-level security policy" |
+| Write into own agency | ✅ still works |
+| Read another agency's rows (10 tables) | ✅ 0 visible, 0 foreign rows in any result |
+| CreditOps status change → audit row | ✅ still written, agency-stamped |
+| Time, EOD, production, webhooks | ✅ readable and agency-scoped |
+| Store-level isolation | ✅ 6 new tests |
+
+139 tests (up from 133), tsc clean, 0 lint errors, build clean, 32 live checks.
+
+#### Attribution on delete and archive — the integrity answer
+
+Measured, not assumed:
+
+- **Archive loses nothing.** It is a status transition; every row and both
+  attributions stay intact.
+- **Agency attribution now survives deletion.** Before migration 0014 an audit
+  row whose organization was deleted had *no* tenant left, which under the old
+  agency-blind policy made it readable by staff of any agency. It is now
+  NOT NULL and preserved.
+- **Organization attribution is still lost on organization deletion.**
+  `activity_events.organization_id` and `audit_log.organization_id` go NULL
+  (migration 0013, which stopped the row being deleted outright).
+
+That last one is a **forensic limitation, not a security hole** — the row stays,
+the agency stays, and `entity_id` still names the client the event was about, so
+the trail is followable. It is also hard to reach: since 0013, an organization
+holding client records cannot be deleted at all. Left as-is deliberately;
+recording it here rather than redesigning, since the task asked for a report and
+nothing about it is unsafe. If full provenance is wanted later, the fix is a
+denormalised `organization_name` snapshot on the event, not a foreign key.
+
 ## Next steps for Claude Code
 
 1. Connect Supabase Auth + RLS for organization isolation

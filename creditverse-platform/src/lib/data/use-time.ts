@@ -76,13 +76,21 @@ export function useTimesheet(): TimesheetResult {
     qc.invalidateQueries({ queryKey: ["time", "week", userId, from] });
 
   const inM = useMutation({
-    mutationFn: (v: { divisionId: string; taskNote?: string }) =>
-      clockInRow({
-        agencyId: agencyId!,
+    mutationFn: (v: { divisionId: string; taskNote?: string }) => {
+      // Default deny rather than a non-null assertion: an unresolved agency
+      // must fail loudly, not be asserted away.
+      if (!agencyId) {
+        return Promise.reject(
+          new Error("No agency context — cannot start the clock."),
+        );
+      }
+      return clockInRow({
+        agencyId,
         employeeId: userId,
         divisionId: v.divisionId,
         taskNote: v.taskNote,
-      }),
+      });
+    },
     onSuccess: invalidate,
   });
   const outM = useMutation({
@@ -163,7 +171,12 @@ export function useEod(workDate: string = localWorkDate()): EodResult {
   const saveM = useMutation({
     mutationFn: (
       v: Omit<SaveEodInput, "agencyId" | "employeeId" | "workDate">,
-    ) => saveEod({ ...v, agencyId: agencyId!, employeeId: userId, workDate }),
+    ) =>
+      agencyId
+        ? saveEod({ ...v, agencyId, employeeId: userId, workDate })
+        : Promise.reject(
+            new Error("No agency context — cannot save this EOD report."),
+          ),
     onSuccess: () =>
       qc.invalidateQueries({
         queryKey: ["eod", "submission", userId, workDate],
