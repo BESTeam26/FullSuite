@@ -15,6 +15,7 @@ import { useAgency } from "@/lib/agency-context";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useOrganizationWork } from "@/lib/data/use-work";
 import { useWorkspaces } from "@/lib/data/use-workspaces";
+import { useOrganizationTrial } from "@/lib/data/use-organization-trial";
 import { isOverdue } from "@/lib/workspaces/workspace-domain";
 import { PRODUCT_LABELS, type ProductKey } from "@/lib/bes-domain";
 import { StatCard, ContentCard, DivisionTable, StatusPill } from "@/components/dashboard/DivisionLayout";
@@ -48,6 +49,7 @@ export default function OrganizationDashboard() {
 
   const work = useOrganizationWork(isThisOrg ? org.id : null);
   const { workspaces } = useWorkspaces(isThisOrg ? org.id : null);
+  const { trial } = useOrganizationTrial(isThisOrg ? org.id : null);
 
   const overdue = useMemo(() => work.items.filter((w) => w.dueAt && isOverdue({ dueAt: w.dueAt, completedAt: null } as never)).length, [work.items]);
   const mine = useMemo(() => work.items.filter((w) => w.assignedTo === auth.user?.id).length, [work.items, auth.user?.id]);
@@ -92,6 +94,25 @@ export default function OrganizationDashboard() {
         </div>
       </div>
 
+      {trial && (
+        <div
+          className={
+            trial.status === "blocked"
+              ? "mb-4 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-foreground"
+              : "mb-4 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-foreground"
+          }
+          role="status"
+        >
+          {trial.status === "active" && (
+            <>Introductory trial active until <strong>{new Date(trial.endsAt).toLocaleDateString()}</strong>.{trial.blockedReason === "name_match_review" ? " BES is reviewing this organization because a similar business is already on record." : ""}</>
+          )}
+          {trial.status === "blocked" && (
+            <>A free trial is not available for this business because it is already on record with BES. Contact BES to activate your organization.</>
+          )}
+          {trial.status === "expired" && <>Your introductory trial has ended. Contact BES to activate your organization.</>}
+          {trial.status === "converted" && <>Your organization is active.</>}
+        </div>
+      )}
       <div className="mb-3 flex items-center gap-2">
         <DataSourceBadge source={work.source} />
         <span className="text-xs text-muted-foreground">Figures are derived from this organization's own records.</span>

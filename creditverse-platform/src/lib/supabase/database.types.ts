@@ -270,6 +270,21 @@ export type Database = {
           },
         ]
       }
+      blocked_email_domains: {
+        Row: {
+          domain: string
+          reason: string
+        }
+        Insert: {
+          domain: string
+          reason?: string
+        }
+        Update: {
+          domain?: string
+          reason?: string
+        }
+        Relationships: []
+      }
       businesses: {
         Row: {
           created_at: string
@@ -1325,6 +1340,86 @@ export type Database = {
           },
         ]
       }
+      organization_identity: {
+        Row: {
+          created_at: string
+          kind: Database["public"]["Enums"]["identity_kind"]
+          organization_id: string
+          value: string
+        }
+        Insert: {
+          created_at?: string
+          kind: Database["public"]["Enums"]["identity_kind"]
+          organization_id: string
+          value: string
+        }
+        Update: {
+          created_at?: string
+          kind?: Database["public"]["Enums"]["identity_kind"]
+          organization_id?: string
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_identity_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organization_trials: {
+        Row: {
+          blocked_reason: string | null
+          created_at: string
+          ends_at: string
+          organization_id: string
+          plan_key: string
+          review_note: string | null
+          started_at: string
+          status: Database["public"]["Enums"]["trial_status"]
+          updated_at: string
+        }
+        Insert: {
+          blocked_reason?: string | null
+          created_at?: string
+          ends_at: string
+          organization_id: string
+          plan_key: string
+          review_note?: string | null
+          started_at?: string
+          status?: Database["public"]["Enums"]["trial_status"]
+          updated_at?: string
+        }
+        Update: {
+          blocked_reason?: string | null
+          created_at?: string
+          ends_at?: string
+          organization_id?: string
+          plan_key?: string
+          review_note?: string | null
+          started_at?: string
+          status?: Database["public"]["Enums"]["trial_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_trials_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_trials_plan_key_fkey"
+            columns: ["plan_key"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
       organizations: {
         Row: {
           address: string | null
@@ -1427,6 +1522,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      plans: {
+        Row: {
+          is_public: boolean
+          key: string
+          label: string
+          position: number
+          products: Database["public"]["Enums"]["product_key"][]
+          trial_days: number
+        }
+        Insert: {
+          is_public?: boolean
+          key: string
+          label: string
+          position?: number
+          products: Database["public"]["Enums"]["product_key"][]
+          trial_days?: number
+        }
+        Update: {
+          is_public?: boolean
+          key?: string
+          label?: string
+          position?: number
+          products?: Database["public"]["Enums"]["product_key"][]
+          trial_days?: number
+        }
+        Relationships: []
       }
       product_entitlements: {
         Row: {
@@ -1670,6 +1792,18 @@ export type Database = {
           full_name?: string | null
           id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      public_email_domains: {
+        Row: {
+          domain: string
+        }
+        Insert: {
+          domain: string
+        }
+        Update: {
+          domain?: string
         }
         Relationships: []
       }
@@ -2752,6 +2886,8 @@ export type Database = {
         Returns: Json
       }
       my_org_ids: { Args: never; Returns: string[] }
+      normalize_business_name: { Args: { p: string }; Returns: string }
+      normalize_phone: { Args: { p: string }; Returns: string }
       org_agency: { Args: { p_org: string }; Returns: string }
       org_entitled: {
         Args: { p_org: string; p_product: string }
@@ -2910,6 +3046,12 @@ export type Database = {
         | "Declined"
         | "Withdrawn"
       funding_provenance: "bes_saas_synced" | "agency_manual"
+      identity_kind:
+        | "email"
+        | "email_domain"
+        | "phone"
+        | "business_name"
+        | "ein"
       membership_kind: "agency" | "organization" | "external"
       org_role:
         | "org_admin"
@@ -2937,6 +3079,7 @@ export type Database = {
         | "crm"
         | "workspaces"
         | "talentOps"
+      trial_status: "active" | "converted" | "expired" | "blocked"
       webhook_delivery_status: "emitted" | "failed" | "skipped"
       webhook_endpoint_type: "ghl" | "disputefox" | "generic"
       work_priority: "Normal" | "High" | "Urgent"
@@ -3215,6 +3358,7 @@ export const Constants = {
         "Withdrawn",
       ],
       funding_provenance: ["bes_saas_synced", "agency_manual"],
+      identity_kind: ["email", "email_domain", "phone", "business_name", "ein"],
       membership_kind: ["agency", "organization", "external"],
       org_role: [
         "org_admin",
@@ -3244,6 +3388,7 @@ export const Constants = {
         "workspaces",
         "talentOps",
       ],
+      trial_status: ["active", "converted", "expired", "blocked"],
       webhook_delivery_status: ["emitted", "failed", "skipped"],
       webhook_endpoint_type: ["ghl", "disputefox", "generic"],
       work_priority: ["Normal", "High", "Urgent"],

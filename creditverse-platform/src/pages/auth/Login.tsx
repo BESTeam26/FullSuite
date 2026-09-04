@@ -3,6 +3,7 @@ import { Link, Navigate, useLocation } from "react-router-dom";
 import { ShieldCheck, Mail, Lock, ArrowRight, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PlanPicker } from "@/components/auth/PlanPicker";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useSeo } from "@/lib/use-seo";
@@ -18,6 +19,9 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [businessName, setBusinessName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [plan, setPlan] = useState("creditops");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -49,7 +53,7 @@ const Login = () => {
         if (!result.error) setNotice("Check your inbox for a sign-in link.");
         break;
       case "signup":
-        result = await auth.signUp(email, password, fullName);
+        result = await auth.signUp(email, password, fullName, { businessName, phone, plan });
         if (!result.error)
           setNotice(
             "Account created. Confirm your email, then ask an administrator to grant workspace access.",
@@ -137,6 +141,36 @@ const Login = () => {
                     required
                     className="border-white/10 bg-white/5 text-white placeholder:text-white/30"
                   />
+                  <Label htmlFor="businessName" className="text-white/80">
+                    Business / company name
+                  </Label>
+                  <Input
+                    id="businessName"
+                    value={businessName}
+                    onChange={(e) => setBusinessName(e.target.value)}
+                    required
+                    maxLength={80}
+                    placeholder="Your company as registered"
+                    className="border-white/10 bg-white/5 text-white placeholder:text-white/30"
+                  />
+                  <Label htmlFor="phone" className="text-white/80">
+                    Business phone
+                  </Label>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    autoComplete="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="(555) 555-0100"
+                    className="border-white/10 bg-white/5 text-white placeholder:text-white/30"
+                  />
+                  <PlanPicker value={plan} onChange={setPlan} />
+                  <p className="text-[11px] text-white/50">
+                    Your organization is created when you confirm your email. A 30-day
+                    introductory trial starts then, unless your business already has an
+                    organization with BES.
+                  </p>
                 </div>
               )}
 

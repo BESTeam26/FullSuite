@@ -2290,3 +2290,58 @@ rgb(17,18,19)) with the content readable.
 
 **Verified:** typecheck clean, 245 tests, 0 lint errors, build, no circular
 deps, verify-live, migrations 45/45. RLS matrix: **243/243** (`--phase=12`, 8 new checks).
+
+
+---
+
+## Data purge (authorized by Dee, 2026-09-04) · DONE
+
+Removed, in one transaction with counts before/after: the five sample
+organizations (Apex Credit Co., CreditFix Solutions, Pioneer Credit Solutions,
+Vantage Funding Group, Empire Capital & Credit), the two sample outsourcing
+groups (CRC Outsourcing — Q3 Cohort, Metro Dispute Partners), and everything
+hanging off them — 10 clients, 7 work items, 39 activity rows, 4 rows of test
+production logged on fake clients, engagements, businesses, entitlements. The
+five `[TEST]` organizations, `[TEST] Summit Outsourcing`, all `@bes.test`
+fixtures and everything we created together remain. Demo-mode seed arrays in
+the frontend are unchanged (they render only without a backend and carry the
+demo badge).
+
+---
+
+## Self-serve sign-up · DONE (migrations 0041–0043)
+
+Design in `ARCHITECTURE_PROPOSAL_SIGNUP.md`. Built so far: `plans` (data, 4
+provisional bundles, no prices yet), `organization_trials`,
+`organization_identity`, public and blocked mail-domain tables, normalisers,
+and `provision_self_serve_organization()` — fired AFTER UPDATE OF
+`email_confirmed_at` on `auth.users`, idempotent per user, creating the
+organization (BES- ID), the `org_admin` membership, the plan's entitlements and
+a 30-day trial; an exact identifier match (email, phone, non-public email
+domain) blocks the trial and disables entitlements, a business-name-only match
+flags the trial for BES review; identities are recorded for the next signer;
+disposable-mail domains and unknown plans are refused. Frontend: the
+Create-account panel collects business name, phone and plan (PlanPicker from
+the `plans` table); `signUp` carries them in the user metadata; the organization
+dashboard shows the trial state (active until, blocked, expired). Payment
+activation (Authorize.Net) waits for credentials in the environment.
+
+**Found by the matrix, fixed before commit:** (0042) `text[] || 'literal'` made
+Postgres parse the literal as an array, so any identifier match crashed the
+provisioning trigger and the trial-abuse check never blocked or flagged
+anything; `array_append` is unambiguous. (0043) the derived organization code
+(business prefix + first four characters of the user id) collided for similar
+business names whose signers' ids share a prefix; the suffix is now redrawn
+until the `(agency, code)` pair is unused. Direct re-runs: a known phone blocks
+the second business's trial and disables its entitlements; a name-only match
+gets an active trial flagged `name_match_review` with distinct codes.
+
+**Probed (phase 13, 13 checks):** creation only on confirmation; BES- ID; the
+plan's products; a 30-day trial; four identities recorded; public mail domains
+not treated as business identity; disposable domains and unknown plans refused
+with their exact messages; another organization's admin cannot read the trial;
+the public form can list plans.
+
+**Verified:** typecheck clean, 246 tests, 0 lint errors, build, no circular
+deps, verify-live (trial and domain tables denied to anon), migrations 48/48.
+RLS matrix: 256/256 (phase ≤ 13; rerun after the harness capture fix).

@@ -590,5 +590,51 @@ if (PHASE >= 12) {
   }
 }
 
+
+/* ---------------- Phase 13: self-serve sign-up provisioning ----------------
+   An organization is created on EMAIL CONFIRMATION, never at sign-up; the
+   signer becomes org_admin; the plan's products are enabled; a 30-day trial
+   starts unless the business is already known (exact identifier → blocked,
+   entitlements off; name-only match → trial with review flag). Every probe
+   seeds an unconfirmed user inside a rolled-back transaction and flips
+   email_confirmed_at to fire the trigger. */
+if (PHASE >= 13) {
+  const seed = (email, meta) => `
+    insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
+    values ('99999999-0000-4000-8000-000000000001', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', '${email}', 'x', null, '{"provider":"email","providers":["email"]}', '${JSON.stringify(meta)}'::jsonb, now(), now());`;
+  const confirm = `update auth.users set email_confirmed_at = now() where id = '99999999-0000-4000-8000-000000000001';`;
+  const S = (email, meta, select) => { try { return q(`begin; ${seed(email, meta)} ${confirm} ${select}; rollback;`)[0]; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*\d+: [^"\\\n]*/); return { rows: "ERR " + (m ? m[0].trim() : "unknown") }; } };
+
+  const NEW = { full_name: "Probe Person", business_name: "Probe Ventures LLC", phone: "(555) 010-9999", plan: "growth" };
+  const P13 = [
+    ["confirmation creates one organization for the signer",           () => S("probe@probe-ventures.test", NEW, `select count(*)::int as rows from public.organizations o join public.org_memberships m on m.organization_id = o.id where m.user_id = '99999999-0000-4000-8000-000000000001' and m.role = 'org_admin'`).rows, 1],
+    ["…with a BES- Organization ID",                                     () => S("probe@probe-ventures.test", NEW, `select count(*)::int as rows from public.organizations o join public.org_memberships m on m.organization_id = o.id where m.user_id = '99999999-0000-4000-8000-000000000001' and o.public_id ~ '^BES-[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}$'`).rows, 1],
+    ["…the plan's products enabled (growth = 3)",                        () => S("probe@probe-ventures.test", NEW, `select count(*)::int as rows from public.product_entitlements e join public.org_memberships m on m.organization_id = e.organization_id where m.user_id = '99999999-0000-4000-8000-000000000001' and e.enabled`).rows, 3],
+    ["…and an active 30-day trial",                                      () => S("probe@probe-ventures.test", NEW, `select count(*)::int as rows from public.organization_trials t join public.org_memberships m on m.organization_id = t.organization_id where m.user_id = '99999999-0000-4000-8000-000000000001' and t.status = 'active' and t.ends_at between now() + interval '29 days' and now() + interval '31 days'`).rows, 1],
+    ["…identities recorded (email, phone, business name, domain)",       () => S("probe@probe-ventures.test", NEW, `select count(*)::int as rows from public.organization_identity i join public.org_memberships m on m.organization_id = i.organization_id where m.user_id = '99999999-0000-4000-8000-000000000001'`).rows, 4],
+    ["sign-up alone (unconfirmed) creates nothing",                      () => { try { return q(`begin; ${seed("probe@probe-ventures.test", NEW)} select count(*)::int as rows from public.org_memberships where user_id = '99999999-0000-4000-8000-000000000001'; rollback;`)[0].rows; } catch (e) { return "ERR"; } }, 0],
+    ["a public-mail domain is not recorded as a business identity",     () => S("probe@gmail.com", NEW, `select count(*)::int as rows from public.organization_identity i join public.org_memberships m on m.organization_id = i.organization_id where m.user_id = '99999999-0000-4000-8000-000000000001' and i.kind = 'email_domain'`).rows, 0],
+    ["a disposable-mail domain is refused",                              () => S("probe@mailinator.com", NEW, `select 1 as rows`).rows, "ERR ERROR:  23514: Sign-ups from this email provider are not accepted"],
+    ["a known phone blocks the second business's trial and disables access", () => q(`begin; ${seed("probe@probe-ventures.test", NEW)} ${confirm}
+              insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at) values ('99999999-0000-4000-8000-000000000002','00000000-0000-0000-0000-000000000000','authenticated','authenticated','other@probe-two.test','x',null,'{}','${JSON.stringify({ ...NEW, business_name: "Totally Different Co", phone: "555 010 9999" })}'::jsonb,now(),now());
+              update auth.users set email_confirmed_at = now() where id = '99999999-0000-4000-8000-000000000002';
+              select (select status::text from public.organization_trials t join public.org_memberships m on m.organization_id=t.organization_id where m.user_id='99999999-0000-4000-8000-000000000002') || ':' || (select count(*) from public.product_entitlements e join public.org_memberships m on m.organization_id=e.organization_id where m.user_id='99999999-0000-4000-8000-000000000002' and e.enabled)::text as rows; rollback;`)[0].rows, "blocked:0"],
+    ["a business-name-only match gets a trial flagged for review",      () => q(`begin; ${seed("probe@probe-ventures.test", NEW)} ${confirm}
+              insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at) values ('99999999-0000-4000-8000-000000000002','00000000-0000-0000-0000-000000000000','authenticated','authenticated','someone@gmail.com','x',null,'{}','${JSON.stringify({ full_name: "P", business_name: "Probe Ventures, Inc.", plan: "creditops" })}'::jsonb,now(),now());
+              update auth.users set email_confirmed_at = now() where id = '99999999-0000-4000-8000-000000000002';
+              select (select status::text || ':' || coalesce(blocked_reason,'') from public.organization_trials t join public.org_memberships m on m.organization_id=t.organization_id where m.user_id='99999999-0000-4000-8000-000000000002') as rows; rollback;`)[0].rows, "active:name_match_review"],
+    ["an unknown plan is refused",                                       () => S("probe@probe-ventures.test", { ...NEW, plan: "platinum" }, `select 1 as rows`).rows, "ERR ERROR:  23514: Unknown plan"],
+    ["organization users read their trial; another org's admin cannot", () => S("probe@probe-ventures.test", NEW, `set local role authenticated; set local request.jwt.claims = '{"sub":"${U["org2.owner@bes.test"]}","role":"authenticated"}'; select count(*)::int as rows from public.organization_trials t where t.organization_id in (select organization_id from public.org_memberships where user_id='99999999-0000-4000-8000-000000000001')`).rows, 0],
+    ["plans are readable by the public form",                            () => { try { return q(`begin; set local role anon; select count(*)::int as rows from public.plans where is_public; rollback;`)[0].rows; } catch (e) { return "ERR"; } }, 4],
+  ];
+  console.log("\nphase 13:");
+  for (const [label, fn, want] of P13) {
+    checks++;
+    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
+    const ok = got === want; if (!ok) fails++;
+    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
+  }
+}
+
 console.log(`\n${checks - fails}/${checks} checks passed (phase ≤ ${PHASE})`);
 process.exit(fails ? 1 : 0);

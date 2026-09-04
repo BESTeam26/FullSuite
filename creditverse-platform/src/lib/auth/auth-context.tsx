@@ -80,6 +80,8 @@ export interface AuthContextValue {
     email: string,
     password: string,
     fullName: string,
+    /** Self-serve sign-up: the organization is created on email confirmation from these. */
+    business?: { businessName: string; phone?: string; plan: string },
   ) => Promise<{ error: string | null }>;
   resetPassword: (email: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
@@ -258,13 +260,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const signUp = useCallback(
-    async (email: string, password: string, fullName: string) => {
+    async (
+      email: string,
+      password: string,
+      fullName: string,
+      business?: { businessName: string; phone?: string; plan: string },
+    ) => {
       if (!supabase) return { error: "Backend not configured." };
+      // Nothing is created here. The database provisions the organization,
+      // membership, entitlements and trial when the email is confirmed.
       const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: { full_name: fullName },
+          data: {
+            full_name: fullName,
+            ...(business
+              ? { business_name: business.businessName.trim(), phone: business.phone?.trim() || null, plan: business.plan }
+              : {}),
+          },
           emailRedirectTo: `${siteUrl}/auth/callback`,
         },
       });
