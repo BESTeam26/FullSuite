@@ -209,3 +209,14 @@ used to route.
 | tenancy columns | derived from the subject | `production_logs_derive_context` (definer BEFORE trigger, not executable by API roles) |
 | `production_departments` SELECT | agency staff | `is_agency_staff()`; no writes via API |
 | `work_items_completion_production` | one production row per BES-completed work-item-service item | definer AFTER trigger; `is_staff_of` guard; deterministic `request_id` |
+
+
+### 0036 / 0037 — workspace owner experience
+
+| Object | Rule | How |
+|---|---|---|
+| `work_items.assigned_to` | a legitimate person for the record | trigger `work_items_assignee_allowed`: ORGANIZATION → active org member, or agency staff under a live `work` share of the item's workspace/board; AGENCY → agency staff |
+| `work_item_field_values` | typed by the field; archived and cross-workspace fields refused | trigger `work_item_field_values_validate` |
+| `workspace_fields.options` | `{choices: [...]}` or absent | check constraint |
+| `workspaces_select` | member of an entitled org (row-local), or reach via share, or assignee of an item in it | rewritten so `INSERT … RETURNING` no longer fails for the creator |
+| configuration writes | `is_org_admin(org)` — which includes `org_manager` (pre-existing) | unchanged; the UI gate now mirrors it |

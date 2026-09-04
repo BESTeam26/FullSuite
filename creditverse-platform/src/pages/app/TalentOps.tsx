@@ -24,8 +24,9 @@ import { useFulfillment } from "@/lib/data/use-fulfillment";
 import { isEngagementLive } from "@/lib/data/fulfillment-engagements";
 import { useAllWorkspaceItems, useSharedWorkspaces } from "@/lib/data/use-workspaces";
 import { useActiveShares } from "@/lib/data/use-workspace-shares";
-import { openItemCount, type Workspace } from "@/lib/workspaces/workspace-domain";
+import { openItemCount, type Workspace, type WorkspaceItem } from "@/lib/workspaces/workspace-domain";
 import { WorkspaceBoard } from "@/components/workspaces/WorkspaceBoard";
+import { WorkItemDrawer } from "@/components/workspaces/WorkItemDrawer";
 import { cn } from "@/lib/utils";
 
 export default function TalentOps() {
@@ -36,6 +37,7 @@ export default function TalentOps() {
   const { shares } = useActiveShares();
   const { engagements } = useFulfillment();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [openItem, setOpenItem] = useState<WorkspaceItem | null>(null);
   const meId = auth.user?.id ?? null;
 
   const talentOps = engagements.filter((e) => e.service === "talentops" && isEngagementLive(e));
@@ -129,7 +131,11 @@ export default function TalentOps() {
                 meId={meId}
                 readOnly={!canWork(selected)}
                 subtitle={`Shared by ${selected.organizationName ?? orgName(selected.organizationId)} under TalentOps`}
+                onOpenItem={setOpenItem}
               />
+            )}
+            {selected && (
+              <WorkItemDrawer key={openItem?.id ?? "none"} itemId={openItem?.id ?? null} workspace={selected} members={[]} teams={[]} canAssign={false} readOnly={!canWork(selected)} onClose={() => setOpenItem(null)} />
             )}
           </div>
         ),

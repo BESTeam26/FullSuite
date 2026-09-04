@@ -51,6 +51,9 @@ const T = q(`select
   -- division ceiling ∪ own assignments: "assignment always counts, whatever the ceiling"
   (select count(*) from public.work_items where division='creditops' or assigned_to=(select id from public.profiles where email='bes.manager@bes.test'))::int as work_creditops,
   (select count(*) from public.work_attention where division='creditops' or assigned_to=(select id from public.profiles where email='bes.manager@bes.test'))::int as attention_creditops,
+  (select count(*) from public.work_items w where w.organization_id='dddddddd-0000-4000-8000-80ce8814eb05' and w.scope='ORGANIZATION')::int
+   + (select count(*) from public.work_items w where w.scope='AGENCY' and w.division='bes_crm' and w.subject_organization_id='dddddddd-0000-4000-8000-80ce8814eb05')::int as lakeside_org_work,
+  (select count(*) from public.work_attention a join public.work_items w on w.id=a.id where w.organization_id='dddddddd-0000-4000-8000-80ce8814eb05' and w.scope='ORGANIZATION')::int as lakeside_org_attention,
   (select id from public.fulfillment_clients where name='[TEST] Evan Ellis') as lakeside_client,
   (select id from public.fulfillment_clients where organization_id=(select id from public.organizations where name='[TEST] Cedar Financial') limit 1) as cedar_client,
   (select id from public.teams where name like 'CreditOps%Team A%' limit 1) as team_a,
@@ -99,7 +102,7 @@ const E = {
   // THE key negative control: BES staff, assigned nothing → sees nothing operational
   "bes.restricted@bes.test": { work: 0, attention: 0, fclients: 0, fund: 0, lakeside_by_id: 0, cedar_by_id: 0, can_update_lakeside: 0, can_update_cedar: 0 },
   // Organization users: tenant only, unchanged by BES scope
-  "org.owner@bes.test":  { work: 3, /* 2 workspace items + 1 CRM project; the BES support task about Lakeside is no longer theirs (0031) */ attention: 0, fclients: 2, fund: 1, lakeside_by_id: 1, cedar_by_id: 0, can_update_cedar: 0 },
+  "org.owner@bes.test":  { work: T.lakeside_org_work, /* every ORGANIZATION item of Lakeside + its entitled BES CRM projects; the BES support task about Lakeside is not theirs (0031) */ attention: T.lakeside_org_attention, fclients: 2, fund: 1, lakeside_by_id: 1, cedar_by_id: 0, can_update_cedar: 0 },
   "org2.owner@bes.test": { work: 1, attention: 0, fclients: 2, fund: 0, lakeside_by_id: 0, cedar_by_id: 0, can_update_lakeside: 0, can_update_cedar: 0 },
   "probe.agent@bes.test":{ work: 0, attention: 0, fclients: 0, fund: 0, lakeside_by_id: 0, cedar_by_id: 0, can_update_lakeside: 0, can_update_cedar: 0 },
 };
@@ -192,7 +195,7 @@ if (PHASE >= 2) {
     // ---- organization side ----
     ["org.manager sees the unassigned Lakeside client",        () => R(U["org.manager@bes.test"], S2).dana_by_id, 1],
     ["org.agent (assigned_only) does not",                      () => R(U["org.agent@bes.test"], S2).dana_by_id, 0],
-    ["org.agent sees only activity on their own clients",       () => R(U["org.agent@bes.test"], S2).activity, orgAgentAct],
+    ["org.agent sees only activity on their own clients",       () => R(U["org.agent@bes.test"], S2).activity, q(`select count(*)::int n from public.activity_events a where (a.entity_type=\'fulfillment_client\' and a.entity_id in (select id::text from public.fulfillment_clients where assigned_agent_id=\'${U["org.agent@bes.test"]}\')) or (a.entity_type=\'work_item\' and a.entity_id in (select id::text from public.work_items where assigned_to=\'${U["org.agent@bes.test"]}\') and a.visibility <> \'bes_internal\')`)[0].n],
     // ---- escalation paths ----
     ["org.manager cannot self-promote to org_admin",  () => W(U["org.manager@bes.test"], `with u as (update public.org_memberships set role='org_admin' where user_id=auth.uid() returning 1) select count(*)::int as rows from u`).rows, 0],
     ["agent cannot widen their own scope",            () => W(U["bes.credit@bes.test"], `with u as (update public.agency_memberships set scope='agency' where user_id=auth.uid() returning 1) select count(*)::int as rows from u`).rows, 0],
@@ -314,9 +317,9 @@ if (PHASE >= 6) {
   const W6 = (uid, stmt) => { try { return q(`begin; set local role authenticated; ${as(uid)}; ${stmt}; rollback;`)[0]; } catch (e) { return { rows: 0, refused: true }; } };
   const W6sudo = (setup, uid, stmt) => { try { return q(`begin; ${setup}; set local role authenticated; ${as(uid)}; ${stmt}; rollback;`)[0]; } catch (e) { return { rows: 0, refused: true }; } };
   const P6 = [
-    ["org owner sees the fixture workspace",                       () => W6(orgOwner, `select count(*)::int as rows from public.workspaces`).rows, 1],
+    ["org owner sees the fixture workspace",                       () => W6(orgOwner, `select count(*)::int as rows from public.workspaces where id='ee000000-0000-4000-8000-000000000001'`).rows, 1],
     ["…with its 4 statuses",                                       () => W6(orgOwner, `select count(*)::int as rows from public.workspace_statuses where workspace_id='${WS}'`).rows, 4],
-    ["…and both fixture items",                                    () => W6(orgOwner, `select count(*)::int as rows from public.work_items where workspace_id='${WS}'`).rows, 2],
+    ["…and both fixture items",                                    () => W6(orgOwner, `select count(*)::int as rows from public.work_items where workspace_id='${WS}'`).rows, q(`select count(*)::int n from public.work_items where workspace_id='${WS}'`)[0].n],
     ["BES CreditOps manager (engaged, division scope) sees NO workspace", () => W6(U["bes.manager@bes.test"], `select count(*)::int as rows from public.workspaces`).rows, 0],
     ["…and NO workspace items — outside TalentOps scope",         () => W6(U["bes.manager@bes.test"], `select count(*)::int as rows from public.work_items where workspace_id is not null`).rows, 0],
     ["org2 owner (not entitled) sees no workspace even in own org", () => W6sudo(`insert into public.workspaces (organization_id, name) values ('${NORTHGATE}', 'probe')`, org2Owner, `select count(*)::int as rows from public.workspaces`).rows, 0],
@@ -359,20 +362,20 @@ if (PHASE >= 7) {
   const W7sudo = (setup, uid, stmt) => { try { return q(`begin; ${setup}; set local role authenticated; ${as(uid)}; ${stmt}; rollback;`)[0]; } catch (e) { return { rows: 0, refused: true }; } };
   const P7 = [
     ["BES owner now sees the shared workspace",                     () => W7(besOwner, `select count(*)::int as rows from public.workspaces`).rows, 1],
-    ["…and its 2 items",                                            () => W7(besOwner, `select count(*)::int as rows from public.work_items where workspace_id='${WS}'`).rows, 2],
+    ["…and its 2 items",                                            () => W7(besOwner, `select count(*)::int as rows from public.work_items where workspace_id='${WS}'`).rows, q(`select count(*)::int n from public.work_items where workspace_id='${WS}'`)[0].n],
     ["…and may move one (access 'work')",                           () => W7(besOwner, `with u as (update public.work_items set status_id='${DONE}' where id='${ITEM_OPEN}' returning 1) select count(*)::int as rows from u`).rows, 1],
     ["with access 'view', BES cannot move it",                      () => W7sudo(`update public.workspace_shares set access='view' where id='${SHARE}'`, besOwner, `with u as (update public.work_items set status_id='${DONE}' where id='${ITEM_OPEN}' returning 1) select count(*)::int as rows from u`).rows, 0],
-    ["…but still sees it",                                          () => W7sudo(`update public.workspace_shares set access='view' where id='${SHARE}'`, besOwner, `select count(*)::int as rows from public.work_items where workspace_id='${WS}'`).rows, 2],
+    ["…but still sees it",                                          () => W7sudo(`update public.workspace_shares set access='view' where id='${SHARE}'`, besOwner, `select count(*)::int as rows from public.work_items where workspace_id='${WS}'`).rows, q(`select count(*)::int n from public.work_items where workspace_id='${WS}'`)[0].n],
     ["revoked share → BES sees nothing",                            () => W7sudo(`update public.workspace_shares set revoked_at=now() where id='${SHARE}'`, besOwner, `select count(*)::int as rows from public.workspaces`).rows, 0],
     ["ended engagement → BES sees nothing",                         () => W7sudo(`update public.fulfillment_engagements set status='ended' where id='${ENG}'`, besOwner, `select count(*)::int as rows from public.workspaces`).rows, 0],
-    ["board-level share hides items on other boards",              () => W7sudo(`insert into public.workspace_boards (id, workspace_id, name) values ('ee000000-0000-4000-8000-000000000012','${WS}','Other'); update public.work_items set board_id='ee000000-0000-4000-8000-000000000012' where id='${ITEM_OPEN}'; update public.workspace_shares set board_id='${BOARD}' where id='${SHARE}'`, besOwner, `select count(*)::int as rows from public.work_items where workspace_id='${WS}'`).rows, 1],
+    ["board-level share hides items on other boards",              () => W7sudo(`insert into public.workspace_boards (id, workspace_id, name) values ('ee000000-0000-4000-8000-000000000012','${WS}','Other'); update public.work_items set board_id='ee000000-0000-4000-8000-000000000012' where id='${ITEM_OPEN}'; update public.workspace_shares set board_id='${BOARD}' where id='${SHARE}'`, besOwner, `select count(*)::int as rows from public.work_items where workspace_id='${WS}'`).rows, q(`select count(*)::int n from public.work_items where workspace_id='${WS}'`)[0].n - 1],
     ["…and hides the other board itself",                          () => W7sudo(`insert into public.workspace_boards (id, workspace_id, name) values ('ee000000-0000-4000-8000-000000000012','${WS}','Other'); update public.workspace_shares set board_id='${BOARD}' where id='${SHARE}'`, besOwner, `select count(*)::int as rows from public.workspace_boards where workspace_id='${WS}'`).rows, 1],
     ["division-scoped CreditOps manager is outside TalentOps scope", () => W7(besManager, `select count(*)::int as rows from public.workspaces`).rows, 0],
     ["assigned-scope agent sees no container…",                    () => W7(besRestricted, `select count(*)::int as rows from public.workspaces`).rows, 0],
     ["…but an item assigned to them (assignment always counts)",   () => W7sudo(`update public.work_items set assigned_to='${besCredit}' where id='${ITEM_OPEN}'`, besCredit, `select count(*)::int as rows from public.work_items where id='${ITEM_OPEN}'`).rows, 1],
     ["BES owner cannot create a share for itself",                 () => W7(besOwner, `with i as (insert into public.workspace_shares (workspace_id, engagement_id) values ('${WS}','${ENG}') returning 1) select count(*)::int as rows from i`).rows, 0],
     ["org admin cannot share under another org's engagement",      () => W7sudo(`insert into public.workspaces (id, organization_id, name) values ('ee000000-0000-4000-8000-000000000002','${NORTHGATE}','probe'); update public.product_entitlements set enabled=true where organization_id='${NORTHGATE}' and product='workspaces'`, org2Owner, `with i as (insert into public.workspace_shares (workspace_id, engagement_id) values ('ee000000-0000-4000-8000-000000000002','${ENG}') returning 1) select count(*)::int as rows from i`).rows, 0],
-    ["org owner sees the share row; org2 owner does not",         () => W7(orgOwner, `select count(*)::int as rows from public.workspace_shares`).rows + W7(org2Owner, `select count(*)::int as rows from public.workspace_shares`).rows * 10, 1],
+    ["org owner sees the fixture share row; org2 owner does not", () => W7(orgOwner, `select count(*)::int as rows from public.workspace_shares where id=\'${SHARE}\'`).rows + W7(org2Owner, `select count(*)::int as rows from public.workspace_shares where id=\'${SHARE}\'`).rows * 10, 1],
     ["org owner can revoke (update revoked_at)",                   () => W7(orgOwner, `with u as (update public.workspace_shares set revoked_at=now() where id='${SHARE}' returning 1) select count(*)::int as rows from u`).rows, 1],
     ["share creation is audited with actor",                       () => W7(orgOwner, `insert into public.workspace_shares (workspace_id, engagement_id, board_id) values ('${WS}','${ENG}','${BOARD}'); set local role postgres; select count(*)::int as rows from public.audit_log where entity_type='workspace_shares' and created_at >= now() and actor_id='${orgOwner}'`).rows, 1],
   ];
@@ -496,6 +499,61 @@ if (PHASE >= 10) {
   ];
   console.log("\nphase 10:");
   for (const [label, fn, want] of P10) {
+    checks++;
+    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
+    const ok = got === want; if (!ok) fails++;
+    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
+  }
+}
+
+
+/* ---------------- Phase 11: workspace owner experience ----------------
+   Configuration is org-admin only; field values are typed by their field;
+   archived fields refuse new values; assignees must be legitimate for the
+   record; teams are the organization's; everything cross-org is denied. */
+if (PHASE >= 11) {
+  const orgOwner = U["org.owner@bes.test"], orgManager = U["org.manager@bes.test"], orgAgent = U["org.agent@bes.test"], org2Owner = U["org2.owner@bes.test"],
+        besOwner = U["bes.owner@bes.test"], besRestricted = U["bes.restricted@bes.test"], besManager = U["bes.manager@bes.test"];
+  const LAKESIDE = "dddddddd-0000-4000-8000-80ce8814eb05", NORTHGATE = "dddddddd-0000-4000-8000-3f3028d6b8f3";
+  const WS = "ee000000-0000-4000-8000-000000000001", BOARD = "ee000000-0000-4000-8000-000000000011", ITEM = "ee000000-0000-4000-8000-000000000102";
+  const DATE_FIELD = "ee000000-0000-4000-8000-000000000041";
+  const as = (uid) => `set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'`;
+  const W11 = (uid, stmt) => { try { return q(`begin; set local role authenticated; ${as(uid)}; ${stmt}; rollback;`)[0]; } catch (e) { return { rows: 0, refused: true }; } };
+  const W11sudo = (setup, uid, stmt) => { try { return q(`begin; ${setup}; set local role authenticated; ${as(uid)}; ${stmt}; rollback;`)[0]; } catch (e) { return { rows: 0, refused: true }; } };
+  const cnt = (stmt) => `with i as (${stmt} returning 1) select count(*)::int as rows from i`;
+  const P11 = [
+    ["org admin creates a workspace, board, status, type and field",  () => W11(orgOwner, `insert into public.workspaces (id, organization_id, name) values ('ee000000-0000-4000-8000-000000000009','${LAKESIDE}','probe'); insert into public.workspace_boards (workspace_id, name) values ('ee000000-0000-4000-8000-000000000009','b'); insert into public.workspace_statuses (workspace_id, key, label, canonical_stage, is_terminal) values ('ee000000-0000-4000-8000-000000000009','done','Done','Completed',true); insert into public.workspace_item_types (workspace_id, key, label) values ('ee000000-0000-4000-8000-000000000009','task','Task'); insert into public.workspace_fields (workspace_id, key, label, field_type, options) values ('ee000000-0000-4000-8000-000000000009','amount','Amount','number',null); select (select count(*) from public.workspaces where id='ee000000-0000-4000-8000-000000000009')::int + (select count(*) from public.workspace_statuses where workspace_id='ee000000-0000-4000-8000-000000000009')::int as rows`).rows, 2],
+    ["org manager configures too (is_org_admin includes org_manager — recorded fact)", () => W11(orgManager, cnt(`insert into public.workspaces (organization_id, name) values ('${LAKESIDE}','probe')`)).rows, 1],
+    ["org agent (processor) cannot create a workspace",                () => W11(orgAgent, cnt(`insert into public.workspaces (organization_id, name) values ('${LAKESIDE}','probe')`)).rows, 0],
+    ["org agent cannot add a status",                                  () => W11(orgAgent, cnt(`insert into public.workspace_statuses (workspace_id, key, label) values ('${WS}','x','X')`)).rows, 0],
+    ["org agent cannot rename the workspace",                          () => W11(orgAgent, cnt(`update public.workspace_statuses set label='hack' where id='ee000000-0000-4000-8000-000000000021'`)).rows, 0],
+    ["another org's admin cannot read or change the workspace (guessed id)", () => W11(org2Owner, `select (select count(*) from public.workspaces where id='${WS}')::int + (select count(*) from public.workspace_statuses where workspace_id='${WS}')::int + (select count(*) from public.work_items where workspace_id='${WS}')::int as rows`).rows, 0],
+    ["…nor update it",                                                 () => W11(org2Owner, cnt(`update public.workspaces set name='hack' where id='${WS}'`)).rows, 0],
+    ["a terminal flag must agree with the stage (check)",              () => W11(orgOwner, cnt(`insert into public.workspace_statuses (workspace_id, key, label, canonical_stage, is_terminal) values ('${WS}','odd','Odd','Queued',true)`)).rows, 0],
+    ["date field accepts a date",                                      () => W11(orgOwner, cnt(`insert into public.work_item_field_values (work_item_id, field_id, value) values ('${ITEM}','${DATE_FIELD}','"2026-10-01"'::jsonb)`)).rows, 1],
+    ["…and rejects a non-date",                                        () => W11(orgOwner, cnt(`insert into public.work_item_field_values (work_item_id, field_id, value) values ('${ITEM}','${DATE_FIELD}','"soon"'::jsonb)`)).rows, 0],
+    ["a field from another workspace is rejected",                     () => W11sudo(`insert into public.workspaces (id, organization_id, name) values ('ee000000-0000-4000-8000-000000000009','${LAKESIDE}','other'); insert into public.workspace_fields (id, workspace_id, key, label, field_type) values ('ee000000-0000-4000-8000-000000000049','ee000000-0000-4000-8000-000000000009','n','N','number')`, orgOwner, cnt(`insert into public.work_item_field_values (work_item_id, field_id, value) values ('${ITEM}','ee000000-0000-4000-8000-000000000049','1'::jsonb)`)).rows, 0],
+    ["an archived field refuses new values",                           () => W11sudo(`update public.workspace_fields set archived_at=now() where id='${DATE_FIELD}'`, orgOwner, cnt(`insert into public.work_item_field_values (work_item_id, field_id, value) values ('${ITEM}','${DATE_FIELD}','"2026-10-01"'::jsonb)`)).rows, 0],
+    ["select options must be {choices:[...]}",                         () => W11(orgOwner, cnt(`insert into public.workspace_fields (workspace_id, key, label, field_type, options) values ('${WS}','bad','Bad','select','["a"]'::jsonb)`)).rows, 0],
+    ["org admin assigns an item to an org member",                     () => W11(orgOwner, cnt(`update public.work_items set assigned_to='${orgAgent}' where id='${ITEM}'`)).rows, 1],
+    ["…but not to a guessed BES staff id once no live work share covers the workspace", () => W11sudo(`update public.workspace_shares set revoked_at=now() where workspace_id=\'${WS}\'`, orgOwner, cnt(`update public.work_items set assigned_to=\'${besRestricted}\' where id=\'${ITEM}\'`)).rows, 0],
+    ["…while a live work share exists, agency staff may be assigned (that is how BES routes agents)", () => W11(orgOwner, cnt(`update public.work_items set assigned_to=\'${besRestricted}\' where id=\'${ITEM}\'`)).rows, 1],
+    ["…the guessed id becomes valid only under the live 'work' share for BES staff (owner)", () => W11(orgOwner, cnt(`update public.work_items set assigned_to='${besOwner}' where id='${ITEM}'`)).rows, 1],
+    ["…and not to another organization's member",                     () => W11(orgOwner, cnt(`update public.work_items set assigned_to='${org2Owner}' where id='${ITEM}'`)).rows, 0],
+    ["org agent cannot assign someone else",                           () => W11(orgAgent, cnt(`update public.work_items set assigned_to='${orgOwner}' where id='${ITEM}'`)).rows, 0],
+    ["org admin creates an org team and adds a member",                () => W11(orgOwner, `insert into public.teams (id, organization_id, name) values ('ee000000-0000-4000-8000-000000000061','${LAKESIDE}','Ops'); ${cnt(`insert into public.team_memberships (team_id, user_id, is_lead) values ('ee000000-0000-4000-8000-000000000061','${orgAgent}',false)`)}`).rows, 1],
+    ["…but cannot add a BES agent to it",                              () => W11(orgOwner, `insert into public.teams (id, organization_id, name) values ('ee000000-0000-4000-8000-000000000061','${LAKESIDE}','Ops'); ${cnt(`insert into public.team_memberships (team_id, user_id, is_lead) values ('ee000000-0000-4000-8000-000000000061','${besRestricted}',false)`)}`).rows, 0],
+    ["an item may be routed to the org's own team, not another org's", () => W11sudo(`insert into public.teams (id, organization_id, name) values ('ee000000-0000-4000-8000-000000000062','${NORTHGATE}','Theirs')`, orgOwner, cnt(`update public.work_items set team_id='ee000000-0000-4000-8000-000000000062' where id='${ITEM}'`)).rows, 0],
+    ["org agent comments on an item assigned to them (organization_internal)", () => W11sudo(`update public.work_items set assigned_to=\'${orgAgent}\' where id=\'${ITEM}\'`, orgAgent, cnt(`insert into public.activity_events (agency_id, organization_id, entity_type, entity_id, actor_id, action, detail, visibility) values ('a0000000-0000-4000-8000-000000000001','${LAKESIDE}','work_item','${ITEM}',auth.uid(),'Comment posted','probe','organization_internal')`)).rows, 1],
+    ["…and BES (TalentOps-authorized) cannot read that internal note", () => W11sudo(`insert into public.activity_events (agency_id, organization_id, entity_type, entity_id, actor_id, action, detail, visibility) values ('a0000000-0000-4000-8000-000000000001','${LAKESIDE}','work_item','${ITEM}','${orgAgent}','Note','org private','organization_internal')`, besOwner, `select count(*)::int as rows from public.activity_events where entity_id='${ITEM}' and visibility='organization_internal'`).rows, 0],
+    ["BES without TalentOps authorization sees no workspace item activity at all", () => W11(besManager, `select count(*)::int as rows from public.activity_events where entity_id='${ITEM}'`).rows, 0],
+    ["org agent attaches a file to an item assigned to them", () => W11sudo(`update public.work_items set assigned_to=\'${orgAgent}\' where id=\'${ITEM}\'`, orgAgent, cnt(`insert into public.files (agency_id, organization_id, entity_type, entity_id, bucket, path, name, mime_type, size_bytes, uploaded_by) values ('a0000000-0000-4000-8000-000000000001','${LAKESIDE}','work_item','${ITEM}','bes-files','probe/x.pdf','x.pdf','application/pdf',1,auth.uid())`)).rows, 1],
+    ["…but not to another org's item",                                 () => W11(org2Owner, cnt(`insert into public.files (agency_id, organization_id, entity_type, entity_id, bucket, path, name, mime_type, size_bytes, uploaded_by) values ('a0000000-0000-4000-8000-000000000001','${NORTHGATE}','work_item','${ITEM}','bes-files','probe/x.pdf','x.pdf','application/pdf',1,auth.uid())`)).rows, 0],
+    ["org admin completes an item: stage Completed, completed_at set, no BES production", () => W11(orgOwner, `update public.work_items set status_id='ee000000-0000-4000-8000-000000000024' where id='${ITEM}'; set local role postgres; select (select count(*) from public.work_items where id='${ITEM}' and stage='Completed' and completed_at is not null)::int - (select count(*) from public.production_logs where work_item_id='${ITEM}')::int as rows`).rows, 1],
+    ["archiving a workspace hides it from the board but keeps its items", () => W11(orgOwner, `update public.workspaces set archived_at=now() where id='${WS}'; select (select count(*) from public.workspaces where id='${WS}' and archived_at is not null)::int + (select count(*) from public.work_items where workspace_id='${WS}')::int as rows`).rows,  1 + q(`select count(*)::int n from public.work_items where workspace_id='${WS}'`)[0].n],
+  ];
+  console.log("\nphase 11:");
+  for (const [label, fn, want] of P11) {
     checks++;
     let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
     const ok = got === want; if (!ok) fails++;

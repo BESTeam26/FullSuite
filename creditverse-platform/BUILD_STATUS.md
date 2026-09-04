@@ -2136,3 +2136,96 @@ from the "Underwriting / Readiness" group), deal attached, organization derived
 as Lakeside by the trigger, work date today. The row was then voided as a
 verification artifact (void reason recorded), which is the canonical
 correction path.
+
+
+---
+
+## Custom Workspaces — owner experience · DONE (migrations 0036, 0037)
+
+**What an entitled organization admin (or manager — `is_org_admin()` includes
+`org_manager`, a pre-existing rule the UI now mirrors) can do, all on the
+canonical engine:** create a workspace (name, description, fixed icon and
+colour sets), configure boards (add, reorder, archive; the last board stays),
+statuses (label, colour, reorder, delete when unused, **each mapped to a
+canonical work stage**; Completed is terminal by constraint), work types,
+custom fields (text, number, date, choice, checkbox; archived, never deleted),
+organization teams and their members (server-resolved membership list), share
+the workspace with BES under the existing TalentOps model (whole or one board,
+work or view, revoke), create items from a one-row quick-add (title, type,
+assignee, priority, due date), open an item drawer to edit title, description,
+status, assignee, team, priority, due date and typed field values, comment
+through the canonical composer with attachments, read the canonical activity
+stream, and mark work complete. Nothing here is a second store: items are
+`work_items`, comments and status history are `activity_events`, files are
+`files` rows linked to notes, notifications fan out from the same triggers.
+
+**Data-level rules added (0036):** `workspace_fields.archived_at`; a
+validation trigger typing every field value against its field (text ≤ 2000,
+number, YYYY-MM-DD date, one of the choices, boolean) and refusing archived or
+cross-workspace fields; `options` must be `{choices: [...]}`; **assignee
+legitimacy** — for ORGANIZATION work the assignee must be an active member of
+that organization or, in a workspace under a live `work` share, agency staff;
+for AGENCY work, agency staff. A guessed id the frontend happens to know can no
+longer be assigned.
+
+**Found in the browser (0037):** organization admins could never create a
+workspace — `INSERT … RETURNING` evaluated `workspaces_select`, whose member
+branch read the row through `workspace_reach()`, and a row being inserted is
+invisible to a subquery in the same statement. Latent since 0028 (the phase-6
+probes inserted as postgres). The member branch now evaluates on the row's own
+`organization_id`.
+
+**Browser proof, as an organization admin.** Fixture users have no passwords
+and I never type credentials, so the signed-in owner was given a **temporary
+`org_admin` membership in Lakeside** for the run and it was removed afterwards
+(the caveats this dual identity caused are listed below). In Lakeside's
+sub-account view: created `[TEST] Verification Ops` (target icon, purple) →
+statuses To do → Queued, Doing → In Processing, Done → Completed (terminal
+badge shown) → board Main → type Task → number field Budget → item `[TEST]
+Prepare Q3 acquisition memo` assigned to Rae Agent, High, due Sep 10 → drawer:
+Budget 1500 (stored as a typed number), comment posted, status → Doing, Mark
+complete → header "Completed 9/4/2026 · Engine stage: Completed". Sharing tab:
+Not shared → Share (whole, work) → Revoke → Not shared.
+
+**Canonical consequences verified in the database:** activity `Work item
+created`, `Status changed To do → Doing`, `Comment posted`, `Status changed
+Doing → Done`, all `shared_with_partner`; notifications to the assignee:
+`assigned`, `status`, `note`, `status`; `stage = Completed`, `completed_at`
+set; the assignee's My Work excludes it (open stages only); Attention empty
+(not blocked, not near due); Budget value `1500`. While shared, the
+TalentOps-authorized BES owner saw the workspace, its item and all four
+activity rows; the CreditOps-scoped manager, the restricted agent and another
+organization's admin saw nothing; after revoke the owner saw nothing either.
+
+**Caveats from the dual identity, not the product:** the composer defaulted to
+`bes_internal` because the tester is also staff, and the server refused it
+(`can_view_activity` treats an organization member as the customer first) — a
+real organization admin defaults to `organization_internal`, which the matrix
+proves accepted; and completion created one TalentOps production row because
+the completer is staff — voided with a recorded reason; the matrix proves a pure
+organization completer produces none. File upload through the composer could
+not be exercised by the automation (no file chooser); the `files` insert path
+for an organization agent is proven by the phase-11 matrix.
+
+**Artifacts left in the Lakeside fixture, labelled `[TEST]`:** the Verification
+Ops workspace and its completed item (its voided production row keeps the item
+by design); an item titled "ada" created from the other browser tab during the
+run, not by this work. The truth oracle for the org owner now derives from live
+rows instead of a hard-coded count.
+
+**Matrix triage, recorded:** the first phase-11 run reported twelve misses;
+all twelve were stale expectations, none a model defect. Nine were count drift
+from the real rows the browser run left in Lakeside (the verification
+workspace and its item, its revoked share, and the "ada" item due today, which
+correctly puts the org owner's Attention at 1 and gives the assigned agent four
+readable activity rows). Two probes used the wrong subject: the org agent
+cannot see the unassigned fixture item, so commenting and attaching there are
+rightly refused; the probes now assign it to her first. One had a wrong premise:
+the fixture workspace carries a live whole-workspace `work` share, under which
+agency staff are legitimately assignable (that is how BES routes agents), so
+the guessed-staff denial is probed with the share revoked, and the allow case
+under the live share is asserted explicitly. Hard-coded Lakeside counts in the
+truth oracle now derive from live rows.
+
+**Verified:** typecheck clean, 244 tests, 0 lint errors, build, no
+circular deps, verify-live, migrations 42/42. RLS matrix: **235/235** (`--phase=11`, 28 probes).

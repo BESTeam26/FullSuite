@@ -2269,6 +2269,7 @@ export type Database = {
       }
       workspace_fields: {
         Row: {
+          archived_at: string | null
           field_type: string
           id: string
           key: string
@@ -2278,6 +2279,7 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          archived_at?: string | null
           field_type: string
           id?: string
           key: string
@@ -2287,6 +2289,7 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          archived_at?: string | null
           field_type?: string
           id?: string
           key?: string
