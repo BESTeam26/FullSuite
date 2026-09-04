@@ -250,7 +250,7 @@ export const MyWorkPage = () => {
             activeRow={activeRow >= 0 ? activeRow : undefined}
             rows={items.map((w) => [
               w.title,
-              divisionOf(w.relatedType),
+              w.workspaceId ? "Workspace" : divisionOf(w.relatedType),
               <StatusPill status={w.stage} />,
               w.slaHoursRemaining ?? "—",
             ])}

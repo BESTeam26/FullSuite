@@ -42,8 +42,8 @@ const users = Object.fromEntries(q(`select email, id from public.profiles where 
 const T = q(`select
   -- Agency scope is not admin bypass: engagement still gates. The oracle mirrors that,
   -- so it would catch an engagement bypass rather than expect one.
-  (select count(*) from public.work_items w where w.workspace_id is null and (w.scope='AGENCY' or exists (select 1 from public.fulfillment_engagements e where e.organization_id=w.organization_id and public.engagement_is_live(e.status,e.effective_from,e.effective_to))))::int as work_total,
-  (select count(*) from public.work_attention w where not exists (select 1 from public.work_items wi where wi.id=w.id and wi.workspace_id is not null) and (w.scope='AGENCY' or exists (select 1 from public.fulfillment_engagements e where e.organization_id=w.organization_id and public.engagement_is_live(e.status,e.effective_from,e.effective_to))))::int as attention_total,
+  (select count(*) from public.work_items w where (w.workspace_id is null or exists (select 1 from public.workspace_shares s join public.fulfillment_engagements e on e.id=s.engagement_id where s.workspace_id=w.workspace_id and s.revoked_at is null and (s.board_id is null or s.board_id=w.board_id) and e.service='talentops' and public.engagement_is_live(e.status,e.effective_from,e.effective_to))) and (w.scope='AGENCY' or exists (select 1 from public.fulfillment_engagements e where e.organization_id=w.organization_id and public.engagement_is_live(e.status,e.effective_from,e.effective_to))))::int as work_total,
+  (select count(*) from public.work_attention a join public.work_items w on w.id=a.id where (w.workspace_id is null or exists (select 1 from public.workspace_shares s join public.fulfillment_engagements e on e.id=s.engagement_id where s.workspace_id=w.workspace_id and s.revoked_at is null and (s.board_id is null or s.board_id=w.board_id) and e.service='talentops' and public.engagement_is_live(e.status,e.effective_from,e.effective_to))) and (w.scope='AGENCY' or exists (select 1 from public.fulfillment_engagements e where e.organization_id=w.organization_id and public.engagement_is_live(e.status,e.effective_from,e.effective_to))))::int as attention_total,
   (select count(*) from public.fulfillment_clients c where exists (select 1 from public.fulfillment_engagements e where e.service='creditops' and public.engagement_is_live(e.status,e.effective_from,e.effective_to) and (e.organization_id=c.organization_id or e.outsourcing_group_id=c.outsourcing_group_id)))::int as fclients_total,
   (select count(*) from public.funding_clients c where exists (select 1 from public.fulfillment_engagements e where e.service='fundingops' and public.engagement_is_live(e.status,e.effective_from,e.effective_to) and (e.organization_id=c.organization_id or e.outsourcing_group_id=c.outsourcing_group_id)))::int as fund_total,
   -- division ceiling ∪ own assignments: "assignment always counts, whatever the ceiling"
@@ -315,8 +315,8 @@ if (PHASE >= 6) {
     ["org owner sees the fixture workspace",                       () => W6(orgOwner, `select count(*)::int as rows from public.workspaces`).rows, 1],
     ["…with its 4 statuses",                                       () => W6(orgOwner, `select count(*)::int as rows from public.workspace_statuses where workspace_id='${WS}'`).rows, 4],
     ["…and both fixture items",                                    () => W6(orgOwner, `select count(*)::int as rows from public.work_items where workspace_id='${WS}'`).rows, 2],
-    ["BES owner (engaged, agency scope) sees NO workspace",        () => W6(besOwner, `select count(*)::int as rows from public.workspaces`).rows, 0],
-    ["…and NO workspace items — no share exists yet",              () => W6(besOwner, `select count(*)::int as rows from public.work_items where workspace_id is not null`).rows, 0],
+    ["BES CreditOps manager (engaged, division scope) sees NO workspace", () => W6(U["bes.manager@bes.test"], `select count(*)::int as rows from public.workspaces`).rows, 0],
+    ["…and NO workspace items — outside TalentOps scope",         () => W6(U["bes.manager@bes.test"], `select count(*)::int as rows from public.work_items where workspace_id is not null`).rows, 0],
     ["org2 owner (not entitled) sees no workspace even in own org", () => W6sudo(`insert into public.workspaces (organization_id, name) values ('${NORTHGATE}', 'probe')`, org2Owner, `select count(*)::int as rows from public.workspaces`).rows, 0],
     ["…and once entitled, sees it",                                () => W6sudo(`update public.product_entitlements set enabled=true where organization_id='${NORTHGATE}' and product='workspaces'; insert into public.workspaces (organization_id, name) values ('${NORTHGATE}', 'probe')`, org2Owner, `select count(*)::int as rows from public.workspaces`).rows, 1],
     ["org2 owner cannot create a workspace without entitlement",   () => W6(org2Owner, `with i as (insert into public.workspaces (organization_id, name) values ('${NORTHGATE}', 'probe') returning 1) select count(*)::int as rows from i`).rows, 0],
@@ -332,6 +332,50 @@ if (PHASE >= 6) {
   ];
   console.log("\nphase 6:");
   for (const [label, fn, want] of P6) {
+    checks++;
+    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
+    const ok = got === want; if (!ok) fails++;
+    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
+  }
+}
+
+
+/* ---------------- Phase 7: TalentOps bridge (workspace_shares) ----------------
+   BES reaches an organization's workspace only through a live, unrevoked share
+   under a TalentOps engagement, within BES TalentOps scope. Board-level shares
+   hide sibling boards and their items. 'view' shares cannot write. The
+   organization authorizes; BES cannot share to itself. */
+if (PHASE >= 7) {
+  const orgOwner = U["org.owner@bes.test"], org2Owner = U["org2.owner@bes.test"], besOwner = U["bes.owner@bes.test"],
+        besManager = U["bes.manager@bes.test"], besRestricted = U["bes.restricted@bes.test"], besCredit = U["bes.credit@bes.test"];
+  const LAKESIDE = "dddddddd-0000-4000-8000-80ce8814eb05", NORTHGATE = "dddddddd-0000-4000-8000-3f3028d6b8f3";
+  const WS = "ee000000-0000-4000-8000-000000000001", BOARD = "ee000000-0000-4000-8000-000000000011";
+  const SHARE = "ee000000-0000-4000-8000-000000000051", ENG = "dddddddd-0000-4000-8000-000000000701";
+  const ITEM_OPEN = "ee000000-0000-4000-8000-000000000102", DONE = "ee000000-0000-4000-8000-000000000024";
+  const as = (uid) => `set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'`;
+  const W7 = (uid, stmt) => { try { return q(`begin; set local role authenticated; ${as(uid)}; ${stmt}; rollback;`)[0]; } catch (e) { return { rows: 0, refused: true }; } };
+  const W7sudo = (setup, uid, stmt) => { try { return q(`begin; ${setup}; set local role authenticated; ${as(uid)}; ${stmt}; rollback;`)[0]; } catch (e) { return { rows: 0, refused: true }; } };
+  const P7 = [
+    ["BES owner now sees the shared workspace",                     () => W7(besOwner, `select count(*)::int as rows from public.workspaces`).rows, 1],
+    ["…and its 2 items",                                            () => W7(besOwner, `select count(*)::int as rows from public.work_items where workspace_id='${WS}'`).rows, 2],
+    ["…and may move one (access 'work')",                           () => W7(besOwner, `with u as (update public.work_items set status_id='${DONE}' where id='${ITEM_OPEN}' returning 1) select count(*)::int as rows from u`).rows, 1],
+    ["with access 'view', BES cannot move it",                      () => W7sudo(`update public.workspace_shares set access='view' where id='${SHARE}'`, besOwner, `with u as (update public.work_items set status_id='${DONE}' where id='${ITEM_OPEN}' returning 1) select count(*)::int as rows from u`).rows, 0],
+    ["…but still sees it",                                          () => W7sudo(`update public.workspace_shares set access='view' where id='${SHARE}'`, besOwner, `select count(*)::int as rows from public.work_items where workspace_id='${WS}'`).rows, 2],
+    ["revoked share → BES sees nothing",                            () => W7sudo(`update public.workspace_shares set revoked_at=now() where id='${SHARE}'`, besOwner, `select count(*)::int as rows from public.workspaces`).rows, 0],
+    ["ended engagement → BES sees nothing",                         () => W7sudo(`update public.fulfillment_engagements set status='ended' where id='${ENG}'`, besOwner, `select count(*)::int as rows from public.workspaces`).rows, 0],
+    ["board-level share hides items on other boards",              () => W7sudo(`insert into public.workspace_boards (id, workspace_id, name) values ('ee000000-0000-4000-8000-000000000012','${WS}','Other'); update public.work_items set board_id='ee000000-0000-4000-8000-000000000012' where id='${ITEM_OPEN}'; update public.workspace_shares set board_id='${BOARD}' where id='${SHARE}'`, besOwner, `select count(*)::int as rows from public.work_items where workspace_id='${WS}'`).rows, 1],
+    ["…and hides the other board itself",                          () => W7sudo(`insert into public.workspace_boards (id, workspace_id, name) values ('ee000000-0000-4000-8000-000000000012','${WS}','Other'); update public.workspace_shares set board_id='${BOARD}' where id='${SHARE}'`, besOwner, `select count(*)::int as rows from public.workspace_boards where workspace_id='${WS}'`).rows, 1],
+    ["division-scoped CreditOps manager is outside TalentOps scope", () => W7(besManager, `select count(*)::int as rows from public.workspaces`).rows, 0],
+    ["assigned-scope agent sees no container…",                    () => W7(besRestricted, `select count(*)::int as rows from public.workspaces`).rows, 0],
+    ["…but an item assigned to them (assignment always counts)",   () => W7sudo(`update public.work_items set assigned_to='${besCredit}' where id='${ITEM_OPEN}'`, besCredit, `select count(*)::int as rows from public.work_items where id='${ITEM_OPEN}'`).rows, 1],
+    ["BES owner cannot create a share for itself",                 () => W7(besOwner, `with i as (insert into public.workspace_shares (workspace_id, engagement_id) values ('${WS}','${ENG}') returning 1) select count(*)::int as rows from i`).rows, 0],
+    ["org admin cannot share under another org's engagement",      () => W7sudo(`insert into public.workspaces (id, organization_id, name) values ('ee000000-0000-4000-8000-000000000002','${NORTHGATE}','probe'); update public.product_entitlements set enabled=true where organization_id='${NORTHGATE}' and product='workspaces'`, org2Owner, `with i as (insert into public.workspace_shares (workspace_id, engagement_id) values ('ee000000-0000-4000-8000-000000000002','${ENG}') returning 1) select count(*)::int as rows from i`).rows, 0],
+    ["org owner sees the share row; org2 owner does not",         () => W7(orgOwner, `select count(*)::int as rows from public.workspace_shares`).rows + W7(org2Owner, `select count(*)::int as rows from public.workspace_shares`).rows * 10, 1],
+    ["org owner can revoke (update revoked_at)",                   () => W7(orgOwner, `with u as (update public.workspace_shares set revoked_at=now() where id='${SHARE}' returning 1) select count(*)::int as rows from u`).rows, 1],
+    ["share creation is audited with actor",                       () => W7(orgOwner, `insert into public.workspace_shares (workspace_id, engagement_id, board_id) values ('${WS}','${ENG}','${BOARD}'); set local role postgres; select count(*)::int as rows from public.audit_log where entity_type='workspace_shares' and created_at >= now() and actor_id='${orgOwner}'`).rows, 1],
+  ];
+  console.log("\nphase 7:");
+  for (const [label, fn, want] of P7) {
     checks++;
     let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
     const ok = got === want; if (!ok) fails++;

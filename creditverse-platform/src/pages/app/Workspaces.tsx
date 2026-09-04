@@ -2,38 +2,21 @@
  * Custom Workspaces — the organization's flexible operations layer over the
  * canonical work engine (CLAUDE.md rule 17).
  *
- * Foundation surface: pick a workspace, see its board grouped by the
- * organization's own statuses, add items, move them between statuses. Every
- * item is a `work_items` row; moving it to a terminal status completes it in
- * the engine, so My Work, Attention and EOD stay in step without knowing this
- * page exists.
- *
- * Authorization is the database's. This page asks for the active
- * organization's workspaces and renders exactly what RLS returns: an entitled
- * member sees their organization's workspaces; BES staff see nothing until a
- * TalentOps share exists (Phase 7) — and the page says so rather than showing
- * an empty board that looks like a bug.
+ * Organization view: its own workspaces; org admins can share one with BES
+ * under a TalentOps engagement. Agency view: exactly the workspaces shared
+ * with BES — the same records, never a copy — read-only when the share says so.
+ * Authorization is the database's; this page renders what RLS returns.
  */
-import { useMemo, useState } from "react";
-import { LayoutGrid, Plus, CheckCircle2 } from "lucide-react";
+import { useState } from "react";
+import { LayoutGrid } from "lucide-react";
 import { HqPageShell } from "@/pages/app/HqPages";
 import { useAgency } from "@/lib/agency-context";
 import { useAuth } from "@/lib/auth/auth-context";
-import {
-  useCreateWorkspaceItem,
-  useUpdateWorkspaceItemStatus,
-  useWorkspaceItems,
-  useWorkspaces,
-} from "@/lib/data/use-workspaces";
-import {
-  groupItemsByStatus,
-  openItemCount,
-  type Workspace,
-  type WorkspaceItem,
-} from "@/lib/workspaces/workspace-domain";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { OpsSelect } from "@/components/ui/ops-select";
+import { useSharedWorkspaces, useWorkspaces } from "@/lib/data/use-workspaces";
+import { useActiveShares } from "@/lib/data/use-workspace-shares";
+import type { Workspace } from "@/lib/workspaces/workspace-domain";
+import { WorkspaceBoard } from "@/components/workspaces/WorkspaceBoard";
+import { SharePanel } from "@/components/workspaces/SharePanel";
 import { cn } from "@/lib/utils";
 
 const Notice = ({ title, body }: { title: string; body: string }) => (
@@ -44,176 +27,98 @@ const Notice = ({ title, body }: { title: string; body: string }) => (
   </div>
 );
 
-const ItemCard = ({
-  item,
-  workspace,
-  meId,
-  onMove,
-  busy,
+const WorkspaceNav = ({
+  workspaces,
+  selectedId,
+  onSelect,
 }: {
-  item: WorkspaceItem;
-  workspace: Workspace;
-  meId: string | null;
-  onMove: (statusId: string) => void;
-  busy: boolean;
-}) => {
-  const type = workspace.itemTypes.find((t) => t.id === item.itemTypeId);
+  workspaces: Workspace[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+}) => (
+  <nav aria-label="Workspaces" className="w-full shrink-0 lg:w-56">
+    <ul className="space-y-1">
+      {workspaces.map((w) => {
+        const active = selectedId === w.id;
+        return (
+          <li key={w.id}>
+            <button
+              type="button"
+              onClick={() => onSelect(w.id)}
+              aria-current={active ? "true" : undefined}
+              className={cn(
+                "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                active ? "bg-primary/10 font-semibold text-foreground" : "text-foreground hover:bg-muted",
+              )}
+            >
+              <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: w.colour ?? "hsl(var(--primary))" }} />
+              <span className="min-w-0 flex-1 truncate">{w.name}</span>
+            </button>
+            {w.organizationName && (
+              <p className="px-3 pb-1 text-[11px] text-muted-foreground">{w.organizationName}</p>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  </nav>
+);
+
+/** BES side of the bridge: shared workspaces only. */
+const SharedView = ({ meId }: { meId: string | null }) => {
+  const { workspaces, isLoading, error } = useSharedWorkspaces();
+  const { shares } = useActiveShares();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = workspaces.find((w) => w.id === selectedId) ?? workspaces[0] ?? null;
+  const canWork = (w: Workspace) => shares.some((s) => s.workspaceId === w.id && s.access === "work");
+
+  if (error) return <div className="rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-700">Could not load shared workspaces: {error}</div>;
+  if (isLoading) return <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p>;
+  if (workspaces.length === 0)
+    return (
+      <Notice
+        title="No workspaces are shared with BES"
+        body="Custom Workspaces belong to each organization. BES sees a workspace only while the organization shares it under an active TalentOps engagement."
+      />
+    );
   return (
-    <li className="rounded-lg border border-border bg-card p-3 shadow-sm">
-      <p className="text-sm font-medium text-foreground">{item.title}</p>
-      <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-        {type && (
-          <span className="rounded bg-muted px-1.5 py-0.5 font-medium text-foreground">
-            {type.label}
-          </span>
-        )}
-        <span>{item.priority}</span>
-        <span>
-          {item.assignedTo
-            ? item.assignedTo === meId
-              ? "Assigned to you"
-              : "Assigned"
-            : "Unassigned"}
-        </span>
-      </div>
-      <div className="mt-2">
-        <OpsSelect
-          aria-label={`Status of ${item.title}`}
-          size="inline"
-          value={item.statusId ?? ""}
-          disabled={busy}
-          onValueChange={onMove}
-          options={workspace.statuses.map((s) => ({ value: s.id, label: s.label }))}
+    <div className="flex flex-col gap-4 lg:flex-row">
+      <WorkspaceNav workspaces={workspaces} selectedId={selected?.id ?? null} onSelect={setSelectedId} />
+      {selected && (
+        <WorkspaceBoard
+          key={selected.id}
+          workspace={selected}
+          meId={meId}
+          readOnly={!canWork(selected)}
+          subtitle={`Shared by ${selected.organizationName ?? "the organization"} under TalentOps`}
         />
-      </div>
-    </li>
+      )}
+    </div>
   );
 };
 
-const Board = ({ workspace, meId }: { workspace: Workspace; meId: string | null }) => {
-  const { items, isLoading, error } = useWorkspaceItems(workspace.id);
-  const move = useUpdateWorkspaceItemStatus(workspace.id);
-  const create = useCreateWorkspaceItem();
-  const [title, setTitle] = useState("");
-  const [typeId, setTypeId] = useState<string>(workspace.itemTypes[0]?.id ?? "");
-  const board = workspace.boards[0] ?? null;
+/** Organization side: own workspaces, plus the share panel for admins. */
+const OrganizationView = ({ organizationId, meId, isOrgAdmin }: { organizationId: string; meId: string | null; isOrgAdmin: boolean }) => {
+  const { workspaces, isLoading, error } = useWorkspaces(organizationId);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = workspaces.find((w) => w.id === selectedId) ?? workspaces[0] ?? null;
 
-  const grouped = useMemo(() => groupItemsByStatus(workspace.statuses, items), [workspace.statuses, items]);
-  const open = openItemCount(workspace.statuses, items);
-
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim()) return;
-    create.mutate(
-      {
-        workspaceId: workspace.id,
-        organizationId: workspace.organizationId,
-        boardId: board?.id ?? null,
-        title,
-        itemTypeId: typeId || null,
-      },
-      { onSuccess: () => setTitle("") },
+  if (error) return <div className="rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-700">Could not load workspaces: {error}</div>;
+  if (isLoading) return <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p>;
+  if (workspaces.length === 0)
+    return (
+      <Notice
+        title="No workspaces yet"
+        body="Nothing is visible to you in this organization. Workspaces are created and configured by an organization admin; the configuration screen is not built yet."
+      />
     );
-  };
-
   return (
-    <div className="min-w-0 flex-1">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className="text-base font-bold text-foreground">{workspace.name}</h2>
-          {workspace.description && (
-            <p className="text-xs text-muted-foreground">{workspace.description}</p>
-          )}
-        </div>
-        <span className="text-xs text-muted-foreground">
-          {open} open · {items.length} total{board ? ` · ${board.name}` : ""}
-        </span>
+    <div className="flex flex-col gap-4 lg:flex-row">
+      <div className="flex w-full shrink-0 flex-col gap-4 lg:w-72">
+        <WorkspaceNav workspaces={workspaces} selectedId={selected?.id ?? null} onSelect={setSelectedId} />
+        {selected && isOrgAdmin && <SharePanel key={selected.id} workspace={selected} />}
       </div>
-
-      <form onSubmit={submit} className="mb-4 flex flex-wrap items-center gap-2">
-        <Input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="New item title"
-          aria-label="New item title"
-          className="h-9 max-w-sm text-sm"
-        />
-        {workspace.itemTypes.length > 0 && (
-          <OpsSelect
-            aria-label="Item type"
-            size="sm"
-            value={typeId}
-            onValueChange={setTypeId}
-            options={workspace.itemTypes.map((t) => ({ value: t.id, label: t.label }))}
-          />
-        )}
-        <Button type="submit" size="sm" disabled={!title.trim() || create.isPending}>
-          <Plus className="mr-1 h-4 w-4" /> Add item
-        </Button>
-        {create.error && (
-          <span className="text-xs text-red-700">{(create.error as Error).message}</span>
-        )}
-      </form>
-
-      {error && (
-        <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-700">
-          Could not load items: {error}
-        </div>
-      )}
-      {move.error && (
-        <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-700">
-          Could not move item: {(move.error as Error).message}
-        </div>
-      )}
-
-      {isLoading ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p>
-      ) : (
-        <div className="overflow-x-auto">
-          <div className="flex min-w-max gap-3">
-            {grouped.columns.map(({ status, items: colItems }) => (
-              <section
-                key={status.id}
-                aria-label={status.label}
-                className="w-64 shrink-0 rounded-xl border border-border bg-muted/30 p-2"
-              >
-                <header className="mb-2 flex items-center justify-between px-1">
-                  <span className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                    <span
-                      className="h-2.5 w-2.5 rounded-full"
-                      style={{ background: status.colour ?? "hsl(var(--muted-foreground))" }}
-                    />
-                    {status.label}
-                    {status.isTerminal && <CheckCircle2 className="h-3 w-3 text-status-success" />}
-                  </span>
-                  <span className="text-[11px] text-muted-foreground">{colItems.length}</span>
-                </header>
-                {colItems.length === 0 ? (
-                  <p className="px-1 py-4 text-center text-[11px] text-muted-foreground">Empty</p>
-                ) : (
-                  <ul className="space-y-2">
-                    {colItems.map((item) => (
-                      <ItemCard
-                        key={item.id}
-                        item={item}
-                        workspace={workspace}
-                        meId={meId}
-                        busy={move.isPending}
-                        onMove={(statusId) => move.mutate({ itemId: item.id, statusId })}
-                      />
-                    ))}
-                  </ul>
-                )}
-              </section>
-            ))}
-          </div>
-          {grouped.orphans.length > 0 && (
-            <p className="mt-3 text-xs text-amber-700">
-              {grouped.orphans.length} item(s) reference a status this workspace no longer defines.
-            </p>
-          )}
-        </div>
-      )}
+      {selected && <WorkspaceBoard key={selected.id} workspace={selected} meId={meId} />}
     </div>
   );
 };
@@ -221,68 +126,29 @@ const Board = ({ workspace, meId }: { workspace: Workspace; meId: string | null 
 export default function Workspaces() {
   const { viewMode, activeOrganization } = useAgency();
   const auth = useAuth();
-  const organizationId = viewMode === "agency" ? null : (activeOrganization?.id ?? null);
-  const { workspaces, isLoading, error, live } = useWorkspaces(organizationId);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const selected = workspaces.find((w) => w.id === selectedId) ?? workspaces[0] ?? null;
+  const live = auth.mode === "live" && auth.status === "signed-in" && !!auth.user;
   const meId = auth.user?.id ?? null;
+  const organizationId = viewMode === "agency" ? null : (activeOrganization?.id ?? null);
+  const isOrgAdmin = !!organizationId && auth.orgMemberships.some((m) => m.organization_id === organizationId && m.role === "org_admin");
 
   return (
     <HqPageShell
       title="Workspaces"
-      description="Your organization's own operations — boards, statuses and work items you define"
+      description={
+        viewMode === "agency"
+          ? "Organization workspaces shared with BES under TalentOps — the same records, never a copy"
+          : "Your organization's own operations — boards, statuses and work items you define"
+      }
       icon={LayoutGrid}
     >
       {!live ? (
         <Notice title="Available when signed in" body="Workspaces read live organization data and are not part of the demo." />
       ) : viewMode === "agency" ? (
-        <Notice
-          title="No workspaces are shared with BES"
-          body="Custom Workspaces belong to each organization. BES sees a workspace only when the organization shares it under an active TalentOps engagement — that bridge is not built yet, so nothing is listed here on purpose."
-        />
-      ) : error ? (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-700">
-          Could not load workspaces: {error}
-        </div>
-      ) : isLoading ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p>
-      ) : workspaces.length === 0 ? (
-        <Notice
-          title="No workspaces yet"
-          body="Nothing is visible to you in this organization. Workspaces are created and configured by an organization admin; the configuration screen is not built yet."
-        />
+        <SharedView meId={meId} />
+      ) : organizationId ? (
+        <OrganizationView organizationId={organizationId} meId={meId} isOrgAdmin={isOrgAdmin} />
       ) : (
-        <div className="flex flex-col gap-4 lg:flex-row">
-          <nav aria-label="Workspaces" className="w-full shrink-0 lg:w-56">
-            <ul className="space-y-1">
-              {workspaces.map((w) => {
-                const active = selected?.id === w.id;
-                return (
-                  <li key={w.id}>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedId(w.id)}
-                      aria-current={active ? "true" : undefined}
-                      className={cn(
-                        "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                        active
-                          ? "bg-primary/10 font-semibold text-foreground"
-                          : "text-foreground hover:bg-muted",
-                      )}
-                    >
-                      <span
-                        className="h-2.5 w-2.5 shrink-0 rounded-full"
-                        style={{ background: w.colour ?? "hsl(var(--primary))" }}
-                      />
-                      <span className="truncate">{w.name}</span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </nav>
-          {selected && <Board key={selected.id} workspace={selected} meId={meId} />}
-        </div>
+        <Notice title="No organization selected" body="Pick a sub-account to see its workspaces." />
       )}
     </HqPageShell>
   );

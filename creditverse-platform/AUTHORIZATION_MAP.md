@@ -177,3 +177,14 @@ used to route.
 | `work_items_workspace_consistency` | org + scope + same-workspace board/status/type; stage derived from status | BEFORE trigger, definer, not executable by API roles |
 | `audit_workspace_config` | every config change keeps actor, before, after | AFTER trigger on the five config tables → `audit_log` |
 | `org_entitled(uuid, text)` | entitlement check for policies | definer, stable; executable by `authenticated` only |
+
+
+### 0029 — TalentOps bridge (Phase 7)
+
+| Object | Rule | How |
+|---|---|---|
+| `workspace_reach(ws, board, need_work)` | THE workspace visibility decision | member of entitled org, OR live unrevoked share under a live `talentops` engagement of the workspace's org, `is_staff_of(e.agency_id)`, `in_scope(e.agency_id,'talentops',…)`, board match, `access='work'` when writing |
+| `workspaces_select` / `workspace_boards_select` | follow reach | `workspace_reach(id, null)` / `workspace_reach(workspace_id, id)` |
+| `work_items` select / update / insert | items follow reach | conjunct `workspace_id IS NULL OR workspace_reach(workspace_id, board_id[, true])`; insert gains "BES working a shared workspace item" branch |
+| `workspace_shares` SELECT | org members of the workspace; BES staff within TalentOps scope of the engagement | policy |
+| `workspace_shares` INSERT / UPDATE | org admin of an entitled org; BES cannot self-share; no DELETE (revoke) | policy + `workspace_shares_consistency` (engagement must be TalentOps for that org) |

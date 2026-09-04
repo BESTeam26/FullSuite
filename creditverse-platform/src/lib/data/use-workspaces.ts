@@ -5,6 +5,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth/auth-context";
 import {
   createWorkspaceItem,
+  fetchAllWorkspaceItems,
+  fetchSharedWorkspaces,
   fetchWorkspaceItems,
   fetchWorkspaces,
   updateWorkspaceItemStatus,
@@ -33,6 +35,35 @@ export function useWorkspaces(organizationId: string | null) {
     error: q.error ? (q.error as Error).message : null,
     live,
   };
+}
+
+/** BES view: every workspace reachable through a live TalentOps share. */
+export function useSharedWorkspaces() {
+  const live = useLive();
+  const q = useQuery({
+    queryKey: ["workspaces", "shared"],
+    queryFn: fetchSharedWorkspaces,
+    enabled: live,
+    staleTime: 60_000,
+  });
+  return {
+    workspaces: q.data ?? [],
+    isLoading: live && q.isLoading,
+    error: q.error ? (q.error as Error).message : null,
+    live,
+  };
+}
+
+/** BES overview: all reachable workspace items in one request. */
+export function useAllWorkspaceItems() {
+  const live = useLive();
+  const q = useQuery({
+    queryKey: ["workspaces", "items", "all"],
+    queryFn: fetchAllWorkspaceItems,
+    enabled: live,
+    staleTime: 15_000,
+  });
+  return { items: q.data ?? [], isLoading: live && q.isLoading, error: q.error ? (q.error as Error).message : null };
 }
 
 export function useWorkspaceItems(workspaceId: string | null) {

@@ -98,6 +98,8 @@ export interface WorkItem {
   assignedTo?: string;
   slaHoursRemaining?: number;
   createdAt: string;
+  /** Set when the item lives in a Custom Workspace (rule 17). */
+  workspaceId?: string;
 }
 
 /* ------------------------------------------------------------------ */

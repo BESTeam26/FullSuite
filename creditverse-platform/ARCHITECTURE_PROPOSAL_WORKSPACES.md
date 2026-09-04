@@ -1,7 +1,7 @@
 # Proposal — Custom Workspaces, TalentOps bridge, BES CRM visibility
 
 **Status: Custom Workspaces foundation IMPLEMENTED (migrations 0027/0028, Phase 6);
-TalentOps bridge and BES CRM surfaces still proposals.** Doctrine is recorded as
+TalentOps bridge IMPLEMENTED (migration 0029, Phase 7) as `workspace_shares` + `workspace_reach()`; BES CRM surfaces still a proposal.** Doctrine is recorded as
 CLAUDE.md rule 17. Deviations from the text below: conflict 1 was already fixed
 by migration 0024; `workspace_statuses` carries `canonical_stage` so the engine
 keeps one stage vocabulary; the three open questions were answered as recorded

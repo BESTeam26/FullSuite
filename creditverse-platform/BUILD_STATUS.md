@@ -1877,3 +1877,61 @@ N+1), the TalentOps share (Phase 7).
 **Verified:** typecheck clean, 236 tests, 0 lint errors, build, no circular
 deps, verify-live (anon denied on all six new tables), migrations 33/33.
 RLS matrix **148/148** (`--phase=6`, 17 new checks).
+
+
+---
+
+## Phase 7 — TalentOps bridge · DONE (migrations 0029, 0030)
+
+**One new table, one helper, zero copies.** `workspace_shares (workspace,
+engagement, board?, access view|work, revoked_at)` is the organization's
+authorization for BES to reach one workspace or one board under a live
+`fulfillment_engagements` row with `service = 'talentops'`. A trigger requires
+the engagement to be TalentOps *for the workspace's own organization* and the
+board to belong to the workspace.
+
+`workspace_reach(workspace, board, need_work)` is now the single place
+workspace visibility is decided: member of an entitled organization → full
+reach; BES staff → only through a live, unrevoked share, within BES TalentOps
+scope (`in_scope(agency, 'talentops', …)` — a CreditOps-division manager is
+outside it), only the shared board, and only with `access = 'work'` for writes.
+`workspaces_select`, `workspace_boards_select` and the three `work_items`
+policies were re-pointed at it; `work_items_insert` gained the branch "BES
+working a shared workspace item". Shares: org admins create and revoke (never
+delete); BES may read the shares it benefits from and cannot create one for
+itself. Share changes are audited with actor, before and after.
+
+**Found by the matrix (migration 0030):** the first `workspace_reach` required
+TalentOps scope even for an item's own assignee, breaking "assignment always
+counts" for the very agents TalentOps places. The assignee is now passed into
+`in_scope`, so an assigned agent reaches their item while — and only while —
+a live share covers it; the container (workspace name, statuses) follows an
+item the caller can see. Verified: assigned agent sees item + container;
+revoke the share and both disappear.
+
+**Frontend:** `components/workspaces/WorkspaceBoard.tsx` (shared by both
+sides; `readOnly` mirrors a `view` share), `SharePanel` (org admins: pick
+engagement, whole workspace or one board, access; revoke), the Workspaces page
+in agency view lists shared workspaces with the owning organization, the
+TalentOps division page rebuilt on real data — shared workspaces, open items,
+distinct assignees, partners with live engagements — with the invented agent
+roster, ratings and placements removed and those areas stating they are not
+recorded. My Work labels workspace items "Workspace" (they were falling into
+"BES CRM" via `related_type = 'project'`). All BES reads are single bounded
+requests (`fetchSharedWorkspaces`, `fetchAllWorkspaceItems`), never one per
+workspace.
+
+**Fixtures:** Lakeside TalentOps engagement (active since 2026-06-01) and a
+whole-workspace `work` share of `[TEST] Business Acquisition`. Northgate: none.
+
+**Browser (BES owner, agency view):** `/app/workspaces` shows the shared
+workspace with both items on Lakeside's statuses; `/app/talentops` shows 1 / 2
+/ 1 / 1 from live rows.
+
+**Deferred, recorded:** BES team scope on the share (engagement
+`authorized_team` is free text — the rule-16 gap), assignee picker with names,
+board-level share UI polish, notifications for shares.
+
+**Verified:** typecheck clean, 236 tests, 0 lint errors, build, no circular
+deps, verify-live (anon denied on `workspace_shares`), migrations 35/35.
+RLS matrix **165/165** (`--phase=7`, 17 new checks).

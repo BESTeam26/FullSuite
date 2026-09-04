@@ -36,6 +36,8 @@ export interface WorkspaceBoard {
 export interface Workspace {
   id: string;
   organizationId: string;
+  /** Present when loaded across organizations (BES shared view). */
+  organizationName?: string;
   name: string;
   description: string | null;
   icon: string | null;

@@ -2269,6 +2269,68 @@ export type Database = {
           },
         ]
       }
+      workspace_shares: {
+        Row: {
+          access: string
+          board_id: string | null
+          created_at: string
+          created_by: string | null
+          engagement_id: string
+          id: string
+          revoked_at: string | null
+          workspace_id: string
+        }
+        Insert: {
+          access?: string
+          board_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          engagement_id: string
+          id?: string
+          revoked_at?: string | null
+          workspace_id: string
+        }
+        Update: {
+          access?: string
+          board_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          engagement_id?: string
+          id?: string
+          revoked_at?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_shares_board_id_fkey"
+            columns: ["board_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_boards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_shares_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_shares_engagement_id_fkey"
+            columns: ["engagement_id"]
+            isOneToOne: false
+            referencedRelation: "fulfillment_engagements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_shares_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workspace_statuses: {
         Row: {
           canonical_stage: Database["public"]["Enums"]["work_stage"]
@@ -2638,6 +2700,10 @@ export type Database = {
         Returns: Database["public"]["Enums"]["fulfillment_service"]
       }
       try_bigint: { Args: { t: string }; Returns: number }
+      workspace_reach: {
+        Args: { p_board: string; p_need_work?: boolean; p_ws: string }
+        Returns: boolean
+      }
     }
     Enums: {
       access_scope:

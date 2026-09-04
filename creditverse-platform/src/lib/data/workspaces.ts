@@ -15,6 +15,7 @@ type WorkspaceRow = Tables<"workspaces"> & {
   workspace_boards: Tables<"workspace_boards">[];
   workspace_statuses: Tables<"workspace_statuses">[];
   workspace_item_types: Tables<"workspace_item_types">[];
+  organizations?: { name: string } | null;
 };
 
 const WORKSPACE_SELECT = `
@@ -27,6 +28,7 @@ const WORKSPACE_SELECT = `
 export const mapWorkspace = (row: WorkspaceRow): Workspace => ({
   id: row.id,
   organizationId: row.organization_id,
+  organizationName: row.organizations?.name,
   name: row.name,
   description: row.description,
   icon: row.icon,
@@ -49,6 +51,21 @@ export async function fetchWorkspaces(organizationId: string): Promise<Workspace
     .from("workspaces")
     .select(WORKSPACE_SELECT)
     .eq("organization_id", organizationId)
+    .is("archived_at", null)
+    .order("name");
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as unknown as WorkspaceRow[]).map(mapWorkspace);
+}
+
+/**
+ * Every workspace the caller can reach across organizations — for BES, that is
+ * exactly the set shared under live TalentOps engagements (RLS decides). One
+ * request, with the owning organization's name.
+ */
+export async function fetchSharedWorkspaces(): Promise<Workspace[]> {
+  const { data, error } = await supabase
+    .from("workspaces")
+    .select(`${WORKSPACE_SELECT}, organizations(name)`)
     .is("archived_at", null)
     .order("name");
   if (error) throw new Error(error.message);
@@ -80,6 +97,20 @@ export async function fetchWorkspaceItems(workspaceId: string): Promise<Workspac
     .limit(WORKSPACE_ITEMS_LIMIT);
   if (error) throw new Error(error.message);
   return (data ?? []).map(mapWorkspaceItem);
+}
+
+export const SHARED_ITEMS_LIMIT = 500;
+
+/** All reachable workspace items in ONE request (TalentOps overview) — never one query per workspace. */
+export async function fetchAllWorkspaceItems(): Promise<(WorkspaceItem & { workspaceId: string })[]> {
+  const { data, error } = await supabase
+    .from("work_items")
+    .select(`${ITEM_COLUMNS}, workspace_id`)
+    .not("workspace_id", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(SHARED_ITEMS_LIMIT);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((r) => ({ ...mapWorkspaceItem(r), workspaceId: r.workspace_id as string }));
 }
 
 export interface CreateWorkspaceItemInput {
