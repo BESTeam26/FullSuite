@@ -1935,3 +1935,96 @@ board-level share UI polish, notifications for shares.
 **Verified:** typecheck clean, 236 tests, 0 lint errors, build, no circular
 deps, verify-live (anon denied on `workspace_shares`), migrations 35/35.
 RLS matrix **165/165** (`--phase=7`, 17 new checks).
+
+
+---
+
+## Phase 8 — BES CRM · DONE (migrations 0031, 0032)
+
+**No new module, one narrowed policy.** A BES CRM project is an AGENCY-scope
+`work_items` row with `division = 'bes_crm'` and the customer as
+`subject_organization_id`. The published/internal split is the existing
+activity visibility: `shared_with_partner` / `client_visible` is what BES
+publishes; `bes_internal` never reaches the customer (`can_view_activity`).
+
+**Association is not publication (rule 16), now enforced:** the org-admin
+branch of `work_items_select` let a customer read *any* AGENCY item about them,
+including BES's internal support tasks. It now reads
+`division = 'bes_crm' AND is_org_admin(subject) AND org_entitled(subject, 'crm')`.
+The `[TEST] Partner onboarding call` support task is no longer visible to
+Lakeside's admin; the CRM project is. Customer writes were already governed:
+comments and files on a visible record at organization / shared / client
+visibility; no customer update branch exists for AGENCY items (deny by
+absence).
+
+**Found in the browser (migration 0032):** BES could not read its own
+published note. `can_view_activity` gated staff reads of non-internal events
+through `bes_may_fulfil(org, activity_service(type))`, and `activity_service`
+returns null for `work_item`, so every published or client-visible work-item
+event — including an organization's status changes on a TalentOps-shared item
+— was hidden from BES. For entity types without a governing client service the
+record's reach (`entity_visible`, already ANDed on the same policy) is the gate;
+staff read `bes_internal` / `shared_with_partner` / `client_visible`, never
+`organization_internal`.
+
+**Frontend:** `WorkItem` carries `agencyId`, `division`,
+`subjectOrganizationId`, `description`, `dueAt` (mapper, no extra query).
+`use-work-timeline.ts` reads a work item's activity under RLS and posts
+comments through the canonical `postNote`. `components/bes-crm/ProjectUpdates`
+shows published activity and a comment box — BES chooses internal or published,
+the customer can only write at the shared level. `/app/bes-crm` rebuilt on real
+rows for both sides: BES sees every project with customer, stage, due,
+assigned; a `crm`-entitled customer sees its own projects and BES's published
+updates. Invented projects, percentages and assignee initials removed.
+Monitoring, resources and reports tabs say they are not built.
+
+**Fixtures:** Lakeside `crm = true`; `[TEST] GHL CRM build — Lakeside`
+(In Processing, due in 21 days) with one published and one internal note;
+Northgate `crm = false` with `[TEST] Funnel build — Northgate` as the negative
+control.
+
+**Deferred, recorded:** document upload UI on a project (DB allows it; the
+attachment composer is client-workspace-specific today), customer-facing
+milestone objects (a project's stage is the milestone for now), notifications
+for published updates to org admins (rule 3 of the notification engine covers
+the assignee; publication fan-out is a business-policy question).
+
+**Verified:** typecheck clean, 236 tests, 0 lint errors, build, no circular
+deps, verify-live, migrations 37/37. RLS matrix **182/182** (`--phase=8`, 17 new checks).
+
+
+---
+
+## Phase 9 — Settings honesty · DONE (frontend; no schema change)
+
+Rule applied: **a placeholder control must never look like it persists or
+governs behaviour.** Every control in the Phase 9 inventory above was
+reclassified by reading the code, then made to say what it is.
+
+**`ToggleRow` gained a `state`:** `live` (bound to a value and a handler),
+`enforced` (the rule is unconditional in code or the database — shown on,
+locked, "Enforced — not configurable"), `unbuilt` (nothing behind it — shown
+off, locked, "Not built — no effect"). `PlaceholderNote` sits above inputs
+nothing reads.
+
+| Control | Was | Now |
+|---|---|---|
+| Fail closed on missing authorization context | ON, no-op | `enforced` — RLS denies by default |
+| Require MFA · Step-up auth · SSN/report DLP | ON, no-op (security-implying) | `unbuilt`, off, locked |
+| In-app notifications | off, no-op | `enforced` — the notification engine delivers; per-user opt-out not built |
+| Email · SMS notifications | off, no-op | `unbuilt` |
+| Require consumer attestation (Truth Gate) | ON, no-op | `enforced` — `lib/dispute/metro2-guardrails` runs unconditionally |
+| Experian upload-only | ON, no-op | `enforced` — fixed in `cra-addresses-and-workflows` / `package-builder` |
+| Block advance-fee billing (CROA) | ON, no-op (compliance-implying) | `unbuilt` — no billing-eligibility engine exists |
+| BRM / Sales Partner / Lender access defaults (3) | ON, no-op (authorization-implying) | `unbuilt` — access is decided per record by policy |
+| DIY routing rules (3) | ON, no-op | `unbuilt` |
+| 14 pre-filled inputs (thresholds, endpoints, recipients) | `defaultValue` nothing read | disabled placeholders under a `PlaceholderNote` |
+| Fulfillment subscription toggle (Settings, sub-account list menu, provisioning modal) | wrote `is_fulfillment_subscriber`, which no policy reads | **removed**; status is derived from live `fulfillment_engagements` in one place (`agency-context`), so the 30 "Subscribed / Self-managed" displays are now true; the modal states that access comes from an engagement |
+| Agency Users "Assigned only" / "Active" switches | local state on sample rows | locked, labelled sample; reach is `agency_memberships.scope` |
+| "Save brand settings" | 2-second "Saved" flag, persisted nothing | see below |
+
+`organizations.is_fulfillment_subscriber` is no longer written by any frontend
+path; the mapper returns `false` so a raw row can never claim access on its
+own. The column stays (rule 11: nothing destructive) and is recorded as dead.
+Archived views under `src/_archive/` still reference the toggle prop; they are
+unrouted and excluded from the bundle.

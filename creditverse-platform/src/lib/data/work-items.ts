@@ -58,6 +58,11 @@ export function mapWorkItem(row: WorkItemRow): WorkItem {
     slaHoursRemaining: hoursUntil(row.due_at),
     createdAt: relativeTime(row.created_at),
     workspaceId: row.workspace_id ?? undefined,
+    agencyId: row.agency_id,
+    division: row.division ?? undefined,
+    subjectOrganizationId: row.subject_organization_id ?? undefined,
+    description: row.description ?? undefined,
+    dueAt: row.due_at ?? undefined,
   };
 }
 

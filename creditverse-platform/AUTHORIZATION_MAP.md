@@ -188,3 +188,12 @@ used to route.
 | `work_items` select / update / insert | items follow reach | conjunct `workspace_id IS NULL OR workspace_reach(workspace_id, board_id[, true])`; insert gains "BES working a shared workspace item" branch |
 | `workspace_shares` SELECT | org members of the workspace; BES staff within TalentOps scope of the engagement | policy |
 | `workspace_shares` INSERT / UPDATE | org admin of an entitled org; BES cannot self-share; no DELETE (revoke) | policy + `workspace_shares_consistency` (engagement must be TalentOps for that org) |
+
+
+### 0031 — BES CRM (Phase 8)
+
+| Object | Rule | How |
+|---|---|---|
+| `work_items_select`, customer branch | only BES CRM projects, only when entitled | `scope='AGENCY' AND subject_organization_id IS NOT NULL AND division='bes_crm' AND is_org_admin(subject) AND org_entitled(subject,'crm')` |
+| customer reads of activity | only what BES published | existing `can_view_activity`: org members read `organization_internal` / `shared_with_partner` / `client_visible`, never `bes_internal` |
+| customer writes | comment, upload; never status/assignment/dates/completion | `activity_events_insert` and `files_insert` (existing); no customer UPDATE branch on AGENCY work items |

@@ -97,7 +97,7 @@ const E = {
   // THE key negative control: BES staff, assigned nothing → sees nothing operational
   "bes.restricted@bes.test": { work: 0, attention: 0, fclients: 0, fund: 0, lakeside_by_id: 0, cedar_by_id: 0, can_update_lakeside: 0, can_update_cedar: 0 },
   // Organization users: tenant only, unchanged by BES scope
-  "org.owner@bes.test":  { work: 3, attention: 0, fclients: 2, fund: 1, lakeside_by_id: 1, cedar_by_id: 0, can_update_cedar: 0 },
+  "org.owner@bes.test":  { work: 3, /* 2 workspace items + 1 CRM project; the BES support task about Lakeside is no longer theirs (0031) */ attention: 0, fclients: 2, fund: 1, lakeside_by_id: 1, cedar_by_id: 0, can_update_cedar: 0 },
   "org2.owner@bes.test": { work: 1, attention: 0, fclients: 2, fund: 0, lakeside_by_id: 0, cedar_by_id: 0, can_update_lakeside: 0, can_update_cedar: 0 },
   "probe.agent@bes.test":{ work: 0, attention: 0, fclients: 0, fund: 0, lakeside_by_id: 0, cedar_by_id: 0, can_update_lakeside: 0, can_update_cedar: 0 },
 };
@@ -376,6 +376,48 @@ if (PHASE >= 7) {
   ];
   console.log("\nphase 7:");
   for (const [label, fn, want] of P7) {
+    checks++;
+    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
+    const ok = got === want; if (!ok) fails++;
+    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
+  }
+}
+
+
+/* ---------------- Phase 8: BES CRM — BES-owned delivery, controlled visibility ----------------
+   The customer sees its CRM delivery projects when entitled to 'crm', reads only
+   what BES published, may comment and upload, and cannot change the project.
+   Association is not publication: BES's other AGENCY items about the customer
+   stay BES's. */
+if (PHASE >= 8) {
+  const orgOwner = U["org.owner@bes.test"], org2Owner = U["org2.owner@bes.test"], orgAgent = U["org.agent@bes.test"], besOwner = U["bes.owner@bes.test"];
+  const LAKESIDE = "dddddddd-0000-4000-8000-80ce8814eb05", NORTHGATE = "dddddddd-0000-4000-8000-3f3028d6b8f3", AGENCY = "a0000000-0000-4000-8000-000000000001";
+  const CRM_L = "ee000000-0000-4000-8000-000000000201", CRM_N = "ee000000-0000-4000-8000-000000000202";
+  const as = (uid) => `set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'`;
+  const W8 = (uid, stmt) => { try { return q(`begin; set local role authenticated; ${as(uid)}; ${stmt}; rollback;`)[0]; } catch (e) { return { rows: 0, refused: true }; } };
+  const W8sudo = (setup, uid, stmt) => { try { return q(`begin; ${setup}; set local role authenticated; ${as(uid)}; ${stmt}; rollback;`)[0]; } catch (e) { return { rows: 0, refused: true }; } };
+  const P8 = [
+    ["org owner (crm entitled) sees its CRM project",                 () => W8(orgOwner, `select count(*)::int as rows from public.work_items where id='${CRM_L}'`).rows, 1],
+    ["…and NOT BES's support task about them (association ≠ publication)", () => W8(orgOwner, `select count(*)::int as rows from public.work_items where scope='AGENCY' and division is distinct from 'bes_crm'`).rows, 0],
+    ["…reads the published update",                                   () => W8(orgOwner, `select count(*)::int as rows from public.activity_events where entity_id='${CRM_L}' and visibility='shared_with_partner'`).rows, 1],
+    ["…and never the internal one",                                   () => W8(orgOwner, `select count(*)::int as rows from public.activity_events where entity_id='${CRM_L}' and visibility='bes_internal'`).rows, 0],
+    ["…cannot change the project's stage",                            () => W8(orgOwner, `with u as (update public.work_items set stage='Completed' where id='${CRM_L}' returning 1) select count(*)::int as rows from u`).rows, 0],
+    ["…cannot create an AGENCY item",                                 () => W8(orgOwner, `with i as (insert into public.work_items (agency_id, scope, subject_organization_id, related_type, division, title, stage, priority) values ('${AGENCY}','AGENCY','${LAKESIDE}','project','bes_crm','probe','Queued','Normal') returning 1) select count(*)::int as rows from i`).rows, 0],
+    ["…may comment on it (shared_with_partner)",                      () => W8(orgOwner, `with i as (insert into public.activity_events (agency_id, organization_id, entity_type, entity_id, actor_id, action, detail, visibility) values ('${AGENCY}','${LAKESIDE}','work_item','${CRM_L}', auth.uid(), 'Comment posted', 'probe', 'shared_with_partner') returning 1) select count(*)::int as rows from i`).rows, 1],
+    ["…but not as bes_internal",                                      () => W8(orgOwner, `with i as (insert into public.activity_events (agency_id, organization_id, entity_type, entity_id, actor_id, action, detail, visibility) values ('${AGENCY}','${LAKESIDE}','work_item','${CRM_L}', auth.uid(), 'Comment posted', 'probe', 'bes_internal') returning 1) select count(*)::int as rows from i`).rows, 0],
+    ["…may upload a document to it",                                  () => W8(orgOwner, `with i as (insert into public.files (agency_id, organization_id, entity_type, entity_id, bucket, path, name, mime_type, size_bytes, uploaded_by) values ('${AGENCY}','${LAKESIDE}','work_item','${CRM_L}','attachments','probe/x.pdf','x.pdf','application/pdf',1, auth.uid()) returning 1) select count(*)::int as rows from i`).rows, 1],
+    ["org agent (non-admin) does not see the project",                () => W8(orgAgent, `select count(*)::int as rows from public.work_items where id='${CRM_L}'`).rows, 0],
+    ["org2 owner (not crm-entitled) does not see its project",        () => W8(org2Owner, `select count(*)::int as rows from public.work_items where id='${CRM_N}'`).rows, 0],
+    ["…and sees it once entitled",                                    () => W8sudo(`update public.product_entitlements set enabled=true where organization_id='${NORTHGATE}' and product='crm'`, org2Owner, `select count(*)::int as rows from public.work_items where id='${CRM_N}'`).rows, 1],
+    ["org owner never sees another org's project",                    () => W8(orgOwner, `select count(*)::int as rows from public.work_items where id='${CRM_N}'`).rows, 0],
+    ["BES owner reads its own published update (was hidden: activity_service null)", () => W8(besOwner, `select count(*)::int as rows from public.activity_events where entity_id='${CRM_L}' and visibility='shared_with_partner'`).rows, 1],
+    ["BES owner reads the org's status change on a shared workspace item", () => W8(besOwner, `select least(count(*),1)::int as rows from public.activity_events where entity_id='ee000000-0000-4000-8000-000000000102' and visibility='shared_with_partner' and action='Status changed'`).rows, 1],
+    ["…but never a customer's organization_internal note",           () => W8sudo(`insert into public.activity_events (agency_id, organization_id, entity_type, entity_id, actor_id, action, detail, visibility) values ('${AGENCY}','${LAKESIDE}','work_item','${CRM_L}', '${orgOwner}', 'Note', 'org private', 'organization_internal')`, besOwner, `select count(*)::int as rows from public.activity_events where entity_id='${CRM_L}' and visibility='organization_internal'`).rows, 0],
+    // The fixture's project also carries the trigger-written 'Work item created' event (bes_internal); count internal NOTES only.
+    ["BES owner sees both projects and the internal note",            () => W8(besOwner, `select (select count(*) from public.work_items where division='bes_crm')::int + (select count(*) from public.activity_events where entity_id='${CRM_L}' and visibility='bes_internal' and action='Note')::int as rows`).rows, 3],
+  ];
+  console.log("\nphase 8:");
+  for (const [label, fn, want] of P8) {
     checks++;
     let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
     const ok = got === want; if (!ok) fails++;

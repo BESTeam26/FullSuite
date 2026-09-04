@@ -100,6 +100,14 @@ export interface WorkItem {
   createdAt: string;
   /** Set when the item lives in a Custom Workspace (rule 17). */
   workspaceId?: string;
+  /** Owning agency — needed to post activity on the record. */
+  agencyId?: string;
+  /** BES division that owns execution (creditops, fundingops, bes_crm, talentops). */
+  division?: string;
+  /** For AGENCY-scope work about a customer (e.g. a BES CRM project). */
+  subjectOrganizationId?: string;
+  description?: string;
+  dueAt?: string;
 }
 
 /* ------------------------------------------------------------------ */

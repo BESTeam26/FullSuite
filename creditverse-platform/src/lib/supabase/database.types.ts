@@ -2701,7 +2701,12 @@ export type Database = {
       }
       try_bigint: { Args: { t: string }; Returns: number }
       workspace_reach: {
-        Args: { p_board: string; p_need_work?: boolean; p_ws: string }
+        Args: {
+          p_assignee?: string
+          p_board: string
+          p_need_work?: boolean
+          p_ws: string
+        }
         Returns: boolean
       }
     }
