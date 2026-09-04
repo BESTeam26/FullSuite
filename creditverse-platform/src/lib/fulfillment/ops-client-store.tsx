@@ -69,6 +69,8 @@ export interface AddClientOutcome<T extends OpsClient> {
 }
 
 export interface ProductionLogInput {
+  /** One id per submission intent; see `LogProductionInput.requestId`. */
+  requestId: string;
   clientId: string;
   clientName: string;
   partnerName: string;

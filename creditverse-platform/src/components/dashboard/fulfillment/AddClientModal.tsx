@@ -14,6 +14,7 @@ import type { FulfillmentClient } from "@/lib/fulfillment/fulfillment-client-dom
 import type { CreditOpsPartner } from "@/lib/fulfillment/creditops-partners";
 import { OpsAddClientModal } from "./OpsAddClientModal";
 import { OpsSelect } from "@/components/ui/ops-select";
+import { useTeams } from "@/lib/data/use-teams";
 
 const STATUS_OPTIONS = [
   "Onboarding",
@@ -46,6 +47,11 @@ export function AddClientModal({
 }: AddClientModalProps) {
   const store = useCreditOpsStore();
   const [round, setRound] = useState<FulfillmentClient["round"]>("Pre-Round");
+  /* Creation is a ceiling act (migration 0023): a team-scoped user can only
+     create inside a team their scope reaches, so the form must say which.
+     Pre-selected from the user's own teams; the database still decides. */
+  const { teams, mustChooseTeam, defaultTeamId } = useTeams();
+  const [teamId, setTeamId] = useState<string>(defaultTeamId ?? "");
 
   return (
     <OpsAddClientModal<FulfillmentClient>
@@ -57,9 +63,31 @@ export function AddClientModal({
       statusOptions={STATUS_OPTIONS}
       defaultStatus="Onboarding"
       assignees={ELIGIBLE_ASSIGNEES}
-      onResetExtras={() => setRound("Pre-Round")}
+      onResetExtras={() => {
+        setRound("Pre-Round");
+        setTeamId(defaultTeamId ?? "");
+      }}
       extraField={
-        <div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {teams.length > 0 && (
+            <div>
+              <label className="text-xs font-semibold text-foreground">
+                Team{mustChooseTeam ? "" : " (optional)"}
+              </label>
+              <OpsSelect
+                value={teamId}
+                onValueChange={setTeamId}
+                options={[
+                  ...(mustChooseTeam ? [] : [{ value: "", label: "No team" }]),
+                  ...teams.map((t) => ({ value: t.id, label: t.name })),
+                ]}
+                size="field"
+                aria-label="Team"
+                className="mt-1"
+              />
+            </div>
+          )}
+          <div>
           <label className="text-xs font-semibold text-foreground">Round</label>
           <OpsSelect
             value={round}
@@ -69,6 +97,7 @@ export function AddClientModal({
             aria-label="Round"
             className="mt-1"
           />
+          </div>
         </div>
       }
       buildPayload={(common, chosen) => {
@@ -86,6 +115,7 @@ export function AddClientModal({
           status: common.status as FulfillmentClient["status"],
           round,
           assignedAgent: common.assignee,
+          teamId: teamId || undefined,
           openItems: 0,
           autoSync: partner?.mode === "saas_pulled",
         };

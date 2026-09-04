@@ -79,6 +79,14 @@ export function CompleteWorkSection({
   /* Synchronous guard — see the note in OpsActivityTimeline. `isSubmitting`
      drives the label; this is what actually stops a second production row. */
   const submittingRef = useRef(false);
+  /**
+   * The idempotency key for THIS submission. Minted when the form is first
+   * filled, kept across retries, and re-minted only after a confirmed success
+   * or a deliberate reset — so a double-click, a retry after a timeout, or a
+   * replay all carry the same id and the database collapses them to one row.
+   * A page refresh loses it on purpose: re-filling the form is a new intent.
+   */
+  const requestIdRef = useRef<string>(crypto.randomUUID());
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Production-action library for the selected department.
@@ -128,6 +136,7 @@ export function CompleteWorkSection({
       // ONE Work Completion event → ONE production unit (1 file worked).
       // The selected items become the production actions under that unit.
       await store.logProduction({
+        requestId: requestIdRef.current,
         clientId,
         clientName,
         partnerName,
@@ -151,7 +160,10 @@ export function CompleteWorkSection({
         });
       }
 
-      // Reset the form only once the work is recorded.
+      // Reset the form only once the work is recorded — and mint the next
+      // intent's id only now, so a retry of THIS one could never be mistaken
+      // for a new submission.
+      requestIdRef.current = crypto.randomUUID();
       setSelectedItems([]);
       setWorkNotes("");
       setStatusChange("Keep current status");

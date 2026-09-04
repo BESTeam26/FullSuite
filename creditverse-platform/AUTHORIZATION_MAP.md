@@ -108,8 +108,42 @@ Positive control: Team A holds 4 clients, Team B holds 1; the lead reaches A and
 not B; the division manager reaches both. Rows are read as each user's JWT with
 the change rolled back, so these are the policies' own answers.
 
-**Still not person-scoped (recorded, Phase 2/3):** `activity_events` for
-`bes_internal` and non-activity `files` remain agency-wide for BES staff. The
-record they hang off is now scoped, so the UI cannot reach them, but a direct
-query can. `client_department_statuses_write` still uses agency-blind
-`is_agency_staff()`.
+**Was still not person-scoped after 0021 (closed by 0022/0023 below):**
+`activity_events`, `files`, `client_department_statuses`, `funding_files`,
+`businesses` and the funding satellites were agency-wide for BES staff. The
+independent review measured exactly that — see Phase 2.
+
+
+## Phase 2 — independent review, then remediation (migration 0023)
+
+An independent reviewer attacked 0021 as all 13 users across 14 tables and
+**failed it as a system boundary**: the parents were scoped, the satellites were
+not (restricted read 53 department statuses, 94 activity events, 3 funding
+files, 5 businesses; blind UPDATE/DELETE reached all of them; two escalation
+paths; INSERT into unseen records). Full table with quoted counts and the
+closing change per finding: `BUILD_STATUS.md` → *Phase 2*.
+
+The remediation principle: **a child follows its parent.** `entity_visible()`
+(SECURITY INVOKER, so it runs under the caller's RLS) asks whether the record an
+event or file hangs off is visible; funding files, department statuses, deals
+and businesses ask the same of their client. Scope is stated once, on the
+parent, and inherited.
+
+| Was FACT before 0023 | After 0023 |
+|---|---|
+| `activity_events`, `files` agency-wide for staff | follow their record |
+| `businesses` readable by any staff | engagement required |
+| `work_items` BES branch engagement-blind for ORGANIZATION scope | `bes_engaged_with(org)` |
+| staff could INSERT notes/production/files/work on unseen records | `entity_visible` / visible client / supervisor-only assignment |
+| assigned-scope agent could mint a client and self-assign | client creation is a ceiling act |
+| lead clause honoured any team, incl. org teams and archived | agency's own live team only |
+| `org_manager` could self-promote | role writes strictly `org_admin`, never own row |
+| `log_audit()` callable by anyone | EXECUTE revoked from clients on all trigger/seed functions |
+| `assignable_profiles` enumerated any org | managers/leads; org admins; engaged managers |
+
+**0024 (follow-up from the extended matrix):** `businesses` follow the caller's
+reach into the organization — visible only alongside a client or work item the
+caller can already see. And *creation must land inside the creator's own reach*:
+`INSERT … RETURNING` evaluates the SELECT policy, so a scope-limited creator
+self-assigns work; ceiling holders may queue it unassigned. Stated in
+`work_items_insert`.

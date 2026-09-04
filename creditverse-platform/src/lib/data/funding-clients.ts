@@ -82,6 +82,7 @@ export function mapFundingClientRow(row: ClientRow): FundingClient {
     autoSync: row.auto_sync,
     status: row.status as FundingClientStatus,
     assignedAgent: agentName ?? undefined,
+    teamId: row.team_id ?? undefined,
     openFiles: row.funding_files?.[0]?.count ?? 0,
     slaHoursRemaining: hoursUntil(row.due_at),
     lastActivity: relativeTime(row.last_activity_at),
@@ -413,6 +414,8 @@ export interface CreateFundingClientInput {
   status: Enums<"funding_client_status">;
   /** The same person's CreditOps record, when intake found one. */
   fulfillmentClientId?: string;
+  /** Owning team; creation is a ceiling act (migration 0023). */
+  teamId?: string | null;
 }
 
 /**
@@ -436,6 +439,7 @@ export async function createFundingClient(
     auto_sync: input.autoSync,
     status: input.status,
     fulfillment_client_id: input.fulfillmentClientId ?? null,
+    team_id: input.teamId ?? null,
     created_by: await currentUserId(),
   };
   const { data, error } = await sb

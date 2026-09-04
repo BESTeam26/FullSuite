@@ -86,12 +86,26 @@ const live: OpsClientLiveBackend<FundingClient, FundingDepartmentStatus> = {
       organizationId: client.organizationId,
       outsourcingGroupId: client.outsourcingGroupId,
       autoSync: client.autoSync,
+      teamId: client.teamId,
       status: client.status as Enums<"funding_client_status">,
     }),
   /* FundingOps production is logged against a DEAL, not a dispute unit, so it
      does not share the CreditOps Complete Work path. Left unimplemented rather
      than wired to the wrong table. */
-  logProduction: async () => {},
+  /**
+   * Not a no-op. `production_logs.department` is the CreditOps
+   * `fulfillment_department` enum and `division_id` defaults to 'creditops', so
+   * FundingOps production cannot be stored without a schema change to the
+   * production engine. Until that lands this must FAIL visibly — an `async ()
+   * => {}` here made "Complete Work" on a deal look like it succeeded while
+   * recording nothing, which is a placeholder pretending to be production
+   * behaviour (rule 12). The store's error surface shows the reason.
+   */
+  logProduction: async () => {
+    throw new Error(
+      "Production logging for FundingOps is not available yet — the production engine only stores CreditOps departments.",
+    );
+  },
 };
 
 const store = createOpsClientStore<FundingClient, FundingDepartmentStatus>({

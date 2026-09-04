@@ -1579,3 +1579,233 @@ a pure mirror for labelling only, with 9 unit tests.
 **Not yet person-scoped (carried to Phase 2/3):** `activity_events`
 (`bes_internal`) and non-activity `files` are still agency-wide for BES staff;
 `client_department_statuses_write` still uses agency-blind `is_agency_staff()`.
+
+
+---
+
+## Phase 3 — Work Engine integrity (migration 0022) · APPLIED, VERIFIED
+
+**Reproduced first, as real users inside rolled-back transactions:**
+
+| Defect | Probe | Result |
+|---|---|---|
+| Org admin cannot create own-org work | `insert work_items (scope=ORGANIZATION, org=Lakeside)` as `org.owner` | **42501** — `work_items_insert` was `is_staff_of AND can_write_work`, making the `is_org_member` branch unreachable |
+| Production not idempotent | two identical `production_logs` inserts in one txn as `bes.credit` | **2 rows**; `pg_constraint` shows **0** unique/exclusion constraints |
+| FundingOps production is a stub | `fundingops-client-store.logProduction = async () => {}` | "Complete Work" on a deal resolved successfully and recorded nothing |
+| FundingOps production is *structurally* unsupported | `production_logs.department` is `fulfillment_department` (CreditOps enum); `division_id` text default `'creditops'` | funding departments have no storable representation |
+| Agency-blind writes | 7 operational policies still `is_agency_staff()` | on tables with no `agency_id` of their own |
+
+**Fixes written (migration `20260904000200_work_engine_integrity.sql`):**
+- `work_items_derive_tenancy` BEFORE INSERT trigger sets `agency_id` from the
+  organization for ORGANIZATION-scope work and stamps `created_by = auth.uid()`.
+  Org users cannot read `agencies` (verified: 0 rows), so the agency is
+  derived server-side, never trusted from the client. The rewritten
+  `work_items_insert` re-proves the derivation.
+- BES may create ORGANIZATION-scope work only with `division` set and a live
+  engagement for that service — no division, no way to know the service, deny.
+- `production_logs.request_id uuid` + partial unique index
+  `(agency_id, request_id) where request_id is not null`. Legacy rows untouched.
+- The seven agency-blind policies now resolve `is_staff_of` through the parent
+  client, so person-level scope on the client flows down to statuses, deals and
+  businesses via the caller's own RLS on the EXISTS.
+
+**Frontend:** one request id per submission intent (`CompleteWorkSection`),
+threaded through the store to `logProduction`, which treats 23505 as "already
+recorded". FundingOps "Log Production" is disabled with the reason stated, and
+the store rejects with the same reason instead of resolving silently.
+
+Because client creation is now a ceiling act (0023 §E), both intake modals gain
+a **Team** field fed by `useTeams()` — one bounded read of the caller's live
+agency teams, cached five minutes — pre-selected from the user's own teams and
+required when their scope is `team` or `department`. `teamId` threads through
+`CreateFulfillmentClientInput` / `CreateFundingClientInput` and both row
+mappers. The frontend offers; `in_scope` decides.
+
+**Tests written before push:** `rls-matrix.mjs --phase=3` (9 checks: org
+insert allowed / spoofed agency overridden / AGENCY denied / other org denied /
+assigned-only agent allowed / BES allowed / probe denied / same request id → 1
+row / distinct ids → 2 rows) and `log-production.test.ts` (request id sent;
+23505 = success; other errors surface).
+
+**Verified after push (real browser, real database):**
+- Triple-click on Complete Work → **1** `POST production_logs` on the wire, and
+  **1** row in the database for that client in the window, `request_id` set,
+  one distinct id. The UI guard and the unique index agree; the index is what
+  enforces it.
+- Assignee names still resolve for the owner after `shares_scope_with` was
+  tightened: 4 assigned clients, 4 resolvable names, 13 profiles visible (the
+  no-membership probe is correctly no longer among them).
+- Both intake modals render the Team field: "Team (optional)" for the
+  agency-scoped owner, listing "No team" plus the three fixture teams — proof
+  `useTeams` reads under RLS.
+- Migrations 27 local = 27 remote, 0 pending. Regression gate green: 229 tests,
+  0 lint errors, build, live security, no circular dependencies.
+
+**Deferred, recorded:** FundingOps production needs the production engine to
+accept funding departments — a schema decision, not a stub fix.
+
+
+---
+
+## Phase 9 inventory — Settings honesty (FACTS gathered; fixes not yet applied)
+
+Every control classified by reading the code, not the labels.
+
+| Control | File:line | Classification |
+|---|---|---|
+| In-app / Email / SMS notifications (3) | PlatformSections 175–185 | **DISABLED / FUTURE** — inside a disabled fieldset with a "Not active yet" note (done earlier) |
+| Require MFA for all agency users | PlatformSections:211 | **PLACEHOLDER DEFECT — security-implying** |
+| Step-up auth for sensitive admin actions | PlatformSections:216 | **PLACEHOLDER DEFECT — security-implying** |
+| Restrict SSN/report exports (DLP) | PlatformSections:221 | **PLACEHOLDER DEFECT — security-implying** |
+| Fail closed on missing authorization context | PlatformSections:226 | **PLACEHOLDER DEFECT — security-implying** (the database already fails closed; the toggle implies it is optional) |
+| Require consumer attestation before dispute | OperationsSections:99 | PLACEHOLDER DEFECT — compliance-implying |
+| Block advance-fee billing (CROA) | OperationsSections:105 | PLACEHOLDER DEFECT — compliance-implying |
+| Experian upload-only (no mail) | OperationsSections:111 | PLACEHOLDER DEFECT |
+| BRM sees assigned deals only | OperationsSections:161 | PLACEHOLDER DEFECT — authorization-implying |
+| Sales Partner sees own referrals only | OperationsSections:166 | PLACEHOLDER DEFECT — authorization-implying |
+| Lender sees submissions sent to them only | OperationsSections:171 | PLACEHOLDER DEFECT — authorization-implying |
+| Professional-help requests route to referring partner | OperationsSections:204 | PLACEHOLDER DEFECT |
+| Funding-interest requests route to eligible FundingOps org | OperationsSections:209 | PLACEHOLDER DEFECT |
+| Direct BES leads never auto-assigned to a partner | OperationsSections:214 | PLACEHOLDER DEFECT |
+| 14 `defaultValue` inputs (recipients, thresholds, endpoints) | Operations 8, Platform 6 | PLACEHOLDER DEFECT — pre-filled values nothing reads |
+| "Save brand settings" | GeneralSections:74 → `markSaved` | **PLACEHOLDER DEFECT** — sets a 2-second "Saved" flag; persists nothing |
+| Toggle fulfillment subscription (per sub-account) | GeneralSections:124 → `updateOrganization` | **FUNCTIONAL BUT INERT** — persists `is_fulfillment_subscriber`, which **no policy and no function reads** (verified against `pg_policies` and `pg_proc`) since `fulfillment_engagements` replaced it. Saving it changes nothing about access |
+| "HQ DFY Subscriber" / "Self-Managed" pills, DFY filters, plan labels | 30 frontend references to `isFulfillmentSubscriber` | **MISLEADING DISPLAY** — fulfillment status shown from the dead flag, not from the engagement that actually authorizes. A partner with an active engagement and the flag off reads "Self-Managed"; the reverse reads "Subscriber" with no access |
+| Sub-account branding | `updateOrganizationBranding` (jsonb merge) | FUNCTIONAL |
+| Agency-level users' `assignedOnly` switch | GeneralSections:248 → `agency-settings-context` local state | PLACEHOLDER DEFECT — the real flag is `agency_memberships.scope` |
+
+**Highest risk:** the four security toggles and three authorization toggles.
+A switch labelled *Require MFA* or *BRM sees assigned deals only* that renders
+ON while enforcing nothing is worse than no switch. Phase 9 will disable and
+label each, and point the fulfillment-subscription toggle at
+`fulfillment_engagements` or remove it.
+
+
+---
+
+## Phase 2 — Independent adversarial review · FAILED, THEN REMEDIATED (migration 0023)
+
+An independent reviewer (separate agent, read-only, every probe rolled back,
+outputs quoted) attacked migration 0021 as all 13 test users across 14 tables.
+
+**Verdict:** the `in_scope` model **passed on the three tables it was applied
+to** — every positive and negative control, plus constructed cases the author's
+matrix lacked (unassigned Team A record, Ironwood no-engagement record,
+department and self scopes) — and **failed as a system boundary.**
+
+| # | Sev | Finding (quoted counts) | Closed by |
+|---|---|---|---|
+| 1 | CRIT | `client_department_statuses_write` FOR ALL `is_agency_staff()`: restricted reads **53**, blind-updates **53/53**, deletes **53** | 0022: split to insert+update via parent; no DELETE |
+| 2 | CRIT | Blind UPDATE with no WHERE reaches rows the user cannot SELECT: restricted updated **3/3** deals, **3/3** funding files | 0022/0023: every UPDATE now via a scoped parent; `funding_files` follows its client |
+| 3 | HIGH | `activity_events_select` not person-scoped: restricted reads **94** events | 0023: `entity_visible()` — an event is readable only if its record is |
+| 4 | HIGH | `businesses_select` = `is_agency_staff()`: staff read SaaS-only orgs' revenue | 0023: `bes_engaged_with(org)` required |
+| 5 | HIGH | `work_items` BES branch had no engagement conjunct; owner read Vantage's org work with **0** engagements | 0023: `scope='AGENCY' or bes_engaged_with(org)` |
+| 6 | HIGH | Staff INSERT into records they cannot read (notes, production, files, agency work assigned to others, self-assigned new clients) | 0023: `entity_visible` on insert; production requires visible client; assignment is a supervisor act; client creation is a ceiling act |
+| 7 | HIGH | `funding_files_select` = `is_staff_of` | 0023: follows client, or own assignment |
+| 8 | MED | Org admin adds a BES agent to an org team → agent gains work via lead clause | 0023: lead clause requires the agency's own live team; roster writes require the person to belong to the team's owner |
+| 9 | MED | `org_manager` self-promotes to `org_admin` | 0023: membership/role writes strictly `org_admin` (or engaged agency manager) and never one's own row |
+| 10 | MED | Any staffer enumerates all profiles / rosters; `assignable_profiles` lists any org | 0023: `shares_scope_with` and `assignable_profiles` rewritten — same agency, shared org, or engaged manager |
+| 11 | MED | Division scope did not constrain manager writes | 0023: production select/update by managers within `to_service(division_id)`; admin tables recorded (see below) |
+| 12 | LOW | `log_audit()` callable by a no-membership probe → audit pollution | 0023: EXECUTE revoked from clients on all trigger/seed functions |
+| 13 | LOW | `team_id` unowned; archived teams still granted lead reach; leads could not see their roster | 0023: team must be a live team of the record's agency; members see their team's roster |
+| 14 | INFO | org `assigned_only` agent saw events on clients they cannot see | 0023: `entity_visible` on the org branch too |
+| 15 | INFO | 30 policies still on agency-blind helpers | operational ones closed above; membership/admin tables recorded below |
+
+**Not changed, recorded:** `organizations`, `product_entitlements`,
+`fulfillment_engagements`, `invitations`, `record_grants`, `agencies`,
+`external_memberships` remain readable by BES staff agency-wide. These are the
+platform operator's own customer and commercial records, not a customer's
+operational data; the doctrine gates *operational* access on engagement.
+Division-scoped **writes** to those admin tables by managers (finding 11)
+remain role-gated; narrowing a manager's administrative role is policy.
+
+**Follow-up from the extended matrix (migration 0024):** businesses were
+engagement-gated but not person-scoped (restricted still read 3); they now
+follow the caller's reach into the organization — visible only if the caller can
+already see one of that org's clients or work items. And a design rule surfaced
+by Postgres itself: `INSERT … RETURNING` evaluates the SELECT policy, so an
+assigned-only agent could create unassigned work and immediately lose sight of
+it. **Creation must land inside the creator's own reach** — a scope-limited
+creator self-assigns; ceiling holders may queue unassigned work. Stated in
+`work_items_insert` so it fails clearly at insert, with positive and negative
+probes for both sides.
+
+**Matrix extended** (`rls-matrix.mjs --phase=2`, 29 checks) to cover every gap
+the reviewer named: satellites, blind UPDATE/DELETE with no WHERE, INSERT into
+unseen records, the unassigned Team A queue (`[TEST] Dana Doyle`, now
+unassigned), an Ironwood no-engagement client (`[TEST] Ivan Ironwood`),
+org.agent / org.manager, escalation paths, cross-service reads.
+
+
+---
+
+## Phase 4 — My Work + Attention, person-level · DONE (pending commit)
+
+With `in_scope` applied to `work_items` (0021/0023) and `work_attention`
+recreated as `security_invoker`, both surfaces are person-scoped **by the
+database**, not by the hooks: `useMyWork` (`assigned_to = me`) and
+`useAttention` (the view) return only rows the caller may see, and the sidebar
+badges read the same hooks, so `COUNT(scope) = LIST(scope)` holds by
+construction. Matrix: restricted attention **0**, lead **1**, manager **5**
+(division ∪ assigned), owner **6**. The Attention Center header now states the
+caller's actual reach (`describeScope`) instead of "across the BES ecosystem",
+which stopped being true the moment scope existed. Verified in the browser for
+the owner: "your reach: Agency-wide", badge 6 = page 6, My Work 0 = 0.
+
+---
+
+## Phase 5 — Notification engine · PROPOSAL (not built)
+
+Everything here is design; nothing exists yet. Facts it rests on: no
+notification table (verified); `activity_events` is trigger-written, append-only,
+with `previous_value`/`new_value` for assignee changes; `entity_visible()` now
+answers "may this caller see this record" for every entity type; `work_items`
+has `assigned_to`, `team_id`, `division`; `related_ref` is free text and null on
+3 of 10 rows.
+
+**One table.**
+
+```
+notifications (
+  id bigint identity pk,
+  recipient_id uuid → profiles           -- exactly one person per row
+  actor_id uuid → profiles null,
+  agency_id uuid → agencies, organization_id uuid → organizations null,
+  kind text,                              -- 'assigned' | 'reassigned' | 'mention' | 'overdue' | 'sla_risk' | 'blocked' | 'note'
+  entity_type text, entity_id text,       -- the canonical record; same vocabulary as activity_events
+  activity_id bigint → activity_events null,
+  created_at timestamptz, read_at timestamptz null
+)
+unique (recipient_id, activity_id, kind) where activity_id is not null   -- one notification per person per event
+index (recipient_id, read_at) where read_at is null                      -- the badge
+```
+
+**Recipients are computed by the same triggers that write activity, in the
+same transaction, deterministically:**
+- `assigned` / `reassigned` → `new.assigned_to` (and `old.assigned_to` gets an
+  `unassigned` note only if a business rule wants it — not by default).
+- `note` on a record → the record's assignee, plus the lead(s) of its team; never
+  anyone who fails `entity_visible` for that record at delivery time.
+- `mention` → a `mention` node in the structured body (`@user` → `profiles.id`,
+  never a name); recipient must pass `entity_visible` at delivery.
+- `overdue` / `sla_risk` / `blocked` → assignee + the record's team leads +
+  division managers of the record's division. Produced by a scheduled job
+  (pg_cron) that scans `work_attention`, not by clients.
+- Division events go only to people whose scope reaches that division;
+  organization events never leave the organization; `bes_internal` never
+  reaches a customer user — all of which falls out of routing through
+  `entity_visible` + `can_view_activity` at write time.
+
+**RLS:** `select using (recipient_id = auth.uid())`; `update (read_at only) using
+(recipient_id = auth.uid())` via column grant; no client insert/delete. Badge =
+`count(*) where recipient_id = me and read_at is null`; list = the same
+predicate ordered by `created_at desc`, bounded. Same table, same predicate —
+no second counter.
+
+**Deep links (Phase 5b):** one resolver `hrefFor(entity_type, entity_id)` that
+maps the activity vocabulary to a route; on click, re-read the record (RLS
+decides), and render "no longer available" when it returns nothing. `related_ref`
+is not used as an address until it becomes a typed FK.
+
+**Explicitly out of scope until Team Scope is exercised in production:** email/SMS
+delivery, digests, escalation ladders beyond lead + division manager.

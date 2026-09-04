@@ -191,6 +191,7 @@ export function FundingDealWorkspace({ dealId, onBack }: Props) {
       WORK_GROUPS.find((g) => g.items.some((i) => selectedWork.includes(i)))
         ?.label ?? "Work";
     store.logProduction({
+      requestId: crypto.randomUUID(),
       clientId: client.id,
       clientName: `${client.name} — ${dealCode(deal.id)} (${deal.lender})`,
       partnerName: clientGroupLabel(client),
@@ -325,6 +326,9 @@ export function FundingDealWorkspace({ dealId, onBack }: Props) {
             workNotes={workNotes}
             setWorkNotes={setWorkNotes}
             submitWork={submitWork}
+            /* production_logs.department is the CreditOps enum and division_id
+               defaults to creditops: FundingOps units have nowhere to go yet. */
+            unavailableReason="Production logging for FundingOps needs the production engine to accept funding departments. Nothing is recorded from this panel today."
           />
         </div>
 

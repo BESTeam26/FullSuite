@@ -161,12 +161,19 @@ export function DealWorkCompletionSection({
   workNotes,
   setWorkNotes,
   submitWork,
+  unavailableReason,
 }: {
   selectedWork: string[];
   toggleWork: (item: string) => void;
   workNotes: string;
   setWorkNotes: (v: string) => void;
   submitWork: () => void;
+  /**
+   * When set, production cannot be recorded for this division yet and the
+   * control says so instead of looking live. The FundingOps store used to
+   * resolve silently here, which made a click look like a recorded unit.
+   */
+  unavailableReason?: string;
 }) {
   return (
     <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
@@ -213,10 +220,21 @@ export function DealWorkCompletionSection({
           rows={2}
           className="w-full rounded-lg border border-border bg-background p-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
         />
+        {unavailableReason && (
+          <p
+            role="note"
+            className="rounded-lg border border-dashed border-border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground"
+          >
+            <span className="font-semibold text-foreground">Not active yet.</span>{" "}
+            {unavailableReason}
+          </p>
+        )}
         <button
+          type="button"
           onClick={submitWork}
-          disabled={selectedWork.length === 0}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={selectedWork.length === 0 || Boolean(unavailableReason)}
+          aria-disabled={Boolean(unavailableReason) || undefined}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card disabled:cursor-not-allowed disabled:opacity-60"
         >
           <Handshake className="h-3.5 w-3.5" /> Log Production (
           {selectedWork.length})

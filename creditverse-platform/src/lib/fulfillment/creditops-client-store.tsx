@@ -81,6 +81,7 @@ const live: OpsClientLiveBackend<FulfillmentClient, DepartmentStatus> = {
       organizationId: client.organizationId,
       outsourcingGroupId: client.outsourcingGroupId,
       autoSync: client.autoSync,
+      teamId: client.teamId,
       status: client.status as Enums<"fulfillment_client_status">,
       round: client.round as Enums<"fulfillment_round">,
     }),
@@ -88,6 +89,7 @@ const live: OpsClientLiveBackend<FulfillmentClient, DepartmentStatus> = {
     logProduction({
       agencyId,
       employeeId,
+      requestId: input.requestId,
       clientId: input.clientId,
       department: input.department as Enums<"fulfillment_department">,
       productionUnitType: input.department,

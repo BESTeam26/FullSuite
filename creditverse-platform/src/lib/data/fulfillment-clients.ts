@@ -79,6 +79,7 @@ export function mapClientRow(row: ClientRow): FulfillmentClient {
     status: row.status as FulfillmentClientStatus,
     round: row.round as FulfillmentClientRound,
     assignedAgent: agentName ?? undefined,
+    teamId: row.team_id ?? undefined,
     openItems: row.open_items,
     slaHoursRemaining: hoursUntil(row.due_at),
     lastActivity: relativeTime(row.last_activity_at),
@@ -289,6 +290,12 @@ export interface CreateFulfillmentClientInput {
   status: Enums<"fulfillment_client_status">;
   round: Enums<"fulfillment_round">;
   assignedAgentId?: string | null;
+  /**
+   * Owning team. Creation is a ceiling act (migration 0023): a team-scoped user
+   * may only create inside a team their scope reaches, so the intake form must
+   * choose one. Agency- and division-scoped users may leave it unset.
+   */
+  teamId?: string | null;
 }
 
 /**
@@ -312,6 +319,7 @@ export async function createFulfillmentClient(
     status: input.status,
     round: input.round,
     assigned_agent_id: input.assignedAgentId ?? null,
+    team_id: input.teamId ?? null,
     created_by: await currentUserId(),
   };
   const { data, error } = await sb
@@ -345,6 +353,14 @@ export interface LogProductionInput {
   productionUnitType: string;
   actions: string[];
   workNotes?: string;
+  /**
+   * Client-generated once per submission intent and reused across every retry
+   * of that submission. The database holds a unique index on
+   * `(agency_id, request_id)`, so a double-click, a network retry or a replay
+   * lands on the same row instead of creating a second one. React guards stay
+   * for UX; this is what enforces "exactly once".
+   */
+  requestId: string;
 }
 
 /**
@@ -363,6 +379,7 @@ export interface LogProductionInput {
 export async function logProduction(input: LogProductionInput) {
   const sb = requireSupabase();
   const { error } = await sb.from("production_logs").insert({
+    request_id: input.requestId,
     agency_id: input.agencyId,
     employee_id: input.employeeId,
     client_id: input.clientId,
@@ -376,6 +393,10 @@ export async function logProduction(input: LogProductionInput) {
     work_notes: input.workNotes ?? null,
     work_date: new Date().toISOString().slice(0, 10),
   });
+  // 23505 on (agency_id, request_id) means THIS submission already landed —
+  // an earlier attempt succeeded but its response was lost. That is the
+  // idempotent success case, not a failure to surface.
+  if (error && error.code === "23505") return;
   if (error) throw error;
 }
 

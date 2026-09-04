@@ -1382,6 +1382,7 @@ export type Database = {
           outsourcing_group_id: string | null
           production_unit_quantity: number
           production_unit_type: string
+          request_id: string | null
           void_reason: string | null
           voided_at: string | null
           voided_by: string | null
@@ -1405,6 +1406,7 @@ export type Database = {
           outsourcing_group_id?: string | null
           production_unit_quantity?: number
           production_unit_type: string
+          request_id?: string | null
           void_reason?: string | null
           voided_at?: string | null
           voided_by?: string | null
@@ -1428,6 +1430,7 @@ export type Database = {
           outsourcing_group_id?: string | null
           production_unit_quantity?: number
           production_unit_type?: string
+          request_id?: string | null
           void_reason?: string | null
           voided_at?: string | null
           voided_by?: string | null
@@ -2118,6 +2121,7 @@ export type Database = {
           role: string
         }[]
       }
+      bes_engaged_with: { Args: { p_org: string }; Returns: boolean }
       bes_may_fulfil: {
         Args: {
           p_group: string
@@ -2174,6 +2178,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      entity_visible: {
+        Args: { p_entity_id: string; p_entity_type: string }
+        Returns: boolean
+      }
       find_client_across_divisions: {
         Args: { p_email: string; p_scope: string }
         Returns: {
@@ -2201,6 +2209,7 @@ export type Database = {
       is_manager_of: { Args: { p_agency: string }; Returns: boolean }
       is_org_admin: { Args: { p_org: string }; Returns: boolean }
       is_org_member: { Args: { p_org: string }; Returns: boolean }
+      is_org_owner_admin: { Args: { p_org: string }; Returns: boolean }
       is_staff_of: { Args: { p_agency: string }; Returns: boolean }
       is_team_lead_of: { Args: { p_team: string }; Returns: boolean }
       log_audit: {
@@ -2219,6 +2228,7 @@ export type Database = {
         Returns: Json
       }
       my_org_ids: { Args: never; Returns: string[] }
+      org_agency: { Args: { p_org: string }; Returns: string }
       org_has_product: {
         Args: {
           p_org: string
@@ -2235,6 +2245,10 @@ export type Database = {
         Returns: boolean
       }
       shares_scope_with: { Args: { p_user: string }; Returns: boolean }
+      to_service: {
+        Args: { p: string }
+        Returns: Database["public"]["Enums"]["fulfillment_service"]
+      }
       try_bigint: { Args: { t: string }; Returns: number }
     }
     Enums: {

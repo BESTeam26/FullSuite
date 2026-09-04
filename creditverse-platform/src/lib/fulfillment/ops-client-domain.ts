@@ -103,6 +103,8 @@ export interface OpsClient {
   status: string;
   /** BES agent assigned to this client's work. */
   assignedAgent?: string;
+  /** Owning team — stable id, never a name. Set at intake or by a supervisor. */
+  teamId?: string;
   slaHoursRemaining?: number;
   lastActivity: string;
   createdAt: string;

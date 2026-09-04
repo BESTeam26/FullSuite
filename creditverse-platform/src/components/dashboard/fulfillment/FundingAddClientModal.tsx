@@ -7,6 +7,8 @@
  */
 
 import { useState } from "react";
+import { useTeams } from "@/lib/data/use-teams";
+import { OpsSelect } from "@/components/ui/ops-select";
 import {
   useFundingOpsStore,
   FUNDING_ELIGIBLE_ASSIGNEES,
@@ -42,6 +44,11 @@ export function FundingAddClientModal({
 }: FundingAddClientModalProps) {
   const store = useFundingOpsStore();
   const [requested, setRequested] = useState("");
+  /* Creation is a ceiling act (migration 0023): a team-scoped user can only
+     create inside a team their scope reaches. Pre-selected from the user's own
+     teams; the database still decides. */
+  const { teams, mustChooseTeam, defaultTeamId } = useTeams();
+  const [teamId, setTeamId] = useState<string>(defaultTeamId ?? "");
 
   return (
     <OpsAddClientModal<FundingClient>
@@ -54,8 +61,31 @@ export function FundingAddClientModal({
       statusOptions={STATUS_OPTIONS}
       defaultStatus="Onboarding"
       assignees={FUNDING_ELIGIBLE_ASSIGNEES}
-      onResetExtras={() => setRequested("")}
+      onResetExtras={() => {
+        setRequested("");
+        setTeamId(defaultTeamId ?? "");
+      }}
       extraField={
+        <div className="grid gap-3 sm:grid-cols-2">
+          {teams.length > 0 && (
+            <div>
+              <label className="text-xs font-semibold text-foreground">
+                Team{mustChooseTeam ? "" : " (optional)"}
+              </label>
+              <OpsSelect
+                value={teamId}
+                onValueChange={setTeamId}
+                options={[
+                  ...(mustChooseTeam ? [] : [{ value: "", label: "No team" }]),
+                  ...teams.map((t) => ({ value: t.id, label: t.name })),
+                ]}
+                size="field"
+                aria-label="Team"
+                className="mt-1"
+              />
+            </div>
+          )}
+
         <div>
           <label className="text-xs font-semibold text-foreground">
             Requested $
@@ -67,6 +97,8 @@ export function FundingAddClientModal({
             className="mt-1 w-full rounded-lg border border-border bg-background p-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
+        </div>
+
       }
       buildPayload={(common, chosen) => {
         // No sentinel. "all" is a UI filter value, not a partner; sending it
@@ -85,6 +117,7 @@ export function FundingAddClientModal({
           phone: common.phone,
           status: common.status as FundingClient["status"],
           assignedAgent: common.assignee,
+          teamId: teamId || undefined,
           openFiles: requestedNum > 0 ? 1 : 0,
           totalRequested: requestedNum,
           autoSync: scope.mode === "native_fundingops",
