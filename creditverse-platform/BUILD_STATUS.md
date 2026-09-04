@@ -1022,6 +1022,54 @@ this is call-site conversion, not new plumbing.
 
 tsc clean, 0 lint errors, 133/133 tests, build clean, no circular dependencies.
 
+### 2026-09-03 — 🔴 The append-only audit trail had a back door
+
+Asked whether anything needed fixing before continuing, I audited rather than
+guessed. Row policies came back clean — every `FOR ALL` policy outside the one I
+shipped in migration 0011 (already fixed by 0012) is properly gated, and agency
+membership cannot be self-granted. But the foreign keys were not.
+
+**`activity_events.organization_id` was `ON DELETE CASCADE`.** Migration 0008
+made the timeline append-only — no DELETE policy, column-level grants so values
+cannot be rewritten — and that was verified at the time. A cascade is not a
+DELETE statement the caller issues, so no policy is consulted. Deleting one
+organization deleted its entire audit history.
+
+Demonstrated against the live database before fixing: a throwaway organization
+with one client and one status change produced 2 audit events; deleting the
+organization removed the client **and both events**, with no error and no
+warning. Any agency admin could erase the record of everything done for a
+customer by deleting the customer. The same cascade destroyed
+`fulfillment_clients` and `funding_clients` rows — operational history that
+rule 11 says is archived, never deleted.
+
+Migration 0013 fixes it in two directions:
+
+- **History outlives its parent.** `activity_events` and `audit_log` now
+  `SET NULL` on the organization. The row stays; the scope pointer clears, which
+  the existing RLS reads as agency scope — correct, since once a customer is
+  gone only BES staff should see what happened. `production_logs` and
+  `webhook_deliveries` get the same treatment: they are the ledger this business
+  bills from.
+- **Client records block the delete.** `fulfillment_clients` and
+  `funding_clients` now `RESTRICT` against both organizations and outsourcing
+  groups. An organization holding clients cannot be deleted at all; it is
+  archived through its status, which both tables already support.
+
+Re-ran the identical probe afterwards: the delete is **refused** by the
+constraint, the client **survives** the attempt, the organization becomes
+deletable only once deliberately emptied, and **all three audit events survived
+everything**. No probe rows left behind.
+
+Configuration children (businesses, entitlements, memberships, preferences)
+still cascade — those are settings, not history.
+
+**Lesson worth keeping:** "append-only" is a property of the whole graph, not of
+one table's policies. Checking the policies proved nothing about the foreign
+keys pointing at it.
+
+tsc clean, 133/133 tests, build clean, `verify:live` green.
+
 ## Next steps for Claude Code
 
 1. Connect Supabase Auth + RLS for organization isolation
