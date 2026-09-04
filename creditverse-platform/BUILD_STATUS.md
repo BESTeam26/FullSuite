@@ -2043,3 +2043,28 @@ deps, verify-live, migrations 39/39. Browser, as the owner: Save brand settings
 wrote the agency row (colour and tagline preserved by the merge) and one
 `agency.branding_updated` audit entry with the owner as actor. RLS matrix:
 **188/188** (`--phase=9`, 6 new checks).
+
+---
+
+## Phase 10 — Platform-wide regression · DONE
+
+Run on the tree at commit `12604b2` (all nine phases):
+
+| Gate | Result |
+|---|---|
+| `tsc --noEmit` | clean |
+| `vitest run` | 27 files, **236** tests passing |
+| `eslint .` | 0 errors (77 pre-existing warnings) |
+| `vite build` | ✓ |
+| `madge --circular` | no circular dependencies |
+| `verify-live.mjs` | all anon/RPC surface checks pass (39 tables/views) |
+| `supabase migration list` | **39/39** local = remote |
+| `rls-matrix.mjs --phase=9` | **188/188** as 14 impersonated users, every probe rolled back |
+| Browser (owner) | Notifications, Workspaces (shared board), TalentOps, BES CRM (published + internal notes), Settings (locked toggles, real brand save) render in the light workspace with the dark branded sidebar |
+
+Defects found by the gates during this pass and fixed before the phase's
+commit: 0024 (creation inside reach), 0026 (unassigned notification readable),
+0028b (workspace activity visibility), 0030 (assignment always counts through
+a share), 0032 (BES could not read its own published work-item activity), 0034
+(both branding merges broken since 0023). One test expectation corrected
+(fixture's trigger-written creation event), with the reasoning recorded.
