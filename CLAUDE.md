@@ -560,3 +560,112 @@ agency or a reseller platform.**
 > On the agency layer: `agency_id` and `is_staff_of(agency)` are a **safety net,
 > not a reseller feature**. There is one agency row and there is meant to be
 > one. No work should go toward supporting a second.
+
+## 17. Module doctrine: strict domains, flexible workspaces, BES-owned delivery
+
+```
+ORGANIZATION
+├── CreditOps          strictly defined credit-repair workflow
+├── FundingOps         strictly defined funding workflow
+├── Custom Workspaces  flexible organization operations layer
+└── BES CRM            BES-managed delivery, visible only when entitled
+```
+
+Each module answers a different question about **who owns execution**. That is
+the distinction to protect; everything else follows from it.
+
+| Module | Owns execution | Customer may configure |
+|---|---|---|
+| CreditOps / FundingOps | BES, under an engagement | No — the domain model is fixed |
+| **Custom Workspace** | **The organization** | Yes, extensively |
+| **BES CRM** | **BES** | No — controlled visibility only |
+| TalentOps | The organization, staffed by BES | Scope of what BES may see |
+
+### Custom Workspaces
+
+The flexible operating layer for everything a customer does that is **not**
+strictly CreditOps or FundingOps — the replacement for Monday, ClickUp or Asana.
+Business Acquisition, Tradelines, Client Education, Tax Prep, Insurance,
+Document Prep, Real Estate, Marketing, Internal Admin, anything else.
+
+```
+Workspace → Project / Board / List → Work Item
+  → Assignment · Status · Due Date · Checklist · Files
+  → Comments / Activity · Completion
+  → Production · EOD · Reporting
+```
+
+An organization may personalize the workspace name, icon and colour, statuses,
+fields and columns, task/work types, board and list views, priorities,
+assignees, checklists, document sections, comments, automations where
+supported, KPI targets, and permissions.
+
+**One engine underneath, always.** Reuse the canonical `work_items` plus the
+existing Time, Production, EOD, Attention and Reporting architecture:
+
+```
+Work Item → Time → Production → EOD → Attention → Reporting
+```
+
+**Never let a workspace invent its own task engine.** Customization is *data* —
+statuses, fields, types are rows, not tables and not enums. A second task engine
+is how one truth becomes several (rules 2 and 5).
+
+### TalentOps is the bridge, not a second copy
+
+When an organization hires BES for staffing rather than fulfillment:
+
+```
+Organization Custom Workspace
+  → active TalentOps engagement
+    → authorized workspace / project / work scope shared to BES
+      → BES sees ONLY that scope
+        → agent workload, time, production, EOD, reporting
+```
+
+**The organization never re-creates its tasks inside BES.** The same canonical
+work record feeds both sides — exactly the model CreditOps and FundingOps
+already use:
+
+```
+One canonical work record
+  → the organization sees it
+  → BES sees it only when an active service relationship authorizes access
+```
+
+### BES CRM is BES-owned delivery
+
+Not a customer-editable workspace. A BES-managed project-delivery module for
+CRM, GHL, automation, website and funnel implementation. Customer visibility is
+controlled by entitlement **and** by what BES explicitly publishes.
+
+The organization **may**: view approved project progress, milestones and
+published activity; upload requested documents, SOPs, resources and meeting
+recordings; leave comments and questions; access shared files.
+
+The organization may **not**: change project or task status; move work items;
+assign or reassign BES staff; change due dates; mark BES work complete; edit
+production records; or see internal QA, internal management notes, or BES
+workforce and performance data.
+
+**Association is not publication** (rule 16). A BES CRM record touching a
+customer's project does not become the customer's to read — only what BES
+explicitly shares is visible.
+
+### Entitlement and security
+
+Custom Workspace and BES CRM visibility are **entitlement-controlled**; a module
+the organization is not entitled to is neither rendered nor served (rules 1
+and 16). Authorization stays the one existing chain — no shortcuts, no second
+permission system:
+
+```
+role + permission + scope + assignment + entitlement + engagement
+```
+
+> **Boundary that matters most:** CreditOps and FundingOps stay strict because
+> their correctness depends on a fixed domain model. Custom Workspaces are
+> flexible because the organization's own operations are not BES's to define.
+> Forcing every operational service through one generic project manager would
+> lose the first; letting every workspace define its own engine would lose the
+> second.
