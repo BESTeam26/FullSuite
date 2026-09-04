@@ -35,6 +35,7 @@ import {
   type OpsMetricsConfig,
 } from "@/lib/fulfillment/ops-management-metrics";
 import { OpsManagementDashboard, type OpsKpi } from "./OpsManagementDashboard";
+import { usePartners } from "@/lib/data/use-partners";
 
 /** How CreditOps measures its own work. */
 const METRICS: OpsMetricsConfig<FulfillmentClient> = {
@@ -60,6 +61,10 @@ export function CreditOpsManagementDashboard({
   onNavigateToView,
   onOpenClient,
 }: Props) {
+  const { partners: livePartners } = usePartners(
+    "creditOps",
+    CREDIT_OPS_PARTNERS,
+  );
   const store = useCreditOpsStore();
   const allClients = store.clients;
 
@@ -94,7 +99,7 @@ export function CreditOpsManagementDashboard({
   const kpis: OpsKpi[] = [
     {
       label: "Active Partners",
-      value: CREDIT_OPS_PARTNERS.length,
+      value: livePartners.length,
       icon: Users,
       tone: "text-foreground",
       view: null,
@@ -165,7 +170,7 @@ export function CreditOpsManagementDashboard({
   ];
 
   const partnerHealth = useMemo(
-    () => computePartnerHealth(CREDIT_OPS_PARTNERS, allClients, METRICS),
+    () => computePartnerHealth(livePartners, allClients, METRICS),
     [allClients],
   );
 

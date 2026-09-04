@@ -10,10 +10,14 @@ import type { OpsPartner } from "@/lib/fulfillment/ops-client-domain";
 
 export type PartnerGroup = "managed" | "outsourcing" | "creditops_users";
 
-export interface CreditOpsPartner extends OpsPartner {
-  group: PartnerGroup;
-  mode: "saas_pulled" | "outsourcing_only" | "native_creditops";
-}
+/**
+ * Partners now come from the database (`lib/data/partners.ts`), where group and
+ * mode are ordinary columns. Narrowing them to literal unions here would make
+ * every live partner fail to typecheck against a constant that no longer
+ * describes reality — the same change FundingOps needed. The unions above stay
+ * as the documented vocabulary for the demo constants below.
+ */
+export type CreditOpsPartner = OpsPartner;
 
 export const CREDIT_OPS_PARTNERS: CreditOpsPartner[] = [
   /* ===== 1. ManagedOps — External CRM (DF, CRC, etc.) where BES manages ops ===== */

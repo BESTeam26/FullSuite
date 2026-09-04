@@ -33,6 +33,8 @@ import {
 } from "@/lib/fulfillment/creditops-partners";
 import { useCreditOpsAccess } from "@/lib/fulfillment/creditops-access";
 import { cn } from "@/lib/utils";
+import { usePartners } from "@/lib/data/use-partners";
+import type { OpsPartner } from "@/lib/fulfillment/ops-client-domain";
 import {
   OpsTreeFolder,
   OpsTreeHeader,
@@ -86,6 +88,10 @@ export function CreditOpsTreeSidebar({
   selected,
   onSelect,
 }: CreditOpsTreeSidebarProps) {
+  /* Live organizations and outsourcing groups. The constants remain only as
+     the demo fallback — their scope ids are invented, so a live session must
+     navigate by real ones or intake cannot save (rule 2). */
+  const { partners } = usePartners("creditOps", CREDIT_OPS_PARTNERS);
   const { canAccessManagement } = useCreditOpsAccess();
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
     management: true,
@@ -97,17 +103,13 @@ export function CreditOpsTreeSidebar({
   const toggleFolder = (key: string) =>
     setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
 
-  const managedPartners = CREDIT_OPS_PARTNERS.filter(
-    (p) => p.group === "managed",
-  );
-  const outsourcingPartners = CREDIT_OPS_PARTNERS.filter(
-    (p) => p.group === "outsourcing",
-  );
-  const creditopsUserPartners = CREDIT_OPS_PARTNERS.filter(
+  const managedPartners = partners.filter((p) => p.group === "managed");
+  const outsourcingPartners = partners.filter((p) => p.group === "outsourcing");
+  const creditopsUserPartners = partners.filter(
     (p) => p.group === "creditops_users",
   );
 
-  const totalActive = CREDIT_OPS_PARTNERS.reduce(
+  const totalActive = partners.reduce(
     (sum, p) => sum + countActiveForPartner(p.scopeId),
     0,
   );
@@ -118,7 +120,7 @@ export function CreditOpsTreeSidebar({
   const isPartnerActive = (partnerId: string) =>
     selected.kind === "partner" && selected.partnerId === partnerId;
 
-  const renderPartner = (partner: (typeof CREDIT_OPS_PARTNERS)[number]) => {
+  const renderPartner = (partner: OpsPartner) => {
     const count = countActiveForPartner(partner.scopeId);
     const isSelected = isPartnerActive(partner.id);
     return (

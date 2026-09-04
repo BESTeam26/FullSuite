@@ -31,6 +31,7 @@ import {
 } from "./client-list-helpers";
 import { ClientWorkWorkspace } from "./ClientWorkWorkspace";
 import { OpsGlobalQueue } from "./OpsGlobalQueue";
+import { usePartners } from "@/lib/data/use-partners";
 
 interface Props {
   queueType: string;
@@ -104,6 +105,10 @@ const QUEUE_SPECS: Record<
 };
 
 export function CreditOpsGlobalQueue({ queueType }: Props) {
+  const { partners: livePartners } = usePartners(
+    "creditOps",
+    CREDIT_OPS_PARTNERS,
+  );
   const store = useCreditOpsStore();
   const [openClientId, setOpenClientId] = useState<string | null>(null);
 
@@ -137,7 +142,7 @@ export function CreditOpsGlobalQueue({ queueType }: Props) {
       icon={spec.icon}
       color={spec.color}
       clients={queueClients}
-      partners={CREDIT_OPS_PARTNERS}
+      partners={livePartners}
       resolvePartner={(c) =>
         getPartnerByScope(c.organizationId ?? c.outsourcingGroupId ?? "")
       }

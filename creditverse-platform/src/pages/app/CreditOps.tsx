@@ -43,6 +43,8 @@ import {
 import { seedFulfillmentClients } from "@/lib/fulfillment/fulfillment-client-seed";
 import { LayoutDashboard } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePartners } from "@/lib/data/use-partners";
+import type { OpsPartner } from "@/lib/fulfillment/ops-client-domain";
 
 /** Connects the store's status-change hook to the webhook bridge. */
 function WebhookBridge() {
@@ -75,13 +77,14 @@ export default function CreditOps() {
 }
 
 function CreditOpsWorkspace() {
+  const { partners } = usePartners("creditOps", CREDIT_OPS_PARTNERS);
   const { canAccessManagement } = useCreditOpsAccess();
   const [selection, setSelection] = useState<CreditOpsSelection>(() =>
     // Non-management roles never start on the Management layer — they land
     // on their first authorized Partner workspace instead.
     canAccessManagement
       ? { kind: "management", view: "mgmt-dashboard" }
-      : { kind: "partner", partnerId: CREDIT_OPS_PARTNERS[0]?.id ?? "" },
+      : { kind: "partner", partnerId: partners[0]?.id ?? "" },
   );
   const [activeView, setActiveView] = useState<PartnerViewId>("dashboard");
   const [isStatusGuideOpen, setIsStatusGuideOpen] = useState(false);
@@ -92,14 +95,14 @@ function CreditOpsWorkspace() {
     if (!canAccessManagement && selection.kind === "management") {
       setSelection({
         kind: "partner",
-        partnerId: CREDIT_OPS_PARTNERS[0]?.id ?? "",
+        partnerId: partners[0]?.id ?? "",
       });
     }
   }, [canAccessManagement, selection]);
 
   const partner =
     selection.kind === "partner"
-      ? CREDIT_OPS_PARTNERS.find((p) => p.id === selection.partnerId)
+      ? partners.find((p) => p.id === selection.partnerId)
       : undefined;
 
   const partnerActiveCount = partner
@@ -264,7 +267,7 @@ function ManagementView({
 
 interface PartnerWorkspaceProps {
   scopeId: string;
-  partner: (typeof CREDIT_OPS_PARTNERS)[number];
+  partner: OpsPartner;
   activeView: PartnerViewId;
   onViewChange: (view: PartnerViewId) => void;
 }

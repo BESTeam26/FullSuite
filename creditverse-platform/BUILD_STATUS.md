@@ -1453,6 +1453,68 @@ unverifiable from a client session until the borrower portal has auth.
 190 tests (14 new), tsc clean, 0 lint errors, build clean, no circular
 dependencies, 33 live checks green.
 
+### 2026-09-03 — Development test data: 13 real sign-in accounts on the real stack
+
+The application can now be driven as different real users, through actual Auth,
+RLS, permissions, entitlements and fulfillment engagements — not frontend
+placeholder arrays. Documented in `DEV_TEST_DATA.md`.
+
+**Real accounts, not fixtures.** `dev_seed_user()` creates sign-in-able
+`@bes.test` users. Two problems had to be solved: the function refuses any email
+outside that reserved domain, so it cannot touch a real account; and GoTrue
+returned "Database error querying schema" on the first attempt because it scans
+`confirmation_token`, `recovery_token` and friends into non-nullable Go strings
+and they defaulted to NULL. Empty string is what GoTrue writes itself. All 13
+accounts verified signing in.
+
+**Marked three ways** so nothing can be mistaken for real: names begin `[TEST]`,
+accounts use `@bes.test`, ids begin `dddddddd-`.
+
+**Idempotent and non-destructive.** Ids come from `dev_uuid('stable key')` with
+`ON CONFLICT DO UPDATE`, so a re-run updates the same rows. There is no reset
+and no delete — a seed that removes rows is one bad predicate away from
+destroying real work (rule 11). Verified: 7 test clients, zero duplicates.
+
+**The six relationship shapes** all exist as real records, including the two
+that matter most: **Cedar Financial** is entitled to both divisions while BES is
+engaged for CreditOps only, and **Ironwood Self-Serve** subscribes with no
+engagement at all, so BES has no operational access to it.
+
+**Verified with real signed-in sessions**, which is the first time tenant
+isolation has been observable rather than argued:
+
+| | Result |
+|---|---|
+| BES agent | 17 credit clients, 3 funding, 10 organizations |
+| Lakeside admin | 2 credit, 1 funding, **only Lakeside** |
+| Northgate admin | 2 credit, 0 funding, **only Northgate** |
+| Customer reading BES internal notes | ✅ **cannot** — sees shared + client-visible only |
+| Unrelated organization reading another's activity | ✅ 0 rows |
+
+**Two fixes this turned up.**
+
+1. The activity triggers derived the agency from `auth.uid()`, which is NULL for
+   a migration or any service-role job, and from the organization, which an
+   outsourcing-only client does not have. Every trigger now takes the agency
+   from the record it fires on, which always knows it.
+2. **The CreditOps partner tree was still hardcoded.** Only FundingOps had been
+   converted in Phase 5; I had wrongly recorded CreditOps as live. Its tree,
+   page, global queue and management dashboard now read the database, so the
+   new partners actually appear.
+
+**Not seeded, because the feature does not exist**, recorded rather than faked:
+there is no `teams` table (only a free-text `team_scope`), no `org_owner` role,
+no org-level team lead, no role above `agency_owner`, and no `assigned_only`
+column on agency memberships — so a BES agent still *reads* agency-wide and
+assignment restricts updates only.
+
+`DEV_TEST_DATA.md` also inventories the **11 files still rendering GHL
+placeholder arrays**, so a figure on screen is never mistaken for a real record
+and the conversion order is obvious.
+
+190 tests, tsc clean, 0 lint errors, build clean, no circular dependencies,
+33 live checks green.
+
 ## Next steps for Claude Code
 
 1. Connect Supabase Auth + RLS for organization isolation
