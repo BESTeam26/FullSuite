@@ -13,25 +13,73 @@
  */
 
 import { requireSupabase } from "@/lib/supabase/client";
-import type { Enums, Tables } from "@/lib/supabase/database.types";
-import type { OpsActivityEntry } from "@/lib/fulfillment/ops-activity-domain";
+import type { Tables } from "@/lib/supabase/database.types";
+import type {
+  ActivityVisibility,
+  OpsActivityEntry,
+} from "@/lib/fulfillment/ops-activity-domain";
 
-export type ActivityVisibility = Enums<"activity_visibility">;
+/* Re-exported so existing importers keep one obvious place to reach it. */
+export type { ActivityVisibility };
 type Row = Tables<"activity_events">;
 
-/** What a BES user may post. Organization staff post their own internal notes. */
-export const BES_POSTABLE: ActivityVisibility[] = [
-  "bes_internal",
-  "shared_with_partner",
-  "client_visible",
-];
-
 export const VISIBILITY_LABEL: Record<ActivityVisibility, string> = {
-  bes_internal: "Internal — BES only",
-  organization_internal: "Internal — organization only",
-  shared_with_partner: "Shared with partner",
-  client_visible: "Visible to client",
+  bes_internal: "BES Internal",
+  organization_internal: "Organization Internal",
+  shared_with_partner: "Shared with Partner",
+  client_visible: "Client Visible",
 };
+
+/** One line explaining who actually ends up reading it. */
+export const VISIBILITY_HINT: Record<ActivityVisibility, string> = {
+  bes_internal: "Only BES staff. Never the customer or the client.",
+  organization_internal: "Only this organization's own staff.",
+  shared_with_partner: "BES and the organization working this file.",
+  client_visible: "Approved for the end client to read.",
+};
+
+/**
+ * The safe default, everywhere. Publishing is a decision, so a composer that
+ * has not been told otherwise posts to nobody outside BES.
+ */
+export const DEFAULT_VISIBILITY: ActivityVisibility = "bes_internal";
+
+/** Who is writing, from the authenticated context — never from a component. */
+export type AuthorKind = "bes" | "organization";
+
+/**
+ * Which levels this author may create.
+ *
+ * The single source of this rule (rule 13). The database enforces the same
+ * thing in the `activity_events` insert policy; this exists so the interface
+ * can avoid offering an option that would then be refused, not so the
+ * interface can decide.
+ *
+ * - BES may never post as the organization's internal voice, and vice versa.
+ * - `shared_with_partner` needs a live fulfillment relationship — there is no
+ *   partner to share with otherwise.
+ * - `client_visible` is offered but never preselected; it has to be chosen.
+ */
+export function allowedVisibilities(
+  author: AuthorKind,
+  hasActiveEngagement: boolean,
+): ActivityVisibility[] {
+  const own: ActivityVisibility =
+    author === "bes" ? "bes_internal" : "organization_internal";
+  const levels: ActivityVisibility[] = [own];
+  if (hasActiveEngagement) levels.push("shared_with_partner");
+  levels.push("client_visible");
+  return levels;
+}
+
+/** Guard for the write path: refuse before the database has to. */
+export function mayPostAs(
+  author: AuthorKind,
+  hasActiveEngagement: boolean,
+  visibility: ActivityVisibility,
+): boolean {
+  return allowedVisibilities(author, hasActiveEngagement).includes(visibility);
+}
 
 export interface TimelineEntry extends OpsActivityEntry {
   visibility: ActivityVisibility;

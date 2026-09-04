@@ -32,7 +32,7 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth/auth-context";
-import { postNote } from "@/lib/data/activity";
+import { DEFAULT_VISIBILITY, postNote } from "@/lib/data/activity";
 import {
   checkClientConflict,
   clientGroupLabel,
@@ -662,11 +662,10 @@ export function createOpsClientStore<T extends OpsClient, D>(
     /**
      * Persist a human note onto the canonical timeline.
      *
-     * Always BES_INTERNAL for now, which is the most restrictive level and the
-     * only one this composer can honestly claim: it has no control for choosing
-     * an audience yet. Publishing is a decision, so the safe default is the one
-     * that publishes to nobody outside BES. A visibility picker is the next
-     * task; until it exists a note cannot accidentally reach a customer.
+     * The audience is the author's explicit choice, defaulting to the most
+     * restrictive level when a caller supplies none. The database checks it
+     * again in the insert policy, so a tampered client cannot post as an
+     * audience it is not entitled to.
      */
     const postLiveNote = useCallback(
       (entry: Omit<OpsActivityEntry, "id" | "timestamp">) => {
@@ -681,7 +680,7 @@ export function createOpsClientStore<T extends OpsClient, D>(
           actorName: entry.actor,
           action: entry.action,
           detail: entry.detail,
-          visibility: "bes_internal",
+          visibility: entry.visibility ?? DEFAULT_VISIBILITY,
           mark: entry.mark,
         })
           .then(invalidate)

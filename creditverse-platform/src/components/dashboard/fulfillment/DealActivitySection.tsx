@@ -6,6 +6,7 @@
 import { useFundingDealStore } from "@/lib/fulfillment/funding-deal-store";
 import type { FundingActivityEntry } from "@/lib/fulfillment/fundingops-store-types";
 import { OpsActivityTimeline } from "./OpsActivityTimeline";
+import { useActivityVisibility } from "@/lib/data/use-activity-visibility";
 
 const ACTOR = "Agent (BES HQ)";
 
@@ -19,6 +20,7 @@ export function DealActivitySection({
   dealId: string;
   activity: FundingActivityEntry[];
 }) {
+  const { allowed } = useActivityVisibility(undefined, "fundingops");
   const dealStore = useFundingDealStore();
 
   return (
@@ -26,6 +28,11 @@ export function DealActivitySection({
       entries={activity}
       actor={ACTOR}
       emptyMessage="No activity yet. Status changes, comments, submissions, lender updates and attachments will appear here."
+      /* The deal store keeps its own in-memory activity and does not yet write
+         to `activity_events`. The picker is shown so the audience is a visible
+         decision here too, and BES Internal — the only level a BES author can
+         post without a partner in context — is what it records. */
+      allowedVisibilities={allowed}
       onPostComment={(detail) =>
         dealStore.addDealActivity(dealId, "Comment posted", detail, ACTOR)
       }

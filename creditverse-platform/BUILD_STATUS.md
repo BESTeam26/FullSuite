@@ -1394,6 +1394,65 @@ client-visible notes on Tanya Brooks and carry no real content.
 176 tests (15 new covering all four levels, both audiences, agency-owned records
 and default deny), tsc clean, 0 lint errors, build clean, 33 live checks green.
 
+### 2026-09-03 — Timeline visibility picker, badges, and the live timeline read
+
+The backend model existed; this makes it usable and visible.
+
+**Picker.** A reusable `VisibilityPicker` in the existing composer, defaulting
+to **BES Internal** and reset to it after every post — a composer that remembers
+the last audience is how a one-off client-visible note becomes the accidental
+default. The chosen level and a plain-English consequence ("Only BES staff.
+Never the customer or the client.") sit beside the control, so the decision is
+readable *before* the click rather than discoverable after it.
+
+**Badges.** Every persisted entry carries its level, with tone rising as reach
+widens: grey for BES Internal, blue for Shared with Partner, amber for Client
+Visible. The timeline mixes internal notes with partner-shared events, and they
+must not be indistinguishable at a glance.
+
+**One rule, one place (rule 13).** `allowedVisibilities(author, hasEngagement)`
+in the activity model is the only definition of who may publish what;
+`useActivityVisibility` resolves the two inputs from the authenticated context
+and the cached engagement list. No component decides anything — verified by
+grep: outside `VisibilityControls`, no component names a visibility level.
+
+**The read was missing.** Notes persisted but the panel showed
+"ACTIVITY HISTORY (0)", because the live store's `getActivity` still returned an
+empty array — writes were wired last session, reads were not. `useTimeline`
+loads a record's permitted timeline when the record is opened, not with the
+list, so a fifty-client list does not fetch fifty timelines (rule 14).
+
+**Verified live:**
+
+| | Result |
+|---|---|
+| BES posts BES Internal / Shared / Client Visible | ✅ all three persist |
+| BES posts Organization Internal | ✅ **rejected** |
+| All three survive a fresh read | ✅ levels intact |
+| Engagement **paused** | ✅ 3 entries → **1**, only BES Internal |
+| Restored | ✅ 3 again |
+| `can_view_activity` from a foreign agency context | ✅ false |
+| Apex org-internal via a *funding* entity (no funding engagement) | ✅ false |
+| Composer default | ✅ BES Internal |
+| Paste tip, attach button, previews | ✅ preserved |
+
+**A circular dependency I introduced and fixed.** Adding `visibility` to
+`OpsActivityEntry` made the domain import from `lib/data/activity`, which
+already imported the domain. `madge` caught it. `ActivityVisibility` now lives
+in the domain and the data layer re-exports it — dependencies point downward
+only (rule 13).
+
+**Staging coverage documented.** `STAGING_TEST_COVERAGE.md` specifies the seed
+accounts and relationships staging needs — including a **second customer
+organization**, without which tenant isolation is untested however many unit
+tests pass — and 30 scenarios across visibility, the three fulfillment models,
+tenant isolation, entitlement and audit. It also records what still cannot be
+tested: no end-client account exists, so `CLIENT_VISIBLE` is enforced but
+unverifiable from a client session until the borrower portal has auth.
+
+190 tests (14 new), tsc clean, 0 lint errors, build clean, no circular
+dependencies, 33 live checks green.
+
 ## Next steps for Claude Code
 
 1. Connect Supabase Auth + RLS for organization isolation

@@ -39,6 +39,14 @@ import {
 } from "@/lib/fulfillment/attachment-domain";
 import type { OpsActivityEntry } from "@/lib/fulfillment/ops-activity-domain";
 import { ActivityCard } from "./timeline/ActivityCard";
+import {
+  DEFAULT_VISIBILITY,
+  type ActivityVisibility,
+} from "@/lib/data/activity";
+import {
+  VisibilityPicker,
+  VisibilityBadge,
+} from "@/components/dashboard/fulfillment/VisibilityControls";
 
 interface OpsActivityTimelineProps {
   entries: OpsActivityEntry[];
@@ -46,7 +54,12 @@ interface OpsActivityTimelineProps {
   actor: string;
   /** Shown when the timeline is empty — divisions word this differently. */
   emptyMessage: string;
-  onPostComment: (detail: string) => void;
+  onPostComment: (detail: string, visibility: ActivityVisibility) => void;
+  /**
+   * Levels this author may create, computed centrally by
+   * `allowedVisibilities()`. The timeline never derives them (rule 13).
+   */
+  allowedVisibilities: ActivityVisibility[];
   onTogglePin: (entryId: string) => void;
   onSetMark: (entryId: string, mark: string | undefined) => void;
 }
@@ -56,10 +69,15 @@ export function OpsActivityTimeline({
   actor,
   emptyMessage,
   onPostComment,
+  allowedVisibilities: allowed,
   onTogglePin,
   onSetMark,
 }: OpsActivityTimelineProps) {
   const [commentText, setCommentText] = useState("");
+  /* Never remembered between posts. A composer that keeps the last audience
+     is how a one-off client-visible note becomes the accidental default. */
+  const [visibility, setVisibility] =
+    useState<ActivityVisibility>(DEFAULT_VISIBILITY);
   const [pendingAttachments, setPendingAttachments] = useState<
     CommentAttachment[]
   >([]);
@@ -137,9 +155,11 @@ export function OpsActivityTimeline({
         : "";
     onPostComment(
       `${commentText.trim() || "(attachment only)"}${attachmentPayload}`,
+      visibility,
     );
     setCommentText("");
     setPendingAttachments([]);
+    setVisibility(DEFAULT_VISIBILITY);
   };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -348,12 +368,19 @@ export function OpsActivityTimeline({
               Tip: Ctrl+V to paste screenshots
             </span>
           </div>
-          <button
-            onClick={handlePostComment}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-700 px-4 py-2 font-bold text-white shadow hover:bg-emerald-800"
-          >
-            <Send className="h-3.5 w-3.5" /> Post Comment
-          </button>
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <VisibilityPicker
+              value={visibility}
+              onChange={setVisibility}
+              options={allowed}
+            />
+            <button
+              onClick={handlePostComment}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-700 px-4 py-2 font-bold text-white shadow hover:bg-emerald-800"
+            >
+              <Send className="h-3.5 w-3.5" /> Post Comment
+            </button>
+          </div>
         </div>
       </div>
 

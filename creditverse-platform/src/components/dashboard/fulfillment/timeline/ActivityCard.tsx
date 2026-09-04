@@ -12,6 +12,7 @@ import { getMark } from "@/lib/fulfillment/creditops-client-store";
 import { RichComment } from "./RichComment";
 import { MarkMenu } from "./MarkMenu";
 import { cn } from "@/lib/utils";
+import { VisibilityBadge } from "@/components/dashboard/fulfillment/VisibilityControls";
 import {
   isImageFile,
   isPdfFile,
@@ -88,13 +89,21 @@ export function ActivityCard({
             </span>
           )}
         </span>
-        <span className="text-[10px] font-normal text-muted-foreground">
-          {new Date(entry.timestamp).toLocaleString("en-US", {
-            month: "short",
-            day: "numeric",
-            hour: "numeric",
-            minute: "2-digit",
-          })}
+        <span className="flex items-center gap-1.5">
+          {/* Who can read this, stated on the entry itself — the timeline mixes
+              BES-internal notes with partner-shared events, and they must not
+              be indistinguishable at a glance. */}
+          {entry.visibility && (
+            <VisibilityBadge visibility={entry.visibility} />
+          )}
+          <span className="text-[10px] font-normal text-muted-foreground">
+            {new Date(entry.timestamp).toLocaleString("en-US", {
+              month: "short",
+              day: "numeric",
+              hour: "numeric",
+              minute: "2-digit",
+            })}
+          </span>
         </span>
       </div>
 

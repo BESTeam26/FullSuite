@@ -9,6 +9,15 @@
  * stay where they belong.
  */
 
+import type { Enums } from "@/lib/supabase/database.types";
+
+/**
+ * Who may read a timeline entry. Declared here, in the domain, because the
+ * data layer depends on the domain and not the other way round — importing it
+ * back from `lib/data/activity` made the two modules circular.
+ */
+export type ActivityVisibility = Enums<"activity_visibility">;
+
 /* ------------------------------------------------------------------ */
 /* Timeline entry                                                      */
 /* ------------------------------------------------------------------ */
@@ -27,6 +36,12 @@ export interface OpsActivityEntry {
   pinned?: boolean;
   /** A colored "mark" flag attached to a comment (ClickUp-style). */
   mark?: string;
+  /**
+   * Who may read this entry. Chosen by the author for a note; set by the
+   * database trigger for a system event. Absent on seed data, where the
+   * timeline is sample content with no audience to protect.
+   */
+  visibility?: ActivityVisibility;
 }
 
 /* ------------------------------------------------------------------ */
