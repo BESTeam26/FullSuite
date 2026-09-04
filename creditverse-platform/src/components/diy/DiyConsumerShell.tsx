@@ -147,7 +147,7 @@ export const DiyConsumerShell = ({ children }: { children?: ReactNode }) => {
             })}
           </nav>
           <div className="mt-6 rounded-xl border border-border bg-card p-4">
-            <p className="text-xs font-semibold text-amber-300">
+            <p className="text-xs font-semibold text-status-warning">
               You're in control
             </p>
             <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">

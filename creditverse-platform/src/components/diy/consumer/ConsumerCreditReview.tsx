@@ -5,7 +5,7 @@ import { ShieldCheck, AlertTriangle, Info } from "lucide-react";
 const sections = [
   {
     title: "Positive Accounts",
-    tone: "text-emerald-300",
+    tone: "text-status-success",
     items: [
       { name: "Capital One", detail: "Open · $2,400 balance · Current" },
       { name: "Discover", detail: "Open · $0 balance · Pays as agreed" },
@@ -13,7 +13,7 @@ const sections = [
   },
   {
     title: "Accounts Needing Review",
-    tone: "text-amber-300",
+    tone: "text-status-warning",
     items: [
       {
         name: "Portfolio Recovery",
@@ -29,12 +29,12 @@ const sections = [
   },
   {
     title: "Late Payments",
-    tone: "text-amber-300",
+    tone: "text-status-warning",
     items: [{ name: "Chase Bank", detail: "30-day late · May 2026" }],
   },
   {
     title: "Inquiries",
-    tone: "text-amber-300",
+    tone: "text-status-warning",
     items: [
       { name: "Synchrony Bank", detail: "Hard inquiry — needs confirmation" },
     ],
@@ -49,7 +49,7 @@ const sections = [
 const statusLabels: Record<string, { label: string; tone: string }> = {
   potential: {
     label: "Potential Issue",
-    tone: "text-amber-300 bg-amber-500/10",
+    tone: "text-status-warning bg-amber-500/10",
   },
   observed: {
     label: "Observed Difference",
@@ -57,7 +57,7 @@ const statusLabels: Record<string, { label: string; tone: string }> = {
   },
   "needs-confirmation": {
     label: "Needs Your Confirmation",
-    tone: "text-amber-300 bg-amber-500/10",
+    tone: "text-status-warning bg-amber-500/10",
   },
   "evidence-needed": {
     label: "Evidence Needed",
@@ -65,7 +65,7 @@ const statusLabels: Record<string, { label: string; tone: string }> = {
   },
   "needs-review": {
     label: "Needs Review",
-    tone: "text-amber-300 bg-amber-500/10",
+    tone: "text-status-warning bg-amber-500/10",
   },
 };
 
@@ -80,7 +80,7 @@ export const ConsumerCreditReview = () => (
     </div>
 
     <div className="flex items-start gap-3 rounded-xl border border-amber-400/30 bg-amber-500/5 p-4">
-      <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+      <Info className="mt-0.5 h-4 w-4 shrink-0 text-status-warning" />
       <p className="text-xs leading-relaxed text-muted-foreground">
         A difference between bureaus is not automatically an error. Different
         reporting dates or data sources can cause legitimate differences. We
@@ -114,7 +114,7 @@ export const ConsumerCreditReview = () => (
     ))}
 
     <div className="rounded-2xl border border-border bg-card p-5">
-      <h2 className="text-sm font-bold text-amber-300">Bureau Differences</h2>
+      <h2 className="text-sm font-bold text-status-warning">Bureau Differences</h2>
       <p className="mt-1 text-xs text-muted-foreground">
         Where the three bureaus report different values for the same account.
       </p>
@@ -136,7 +136,7 @@ export const ConsumerCreditReview = () => (
               <td className="py-2.5 pr-4 text-foreground">$0</td>
               <td className="py-2.5 pr-4 text-foreground">$1,284</td>
               <td className="py-2.5">
-                <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-300">
+                <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-status-warning">
                   Observed Difference
                 </span>
               </td>
@@ -147,7 +147,7 @@ export const ConsumerCreditReview = () => (
               <td className="py-2.5 pr-4 text-foreground">Collection</td>
               <td className="py-2.5 pr-4 text-foreground">Collection</td>
               <td className="py-2.5">
-                <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
+                <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-status-success">
                   Consistent
                 </span>
               </td>
@@ -158,7 +158,7 @@ export const ConsumerCreditReview = () => (
     </div>
 
     <div className="flex items-start gap-3 rounded-xl border border-emerald-400/30 bg-emerald-500/5 p-4">
-      <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
+      <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-status-success" />
       <p className="text-xs leading-relaxed text-muted-foreground">
         We never use terms like "Violation Detected" or "Illegal Reporting."
         Every item is a potential issue for your review — you decide what's

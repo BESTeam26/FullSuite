@@ -21,19 +21,19 @@ export const ProgressView = () => {
             label: "Equifax",
             score: "588→624",
             delta: "+36",
-            tone: "text-emerald-300",
+            tone: "text-status-success",
           },
           {
             label: "Experian",
             score: "601→643",
             delta: "+42",
-            tone: "text-emerald-300",
+            tone: "text-status-success",
           },
           {
             label: "TransUnion",
             score: "590→618",
             delta: "+28",
-            tone: "text-emerald-300",
+            tone: "text-status-success",
           },
         ].map((b) => (
           <div
@@ -51,7 +51,7 @@ export const ProgressView = () => {
         <StatCard
           label="Deletions"
           value={deleted}
-          tone="text-emerald-300"
+          tone="text-status-success"
           icon={CheckCircle2}
         />
         <StatCard
@@ -63,7 +63,7 @@ export const ProgressView = () => {
         <StatCard
           label="On-going"
           value={items.filter((i) => i.isNegative).length}
-          tone="text-amber-300"
+          tone="text-status-warning"
           icon={Clock}
         />
         <StatCard
@@ -98,7 +98,7 @@ export const ProgressView = () => {
                 <p className="text-sm font-medium text-foreground">{w.name}</p>
                 <p className="text-[11px] text-muted-foreground">{w.bureau}</p>
               </div>
-              <span className="rounded-full bg-emerald-500/15 px-2.5 py-1 text-[10px] font-bold text-emerald-300">
+              <span className="rounded-full bg-emerald-500/15 px-2.5 py-1 text-[10px] font-bold text-status-success">
                 {w.action}
               </span>
             </div>
@@ -107,8 +107,8 @@ export const ProgressView = () => {
       </div>
 
       <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/5 p-5">
-        <Trophy className="h-5 w-5 text-emerald-300" />
-        <p className="mt-2 text-sm font-semibold text-emerald-200">
+        <Trophy className="h-5 w-5 text-status-success" />
+        <p className="mt-2 text-sm font-semibold text-status-success">
           $8,442 in negative balances removed
         </p>
         <p className="mt-1 text-xs text-muted-foreground">

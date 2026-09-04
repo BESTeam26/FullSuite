@@ -96,7 +96,7 @@ export const LettersView = () => {
                     }
                     className={`rounded-lg px-2.5 py-1 text-[11px] ${
                       draft.evidence.includes(e)
-                        ? "bg-emerald-500/20 text-emerald-200"
+                        ? "bg-emerald-500/20 text-status-success"
                         : "bg-card text-muted-foreground"
                     }`}
                   >
@@ -134,7 +134,7 @@ export const LettersView = () => {
               </Button>
             </div>
 
-            <div className="mt-4 rounded-lg border border-amber-400/20 bg-amber-500/5 p-3 text-[11px] leading-relaxed text-amber-200">
+            <div className="mt-4 rounded-lg border border-amber-400/20 bg-amber-500/5 p-3 text-[11px] leading-relaxed text-status-warning">
               <AlertTriangle className="mr-1 inline h-3 w-3" />
               For direct furnisher disputes, using your own words (not a
               credit-repair template) matters legally. Reg V allows a furnisher

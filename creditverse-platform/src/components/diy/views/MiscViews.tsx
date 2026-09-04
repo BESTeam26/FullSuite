@@ -27,7 +27,7 @@ export const DocumentsView = () => (
           key={d.name}
           className="flex items-center gap-3 rounded-xl border border-border bg-card p-4"
         >
-          <FileText className="h-8 w-8 text-emerald-300" />
+          <FileText className="h-8 w-8 text-status-success" />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-foreground">{d.name}</p>
             <p className="text-[11px] text-muted-foreground">
@@ -73,7 +73,7 @@ export const SettingsView = () => (
         ))}
       </div>
     </div>
-    <div className="rounded-2xl border border-amber-400/20 bg-amber-500/5 p-4 text-[11px] leading-relaxed text-amber-200">
+    <div className="rounded-2xl border border-amber-400/20 bg-amber-500/5 p-4 text-[11px] leading-relaxed text-status-warning">
       BES is software and education, not a law firm. This is not legal advice.
       For legal action, consult a licensed attorney.
     </div>

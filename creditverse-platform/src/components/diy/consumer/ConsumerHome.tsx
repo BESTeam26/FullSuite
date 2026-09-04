@@ -74,7 +74,7 @@ export const ConsumerHome = () => {
           >
             <p className="text-xs text-muted-foreground">{b.label}</p>
             <p className="mt-1 text-2xl font-bold text-foreground">{b.score}</p>
-            <p className="text-xs font-semibold text-emerald-300">
+            <p className="text-xs font-semibold text-status-success">
               +{b.score - b.prev}
             </p>
           </div>
@@ -85,13 +85,13 @@ export const ConsumerHome = () => {
         <StatCard
           label="Accounts need review"
           value={2}
-          tone="text-amber-300"
+          tone="text-status-warning"
           icon={ScanSearch}
         />
         <StatCard
           label="Inquiries need confirmation"
           value={1}
-          tone="text-amber-300"
+          tone="text-status-warning"
           icon={FileCheck2}
         />
         <StatCard
@@ -103,7 +103,7 @@ export const ConsumerHome = () => {
         <StatCard
           label="Items resolved"
           value={4}
-          tone="text-emerald-300"
+          tone="text-status-success"
           icon={TrendingUp}
         />
       </div>
@@ -122,7 +122,7 @@ export const ConsumerHome = () => {
               key={s.key}
               className={`flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[10px] font-medium ${
                 i < journeyIdx
-                  ? "bg-emerald-500/15 text-emerald-300"
+                  ? "bg-emerald-500/15 text-status-success"
                   : i === journeyIdx
                     ? "bg-gradient-gold text-charcoal"
                     : "bg-card text-muted-foreground"
@@ -149,12 +149,12 @@ export const ConsumerHome = () => {
             {
               icon: AlertCircle,
               text: "2 accounts need your review — confirm whether the reported information is accurate.",
-              tone: "text-amber-300",
+              tone: "text-status-warning",
             },
             {
               icon: FileCheck2,
               text: "1 inquiry needs confirmation — did you authorize it?",
-              tone: "text-amber-300",
+              tone: "text-status-warning",
             },
             {
               icon: Clock,
@@ -180,7 +180,7 @@ export const ConsumerHome = () => {
           disabled={requested === "professional"}
           className="flex items-start gap-3 rounded-xl border border-border bg-card p-4 text-left transition-colors hover:border-amber-400/40 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-300">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-status-warning">
             <HandHelping className="h-4 w-4" />
           </span>
           <span>
@@ -202,7 +202,7 @@ export const ConsumerHome = () => {
           disabled={requested === "funding"}
           className="flex items-start gap-3 rounded-xl border border-border bg-card p-4 text-left transition-colors hover:border-emerald-400/40 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-300">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-status-success">
             <Banknote className="h-4 w-4" />
           </span>
           <span>

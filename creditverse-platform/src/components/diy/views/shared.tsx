@@ -99,7 +99,7 @@ export function ItemRow({ item }: { item: ClassifiedItem }) {
           className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${
             item.isNegative
               ? "bg-red-500/15 text-red-300"
-              : "bg-emerald-500/15 text-emerald-300"
+              : "bg-emerald-500/15 text-status-success"
           }`}
         >
           {item.isNegative ? "NEGATIVE" : "POSITIVE"}
@@ -107,13 +107,13 @@ export function ItemRow({ item }: { item: ClassifiedItem }) {
       </div>
       {item.isNegative && (
         <p className="mt-3 rounded-lg bg-navy-deep/60 p-2.5 text-[11px] leading-relaxed text-muted-foreground">
-          <AlertTriangle className="mr-1 inline h-3 w-3 text-amber-400" />
+          <AlertTriangle className="mr-1 inline h-3 w-3 text-status-warning" />
           {item.aiReason}
         </p>
       )}
       <button
         onClick={() => setView("rounds")}
-        className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-emerald-300 hover:text-emerald-200"
+        className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-status-success hover:text-status-success"
       >
         <GitFork className="h-3.5 w-3.5" /> Open round tracker{" "}
         <ArrowRight className="h-3 w-3" />

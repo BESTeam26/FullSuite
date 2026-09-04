@@ -3,10 +3,10 @@ import { useDiy } from "@/lib/diy/diy-context";
 import { Button } from "@/components/ui/button";
 
 const statusColor: Record<string, string> = {
-  Delivered: "text-emerald-300 bg-emerald-500/15",
+  Delivered: "text-status-success bg-emerald-500/15",
   "In Transit": "text-sky-300 bg-sky-500/15",
   Mailed: "text-purple-300 bg-purple-500/15",
-  Printed: "text-amber-300 bg-amber-500/15",
+  Printed: "text-status-warning bg-amber-500/15",
   Returned: "text-red-300 bg-red-500/15",
 };
 

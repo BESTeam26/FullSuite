@@ -50,9 +50,9 @@ export const ConsumerDisputePrep = () => {
       </div>
 
       <div className="flex items-start gap-3 rounded-xl border border-amber-400/30 bg-amber-500/5 p-4">
-        <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+        <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-status-warning" />
         <div className="text-xs leading-relaxed text-muted-foreground">
-          <p className="font-semibold text-amber-200">AI-assisted draft</p>
+          <p className="font-semibold text-status-warning">AI-assisted draft</p>
           <p className="mt-1">
             This draft was prepared using your confirmed facts and evidence. AI
             assists with language — it does not determine legal facts. You are
@@ -99,9 +99,9 @@ export const ConsumerDisputePrep = () => {
                 className="flex items-center justify-between rounded-lg bg-navy-deep/60 px-3 py-2.5"
               >
                 <span className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <FileText className="h-3.5 w-3.5 text-emerald-300" /> {f}
+                  <FileText className="h-3.5 w-3.5 text-status-success" /> {f}
                 </span>
-                <Check className="h-4 w-4 text-emerald-400" />
+                <Check className="h-4 w-4 text-status-success" />
               </div>
             ),
           )}
@@ -116,7 +116,7 @@ export const ConsumerDisputePrep = () => {
             onChange={(e) => setApproved(e.target.checked)}
             className="mt-0.5 h-4 w-4 accent-emerald-500"
           />
-          <span className="text-xs leading-relaxed text-amber-200">
+          <span className="text-xs leading-relaxed text-status-warning">
             I have reviewed this communication, confirm the facts are accurate,
             and approve it for sending or download. I understand nothing is sent
             automatically without my approval.

@@ -51,7 +51,7 @@ export const ConsumerTruthGate = () => {
                 onClick={() => setAnswer({ ...answer, recognizesAccount: v })}
                 className={`rounded-xl border px-3 py-2.5 text-xs font-semibold capitalize transition-colors ${
                   answer.recognizesAccount === v
-                    ? "border-amber-400/40 bg-amber-500/15 text-amber-200"
+                    ? "border-amber-400/40 bg-amber-500/15 text-status-warning"
                     : "border-border bg-card text-muted-foreground hover:bg-muted"
                 }`}
               >
@@ -134,8 +134,8 @@ export const ConsumerTruthGate = () => {
       </div>
 
       <div className="flex items-start gap-3 rounded-xl border border-amber-400/20 bg-amber-500/5 p-4">
-        <Lock className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
-        <p className="text-[11px] leading-relaxed text-amber-200">
+        <Lock className="mt-0.5 h-4 w-4 shrink-0 text-status-warning" />
+        <p className="text-[11px] leading-relaxed text-status-warning">
           AI may draft language to help you, but AI does not determine legal
           facts. You review, confirm, and approve before anything is sent.
         </p>

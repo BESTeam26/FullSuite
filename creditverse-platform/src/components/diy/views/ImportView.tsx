@@ -42,7 +42,7 @@ export const ImportView = () => {
               onClick={() => setProvider(p)}
               className={`rounded-xl border px-3 py-2.5 text-xs font-medium transition-colors ${
                 provider === p
-                  ? "border-emerald-400/40 bg-emerald-500/15 text-emerald-200"
+                  ? "border-emerald-400/40 bg-emerald-500/15 text-status-success"
                   : "border-border bg-card text-muted-foreground hover:bg-muted"
               }`}
             >
@@ -56,7 +56,7 @@ export const ImportView = () => {
             Connecting to <span className="text-foreground">{provider}</span>…
           </p>
           <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground">
-            <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+            <ShieldCheck className="h-3.5 w-3.5 text-status-success" />
             Your credentials stay between you and {provider}. BES receives the
             report data only.
           </div>
@@ -83,7 +83,7 @@ export const ImportView = () => {
       </div>
 
       {imported && (
-        <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/5 p-4 text-sm text-emerald-200">
+        <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/5 p-4 text-sm text-status-success">
           <CheckCircle2 className="mr-1.5 inline h-4 w-4" />
           Report analyzed. AI classified negatives, protected open-account
           inquiries, and prepared dispute candidates.

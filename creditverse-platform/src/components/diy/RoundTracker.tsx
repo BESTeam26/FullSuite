@@ -38,13 +38,13 @@ const statusConfig: Record<
   },
   drafting: {
     label: "Drafting",
-    color: "text-amber-300",
+    color: "text-status-warning",
     dot: "bg-amber-400",
   },
   sent: { label: "Sent", color: "text-sky-300", dot: "bg-sky-400" },
   responded: {
     label: "Responded",
-    color: "text-emerald-300",
+    color: "text-status-success",
     dot: "bg-emerald-400",
   },
   escalated: {
@@ -109,7 +109,7 @@ export const RoundTracker = ({ itemId }: { itemId: string }) => {
                       isCurrent
                         ? "bg-gradient-emerald text-white"
                         : isPast
-                          ? "bg-emerald-500/20 text-emerald-300"
+                          ? "bg-emerald-500/20 text-status-success"
                           : "bg-muted text-muted-foreground"
                     }`}
                   >
@@ -127,7 +127,7 @@ export const RoundTracker = ({ itemId }: { itemId: string }) => {
                         {def.short}
                       </p>
                       {isCurrent && (
-                        <span className="rounded-full bg-emerald-400/20 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
+                        <span className="rounded-full bg-emerald-400/20 px-2 py-0.5 text-[10px] font-bold text-status-success">
                           CURRENT
                         </span>
                       )}
@@ -179,7 +179,7 @@ export const RoundTracker = ({ itemId }: { itemId: string }) => {
                               key={a}
                               className="flex items-start gap-1.5 text-[11px] text-muted-foreground"
                             >
-                              <span className="mt-0.5 text-emerald-400">›</span>
+                              <span className="mt-0.5 text-status-success">›</span>
                               {a}
                             </li>
                           ))}
@@ -199,7 +199,7 @@ export const RoundTracker = ({ itemId }: { itemId: string }) => {
                               onClick={() =>
                                 setRoundStatus(itemId, "responded")
                               }
-                              className="flex items-center gap-1.5 rounded-lg border border-emerald-400/40 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/20"
+                              className="flex items-center gap-1.5 rounded-lg border border-emerald-400/40 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-status-success hover:bg-emerald-500/20"
                             >
                               <CheckCircle2 className="h-3 w-3" /> Mark
                               responded
@@ -210,7 +210,7 @@ export const RoundTracker = ({ itemId }: { itemId: string }) => {
                         {/* Escalation path */}
                         {def.escalation.length > 0 && (
                           <div className="mt-4 border-t border-border pt-3">
-                            <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-amber-300">
+                            <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-status-warning">
                               <AlertTriangle className="h-3.5 w-3.5" />
                               Escalation path — choose your next step
                             </p>
@@ -221,7 +221,7 @@ export const RoundTracker = ({ itemId }: { itemId: string }) => {
                                   onClick={() => advanceRound(itemId, opt.to)}
                                   className="flex w-full items-start gap-2 rounded-lg border border-border bg-card p-3 text-left transition-colors hover:border-emerald-400/40 hover:bg-emerald-500/10"
                                 >
-                                  <ArrowRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                                  <ArrowRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-status-success" />
                                   <div>
                                     <p className="text-xs font-semibold text-foreground">
                                       {opt.label}

@@ -54,7 +54,7 @@ export const ConsumerIssues = () => (
                 {it.why}
               </p>
             </div>
-            <span className="shrink-0 rounded-full bg-amber-500/15 px-2.5 py-1 text-[10px] font-bold text-amber-300">
+            <span className="shrink-0 rounded-full bg-amber-500/15 px-2.5 py-1 text-[10px] font-bold text-status-warning">
               {it.status}
             </span>
           </div>
@@ -106,7 +106,7 @@ export const ConsumerEvidence = () => (
           key={e.name}
           className="flex items-center gap-3 rounded-xl border border-border bg-card p-4"
         >
-          <FileText className="h-8 w-8 text-emerald-300" />
+          <FileText className="h-8 w-8 text-status-success" />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-foreground">{e.name}</p>
             <p className="text-[11px] text-muted-foreground">
@@ -145,7 +145,7 @@ export const ConsumerDocuments = () => (
           key={d.name}
           className="flex items-center gap-3 rounded-xl border border-border bg-card p-4"
         >
-          <FileText className="h-8 w-8 text-emerald-300" />
+          <FileText className="h-8 w-8 text-status-success" />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-foreground">{d.name}</p>
             <p className="text-[11px] text-muted-foreground">
@@ -207,7 +207,7 @@ export const ConsumerEducation = () => (
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
             {m.desc}
           </p>
-          <button className="mt-3 text-xs font-semibold text-emerald-400 hover:text-emerald-300">
+          <button className="mt-3 text-xs font-semibold text-status-success hover:text-status-success">
             Start lesson →
           </button>
         </div>
@@ -227,7 +227,7 @@ export const ConsumerHelp = () => {
         </p>
       </div>
       <div className="rounded-2xl border border-border bg-card p-5">
-        <LifeBuoy className="h-6 w-6 text-amber-300" />
+        <LifeBuoy className="h-6 w-6 text-status-warning" />
         <p className="mt-3 text-sm font-semibold text-foreground">
           {whiteLabel.programName} support
         </p>
@@ -244,7 +244,7 @@ export const ConsumerHelp = () => {
           )}
         </div>
       </div>
-      <div className="rounded-2xl border border-amber-400/20 bg-amber-500/5 p-4 text-[11px] leading-relaxed text-amber-200">
+      <div className="rounded-2xl border border-amber-400/20 bg-amber-500/5 p-4 text-[11px] leading-relaxed text-status-warning">
         This platform is software and education, not a law firm. This is not
         legal advice. For legal action, consult a licensed attorney.
       </div>

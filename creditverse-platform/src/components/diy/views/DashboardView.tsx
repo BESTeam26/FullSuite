@@ -48,26 +48,19 @@ export const DashboardView = () => {
       </div>
 
       {/* Referral attribution banner */}
-      <div className="flex items-center gap-3 rounded-xl border border-amber-400/30 bg-amber-500/5 p-3.5">
-        <Link2 className="h-4 w-4 shrink-0 text-amber-300" />
-        <p className="text-xs leading-relaxed text-muted-foreground">
-          You joined BES DIY Credit through a partner referral. Your progress
-          may be visible to your referring partner for service continuity.
-          Sensitive credit data stays protected by explicit permissions.
-        </p>
-      </div>
+      {/* Referral-visibility notice removed at Dee's request (2026-09-04). If progress is shared with a referring partner, that disclosure lives in the organization's terms and privacy policy. */}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard
           label="Items need review"
           value={negatives.length}
-          tone="text-amber-300"
+          tone="text-status-warning"
           icon={ScanSearch}
         />
         <StatCard
           label="Ready to dispute"
           value={disputeReady.length}
-          tone="text-emerald-300"
+          tone="text-status-success"
           icon={Scale}
         />
         <StatCard
@@ -92,7 +85,7 @@ export const DashboardView = () => {
             <h2 className="text-sm font-semibold">Items that need you</h2>
             <button
               onClick={() => setView("disputes")}
-              className="text-xs font-semibold text-amber-300 hover:text-amber-200"
+              className="text-xs font-semibold text-status-warning hover:text-status-warning"
             >
               View all
             </button>
@@ -106,8 +99,8 @@ export const DashboardView = () => {
 
         <div className="space-y-4">
           <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/5 p-4">
-            <ShieldCheck className="h-5 w-5 text-emerald-300" />
-            <p className="mt-2 text-sm font-semibold text-emerald-200">
+            <ShieldCheck className="h-5 w-5 text-status-success" />
+            <p className="mt-2 text-sm font-semibold text-status-success">
               You're in control
             </p>
             <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
@@ -123,7 +116,7 @@ export const DashboardView = () => {
               disabled={requested === "professional"}
               className="flex w-full items-start gap-3 rounded-xl border border-border bg-card p-4 text-left transition-colors hover:border-amber-400/40 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-300">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-status-warning">
                 <HandHelping className="h-4 w-4" />
               </span>
               <span>
@@ -145,7 +138,7 @@ export const DashboardView = () => {
               disabled={requested === "funding"}
               className="flex w-full items-start gap-3 rounded-xl border border-border bg-card p-4 text-left transition-colors hover:border-emerald-400/40 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-300">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-status-success">
                 <Banknote className="h-4 w-4" />
               </span>
               <span>

@@ -57,7 +57,7 @@ export const LearnView = () => {
                 key={m.title}
                 className="rounded-2xl border border-border bg-card p-5"
               >
-                <Icon className="h-5 w-5 text-emerald-300" />
+                <Icon className="h-5 w-5 text-status-success" />
                 <h3 className="mt-2 text-sm font-semibold">{m.title}</h3>
                 <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                   {m.desc}
@@ -76,7 +76,7 @@ export const LearnView = () => {
               className="rounded-2xl border border-border bg-card p-5"
             >
               <div className="flex items-center gap-2">
-                <span className="rounded-md bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
+                <span className="rounded-md bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-status-success">
                   {s.code}
                 </span>
                 <h3 className="text-sm font-semibold">{s.title}</h3>
@@ -93,7 +93,7 @@ export const LearnView = () => {
                     key={p}
                     className="flex items-start gap-1.5 text-[11px] text-muted-foreground"
                   >
-                    <span className="mt-0.5 text-emerald-400">›</span> {p}
+                    <span className="mt-0.5 text-status-success">›</span> {p}
                   </li>
                 ))}
               </ul>
@@ -104,7 +104,7 @@ export const LearnView = () => {
 
       {tab === "metro2" && (
         <div className="rounded-2xl border border-border bg-card p-5">
-          <div className="mb-4 rounded-lg border border-amber-400/20 bg-amber-500/5 p-3 text-[11px] leading-relaxed text-amber-200">
+          <div className="mb-4 rounded-lg border border-amber-400/20 bg-amber-500/5 p-3 text-[11px] leading-relaxed text-status-warning">
             <AlertTriangle className="mr-1 inline h-3 w-3" />
             Metro 2 is the reporting format furnishers use to send data to
             bureaus. It is not a consumer dispute-letter format. Understanding
@@ -126,7 +126,7 @@ export const LearnView = () => {
                   {f.meaning}
                 </p>
                 {f.note && (
-                  <p className="mt-1 text-[10px] italic text-amber-300/80">
+                  <p className="mt-1 text-[10px] italic text-status-warning/80">
                     {f.note}
                   </p>
                 )}
@@ -148,12 +148,12 @@ export const LearnView = () => {
                   <span
                     className={`rounded px-2 py-0.5 text-[10px] font-bold ${
                       v.law === "FCRA"
-                        ? "bg-emerald-500/15 text-emerald-300"
+                        ? "bg-emerald-500/15 text-status-success"
                         : v.law === "FDCPA"
                           ? "bg-sky-500/15 text-sky-300"
                           : v.law === "CROA"
                             ? "bg-purple-500/15 text-purple-300"
-                            : "bg-amber-500/15 text-amber-300"
+                            : "bg-amber-500/15 text-status-warning"
                     }`}
                   >
                     {v.law}
@@ -165,7 +165,7 @@ export const LearnView = () => {
                     v.severity === "high"
                       ? "text-red-300"
                       : v.severity === "caution"
-                        ? "text-amber-300"
+                        ? "text-status-warning"
                         : "text-muted-foreground"
                   }`}
                 >
@@ -180,7 +180,7 @@ export const LearnView = () => {
               </p>
               <div className="mt-2 grid gap-1 sm:grid-cols-2">
                 <div>
-                  <p className="text-[10px] font-semibold text-amber-300">
+                  <p className="text-[10px] font-semibold text-status-warning">
                     Red flags
                   </p>
                   <ul className="mt-1 space-y-0.5">
@@ -192,7 +192,7 @@ export const LearnView = () => {
                   </ul>
                 </div>
                 <div>
-                  <p className="text-[10px] font-semibold text-emerald-300">
+                  <p className="text-[10px] font-semibold text-status-success">
                     Evidence needed
                   </p>
                   <ul className="mt-1 space-y-0.5">

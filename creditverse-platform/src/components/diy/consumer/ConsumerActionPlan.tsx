@@ -45,14 +45,14 @@ const typeTone: Record<ActionType, string> = {
   "review-information": "text-slate-300",
   "gather-evidence": "text-sky-300",
   "correct-personal-info": "text-slate-300",
-  "prepare-dispute": "text-amber-300",
-  "contact-furnisher": "text-amber-300",
+  "prepare-dispute": "text-status-warning",
+  "contact-furnisher": "text-status-warning",
   "request-documentation": "text-sky-300",
   "monitor-account": "text-purple-300",
-  "reduce-utilization": "text-emerald-300",
-  "build-positive-history": "text-emerald-300",
+  "reduce-utilization": "text-status-success",
+  "build-positive-history": "text-status-success",
   "wait-recheck": "text-slate-300",
-  "human-help-recommended": "text-amber-300",
+  "human-help-recommended": "text-status-warning",
 };
 
 export const ConsumerActionPlan = () => {
@@ -128,16 +128,16 @@ export const ConsumerActionPlan = () => {
 
       <div className="rounded-2xl border border-amber-400/30 bg-amber-500/5 p-5">
         <div className="flex items-start gap-3">
-          <LifeBuoy className="mt-0.5 h-5 w-5 text-amber-300" />
+          <LifeBuoy className="mt-0.5 h-5 w-5 text-status-warning" />
           <div>
-            <p className="text-sm font-semibold text-amber-200">
+            <p className="text-sm font-semibold text-status-warning">
               Human help recommended
             </p>
             <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
               If you'd rather have a professional manage this process, you can
               request Done-For-You help from your organization.
             </p>
-            <button className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-amber-300 hover:text-amber-200">
+            <button className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-status-warning hover:text-status-warning">
               Request professional help <ArrowRight className="h-3 w-3" />
             </button>
           </div>

@@ -48,7 +48,7 @@ export const RoundsView = () => {
                   </p>
                 </div>
                 <GitFork
-                  className={`h-3.5 w-3.5 shrink-0 ${active ? "text-emerald-300" : "text-muted-foreground"}`}
+                  className={`h-3.5 w-3.5 shrink-0 ${active ? "text-status-success" : "text-muted-foreground"}`}
                 />
               </button>
             );
@@ -65,7 +65,7 @@ export const RoundsView = () => {
               key={d.stage}
               className="rounded-xl border border-border bg-navy-deep/40 p-3"
             >
-              <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-300">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-status-success">
                 Round {d.round}
               </p>
               <p className="mt-1 text-xs font-semibold text-foreground">{d.label}</p>

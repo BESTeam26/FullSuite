@@ -17,11 +17,11 @@ import { Button } from "@/components/ui/button";
 
 const stateMeta: Record<ImportState, { label: string; tone: string }> = {
   "not-connected": { label: "Not connected", tone: "text-slate-400" },
-  connected: { label: "Connected", tone: "text-emerald-300" },
-  importing: { label: "Importing…", tone: "text-amber-300" },
-  processing: { label: "Processing…", tone: "text-amber-300" },
-  "analysis-complete": { label: "Analysis complete", tone: "text-emerald-300" },
-  "needs-review": { label: "Needs review", tone: "text-amber-300" },
+  connected: { label: "Connected", tone: "text-status-success" },
+  importing: { label: "Importing…", tone: "text-status-warning" },
+  processing: { label: "Processing…", tone: "text-status-warning" },
+  "analysis-complete": { label: "Analysis complete", tone: "text-status-success" },
+  "needs-review": { label: "Needs review", tone: "text-status-warning" },
   failed: { label: "Failed", tone: "text-red-400" },
 };
 
@@ -82,7 +82,7 @@ export const ConsumerImport = () => {
               }}
               className={`rounded-xl border px-3 py-2.5 text-xs font-medium transition-colors ${
                 provider === p
-                  ? "border-emerald-400/40 bg-emerald-500/15 text-emerald-200"
+                  ? "border-emerald-400/40 bg-emerald-500/15 text-status-success"
                   : "border-border bg-card text-muted-foreground hover:bg-muted"
               }`}
             >
@@ -109,13 +109,13 @@ export const ConsumerImport = () => {
                     <FileText className="h-3.5 w-3.5" /> {b}
                   </span>
                   {pdfs[i] ? (
-                    <span className="flex items-center gap-1 text-[11px] text-emerald-300">
+                    <span className="flex items-center gap-1 text-[11px] text-status-success">
                       <CheckCircle2 className="h-3.5 w-3.5" /> Uploaded
                     </span>
                   ) : (
                     <button
                       onClick={addPdf}
-                      className="text-[11px] font-semibold text-amber-300 hover:underline"
+                      className="text-[11px] font-semibold text-status-warning hover:underline"
                     >
                       Upload PDF
                     </button>
@@ -134,7 +134,7 @@ export const ConsumerImport = () => {
               Connecting to <span className="text-foreground">{provider}</span>…
             </p>
             <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground">
-              <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+              <ShieldCheck className="h-3.5 w-3.5 text-status-success" />
               Your credentials stay between you and {provider}. The platform
               receives the report data only.
             </div>
@@ -173,7 +173,7 @@ export const ConsumerImport = () => {
       </div>
 
       {state === "analysis-complete" && (
-        <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/5 p-4 text-sm text-emerald-200">
+        <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/5 p-4 text-sm text-status-success">
           <CheckCircle2 className="mr-1.5 inline h-4 w-4" />
           Report analyzed. The engine classified negatives, protected
           open-account inquiries, and prepared potential issues for your review.
