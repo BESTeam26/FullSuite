@@ -14,6 +14,17 @@
 
 import { requireSupabase } from "@/lib/supabase/client";
 import type { OpsPartner } from "@/lib/fulfillment/ops-client-domain";
+import {
+  besMayFulfil,
+  fetchFulfillmentEngagements,
+  type FulfillmentService,
+} from "@/lib/data/fulfillment-engagements";
+
+/** Which BES service a division's partner tree is asking about. */
+const SERVICE_FOR: Record<PartnerProduct, FulfillmentService> = {
+  creditOps: "creditops",
+  fundingOps: "fundingops",
+};
 
 /**
  * Which product a partner is entitled to, so a division shows only its own.
@@ -28,7 +39,6 @@ interface OrgRow {
   principal_name: string;
   principal_email: string;
   status: string;
-  is_fulfillment_subscriber: boolean;
   product_entitlements: { product: string; enabled: boolean }[] | null;
 }
 
@@ -56,17 +66,19 @@ export async function fetchPartners(
   product: PartnerProduct,
 ): Promise<OpsPartner[]> {
   const sb = requireSupabase();
-  const [orgs, groups] = await Promise.all([
+  // Three parallel requests, not a lookup per partner (rule 14).
+  const [orgs, groups, engagements] = await Promise.all([
     sb
       .from("organizations")
       .select(
-        "id,name,principal_name,principal_email,status,is_fulfillment_subscriber,product_entitlements(product,enabled)",
+        "id,name,principal_name,principal_email,status,product_entitlements(product,enabled)",
       )
       .order("name"),
     sb
       .from("outsourcing_groups")
       .select("id,name,partner_name,contact_email,contract_ref,status")
       .order("name"),
+    fetchFulfillmentEngagements(),
   ]);
   if (orgs.error) throw orgs.error;
   if (groups.error) throw groups.error;
@@ -80,11 +92,13 @@ export async function fetchPartners(
     .map((o) => ({
       id: `org-${o.id}`,
       name: o.name,
-      // A subscriber's records sync from their own workspace; everyone else is
-      // managed by BES directly. Same distinction both divisions already draw.
-      // Each division names its own "direct customer" bucket; the shared
-      // source emits that division's label so the trees need no translation.
-      group: o.is_fulfillment_subscriber
+      /* "Managed" means BES is actually engaged to fulfil THIS service for
+         them — read from the engagement, not from the old subscriber boolean,
+         which could not distinguish CreditOps fulfilment from FundingOps
+         (rule 16). Each division names its own direct-customer bucket, so the
+         shared source emits that division's label and the trees need no
+         translation. */
+      group: besMayFulfil(engagements, o.id, SERVICE_FOR[product])
         ? product === "fundingOps"
           ? "fundingops_users"
           : "managed"

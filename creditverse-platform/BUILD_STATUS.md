@@ -1259,6 +1259,73 @@ mistake the doctrine warns about:
 
 144 tests, tsc clean, 0 lint errors, build clean.
 
+### 2026-09-03 — `fulfillment_engagements`: the relationship becomes a record
+
+`organizations.is_fulfillment_subscriber` is no longer an authorization concept.
+A boolean could answer "does BES fulfil for this company"; it could not answer
+"what exactly, from when, and for which BES team" — and it could not represent a
+partner with no BES SaaS tenant at all.
+
+**Schema (migration 0016).** `fulfillment_engagements`: partner (organization
+*or* outsourcing group, exactly one), `service`, `status`, `effective_from`,
+`effective_to`, `authorized_team`, timestamps. A partial unique index allows one
+**active** engagement per partner per service, because two overlapping actives
+would make authorization ambiguous and ambiguity resolves as "allowed" — the
+wrong direction.
+
+**Service is not entitlement.** `product_key` is what the customer bought as
+software; `fulfillment_service` is what BES was hired to perform. Apex is
+entitled to FundingOps *software* while BES fulfils only CreditOps for them, so
+the two vocabularies stay separate on purpose.
+
+**`bes_may_fulfil(org, group, service)`** replaces the one-argument form, which
+was dropped so no policy could keep using the coarse check by accident. Default
+deny: no live engagement, no access. It never reads entitlements — a
+subscription is not an authorization.
+
+**Migration of existing relationships.** Three fulfillment-subscriber
+organizations and both outsourcing groups received active **CreditOps**
+engagements. Deliberately not FundingOps: CreditOps is the only service BES
+actually performs today, and granting more would widen access, which is the bug
+this table exists to prevent. All 10 clients stayed visible — nothing lost.
+
+**Verified live, all three models:**
+
+| | Result |
+|---|---|
+| Model 2 — Apex, CreditOps | ✅ allowed |
+| Model 2 — Apex, **FundingOps** | ✅ **denied** (the example that motivated this) |
+| Model 1 — Vantage / Empire (SaaS only) | ✅ denied, both services |
+| Model 3 — CRC (no SaaS tenant), CreditOps | ✅ allowed |
+| Model 3 — CRC, FundingOps (not engaged) | ✅ denied |
+| Unknown partner | ✅ denied |
+| Engagement **paused** | ✅ denied — Apex's 2 clients vanished from BES |
+| Engagement **expired yesterday** | ✅ denied while still marked active |
+| Restored | ✅ 2 clients visible again |
+
+That paused/restored pair is the important one: RLS genuinely follows the
+engagement, so this is enforced in data, not decoration.
+
+**Performance.** One query, one cache key, one resolver: `use-fulfillment.ts`
+answers `mayFulfil(scope, service)` from a single cached fetch instead of each
+panel asking about its own partner. `partners.ts` now derives the managed/direct
+split from engagements and fetches them in the same parallel batch as
+organizations and groups — no extra round trip, no N+1.
+
+**A latent break found and fixed.** Regenerating types after migration 0014
+surfaced that `work_items` inserts never supplied the now-required `agency_id`.
+Not wired to any screen yet, so nothing had failed in practice, but it would
+have thrown on first use. Both it and the `activity_events` insert now carry the
+agency from the authenticated context.
+
+**Left alone deliberately.** `is_fulfillment_subscriber` remains as a
+presentation and billing flag, with a database comment saying it must never gate
+access again. Activity/comment visibility is the next isolated task and was not
+touched.
+
+161 tests (17 new covering all three models, the engagement window and default
+deny), tsc clean, 0 lint errors, build clean, 33 live checks green.
+
 ## Next steps for Claude Code
 
 1. Connect Supabase Auth + RLS for organization isolation

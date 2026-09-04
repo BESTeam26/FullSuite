@@ -101,6 +101,7 @@ const EXPECTED_TABLES = [
   "webhook_deliveries",
   "time_entries",
   "eod_submissions",
+  "fulfillment_engagements",
   "funding_clients",
   "funding_businesses",
   "funding_files",
@@ -190,6 +191,17 @@ if (schemaPushed) {
       "find_client_across_divisions",
       { p_email: "probe@example.com", p_scope: null },
     ],
+    // Agency-scoped authorization helpers (migration 0014) and the engagement
+    // gate (0016). These decide tenant isolation and whether BES may work a
+    // partner's records at all, so none may answer an anonymous caller.
+    ["is_staff_of", { p_agency: ZERO_UUID }],
+    ["is_manager_of", { p_agency: ZERO_UUID }],
+    ["is_admin_of", { p_agency: ZERO_UUID }],
+    ["org_has_product", { p_org: ZERO_UUID, p_product: "creditOps" }],
+    [
+      "bes_may_fulfil",
+      { p_org: ZERO_UUID, p_group: null, p_service: "creditops" },
+    ],
   ];
 
   const missingRpc = [];
@@ -274,6 +286,7 @@ if (!schemaPushed) {
     "webhook_deliveries",
     "time_entries",
     "eod_submissions",
+    "fulfillment_engagements",
     "funding_clients",
     "funding_businesses",
     "funding_files",

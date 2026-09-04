@@ -174,6 +174,13 @@ export interface CreateWorkItemInput {
   /** Hours from now until the SLA deadline. */
   slaHours?: number;
   createdBy: string;
+  /**
+   * The agency this work belongs to, from the authenticated context.
+   * Required since migration 0014 gave work_items its own tenant anchor —
+   * without it the insert violates NOT NULL (rule 16: agency comes from the
+   * session, never from a component).
+   */
+  agencyId: string;
 }
 
 export async function createWorkItem(
@@ -183,6 +190,7 @@ export async function createWorkItem(
   const { data, error } = await sb
     .from("work_items")
     .insert({
+      agency_id: input.agencyId,
       scope: input.scope,
       organization_id:
         input.scope === "ORGANIZATION" ? (input.organizationId ?? null) : null,
@@ -230,9 +238,12 @@ export async function addComment(input: {
   actorName: string;
   detail: string;
   mark?: string;
+  /** From the authenticated context; the database also stamps it defensively. */
+  agencyId: string;
 }) {
   const sb = requireSupabase();
   const { error } = await sb.from("activity_events").insert({
+    agency_id: input.agencyId,
     organization_id: input.organizationId ?? null,
     entity_type: input.entityType,
     entity_id: input.entityId,
