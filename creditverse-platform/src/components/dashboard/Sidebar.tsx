@@ -25,6 +25,7 @@ import {
   Receipt,
   LogOut,
   Zap,
+  LayoutGrid,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SubAccountSwitcher } from "@/components/dashboard/SubAccountSwitcher";
@@ -172,6 +173,12 @@ export const Sidebar = () => {
           show: isProductOn("creditOps") || isProductOn("fundingOps"),
         },
         { label: "My Work", icon: ListTodo, href: "/app/my-work" },
+        {
+          label: "Workspaces",
+          icon: LayoutGrid,
+          href: "/app/workspaces",
+          show: isProductOn("workspaces"),
+        },
       ],
     },
     {

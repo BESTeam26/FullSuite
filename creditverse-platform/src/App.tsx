@@ -71,6 +71,7 @@ const DashboardLayout = lazy(
   ),
 );
 const Dashboard = lazy(() => import("./pages/app/Dashboard"));
+const Workspaces = lazy(() => import("./pages/app/Workspaces"));
 const Clients = lazy(() => import("./pages/app/Clients"));
 const ClientDetail = lazy(() => import("./pages/app/ClientDetail"));
 const Compliance = lazy(() => import("./pages/app/Compliance"));
@@ -244,6 +245,17 @@ const App = () => (
                                   element={<MyTimePage />}
                                 />
                                 <Route path="eod" element={<EodPage />} />
+                                <Route
+                                  path="workspaces"
+                                  element={
+                                    <RequireEntitlement
+                                      product="workspaces"
+                                      label="Custom Workspaces"
+                                    >
+                                      <Workspaces />
+                                    </RequireEntitlement>
+                                  }
+                                />
                                 <Route
                                   path="notifications"
                                   element={

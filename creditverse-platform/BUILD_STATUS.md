@@ -1811,3 +1811,69 @@ Browser, as the owner: two real rows from a manager's assign/unassign of the
 Dana Doyle fixture; Mark read moved header, topbar and sidebar from 2 to 1
 together; Open landed on Dana's CreditOps client workspace with the parameter
 dropped.
+
+
+---
+
+## Phase 6 — Custom Workspaces foundation · DONE (migrations 0027, 0028, 0028b)
+
+Built from `ARCHITECTURE_PROPOSAL_WORKSPACES.md`, smallest form. One engine
+underneath: every workspace item is a `work_items` row.
+
+**Schema (verified live):** `product_key` + `workspaces`, `talentOps`;
+`workspaces`, `workspace_boards`, `workspace_statuses` (key, label, colour,
+position, `canonical_stage`, `is_terminal`, with `check (is_terminal =
+(canonical_stage = 'Completed'))`), `workspace_item_types`, `workspace_fields`,
+`work_item_field_values`; `work_items` + `workspace_id`, `board_id`,
+`status_id`, `item_type_id`, all nullable — CreditOps/FundingOps rows untouched.
+
+**The stage bridge:** `work_items_workspace_consistency` (BEFORE INSERT/UPDATE)
+enforces that a workspace item belongs to the workspace's organization at
+ORGANIZATION scope, that board/status/type belong to that workspace, defaults
+the status to the workspace's first, copies `canonical_stage` onto `stage` and
+stamps `completed_at` from it. Attention, EOD, completion and My Work never
+learn that custom statuses exist. `log_work_activity` logs the workspace status
+change (field `status`, labels in detail) and suppresses the derived stage
+event so nothing is logged twice; the notification engine picks it up through
+its existing status rule. Visibility of those events (migration
+`20260904000810`, found by the matrix): workspace items log at
+`shared_with_partner` — the organization's own work, acted on by both sides
+under a share; other ORGANIZATION-scope events by an organization member log at
+`organization_internal`; everything else stays `bes_internal`.
+
+**Authorization:** `workspaces_select` = `is_org_member AND org_entitled(org,
+'workspaces')`. Boards, statuses, types and fields follow the workspace under
+the caller's RLS; only an org admin writes them. `work_items` select/insert/
+update gained one conjunct — `workspace_id is null OR the workspace is visible
+to me` — so items follow the workspace and **BES staff see none of it until a
+TalentOps share exists** (Phase 7 adds that branch to `workspaces_select` and
+nowhere else). No delete policy on workspaces: archive only. Config changes are
+audited with actor, before and after (`audit_workspace_config`).
+
+**Assumptions taken (proposal's open questions), recorded:** statuses are a
+list, not a workflow; workspace items reach Attention only the way any work
+item does; `crm` means BES CRM delivery visibility (it already gates
+`/app/bes-crm`).
+
+**Fixtures:** Lakeside entitled, with `[TEST] Business Acquisition` (board
+Pipeline; Backlog→Queued, In Progress→In Processing, Review→QA Review,
+Done→Completed; types Task, Deal Review; one date field; two items, one
+assigned to org.owner). Northgate has an explicit `workspaces=false` row as the
+negative control.
+
+**Frontend:** `lib/workspaces/workspace-domain.ts` (grouping, default status,
+open count; 3 tests), `lib/data/workspaces.ts` (one nested select per
+organization; bounded item query; create/move), `use-workspaces.ts`,
+`/app/workspaces` gated by `RequireEntitlement product="workspaces"`, sidebar
+entry in the sub-account navigation gated by entitlement. In agency view the
+page states that nothing is shared with BES yet rather than rendering an empty
+board.
+
+**Deferred, recorded:** workspace/status/type/field configuration UI (schema,
+RLS and audit exist; fixtures prove the path), custom field editing UI, list
+view kind, assignee picker with names (no profile hook exists yet; avoiding an
+N+1), the TalentOps share (Phase 7).
+
+**Verified:** typecheck clean, 236 tests, 0 lint errors, build, no circular
+deps, verify-live (anon denied on all six new tables), migrations 33/33.
+RLS matrix **148/148** (`--phase=6`, 17 new checks).

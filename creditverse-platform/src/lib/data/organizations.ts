@@ -23,6 +23,8 @@ const PRODUCT_KEYS: ProductKey[] = [
   "diyCredit",
   "oi",
   "crm",
+  "workspaces",
+  "talentOps",
 ];
 
 type OrgRow = Tables<"organizations"> & {

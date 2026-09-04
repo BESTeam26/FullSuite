@@ -42,8 +42,8 @@ const users = Object.fromEntries(q(`select email, id from public.profiles where 
 const T = q(`select
   -- Agency scope is not admin bypass: engagement still gates. The oracle mirrors that,
   -- so it would catch an engagement bypass rather than expect one.
-  (select count(*) from public.work_items w where w.scope='AGENCY' or exists (select 1 from public.fulfillment_engagements e where e.organization_id=w.organization_id and public.engagement_is_live(e.status,e.effective_from,e.effective_to)))::int as work_total,
-  (select count(*) from public.work_attention w where w.scope='AGENCY' or exists (select 1 from public.fulfillment_engagements e where e.organization_id=w.organization_id and public.engagement_is_live(e.status,e.effective_from,e.effective_to)))::int as attention_total,
+  (select count(*) from public.work_items w where w.workspace_id is null and (w.scope='AGENCY' or exists (select 1 from public.fulfillment_engagements e where e.organization_id=w.organization_id and public.engagement_is_live(e.status,e.effective_from,e.effective_to))))::int as work_total,
+  (select count(*) from public.work_attention w where not exists (select 1 from public.work_items wi where wi.id=w.id and wi.workspace_id is not null) and (w.scope='AGENCY' or exists (select 1 from public.fulfillment_engagements e where e.organization_id=w.organization_id and public.engagement_is_live(e.status,e.effective_from,e.effective_to))))::int as attention_total,
   (select count(*) from public.fulfillment_clients c where exists (select 1 from public.fulfillment_engagements e where e.service='creditops' and public.engagement_is_live(e.status,e.effective_from,e.effective_to) and (e.organization_id=c.organization_id or e.outsourcing_group_id=c.outsourcing_group_id)))::int as fclients_total,
   (select count(*) from public.funding_clients c where exists (select 1 from public.fulfillment_engagements e where e.service='fundingops' and public.engagement_is_live(e.status,e.effective_from,e.effective_to) and (e.organization_id=c.organization_id or e.outsourcing_group_id=c.outsourcing_group_id)))::int as fund_total,
   -- division ceiling ∪ own assignments: "assignment always counts, whatever the ceiling"
@@ -97,7 +97,7 @@ const E = {
   // THE key negative control: BES staff, assigned nothing → sees nothing operational
   "bes.restricted@bes.test": { work: 0, attention: 0, fclients: 0, fund: 0, lakeside_by_id: 0, cedar_by_id: 0, can_update_lakeside: 0, can_update_cedar: 0 },
   // Organization users: tenant only, unchanged by BES scope
-  "org.owner@bes.test":  { work: 1, attention: 0, fclients: 2, fund: 1, lakeside_by_id: 1, cedar_by_id: 0, can_update_cedar: 0 },
+  "org.owner@bes.test":  { work: 3, attention: 0, fclients: 2, fund: 1, lakeside_by_id: 1, cedar_by_id: 0, can_update_cedar: 0 },
   "org2.owner@bes.test": { work: 1, attention: 0, fclients: 2, fund: 0, lakeside_by_id: 0, cedar_by_id: 0, can_update_lakeside: 0, can_update_cedar: 0 },
   "probe.agent@bes.test":{ work: 0, attention: 0, fclients: 0, fund: 0, lakeside_by_id: 0, cedar_by_id: 0, can_update_lakeside: 0, can_update_cedar: 0 },
 };
@@ -291,6 +291,47 @@ if (PHASE >= 5) {
   ];
   console.log("\nphase 5:");
   for (const [label, fn, want] of P5) {
+    checks++;
+    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
+    const ok = got === want; if (!ok) fails++;
+    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
+  }
+}
+
+
+/* ---------------- Phase 6: Custom Workspaces ----------------
+   Visibility = org membership + entitlement; items follow the workspace;
+   statuses are rows mapped onto the canonical stage; config changes audited.
+   BES staff have no share yet (Phase 7), so they see none of it. */
+if (PHASE >= 6) {
+  const orgOwner = U["org.owner@bes.test"], org2Owner = U["org2.owner@bes.test"], besOwner = U["bes.owner@bes.test"], orgAgent = U["org.agent@bes.test"];
+  const LAKESIDE = "dddddddd-0000-4000-8000-80ce8814eb05", NORTHGATE = "dddddddd-0000-4000-8000-3f3028d6b8f3";
+  const WS = "ee000000-0000-4000-8000-000000000001", BOARD = "ee000000-0000-4000-8000-000000000011";
+  const DONE = "ee000000-0000-4000-8000-000000000024", ITEM_OPEN = "ee000000-0000-4000-8000-000000000102";
+  const as = (uid) => `set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'`;
+  const W6 = (uid, stmt) => { try { return q(`begin; set local role authenticated; ${as(uid)}; ${stmt}; rollback;`)[0]; } catch (e) { return { rows: 0, refused: true }; } };
+  const W6sudo = (setup, uid, stmt) => { try { return q(`begin; ${setup}; set local role authenticated; ${as(uid)}; ${stmt}; rollback;`)[0]; } catch (e) { return { rows: 0, refused: true }; } };
+  const P6 = [
+    ["org owner sees the fixture workspace",                       () => W6(orgOwner, `select count(*)::int as rows from public.workspaces`).rows, 1],
+    ["…with its 4 statuses",                                       () => W6(orgOwner, `select count(*)::int as rows from public.workspace_statuses where workspace_id='${WS}'`).rows, 4],
+    ["…and both fixture items",                                    () => W6(orgOwner, `select count(*)::int as rows from public.work_items where workspace_id='${WS}'`).rows, 2],
+    ["BES owner (engaged, agency scope) sees NO workspace",        () => W6(besOwner, `select count(*)::int as rows from public.workspaces`).rows, 0],
+    ["…and NO workspace items — no share exists yet",              () => W6(besOwner, `select count(*)::int as rows from public.work_items where workspace_id is not null`).rows, 0],
+    ["org2 owner (not entitled) sees no workspace even in own org", () => W6sudo(`insert into public.workspaces (organization_id, name) values ('${NORTHGATE}', 'probe')`, org2Owner, `select count(*)::int as rows from public.workspaces`).rows, 0],
+    ["…and once entitled, sees it",                                () => W6sudo(`update public.product_entitlements set enabled=true where organization_id='${NORTHGATE}' and product='workspaces'; insert into public.workspaces (organization_id, name) values ('${NORTHGATE}', 'probe')`, org2Owner, `select count(*)::int as rows from public.workspaces`).rows, 1],
+    ["org2 owner cannot create a workspace without entitlement",   () => W6(org2Owner, `with i as (insert into public.workspaces (organization_id, name) values ('${NORTHGATE}', 'probe') returning 1) select count(*)::int as rows from i`).rows, 0],
+    ["org owner cannot create a workspace for another org",        () => W6(orgOwner, `with i as (insert into public.workspaces (organization_id, name) values ('${NORTHGATE}', 'probe') returning 1) select count(*)::int as rows from i`).rows, 0],
+    ["new item without status lands in the first status, stage Queued", () => W6(orgOwner, `with i as (insert into public.work_items (scope, organization_id, related_type, title, stage, priority, workspace_id, board_id) values ('ORGANIZATION','${LAKESIDE}','project','probe','Blocked','Normal','${WS}','${BOARD}') returning status_id, stage) select count(*)::int as rows from i where status_id='ee000000-0000-4000-8000-000000000021' and stage='Queued'`).rows, 1],
+    ["moving to Done sets stage Completed and completed_at",       () => W6(orgOwner, `with u as (update public.work_items set status_id='${DONE}' where id='${ITEM_OPEN}' returning stage, completed_at) select count(*)::int as rows from u where stage='Completed' and completed_at is not null`).rows, 1],
+    ["a status from another workspace is rejected",                () => W6(orgOwner, `with u as (update public.work_items set status_id='00000000-0000-4000-8000-000000000000' where id='${ITEM_OPEN}' returning 1) select count(*)::int as rows from u`).rows, 0],
+    ["workspace item for another organization is rejected",       () => W6(orgOwner, `with i as (insert into public.work_items (scope, organization_id, related_type, title, stage, priority, workspace_id) values ('ORGANIZATION','${NORTHGATE}','project','probe','Queued','Normal','${WS}') returning 1) select count(*)::int as rows from i`).rows, 0],
+    ["status change by org owner writes one activity event",       () => W6(orgOwner, `update public.work_items set status_id='${DONE}' where id='${ITEM_OPEN}'; select count(*)::int as rows from public.activity_events where entity_id='${ITEM_OPEN}' and created_at >= now() and action='Status changed'`).rows, 1],
+    ["renaming a status is audited (actor, before, after)",       () => W6sudo(``, orgOwner, `update public.workspace_statuses set label='Finished' where id='${DONE}'; set local role postgres; select count(*)::int as rows from public.audit_log where entity_type='workspace_statuses' and entity_id='${DONE}' and created_at >= now() and actor_id='${orgOwner}' and before->>'label'='Done' and after->>'label'='Finished'`).rows, 1],
+    ["org agent (non-admin) cannot rename a status",               () => W6(orgAgent, `with u as (update public.workspace_statuses set label='x' where id='${DONE}' returning 1) select count(*)::int as rows from u`).rows, 0],
+    ["anon-facing grants: no TRUNCATE/TRIGGER/REFERENCES on new tables", () => q(`select count(*)::int as rows from information_schema.role_table_grants where table_schema='public' and table_name like 'workspace%' and grantee in ('anon','authenticated') and privilege_type in ('TRUNCATE','TRIGGER','REFERENCES')`)[0].rows, 0],
+  ];
+  console.log("\nphase 6:");
+  for (const [label, fn, want] of P6) {
     checks++;
     let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
     const ok = got === want; if (!ok) fails++;

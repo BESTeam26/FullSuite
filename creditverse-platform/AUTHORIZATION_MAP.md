@@ -163,3 +163,17 @@ Recipient rules live in one function and read only stable IDs the loggers
 already record (`previous_value` / `new_value` as UUID text, `assigned_to`,
 `assigned_agent_id`, `team_memberships.is_lead`). Names and emails are never
 used to route.
+
+
+### 0028 — Custom Workspaces (Phase 6)
+
+| Object | Rule | How |
+|---|---|---|
+| `workspaces` SELECT | member of an entitled organization | `is_org_member(organization_id) AND org_entitled(organization_id, 'workspaces')` — Phase 7 adds the TalentOps share branch here only |
+| `workspaces` INSERT / UPDATE | org admin of an entitled organization | `is_org_admin(...) AND org_entitled(...)`; no DELETE policy (archive) |
+| `workspace_boards` / `_statuses` / `_item_types` / `_fields` | follow the workspace | SELECT: `EXISTS workspaces` under caller RLS; writes: same plus `is_org_admin(w.organization_id)` |
+| `work_item_field_values` | follow the item | SELECT: `EXISTS work_items`; writes: item visible, field in the item's workspace, org member |
+| `work_items` (all three policies) | items follow the workspace | added conjunct `workspace_id IS NULL OR EXISTS (SELECT 1 FROM workspaces w WHERE w.id = workspace_id)` |
+| `work_items_workspace_consistency` | org + scope + same-workspace board/status/type; stage derived from status | BEFORE trigger, definer, not executable by API roles |
+| `audit_workspace_config` | every config change keeps actor, before, after | AFTER trigger on the five config tables → `audit_log` |
+| `org_entitled(uuid, text)` | entitlement check for policies | definer, stable; executable by `authenticated` only |

@@ -1966,10 +1966,54 @@ export type Database = {
           },
         ]
       }
+      work_item_field_values: {
+        Row: {
+          field_id: string
+          updated_at: string
+          value: Json | null
+          work_item_id: string
+        }
+        Insert: {
+          field_id: string
+          updated_at?: string
+          value?: Json | null
+          work_item_id: string
+        }
+        Update: {
+          field_id?: string
+          updated_at?: string
+          value?: Json | null
+          work_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_item_field_values_field_id_fkey"
+            columns: ["field_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_fields"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_item_field_values_work_item_id_fkey"
+            columns: ["work_item_id"]
+            isOneToOne: false
+            referencedRelation: "work_attention"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_item_field_values_work_item_id_fkey"
+            columns: ["work_item_id"]
+            isOneToOne: false
+            referencedRelation: "work_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       work_items: {
         Row: {
           agency_id: string
           assigned_to: string | null
+          board_id: string | null
           completed_at: string | null
           created_at: string
           created_by: string | null
@@ -1977,20 +2021,24 @@ export type Database = {
           division: Database["public"]["Enums"]["fulfillment_service"] | null
           due_at: string | null
           id: string
+          item_type_id: string | null
           organization_id: string | null
           priority: Database["public"]["Enums"]["work_priority"]
           related_ref: string | null
           related_type: Database["public"]["Enums"]["work_related_type"]
           scope: Database["public"]["Enums"]["work_scope"]
           stage: Database["public"]["Enums"]["work_stage"]
+          status_id: string | null
           subject_organization_id: string | null
           team_id: string | null
           title: string
           updated_at: string
+          workspace_id: string | null
         }
         Insert: {
           agency_id: string
           assigned_to?: string | null
+          board_id?: string | null
           completed_at?: string | null
           created_at?: string
           created_by?: string | null
@@ -1998,20 +2046,24 @@ export type Database = {
           division?: Database["public"]["Enums"]["fulfillment_service"] | null
           due_at?: string | null
           id?: string
+          item_type_id?: string | null
           organization_id?: string | null
           priority?: Database["public"]["Enums"]["work_priority"]
           related_ref?: string | null
           related_type: Database["public"]["Enums"]["work_related_type"]
           scope: Database["public"]["Enums"]["work_scope"]
           stage?: Database["public"]["Enums"]["work_stage"]
+          status_id?: string | null
           subject_organization_id?: string | null
           team_id?: string | null
           title: string
           updated_at?: string
+          workspace_id?: string | null
         }
         Update: {
           agency_id?: string
           assigned_to?: string | null
+          board_id?: string | null
           completed_at?: string | null
           created_at?: string
           created_by?: string | null
@@ -2019,16 +2071,19 @@ export type Database = {
           division?: Database["public"]["Enums"]["fulfillment_service"] | null
           due_at?: string | null
           id?: string
+          item_type_id?: string | null
           organization_id?: string | null
           priority?: Database["public"]["Enums"]["work_priority"]
           related_ref?: string | null
           related_type?: Database["public"]["Enums"]["work_related_type"]
           scope?: Database["public"]["Enums"]["work_scope"]
           stage?: Database["public"]["Enums"]["work_stage"]
+          status_id?: string | null
           subject_organization_id?: string | null
           team_id?: string | null
           title?: string
           updated_at?: string
+          workspace_id?: string | null
         }
         Relationships: [
           {
@@ -2046,6 +2101,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "work_items_board_id_fkey"
+            columns: ["board_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_boards"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "work_items_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
@@ -2053,10 +2115,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "work_items_item_type_id_fkey"
+            columns: ["item_type_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_item_types"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "work_items_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_items_status_id_fkey"
+            columns: ["status_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_statuses"
             referencedColumns: ["id"]
           },
           {
@@ -2071,6 +2147,219 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_items_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspace_boards: {
+        Row: {
+          archived_at: string | null
+          created_at: string
+          id: string
+          name: string
+          position: number
+          view_kind: string
+          workspace_id: string
+        }
+        Insert: {
+          archived_at?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          position?: number
+          view_kind?: string
+          workspace_id: string
+        }
+        Update: {
+          archived_at?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          position?: number
+          view_kind?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_boards_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspace_fields: {
+        Row: {
+          field_type: string
+          id: string
+          key: string
+          label: string
+          options: Json | null
+          position: number
+          workspace_id: string
+        }
+        Insert: {
+          field_type: string
+          id?: string
+          key: string
+          label: string
+          options?: Json | null
+          position?: number
+          workspace_id: string
+        }
+        Update: {
+          field_type?: string
+          id?: string
+          key?: string
+          label?: string
+          options?: Json | null
+          position?: number
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_fields_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspace_item_types: {
+        Row: {
+          icon: string | null
+          id: string
+          key: string
+          label: string
+          position: number
+          workspace_id: string
+        }
+        Insert: {
+          icon?: string | null
+          id?: string
+          key: string
+          label: string
+          position?: number
+          workspace_id: string
+        }
+        Update: {
+          icon?: string | null
+          id?: string
+          key?: string
+          label?: string
+          position?: number
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_item_types_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspace_statuses: {
+        Row: {
+          canonical_stage: Database["public"]["Enums"]["work_stage"]
+          colour: string | null
+          id: string
+          is_terminal: boolean
+          key: string
+          label: string
+          position: number
+          workspace_id: string
+        }
+        Insert: {
+          canonical_stage?: Database["public"]["Enums"]["work_stage"]
+          colour?: string | null
+          id?: string
+          is_terminal?: boolean
+          key: string
+          label: string
+          position?: number
+          workspace_id: string
+        }
+        Update: {
+          canonical_stage?: Database["public"]["Enums"]["work_stage"]
+          colour?: string | null
+          id?: string
+          is_terminal?: boolean
+          key?: string
+          label?: string
+          position?: number
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_statuses_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspaces: {
+        Row: {
+          archived_at: string | null
+          colour: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          icon: string | null
+          id: string
+          name: string
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          archived_at?: string | null
+          colour?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          archived_at?: string | null
+          colour?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspaces_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspaces_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -2320,6 +2609,10 @@ export type Database = {
       }
       my_org_ids: { Args: never; Returns: string[] }
       org_agency: { Args: { p_org: string }; Returns: string }
+      org_entitled: {
+        Args: { p_org: string; p_product: string }
+        Returns: boolean
+      }
       org_has_product: {
         Args: {
           p_org: string
@@ -2483,7 +2776,14 @@ export type Database = {
         | "funding_support"
       org_status: "Active" | "Pending Onboarding" | "At Risk" | "Paused"
       outsourcing_group_status: "Active" | "Paused" | "Onboarding"
-      product_key: "creditOps" | "fundingOps" | "diyCredit" | "oi" | "crm"
+      product_key:
+        | "creditOps"
+        | "fundingOps"
+        | "diyCredit"
+        | "oi"
+        | "crm"
+        | "workspaces"
+        | "talentOps"
       webhook_delivery_status: "emitted" | "failed" | "skipped"
       webhook_endpoint_type: "ghl" | "disputefox" | "generic"
       work_priority: "Normal" | "High" | "Urgent"
@@ -2782,7 +3082,15 @@ export const Constants = {
       ],
       org_status: ["Active", "Pending Onboarding", "At Risk", "Paused"],
       outsourcing_group_status: ["Active", "Paused", "Onboarding"],
-      product_key: ["creditOps", "fundingOps", "diyCredit", "oi", "crm"],
+      product_key: [
+        "creditOps",
+        "fundingOps",
+        "diyCredit",
+        "oi",
+        "crm",
+        "workspaces",
+        "talentOps",
+      ],
       webhook_delivery_status: ["emitted", "failed", "skipped"],
       webhook_endpoint_type: ["ghl", "disputefox", "generic"],
       work_priority: ["Normal", "High", "Urgent"],

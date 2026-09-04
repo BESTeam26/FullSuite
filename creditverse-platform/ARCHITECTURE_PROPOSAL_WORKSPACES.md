@@ -1,6 +1,12 @@
 # Proposal — Custom Workspaces, TalentOps bridge, BES CRM visibility
 
-**Status: proposal. Nothing built.** Doctrine is recorded as CLAUDE.md rule 17.
+**Status: Custom Workspaces foundation IMPLEMENTED (migrations 0027/0028, Phase 6);
+TalentOps bridge and BES CRM surfaces still proposals.** Doctrine is recorded as
+CLAUDE.md rule 17. Deviations from the text below: conflict 1 was already fixed
+by migration 0024; `workspace_statuses` carries `canonical_stage` so the engine
+keeps one stage vocabulary; the three open questions were answered as recorded
+in BUILD_STATUS (list not workflow; Attention via the canonical stage only;
+`crm` = BES CRM delivery).
 
 The conclusion up front: the canonical engine already exists and is close to
 sufficient. What blocks Custom Workspaces is not a missing engine but **three

@@ -36,14 +36,22 @@
  */
 
 export type ProductKey =
-  "creditOps" | "fundingOps" | "diyCredit" | "oi" | "crm";
+  | "creditOps"
+  | "fundingOps"
+  | "diyCredit"
+  | "oi"
+  | "crm"
+  | "workspaces"
+  | "talentOps";
 
 export type ProductLabel =
   | "CreditOps"
   | "FundingOps"
   | "DIY Credit"
   | "Operational Intelligence"
-  | "BES CRM";
+  | "BES CRM"
+  | "Custom Workspaces"
+  | "TalentOps";
 
 export interface ProductEntitlement {
   key: ProductKey;
@@ -219,6 +227,8 @@ export const PRODUCT_LABELS: Record<ProductKey, ProductLabel> = {
   diyCredit: "DIY Credit",
   oi: "Operational Intelligence",
   crm: "BES CRM",
+  workspaces: "Custom Workspaces",
+  talentOps: "TalentOps",
 };
 
 export const isProductEnabled = (org: Organization, key: ProductKey): boolean =>
