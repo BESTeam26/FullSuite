@@ -30,6 +30,9 @@ export function DealActivitySection({
       entries={activity}
       actor={ACTOR}
       emptyMessage="No activity yet. Status changes, comments, submissions, lender updates and attachments will appear here."
+      /* The deal store keeps its own in-memory activity and its pin/mark
+         handlers do change it, so these controls are real here. */
+      canAnnotate
       onTogglePin={(entryId) => dealStore.togglePin(dealId, entryId)}
       onSetMark={(entryId, mark) =>
         dealStore.setMark(dealId, entryId, mark as DealMark)

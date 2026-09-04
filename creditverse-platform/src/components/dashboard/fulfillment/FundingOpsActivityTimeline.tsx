@@ -42,6 +42,7 @@ export function FundingOpsActivityTimeline({ clientId }: { clientId: string }) {
       actor={ACTOR}
       emptyMessage="No activity yet. Status changes, comments, and updates are logged here."
       attachmentsByActivity={byActivity}
+      canAnnotate={store.canAnnotate}
       onTogglePin={(id) => store.togglePin(id)}
       onSetMark={(id, mark) => store.setMark(id, mark)}
       composer={

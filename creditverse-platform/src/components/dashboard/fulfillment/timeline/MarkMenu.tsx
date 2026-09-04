@@ -31,12 +31,25 @@ export function MarkMenu({
   return (
     <div ref={ref} className="relative">
       <button
+        type="button"
         onClick={() => setOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={
+          current
+            ? `Change this comment's tag (currently ${current})`
+            : "Tag this comment — Important, Question, Follow-up, Resolved or Idea"
+        }
+        title={
+          current
+            ? `Tagged ${current} — click to change or clear`
+            : "Tag this comment (Important, Question, Follow-up…)"
+        }
         className={cn(
-          "rounded p-1.5 hover:bg-muted hover:text-foreground",
+          "rounded p-1.5 transition-colors hover:bg-muted hover:text-foreground",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
           current && "text-primary",
         )}
-        title="Mark comment"
       >
         <Tag className="h-4 w-4" />
       </button>

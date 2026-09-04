@@ -91,41 +91,31 @@ function renderNode(node: NoteNode): ReactNode {
         </Tag>
       );
     }
+    /* Lists carry no utility classes: markers, indentation and nesting come
+       from the scoped stylesheet, so the posted note and the editor cannot
+       drift apart in appearance. */
     case "bulletList":
-      return (
-        <ul className="my-1 list-disc space-y-0.5 pl-5">
-          {renderNodes(node.content)}
-        </ul>
-      );
+      return <ul>{renderNodes(node.content)}</ul>;
     case "orderedList":
-      return (
-        <ol className="my-1 list-decimal space-y-0.5 pl-5">
-          {renderNodes(node.content)}
-        </ol>
-      );
+      return <ol>{renderNodes(node.content)}</ol>;
     case "listItem":
       return <li>{renderNodes(node.content)}</li>;
     case "taskList":
-      return <ul className="my-1 space-y-1">{renderNodes(node.content)}</ul>;
+      return <ul data-type="taskList">{renderNodes(node.content)}</ul>;
     case "taskItem":
+      /* Same element shape TipTap emits — label + div — so one stylesheet
+         lays out both the editor and the posted note. */
       return (
-        <li className="flex items-start gap-2">
-          <input
-            type="checkbox"
-            checked={node.attrs?.checked === true}
-            readOnly
-            aria-label="Checklist item"
-            className="mt-[3px] h-3 w-3 shrink-0 accent-primary"
-          />
-          <span
-            className={
-              node.attrs?.checked === true
-                ? "text-muted-foreground line-through"
-                : ""
-            }
-          >
-            {renderNodes(node.content)}
-          </span>
+        <li data-checked={node.attrs?.checked === true ? "true" : "false"}>
+          <label>
+            <input
+              type="checkbox"
+              checked={node.attrs?.checked === true}
+              readOnly
+              aria-label="Checklist item"
+            />
+          </label>
+          <div>{renderNodes(node.content)}</div>
         </li>
       );
     case "blockquote":
@@ -161,5 +151,9 @@ export function NoteContent({
       <p className="whitespace-pre-wrap leading-relaxed">{fallbackText}</p>
     );
   }
-  return <div className="text-xs text-foreground">{renderNodes(body.content)}</div>;
+  return (
+    <div className="note-content text-xs text-foreground">
+      {renderNodes(body.content)}
+    </div>
+  );
 }

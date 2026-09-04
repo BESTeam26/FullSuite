@@ -42,6 +42,7 @@ export function ClientWorkActivityTimeline({ clientId }: { clientId: string }) {
       actor={ACTOR}
       emptyMessage="No system activity logged yet."
       attachmentsByActivity={byActivity}
+      canAnnotate={store.canAnnotate}
       onTogglePin={(id) => store.togglePin(id)}
       onSetMark={(id, mark) => store.setMark(id, mark)}
       composer={

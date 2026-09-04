@@ -133,6 +133,17 @@ export interface OpsClientStoreValue<T extends OpsClient, D> {
   ) => Promise<string | void>;
   togglePin: (activityId: string) => void;
   setMark: (activityId: string, mark: string | undefined) => void;
+  /**
+   * Whether pinning and marking can actually be saved.
+   *
+   * Same rule as `canAssign`: a control that cannot do anything must not be
+   * rendered (rule 3). `activity_events` has `pinned` and `mark` columns and
+   * migration 0004 grants UPDATE on exactly those two, but no data-layer
+   * function writes them yet — so in live mode both handlers are no-ops and
+   * the interface must not offer a pin button and a tag menu that silently
+   * do nothing.
+   */
+  canAnnotate: boolean;
   /** Record one production unit (one file worked) with the selected actions. */
   logProduction: (input: ProductionLogInput) => Promise<void>;
 }
@@ -515,6 +526,7 @@ export function createOpsClientStore<T extends OpsClient, D>(
         updateStatus,
         updateAssignee,
         canAssign: true,
+        canAnnotate: true,
         updateContact,
         checkAddConflict,
         addClient,
@@ -849,6 +861,8 @@ export function createOpsClientStore<T extends OpsClient, D>(
         updateStatus: handled(updateStatus),
         updateAssignee: handled(updateAssignee),
         canAssign,
+        /* No write path for pinned/mark exists yet — see `canAnnotate`. */
+        canAnnotate: false,
         updateContact: handled(updateContact),
         checkAddConflict,
         addClient,
@@ -905,6 +919,7 @@ export function createOpsClientStore<T extends OpsClient, D>(
       updateStatus: denied,
       updateAssignee: denied,
       canAssign: false,
+      canAnnotate: false,
       updateContact: denied,
       checkAddConflict: () => ({ crossScopeMatches: [] }),
       addClient: () => ({ id: "", blocked: true, crossScopeMatches: [] }),

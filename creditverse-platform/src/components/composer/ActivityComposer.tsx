@@ -18,7 +18,6 @@ import { Paperclip, Send, Loader2, X, FileText, AlertCircle } from "lucide-react
 import { cn } from "@/lib/utils";
 import {
   DEFAULT_VISIBILITY,
-  VISIBILITY_HINT,
   type ActivityVisibility,
 } from "@/lib/data/activity";
 import { VisibilityPicker } from "@/components/dashboard/fulfillment/VisibilityControls";
@@ -345,16 +344,13 @@ export function ActivityComposer({
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-3">
-          <div className="text-right">
-            <VisibilityPicker
-              value={visibility}
-              onChange={setVisibility}
-              options={allowedVisibilities}
-            />
-            <p className="mt-0.5 max-w-[240px] text-[10px] text-muted-foreground">
-              {VISIBILITY_HINT[visibility]}
-            </p>
-          </div>
+          {/* The picker renders its own one-line explanation of the selected
+              audience; a second copy here said the same thing twice. */}
+          <VisibilityPicker
+            value={visibility}
+            onChange={setVisibility}
+            options={allowedVisibilities}
+          />
           <button
             type="button"
             onClick={() => void handlePost()}

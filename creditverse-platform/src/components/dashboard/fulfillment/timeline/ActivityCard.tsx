@@ -48,6 +48,7 @@ export function ActivityCard({
   entry,
   isHuman,
   attachments,
+  canAnnotate = false,
   onPin,
   onMark,
   onOpenAttachment,
@@ -57,6 +58,8 @@ export function ActivityCard({
   isHuman: boolean;
   /** Persisted attachments for this note, already signed. */
   attachments?: TimelineAttachment[];
+  /** Whether pin / mark can actually be saved. False hides both (rule 3). */
+  canAnnotate?: boolean;
   onPin: () => void;
   onMark: (mark: string | undefined) => void;
   onOpenAttachment: (att: CommentAttachment) => void;
@@ -223,23 +226,39 @@ export function ActivityCard({
         </p>
       )}
 
-      <div className="flex items-center justify-end gap-1 border-t border-border/40 pt-1.5">
-        <button
-          onClick={onPin}
-          className={cn(
-            "rounded p-1.5 hover:bg-muted hover:text-foreground",
-            entry.pinned ? "text-primary" : "text-muted-foreground",
-          )}
-          title={entry.pinned ? "Unpin comment" : "Pin comment"}
-        >
-          {entry.pinned ? (
-            <PinOff className="h-3.5 w-3.5" />
-          ) : (
-            <Pin className="h-3.5 w-3.5" />
-          )}
-        </button>
-        <MarkMenu current={entry.mark} onPick={onMark} />
-      </div>
+      {/* Hidden entirely when the store cannot persist either action, rather
+          than rendered as controls that quietly do nothing. */}
+      {canAnnotate && (
+        <div className="flex items-center justify-end gap-1 border-t border-border/40 pt-1.5">
+          <button
+            type="button"
+            onClick={onPin}
+            aria-pressed={entry.pinned}
+            aria-label={
+              entry.pinned
+                ? "Unpin this comment from the top of the timeline"
+                : "Pin this comment to the top of the timeline"
+            }
+            title={
+              entry.pinned
+                ? "Unpin — stop showing this at the top"
+                : "Pin to the top of this timeline"
+            }
+            className={cn(
+              "rounded p-1.5 transition-colors hover:bg-muted hover:text-foreground",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+              entry.pinned ? "text-primary" : "text-muted-foreground",
+            )}
+          >
+            {entry.pinned ? (
+              <PinOff className="h-3.5 w-3.5" />
+            ) : (
+              <Pin className="h-3.5 w-3.5" />
+            )}
+          </button>
+          <MarkMenu current={entry.mark} onPick={onMark} />
+        </div>
+      )}
     </div>
   );
 }

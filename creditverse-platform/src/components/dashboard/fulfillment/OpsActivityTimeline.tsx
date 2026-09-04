@@ -38,6 +38,8 @@ interface OpsActivityTimelineProps {
   attachmentsByActivity?: Record<string, TimelineAttachment[]>;
   /** Rendered beneath the list. The canonical `ActivityComposer`. */
   composer?: ReactNode;
+  /** Whether pin / mark can be saved. False hides both controls (rule 3). */
+  canAnnotate?: boolean;
   onTogglePin: (entryId: string) => void;
   onSetMark: (entryId: string, mark: string | undefined) => void;
 }
@@ -51,6 +53,7 @@ export function OpsActivityTimeline({
   emptyMessage,
   attachmentsByActivity,
   composer,
+  canAnnotate = false,
   onTogglePin,
   onSetMark,
 }: OpsActivityTimelineProps) {
@@ -114,6 +117,7 @@ export function OpsActivityTimeline({
       entry={a}
       isHuman={isHumanNote(a.action)}
       attachments={attachmentsByActivity?.[a.id]}
+      canAnnotate={canAnnotate}
       onPin={() => onTogglePin(a.id)}
       onMark={(m) => onSetMark(a.id, m)}
       onOpenAttachment={openLegacy}
