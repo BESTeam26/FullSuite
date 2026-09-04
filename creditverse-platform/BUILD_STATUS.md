@@ -1201,6 +1201,64 @@ customer-editable.
 
 144 tests (11 new), tsc clean, 0 lint errors, build clean, 32 live checks green.
 
+### 2026-09-03 — Relationship model corrected in doctrine; one structural conflict proposed, not built
+
+Rule 16 rewritten around the three relationship models: **SaaS only**,
+**SaaS + BES fulfillment**, and **BES fulfillment without SaaS**. The load-bearing
+correction is that a SaaS organization and a BES fulfillment partner are
+different things, and model 3 means BES Agency must stay operationally
+independent of organizations — a partner is not a subclass of an organization.
+
+**Reviewed against the code. What already complies:**
+
+- **SaaS subscription alone does not grant BES access.** `bes_may_fulfil()`
+  requires `is_fulfillment_subscriber`, which is separate from subscribing.
+  Verified live last session: BES may not fulfil for Empire Capital & Credit or
+  Vantage Funding Group.
+- **Customers cannot reach BES internal data.** `production_logs`,
+  `time_entries`, `eod_submissions`, `webhook_endpoints`, `webhook_deliveries`
+  and `outsourcing_groups` are all gated on agency staff; an organization member
+  is not staff. Read directly from the policies.
+- **Model 3 works independently.** Outsourcing partners are `outsourcing_groups`
+  with `mode = 'outsourcing_only'` and no organization, so BES can serve a
+  company that has no BES SaaS tenant.
+- **Provenance already separates the models** — `saas_pulled` vs
+  `outsourcing_only` on every client record.
+
+**🟡 Structural conflict — proposed, deliberately NOT built.**
+
+The fulfillment relationship is a single boolean. The doctrine requires an
+explicit relationship defining partner, organization (when applicable),
+service/module, authorized data scope, effective status and dates, and BES team
+scope. `organizations.is_fulfillment_subscriber` carries **none** of those:
+
+- no module scope — one flag authorizes BES for every module at once;
+- no dates — an ended engagement looks identical to an active one;
+- no data scope or team scope;
+- cannot express model 3 at all, which is why outsourcing partners live on a
+  separate path rather than as partners with an engagement.
+
+The shape of the fix is a first-class `fulfillment_engagements` table
+(partner → optional organization → service → scope → effective dates → BES team),
+with `bes_may_fulfil(org, product)` reading it instead of the boolean, and
+`partners` becoming a real concept rather than "organization or outsourcing
+group". That touches ~20 call sites of `isFulfillmentSubscriber` plus the
+partner tree, so it is reported rather than done — the task said to propose
+before a large structural change.
+
+**Two zero-risk guardrails added instead**, so the next person does not make the
+mistake the doctrine warns about:
+
+- `addActivity` is a no-op in live mode, meaning internal notes are not
+  persisted. Wiring it naively would put BES internal notes into
+  `activity_events`, which the organization's own members can read. A comment at
+  the no-op says so and states what is needed (a visibility flag plus a policy
+  that respects it).
+- The `isFulfillmentSubscriber` domain field now documents what it is and is
+  not, and that it must not be read as "is a BES Partner".
+
+144 tests, tsc clean, 0 lint errors, build clean.
+
 ## Next steps for Claude Code
 
 1. Connect Supabase Auth + RLS for organization isolation

@@ -167,6 +167,16 @@ export interface Organization {
   /** Products activated for this organization. */
   entitlements: ProductEntitlement[];
   /** Whether this org subscribes to BES Done-For-You fulfillment. */
+  /**
+   * Whether BES performs fulfillment for this organization.
+   *
+   * A coarse stand-in, NOT the relationship rule 16 requires: it carries no
+   * module, no authorized data scope, no effective dates and no BES team
+   * scope, and it cannot express a partner who uses BES fulfillment WITHOUT a
+   * SaaS organization — those are modelled separately as outsourcing groups.
+   * Do not read this as "is a BES Partner". Replacing it needs a first-class
+   * engagement record; see BUILD_STATUS.
+   */
   isFulfillmentSubscriber: boolean;
   businesses: Business[];
   orgUsers: OrgUser[];

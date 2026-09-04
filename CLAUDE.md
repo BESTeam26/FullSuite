@@ -441,7 +441,7 @@ stable, obvious and consistent at first glance.**
 > it. They are not in tension: preserving a layout does not license leaving a
 > hover state that erases its own label.
 
-## 16. Platform and tenancy architecture (permanent doctrine)
+## 16. Platform, tenancy and the BES relationship model (permanent doctrine)
 
 ```
 BES Platform
@@ -455,73 +455,74 @@ BES Platform
 customers to BES, but they cannot create agencies, resell, or repackage the
 platform. **Do not redesign the platform for multiple agencies.**
 
-### Customer organizations
+### A SaaS Organization and a BES Fulfillment Partner are not the same thing
 
-Each has its own `organization_id`, users and memberships, roles and
-permissions, teams and assignments, branding, enabled modules, configuration,
-internal KPI definitions and targets, and configurable operational rules where
-permitted.
+There are **three** valid business relationships, and they must never be
+conflated:
 
-Module access is **entitlement-driven**, and entitlement is enforced in data
-access, not only in the interface:
+| # | Relationship | What exists |
+|---|---|---|
+| 1 | **SaaS only** | The customer subscribes to BES software. Own organization, users, teams, permissions, branding, KPIs, enabled modules. **Not automatically a BES Partner.** BES does not participate in or manage their operations. |
+| 2 | **SaaS + BES fulfillment** | The customer subscribes AND separately purchases BES fulfillment/outsourcing. **Only this** connects authorized organization operational data to the BES Agency Partner Fulfillment workspace. |
+| 3 | **BES fulfillment without SaaS** | A company hires BES for outsourcing while keeping its own CRM/platform. A BES Partner with **no** BES SaaS organization. |
 
-| Organization | Entitled to |
-|---|---|
-| A | CreditOps + FundingOps + Operations |
-| B | FundingOps + Operations |
-| C | CreditOps only |
+Because model 3 exists, **BES Agency must remain operationally independent of
+SaaS organizations.** A partner is not a subclass of an organization.
 
-**Do not render a module the organization is not entitled to use** — and do not
-serve its records either.
+### Critical access rule
 
-### One source of truth
+**A SaaS subscription alone NEVER grants BES operational access to the
+customer's organization.** Organization data must not automatically appear in
+BES Partner Fulfillment.
 
-Do **not** create duplicate copies of the same client, business, case, funding
-deal, work item, document or operational record merely because BES Agency HQ and
-a sub-account both need to see it.
+Access requires an **explicit, active BES fulfillment/service relationship**
+that defines:
 
-When both contexts are authorized, use **one canonical record with controlled
-views and scoped access**:
+- the **partner**
+- the **organization**, when applicable
+- the **service / module** in scope
+- the **authorized data scope**
+- **effective status and dates**
+- the **BES team / access scope**
 
-```
-Canonical Client Record
-  → visible in the Customer Organization
-  → visible in BES Agency HQ when BES provides fulfillment
-```
+Only data authorized by that relationship may surface in BES Agency
+fulfillment. **BES staff status is not access.** A BES user must not reach a
+SaaS-only organization's operational data merely by being BES staff.
 
-If BES updates an authorized shared record the customer sees the same current
-state, and the reverse. **Build around canonical shared data + scoped access,
-not duplicated records + constant synchronization.**
+The reverse holds too: **customer organization users must not reach BES
+internal agency operations** — internal workforce data, internal KPIs, internal
+notes, QA, financial or management data — unless a surface is explicitly
+designed for sharing.
 
-Every meaningful change preserves: audit history, actor, source/context of the
-change, timestamp, organization, assignment, and previous/new values where
-applicable.
+### One source of truth, per model
+
+- **SaaS + fulfillment (model 2):** prefer **canonical shared records with
+  scoped views**. Do not copy and synchronize. A change to an authorized shared
+  record must represent the same underlying truth in both permitted views.
+- **Fulfillment without SaaS (model 3):** agency-managed records may exist
+  **independently**, because the external customer system is not a BES canonical
+  source and cannot be one.
+
+**Never falsely merge these two models.** A record's provenance
+(`saas_pulled` vs `outsourcing_only`) says which model it belongs to.
 
 ### KPI ownership
 
-Customer internal KPIs and BES fulfillment KPIs are **not** automatically the
-same.
+Customer organization KPIs belong to the customer. BES Agency fulfillment KPIs
+belong to BES. BES fulfillment performance may be reported to a partner through
+**explicitly authorized partner-facing reporting**; internal BES management data
+stays private. Both derive from canonical operational data. Never duplicate
+operational records to support a different KPI definition.
 
-- A customer organization **may** define its own internal KPIs, targets and rules.
-- BES Agency HQ defines BES operational and fulfillment KPIs.
-- Where BES provides fulfillment, **BES owns the KPIs that measure BES
-  performance**; the customer cannot modify those definitions or targets, but
-  may still define separate internal KPIs for its own team.
+### Data integrity principle
 
-Both calculate actual performance from **canonical operational data**. Never
-duplicate operational records to support a different KPI definition.
+```
+SaaS subscription        ≠  fulfillment authorization
+fulfillment relationship ≠  ownership of the customer's whole organization
+BES staff status         ≠  unrestricted customer-data access
+```
 
-### Fulfillment is not subscription
-
-An organization subscription and a BES fulfillment relationship are **separate
-concepts**. A company may use SaaS only, SaaS plus BES fulfillment, or eligible
-modules without BES fulfillment.
-
-**BES Agency HQ access to an organization's operational records depends on the
-authorized fulfillment/service relationship and permissions** — not on being BES
-staff alone.
-
-### Security
+### Security ordering
 
 `organization_id` is the primary SaaS tenant boundary. Enforce, in order:
 
@@ -532,7 +533,8 @@ authenticated user
       → permission
         → scope / assignment
           → entitlement
-            → record authorization
+            → fulfillment authorization
+              → record authorization
 ```
 
 **Never trust an `organization_id` supplied by the frontend as proof of access.**
@@ -541,13 +543,20 @@ explicitly authorized and audited.
 
 ### Branding
 
-Organizations may customize approved branding — logo, colours, organization
-identity, and appropriate customer-facing presentation. **Brand customization
-does not create another agency or a reseller platform.**
+Organizations may customize approved branding — logo, colours, identity,
+customer-facing presentation. **Brand customization does not create another
+agency or a reseller platform.**
 
-> On the agency layer that already exists: `agency_id` columns and the
-> `is_staff_of(agency)` helpers are a **safety net, not a reseller feature**.
-> There is one agency row and there is meant to be one. They stay because
-> defence in depth costs nothing here and a blanket "is staff anywhere" check
-> is the weaker default — but no work should be done to support a second
-> agency, and `organization_id` is the boundary that matters.
+> **Known gap, recorded rather than silently accepted.** The fulfillment
+> relationship is currently a single boolean, `organizations.is_fulfillment_
+> subscriber`, read by `bes_may_fulfil()`. That is better than the nothing it
+> replaced, but it is **not** the relationship this rule requires: it carries no
+> module, no authorized data scope, no effective dates and no BES team scope,
+> and it cannot express model 3 at all — outsourcing partners are modelled as
+> `outsourcing_groups` on a separate path. Closing this needs a first-class
+> engagement record. It is a structural change and must be proposed before it is
+> built.
+>
+> On the agency layer: `agency_id` and `is_staff_of(agency)` are a **safety net,
+> not a reseller feature**. There is one agency row and there is meant to be
+> one. No work should go toward supporting a second.

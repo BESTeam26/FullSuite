@@ -694,6 +694,12 @@ export function createOpsClientStore<T extends OpsClient, D>(
         updateContact,
         checkAddConflict,
         addClient,
+        /* Internal notes are NOT persisted in live mode yet, and wiring them
+           naively would leak them. `activity_events` is readable by the
+           organization's own members, so a BES internal note written there
+           becomes customer-visible. Rule 16: customers must not reach BES
+           internal notes, QA or management data. Whoever connects this needs a
+           visibility flag on the row and a policy that respects it. */
         addActivity: noop,
         togglePin: noop,
         setMark: noop,
