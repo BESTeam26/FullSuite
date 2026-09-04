@@ -5,12 +5,13 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { useAgency } from "@/lib/agency-context";
 import { useAgencySettings } from "@/lib/agency-settings-context";
-import { SectionCard, Field, StatusBadge, ToggleRow } from "../shared";
+import { SectionCard, Field, StatusBadge, ToggleRow, PlaceholderNote } from "../shared";
 import type { EntitlementState } from "@/lib/agency-settings-context";
 
 /* ---------------- Agency & Branding ---------------- */
 export const AgencyBrandingSection = () => {
-  const { agency, setAgency, markSaved } = useAgencySettings();
+  const { agency, setAgency, saveBrand, brandSaveError, canSaveBrand, saved } =
+    useAgencySettings();
   return (
     <SectionCard
       icon={Building2}
@@ -68,10 +69,22 @@ export const AgencyBrandingSection = () => {
           />
         </Field>
       </div>
-      <div className="mt-5 flex justify-end">
+      <div className="mt-5 flex flex-wrap items-center justify-end gap-3">
+        {brandSaveError && (
+          <span className="text-xs text-red-700">{brandSaveError}</span>
+        )}
+        {saved && !brandSaveError && (
+          <span className="text-xs font-medium text-status-success">Saved ✓</span>
+        )}
+        {!canSaveBrand && (
+          <span className="text-xs text-muted-foreground">
+            Only a BES agency admin can save brand settings.
+          </span>
+        )}
         <Button
-          className="bg-gradient-green text-white hover:opacity-90"
-          onClick={markSaved}
+          className="bg-gradient-green text-white hover:opacity-90 disabled:opacity-60"
+          onClick={() => void saveBrand()}
+          disabled={!canSaveBrand}
         >
           Save brand settings
         </Button>
@@ -82,8 +95,7 @@ export const AgencyBrandingSection = () => {
 
 /* ---------------- Sub-Accounts ---------------- */
 export const SubAccountsSection = () => {
-  const { subAccounts, switchToSubAccount, toggleFulfillmentSubscription } =
-    useAgency();
+  const { subAccounts, switchToSubAccount } = useAgency();
   return (
     <SectionCard
       icon={Network}
@@ -120,12 +132,14 @@ export const SubAccountsSection = () => {
                   <StatusBadge state={s.status} />
                 </td>
                 <td className="px-4 py-3">
-                  <button
-                    onClick={() => toggleFulfillmentSubscription(s.id)}
+                  {/* Derived from live fulfillment engagements — the only thing
+                      that grants BES access. Not a switch: an engagement is a
+                      contract record, created where engagements are managed. */}
+                  <span
                     className={`text-[11px] font-medium ${s.isFulfillmentSubscriber ? "text-status-success" : "text-muted-foreground"}`}
                   >
-                    {s.isFulfillmentSubscriber ? "Subscribed" : "Self-managed"}
-                  </button>
+                    {s.isFulfillmentSubscriber ? "Engaged" : "Self-managed"}
+                  </span>
                 </td>
                 <td className="px-4 py-3 text-muted-foreground">
                   {s.activeClients}
@@ -211,14 +225,14 @@ export const ProductsSection = () => {
 
 /* ---------------- Agency Users ---------------- */
 export const AgencyUsersSection = () => {
-  const { users, toggleUserActive, toggleUserAssignedOnly } =
-    useAgencySettings();
+  const { users } = useAgencySettings();
   return (
     <SectionCard
       icon={Users}
       title="Agency Users"
       description="BES employees only. Every user follows an explicit lifecycle: Invited → Role Assigned → Scope Assigned → Delivery Assignments → Access Approved."
     >
+      <PlaceholderNote what="These rows are sample data and the switches" />
       <div className="space-y-3">
         {users.map((u) => (
           <div
@@ -240,23 +254,21 @@ export const AgencyUsersSection = () => {
               </div>
             </div>
             <div className="flex items-center gap-4">
+              {/* Sample rows: these users are not the live agency roster and
+                  the switches persisted nothing. Reach is agency_memberships.scope,
+                  set on the membership; activation is an auth action. Locked
+                  until this section reads and writes real memberships. */}
               <div className="flex items-center gap-2">
                 <span className="text-[11px] text-muted-foreground">
                   Assigned only
                 </span>
-                <Switch
-                  checked={u.assignedOnly}
-                  onCheckedChange={() => toggleUserAssignedOnly(u.id)}
-                />
+                <Switch checked={u.assignedOnly} disabled aria-label="Assigned only (sample — not editable here)" />
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-[11px] text-muted-foreground">
                   Active
                 </span>
-                <Switch
-                  checked={u.active}
-                  onCheckedChange={() => toggleUserActive(u.id)}
-                />
+                <Switch checked={u.active} disabled aria-label="Active (sample — not editable here)" />
               </div>
               <StatusBadge state={u.active ? "Active" : "Suspended"} />
             </div>

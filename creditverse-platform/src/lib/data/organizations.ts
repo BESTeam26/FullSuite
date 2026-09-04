@@ -97,7 +97,10 @@ export function mapOrgRow(row: OrgRow, pinnedIds: Set<string>): Organization {
     status: row.status,
     joinedDate: fmtDate(row.joined_at),
     entitlements,
-    isFulfillmentSubscriber: row.is_fulfillment_subscriber,
+    // The column is dead (no policy reads it); agency-context derives this
+    // from live fulfillment engagements. Kept false here so the raw row can
+    // never claim access on its own.
+    isFulfillmentSubscriber: false,
     businesses,
     orgUsers,
     externalUsers,
@@ -153,7 +156,6 @@ export interface CreateOrganizationInput {
   principalEmail: string;
   address?: string;
   status: Enums<"org_status">;
-  isFulfillmentSubscriber: boolean;
   entitlements: Partial<Record<ProductKey, boolean>>;
   branding?: Branding;
 }
@@ -172,7 +174,6 @@ export async function createOrganization(
       principal_email: input.principalEmail,
       address: input.address ?? null,
       status: input.status,
-      is_fulfillment_subscriber: input.isFulfillmentSubscriber,
       branding: (input.branding ?? {}) as Json,
     })
     .select("id")
@@ -205,7 +206,6 @@ export async function updateOrganization(
       | "name"
       | "status"
       | "address"
-      | "is_fulfillment_subscriber"
       | "principal_name"
       | "principal_email"
     >

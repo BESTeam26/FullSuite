@@ -3,7 +3,6 @@ import { SubAccount } from "@/lib/agency-context";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { Building2, Inbox } from "lucide-react";
 import {
   DialogContent,
@@ -27,7 +26,6 @@ interface Props {
     ownerName: string;
     ownerEmail: string;
     plan: SubAccount["plan"];
-    isFulfillmentSubscriber: boolean;
   }) => void;
 }
 
@@ -37,7 +35,6 @@ export const ProvisionSubAccountModal = ({ onClose, onCreate }: Props) => {
   const [ownerName, setOwnerName] = useState("");
   const [ownerEmail, setOwnerEmail] = useState("");
   const [plan, setPlan] = useState<SubAccount["plan"]>("Full Suite");
-  const [isFulfillmentSubscriber, setIsFulfillmentSubscriber] = useState(true);
 
   const handleCreate = () => {
     if (!name || !ownerEmail) return;
@@ -47,7 +44,6 @@ export const ProvisionSubAccountModal = ({ onClose, onCreate }: Props) => {
       ownerName: ownerName || "Company Admin",
       ownerEmail,
       plan,
-      isFulfillmentSubscriber,
     });
   };
 
@@ -122,21 +118,11 @@ export const ProvisionSubAccountModal = ({ onClose, onCreate }: Props) => {
           </div>
         </div>
 
-        <div className="flex items-center justify-between rounded-xl border border-amber-500/30 bg-amber-500/10 p-3">
-          <div>
-            <p className="font-semibold text-status-warning text-xs flex items-center gap-1">
-              <Inbox className="h-3.5 w-3.5" /> Done-For-You Fulfillment
-              Subscriber
-            </p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              Auto-streams all dispute work orders to HQ Fulfillment Desk
-            </p>
-          </div>
-          <Switch
-            checked={isFulfillmentSubscriber}
-            onCheckedChange={setIsFulfillmentSubscriber}
-          />
-        </div>
+        <p className="rounded-lg border border-dashed border-border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+          BES fulfillment access is not a checkbox. It is granted by an active
+          fulfillment engagement for a specific service, created where
+          engagements are managed, and revoked the same way.
+        </p>
       </div>
 
       <DialogFooter>

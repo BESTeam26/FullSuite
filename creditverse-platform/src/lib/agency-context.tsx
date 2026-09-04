@@ -16,6 +16,10 @@ import {
   type ReactNode,
 } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  fetchFulfillmentEngagements,
+  isEngagementLive,
+} from "@/lib/data/fulfillment-engagements";
 import { toast } from "sonner";
 import type {
   Organization,
@@ -145,7 +149,6 @@ interface AgencyContextType {
   switchToAgencyView: () => void;
   switchToSubAccount: (id: string) => void;
   togglePinSubAccount: (id: string) => void;
-  toggleFulfillmentSubscription: (subAccountId: string) => void;
   updateSubAccountBranding: (
     subAccountId: string,
     branding: Partial<NonNullable<Organization["branding"]>>,
@@ -186,10 +189,25 @@ export const AgencyProvider = ({ children }: { children: ReactNode }) => {
   const [localOrgs, setLocalOrgs] = useState<Organization[]>(seedOrganizations);
   /* Memoised so the derived subAccounts list keeps a stable identity between
      renders; a fresh array each render would rebuild it every time. */
-  const organizations = useMemo(
-    () => (live ? (orgQuery.data ?? []) : localOrgs),
-    [live, orgQuery.data, localOrgs],
-  );
+  /* Fulfillment status is the engagement, never the dead column
+     organizations.is_fulfillment_subscriber (no policy reads it). One query,
+     the same key useFulfillment() uses, so it is fetched once. */
+  const engagementQuery = useQuery({
+    queryKey: ["fulfillment", "engagements"],
+    queryFn: fetchFulfillmentEngagements,
+    enabled: live,
+    staleTime: 5 * 60_000,
+  });
+  const organizations = useMemo(() => {
+    if (!live) return localOrgs;
+    const engagements = engagementQuery.data ?? [];
+    return (orgQuery.data ?? []).map((o) => ({
+      ...o,
+      isFulfillmentSubscriber: engagements.some(
+        (e) => e.organizationId === o.id && isEngagementLive(e),
+      ),
+    }));
+  }, [live, orgQuery.data, engagementQuery.data, localOrgs]);
   const invalidateOrgs = useCallback(
     () => queryClient.invalidateQueries({ queryKey: ["organizations"] }),
     [queryClient],
@@ -268,26 +286,6 @@ export const AgencyProvider = ({ children }: { children: ReactNode }) => {
     );
   };
 
-  const toggleFulfillmentSubscription = (subAccountId: string) => {
-    const org = organizations.find((o) => o.id === subAccountId);
-    if (!org) return;
-    if (live) {
-      void updateOrganization(subAccountId, {
-        is_fulfillment_subscriber: !org.isFulfillmentSubscriber,
-      })
-        .then(invalidateOrgs)
-        .catch(reportError("Fulfillment subscription update"));
-      return;
-    }
-    setLocalOrgs((prev) =>
-      prev.map((o) =>
-        o.id === subAccountId
-          ? { ...o, isFulfillmentSubscriber: !o.isFulfillmentSubscriber }
-          : o,
-      ),
-    );
-  };
-
   const updateSubAccountBranding = (
     subAccountId: string,
     branding: Partial<NonNullable<Organization["branding"]>>,
@@ -348,7 +346,6 @@ export const AgencyProvider = ({ children }: { children: ReactNode }) => {
         principalEmail: acc.ownerEmail,
         address: acc.address,
         status: acc.status,
-        isFulfillmentSubscriber: acc.isFulfillmentSubscriber,
         entitlements: {
           creditOps: acc.modules.creditOps,
           fundingOps: acc.modules.fundingOps,
@@ -373,7 +370,7 @@ export const AgencyProvider = ({ children }: { children: ReactNode }) => {
       address: acc.address,
       status: acc.status,
       joinedDate: "Today",
-      isFulfillmentSubscriber: acc.isFulfillmentSubscriber,
+      isFulfillmentSubscriber: false, // demo only; live derives from engagements
       isPinned: acc.isPinned,
       entitlements: [
         {
@@ -431,7 +428,6 @@ export const AgencyProvider = ({ children }: { children: ReactNode }) => {
         switchToAgencyView,
         switchToSubAccount,
         togglePinSubAccount,
-        toggleFulfillmentSubscription,
         updateSubAccountBranding,
         updateWorkOrderStatus,
         addWorkOrder,
@@ -462,7 +458,6 @@ const safeAgency: AgencyContextType = {
   switchToAgencyView: () => {},
   switchToSubAccount: () => {},
   togglePinSubAccount: () => {},
-  toggleFulfillmentSubscription: () => {},
   updateSubAccountBranding: () => {},
   updateWorkOrderStatus: () => {},
   addWorkOrder: () => {},

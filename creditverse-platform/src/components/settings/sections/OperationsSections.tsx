@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { SectionCard, Field, ToggleRow } from "../shared";
+import { SectionCard, Field, ToggleRow, PlaceholderNote } from "../shared";
 import { useAgencySettings } from "@/lib/agency-settings-context";
 
 /* ---------------- Fulfillment ---------------- */
@@ -81,38 +81,42 @@ export const CreditOpsSection = () => (
     title="CreditOps Configuration"
     description="Agency-controlled defaults for statuses, rounds, workflows, SLA/ETA, report providers, letter categories, and QA rules. Critical legal/deterministic rules remain controlled domain logic."
   >
+    <PlaceholderNote />
     <div className="grid gap-4 sm:grid-cols-2">
       <Field label="Default round cycle (days)">
-        <Input defaultValue="30" />
+        <Input placeholder="e.g. 30" disabled />
       </Field>
       <Field label="Reinvestigation extension (days)">
-        <Input defaultValue="45" />
+        <Input placeholder="e.g. 45" disabled />
       </Field>
       <Field label="Default report provider">
-        <Input defaultValue="SmartCredit" />
+        <Input placeholder="e.g. SmartCredit" disabled />
       </Field>
       <Field label="QA pass threshold">
-        <Input defaultValue="96%" />
+        <Input placeholder="e.g. 96%" disabled />
       </Field>
     </div>
     <div className="mt-4 space-y-2">
       <ToggleRow
         label="Require consumer attestation before dispute"
-        description="Truth Gate enforcement across all rounds"
+        description="The Truth Gate runs before any letter is generated (lib/dispute/metro2-guardrails). Unconditional."
         checked
         onChange={() => {}}
+        state="enforced"
       />
       <ToggleRow
         label="Block advance-fee billing (CROA)"
-        description="Billing eligibility engine enforced by default"
-        checked
+        description="No billing-eligibility engine exists yet; this rule is not enforced by software."
+        checked={false}
         onChange={() => {}}
+        state="unbuilt"
       />
       <ToggleRow
         label="Experian upload-only (no mail)"
-        description="Experian disputes uploaded to Experian Upload Center"
+        description="Fixed in the dispute engine (cra-addresses-and-workflows, package-builder). Not configurable."
         checked
         onChange={() => {}}
+        state="enforced"
       />
     </div>
   </SectionCard>
@@ -160,18 +164,24 @@ export const FundingOpsSection = () => (
         <div className="space-y-2">
           <ToggleRow
             label="BRM sees assigned deals only"
-            checked
+            description="Access is decided per record by database policy, not by this switch."
+            checked={false}
             onChange={() => {}}
+            state="unbuilt"
           />
           <ToggleRow
             label="Sales Partner sees own referrals only"
-            checked
+            description="Access is decided per record by database policy, not by this switch."
+            checked={false}
             onChange={() => {}}
+            state="unbuilt"
           />
           <ToggleRow
             label="Lender sees submissions sent to them only"
-            checked
+            description="Access is decided per record by database policy, not by this switch."
+            checked={false}
             onChange={() => {}}
+            state="unbuilt"
           />
         </div>
       </div>
@@ -186,35 +196,39 @@ export const DiyReferralsSection = () => (
     title="DIY Credit & Referral Program"
     description="BES-owned DIY product: program status, consumer plans, referral commission rules, attribution window, approved partners, payout states, and lead routing."
   >
+    <PlaceholderNote />
     <div className="grid gap-4 sm:grid-cols-2">
       <Field label="Attribution window (days)">
-        <Input defaultValue="90" />
+        <Input placeholder="e.g. 90" disabled />
       </Field>
       <Field label="Default commission (%)">
-        <Input defaultValue="15" />
+        <Input placeholder="e.g. 15" disabled />
       </Field>
       <Field label="Partner plan price ($/mo)">
-        <Input defaultValue="49.99" />
+        <Input placeholder="e.g. 49.99" disabled />
       </Field>
       <Field label="Direct DIY price ($/mo)">
-        <Input defaultValue="39" />
+        <Input placeholder="e.g. 39" disabled />
       </Field>
     </div>
     <div className="mt-4 space-y-2">
       <ToggleRow
         label="Professional-help requests route to referring partner"
-        checked
+        checked={false}
         onChange={() => {}}
+        state="unbuilt"
       />
       <ToggleRow
         label="Funding-interest requests route to eligible FundingOps org"
-        checked
+        checked={false}
         onChange={() => {}}
+        state="unbuilt"
       />
       <ToggleRow
         label="Direct BES leads never auto-assigned to a partner"
-        checked
+        checked={false}
         onChange={() => {}}
+        state="unbuilt"
       />
     </div>
   </SectionCard>

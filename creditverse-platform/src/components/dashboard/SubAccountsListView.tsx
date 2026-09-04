@@ -30,7 +30,6 @@ import {
 interface Props {
   subAccounts: SubAccount[];
   onSwitch: (id: string) => void;
-  onToggleDFY: (id: string) => void;
   onTogglePin: (id: string) => void;
   onConfigureBranding: (sub: SubAccount) => void;
 }
@@ -38,7 +37,6 @@ interface Props {
 export const SubAccountsListView = ({
   subAccounts,
   onSwitch,
-  onToggleDFY,
   onTogglePin,
   onConfigureBranding,
 }: Props) => {
@@ -133,7 +131,7 @@ export const SubAccountsListView = ({
               <TableCell>
                 {sub.isFulfillmentSubscriber ? (
                   <Badge variant="success" className="text-[10px]">
-                    <CheckCircle2 className="h-3 w-3 mr-1" /> HQ DFY Subscriber
+                    <CheckCircle2 className="h-3 w-3 mr-1" /> BES fulfillment engaged
                   </Badge>
                 ) : (
                   <Badge variant="neutral" className="text-[10px]">
@@ -176,11 +174,6 @@ export const SubAccountsListView = ({
                       >
                         <Palette className="h-3.5 w-3.5 mr-1.5 text-status-warning" />{" "}
                         Whitelabel Branding
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => onToggleDFY(sub.id)}>
-                        {sub.isFulfillmentSubscriber
-                          ? "Disable DFY Fulfillment"
-                          : "Enable DFY Fulfillment"}
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => onTogglePin(sub.id)}>
                         {sub.isPinned ? "Unpin Account" : "Pin Account"}

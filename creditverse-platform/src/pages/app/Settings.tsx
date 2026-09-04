@@ -22,7 +22,6 @@ import {
 } from "lucide-react";
 import {
   AgencySettingsProvider,
-  useAgencySettings,
 } from "@/lib/agency-settings-context";
 import {
   AgencySettingsShell,
@@ -113,7 +112,6 @@ const groups: SettingsGroup[] = [
 
 const SettingsContent = () => {
   const [active, setActive] = useState("branding");
-  const { saved, markSaved } = useAgencySettings();
 
   const render = () => {
     switch (active) {
@@ -174,20 +172,10 @@ const SettingsContent = () => {
     <div className="p-6 md:p-8">
       <AgencySettingsShell groups={groups} active={active} onSelect={setActive}>
         {render()}
-        {saved && (
-          <div className="fixed bottom-6 right-6 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-lg">
-            Settings saved ✓
-          </div>
-        )}
       </AgencySettingsShell>
-      <div className="mx-auto mt-4 flex max-w-7xl justify-end">
-        <button
-          onClick={markSaved}
-          className="rounded-lg bg-gradient-green px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90"
-        >
-          Save changes
-        </button>
-      </div>
+      {/* No page-level "Save changes": it only flipped a flag. Sections that
+          persist (Agency & Brand) carry their own real save; the rest state
+          plainly that they are not wired yet. */}
     </div>
   );
 };

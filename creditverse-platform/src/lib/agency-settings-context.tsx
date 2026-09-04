@@ -1,4 +1,7 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/lib/auth/auth-context";
+import { fetchAgencyBrand, saveAgencyBrand } from "@/lib/data/agencies";
 
 /**
  * BES Agency Settings — platform control plane state.
@@ -68,6 +71,10 @@ interface AgencySettingsContextType {
     legalUrl: string;
   };
   setAgency: (patch: Partial<AgencySettingsContextType["agency"]>) => void;
+  /** Persist the brand form to the agency row. Rejects for non-admins. */
+  saveBrand: () => Promise<void>;
+  brandSaveError: string | null;
+  canSaveBrand: boolean;
 
   products: ProductConfig[];
   setProductState: (key: string, state: EntitlementState) => void;
@@ -287,6 +294,8 @@ export const AgencySettingsProvider = ({
 }: {
   children: ReactNode;
 }) => {
+  const auth = useAuth();
+  const live = auth.mode === "live" && auth.status === "signed-in" && !!auth.agencyId;
   const [agency, setAgencyState] = useState({
     name: "Blessed Empire Services",
     logoUrl: "",
@@ -297,6 +306,19 @@ export const AgencySettingsProvider = ({
     platformUrl: "https://app.bes.io",
     legalUrl: "https://bes.io/legal",
   });
+  // Live: the form shows the agency row, not the demo defaults.
+  const brandQuery = useQuery({
+    queryKey: ["agency", "brand", auth.agencyId],
+    queryFn: () => fetchAgencyBrand(auth.agencyId as string),
+    enabled: live,
+    staleTime: 60_000,
+  });
+  useEffect(() => {
+    if (brandQuery.data) setAgencyState(brandQuery.data);
+  }, [brandQuery.data]);
+  const queryClient = useQueryClient();
+  const [brandSaveError, setBrandSaveError] = useState<string | null>(null);
+  const canSaveBrand = live && auth.isAgencyAdmin;
 
   const [products, setProducts] = useState<ProductConfig[]>([
     {
@@ -380,6 +402,20 @@ export const AgencySettingsProvider = ({
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
+  const saveBrand = async () => {
+    setBrandSaveError(null);
+    if (!live || !auth.agencyId) {
+      setBrandSaveError("Sign in as a BES agency admin to save.");
+      return;
+    }
+    try {
+      await saveAgencyBrand(auth.agencyId, agency);
+      await queryClient.invalidateQueries({ queryKey: ["agency", "brand"] });
+      markSaved(); // now means what it says: the row was written
+    } catch (e) {
+      setBrandSaveError(e instanceof Error ? e.message : String(e));
+    }
+  };
 
   return (
     <AgencySettingsContext.Provider
@@ -398,6 +434,9 @@ export const AgencySettingsProvider = ({
         toggleFlag,
         saved,
         markSaved,
+        saveBrand,
+        brandSaveError,
+        canSaveBrand,
       }}
     >
       {children}
@@ -429,6 +468,9 @@ const safeSettings: AgencySettingsContextType = {
   toggleFlag: () => {},
   saved: false,
   markSaved: () => {},
+  saveBrand: async () => {},
+  brandSaveError: null,
+  canSaveBrand: false,
 };
 
 export const useAgencySettings = () => {

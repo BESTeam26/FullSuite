@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAgencySettings } from "@/lib/agency-settings-context";
-import { SectionCard, Field, ToggleRow, StatusBadge } from "../shared";
+import { SectionCard, Field, ToggleRow, StatusBadge, PlaceholderNote } from "../shared";
 
 /* ---------------- Plans & Billing ---------------- */
 export const BillingSection = () => (
@@ -22,18 +22,19 @@ export const BillingSection = () => (
     title="Plans & Billing Rules"
     description="Plans, base subscriptions, usage/metered pricing, DFY fulfillment rates, grace periods, failed-payment behavior, trials, and discounts."
   >
+    <PlaceholderNote />
     <div className="grid gap-4 sm:grid-cols-2">
       <Field label="Grace period (days)">
-        <Input defaultValue="7" />
+        <Input placeholder="e.g. 7" disabled />
       </Field>
       <Field label="DFY fulfillment rate ($/client)">
-        <Input defaultValue="49" />
+        <Input placeholder="e.g. 49" disabled />
       </Field>
       <Field label="Pay-per-delete rate ($)">
-        <Input defaultValue="35" />
+        <Input placeholder="e.g. 35" disabled />
       </Field>
       <Field label="Per-active-client rate ($/mo)">
-        <Input defaultValue="12" />
+        <Input placeholder="e.g. 12" disabled />
       </Field>
     </div>
     <div className="mt-4 rounded-lg border border-primary/20 bg-primary/5 p-3 text-[11px] text-foreground/80">
@@ -174,18 +175,22 @@ export const NotificationsSection = () => (
       <div className="mt-4 space-y-2">
         <ToggleRow
           label="In-app notifications"
-          checked={false}
+          description="Delivered today: assignments, notes and status changes route to your Notifications page. A per-user opt-out is not built."
+          checked
           onChange={() => {}}
+          state="enforced"
         />
         <ToggleRow
           label="Email notifications"
           checked={false}
           onChange={() => {}}
+          state="unbuilt"
         />
         <ToggleRow
           label="SMS via connected system"
           checked={false}
           onChange={() => {}}
+          state="unbuilt"
         />
       </div>
     </fieldset>
@@ -199,34 +204,40 @@ export const SecuritySection = () => (
     title="Security"
     description="Session policies, MFA, password rules, user suspension, allowed domains, sensitive-data policies, file-access rules, and API credentials. Fail closed when authorization context is missing."
   >
+    <PlaceholderNote />
     <div className="grid gap-4 sm:grid-cols-2">
       <Field label="Session timeout (minutes)">
-        <Input defaultValue="30" />
+        <Input placeholder="e.g. 30" disabled />
       </Field>
       <Field label="Allowed email domains">
-        <Input defaultValue="bes.io" />
+        <Input placeholder="e.g. bes.io" disabled />
       </Field>
     </div>
     <div className="mt-4 space-y-2">
       <ToggleRow
         label="Require MFA for all agency users"
-        checked
+        checked={false}
         onChange={() => {}}
+        state="unbuilt"
       />
       <ToggleRow
         label="Step-up auth for sensitive admin actions"
-        checked
+        checked={false}
         onChange={() => {}}
+        state="unbuilt"
       />
       <ToggleRow
         label="Restrict SSN/report exports (DLP)"
-        checked
+        checked={false}
         onChange={() => {}}
+        state="unbuilt"
       />
       <ToggleRow
         label="Fail closed on missing authorization context"
+        description="Row Level Security denies by default on every table; there is no switch to turn that off."
         checked
         onChange={() => {}}
+        state="enforced"
       />
     </div>
   </SectionCard>

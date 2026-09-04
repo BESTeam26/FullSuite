@@ -2665,6 +2665,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      merge_agency_branding: {
+        Args: { p_agency: string; p_patch: Json }
+        Returns: Json
+      }
       merge_organization_branding: {
         Args: { p_org: string; p_patch: Json }
         Returns: Json

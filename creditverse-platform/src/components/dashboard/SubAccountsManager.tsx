@@ -27,7 +27,6 @@ export const SubAccountsManager = () => {
     subAccounts,
     switchToSubAccount,
     togglePinSubAccount,
-    toggleFulfillmentSubscription,
     updateSubAccountBranding,
     addSubAccount,
   } = useAgency();
@@ -68,10 +67,11 @@ export const SubAccountsManager = () => {
     ownerName: string;
     ownerEmail: string;
     plan: SubAccount["plan"];
-    isFulfillmentSubscriber: boolean;
   }) => {
     addSubAccount({
       ...acc,
+      // Never true from a form: fulfillment access comes from an engagement.
+      isFulfillmentSubscriber: false,
       activeClients: 0,
       monthlyRevenue:
         acc.plan === "Full Suite"
@@ -209,7 +209,6 @@ export const SubAccountsManager = () => {
       <SubAccountsListView
         subAccounts={sortedFiltered}
         onSwitch={switchToSubAccount}
-        onToggleDFY={toggleFulfillmentSubscription}
         onTogglePin={togglePinSubAccount}
         onConfigureBranding={(sub) => setEditingBrandingSub(sub)}
       />

@@ -54,26 +54,70 @@ export const Field = ({
   </div>
 );
 
+/**
+ * A setting must never look like it persists or governs behaviour when it does
+ * not. `state` says what the row really is:
+ *  - "live"     — bound to a real value and a real handler.
+ *  - "enforced" — the rule is unconditional in code or in the database; shown
+ *                 on, locked, so nobody thinks it is optional.
+ *  - "unbuilt"  — nothing behind it yet; shown off, locked, labelled.
+ */
+export type ToggleState = "live" | "enforced" | "unbuilt";
+
+const STATE_NOTE: Record<Exclude<ToggleState, "live">, string> = {
+  enforced: "Enforced — not configurable",
+  unbuilt: "Not built — no effect",
+};
+
 export const ToggleRow = ({
   label,
   description,
   checked,
   onChange,
+  state = "live",
 }: {
   label: string;
   description?: string;
   checked: boolean;
   onChange: () => void;
-}) => (
-  <div className="flex items-center justify-between rounded-xl border border-border p-4">
-    <div>
-      <p className="text-sm font-medium text-foreground">{label}</p>
-      {description && (
-        <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
-      )}
+  state?: ToggleState;
+}) => {
+  const locked = state !== "live";
+  const value = state === "enforced" ? true : state === "unbuilt" ? false : checked;
+  return (
+    <div
+      className={`flex items-center justify-between gap-3 rounded-xl border border-border p-4 ${locked ? "bg-muted/30" : ""}`}
+    >
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-foreground">{label}</p>
+        {description && (
+          <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
+        )}
+        {locked && (
+          <Badge
+            variant="outline"
+            className="mt-1.5 text-[10px] border-border bg-card text-muted-foreground"
+          >
+            {STATE_NOTE[state]}
+          </Badge>
+        )}
+      </div>
+      <Switch
+        checked={value}
+        onCheckedChange={locked ? undefined : onChange}
+        disabled={locked}
+        aria-label={locked ? `${label} (${STATE_NOTE[state]})` : undefined}
+      />
     </div>
-    <Switch checked={checked} onCheckedChange={onChange} />
-  </div>
+  );
+};
+
+/** Sits above inputs that are not wired to anything yet. */
+export const PlaceholderNote = ({ what = "These fields" }: { what?: string }) => (
+  <p className="mb-3 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+    {what} are not active yet: nothing reads them and nothing is saved. They show
+    the intended shape of the setting, not a current value.
+  </p>
 );
 
 export const StatusBadge = ({ state }: { state: string }) => {

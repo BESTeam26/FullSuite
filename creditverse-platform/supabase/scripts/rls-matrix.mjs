@@ -19,6 +19,8 @@
  */
 import { execFileSync } from "node:child_process";
 
+import { createRequire } from "node:module";
+const require = createRequire(import.meta.url);
 const PHASE = Number((process.argv.find((a) => a.startsWith("--phase")) ?? "--phase=1").split("=")[1] ?? 1);
 
 const q = (sql) => {
@@ -418,6 +420,32 @@ if (PHASE >= 8) {
   ];
   console.log("\nphase 8:");
   for (const [label, fn, want] of P8) {
+    checks++;
+    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
+    const ok = got === want; if (!ok) fails++;
+    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
+  }
+}
+
+
+/* ---------------- Phase 9: branding merges (regression guard) ----------------
+   0023 revoked log_audit() from API roles and silently broke both branding
+   saves. The merges now run as owner with explicit checks (0034). */
+if (PHASE >= 9) {
+  const besOwner = U["bes.owner@bes.test"], orgOwner = U["org.owner@bes.test"], org2Owner = U["org2.owner@bes.test"], besCredit = U["bes.credit@bes.test"];
+  const LAKESIDE = "dddddddd-0000-4000-8000-80ce8814eb05", AGENCY = "a0000000-0000-4000-8000-000000000001";
+  const as = (uid) => `set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'`;
+  const W9 = (uid, stmt) => { try { return q(`begin; set local role authenticated; ${as(uid)}; ${stmt}; rollback;`)[0]; } catch (e) { return { rows: 0, refused: true }; } };
+  const P9 = [
+    ["BES owner saves an organization's branding (audited)",   () => W9(besOwner, `select public.merge_organization_branding('${LAKESIDE}', '{"probe":1}'); set local role postgres; select count(*)::int as rows from public.audit_log where action='organization.branding_updated' and created_at >= now() and actor_id='${besOwner}'`).rows, 1],
+    ["org admin saves its own branding",                         () => W9(orgOwner, `select (public.merge_organization_branding('${LAKESIDE}', '{"probe":1}') ->> 'probe')::int as rows`).rows, 1],
+    ["another org's admin is refused",                           () => W9(org2Owner, `select (public.merge_organization_branding('${LAKESIDE}', '{"probe":1}') ->> 'probe')::int as rows`).rows, 0],
+    ["BES admin saves agency branding (audited)",                () => W9(besOwner, `select public.merge_agency_branding('${AGENCY}', '{"probe":1}'); set local role postgres; select count(*)::int as rows from public.audit_log where action='agency.branding_updated' and created_at >= now() and actor_id='${besOwner}'`).rows, 1],
+    ["a BES agent cannot save agency branding",                  () => W9(besCredit, `select (public.merge_agency_branding('${AGENCY}', '{"probe":1}') ->> 'probe')::int as rows`).rows, 0],
+    ["the dead column is written by no frontend path (grep)",    () => { const fs = require("node:fs"); const files = ["src/lib/data/organizations.ts","src/lib/agency-context.tsx","src/components/settings/sections/GeneralSections.tsx"]; return files.filter((f) => /is_fulfillment_subscriber\s*:/.test(fs.readFileSync(f, "utf8"))).length; }, 0],
+  ];
+  console.log("\nphase 9:");
+  for (const [label, fn, want] of P9) {
     checks++;
     let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
     const ok = got === want; if (!ok) fails++;

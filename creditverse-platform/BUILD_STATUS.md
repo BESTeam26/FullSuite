@@ -2021,10 +2021,25 @@ nothing reads.
 | 14 pre-filled inputs (thresholds, endpoints, recipients) | `defaultValue` nothing read | disabled placeholders under a `PlaceholderNote` |
 | Fulfillment subscription toggle (Settings, sub-account list menu, provisioning modal) | wrote `is_fulfillment_subscriber`, which no policy reads | **removed**; status is derived from live `fulfillment_engagements` in one place (`agency-context`), so the 30 "Subscribed / Self-managed" displays are now true; the modal states that access comes from an engagement |
 | Agency Users "Assigned only" / "Active" switches | local state on sample rows | locked, labelled sample; reach is `agency_memberships.scope` |
-| "Save brand settings" | 2-second "Saved" flag, persisted nothing | see below |
+| "Save brand settings" | 2-second "Saved" flag, persisted nothing | **real**: `merge_agency_branding` (migration 0033) writes `agencies.name` + `branding` in one audited UPDATE; the form hydrates from the row; only agency admins can save and the button says so |
 
 `organizations.is_fulfillment_subscriber` is no longer written by any frontend
 path; the mapper returns `false` so a raw row can never claim access on its
 own. The column stays (rule 11: nothing destructive) and is recorded as dead.
 Archived views under `src/_archive/` still reference the toggle prop; they are
-unrouted and excluded from the bundle.
+unrouted and excluded from the bundle. The global "Save changes" bar on the
+Settings page, which only flipped a flag, is removed.
+
+**Regression found on the way (migration 0034):** migration 0023 revoked
+EXECUTE on `log_audit()` from API roles; both branding merges ran as the caller
+and called it, so **every branding save had failed with 42501 since Phase 2**
+(verified live as bes.owner). Both merges now run as owner with an explicit
+authorization check mirroring their table policy — organizations: manager of
+the agency or admin of the organization; agencies: agency admin — and a
+phase-9 matrix block guards them.
+
+**Verified:** typecheck clean, 236 tests, 0 lint errors, build, no circular
+deps, verify-live, migrations 39/39. Browser, as the owner: Save brand settings
+wrote the agency row (colour and tagline preserved by the merge) and one
+`agency.branding_updated` audit entry with the owner as actor. RLS matrix:
+**188/188** (`--phase=9`, 6 new checks).
