@@ -10,6 +10,14 @@ import type {
 } from "@/lib/fulfillment/creditops-client-store";
 import { getMark } from "@/lib/fulfillment/creditops-client-store";
 import { RichComment } from "./RichComment";
+import { NoteContent } from "@/components/composer/NoteContent";
+import {
+  formatBytes,
+  isImageAttachment,
+  isPdfAttachment,
+} from "@/lib/data/activity-attachments";
+import type { TimelineAttachment } from "@/lib/data/use-activity-attachments";
+import { isNoteDoc } from "@/lib/activity/note-body";
 import { MarkMenu } from "./MarkMenu";
 import { cn } from "@/lib/utils";
 import { VisibilityBadge } from "@/components/dashboard/fulfillment/VisibilityControls";
@@ -39,17 +47,28 @@ export function parseComment(detail: string): {
 export function ActivityCard({
   entry,
   isHuman,
+  attachments,
   onPin,
   onMark,
   onOpenAttachment,
+  onOpenStored,
 }: {
   entry: ActivityEntry;
   isHuman: boolean;
+  /** Persisted attachments for this note, already signed. */
+  attachments?: TimelineAttachment[];
   onPin: () => void;
   onMark: (mark: string | undefined) => void;
   onOpenAttachment: (att: CommentAttachment) => void;
+  onOpenStored?: (att: TimelineAttachment) => void;
 }) {
   const parsed = isHuman ? parseComment(entry.detail) : null;
+  /* A structured body renders as formatted content; anything written before
+     rich bodies existed falls back to the plain-text `detail`, which is why
+     every note still reads correctly regardless of when it was posted. */
+  const body = (entry as ActivityEntry & { body?: unknown }).body;
+  const hasRichBody = isNoteDoc(body);
+  const stored = attachments ?? [];
   const mark: CommentMark | undefined = getMark(entry.mark);
 
   return (
@@ -111,7 +130,55 @@ export function ActivityCard({
 
       {parsed ? (
         <>
-          {parsed.text && <RichComment text={parsed.text} />}
+          {hasRichBody ? (
+            <NoteContent body={body} fallbackText={parsed.text} />
+          ) : (
+            parsed.text && <RichComment text={parsed.text} />
+          )}
+
+          {stored.length > 0 && (
+            <div className="flex flex-wrap gap-2 pt-1">
+              {stored.map((att) => (
+                <button
+                  key={att.id}
+                  type="button"
+                  onClick={() => onOpenStored?.(att)}
+                  className="group flex items-center gap-2 overflow-hidden rounded-lg border border-border bg-background p-1.5 pr-3 transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded bg-muted/40">
+                    {isImageAttachment(att) && att.url ? (
+                      <img
+                        src={att.url}
+                        alt={att.name}
+                        loading="lazy"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <FileText
+                        className={cn(
+                          "h-5 w-5",
+                          isPdfAttachment(att)
+                            ? "text-primary"
+                            : "text-muted-foreground",
+                        )}
+                      />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p
+                      className="truncate text-[11px] font-bold text-foreground group-hover:text-primary"
+                      title={att.name}
+                    >
+                      {att.name}
+                    </p>
+                    <p className="text-[9px] text-muted-foreground">
+                      {formatBytes(att.sizeBytes)}
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
           {parsed.attachments.length > 0 && (
             <div className="flex flex-wrap gap-2 pt-1">
               {parsed.attachments.map((att) => (

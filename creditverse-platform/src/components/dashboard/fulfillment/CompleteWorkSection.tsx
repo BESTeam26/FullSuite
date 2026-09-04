@@ -22,6 +22,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { CheckCircle2, FileText, Loader2 } from "lucide-react";
+import { errorMessage } from "@/lib/data/error-message";
 import { useCreditOpsStore } from "@/lib/fulfillment/creditops-client-store";
 import {
   useCreditOpsAccess,
@@ -155,9 +156,7 @@ export function CompleteWorkSection({
       setWorkNotes("");
       setStatusChange("Keep current status");
     } catch (err) {
-      setSubmitError(
-        err instanceof Error ? err.message : "Could not record this work.",
-      );
+      setSubmitError(errorMessage(err, "Could not record this work."));
     } finally {
       submittingRef.current = false;
       setIsSubmitting(false);

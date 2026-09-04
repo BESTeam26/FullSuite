@@ -95,6 +95,13 @@ export interface TimelineEntry extends OpsActivityEntry {
   visibility: ActivityVisibility;
   /** True for trigger-written events; false for a note somebody typed. */
   isSystem: boolean;
+  /**
+   * The structured note body, when there is one.
+   *
+   * NULL for system events and for every note written before rich bodies
+   * existed — those render from `detail`, which is always populated.
+   */
+  body?: unknown;
 }
 
 const mapRow = (r: Row): TimelineEntry => ({
@@ -110,6 +117,7 @@ const mapRow = (r: Row): TimelineEntry => ({
   pinned: r.pinned,
   mark: r.mark ?? undefined,
   visibility: r.visibility,
+  body: (r as Row & { body?: unknown }).body ?? undefined,
   // A trigger-written event records a field that changed; a note does not.
   isSystem: r.field !== null,
 });
@@ -149,6 +157,11 @@ export interface PostNoteInput {
   /** Chosen deliberately by the author. There is no safe default here. */
   visibility: ActivityVisibility;
   mark?: string;
+  /**
+   * Structured rich-text document. `detail` must carry the same content as
+   * plain text — it is what search and every non-rich surface read.
+   */
+  body?: unknown;
 }
 
 /**
@@ -182,6 +195,7 @@ export async function postNote(input: PostNoteInput): Promise<TimelineEntry> {
       detail: input.detail,
       visibility: input.visibility,
       mark: input.mark ?? null,
+      body: (input.body ?? null) as never,
     })
     .select()
     .single();

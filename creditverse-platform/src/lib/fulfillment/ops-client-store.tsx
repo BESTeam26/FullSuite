@@ -31,6 +31,7 @@ import {
 } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { errorMessage } from "@/lib/data/error-message";
 import { useAuth } from "@/lib/auth/auth-context";
 import {
   DEFAULT_VISIBILITY,
@@ -123,9 +124,13 @@ export interface OpsClientStoreValue<T extends OpsClient, D> {
   addClient: (
     client: Omit<T, "id" | "lastActivity" | "createdAt">,
   ) => AddClientOutcome<T>;
+  /**
+   * Persist a note. Resolves with the created activity id, which the composer
+   * needs in order to attach uploaded files to the row that now exists.
+   */
   addActivity: (
-    entry: Omit<OpsActivityEntry, "id" | "timestamp">,
-  ) => Promise<void>;
+    entry: Omit<OpsActivityEntry, "id" | "timestamp"> & { body?: unknown },
+  ) => Promise<string | void>;
   togglePin: (activityId: string) => void;
   setMark: (activityId: string, mark: string | undefined) => void;
   /** Record one production unit (one file worked) with the selected actions. */
@@ -205,8 +210,8 @@ export interface OpsClientStoreConfig<T extends OpsClient, D> {
  * want it. One place, so no call site has to remember either behaviour.
  */
 const handled =
-  <A extends unknown[]>(fn: (...args: A) => Promise<void>) =>
-  (...args: A): Promise<void> => {
+  <A extends unknown[], R>(fn: (...args: A) => Promise<R>) =>
+  (...args: A): Promise<R> => {
     const p = fn(...args);
     p.catch(() => {});
     return p;
@@ -272,10 +277,9 @@ export function createOpsClientStore<T extends OpsClient, D>(
 
     const addActivity = useCallback(
       async (entry: Omit<OpsActivityEntry, "id" | "timestamp">) => {
-        setActivity((prev) => [
-          { ...entry, id: newActId(), timestamp: nowISO() },
-          ...prev,
-        ]);
+        const id = newActId();
+        setActivity((prev) => [{ ...entry, id, timestamp: nowISO() }, ...prev]);
+        return id;
       },
       [],
     );
@@ -611,8 +615,9 @@ export function createOpsClientStore<T extends OpsClient, D>(
     );
 
     const report = (action: string) => (err: unknown) => {
-      const msg = err instanceof Error ? err.message : String(err);
-      toast.error(`${action} failed`, { description: msg });
+      toast.error(`${action} failed`, {
+        description: errorMessage(err, "Unknown error."),
+      });
     };
 
     /* Activity lives in its own table and is read by the timeline component;
@@ -746,7 +751,9 @@ export function createOpsClientStore<T extends OpsClient, D>(
      * audience it is not entitled to.
      */
     const postLiveNote = useCallback(
-      async (entry: Omit<OpsActivityEntry, "id" | "timestamp">) => {
+      async (
+        entry: Omit<OpsActivityEntry, "id" | "timestamp"> & { body?: unknown },
+      ) => {
         const client = clients.find((c) => c.id === entry.clientId);
         if (!agencyId || !userId) {
           // Default deny, and say so. Silently returning let the composer
@@ -769,6 +776,7 @@ export function createOpsClientStore<T extends OpsClient, D>(
             detail: entry.detail,
             visibility: entry.visibility ?? DEFAULT_VISIBILITY,
             mark: entry.mark,
+            body: entry.body,
           });
           /* Place the PERSISTED row — the one the database returned, with its
              real id, created_at and visibility — at the head of the timeline
@@ -784,6 +792,7 @@ export function createOpsClientStore<T extends OpsClient, D>(
             timelineKey(config.activityEntityType, entry.clientId),
             (prev) => (prev ? [created, ...prev] : [created]),
           );
+          return created.id;
         } catch (err) {
           report("Posting note")(err);
           // Rethrown so the composer keeps the text and can offer a retry.
