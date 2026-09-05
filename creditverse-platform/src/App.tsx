@@ -30,6 +30,7 @@ const named =
 
 // Auth
 const Login = lazy(() => import("./pages/auth/Login"));
+const AcceptInvitation = lazy(() => import("./pages/auth/AcceptInvitation"));
 const AuthCallback = lazy(() => import("./pages/auth/AuthCallback"));
 
 // Public / marketing
@@ -157,6 +158,7 @@ const App = () => (
                             <Routes>
                               <Route path="/" element={<Index />} />
                               <Route path="/login" element={<Login />} />
+                              <Route path="/accept-invitation/:token" element={<AcceptInvitation />} />
                               <Route
                                 path="/auth/callback"
                                 element={<AuthCallback />}

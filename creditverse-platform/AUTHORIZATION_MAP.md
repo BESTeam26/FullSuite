@@ -335,3 +335,21 @@ used to route.
 | default privileges (`supabase_admin`) | still grants everything on tables *it* creates; none of the application's tables are owned by it. Recorded, not changed | out of scope |
 
 Matrix probes added: "resetting the cycle closes the previous round" (phase 23), "an organization agent (not an admin) cannot record a submission" (phase 24).
+
+
+### 0064 / 0064.1 — Team permissions
+
+| Object | Rule | How |
+|---|---|---|
+| `permission_keys` | the vocabulary (22 keys, `module.action`), readable by every seat; written only by migrations | select grant only; no insert/update/delete grant for the API role |
+| `role_permissions` | platform defaults (`organization_id` null, one row per role × key) readable by everyone; an organization's own rows readable by its members and BES; written by the organization's admins or BES managers | `role_permissions_write` |
+| `member_permissions` | per-member overrides, readable by the member, their organization and BES; **never written directly** — no write grant; only `set_member_permission()` / `copy_member_permissions()` | definer-rights functions, explicit checks |
+| `member_can(org, key)` | admins/managers of the organization → allowed; else member override → organization's role row → platform default → **deny**; anyone outside the organization → false | SECURITY DEFINER, stable |
+| `my_permissions(org)` | every key for the caller in one call — the auth context bundles it once per session (rule 14) | — |
+| `set_member_permission(membership, key, allowed, reason)` | organization owner/admin or BES manager of the organization's agency; **never on yourself**; unknown key 22023; null clears the override; audit row with previous and new value | 42501 / 22023 |
+| `copy_member_permissions(from, to, copy_scope)` | same callers; both members in one organization; copies role and overrides (scope only when asked); audit row | 42501 |
+| `invite_team_member(org, email, role, assigned_only)` | organization owner/admin or BES manager; one open invitation per email per organization (23505); audit row | 42501 / 23505 |
+| `accept_invitation(token)` | the caller's own profile email must equal the invitation's; open and unexpired; creates or updates the membership; stamps the invitation; audit row | 42501 / 22023 |
+| INSERT grants everywhere | the API role holds INSERT only where a policy can allow it (0064.1 — same rule as 0063 for UPDATE/DELETE); new tables default to SELECT only | catalogue query |
+
+Matrix phase 25 (20 probes) covers defaults, deny outside the organization, overrides and their audit, self-change refused, cross-organization refused, unknown key, Copy Permission, no direct writes, invitations and acceptance by the wrong email.

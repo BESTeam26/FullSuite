@@ -3197,3 +3197,41 @@ label mentions BES-internal wording). BES CRM project updates already hid the
 taxonomy from customers. Presentation only — who may post which level is still
 `allowedVisibilities()` plus the insert policy. Not browser-verified as an
 organization user (this session is BES staff).
+
+**0064 — Team permissions (2026-09-05).** `20260904004400_team_permissions.sql`
+per `ARCHITECTURE_PROPOSAL_TEAM_PERMISSIONS.md`: `permission_keys` (22, as
+data), `role_permissions` (platform defaults for the 13 non-admin roles — 286
+rows — plus an organization's own overrides per role), `member_permissions`
+(per-member overrides), `member_can()` (admins always; override → organization
+role row → platform default → deny), `my_permissions()` (one call per session),
+`set_member_permission()` (never on yourself; audited with previous/new),
+`copy_member_permissions()` (GHL "Copy Permission"), `invite_team_member()`,
+`accept_invitation()` (caller's email must match). The writers run with
+definer rights and check authorization explicitly — the API role has no write
+grant on `member_permissions` at all. **0064.1** applies the 0063 rule to
+INSERT: revoked wherever no insert policy exists (catalogue query; caught
+`permission_keys` and `member_permissions` carrying the default grant) and new
+tables now default to SELECT only. Verified live: 22 keys, 286 defaults, 6
+functions, zero orphan grants of any kind, ledger 72/72; types regenerated.
+Matrix phase 25 written (20 probes); full run 380/380 (phase ≤ 25).
+
+**Team permissions in the interface (2026-09-05).** The member page under
+Settings › Team Members now carries the GHL-style tree: every permission key
+grouped by module, the member's effective answer with its source (by role ·
+set for this member · your organization's default · platform default), a
+switch per key that records a per-member override through
+`set_member_permission()`, "Reset to role default", and **Copy Permission**
+from another member (`copy_member_permissions()`). Admins and managers show
+"every permission by role" with nothing to toggle; nobody can edit their own
+row. Invitations now go through `invite_team_member()` (one open invitation
+per email, audited); Pending invitations gained **Copy invite link**
+(`/accept-invitation/<token>`) so an administrator can send the link
+themselves until email sending is connected — the invitee must sign in with
+the invited email, and `accept_invitation()` refuses any other. New page
+`pages/auth/AcceptInvitation.tsx`: signed out → login and back; signed in →
+accept, refresh memberships, land in the app. Data access in
+`lib/data/team-permissions.ts` (+ `effectivePermission()` mirrors
+`member_can()` for display); hooks in `use-team-permissions.ts`;
+`useMyPermissions()` bundles the caller's answers once per organization for
+later interface gating. Still needed from Dee for automatic emails: a mail
+provider API key (send-invitation Edge Function is designed in the proposal).

@@ -11,7 +11,7 @@
  */
 import { useMemo, useState } from "react";
 import { formatDate } from "@/lib/format-date";
-import { ArrowLeft, Loader2, Mail, Search, ShieldCheck, Trash2, UserPlus, Users } from "lucide-react";
+import { ArrowLeft, Link2, Loader2, Mail, Search, ShieldCheck, Trash2, UserPlus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { OpsSelect } from "@/components/ui/ops-select";
@@ -24,6 +24,7 @@ import { roleAccessKey } from "@/lib/data/role-access";
 import type { OrgRole, TeamMember } from "@/lib/data/team-members";
 import { useOrganizationRoleAccess } from "@/lib/data/use-role-access";
 import { useTeamMembers } from "@/lib/data/use-team-members";
+import { MemberPermissionTree } from "@/components/settings/sections/MemberPermissionTree";
 import { CONFIGURABLE_ROLES, ORG_ROLE_LABELS, defaultRoleAccess, departmentsFor, type OpsProduct, type RoleAccess } from "@/lib/fulfillment/role-access-defaults";
 import { workspaceViewOptions } from "@/lib/fulfillment/workspace-views";
 import { cn } from "@/lib/utils";
@@ -42,6 +43,7 @@ export function TeamMembersSection({ organizationId, organizationName }: Props) 
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<OrgRole>("credit_processor");
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -74,7 +76,7 @@ export function TeamMembersSection({ organizationId, organizationName }: Props) 
             <label className="block"><span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Role</span>
               <OpsSelect value={inviteRole} onValueChange={(v) => setInviteRole(v as OrgRole)} options={ROLE_OPTIONS} aria-label="Invitation role" /></label>
             <Button size="sm" onClick={submitInvite} disabled={team.invite.isPending}>{team.invite.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="mr-1 h-4 w-4" />} Record invitation</Button>
-            <p className="text-[11px] text-muted-foreground md:col-span-3">The invitation is recorded against your seats now. Sending the email and accepting the link arrive with the Team Permissions proposal; until then, an invited person is added by BES support.</p>
+            <p className="text-[11px] text-muted-foreground md:col-span-3">The invitation is recorded against your seats now and can be accepted from its link. Until email sending is connected, copy the link from Pending invitations and send it yourself proposal; until then, an invited person is added by BES support.</p>
           </div>
         )}
         <div className="relative mb-3 max-w-sm">
@@ -109,11 +111,12 @@ export function TeamMembersSection({ organizationId, organizationName }: Props) 
       </SectionCard>
 
       {team.invitations.length > 0 && (
-        <SectionCard icon={Mail} title="Pending invitations" description="Recorded invitations that have not been accepted. They count against your seats.">
+        <SectionCard icon={Mail} title="Pending invitations" description="Invitations not yet accepted; they count against your seats. Send the link yourself until email sending is connected — the invitee must sign in with the invited email.">
           <ul className="divide-y divide-border/60">
             {team.invitations.map((i) => (
               <li key={i.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-xs">
                 <span><span className="font-semibold text-foreground">{i.email}</span><span className="text-muted-foreground"> · {i.role ? ORG_ROLE_LABELS[i.role] : "—"} · expires {formatDate(i.expiresAt)}</span></span>
+                <button type="button" onClick={() => { void navigator.clipboard?.writeText(`${window.location.origin}/accept-invitation/${i.token}`); setCopied(i.id); window.setTimeout(() => setCopied(null), 2000); }} className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"><Link2 className="h-3.5 w-3.5" /> {copied === i.id ? "Link copied" : "Copy invite link"}</button>
                 <button type="button" onClick={() => team.cancel.mutate(i.id)} className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-status-danger"><Trash2 className="h-3.5 w-3.5" /> Cancel</button>
               </li>
             ))}
@@ -227,6 +230,8 @@ function MemberPage({ member, organizationId, onBack }: { member: TeamMember; or
                 );
               })}
             </div>
+
+            <MemberPermissionTree member={member} organizationId={organizationId} role={member.role} members={team.members} canEdit={!isSelf} />
 
             <div className="flex items-center justify-end gap-2 border-t border-border/60 pt-3">
               <Button variant="outline" size="sm" onClick={() => { setRole(member.role); setAssignedOnly(member.assignedOnly); }} disabled={!dirty}>Cancel</Button>

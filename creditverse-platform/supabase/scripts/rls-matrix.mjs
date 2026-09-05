@@ -1031,5 +1031,45 @@ if (PHASE >= 24) {
   }
 }
 
+
+/* Phase 25 — team permissions (0064/0064.1): permission keys as data, role
+   defaults, member overrides through set_member_permission() only, Copy
+   Permission, invitations. Rolled back. */
+if (PHASE >= 25) {
+  const w25 = (uid, sql) => { try { return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
+  const AGENT_M = q(`select public.dev_uuid('om-agent')::text as rows`)[0].rows;
+  const LEAD_M = q(`select public.dev_uuid('om-lead')::text as rows`)[0].rows;
+  const OWNER_M = q(`select public.dev_uuid('om-owner')::text as rows`)[0].rows;
+  const P25 = [
+    ["role defaults: a processor may view clients and may not approve letters", () => w25(U["org.agent@bes.test"], `select public.member_can('${lakesideOrg}','creditops.clients.view')::text || ':' || public.member_can('${lakesideOrg}','creditops.letters.approve')::text as rows`), "true:false"],
+    ["an organization admin is always allowed",                        () => w25(U["org.owner@bes.test"], `select public.member_can('${lakesideOrg}','billing.manage')::text as rows`), "true"],
+    ["outside the organization every key is denied",                   () => w25(U["org2.owner@bes.test"], `select public.member_can('${lakesideOrg}','creditops.clients.view')::text as rows`), "false"],
+    ["my_permissions answers every key at once",                       () => w25(U["org.agent@bes.test"], `select count(*)::int as rows from public.my_permissions('${lakesideOrg}')`), 22],
+    ["the owner grants an override; row and audit are written",        () => w25(U["org.owner@bes.test"], `select public.set_member_permission('${AGENT_M}','creditops.letters.approve', true, 'probe'); select (select allowed::text from public.member_permissions where membership_id='${AGENT_M}' and key='creditops.letters.approve') || ':' || (select count(*) from public.audit_log where action='organization.member_permission_set' and entity_id='${AGENT_M}' and created_at >= now())::text as rows`), "true:1"],
+    ["clearing an override removes the row",                           () => w25(U["org.owner@bes.test"], `select public.set_member_permission('${AGENT_M}','creditops.letters.approve', true); select public.set_member_permission('${AGENT_M}','creditops.letters.approve', null); select count(*)::int as rows from public.member_permissions where membership_id='${AGENT_M}'`), 0],
+    ["a member cannot change their own permissions",                   () => w25(U["org.agent@bes.test"], `select public.set_member_permission('${AGENT_M}','billing.manage', true); select 1 as rows`), "ERR 42501"],
+    ["a member cannot change another member's permissions",            () => w25(U["org.agent@bes.test"], `select public.set_member_permission('${LEAD_M}','billing.manage', true); select 1 as rows`), "ERR 42501"],
+    ["an admin cannot change their own permissions either",            () => w25(U["org.owner@bes.test"], `select public.set_member_permission('${OWNER_M}','billing.manage', false); select 1 as rows`), "ERR 42501"],
+    ["another organization's owner cannot touch a Lakeside member",    () => w25(U["org2.owner@bes.test"], `select public.set_member_permission('${AGENT_M}','billing.manage', true); select 1 as rows`), "ERR 42501"],
+    ["an unknown permission key is refused",                           () => w25(U["org.owner@bes.test"], `select public.set_member_permission('${AGENT_M}','nonsense.key', true); select 1 as rows`), "ERR 22023"],
+    ["Copy Permission copies the role and the overrides",              () => w25(U["org.owner@bes.test"], `select public.set_member_permission('${AGENT_M}','reports.export', true); select public.copy_member_permissions('${AGENT_M}','${LEAD_M}'); select (select role::text from public.org_memberships where id='${LEAD_M}') || ':' || (select count(*) from public.member_permissions where membership_id='${LEAD_M}' and key='reports.export' and allowed)::text as rows`), "credit_processor:1"],
+    ["a member cannot copy permissions",                               () => w25(U["org.agent@bes.test"], `select public.copy_member_permissions('${LEAD_M}','${AGENT_M}'); select 1 as rows`), "ERR 42501"],
+    ["member_permissions has no direct write grant for the API role",  () => w25(U["org.owner@bes.test"], `insert into public.member_permissions (membership_id, key, allowed) values ('${AGENT_M}','billing.manage', true); select 1 as rows`), "ERR 42501"],
+    ["permission_keys cannot be written by the API role",              () => w25(U["org.owner@bes.test"], `insert into public.permission_keys (key, module, label) values ('probe.key','Probe','Probe'); select 1 as rows`), "ERR 42501"],
+    ["the owner invites; a second open invitation for the same email is refused", () => w25(U["org.owner@bes.test"], `select public.invite_team_member('${lakesideOrg}', 'probe.invite@bes.test', 'credit_processor'); select public.invite_team_member('${lakesideOrg}', 'probe.invite@bes.test', 'credit_processor'); select 1 as rows`), "ERR 23505"],
+    ["an invitation writes an audit row",                              () => w25(U["org.owner@bes.test"], `select public.invite_team_member('${lakesideOrg}', 'probe.invite@bes.test', 'credit_processor'); select count(*)::int as rows from public.audit_log where action='organization.member_invited' and organization_id='${lakesideOrg}' and created_at >= now()`), 1],
+    ["a member cannot invite",                                         () => w25(U["org.agent@bes.test"], `select public.invite_team_member('${lakesideOrg}', 'probe.invite@bes.test', 'credit_processor'); select 1 as rows`), "ERR 42501"],
+    ["another organization's owner cannot invite into Lakeside",       () => w25(U["org2.owner@bes.test"], `select public.invite_team_member('${lakesideOrg}', 'probe.invite@bes.test', 'credit_processor'); select 1 as rows`), "ERR 42501"],
+    ["accepting an invitation sent to a different email is refused",   () => w25(U["org.owner@bes.test"], `select public.invite_team_member('${lakesideOrg}', 'probe.invite@bes.test', 'credit_processor'); select public.accept_invitation((select token from public.invitations where email='probe.invite@bes.test' and organization_id='${lakesideOrg}' and accepted_at is null order by created_at desc limit 1)); select 1 as rows`), "ERR 42501"],
+  ];
+  console.log("\nphase 25:");
+  for (const [label, fn, want] of P25) {
+    checks++;
+    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
+    const ok = got === want; if (!ok) fails++;
+    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
+  }
+}
+
 console.log(`\n${checks - fails}/${checks} checks passed (phase ≤ ${PHASE})`);
 process.exit(fails ? 1 : 0);

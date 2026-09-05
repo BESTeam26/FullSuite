@@ -7,6 +7,7 @@
  */
 import { requireSupabase } from "@/lib/supabase/client";
 import type { Enums, TablesUpdate } from "@/lib/supabase/database.types";
+import { inviteTeamMember } from "@/lib/data/team-permissions";
 
 export type OrgRole = Enums<"org_role">;
 export type ProductKey = Enums<"product_key">;
@@ -21,7 +22,7 @@ export interface TeamMember {
   assignedOnly: boolean;
   since: string;
 }
-export interface PendingInvitation { id: string; email: string; role: OrgRole | null; invitedBy: string | null; expiresAt: string; createdAt: string }
+export interface PendingInvitation { id: string; email: string; role: OrgRole | null; invitedBy: string | null; expiresAt: string; createdAt: string; token: string }
 
 export async function fetchTeamMembers(organizationId: string): Promise<TeamMember[]> {
   const sb = requireSupabase();
@@ -41,13 +42,13 @@ export async function fetchPendingInvitations(organizationId: string): Promise<P
   const sb = requireSupabase();
   const { data, error } = await sb
     .from("invitations")
-    .select("id, email, org_role, invited_by, expires_at, created_at")
+    .select("id, email, org_role, invited_by, expires_at, created_at, token")
     .eq("organization_id", organizationId)
     .is("accepted_at", null)
     .gt("expires_at", new Date().toISOString())
     .order("created_at", { ascending: false });
   if (error) throw error;
-  return (data ?? []).map((i) => ({ id: i.id, email: i.email, role: i.org_role, invitedBy: i.invited_by, expiresAt: i.expires_at, createdAt: i.created_at }));
+  return (data ?? []).map((i) => ({ id: i.id, email: i.email, role: i.org_role, invitedBy: i.invited_by, expiresAt: i.expires_at, createdAt: i.created_at, token: i.token }));
 }
 
 /** Role, primary product and the assigned-only scope switch. The policies refuse a member editing their own row. */
@@ -69,11 +70,9 @@ export async function removeTeamMember(membershipId: string): Promise<void> {
   if (!data || data.length === 0) throw new Error("Nothing removed — you may not remove this membership.");
 }
 
-/** Records the invitation. Delivery and acceptance arrive with the proposal's functions; until then the row is the record of intent. */
+/** Invitations go through invite_team_member() (0064): one open invitation per email, audited, authorization decided by the database. */
 export async function createInvitation(input: { organizationId: string; email: string; role: OrgRole; invitedBy: string }): Promise<void> {
-  const sb = requireSupabase();
-  const { error } = await sb.from("invitations").insert({ organization_id: input.organizationId, email: input.email.trim().toLowerCase(), kind: "organization", org_role: input.role, invited_by: input.invitedBy });
-  if (error) throw error;
+  await inviteTeamMember(input.organizationId, input.email.trim().toLowerCase(), input.role);
 }
 
 export async function cancelInvitation(id: string): Promise<void> {

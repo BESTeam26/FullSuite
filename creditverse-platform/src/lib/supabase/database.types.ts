@@ -2865,6 +2865,55 @@ export type Database = {
           },
         ]
       }
+      member_permissions: {
+        Row: {
+          allowed: boolean
+          key: string
+          membership_id: string
+          reason: string | null
+          set_at: string
+          set_by: string | null
+        }
+        Insert: {
+          allowed: boolean
+          key: string
+          membership_id: string
+          reason?: string | null
+          set_at?: string
+          set_by?: string | null
+        }
+        Update: {
+          allowed?: boolean
+          key?: string
+          membership_id?: string
+          reason?: string | null
+          set_at?: string
+          set_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_permissions_key_fkey"
+            columns: ["key"]
+            isOneToOne: false
+            referencedRelation: "permission_keys"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "member_permissions_membership_id_fkey"
+            columns: ["membership_id"]
+            isOneToOne: false
+            referencedRelation: "org_memberships"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_permissions_set_by_fkey"
+            columns: ["set_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           activity_id: number | null
@@ -3369,6 +3418,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      permission_keys: {
+        Row: {
+          description: string | null
+          key: string
+          label: string
+          module: string
+          security_relevant: boolean
+          sort: number
+        }
+        Insert: {
+          description?: string | null
+          key: string
+          label: string
+          module: string
+          security_relevant?: boolean
+          sort?: number
+        }
+        Update: {
+          description?: string | null
+          key?: string
+          label?: string
+          module?: string
+          security_relevant?: boolean
+          sort?: number
+        }
+        Relationships: []
       }
       plan_addons: {
         Row: {
@@ -4226,6 +4302,42 @@ export type Database = {
             columns: ["verified_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      role_permissions: {
+        Row: {
+          allowed: boolean
+          key: string
+          organization_id: string | null
+          role: Database["public"]["Enums"]["org_role"]
+        }
+        Insert: {
+          allowed: boolean
+          key: string
+          organization_id?: string | null
+          role: Database["public"]["Enums"]["org_role"]
+        }
+        Update: {
+          allowed?: boolean
+          key?: string
+          organization_id?: string | null
+          role?: Database["public"]["Enums"]["org_role"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_permissions_key_fkey"
+            columns: ["key"]
+            isOneToOne: false
+            referencedRelation: "permission_keys"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "role_permissions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -5214,6 +5326,7 @@ export type Database = {
       }
     }
     Functions: {
+      accept_invitation: { Args: { p_token: string }; Returns: string }
       acknowledge_policy_update: {
         Args: { p_update: string }
         Returns: undefined
@@ -5295,6 +5408,10 @@ export type Database = {
           p_reference?: string
         }
         Returns: string
+      }
+      copy_member_permissions: {
+        Args: { p_copy_scope?: boolean; p_from: string; p_to: string }
+        Returns: undefined
       }
       create_credit_report: {
         Args: {
@@ -5423,6 +5540,15 @@ export type Database = {
         }
         Returns: boolean
       }
+      invite_team_member: {
+        Args: {
+          p_assigned_only?: boolean
+          p_email: string
+          p_org: string
+          p_role: Database["public"]["Enums"]["org_role"]
+        }
+        Returns: string
+      }
       is_admin_of: { Args: { p_agency: string }; Returns: boolean }
       is_agency_admin: { Args: never; Returns: boolean }
       is_agency_manager_or_above: { Args: never; Returns: boolean }
@@ -5463,6 +5589,7 @@ export type Database = {
         Args: { p_letter: string; p_mailed_at?: string }
         Returns: undefined
       }
+      member_can: { Args: { p_key: string; p_org: string }; Returns: boolean }
       merge_agency_branding: {
         Args: { p_agency: string; p_patch: Json }
         Returns: Json
@@ -5486,6 +5613,13 @@ export type Database = {
         Returns: undefined
       }
       my_org_ids: { Args: never; Returns: string[] }
+      my_permissions: {
+        Args: { p_org: string }
+        Returns: {
+          allowed: boolean
+          key: string
+        }[]
+      }
       normalize_business_name: { Args: { p: string }; Returns: string }
       normalize_phone: { Args: { p: string }; Returns: string }
       open_dispute_round: {
@@ -5573,6 +5707,15 @@ export type Database = {
           p_file: string
           p_note?: string
           p_status: string
+        }
+        Returns: undefined
+      }
+      set_member_permission: {
+        Args: {
+          p_allowed: boolean
+          p_key: string
+          p_membership: string
+          p_reason?: string
         }
         Returns: undefined
       }
