@@ -7,7 +7,8 @@
  * with BES — the same records, never a copy — read-only when the share says so.
  * Authorization is the database's; this page renders what RLS returns.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { LayoutGrid, Plus, Settings2 } from "lucide-react";
 import { HqPageShell } from "@/pages/app/HqPages";
 import { useAgency } from "@/lib/agency-context";
@@ -120,6 +121,20 @@ const OrganizationView = ({ organizationId, meId, isOrgAdmin }: { organizationId
   const [creating, setCreating] = useState(false);
   const selected = workspaces.find((w) => w.id === selectedId) ?? workspaces[0] ?? null;
 
+  /* Deep link from search: ?workspace=<id>&item=<id>. Ids only select among
+     what RLS returned; an unknown workspace falls back to the first one and
+     an unknown item resolves to nothing in the drawer. */
+  const [searchParams, setSearchParams] = useSearchParams();
+  const linkedWorkspace = searchParams.get("workspace");
+  const linkedItem = searchParams.get("item");
+  const [linkedItemId, setLinkedItemId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!linkedWorkspace && !linkedItem) return;
+    if (linkedWorkspace) setSelectedId(linkedWorkspace);
+    if (linkedItem) setLinkedItemId(linkedItem);
+    setSearchParams({}, { replace: true });
+  }, [linkedWorkspace, linkedItem, setSearchParams]);
+
   const newWorkspace = isOrgAdmin && (
     <NewWorkspaceDialog
       open={creating}
@@ -163,7 +178,7 @@ const OrganizationView = ({ organizationId, meId, isOrgAdmin }: { organizationId
         <WorkspaceBoard key={selected.id} workspace={selected} meId={meId} members={members} teams={teams} canAssign={isOrgAdmin} onOpenItem={setOpenItem} />
       )}
       {selected && (
-        <WorkItemDrawer key={openItem?.id ?? "none"} itemId={openItem?.id ?? null} workspace={selected} members={members} teams={teams} canAssign={isOrgAdmin} readOnly={false} onClose={() => setOpenItem(null)} />
+        <WorkItemDrawer key={openItem?.id ?? linkedItemId ?? "none"} itemId={openItem?.id ?? linkedItemId} workspace={selected} members={members} teams={teams} canAssign={isOrgAdmin} readOnly={false} onClose={() => { setOpenItem(null); setLinkedItemId(null); }} />
       )}
       {selected && isOrgAdmin && (
         <WorkspaceSettings key={`${selected.id}:${selected.name}`} workspace={selected} open={settingsOpen} onClose={() => setSettingsOpen(false)} onArchived={() => { setSettingsOpen(false); setSelectedId(null); }} />

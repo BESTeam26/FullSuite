@@ -2424,3 +2424,18 @@ unit-tested).
 **Not done (recorded):** per-user column widths; the Clients page for
 organizations still reads the labelled sample seed; Reports links point at the
 existing reporting page pending the Reporting milestone.
+
+## Top bar: inline whole-organization search, clean chrome, logo from branding · DONE
+
+`GlobalSearch` is an inline field (no modal) whose results drop under it:
+CreditOps clients, FundingOps clients and deals, work items (module and
+workspace), workspaces, team members and files — organizations too in agency
+view. Same query keys as the screens, fetched only while a query exists and
+only for entitled products; RLS-scoped rows, organization id narrows only.
+Deep links: `?client=<id>` on the organization module pages,
+`?workspace=<id>&item=<id>` on Workspaces. Matching is client-side over bounded
+lists; a server-side search function is the next step for large organizations
+(rule 14, recorded). The Organization ID pill left the top bar (Settings shows
+it); agency-return controls render only for BES staff. `BrandLogo` resolves the
+logo from branding data (organization → agency → `/bes-logo.png` → text mark);
+no third-party image URL remains in code.

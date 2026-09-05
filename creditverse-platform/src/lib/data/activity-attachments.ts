@@ -229,6 +229,37 @@ export async function fetchAttachmentsFor(
   return out;
 }
 
+/** A file as the organization search lists it: where it hangs, what it is. */
+export interface OrganizationFile {
+  id: string;
+  name: string;
+  entityType: string | null;
+  entityId: string | null;
+  mimeType: string;
+}
+
+/**
+ * Every file the caller may see for one organization, newest first, bounded.
+ * RLS scopes the rows; the organization id only narrows (rule 16).
+ */
+export async function fetchOrganizationFiles(organizationId: string): Promise<OrganizationFile[]> {
+  const sb = requireSupabase();
+  const { data, error } = await sb
+    .from("files")
+    .select("id,name,entity_type,entity_id,mime_type")
+    .eq("organization_id", organizationId)
+    .order("created_at", { ascending: false })
+    .limit(300);
+  if (error) throw error;
+  return (data ?? []).map((r) => ({
+    id: String(r.id),
+    name: r.name,
+    entityType: r.entity_type,
+    entityId: r.entity_id,
+    mimeType: r.mime_type ?? "application/octet-stream",
+  }));
+}
+
 /** How long a viewing link stays good. Long enough to read, not to share. */
 const SIGNED_URL_TTL_SECONDS = 60 * 10;
 

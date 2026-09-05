@@ -1,4 +1,6 @@
 import { useAgency } from "@/lib/agency-context";
+import { BrandLogo } from "@/components/brand/BrandLogo";
+import { useAuth } from "@/lib/auth/auth-context";
 import { useState } from "react";
 import {
   ChevronDown,
@@ -28,6 +30,9 @@ export const SubAccountSwitcher = () => {
   const activeSubAccount = agencyContext?.activeSubAccount || null;
   const subAccounts = agencyContext?.subAccounts || [];
   const switchToAgencyView = agencyContext?.switchToAgencyView || (() => {});
+  /* Only BES staff have an agency view; organization users never see a way
+     "back" to one (rule 16: they must not reach BES internal operations). */
+  const { isAgencyStaff } = useAuth();
   const switchToSubAccount = agencyContext?.switchToSubAccount || (() => {});
   const togglePinSubAccount = agencyContext?.togglePinSubAccount || (() => {});
 
@@ -46,21 +51,15 @@ export const SubAccountSwitcher = () => {
         <DropdownMenuTrigger asChild>
           <button className="flex w-full items-center justify-between rounded-xl border border-sidebar-border bg-sidebar-accent/50 p-2.5 text-left transition-colors hover:bg-sidebar-accent">
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-accent overflow-hidden border border-amber-500/30">
-                <img
-                  src="https://msgsndr-private.storage.googleapis.com/companyPhotos/c0e06640-1f70-4bac-8d43-133467d18455.png"
-                  alt="BES Logo"
-                  className="h-full w-full object-cover"
-                  onError={(e) => {
-                    (e.currentTarget as HTMLElement).style.display = "none";
-                  }}
-                />
-                <span className="font-bold text-amber-400 text-xs shadow-sm">
-                  {viewMode === "agency"
+              <BrandLogo
+                preferOrganization={viewMode === "subaccount"}
+                fallbackText={
+                  viewMode === "agency"
                     ? "BES"
-                    : activeSubAccount?.code.slice(0, 2) || "SA"}
-                </span>
-              </div>
+                    : activeSubAccount?.code.slice(0, 2) || "SA"
+                }
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-accent overflow-hidden border border-amber-500/30"
+              />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-xs font-bold text-sidebar-foreground">
                   {viewMode === "agency"
@@ -90,6 +89,7 @@ export const SubAccountSwitcher = () => {
           <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-sidebar-foreground/50">
             Switch Context
           </DropdownMenuLabel>
+          {isAgencyStaff && (
           <DropdownMenuItem
             onClick={switchToAgencyView}
             className={cn(
@@ -111,13 +111,14 @@ export const SubAccountSwitcher = () => {
               <CheckCircle2 className="h-4 w-4 text-amber-400" />
             )}
           </DropdownMenuItem>
+          )}
 
           <DropdownMenuSeparator className="bg-sidebar-border" />
           <div className="px-3 py-1 flex items-center justify-between">
             <span className="text-[10px] uppercase tracking-wider text-sidebar-foreground/50 font-bold">
               Organizations ({subAccounts.length})
             </span>
-            {viewMode === "subaccount" && (
+            {viewMode === "subaccount" && isAgencyStaff && (
               <button
                 onClick={switchToAgencyView}
                 className="text-[10px] text-amber-400 font-semibold hover:underline flex items-center gap-1"
@@ -248,7 +249,7 @@ export const SubAccountSwitcher = () => {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {viewMode === "subaccount" && (
+      {viewMode === "subaccount" && isAgencyStaff && (
         <button
           onClick={switchToAgencyView}
           className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 py-1.5 text-[11px] font-semibold text-amber-400 hover:bg-amber-500/20 transition-colors"

@@ -1,23 +1,24 @@
 import { useUnreadNotificationCount } from "@/lib/data/use-notifications";
 import { Link } from "react-router-dom";
 import {
-  Search,
   Bell,
   Plus,
   Building2,
   Layers,
-  CheckCircle2,
+  Menu,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { CopilotLauncher } from "@/components/copilot/CopilotLauncher";
 import { useAgency } from "@/lib/agency-context";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/lib/auth/auth-context";
+import { useSidebarState } from "@/components/dashboard/sidebar-state";
+import { GlobalSearch } from "@/components/dashboard/GlobalSearch";
 
 export const Topbar = () => {
   const agencyContext = useAgency();
-  const { displayName, mode } = useAuth();
+  const { displayName, mode, isAgencyStaff } = useAuth();
+  const { setMobileOpen } = useSidebarState();
 
   const viewMode = agencyContext?.viewMode || "agency";
   const unreadNotifications = useUnreadNotificationCount();
@@ -25,19 +26,20 @@ export const Topbar = () => {
   const switchToAgencyView = agencyContext?.switchToAgencyView || (() => {});
 
   return (
-    <header className="flex h-16 items-center justify-between gap-4 border-b border-border bg-background px-6">
-      <div className="relative max-w-md flex-1 flex items-center gap-3">
-        <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder={
-              viewMode === "agency"
-                ? "Search organizations, work orders, MRR..."
-                : `Search ${activeSubAccount?.name || "organization"} clients...`
-            }
-            className="pl-9"
-          />
-        </div>
+    <header className="flex h-16 items-center justify-between gap-3 border-b border-border bg-background px-4 md:gap-4 md:px-6">
+      {/* Small screens only: the main menu lives in a drawer. */}
+      <button
+        type="button"
+        onClick={() => setMobileOpen(true)}
+        aria-label="Open menu"
+        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border text-foreground transition-colors hover:bg-muted lg:hidden"
+      >
+        <Menu className="h-4 w-4" />
+      </button>
+      {/* Inline search over everything in the organization; results drop
+          down under the field — no modal. */}
+      <div className="flex min-w-0 flex-1 items-center">
+        <GlobalSearch className="w-full max-w-md" />
       </div>
 
       <div className="flex items-center gap-3">
@@ -47,25 +49,18 @@ export const Topbar = () => {
             <Building2 className="h-3.5 w-3.5" /> Agency Owner HQ
             {mode === "demo" ? " · Demo" : ""}
           </Badge>
-        ) : (
-          <div className="flex items-center gap-2">
-            <Badge
-              variant="outline"
-              className="border-emerald-500/40 text-status-success bg-emerald-500/10 font-medium flex items-center gap-1.5 px-3 py-1"
-            >
-              <CheckCircle2 className="h-3.5 w-3.5" /> Organization ID:{" "}
-              <span className="font-mono">{activeSubAccount?.publicId}</span>
-            </Badge>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={switchToAgencyView}
-              className="text-xs text-muted-foreground hover:text-foreground"
-            >
-              <Layers className="h-3.5 w-3.5 mr-1" /> Return to Agency View
-            </Button>
-          </div>
-        )}
+        ) : isAgencyStaff ? (
+          /* Only BES staff have an agency view to return to. The Organization
+             ID lives in Settings, not in the chrome. */
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={switchToAgencyView}
+            className="text-xs text-muted-foreground hover:text-foreground"
+          >
+            <Layers className="h-3.5 w-3.5 mr-1" /> Return to Agency View
+          </Button>
+        ) : null}
 
         <CopilotLauncher />
 

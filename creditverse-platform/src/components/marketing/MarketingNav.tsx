@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import { Layers, Menu, X, ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -29,15 +30,7 @@ export const MarketingNav = () => {
           className="flex items-center gap-2.5 font-bold text-foreground"
         >
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-charcoal overflow-hidden border border-amber-500/30 shadow-sm">
-            <img
-              src="https://msgsndr-private.storage.googleapis.com/companyPhotos/c0e06640-1f70-4bac-8d43-133467d18455.png"
-              alt="BES Logo"
-              className="h-full w-full object-cover"
-              onError={(e) => {
-                (e.currentTarget as HTMLElement).style.display = "none";
-              }}
-            />
-            <Layers className="h-5 w-5 text-amber-400" />
+            <BrandLogo fallbackText="BES" className="flex h-full w-full items-center justify-center" textClassName="text-xs font-bold text-amber-400" />
           </div>
           <span className="text-xl tracking-tight font-black">BES</span>
         </Link>
