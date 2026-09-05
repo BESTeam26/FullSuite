@@ -16,6 +16,7 @@ import { DECISION_LABELS, type LenderDecisionKind } from "@/lib/funding/document
 import { toLenderCriteria } from "@/lib/funding/lender-catalogue";
 import { buildFitSnapshot, matchLenders, PROGRAM_FIT_LABEL, type LenderMatch, type MatchOutcome } from "@/lib/funding/readiness-engine";
 import { cn } from "@/lib/utils";
+import { AiExplainFit } from "@/components/dashboard/fulfillment/funding-domain/AiExplainFit";
 
 interface Props {
   fileId: string;
@@ -87,6 +88,7 @@ export function LendersOffersTab({ fileId, clientId, domain, canEdit }: Props) {
                       {m.failed.map((c) => <Chip key={`f-${c}`} tone="bad">Does not meet · {c}</Chip>)}
                       {m.unconfirmed.map((c) => <Chip key={`u-${c}`} tone="unknown">Missing information · {c}</Chip>)}
                     </div>
+                    <AiExplainFit match={m} />
                   </div>
                   <div className="flex items-center gap-2">
                     <span className={cn("inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold", OUTCOME_TONE[m.outcome])}>{PROGRAM_FIT_LABEL[m.outcome]}</span>

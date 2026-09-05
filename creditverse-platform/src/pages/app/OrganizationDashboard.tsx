@@ -14,6 +14,10 @@ import { useEffect, useMemo, useState } from "react";
 import { formatDate } from "@/lib/format-date";
 import { Link, Navigate, useParams } from "react-router-dom";
 import { Building2, LayoutGrid, ListTodo, Users, FileText, Landmark, Workflow, ArrowRight, Hash, SlidersHorizontal } from "lucide-react";
+import { ChartCard } from "@/components/dashboard/ops/ChartCard";
+import { DonutLegend } from "@/components/dashboard/ops/DonutLegend";
+import { KpiTile, TONE_FILL, type KpiTone } from "@/components/dashboard/ops/KpiTile";
+import { StageBarChart } from "@/components/dashboard/ops/StageBarChart";
 import { useAgency } from "@/lib/agency-context";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useOrganizationWork } from "@/lib/data/use-work";
@@ -26,7 +30,7 @@ import { errorMessage } from "@/lib/data/error-message";
 import { HomeCardsCustomizer } from "@/components/dashboard/HomeCardsCustomizer";
 import { isOverdue } from "@/lib/workspaces/workspace-domain";
 import { PRODUCT_LABELS, type ProductKey } from "@/lib/bes-domain";
-import { StatCard, ContentCard, DivisionTable, StatusPill } from "@/components/dashboard/DivisionLayout";
+import { ContentCard, DivisionTable, StatusPill } from "@/components/dashboard/DivisionLayout";
 import { DataSourceBadge } from "@/components/dashboard/DataSourceBadge";
 
 const MODULE_LINKS: Partial<Record<ProductKey, { href: string; icon: typeof FileText; blurb: string }>> = {
@@ -97,6 +101,22 @@ export default function OrganizationDashboard() {
 
   const overdue = useMemo(() => work.items.filter((w) => w.dueAt && isOverdue({ dueAt: w.dueAt, completedAt: null } as never)).length, [work.items]);
   const mine = useMemo(() => work.items.filter((w) => w.assignedTo === auth.user?.id).length, [work.items, auth.user?.id]);
+  /* Visual read of the same rows: open work by stage, and how urgent it is. Counts, never forecasts. */
+  const byStage = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const w of work.items) m.set(w.stage, (m.get(w.stage) ?? 0) + 1);
+    return [...m.entries()].map(([label, count]) => ({ label, count }));
+  }, [work.items]);
+  const dueBuckets = useMemo(() => {
+    const now = Date.now(), week = now + 7 * 86_400_000;
+    const b = { overdue: 0, week: 0, later: 0, none: 0 };
+    for (const w of work.items) { if (!w.dueAt) b.none++; else { const t = Date.parse(w.dueAt); if (t < now) b.overdue++; else if (t <= week) b.week++; else b.later++; } }
+    return [
+      { label: "Overdue", value: b.overdue, color: TONE_FILL.red }, { label: "Due this week", value: b.week, color: TONE_FILL.amber },
+      { label: "Due later", value: b.later, color: TONE_FILL.blue }, { label: "No due date", value: b.none, color: TONE_FILL.slate },
+    ];
+  }, [work.items]);
+  const cardTone = (key: HomeCardKey): KpiTone => key.startsWith("creditops") ? "blue" : key.startsWith("fundingops") ? "emerald" : key === "work.overdue" ? "red" : key === "workspaces.count" ? "purple" : "amber";
 
   const loadingWork = work.isLoading;
   const loadingFigures = figures.isLoading;
@@ -203,10 +223,21 @@ export default function OrganizationDashboard() {
       <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
         {cards.map((card) => (
           <Link key={card.key} to={card.href} className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            <StatCard label={card.label} value={cardValue(card.key)} icon={CARD_ICONS[card.key]} />
+            <KpiTile label={card.label} value={cardValue(card.key)} icon={CARD_ICONS[card.key]} tone={cardTone(card.key)} attention={card.key === "work.overdue" && typeof cardValue(card.key) === "number" && (cardValue(card.key) as number) > 0} />
           </Link>
         ))}
       </div>
+
+      {!work.isLoading && work.items.length > 0 && (
+        <div className="mb-6 grid gap-4 xl:grid-cols-[2fr_1fr]">
+          <ChartCard title="Open work by stage">
+            <StageBarChart data={byStage} tone="amber" height={220} />
+          </ChartCard>
+          <ChartCard title="How urgent">
+            <DonutLegend data={dueBuckets} emptyText="No open work" height={180} />
+          </ChartCard>
+        </div>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">

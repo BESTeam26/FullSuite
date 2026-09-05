@@ -3,8 +3,9 @@
  * (ARCHITECTURE_PROPOSAL_REPORTING.md): deterministic figures over canonical
  * rows the caller may see, bucketed by month. Letters and funding are
  * engine-derived outcomes; production feeds the agent ranking for BES staff
- * (organization users receive no production rows). The pivot builder and
- * configurable KPI catalogue follow with their tables.
+ * (organization users receive no production rows). Below the fixed charts: the
+ * organization's own KPI cards (Settings › KPIs) and the pivot builder over
+ * report_pivot() (0069).
  */
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
@@ -15,6 +16,9 @@ import { HorizontalBars } from "@/components/dashboard/ops/HorizontalBars";
 import { KpiTile, TONE_FILL } from "@/components/dashboard/ops/KpiTile";
 import { MonthlyLines } from "@/components/dashboard/ops/MonthlyLines";
 import { StageBarChart } from "@/components/dashboard/ops/StageBarChart";
+import { OrganizationKpiCards } from "@/components/reporting/OrganizationKpiCards";
+import { PivotBuilder } from "@/components/reporting/PivotBuilder";
+import { useAgency } from "@/lib/agency-context";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useReportingSignals } from "@/lib/data/use-reporting";
 import { formatCompactMoney } from "@/lib/funding/dashboard-metrics";
@@ -27,6 +31,7 @@ const OUTCOME = [
 
 export default function Reporting() {
   const auth = useAuth();
+  const { activeOrganization } = useAgency();
   const now = useMemo(() => new Date(), []);
   const months = useMemo(() => lastMonths(now, 6), [now]);
   const since = months[0].start.toISOString();
@@ -53,12 +58,14 @@ export default function Reporting() {
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Reports</h1>
-          <p className="text-sm text-muted-foreground">Last six months across CreditOps and FundingOps — deterministic counts over the records you may see. Outcomes here are engine-derived; manual outcomes for clients worked in an outside CRM arrive with the reporting milestone.</p>
+          <p className="text-sm text-muted-foreground">Last six months across CreditOps and FundingOps — deterministic counts over the records you may see. Letters and funding are engine-derived; outcomes typed for clients worked in an outside CRM are recorded on the client profile and appear in the pivot marked manual.</p>
         </div>
         {signals.isLoading && <p className="inline-flex items-center gap-1 text-xs text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</p>}
         {signals.error && <p role="alert" className="text-xs text-status-danger">Could not load the reports.</p>}
       </div>
       {!live && <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">Reports read the live database. Demo mode shows nothing here.</p>}
+
+      {live && activeOrganization && <OrganizationKpiCards organizationId={activeOrganization.id} from={since.slice(0, 10)} to={now.toISOString().slice(0, 10)} />}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <KpiTile label="Letters Mailed" value={totalMailed} icon={Mail} tone="emerald" hint="Last six months" />
@@ -89,6 +96,7 @@ export default function Reporting() {
           {auth.isAgencyStaff ? <HorizontalBars data={topAgents} tone="amber" unit="Units" emptyText="No production logged in the period." /> : <p className="py-6 text-center text-xs text-muted-foreground">Agent production is a BES-internal figure; your organization's KPIs arrive with the reporting milestone.</p>}
         </ChartCard>
       </div>
+      {live && <PivotBuilder organizationId={activeOrganization?.id ?? null} memberOrganizationId={activeOrganization?.id ?? null} />}
     </div>
   );
 }

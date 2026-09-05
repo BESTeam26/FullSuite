@@ -20,6 +20,7 @@ import {
   SlidersHorizontal,
   AlertTriangle,
   LayoutGrid,
+  BarChart3,
 } from "lucide-react";
 import {
   AgencySettingsProvider,
@@ -61,8 +62,10 @@ import {
 import { WorkspaceViewsSection } from "@/components/settings/sections/OrganizationSections";
 import { RoleAccessSection } from "@/components/settings/sections/RoleAccessSection";
 import { OrganizationTeamsSection, TeamMembersSection } from "@/components/settings/sections/TeamMembersSection";
+import { KpiSettingsSection } from "@/components/settings/sections/KpiSettingsSection";
 import { LetterLibrarySection } from "@/components/settings/sections/LetterLibrarySection";
 import { useAgency } from "@/lib/agency-context";
+import { useAuth } from "@/lib/auth/auth-context";
 
 const groups: SettingsGroup[] = [
   {
@@ -78,6 +81,7 @@ const groups: SettingsGroup[] = [
     items: [
       { key: "users", label: "Agency Users", icon: Users },
       { key: "org-teams", label: "Organization Teams", icon: Users },
+      { key: "kpi-catalogue", label: "KPI Catalogue", icon: BarChart3 },
       { key: "permissions", label: "Roles & Permissions", icon: ShieldCheck },
       { key: "structure", label: "Divisions / Teams", icon: Network },
     ],
@@ -127,12 +131,15 @@ const organizationGroups: SettingsGroup[] = [
       { key: "role-access", label: "Roles & access", icon: ShieldCheck },
       { key: "workspace-views", label: "Workspace views", icon: LayoutGrid },
       { key: "letters", label: "Letter Library", icon: FileText },
+      { key: "kpis", label: "KPIs", icon: BarChart3 },
     ],
   },
 ];
 
 const SettingsContent = () => {
   const { viewMode, activeOrganization } = useAgency();
+  const auth = useAuth();
+  const canEditKpis = auth.isAgencyStaff || auth.orgMemberships.some((m) => m.organization_id === activeOrganization?.id && m.role === "org_admin");
   const isOrganizationView = viewMode === "subaccount";
   const [active, setActive] = useState(isOrganizationView ? "team" : "branding");
 
@@ -140,12 +147,15 @@ const SettingsContent = () => {
     if (isOrganizationView) {
       if (active === "role-access") return <RoleAccessSection />;
       if (active === "workspace-views") return <WorkspaceViewsSection />;
+      if (active === "kpis") return activeOrganization ? <KpiSettingsSection organizationId={activeOrganization.id} canEdit={canEditKpis} /> : null;
       if (active === "letters") return activeOrganization ? <LetterLibrarySection organizationId={activeOrganization.id} /> : null;
       return activeOrganization ? <TeamMembersSection organizationId={activeOrganization.id} organizationName={activeOrganization.name} /> : null;
     }
     switch (active) {
       case "org-teams":
         return <OrganizationTeamsSection />;
+      case "kpi-catalogue":
+        return <KpiSettingsSection organizationId={null} canEdit={false} />;
       case "branding":
         return <AgencyBrandingSection />;
       case "subaccounts":

@@ -1,6 +1,6 @@
 # Proposal — FundingOps domain data, first-class (gap review step 1)
 
-**Status: proposal (2026-09-04). Nothing built.** Foundation for the client,
+**Status: built 2026-09-05 (migrations 0058–0068; Addenda A–D below record the design and the corrections).** Foundation for the client,
 lender and partner portals, readiness, matching, approvals and commissions in
 `ARCHITECTURE_PROPOSAL_FUNDINGOPS_PLATFORM_GAPS.md`. Reuses the existing
 hierarchy `funding_clients → funding_businesses → funding_files → funding_deals`

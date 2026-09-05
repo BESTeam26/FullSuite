@@ -1,6 +1,6 @@
 # Proposal — Reporting milestone (pivot reports, configurable KPIs, top agents, CreditOps outcomes)
 
-**Status: proposal (2026-09-04). Nothing built.**
+**Status: step 1 built 2026-09-05 (0069: KPI catalogue, organization KPI settings, manual round outcomes, report_facts, report_pivot; Settings › KPIs, Reports pivot builder). Step 2 (report-derived outcomes) pending the canonical report model.**
 
 ## What exists (verified)
 - `pages/app/Reporting.tsx` is sample charts (`monthly`, `breakdown`, `kpis`

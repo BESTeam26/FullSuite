@@ -1,6 +1,6 @@
 # Proposal — Letter Builder: Letter Library, round letters, Hybrid (AI credits), Metro 2 finder
 
-**Status: proposal (2026-09-04). Nothing built except removing the "Anytime"
+**Status: built 2026-09-05 (0059 Letter Library, live builder, Credit Reporting Integrity engine with saved findings). Original note: nothing built except removing the "Anytime"
 options from the selector.** Dee's direction: the Letter Builder is not working
 yet; Factual and Security Freeze letters come from a manual **Letter Library**
 of templates; **no "Anytime" letters** — build round letters, then ask whether

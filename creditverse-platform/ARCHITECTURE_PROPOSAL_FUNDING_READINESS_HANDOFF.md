@@ -1,6 +1,6 @@
 # Proposal — CreditOps ⇄ FundingOps hand-off (funding readiness)
 
-**Status: proposal (2026-09-04). Nothing built.** Dee's goal: an organization
+**Status: built (0052–0053 hand-off; readiness engine `lib/funding/readiness-engine.ts` with the FundingOS five statuses).** Dee's goal: an organization
 offering both services moves a funding lead into CreditOps for funding
 readiness and back into FundingOps once qualified — one person, one history.
 

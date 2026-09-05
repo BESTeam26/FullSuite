@@ -597,15 +597,17 @@ Organizations may customize approved branding — logo, colours, identity,
 customer-facing presentation. **Brand customization does not create another
 agency or a reseller platform.**
 
-> **Known gap, recorded rather than silently accepted.** The fulfillment
-> relationship is currently a single boolean, `organizations.is_fulfillment_
-> subscriber`, read by `bes_may_fulfil()`. That is better than the nothing it
-> replaced, but it is **not** the relationship this rule requires: it carries no
-> module, no authorized data scope, no effective dates and no BES team scope,
-> and it cannot express model 3 at all — outsourcing partners are modelled as
-> `outsourcing_groups` on a separate path. Closing this needs a first-class
-> engagement record. It is a structural change and must be proposed before it is
-> built.
+> **Gap closed (0034, `fulfillment_engagements`), note kept for history.** The
+> relationship was once a single boolean, `organizations.is_fulfillment_
+> subscriber`. It is now a first-class engagement record: the BES agency, the
+> partner (a SaaS organization for model 2 **or** an `outsourcing_group` for
+> model 3 — exactly one), the `service` in scope, `status`, `effective_from` /
+> `effective_to`, and an `authorized_team`. `bes_may_fulfil(org, group,
+> service)` and `bes_engaged_with(org)` read a **live** engagement
+> (`engagement_is_live`), never the boolean, and `in_scope()` narrows BES staff
+> to the authorized team. The boolean column survives only as a legacy flag;
+> nothing authorizes on it. Widening what an engagement grants (a data-scope
+> field, per-module scopes) remains a structural change to propose first.
 >
 > On the agency layer: `agency_id` and `is_staff_of(agency)` are a **safety net,
 > not a reseller feature**. There is one agency row and there is meant to be

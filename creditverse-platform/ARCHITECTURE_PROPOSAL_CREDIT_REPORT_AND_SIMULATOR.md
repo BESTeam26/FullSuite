@@ -1,6 +1,6 @@
 # Proposal — Canonical credit report + factual Score Simulator
 
-**Status: proposal (2026-09-04). Nothing built.** Requested by Dee: the Score
+**Status: design step 1 built (0048 canonical credit reports + CSV import, analysis on the client's own report; 0059 report_findings; the sample simulator stays labelled as sample). Still open: PDF/OCR import, the factual simulator guide and the monthly rules-update discipline.** Requested by Dee: the Score
 Simulator must be a factual guide for agents, owners and DIY clients, based
 solely on the client's imported credit report; recommendations grounded in
 FCRA, law and FICO's published education; a monthly rules-update discipline

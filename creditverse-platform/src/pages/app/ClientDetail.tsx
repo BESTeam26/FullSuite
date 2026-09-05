@@ -4,6 +4,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { fetchFulfillmentClients } from "@/lib/data/fulfillment-clients";
 import { ClientCreditReportSection } from "@/components/dashboard/fulfillment/ClientCreditReportSection";
 import { ReportIntegrityPanel } from "@/components/clients/ReportIntegrityPanel";
+import { RoundOutcomesPanel } from "@/components/clients/RoundOutcomesPanel";
 import {
   ArrowLeft,
   RefreshCw,
@@ -250,6 +251,7 @@ const ClientDetailInner = () => {
               outsourcingGroupId={liveClient.outsourcingGroupId ?? null}
             />
             <ReportIntegrityPanel clientId={clientId} />
+            <RoundOutcomesPanel clientId={clientId} />
           </div>
         ) : (
           <ImportAnalysisTab clientId={clientId} />

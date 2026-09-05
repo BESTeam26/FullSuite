@@ -1,6 +1,6 @@
 # Proposal — Team Members and Roles & Permissions, GHL-style, on the BES authorization chain
 
-**Status: proposal (2026-09-05).** Dee's ask, from the GHL "My Staff → Edit or
+**Status: built 2026-09-05 (0064 keys/overrides/invitations, 0065 enforcement inside the functions, member permission tree, Copy Permission, accept-invitation page). Email sending still needs the mail provider key.** Dee's ask, from the GHL "My Staff → Edit or
 manage your team" screen: an organization adds its own team members; each
 member has *User Info* and *Roles & Permissions* — a role dropdown, a
 "Restrict data visibility to only assigned data" switch, a searchable tree of

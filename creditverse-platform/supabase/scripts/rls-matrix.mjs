@@ -54,6 +54,8 @@ const T = q(`select
   (select count(*) from public.work_items w where w.organization_id='dddddddd-0000-4000-8000-80ce8814eb05' and w.scope='ORGANIZATION')::int
    + (select count(*) from public.work_items w where w.scope='AGENCY' and w.division='bes_crm' and w.subject_organization_id='dddddddd-0000-4000-8000-80ce8814eb05')::int as lakeside_org_work,
   (select count(*) from public.work_attention a join public.work_items w on w.id=a.id where w.organization_id='dddddddd-0000-4000-8000-80ce8814eb05' and w.scope='ORGANIZATION')::int as lakeside_org_attention,
+  (select count(*) from public.work_items w where w.organization_id=(select id from public.organizations where name='[TEST] Northgate Credit Co') and w.scope='ORGANIZATION')::int as northgate_org_work,
+  (select count(*) from public.work_attention a join public.work_items w on w.id=a.id where w.organization_id=(select id from public.organizations where name='[TEST] Northgate Credit Co') and w.scope='ORGANIZATION')::int as northgate_org_attention,
   (select id from public.fulfillment_clients where name='[TEST] Evan Ellis') as lakeside_client,
   (select id from public.fulfillment_clients where organization_id=(select id from public.organizations where name='[TEST] Cedar Financial') limit 1) as cedar_client,
   (select id from public.teams where name like 'CreditOps%Team A%' limit 1) as team_a,
@@ -103,7 +105,7 @@ const E = {
   "bes.restricted@bes.test": { work: 0, attention: 0, fclients: 0, fund: 0, lakeside_by_id: 0, cedar_by_id: 0, can_update_lakeside: 0, can_update_cedar: 0 },
   // Organization users: tenant only, unchanged by BES scope
   "org.owner@bes.test":  { work: T.lakeside_org_work, /* every ORGANIZATION item of Lakeside + its entitled BES CRM projects; the BES support task about Lakeside is not theirs (0031) */ attention: T.lakeside_org_attention, fclients: 2, fund: 1, lakeside_by_id: 1, cedar_by_id: 0, can_update_cedar: 0 },
-  "org2.owner@bes.test": { work: 1, attention: 0, fclients: 2, fund: 0, lakeside_by_id: 0, cedar_by_id: 0, can_update_lakeside: 0, can_update_cedar: 0 },
+  "org2.owner@bes.test": { work: T.northgate_org_work, attention: T.northgate_org_attention, fclients: 2, fund: 0, lakeside_by_id: 0, cedar_by_id: 0, can_update_lakeside: 0, can_update_cedar: 0 },
   "probe.agent@bes.test":{ work: 0, attention: 0, fclients: 0, fund: 0, lakeside_by_id: 0, cedar_by_id: 0, can_update_lakeside: 0, can_update_cedar: 0 },
 };
 
@@ -1151,6 +1153,35 @@ if (PHASE >= 28) {
   ];
   console.log("\nphase 28:");
   for (const [label, fn, want] of P28) {
+    checks++;
+    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
+    const ok = got === want; if (!ok) fails++;
+    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
+  }
+}
+
+
+/* Phase 29 — AI credits (0070): usage and ledger readable by the organization's
+   admins and BES managers only; customers never write the ledger; the API role
+   cannot write usage events at all; balance = ledger sum; entitlement × balance. */
+if (PHASE >= 29) {
+  const w29 = (uid, sql) => { try { return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
+  const P29 = [
+    ["BES manager grants credits; the balance is the ledger sum; audit written", () => w29(U["bes.manager@bes.test"], `select public.grant_ai_credits('${lakesideOrg}', 2500, 'purchase', 'probe'); select public.grant_ai_credits('${lakesideOrg}', -100, 'adjustment', 'probe'); select (public.ai_credit_balance('${lakesideOrg}') = (select sum(delta_credits) from public.ai_credit_ledger where organization_id='${lakesideOrg}'))::text || ':' || (select count(*) from public.audit_log where action='organization.ai_credits_granted' and organization_id='${lakesideOrg}' and created_at >= now())::text as rows`), "true:2"],
+    ["an organization owner cannot grant themselves credits",                 () => w29(U["org.owner@bes.test"], `select public.grant_ai_credits('${lakesideOrg}', 1000, 'purchase'); select 1 as rows`), "ERR 42501"],
+    ["…nor write the ledger directly",                                        () => w29(U["org.owner@bes.test"], `insert into public.ai_credit_ledger (organization_id, delta_credits, kind) values ('${lakesideOrg}', 1000, 'purchase'); select 1 as rows`), "ERR 42501"],
+    ["the API role cannot write usage events (gateway only)",                 () => w29(U["bes.owner@bes.test"], `insert into public.ai_usage_events (organization_id, feature_key, model, request_id) values ('${lakesideOrg}', 'letters.assist', 'm', 'probe-req'); select 1 as rows`), "ERR 42501"],
+    ["an unknown ledger kind is refused",                                     () => w29(U["bes.manager@bes.test"], `select public.grant_ai_credits('${lakesideOrg}', 10, 'usage'); select 1 as rows`), "ERR 22023"],
+    ["the organization's owner reads its ledger; a processor does not",       () => w29(U["bes.manager@bes.test"], `select public.grant_ai_credits('${lakesideOrg}', 100, 'purchase'); select 1 as rows`) + "|" + w29(U["org.agent@bes.test"], `select count(*)::int as rows from public.ai_credit_ledger where organization_id='${lakesideOrg}'`), "1|0"],
+    ["another organization's owner sees none of it",                          () => w29(U["org2.owner@bes.test"], `select (select count(*) from public.ai_credit_ledger where organization_id='${lakesideOrg}')::text || ':' || (select count(*) from public.ai_usage_events where organization_id='${lakesideOrg}')::text as rows`), "0:0"],
+    ["pricing policy is BES-only",                                             () => w29(U["org.owner@bes.test"], `select count(*)::int as rows from public.ai_pricing_policy`) + "|" + w29(U["org.owner@bes.test"], `insert into public.ai_pricing_policy (model, input_cost_per_million, output_cost_per_million) values ('m', 1, 1); select 1 as rows`), "0|ERR 42501"],
+    ["the owner sets auto-recharge; a processor cannot",                      () => w29(U["org.owner@bes.test"], `insert into public.ai_recharge_settings (organization_id, enabled, threshold, pack_usd, updated_by) values ('${lakesideOrg}', true, 500, 25, auth.uid()); select count(*)::int as rows from public.ai_recharge_settings where organization_id='${lakesideOrg}'`) + "|" + w29(U["org.agent@bes.test"], `insert into public.ai_recharge_settings (organization_id, enabled, updated_by) values ('${lakesideOrg}', true, auth.uid()); select 1 as rows`), "1|ERR 42501"],
+    ["the API role cannot meter itself (ai_record_usage is service-role only)", () => w29(U["bes.owner@bes.test"], `select * from public.ai_record_usage('${lakesideOrg}', auth.uid(), 'letters.assist', 'm', 1, 1, 0, 'probe-meter'); select 1 as rows`), "ERR 42501"],
+    ["ai_can_use needs an entitled feature and a positive balance",           () => w29(U["org.owner@bes.test"], `select public.ai_can_use('${lakesideOrg}', 'letters.assist')::text as rows`), "false"],
+    ["…true once credits exist (member of the organization, CreditOps entitled)", () => q(`select public.org_entitled('${lakesideOrg}','creditOps') as rows`)[0].rows === true ? w29(U["bes.manager@bes.test"], `select public.grant_ai_credits('${lakesideOrg}', 100, 'purchase'); set local request.jwt.claims = '{"sub":"${U["org.owner@bes.test"]}","role":"authenticated"}'; select public.ai_can_use('${lakesideOrg}', 'letters.assist')::text as rows`) : "skip", q(`select public.org_entitled('${lakesideOrg}','creditOps') as rows`)[0].rows === true ? "true" : "skip"],
+  ];
+  console.log("\nphase 29:");
+  for (const [label, fn, want] of P29) {
     checks++;
     let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
     const ok = got === want; if (!ok) fails++;

@@ -20,6 +20,7 @@ import { approvalReadiness, mergeTemplate, placeholdersIn } from "@/lib/dispute/
 import { formatDate } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
 import { usePermission } from "@/lib/auth/use-permission";
+import { AiWordingAssist } from "@/components/clients/letters/AiWordingAssist";
 
 interface Props {
   clientId: string;
@@ -190,6 +191,9 @@ function LetterRow({ letter, rounds, roundNumber, actorId }: { letter: DisputeLe
       {open && (
         <div className="mt-3 space-y-3">
           <pre className="max-h-56 overflow-auto whitespace-pre-wrap rounded-lg border border-border bg-muted/30 p-3 font-mono text-[11px] leading-relaxed text-foreground">{letter.bodyFinal}</pre>
+          {letter.status === "draft" && actorId && canBuild && (
+            <AiWordingAssist body={letter.bodyFinal} disabled={rounds.updateBody.isPending} onApply={(next) => void run(() => rounds.updateBody.mutateAsync({ letterId: letter.id, body: next }), "Could not update the letter.")} />
+          )}
           {letter.status === "draft" && !letter.attested && actorId && (
             <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
               <p className="text-[11px] font-bold uppercase tracking-wider text-amber-800">Consumer attestation (truth gate)</p>

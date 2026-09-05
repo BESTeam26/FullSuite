@@ -3327,8 +3327,7 @@ with owner rights filtered by `auth.uid()` (only the listed columns, only the
 caller's own files). Lesson recorded in AUTHORIZATION_MAP: regenerate a policy
 from the live catalogue, never from an older migration.
 
-**0069 — Reporting engine (drafted 2026-09-05; applies after the phase-27
-matrix and commit).** Per `ARCHITECTURE_PROPOSAL_REPORTING.md`, order step 1:
+**0069 — Reporting engine (2026-09-05).** Per `ARCHITECTURE_PROPOSAL_REPORTING.md`, order step 1:
 `kpi_definitions` (14 KPIs as data across production, time, status changes,
 letters, manual outcomes, submissions, funded deals; three marked
 BES-internal), `organization_kpi_settings` (enabled · target · order per
@@ -3337,4 +3336,72 @@ clients worked in an outside CRM — provenance `manual`), the `report_facts`
 security-invoker view (one common shape; RLS of every source applies) and
 `report_pivot()` (rows = a whitelisted dimension, columns = KPIs assembled
 from catalogue rows, filters, period). Date indexes added for the window.
-Matrix phase 28 written (13 probes): MATRIX_P28.
+Matrix phase 28 written (13 probes); full run 404/404 (phase ≤ 28).
+Interface for 0069 (2026-09-05): **Settings › KPIs** (organization view —
+switch a KPI on, set its target; BES-internal figures never appear because
+the database does not return them) and **BES HQ › KPI Catalogue** (the whole
+catalogue, read-only, internal figures marked); **Reports** gains the
+organization's KPI cards with targets ("reached" / "to go") and the **Pivot
+report** (rows: month · team member · department · service · client ·
+organization; KPI chips from the catalogue; period; layout remembered per
+browser; totals only where a total means something); the client profile's
+Import & Analysis tab gains **Round outcomes (manual)** for clients worked in
+an outside CRM, shown as manual in the pivot. Data access
+`lib/data/reporting-engine.ts`; hooks `use-reporting-engine.ts`; shaping
+`lib/reporting/pivot-shape.ts` (3 tests). Verified live: 14 KPIs, 22 facts,
+both functions; browser on the Reports page and the HQ catalogue.
+Housekeeping: the rule-16 "known gap" note in `CLAUDE.md` still described the
+fulfillment relationship as a boolean; `fulfillment_engagements` (0034) closed
+that months of work ago. The note now records the engagement record and the
+helpers that read it, and keeps the reminder that widening an engagement's
+grant is a proposal-first change.
+Matrix maintenance: the phase-2 probe "org2.owner attention = 0" was a
+hard-coded expectation; Northgate's fixture work item (seeded "due in 2 days"
+on 2026-09-03) is now overdue, so its owner correctly sees one attention row.
+The expectation is now derived from the data, like the Lakeside one.
+
+**Organization Home, visual pass (2026-09-05).** The saved Home cards now
+render as KPI tiles (icon badges, tone per module, overdue flagged), and two
+charts read the same open-work rows: open work by stage (bars) and how urgent
+it is (overdue · due this week · due later · no due date, donut). The
+customizable card layout, the open-work table and the module links are
+unchanged; nothing new is fetched.
+
+**0070 — BES AI Credits (drafted 2026-09-05; applies after the phase-28 run
+and commit).** Per `ARCHITECTURE_PROPOSAL_AI_CREDITS.md`: `ai_features`,
+effective-dated `ai_pricing_policy` (provider cost × markup × credits per
+USD), `ai_usage_events` (gateway-only writes), `ai_credit_ledger`
+(balance = sum), `ai_recharge_settings`; `ai_credit_balance()`,
+`ai_can_use()` (entitlement × balance), `grant_ai_credits()` (BES, audited).
+`lib/ai/credit-charge.ts` (4 tests) is the only place a charge is computed —
+rounded up to the cent. Interface staged: Settings › AI usage (balance, used
+this month by feature, ledger, auto-recharge) and BES HQ › AI Credits (same
+plus provider cost, margin and Grant credits). The gateway Edge Function
+waits for the Anthropic API key; until then AI features are paused at zero
+balance by design. Matrix phase 29 written (12 probes): MATRIX_P29.
+Edge Functions written, not yet deployed (they wait for secrets):
+`supabase/functions/ai-gateway` — the only path from the browser to a model
+provider: verifies the session, asks `ai_can_use()` as the caller, calls the
+provider with the server-held key, then `ai_record_usage()` with the service
+role prices the tokens from the policy in force and writes the usage event and
+ledger debit together (the browser never meters itself). Without
+`ANTHROPIC_API_KEY` it answers "AI is not connected yet" and charges nothing.
+`supabase/functions/send-invitation` — emails an open invitation's accept link
+through the mail provider; without `MAIL_PROVIDER_API_KEY` it says so and the
+administrator copies the link. Deploy with `npx supabase functions deploy
+<name>` from `creditverse-platform/` once the secrets are set with
+`npx supabase secrets set`.
+First AI-assisted action behind the gateway: **Wording help (AI)** on a draft
+letter in the Letter Builder (`AiWordingAssist`). The model may only rephrase
+what the letter already says, in the consumer's voice — no added facts, no
+citations, no asserted violations, none of the prohibited phrases (the system
+prompt names them). The suggestion is checked deterministically for
+prohibited phrases before it can be applied, the person chooses to use it or
+not, and approval still passes the QA gate. Until the provider key exists the
+button answers "AI is not connected yet"; at zero balance, "AI features are
+paused"; both come from the gateway, not the browser. Browser client:
+`lib/data/ai-gateway.ts`.
+Second AI-assisted action: **Explain this fit (AI)** under each Program Fit
+match (`AiExplainFit`): the model receives only the engine's per-criterion
+results and reasons and puts them into two or three plain sentences — no
+odds, no ranking, no "pre-approval", nothing invented about lender policy.

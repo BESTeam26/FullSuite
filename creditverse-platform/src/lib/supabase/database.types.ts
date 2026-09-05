@@ -346,6 +346,69 @@ export type Database = {
           },
         ]
       }
+      client_round_outcomes: {
+        Row: {
+          bureau: string
+          client_id: string
+          created_at: string
+          deleted: number
+          id: string
+          items_disputed: number
+          note: string | null
+          outcome_date: string
+          recorded_by: string | null
+          round_number: number
+          source: string
+          updated: number
+          verified: number
+        }
+        Insert: {
+          bureau: string
+          client_id: string
+          created_at?: string
+          deleted?: number
+          id?: string
+          items_disputed?: number
+          note?: string | null
+          outcome_date?: string
+          recorded_by?: string | null
+          round_number: number
+          source?: string
+          updated?: number
+          verified?: number
+        }
+        Update: {
+          bureau?: string
+          client_id?: string
+          created_at?: string
+          deleted?: number
+          id?: string
+          items_disputed?: number
+          note?: string | null
+          outcome_date?: string
+          recorded_by?: string | null
+          round_number?: number
+          source?: string
+          updated?: number
+          verified?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_round_outcomes_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "fulfillment_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_round_outcomes_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       closings: {
         Row: {
           file_id: string
@@ -2450,6 +2513,42 @@ export type Database = {
           },
         ]
       }
+      kpi_definitions: {
+        Row: {
+          aggregation: string
+          bes_internal: boolean
+          description: string | null
+          key: string
+          label: string
+          match: Json
+          service: string
+          sort: number
+          source: string
+        }
+        Insert: {
+          aggregation: string
+          bes_internal?: boolean
+          description?: string | null
+          key: string
+          label: string
+          match?: Json
+          service: string
+          sort?: number
+          source: string
+        }
+        Update: {
+          aggregation?: string
+          bes_internal?: boolean
+          description?: string | null
+          key?: string
+          label?: string
+          match?: Json
+          service?: string
+          sort?: number
+          source?: string
+        }
+        Relationships: []
+      }
       lender_contacts: {
         Row: {
           created_at: string
@@ -3275,6 +3374,58 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organization_kpi_settings: {
+        Row: {
+          enabled: boolean
+          kpi_key: string
+          organization_id: string
+          sort: number
+          target: number | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          enabled?: boolean
+          kpi_key: string
+          organization_id: string
+          sort?: number
+          target?: number | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          enabled?: boolean
+          kpi_key?: string
+          organization_id?: string
+          sort?: number
+          target?: number | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_kpi_settings_kpi_key_fkey"
+            columns: ["kpi_key"]
+            isOneToOne: false
+            referencedRelation: "kpi_definitions"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "organization_kpi_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_kpi_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -5346,6 +5497,28 @@ export type Database = {
           },
         ]
       }
+      report_facts: {
+        Row: {
+          agency_id: string | null
+          amount: number | null
+          client_id: string | null
+          department: string | null
+          employee_id: string | null
+          fact_date: string | null
+          funding_file_id: string | null
+          minutes: number | null
+          organization_id: string | null
+          outcome: string | null
+          outsourcing_group_id: string | null
+          quantity: number | null
+          service: string | null
+          source: string | null
+          status_from: string | null
+          status_to: string | null
+          unit: string | null
+        }
+        Relationships: []
+      }
       work_attention: {
         Row: {
           agency_id: string | null
@@ -5700,6 +5873,7 @@ export type Database = {
       is_org_owner_admin: { Args: { p_org: string }; Returns: boolean }
       is_staff_of: { Args: { p_agency: string }; Returns: boolean }
       is_team_lead_of: { Args: { p_team: string }; Returns: boolean }
+      kpi_match_sql: { Args: { p_match: Json }; Returns: string }
       lender_editable: { Args: { p_lender: string }; Returns: boolean }
       lender_visible: { Args: { p_lender: string }; Returns: boolean }
       letter_prohibited_phrase: { Args: { p_body: string }; Returns: string }
@@ -5810,6 +5984,16 @@ export type Database = {
       record_owner: {
         Args: { p_entity_id: string; p_entity_type: string }
         Returns: Record<string, unknown>
+      }
+      report_pivot: {
+        Args: {
+          p_filters?: Json
+          p_from?: string
+          p_kpis: string[]
+          p_rows: string
+          p_to?: string
+        }
+        Returns: Json[]
       }
       require_permission: {
         Args: { p_key: string; p_org: string }

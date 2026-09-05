@@ -396,3 +396,19 @@ Matrix phase 27 (10 probes): the view returns exactly the own file; raw `funding
 | `report_pivot(rows, kpis, filters, from, to)` | SECURITY INVOKER over the view; rows whitelisted (employee · department · organization · client · month · service); KPI columns assembled only from catalogue rows (`kpi_match_sql` interpolates whitelisted fact columns with `%L`); a `bes_internal` KPI is dropped for a non-staff caller even when asked for by key | 22023 on an unknown dimension |
 
 Matrix phase 28: cross-organization facts 0; internal KPI absent from the organization catalogue and omitted by the pivot; pivot total equals a direct count; KPI settings owner-only and organization-bound; manual outcomes by the client's writers as themselves.
+
+
+### 0070 — BES AI Credits (access vs consumption)
+
+| Object | Rule | How |
+|---|---|---|
+| `ai_features` | the catalogue of AI features and the product each belongs to; readable by every seat | migrations write it |
+| `ai_pricing_policy` | provider unit costs × BES markup × credits-per-USD, effective-dated; BES staff read, BES managers write; never visible to an organization | `ai_pricing_select/write` |
+| `ai_usage_events` | the ledger of use: organization admins and BES managers read; **no API-role write grant** — only the server-side gateway (service role) records a call | select grant only |
+| `ai_credit_ledger` | purchases · auto-recharges · usage · adjustments · refunds; same readers; no direct API write — `grant_ai_credits()` (BES managers, audited) or the gateway | select grant only |
+| `ai_recharge_settings` | the organization owner/admin (or BES manager) sets threshold, pack and enabled | `ai_recharge_write` |
+| `ai_credit_balance(org)` | the ledger sum, invoker rights (readers only) | — |
+| `ai_can_use(org, feature)` | member of the organization, feature active and its product entitled, balance > 0 | SECURITY DEFINER, stable |
+| `grant_ai_credits(org, credits, kind, reference)` | BES manager of the organization's agency; kinds purchase · refund · adjustment; audit row | 42501 / 22023 |
+
+Matrix phase 29 (12 probes): grant + balance = sum + audit; owner cannot grant or write the ledger; API role cannot write usage; unknown kind; owner reads, processor does not; other organization sees none; pricing BES-only; recharge owner-only; `ai_can_use` false at zero balance and true with credits.
