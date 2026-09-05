@@ -27,7 +27,7 @@ export function BrandLogo({
   fallbackText,
   preferOrganization = false,
   className,
-  imgClassName = "h-full w-full object-cover",
+  imgClassName = "h-full w-full object-contain p-0.5",
   textClassName = "font-bold text-amber-400 text-xs",
 }: Props) {
   const agency = useAgency();
