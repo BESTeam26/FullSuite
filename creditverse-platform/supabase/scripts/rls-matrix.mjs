@@ -636,5 +636,51 @@ if (PHASE >= 13) {
   }
 }
 
+/* Phase 14 — team rosters read without policy recursion (0044) and
+   organization workspace views (0045): the merge is allowed to the
+   organization's owner/admin and to a BES manager, refused to everyone else,
+   and can never hide the dashboard or the record list. Every write probe runs
+   inside a rolled-back transaction. */
+if (PHASE >= 14) {
+  const orgRole = (uid) => q(`select coalesce((select role::text from public.org_memberships where user_id='${uid}' and organization_id='${lakesideOrg}'), 'none') as rows`)[0].rows;
+  const isAgencyManager = (uid) => q(`select exists (select 1 from public.agency_memberships where user_id='${uid}' and role in ('agency_owner','agency_admin','agency_manager')) as rows`)[0].rows;
+  const mayConfigure = (uid) => orgRole(uid) === "org_admin" || isAgencyManager(uid) === true;
+  const probe = (uid, sql) => {
+    try {
+      return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows;
+    } catch (e) {
+      const text = String(e.message) + "\n" + String(e.stdout ?? "");
+      const m = text.match(/ERROR:\s*(\w+):/);
+      return "ERR " + (m ? m[1] : "unknown");
+    }
+  };
+  const merge = (uid, patch) => probe(uid, `select (public.merge_organization_workspace_views('${lakesideOrg}', '${patch}'::jsonb) -> 'creditOps' -> 'hidden')::text as rows`);
+  const HIDE_DISPUTE = '{"creditOps":{"hidden":["dispute-queue"]}}';
+  const P14 = [
+    ["team rosters read without recursion (organization manager)",  () => probe(U["org.manager@bes.test"], `select 'ok:' || count(*)::text as rows from public.team_memberships`), "ok:" + q(`select count(*)::text as rows from public.team_memberships tm where tm.user_id='${U["org.manager@bes.test"]}' or exists (select 1 from public.team_memberships me where me.team_id=tm.team_id and me.user_id='${U["org.manager@bes.test"]}') or exists (select 1 from public.teams t where t.id=tm.team_id and t.organization_id is not null and exists (select 1 from public.org_memberships m where m.organization_id=t.organization_id and m.user_id='${U["org.manager@bes.test"]}' and m.role in ('org_admin','org_manager')))`)[0].rows],
+    ["team rosters read without recursion (BES team lead)",          () => probe(U["bes.lead@bes.test"], `select 'ok' as rows from public.team_memberships limit 1`), "ok"],
+    ["organization owner/admin hides a queue for their organization", () => merge(U["org.owner@bes.test"], HIDE_DISPUTE), mayConfigure(U["org.owner@bes.test"]) ? '["dispute-queue"]' : "ERR 42501"],
+    ["organization manager may not",                                  () => merge(U["org.manager@bes.test"], HIDE_DISPUTE), mayConfigure(U["org.manager@bes.test"]) ? '["dispute-queue"]' : "ERR 42501"],
+    ["organization agent may not",                                    () => merge(U["org.agent@bes.test"], HIDE_DISPUTE), "ERR 42501"],
+    ["another organization's owner may not",                          () => merge(U["org2.owner@bes.test"], HIDE_DISPUTE), "ERR 42501"],
+    ["BES manager may (mirrors branding)",                            () => merge(U["bes.manager@bes.test"], HIDE_DISPUTE), '["dispute-queue"]'],
+    ["BES agent may not",                                             () => merge(U["bes.credit@bes.test"], HIDE_DISPUTE), "ERR 42501"],
+    ["the dashboard can never be hidden",                             () => merge(U["org.owner@bes.test"], '{"creditOps":{"hidden":["dashboard"]}}'), "ERR 22023"],
+    ["the record list can never be hidden",                           () => merge(U["org.owner@bes.test"], '{"fundingOps":{"hidden":["deal-list"]}}'), "ERR 22023"],
+    ["an unknown product is refused",                                 () => merge(U["org.owner@bes.test"], '{"talentOps":{"hidden":["x"]}}'), "ERR 22023"],
+    ["a malformed patch is refused",                                  () => merge(U["org.owner@bes.test"], '{"creditOps":{"hidden":"dispute-queue"}}'), "ERR 22023"],
+    ["members read their organization's view settings",              () => probe(U["org.agent@bes.test"], `select jsonb_typeof(workspace_views) as rows from public.organizations where id='${lakesideOrg}'`), "object"],
+    ["a person saves their own Home layout (0046)",                   () => probe(U["org.agent@bes.test"], `insert into public.user_preferences (user_id, dashboard_cards) values ('${U["org.agent@bes.test"]}', '["work.open"]'::jsonb) on conflict (user_id) do update set dashboard_cards = excluded.dashboard_cards; select dashboard_cards::text as rows from public.user_preferences where user_id='${U["org.agent@bes.test"]}'`), '["work.open"]'],
+    ["…and cannot write another person's layout",                    () => probe(U["org.agent@bes.test"], `update public.user_preferences set dashboard_cards = '["work.open"]'::jsonb where user_id='${U["org.owner@bes.test"]}'; select count(*)::int as rows from public.user_preferences where user_id='${U["org.owner@bes.test"]}' and dashboard_cards = '["work.open"]'::jsonb`), 0],
+  ];
+  console.log("\nphase 14:");
+  for (const [label, fn, want] of P14) {
+    checks++;
+    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
+    const ok = got === want; if (!ok) fails++;
+    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
+  }
+}
+
 console.log(`\n${checks - fails}/${checks} checks passed (phase ≤ ${PHASE})`);
 process.exit(fails ? 1 : 0);

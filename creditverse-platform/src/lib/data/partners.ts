@@ -72,6 +72,41 @@ export async function fetchOutsourcingGroups(): Promise<GroupRow[]> {
  * cached queries instead of opening a second path to the same tables (rule 2,
  * rule 14).
  */
+/**
+ * The Partner view of ONE organization for a product — the shape both division
+ * workspaces take. Used by the BES tree (through `buildPartners`) and by an
+ * organization's own CreditOps / FundingOps page, so the two surfaces describe
+ * the same organization identically (rule 2).
+ */
+export function partnerForOrganization(
+  product: PartnerProduct,
+  o: Organization,
+  engagements: FulfillmentEngagement[],
+): OpsPartner {
+  return {
+    id: `org-${o.id}`,
+    name: o.name,
+    /* "Managed" means BES is actually engaged to fulfil THIS service for
+       them — read from the engagement, not from the old subscriber boolean,
+       which could not distinguish CreditOps fulfilment from FundingOps
+       (rule 16). Each division names its own direct-customer bucket, so the
+       shared source emits that division's label and the trees need no
+       translation. */
+    group: besMayFulfil(engagements, o.id, SERVICE_FOR[product])
+      ? product === "fundingOps"
+        ? "fundingops_users"
+        : "managed"
+      : product === "fundingOps"
+        ? "fundingops_users"
+        : "creditops_users",
+    scopeId: o.id,
+    mode: "saas_pulled",
+    contactName: o.principal.name,
+    contactEmail: o.principal.email,
+    status: asStatus(o.status),
+  };
+}
+
 export function buildPartners(
   product: PartnerProduct,
   organizations: Organization[],
@@ -80,28 +115,7 @@ export function buildPartners(
 ): OpsPartner[] {
   const managed: OpsPartner[] = organizations
     .filter((o) => o.entitlements.some((e) => e.key === product && e.enabled))
-    .map((o) => ({
-      id: `org-${o.id}`,
-      name: o.name,
-      /* "Managed" means BES is actually engaged to fulfil THIS service for
-         them — read from the engagement, not from the old subscriber boolean,
-         which could not distinguish CreditOps fulfilment from FundingOps
-         (rule 16). Each division names its own direct-customer bucket, so the
-         shared source emits that division's label and the trees need no
-         translation. */
-      group: besMayFulfil(engagements, o.id, SERVICE_FOR[product])
-        ? product === "fundingOps"
-          ? "fundingops_users"
-          : "managed"
-        : product === "fundingOps"
-          ? "fundingops_users"
-          : "creditops_users",
-      scopeId: o.id,
-      mode: "saas_pulled",
-      contactName: o.principal.name,
-      contactEmail: o.principal.email,
-      status: asStatus(o.status),
-    }));
+    .map((o) => partnerForOrganization(product, o, engagements));
 
   const outsourced: OpsPartner[] = groups.map((g) => ({
     id: `grp-${g.id}`,

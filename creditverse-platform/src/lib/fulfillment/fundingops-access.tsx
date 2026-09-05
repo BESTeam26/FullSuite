@@ -10,6 +10,9 @@
  */
 
 import { createContext, useContext, useState, type ReactNode } from "react";
+import { useAuth } from "@/lib/auth/auth-context";
+import { useAgency } from "@/lib/agency-context";
+import { resolveFundingOpsRole } from "@/lib/fulfillment/ops-role-resolver";
 
 /* ------------------------------------------------------------------ */
 /* Funding stages (replace CreditOps departments)                      */
@@ -168,7 +171,9 @@ export type FundingOpsRoleKey =
   | "matching"
   | "submissions"
   | "stipulations"
-  | "offers";
+  | "offers"
+  /** No FundingOps membership: nothing to log, nothing to manage (deny). */
+  | "none";
 
 export interface FundingOpsRoleDef {
   key: FundingOpsRoleKey;
@@ -258,11 +263,22 @@ export const FUNDINGOPS_ROLES: Record<FundingOpsRoleKey, FundingOpsRoleDef> = {
     allowedStages: ["Offers", "Funded Deals"],
     canAccessManagement: false,
   },
+  none: {
+    key: "none",
+    label: "No FundingOps role",
+    shortLabel: "No role",
+    description:
+      "This account has no FundingOps membership for the active organization. Records may be viewed where the database allows; nothing can be logged.",
+    canEditStageProgress: false,
+    allowedStages: [],
+    canAccessManagement: false,
+  },
 };
 
-export const FUNDINGOPS_ROLE_LIST = Object.keys(
-  FUNDINGOPS_ROLES,
-) as FundingOpsRoleKey[];
+/** Roles a person can hold — "none" is a resolution result, not a choice. */
+export const FUNDINGOPS_ROLE_LIST = (
+  Object.keys(FUNDINGOPS_ROLES) as FundingOpsRoleKey[]
+).filter((r) => r !== "none");
 
 /* ------------------------------------------------------------------ */
 /* Context                                                            */
@@ -270,7 +286,10 @@ export const FUNDINGOPS_ROLE_LIST = Object.keys(
 
 interface FundingOpsAccessValue {
   role: FundingOpsRoleKey;
+  /** Demo mode only: preview another role. A no-op against a live session. */
   setRole: (r: FundingOpsRoleKey) => void;
+  /** True only in demo mode, where the role is not backed by a membership. */
+  canSwitchRole: boolean;
   roleDef: FundingOpsRoleDef;
   canEditStageProgress: boolean;
   canAccessManagement: boolean;
@@ -289,7 +308,22 @@ export function FundingOpsAccessProvider({
 }: {
   children: ReactNode;
 }) {
-  const [role, setRole] = useState<FundingOpsRoleKey>("admin");
+  /* Same rule as CreditOps: live sessions resolve the role from membership
+     rows; only demo mode may preview a role. */
+  const auth = useAuth();
+  const { activeOrganization } = useAgency();
+  const live = auth.mode === "live";
+  const [previewRole, setPreviewRole] = useState<FundingOpsRoleKey>("admin");
+  const orgRole =
+    auth.orgMemberships.find(
+      (m) => m.organization_id === activeOrganization?.id,
+    )?.role ?? null;
+  const role: FundingOpsRoleKey = live
+    ? resolveFundingOpsRole({
+        agencyRole: auth.agencyMembership?.role ?? null,
+        orgRole,
+      })
+    : previewRole;
   const roleDef = FUNDINGOPS_ROLES[role];
 
   const allowedWorkItems = WORK_ITEMS.filter((w) =>
@@ -303,7 +337,8 @@ export function FundingOpsAccessProvider({
     <FundingOpsAccessContext.Provider
       value={{
         role,
-        setRole,
+        setRole: live ? () => {} : setPreviewRole,
+        canSwitchRole: !live,
         roleDef,
         canEditStageProgress: roleDef.canEditStageProgress,
         canAccessManagement: roleDef.canAccessManagement,
@@ -317,7 +352,8 @@ export function FundingOpsAccessProvider({
   );
 }
 
-const FALLBACK_ROLE: FundingOpsRoleKey = "admin";
+/* Outside the provider nothing is known about the person: deny (rule 1). */
+const FALLBACK_ROLE: FundingOpsRoleKey = "none";
 
 export function useFundingOpsAccess(): FundingOpsAccessValue {
   const ctx = useContext(FundingOpsAccessContext);
@@ -331,6 +367,7 @@ export function useFundingOpsAccess(): FundingOpsAccessValue {
   return {
     role: FALLBACK_ROLE,
     setRole: () => {},
+    canSwitchRole: false,
     roleDef,
     canEditStageProgress: roleDef.canEditStageProgress,
     canAccessManagement: roleDef.canAccessManagement,

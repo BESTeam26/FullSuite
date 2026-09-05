@@ -76,8 +76,12 @@ const OrganizationDashboard = lazy(() => import("./pages/app/OrganizationDashboa
 const Clients = lazy(() => import("./pages/app/Clients"));
 const ClientDetail = lazy(() => import("./pages/app/ClientDetail"));
 const Compliance = lazy(() => import("./pages/app/Compliance"));
-const Operations = lazy(() => import("./pages/app/Operations"));
-const Metro2 = lazy(() => import("./pages/app/Metro2"));
+const OrganizationCreditOps = lazy(
+  () => import("./pages/app/OrganizationCreditOps"),
+);
+const OrganizationFundingOps = lazy(
+  () => import("./pages/app/OrganizationFundingOps"),
+);
 const Reporting = lazy(() => import("./pages/app/Reporting"));
 const Education = lazy(() => import("./pages/app/Education"));
 const Settings = lazy(() => import("./pages/app/Settings"));
@@ -386,7 +390,7 @@ const App = () => (
                                       product="creditOps"
                                       label="CreditOps"
                                     >
-                                      <Operations />
+                                      <OrganizationCreditOps />
                                     </RequireEntitlement>
                                   }
                                 />
@@ -397,7 +401,7 @@ const App = () => (
                                       product="fundingOps"
                                       label="FundingOps"
                                     >
-                                      <Metro2 />
+                                      <OrganizationFundingOps />
                                     </RequireEntitlement>
                                   }
                                 />

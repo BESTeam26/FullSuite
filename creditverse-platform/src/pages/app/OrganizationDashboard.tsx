@@ -1,21 +1,28 @@
 /**
- * The organization's home. Every figure is derived from rows RLS returned for
- * this organization: its open work, its workspaces, its enabled modules, its
- * clients where entitled. Nothing here is a sample number.
+ * The organization's ONE Home. Every figure is derived from rows RLS returned
+ * for this organization: its open work, its workspaces, its CreditOps and
+ * FundingOps clients where entitled. Nothing here is a sample number. The
+ * cards shown, and their order, are the person's saved layout
+ * (`user_preferences.dashboard_cards`) resolved by `lib/dashboard/home-cards`.
  *
  * The route carries the permanent Organization ID (BES-XXXXXX). Reaching it
  * selects that organization IF this user can see it (membership, or BES staff);
  * an unknown or unauthorized id renders a plain "not available" and offers the
  * way back — never another organization's data.
  */
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
-import { Building2, LayoutGrid, ListTodo, Users, FileText, Landmark, Workflow, ArrowRight, Hash } from "lucide-react";
+import { Building2, LayoutGrid, ListTodo, Users, FileText, Landmark, Workflow, ArrowRight, Hash, SlidersHorizontal } from "lucide-react";
 import { useAgency } from "@/lib/agency-context";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useOrganizationWork } from "@/lib/data/use-work";
 import { useWorkspaces } from "@/lib/data/use-workspaces";
 import { useOrganizationTrial } from "@/lib/data/use-organization-trial";
+import { useOrganizationHomeFigures } from "@/lib/data/use-organization-home";
+import { useSaveDashboardCards, useUserPreferences } from "@/lib/data/use-user-preferences";
+import { availableHomeCards, resolveHomeCards, type HomeCardKey } from "@/lib/dashboard/home-cards";
+import { errorMessage } from "@/lib/data/error-message";
+import { HomeCardsCustomizer } from "@/components/dashboard/HomeCardsCustomizer";
 import { isOverdue } from "@/lib/workspaces/workspace-domain";
 import { PRODUCT_LABELS, type ProductKey } from "@/lib/bes-domain";
 import { StatCard, ContentCard, DivisionTable, StatusPill } from "@/components/dashboard/DivisionLayout";
@@ -26,6 +33,20 @@ const MODULE_LINKS: Partial<Record<ProductKey, { href: string; icon: typeof File
   fundingOps: { href: "/app/metro2", icon: Landmark, blurb: "Funding pipeline" },
   workspaces: { href: "/app/workspaces", icon: LayoutGrid, blurb: "Your own boards and work items" },
   crm: { href: "/app/bes-crm", icon: Workflow, blurb: "BES delivery projects and published updates" },
+};
+
+const CARD_ICONS: Record<HomeCardKey, typeof FileText> = {
+  "work.open": ListTodo,
+  "work.mine": Users,
+  "work.overdue": ListTodo,
+  "workspaces.count": LayoutGrid,
+  "creditops.active": FileText,
+  "creditops.processing": FileText,
+  "creditops.awaiting": FileText,
+  "creditops.attention": FileText,
+  "fundingops.active": Landmark,
+  "fundingops.funded": Landmark,
+  "fundingops.overdue": Landmark,
 };
 
 export default function OrganizationDashboard() {
@@ -50,9 +71,42 @@ export default function OrganizationDashboard() {
   const work = useOrganizationWork(isThisOrg ? org.id : null);
   const { workspaces } = useWorkspaces(isThisOrg ? org.id : null);
   const { trial } = useOrganizationTrial(isThisOrg ? org.id : null);
+  const enabledKeys = useMemo(
+    () => (isThisOrg ? org.entitlements.filter((e) => e.enabled).map((e) => e.key) : []),
+    [isThisOrg, org],
+  );
+  const figures = useOrganizationHomeFigures(isThisOrg ? org.id : null, {
+    creditOps: enabledKeys.includes("creditOps"),
+    fundingOps: enabledKeys.includes("fundingOps"),
+  });
+  const prefs = useUserPreferences();
+  const saveCards = useSaveDashboardCards();
+  const [customizing, setCustomizing] = useState(false);
+  const cards = useMemo(
+    () => resolveHomeCards(prefs.preferences?.dashboard_cards, enabledKeys),
+    [prefs.preferences?.dashboard_cards, enabledKeys],
+  );
 
   const overdue = useMemo(() => work.items.filter((w) => w.dueAt && isOverdue({ dueAt: w.dueAt, completedAt: null } as never)).length, [work.items]);
   const mine = useMemo(() => work.items.filter((w) => w.assignedTo === auth.user?.id).length, [work.items, auth.user?.id]);
+
+  const loadingWork = work.isLoading;
+  const loadingFigures = figures.isLoading;
+  const cardValue = (key: HomeCardKey): string | number => {
+    switch (key) {
+      case "work.open": return loadingWork ? "…" : work.items.length;
+      case "work.mine": return loadingWork ? "…" : mine;
+      case "work.overdue": return loadingWork ? "…" : overdue;
+      case "workspaces.count": return workspaces.length;
+      case "creditops.active": return loadingFigures ? "…" : figures.creditOps.active;
+      case "creditops.processing": return loadingFigures ? "…" : figures.creditOps.processing;
+      case "creditops.awaiting": return loadingFigures ? "…" : figures.creditOps.awaiting;
+      case "creditops.attention": return loadingFigures ? "…" : figures.creditOps.attention;
+      case "fundingops.active": return loadingFigures ? "…" : figures.fundingOps.active;
+      case "fundingops.funded": return loadingFigures ? "…" : figures.fundingOps.funded;
+      case "fundingops.overdue": return loadingFigures ? "…" : figures.fundingOps.overdue;
+    }
+  };
 
   if (state === "loading") return <p className="p-8 text-center text-sm text-muted-foreground">Loading organization…</p>;
   if (state === "unknown" || !isThisOrg) {
@@ -113,15 +167,37 @@ export default function OrganizationDashboard() {
           {trial.status === "converted" && <>Your organization is active.</>}
         </div>
       )}
-      <div className="mb-3 flex items-center gap-2">
-        <DataSourceBadge source={work.source} />
-        <span className="text-xs text-muted-foreground">Figures are derived from this organization's own records.</span>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <DataSourceBadge source={work.source} />
+          <span className="text-xs text-muted-foreground">Figures are derived from this organization's own records.</span>
+        </div>
+        {prefs.live && !customizing && (
+          <button
+            type="button"
+            onClick={() => setCustomizing(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" /> Customize Home
+          </button>
+        )}
       </div>
+      {customizing && (
+        <HomeCardsCustomizer
+          available={availableHomeCards(enabledKeys)}
+          shown={cards.map((c) => c.key)}
+          saving={saveCards.isPending}
+          error={saveCards.error ? errorMessage(saveCards.error, "Could not save your layout.") : null}
+          onClose={() => setCustomizing(false)}
+          onSave={(next) => saveCards.mutate(next, { onSuccess: () => setCustomizing(false) })}
+        />
+      )}
       <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatCard label="Open work items" value={work.isLoading ? "…" : work.items.length} icon={ListTodo} />
-        <StatCard label="Assigned to you" value={work.isLoading ? "…" : mine} icon={Users} />
-        <StatCard label="Overdue" value={work.isLoading ? "…" : overdue} icon={ListTodo} />
-        <StatCard label="Workspaces" value={workspaces.length} icon={LayoutGrid} />
+        {cards.map((card) => (
+          <Link key={card.key} to={card.href} className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <StatCard label={card.label} value={cardValue(card.key)} icon={CARD_ICONS[card.key]} />
+          </Link>
+        ))}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">

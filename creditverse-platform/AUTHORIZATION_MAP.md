@@ -229,3 +229,13 @@ used to route.
 | `organizations.public_id` | generated, unique, formatted, immutable; never an authorization key | default `gen_org_public_id()`, trigger redraws on collision and refuses UPDATE, unique index, check `^BES-[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}$` |
 | active organization (frontend) | selects among organizations RLS already returned; never widens access | `agency-context` validates the session id against the list on every render; unknown → agency view (staff) or first membership (org users) |
 | `/app/org/:orgPublicId` | resolves through the same list | unknown or unauthorized id renders "not available", never another organization's data |
+
+
+### 0044–0045 — Team rosters without recursion; organization workspace views
+
+| Object | Rule | How |
+|---|---|---|
+| `team_memberships_select` | own rows, team lead, teammate, or agency manager / org admin of the team's owner | the teammate branch is `is_member_of_team(team_id)` (SECURITY DEFINER) instead of a self-referencing subquery that raised 42P17 for every caller |
+| `organizations.workspace_views` | readable with the organization row (presentation only); never an authorization input | plain jsonb column, default `{}` |
+| `merge_organization_workspace_views(org, patch)` | `is_manager_of(agency)` OR `is_org_owner_admin(org)`; only `creditOps` / `fundingOps`; `hidden` must be a string array; `dashboard`, `main-list`, `deal-list` cannot be hidden | SECURITY DEFINER with explicit checks, raises 42501 / 22023, audits `organization.workspace_views_updated` |
+| interface role (CreditOps / FundingOps) | derived from `agency_memberships.role`, else `org_memberships.role` for the active organization; no membership → "none" | `ops-role-resolver.ts`; demo mode alone may preview a role; the database still enforces every write |

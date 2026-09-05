@@ -1,3 +1,4 @@
+import type { WorkspaceViewSettings } from "@/lib/fulfillment/workspace-views";
 /**
  * BES Canonical Domain Model
  * ---------------------------
@@ -186,6 +187,12 @@ export interface Organization {
   joinedDate: string;
   /** Products activated for this organization. */
   entitlements: ProductEntitlement[];
+  /**
+   * Which CreditOps / FundingOps workspace views the organization shows its
+   * own users. Interpreted by `lib/fulfillment/workspace-views.ts`; written
+   * only through the database merge function. Presentation, not access.
+   */
+  workspaceViews?: WorkspaceViewSettings;
   /** Whether this org subscribes to BES Done-For-You fulfillment. */
   /**
    * Whether BES performs fulfillment for this organization.

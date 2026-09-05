@@ -23,6 +23,7 @@
 import { useMemo, useRef, useState } from "react";
 import { CheckCircle2, FileText, Loader2 } from "lucide-react";
 import { errorMessage } from "@/lib/data/error-message";
+import { useAuth } from "@/lib/auth/auth-context";
 import { useCreditOpsStore } from "@/lib/fulfillment/creditops-client-store";
 import {
   useCreditOpsAccess,
@@ -65,6 +66,14 @@ export function CompleteWorkSection({
 }: Props) {
   const store = useCreditOpsStore();
   const access = useCreditOpsAccess();
+  const { agencyMembership, displayName, mode } = useAuth();
+  /* Production is BES's operational record (rule 16). An organization member
+     finishing work on their own client records the completion as activity on
+     the record — same action library, same status change — never as BES
+     production. Demo sessions keep the production path so the sample EOD
+     and production views have something to show. */
+  const recordsProduction = agencyMembership !== null || mode === "demo";
+  const actor = recordsProduction ? "Agent (BES HQ)" : displayName;
 
   // Departments the current user is authorized to WORK AS.
   const workingDepts = access.allowedDepartments;
@@ -133,25 +142,38 @@ export function CompleteWorkSection({
     setIsSubmitting(true);
     setSubmitError(null);
     try {
-      // ONE Work Completion event → ONE production unit (1 file worked).
-      // The selected items become the production actions under that unit.
-      await store.logProduction({
-        requestId: requestIdRef.current,
-        clientId,
-        clientName,
-        partnerName,
-        department: activeDept,
-        actions: actionLabels,
-        workNotes: workNotes.trim() || undefined,
-        actor: "Agent (BES HQ)",
-      });
+      if (recordsProduction) {
+        // ONE Work Completion event → ONE production unit (1 file worked).
+        // The selected items become the production actions under that unit.
+        await store.logProduction({
+          requestId: requestIdRef.current,
+          clientId,
+          clientName,
+          partnerName,
+          department: activeDept,
+          actions: actionLabels,
+          workNotes: workNotes.trim() || undefined,
+          actor,
+        });
+      } else {
+        // Organization author: the completion lives on the client's timeline.
+        const notes = workNotes.trim();
+        await store.addActivity({
+          clientId,
+          actor,
+          action: "Work completed",
+          detail: `${activeDept}: ${actionLabels.join(", ")}${notes ? ` — ${notes}` : ""}`,
+          field: "work",
+          newValue: activeDept,
+        });
+      }
 
       // Status change stays SEPARATE from completion actions.
       if (statusChange !== "Keep current status") {
         const newStatus = statusChange.replace("Move to ", "");
         await store.addActivity({
           clientId,
-          actor: "Agent (BES HQ)",
+          actor,
           action: "Status change",
           detail: `${newStatus}`,
           field: "status",

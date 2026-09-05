@@ -2,7 +2,7 @@
  * CreditOps Header — minimal partner workspace header.
  *
  * Shows ONLY the selected Partner name + active client count + Status Guide
- * + a CreditOps role switcher (demo) so access-control behavior is visible.
+ * + the person's CreditOps role (a demo-only switcher when no membership exists).
  */
 
 import { FileText, HelpCircle, Shield } from "lucide-react";
@@ -43,19 +43,29 @@ export function CreditOpsHeader({
       </div>
 
       <div className="flex items-center gap-2">
-        {/* CreditOps role switcher (demo of access control) */}
-        <div className="flex items-center gap-1.5 rounded-lg border border-border bg-muted/30 px-2 py-1">
+        {/* The role is read from the person's membership. Only demo mode,
+            where no membership exists, offers a switcher to preview roles. */}
+        <div
+          className="flex items-center gap-1.5 rounded-lg border border-border bg-muted/30 px-2 py-1"
+          title={access.roleDef.description}
+        >
           <Shield className="h-3.5 w-3.5 text-primary" />
-          <OpsSelect
-            value={access.role}
-            onValueChange={(v) => access.setRole(v as typeof access.role)}
-            aria-label="Switch CreditOps role to preview access control"
-            options={CREDITOPS_ROLE_LIST.map((r) => ({
-              value: r,
-              label: CREDITOPS_ROLES[r].shortLabel,
-            }))}
-            className="border-0 bg-transparent px-0 font-semibold shadow-none focus:ring-0 data-[state=open]:ring-0"
-          />
+          {access.canSwitchRole ? (
+            <OpsSelect
+              value={access.role}
+              onValueChange={(v) => access.setRole(v as typeof access.role)}
+              aria-label="Preview a CreditOps role (demo mode)"
+              options={CREDITOPS_ROLE_LIST.map((r) => ({
+                value: r,
+                label: CREDITOPS_ROLES[r].shortLabel,
+              }))}
+              className="border-0 bg-transparent px-0 font-semibold shadow-none focus:ring-0 data-[state=open]:ring-0"
+            />
+          ) : (
+            <span className="text-xs font-semibold text-foreground">
+              {access.roleDef.shortLabel}
+            </span>
+          )}
         </div>
 
         <button

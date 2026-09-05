@@ -21,9 +21,8 @@ import {
 import { CreditOpsManagementDashboard } from "@/components/dashboard/fulfillment/CreditOpsManagementDashboard";
 import { CreditOpsGlobalQueue } from "@/components/dashboard/fulfillment/CreditOpsGlobalQueue";
 import { CreditOpsWebhookPanel } from "@/components/dashboard/fulfillment/CreditOpsWebhookPanel";
-import { CreditOpsDashboardView } from "@/components/dashboard/fulfillment/CreditOpsDashboardView";
+import { CreditOpsPartnerWorkspace } from "@/components/dashboard/fulfillment/CreditOpsPartnerWorkspace";
 import { FulfillmentClientsPanel } from "@/components/dashboard/fulfillment/FulfillmentClientsPanel";
-import { QueueView } from "@/components/dashboard/fulfillment/QueueViews";
 import { StatusGuideModal } from "@/components/dashboard/fulfillment/StatusGuideModal";
 import {
   CreditOpsStoreProvider,
@@ -40,10 +39,8 @@ import {
 } from "@/lib/fulfillment/creditops-access";
 import {
   CREDIT_OPS_PARTNERS,
-  PARTNER_VIEWS,
   type PartnerViewId,
 } from "@/lib/fulfillment/creditops-partners";
-import { seedFulfillmentClients } from "@/lib/fulfillment/fulfillment-client-seed";
 import { LayoutDashboard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePartners } from "@/lib/data/use-partners";
@@ -132,8 +129,10 @@ function CreditOpsWorkspace() {
       ? partners.find((p) => p.id === selection.partnerId)
       : undefined;
 
+  /* Header count from the store's RLS-scoped rows — the seed array counted
+     sample clients no matter which live Partner was open. */
   const partnerActiveCount = partner
-    ? seedFulfillmentClients.filter(
+    ? clients.filter(
         (c) =>
           (c.organizationId === partner.scopeId ||
             c.outsourcingGroupId === partner.scopeId) &&
@@ -180,7 +179,7 @@ function CreditOpsWorkspace() {
                 <AccessDeniedNotice />
               )
             ) : partner ? (
-              <PartnerWorkspace
+              <CreditOpsPartnerWorkspace
                 scopeId={partner.scopeId}
                 partner={partner}
                 activeView={activeView}
@@ -287,64 +286,4 @@ function ManagementView({
   }
 
   return null;
-}
-
-/* ------------------------------------------------------------------ */
-/* Partner workspace (single Partner)                                  */
-/* ------------------------------------------------------------------ */
-
-interface PartnerWorkspaceProps {
-  /** Client to open on arrival (deep link); null means none. */
-  openClientId?: string | null;
-  scopeId: string;
-  partner: OpsPartner;
-  activeView: PartnerViewId;
-  onViewChange: (view: PartnerViewId) => void;
-}
-
-function PartnerWorkspace({
-  scopeId,
-  partner,
-  activeView,
-  onViewChange,
-  openClientId = null,
-}: PartnerWorkspaceProps) {
-  return (
-    <div className="flex flex-col">
-      {/* ONE workspace navigation row — the 9 views of this Partner */}
-      <div className="sticky top-0 z-10 flex items-center gap-1 overflow-x-auto border-b border-border bg-card px-4">
-        {PARTNER_VIEWS.map((view) => (
-          <button
-            key={view.id}
-            onClick={() => onViewChange(view.id)}
-            className={cn(
-              "whitespace-nowrap border-b-2 px-3.5 py-3 text-xs font-bold transition-all",
-              activeView === view.id
-                ? "border-emerald-600 bg-emerald-500/10 text-status-success"
-                : "border-transparent text-muted-foreground hover:bg-muted/40 hover:text-foreground",
-            )}
-          >
-            {view.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="p-6">
-        {activeView === "main-list" ? (
-          <FulfillmentClientsPanel
-            selectedScope={scopeId}
-            partner={partner}
-            initialOpenClientId={openClientId}
-          />
-        ) : activeView === "dashboard" ? (
-          <CreditOpsDashboardView
-            selectedScope={scopeId}
-            onNavigateToView={(v) => onViewChange(v as PartnerViewId)}
-          />
-        ) : (
-          <QueueView queueType={activeView} selectedScope={scopeId} />
-        )}
-      </div>
-    </div>
-  );
 }

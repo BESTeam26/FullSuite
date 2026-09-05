@@ -30,15 +30,14 @@ import {
 } from "@/components/dashboard/fulfillment/FundingOpsTreeSidebar";
 import { FundingOpsManagementDashboard } from "@/components/dashboard/fulfillment/FundingOpsManagementDashboard";
 import { FundingGlobalQueue } from "@/components/dashboard/fulfillment/FundingGlobalQueue";
-import { FundingOpsDashboardView } from "@/components/dashboard/fulfillment/FundingOpsDashboardView";
-import { FundingDealListPanel } from "@/components/dashboard/fulfillment/FundingDealListPanel";
 import { FundingClientsPanel } from "@/components/dashboard/fulfillment/FundingClientsPanel";
 import { FundingClientWorkspace } from "@/components/dashboard/fulfillment/FundingClientWorkspace";
-import { FundingQueueView } from "@/components/dashboard/fulfillment/FundingQueueViews";
 import { FundingDealWorkspace } from "@/components/dashboard/fulfillment/FundingDealWorkspace";
-import { EditableSopsAndLoginsView } from "@/components/dashboard/fulfillment/EditableSopsAndLoginsView";
+import { FundingOpsPartnerWorkspace } from "@/components/dashboard/fulfillment/FundingOpsPartnerWorkspace";
+import { FundingDealListPanel } from "@/components/dashboard/fulfillment/FundingDealListPanel";
 import {
   FundingOpsStoreProvider,
+  useFundingOpsStore,
   setFundingStatusChangeHandler,
 } from "@/lib/fulfillment/fundingops-client-store";
 import { FundingDealStoreProvider } from "@/lib/fulfillment/funding-deal-store";
@@ -48,10 +47,8 @@ import {
 } from "@/lib/fulfillment/fundingops-access";
 import {
   FUNDING_OPS_PARTNERS,
-  FUNDING_PARTNER_VIEWS,
   type FundingPartnerViewId,
 } from "@/lib/fulfillment/fundingops-partners";
-import { seedFundingClients } from "@/lib/fulfillment/fundingops-seed";
 import { isActiveFunding } from "@/lib/fulfillment/fundingops-domain";
 import { LayoutDashboard } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -70,6 +67,7 @@ export default function FundingOps() {
 }
 
 function FundingOpsWorkspace() {
+  const { clients } = useFundingOpsStore();
   const { canAccessManagement } = useFundingOpsAccess();
   /* Live partners, so a selected partner's scope id is one the database
      recognises and intake can actually save against (rule 2). */
@@ -109,8 +107,9 @@ function FundingOpsWorkspace() {
       ? partners.find((p) => p.id === selection.partnerId)
       : undefined;
 
+  /* Header count from the store's RLS-scoped rows, not the seed array. */
   const partnerActiveCount = partner
-    ? seedFundingClients.filter(
+    ? clients.filter(
         (c) =>
           (c.organizationId === partner.scopeId ||
             c.outsourcingGroupId === partner.scopeId) &&
@@ -190,7 +189,7 @@ function FundingOpsWorkspace() {
               />
             </div>
           ) : partner ? (
-            <PartnerWorkspace
+            <FundingOpsPartnerWorkspace
               scopeId={partner.scopeId}
               partner={partner}
               activeView={activeView}
@@ -297,91 +296,6 @@ function ManagementView({
   }
 
   return null;
-}
-
-/* ------------------------------------------------------------------ */
-/* Partner workspace (single Partner)                                  */
-/* ------------------------------------------------------------------ */
-
-interface PartnerWorkspaceProps {
-  scopeId: string;
-  partner: (typeof FUNDING_OPS_PARTNERS)[number];
-  activeView: FundingPartnerViewId;
-  onViewChange: (view: FundingPartnerViewId) => void;
-  onOpenClient: (clientId: string) => void;
-  onOpenDeal: (dealId: string) => void;
-}
-
-function PartnerWorkspace({
-  scopeId,
-  partner,
-  activeView,
-  onViewChange,
-  onOpenClient,
-  onOpenDeal,
-}: PartnerWorkspaceProps) {
-  const queueMap: Record<string, string> = {
-    readiness: "readiness-queue",
-    submissions: "submissions-queue",
-    stipulations: "stipulations-queue",
-    offers: "offers-queue",
-    funded: "funded-queue",
-  };
-
-  return (
-    <div className="flex flex-col">
-      {/* ONE workspace navigation row — the views of this Partner */}
-      <div className="sticky top-0 z-10 flex items-center gap-1 overflow-x-auto border-b border-border bg-card px-4">
-        {FUNDING_PARTNER_VIEWS.map((view) => (
-          <button
-            key={view.id}
-            onClick={() => onViewChange(view.id)}
-            className={cn(
-              "whitespace-nowrap border-b-2 px-3.5 py-3 text-xs font-bold transition-all",
-              activeView === view.id
-                ? "border-emerald-600 bg-emerald-500/10 text-status-success"
-                : "border-transparent text-muted-foreground hover:bg-muted/40 hover:text-foreground",
-            )}
-          >
-            {view.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="p-6">
-        {activeView === "dashboard" ? (
-          <FundingOpsDashboardView
-            selectedScope={scopeId}
-            onNavigateToView={(v) => onViewChange(v as FundingPartnerViewId)}
-          />
-        ) : activeView === "sops-logins" ? (
-          <EditableSopsAndLoginsView selectedScope={scopeId} />
-        ) : activeView === "deal-list" ? (
-          <FundingDealListPanel
-            selectedScope={scopeId}
-            onOpenDeal={onOpenDeal}
-          />
-        ) : activeView === "documents" ? (
-          <FundingQueueView
-            queueType="document-queue"
-            selectedScope={scopeId}
-            onOpenClient={onOpenClient}
-          />
-        ) : queueMap[activeView] ? (
-          <FundingQueueView
-            queueType={queueMap[activeView]}
-            selectedScope={scopeId}
-            onOpenClient={onOpenClient}
-          />
-        ) : (
-          <FundingDealListPanel
-            selectedScope={scopeId}
-            onOpenDeal={onOpenDeal}
-          />
-        )}
-      </div>
-    </div>
-  );
 }
 
 /* Keep the status-change handler export referenced so the store's webhook

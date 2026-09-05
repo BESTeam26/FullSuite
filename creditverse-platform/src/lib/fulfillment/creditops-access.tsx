@@ -9,6 +9,9 @@
  */
 
 import { createContext, useContext, useState, type ReactNode } from "react";
+import { useAuth } from "@/lib/auth/auth-context";
+import { useAgency } from "@/lib/agency-context";
+import { resolveCreditOpsRole } from "@/lib/fulfillment/ops-role-resolver";
 
 /* ------------------------------------------------------------------ */
 /* Departments                                                         */
@@ -250,7 +253,9 @@ export type CreditOpsRoleKey =
   | "onboarding"
   | "support"
   | "complaints"
-  | "bureau";
+  | "bureau"
+  /** No CreditOps membership: nothing to log, nothing to manage (deny). */
+  | "none";
 
 export interface CreditOpsRoleDef {
   key: CreditOpsRoleKey;
@@ -337,11 +342,22 @@ export const CREDITOPS_ROLES: Record<CreditOpsRoleKey, CreditOpsRoleDef> = {
     allowedDepartments: ["Bureau Calling"],
     canAccessManagement: false,
   },
+  none: {
+    key: "none",
+    label: "No CreditOps role",
+    shortLabel: "No role",
+    description:
+      "This account has no CreditOps membership for the active organization. Records may be viewed where the database allows; nothing can be logged.",
+    canEditDepartmentProgress: false,
+    allowedDepartments: [],
+    canAccessManagement: false,
+  },
 };
 
-export const CREDITOPS_ROLE_LIST = Object.keys(
-  CREDITOPS_ROLES,
-) as CreditOpsRoleKey[];
+/** Roles a person can hold — "none" is a resolution result, not a choice. */
+export const CREDITOPS_ROLE_LIST = (
+  Object.keys(CREDITOPS_ROLES) as CreditOpsRoleKey[]
+).filter((r) => r !== "none");
 
 /* ------------------------------------------------------------------ */
 /* Context                                                            */
@@ -349,7 +365,10 @@ export const CREDITOPS_ROLE_LIST = Object.keys(
 
 interface CreditOpsAccessValue {
   role: CreditOpsRoleKey;
+  /** Demo mode only: preview another role. A no-op against a live session. */
   setRole: (r: CreditOpsRoleKey) => void;
+  /** True only in demo mode, where the role is not backed by a membership. */
+  canSwitchRole: boolean;
   roleDef: CreditOpsRoleDef;
   canEditDepartmentProgress: boolean;
   canAccessManagement: boolean;
@@ -362,7 +381,23 @@ interface CreditOpsAccessValue {
 const CreditOpsAccessContext = createContext<CreditOpsAccessValue | null>(null);
 
 export function CreditOpsAccessProvider({ children }: { children: ReactNode }) {
-  const [role, setRole] = useState<CreditOpsRoleKey>("admin");
+  /* Live sessions take the role from the real membership rows (agency first,
+     then the active organization). The browser never chooses. Demo mode keeps
+     the switcher so the access model can be shown without a database. */
+  const auth = useAuth();
+  const { activeOrganization } = useAgency();
+  const live = auth.mode === "live";
+  const [previewRole, setPreviewRole] = useState<CreditOpsRoleKey>("admin");
+  const orgRole =
+    auth.orgMemberships.find(
+      (m) => m.organization_id === activeOrganization?.id,
+    )?.role ?? null;
+  const role: CreditOpsRoleKey = live
+    ? resolveCreditOpsRole({
+        agencyRole: auth.agencyMembership?.role ?? null,
+        orgRole,
+      })
+    : previewRole;
   const roleDef = CREDITOPS_ROLES[role];
 
   const allowedWorkItems = WORK_ITEMS.filter((w) =>
@@ -376,7 +411,8 @@ export function CreditOpsAccessProvider({ children }: { children: ReactNode }) {
     <CreditOpsAccessContext.Provider
       value={{
         role,
-        setRole,
+        setRole: live ? () => {} : setPreviewRole,
+        canSwitchRole: !live,
         roleDef,
         canEditDepartmentProgress: roleDef.canEditDepartmentProgress,
         canAccessManagement: roleDef.canAccessManagement,
@@ -390,7 +426,8 @@ export function CreditOpsAccessProvider({ children }: { children: ReactNode }) {
   );
 }
 
-const FALLBACK_ROLE: CreditOpsRoleKey = "admin";
+/* Outside the provider nothing is known about the person: deny (rule 1). */
+const FALLBACK_ROLE: CreditOpsRoleKey = "none";
 
 export function useCreditOpsAccess(): CreditOpsAccessValue {
   const ctx = useContext(CreditOpsAccessContext);
@@ -405,6 +442,7 @@ export function useCreditOpsAccess(): CreditOpsAccessValue {
   return {
     role: FALLBACK_ROLE,
     setRole: () => {},
+    canSwitchRole: false,
     roleDef,
     canEditDepartmentProgress: roleDef.canEditDepartmentProgress,
     canAccessManagement: roleDef.canAccessManagement,

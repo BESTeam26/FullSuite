@@ -15,10 +15,8 @@ import {
   DollarSign,
   ArrowRight,
 } from "lucide-react";
-import {
-  seedFundingClients,
-  seedFundingFiles,
-} from "@/lib/fulfillment/fundingops-seed";
+import { useFundingOpsStore } from "@/lib/fulfillment/fundingops-client-store";
+import { useAllFundingFiles } from "@/lib/data/use-funding";
 import { getFundingPartnerByScope } from "@/lib/fulfillment/fundingops-partners";
 import {
   isActiveFunding,
@@ -28,32 +26,43 @@ import { cn } from "@/lib/utils";
 
 interface Props {
   selectedScope: string;
+  /** Display name of the Company/Partner whose records are in scope. */
+  partnerName?: string;
   onNavigateToView?: (viewId: string) => void;
 }
 
+/**
+ * Every figure derives from the store's client rows and the funding files the
+ * data layer returns for them — the same records the Deal List and queues
+ * show, scoped to `selectedScope`. The seed arrays used to be read directly,
+ * so a live Partner's dashboard described sample clients (rule 12).
+ */
 export function FundingOpsDashboardView({
   selectedScope,
+  partnerName: partnerNameProp,
   onNavigateToView,
 }: Props) {
-  const partner = getFundingPartnerByScope(selectedScope);
-  const partnerName = partner?.name ?? "FundingOps Partner";
+  const store = useFundingOpsStore();
+  const files = useAllFundingFiles();
+  const partnerName =
+    partnerNameProp ??
+    getFundingPartnerByScope(selectedScope)?.name ??
+    "FundingOps Partner";
 
   const scopedClients = useMemo(
     () =>
-      seedFundingClients.filter(
+      store.clients.filter(
         (c) =>
           selectedScope === "all" ||
           c.organizationId === selectedScope ||
           c.outsourcingGroupId === selectedScope,
       ),
-    [selectedScope],
+    [store.clients, selectedScope],
   );
   const scopedFiles = useMemo(
     () =>
-      seedFundingFiles.filter((f) =>
-        scopedClients.some((c) => c.id === f.clientId),
-      ),
-    [scopedClients],
+      files.data.filter((f) => scopedClients.some((c) => c.id === f.clientId)),
+    [files.data, scopedClients],
   );
 
   const activeClients = scopedClients.filter((c) => isActiveFunding(c.status));

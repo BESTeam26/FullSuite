@@ -1425,6 +1425,7 @@ export type Database = {
           address: string | null
           agency_id: string
           branding: Json
+          workspace_views: Json
           code: string
           created_at: string
           id: string
@@ -1441,6 +1442,7 @@ export type Database = {
           address?: string | null
           agency_id: string
           branding?: Json
+          workspace_views?: Json
           code: string
           created_at?: string
           id?: string
@@ -1457,6 +1459,7 @@ export type Database = {
           address?: string | null
           agency_id?: string
           branding?: Json
+          workspace_views?: Json
           code?: string
           created_at?: string
           id?: string
@@ -2030,18 +2033,21 @@ export type Database = {
       }
       user_preferences: {
         Row: {
+          dashboard_cards: Json | null
           pinned_org_ids: string[]
           recent_org_ids: string[]
           updated_at: string
           user_id: string
         }
         Insert: {
+          dashboard_cards?: Json | null
           pinned_org_ids?: string[]
           recent_org_ids?: string[]
           updated_at?: string
           user_id: string
         }
         Update: {
+          dashboard_cards?: Json | null
           pinned_org_ids?: string[]
           recent_org_ids?: string[]
           updated_at?: string
@@ -2882,6 +2888,10 @@ export type Database = {
         Returns: Json
       }
       merge_organization_branding: {
+        Args: { p_org: string; p_patch: Json }
+        Returns: Json
+      }
+      merge_organization_workspace_views: {
         Args: { p_org: string; p_patch: Json }
         Returns: Json
       }

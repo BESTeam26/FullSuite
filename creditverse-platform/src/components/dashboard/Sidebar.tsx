@@ -26,12 +26,16 @@ import {
   LogOut,
   Zap,
   LayoutGrid,
+  PanelLeftClose,
+  PanelLeftOpen,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SubAccountSwitcher } from "@/components/dashboard/SubAccountSwitcher";
 import { useMyWork, useAttention } from "@/lib/data/use-work";
 import { useUnreadNotificationCount } from "@/lib/data/use-notifications";
 import { useAuth } from "@/lib/auth/auth-context";
+import { useSidebarState } from "@/components/dashboard/sidebar-state";
 
 type NavItem = {
   label: string;
@@ -51,11 +55,14 @@ export const Sidebar = () => {
   const { pathname } = useLocation();
   const agencyContext = useAgency();
   const { signOut, mode, displayName } = useAuth();
+  const { collapsed, toggleCollapsed, mobileOpen, setMobileOpen } =
+    useSidebarState();
 
   const viewMode = agencyContext?.viewMode || "agency";
   const subAccounts = agencyContext?.subAccounts || [];
   const isProductOn = agencyContext?.isProductOn || (() => false);
   const activeSubAccount = agencyContext?.activeSubAccount || null;
+  const activeOrganization = agencyContext?.activeOrganization || null;
   /**
    * Badges read the same hooks their pages read.
    *
@@ -76,6 +83,8 @@ export const Sidebar = () => {
 
   const isActive = (href: string) => {
     if (href === "/app") return pathname === "/app";
+    /* An organization's Home is its ID route; nothing nests under it. */
+    if (href.startsWith("/app/org/")) return pathname === href;
     return pathname === href || pathname.startsWith(href + "/");
   };
 
@@ -160,19 +169,24 @@ export const Sidebar = () => {
     },
   ];
 
-  /* Organization navigation — product-aware, only activated modules */
+  /* Organization navigation — product-aware, only activated modules.
+     ONE Home: the organization dashboard at its ID route. CreditOps and
+     FundingOps each expose their real workspace (the same components BES
+     uses, scoped to this organization) and their reports. */
+  const homeHref = activeOrganization?.publicId
+    ? `/app/org/${activeOrganization.publicId}`
+    : "/app";
   const subAccountNavGroups: NavGroup[] = [
     {
       label: activeSubAccount?.name || "Organization",
       items: [
-        { label: "Home", icon: LayoutDashboard, href: "/app" },
+        { label: "Home", icon: LayoutDashboard, href: homeHref },
         {
-          label: "Clients & Leads",
-          icon: Users,
-          href: "/app/clients",
-          show: isProductOn("creditOps") || isProductOn("fundingOps"),
+          label: "My Work",
+          icon: ListTodo,
+          href: "/app/my-work",
+          badge: myWorkCount,
         },
-        { label: "My Work", icon: ListTodo, href: "/app/my-work" },
         {
           label: "Workspaces",
           icon: LayoutGrid,
@@ -185,7 +199,8 @@ export const Sidebar = () => {
       label: "CreditOps",
       show: isProductOn("creditOps"),
       items: [
-        { label: "Operations", icon: FileText, href: "/app/operations" },
+        { label: "Clients", icon: Users, href: "/app/clients" },
+        { label: "Workspace", icon: FileText, href: "/app/operations" },
         { label: "Reports", icon: BarChart3, href: "/app/reporting" },
       ],
     },
@@ -193,12 +208,12 @@ export const Sidebar = () => {
       label: "FundingOps",
       show: isProductOn("fundingOps"),
       items: [
-        { label: "Pipeline", icon: Landmark, href: "/app/metro2" },
+        { label: "Workspace", icon: Landmark, href: "/app/metro2" },
         { label: "Reports", icon: BarChart3, href: "/app/reporting" },
       ],
     },
     {
-      label: "Operations",
+      label: "Production",
       items: [
         { label: "Time Tracking", icon: Clock, href: "/app/my-time" },
         { label: "End of Day", icon: Timer, href: "/app/eod" },
@@ -217,113 +232,188 @@ export const Sidebar = () => {
   const navGroups: NavGroup[] =
     viewMode === "agency" ? agencyNavGroups : subAccountNavGroups;
 
+  /* Rail = collapsed on a large screen. The small-screen drawer is always
+     full width, so a collapsed preference never produces an icon-only drawer. */
+  const rail = collapsed && !mobileOpen;
+
+  const itemClass = (active: boolean) =>
+    cn(
+      "relative flex items-center gap-3 rounded-lg py-2.5 text-sm font-medium transition-colors",
+      rail ? "justify-center px-0" : "px-3",
+      active
+        ? "bg-sidebar-primary text-sidebar-primary-foreground"
+        : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+    );
+
+  const groupHeading = (label: string) =>
+    rail ? (
+      <div className="mx-2 mb-1.5 border-t border-sidebar-border" aria-hidden />
+    ) : (
+      <p className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-sidebar-foreground/70">
+        {label}
+      </p>
+    );
+
   return (
-    <aside
-      data-bes-chrome="dark"
-      className="hidden w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:flex"
-    >
-      <SubAccountSwitcher />
-
-      <nav className="flex-1 overflow-y-auto px-3 py-3">
-        {navGroups.map((group) => {
-          if (group.show === false) return null;
-          const visibleItems = group.items.filter((n) => n.show !== false);
-          if (visibleItems.length === 0) return null;
-          return (
-            <div key={group.label} className="pt-3 first:pt-0">
-              <p className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-sidebar-foreground/70">
-                {group.label}
-              </p>
-              {visibleItems.map((n) => {
-                const active = isActive(n.href);
-                return (
-                  <Link
-                    key={n.href + n.label}
-                    to={n.href}
-                    className={cn(
-                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors relative",
-                      active
-                        ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                        : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                    )}
-                  >
-                    <n.icon className="h-4 w-4 shrink-0" />
-                    <span className="flex-1 truncate">{n.label}</span>
-                    {n.badge !== undefined && n.badge > 0 && (
-                      /* The active item's background IS Empire Gold, so the
-                         amber badge measured 1.24:1 on it — the count was
-                         invisible on exactly the row you were looking at. The
-                         badge inverts on the active row (rule 15). */
-                      <span
-                        className={cn(
-                          "rounded-full border px-2 py-0.5 text-[10px] font-bold",
-                          active
-                            ? "border-sidebar-primary-foreground/30 bg-sidebar-primary-foreground/15 text-sidebar-primary-foreground"
-                            : "border-amber-500/30 bg-amber-500/20 text-amber-400",
-                        )}
-                      >
-                        {n.badge}
-                      </span>
-                    )}
-                  </Link>
-                );
-              })}
-            </div>
-          );
-        })}
-
-        <div className="pt-4">
-          <p className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-sidebar-foreground/70">
-            Portals & Apps
-          </p>
-          <Link
-            to="/affiliate"
-            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-          >
-            <UserCheck className="h-4 w-4" />
-            Partner Referral Portal
-          </Link>
-          <Link
-            to="/outsourcing"
-            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-          >
-            <Briefcase className="h-4 w-4" />
-            Outsourcing Portal
-          </Link>
-          <Link
-            to="/diy"
-            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-          >
-            <Zap className="h-4 w-4 text-amber-400" />
-            BES DIY Credit
-          </Link>
-        </div>
-      </nav>
-
-      <div className="border-t border-sidebar-border p-3">
-        <div className="space-y-1">
-          <div className="px-3 pb-1 text-[11px] text-sidebar-foreground/70 truncate">
-            {displayName}
-            {mode === "demo" ? " · demo session" : ""}
-          </div>
-          {mode === "live" ? (
+    <>
+      {mobileOpen && (
+        <button
+          type="button"
+          aria-label="Close menu"
+          onClick={() => setMobileOpen(false)}
+          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+        />
+      )}
+      <aside
+        data-bes-chrome="dark"
+        aria-label="Main menu"
+        className={cn(
+          "shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-200",
+          mobileOpen
+            ? "fixed inset-y-0 left-0 z-50 flex w-64 shadow-xl lg:static lg:z-auto lg:shadow-none"
+            : "hidden lg:flex",
+          rail ? "lg:w-16" : "lg:w-64",
+        )}
+      >
+        {mobileOpen && (
+          <div className="flex items-center justify-end px-3 pt-3 lg:hidden">
             <button
               type="button"
-              onClick={() => void signOut()}
-              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-sidebar-foreground/70 hover:bg-sidebar-accent w-full"
+              onClick={() => setMobileOpen(false)}
+              aria-label="Close menu"
+              className="rounded-lg p-2 text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
             >
-              <LogOut className="h-4 w-4" /> Sign out
+              <X className="h-4 w-4" />
             </button>
-          ) : (
+          </div>
+        )}
+        {!rail && <SubAccountSwitcher />}
+
+        <nav className={cn("flex-1 overflow-y-auto py-3", rail ? "px-2" : "px-3")}>
+          {navGroups.map((group, index) => {
+            if (group.show === false) return null;
+            const visibleItems = group.items.filter((n) => n.show !== false);
+            if (visibleItems.length === 0) return null;
+            /* Keyed by position: the first group is titled with the
+               organization's name, which is "Organization" until it loads and
+               would then collide with the real "Organization" group. */
+            return (
+              <div key={index} className="pt-3 first:pt-0">
+                {groupHeading(group.label)}
+                {visibleItems.map((n) => {
+                  const active = isActive(n.href);
+                  return (
+                    <Link
+                      key={n.href + n.label}
+                      to={n.href}
+                      title={rail ? n.label : undefined}
+                      aria-label={rail ? n.label : undefined}
+                      className={itemClass(active)}
+                    >
+                      <n.icon className="h-4 w-4 shrink-0" />
+                      {!rail && <span className="flex-1 truncate">{n.label}</span>}
+                      {n.badge !== undefined && n.badge > 0 && (
+                        /* The active item's background IS Empire Gold, so the
+                           amber badge measured 1.24:1 on it — the count was
+                           invisible on exactly the row you were looking at. The
+                           badge inverts on the active row (rule 15). In the rail
+                           it sits on the icon's corner so the count survives. */
+                        <span
+                          className={cn(
+                            "rounded-full border font-bold",
+                            rail
+                              ? "absolute right-0.5 top-0.5 px-1 text-[9px] leading-4"
+                              : "px-2 py-0.5 text-[10px]",
+                            active
+                              ? "border-sidebar-primary-foreground/30 bg-sidebar-primary-foreground/15 text-sidebar-primary-foreground"
+                              : "border-amber-500/30 bg-amber-500/20 text-amber-400",
+                          )}
+                        >
+                          {n.badge}
+                        </span>
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            );
+          })}
+
+          <div className="pt-4">
+            {groupHeading("Portals & Apps")}
             <Link
-              to="/"
-              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-sidebar-foreground/70 hover:bg-sidebar-accent"
+              to="/affiliate"
+              title={rail ? "Partner Referral Portal" : undefined}
+              className={itemClass(false)}
             >
-              <LogOut className="h-4 w-4" /> Back to marketing site
+              <UserCheck className="h-4 w-4 shrink-0" />
+              {!rail && "Partner Referral Portal"}
             </Link>
-          )}
+            <Link
+              to="/outsourcing"
+              title={rail ? "Outsourcing Portal" : undefined}
+              className={itemClass(false)}
+            >
+              <Briefcase className="h-4 w-4 shrink-0" />
+              {!rail && "Outsourcing Portal"}
+            </Link>
+            <Link
+              to="/diy"
+              title={rail ? "BES DIY Credit" : undefined}
+              className={itemClass(false)}
+            >
+              <Zap className="h-4 w-4 shrink-0 text-amber-400" />
+              {!rail && "BES DIY Credit"}
+            </Link>
+          </div>
+        </nav>
+
+        <div className={cn("border-t border-sidebar-border", rail ? "p-2" : "p-3")}>
+          <div className="space-y-1">
+            {!rail && (
+              <div className="truncate px-3 pb-1 text-[11px] text-sidebar-foreground/70">
+                {displayName}
+                {mode === "demo" ? " · demo session" : ""}
+              </div>
+            )}
+            {mode === "live" ? (
+              <button
+                type="button"
+                onClick={() => void signOut()}
+                title={rail ? "Sign out" : undefined}
+                className={cn(itemClass(false), "w-full")}
+              >
+                <LogOut className="h-4 w-4 shrink-0" />
+                {!rail && "Sign out"}
+              </button>
+            ) : (
+              <Link
+                to="/"
+                title={rail ? "Back to marketing site" : undefined}
+                className={itemClass(false)}
+              >
+                <LogOut className="h-4 w-4 shrink-0" />
+                {!rail && "Back to marketing site"}
+              </Link>
+            )}
+            <button
+              type="button"
+              onClick={toggleCollapsed}
+              aria-label={collapsed ? "Expand menu" : "Collapse menu"}
+              aria-pressed={collapsed}
+              title={collapsed ? "Expand menu" : "Collapse menu"}
+              className={cn(itemClass(false), "hidden w-full lg:flex")}
+            >
+              {collapsed ? (
+                <PanelLeftOpen className="h-4 w-4 shrink-0" />
+              ) : (
+                <PanelLeftClose className="h-4 w-4 shrink-0" />
+              )}
+              {!rail && "Collapse menu"}
+            </button>
+          </div>
         </div>
-      </div>
-    </aside>
+      </aside>
+    </>
   );
 };

@@ -19,6 +19,7 @@ import {
   ScrollText,
   SlidersHorizontal,
   AlertTriangle,
+  LayoutGrid,
 } from "lucide-react";
 import {
   AgencySettingsProvider,
@@ -57,6 +58,8 @@ import {
   SystemControlsSection,
   DangerZoneSection,
 } from "@/components/settings/sections/PlatformSections";
+import { WorkspaceViewsSection } from "@/components/settings/sections/OrganizationSections";
+import { useAgency } from "@/lib/agency-context";
 
 const groups: SettingsGroup[] = [
   {
@@ -110,10 +113,22 @@ const groups: SettingsGroup[] = [
   },
 ];
 
+/* Organization view: the organization's own settings. Agency configuration is
+   not offered here — an organization user must not see BES's controls. */
+const organizationGroups: SettingsGroup[] = [
+  {
+    label: "Organization",
+    items: [{ key: "workspace-views", label: "Workspace views", icon: LayoutGrid }],
+  },
+];
+
 const SettingsContent = () => {
-  const [active, setActive] = useState("branding");
+  const { viewMode, activeOrganization } = useAgency();
+  const isOrganizationView = viewMode === "subaccount";
+  const [active, setActive] = useState(isOrganizationView ? "workspace-views" : "branding");
 
   const render = () => {
+    if (isOrganizationView) return <WorkspaceViewsSection />;
     switch (active) {
       case "branding":
         return <AgencyBrandingSection />;
@@ -170,7 +185,21 @@ const SettingsContent = () => {
 
   return (
     <div className="p-6 md:p-8">
-      <AgencySettingsShell groups={groups} active={active} onSelect={setActive}>
+      <AgencySettingsShell
+        groups={isOrganizationView ? organizationGroups : groups}
+        active={active}
+        onSelect={setActive}
+        {...(isOrganizationView
+          ? {
+              eyebrow: activeOrganization?.publicId
+                ? `Organization ID ${activeOrganization.publicId}`
+                : "Organization",
+              title: `${activeOrganization?.name ?? "Organization"} Settings`,
+              description:
+                "Settings for this organization only. Changes here apply to everyone in it.",
+            }
+          : {})}
+      >
         {render()}
       </AgencySettingsShell>
       {/* No page-level "Save changes": it only flipped a flag. Sections that

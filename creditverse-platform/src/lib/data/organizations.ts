@@ -4,6 +4,7 @@
  * All reads go through RLS: agency staff see every org, org members see their
  * own, external users see orgs they hold a membership in.
  */
+import type { WorkspaceViewSettings } from "@/lib/fulfillment/workspace-views";
 import { format, parseISO } from "date-fns";
 import { requireSupabase } from "@/lib/supabase/client";
 import type { Enums, Json, Tables } from "@/lib/supabase/database.types";
@@ -58,6 +59,11 @@ type Branding = NonNullable<Organization["branding"]>;
 const asBranding = (j: Json): Branding =>
   j && typeof j === "object" && !Array.isArray(j) ? (j as Branding) : {};
 
+const asWorkspaceViews = (j: Json): WorkspaceViewSettings =>
+  j && typeof j === "object" && !Array.isArray(j)
+    ? (j as WorkspaceViewSettings)
+    : {};
+
 const fmtDate = (d: string) => {
   try {
     return format(parseISO(d), "MMM d, yyyy");
@@ -106,6 +112,7 @@ export function mapOrgRow(row: OrgRow, pinnedIds: Set<string>): Organization {
     orgUsers,
     externalUsers,
     branding: asBranding(row.branding),
+    workspaceViews: asWorkspaceViews(row.workspace_views),
     isPinned: pinnedIds.has(row.id),
   };
 }
@@ -113,6 +120,22 @@ export function mapOrgRow(row: OrgRow, pinnedIds: Set<string>): Organization {
 /* ------------------------------------------------------------------ */
 /* Reads                                                               */
 /* ------------------------------------------------------------------ */
+
+/**
+ * Save the person's Home layout. One column, whole value, no read-modify-write:
+ * the list IS the setting, so replacing it cannot lose another field's edit.
+ * `null` restores the default layout.
+ */
+export async function updateDashboardCards(
+  userId: string,
+  cards: string[] | null,
+): Promise<void> {
+  const sb = requireSupabase();
+  const { error } = await sb
+    .from("user_preferences")
+    .upsert({ user_id: userId, dashboard_cards: cards as Json }, { onConflict: "user_id" });
+  if (error) throw error;
+}
 
 export async function fetchUserPreferences(userId: string) {
   const sb = requireSupabase();
@@ -127,6 +150,7 @@ export async function fetchUserPreferences(userId: string) {
       user_id: userId,
       pinned_org_ids: [],
       recent_org_ids: [],
+      dashboard_cards: null,
       updated_at: "",
     }
   );
@@ -244,6 +268,24 @@ export async function updateOrganizationBranding(
   });
   if (error) throw error;
   return asBranding(data);
+}
+
+/**
+ * Hide or show workspace views for an organization. The database function
+ * checks authorization (agency manager or organization owner/admin), rejects
+ * hiding the dashboard or the record list, merges, and writes the audit row.
+ */
+export async function updateOrganizationWorkspaceViews(
+  id: string,
+  patch: Partial<WorkspaceViewSettings>,
+): Promise<WorkspaceViewSettings> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("merge_organization_workspace_views", {
+    p_org: id,
+    p_patch: patch as Json,
+  });
+  if (error) throw error;
+  return asWorkspaceViews(data);
 }
 
 export async function setEntitlement(

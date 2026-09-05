@@ -12,11 +12,18 @@ export const AgencySettingsShell = ({
   active,
   onSelect,
   children,
+  eyebrow = "BES HQ · Platform Control Center",
+  title = "Agency Settings",
+  description = "Manage the entire SaaS — branding, Organizations, products, people, operations, billing, integrations, security, and system controls.",
 }: {
   groups: SettingsGroup[];
   active: string;
   onSelect: (key: string) => void;
   children: ReactNode;
+  /** Header copy. Defaults describe the agency; the organization view passes its own. */
+  eyebrow?: string;
+  title?: string;
+  description?: string;
 }) => {
   const [query, setQuery] = useState("");
   const q = query.toLowerCase();
@@ -25,16 +32,11 @@ export const AgencySettingsShell = ({
     <div className="mx-auto max-w-7xl">
       {/* Header */}
       <div className="border-b border-border/60 pb-5">
-        <span className="text-xs font-medium text-muted-foreground">
-          BES HQ · Platform Control Center
-        </span>
+        <span className="text-xs font-medium text-muted-foreground">{eyebrow}</span>
         <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-foreground md:text-3xl">
-          Agency Settings
+          {title}
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          Manage the entire SaaS — branding, Organizations, products, people,
-          operations, billing, integrations, security, and system controls.
-        </p>
+        <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
       </div>
 
       <div className="mt-6 flex flex-col gap-6 lg:flex-row">

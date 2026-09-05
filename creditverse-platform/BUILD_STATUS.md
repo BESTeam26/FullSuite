@@ -2345,3 +2345,82 @@ the public form can list plans.
 **Verified:** typecheck clean, 246 tests, 0 lint errors, build, no circular
 deps, verify-live (trial and domain tables denied to anon), migrations 48/48.
 RLS matrix: 256/256 (phase ≤ 13; rerun after the harness capture fix).
+
+
+## Organization workspace parity · one Home · real roles · view toggles · DONE (migrations 0044–0046)
+
+**Organization pages mount the real workspaces.** `/app/operations` and
+`/app/metro2` for an organization now render the SAME CreditOps and FundingOps
+Partner workspaces the agency uses (`CreditOpsPartnerWorkspace`,
+`FundingOpsPartnerWorkspace`, extracted from the division pages), scoped to the
+active organization's own rows. Same components, same canonical records, no
+copies; RLS decides what each side receives. The former sample-data screens
+(`Operations.tsx`, `Metro2.tsx`, hard-coded work ids and invented KPIs) are
+parked in `src/_archive/pages/`. `partnerForOrganization` is the single
+mapping from an organization to the Partner shape, reused by the agency tree.
+
+**Roles come from membership, not browser state.** `CreditOpsAccessProvider`
+and `FundingOpsAccessProvider` resolved to `"admin"` by default with a header
+switcher. In a live session the role is now resolved once from
+`agency_memberships.role` / `org_memberships.role` (active organization) by
+`lib/fulfillment/ops-role-resolver.ts` (unit-tested; "none" = deny). The
+switcher exists only in demo mode. Outside a provider the fallback is "none".
+The database was always the enforcement; the surface stops over-promising.
+
+**Completion by author.** An organization member's Complete Work writes a
+`Work completed` activity (department, actions, notes) plus the status change —
+never BES production (rule 16). BES staff path unchanged.
+
+**Partner dashboards read the store.** `CreditOpsDashboardView` and
+`FundingOpsDashboardView` computed from the seed arrays with invented floors
+(`|| 5`, hard-coded `5`s), so a live Partner's overview described sample
+clients. Both now derive every figure from the store's RLS-scoped rows (and
+department statuses / funding files), with the Status Guide as the one status
+vocabulary. Division page header counts likewise.
+
+**One Home, sidebar restructure, collapse.** Organization view: Home (the ID
+route) · My Work · Workspaces; CREDITOPS: Clients · Workspace · Reports;
+FUNDINGOPS: Workspace · Reports; PRODUCTION; ORGANIZATION. The main menu
+collapses to an icon rail on large screens (preference remembered per browser)
+and becomes a drawer on small screens (Topbar button; closes on navigation).
+Browser-verified on the two-organization fixture: rail 64px / expanded 256px,
+drawer opens fixed and closes on navigation.
+
+**Workspace views are organization data (0045).** `organizations.workspace_views`
+jsonb, written only through `merge_organization_workspace_views` (SECURITY
+DEFINER; organization owner/admin or BES manager; refuses to hide the dashboard
+or the record list; refuses unknown products and malformed patches; audited).
+Interpreted by `lib/fulfillment/workspace-views.ts` (unit-tested). Settings in
+organization view shows only the organization's own settings — "Workspace
+views" with real switches — instead of the agency control center.
+
+**Found by the browser, fixed (0044):** every sign-in's membership batch got a
+500 on `team_memberships`: the 0027 SELECT policy read its own table
+(`exists (select 1 from team_memberships me …)`) → 42P17 infinite recursion,
+confirmed live as the two-organization fixture. Replaced by the SECURITY DEFINER
+helper `is_member_of_team`, same question, no recursion. Re-probed: the read
+succeeds.
+
+**Probed (phase 14, 15 checks):** rosters read without recursion; owner/admin
+and BES manager may hide a queue; organization manager, agent, another
+organization's owner and a BES agent may not; dashboard / record list / unknown
+product / malformed patch refused; members read the setting; a person saves
+only their own Home layout.
+
+**Verified:** typecheck clean, tests 258, 0 lint errors, build, migrations
+51/51, verify-live. RLS matrix: 271/271 (phase ≤ 14).
+
+**One Home, personalizable (0046).** The organization Home shows cards per
+enabled module — work (open, mine, overdue), workspaces, CreditOps (active, in
+processing, awaiting response, attention), FundingOps (active, funded,
+overdue) — each linking into its module and each computed from the SAME
+queries the module workspaces use (identical query keys, so Home then
+Workspace costs one request). "Customize Home" lets the person show/hide and
+reorder cards; the layout is saved to `user_preferences.dashboard_cards`
+(whole list, one column, no read-modify-write; null = default). Unknown or
+unentitled keys are dropped on resolve (`lib/dashboard/home-cards.ts`,
+unit-tested).
+
+**Not done (recorded):** per-user column widths; the Clients page for
+organizations still reads the labelled sample seed; Reports links point at the
+existing reporting page pending the Reporting milestone.
