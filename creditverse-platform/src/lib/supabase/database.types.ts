@@ -371,6 +371,145 @@ export type Database = {
           },
         ]
       }
+      credit_reports: {
+        Row: {
+          bureaus: string[]
+          consumer_user_id: string | null
+          created_at: string
+          file_id: string | null
+          fulfillment_client_id: string | null
+          id: string
+          imported_by: string
+          organization_id: string | null
+          outsourcing_group_id: string | null
+          parser_version: string
+          pulled_at: string
+          source: string
+        }
+        Insert: {
+          bureaus: string[]
+          consumer_user_id?: string | null
+          created_at?: string
+          file_id?: string | null
+          fulfillment_client_id?: string | null
+          id?: string
+          imported_by: string
+          organization_id?: string | null
+          outsourcing_group_id?: string | null
+          parser_version: string
+          pulled_at: string
+          source: string
+        }
+        Update: {
+          bureaus?: string[]
+          consumer_user_id?: string | null
+          created_at?: string
+          file_id?: string | null
+          fulfillment_client_id?: string | null
+          id?: string
+          imported_by?: string
+          organization_id?: string | null
+          outsourcing_group_id?: string | null
+          parser_version?: string
+          pulled_at?: string
+          source?: string
+        }
+        Relationships: []
+      }
+      report_items: {
+        Row: {
+          account_ref: string
+          balance_cents: number | null
+          balance_text: string | null
+          bureaus: string[]
+          dofd: string | null
+          id: string
+          kind: string
+          linked_creditor: string | null
+          name: string
+          open_date: string | null
+          position: number
+          raw: Json | null
+          remarks: string | null
+          report_id: string
+          status: string
+          subtype: string | null
+        }
+        Insert: {
+          account_ref: string
+          balance_cents?: number | null
+          balance_text?: string | null
+          bureaus: string[]
+          dofd?: string | null
+          id?: string
+          kind: string
+          linked_creditor?: string | null
+          name: string
+          open_date?: string | null
+          position: number
+          raw?: Json | null
+          remarks?: string | null
+          report_id: string
+          status: string
+          subtype?: string | null
+        }
+        Update: {
+          account_ref?: string
+          balance_cents?: number | null
+          balance_text?: string | null
+          bureaus?: string[]
+          dofd?: string | null
+          id?: string
+          kind?: string
+          linked_creditor?: string | null
+          name?: string
+          open_date?: string | null
+          position?: number
+          raw?: Json | null
+          remarks?: string | null
+          report_id?: string
+          status?: string
+          subtype?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_items_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "credit_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      report_scores: {
+        Row: {
+          bureau: string
+          model: string
+          report_id: string
+          score: number
+        }
+        Insert: {
+          bureau: string
+          model: string
+          report_id: string
+          score: number
+        }
+        Update: {
+          bureau?: string
+          model?: string
+          report_id?: string
+          score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_scores_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "credit_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       departments: {
         Row: {
           agency_id: string
@@ -1417,6 +1556,53 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "plans"
             referencedColumns: ["key"]
+          },
+        ]
+      }
+      organization_role_access: {
+        Row: {
+          can_access_management: boolean
+          can_edit_progress: boolean
+          can_log_work: boolean
+          departments: string[]
+          organization_id: string
+          product: Database["public"]["Enums"]["product_key"]
+          role: Database["public"]["Enums"]["org_role"]
+          updated_at: string
+          updated_by: string | null
+          views: string[]
+        }
+        Insert: {
+          can_access_management?: boolean
+          can_edit_progress?: boolean
+          can_log_work?: boolean
+          departments?: string[]
+          organization_id: string
+          product: Database["public"]["Enums"]["product_key"]
+          role: Database["public"]["Enums"]["org_role"]
+          updated_at?: string
+          updated_by?: string | null
+          views?: string[]
+        }
+        Update: {
+          can_access_management?: boolean
+          can_edit_progress?: boolean
+          can_log_work?: boolean
+          departments?: string[]
+          organization_id?: string
+          product?: Database["public"]["Enums"]["product_key"]
+          role?: Database["public"]["Enums"]["org_role"]
+          updated_at?: string
+          updated_by?: string | null
+          views?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_role_access_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -2894,6 +3080,64 @@ export type Database = {
       merge_organization_workspace_views: {
         Args: { p_org: string; p_patch: Json }
         Returns: Json
+      }
+      create_credit_report: {
+        Args: {
+          p_org: string | null
+          p_group: string | null
+          p_client: string | null
+          p_consumer: string | null
+          p_bureaus: string[]
+          p_pulled_at: string
+          p_source: string
+          p_file: string | null
+          p_parser_version: string
+          p_items: Json
+          p_scores: Json
+        }
+        Returns: string
+      }
+      credit_report_visible: {
+        Args: { p_client: string | null; p_consumer: string | null; p_org: string | null }
+        Returns: boolean
+      }
+      default_role_access: {
+        Args: {
+          p_role: Database["public"]["Enums"]["org_role"]
+          p_product: Database["public"]["Enums"]["product_key"]
+        }
+        Returns: {
+          departments: string[]
+          views: string[]
+          can_log_work: boolean
+          can_edit_progress: boolean
+          can_access_management: boolean
+        }[]
+      }
+      workspace_view_ids: {
+        Args: { p_product: Database["public"]["Enums"]["product_key"] }
+        Returns: string[]
+      }
+      set_organization_role_access: {
+        Args: {
+          p_org: string
+          p_role: Database["public"]["Enums"]["org_role"]
+          p_product: Database["public"]["Enums"]["product_key"]
+          p_departments: string[]
+          p_views: string[]
+          p_can_log_work: boolean
+          p_can_edit_progress: boolean
+          p_can_access_management: boolean
+        }
+        Returns: Json
+      }
+      reset_organization_role_access: {
+        Args: {
+          p_org: string
+          p_role: Database["public"]["Enums"]["org_role"]
+          p_product: Database["public"]["Enums"]["product_key"]
+        }
+        Returns: undefined
       }
       my_org_ids: { Args: never; Returns: string[] }
       normalize_business_name: { Args: { p: string }; Returns: string }

@@ -12,7 +12,10 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useAgency } from "@/lib/agency-context";
-import { resolveFundingOpsRole } from "@/lib/fulfillment/ops-role-resolver";
+import { resolveFundingOpsRole, resolveOpsAccess } from "@/lib/fulfillment/ops-role-resolver";
+import { useOrganizationRoleAccess } from "@/lib/data/use-role-access";
+import { roleAccessKey } from "@/lib/data/role-access";
+import { ORG_ROLE_LABELS } from "@/lib/fulfillment/role-access-defaults";
 
 /* ------------------------------------------------------------------ */
 /* Funding stages (replace CreditOps departments)                      */
@@ -291,6 +294,10 @@ interface FundingOpsAccessValue {
   /** True only in demo mode, where the role is not backed by a membership. */
   canSwitchRole: boolean;
   roleDef: FundingOpsRoleDef;
+  /** False = read access to the allowed stages; work logging is not offered. */
+  canLogWork: boolean;
+  /** Workspace view ids this role may see; empty = every view the organization shows. */
+  allowedViews: string[];
   canEditStageProgress: boolean;
   canAccessManagement: boolean;
   allowedStages: FundingStage[];
@@ -308,30 +315,61 @@ export function FundingOpsAccessProvider({
 }: {
   children: ReactNode;
 }) {
-  /* Same rule as CreditOps: live sessions resolve the role from membership
-     rows; only demo mode may preview a role. */
+  /* Same rule as CreditOps: live sessions resolve access from membership rows
+     plus the organization's configured role access; only demo mode may
+     preview a role. */
   const auth = useAuth();
   const { activeOrganization } = useAgency();
   const live = auth.mode === "live";
   const [previewRole, setPreviewRole] = useState<FundingOpsRoleKey>("admin");
+  const agencyRole = auth.agencyMembership?.role ?? null;
   const orgRole =
     auth.orgMemberships.find(
       (m) => m.organization_id === activeOrganization?.id,
     )?.role ?? null;
+  const configuredRows = useOrganizationRoleAccess(
+    live && !agencyRole && orgRole ? (activeOrganization?.id ?? null) : null,
+  );
+  const configured = orgRole
+    ? (configuredRows.rows[roleAccessKey(orgRole, "fundingOps")] ?? null)
+    : null;
+
   const role: FundingOpsRoleKey = live
-    ? resolveFundingOpsRole({
-        agencyRole: auth.agencyMembership?.role ?? null,
-        orgRole,
-      })
+    ? resolveFundingOpsRole({ agencyRole, orgRole })
     : previewRole;
-  const roleDef = FUNDINGOPS_ROLES[role];
+  const preview = FUNDINGOPS_ROLES[previewRole];
+  const access = live
+    ? resolveOpsAccess({ agencyRole, orgRole, product: "fundingOps", configured })
+    : {
+        departments: preview.allowedStages,
+        views: [],
+        canLogWork: preview.allowedStages.length > 0,
+        canEditProgress: preview.canEditStageProgress,
+        canAccessManagement: preview.canAccessManagement,
+      };
+  const allowedStages = access.departments.filter((d): d is FundingStage =>
+    (ALL_STAGES as string[]).includes(d),
+  );
+  const roleDef: FundingOpsRoleDef = live
+    ? {
+        key: role,
+        label: orgRole && !agencyRole ? ORG_ROLE_LABELS[orgRole] : FUNDINGOPS_ROLES[role].label,
+        shortLabel: orgRole && !agencyRole ? ORG_ROLE_LABELS[orgRole] : FUNDINGOPS_ROLES[role].shortLabel,
+        description: configured
+          ? "Access configured by your organization (Settings → Roles & access)."
+          : FUNDINGOPS_ROLES[role].description,
+        canEditStageProgress: access.canEditProgress,
+        allowedStages,
+        canAccessManagement: access.canAccessManagement,
+      }
+    : preview;
 
   const allowedWorkItems = WORK_ITEMS.filter((w) =>
-    roleDef.allowedStages.includes(w.stage),
+    allowedStages.includes(w.stage),
   );
 
   const canLogStage = (stage: FundingStage) =>
-    roleDef.allowedStages.includes(stage);
+    access.canLogWork && allowedStages.includes(stage);
 
   return (
     <FundingOpsAccessContext.Provider
@@ -340,9 +378,11 @@ export function FundingOpsAccessProvider({
         setRole: live ? () => {} : setPreviewRole,
         canSwitchRole: !live,
         roleDef,
+        canLogWork: access.canLogWork,
+        allowedViews: access.views,
         canEditStageProgress: roleDef.canEditStageProgress,
         canAccessManagement: roleDef.canAccessManagement,
-        allowedStages: roleDef.allowedStages,
+        allowedStages,
         allowedWorkItems,
         canLogStage,
       }}
@@ -369,6 +409,8 @@ export function useFundingOpsAccess(): FundingOpsAccessValue {
     setRole: () => {},
     canSwitchRole: false,
     roleDef,
+    canLogWork: false,
+    allowedViews: [],
     canEditStageProgress: roleDef.canEditStageProgress,
     canAccessManagement: roleDef.canAccessManagement,
     allowedStages: roleDef.allowedStages,

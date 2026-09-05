@@ -104,8 +104,23 @@ export function CompleteWorkSection({
     [activeDept],
   );
 
-  const isAdmin = access.role === "admin";
+  const isAdmin = access.canEditDepartmentProgress && access.canAccessManagement;
   const statusOptions = isAdmin ? ADMIN_STATUSES : PROCESSOR_STATUSES;
+
+  /* Read-only roles (for example QA by default) see the work, never a form
+     that the database — and the organization's configuration — would refuse. */
+  if (!access.canLogWork || workingDepts.length === 0) {
+    return (
+      <section className="rounded-xl border border-border bg-card p-4">
+        <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
+          <CheckCircle2 className="h-4 w-4 text-muted-foreground" /> Complete Work
+        </h3>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Your role has read access here. Work on this client is recorded by the roles your organization has authorized to log it.
+        </p>
+      </section>
+    );
+  }
 
   const toggleItem = (id: string) => {
     setSelectedItems((prev) =>

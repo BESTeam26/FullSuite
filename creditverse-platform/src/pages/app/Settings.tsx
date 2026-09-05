@@ -59,6 +59,7 @@ import {
   DangerZoneSection,
 } from "@/components/settings/sections/PlatformSections";
 import { WorkspaceViewsSection } from "@/components/settings/sections/OrganizationSections";
+import { RoleAccessSection } from "@/components/settings/sections/RoleAccessSection";
 import { useAgency } from "@/lib/agency-context";
 
 const groups: SettingsGroup[] = [
@@ -118,7 +119,10 @@ const groups: SettingsGroup[] = [
 const organizationGroups: SettingsGroup[] = [
   {
     label: "Organization",
-    items: [{ key: "workspace-views", label: "Workspace views", icon: LayoutGrid }],
+    items: [
+      { key: "workspace-views", label: "Workspace views", icon: LayoutGrid },
+      { key: "role-access", label: "Roles & access", icon: ShieldCheck },
+    ],
   },
 ];
 
@@ -128,7 +132,7 @@ const SettingsContent = () => {
   const [active, setActive] = useState(isOrganizationView ? "workspace-views" : "branding");
 
   const render = () => {
-    if (isOrganizationView) return <WorkspaceViewsSection />;
+    if (isOrganizationView) return active === "role-access" ? <RoleAccessSection /> : <WorkspaceViewsSection />;
     switch (active) {
       case "branding":
         return <AgencyBrandingSection />;

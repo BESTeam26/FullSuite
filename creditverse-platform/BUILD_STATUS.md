@@ -2439,3 +2439,48 @@ lists; a server-side search function is the next step for large organizations
 it); agency-return controls render only for BES staff. `BrandLogo` resolves the
 logo from branding data (organization → agency → `/bes-logo.png` → text mark);
 no third-party image URL remains in code.
+
+
+## Configurable organization role access · DONE (migration 0047)
+
+```
+Product Entitlement → Organization Settings → Role/Permission → Team/Department → Assignment → Individual User
+```
+
+**The Permission layer is data.** `organization_role_access` — one row per
+(organization, role, product): departments (work or read), workspace views
+(empty = every view the organization shows), can log work, can edit progress,
+management layer. No row = platform default (`default_role_access()` in SQL,
+`role-access-defaults.ts` in the interface; the matrix asserts a sample
+agrees). Written only through `set_organization_role_access` /
+`reset_organization_role_access` (SECURITY DEFINER, audited): organization
+owner/admin or BES manager; only a product the organization is entitled to;
+only departments in `production_departments` and views in the catalogue; a
+role must belong to the product; `org_admin` / `org_manager` can never be
+narrowed. Read by the organization's members and BES managers.
+
+**No existing policy changed.** Row visibility stays
+`entitlement → membership → scope → assignment → record`; a role row only
+narrows what the interface offers on rows the person already sees. BES staff
+run under BES's own rules, never an organization's configuration.
+
+**Interface.** `resolveOpsAccess` (agency rules → configured row → default →
+none) feeds both access providers; Complete Work is read-only when the role
+cannot log; the organization workspace offers the organization's views ∩ the
+role's views (dashboard always). Settings → Roles & access: a card per role
+per entitled product with department and view checkboxes, three switches,
+"Default"/"Configured" badge, Save and Reset — every control a real write.
+Browser-verified: Credit Processor + Support → Configured; Reset → Default.
+
+**Probed (phase 15, 14 checks):** owner/admin and BES manager may set; manager,
+agent, another organization's owner, BES agent may not; unentitled product,
+unknown department, unknown view, wrong-product role, narrowing `org_admin`
+refused; members read their organization's rows only; reset deletes; SQL
+defaults match the documented sample.
+
+**Verified:** typecheck clean, 261 tests, 0 lint errors, migrations 52/52,
+verify-live. RLS matrix: 285/285 (phase ≤ 15).
+
+**Recorded, not built:** a database trigger that also refuses an organization
+author's "Work completed" activity for a department outside their resolved
+access (today the interface enforces it; RLS still bounds the rows).

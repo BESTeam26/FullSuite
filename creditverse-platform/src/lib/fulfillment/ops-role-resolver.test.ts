@@ -28,3 +28,28 @@ describe("ops role resolver", () => {
     expect(resolveFundingOpsRole({ agencyRole: "agency_manager", orgRole: null })).toBe("admin");
   });
 });
+
+import { resolveOpsAccess } from "./ops-role-resolver";
+import { defaultRoleAccess } from "./role-access-defaults";
+
+describe("resolved access (configurable layer)", () => {
+  it("uses the organization's configured row over the default", () => {
+    const configured = { departments: ["Support"], views: ["dashboard", "support-queue"], canLogWork: true, canEditProgress: false, canAccessManagement: false };
+    expect(resolveOpsAccess({ agencyRole: null, orgRole: "credit_processor", product: "creditOps", configured })).toEqual(configured);
+    expect(resolveOpsAccess({ agencyRole: null, orgRole: "credit_processor", product: "creditOps", configured: null }).departments).toEqual(["Dispute"]);
+  });
+
+  it("defaults mirror the database: QA reads, processor disputes, admin full", () => {
+    expect(defaultRoleAccess("credit_qa", "creditOps").canLogWork).toBe(false);
+    expect(defaultRoleAccess("credit_qa", "creditOps").departments).toHaveLength(5);
+    expect(defaultRoleAccess("org_admin", "creditOps").canAccessManagement).toBe(true);
+    expect(defaultRoleAccess("funding_underwriter", "fundingOps").departments).toEqual(["Readiness Review", "Lender Matching"]);
+    expect(defaultRoleAccess("funding_processor", "creditOps").departments).toEqual([]);
+  });
+
+  it("BES staff are never shaped by an organization's configuration", () => {
+    const configured = { departments: [], views: [], canLogWork: false, canEditProgress: false, canAccessManagement: false };
+    expect(resolveOpsAccess({ agencyRole: "agency_agent", orgRole: "credit_qa", product: "creditOps", configured }).canLogWork).toBe(true);
+    expect(resolveOpsAccess({ agencyRole: null, orgRole: null, product: "fundingOps", configured: null }).departments).toEqual([]);
+  });
+});

@@ -239,3 +239,14 @@ used to route.
 | `organizations.workspace_views` | readable with the organization row (presentation only); never an authorization input | plain jsonb column, default `{}` |
 | `merge_organization_workspace_views(org, patch)` | `is_manager_of(agency)` OR `is_org_owner_admin(org)`; only `creditOps` / `fundingOps`; `hidden` must be a string array; `dashboard`, `main-list`, `deal-list` cannot be hidden | SECURITY DEFINER with explicit checks, raises 42501 / 22023, audits `organization.workspace_views_updated` |
 | interface role (CreditOps / FundingOps) | derived from `agency_memberships.role`, else `org_memberships.role` for the active organization; no membership → "none" | `ops-role-resolver.ts`; demo mode alone may preview a role; the database still enforces every write |
+
+
+### 0047 — Configurable organization role access
+
+| Object | Rule | How |
+|---|---|---|
+| `organization_role_access` (select) | members of the organization, or a BES manager | policy `organization_role_access_select`; no insert/update/delete policies — the functions are the only writers |
+| `set_organization_role_access(...)` | `is_manager_of(agency)` OR `is_org_owner_admin(org)`; `org_entitled(org, product)`; product ∈ {creditOps, fundingOps}; role belongs to the product; departments ⊆ `production_departments(service)`; views ⊆ `workspace_view_ids(product)`; `org_admin`/`org_manager` refused | SECURITY DEFINER, raises 42501 / 22023, audits `organization.role_access_updated` |
+| `reset_organization_role_access(...)` | same authorization | deletes the row, audits `organization.role_access_reset` |
+| `default_role_access(role, product)` | the platform defaults; pure | mirrored by `role-access-defaults.ts` |
+| interface access (CreditOps / FundingOps) | agency role rules → organization's configured row → platform default → none | `resolveOpsAccess`; narrows the offer only; RLS unchanged |

@@ -11,7 +11,10 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useAgency } from "@/lib/agency-context";
-import { resolveCreditOpsRole } from "@/lib/fulfillment/ops-role-resolver";
+import { resolveCreditOpsRole, resolveOpsAccess } from "@/lib/fulfillment/ops-role-resolver";
+import { useOrganizationRoleAccess } from "@/lib/data/use-role-access";
+import { roleAccessKey } from "@/lib/data/role-access";
+import { ORG_ROLE_LABELS } from "@/lib/fulfillment/role-access-defaults";
 
 /* ------------------------------------------------------------------ */
 /* Departments                                                         */
@@ -370,6 +373,10 @@ interface CreditOpsAccessValue {
   /** True only in demo mode, where the role is not backed by a membership. */
   canSwitchRole: boolean;
   roleDef: CreditOpsRoleDef;
+  /** False = read access to the allowed departments; Complete Work is not offered. */
+  canLogWork: boolean;
+  /** Workspace view ids this role may see; empty = every view the organization shows. */
+  allowedViews: string[];
   canEditDepartmentProgress: boolean;
   canAccessManagement: boolean;
   allowedDepartments: CreditOpsDepartment[];
@@ -381,31 +388,64 @@ interface CreditOpsAccessValue {
 const CreditOpsAccessContext = createContext<CreditOpsAccessValue | null>(null);
 
 export function CreditOpsAccessProvider({ children }: { children: ReactNode }) {
-  /* Live sessions take the role from the real membership rows (agency first,
-     then the active organization). The browser never chooses. Demo mode keeps
-     the switcher so the access model can be shown without a database. */
+  /* Live sessions resolve access from the real membership rows — agency
+     first, then the active organization — and, for organization members, the
+     organization's own configured role access (Settings → Roles & access),
+     falling back to the platform defaults. The browser never chooses. Demo
+     mode keeps the switcher so the access model can be shown without a
+     database. */
   const auth = useAuth();
   const { activeOrganization } = useAgency();
   const live = auth.mode === "live";
   const [previewRole, setPreviewRole] = useState<CreditOpsRoleKey>("admin");
+  const agencyRole = auth.agencyMembership?.role ?? null;
   const orgRole =
     auth.orgMemberships.find(
       (m) => m.organization_id === activeOrganization?.id,
     )?.role ?? null;
+  const configuredRows = useOrganizationRoleAccess(
+    live && !agencyRole && orgRole ? (activeOrganization?.id ?? null) : null,
+  );
+  const configured = orgRole
+    ? (configuredRows.rows[roleAccessKey(orgRole, "creditOps")] ?? null)
+    : null;
+
   const role: CreditOpsRoleKey = live
-    ? resolveCreditOpsRole({
-        agencyRole: auth.agencyMembership?.role ?? null,
-        orgRole,
-      })
+    ? resolveCreditOpsRole({ agencyRole, orgRole })
     : previewRole;
-  const roleDef = CREDITOPS_ROLES[role];
+  const preview = CREDITOPS_ROLES[previewRole];
+  const access = live
+    ? resolveOpsAccess({ agencyRole, orgRole, product: "creditOps", configured })
+    : {
+        departments: preview.allowedDepartments,
+        views: [],
+        canLogWork: preview.allowedDepartments.length > 0,
+        canEditProgress: preview.canEditDepartmentProgress,
+        canAccessManagement: preview.canAccessManagement,
+      };
+  const allowedDepartments = access.departments.filter((d): d is CreditOpsDepartment =>
+    (ALL_DEPARTMENTS as string[]).includes(d),
+  );
+  const roleDef: CreditOpsRoleDef = live
+    ? {
+        key: role,
+        label: orgRole && !agencyRole ? ORG_ROLE_LABELS[orgRole] : CREDITOPS_ROLES[role].label,
+        shortLabel: orgRole && !agencyRole ? ORG_ROLE_LABELS[orgRole] : CREDITOPS_ROLES[role].shortLabel,
+        description: configured
+          ? "Access configured by your organization (Settings → Roles & access)."
+          : CREDITOPS_ROLES[role].description,
+        canEditDepartmentProgress: access.canEditProgress,
+        allowedDepartments,
+        canAccessManagement: access.canAccessManagement,
+      }
+    : preview;
 
   const allowedWorkItems = WORK_ITEMS.filter((w) =>
-    roleDef.allowedDepartments.includes(w.department),
+    allowedDepartments.includes(w.department),
   );
 
   const canLogDepartment = (dept: CreditOpsDepartment) =>
-    roleDef.allowedDepartments.includes(dept);
+    access.canLogWork && allowedDepartments.includes(dept);
 
   return (
     <CreditOpsAccessContext.Provider
@@ -414,9 +454,11 @@ export function CreditOpsAccessProvider({ children }: { children: ReactNode }) {
         setRole: live ? () => {} : setPreviewRole,
         canSwitchRole: !live,
         roleDef,
+        canLogWork: access.canLogWork,
+        allowedViews: access.views,
         canEditDepartmentProgress: roleDef.canEditDepartmentProgress,
         canAccessManagement: roleDef.canAccessManagement,
-        allowedDepartments: roleDef.allowedDepartments,
+        allowedDepartments,
         allowedWorkItems,
         canLogDepartment,
       }}
@@ -444,6 +486,8 @@ export function useCreditOpsAccess(): CreditOpsAccessValue {
     setRole: () => {},
     canSwitchRole: false,
     roleDef,
+    canLogWork: false,
+    allowedViews: [],
     canEditDepartmentProgress: roleDef.canEditDepartmentProgress,
     canAccessManagement: roleDef.canAccessManagement,
     allowedDepartments: roleDef.allowedDepartments,

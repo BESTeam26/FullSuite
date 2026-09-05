@@ -13,7 +13,7 @@ import { useFulfillment } from "@/lib/data/use-fulfillment";
 import { partnerForOrganization } from "@/lib/data/partners";
 import { FundingOpsStoreProvider } from "@/lib/fulfillment/fundingops-client-store";
 import { FundingDealStoreProvider } from "@/lib/fulfillment/funding-deal-store";
-import { FundingOpsAccessProvider } from "@/lib/fulfillment/fundingops-access";
+import { FundingOpsAccessProvider, useFundingOpsAccess } from "@/lib/fulfillment/fundingops-access";
 import type { FundingPartnerViewId } from "@/lib/fulfillment/fundingops-partners";
 import { visibleFundingOpsViews } from "@/lib/fulfillment/workspace-views";
 import { FundingOpsHeader } from "@/components/dashboard/fulfillment/FundingOpsHeader";
@@ -42,6 +42,7 @@ export default function OrganizationFundingOps() {
 function OrganizationFundingOpsWorkspace() {
   const { activeOrganization } = useAgency();
   const fulfillment = useFulfillment();
+  const access = useFundingOpsAccess();
   const [selection, setSelection] = useState<Selection>({ kind: "company" });
   const [activeView, setActiveView] =
     useState<FundingPartnerViewId>("dashboard");
@@ -60,7 +61,10 @@ function OrganizationFundingOpsWorkspace() {
     activeOrganization,
     fulfillment.engagements,
   );
-  const views = visibleFundingOpsViews(activeOrganization.workspaceViews);
+  const organizationViews = visibleFundingOpsViews(activeOrganization.workspaceViews);
+  const views = access.allowedViews.length
+    ? organizationViews.filter((v) => v === "dashboard" || access.allowedViews.includes(v))
+    : organizationViews;
   const currentView = views.includes(activeView) ? activeView : "dashboard";
   const backToCompany = () => setSelection({ kind: "company" });
   const openClient = (clientId: string) =>

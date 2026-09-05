@@ -682,5 +682,90 @@ if (PHASE >= 14) {
   }
 }
 
+/* Phase 15 — configurable organization role access (0047). Writes only via
+   the functions; owner/admin or BES manager; only entitled products, known
+   departments and views, product-matching roles; org_admin/org_manager can
+   never be narrowed. Rows readable by the organization's members only. No
+   existing policy changed — every earlier phase must stay green. */
+if (PHASE >= 15) {
+  const probe15 = (uid, sql) => {
+    try {
+      return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows;
+    } catch (e) {
+      const text = String(e.message) + "\n" + String(e.stdout ?? "");
+      const m = text.match(/ERROR:\s*(\w+):/);
+      return "ERR " + (m ? m[1] : "unknown");
+    }
+  };
+  const setRA = (uid, role, product, depts, views, extra = "true, false, false") =>
+    probe15(uid, `select (public.set_organization_role_access('${lakesideOrg}', '${role}', '${product}', ${depts}, ${views}, ${extra}) ->> 'departments') as rows`);
+  const lakesideRole = (uid) => q(`select coalesce((select role::text from public.org_memberships where user_id='${uid}' and organization_id='${lakesideOrg}'), 'none') as rows`)[0].rows;
+  const agencyMgr = (uid) => q(`select exists (select 1 from public.agency_memberships where user_id='${uid}' and role in ('agency_owner','agency_admin','agency_manager')) as rows`)[0].rows === true;
+  const may = (uid) => lakesideRole(uid) === "org_admin" || agencyMgr(uid);
+  const creditEntitled = q(`select public.org_entitled('${lakesideOrg}', 'creditOps') as rows`)[0].rows === true;
+  const fundingEntitled = q(`select public.org_entitled('${lakesideOrg}', 'fundingOps') as rows`)[0].rows === true;
+  const OK = '["Support"]';
+  const want = (uid, okValue) => (may(uid) ? (creditEntitled ? okValue : "ERR 42501") : "ERR 42501");
+  const P15 = [
+    ["owner/admin gives Credit Processor the Support department",   () => setRA(U["org.owner@bes.test"], "credit_processor", "creditOps", "array['Support']", "'{}'::text[]"), want(U["org.owner@bes.test"], OK)],
+    ["organization manager may not",                                 () => setRA(U["org.manager@bes.test"], "credit_processor", "creditOps", "array['Support']", "'{}'::text[]"), want(U["org.manager@bes.test"], OK)],
+    ["organization agent may not",                                   () => setRA(U["org.agent@bes.test"], "credit_processor", "creditOps", "array['Support']", "'{}'::text[]"), "ERR 42501"],
+    ["another organization's owner may not",                         () => setRA(U["org2.owner@bes.test"], "credit_processor", "creditOps", "array['Support']", "'{}'::text[]"), "ERR 42501"],
+    ["BES manager may",                                              () => setRA(U["bes.manager@bes.test"], "credit_processor", "creditOps", "array['Support']", "'{}'::text[]"), creditEntitled ? OK : "ERR 42501"],
+    ["BES agent may not",                                            () => setRA(U["bes.credit@bes.test"], "credit_processor", "creditOps", "array['Support']", "'{}'::text[]"), "ERR 42501"],
+    ["a product the organization lacks is refused (or allowed only if entitled)", () => setRA(U["org.owner@bes.test"], "funding_processor", "fundingOps", "array['Submissions']", "'{}'::text[]"), may(U["org.owner@bes.test"]) ? (fundingEntitled ? '["Submissions"]' : "ERR 42501") : "ERR 42501"],
+    ["an unknown department is refused",                             () => setRA(U["bes.manager@bes.test"], "credit_processor", "creditOps", "array['Underwriting']", "'{}'::text[]"), creditEntitled ? "ERR 22023" : "ERR 42501"],
+    ["an unknown view is refused",                                   () => setRA(U["bes.manager@bes.test"], "credit_processor", "creditOps", "array['Dispute']", "array['nope']"), creditEntitled ? "ERR 22023" : "ERR 42501"],
+    ["a funding role cannot be configured under CreditOps",          () => setRA(U["bes.manager@bes.test"], "funding_processor", "creditOps", "array['Dispute']", "'{}'::text[]"), creditEntitled ? "ERR 22023" : "ERR 42501"],
+    ["org_admin can never be narrowed",                              () => setRA(U["bes.manager@bes.test"], "org_admin", "creditOps", "array['Dispute']", "'{}'::text[]"), creditEntitled ? "ERR 22023" : "ERR 42501"],
+    ["members read their organization's rows; another organization's member does not", () => probe15(U["bes.manager@bes.test"], `select public.set_organization_role_access('${lakesideOrg}', 'credit_processor', 'creditOps', array['Support'], '{}'::text[], true, false, false); set local request.jwt.claims = '{"sub":"${U["org.agent@bes.test"]}","role":"authenticated"}'; select (select count(*)::int from public.organization_role_access where organization_id='${lakesideOrg}')::text || ':' || (select count(*)::int from public.organization_role_access r where not public.is_org_member(r.organization_id))::text as rows`), creditEntitled ? "1:0" : "ERR 42501"],
+    ["reset deletes the row",                                        () => probe15(U["bes.manager@bes.test"], `select public.set_organization_role_access('${lakesideOrg}', 'credit_processor', 'creditOps', array['Support'], '{}'::text[], true, false, false); select public.reset_organization_role_access('${lakesideOrg}', 'credit_processor', 'creditOps'); select count(*)::int as rows from public.organization_role_access where organization_id='${lakesideOrg}'`), creditEntitled ? 0 : "ERR 42501"],
+    ["platform defaults: processor → Dispute, QA reads everything, admin full", () => q(`select (select departments::text from public.default_role_access('credit_processor','creditOps')) || '|' || (select can_log_work::text from public.default_role_access('credit_qa','creditOps')) || '|' || (select can_access_management::text from public.default_role_access('org_admin','creditOps')) as rows`)[0].rows, "{Dispute}|false|true"],
+  ];
+  console.log("\nphase 15:");
+  for (const [label, fn, want] of P15) {
+    checks++;
+    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
+    const ok = got === want; if (!ok) fails++;
+    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
+  }
+}
+
+/* Phase 16 — canonical credit reports (0048). A report is visible exactly to
+   whoever sees its client; only they can import; imports are append-only.
+   Every write probe runs inside a rolled-back transaction. */
+if (PHASE >= 16) {
+  const probe16 = (uid, sql) => {
+    try {
+      return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows;
+    } catch (e) {
+      const text = String(e.message) + "\n" + String(e.stdout ?? "");
+      const m = text.match(/ERROR:\s*(\w+):/);
+      return "ERR " + (m ? m[1] : "unknown");
+    }
+  };
+  const ITEMS = `'[{"kind":"Account","name":"Probe Bank","status":"Open","bureaus":["EQ","EX"],"balance_text":"$100","balance_cents":10000,"account_ref":"probe bank"}]'::jsonb`;
+  const SCORES = `'[{"bureau":"EQ","model":"FICO 8","score":701}]'::jsonb`;
+  const importFor = (uid) => probe16(uid, `select (public.create_credit_report('${lakesideOrg}', null, '${T.lakeside_client}', null, array['EQ','EX'], current_date, 'manual_upload', null, 'probe-1', ${ITEMS}, ${SCORES}) is not null)::text as rows`);
+  const canSeeLakesideClient = (uid) => probe16(uid, `select count(*)::int as rows from public.fulfillment_clients where id='${T.lakeside_client}'`) === 1;
+  const P16 = [
+    ["organization owner imports a report for their client",         () => importFor(U["org.owner@bes.test"]), canSeeLakesideClient(U["org.owner@bes.test"]) ? "true" : "ERR 42501"],
+    ["another organization's owner cannot",                          () => importFor(U["org2.owner@bes.test"]), "ERR 42501"],
+    ["BES staff import only when the engagement and scope allow",    () => importFor(U["bes.credit@bes.test"]), canSeeLakesideClient(U["bes.credit@bes.test"]) ? "true" : "ERR 42501"],
+    ["a report with no items is refused",                            () => probe16(U["org.owner@bes.test"], `select public.create_credit_report('${lakesideOrg}', null, '${T.lakeside_client}', null, array['EQ'], current_date, 'manual_upload', null, 'probe-1', '[]'::jsonb, null)::text as rows`), canSeeLakesideClient(U["org.owner@bes.test"]) ? "ERR 22023" : "ERR 42501"],
+    ["items and scores travel with the report; visible to the client's organization", () => probe16(U["org.owner@bes.test"], `select public.create_credit_report('${lakesideOrg}', null, '${T.lakeside_client}', null, array['EQ','EX'], current_date, 'manual_upload', null, 'probe-1', ${ITEMS}, ${SCORES}); select (select count(*) from public.report_items i join public.credit_reports r on r.id=i.report_id where r.fulfillment_client_id='${T.lakeside_client}')::text || ':' || (select count(*) from public.report_scores s join public.credit_reports r on r.id=s.report_id where r.fulfillment_client_id='${T.lakeside_client}')::text as rows`), canSeeLakesideClient(U["org.owner@bes.test"]) ? "1:1" : "ERR 42501"],
+    ["…and invisible to another organization",                       () => probe16(U["org.owner@bes.test"], `select public.create_credit_report('${lakesideOrg}', null, '${T.lakeside_client}', null, array['EQ'], current_date, 'manual_upload', null, 'probe-1', ${ITEMS}, null); set local request.jwt.claims = '{"sub":"${U["org2.owner@bes.test"]}","role":"authenticated"}'; select count(*)::int as rows from public.credit_reports where fulfillment_client_id='${T.lakeside_client}'`), canSeeLakesideClient(U["org.owner@bes.test"]) ? 0 : "ERR 42501"],
+    ["reports are append-only: no update policy",                    () => probe16(U["org.owner@bes.test"], `select public.create_credit_report('${lakesideOrg}', null, '${T.lakeside_client}', null, array['EQ'], current_date, 'manual_upload', null, 'probe-1', ${ITEMS}, null); update public.credit_reports set parser_version='x' where fulfillment_client_id='${T.lakeside_client}'; select count(*)::int as rows from public.credit_reports where parser_version='x'`), canSeeLakesideClient(U["org.owner@bes.test"]) ? "ERR 42501" : "ERR 42501"],
+    ["a consumer imports and sees only their own report",             () => probe16(U["org.agent@bes.test"], `select public.create_credit_report('${lakesideOrg}', null, null, '${U["org.agent@bes.test"]}', array['TU'], current_date, 'manual_upload', null, 'probe-1', ${ITEMS}, null); set local request.jwt.claims = '{"sub":"${U["org2.owner@bes.test"]}","role":"authenticated"}'; select count(*)::int as rows from public.credit_reports where consumer_user_id='${U["org.agent@bes.test"]}'`), 0],
+  ];
+  console.log("\nphase 16:");
+  for (const [label, fn, want] of P16) {
+    checks++;
+    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
+    const ok = got === want; if (!ok) fails++;
+    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
+  }
+}
+
 console.log(`\n${checks - fails}/${checks} checks passed (phase ≤ ${PHASE})`);
 process.exit(fails ? 1 : 0);

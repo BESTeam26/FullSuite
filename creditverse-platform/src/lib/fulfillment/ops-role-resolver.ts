@@ -15,6 +15,13 @@
  */
 import type { Enums } from "@/lib/supabase/database.types";
 import type { CreditOpsRoleKey } from "@/lib/fulfillment/creditops-access";
+import {
+  agencyRoleAccess,
+  defaultRoleAccess,
+  NO_ACCESS,
+  type OpsProduct,
+  type RoleAccess,
+} from "@/lib/fulfillment/role-access-defaults";
 import type { FundingOpsRoleKey } from "@/lib/fulfillment/fundingops-access";
 
 export type AgencyRoleKey = Enums<"agency_role">;
@@ -99,4 +106,23 @@ export function resolveFundingOpsRole(input: RoleResolutionInput): FundingOpsRol
   if (input.agencyRole) return AGENCY_TO_FUNDINGOPS[input.agencyRole];
   if (input.orgRole) return ORG_TO_FUNDINGOPS[input.orgRole];
   return "none";
+}
+
+/**
+ * The resolved access for a person in a product — the one answer the
+ * providers consume.
+ *
+ *   BES staff        → BES's own rules for their agency role
+ *   organization user → the organization's configured row for (role, product),
+ *                       else the platform default
+ *   no membership    → nothing
+ */
+export function resolveOpsAccess(input: RoleResolutionInput & {
+  product: OpsProduct;
+  /** The organization's configured row for this role/product, if any. */
+  configured: RoleAccess | null;
+}): RoleAccess {
+  if (input.agencyRole) return agencyRoleAccess(input.agencyRole, input.product);
+  if (input.orgRole) return input.configured ?? defaultRoleAccess(input.orgRole, input.product);
+  return NO_ACCESS;
 }

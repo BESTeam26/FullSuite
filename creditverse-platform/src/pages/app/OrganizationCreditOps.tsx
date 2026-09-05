@@ -14,7 +14,7 @@ import { useAgency } from "@/lib/agency-context";
 import { useFulfillment } from "@/lib/data/use-fulfillment";
 import { partnerForOrganization } from "@/lib/data/partners";
 import { CreditOpsStoreProvider } from "@/lib/fulfillment/creditops-client-store";
-import { CreditOpsAccessProvider } from "@/lib/fulfillment/creditops-access";
+import { CreditOpsAccessProvider, useCreditOpsAccess } from "@/lib/fulfillment/creditops-access";
 import type { PartnerViewId } from "@/lib/fulfillment/creditops-partners";
 import { visibleCreditOpsViews } from "@/lib/fulfillment/workspace-views";
 import { CreditOpsHeader } from "@/components/dashboard/fulfillment/CreditOpsHeader";
@@ -35,6 +35,7 @@ export default function OrganizationCreditOps() {
 function OrganizationCreditOpsWorkspace() {
   const { activeOrganization } = useAgency();
   const fulfillment = useFulfillment();
+  const access = useCreditOpsAccess();
   const [activeView, setActiveView] = useState<PartnerViewId>("dashboard");
   const [isStatusGuideOpen, setIsStatusGuideOpen] = useState(false);
   /* Deep link from search / notifications: ?client=<id> opens the Main Client
@@ -60,7 +61,12 @@ function OrganizationCreditOpsWorkspace() {
   /* The organization decides which views its people see (Settings →
      Workspace views). A hidden view that is somehow active falls back to the
      dashboard rather than rendering an unlisted tab. */
-  const views = visibleCreditOpsViews(activeOrganization.workspaceViews);
+  const organizationViews = visibleCreditOpsViews(activeOrganization.workspaceViews);
+  /* Then the role's own view list (Settings → Roles & access), if configured;
+     the dashboard always survives so the page is never empty. */
+  const views = access.allowedViews.length
+    ? organizationViews.filter((v) => v === "dashboard" || access.allowedViews.includes(v))
+    : organizationViews;
   const currentView = views.includes(activeView) ? activeView : "dashboard";
 
   return (
