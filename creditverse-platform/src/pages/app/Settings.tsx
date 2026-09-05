@@ -21,6 +21,7 @@ import {
   AlertTriangle,
   LayoutGrid,
   BarChart3,
+  Sparkles,
 } from "lucide-react";
 import {
   AgencySettingsProvider,
@@ -63,6 +64,7 @@ import { WorkspaceViewsSection } from "@/components/settings/sections/Organizati
 import { RoleAccessSection } from "@/components/settings/sections/RoleAccessSection";
 import { OrganizationTeamsSection, TeamMembersSection } from "@/components/settings/sections/TeamMembersSection";
 import { KpiSettingsSection } from "@/components/settings/sections/KpiSettingsSection";
+import { AiUsageSection } from "@/components/settings/sections/AiUsageSection";
 import { LetterLibrarySection } from "@/components/settings/sections/LetterLibrarySection";
 import { useAgency } from "@/lib/agency-context";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -82,6 +84,7 @@ const groups: SettingsGroup[] = [
       { key: "users", label: "Agency Users", icon: Users },
       { key: "org-teams", label: "Organization Teams", icon: Users },
       { key: "kpi-catalogue", label: "KPI Catalogue", icon: BarChart3 },
+      { key: "ai-credits", label: "AI Credits", icon: Sparkles },
       { key: "permissions", label: "Roles & Permissions", icon: ShieldCheck },
       { key: "structure", label: "Divisions / Teams", icon: Network },
     ],
@@ -132,6 +135,7 @@ const organizationGroups: SettingsGroup[] = [
       { key: "workspace-views", label: "Workspace views", icon: LayoutGrid },
       { key: "letters", label: "Letter Library", icon: FileText },
       { key: "kpis", label: "KPIs", icon: BarChart3 },
+      { key: "ai-usage", label: "AI usage", icon: Sparkles },
     ],
   },
 ];
@@ -147,6 +151,7 @@ const SettingsContent = () => {
     if (isOrganizationView) {
       if (active === "role-access") return <RoleAccessSection />;
       if (active === "workspace-views") return <WorkspaceViewsSection />;
+      if (active === "ai-usage") return activeOrganization ? <AiUsageSection organizationId={activeOrganization.id} canEdit={canEditKpis} /> : null;
       if (active === "kpis") return activeOrganization ? <KpiSettingsSection organizationId={activeOrganization.id} canEdit={canEditKpis} /> : null;
       if (active === "letters") return activeOrganization ? <LetterLibrarySection organizationId={activeOrganization.id} /> : null;
       return activeOrganization ? <TeamMembersSection organizationId={activeOrganization.id} organizationName={activeOrganization.name} /> : null;
@@ -156,6 +161,8 @@ const SettingsContent = () => {
         return <OrganizationTeamsSection />;
       case "kpi-catalogue":
         return <KpiSettingsSection organizationId={null} canEdit={false} />;
+      case "ai-credits":
+        return activeOrganization ? <AiUsageSection organizationId={activeOrganization.id} canEdit /> : <p className="text-xs text-muted-foreground">Open an organization (Organizations → select) to see and grant its AI credits.</p>;
       case "branding":
         return <AgencyBrandingSection />;
       case "subaccounts":

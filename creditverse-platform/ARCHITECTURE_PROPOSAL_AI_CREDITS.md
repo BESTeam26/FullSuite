@@ -1,6 +1,6 @@
 # Proposal — BES AI Credits (access vs. consumption)
 
-**Status: proposal (2026-09-04). Nothing built.** Rule from Dee: AI usage is
+**Status: built 2026-09-05 (0070 tables and functions, Settings › AI usage, HQ › AI Credits, ai-gateway Edge Function with ai_record_usage() metering; first actions: letter wording help, Program Fit explanation). Deploy of the gateway waits for the Anthropic key; automatic recharge waits for the payment connection.** Rule from Dee: AI usage is
 token/credit-based across all eligible plans; no tier includes unlimited AI;
 AI access (entitlement) and AI consumption (metered) are different things;
 prepaid, rechargeable; customers see BES AI Credits, BES meters real tokens

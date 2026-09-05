@@ -3367,8 +3367,7 @@ it is (overdue · due this week · due later · no due date, donut). The
 customizable card layout, the open-work table and the module links are
 unchanged; nothing new is fetched.
 
-**0070 — BES AI Credits (drafted 2026-09-05; applies after the phase-28 run
-and commit).** Per `ARCHITECTURE_PROPOSAL_AI_CREDITS.md`: `ai_features`,
+**0070 — BES AI Credits (2026-09-05).** Per `ARCHITECTURE_PROPOSAL_AI_CREDITS.md`: `ai_features`,
 effective-dated `ai_pricing_policy` (provider cost × markup × credits per
 USD), `ai_usage_events` (gateway-only writes), `ai_credit_ledger`
 (balance = sum), `ai_recharge_settings`; `ai_credit_balance()`,
@@ -3378,7 +3377,7 @@ rounded up to the cent. Interface staged: Settings › AI usage (balance, used
 this month by feature, ledger, auto-recharge) and BES HQ › AI Credits (same
 plus provider cost, margin and Grant credits). The gateway Edge Function
 waits for the Anthropic API key; until then AI features are paused at zero
-balance by design. Matrix phase 29 written (12 probes): MATRIX_P29.
+balance by design. Matrix phase 29 written (11 probes); full run 416/416 (phase ≤ 29).
 Edge Functions written, not yet deployed (they wait for secrets):
 `supabase/functions/ai-gateway` — the only path from the browser to a model
 provider: verifies the session, asks `ai_can_use()` as the caller, calls the
@@ -3405,3 +3404,9 @@ Second AI-assisted action: **Explain this fit (AI)** under each Program Fit
 match (`AiExplainFit`): the model receives only the engine's per-criterion
 results and reasons and puts them into two or three plain sentences — no
 odds, no ranking, no "pre-approval", nothing invented about lender policy.
+0070 applied and verified live (5 features, 3 functions, `ai_usage_events`
+grants SELECT only for the API role; ledger 78/78; types regenerated).
+Browser: Settings › AI usage on Cedar Financial renders balance (0, "AI
+features paused"), monthly use, auto-recharge, and — for BES staff — provider
+cost and the Grant credits form. No ledger row was written in verification;
+the matrix probes exercise grants and roll back.

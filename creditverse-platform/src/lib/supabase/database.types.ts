@@ -184,6 +184,240 @@ export type Database = {
           },
         ]
       }
+      ai_credit_ledger: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          delta_credits: number
+          id: string
+          kind: string
+          organization_id: string
+          reference: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          delta_credits: number
+          id?: string
+          kind: string
+          organization_id: string
+          reference?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          delta_credits?: number
+          id?: string
+          kind?: string
+          organization_id?: string
+          reference?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_credit_ledger_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_credit_ledger_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_features: {
+        Row: {
+          active: boolean
+          key: string
+          label: string
+          min_plan: string | null
+          product: Database["public"]["Enums"]["product_key"] | null
+          sort: number
+        }
+        Insert: {
+          active?: boolean
+          key: string
+          label: string
+          min_plan?: string | null
+          product?: Database["public"]["Enums"]["product_key"] | null
+          sort?: number
+        }
+        Update: {
+          active?: boolean
+          key?: string
+          label?: string
+          min_plan?: string | null
+          product?: Database["public"]["Enums"]["product_key"] | null
+          sort?: number
+        }
+        Relationships: []
+      }
+      ai_pricing_policy: {
+        Row: {
+          cached_cost_per_million: number
+          created_at: string
+          created_by: string | null
+          credits_per_usd: number
+          effective_from: string
+          effective_until: string | null
+          id: string
+          input_cost_per_million: number
+          markup_multiplier: number
+          model: string
+          output_cost_per_million: number
+        }
+        Insert: {
+          cached_cost_per_million?: number
+          created_at?: string
+          created_by?: string | null
+          credits_per_usd?: number
+          effective_from?: string
+          effective_until?: string | null
+          id?: string
+          input_cost_per_million: number
+          markup_multiplier?: number
+          model: string
+          output_cost_per_million: number
+        }
+        Update: {
+          cached_cost_per_million?: number
+          created_at?: string
+          created_by?: string | null
+          credits_per_usd?: number
+          effective_from?: string
+          effective_until?: string | null
+          id?: string
+          input_cost_per_million?: number
+          markup_multiplier?: number
+          model?: string
+          output_cost_per_million?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_pricing_policy_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_recharge_settings: {
+        Row: {
+          enabled: boolean
+          organization_id: string
+          pack_usd: number
+          threshold: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          enabled?: boolean
+          organization_id: string
+          pack_usd?: number
+          threshold?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          enabled?: boolean
+          organization_id?: string
+          pack_usd?: number
+          threshold?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_recharge_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_recharge_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_usage_events: {
+        Row: {
+          cached_tokens: number
+          created_at: string
+          credits_charged: number
+          feature_key: string
+          id: string
+          input_tokens: number
+          model: string
+          organization_id: string
+          output_tokens: number
+          product: Database["public"]["Enums"]["product_key"] | null
+          provider_cost_cents: number
+          request_id: string
+          user_id: string | null
+        }
+        Insert: {
+          cached_tokens?: number
+          created_at?: string
+          credits_charged?: number
+          feature_key: string
+          id?: string
+          input_tokens?: number
+          model: string
+          organization_id: string
+          output_tokens?: number
+          product?: Database["public"]["Enums"]["product_key"] | null
+          provider_cost_cents?: number
+          request_id: string
+          user_id?: string | null
+        }
+        Update: {
+          cached_tokens?: number
+          created_at?: string
+          credits_charged?: number
+          feature_key?: string
+          id?: string
+          input_tokens?: number
+          model?: string
+          organization_id?: string
+          output_tokens?: number
+          product?: Database["public"]["Enums"]["product_key"] | null
+          provider_cost_cents?: number
+          request_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_usage_events_feature_key_fkey"
+            columns: ["feature_key"]
+            isOneToOne: false
+            referencedRelation: "ai_features"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "ai_usage_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_usage_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_log: {
         Row: {
           action: string
@@ -5654,6 +5888,29 @@ export type Database = {
         Returns: undefined
       }
       agency_of_org: { Args: { p_org: string }; Returns: string }
+      ai_can_use: {
+        Args: { p_feature: string; p_org: string }
+        Returns: boolean
+      }
+      ai_credit_balance: { Args: { p_org: string }; Returns: number }
+      ai_record_usage: {
+        Args: {
+          p_cached: number
+          p_feature: string
+          p_input: number
+          p_model: string
+          p_org: string
+          p_output: number
+          p_product?: Database["public"]["Enums"]["product_key"]
+          p_request_id: string
+          p_user: string
+        }
+        Returns: {
+          balance: number
+          credits_charged: number
+          provider_cost_cents: number
+        }[]
+      }
       approve_dispute_letter: { Args: { p_letter: string }; Returns: undefined }
       as_uuid: { Args: { p: string }; Returns: string }
       assignable_profiles: {
@@ -5832,6 +6089,15 @@ export type Database = {
       }
       gen_org_public_id: { Args: never; Returns: string }
       gen_public_code: { Args: { p_prefix: string }; Returns: string }
+      grant_ai_credits: {
+        Args: {
+          p_credits: number
+          p_kind: string
+          p_org: string
+          p_reference?: string
+        }
+        Returns: string
+      }
       handoff_to_creditops: {
         Args: { p_existing_client?: string; p_funding_client: string }
         Returns: string
