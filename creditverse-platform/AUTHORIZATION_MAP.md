@@ -250,3 +250,13 @@ used to route.
 | `reset_organization_role_access(...)` | same authorization | deletes the row, audits `organization.role_access_reset` |
 | `default_role_access(role, product)` | the platform defaults; pure | mirrored by `role-access-defaults.ts` |
 | interface access (CreditOps / FundingOps) | agency role rules → organization's configured row → platform default → none | `resolveOpsAccess`; narrows the offer only; RLS unchanged |
+
+
+### 0048 — Canonical credit reports
+
+| Object | Rule | How |
+|---|---|---|
+| `credit_reports` (select/insert) | visible iff the subject is: `entity_visible('fulfillment_client', id)` for a fulfillment client (SECURITY INVOKER → the client's own policy applies); consumer = self, or their organization's members when entitled to diyCredit, or engaged BES | `credit_report_visible()`; insert also requires `imported_by = auth.uid()` |
+| `report_items`, `report_scores` | follow their report; insert only into a report the caller imported | EXISTS on `credit_reports` |
+| update / delete | none — append-only history | no policies granted |
+| `create_credit_report(...)` | SECURITY INVOKER: policies decide; refuses an empty item list | atomic multi-row insert |

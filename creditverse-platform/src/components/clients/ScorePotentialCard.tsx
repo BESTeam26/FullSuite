@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useClientWorkspace } from "@/lib/client-workspace-context";
 import {
   TrendingUp,
   Wrench,
@@ -43,12 +44,25 @@ const factorStatusTone: Record<string, string> = {
   poor: "text-status-danger bg-red-500/10",
 };
 
+const BUREAU_KEY: Record<"EQ" | "EX" | "TU", "equifax" | "experian" | "transunion"> = {
+  EQ: "equifax",
+  EX: "experian",
+  TU: "transunion",
+};
+
+/**
+ * Three bureau columns side by side — never a toggle. Each column shows the
+ * bureau's REPORTED score when a report states one, then the engine's internal
+ * estimate index (current → achievable) and its factor breakdown. The index is
+ * built from FICO's published factor weights; it is not a FICO score.
+ */
 const ScorePotentialCard = ({ items }: { items: ClassifiedItem[] }) => {
   const [expanded, setExpanded] = useState(false);
-  const [activeBureau, setActiveBureau] = useState<"EQ" | "EX" | "TU">("EQ");
+  const { scores } = useClientWorkspace();
+  const reportedFor = (bureau: "EQ" | "EX" | "TU") =>
+    scores.find((sc) => sc.key === BUREAU_KEY[bureau] && sc.score > 0)?.score ?? null;
 
   const analysis = useMemo(() => analyzeScorePotential(items), [items]);
-  const active = analysis.bureaus.find((b) => b.bureau === activeBureau)!;
   const lever = leverConfig[analysis.assessment.primaryLever];
   const LeverIcon = lever.icon;
 
@@ -59,13 +73,14 @@ const ScorePotentialCard = ({ items }: { items: ClassifiedItem[] }) => {
         <div>
           <div className="flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-status-info" />
-            <h2 className="font-semibold">FICO Score Potential Analysis</h2>
+            <h2 className="font-semibold">Score Potential Analysis</h2>
             <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-status-info">
               Smart Logic
             </span>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            Hardcoded FICO factor weights · estimates the realistic ceiling &
+            Deterministic analysis on this report using FICO's published factor
+            weights · an internal estimate index, not a FICO score · shows the
             repair-vs-build lever
           </p>
         </div>
@@ -92,16 +107,16 @@ const ScorePotentialCard = ({ items }: { items: ClassifiedItem[] }) => {
       <div className="mt-5 grid gap-4 sm:grid-cols-3">
         <div className="rounded-xl border border-border bg-card p-4">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Estimated Current
+            Estimate index · current
           </p>
           <p className="mt-1 text-3xl font-bold tracking-tight">
             {analysis.averageCurrent}
           </p>
-          <p className="text-[11px] text-muted-foreground">3-bureau average</p>
+          <p className="text-[11px] text-muted-foreground">3-bureau average of the index — not a score</p>
         </div>
         <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Achievable Ceiling
+            Estimate index · achievable
           </p>
           <p className="mt-1 text-3xl font-bold tracking-tight text-status-success">
             {analysis.averageCeiling}
@@ -112,93 +127,77 @@ const ScorePotentialCard = ({ items }: { items: ClassifiedItem[] }) => {
         </div>
         <div className="rounded-xl border border-border bg-card p-4">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Potential Gain
+            Index headroom
           </p>
           <p className="mt-1 text-3xl font-bold tracking-tight text-sky-600">
             +{analysis.averageGap}
           </p>
-          <p className="text-[11px] text-muted-foreground">points headroom</p>
+          <p className="text-[11px] text-muted-foreground">index points, not score points</p>
         </div>
       </div>
 
-      {/* Bureau toggle */}
-      <div className="mt-5 flex flex-wrap gap-1.5 rounded-xl border border-border bg-muted/30 p-1">
-        {analysis.bureaus.map((b) => (
-          <button
-            key={b.bureau}
-            onClick={() => setActiveBureau(b.bureau)}
-            className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-              activeBureau === b.bureau
-                ? "bg-card text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {b.label}
-            <span className="ml-2 text-xs text-muted-foreground">
-              {b.currentEstimate} → {b.ceilingEstimate}
-            </span>
-          </button>
-        ))}
-      </div>
-
-      {/* Factor breakdown for active bureau */}
-      <div className="mt-4 space-y-3">
-        {active.factors.map((f) => (
-          <div
-            key={f.key}
-            className="rounded-xl border border-border bg-card p-4"
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">{f.label}</span>
-                <span className="text-[10px] font-semibold text-muted-foreground">
-                  {Math.round(f.weight * 100)}%
-                </span>
-              </div>
-              <span
-                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${factorStatusTone[f.status]}`}
-              >
-                {f.status}
-              </span>
-            </div>
-
-            {/* Dual bar: current vs ceiling */}
-            <div className="mt-3 space-y-2">
-              <div className="flex items-center gap-2">
-                <span className="w-16 text-[11px] font-medium text-muted-foreground">
-                  Current
-                </span>
-                <div className="h-3 flex-1 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-                  <div
-                    className="h-full rounded-full bg-blue-500 shadow-sm transition-all duration-500"
-                    style={{ width: `${Math.max(5, f.current)}%` }}
-                  />
+      {/* Three bureaus side by side — one column each, all factors visible */}
+      <div className="mt-5 grid gap-3 lg:grid-cols-3">
+        {analysis.bureaus.map((b) => {
+          const reported = reportedFor(b.bureau);
+          return (
+            <div key={b.bureau} className="rounded-xl border border-border bg-card p-4">
+              <div className="flex items-start justify-between gap-2 border-b border-border/60 pb-3">
+                <div>
+                  <p className="text-sm font-bold text-foreground">{b.label}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    index {b.currentEstimate} → {b.ceilingEstimate}
+                  </p>
                 </div>
-                <span className="w-14 text-right text-xs font-bold text-status-info">
-                  +{f.currentPoints} pts
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-16 text-[11px] font-medium text-muted-foreground">
-                  Ceiling
-                </span>
-                <div className="h-3 flex-1 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-                  <div
-                    className="h-full rounded-full bg-emerald-500 shadow-sm transition-all duration-500"
-                    style={{ width: `${Math.max(5, f.ceiling)}%` }}
-                  />
+                <div className="text-right">
+                  {reported !== null ? (
+                    <>
+                      <p className="text-xl font-black text-foreground">{reported}</p>
+                      <p className="text-[10px] font-medium text-muted-foreground">reported score</p>
+                    </>
+                  ) : (
+                    <p className="max-w-[7rem] text-[10px] text-muted-foreground">no reported score on file</p>
+                  )}
                 </div>
-                <span className="w-14 text-right text-xs font-bold text-status-success">
-                  +{f.ceilingPoints} pts
-                </span>
+              </div>
+
+              <div className="mt-3 space-y-3">
+                {b.factors.map((f) => (
+                  <div key={f.key} className="rounded-lg border border-border/70 bg-muted/20 p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <span className="truncate text-xs font-medium text-foreground">{f.label}</span>
+                        <span className="shrink-0 text-[10px] font-semibold text-muted-foreground">
+                          {Math.round(f.weight * 100)}%
+                        </span>
+                      </div>
+                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${factorStatusTone[f.status]}`}>
+                        {f.status}
+                      </span>
+                    </div>
+                    <div className="mt-2 space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="w-12 text-[10px] font-medium text-muted-foreground">Current</span>
+                        <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-muted">
+                          <div className="h-full rounded-full bg-blue-500 transition-all duration-500" style={{ width: `${Math.max(5, f.current)}%` }} />
+                        </div>
+                        <span className="w-12 text-right text-[11px] font-bold text-status-info">+{f.currentPoints}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-12 text-[10px] font-medium text-muted-foreground">Ceiling</span>
+                        <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-muted">
+                          <div className="h-full rounded-full bg-emerald-500 transition-all duration-500" style={{ width: `${Math.max(5, f.ceiling)}%` }} />
+                        </div>
+                        <span className="w-12 text-right text-[11px] font-bold text-status-success">+{f.ceilingPoints}</span>
+                      </div>
+                    </div>
+                    <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">{f.note}</p>
+                  </div>
+                ))}
               </div>
             </div>
-
-            <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-              {f.note}
-            </p>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Profile snapshot */}
@@ -232,8 +231,9 @@ const ScorePotentialCard = ({ items }: { items: ClassifiedItem[] }) => {
       >
         <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-status-success" />
         <span className="flex-1">
-          Human verification required — this is smart analysis, not a guarantee
-          or recommendation.
+          Human verification required — an internal estimate index built from
+          published factor weights; not a FICO score, not a guarantee, not a
+          recommendation.
         </span>
         {expanded ? (
           <ChevronUp className="h-3.5 w-3.5" />

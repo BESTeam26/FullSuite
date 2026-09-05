@@ -1,4 +1,8 @@
 import { Link, useParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/lib/auth/auth-context";
+import { fetchFulfillmentClients } from "@/lib/data/fulfillment-clients";
+import { ClientCreditReportSection } from "@/components/dashboard/fulfillment/ClientCreditReportSection";
 import {
   ArrowLeft,
   RefreshCw,
@@ -63,6 +67,17 @@ const monitoringTone: Record<MonitoringStatus, string> = {
 const ClientDetailInner = () => {
   const params = useParams();
   const clientId = params.id ?? "1";
+  const { reportSource } = useClientWorkspace();
+  /* Live: the real client behind this profile, from the same RLS-scoped query
+     the Workspace uses. Sample ids ("1") never hit the database. */
+  const auth = useAuth();
+  const live = auth.mode === "live" && auth.status === "signed-in";
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clientId);
+  const clientsQuery = useQuery({ queryKey: ["creditops", "clients"], queryFn: fetchFulfillmentClients, enabled: live && isUuid, staleTime: 15_000 });
+  const liveClient = live && isUuid ? (clientsQuery.data ?? []).find((c) => c.id === clientId) ?? null : null;
+  const displayName = liveClient?.name ?? (live ? "Client" : "Maria Gonzalez");
+  const displayEmail = liveClient?.email ?? (live ? "" : "maria.g@email.com");
+  const initials = displayName.replace(/^\[TEST\]\s*/, "").split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "CL";
   const { tab, setTab, round } = useClientWorkspace();
   const { getState, setManualStatus } = useMonitoringStatus();
   const monitoring = getState(clientId);
@@ -71,6 +86,22 @@ const ClientDetailInner = () => {
 
   return (
     <div className="p-6 md:p-8">
+      {/* Rule 12: say where the items came from. Sample = demo content; none =
+          a live client with nothing imported yet; live = the client's report. */}
+      {reportSource === "sample" && (
+        <div role="status" className="mb-4 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-xs text-foreground">
+          <strong className="font-bold">Sample client and sample credit report.</strong>{" "}
+          This workspace demonstrates the CreditOps analysis on bundled sample data; figures here are not any
+          person's credit information.
+        </div>
+      )}
+      {reportSource === "none" && (
+        <div role="status" className="mb-4 rounded-xl border border-border bg-muted/30 px-4 py-2.5 text-xs text-foreground">
+          <strong className="font-bold">This page is the sample client walkthrough.</strong>{" "}
+          In a live session it has no report behind it, so nothing is analysed here. Real clients are worked in
+          CreditOps → Workspace → Main Client List, where their own report is imported and analysed.
+        </div>
+      )}
       <Link
         to="/app/clients"
         className="mb-4 flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
@@ -81,16 +112,17 @@ const ClientDetailInner = () => {
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gradient-emerald text-lg font-semibold text-white">
-            MG
+            {initials}
           </div>
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-bold tracking-tight">
-                Maria Gonzalez
+                {displayName}
               </h1>
               <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-status-success">
-                Active · Round {round}
+                {liveClient ? `${liveClient.status} · ${liveClient.round}` : `Active · Round ${round}`}
               </span>
+              {!live && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
@@ -131,12 +163,12 @@ const ClientDetailInner = () => {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+              )}
             </div>
             <p className="text-sm text-muted-foreground">
-              maria.g@email.com · Next import in 30 days
-              {monitoring.lastReason && monitoring.status === "monitoring-issue"
-                ? ` · Last error: ${monitoring.lastReason}`
-                : ""}
+              {live
+                ? displayEmail || (clientsQuery.isLoading ? "Loading client…" : "Client not found or not visible to you.")
+                : `maria.g@email.com · Next import in 30 days${monitoring.lastReason && monitoring.status === "monitoring-issue" ? ` · Last error: ${monitoring.lastReason}` : ""}`}
             </p>
           </div>
         </div>
@@ -144,7 +176,7 @@ const ClientDetailInner = () => {
           onClick={handleReImport}
           className="bg-gradient-emerald text-white hover:opacity-90"
         >
-          <RefreshCw className="h-4 w-4" /> Re-import credit report
+          <RefreshCw className="h-4 w-4" /> {live ? "Import credit report" : "Re-import credit report"}
         </Button>
       </div>
 
@@ -208,7 +240,16 @@ const ClientDetailInner = () => {
 
       {tab === "overview" && <OverviewTab />}
       {tab === "account" && <AccountTab />}
-      {tab === "import" && <ImportAnalysisTab clientId={clientId} />}
+      {tab === "import" &&
+        (liveClient ? (
+          <ClientCreditReportSection
+            clientId={clientId}
+            organizationId={liveClient.organizationId ?? null}
+            outsourcingGroupId={liveClient.outsourcingGroupId ?? null}
+          />
+        ) : (
+          <ImportAnalysisTab clientId={clientId} />
+        ))}
       {tab === "disputes" && <DisputeDashboard />}
       {tab === "letters" && <LettersTab />}
       {tab === "print" && <PrintTab />}

@@ -34,6 +34,7 @@ import {
 import { ReImportProgressReport } from "./ReImportProgressReport";
 import { SideBySideCompareView } from "./reimport/SideBySideCompareView";
 import { PdfDropZone, type PdfFile } from "./PdfDropZone";
+import { useClientWorkspace } from "@/lib/client-workspace-context";
 
 const providers = [
   "IdentityIQ",
@@ -73,6 +74,7 @@ export const ReportImportFlow = ({
   onClassified,
   onSaveToDispute,
 }: ReportImportFlowProps) => {
+  const workspace = useClientWorkspace();
   const [phase, setPhase] = useState<Phase>("idle");
   const [provider, setProvider] = useState(providers[0]);
   const [classified, setClassified] = useState<ClassifiedItem[]>([]);
@@ -141,6 +143,20 @@ export const ReportImportFlow = ({
       }, 1400);
     }, 2200);
   };
+
+  /* The simulated provider login and OCR below are DEMO content. In a live
+     session the sample-client page has no real report behind it; real imports
+     happen on the client's CreditOps workspace (Credit report section). */
+  if (workspace.reportSource !== "sample") {
+    return (
+      <div className="rounded-xl border border-border bg-card p-6 text-sm text-foreground">
+        <p className="font-semibold">Report import lives on the client's CreditOps workspace.</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          This page shows the bundled sample analysis for demonstration only. Open the client in CreditOps → Workspace → Main Client List to import their credit report (CSV) and run the analysis on their own data.
+        </p>
+      </div>
+    );
+  }
 
   if (phase === "report") {
     return (

@@ -20,6 +20,7 @@ import {
 import { ClientWorkActivityTimeline } from "./ClientWorkActivityTimeline";
 import { DepartmentProgressSection } from "./DepartmentProgressSection";
 import { CompleteWorkSection } from "./CompleteWorkSection";
+import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -155,6 +156,16 @@ export function ClientWorkWorkspace({ clientId, onBack }: Props) {
   return (
     <div className="space-y-4 text-xs">
       <ClientWorkHeader client={client} onBack={onBack} />
+      {/* The Workspace tracks work and production. The credit report, import
+          and analysis live in the client's profile (CreditOps → Clients). */}
+      <div className="flex justify-end">
+        <Link
+          to={`/app/clients/${clientId}`}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          Open client profile (report, disputes, letters)
+        </Link>
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-12">
         {/* LEFT / MAIN OPERATIONAL PANEL */}

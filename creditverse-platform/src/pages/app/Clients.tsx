@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react";
+import { useAuth } from "@/lib/auth/auth-context";
+import { LiveClientsList } from "@/components/clients/LiveClientsList";
 import { useNavigate } from "react-router-dom";
 import {
   Search,
@@ -76,6 +78,14 @@ function Sparkline({ data, positive }: { data: number[]; positive: boolean }) {
 }
 
 const Clients = () => {
+  const auth = useAuth();
+  /* Live sessions list the organization's real clients; the sample list is
+     demo content and stays labelled as such. */
+  if (auth.mode === "live" && auth.status === "signed-in") return <LiveClientsList />;
+  return <SampleClients />;
+};
+
+const SampleClients = () => {
   const navigate = useNavigate();
   const [q, setQ] = useState("");
   const [tab, setTab] = useState<(typeof tabs)[number]>("All");

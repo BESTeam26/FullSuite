@@ -103,3 +103,41 @@ the consumer; re-import creates a new report; no update/delete policies.
 Unit: every rule has a basis and passes the language guardrail; simulator
 never emits a point figure without a cited range. Browser: live client with no
 report shows the empty state, not the sample.
+
+## Addendum — PDF bureau reports, OCR, and client evidence (requested 2026-09-04)
+
+**Requirement as stated:** read Equifax, Experian and TransUnion PDF reports
+and turn them into system data; read the proof/evidence clients upload.
+
+**What is true about accuracy.** No parser or OCR can be promised at 100%.
+What can be promised, and enforced, is that nothing unverified becomes system
+data: every extracted field carries a confidence and a source location, low-
+confidence fields are flagged, and a report is committed only after a person
+confirms the flagged fields (or when zero fields are flagged). The workflow,
+not the model, is what protects accuracy.
+
+**Design, in order of reliability:**
+1. **Text-layer parsing first.** Bureau and monitoring-service PDFs carry a
+   text layer; extracting it is deterministic (no OCR) and layout parsers per
+   source (`equifax-pdf-v1`, `experian-pdf-v1`, `transunion-pdf-v1`,
+   `identityiq-v1`, …) map sections to `report_items` / `report_scores`. Each
+   parser is versioned (`credit_reports.parser_version`) and unit-tested against
+   redacted fixtures; an unknown layout is refused, never guessed.
+2. **OCR fallback** for scanned/image PDFs and photographed documents, via a
+   document-AI provider (Google Document AI, AWS Textract or Azure Document
+   Intelligence — Dee's choice; credentials go to the server environment,
+   never the browser). Output fields carry the provider's confidence.
+3. **Review step.** The importer shows the parsed items side by side with the
+   page image; flagged fields must be confirmed or corrected; the confirmed set
+   is what `create_credit_report` receives. Corrections are recorded on the
+   import (who confirmed what) so accuracy is auditable.
+4. **Evidence.** Client uploads (ID, utility bill, letters, bureau responses)
+   use the existing `files` storage under the client record with a document
+   type and, where useful, the same text-layer/OCR extraction to prefill
+   fields (never to commit them). DIY consumers upload into their own record;
+   the organization sees them under CreditOps.
+
+**Infrastructure this needs (none exists today):** a Supabase Edge Functions
+deployment for the parsers and the provider call, a storage bucket policy for
+report PDFs, and a provider account. Until then the structured CSV import (v1,
+shipped) is the only import path, and the interface says so.

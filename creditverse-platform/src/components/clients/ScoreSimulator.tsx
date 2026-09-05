@@ -40,7 +40,10 @@ const factorLabels: Record<string, string> = {
 };
 
 const ScoreSimulator = () => {
-  const { items } = useClientWorkspace();
+  const { items, scores, reportSource } = useClientWorkspace();
+  const BUREAU_KEY: Record<string, string> = { EQ: "equifax", EX: "experian", TU: "transunion" };
+  const reportedFor = (bureau: string) =>
+    scores.find((sc) => sc.key === BUREAU_KEY[bureau] && sc.score > 0);
   const baseline = useMemo<ScorePotentialResult>(
     () => analyzeScorePotential(items),
     [items],
@@ -86,6 +89,21 @@ const ScoreSimulator = () => {
       : delta < 0
         ? "text-status-danger"
         : "text-muted-foreground";
+
+  /* No report, no analysis: an empty item list is not a profile, and the
+     engine's output for it would be a number about nobody (rule 12). */
+  if (items.length === 0) {
+    return (
+      <div className="rounded-xl border border-border bg-card p-6 text-sm text-foreground">
+        <p className="font-semibold">No credit report to analyse.</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {reportSource === "none"
+            ? "Import this client's credit report first; the factor analysis and what-if guide run only on their own report."
+            : "Nothing to analyse yet."}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -163,12 +181,16 @@ const ScoreSimulator = () => {
               <p className="text-[11px] font-medium text-muted-foreground">
                 {b.label}
               </p>
-              <p className="text-lg font-bold">
-                {b.currentEstimate}
-                <span className="text-xs text-muted-foreground">
-                  {" "}
-                  → {b.ceilingEstimate}
-                </span>
+              {reportedFor(b.bureau) ? (
+                <p className="text-lg font-bold text-foreground">
+                  {reportedFor(b.bureau)!.score}
+                  <span className="block text-[10px] font-medium text-muted-foreground">reported score</span>
+                </p>
+              ) : (
+                <p className="text-[10px] text-muted-foreground">no reported score on file</p>
+              )}
+              <p className="mt-1 text-xs text-muted-foreground">
+                index {b.currentEstimate} → {b.ceilingEstimate}
               </p>
               <p className="text-[10px] text-status-success">
                 +{b.ceilingEstimate - baseline.bureaus[i].ceilingEstimate}{" "}

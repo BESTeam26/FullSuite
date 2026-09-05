@@ -1,10 +1,13 @@
 import {
   createContext,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
+import { useAuth } from "@/lib/auth/auth-context";
+import { useClientReports, useReportItems } from "@/lib/data/use-credit-reports";
 import {
   classifyReport,
   type ClassifiedItem,
@@ -44,8 +47,17 @@ export interface ActiveLetter {
   attachments: string[];
 }
 
+/** Where the items on screen came from — the interface must say so (rule 12). */
+export type ReportSource = "sample" | "live" | "none";
+
 interface ClientWorkspaceValue {
   clientId: string;
+  /** "sample" = bundled demo report; "live" = the client's latest imported report; "none" = live client, nothing imported yet. */
+  reportSource: ReportSource;
+  /** Id of the report the items came from (live only). */
+  reportId: string | null;
+  reportPulledAt: string | null;
+  reportsLoading: boolean;
   items: ClassifiedItem[];
   setItems: React.Dispatch<React.SetStateAction<ClassifiedItem[]>>;
   hasImported: boolean;
@@ -75,6 +87,10 @@ const defaultScores: BureauScore[] = [
 
 const ClientWorkspaceContext = createContext<ClientWorkspaceValue>({
   clientId: "1",
+  reportSource: "sample",
+  reportId: null,
+  reportPulledAt: null,
+  reportsLoading: false,
   items: [],
   setItems: () => {},
   hasImported: false,
@@ -103,10 +119,53 @@ export const ClientWorkspaceProvider = ({
   clientId: string;
   children: ReactNode;
 }) => {
+  /* Live sessions read the client's latest imported report; the bundled
+     sample exists only for demo mode. A live client with no report has no
+     items — never the sample (rule 12). Only a real client id (uuid) can have
+     reports; the sample-page ids ("1", "2") never hit the database. */
+  const auth = useAuth();
+  const live = auth.mode === "live" && auth.status === "signed-in";
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clientId);
+  const reports = useClientReports(live && isUuid ? clientId : null);
+  const latest = reports.latest;
+  const reportItems = useReportItems(latest?.id ?? null);
+  const reportSource: ReportSource = !live ? "sample" : latest ? "live" : "none";
+
   const [items, setItems] = useState<ClassifiedItem[]>(() =>
-    classifyReport(sampleRaw),
+    live ? [] : classifyReport(sampleRaw),
   );
-  const [hasImported, setHasImported] = useState(true);
+  const [hasImported, setHasImported] = useState(!live);
+  useEffect(() => {
+    if (!live) return;
+    if (latest && !reportItems.isLoading) {
+      setItems(classifyReport(reportItems.items));
+      setHasImported(true);
+    } else if (!latest && !reports.isLoading) {
+      setItems([]);
+      setHasImported(false);
+    }
+  }, [live, latest, reportItems.items, reportItems.isLoading, reports.isLoading]);
+
+  /* Bureau scores exactly as the reports state them: current = latest report,
+     prev = the one before, first = the oldest we hold. Never computed. */
+  const liveScores = useMemo<BureauScore[] | null>(() => {
+    if (!live || !latest) return null;
+    const byBureau = (bureau: "EQ" | "EX" | "TU", report: (typeof reports.reports)[number] | undefined) =>
+      report?.scores.find((sc) => sc.bureau === bureau)?.score ?? 0;
+    const oldest = reports.reports[reports.reports.length - 1];
+    const prev = reports.reports[1];
+    return ([
+      ["equifax", "Equifax", "EQ"],
+      ["experian", "Experian", "EX"],
+      ["transunion", "TransUnion", "TU"],
+    ] as const).map(([key, label, bureau]) => ({
+      key,
+      label,
+      score: byBureau(bureau, latest),
+      prev: byBureau(bureau, prev),
+      first: byBureau(bureau, oldest),
+    }));
+  }, [live, latest, reports.reports]);
   const [round, setRound] = useState(3);
   const [tab, setTab] = useState<ClientTab>("overview");
   const [qaPassed, setQaPassed] = useState(false);
@@ -141,11 +200,15 @@ export const ClientWorkspaceProvider = ({
     ).length;
     return {
       clientId,
+      reportSource,
+      reportId: latest?.id ?? null,
+      reportPulledAt: latest?.pulledAt ?? null,
+      reportsLoading: reports.isLoading || reportItems.isLoading,
       items,
       setItems,
       hasImported,
       setHasImported,
-      scores: defaultScores,
+      scores: liveScores ?? defaultScores,
       round,
       setRound,
       tab,
@@ -163,6 +226,11 @@ export const ClientWorkspaceProvider = ({
     };
   }, [
     clientId,
+    reportSource,
+    latest,
+    reports.isLoading,
+    reportItems.isLoading,
+    liveScores,
     items,
     hasImported,
     round,

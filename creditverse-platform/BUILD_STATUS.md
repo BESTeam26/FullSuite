@@ -2484,3 +2484,61 @@ verify-live. RLS matrix: 285/285 (phase ≤ 15).
 **Recorded, not built:** a database trigger that also refuses an organization
 author's "Work completed" activity for a department outside their resolved
 access (today the interface enforces it; RLS still bounds the rows).
+
+
+## Canonical credit reports · DONE (migration 0048) — import v1 (CSV)
+
+**One source of truth for a client's credit data.** `credit_reports` (one row
+per import: subject = fulfillment client OR DIY consumer, bureaus, pulled_at,
+source, file, parser_version, imported_by), `report_items` (one row per
+tradeline / inquiry / public record / personal item, with a stable
+`account_ref` for matching across imports) and `report_scores` (bureau, model,
+score exactly as the source states — never computed). Append-only: no update
+or delete policies; a re-import is a new report. Visibility = the client's own
+visibility (`credit_report_visible` → `entity_visible('fulfillment_client')`,
+SECURITY INVOKER so the client policy decides); consumers see their own;
+imports go through `create_credit_report` (SECURITY INVOKER, atomic; policies
+decide, the function only guarantees all-or-nothing).
+
+**Import v1 is a structured CSV**, parsed deterministically in the browser
+(`lib/credit-report/import-parser.ts`, unit-tested): required columns
+name/kind/status/bureaus, optional subtype/balance/dofd/open_date/
+linked_creditor/remarks/account_ref; every unreadable row is reported by line
+and the import does not proceed — nothing is guessed. Scores are entered as
+stated (250–900, model text). PDF text-layer parsing, OCR and evidence
+extraction are specified in the proposal addendum and need Edge Functions plus
+a document-AI provider (none exists yet); the interface says so.
+
+**Where it lives — the client profile, not the Workspace.** CreditOps →
+Clients lists the organization's real clients in a live session (same RLS-
+scoped query as the Workspace's Main Client List; the sample list is demo-only)
+and opens the client profile (`/app/clients/<id>`), which now resolves the real
+client (name, email, status, round). Its "Import & Analysis" tab carries the
+"Credit report" section: latest report, bureaus' reported scores, import
+history, the CSV import, and the factor analysis only when a report exists. The
+Workspace (ClickUp-style tracking and production) links to the profile and
+holds no report tooling — actual client work happens in the profile, as in
+DisputeFox / CRC / CDM. The client workspace context reads the client's latest
+report in live mode (`reportSource` = live | none | sample); the bundled sample
+exists only in demo mode and the sample page says so in a live session.
+
+**Analysis presentation.** The Score Potential card shows the three bureaus as
+three side-by-side columns (no toggle), each with the bureau's *reported* score
+when a report states one, then the engine's estimate index and factor bars;
+all headline figures are labelled as an index, not a score. The Score
+Simulator does the same and states the index is not a FICO score, prediction
+or guarantee; with no report there is no analysis.
+
+**Browser-verified** on the Northgate fixture client: CSV → 3 items parsed →
+imported with stated scores 689/691/679 → Clients list → profile shows the real
+client, three bureau columns with the reported scores, Import & Analysis shows
+the report; no sample text present; the Workspace carries no report tooling.
+
+**Probed (phase 16, 8 checks):** the client's organization owner imports;
+another organization cannot; BES staff only within engagement and scope; empty
+report refused; items and scores travel with the report and are visible to the
+organization, invisible to another; no update policy; a consumer's report is
+theirs alone.
+
+**Verified:** typecheck clean, 267 tests, 0 lint errors, migrations 53/53,
+verify-live. RLS matrix: 293/293 (phase ≤ 16; first run had one transient CLI miss and one wrong expectation — no update policy means 0 rows touched, not an error).
