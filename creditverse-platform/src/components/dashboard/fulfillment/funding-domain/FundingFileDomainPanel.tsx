@@ -25,6 +25,7 @@ import { OffersTab } from "./OffersTab";
 import { ClosingTab } from "./ClosingTab";
 import { RenewalTab } from "./RenewalTab";
 import { cn } from "@/lib/utils";
+import { usePermission } from "@/lib/auth/use-permission";
 
 interface Props {
   file: FundingFile;
@@ -47,6 +48,15 @@ export function FundingFileDomainPanel({ file, clientId, organizationId }: Props
   const domain = useFundingFileDomain(live ? file.id : null);
   const [tab, setTab] = useState("overview");
   const canEdit = live && access.canEditStageProgress;
+  /* The organization's permission keys (0064/0065): the database enforces them inside each function; here they only decide what to offer. */
+  const may = {
+    edit: usePermission("fundingops.files.edit").allowed,
+    docs: usePermission("fundingops.documents.review").allowed,
+    submit: usePermission("fundingops.submissions.create").allowed,
+    offers: usePermission("fundingops.offers.manage").allowed,
+    confirm: usePermission("fundingops.funding.confirm").allowed,
+    commissions: usePermission("fundingops.commissions.view").allowed,
+  };
   const actorId = auth.user?.id ?? null;
 
   if (!live) {
@@ -115,7 +125,7 @@ export function FundingFileDomainPanel({ file, clientId, organizationId }: Props
           </TabsList>
 
           <div className="mt-3">
-            <MoveFileControl fileId={file.id} stage={d.stage} secondaryStatus={d.secondaryStatus} waitingOn={d.waitingOn} canEdit={canEdit} />
+            <MoveFileControl fileId={file.id} stage={d.stage} secondaryStatus={d.secondaryStatus} waitingOn={d.waitingOn} canEdit={canEdit && may.edit} />
           </div>
 
           <TabsContent value="overview" className="mt-3 space-y-3">
@@ -142,17 +152,17 @@ export function FundingFileDomainPanel({ file, clientId, organizationId }: Props
           </TabsContent>
 
           <TabsContent value="application" className="mt-3">
-            <ApplicationTab fileId={file.id} application={d.application} canEdit={canEdit} actorId={actorId} />
+            <ApplicationTab fileId={file.id} application={d.application} canEdit={canEdit && may.edit} actorId={actorId} />
           </TabsContent>
           <TabsContent value="documents" className="mt-3">
-            <DocumentsTab fileId={file.id} agencyId={d.agencyId} organizationId={organizationId} domain={d} canEdit={canEdit} actorId={actorId} />
+            <DocumentsTab fileId={file.id} agencyId={d.agencyId} organizationId={organizationId} domain={d} canEdit={canEdit && may.docs} actorId={actorId} />
           </TabsContent>
           <TabsContent value="lenders" className="mt-3">
-            <LendersOffersTab fileId={file.id} clientId={clientId} domain={d} canEdit={canEdit} />
+            <LendersOffersTab fileId={file.id} clientId={clientId} domain={d} canEdit={canEdit && may.submit} />
           </TabsContent>
-          <TabsContent value="offers" className="mt-3"><OffersTab fileId={file.id} domain={d} canEdit={canEdit} /></TabsContent>
-          <TabsContent value="closing" className="mt-3"><ClosingTab fileId={file.id} domain={d} canEdit={canEdit} /></TabsContent>
-          <TabsContent value="renewal" className="mt-3"><RenewalTab fileId={file.id} domain={d} canEdit={canEdit} /></TabsContent>
+          <TabsContent value="offers" className="mt-3"><OffersTab fileId={file.id} domain={d} canEdit={canEdit && may.offers} /></TabsContent>
+          <TabsContent value="closing" className="mt-3"><ClosingTab fileId={file.id} domain={d} organizationId={organizationId} actorId={actorId} canCommission={may.commissions} canEdit={canEdit && may.offers} canConfirm={canEdit && may.confirm} /></TabsContent>
+          <TabsContent value="renewal" className="mt-3"><RenewalTab fileId={file.id} domain={d} canEdit={canEdit && may.edit} /></TabsContent>
         </Tabs>
       )}
     </section>

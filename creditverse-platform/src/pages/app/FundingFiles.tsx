@@ -16,13 +16,15 @@ import { useAllFundingFiles } from "@/lib/data/use-funding";
 import { useFundingOpsAccess } from "@/lib/fulfillment/fundingops-access";
 import { FUNDING_STATUS_TONE, formatCurrency, type FundingFileStage } from "@/lib/fulfillment/fundingops-domain";
 import { cn } from "@/lib/utils";
+import { usePermission } from "@/lib/auth/use-permission";
 
 export default function FundingFiles() {
   const files = useAllFundingFiles();
   const auth = useAuth();
   const access = useFundingOpsAccess();
   const qc = useQueryClient();
-  const canMove = auth.mode === "live" && access.canEditStageProgress;
+  const mayEdit = usePermission("fundingops.files.edit").allowed;
+  const canMove = auth.mode === "live" && access.canEditStageProgress && mayEdit;
   /** Drop on the board = the same move_funding_file() call as the file page's Move control; the lists reading funding files refresh after. */
   const onMove = async (fileId: string, stage: FundingFileStage) => {
     await moveFundingFile({ fileId, stage });

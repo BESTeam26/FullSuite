@@ -19,6 +19,7 @@ import { useClientLetters, useLetterTemplates } from "@/lib/data/use-letters";
 import { approvalReadiness, mergeTemplate, placeholdersIn } from "@/lib/dispute/letter-merge";
 import { formatDate } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
+import { usePermission } from "@/lib/auth/use-permission";
 
 interface Props {
   clientId: string;
@@ -46,6 +47,7 @@ export function RoundLettersPanel({ clientId, clientName, items, disputeOrigin }
   const auth = useAuth();
   const lib = useLetterTemplates();
   const rounds = useClientLetters(clientId);
+  const canBuild = usePermission("creditops.letters.build").allowed;
   const [kind, setKind] = useState<LetterKind>("factual");
   const [templateId, setTemplateId] = useState<string>("");
   const [bureau, setBureau] = useState<string>("EQ");
@@ -143,7 +145,7 @@ export function RoundLettersPanel({ clientId, clientName, items, disputeOrigin }
         )}
 
         <div className="mt-3 flex items-center gap-3">
-          <Button size="sm" onClick={() => void build()} disabled={busy || !template || !merged?.ok || !auth.user || (recipientKind !== "cra" && !recipientName.trim())}>
+          <Button size="sm" onClick={() => void build()} disabled={!canBuild || busy || !template || !merged?.ok || !auth.user || (recipientKind !== "cra" && !recipientName.trim())} title={canBuild ? undefined : "Your role does not include building letters"}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="mr-1 h-4 w-4" />} Create draft letter
           </Button>
           {template && merged && !merged.ok && <p className="text-[11px] text-muted-foreground">Fill the facts above to preview the letter.</p>}
@@ -164,6 +166,8 @@ export function RoundLettersPanel({ clientId, clientName, items, disputeOrigin }
 }
 
 function LetterRow({ letter, rounds, roundNumber, actorId }: { letter: DisputeLetter; rounds: ReturnType<typeof useClientLetters>; roundNumber?: number; actorId: string | null }) {
+  const canApprove = usePermission("creditops.letters.approve").allowed;
+  const canBuild = usePermission("creditops.letters.build").allowed;
   const [open, setOpen] = useState(false);
   const [attest, setAttest] = useState({ recognises: "yes" as "yes" | "no" | "unsure", disputed: "", reason: "", documents: "", certification: "" });
   const [error, setError] = useState<string | null>(null);
@@ -213,11 +217,11 @@ function LetterRow({ letter, rounds, roundNumber, actorId }: { letter: DisputeLe
               {readiness.ready ? <p className="mt-1 text-xs text-status-success">Ready: attested, complete, citations fit the recipient, no prohibited phrases.</p> : (
                 <ul className="mt-1 list-disc pl-4 text-xs text-foreground">{readiness.reasons.map((r) => <li key={r}>{r}</li>)}</ul>
               )}
-              <Button size="sm" className="mt-2" disabled={!readiness.ready} onClick={() => void run(() => rounds.approve.mutateAsync(letter.id), "The database refused approval.")}><CheckCircle2 className="mr-1 h-4 w-4" /> Approve</Button>
+              <Button size="sm" className="mt-2" disabled={!readiness.ready || !canApprove} title={canApprove ? undefined : "Your role does not include approving letters"} onClick={() => void run(() => rounds.approve.mutateAsync(letter.id), "The database refused approval.")}><CheckCircle2 className="mr-1 h-4 w-4" /> Approve</Button>{!canApprove && <p className="mt-1 text-[10px] text-muted-foreground">Approval needs the "Approve dispute letters" permission — a QA reviewer or an admin.</p>}
             </div>
           )}
           {(letter.status === "approved" || letter.status === "printed") && (
-            <Button size="sm" variant="outline" onClick={() => void run(() => rounds.markMailed.mutateAsync(letter.id), "Could not mark the letter mailed.")}><Mail className="mr-1 h-4 w-4" /> Mark mailed today</Button>
+            <Button size="sm" variant="outline" disabled={!canBuild} onClick={() => void run(() => rounds.markMailed.mutateAsync(letter.id), "Could not mark the letter mailed.")}><Mail className="mr-1 h-4 w-4" /> Mark mailed today</Button>
           )}
           {letter.timers.length > 0 && (
             <div>

@@ -102,3 +102,6 @@ export type RenewalStatus = Enums<"renewal_status">;
 export const RENEWAL_STATUS_LABEL: Record<RenewalStatus, string> = {
   monitoring: "Monitoring", review_due: "Review due", outreach: "Outreach", client_interested: "Client interested", new_file_created: "New file created", not_pursued: "Not pursued",
 };
+
+/** key → label, for lists that show a stored document type. */
+export const DOCUMENT_TYPE_LABELS: Record<string, string> = Object.fromEntries(DOCUMENT_TYPES.map((d) => [d.key, d.label]));

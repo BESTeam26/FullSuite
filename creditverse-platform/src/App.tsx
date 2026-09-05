@@ -31,6 +31,7 @@ const named =
 // Auth
 const Login = lazy(() => import("./pages/auth/Login"));
 const AcceptInvitation = lazy(() => import("./pages/auth/AcceptInvitation"));
+const BorrowerPortal = lazy(() => import("./pages/portals/BorrowerPortal"));
 const AuthCallback = lazy(() => import("./pages/auth/AuthCallback"));
 
 // Public / marketing
@@ -159,6 +160,14 @@ const App = () => (
                               <Route path="/" element={<Index />} />
                               <Route path="/login" element={<Login />} />
                               <Route path="/accept-invitation/:token" element={<AcceptInvitation />} />
+                              <Route
+                                path="/portal/funding"
+                                element={
+                                  <RequireAuth>
+                                    <BorrowerPortal />
+                                  </RequireAuth>
+                                }
+                              />
                               <Route
                                 path="/auth/callback"
                                 element={<AuthCallback />}

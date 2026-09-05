@@ -12,8 +12,9 @@ import { advanceClosing, confirmFunding, startClosing, type ClosingStatus, type 
 import { useInvalidateFundingFile } from "@/lib/data/use-funding-domain";
 import { formatDate } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
+import { CommissionsPanel } from "@/components/dashboard/fulfillment/funding-domain/CommissionsPanel";
 
-interface Props { fileId: string; domain: FundingFileDomain; canEdit: boolean }
+interface Props { fileId: string; domain: FundingFileDomain; organizationId?: string | null; actorId?: string | null; canCommission?: boolean; canEdit: boolean; /** fundingops.funding.confirm — confirming creates the funded deal; defaults to canEdit. */ canConfirm?: boolean }
 
 const CLOSING_LABEL: Record<ClosingStatus, string> = {
   started: "Started", requirements_outstanding: "Closing requirements outstanding", awaiting_signatures: "Awaiting signatures", signed: "Signed / completed",
@@ -27,7 +28,7 @@ const input = "mt-1 w-full rounded-lg border border-border bg-background px-2.5 
 const label = "text-[10px] font-bold uppercase tracking-wider text-muted-foreground";
 const money = (v: number | null) => (v === null ? "—" : `$${v.toLocaleString()}`);
 
-export function ClosingTab({ fileId, domain, canEdit }: Props) {
+export function ClosingTab({ fileId, domain, organizationId = null, actorId = null, canCommission = false, canEdit, canConfirm = canEdit }: Props) {
   const invalidate = useInvalidateFundingFile();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -72,7 +73,8 @@ export function ClosingTab({ fileId, domain, canEdit }: Props) {
               ))}
             </div>
           )}
-          {canEdit && openClosing.status === "funding_pending" && (
+          {canEdit && !canConfirm && openClosing.status === "funding_pending" && <p className="text-[11px] text-muted-foreground">Confirming funding needs the "Confirm funding" permission — an admin or a member granted it.</p>}
+          {canConfirm && openClosing.status === "funding_pending" && (
             <div className="mt-3 rounded-lg border border-emerald-500/40 bg-emerald-500/5 p-3">
               <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-800">Confirm funding — the only action that creates a funded deal</p>
               <div className="mt-2 grid gap-2 sm:grid-cols-4">
@@ -116,6 +118,7 @@ export function ClosingTab({ fileId, domain, canEdit }: Props) {
           </ul>
         </div>
       )}
+      {canCommission && <CommissionsPanel fileId={fileId} organizationId={organizationId} funded={domain.fundedDeals} commissions={domain.commissions} canEdit={canEdit} actorId={actorId} />}
       {error && <p role="alert" className="text-xs text-status-danger">{error}</p>}
       <p className="text-[10px] text-muted-foreground">Accepted offer ≠ funded. Signed documents ≠ funded. Only a confirmed disbursement creates a funded deal.</p>
     </div>

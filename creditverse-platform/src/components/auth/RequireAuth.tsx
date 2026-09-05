@@ -48,7 +48,7 @@ const NoAccess = () => {
 };
 
 export const RequireAuth = ({ children }: { children: ReactNode }) => {
-  const { status, hasAnyAccess, mode } = useAuth();
+  const { status, hasAnyAccess, mode, agencyMembership, orgMemberships, externalMemberships } = useAuth();
   const location = useLocation();
 
   if (status === "loading") return <FullScreenSpinner />;
@@ -56,5 +56,9 @@ export const RequireAuth = ({ children }: { children: ReactNode }) => {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
   if (mode === "live" && !hasAnyAccess) return <NoAccess />;
+  /* A borrower (external `client` membership and nothing else) has no workspace: the staff shell would
+     only show them "nothing here". Their surface is the portal (Addendum D). */
+  const borrowerOnly = mode === "live" && !agencyMembership && orgMemberships.length === 0 && externalMemberships.length > 0 && externalMemberships.every((m) => m.role === "client");
+  if (borrowerOnly && location.pathname.startsWith("/app")) return <Navigate to="/portal/funding" replace />;
   return <>{children}</>;
 };

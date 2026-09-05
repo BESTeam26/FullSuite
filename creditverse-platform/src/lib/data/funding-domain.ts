@@ -10,6 +10,7 @@
  * the policies judge. Nothing here decides who may see what — RLS does.
  */
 import type { FitSnapshot } from "@/lib/funding/readiness-engine";
+import { canMoveCommission, type CommissionBasis, type CommissionPartyKind, type CommissionState } from "@/lib/funding/commission-math";
 import { recordPolicyUpdate, type PolicyChangeKind } from "@/lib/data/lender-relationship";
 import { requireSupabase } from "@/lib/supabase/client";
 import type { Enums, Json, Tables, TablesUpdate } from "@/lib/supabase/database.types";
@@ -127,6 +128,10 @@ export interface FundedDeal {
   id: string; dealId: string; offerId: string | null; lenderName: string; requestedAmount: number; acceptedOfferAmount: number | null;
   grossFunded: number; netFunded: number; fundedAt: string; disbursementReference: string | null; confirmedAt: string; note: string | null;
 }
+export interface FileCommission {
+  id: string; dealId: string; partyKind: CommissionPartyKind; partyId: string; basis: CommissionBasis; rateOrAmount: number; computedAmount: number | null;
+  state: CommissionState; fundedAt: string | null; paidAt: string | null; note: string | null; createdAt: string;
+}
 export interface RenewalOpportunity { id: string; fundedDealId: string; potentialRenewalDate: string | null; status: RenewalStatus; nextFollowUpAt: string | null; newFileId: string | null; note: string | null }
 export interface FundingFileDomain {
   /** The file's agency — uploads need it and an organization user's session does not carry it. */
@@ -137,6 +142,7 @@ export interface FundingFileDomain {
   offers: Offer[];
   closings: Closing[];
   fundedDeals: FundedDeal[];
+  commissions: FileCommission[];
   renewals: RenewalOpportunity[];
   clientId: string;
   parties: FundingParty[];
@@ -177,7 +183,7 @@ const mapDecision = (r: Tables<"lender_decisions">): LenderDecision => ({
 /* ------------------------------------------------------------------ */
 export async function fetchFundingFileDomain(fileId: string): Promise<FundingFileDomain> {
   const sb = requireSupabase();
-  const [file, rules, app, requests, instances, flags, deals, offers, closings, funded, renewals] = await Promise.all([
+  const [file, rules, app, requests, instances, flags, deals, offers, closings, funded, renewals, commissions] = await Promise.all([
     sb.from("funding_files").select("agency_id, client_id, stage, secondary_status, waiting_on, funding_clients(funding_parties(id, kind, display_name, ownership_pct))").eq("id", fileId).single(),
     sb.from("requirement_rules").select("*").eq("active", true),
     sb.from("funding_applications").select("*").eq("file_id", fileId).order("version", { ascending: false }).limit(1).maybeSingle(),
@@ -189,8 +195,9 @@ export async function fetchFundingFileDomain(fileId: string): Promise<FundingFil
     sb.from("closings").select("*").eq("file_id", fileId).order("started_at", { ascending: false }),
     sb.from("funded_deals").select("*").eq("file_id", fileId).order("funded_at", { ascending: false }),
     sb.from("renewal_opportunities").select("*").eq("file_id", fileId).order("updated_at", { ascending: false }),
+    sb.from("commissions").select("*, funding_deals!inner(file_id)").eq("funding_deals.file_id", fileId).order("created_at", { ascending: false }),
   ]);
-  for (const r of [file, rules, app, requests, instances, flags, deals, offers, closings, funded, renewals]) if (r.error) throw r.error;
+  for (const r of [file, rules, app, requests, instances, flags, deals, offers, closings, funded, renewals, commissions]) if (r.error) throw r.error;
   const partyRows = ((file.data!.funding_clients as { funding_parties: Pick<Tables<"funding_parties">, "id" | "kind" | "display_name" | "ownership_pct">[] } | null)?.funding_parties) ?? [];
   return {
     agencyId: file.data!.agency_id,
@@ -204,6 +211,10 @@ export async function fetchFundingFileDomain(fileId: string): Promise<FundingFil
       status: o.status, presentedAt: o.presented_at, clientDecidedAt: o.client_decided_at, note: o.note,
     })),
     closings: (closings.data ?? []).map((c) => ({ id: c.id, offerId: c.offer_id, status: c.status, startedAt: c.started_at, signedAt: c.signed_at, note: c.note })),
+    commissions: (commissions.data ?? []).map((c) => ({
+      id: c.id, dealId: c.deal_id, partyKind: c.party_kind as CommissionPartyKind, partyId: c.party_id, basis: c.basis as CommissionBasis, rateOrAmount: Number(c.rate_or_amount), computedAmount: n(c.computed_amount),
+      state: c.state as CommissionState, fundedAt: c.funded_at, paidAt: c.paid_at, note: c.note, createdAt: c.created_at,
+    })),
     fundedDeals: (funded.data ?? []).map((d) => ({
       id: d.id, dealId: d.deal_id, offerId: d.offer_id, lenderName: d.lender_name, requestedAmount: Number(d.requested_amount), acceptedOfferAmount: n(d.accepted_offer_amount),
       grossFunded: Number(d.gross_funded), netFunded: Number(d.net_funded), fundedAt: d.funded_at, disbursementReference: d.disbursement_reference, confirmedAt: d.confirmed_at, note: d.note,
@@ -386,6 +397,8 @@ export async function uploadDocumentInstance(input: {
   requestId: string | null;
   classifiedType: string | null;
   classifiedPeriod: string | null;
+  /** 'portal' when the borrower uploads; the insert policy then requires disposition pending_review. */
+  uploadSource?: "staff" | "portal";
 }): Promise<void> {
   const sb = requireSupabase();
   const sha256 = await sha256Hex(input.file);
@@ -403,7 +416,7 @@ export async function uploadDocumentInstance(input: {
 
   const instance = await sb.from("document_instances").insert({
     file_id: input.fileId, request_id: input.requestId, storage_file_id: fileRow.data.id, sha256, mime_type: object.mimeType, size_bytes: object.sizeBytes,
-    uploaded_by: input.actorId, upload_source: "staff", classified_type: input.classifiedType, classified_period: input.classifiedPeriod,
+    uploaded_by: input.actorId, upload_source: input.uploadSource ?? "staff", classified_type: input.classifiedType, classified_period: input.classifiedPeriod,
   }).select("id").single();
   if (instance.error) throw instance.error;
 
@@ -494,6 +507,24 @@ export async function confirmFunding(input: { closingId: string; gross: number; 
   if (error) throw error;
   return data as string;
 }
+/** A commission row on a funded deal; the amount arrives computed by lib/funding/commission-math.ts. Policy: reviewers of the file. */
+export async function createCommission(input: { dealId: string; partyKind: CommissionPartyKind; partyId: string; basis: CommissionBasis; rateOrAmount: number; computedAmount: number; fundedAt: string; note: string | null; actorId: string }): Promise<void> {
+  const sb = requireSupabase();
+  const { error } = await sb.from("commissions").insert({ deal_id: input.dealId, party_kind: input.partyKind, party_id: input.partyId, basis: input.basis, rate_or_amount: input.rateOrAmount, computed_amount: input.computedAmount, funded_at: input.fundedAt, note: input.note, created_by: input.actorId });
+  if (error) throw error;
+}
+/** pending → approved → paid | void; the machine lives in commission-math.ts and is checked here before the write. */
+export async function setCommissionState(commissionId: string, to: CommissionState): Promise<void> {
+  const sb = requireSupabase();
+  const current = await sb.from("commissions").select("state").eq("id", commissionId).maybeSingle();
+  if (current.error) throw current.error;
+  if (!current.data) throw new Error("Commission not visible.");
+  if (!canMoveCommission(current.data.state as CommissionState, to)) throw new Error(`A commission cannot go from ${current.data.state} to ${to}.`);
+  const { data, error } = await sb.from("commissions").update({ state: to, paid_at: to === "paid" ? new Date().toISOString() : null }).eq("id", commissionId).select("id");
+  if (error) throw error;
+  if (!data?.length) throw new Error("Nothing changed — you may not edit this commission.");
+}
+
 export async function createRenewalFile(renewalId: string, purpose: string, requestedAmount: number): Promise<string> {
   const sb = requireSupabase();
   const { data, error } = await sb.rpc("create_renewal_file", { p_renewal: renewalId, p_purpose: purpose, p_requested_amount: requestedAmount });

@@ -353,3 +353,46 @@ Matrix probes added: "resetting the cycle closes the previous round" (phase 23),
 | INSERT grants everywhere | the API role holds INSERT only where a policy can allow it (0064.1 — same rule as 0063 for UPDATE/DELETE); new tables default to SELECT only | catalogue query |
 
 Matrix phase 25 (20 probes) covers defaults, deny outside the organization, overrides and their audit, self-change refused, cross-organization refused, unknown key, Copy Permission, no direct writes, invitations and acceptance by the wrong email.
+
+
+### 0065 — Permission keys enforced in the functions
+
+| Function | Key consulted (after the existing visibility + reviewer/writable checks) |
+|---|---|
+| `approve_dispute_letter` | `creditops.letters.approve` |
+| `open_dispute_round`, `mark_letter_mailed` | `creditops.letters.build` |
+| `move_funding_file`, `create_renewal_file` | `fundingops.files.edit` |
+| `record_document_disposition` | `fundingops.documents.review` |
+| `set_offer_status`, `start_closing`, `advance_closing` | `fundingops.offers.manage` |
+| `confirm_funding` | `fundingops.funding.confirm` |
+
+0067 corrected the subquery alias in the seven funding functions (`t` collided with their `t record` variable; now `ten`). `require_permission(org, key)`: BES staff pass (their access is engagement and scope, enforced by the earlier checks); a record without an organization has no keys to consult; otherwise `member_can()` must be true or 42501 with the key named. Matrix phase 26: a Lakeside processor builds letters but cannot approve; a manager passes the gate and is judged by the QA gate; the interface's `member_can` answer equals the gate.
+
+
+### 0066 — Borrower portal
+
+| Object | Rule | How |
+|---|---|---|
+| `funding_files` (select, borrower branch) | the borrower (`funding_clients.portal_user_id`) reads the row of their own file | `funding_files_borrower_select` = `is_borrower_of_file(id)` |
+| `borrower_funding_files` (view, `security_invoker`) | id, FND-, purpose, requested amount, the three state axes, last activity, agency and organization ids — nothing else; only rows where the caller is the portal user | the portal reads this view, never the table |
+| `files` (select/insert) | BES staff of the agency; organization members of the file's organization (they operate their own files since 0063); the borrower for their own `funding_file` uploads with `uploaded_by = auth.uid()` | `files_select` / `files_insert` |
+| `storage.objects` (`bes-files`) | the borrower may insert and read their own objects under `<organization>/activity/funding_file/<file>/…` when `is_borrower_of_file(<file>)`; staff and organization branches unchanged | `bes_files_borrower_insert` / `bes_files_borrower_select` |
+| `document_instances` | unchanged: a borrower insert must carry `upload_source = 'portal'` and `disposition = 'pending_review'`; flags, offers, decisions stay invisible | 0058 |
+| fixture | `client.portal@bes.test` — external `client` membership on Lakeside, portal user of Juno Logistics | dev only |
+
+Matrix phase 27 (10 probes): the view returns exactly the own file; raw `funding_files` shows only that row; another client's file is invisible; requests readable; flags/offers/decisions 0; own upload recorded; a staff source or a disposition on a portal upload refused; another client's file refused; `move_funding_file` refused; another organization sees no borrower rows.
+
+**0068 (correction to 0066).** `files_select` / `files_insert` are the 0044 bodies (activity-event branch; otherwise staff or organization member **and** `entity_visible()`) plus one borrower branch each; the borrower view is owner-rights, filtered by `auth.uid()`, exposing only its listed columns. Rule going forward: when a migration must rewrite a policy, copy the body from `pg_policies` on the live database, not from the migration that first created it.
+
+
+### 0069 — Reporting engine
+
+| Object | Rule | How |
+|---|---|---|
+| `kpi_definitions` | the catalogue, readable by every seat except rows marked `bes_internal`, which only BES staff see; written by migrations | `kpi_definitions_select` |
+| `organization_kpi_settings` | readable by the organization's members and BES; written by the organization's owner/admin or a BES manager of its agency | `org_kpi_settings_write` |
+| `client_round_outcomes` | manual outcomes (outside-CRM clients): visible to whoever may see the client; inserted/updated by whoever may write the client, and only as themselves (`recorded_by = auth.uid()`); `source = 'manual'` is the provenance | `credit_client_visible/writable` |
+| `report_facts` (view, security invoker) | one shape over production, time, status changes, letters (built · mailed · responded), manual outcomes, submissions, funded deals — every underlying row still passes its own table's RLS | no policy of its own; nothing to widen |
+| `report_pivot(rows, kpis, filters, from, to)` | SECURITY INVOKER over the view; rows whitelisted (employee · department · organization · client · month · service); KPI columns assembled only from catalogue rows (`kpi_match_sql` interpolates whitelisted fact columns with `%L`); a `bes_internal` KPI is dropped for a non-staff caller even when asked for by key | 22023 on an unknown dimension |
+
+Matrix phase 28: cross-organization facts 0; internal KPI absent from the organization catalogue and omitted by the pivot; pivot total equals a direct count; KPI settings owner-only and organization-bound; manual outcomes by the client's writers as themselves.

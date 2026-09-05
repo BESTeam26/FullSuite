@@ -1,155 +1,94 @@
-import { TrendingUp, Award, Target, Percent } from "lucide-react";
-import { ChartLegend } from "@/components/charts/ChartLegend";
-import {
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  PieChart,
-  Pie,
-  Cell,
-} from "recharts";
+/**
+ * Reports — the first live slice of the reporting milestone
+ * (ARCHITECTURE_PROPOSAL_REPORTING.md): deterministic figures over canonical
+ * rows the caller may see, bucketed by month. Letters and funding are
+ * engine-derived outcomes; production feeds the agent ranking for BES staff
+ * (organization users receive no production rows). The pivot builder and
+ * configurable KPI catalogue follow with their tables.
+ */
+import { useMemo } from "react";
+import { Link } from "react-router-dom";
+import { Award, BarChart3, DollarSign, Loader2, Mail, MailCheck, Send, TrendingUp } from "lucide-react";
+import { ChartCard } from "@/components/dashboard/ops/ChartCard";
+import { DonutLegend } from "@/components/dashboard/ops/DonutLegend";
+import { HorizontalBars } from "@/components/dashboard/ops/HorizontalBars";
+import { KpiTile, TONE_FILL } from "@/components/dashboard/ops/KpiTile";
+import { MonthlyLines } from "@/components/dashboard/ops/MonthlyLines";
+import { StageBarChart } from "@/components/dashboard/ops/StageBarChart";
+import { useAuth } from "@/lib/auth/auth-context";
+import { useReportingSignals } from "@/lib/data/use-reporting";
+import { formatCompactMoney } from "@/lib/funding/dashboard-metrics";
+import { bucketByMonth, lastMonths, rate } from "@/lib/reporting/month-series";
 
-const monthly = [
-  { m: "Mar", filed: 320, deleted: 110 },
-  { m: "Apr", filed: 410, deleted: 165 },
-  { m: "May", filed: 380, deleted: 190 },
-  { m: "Jun", filed: 520, deleted: 240 },
-  { m: "Jul", filed: 610, deleted: 310 },
-  { m: "Aug", filed: 680, deleted: 380 },
+const OUTCOME = [
+  { key: "Funded", color: TONE_FILL.green }, { key: "Offer Received", color: TONE_FILL.emerald }, { key: "In Review", color: TONE_FILL.blue }, { key: "Stipulations", color: TONE_FILL.amber },
+  { key: "Submitted", color: TONE_FILL.purple }, { key: "Declined", color: TONE_FILL.red }, { key: "Withdrawn", color: TONE_FILL.slate },
 ];
 
-const breakdown = [
-  { name: "Late payments", value: 42, color: "#10B981" },
-  { name: "Collections", value: 28, color: "#3B82F6" },
-  { name: "Charge-offs", value: 18, color: "#F59E0B" },
-  { name: "Inquiries", value: 12, color: "#8B5CF6" },
-];
+export default function Reporting() {
+  const auth = useAuth();
+  const now = useMemo(() => new Date(), []);
+  const months = useMemo(() => lastMonths(now, 6), [now]);
+  const since = months[0].start.toISOString();
+  const signals = useReportingSignals(since);
+  const d = signals.data;
+  const live = auth.mode === "live";
 
-const kpis = [
-  {
-    label: "Deletion rate",
-    value: "56%",
-    icon: Percent,
-    sub: "+4% vs last month",
-  },
-  {
-    label: "Avg score lift",
-    value: "+47",
-    icon: TrendingUp,
-    sub: "across portfolio",
-  },
-  { label: "Top agent", value: "S. Patel", icon: Award, sub: "312 deletions" },
-  {
-    label: "Response rate",
-    value: "91%",
-    icon: Target,
-    sub: "bureau responses",
-  },
-];
+  const mailed = useMemo(() => bucketByMonth(d?.letters ?? [], months, (l) => l.mailedAt), [d, months]);
+  const responded = useMemo(() => bucketByMonth(d?.letters ?? [], months, (l) => l.respondedAt), [d, months]);
+  const fundedByMonth = useMemo(() => bucketByMonth(d?.funded ?? [], months, (f) => f.fundedAt, (f) => f.gross), [d, months]);
+  const submittedByMonth = useMemo(() => bucketByMonth(d?.submissions ?? [], months, (s) => s.submittedAt), [d, months]);
+  const totalMailed = mailed.reduce((a, b) => a + b, 0), totalResponded = responded.reduce((a, b) => a + b, 0);
+  const fundedTotal = fundedByMonth.reduce((a, b) => a + b, 0), submissionsTotal = submittedByMonth.reduce((a, b) => a + b, 0);
+  const fundedCount = (d?.submissions ?? []).filter((s) => s.status === "Funded").length;
+  const outcome = useMemo(() => OUTCOME.map((o) => ({ label: o.key, value: (d?.submissions ?? []).filter((s) => s.status === o.key).length, color: o.color })), [d]);
+  const topAgents = useMemo(() => {
+    const by = new Map<string, { name: string; units: number }>();
+    for (const p of d?.production ?? []) { const row = by.get(p.employeeId) ?? { name: p.employeeName, units: 0 }; row.units += p.units; by.set(p.employeeId, row); }
+    return [...by.values()].sort((a, b) => b.units - a.units).slice(0, 8).map((r) => ({ label: r.name, value: r.units }));
+  }, [d]);
 
-const Reporting = () => (
-  <div className="p-6 md:p-8">
-    <div className="mb-8">
-      <h1 className="text-2xl font-bold tracking-tight">Reporting</h1>
-      <p className="text-sm text-muted-foreground">
-        Performance across your entire credit repair operation
-      </p>
-    </div>
-
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      {kpis.map((k) => (
-        <div
-          key={k.label}
-          className="rounded-2xl border border-border bg-card p-5"
-        >
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/10 text-status-success">
-            <k.icon className="h-5 w-5" />
-          </div>
-          <p className="mt-4 text-2xl font-bold">{k.value}</p>
-          <p className="text-sm text-muted-foreground">{k.label}</p>
-          <p className="mt-1 text-xs text-status-success">{k.sub}</p>
+  return (
+    <div className="space-y-5 p-6">
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Reports</h1>
+          <p className="text-sm text-muted-foreground">Last six months across CreditOps and FundingOps — deterministic counts over the records you may see. Outcomes here are engine-derived; manual outcomes for clients worked in an outside CRM arrive with the reporting milestone.</p>
         </div>
-      ))}
-    </div>
+        {signals.isLoading && <p className="inline-flex items-center gap-1 text-xs text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</p>}
+        {signals.error && <p role="alert" className="text-xs text-status-danger">Could not load the reports.</p>}
+      </div>
+      {!live && <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">Reports read the live database. Demo mode shows nothing here.</p>}
 
-    <div className="mt-6 grid gap-6 lg:grid-cols-3">
-      <div className="rounded-2xl border border-border bg-card p-6 lg:col-span-2">
-        <h2 className="font-semibold">Filed vs deleted</h2>
-        <div className="mt-6 h-72">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={monthly}>
-              <CartesianGrid
-                strokeDasharray="3 3"
-                stroke="#e2e8f0"
-                vertical={false}
-              />
-              <XAxis
-                dataKey="m"
-                stroke="#94a3b8"
-                fontSize={12}
-                tickLine={false}
-                axisLine={false}
-              />
-              <YAxis
-                stroke="#94a3b8"
-                fontSize={12}
-                tickLine={false}
-                axisLine={false}
-              />
-              <Tooltip
-                contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0" }}
-              />
-              <ChartLegend />
-              <Line
-                type="monotone"
-                dataKey="filed"
-                stroke="#3B82F6"
-                strokeWidth={2.5}
-                dot={false}
-              />
-              <Line
-                type="monotone"
-                dataKey="deleted"
-                stroke="#10B981"
-                strokeWidth={2.5}
-                dot={false}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <KpiTile label="Letters Mailed" value={totalMailed} icon={Mail} tone="emerald" hint="Last six months" />
+        <KpiTile label="Responses Received" value={totalResponded} icon={MailCheck} tone="green" />
+        <KpiTile label="Response Rate" value={rate(totalResponded, totalMailed) === null ? "—" : `${rate(totalResponded, totalMailed)}%`} icon={TrendingUp} tone="blue" hint="Responded ÷ mailed" />
+        <KpiTile label="Submissions" value={submissionsTotal} icon={Send} tone="purple" hint="Sent to lenders" />
+        <KpiTile label="Funded Deals" value={fundedCount} icon={Award} tone="green" hint={rate(fundedCount, (d?.submissions ?? []).length) === null ? "No submissions yet" : `${rate(fundedCount, (d?.submissions ?? []).length)}% of submissions`} />
+        <KpiTile label="Funded Volume" value={formatCompactMoney(fundedTotal)} icon={DollarSign} tone="amber" hint="Gross, last six months" />
       </div>
 
-      <div className="rounded-2xl border border-border bg-card p-6">
-        <h2 className="font-semibold">Deletions by type</h2>
-        <div className="mt-6 h-72">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={breakdown}
-                dataKey="value"
-                nameKey="name"
-                innerRadius={55}
-                outerRadius={90}
-                paddingAngle={3}
-              >
-                {breakdown.map((b) => (
-                  <Cell key={b.name} fill={b.color} />
-                ))}
-              </Pie>
-              <Tooltip
-                contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0" }}
-              />
-              <ChartLegend />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
+      <div className="grid gap-4 xl:grid-cols-2">
+        <ChartCard title="Letters mailed vs responses by month" icon={Mail}>
+          <MonthlyLines months={months.map((m) => m.label)} series={[{ key: "mailed", label: "Mailed", color: TONE_FILL.emerald, values: mailed }, { key: "responded", label: "Responded", color: TONE_FILL.blue, values: responded }]} />
+        </ChartCard>
+        <ChartCard title="Funded volume by month" icon={DollarSign}>
+          <StageBarChart data={months.map((m, i) => ({ label: m.label, count: fundedByMonth[i] }))} tone="green" height={240} />
+        </ChartCard>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-3">
+        <ChartCard title="Submissions by outcome" icon={BarChart3}>
+          <DonutLegend data={outcome} emptyText="No submissions in the period" />
+        </ChartCard>
+        <ChartCard title="Submissions by month" icon={Send}>
+          <StageBarChart data={months.map((m, i) => ({ label: m.label, count: submittedByMonth[i] }))} tone="purple" height={220} />
+        </ChartCard>
+        <ChartCard title="Top agents by production units" icon={Award} extra={<Link to="/app/lenders" className="text-[11px] font-semibold text-primary hover:underline">Lender scorecard →</Link>}>
+          {auth.isAgencyStaff ? <HorizontalBars data={topAgents} tone="amber" unit="Units" emptyText="No production logged in the period." /> : <p className="py-6 text-center text-xs text-muted-foreground">Agent production is a BES-internal figure; your organization's KPIs arrive with the reporting milestone.</p>}
+        </ChartCard>
       </div>
     </div>
-  </div>
-);
-
-export default Reporting;
+  );
+}

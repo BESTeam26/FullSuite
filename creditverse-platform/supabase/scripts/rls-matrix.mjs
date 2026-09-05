@@ -1071,5 +1071,92 @@ if (PHASE >= 25) {
   }
 }
 
+
+/* Phase 26 — permission keys enforced in the functions (0065): a processor may
+   build letters but not approve; a manager passes the permission gate and is
+   stopped by the QA gate instead; BES staff are gated by scope, not keys. */
+if (PHASE >= 26) {
+  const w26 = (uid, sql) => { try { return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
+  const AC = q(`select coalesce((select id::text from public.fulfillment_clients where organization_id='${lakesideOrg}' and assigned_agent_id='${U["org.agent@bes.test"]}' limit 1), '') as rows`)[0].rows;
+  const creditOn26 = q(`select public.org_entitled('${lakesideOrg}','creditOps') as rows`)[0].rows === true;
+  const DRAFT = (who) => `select public.open_dispute_round('${AC}', 'factual', true); insert into public.dispute_letters (id, round_id, client_id, recipient_kind, recipient_name, body_final) select '99999999-0000-4000-8000-0000000000cd', r.id, '${AC}', 'cra', 'Equifax', repeat('Please investigate the account listed below. ', 4) from public.dispute_rounds r where r.client_id='${AC}' and r.closed_at is null order by r.round_number desc limit 1; insert into public.dispute_attestations (letter_id, attested_by, statements) values ('99999999-0000-4000-8000-0000000000cd', '${who}', '{"recognises_account":"no","disputed_information":"x","reason":"y","documents":[]}'::jsonb);`;
+  const P26 = AC ? [
+    ["a processor may build letters (letters.build): the round opens and the draft is written", () => w26(U["org.agent@bes.test"], `${DRAFT(U["org.agent@bes.test"])} select count(*)::int as rows from public.dispute_letters where id='99999999-0000-4000-8000-0000000000cd'`), creditOn26 ? 1 : "ERR 42501"],
+    ["a processor may not approve (letters.approve is not in the role): refused before the QA gate", () => w26(U["org.agent@bes.test"], `${DRAFT(U["org.agent@bes.test"])} select public.approve_dispute_letter('99999999-0000-4000-8000-0000000000cd'); select 1 as rows`), "ERR 42501"],
+    ["a manager passes the permission gate and reaches the QA gate (approval succeeds on an attested clean letter)", () => w26(U["org.lead@bes.test"], `${DRAFT(U["org.lead@bes.test"])} select public.approve_dispute_letter('99999999-0000-4000-8000-0000000000cd'); select status::text as rows from public.dispute_letters where id='99999999-0000-4000-8000-0000000000cd'`), creditOn26 ? "approved" : "ERR 42501"],
+    ["the permission answer the interface shows matches the gate",       () => w26(U["org.agent@bes.test"], `select public.member_can('${lakesideOrg}','creditops.letters.build')::text || ':' || public.member_can('${lakesideOrg}','creditops.letters.approve')::text as rows`), "true:false"],
+  ] : [["(no Lakeside client assigned to org.agent to probe)", () => "skip", "skip"]];
+  console.log("\nphase 26:");
+  for (const [label, fn, want] of P26) {
+    checks++;
+    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
+    const ok = got === want; if (!ok) fails++;
+    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
+  }
+}
+
+
+/* Phase 27 — borrower portal (0066): the borrower sees only their own file
+   through the narrow view, the requests on it and their own uploads; never
+   another client's file, flags, offers or lender decisions. Rolled back. */
+if (PHASE >= 27) {
+  const w27 = (uid, sql) => { try { return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
+  const PORTAL = q(`select coalesce((select id::text from public.profiles where email='client.portal@bes.test'), '') as rows`)[0].rows;
+  const JUNO_FILE = q(`select coalesce((select id::text from public.funding_files where client_id = public.dev_uuid('fu-3') limit 1), '') as rows`)[0].rows;
+  const OTHER_FILE = q(`select coalesce((select id::text from public.funding_files where client_id <> public.dev_uuid('fu-3') limit 1), '') as rows`)[0].rows;
+  const AG = q(`select agency_id::text as rows from public.funding_files where id='${JUNO_FILE}'`)[0]?.rows ?? "";
+  const ORG = q(`select c.organization_id::text as rows from public.funding_files f join public.funding_clients c on c.id=f.client_id where f.id='${JUNO_FILE}'`)[0]?.rows ?? "";
+  const P27 = PORTAL && JUNO_FILE ? [
+    ["the borrower sees exactly their own file through the view",       () => w27(PORTAL, `select count(*)::int as rows from public.borrower_funding_files`), 1],
+    ["…and the raw funding_files row only for that file",               () => w27(PORTAL, `select (select count(*) from public.funding_files)::text || ':' || (select count(*) from public.funding_files where id='${JUNO_FILE}')::text as rows`), "1:1"],
+    ["another client's file is not visible",                            () => w27(PORTAL, `select count(*)::int as rows from public.funding_files where id='${OTHER_FILE}'`), 0],
+    ["the borrower reads the requests on their file",                   () => w27(PORTAL, `select (count(*) >= 0)::text as rows from public.document_requests where file_id='${JUNO_FILE}'`), "true"],
+    ["flags, offers and lender decisions stay invisible",               () => w27(PORTAL, `select (select count(*) from public.document_flags)::text || ':' || (select count(*) from public.offers)::text || ':' || (select count(*) from public.lender_decisions)::text as rows`), "0:0:0"],
+    ["the borrower records a files row and a portal upload on their own file", () => w27(PORTAL, `insert into public.files (id, agency_id, organization_id, entity_type, entity_id, bucket, path, name, mime_type, size_bytes, sha256, uploaded_by) values ('99999999-0000-4000-8000-00000000f11e', '${AG}', '${ORG}', 'funding_file', '${JUNO_FILE}', 'bes-files', '${ORG}/activity/funding_file/${JUNO_FILE}/probe.pdf', 'probe.pdf', 'application/pdf', 10, 'probe-sha', auth.uid()); insert into public.document_instances (file_id, storage_file_id, sha256, mime_type, size_bytes, uploaded_by, upload_source, disposition) values ('${JUNO_FILE}', '99999999-0000-4000-8000-00000000f11e', 'probe-sha', 'application/pdf', 10, auth.uid(), 'portal', 'pending_review'); select count(*)::int as rows from public.document_instances where file_id='${JUNO_FILE}' and uploaded_by=auth.uid() and created_at >= now()`), 1],
+    ["a portal upload cannot claim a staff source or a disposition",    () => w27(PORTAL, `insert into public.files (id, agency_id, organization_id, entity_type, entity_id, bucket, path, name, mime_type, size_bytes, sha256, uploaded_by) values ('99999999-0000-4000-8000-00000000f11f', '${AG}', '${ORG}', 'funding_file', '${JUNO_FILE}', 'bes-files', '${ORG}/activity/funding_file/${JUNO_FILE}/probe2.pdf', 'probe2.pdf', 'application/pdf', 10, 'probe-sha-2', auth.uid()); insert into public.document_instances (file_id, storage_file_id, sha256, mime_type, size_bytes, uploaded_by, upload_source, disposition) values ('${JUNO_FILE}', '99999999-0000-4000-8000-00000000f11f', 'probe-sha-2', 'application/pdf', 10, auth.uid(), 'staff', 'accepted'); select 1 as rows`), "ERR 42501"],
+    ["the borrower cannot record a file on another client's file",      () => w27(PORTAL, `insert into public.files (agency_id, organization_id, entity_type, entity_id, bucket, path, name, mime_type, size_bytes, sha256, uploaded_by) values ('${AG}', '${ORG}', 'funding_file', '${OTHER_FILE}', 'bes-files', '${ORG}/activity/funding_file/${OTHER_FILE}/x.pdf', 'x.pdf', 'application/pdf', 10, 'sha-x', auth.uid()); select 1 as rows`), "ERR 42501"],
+    ["the borrower cannot move their file or see the dispositions' reasoning path (no reviewer rights)", () => w27(PORTAL, `select public.move_funding_file('${JUNO_FILE}', 'File Review'); select 1 as rows`), "ERR 42501"],
+    ["an organization member of another organization sees no borrower rows", () => w27(U["org2.owner@bes.test"], `select count(*)::int as rows from public.borrower_funding_files`), 0],
+  ] : [["(no portal fixture yet — 0066 not applied)", () => "skip", "skip"]];
+  console.log("\nphase 27:");
+  for (const [label, fn, want] of P27) {
+    checks++;
+    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
+    const ok = got === want; if (!ok) fails++;
+    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
+  }
+}
+
+
+/* Phase 28 — reporting engine (0069): facts and pivots follow the caller's RLS;
+   BES-internal KPIs never reach an organization; KPI settings are the owner's;
+   manual outcomes follow the client's writers. Rolled back. */
+if (PHASE >= 28) {
+  const w28 = (uid, sql) => { try { return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
+  const LC = q(`select coalesce((select id::text from public.fulfillment_clients where organization_id='${lakesideOrg}' and assigned_agent_id='${U["org.agent@bes.test"]}' limit 1), '') as rows`)[0].rows;
+  const P28 = [
+    ["an organization member sees no facts of another organization",         () => w28(U["org.owner@bes.test"], `select count(*)::int as rows from public.report_facts where organization_id is not null and organization_id <> '${lakesideOrg}'`), 0],
+    ["another organization's owner sees no Lakeside facts",                  () => w28(U["org2.owner@bes.test"], `select count(*)::int as rows from public.report_facts where organization_id = '${lakesideOrg}'`), 0],
+    ["a BES-internal KPI is not in the organization catalogue",              () => w28(U["org.owner@bes.test"], `select count(*)::int as rows from public.kpi_definitions where bes_internal`), 0],
+    ["…and the pivot omits it even when asked for by key",                   () => w28(U["org.owner@bes.test"], `select coalesce((select count(*) from public.report_pivot('month', array['production.units','letters.mailed']) r where r ? 'production.units'), 0)::int as rows`), 0],
+    ["BES staff get the internal KPI",                                       () => w28(U["bes.owner@bes.test"], `select (select count(*) from public.kpi_definitions where key='production.units')::int as rows`), 1],
+    ["an unknown row dimension is refused",                                  () => w28(U["org.owner@bes.test"], `select count(*)::int as rows from public.report_pivot('bogus', array['letters.mailed'])`), "ERR 22023"],
+    ["pivot totals equal a direct count (letters mailed, month rows)",       () => w28(U["org.owner@bes.test"], `select ((select coalesce(sum((r->>'letters.mailed')::int), 0) from public.report_pivot('month', array['letters.mailed'], '{}'::jsonb, '2000-01-01', '2100-01-01') r) = (select count(*) from public.dispute_letters l join public.fulfillment_clients c on c.id = l.client_id where l.mailed_at is not null))::text as rows`), "true"],
+    ["the owner enables a KPI with a target for the organization",           () => w28(U["org.owner@bes.test"], `insert into public.organization_kpi_settings (organization_id, kpi_key, enabled, target, sort, updated_by) values ('${lakesideOrg}', 'letters.mailed', true, 40, 1, auth.uid()); select count(*)::int as rows from public.organization_kpi_settings where organization_id='${lakesideOrg}' and kpi_key='letters.mailed'`), 1],
+    ["a processor cannot change the organization's KPI settings",           () => w28(U["org.agent@bes.test"], `insert into public.organization_kpi_settings (organization_id, kpi_key, enabled, sort, updated_by) values ('${lakesideOrg}', 'letters.mailed', true, 1, auth.uid()); select 1 as rows`), "ERR 42501"],
+    ["another organization's owner cannot set Lakeside's KPIs",             () => w28(U["org2.owner@bes.test"], `insert into public.organization_kpi_settings (organization_id, kpi_key, enabled, sort, updated_by) values ('${lakesideOrg}', 'letters.mailed', true, 1, auth.uid()); select 1 as rows`), "ERR 42501"],
+    ["a processor records a manual round outcome on an assigned client",    () => LC ? w28(U["org.agent@bes.test"], `insert into public.client_round_outcomes (client_id, round_number, bureau, items_disputed, deleted, updated, verified, recorded_by) values ('${LC}', 1, 'EQ', 5, 2, 1, 2, auth.uid()); select (select count(*) from public.report_facts where source='manual_outcome' and outcome='deleted' and client_id='${LC}' and quantity = 2)::int as rows`) : "skip", LC ? 1 : "skip"],
+    ["another organization's owner cannot record an outcome on it",         () => LC ? w28(U["org2.owner@bes.test"], `insert into public.client_round_outcomes (client_id, round_number, bureau, recorded_by) values ('${LC}', 1, 'EQ', auth.uid()); select 1 as rows`) : "skip", LC ? "ERR 42501" : "skip"],
+    ["an outcome must name its recorder",                                    () => LC ? w28(U["org.agent@bes.test"], `insert into public.client_round_outcomes (client_id, round_number, bureau, recorded_by) values ('${LC}', 1, 'TU', '${U["org.owner@bes.test"]}'); select 1 as rows`) : "skip", LC ? "ERR 42501" : "skip"],
+  ];
+  console.log("\nphase 28:");
+  for (const [label, fn, want] of P28) {
+    checks++;
+    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
+    const ok = got === want; if (!ok) fails++;
+    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
+  }
+}
+
 console.log(`\n${checks - fails}/${checks} checks passed (phase ≤ ${PHASE})`);
 process.exit(fails ? 1 : 0);

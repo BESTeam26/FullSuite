@@ -3235,3 +3235,106 @@ accept, refresh memberships, land in the app. Data access in
 `useMyPermissions()` bundles the caller's answers once per organization for
 later interface gating. Still needed from Dee for automatic emails: a mail
 provider API key (send-invitation Edge Function is designed in the proposal).
+
+**0065 — permission keys enforced where the action happens (2026-09-05).**
+`20260904004500_permission_enforcement.sql`: `require_permission(org, key)`
+added to the ten security-relevant functions (approve letter · build/mail
+letters · move file · renewal file · document disposition · offers/closing ·
+confirm funding) right after their existing visibility and reviewer checks.
+Bodies were generated from the live definitions (`pg_get_functiondef`) with
+the one line inserted, so nothing else changed and grants are preserved. BES
+staff are gated by engagement and scope, not by an organization's keys;
+outsourcing-only records have no keys. Matrix phase 26 added; full run after 0065: see the phase-27 run below.
+Interface gating on the same keys: `usePermission(key)` (`lib/auth/
+use-permission.ts`) reads the caller's `my_permissions()` once per
+organization — BES staff and demo mode answer yes. The file page passes
+per-tab answers (files.edit → Move control, Application, Renewal;
+documents.review → Documents; submissions.create → Matches & Submissions;
+offers.manage → Offers and Closing; funding.confirm → the Confirm funding
+form, with a note when the person lacks it); the Pipeline board's drag needs
+files.edit; the Letter Builder disables Approve without letters.approve and
+Mark mailed without letters.build, saying why. Hiding is presentation; the
+function refuses regardless (0065).
+
+**Commissions recorded on funded deals (2026-09-05).** The Deals › Commissions
+record page had readers but no writer. The Closing tab now carries
+**Commissions** under the funded deals (shown to holders of "View
+commissions"): record one per party — BES, a team member, a partner or a
+lender referral — on a percentage of gross funded or a flat amount; the amount
+is computed by `lib/funding/commission-math.ts` (3 tests) from the funded
+gross and shown before saving, never typed as a conclusion; states move
+pending → approved → paid, or void, with the machine checked before every
+write. Policy: reviewers of the file (0058). The funding-file domain fetch
+gained the file's commissions (inner join through its deals, still one
+parallel batch). Verified by typecheck and tests; no live file is funded yet,
+so the panel's populated state was not browser-checked.
+
+**Borrower portal (2026-09-05).** Addendum D proposed, then built as its
+smallest correction. `20260904004600_borrower_portal.sql`: a borrower-only
+select policy on `funding_files` plus the narrow `borrower_funding_files`
+view (security invoker; stage, purpose, amount, FND-, waiting on, ids —
+nothing about lenders, offers, flags or notes); `files` select/insert branches
+for organization members and for the borrower's own funding-file uploads;
+storage branches for `<organization>/activity/funding_file/<file>/…`; a dev
+fixture (`client.portal@bes.test`, borrower of Juno Logistics). Surface
+`/portal/funding` (`pages/portals/BorrowerPortal.tsx`, for holders of an
+external `client` membership): each file with its step of 17, what is being
+waited on, the documents still needed with an Upload button per request
+(`uploadDocumentInstance` with `uploadSource: 'portal'` — the policy then
+requires pending review), and what has been sent with the reviewer's
+disposition. Uploads land in the reviewers' Documents tab and the "documents
+missing" queue exactly as staff uploads do. Data access
+`lib/data/borrower-portal.ts` (three bounded queries); matrix phase 27
+written (10 probes); full run 391/391 (phase ≤ 27).
+A borrower-only account (external `client` membership and nothing else) is
+sent from any `/app` path to `/portal/funding` by `RequireAuth`; staff and
+organization users are untouched. `effectivePermission()` gained 3 tests
+(admin by role; override → organization row → platform default; deny).
+
+**Reports, first live slice (2026-09-05).** `pages/app/Reporting.tsx` no
+longer shows sample constants. Six KPI tiles and five charts over the last six
+calendar months, all deterministic counts over rows the caller may see:
+letters mailed and responses by month (line), response rate, funded volume by
+month (bars, gross), submissions by month and by outcome (donut), and — for
+BES staff only, since production rows are staff-scoped by policy — top agents
+by production units. Month bucketing is `lib/reporting/month-series.ts` (3
+tests; zero-filled gaps; a rate with no denominator is "—", never 0%). Data
+access `lib/data/reporting.ts`: four bounded queries in parallel from the
+window start. Outcomes are engine-derived; the page says so, and the pivot
+builder, KPI catalogue and manual outcomes follow the reporting proposal.
+
+**0067 — the 0065 alias defect (2026-09-05).** The full matrix through phase
+26 came back 373/381: every phase-24 funding probe failed with 55000 "record t
+is not assigned yet". The permission line 0065 inserted aliased its tenancy
+subquery `t`, and the seven funding functions already declare `t record`;
+PL/pgSQL substituted the variable. The letter functions have no such variable
+and passed. `20260904004610_permission_enforcement_alias_fix.sql` regenerates
+the seven bodies from the live definitions with alias `ten`. Caught by the
+matrix before commit — nothing shipped in the broken state.
+The borrower routing has 4 tests (`require-auth-borrower.test.tsx`): borrower
+only → portal; organization member, BES staff, or a lender/partner external
+membership → the shell.
+
+**0068 — 0066 corrections (2026-09-05).** Full matrix through phase 27:
+388/391. Two regressions and one gap, all mine in 0066: (1) `files_select` and
+`files_insert` were rewritten from the 0035 text instead of the live 0044
+text, dropping `entity_visible()` — a restricted BES user saw 5 files and an
+organization owner could record a file on another organization's item; (2)
+the borrower view ran with invoker rights and joined `funding_clients`, which
+the borrower cannot read, so it returned nothing. 0068 restores the 0044
+policy bodies verbatim plus the borrower branch only, and defines the view
+with owner rights filtered by `auth.uid()` (only the listed columns, only the
+caller's own files). Lesson recorded in AUTHORIZATION_MAP: regenerate a policy
+from the live catalogue, never from an older migration.
+
+**0069 — Reporting engine (drafted 2026-09-05; applies after the phase-27
+matrix and commit).** Per `ARCHITECTURE_PROPOSAL_REPORTING.md`, order step 1:
+`kpi_definitions` (14 KPIs as data across production, time, status changes,
+letters, manual outcomes, submissions, funded deals; three marked
+BES-internal), `organization_kpi_settings` (enabled · target · order per
+organization), `client_round_outcomes` (manual bureau outcomes per round for
+clients worked in an outside CRM — provenance `manual`), the `report_facts`
+security-invoker view (one common shape; RLS of every source applies) and
+`report_pivot()` (rows = a whitelisted dimension, columns = KPIs assembled
+from catalogue rows, filters, period). Date indexes added for the window.
+Matrix phase 28 written (13 probes): MATRIX_P28.

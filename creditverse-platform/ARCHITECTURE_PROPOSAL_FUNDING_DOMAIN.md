@@ -413,3 +413,57 @@ Offers · Funded · Commissions · Renewals as one record surface), Workspace.
 Schema C2 applied as 0060–0062. Still to come: lender contacts/relationship
 and the policy-update feed on Lenders, drag-and-drop stage moves, portal
 uploads, the AI layer (keys needed from Dee).
+
+---
+
+## Addendum D — Borrower portal (proposal; nothing built yet)
+
+**What exists.** `funding_clients.portal_user_id` names the borrower's
+sign-in; `is_borrower_of_file()` (0058) recognises them; a borrower may read
+`document_requests` on their file, insert `document_instances` with
+`upload_source = 'portal'` and `disposition = 'pending_review'`, and read their
+own instances; `funding_applications` accept borrower writes on their file.
+External memberships carry the `client` role.
+
+**What refuses them today (found by inspection, 2026-09-05):**
+
+| Object | Rule today | Why the portal needs a change |
+|---|---|---|
+| `funding_files` (select) | organization members, BES in scope, lenders with a share | the borrower cannot see their own file's stage, purpose or FND- id |
+| `files` (select/insert) | `is_staff_of(agency)` or `is_org_member(org)` | an upload records a `files` row first |
+| `storage.objects` (`bes-files` insert) | staff, or organization member of the path's first folder | the borrower's browser upload is refused at the bucket |
+
+**Smallest correction (one migration, proposal-first per rule 16):**
+
+1. `borrower_funding_files` — a `security_invoker` view over `funding_files`
+   exposing only `id, public_id, purpose, requested_amount, stage,
+   secondary_status, waiting_on, last_activity_at`, plus a select policy on
+   `funding_files` for `is_borrower_of_file(id)`. The view is what the portal
+   reads; the row policy is what makes it possible. No lender or BES columns.
+2. `files_select` / `files_insert` gain a borrower branch:
+   `entity_type = 'funding_file' and is_borrower_of_file(entity_id::uuid)`
+   (insert also requires `uploaded_by = auth.uid()`).
+3. `bes_files_insert` gains a borrower branch for paths
+   `<organization>/funding_file/<file>/…` where `is_borrower_of_file(<file>)`;
+   `bes_files_select` likewise for the borrower's own objects (owner = self).
+4. `document_instances` — unchanged; the portal inserts with
+   `upload_source = 'portal'`, `disposition = 'pending_review'`, exactly as the
+   policy already requires. Flags stay invisible to the borrower; they see the
+   plain-language request and their upload's disposition only.
+
+**Surface.** `/portal/funding` under `RequireAuth`, rendered when the person
+holds an external `client` membership and at least one `borrower_funding_files`
+row: file header (borrower first, business, purpose, FND-, stage in the
+17-step vocabulary, waiting on), open requests with an upload control per
+request, uploaded documents with disposition (pending review · accepted ·
+rejected reason as written by the reviewer), and nothing about lenders,
+offers, flags or internal notes. Uploads reuse `uploadDocumentInstance` with
+`uploadSource: 'portal'` and land in the reviewers' Documents tab and the
+"documents missing" queue exactly as staff uploads do.
+
+**Matrix.** New fixture: a portal user on the Lakeside client; probes — reads
+the view and only own rows; cannot read `funding_files` of another client;
+uploads a `files` row + instance on the own file; refused on another file;
+cannot see `document_flags`, `offers`, `lender_decisions`.
+
+Not in scope here: GHL contact sync for portal invitations, e-sign, payment.

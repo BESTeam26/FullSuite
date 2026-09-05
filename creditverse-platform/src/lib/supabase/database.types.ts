@@ -385,6 +385,13 @@ export type Database = {
             foreignKeyName: "closings_file_id_fkey"
             columns: ["file_id"]
             isOneToOne: false
+            referencedRelation: "borrower_funding_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "closings_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
             referencedRelation: "funding_files"
             referencedColumns: ["id"]
           },
@@ -517,6 +524,13 @@ export type Database = {
           requested_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "consumer_report_requests_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "borrower_funding_files"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "consumer_report_requests_file_id_fkey"
             columns: ["file_id"]
@@ -986,6 +1000,13 @@ export type Database = {
             foreignKeyName: "document_flags_file_id_fkey"
             columns: ["file_id"]
             isOneToOne: false
+            referencedRelation: "borrower_funding_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_flags_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
             referencedRelation: "funding_files"
             referencedColumns: ["id"]
           },
@@ -1093,6 +1114,13 @@ export type Database = {
             foreignKeyName: "document_instances_file_id_fkey"
             columns: ["file_id"]
             isOneToOne: false
+            referencedRelation: "borrower_funding_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_instances_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
             referencedRelation: "funding_files"
             referencedColumns: ["id"]
           },
@@ -1194,6 +1222,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_requests_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "borrower_funding_files"
             referencedColumns: ["id"]
           },
           {
@@ -1700,6 +1735,13 @@ export type Database = {
             foreignKeyName: "funded_deals_file_id_fkey"
             columns: ["file_id"]
             isOneToOne: false
+            referencedRelation: "borrower_funding_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funded_deals_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
             referencedRelation: "funding_files"
             referencedColumns: ["id"]
           },
@@ -1795,6 +1837,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funding_applications_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "borrower_funding_files"
             referencedColumns: ["id"]
           },
           {
@@ -2064,6 +2113,13 @@ export type Database = {
             foreignKeyName: "funding_deals_file_id_fkey"
             columns: ["file_id"]
             isOneToOne: false
+            referencedRelation: "borrower_funding_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funding_deals_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
             referencedRelation: "funding_files"
             referencedColumns: ["id"]
           },
@@ -2128,6 +2184,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "funding_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funding_department_statuses_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "borrower_funding_files"
             referencedColumns: ["id"]
           },
           {
@@ -2241,6 +2304,13 @@ export type Database = {
             columns: ["referred_by_membership_id"]
             isOneToOne: false
             referencedRelation: "external_memberships"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funding_files_renews_file_id_fkey"
+            columns: ["renews_file_id"]
+            isOneToOne: false
+            referencedRelation: "borrower_funding_files"
             referencedColumns: ["id"]
           },
           {
@@ -2536,6 +2606,13 @@ export type Database = {
           shared_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "lender_file_shares_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "borrower_funding_files"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "lender_file_shares_file_id_fkey"
             columns: ["file_id"]
@@ -3093,6 +3170,13 @@ export type Database = {
             columns: ["deal_id"]
             isOneToOne: false
             referencedRelation: "funding_deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offers_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "borrower_funding_files"
             referencedColumns: ["id"]
           },
           {
@@ -3943,6 +4027,13 @@ export type Database = {
             foreignKeyName: "renewal_opportunities_file_id_fkey"
             columns: ["file_id"]
             isOneToOne: false
+            referencedRelation: "borrower_funding_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "renewal_opportunities_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
             referencedRelation: "funding_files"
             referencedColumns: ["id"]
           },
@@ -3951,6 +4042,13 @@ export type Database = {
             columns: ["funded_deal_id"]
             isOneToOne: false
             referencedRelation: "funded_deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "renewal_opportunities_new_file_id_fkey"
+            columns: ["new_file_id"]
+            isOneToOne: false
+            referencedRelation: "borrower_funding_files"
             referencedColumns: ["id"]
           },
           {
@@ -4601,6 +4699,13 @@ export type Database = {
             foreignKeyName: "verification_results_file_id_fkey"
             columns: ["file_id"]
             isOneToOne: false
+            referencedRelation: "borrower_funding_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "verification_results_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
             referencedRelation: "funding_files"
             referencedColumns: ["id"]
           },
@@ -5209,6 +5314,38 @@ export type Database = {
       }
     }
     Views: {
+      borrower_funding_files: {
+        Row: {
+          agency_id: string | null
+          id: string | null
+          last_activity_at: string | null
+          organization_id: string | null
+          public_id: string | null
+          purpose: string | null
+          requested_amount: number | null
+          secondary_status:
+            | Database["public"]["Enums"]["funding_secondary_status"]
+            | null
+          stage: Database["public"]["Enums"]["funding_pipeline_stage"] | null
+          waiting_on: Database["public"]["Enums"]["funding_waiting_on"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funding_clients_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funding_files_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       work_attention: {
         Row: {
           agency_id: string | null
@@ -5673,6 +5810,10 @@ export type Database = {
       record_owner: {
         Args: { p_entity_id: string; p_entity_type: string }
         Returns: Record<string, unknown>
+      }
+      require_permission: {
+        Args: { p_key: string; p_org: string }
+        Returns: undefined
       }
       reset_organization_role_access: {
         Args: {
