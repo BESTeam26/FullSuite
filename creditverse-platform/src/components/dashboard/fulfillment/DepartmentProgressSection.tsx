@@ -1,298 +1,166 @@
 /**
- * Department Progress section — a true multi-select CHECKLIST per department.
+ * Department Progress — the operational truth for this client file, as data.
  *
- * Each department tracks a Set of checked steps (not a single selected step).
- * - View-only by default (lock badge) unless the user has CreditOps admin
- *   access (`canEditDepartmentProgress`).
- * - Agents can only check/uncheck steps for departments they are authorized
- *   to work under (`canLogDepartment`). Unauthorized departments render as
- *   view-only checklists.
- * - Every check/uncheck logs an immutable Activity event.
+ * One status per department (the Status Guide vocabulary), an assignee, and a
+ * hand-off to the next department. Every change goes through
+ * `set_client_department_status`, which validates the status, upserts the row
+ * and writes the activity event in one transaction as the caller — the
+ * database decides who may (BES within scope, or the organization's own
+ * members for their own clients).
+ *
+ * Three truths stay separate on purpose: the client's CREDIT status and round
+ * live on the client record (header); DEPARTMENT / WORK status lives here;
+ * RESULTS live in the imported reports. Separation proposal step 1.
  */
-
-import { useState } from "react";
-import { ArrowRightLeft, Lock } from "lucide-react";
+import { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { ArrowRightLeft, Loader2, Lock } from "lucide-react";
 import { useCreditOpsStore } from "@/lib/fulfillment/creditops-client-store";
+import { useCreditOpsAccess, type CreditOpsDepartment } from "@/lib/fulfillment/creditops-access";
+import { useAuth } from "@/lib/auth/auth-context";
+import { errorMessage } from "@/lib/data/error-message";
+import { setClientDepartmentStatus } from "@/lib/data/fulfillment-clients";
+import { useOrgMembers } from "@/lib/data/use-workspaces";
+import { useInvalidateDepartmentStatuses } from "@/lib/data/use-department-statuses";
 import {
-  useCreditOpsAccess,
-  type CreditOpsDepartment,
-} from "@/lib/fulfillment/creditops-access";
+  CREDITOPS_DEPARTMENT_ORDER,
+  currentDepartment,
+  departmentStatuses,
+  handoffEntryStatus,
+  isOpenDepartmentStatus,
+  nextDepartment,
+} from "@/lib/fulfillment/department-domain";
+import { OpsSelect } from "@/components/ui/ops-select";
 import { cn } from "@/lib/utils";
 
 interface Props {
   clientId: string;
 }
 
-const ONBOARDING_STEPS = [
-  "OB Not Started",
-  "OB In Review",
-  "Docs Pending",
-  "Monitoring Pending",
-  "Access Verified",
-  "OB Ready for R1",
-  "Partner Endorsed",
-  "OB Incomplete",
-];
-
-const COMPLAINTS_STEPS = [
-  "CM Not Needed",
-  "Letters Pending",
-  "Letters Mailed",
-  "CFPB Filed",
-  "FTC Filed",
-  "BBB Filed",
-  "AG Filed",
-  "CM Awaiting Response",
-  "CM Completed",
-];
-
-const BUREAU_STEPS = [
-  "BC Not Needed",
-  "BC Needed",
-  "BC In Progress",
-  "BC Completed",
-];
-
-const SUPPORT_STEPS = [
-  "Support New",
-  "Onboarding Followup",
-  "Ready for Reimport",
-  "Monitoring Issue",
-  "Billing Issue",
-  "Waiting Client Response",
-  "Escalated to Management",
-  "Support Resolved",
-];
-
-const DISPUTE_STEPS = [
-  "New Onboarding",
-  "Incomplete Onboarding",
-  "Ready for Round 1",
-  "Ready for Processing",
-  "Round Sent - Awaiting Results",
-  "Ready for Reimport / Review",
-  "Waiting for Partner Approval",
-  "Completed",
-  "Archived / Inactive",
-];
-
-interface DeptGroup {
-  title: string;
-  department: CreditOpsDepartment;
-  steps: string[];
-}
-
-const GROUPS: DeptGroup[] = [
-  {
-    title: "Onboarding Progress",
-    department: "Onboarding",
-    steps: ONBOARDING_STEPS,
-  },
-  {
-    title: "Dispute Processing Progress",
-    department: "Dispute",
-    steps: DISPUTE_STEPS,
-  },
-  {
-    title: "Complaints & Mailing Progress",
-    department: "Complaints",
-    steps: COMPLAINTS_STEPS,
-  },
-  {
-    title: "Bureau Calling Progress",
-    department: "Bureau Calling",
-    steps: BUREAU_STEPS,
-  },
-  {
-    title: "Client Success Progress",
-    department: "Support",
-    steps: SUPPORT_STEPS,
-  },
-];
-
-/** Seed checklist state — a Set of checked steps per department. */
-function seedProgress(): Record<string, Set<string>> {
-  return {
-    Onboarding: new Set(["OB In Review"]),
-    Dispute: new Set(["Ready for Processing"]),
-    Complaints: new Set(["CM Not Needed"]),
-    "Bureau Calling": new Set(["BC Not Needed"]),
-    Support: new Set(["Support New"]),
-  };
-}
+const TITLE: Record<CreditOpsDepartment, string> = {
+  Onboarding: "Onboarding",
+  Dispute: "Dispute Processing",
+  Support: "Client Success / Support",
+  Complaints: "Complaints & Mailing",
+  "Bureau Calling": "Bureau Calling",
+};
 
 export function DepartmentProgressSection({ clientId }: Props) {
   const store = useCreditOpsStore();
   const access = useCreditOpsAccess();
-  const canEdit = access.canEditDepartmentProgress;
+  const auth = useAuth();
+  const live = auth.mode === "live";
+  const client = store.clients.find((c) => c.id === clientId);
+  const rows = store.getDepartmentStatuses(clientId);
+  const { members } = useOrgMembers(live ? (client?.organizationId ?? null) : null);
+  const invalidateLists = useInvalidateDepartmentStatuses();
+  const queryClient = useQueryClient();
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  // Track which departments are expanded/active for multi-select
-  const [activeDepts, setActiveDepts] = useState<Set<CreditOpsDepartment>>(
-    new Set(["Onboarding", "Dispute"]),
-  );
+  const byDept = useMemo(() => new Map(rows.map((r) => [r.department, r])), [rows]);
+  const current = currentDepartment(rows);
+  const canEdit = live && access.canEditDepartmentProgress;
 
-  // Checklist state: Set<string> of checked steps per department
-  const [progress, setProgress] = useState<Record<string, Set<string>>>(() =>
-    seedProgress(),
-  );
-
-  const toggleDept = (dept: CreditOpsDepartment) => {
-    if (!canEdit) return;
-    setActiveDepts((prev) => {
-      const next = new Set(prev);
-      if (next.has(dept)) next.delete(dept);
-      else next.add(dept);
-      return next;
-    });
+  const write = async (department: CreditOpsDepartment, status: string, assigneeId: string | null | undefined, note?: string) => {
+    setBusy(department);
+    setError(null);
+    try {
+      await setClientDepartmentStatus({ clientId, department, status, assigneeId, note });
+      store.refreshDepartmentStatuses(clientId);
+      void queryClient.invalidateQueries({ queryKey: ["activity"] });
+      void invalidateLists();
+    } catch (err) {
+      setError(errorMessage(err, "Could not update the department status."));
+    } finally {
+      setBusy(null);
+    }
   };
 
-  const toggleStep = (dept: CreditOpsDepartment, step: string) => {
-    if (!canEdit) return;
-    setProgress((prev) => {
-      const current = new Set(prev[dept] ?? []);
-      const willCheck = !current.has(step);
-      if (willCheck) current.add(step);
-      else current.delete(step);
-      return { ...prev, [dept]: current };
-    });
-    // Log the check/uncheck as an immutable Activity event
-    const isChecked = progress[dept]?.has(step);
-    store.addActivity({
-      clientId,
-      actor: "Agent (BES HQ)",
-      action: `[DEPARTMENT_PROGRESS] ${dept}`,
-      detail: `${isChecked ? "Unchecked" : "Checked"} ${step}`,
-      field: "departmentProgress",
-      previousValue: isChecked ? step : undefined,
-      newValue: isChecked ? undefined : step,
-    });
+  const handOff = async (from: CreditOpsDepartment) => {
+    const to = nextDepartment(from);
+    if (!to) return;
+    await write(to, handoffEntryStatus(to), null, `Handed off from ${from} to ${to}`);
   };
 
   return (
-    <div className="rounded-xl border border-border bg-card p-4 shadow-sm space-y-4">
-      <div className="flex items-center justify-between border-b border-border/50 pb-2">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
-          Department Progress
-        </h3>
-        <div className="flex items-center gap-3">
-          {!canEdit && (
-            <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground">
-              <Lock className="h-3 w-3" /> View Only
-            </span>
-          )}
-          <button
-            onClick={() =>
-              store.addActivity({
-                clientId,
-                actor: "Agent (BES HQ)",
-                action: "Handoff triggered",
-                detail: "Initiated department handoff sequence",
-              })
-            }
-            disabled={!canEdit}
-            className={cn(
-              "inline-flex items-center gap-1 text-xs font-bold",
-              canEdit
-                ? "text-primary hover:underline"
-                : "cursor-not-allowed text-muted-foreground",
-            )}
-          >
-            <ArrowRightLeft className="h-3.5 w-3.5" /> Handoff
-          </button>
+    <div className="space-y-3 rounded-xl border border-border bg-card p-4 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/50 pb-2">
+        <div>
+          <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">Department Progress</h3>
+          <p className="text-[11px] text-muted-foreground">
+            Work status by department — separate from the credit status
+            {client ? ` (${client.status} · ${client.round})` : ""}.
+            {current ? ` Currently with ${TITLE[current.department as CreditOpsDepartment] ?? current.department}.` : " No open department work."}
+          </p>
         </div>
+        {!canEdit && (
+          <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground">
+            <Lock className="h-3 w-3" /> {live ? "View only" : "Demo — read only"}
+          </span>
+        )}
       </div>
 
-      {/* Department selector chips (multi-select) */}
-      <div className="flex flex-wrap gap-1.5">
-        {GROUPS.map((g) => {
-          const isActive = activeDepts.has(g.department);
-          const authorized = access.canLogDepartment(g.department);
-          return (
-            <button
-              key={g.department}
-              onClick={() => toggleDept(g.department)}
-              disabled={!canEdit}
-              className={cn(
-                "rounded-full border px-2.5 py-1 text-[11px] font-bold transition-colors",
-                isActive
-                  ? "border-emerald-500/50 bg-emerald-500/10 text-status-success"
-                  : "border-border bg-muted/30 text-muted-foreground",
-                !canEdit && "cursor-default opacity-70",
-                !authorized && canEdit && "opacity-50",
-              )}
-              title={
-                !authorized
-                  ? "Not authorized for this department"
-                  : canEdit
-                    ? "Click to toggle"
-                    : "View only — admin access required to edit"
-              }
-            >
-              {g.department}
-              {isActive && !authorized && " (read)"}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Active department checklists (multi-select) */}
-      <div className="space-y-3">
-        {GROUPS.filter((g) => activeDepts.has(g.department)).map((group) => {
-          const authorized = access.canLogDepartment(group.department);
-          const checkedSet = progress[group.department] ?? new Set<string>();
+      <div className="space-y-2">
+        {CREDITOPS_DEPARTMENT_ORDER.map((department) => {
+          const row = byDept.get(department);
+          const authorized = access.canLogDepartment(department);
+          const editable = canEdit && authorized;
+          const status = row?.status ?? null;
+          const open = status ? isOpenDepartmentStatus(status) : false;
+          const next = nextDepartment(department);
           return (
             <div
-              key={group.department}
-              className="rounded-lg border border-border bg-background p-3"
+              key={department}
+              className={cn(
+                "grid gap-2 rounded-lg border p-3 md:grid-cols-[1.2fr_1.6fr_1.2fr_auto] md:items-center",
+                open ? "border-emerald-500/40 bg-emerald-500/5" : "border-border bg-background",
+              )}
             >
-              <div className="mb-2 flex items-center justify-between">
-                <span className="font-bold text-foreground">{group.title}</span>
-                <span
-                  className={cn(
-                    "rounded px-1.5 py-0.5 text-[10px] font-bold",
-                    authorized
-                      ? "bg-emerald-500/10 text-status-success"
-                      : "bg-muted text-muted-foreground",
-                  )}
-                >
-                  {authorized ? "AUTHORIZED" : "VIEW ONLY"}
-                </span>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-foreground">{TITLE[department]}</p>
+                <p className="text-[10px] text-muted-foreground">
+                  {row ? `Updated ${new Date(row.updatedAt).toLocaleDateString()}` : "No status yet"}
+                  {!authorized && " · not your department"}
+                </p>
               </div>
-              <div className="grid grid-cols-2 gap-1.5">
-                {group.steps.map((step) => {
-                  const isSel = checkedSet.has(step);
-                  const editable = canEdit && authorized;
-                  return (
-                    <label
-                      key={step}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        if (editable) toggleStep(group.department, step);
-                      }}
-                      className={cn(
-                        "flex items-center gap-2 rounded px-2 py-1 text-xs transition-colors",
-                        editable ? "cursor-pointer" : "cursor-default",
-                        isSel
-                          ? "bg-emerald-500/10 font-bold text-emerald-800 dark:text-emerald-300"
-                          : "text-muted-foreground hover:bg-muted/40",
-                      )}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isSel}
-                        onChange={() => {}}
-                        disabled={!editable}
-                        className="h-3.5 w-3.5 rounded border-border text-status-success focus:ring-emerald-500"
-                      />
-                      <span>{step}</span>
-                    </label>
-                  );
-                })}
-              </div>
+              <OpsSelect
+                value={status ?? ""}
+                onValueChange={(v) => void write(department, v, row?.assigneeId ?? null)}
+                options={[
+                  ...(status ? [] : [{ value: "", label: "Set status…" }]),
+                  ...departmentStatuses(department).map((st) => ({ value: st, label: st })),
+                ]}
+                disabled={!editable || busy === department}
+                aria-label={`${TITLE[department]} status`}
+              />
+              <OpsSelect
+                value={row?.assigneeId ?? ""}
+                onValueChange={(v) => { if (status) void write(department, status, v || null); }}
+                options={[{ value: "", label: "Unassigned" }, ...members.map((m) => ({ value: m.id, label: m.name }))]}
+                disabled={!editable || !status || busy === department}
+                aria-label={`${TITLE[department]} assignee`}
+              />
+              <button
+                type="button"
+                onClick={() => void handOff(department)}
+                disabled={!editable || !next || !open || busy === department}
+                title={next ? `Hand off to ${TITLE[next]}` : "Last department in the sequence"}
+                className={cn(
+                  "inline-flex items-center justify-center gap-1 rounded-lg border px-2.5 py-1.5 text-[11px] font-bold transition-colors",
+                  editable && next && open
+                    ? "border-primary/40 text-primary hover:bg-primary/10"
+                    : "cursor-not-allowed border-border text-muted-foreground opacity-60",
+                )}
+              >
+                {busy === department ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRightLeft className="h-3.5 w-3.5" />}
+                Hand off
+              </button>
             </div>
           );
         })}
       </div>
+      {error && <p role="alert" className="text-xs text-status-danger">{error}</p>}
     </div>
   );
 }

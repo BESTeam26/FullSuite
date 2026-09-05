@@ -106,6 +106,14 @@ export type FulfillmentClientStatus =
   | "Graduated"
   | "Archived";
 
+export type ClientLifecycle = "active" | "program_completed" | "graduated" | "archived";
+export const LIFECYCLE_LABELS: Record<ClientLifecycle, string> = {
+  active: "Active",
+  program_completed: "Program Completed",
+  graduated: "Graduated",
+  archived: "Archived",
+};
+
 export type FulfillmentClientRound =
   "Pre-Round" | "Round 1" | "Round 2" | "Round 3" | "Round 4+" | "Completed";
 
@@ -116,6 +124,9 @@ export type FulfillmentClientRound =
 export interface FulfillmentClient extends OpsClient {
   status: FulfillmentClientStatus;
   round: FulfillmentClientRound;
+  /** Active is the only lifecycle that counts as an active client. */
+  lifecycle?: ClientLifecycle;
+  archivedAt?: string | null;
   /** Number of dispute items currently in work. */
   openItems: number;
 }
@@ -186,3 +197,12 @@ export const needsAttention = (c: FulfillmentClient): boolean =>
 
 export type FulfillmentClientConflictResult =
   ClientConflictResult<FulfillmentClient>;
+
+/** Statuses that doubled as lifecycle before `lifecycle` existed (demo/seed rows). */
+const LEGACY_INACTIVE_STATUSES: ReadonlySet<string> = new Set(["Completed", "Archived", "Archived / Inactive", "Graduated"]);
+
+/** The ONE definition of an active client: lifecycle = active (legacy status fallback for seed rows). */
+export function isActiveClient(c: { lifecycle?: ClientLifecycle | null; status: string }): boolean {
+  if (c.lifecycle) return c.lifecycle === "active";
+  return !LEGACY_INACTIVE_STATUSES.has(c.status);
+}

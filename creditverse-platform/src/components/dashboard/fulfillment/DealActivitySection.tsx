@@ -22,7 +22,7 @@ export function DealActivitySection({
   dealId: string;
   activity: FundingActivityEntry[];
 }) {
-  const { allowed } = useActivityVisibility(undefined, "fundingops");
+  const { allowed, fallback } = useActivityVisibility(undefined, "fundingops");
   const dealStore = useFundingDealStore();
 
   return (
@@ -42,6 +42,7 @@ export function DealActivitySection({
           entityType="funding_deal"
           entityId={dealId}
           allowedVisibilities={allowed}
+          defaultVisibility={fallback}
           /* The deal store keeps its own in-memory activity and does not yet
              write to `activity_events`, so there is no row to attach files to.
              `onAttach` is therefore omitted rather than stubbed — the composer

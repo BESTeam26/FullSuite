@@ -109,7 +109,7 @@ export function WorkItemDrawer({
   const setValue = useSetItemFieldValue(item?.id ?? "");
   const { entries, isLoading: tlLoading } = useWorkItemTimeline(item?.id ?? null);
   const attachments = useActivityAttachments(entries.map((e) => e.id));
-  const { allowed } = useActivityVisibility(workspace.organizationId, "talentops");
+  const { allowed, fallback } = useActivityVisibility(workspace.organizationId, "talentops");
   const [title, setTitle] = useState(item?.title ?? "");
   const [description, setDescription] = useState(item?.description ?? "");
 
@@ -234,6 +234,7 @@ export function WorkItemDrawer({
                     entityId={item.id}
                     organizationId={workspace.organizationId}
                     allowedVisibilities={allowed}
+          defaultVisibility={fallback}
                     onPost={async ({ body, plainText, visibility }) => {
                       const entry = await postNote({
                         agencyId, organizationId: workspace.organizationId, entityType: "work_item", entityId: item.id,

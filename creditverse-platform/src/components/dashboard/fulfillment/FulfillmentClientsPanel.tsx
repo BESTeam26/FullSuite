@@ -9,7 +9,12 @@
  * its own sort fields.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { isActiveClient } from "@/lib/fulfillment/fulfillment-client-domain";
+import { OpsSelect } from "@/components/ui/ops-select";
+import { useDepartmentStatusMap } from "@/lib/data/use-department-statuses";
+import { currentDepartment, openDepartments } from "@/lib/fulfillment/department-domain";
+import type { DepartmentStatus } from "@/lib/fulfillment/creditops-store-types";
 import { ContentCard } from "@/components/dashboard/DivisionLayout";
 import { seedOutsourcingGroups } from "@/lib/fulfillment/fulfillment-client-seed";
 import { useCreditOpsStore } from "@/lib/fulfillment/creditops-client-store";
@@ -34,7 +39,6 @@ import { ClientWorkWorkspace } from "./ClientWorkWorkspace";
 
 const ALL_STATUSES = "All Statuses";
 const CURRENT_AGENT = "Keila Betancourt";
-const INACTIVE_STATUSES = ["Completed", "Archived", "Graduated"];
 
 /** Groups whose Partner workspace hides the Mode / Source column. */
 const GROUPS_HIDING_MODE = ["managed", "outsourcing"];
@@ -58,6 +62,15 @@ export function FulfillmentClientsPanel({
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState(ALL_STATUSES);
   const [assignedOnly, setAssignedOnly] = useState(assignedOnlyFilter);
+  /* Lifecycle view: active clients by default; history stays one click away. */
+  const [lifecycleView, setLifecycleView] = useState<"active" | "all" | "archived">("active");
+  const lifecycleFiltered = useMemo(
+    () =>
+      store.clients.filter((c) =>
+        lifecycleView === "all" ? true : lifecycleView === "active" ? isActiveClient(c) : (c.lifecycle ?? (isActiveClient(c) ? "active" : "archived")) === "archived",
+      ),
+    [store.clients, lifecycleView],
+  );
   const [showColumns, setShowColumns] = useState(false);
   const [showAddClient, setShowAddClient] = useState(false);
   const [openClientId, setOpenClientId] = useState<string | null>(
@@ -72,10 +85,11 @@ export function FulfillmentClientsPanel({
   const setPref = <K extends keyof ViewPrefs>(key: K, value: ViewPrefs[K]) =>
     setPrefs((p) => ({ ...p, [key]: value }));
 
+  const departmentRowsRef = useRef<Record<string, DepartmentStatus[]>>({});
   const filtered = useMemo(
     () =>
       filterAndSortClients(
-        store.clients,
+        lifecycleFiltered,
         {
           selectedScope,
           search,
@@ -92,11 +106,17 @@ export function FulfillmentClientsPanel({
               ? c.round
               : field === "openItems"
                 ? c.openItems
-                : undefined,
+                : field === "department"
+                  ? (currentDepartment(departmentRowsRef.current[c.id] ?? [])?.department ?? "")
+                  : field === "workStatus"
+                    ? (currentDepartment(departmentRowsRef.current[c.id] ?? [])?.status ?? "")
+                    : field === "openWork"
+                      ? openDepartments(departmentRowsRef.current[c.id] ?? []).length
+                      : undefined,
         },
       ),
     [
-      store.clients,
+      lifecycleFiltered,
       search,
       statusFilter,
       selectedScope,
@@ -106,7 +126,12 @@ export function FulfillmentClientsPanel({
     ],
   );
 
-  const activeCount = countActive(filtered, INACTIVE_STATUSES);
+  /* One bounded query for the visible clients' department rows — the
+     operational columns read from it; never a query per row (rule 14). */
+  const visibleIds = useMemo(() => filtered.map((c) => c.id), [filtered]);
+  const { byClient: departmentRows } = useDepartmentStatusMap(visibleIds);
+  departmentRowsRef.current = departmentRows;
+  const activeCount = filtered.filter((c) => isActiveClient(c)).length;
 
   // Mode / Source is only meaningful in the cross-partner Management view.
   // Inside a single ManagedOps or Outsourcing Partner workspace, the mode is
@@ -134,6 +159,19 @@ export function FulfillmentClientsPanel({
 
   return (
     <div className="space-y-4">
+      <div className="mb-2 flex items-center justify-end gap-2 text-xs">
+        <span className="text-muted-foreground">Show</span>
+        <OpsSelect
+          value={lifecycleView}
+          onValueChange={(v) => setLifecycleView(v as "active" | "all" | "archived")}
+          options={[
+            { value: "active", label: "Active clients" },
+            { value: "all", label: "All clients" },
+            { value: "archived", label: "Archived clients" },
+          ]}
+          aria-label="Lifecycle filter"
+        />
+      </div>
       <OpsClientListToolbar
         view={prefs.view}
         onViewChange={(v) => setPref("view", v)}
@@ -161,6 +199,7 @@ export function FulfillmentClientsPanel({
         </ContentCard>
       ) : prefs.view === "list" ? (
         <ClientListTable
+          departmentRows={departmentRows}
           clients={filtered}
           visibleCols={visibleCols}
           prefs={prefs}

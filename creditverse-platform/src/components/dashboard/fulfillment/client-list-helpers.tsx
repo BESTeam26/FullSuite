@@ -75,20 +75,29 @@ export type ColId =
   | "mode"
   | "round"
   | "status"
+  | "department"
+  | "workStatus"
   | "agent"
+  | "openWork"
   | "openItems"
   | "sla"
   | "lastActivity";
 
+/* Operational by default (separation step 2): Client · Credit Stage · Credit
+   Status · Current Department · Work Status · Assigned To · Open Work · SLA ·
+   Last Activity. Contact columns stay available behind "Columns". */
 export const COLUMN_DEFS: ColDef<ColId>[] = [
   CLIENT_COL,
-  EMAIL_COL,
-  PHONE_COL,
-  MODE_COL,
-  compactColumn("round", "Round"),
+  { ...EMAIL_COL, defaultOn: false },
+  { ...PHONE_COL, defaultOn: false },
+  { ...MODE_COL, defaultOn: false },
+  compactColumn("round", "Credit Stage"),
   STATUS_COL,
+  { ...compactColumn("department", "Current Department"), defaultWidth: 160, minWidth: 120 },
+  { ...compactColumn("workStatus", "Work Status"), defaultWidth: 180, minWidth: 130 },
   AGENT_COL,
-  countColumn("openItems", "Open Items"),
+  countColumn("openWork", "Open Work"),
+  { ...countColumn("openItems", "Open Items"), defaultOn: false },
   SLA_COL,
   LAST_ACTIVITY_COL,
 ];
@@ -98,7 +107,7 @@ export const COLUMN_DEFS: ColDef<ColId>[] = [
 /* ------------------------------------------------------------------ */
 
 const prefsStore = createViewPrefsStore<ColId>(
-  "creditops-clientlist-prefs",
+  "creditops-clientlist-prefs-v2",
   COLUMN_DEFS,
   "client",
 );

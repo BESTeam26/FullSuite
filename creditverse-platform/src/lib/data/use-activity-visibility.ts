@@ -10,10 +10,12 @@
  */
 import { useMemo } from "react";
 import { useAuth } from "@/lib/auth/auth-context";
+import { useAgency } from "@/lib/agency-context";
 import { useFulfillment } from "@/lib/data/use-fulfillment";
 import {
   allowedVisibilities,
-  DEFAULT_VISIBILITY,
+  defaultVisibility,
+  type ActivitySurface,
   type ActivityVisibility,
   type AuthorKind,
 } from "@/lib/data/activity";
@@ -22,9 +24,10 @@ import type { FulfillmentService } from "@/lib/data/fulfillment-engagements";
 export interface ActivityVisibilityOptions {
   /** Levels this author may create, in the order the picker shows them. */
   allowed: ActivityVisibility[];
-  /** Always BES Internal. Exposed so callers never hardcode it. */
+  /** What the picker starts on for this author, surface and relationship. */
   fallback: ActivityVisibility;
   author: AuthorKind;
+  surface: ActivitySurface;
 }
 
 export function useActivityVisibility(
@@ -33,16 +36,21 @@ export function useActivityVisibility(
   service: FulfillmentService,
 ): ActivityVisibilityOptions {
   const { isAgencyStaff } = useAuth();
+  const { viewMode } = useAgency();
   const { mayFulfil } = useFulfillment();
-
   // Agency staff write as BES; everyone else writes as their organization.
   const author: AuthorKind = isAgencyStaff ? "bes" : "organization";
+  /* The organization view is the customer's surface: no BES-internal voice
+     there, and shared-with-BES by default when BES fulfils for them. */
+  const surface: ActivitySurface = viewMode === "subaccount" ? "organization" : "agency";
   const engaged = mayFulfil(scopeId, service);
-
   const allowed = useMemo(
-    () => allowedVisibilities(author, engaged),
-    [author, engaged],
+    () => allowedVisibilities(author, engaged, surface),
+    [author, engaged, surface],
   );
-
-  return { allowed, fallback: DEFAULT_VISIBILITY, author };
+  const fallback = useMemo(
+    () => defaultVisibility(author, engaged, surface),
+    [author, engaged, surface],
+  );
+  return { allowed, fallback, author, surface };
 }

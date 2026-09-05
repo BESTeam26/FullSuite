@@ -12,6 +12,7 @@
  */
 
 import { requireSupabase } from "@/lib/supabase/client";
+import type { ClientLifecycle } from "@/lib/fulfillment/fulfillment-client-domain";
 import type {
   Enums,
   Tables,
@@ -78,6 +79,8 @@ export function mapClientRow(row: ClientRow): FulfillmentClient {
     autoSync: row.auto_sync,
     status: row.status as FulfillmentClientStatus,
     round: row.round as FulfillmentClientRound,
+    lifecycle: (row.lifecycle ?? "active") as ClientLifecycle,
+    archivedAt: row.archived_at ?? null,
     assignedAgent: agentName ?? undefined,
     teamId: row.team_id ?? undefined,
     openItems: row.open_items,
@@ -126,6 +129,35 @@ export async function fetchOutsourcingGroups(): Promise<OutsourcingGroup[]> {
 }
 
 /** Department statuses for ONE client — loaded when a file is opened, not with the list. */
+/**
+ * Department rows for MANY clients in one bounded query — for the operational
+ * client list (current department, work status, open work). Never one query
+ * per row (rule 14). Returns a map keyed by client id.
+ */
+export async function fetchDepartmentStatusesForClients(
+  clientIds: readonly string[],
+): Promise<Record<string, DepartmentStatus[]>> {
+  if (clientIds.length === 0) return {};
+  const sb = requireSupabase();
+  const { data, error } = await sb
+    .from("client_department_statuses")
+    .select("*, assignee:profiles(full_name, email)")
+    .in("client_id", [...clientIds]);
+  if (error) throw error;
+  const out: Record<string, DepartmentStatus[]> = {};
+  for (const d of data ?? []) {
+    const withAgent = d as typeof d & { assignee: { full_name: string | null; email: string } | null };
+    (out[d.client_id] ??= []).push({
+      department: d.department as DepartmentStatus["department"],
+      status: d.status,
+      assignee: withAgent.assignee?.full_name?.trim() || withAgent.assignee?.email || "Unassigned",
+      assigneeId: d.assignee_id ?? null,
+      updatedAt: d.updated_at,
+    });
+  }
+  return out;
+}
+
 export async function fetchDepartmentStatuses(
   clientId: string,
 ): Promise<DepartmentStatus[]> {
@@ -146,6 +178,7 @@ export async function fetchDepartmentStatuses(
         withAgent.assignee?.full_name?.trim() ||
         withAgent.assignee?.email ||
         "Unassigned",
+      assigneeId: d.assignee_id ?? null,
       updatedAt: d.updated_at,
     };
   });
@@ -387,5 +420,36 @@ export async function recordWebhookDelivery(input: {
     status: input.status,
     message: input.message ?? null,
   });
+  if (error) throw error;
+}
+
+/**
+ * Set one department's work status (and optional assignee) on a client. The
+ * database function validates the status against the department's vocabulary,
+ * upserts the row and writes the activity event in one transaction, as the
+ * caller — policies decide who may (separation step 1).
+ */
+export async function setClientDepartmentStatus(input: {
+  clientId: string;
+  department: Enums<"fulfillment_department">;
+  status: string;
+  assigneeId?: string | null;
+  note?: string | null;
+}): Promise<void> {
+  const sb = requireSupabase();
+  const { error } = await sb.rpc("set_client_department_status", {
+    p_client: input.clientId,
+    p_department: input.department,
+    p_status: input.status,
+    p_assignee: input.assigneeId ?? null,
+    p_note: input.note ?? null,
+  });
+  if (error) throw error;
+}
+
+/** Archive / reactivate / complete / graduate — a lifecycle transition with its activity event, never a delete. */
+export async function setClientLifecycle(input: { clientId: string; lifecycle: ClientLifecycle; reason?: string | null }): Promise<void> {
+  const sb = requireSupabase();
+  const { error } = await sb.rpc("set_client_lifecycle", { p_client: input.clientId, p_lifecycle: input.lifecycle, p_reason: input.reason ?? null });
   if (error) throw error;
 }

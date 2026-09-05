@@ -35,7 +35,10 @@ export interface DepartmentStatus {
   department:
     "Dispute" | "Support" | "Complaints" | "Bureau Calling" | "Onboarding";
   status: string;
+  /** Display name of the assignee ("Unassigned" when none). */
   assignee: string;
+  /** Stable id of the assignee (live rows); never used to decide access. */
+  assigneeId?: string | null;
   updatedAt: string;
 }
 

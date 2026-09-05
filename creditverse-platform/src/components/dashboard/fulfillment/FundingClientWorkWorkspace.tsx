@@ -10,6 +10,7 @@
  */
 
 import { useState } from "react";
+import { SendToCreditOpsCard } from "./FundingReadinessCard";
 import {
   ArrowLeft,
   Edit2,
@@ -28,10 +29,8 @@ import {
   formatCurrency,
   FUNDING_STATUS_TONE,
 } from "@/lib/fulfillment/fundingops-domain";
-import {
-  seedFundingBusinesses,
-  seedFundingFiles,
-} from "@/lib/fulfillment/fundingops-seed";
+import { useFundingBusinesses, useFundingFiles } from "@/lib/data/use-funding";
+import { FundingFileDepartmentProgress } from "./FundingFileDepartmentProgress";
 import {
   FundingStatusPill,
   FundingModeBadge,
@@ -46,6 +45,10 @@ interface Props {
 export function FundingClientWorkWorkspace({ clientId, onBack }: Props) {
   const store = useFundingOpsStore();
   const client = store.clients.find((c) => c.id === clientId);
+  /* Businesses and files come from the live hooks (demo fallback inside them),
+     never from the seed directly. Hooks run before any early return. */
+  const businesses = useFundingBusinesses(clientId).data;
+  const files = useFundingFiles(clientId).data;
 
   const [description, setDescription] = useState(
     client
@@ -92,10 +95,6 @@ export function FundingClientWorkWorkspace({ clientId, onBack }: Props) {
     );
   }
 
-  const businesses = seedFundingBusinesses.filter(
-    (b) => b.clientId === clientId,
-  );
-  const files = seedFundingFiles.filter((f) => f.clientId === clientId);
   const deptStatuses = store.getDepartmentStatuses(clientId);
 
   const handleAddChecklist = () => {
@@ -165,21 +164,22 @@ export function FundingClientWorkWorkspace({ clientId, onBack }: Props) {
           </div>
         </div>
 
-        {/* Stage badges */}
+        {/* Open department work across this client's files (detail per file below) */}
         <div className="mt-3 flex flex-wrap gap-1.5">
-          {deptStatuses.map((d) => (
-            <span
-              key={d.department}
-              className={cn(
-                "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-semibold",
-                d.status === "NOT STARTED"
-                  ? "border-border bg-muted/40 text-muted-foreground"
-                  : "border-emerald-500/30 bg-emerald-500/10 text-status-success",
-              )}
-            >
-              {d.department}: {d.status}
-            </span>
-          ))}
+          {deptStatuses.filter((d) => d.status !== "NOT STARTED").length === 0 ? (
+            <span className="text-[10px] text-muted-foreground">No open department work yet.</span>
+          ) : (
+            deptStatuses
+              .filter((d) => d.status !== "NOT STARTED")
+              .map((d) => (
+                <span
+                  key={`${d.fileId ?? "legacy"}-${d.department}`}
+                  className="inline-flex items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-status-success"
+                >
+                  {d.department}: {d.status}
+                </span>
+              ))
+          )}
         </div>
       </div>
 
@@ -297,6 +297,12 @@ export function FundingClientWorkWorkspace({ clientId, onBack }: Props) {
             </div>
           </div>
 
+          <FundingFileDepartmentProgress
+            clientId={clientId}
+            organizationId={client?.organizationId ?? null}
+            files={files}
+          />
+
           {/* Next Action */}
           <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
             <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
@@ -400,6 +406,13 @@ export function FundingClientWorkWorkspace({ clientId, onBack }: Props) {
 
         {/* RIGHT PANEL = COMMENTS + ACTIVITY TIMELINE */}
         <div className="space-y-4 lg:col-span-5">
+          {client && (
+            <SendToCreditOpsCard
+              fundingClientId={client.id}
+              fundingStatus={client.status}
+              linkedFulfillmentClientId={client.fulfillmentClientId ?? null}
+            />
+          )}
           <FundingOpsActivityTimeline clientId={clientId} />
         </div>
       </div>

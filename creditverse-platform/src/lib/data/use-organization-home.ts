@@ -11,8 +11,8 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { fetchFulfillmentClients } from "@/lib/data/fulfillment-clients";
 import { fetchFundingClients } from "@/lib/data/funding-clients";
 import { isActiveFunding } from "@/lib/fulfillment/fundingops-domain";
+import { isActiveClient } from "@/lib/fulfillment/fulfillment-client-domain";
 
-const CREDIT_INACTIVE = new Set(["Completed", "Archived", "Graduated"]);
 
 export interface CreditOpsHomeFigures {
   active: number;
@@ -47,7 +47,7 @@ export function useOrganizationHomeFigures(
   });
 
   const creditRows = (credit.data ?? []).filter((c) => c.organizationId === organizationId);
-  const creditActive = creditRows.filter((c) => !CREDIT_INACTIVE.has(c.status));
+  const creditActive = creditRows.filter((c) => isActiveClient(c));
   const creditOps: CreditOpsHomeFigures = {
     active: creditActive.length,
     processing: creditActive.filter((c) => ["Ready for Processing", "In Processing", "Ready for QA"].includes(c.status)).length,

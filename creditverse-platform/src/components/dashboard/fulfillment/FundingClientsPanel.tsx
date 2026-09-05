@@ -10,15 +10,15 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
+import { useFundingDepartmentStatusMap } from "@/lib/data/use-funding-department-statuses";
+import { isActiveFundingClient } from "@/lib/fulfillment/fundingops-domain";
 import { ContentCard } from "@/components/dashboard/DivisionLayout";
 import { seedFundingGroups } from "@/lib/fulfillment/fundingops-seed";
 import { useFundingOpsStore } from "@/lib/fulfillment/fundingops-client-store";
 import type { FundingOpsPartner } from "@/lib/fulfillment/fundingops-partners";
 import {
-  countActive,
   filterAndSortClients,
 } from "@/lib/fulfillment/ops-client-filtering";
-import { INACTIVE_FUNDING_STATUSES } from "@/lib/fulfillment/fundingops-domain";
 import {
   FUNDING_COLUMN_DEFS,
   FUNDING_STATUS_OPTIONS,
@@ -110,7 +110,9 @@ export function FundingClientsPanel({
     ],
   );
 
-  const activeCount = countActive(filtered, INACTIVE_FUNDING_STATUSES);
+  const visibleIds = useMemo(() => filtered.map((c) => c.id), [filtered]);
+  const { byClient: departmentRows } = useFundingDepartmentStatusMap(visibleIds);
+  const activeCount = filtered.filter((c) => isActiveFundingClient(c)).length;
 
   const hideModeCol = !!partner && GROUPS_HIDING_MODE.includes(partner.group);
   const availableCols = hideModeCol
@@ -162,6 +164,7 @@ export function FundingClientsPanel({
         </ContentCard>
       ) : prefs.view === "list" ? (
         <FundingClientListTable
+          departmentRows={departmentRows}
           clients={filtered}
           visibleCols={visibleCols}
           prefs={prefs}

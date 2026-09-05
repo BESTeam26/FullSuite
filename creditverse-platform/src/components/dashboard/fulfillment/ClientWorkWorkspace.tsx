@@ -21,6 +21,9 @@ import { ClientWorkActivityTimeline } from "./ClientWorkActivityTimeline";
 import { DepartmentProgressSection } from "./DepartmentProgressSection";
 import { CompleteWorkSection } from "./CompleteWorkSection";
 import { Link } from "react-router-dom";
+import { FundingReadinessCard } from "./FundingReadinessCard";
+import { ClientLifecycleControl } from "./ClientLifecycleControl";
+import { useCreditOpsAccess } from "@/lib/fulfillment/creditops-access";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -31,6 +34,7 @@ interface Props {
 export function ClientWorkWorkspace({ clientId, onBack }: Props) {
   const store = useCreditOpsStore();
   const client = store.clients.find((c) => c.id === clientId);
+  const access = useCreditOpsAccess();
 
   /**
    * Sample text only, and deliberately free of personal data.
@@ -156,6 +160,7 @@ export function ClientWorkWorkspace({ clientId, onBack }: Props) {
   return (
     <div className="space-y-4 text-xs">
       <ClientWorkHeader client={client} onBack={onBack} />
+      {client && <ClientLifecycleControl client={client} canEdit={access.canEditDepartmentProgress} />}
       {/* The Workspace tracks work and production. The credit report, import
           and analysis live in the client's profile (CreditOps → Clients). */}
       <div className="flex justify-end">
@@ -317,6 +322,7 @@ export function ClientWorkWorkspace({ clientId, onBack }: Props) {
 
         {/* RIGHT PANEL = COMMENTS + CHRONOLOGICAL ACTIVITY TIMELINE */}
         <div className="space-y-4 lg:col-span-5">
+          <FundingReadinessCard fulfillmentClientId={clientId} />
           <ClientWorkActivityTimeline clientId={clientId} />
         </div>
       </div>

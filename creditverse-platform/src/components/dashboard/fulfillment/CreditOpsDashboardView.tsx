@@ -32,6 +32,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { useCreditOpsStore } from "@/lib/fulfillment/creditops-client-store";
+import { isActiveClient } from "@/lib/fulfillment/fulfillment-client-domain";
 import { getPartnerByScope } from "@/lib/fulfillment/creditops-partners";
 import {
   CREDIT_OPS_STATUS_GUIDE,
@@ -47,7 +48,6 @@ interface CreditOpsDashboardViewProps {
   onNavigateToView?: (viewId: string) => void;
 }
 
-const INACTIVE_STATUSES = ["Completed", "Archived", "Graduated"];
 
 /* Department statuses that mean "no open file for this department". Counted
    in the queue-status grids, excluded from Team Workload. */
@@ -107,7 +107,7 @@ export function CreditOpsDashboardView({
   );
 
   const activeClients = useMemo(
-    () => scopedClients.filter((c) => !INACTIVE_STATUSES.includes(c.status)),
+    () => scopedClients.filter((c) => isActiveClient(c)),
     [scopedClients],
   );
 

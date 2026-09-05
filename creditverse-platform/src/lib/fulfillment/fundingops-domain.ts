@@ -85,6 +85,11 @@ export type FundingClientStatus =
  * status vocabulary and given its funding-file fields.
  */
 export interface FundingClient extends OpsClient {
+  /** Linked CreditOps client (funding-readiness hand-off), when any. */
+  fulfillmentClientId?: string | null;
+  /** Active is the only lifecycle that counts as an active client. */
+  lifecycle?: "active" | "program_completed" | "graduated" | "archived" | null;
+  archivedAt?: string | null;
   /** Provenance: BES SaaS Synced vs Agency Manual. */
   provenance: FundingProvenance;
   status: FundingClientStatus;
@@ -260,3 +265,9 @@ export const INACTIVE_FUNDING_STATUSES = [
 
 export const isActiveFunding = (status: string) =>
   !INACTIVE_FUNDING_STATUSES.includes(status);
+
+/** The ONE definition of an active funding client: lifecycle = active (status fallback for seed rows). */
+export function isActiveFundingClient(c: { lifecycle?: string | null; status: string }): boolean {
+  if (c.lifecycle) return c.lifecycle === "active";
+  return isActiveFunding(c.status as FundingClientStatus);
+}

@@ -78,6 +78,9 @@ export function mapFundingClientRow(row: ClientRow): FundingClient {
     organizationId: row.organization_id ?? undefined,
     organizationName: row.organizations?.name ?? undefined,
     outsourcingGroupId: row.outsourcing_group_id ?? undefined,
+    fulfillmentClientId: row.fulfillment_client_id ?? null,
+    lifecycle: (row.lifecycle ?? "active") as FundingClient["lifecycle"],
+    archivedAt: row.archived_at ?? null,
     outsourcingGroupName: row.outsourcing_groups?.name ?? undefined,
     autoSync: row.auto_sync,
     status: row.status as FundingClientStatus,
@@ -104,6 +107,35 @@ export async function fetchFundingClients(): Promise<FundingClient[]> {
   return ((data ?? []) as unknown as ClientRow[]).map(mapFundingClientRow);
 }
 
+/**
+ * Department rows for MANY funding clients in one bounded query — for the
+ * operational client list (current department, work status, open work).
+ */
+export async function fetchFundingDepartmentStatusesForClients(
+  clientIds: readonly string[],
+): Promise<Record<string, FundingDepartmentStatus[]>> {
+  if (clientIds.length === 0) return {};
+  const sb = requireSupabase();
+  const { data, error } = await sb
+    .from("funding_department_statuses")
+    .select("*, assignee:profiles(full_name, email)")
+    .in("client_id", [...clientIds]);
+  if (error) throw error;
+  const out: Record<string, FundingDepartmentStatus[]> = {};
+  for (const d of data ?? []) {
+    const withAgent = d as typeof d & { assignee: { full_name: string | null; email: string } | null };
+    (out[d.client_id] ??= []).push({
+      department: d.department as FundingDepartmentStatus["department"],
+      status: d.status,
+      fileId: d.file_id ?? null,
+      assigneeId: d.assignee_id ?? null,
+      assignee: withAgent.assignee?.full_name?.trim() || withAgent.assignee?.email || "Unassigned",
+      updatedAt: d.updated_at,
+    });
+  }
+  return out;
+}
+
 /** Stage statuses for ONE client — loaded when a file is opened, not with the list. */
 export async function fetchFundingDepartmentStatuses(
   clientId: string,
@@ -121,6 +153,8 @@ export async function fetchFundingDepartmentStatuses(
     return {
       department: d.department as FundingDepartmentStatus["department"],
       status: d.status,
+      fileId: d.file_id ?? null,
+      assigneeId: d.assignee_id ?? null,
       assignee:
         withAgent.assignee?.full_name?.trim() ||
         withAgent.assignee?.email ||
@@ -472,5 +506,28 @@ export async function updateFundingDealStatus(
       funded_at: status === "Funded" ? new Date().toISOString() : null,
     })
     .eq("id", dealId);
+  if (error) throw error;
+}
+
+/**
+ * Set one department's work status on a FUNDING FILE (separation step 3). The
+ * database function validates the vocabulary, upserts the file-keyed row and
+ * writes the activity event in one transaction, as the caller.
+ */
+export async function setFundingDepartmentStatus(input: {
+  fileId: string;
+  department: Enums<"funding_department">;
+  status: string;
+  assigneeId?: string | null;
+  note?: string | null;
+}): Promise<void> {
+  const sb = requireSupabase();
+  const { error } = await sb.rpc("set_funding_department_status", {
+    p_file: input.fileId,
+    p_department: input.department,
+    p_status: input.status,
+    p_assignee: input.assigneeId ?? null,
+    p_note: input.note ?? null,
+  });
   if (error) throw error;
 }

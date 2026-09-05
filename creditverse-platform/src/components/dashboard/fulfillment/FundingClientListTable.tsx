@@ -7,6 +7,8 @@
  */
 
 import type { FundingClient } from "@/lib/fulfillment/fundingops-domain";
+import type { FundingDepartmentStatus } from "@/lib/fulfillment/fundingops-store-types";
+import { FUNDINGOPS_DEPARTMENT_ORDER, isOpenFundingStatus } from "@/lib/fulfillment/funding-department-domain";
 import { formatCurrency } from "@/lib/fulfillment/fundingops-domain";
 import {
   useFundingOpsStore,
@@ -35,6 +37,8 @@ interface FundingClientListTableProps {
   prefs: FundingViewPrefs;
   setPrefs: React.Dispatch<React.SetStateAction<FundingViewPrefs>>;
   onOpenClient: (id: string) => void;
+  /** Department rows per client id (batched by the panel). */
+  departmentRows: Record<string, FundingDepartmentStatus[]>;
 }
 
 export function FundingClientListTable({
@@ -43,7 +47,13 @@ export function FundingClientListTable({
   prefs,
   setPrefs,
   onOpenClient,
+  departmentRows,
 }: FundingClientListTableProps) {
+  const order = new Map(FUNDINGOPS_DEPARTMENT_ORDER.map((d, i) => [d as string, i]));
+  const openRows = (id: string) =>
+    (departmentRows[id] ?? [])
+      .filter((r) => isOpenFundingStatus(r.status))
+      .sort((a, b) => (order.get(a.department) ?? 99) - (order.get(b.department) ?? 99));
   const store = useFundingOpsStore();
 
   return (
@@ -71,6 +81,20 @@ export function FundingClientListTable({
         switch (colId) {
           case "openFiles":
             return <span className="text-foreground">{client.openFiles}</span>;
+          case "department": {
+            const cur = openRows(client.id)[0];
+            return cur ? <span className="font-semibold text-foreground">{cur.department}</span> : <span className="text-muted-foreground">—</span>;
+          }
+          case "workStatus": {
+            const cur = openRows(client.id)[0];
+            return cur ? (
+              <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-status-success">{cur.status}</span>
+            ) : (
+              <span className="text-muted-foreground">No open work</span>
+            );
+          }
+          case "openWork":
+            return <span className="text-foreground">{openRows(client.id).length}</span>;
           case "requested":
             return (
               <span className="text-xs font-semibold text-foreground">

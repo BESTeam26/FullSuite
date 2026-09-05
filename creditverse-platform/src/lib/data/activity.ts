@@ -25,15 +25,15 @@ type Row = Tables<"activity_events">;
 
 export const VISIBILITY_LABEL: Record<ActivityVisibility, string> = {
   bes_internal: "BES Internal",
-  organization_internal: "Organization Internal",
-  shared_with_partner: "Shared with Partner",
+  organization_internal: "Organization only",
+  shared_with_partner: "Shared (BES + organization)",
   client_visible: "Client Visible",
 };
 
 /** One line explaining who actually ends up reading it. */
 export const VISIBILITY_HINT: Record<ActivityVisibility, string> = {
   bes_internal: "Only BES staff. Never the customer or the client.",
-  organization_internal: "Only this organization's own staff.",
+  organization_internal: "Only this organization's own team.",
   shared_with_partner: "BES and the organization working this file.",
   client_visible: "Approved for the end client to read.",
 };
@@ -60,16 +60,42 @@ export type AuthorKind = "bes" | "organization";
  *   partner to share with otherwise.
  * - `client_visible` is offered but never preselected; it has to be chosen.
  */
+/** Where the note is being written from. The organization's surface never
+ *  carries a BES-internal voice: what is said there is the organization's, and
+ *  when BES fulfils for them it is shared automatically — one record. */
+export type ActivitySurface = "agency" | "organization";
+
 export function allowedVisibilities(
   author: AuthorKind,
   hasActiveEngagement: boolean,
+  surface: ActivitySurface = "agency",
 ): ActivityVisibility[] {
-  const own: ActivityVisibility =
-    author === "bes" ? "bes_internal" : "organization_internal";
-  const levels: ActivityVisibility[] = [own];
+  const levels: ActivityVisibility[] = [];
+  if (author === "bes") {
+    if (surface === "agency") levels.push("bes_internal");
+  } else {
+    levels.push("organization_internal");
+  }
   if (hasActiveEngagement) levels.push("shared_with_partner");
   levels.push("client_visible");
   return levels;
+}
+
+/**
+ * What the picker starts on. Agency surface: the author's own voice. The
+ * organization surface: shared with BES when BES fulfils for them (the one
+ * record syncs both ways), otherwise the organization's own team. Never
+ * `client_visible` by default — that has to be chosen.
+ */
+export function defaultVisibility(
+  author: AuthorKind,
+  hasActiveEngagement: boolean,
+  surface: ActivitySurface = "agency",
+): ActivityVisibility {
+  const allowed = allowedVisibilities(author, hasActiveEngagement, surface);
+  if (surface === "organization" && hasActiveEngagement) return "shared_with_partner";
+  const own = allowed.find((v) => v !== "client_visible");
+  return own ?? allowed[0];
 }
 
 /** Guard for the write path: refuse before the database has to. */
@@ -77,8 +103,9 @@ export function mayPostAs(
   author: AuthorKind,
   hasActiveEngagement: boolean,
   visibility: ActivityVisibility,
+  surface: ActivitySurface = "agency",
 ): boolean {
-  return allowedVisibilities(author, hasActiveEngagement).includes(visibility);
+  return allowedVisibilities(author, hasActiveEngagement, surface).includes(visibility);
 }
 
 /**

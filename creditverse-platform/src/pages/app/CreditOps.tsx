@@ -13,6 +13,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { clientGroupKey } from "@/lib/fulfillment/ops-client-domain";
+import { isActiveClient } from "@/lib/fulfillment/fulfillment-client-domain";
 import { CreditOpsHeader } from "@/components/dashboard/fulfillment/CreditOpsHeader";
 import {
   CreditOpsTreeSidebar,
@@ -56,13 +57,6 @@ function WebhookBridge() {
   return null;
 }
 
-const INACTIVE_STATUSES = [
-  "Completed",
-  "Archived",
-  "Archived / Inactive",
-  "Graduated",
-];
-const isActive = (status: string) => !INACTIVE_STATUSES.includes(status);
 
 export default function CreditOps() {
   return (
@@ -136,7 +130,7 @@ function CreditOpsWorkspace() {
         (c) =>
           (c.organizationId === partner.scopeId ||
             c.outsourcingGroupId === partner.scopeId) &&
-          isActive(c.status),
+          isActiveClient(c),
       ).length
     : 0;
 

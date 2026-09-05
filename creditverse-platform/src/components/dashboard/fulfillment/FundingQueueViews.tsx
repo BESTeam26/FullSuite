@@ -1,4 +1,5 @@
 import type { ElementType } from "react";
+import { useAllFundingFiles } from "@/lib/data/use-funding";
 /**
  * Funding Queue Views and SOPs/Logins for the FundingOps Workspace.
  *
@@ -39,6 +40,23 @@ export function FundingQueueView({
   const store = useFundingOpsStore();
   const [openClientId, setOpenClientId] = useState<string | null>(null);
 
+  /* Queues are keyed on the FUNDING FILE stage (separation step 3): a client
+     is in a queue when one of its files is at that stage. Clients with no file
+     yet fall back to their own status so intake is not invisible. */
+  const files = useAllFundingFiles();
+  const stagesByClient = useMemo(() => {
+    const m = new Map<string, Set<string>>();
+    for (const f of files.data) {
+      if (!m.has(f.clientId)) m.set(f.clientId, new Set());
+      m.get(f.clientId)!.add(f.stage);
+    }
+    return m;
+  }, [files.data]);
+  const inStage = (c: FundingClient, stages: string[]) => {
+    const fileStages = stagesByClient.get(c.id);
+    if (fileStages && fileStages.size > 0) return stages.some((st) => fileStages.has(st));
+    return stages.includes(c.status);
+  };
   const scopedClients = useMemo(
     () =>
       store.clients.filter(
@@ -73,43 +91,43 @@ export function FundingQueueView({
       title: "READINESS REVIEW QUEUE",
       icon: CheckCircle2,
       color: "text-status-warning",
-      filterFn: (c) => ["Onboarding", "Readiness Review"].includes(c.status),
+      filterFn: (c) => inStage(c, ["Onboarding", "Readiness Review"]),
     },
     "document-queue": {
       title: "DOCUMENT REVIEW QUEUE",
       icon: FileText,
       color: "text-status-info",
-      filterFn: (c) => c.status === "Document Review",
+      filterFn: (c) => inStage(c, ["Document Review"]),
     },
     "lender-matching-queue": {
       title: "LENDER MATCHING QUEUE",
       icon: Landmark,
       color: "text-status-info",
-      filterFn: (c) => c.status === "Lender Matching",
+      filterFn: (c) => inStage(c, ["Lender Matching"]),
     },
     "submissions-queue": {
       title: "SUBMISSIONS QUEUE",
       icon: DollarSign,
       color: "text-sky-600",
-      filterFn: (c) => c.status === "Submitted",
+      filterFn: (c) => inStage(c, ["Submitted"]),
     },
     "stipulations-queue": {
       title: "STIPULATIONS QUEUE",
       icon: FileText,
       color: "text-status-warning",
-      filterFn: (c) => c.status === "Stipulations",
+      filterFn: (c) => inStage(c, ["Stipulations"]),
     },
     "offers-queue": {
       title: "OFFERS QUEUE",
       icon: DollarSign,
       color: "text-purple-600",
-      filterFn: (c) => c.status === "Offer Received",
+      filterFn: (c) => inStage(c, ["Offer Received"]),
     },
     "funded-queue": {
       title: "FUNDED DEALS QUEUE",
       icon: CheckCircle2,
       color: "text-status-success",
-      filterFn: (c) => c.status === "Funded",
+      filterFn: (c) => inStage(c, ["Funded"]),
     },
     "escalation-queue": {
       title: "ESCALATION & SLA QUEUE",

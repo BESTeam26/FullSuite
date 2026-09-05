@@ -1,7 +1,7 @@
 // Builder Selector Panel — Factual, Metro2, Freeze, & Hybrid Dispute Letter Builders
 // Matches the user's reference UI layout with 3 major category banners and sub-mode options:
-// 1. Factual Dispute Letters (Rounds vs Anytime)
-// 2. Metro2 Dispute Letters (Rounds vs Anytime)
+// 1. Factual Dispute Letters (round letters; no "Anytime" type — after building, the agent chooses to reset the round cycle or keep the counter)
+// 2. Metro2 Dispute Letters (round letters)
 // 3. Other Dispute Letters (Alternate Bureaus vs Security Freeze/Suppression)
 // Also includes reference letter styles: Shock & Awe, Tactical Strike, Divide & Conquer,
 // Precision Attack, Inquiry Only, Personal Info, Accounts Special, Collections Exclusive.
@@ -184,7 +184,7 @@ export const BuilderSelectorPanel = ({
                   Standard "Rounds" Letters
                 </p>
                 <p className="text-[11px] text-muted-foreground mt-0.5">
-                  Build letters, then close & increment round after mailing.
+                  Build this round's letters; afterwards choose to reset the round cycle or keep the counter for additional letters.
                 </p>
                 <Button
                   size="sm"
@@ -196,27 +196,6 @@ export const BuilderSelectorPanel = ({
                   className="mt-2 w-full bg-sky-600 hover:bg-sky-700 text-white text-xs h-8"
                 >
                   Build Rounds Letters <ChevronRight className="h-3 w-3 ml-1" />
-                </Button>
-              </div>
-
-              <div className="bg-background/80 p-3 rounded-lg border border-border">
-                <p className="font-semibold text-xs text-foreground">
-                  "Anytime" Letters
-                </p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">
-                  Build mid-round without closing the active round.
-                </p>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setActiveType("factual");
-                    setIsRounds(false);
-                    handleBuildTrigger("interim");
-                  }}
-                  className="mt-2 w-full border-sky-300 text-sky-700 hover:bg-sky-50 text-xs h-8"
-                >
-                  Build Anytime <ChevronRight className="h-3 w-3 ml-1" />
                 </Button>
               </div>
             </div>
@@ -278,27 +257,6 @@ export const BuilderSelectorPanel = ({
                   className="mt-2 w-full bg-purple-600 hover:bg-purple-700 text-white text-xs h-8"
                 >
                   Build Metro2 Letters <ChevronRight className="h-3 w-3 ml-1" />
-                </Button>
-              </div>
-
-              <div className="bg-background/80 p-3 rounded-lg border border-border">
-                <p className="font-semibold text-xs text-foreground">
-                  "Anytime" Letters
-                </p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">
-                  Direct furnisher Metro2 audit mid-round.
-                </p>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setActiveType("metro2");
-                    setIsRounds(false);
-                    handleBuildTrigger("metro2");
-                  }}
-                  className="mt-2 w-full border-purple-300 text-purple-700 hover:bg-purple-50 text-xs h-8"
-                >
-                  Build Anytime <ChevronRight className="h-3 w-3 ml-1" />
                 </Button>
               </div>
             </div>

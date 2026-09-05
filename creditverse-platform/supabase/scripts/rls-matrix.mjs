@@ -605,11 +605,13 @@ if (PHASE >= 13) {
   const confirm = `update auth.users set email_confirmed_at = now() where id = '99999999-0000-4000-8000-000000000001';`;
   const S = (email, meta, select) => { try { return q(`begin; ${seed(email, meta)} ${confirm} ${select}; rollback;`)[0]; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*\d+: [^"\\\n]*/); return { rows: "ERR " + (m ? m[0].trim() : "unknown") }; } };
 
-  const NEW = { full_name: "Probe Person", business_name: "Probe Ventures LLC", phone: "(555) 010-9999", plan: "growth" };
+  /* Plan keys follow the commercial structure (0049): every trial grants
+     Empire Grow capabilities (3 products, never CRM). */
+  const NEW = { full_name: "Probe Person", business_name: "Probe Ventures LLC", phone: "(555) 010-9999", plan: "empire_grow" };
   const P13 = [
     ["confirmation creates one organization for the signer",           () => S("probe@probe-ventures.test", NEW, `select count(*)::int as rows from public.organizations o join public.org_memberships m on m.organization_id = o.id where m.user_id = '99999999-0000-4000-8000-000000000001' and m.role = 'org_admin'`).rows, 1],
     ["…with a BES- Organization ID",                                     () => S("probe@probe-ventures.test", NEW, `select count(*)::int as rows from public.organizations o join public.org_memberships m on m.organization_id = o.id where m.user_id = '99999999-0000-4000-8000-000000000001' and o.public_id ~ '^BES-[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}$'`).rows, 1],
-    ["…the plan's products enabled (growth = 3)",                        () => S("probe@probe-ventures.test", NEW, `select count(*)::int as rows from public.product_entitlements e join public.org_memberships m on m.organization_id = e.organization_id where m.user_id = '99999999-0000-4000-8000-000000000001' and e.enabled`).rows, 3],
+    ["…the plan's products enabled (Empire Grow = 3)",                        () => S("probe@probe-ventures.test", NEW, `select count(*)::int as rows from public.product_entitlements e join public.org_memberships m on m.organization_id = e.organization_id where m.user_id = '99999999-0000-4000-8000-000000000001' and e.enabled`).rows, 3],
     ["…and an active 30-day trial",                                      () => S("probe@probe-ventures.test", NEW, `select count(*)::int as rows from public.organization_trials t join public.org_memberships m on m.organization_id = t.organization_id where m.user_id = '99999999-0000-4000-8000-000000000001' and t.status = 'active' and t.ends_at between now() + interval '29 days' and now() + interval '31 days'`).rows, 1],
     ["…identities recorded (email, phone, business name, domain)",       () => S("probe@probe-ventures.test", NEW, `select count(*)::int as rows from public.organization_identity i join public.org_memberships m on m.organization_id = i.organization_id where m.user_id = '99999999-0000-4000-8000-000000000001'`).rows, 4],
     ["sign-up alone (unconfirmed) creates nothing",                      () => { try { return q(`begin; ${seed("probe@probe-ventures.test", NEW)} select count(*)::int as rows from public.org_memberships where user_id = '99999999-0000-4000-8000-000000000001'; rollback;`)[0].rows; } catch (e) { return "ERR"; } }, 0],
@@ -620,12 +622,12 @@ if (PHASE >= 13) {
               update auth.users set email_confirmed_at = now() where id = '99999999-0000-4000-8000-000000000002';
               select (select status::text from public.organization_trials t join public.org_memberships m on m.organization_id=t.organization_id where m.user_id='99999999-0000-4000-8000-000000000002') || ':' || (select count(*) from public.product_entitlements e join public.org_memberships m on m.organization_id=e.organization_id where m.user_id='99999999-0000-4000-8000-000000000002' and e.enabled)::text as rows; rollback;`)[0].rows, "blocked:0"],
     ["a business-name-only match gets a trial flagged for review",      () => q(`begin; ${seed("probe@probe-ventures.test", NEW)} ${confirm}
-              insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at) values ('99999999-0000-4000-8000-000000000002','00000000-0000-0000-0000-000000000000','authenticated','authenticated','someone@gmail.com','x',null,'{}','${JSON.stringify({ full_name: "P", business_name: "Probe Ventures, Inc.", plan: "creditops" })}'::jsonb,now(),now());
+              insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at) values ('99999999-0000-4000-8000-000000000002','00000000-0000-0000-0000-000000000000','authenticated','authenticated','someone@gmail.com','x',null,'{}','${JSON.stringify({ full_name: "P", business_name: "Probe Ventures, Inc.", plan: "empire_grow" })}'::jsonb,now(),now());
               update auth.users set email_confirmed_at = now() where id = '99999999-0000-4000-8000-000000000002';
               select (select status::text || ':' || coalesce(blocked_reason,'') from public.organization_trials t join public.org_memberships m on m.organization_id=t.organization_id where m.user_id='99999999-0000-4000-8000-000000000002') as rows; rollback;`)[0].rows, "active:name_match_review"],
     ["an unknown plan is refused",                                       () => S("probe@probe-ventures.test", { ...NEW, plan: "platinum" }, `select 1 as rows`).rows, "ERR ERROR:  23514: Unknown plan"],
     ["organization users read their trial; another org's admin cannot", () => S("probe@probe-ventures.test", NEW, `set local role authenticated; set local request.jwt.claims = '{"sub":"${U["org2.owner@bes.test"]}","role":"authenticated"}'; select count(*)::int as rows from public.organization_trials t where t.organization_id in (select organization_id from public.org_memberships where user_id='99999999-0000-4000-8000-000000000001')`).rows, 0],
-    ["plans are readable by the public form",                            () => { try { return q(`begin; set local role anon; select count(*)::int as rows from public.plans where is_public; rollback;`)[0].rows; } catch (e) { return "ERR"; } }, 4],
+    ["plans are readable by the public form",                            () => { try { return q(`begin; set local role anon; select count(*)::int as rows from public.plans where is_public; rollback;`)[0].rows; } catch (e) { return "ERR"; } }, 5],
   ];
   console.log("\nphase 13:");
   for (const [label, fn, want] of P13) {
@@ -760,6 +762,194 @@ if (PHASE >= 16) {
   ];
   console.log("\nphase 16:");
   for (const [label, fn, want] of P16) {
+    checks++;
+    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
+    const ok = got === want; if (!ok) fails++;
+    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
+  }
+}
+
+/* Phase 17 — pricing as data (0049): public plans with prices; every trial
+   grants Empire Grow capabilities (never CRM); Build needs a choice; Enterprise
+   is by agreement; seat and active-record usage measured deterministically and
+   only for the organization's own members / BES managers. */
+if (PHASE >= 17) {
+  const seed17 = (email, meta) => `
+    insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
+    values ('99999999-0000-4000-8000-000000000003', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', '${email}', 'x', null, '{"provider":"email","providers":["email"]}', '${JSON.stringify(meta)}'::jsonb, now(), now());
+    update auth.users set email_confirmed_at = now() where id = '99999999-0000-4000-8000-000000000003';`;
+  const S17 = (email, meta, select) => { try { return q(`begin; ${seed17(email, meta)} ${select}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
+  const ENT = `select string_agg(e.product::text, ',' order by e.product::text) as rows from public.product_entitlements e join public.org_memberships m on m.organization_id = e.organization_id where m.user_id = '99999999-0000-4000-8000-000000000003' and e.enabled`;
+  const B = { full_name: "Pricing Probe", business_name: "Pricing Probe LLC", phone: "(555) 010-7777" };
+  const asUser17 = (uid, sql) => { try { return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { return "ERR"; } };
+  const seatOracle = q(`select count(*)::int as rows from public.org_memberships m where m.organization_id='${lakesideOrg}' and m.user_id <> coalesce((select owner_user_id from public.organizations where id='${lakesideOrg}'), '00000000-0000-0000-0000-000000000000'::uuid) and not exists (select 1 from public.agency_memberships am where am.user_id = m.user_id)`)[0].rows;
+  const recOracle = q(`select (select count(*) from public.fulfillment_clients c where c.organization_id='${lakesideOrg}' and c.status::text not in ('Completed','Archived','Graduated'))::int + (select count(*) from public.funding_clients f where f.organization_id='${lakesideOrg}' and f.status::text not in ('Funded','Declined','Withdrawn','Archived'))::int as rows`)[0].rows;
+  const P17 = [
+    ["five public plans, priced, Grow recommended",                    () => { try { return q(`begin; set local role anon; select count(*)::text || ':' || (select key from public.plans where is_recommended and is_public) || ':' || (select monthly_cents::text from public.plans where key='empire_grow') as rows from public.plans where is_public and monthly_cents > 0; rollback;`)[0].rows; } catch (e) { return "ERR"; } }, "5:empire_grow:24900"],
+    ["Build trial with a choice grants Grow capabilities, never CRM",    () => S17("probe@pricing-probe.test", { ...B, plan: "empire_build", selected_product: "creditOps" }, ENT), "creditOps,fundingOps,workspaces"],
+    ["…and the choice is kept for conversion",                          () => S17("probe@pricing-probe.test", { ...B, plan: "empire_build", selected_product: "creditOps" }, `select t.plan_key || ':' || t.selected_product::text as rows from public.organization_trials t join public.org_memberships m on m.organization_id = t.organization_id where m.user_id = '99999999-0000-4000-8000-000000000003'`), "empire_build:creditOps"],
+    ["Build without a choice is refused",                               () => S17("probe@pricing-probe.test", { ...B, plan: "empire_build" }, `select 1 as rows`), "ERR 23514"],
+    ["CRM-only sign-up still trials the operating platform, no CRM",    () => S17("probe@pricing-probe.test", { ...B, plan: "bes_crm" }, ENT), "creditOps,fundingOps,workspaces"],
+    ["Scale trial grants Grow capabilities (CRM provisioned only when paid)", () => S17("probe@pricing-probe.test", { ...B, plan: "empire_scale" }, ENT), "creditOps,fundingOps,workspaces"],
+    ["Enterprise is by agreement, not self-serve",                      () => S17("probe@pricing-probe.test", { ...B, plan: "empire_enterprise" }, `select 1 as rows`), "ERR 23514"],
+    ["the signer is recorded as the Organization Owner",                () => S17("probe@pricing-probe.test", { ...B, plan: "empire_grow" }, `select (o.owner_user_id = '99999999-0000-4000-8000-000000000003')::text as rows from public.organizations o join public.org_memberships m on m.organization_id = o.id where m.user_id = '99999999-0000-4000-8000-000000000003'`), "true"],
+    ["seat usage excludes the owner and BES personnel (member reads own org)", () => asUser17(U["org.owner@bes.test"], `select public.organization_seat_usage('${lakesideOrg}') as rows`), seatOracle],
+    ["…another organization's member gets nothing",                     () => asUser17(U["org2.owner@bes.test"], `select coalesce(public.organization_seat_usage('${lakesideOrg}')::text, 'null') as rows`), "null"],
+    ["active records count only worked clients",                        () => asUser17(U["org.owner@bes.test"], `select public.organization_active_records('${lakesideOrg}') as rows`), recOracle],
+    ["add-ons are listed for the public form",                          () => { try { return q(`begin; set local role anon; select count(*)::int as rows from public.plan_addons; rollback;`)[0].rows; } catch (e) { return "ERR"; } }, 3],
+  ];
+  console.log("\nphase 17:");
+  for (const [label, fn, want] of P17) {
+    checks++;
+    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
+    const ok = got === want; if (!ok) fails++;
+    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
+  }
+}
+
+/* Phase 18 — organization client writes (0050): organization admins create,
+   members update within their reach, another organization cannot, an
+   organization without the product cannot, outsourcing-group clients stay
+   BES-only. Rolled back. */
+if (PHASE >= 18) {
+  const w18 = (uid, sql) => { try { return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
+  const agencyId = q(`select agency_id::text as rows from public.organizations where id='${lakesideOrg}'`)[0].rows;
+  const creditOn = q(`select public.org_entitled('${lakesideOrg}','creditOps') as rows`)[0].rows === true;
+  const roleOf = (uid) => q(`select coalesce((select role::text from public.org_memberships where user_id='${uid}' and organization_id='${lakesideOrg}'), 'none') as rows`)[0].rows;
+  const isAdmin = (uid) => ["org_admin", "org_manager"].includes(roleOf(uid));
+  const INSERT = `insert into public.fulfillment_clients (agency_id, name, email, mode, organization_id, auto_sync, status, round) values ('${agencyId}', '[PROBE] New Client', 'probe.newclient@example.test', 'saas_pulled', '${lakesideOrg}', false, 'Onboarding', 'Pre-Round'); select count(*)::int as rows from public.fulfillment_clients where email = 'probe.newclient@example.test'`;
+  const UPDATE = `update public.fulfillment_clients set status = 'In Processing' where id = '${T.lakeside_client}'; select count(*)::int as rows from public.fulfillment_clients where id='${T.lakeside_client}' and status = 'In Processing'`;
+  const P18 = [
+    ["organization admin creates a client in their organization",       () => w18(U["org.owner@bes.test"], INSERT), isAdmin(U["org.owner@bes.test"]) && creditOn ? 1 : "ERR 42501"],
+    ["organization manager creates a client",                           () => w18(U["org.manager@bes.test"], INSERT), isAdmin(U["org.manager@bes.test"]) && creditOn ? 1 : "ERR 42501"],
+    ["organization agent cannot create",                                () => w18(U["org.agent@bes.test"], INSERT), "ERR 42501"],
+    ["another organization's owner cannot create here",                 () => w18(U["org2.owner@bes.test"], INSERT), "ERR 42501"],
+    ["organization owner updates their client's status",                () => w18(U["org.owner@bes.test"], UPDATE), creditOn ? 1 : 0],
+    ["another organization's owner updates nothing",                    () => w18(U["org2.owner@bes.test"], UPDATE), 0],
+    ["an outsourcing-group client stays BES-only",                      () => w18(U["org.owner@bes.test"], `insert into public.fulfillment_clients (agency_id, name, email, mode, outsourcing_group_id, auto_sync, status, round) values ('${agencyId}', '[PROBE] Group Client', 'probe.group@example.test', 'outsourcing_only', (select id from public.outsourcing_groups limit 1), false, 'Onboarding', 'Pre-Round'); select 1 as rows`), "ERR 42501"],
+  ];
+  console.log("\nphase 18:");
+  for (const [label, fn, want] of P18) {
+    checks++;
+    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
+    const ok = got === want; if (!ok) fails++;
+    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
+  }
+}
+
+/* Phase 19 — department status as data (0051) and the funding-readiness
+   hand-off (0052/0053). Organization members write their own clients'
+   department rows within reach; another organization cannot; the function
+   refuses a status outside the department's vocabulary and always leaves an
+   activity event; the hand-off links/creates the CreditOps client and moves
+   the funding status, both ways, with activity on both records. Rolled back. */
+if (PHASE >= 19) {
+  const w19 = (uid, sql) => { try { return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
+  const creditOn = q(`select public.org_entitled('${lakesideOrg}','creditOps') as rows`)[0].rows === true;
+  const fundingOn = q(`select public.org_entitled('${lakesideOrg}','fundingOps') as rows`)[0].rows === true;
+  const roleOf = (uid) => q(`select coalesce((select role::text from public.org_memberships where user_id='${uid}' and organization_id='${lakesideOrg}'), 'none') as rows`)[0].rows;
+  const SET = `select public.set_client_department_status('${T.lakeside_client}', 'Support', 'billing issue', null, null); select s.status || ':' || (select count(*) from public.activity_events a where a.entity_type='fulfillment_client' and a.entity_id='${T.lakeside_client}' and a.action='Department status' and a.new_value='BILLING ISSUE' and a.created_at >= now())::text as rows from public.client_department_statuses s where s.client_id='${T.lakeside_client}' and s.department='Support'`;
+  const lakesideFunding = q(`select coalesce((select id::text from public.funding_clients where organization_id='${lakesideOrg}' and status::text in ('Onboarding','Readiness Review','Declined') limit 1), '') as rows`)[0].rows;
+  const P19 = [
+    ["organization owner sets a department status; the activity event is written with it", () => w19(U["org.owner@bes.test"], SET), creditOn && ["org_admin","org_manager"].includes(roleOf(U["org.owner@bes.test"])) || creditOn ? "BILLING ISSUE:1" : "ERR 42501"],
+    ["another organization's owner cannot",                          () => w19(U["org2.owner@bes.test"], SET), "ERR 42501"],
+    ["a status outside the department's vocabulary is refused",      () => w19(U["org.owner@bes.test"], `select public.set_client_department_status('${T.lakeside_client}', 'Support', 'BC NEEDED', null, null); select 1 as rows`), creditOn ? "ERR 22023" : "ERR 42501"],
+    ["BES staff in scope set a department status",                   () => w19(U["bes.manager@bes.test"], SET), "BILLING ISSUE:1"],
+    ...(lakesideFunding ? [
+      ["hand-off: funding client → CreditOps (creates/links, status Credit Readiness, activity both sides)", () => w19(U["org.owner@bes.test"], `select public.handoff_to_creditops('${lakesideFunding}', null); select (select status::text from public.funding_clients where id='${lakesideFunding}') || ':' || (select (fulfillment_client_id is not null)::text from public.funding_clients where id='${lakesideFunding}') || ':' || (select count(*) from public.activity_events where entity_id='${lakesideFunding}' and action like 'Sent to CreditOps%')::text as rows`), creditOn && fundingOn ? "Credit Readiness:true:1" : "ERR 42501"],
+      ["hand-off back: qualified → Readiness Review",                () => w19(U["org.owner@bes.test"], `select public.handoff_to_creditops('${lakesideFunding}', null); select public.handoff_to_fundingops((select fulfillment_client_id from public.funding_clients where id='${lakesideFunding}')); select status::text as rows from public.funding_clients where id='${lakesideFunding}'`), creditOn && fundingOn ? "Readiness Review" : "ERR 42501"],
+      ["another organization cannot hand off this client",           () => w19(U["org2.owner@bes.test"], `select public.handoff_to_creditops('${lakesideFunding}', null); select 1 as rows`), "ERR 42501"],
+    ] : [["(no early-stage Lakeside funding client to probe hand-off)", () => "skip", "skip"]]),
+  ];
+  console.log("\nphase 19:");
+  for (const [label, fn, want] of P19) {
+    checks++;
+    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
+    const ok = got === want; if (!ok) fails++;
+    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
+  }
+}
+
+/* Phase 20 — funding department status keyed by file (0054). */
+if (PHASE >= 20) {
+  const w20 = (uid, sql) => { try { return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
+  const fundingOn = q(`select public.org_entitled('${lakesideOrg}','fundingOps') as rows`)[0].rows === true;
+  const lakesideFile = q(`select coalesce((select f.id::text from public.funding_files f join public.funding_clients c on c.id=f.client_id where c.organization_id='${lakesideOrg}' limit 1), '') as rows`)[0].rows;
+  const SETF = `select public.set_funding_department_status('${lakesideFile}', 'Stipulations', 'outstanding', null, null); select s.status || ':' || (s.file_id = '${lakesideFile}')::text || ':' || (select count(*) from public.activity_events a where a.entity_type='funding_client' and a.entity_id=(select client_id::text from public.funding_files where id='${lakesideFile}') and a.action='Department status' and a.field like 'department:Stipulations:%' and a.created_at >= now())::text as rows from public.funding_department_statuses s where s.file_id='${lakesideFile}' and s.department='Stipulations'`;
+  const P20 = lakesideFile ? [
+    ["organization owner sets a file's department status; row keyed by file; activity written", () => w20(U["org.owner@bes.test"], SETF), fundingOn ? "OUTSTANDING:true:1" : "ERR 42501"],
+    ["another organization's owner cannot",                          () => w20(U["org2.owner@bes.test"], SETF), "ERR 42501"],
+    ["a status outside the department's vocabulary is refused",      () => w20(U["org.owner@bes.test"], `select public.set_funding_department_status('${lakesideFile}', 'Stipulations', 'FUNDED', null, null); select 1 as rows`), fundingOn ? "ERR 22023" : "ERR 42501"],
+    ["SQL vocabulary matches the interface mirror (Stipulations)",   () => q(`select array_to_string(public.fundingops_department_statuses('Stipulations'), ',') as rows`)[0].rows, "NOT STARTED,OUTSTANDING,SATISFIED"],
+  ] : [["(no Lakeside funding file to probe)", () => "skip", "skip"]];
+  console.log("\nphase 20:");
+  for (const [label, fn, want] of P20) {
+    checks++;
+    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
+    const ok = got === want; if (!ok) fails++;
+    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
+  }
+}
+
+/* Phase 21 — client lifecycle (0055): archive is a transition with an activity
+   event; only Active counts; another organization cannot archive; reactivation
+   clears the archive fields. Rolled back. */
+if (PHASE >= 21) {
+  const w21 = (uid, sql) => { try { return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
+  const creditOn = q(`select public.org_entitled('${lakesideOrg}','creditOps') as rows`)[0].rows === true;
+  // organization_active_records() answers null to a caller who is neither a member
+  // nor agency management — the CLI's service session is neither — so the
+  // baseline is taken as raw counts. Event counts below use `created_at >= now()`
+  // (transaction start) so rows persisted by earlier operational writes never
+  // inflate a probe that is rolled back anyway.
+  const before = q(`select ((select count(*) from public.fulfillment_clients where organization_id='${lakesideOrg}' and lifecycle='active') + (select count(*) from public.funding_clients where organization_id='${lakesideOrg}' and lifecycle='active'))::int as rows`)[0].rows;
+  const P21 = [
+    ["organization owner archives a client; activity written; active count drops by one", () => w21(U["org.owner@bes.test"], `select public.set_client_lifecycle('${T.lakeside_client}', 'archived', 'moved to another provider'); select (select lifecycle::text from public.fulfillment_clients where id='${T.lakeside_client}') || ':' || (select count(*) from public.activity_events where entity_id='${T.lakeside_client}' and action='Client archived' and created_at >= now())::text || ':' || (public.organization_active_records('${lakesideOrg}') = ${before} - 1)::text as rows`), creditOn ? "archived:1:true" : "ERR 42501"],
+    ["reactivating clears the archive fields",                          () => w21(U["org.owner@bes.test"], `select public.set_client_lifecycle('${T.lakeside_client}', 'archived', 'x'); select public.set_client_lifecycle('${T.lakeside_client}', 'active', null); select lifecycle::text || ':' || coalesce(archived_at::text, 'null') as rows from public.fulfillment_clients where id='${T.lakeside_client}'`), creditOn ? "active:null" : "ERR 42501"],
+    ["another organization's owner cannot archive here",                () => w21(U["org2.owner@bes.test"], `select public.set_client_lifecycle('${T.lakeside_client}', 'archived', null); select 1 as rows`), "ERR 42501"],
+  ];
+  console.log("\nphase 21:");
+  for (const [label, fn, want] of P21) {
+    checks++;
+    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
+    const ok = got === want; if (!ok) fails++;
+    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
+  }
+}
+
+/* Phase 22 — FundingOps domain data (0058): applications/documents follow the
+   file's client; organization admins write, agents read; another organization
+   sees nothing; the BES lender catalogue is readable; a lender user sees only
+   files shared with their lender and may post an offer only there. Rolled back. */
+if (PHASE >= 22) {
+  const w22 = (uid, sql) => { try { return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
+  const fundingOn = q(`select public.org_entitled('${lakesideOrg}','fundingOps') as rows`)[0].rows === true;
+  const lakesideFile = q(`select coalesce((select f.id::text from public.funding_files f join public.funding_clients c on c.id=f.client_id where c.organization_id='${lakesideOrg}' limit 1), '') as rows`)[0].rows;
+  const agencyId = q(`select agency_id::text as rows from public.organizations where id='${lakesideOrg}'`)[0].rows;
+  const APP = `insert into public.funding_applications (file_id, requested_amount, purpose, time_in_business_months, monthly_revenue, credit_score_stated) values ('${lakesideFile}', 50000, 'probe', 24, 30000, 680); select count(*)::int as rows from public.funding_applications where file_id='${lakesideFile}'`;
+  const LENDER = `insert into public.lenders (id, agency_id, name) values ('99999999-0000-4000-8000-00000000aaaa', '${agencyId}', '[PROBE] Shared Lender'); insert into public.lender_users (lender_id, user_id) values ('99999999-0000-4000-8000-00000000aaaa', '${U["probe.agent@bes.test"]}');`;
+  const AS_PROBE = `set local request.jwt.claims = '{"sub":"${U["probe.agent@bes.test"]}","role":"authenticated"}';`;
+  // A request for a June statement, answered by an upload; only a reviewer's acceptance satisfies the request.
+  const REQ = `insert into public.document_requests (id, file_id, document_type, period) values ('99999999-0000-4000-8000-00000000bbbb', '${lakesideFile}', 'bank_statement', '2026-06');`;
+  const INST = `insert into public.files (id, agency_id, organization_id, entity_type, entity_id, path, name, uploaded_by) values ('99999999-0000-4000-8000-00000000cccc', '${agencyId}', '${lakesideOrg}', 'funding_file', '${lakesideFile}', 'probe/${lakesideFile}/june.pdf', 'june.pdf', auth.uid());
+               insert into public.document_instances (id, file_id, request_id, storage_file_id, sha256, uploaded_by, classified_type, classified_period) values ('99999999-0000-4000-8000-00000000dddd', '${lakesideFile}', '99999999-0000-4000-8000-00000000bbbb', '99999999-0000-4000-8000-00000000cccc', 'probe-hash', auth.uid(), 'bank_statement', '2026-06');`;
+  const P22 = lakesideFile ? [
+    ["organization admin records an application on their file",     () => w22(U["org.owner@bes.test"], APP), fundingOn ? 1 : "ERR 42501"],
+    ["organization agent cannot record an application (reads only)", () => w22(U["org.agent@bes.test"], APP), "ERR 42501"],
+    ["another organization sees no application",                     () => w22(U["org2.owner@bes.test"], `select count(*)::int as rows from public.funding_applications where file_id='${lakesideFile}'`), 0],
+    ["organization admin opens a document request; it stays open until a reviewer accepts an upload", () => w22(U["org.owner@bes.test"], `${REQ} select status::text as rows from public.document_requests where id='99999999-0000-4000-8000-00000000bbbb'`), fundingOn ? "open" : "ERR 42501"],
+    ["BES in scope uploads an instance and accepts it: request satisfied, activity on the funding client", () => w22(U["bes.manager@bes.test"], `${REQ} ${INST} select public.record_document_disposition('99999999-0000-4000-8000-00000000dddd', 'accepted', null); select (select status::text from public.document_requests where id='99999999-0000-4000-8000-00000000bbbb') || ':' || (select disposition::text from public.document_instances where id='99999999-0000-4000-8000-00000000dddd') || ':' || (select count(*) from public.activity_events where entity_type='funding_client' and action='Document disposition' and created_at >= now())::text as rows`), "satisfied:accepted:1"],
+    ["a disposition never returns to pending",                       () => w22(U["bes.manager@bes.test"], `${REQ} ${INST} select public.record_document_disposition('99999999-0000-4000-8000-00000000dddd', 'pending_review', null); select 1 as rows`), "ERR 22023"],
+    ["a flag is a controlled code with evidence; another organization cannot see it", () => w22(U["bes.manager@bes.test"], `insert into public.document_flags (file_id, request_id, flag_code, evidence) values ('${lakesideFile}', (select id from public.document_requests where file_id='${lakesideFile}' limit 1), 'MISSING_REQUIRED_DOCUMENT', '{"expected_period":"2026-06"}'); set local request.jwt.claims = '{"sub":"${U["org2.owner@bes.test"]}","role":"authenticated"}'; select count(*)::int as rows from public.document_flags where file_id='${lakesideFile}'`), 0],
+    ["BES manager adds a catalogue lender; an organization member can read it", () => w22(U["bes.manager@bes.test"], `insert into public.lenders (agency_id, name) values ('${agencyId}', '[PROBE] Lender'); set local request.jwt.claims = '{"sub":"${U["org.agent@bes.test"]}","role":"authenticated"}'; select count(*)::int as rows from public.lenders where name='[PROBE] Lender'`), 1],
+    ["a lender user sees a file only when it is shared",             () => w22(U["bes.manager@bes.test"], `${LENDER} ${AS_PROBE} select (select count(*) from public.funding_applications where file_id='${lakesideFile}')::text as rows`), "0"],
+    ["…after sharing, the lender reads the application and can offer; the decision maps the deal status", () => w22(U["bes.manager@bes.test"], `insert into public.funding_applications (file_id, requested_amount) values ('${lakesideFile}', 50000); ${LENDER} insert into public.lender_file_shares (lender_id, file_id, shared_by) values ('99999999-0000-4000-8000-00000000aaaa', '${lakesideFile}', auth.uid()); ${AS_PROBE} insert into public.funding_deals (id, file_id, client_id, lender, lender_id, amount, status) select '99999999-0000-4000-8000-00000000eeee', '${lakesideFile}', client_id, '[PROBE] Shared Lender', '99999999-0000-4000-8000-00000000aaaa', 45000, 'Submitted' from public.funding_files where id='${lakesideFile}'; select public.record_lender_decision('99999999-0000-4000-8000-00000000eeee', 'approved', '{"amount":45000}', null, null); select (select count(*) from public.funding_applications where file_id='${lakesideFile}')::text || ':' || (select status::text from public.funding_deals where id='99999999-0000-4000-8000-00000000eeee') || ':' || (select source from public.lender_decisions where deal_id='99999999-0000-4000-8000-00000000eeee') as rows`), "1:Offer Received:lender_portal"],
+    ["lender decisions are append-only (no update policy: 0 rows)",  () => w22(U["bes.manager@bes.test"], `insert into public.funding_deals (id, file_id, client_id, lender, amount) select '99999999-0000-4000-8000-00000000eeee', '${lakesideFile}', client_id, '[PROBE] L', 1000 from public.funding_files where id='${lakesideFile}'; select public.record_lender_decision('99999999-0000-4000-8000-00000000eeee', 'declined'); update public.lender_decisions set decision='approved' where deal_id='99999999-0000-4000-8000-00000000eeee'; select count(*)::int as rows from public.lender_decisions where deal_id='99999999-0000-4000-8000-00000000eeee' and decision='approved'`), 0],
+    ["a consumer-report request needs a party and a purpose; the borrower role cannot read it", () => w22(U["bes.manager@bes.test"], `insert into public.funding_parties (id, client_id, kind, display_name) select '99999999-0000-4000-8000-00000000ffff', client_id, 'owner_guarantor', '[PROBE] Owner' from public.funding_files where id='${lakesideFile}'; insert into public.consumer_report_requests (file_id, party_id, product_family, purpose, permissible_purpose_basis) values ('${lakesideFile}', '99999999-0000-4000-8000-00000000ffff', 'business_funding', 'guarantor review', 'consumer-initiated credit transaction (attested)'); ${AS_PROBE} select count(*)::int as rows from public.consumer_report_requests where file_id='${lakesideFile}'`), 0],
+    ["a policy version records its source and effective date; matching reads it, never rewrites it", () => w22(U["bes.manager@bes.test"], `insert into public.lenders (id, agency_id, name) values ('99999999-0000-4000-8000-00000000aaaa', '${agencyId}', '[PROBE] Shared Lender'); insert into public.lender_programs (id, lender_id, name, product_family) values ('99999999-0000-4000-8000-00000000abab', '99999999-0000-4000-8000-00000000aaaa', 'Term', 'business_funding'); insert into public.lender_policy_versions (program_id, version, criteria, source_type, effective_from) values ('99999999-0000-4000-8000-00000000abab', 1, '{"min_credit_score":640}', 'lender_policy_sheet', current_date); select (criteria->>'min_credit_score') || ':' || source_type as rows from public.lender_policy_versions where program_id='99999999-0000-4000-8000-00000000abab'`), "640:lender_policy_sheet"],
+  ] : [["(no Lakeside funding file to probe)", () => "skip", "skip"]];
+  console.log("\nphase 22:");
+  for (const [label, fn, want] of P22) {
     checks++;
     let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
     const ok = got === want; if (!ok) fails++;

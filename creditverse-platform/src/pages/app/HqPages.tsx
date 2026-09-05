@@ -9,6 +9,9 @@ import {
 import { cn } from "@/lib/utils";
 import { DataSourceBadge } from "@/components/dashboard/DataSourceBadge";
 import { useMyWork, useAttention } from "@/lib/data/use-work";
+import { useMyDepartmentFiles } from "@/lib/data/use-my-department-files";
+import { useMyQueues } from "@/lib/data/use-my-queues";
+import { useAgency } from "@/lib/agency-context";
 import {
   useMarkAllNotificationsRead,
   useMarkNotificationRead,
@@ -195,6 +198,15 @@ export const AttentionCenter = () => {
 
 export const MyWorkPage = () => {
   const { items, source, isLoading, error } = useMyWork();
+  /* Department files assigned to me (CreditOps / FundingOps) — the second half
+     of "what do I need to do right now" (separation step 4). */
+  const departmentFiles = useMyDepartmentFiles();
+  const queues = useMyQueues();
+  const { viewMode } = useAgency();
+  const fileHref = (f: { division: string; clientId: string }) =>
+    f.division === "CreditOps"
+      ? (viewMode === "agency" ? `/app/creditops?client=${f.clientId}` : `/app/operations?client=${f.clientId}`)
+      : (viewMode === "agency" ? `/app/fundingops?client=${f.clientId}` : `/app/metro2?client=${f.clientId}`);
   // Deep link from a notification: /app/my-work?item=<id>. The row is
   // highlighted if it is in the caller's list; if RLS no longer returns it,
   // nothing is highlighted and nothing is claimed.
@@ -234,6 +246,54 @@ export const MyWorkPage = () => {
         </div>
       )}
 
+      {departmentFiles.live && (
+        <div className="mb-4">
+          <ContentCard title="My department files">
+            {departmentFiles.error ? (
+              <p className="text-sm text-red-700">Could not load your department files: {departmentFiles.error}</p>
+            ) : departmentFiles.isLoading ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">Loading…</p>
+            ) : departmentFiles.files.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">No department work is assigned to you right now.</p>
+            ) : (
+              <DivisionTable
+                columns={["Client", "Division", "Department", "Work status", "Updated"]}
+                rows={departmentFiles.files.map((f) => [
+                  <Link key={f.key} to={fileHref(f)} className="font-medium text-primary underline-offset-2 hover:underline">{f.clientName}{f.filePurpose ? ` · ${f.filePurpose}` : ""}</Link>,
+                  f.division,
+                  f.department,
+                  <StatusPill status={f.status} />,
+                  new Date(f.updatedAt).toLocaleDateString(),
+                ])}
+              />
+            )}
+          </ContentCard>
+        </div>
+      )}
+      {queues.live && (
+        <div className="mb-4">
+          <ContentCard title="Available in my queues">
+            {queues.error ? (
+              <p className="text-sm text-red-700">Could not load your queues: {queues.error}</p>
+            ) : queues.isLoading ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">Loading…</p>
+            ) : queues.rows.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">Nothing unassigned in the departments you are authorized to work.</p>
+            ) : (
+              <DivisionTable
+                columns={["Client", "Division", "Department", "Work status", "Waiting since"]}
+                rows={queues.rows.map((f) => [
+                  <Link key={f.key} to={fileHref(f)} className="font-medium text-primary underline-offset-2 hover:underline">{f.clientName}{f.filePurpose ? ` · ${f.filePurpose}` : ""}</Link>,
+                  f.division,
+                  f.department,
+                  <StatusPill status={f.status} />,
+                  new Date(f.updatedAt).toLocaleDateString(),
+                ])}
+              />
+            )}
+          </ContentCard>
+        </div>
+      )}
       <ContentCard title="My Active Work Items">
         {isLoading ? (
           <p className="py-8 text-center text-sm text-muted-foreground">

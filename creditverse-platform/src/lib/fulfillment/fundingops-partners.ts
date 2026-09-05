@@ -97,6 +97,7 @@ export const getFundingPartnerByScope = (
 export const FUNDING_PARTNER_VIEWS = [
   { id: "dashboard", label: "Dashboard" },
   { id: "sops-logins", label: "SOPs & Logins" },
+  { id: "client-list", label: "Client List" },
   { id: "deal-list", label: "Deal List" },
   { id: "readiness", label: "Readiness" },
   { id: "documents", label: "Documents" },

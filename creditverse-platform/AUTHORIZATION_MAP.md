@@ -260,3 +260,20 @@ used to route.
 | `report_items`, `report_scores` | follow their report; insert only into a report the caller imported | EXISTS on `credit_reports` |
 | update / delete | none — append-only history | no policies granted |
 | `create_credit_report(...)` | SECURITY INVOKER: policies decide; refuses an empty item list | atomic multi-row insert |
+
+
+### 0049–0053 — Pricing data, organization client writes, department status, hand-off
+
+| Object | Rule | How |
+|---|---|---|
+| `plans`, `plan_addons` (select) | public (anon + authenticated) | pricing is public information |
+| `provision_self_serve_organization()` | trial grants `trial_grant_plan` (Empire Grow) products minus CRM; Build requires a CreditOps/FundingOps choice; non-public-trial plans refused | 23514 on violations; owner recorded on `organizations.owner_user_id` |
+| `organization_seat_usage(org)`, `organization_active_records(org)` | `is_org_member(org)` or agency manager; else null | SECURITY DEFINER with explicit check |
+| `fulfillment_clients` / `funding_clients` insert | + organization branch: `is_org_admin(org)` and `org_has_product` and organization-owned (no outsourcing group) and same agency | permissive OR beside BES policies (0027 §E unchanged) |
+| `fulfillment_clients` / `funding_clients` update | + organization branch: `org_has_product` and `org_scope_allows(org, assigned_agent_id)`, organization-owned | same |
+| `client_department_statuses` / `funding_department_statuses` insert/update | + organization branch mirroring the client update reach | 0051 |
+| `set_client_department_status(...)` | SECURITY INVOKER; status ∈ `creditops_department_statuses(department)`; writes the activity event with visibility derived from author/engagement | 22023 on unknown status; 42501 when the client is not visible |
+| `handoff_to_creditops` / `handoff_to_fundingops` | SECURITY INVOKER; caller must write both records under existing policies; entitlement to CreditOps required for the send | 0053 |
+| `set_funding_department_status(...)` | SECURITY INVOKER; file must be visible; status ∈ `fundingops_department_statuses(department)`; row keyed by file | 0054; organization branch on `funding_files` insert (admins) / update (reach) |
+| `set_client_lifecycle(...)` | SECURITY INVOKER; client must be visible and writable under existing policies; writes the activity event | 0055; `organization_active_records` counts `lifecycle = active` |
+| comment visibility (interface) | organization surface never offers `bes_internal`; default `shared_with_partner` when BES fulfils for the organization | `allowedVisibilities` / `defaultVisibility`; the database insert policy is unchanged and remains the enforcement |

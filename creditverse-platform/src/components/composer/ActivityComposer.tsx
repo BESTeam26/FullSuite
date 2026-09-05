@@ -63,6 +63,8 @@ export interface ActivityComposerProps {
   organizationId?: string;
   /** Levels this author may create, computed centrally (rule 13). */
   allowedVisibilities: ActivityVisibility[];
+  /** What the picker starts on (from useActivityVisibility). Defaults to the first allowed level. */
+  defaultVisibility?: ActivityVisibility;
   /**
    * Persist the note. Resolves with the created activity id so attachments can
    * be linked to it; rejects so the composer can keep the author's work.
@@ -85,13 +87,17 @@ export function ActivityComposer({
   entityId,
   organizationId,
   allowedVisibilities,
+  defaultVisibility,
   onPost,
   onAttach,
 }: ActivityComposerProps) {
+  const startLevel: ActivityVisibility =
+    defaultVisibility && allowedVisibilities.includes(defaultVisibility)
+      ? defaultVisibility
+      : (allowedVisibilities[0] ?? DEFAULT_VISIBILITY);
   const [doc, setDoc] = useState<NoteDoc>(EMPTY_DOC);
   const [empty, setEmpty] = useState(true);
-  const [visibility, setVisibility] =
-    useState<ActivityVisibility>(DEFAULT_VISIBILITY);
+  const [visibility, setVisibility] = useState<ActivityVisibility>(startLevel);
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [posting, setPosting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -206,7 +212,7 @@ export function ActivityComposer({
       setAttachments([]);
       setDoc(EMPTY_DOC);
       setEmpty(true);
-      setVisibility(DEFAULT_VISIBILITY);
+      setVisibility(startLevel);
       setResetToken((n) => n + 1);
     } catch (err) {
       setError(errorMessage(err, "Could not post this note."));
@@ -219,7 +225,7 @@ export function ActivityComposer({
   return (
     <div className="space-y-3 rounded-xl border border-border bg-card p-4 shadow-sm">
       <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
-        Post Comment / Internal Note
+        {allowedVisibilities.includes("bes_internal") ? "Post Comment / Internal Note" : "Post Comment"}
       </h3>
 
       <Suspense

@@ -10,6 +10,7 @@
  */
 import { FundingOpsDashboardView } from "./FundingOpsDashboardView";
 import { FundingDealListPanel } from "./FundingDealListPanel";
+import { FundingClientsPanel } from "./FundingClientsPanel";
 import { FundingQueueView } from "./FundingQueueViews";
 import { EditableSopsAndLoginsView } from "./EditableSopsAndLoginsView";
 import {
@@ -79,6 +80,10 @@ export function FundingOpsPartnerWorkspace({
           />
         ) : activeView === "sops-logins" ? (
           <EditableSopsAndLoginsView selectedScope={scopeId} />
+        ) : activeView === "client-list" ? (
+          /* Operational client list: current department, work status, open work;
+             opens the client's operational file (separation step 3). */
+          <FundingClientsPanel selectedScope={scopeId} partner={partner} />
         ) : activeView === "deal-list" ? (
           <FundingDealListPanel
             selectedScope={scopeId}

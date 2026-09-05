@@ -97,3 +97,36 @@ Renaming FundingOps departments (Intake, Document Collection, Lender Selection, 
 
 ## 5. Verification plan
 Matrix: department-status writes obey the existing client policies (organization member vs BES scope vs another organization); funding department rows visible with their file; My Work returns only rows the person could open. Unit: department transitions; My Work union shape. Browser: set a department status → Main Client List shows current department / work status; My Work shows the department file for the assignee; FundingOps queue keyed on file stage.
+
+
+## Addendum (2026-09-04) — client lifecycle and organization-customizable statuses
+
+**Lifecycle (built, migration 0055).** `fulfillment_clients.lifecycle` /
+`funding_clients.lifecycle` ∈ active · program_completed · graduated ·
+archived, separate from the processing status and from department status.
+Only `active` counts as an active client (plan usage, active lists, dashboards).
+Archive is a transition with an activity event, never a delete.
+
+**Customizable statuses (proposal — the DisputeFox "Field Setup" analogue).**
+Today the processing statuses and each department's vocabulary are fixed
+(enum + Status Guide). Organizations run different setups, so statuses become
+data with platform defaults:
+
+```
+organization_status_options
+  organization_id · kind (processing | department:<Dispute|Support|…> | funding_department:<…>)
+  code (stable) · label (shown) · position · is_open (counts as open work) · is_active (offered)
+  created_by · created_at · updated_at
+```
+- No rows = platform defaults (today's Status Guide / vocabulary). An owner
+  may add, rename, reorder, or switch off statuses; codes never change, so
+  history and reports keep meaning. Deleting is switching off (rule 11).
+- Validation in `set_client_department_status` / `set_funding_department_status`
+  (and the processing-status write) checks the organization's active set when
+  rows exist, else the platform default — one rule, in the database.
+- Settings → Statuses (organization view): tabs per kind, like DisputeFox's
+  Field Setup, every control a real write through an audited function.
+- The processing status column stays an enum for now (a wide, cross-cutting
+  change); customization applies first to department vocabularies and to
+  labels/order of the processing statuses, then the enum is retired in a later
+  step once every reader goes through the options table.

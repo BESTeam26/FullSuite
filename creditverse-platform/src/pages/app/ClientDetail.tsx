@@ -98,8 +98,8 @@ const ClientDetailInner = () => {
       {reportSource === "none" && (
         <div role="status" className="mb-4 rounded-xl border border-border bg-muted/30 px-4 py-2.5 text-xs text-foreground">
           <strong className="font-bold">This page is the sample client walkthrough.</strong>{" "}
-          In a live session it has no report behind it, so nothing is analysed here. Real clients are worked in
-          CreditOps → Workspace → Main Client List, where their own report is imported and analysed.
+          In a live session it has no report behind it, so nothing is analysed here. Real clients are opened from
+          CreditOps → Clients; their profile is where the report is imported and analysed.
         </div>
       )}
       <Link

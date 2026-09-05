@@ -66,7 +66,10 @@ export type FundingColId =
   | "phone"
   | "mode"
   | "status"
+  | "department"
+  | "workStatus"
   | "agent"
+  | "openWork"
   | "openFiles"
   | "requested"
   | "sla"
@@ -74,13 +77,19 @@ export type FundingColId =
 
 export type FundingColDef = ColDef<FundingColId>;
 
+/* Operational by default (separation step 3): Client · Funding Status ·
+   Current Department · Work Status · Assigned To · Open Work · Open Files ·
+   Requested · SLA · Last Activity. Contact columns stay behind "Columns". */
 export const FUNDING_COLUMN_DEFS: FundingColDef[] = [
   CLIENT_COL,
-  EMAIL_COL,
-  PHONE_COL,
-  MODE_COL,
+  { ...EMAIL_COL, defaultOn: false },
+  { ...PHONE_COL, defaultOn: false },
+  { ...MODE_COL, defaultOn: false },
   STATUS_COL,
+  { ...compactColumn("department", "Current Department"), defaultWidth: 160, minWidth: 120 },
+  { ...compactColumn("workStatus", "Work Status"), defaultWidth: 170, minWidth: 130 },
   AGENT_COL,
+  countColumn("openWork", "Open Work"),
   countColumn("openFiles", "Open Files"),
   compactColumn("requested", "Requested"),
   SLA_COL,
@@ -92,7 +101,7 @@ export const FUNDING_COLUMN_DEFS: FundingColDef[] = [
 /* ------------------------------------------------------------------ */
 
 const prefsStore = createViewPrefsStore<FundingColId>(
-  "fundingops-clientlist-prefs",
+  "fundingops-clientlist-prefs-v2",
   FUNDING_COLUMN_DEFS,
   "client",
 );

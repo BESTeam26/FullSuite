@@ -20,7 +20,7 @@ export function FundingOpsActivityTimeline({ clientId }: { clientId: string }) {
   const auth = useAuth();
   /* Which audiences this user may post to — resolved centrally, not here. */
   const client = store.clients.find((c) => c.id === clientId);
-  const { allowed } = useActivityVisibility(
+  const { allowed, fallback } = useActivityVisibility(
     client?.organizationId ?? client?.outsourcingGroupId,
     "fundingops",
   );
@@ -51,6 +51,7 @@ export function FundingOpsActivityTimeline({ clientId }: { clientId: string }) {
           entityId={clientId}
           organizationId={client?.organizationId}
           allowedVisibilities={allowed}
+          defaultVisibility={fallback}
           /* The store persists the note and places the returned row into the
              timeline cache, so nothing here refetches. */
           onPost={({ body, plainText, visibility }) =>

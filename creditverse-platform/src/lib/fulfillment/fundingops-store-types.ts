@@ -46,6 +46,9 @@ export type FundingDepartment =
 export interface FundingDepartmentStatus {
   department: FundingDepartment;
   status: string;
+  /** The funding file this row belongs to (live rows; step 3). */
+  fileId?: string | null;
+  assigneeId?: string | null;
   assignee: string;
   updatedAt: string;
 }

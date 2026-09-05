@@ -735,6 +735,9 @@ export type Database = {
       }
       fulfillment_clients: {
         Row: {
+          lifecycle: Database["public"]["Enums"]["client_lifecycle"]
+          archived_at: string | null
+          archive_reason: string | null
           agency_id: string
           assigned_agent_id: string | null
           auto_sync: boolean
@@ -757,6 +760,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          lifecycle?: Database["public"]["Enums"]["client_lifecycle"]
+          archived_at?: string | null
+          archive_reason?: string | null
           agency_id: string
           assigned_agent_id?: string | null
           auto_sync?: boolean
@@ -779,6 +785,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          lifecycle?: Database["public"]["Enums"]["client_lifecycle"]
+          archived_at?: string | null
+          archive_reason?: string | null
           agency_id?: string
           assigned_agent_id?: string | null
           auto_sync?: boolean
@@ -965,6 +974,9 @@ export type Database = {
       }
       funding_clients: {
         Row: {
+          lifecycle: Database["public"]["Enums"]["client_lifecycle"]
+          archived_at: string | null
+          archive_reason: string | null
           agency_id: string
           assigned_agent_id: string | null
           auto_sync: boolean
@@ -987,6 +999,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          lifecycle?: Database["public"]["Enums"]["client_lifecycle"]
+          archived_at?: string | null
+          archive_reason?: string | null
           agency_id: string
           assigned_agent_id?: string | null
           auto_sync?: boolean
@@ -1009,6 +1024,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          lifecycle?: Database["public"]["Enums"]["client_lifecycle"]
+          archived_at?: string | null
+          archive_reason?: string | null
           agency_id?: string
           assigned_agent_id?: string | null
           auto_sync?: boolean
@@ -1150,6 +1168,7 @@ export type Database = {
       }
       funding_department_statuses: {
         Row: {
+          file_id: string | null
           assignee_id: string | null
           client_id: string
           department: Database["public"]["Enums"]["funding_department"]
@@ -1157,6 +1176,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          file_id?: string | null
           assignee_id?: string | null
           client_id: string
           department: Database["public"]["Enums"]["funding_department"]
@@ -1164,6 +1184,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          file_id?: string | null
           assignee_id?: string | null
           client_id?: string
           department?: Database["public"]["Enums"]["funding_department"]
@@ -1516,6 +1537,7 @@ export type Database = {
           organization_id: string
           plan_key: string
           review_note: string | null
+          selected_product: Database["public"]["Enums"]["product_key"] | null
           started_at: string
           status: Database["public"]["Enums"]["trial_status"]
           updated_at: string
@@ -1527,6 +1549,7 @@ export type Database = {
           organization_id: string
           plan_key: string
           review_note?: string | null
+          selected_product?: Database["public"]["Enums"]["product_key"] | null
           started_at?: string
           status?: Database["public"]["Enums"]["trial_status"]
           updated_at?: string
@@ -1538,6 +1561,7 @@ export type Database = {
           organization_id?: string
           plan_key?: string
           review_note?: string | null
+          selected_product?: Database["public"]["Enums"]["product_key"] | null
           started_at?: string
           status?: Database["public"]["Enums"]["trial_status"]
           updated_at?: string
@@ -1611,6 +1635,7 @@ export type Database = {
           address: string | null
           agency_id: string
           branding: Json
+          owner_user_id: string | null
           workspace_views: Json
           code: string
           created_at: string
@@ -1628,6 +1653,7 @@ export type Database = {
           address?: string | null
           agency_id: string
           branding?: Json
+          owner_user_id?: string | null
           workspace_views?: Json
           code: string
           created_at?: string
@@ -1645,6 +1671,7 @@ export type Database = {
           address?: string | null
           agency_id?: string
           branding?: Json
+          owner_user_id?: string | null
           workspace_views?: Json
           code?: string
           created_at?: string
@@ -1712,9 +1739,25 @@ export type Database = {
           },
         ]
       }
+      plan_addons: {
+        Row: { applies_to: string[]; key: string; label: string; monthly_cents: number; position: number; unit: string }
+        Insert: { applies_to: string[]; key: string; label: string; monthly_cents: number; position?: number; unit: string }
+        Update: { applies_to?: string[]; key?: string; label?: string; monthly_cents?: number; position?: number; unit?: string }
+        Relationships: []
+      }
       plans: {
         Row: {
           is_public: boolean
+          monthly_cents: number
+          annual_cents: number | null
+          seats_included: number
+          active_records_included: number
+          choose_one: boolean
+          includes_crm: boolean
+          is_recommended: boolean
+          public_trial: boolean
+          trial_grant_plan: string | null
+          tagline: string | null
           key: string
           label: string
           position: number
@@ -1723,6 +1766,16 @@ export type Database = {
         }
         Insert: {
           is_public?: boolean
+          monthly_cents?: number
+          annual_cents?: number | null
+          seats_included?: number
+          active_records_included?: number
+          choose_one?: boolean
+          includes_crm?: boolean
+          is_recommended?: boolean
+          public_trial?: boolean
+          trial_grant_plan?: string | null
+          tagline?: string | null
           key: string
           label: string
           position?: number
@@ -1731,6 +1784,16 @@ export type Database = {
         }
         Update: {
           is_public?: boolean
+          monthly_cents?: number
+          annual_cents?: number | null
+          seats_included?: number
+          active_records_included?: number
+          choose_one?: boolean
+          includes_crm?: boolean
+          is_recommended?: boolean
+          public_trial?: boolean
+          trial_grant_plan?: string | null
+          tagline?: string | null
           key?: string
           label?: string
           position?: number
@@ -3101,6 +3164,48 @@ export type Database = {
         Args: { p_client: string | null; p_consumer: string | null; p_org: string | null }
         Returns: boolean
       }
+      set_client_department_status: {
+        Args: {
+          p_client: string
+          p_department: Database["public"]["Enums"]["fulfillment_department"]
+          p_status: string
+          p_assignee?: string | null
+          p_note?: string | null
+        }
+        Returns: undefined
+      }
+      creditops_department_statuses: {
+        Args: { p_department: Database["public"]["Enums"]["fulfillment_department"] }
+        Returns: string[]
+      }
+      organization_seat_usage: { Args: { p_org: string }; Returns: number }
+      organization_active_records: { Args: { p_org: string }; Returns: number }
+      handoff_to_creditops: {
+        Args: { p_funding_client: string; p_existing_client?: string | null }
+        Returns: string
+      }
+      handoff_to_fundingops: {
+        Args: { p_fulfillment_client: string }
+        Returns: string
+      }
+      set_client_lifecycle: {
+        Args: { p_client: string; p_lifecycle: Database["public"]["Enums"]["client_lifecycle"]; p_reason?: string | null }
+        Returns: undefined
+      }
+      set_funding_department_status: {
+        Args: {
+          p_file: string
+          p_department: Database["public"]["Enums"]["funding_department"]
+          p_status: string
+          p_assignee?: string | null
+          p_note?: string | null
+        }
+        Returns: undefined
+      }
+      fundingops_department_statuses: {
+        Args: { p_department: Database["public"]["Enums"]["funding_department"] }
+        Returns: string[]
+      }
       default_role_access: {
         Args: {
           p_role: Database["public"]["Enums"]["org_role"]
@@ -3260,8 +3365,10 @@ export type Database = {
         | "Round 4+"
         | "Completed"
       fulfillment_service: "creditops" | "fundingops" | "bes_crm" | "talentops"
+      client_lifecycle: "active" | "program_completed" | "graduated" | "archived"
       funding_client_status:
         | "Onboarding"
+        | "Credit Readiness"
         | "Readiness Review"
         | "Document Review"
         | "Lender Matching"

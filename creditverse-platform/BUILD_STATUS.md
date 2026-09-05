@@ -2542,3 +2542,135 @@ theirs alone.
 
 **Verified:** typecheck clean, 267 tests, 0 lint errors, migrations 53/53,
 verify-live. RLS matrix: 293/293 (phase ≤ 16; first run had one transient CLI miss and one wrong expectation — no update policy means 0 rows touched, not an error).
+
+
+## Pricing as data · organization client writes · comment visibility · separation steps 1–2 · lifecycle (migrations 0049–0055)
+
+**Pricing as data (0049).** `plans` now carries Dee's proposed ladder as
+editable rows — BES CRM $99 · Empire Build $149 (choose CreditOps or
+FundingOps) · Empire Grow $249 ★ · Empire Scale $399 (Full Suite + CRM) ·
+Empire Enterprise $599+ (by agreement) — with monthly/annual cents, seats
+included (the Organization Owner is free), active records included, choose-one,
+includes-CRM, recommended, public-trial flags; `plan_addons` (CRM +$75, +10
+seats $50, +1,000 records $75). **Every eligible trial grants Empire Grow
+capabilities** (CreditOps + FundingOps + Workspaces) for 30 days whatever plan
+was picked; the pick and Build's choice are kept on the trial for conversion;
+CRM is never provisioned on a trial; Enterprise sign-up is refused as
+by-agreement. `organizations.owner_user_id` records the signer.
+`organization_seat_usage()` / `organization_active_records()` measure seats
+(excluding owner, BES personnel, portal users) and worked clients (never
+history) — measurements only; nothing bills or enforces yet. Analysis and open
+questions: `PRICING_AND_BILLING_MODEL.md` (CRC and HighLevel figures verified
+by fetch; DisputeBee unverified). AI credits: `ARCHITECTURE_PROPOSAL_AI_CREDITS.md`.
+**Customer-facing pricing UI is deliberately not built until Dee confirms the
+open questions.**
+
+**Organization client writes (0050, approved).** Organization admins/managers
+create clients in their own organization for entitled products; members update
+within the reach the select policy already grants; outsourcing-group clients
+stay BES-only. Permissive OR beside the BES policies; nothing about BES data
+changed.
+
+**Comment visibility by surface.** The organization view never offers "BES
+Internal": BES staff there may post shared or client-visible only; organization
+members post organization-only, shared (when BES fulfils for them — the default,
+one record both sides see) or client-visible. One rule
+(`allowedVisibilities` / `defaultVisibility` in `lib/data/activity.ts`),
+unit-tested; the composer starts on the rule's default. Labels: "Organization
+only", "Shared (BES + organization)".
+
+**Separation step 1 — department / work status is data (0051).** Department
+Progress writes `client_department_statuses` through
+`set_client_department_status` (validates the department's Status Guide
+vocabulary, upserts the row, writes the activity event in one transaction, as
+the caller); organization members may write their own clients' rows within
+reach (`*_org_insert/update` policies on both status tables); assignee per
+department; "Hand off" opens the next department on its first open status
+(`lib/fulfillment/department-domain.ts`, unit-tested). Credit status and round
+stay on the client record and are shown separately. The store re-reads the
+rows after a write.
+
+**Client lifecycle (0055).** `lifecycle` ∈ active · program_completed ·
+graduated · archived on both client tables, separate from processing status and
+department status; only `active` counts (plan usage, active lists, dashboards,
+Home). Archive / reactivate through `set_client_lifecycle` (activity event,
+never a delete). Workspace Main Client List and the Clients page filter by
+lifecycle (Active by default); the work file carries the lifecycle control; the
+Clients page gains "New client" (same canonical table as the Workspace — no
+sync). Organization-customizable statuses (DisputeFox Field Setup analogue) are
+proposed in the separation document's addendum.
+
+**Funding-readiness hand-off (0052–0053, approved).** `Credit Readiness`
+funding status; hand-off cards on both client files (Send to CreditOps for
+readiness / Return to FundingOps — qualified); `handoff_to_creditops` (links or creates the CreditOps client,
+sets Credit Readiness, activity on both records) and `handoff_to_fundingops`
+(qualified → Readiness Review). SECURITY INVOKER; UI cards follow in step 3.
+
+**Separation step 2.** The Workspace Main Client List is operational: Client ·
+Credit Stage · Status · Current Department · Work Status · Assigned To · Open
+Work · SLA · Last Activity, the department columns from ONE batched query for
+the visible clients (`fetchDepartmentStatusesForClients`). FundingOps
+department status is keyed on the funding file (0054, `set_funding_department_status`,
+vocabulary mirrored in `funding-department-domain.ts`); the FundingOps work file
+shows per-file Department Progress (status, assignee, hand-off) and reads
+businesses and files from the live hooks instead of the seed. The FundingOps Company workspace gains an operational **Client List** view
+(current department, work status, assignee, open work, open files, requested,
+SLA — one batched query) that opens the operational funding file; the view
+catalogue mirror is migration 0056. Funding queues are keyed on the funding
+FILE stage (a client with no file yet falls back to its own status so intake is
+not invisible).
+
+**Separation step 4 — My Work.** My Work shows, beside work items, the
+department files assigned to the person across CreditOps and FundingOps (two
+bounded RLS-scoped queries; open statuses of active clients only), each linking
+into the client's operational file. "Available in my queues" lists open, unassigned department rows in the
+departments the person's resolved role access allows (configured by the
+organization, else default; BES staff in agency view see every department across
+the clients RLS returns), each linking into the client's operational file.
+
+**Probed:** phase 17 (12) pricing/provisioning/usage; phase 18 (7) organization
+client writes; phase 19 department status + hand-off; phase 20 file-keyed
+funding status; phase 21 lifecycle. **Verified:** typecheck,
+283 tests, 0 lint errors, migrations 62/62, verify-live, browser
+(organization view composer: "Post Comment", default "Shared (BES + organization)";
+CreditOps Department Progress: a status change on the Northgate fixture wrote the
+row, the Main Client List showed Support / BILLING ISSUE / Open Work 1 and the
+timeline gained the entry; FundingOps Client List on Lakeside opened Juno
+Logistics' operational file with per-file Department Progress and the hand-off
+card; Clients page lists real clients with lifecycle and New client).
+RLS matrix: 324/324 (phase ≤ 21, after the harness correction below).
+
+**Matrix harness correction (2026-09-05).** The first full run at phase ≤ 21
+reported two misses. Both were the harness measuring wrongly, verified by
+replaying the writes live: the funding department-status probe counted an
+activity event persisted by an earlier browser verification alongside its own
+(the function inserts exactly one row), and the lifecycle probe took its
+"active records before" baseline through `organization_active_records()`,
+which answers **null** to a caller who is neither an organization member nor
+agency management — the CLI's service session is neither, by design. Fix:
+event counts use `created_at >= now()` (transaction start, so only rows the
+probe itself wrote count) and the baseline is a raw count. No database change.
+
+**Funding domain: design superseded before build (2026-09-05).** Dee supplied
+three FundingOS research documents (document qualification and verification,
+GHL integration, lender lookup/matching) and two Metro 2 / FCRA framework
+documents. Their doctrine is now recorded as Addendum B of
+`ARCHITECTURE_PROPOSAL_FUNDING_DOMAIN.md` and the Credit Reporting Integrity
+addendum of `ARCHITECTURE_PROPOSAL_LETTER_LIBRARY.md`. Consequences: the
+funding-domain migration draft (0058) is **parked outside
+`supabase/migrations/`** and will be rebuilt — document *requests* separate
+from uploaded *instances*, a controlled flag taxonomy, versioned and
+effective-dated requirement rules, lender programs with policy versions and
+last-verified dates, lender decisions as their own object, a consumer-report
+permissible-purpose gate, a GHL broker with idempotent inbound events and an
+outbox. The readiness/matching engines are committed as pure modules (no
+screen imports them yet); the matching vocabulary is already `potential_match
+| not_matched | policy_verification_required` with `matched / failed /
+unconfirmed` criteria, every criteria set names its policy version and
+last-verified date, and a policy outside the review window (90 days by
+default) cannot produce a match — a failed criterion is still decisive.
+Metro 2 in CreditOps becomes context inside a fact → duty → responsible party
+→ route → remedy engine; nothing in the product counts "violations", and the
+imported reports are consumer-facing displays, so findings can never claim a
+raw Metro 2 field value. Legal citations in both addenda are Dee's research,
+carried for counsel to confirm, not verified by this codebase.

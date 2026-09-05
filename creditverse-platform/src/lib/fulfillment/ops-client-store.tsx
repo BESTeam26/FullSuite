@@ -90,6 +90,8 @@ export interface OpsClientStoreValue<T extends OpsClient, D> {
   activity: OpsActivityEntry[];
   getActivity: (clientId: string) => OpsActivityEntry[];
   getDepartmentStatuses: (clientId: string) => D[];
+  /** Re-read one client's department rows after a write elsewhere (live only). */
+  refreshDepartmentStatuses: (clientId: string) => void;
   /**
    * Mutations resolve when the database has accepted the write, and reject
    * when it has not. Callers await them so a control can show a pending state
@@ -331,6 +333,7 @@ export function createOpsClientStore<T extends OpsClient, D>(
       (clientId: string) => deptStatuses[clientId] ?? [],
       [deptStatuses],
     );
+    const refreshDepartmentStatuses = useCallback((_clientId: string) => {}, []);
 
     const updateStatus = useCallback(
       async (clientId: string, newStatus: string, actor: string) => {
@@ -529,6 +532,7 @@ export function createOpsClientStore<T extends OpsClient, D>(
         activity,
         getActivity,
         getDepartmentStatuses,
+        refreshDepartmentStatuses,
         updateStatus,
         updateAssignee,
         canAssign: true,
@@ -546,6 +550,7 @@ export function createOpsClientStore<T extends OpsClient, D>(
         activity,
         getActivity,
         getDepartmentStatuses,
+        refreshDepartmentStatuses,
         updateStatus,
         updateAssignee,
         updateContact,
@@ -657,6 +662,16 @@ export function createOpsClientStore<T extends OpsClient, D>(
       },
       // eslint-disable-next-line react-hooks/exhaustive-deps
       [deptStatuses],
+    );
+    const refreshDepartmentStatuses = useCallback(
+      (clientId: string) => {
+        backend
+          .fetchDepartmentStatuses(clientId)
+          .then((rows) => setDeptStatuses((prev) => ({ ...prev, [clientId]: rows })))
+          .catch(report("Loading department status"));
+      },
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      [],
     );
 
     const updateStatus = useCallback(
@@ -861,6 +876,7 @@ export function createOpsClientStore<T extends OpsClient, D>(
         activity,
         getActivity: () => [],
         getDepartmentStatuses,
+        refreshDepartmentStatuses,
         /* `handled` keeps the rejection reachable for callers that await it
            while ensuring callers that do not never produce an unhandled
            rejection — the toast is their error surface. */
@@ -881,6 +897,7 @@ export function createOpsClientStore<T extends OpsClient, D>(
       [
         clients,
         getDepartmentStatuses,
+        refreshDepartmentStatuses,
         updateStatus,
         updateAssignee,
         updateContact,
@@ -922,6 +939,7 @@ export function createOpsClientStore<T extends OpsClient, D>(
       activity: [],
       getActivity: () => [],
       getDepartmentStatuses: () => [],
+      refreshDepartmentStatuses: () => {},
       updateStatus: denied,
       updateAssignee: denied,
       canAssign: false,
