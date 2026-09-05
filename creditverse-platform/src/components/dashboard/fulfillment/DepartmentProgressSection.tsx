@@ -13,6 +13,7 @@
  * RESULTS live in the imported reports. Separation proposal step 1.
  */
 import { useMemo, useState } from "react";
+import { formatDate } from "@/lib/format-date";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowRightLeft, Loader2, Lock } from "lucide-react";
 import { useCreditOpsStore } from "@/lib/fulfillment/creditops-client-store";
@@ -120,7 +121,7 @@ export function DepartmentProgressSection({ clientId }: Props) {
               <div className="min-w-0">
                 <p className="text-xs font-bold text-foreground">{TITLE[department]}</p>
                 <p className="text-[10px] text-muted-foreground">
-                  {row ? `Updated ${new Date(row.updatedAt).toLocaleDateString()}` : "No status yet"}
+                  {row ? `Updated ${formatDate(row.updatedAt)}` : "No status yet"}
                   {!authorized && " · not your department"}
                 </p>
               </div>

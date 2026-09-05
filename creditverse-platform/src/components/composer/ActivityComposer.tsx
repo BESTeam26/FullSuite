@@ -21,6 +21,7 @@ import {
   type ActivityVisibility,
 } from "@/lib/data/activity";
 import { VisibilityPicker } from "@/components/dashboard/fulfillment/VisibilityControls";
+import type { VisibilityAudience } from "@/lib/auth/use-visibility-audience";
 import {
   discardUpload,
   formatBytes,
@@ -63,6 +64,8 @@ export interface ActivityComposerProps {
   organizationId?: string;
   /** Levels this author may create, computed centrally (rule 13). */
   allowedVisibilities: ActivityVisibility[];
+  /** Who is looking — decides the wording of the audience picker; defaults to the organization view. */
+  audience?: VisibilityAudience;
   /** What the picker starts on (from useActivityVisibility). Defaults to the first allowed level. */
   defaultVisibility?: ActivityVisibility;
   /**
@@ -87,6 +90,7 @@ export function ActivityComposer({
   entityId,
   organizationId,
   allowedVisibilities,
+  audience = "organization",
   defaultVisibility,
   onPost,
   onAttach,
@@ -356,6 +360,7 @@ export function ActivityComposer({
             value={visibility}
             onChange={setVisibility}
             options={allowedVisibilities}
+            audience={audience}
           />
           <button
             type="button"

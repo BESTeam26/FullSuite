@@ -10,6 +10,7 @@
  */
 
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { SendToCreditOpsCard } from "./FundingReadinessCard";
 import {
   ArrowLeft,
@@ -31,6 +32,7 @@ import {
 } from "@/lib/fulfillment/fundingops-domain";
 import { useFundingBusinesses, useFundingFiles } from "@/lib/data/use-funding";
 import { FundingFileDepartmentProgress } from "./FundingFileDepartmentProgress";
+import { FundingFileDomainPanel } from "./funding-domain/FundingFileDomainPanel";
 import {
   FundingStatusPill,
   FundingModeBadge,
@@ -302,6 +304,33 @@ export function FundingClientWorkWorkspace({ clientId, onBack }: Props) {
             organizationId={client?.organizationId ?? null}
             files={files}
           />
+
+          {/* The engine half of each file (application, documents, Program Fit,
+              submissions) lives on the Funding File page, separate from this
+              operational work file — Dee's decision, mirroring Clients vs the
+              CreditOps Workspace. Outsourcing-only clients have no organization
+              surface, so their files render the engine panel here. */}
+          {client.organizationId ? (
+            files.length > 0 && (
+              <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Funding File engine</h3>
+                <ul className="mt-2 space-y-1.5">
+                  {files.map((f) => (
+                    <li key={f.id} className="flex items-center justify-between gap-2 text-xs">
+                      <span className="text-foreground">{f.purpose} · {formatCurrency(f.requestedAmount)}</span>
+                      <Link to={`/app/funding-files/${f.id}`} className="font-semibold text-primary hover:underline">
+                        Open funding file →
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )
+          ) : (
+            files.map((f) => (
+              <FundingFileDomainPanel key={f.id} file={f} clientId={clientId} organizationId={null} />
+            ))
+          )}
 
           {/* Next Action */}
           <div className="rounded-xl border border-border bg-card p-4 shadow-sm">

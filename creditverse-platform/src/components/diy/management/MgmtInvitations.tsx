@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { formatDate } from "@/lib/format-date";
 import { MailPlus, Check, AlertCircle } from "lucide-react";
 import { useDiyManagement } from "@/lib/diy/diy-management-context";
 import { Card } from "@/components/ui/card";
@@ -95,7 +96,7 @@ export const MgmtInvitations = () => {
                 <div>
                   <p className="text-sm font-medium">{p.email}</p>
                   <p className="text-xs text-muted-foreground">
-                    Invited {p.createdAt}
+                    Invited {formatDate(p.createdAt)}
                   </p>
                 </div>
                 <span className="rounded-full bg-blue-500/10 px-2.5 py-1 text-[10px] font-bold text-blue-700">

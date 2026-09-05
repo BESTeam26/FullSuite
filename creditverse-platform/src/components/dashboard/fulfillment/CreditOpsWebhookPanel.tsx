@@ -5,6 +5,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { formatDate, formatDateTime } from "@/lib/format-date";
 import { OpsSelect } from "@/components/ui/ops-select";
 import { Plus, Trash2, Webhook, Zap, Radio } from "lucide-react";
 import { useCreditOpsWebhooks } from "@/lib/fulfillment/creditops-webhooks";
@@ -173,7 +174,7 @@ export function CreditOpsWebhookPanel() {
                   <p className="text-[11px] text-muted-foreground">
                     {ep.url || "No URL set"} ·{" "}
                     {ep.lastFiredAt
-                      ? `Last fired ${ep.lastFiredAt}`
+                      ? `Last fired ${formatDateTime(ep.lastFiredAt)}`
                       : "Never fired"}
                   </p>
                 </div>

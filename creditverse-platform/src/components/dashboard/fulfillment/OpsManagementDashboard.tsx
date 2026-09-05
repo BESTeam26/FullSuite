@@ -11,6 +11,7 @@
  */
 
 import type { ElementType, ReactNode } from "react";
+import { formatDateTime } from "@/lib/format-date";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import type {
   OpsClient,
@@ -339,7 +340,7 @@ export function OpsManagementDashboard<
                   <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
                     <span>{client?.name ?? a.clientId}</span>
                     <span>{client ? clientGroupLabel(client) : ""}</span>
-                    <span>{new Date(a.timestamp).toLocaleString()}</span>
+                    <span>{formatDateTime(a.timestamp)}</span>
                   </div>
                 </div>
               );

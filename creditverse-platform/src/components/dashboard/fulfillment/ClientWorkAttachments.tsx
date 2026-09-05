@@ -9,6 +9,7 @@
  */
 
 import { useState, useRef, useCallback } from "react";
+import { formatDate, formatDateTime } from "@/lib/format-date";
 import { OpsSelect } from "@/components/ui/ops-select";
 import {
   Paperclip,
@@ -278,7 +279,7 @@ export function ClientWorkAttachments({
                 </p>
                 <p className="text-[10px] text-muted-foreground">
                   {att.category} · {att.size} · {att.uploadedBy} ·{" "}
-                  {att.uploadedAt}
+                  {formatDateTime(att.uploadedAt)}
                 </p>
               </div>
               {isImageFile(att) && (

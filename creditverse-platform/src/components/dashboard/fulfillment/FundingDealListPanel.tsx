@@ -13,6 +13,7 @@
  */
 
 import { useMemo, useState } from "react";
+import { formatDate } from "@/lib/format-date";
 import { Search, Layers, ChevronRight } from "lucide-react";
 import { useAllFundingFiles } from "@/lib/data/use-funding";
 import { useFundingOpsStore } from "@/lib/fulfillment/fundingops-client-store";
@@ -69,7 +70,7 @@ export function FundingDealListPanel({
         const client = store.clients.find((c) => c.id === d.clientId);
         const file = files.find((f) => f.id === d.fileId);
         const hay = [
-          dealCode(d.id),
+          dealCode(d),
           d.lender,
           d.program,
           client?.name ?? "",
@@ -187,10 +188,10 @@ export function FundingDealListPanel({
                   >
                     <td className="px-3 py-2.5">
                       <p className="font-bold text-foreground">
-                        {dealCode(d.id)}
+                        {dealCode(d)}
                       </p>
                       <p className="text-[11px] text-muted-foreground">
-                        {d.submittedAt}
+                        {formatDate(d.submittedAt)}
                       </p>
                     </td>
                     <td className="px-3 py-2.5">

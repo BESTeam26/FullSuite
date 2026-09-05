@@ -135,8 +135,9 @@ export const WORK_GROUPS: WorkGroup[] = [
   },
 ];
 
-export const dealCode = (dealId: string) =>
-  `FD-${dealId.replace(/^fd-/, "").toUpperCase()}`;
+/** The reference people use for a deal is its funding file's FND-XXXXXX (Dee). The FD- form survives only for seed deals that have no file id. */
+export const dealCode = (deal: { id: string; filePublicId?: string }) =>
+  deal.filePublicId ?? `FD-${deal.id.replace(/^fd-/, "").toUpperCase()}`;
 
 
 /**

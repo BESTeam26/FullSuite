@@ -40,6 +40,7 @@ import {
   DollarSign,
   CheckCircle2,
 } from "lucide-react";
+import { dealCode } from "./funding-deal-data";
 import { useFundingDealStore } from "@/lib/fulfillment/funding-deal-store";
 import {
   type FundingOpsPartner,
@@ -92,8 +93,6 @@ const useDealsForClient = () => {
   return (clientId: string) => deals.filter((d) => d.clientId === clientId);
 };
 
-const dealCode = (dealId: string) =>
-  `FD-${dealId.replace(/^fd-/, "").toUpperCase()}`;
 
 export function FundingOpsTreeSidebar({ selected, onSelect }: Props) {
   /* Live organizations and outsourcing groups, falling back to the demo
@@ -136,7 +135,7 @@ export function FundingOpsTreeSidebar({ selected, onSelect }: Props) {
   const isDealActive = (dealId: string) =>
     selected.kind === "deal" && selected.dealId === dealId;
 
-  const renderDeal = (dealId: string, lender: string, amount: number) => {
+  const renderDeal = (dealId: string, lender: string, amount: number, filePublicId?: string) => {
     const active = isDealActive(dealId);
     return (
       <button
@@ -156,7 +155,7 @@ export function FundingOpsTreeSidebar({ selected, onSelect }: Props) {
               active ? "text-primary-foreground" : "text-muted-foreground",
             )}
           />
-          <span className="truncate">{dealCode(dealId)}</span>
+          <span className="truncate">{dealCode({ id: dealId, filePublicId })}</span>
         </div>
         <span
           className={cn(
@@ -205,7 +204,7 @@ export function FundingOpsTreeSidebar({ selected, onSelect }: Props) {
         {isOpen && (
           <div className="ml-4 mt-0.5 space-y-0.5 border-l border-border pl-2">
             {deals.length > 0 ? (
-              deals.map((d) => renderDeal(d.id, d.lender, d.amount))
+              deals.map((d) => renderDeal(d.id, d.lender, d.amount, d.filePublicId))
             ) : (
               <p className="px-2 py-1 text-[10px] italic text-muted-foreground">
                 No deals yet

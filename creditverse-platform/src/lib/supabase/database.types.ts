@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       activity_events: {
@@ -371,6 +346,207 @@ export type Database = {
           },
         ]
       }
+      closings: {
+        Row: {
+          file_id: string
+          id: string
+          note: string | null
+          offer_id: string
+          signed_at: string | null
+          started_at: string
+          started_by: string | null
+          status: Database["public"]["Enums"]["closing_status"]
+          updated_at: string
+        }
+        Insert: {
+          file_id: string
+          id?: string
+          note?: string | null
+          offer_id: string
+          signed_at?: string | null
+          started_at?: string
+          started_by?: string | null
+          status?: Database["public"]["Enums"]["closing_status"]
+          updated_at?: string
+        }
+        Update: {
+          file_id?: string
+          id?: string
+          note?: string | null
+          offer_id?: string
+          signed_at?: string | null
+          started_at?: string
+          started_by?: string | null
+          status?: Database["public"]["Enums"]["closing_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "closings_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "funding_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "closings_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "offers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "closings_started_by_fkey"
+            columns: ["started_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      commissions: {
+        Row: {
+          basis: string
+          computed_amount: number | null
+          created_at: string
+          created_by: string | null
+          deal_id: string
+          funded_at: string | null
+          id: string
+          note: string | null
+          paid_at: string | null
+          party_id: string
+          party_kind: string
+          rate_or_amount: number
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          basis: string
+          computed_amount?: number | null
+          created_at?: string
+          created_by?: string | null
+          deal_id: string
+          funded_at?: string | null
+          id?: string
+          note?: string | null
+          paid_at?: string | null
+          party_id: string
+          party_kind: string
+          rate_or_amount: number
+          state?: string
+          updated_at?: string
+        }
+        Update: {
+          basis?: string
+          computed_amount?: number | null
+          created_at?: string
+          created_by?: string | null
+          deal_id?: string
+          funded_at?: string | null
+          id?: string
+          note?: string | null
+          paid_at?: string | null
+          party_id?: string
+          party_kind?: string
+          rate_or_amount?: number
+          state?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commissions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commissions_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "funding_deals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      consumer_report_requests: {
+        Row: {
+          authorization_state: Database["public"]["Enums"]["consumer_report_authorization"]
+          consent_text_version: string | null
+          created_at: string
+          file_id: string
+          id: string
+          party_id: string
+          permissible_purpose_basis: string
+          product_family: string
+          provider: string | null
+          purpose: string
+          report_id: string | null
+          requested_at: string
+          requested_by: string | null
+        }
+        Insert: {
+          authorization_state?: Database["public"]["Enums"]["consumer_report_authorization"]
+          consent_text_version?: string | null
+          created_at?: string
+          file_id: string
+          id?: string
+          party_id: string
+          permissible_purpose_basis: string
+          product_family: string
+          provider?: string | null
+          purpose: string
+          report_id?: string | null
+          requested_at?: string
+          requested_by?: string | null
+        }
+        Update: {
+          authorization_state?: Database["public"]["Enums"]["consumer_report_authorization"]
+          consent_text_version?: string | null
+          created_at?: string
+          file_id?: string
+          id?: string
+          party_id?: string
+          permissible_purpose_basis?: string
+          product_family?: string
+          provider?: string | null
+          purpose?: string
+          report_id?: string | null
+          requested_at?: string
+          requested_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consumer_report_requests_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "funding_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consumer_report_requests_party_id_fkey"
+            columns: ["party_id"]
+            isOneToOne: false
+            referencedRelation: "funding_parties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consumer_report_requests_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "credit_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consumer_report_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       credit_reports: {
         Row: {
           bureaus: string[]
@@ -414,98 +590,47 @@ export type Database = {
           pulled_at?: string
           source?: string
         }
-        Relationships: []
-      }
-      report_items: {
-        Row: {
-          account_ref: string
-          balance_cents: number | null
-          balance_text: string | null
-          bureaus: string[]
-          dofd: string | null
-          id: string
-          kind: string
-          linked_creditor: string | null
-          name: string
-          open_date: string | null
-          position: number
-          raw: Json | null
-          remarks: string | null
-          report_id: string
-          status: string
-          subtype: string | null
-        }
-        Insert: {
-          account_ref: string
-          balance_cents?: number | null
-          balance_text?: string | null
-          bureaus: string[]
-          dofd?: string | null
-          id?: string
-          kind: string
-          linked_creditor?: string | null
-          name: string
-          open_date?: string | null
-          position: number
-          raw?: Json | null
-          remarks?: string | null
-          report_id: string
-          status: string
-          subtype?: string | null
-        }
-        Update: {
-          account_ref?: string
-          balance_cents?: number | null
-          balance_text?: string | null
-          bureaus?: string[]
-          dofd?: string | null
-          id?: string
-          kind?: string
-          linked_creditor?: string | null
-          name?: string
-          open_date?: string | null
-          position?: number
-          raw?: Json | null
-          remarks?: string | null
-          report_id?: string
-          status?: string
-          subtype?: string | null
-        }
         Relationships: [
           {
-            foreignKeyName: "report_items_report_id_fkey"
-            columns: ["report_id"]
+            foreignKeyName: "credit_reports_consumer_user_id_fkey"
+            columns: ["consumer_user_id"]
             isOneToOne: false
-            referencedRelation: "credit_reports"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
-        ]
-      }
-      report_scores: {
-        Row: {
-          bureau: string
-          model: string
-          report_id: string
-          score: number
-        }
-        Insert: {
-          bureau: string
-          model: string
-          report_id: string
-          score: number
-        }
-        Update: {
-          bureau?: string
-          model?: string
-          report_id?: string
-          score?: number
-        }
-        Relationships: [
           {
-            foreignKeyName: "report_scores_report_id_fkey"
-            columns: ["report_id"]
+            foreignKeyName: "credit_reports_file_id_fkey"
+            columns: ["file_id"]
             isOneToOne: false
-            referencedRelation: "credit_reports"
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_reports_fulfillment_client_id_fkey"
+            columns: ["fulfillment_client_id"]
+            isOneToOne: false
+            referencedRelation: "fulfillment_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_reports_imported_by_fkey"
+            columns: ["imported_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_reports_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_reports_outsourcing_group_id_fkey"
+            columns: ["outsourcing_group_id"]
+            isOneToOne: false
+            referencedRelation: "outsourcing_groups"
             referencedColumns: ["id"]
           },
         ]
@@ -541,6 +666,569 @@ export type Database = {
             columns: ["agency_id"]
             isOneToOne: false
             referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dispute_attestations: {
+        Row: {
+          attested_at: string
+          attested_by: string | null
+          id: string
+          letter_id: string
+          statements: Json
+        }
+        Insert: {
+          attested_at?: string
+          attested_by?: string | null
+          id?: string
+          letter_id: string
+          statements: Json
+        }
+        Update: {
+          attested_at?: string
+          attested_by?: string | null
+          id?: string
+          letter_id?: string
+          statements?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dispute_attestations_attested_by_fkey"
+            columns: ["attested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispute_attestations_letter_id_fkey"
+            columns: ["letter_id"]
+            isOneToOne: true
+            referencedRelation: "dispute_letters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dispute_letters: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          body_final: string
+          bureau: string | null
+          client_id: string
+          created_at: string
+          created_by: string | null
+          dispute_origin: Database["public"]["Enums"]["dispute_origin"]
+          evidence_file_ids: string[]
+          finding_ids: string[]
+          generated_by: string
+          id: string
+          item_ids: string[]
+          mailed_at: string | null
+          qa_by: string | null
+          qa_passed_at: string | null
+          recipient_kind: Database["public"]["Enums"]["letter_audience"]
+          recipient_name: string
+          responded_at: string | null
+          round_id: string
+          status: Database["public"]["Enums"]["dispute_letter_status"]
+          template_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          body_final?: string
+          bureau?: string | null
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          dispute_origin?: Database["public"]["Enums"]["dispute_origin"]
+          evidence_file_ids?: string[]
+          finding_ids?: string[]
+          generated_by?: string
+          id?: string
+          item_ids?: string[]
+          mailed_at?: string | null
+          qa_by?: string | null
+          qa_passed_at?: string | null
+          recipient_kind: Database["public"]["Enums"]["letter_audience"]
+          recipient_name: string
+          responded_at?: string | null
+          round_id: string
+          status?: Database["public"]["Enums"]["dispute_letter_status"]
+          template_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          body_final?: string
+          bureau?: string | null
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          dispute_origin?: Database["public"]["Enums"]["dispute_origin"]
+          evidence_file_ids?: string[]
+          finding_ids?: string[]
+          generated_by?: string
+          id?: string
+          item_ids?: string[]
+          mailed_at?: string | null
+          qa_by?: string | null
+          qa_passed_at?: string | null
+          recipient_kind?: Database["public"]["Enums"]["letter_audience"]
+          recipient_name?: string
+          responded_at?: string | null
+          round_id?: string
+          status?: Database["public"]["Enums"]["dispute_letter_status"]
+          template_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dispute_letters_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispute_letters_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "fulfillment_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispute_letters_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispute_letters_qa_by_fkey"
+            columns: ["qa_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispute_letters_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "dispute_rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispute_letters_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "letter_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dispute_rounds: {
+        Row: {
+          client_id: string
+          closed_at: string | null
+          created_by: string | null
+          cycle_reset: boolean
+          id: string
+          opened_at: string
+          round_number: number
+          strategy: Database["public"]["Enums"]["dispute_strategy"]
+        }
+        Insert: {
+          client_id: string
+          closed_at?: string | null
+          created_by?: string | null
+          cycle_reset?: boolean
+          id?: string
+          opened_at?: string
+          round_number: number
+          strategy: Database["public"]["Enums"]["dispute_strategy"]
+        }
+        Update: {
+          client_id?: string
+          closed_at?: string | null
+          created_by?: string | null
+          cycle_reset?: boolean
+          id?: string
+          opened_at?: string
+          round_number?: number
+          strategy?: Database["public"]["Enums"]["dispute_strategy"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dispute_rounds_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "fulfillment_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispute_rounds_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dispute_timers: {
+        Row: {
+          due_at: string
+          id: string
+          kind: Database["public"]["Enums"]["dispute_timer_kind"]
+          letter_id: string
+          note: string | null
+          satisfied_at: string | null
+        }
+        Insert: {
+          due_at: string
+          id?: string
+          kind: Database["public"]["Enums"]["dispute_timer_kind"]
+          letter_id: string
+          note?: string | null
+          satisfied_at?: string | null
+        }
+        Update: {
+          due_at?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["dispute_timer_kind"]
+          letter_id?: string
+          note?: string | null
+          satisfied_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dispute_timers_letter_id_fkey"
+            columns: ["letter_id"]
+            isOneToOne: false
+            referencedRelation: "dispute_letters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_flags: {
+        Row: {
+          automated_status: Database["public"]["Enums"]["automated_review_status"]
+          confidence: number | null
+          created_at: string
+          created_by: string | null
+          evidence: Json
+          file_id: string
+          flag_code: Database["public"]["Enums"]["document_flag_code"]
+          human_disposition:
+            | Database["public"]["Enums"]["flag_human_disposition"]
+            | null
+          id: string
+          instance_id: string | null
+          request_id: string | null
+          reviewed_at: string | null
+          reviewer: string | null
+          reviewer_reason: string | null
+          rule_id: string | null
+          rule_version: string | null
+        }
+        Insert: {
+          automated_status?: Database["public"]["Enums"]["automated_review_status"]
+          confidence?: number | null
+          created_at?: string
+          created_by?: string | null
+          evidence?: Json
+          file_id: string
+          flag_code: Database["public"]["Enums"]["document_flag_code"]
+          human_disposition?:
+            | Database["public"]["Enums"]["flag_human_disposition"]
+            | null
+          id?: string
+          instance_id?: string | null
+          request_id?: string | null
+          reviewed_at?: string | null
+          reviewer?: string | null
+          reviewer_reason?: string | null
+          rule_id?: string | null
+          rule_version?: string | null
+        }
+        Update: {
+          automated_status?: Database["public"]["Enums"]["automated_review_status"]
+          confidence?: number | null
+          created_at?: string
+          created_by?: string | null
+          evidence?: Json
+          file_id?: string
+          flag_code?: Database["public"]["Enums"]["document_flag_code"]
+          human_disposition?:
+            | Database["public"]["Enums"]["flag_human_disposition"]
+            | null
+          id?: string
+          instance_id?: string | null
+          request_id?: string | null
+          reviewed_at?: string | null
+          reviewer?: string | null
+          reviewer_reason?: string | null
+          rule_id?: string | null
+          rule_version?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_flags_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_flags_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "funding_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_flags_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "document_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_flags_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "document_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_flags_reviewer_fkey"
+            columns: ["reviewer"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_instances: {
+        Row: {
+          classified_period: string | null
+          classified_type: string | null
+          created_at: string
+          disposition: Database["public"]["Enums"]["document_disposition"]
+          extraction: Json
+          extraction_confidence: number | null
+          extractor: string | null
+          extractor_version: string | null
+          file_id: string
+          id: string
+          mime_type: string | null
+          pages: number | null
+          reason: string | null
+          request_id: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          sha256: string
+          shareable_with_lender: boolean
+          size_bytes: number | null
+          storage_file_id: string
+          supersedes_id: string | null
+          upload_source: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          classified_period?: string | null
+          classified_type?: string | null
+          created_at?: string
+          disposition?: Database["public"]["Enums"]["document_disposition"]
+          extraction?: Json
+          extraction_confidence?: number | null
+          extractor?: string | null
+          extractor_version?: string | null
+          file_id: string
+          id?: string
+          mime_type?: string | null
+          pages?: number | null
+          reason?: string | null
+          request_id?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          sha256: string
+          shareable_with_lender?: boolean
+          size_bytes?: number | null
+          storage_file_id: string
+          supersedes_id?: string | null
+          upload_source?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          classified_period?: string | null
+          classified_type?: string | null
+          created_at?: string
+          disposition?: Database["public"]["Enums"]["document_disposition"]
+          extraction?: Json
+          extraction_confidence?: number | null
+          extractor?: string | null
+          extractor_version?: string | null
+          file_id?: string
+          id?: string
+          mime_type?: string | null
+          pages?: number | null
+          reason?: string | null
+          request_id?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          sha256?: string
+          shareable_with_lender?: boolean
+          size_bytes?: number | null
+          storage_file_id?: string
+          supersedes_id?: string | null
+          upload_source?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_instances_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "funding_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_instances_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "document_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_instances_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_instances_storage_file_id_fkey"
+            columns: ["storage_file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_instances_supersedes_id_fkey"
+            columns: ["supersedes_id"]
+            isOneToOne: false
+            referencedRelation: "document_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_instances_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_requests: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          document_type: string
+          file_id: string
+          id: string
+          party_id: string | null
+          period: string | null
+          requirement: Database["public"]["Enums"]["document_requirement"]
+          rule_id: string | null
+          rule_version: number | null
+          satisfied_by_instance_id: string | null
+          status: Database["public"]["Enums"]["document_request_status"]
+          updated_at: string
+          waived_at: string | null
+          waived_by: string | null
+          waived_reason: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          document_type: string
+          file_id: string
+          id?: string
+          party_id?: string | null
+          period?: string | null
+          requirement?: Database["public"]["Enums"]["document_requirement"]
+          rule_id?: string | null
+          rule_version?: number | null
+          satisfied_by_instance_id?: string | null
+          status?: Database["public"]["Enums"]["document_request_status"]
+          updated_at?: string
+          waived_at?: string | null
+          waived_by?: string | null
+          waived_reason?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          document_type?: string
+          file_id?: string
+          id?: string
+          party_id?: string | null
+          period?: string | null
+          requirement?: Database["public"]["Enums"]["document_requirement"]
+          rule_id?: string | null
+          rule_version?: number | null
+          satisfied_by_instance_id?: string | null
+          status?: Database["public"]["Enums"]["document_request_status"]
+          updated_at?: string
+          waived_at?: string | null
+          waived_by?: string | null
+          waived_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_requests_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_requests_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "funding_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_requests_party_id_fkey"
+            columns: ["party_id"]
+            isOneToOne: false
+            referencedRelation: "funding_parties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_requests_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "requirement_rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_requests_satisfied_by_instance_id_fkey"
+            columns: ["satisfied_by_instance_id"]
+            isOneToOne: false
+            referencedRelation: "document_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_requests_waived_by_fkey"
+            columns: ["waived_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -735,10 +1423,9 @@ export type Database = {
       }
       fulfillment_clients: {
         Row: {
-          lifecycle: Database["public"]["Enums"]["client_lifecycle"]
-          archived_at: string | null
-          archive_reason: string | null
           agency_id: string
+          archive_reason: string | null
+          archived_at: string | null
           assigned_agent_id: string | null
           auto_sync: boolean
           created_at: string
@@ -747,6 +1434,7 @@ export type Database = {
           email: string
           id: string
           last_activity_at: string
+          lifecycle: Database["public"]["Enums"]["client_lifecycle"]
           mode: Database["public"]["Enums"]["fulfillment_mode"]
           name: string
           open_items: number
@@ -754,16 +1442,16 @@ export type Database = {
           outsourcing_group_id: string | null
           partner_scope_id: string | null
           phone: string | null
+          public_id: string
           round: Database["public"]["Enums"]["fulfillment_round"]
           status: Database["public"]["Enums"]["fulfillment_client_status"]
           team_id: string | null
           updated_at: string
         }
         Insert: {
-          lifecycle?: Database["public"]["Enums"]["client_lifecycle"]
-          archived_at?: string | null
-          archive_reason?: string | null
           agency_id: string
+          archive_reason?: string | null
+          archived_at?: string | null
           assigned_agent_id?: string | null
           auto_sync?: boolean
           created_at?: string
@@ -772,6 +1460,7 @@ export type Database = {
           email: string
           id?: string
           last_activity_at?: string
+          lifecycle?: Database["public"]["Enums"]["client_lifecycle"]
           mode: Database["public"]["Enums"]["fulfillment_mode"]
           name: string
           open_items?: number
@@ -779,16 +1468,16 @@ export type Database = {
           outsourcing_group_id?: string | null
           partner_scope_id?: string | null
           phone?: string | null
+          public_id?: string
           round?: Database["public"]["Enums"]["fulfillment_round"]
           status?: Database["public"]["Enums"]["fulfillment_client_status"]
           team_id?: string | null
           updated_at?: string
         }
         Update: {
-          lifecycle?: Database["public"]["Enums"]["client_lifecycle"]
-          archived_at?: string | null
-          archive_reason?: string | null
           agency_id?: string
+          archive_reason?: string | null
+          archived_at?: string | null
           assigned_agent_id?: string | null
           auto_sync?: boolean
           created_at?: string
@@ -797,6 +1486,7 @@ export type Database = {
           email?: string
           id?: string
           last_activity_at?: string
+          lifecycle?: Database["public"]["Enums"]["client_lifecycle"]
           mode?: Database["public"]["Enums"]["fulfillment_mode"]
           name?: string
           open_items?: number
@@ -804,6 +1494,7 @@ export type Database = {
           outsourcing_group_id?: string | null
           partner_scope_id?: string | null
           phone?: string | null
+          public_id?: string
           round?: Database["public"]["Enums"]["fulfillment_round"]
           status?: Database["public"]["Enums"]["fulfillment_client_status"]
           team_id?: string | null
@@ -928,6 +1619,193 @@ export type Database = {
           },
         ]
       }
+      funded_deals: {
+        Row: {
+          accepted_offer_amount: number | null
+          closing_id: string | null
+          confirmed_at: string
+          confirmed_by: string | null
+          deal_id: string
+          disbursement_reference: string | null
+          file_id: string
+          funded_at: string
+          gross_funded: number
+          id: string
+          lender_id: string | null
+          lender_name: string
+          net_funded: number
+          note: string | null
+          offer_id: string | null
+          requested_amount: number
+        }
+        Insert: {
+          accepted_offer_amount?: number | null
+          closing_id?: string | null
+          confirmed_at?: string
+          confirmed_by?: string | null
+          deal_id: string
+          disbursement_reference?: string | null
+          file_id: string
+          funded_at: string
+          gross_funded: number
+          id?: string
+          lender_id?: string | null
+          lender_name: string
+          net_funded: number
+          note?: string | null
+          offer_id?: string | null
+          requested_amount: number
+        }
+        Update: {
+          accepted_offer_amount?: number | null
+          closing_id?: string | null
+          confirmed_at?: string
+          confirmed_by?: string | null
+          deal_id?: string
+          disbursement_reference?: string | null
+          file_id?: string
+          funded_at?: string
+          gross_funded?: number
+          id?: string
+          lender_id?: string | null
+          lender_name?: string
+          net_funded?: number
+          note?: string | null
+          offer_id?: string | null
+          requested_amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funded_deals_closing_id_fkey"
+            columns: ["closing_id"]
+            isOneToOne: false
+            referencedRelation: "closings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funded_deals_confirmed_by_fkey"
+            columns: ["confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funded_deals_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: true
+            referencedRelation: "funding_deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funded_deals_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "funding_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funded_deals_lender_id_fkey"
+            columns: ["lender_id"]
+            isOneToOne: false
+            referencedRelation: "lenders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funded_deals_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "offers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      funding_applications: {
+        Row: {
+          annual_revenue: number | null
+          collateral: Json
+          created_at: string
+          created_by: string | null
+          credit_score_stated: number | null
+          entity_type: string | null
+          existing_debt_monthly: number | null
+          file_id: string
+          id: string
+          monthly_revenue: number | null
+          product_family: string | null
+          purpose: string | null
+          requested_amount: number | null
+          scenario: Json
+          source: string
+          state: string | null
+          submitted_at: string | null
+          time_in_business_months: number | null
+          updated_at: string
+          use_of_funds: string | null
+          version: number
+        }
+        Insert: {
+          annual_revenue?: number | null
+          collateral?: Json
+          created_at?: string
+          created_by?: string | null
+          credit_score_stated?: number | null
+          entity_type?: string | null
+          existing_debt_monthly?: number | null
+          file_id: string
+          id?: string
+          monthly_revenue?: number | null
+          product_family?: string | null
+          purpose?: string | null
+          requested_amount?: number | null
+          scenario?: Json
+          source?: string
+          state?: string | null
+          submitted_at?: string | null
+          time_in_business_months?: number | null
+          updated_at?: string
+          use_of_funds?: string | null
+          version?: number
+        }
+        Update: {
+          annual_revenue?: number | null
+          collateral?: Json
+          created_at?: string
+          created_by?: string | null
+          credit_score_stated?: number | null
+          entity_type?: string | null
+          existing_debt_monthly?: number | null
+          file_id?: string
+          id?: string
+          monthly_revenue?: number | null
+          product_family?: string | null
+          purpose?: string | null
+          requested_amount?: number | null
+          scenario?: Json
+          source?: string
+          state?: string | null
+          submitted_at?: string | null
+          time_in_business_months?: number | null
+          updated_at?: string
+          use_of_funds?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funding_applications_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funding_applications_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "funding_files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       funding_businesses: {
         Row: {
           annual_revenue: number | null
@@ -974,10 +1852,9 @@ export type Database = {
       }
       funding_clients: {
         Row: {
-          lifecycle: Database["public"]["Enums"]["client_lifecycle"]
-          archived_at: string | null
-          archive_reason: string | null
           agency_id: string
+          archive_reason: string | null
+          archived_at: string | null
           assigned_agent_id: string | null
           auto_sync: boolean
           created_at: string
@@ -987,22 +1864,24 @@ export type Database = {
           fulfillment_client_id: string | null
           id: string
           last_activity_at: string
+          lifecycle: Database["public"]["Enums"]["client_lifecycle"]
           mode: Database["public"]["Enums"]["fulfillment_mode"]
           name: string
           organization_id: string | null
           outsourcing_group_id: string | null
           partner_scope_id: string | null
           phone: string | null
+          portal_user_id: string | null
           provenance: Database["public"]["Enums"]["funding_provenance"]
+          public_id: string
           status: Database["public"]["Enums"]["funding_client_status"]
           team_id: string | null
           updated_at: string
         }
         Insert: {
-          lifecycle?: Database["public"]["Enums"]["client_lifecycle"]
-          archived_at?: string | null
-          archive_reason?: string | null
           agency_id: string
+          archive_reason?: string | null
+          archived_at?: string | null
           assigned_agent_id?: string | null
           auto_sync?: boolean
           created_at?: string
@@ -1012,22 +1891,24 @@ export type Database = {
           fulfillment_client_id?: string | null
           id?: string
           last_activity_at?: string
+          lifecycle?: Database["public"]["Enums"]["client_lifecycle"]
           mode: Database["public"]["Enums"]["fulfillment_mode"]
           name: string
           organization_id?: string | null
           outsourcing_group_id?: string | null
           partner_scope_id?: string | null
           phone?: string | null
+          portal_user_id?: string | null
           provenance?: Database["public"]["Enums"]["funding_provenance"]
+          public_id?: string
           status?: Database["public"]["Enums"]["funding_client_status"]
           team_id?: string | null
           updated_at?: string
         }
         Update: {
-          lifecycle?: Database["public"]["Enums"]["client_lifecycle"]
-          archived_at?: string | null
-          archive_reason?: string | null
           agency_id?: string
+          archive_reason?: string | null
+          archived_at?: string | null
           assigned_agent_id?: string | null
           auto_sync?: boolean
           created_at?: string
@@ -1037,13 +1918,16 @@ export type Database = {
           fulfillment_client_id?: string | null
           id?: string
           last_activity_at?: string
+          lifecycle?: Database["public"]["Enums"]["client_lifecycle"]
           mode?: Database["public"]["Enums"]["fulfillment_mode"]
           name?: string
           organization_id?: string | null
           outsourcing_group_id?: string | null
           partner_scope_id?: string | null
           phone?: string | null
+          portal_user_id?: string | null
           provenance?: Database["public"]["Enums"]["funding_provenance"]
+          public_id?: string
           status?: Database["public"]["Enums"]["funding_client_status"]
           team_id?: string | null
           updated_at?: string
@@ -1092,6 +1976,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "funding_clients_portal_user_id_fkey"
+            columns: ["portal_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "funding_clients_team_id_fkey"
             columns: ["team_id"]
             isOneToOne: false
@@ -1106,10 +1997,14 @@ export type Database = {
           client_id: string
           created_at: string
           file_id: string
+          fit_snapshot: Json | null
           funded_at: string | null
           id: string
           lender: string
+          lender_id: string | null
+          policy_version_id: string | null
           program: string | null
+          program_id: string | null
           rate: string | null
           status: Database["public"]["Enums"]["funding_deal_status"]
           stips_outstanding: number
@@ -1122,10 +2017,14 @@ export type Database = {
           client_id: string
           created_at?: string
           file_id: string
+          fit_snapshot?: Json | null
           funded_at?: string | null
           id?: string
           lender: string
+          lender_id?: string | null
+          policy_version_id?: string | null
           program?: string | null
+          program_id?: string | null
           rate?: string | null
           status?: Database["public"]["Enums"]["funding_deal_status"]
           stips_outstanding?: number
@@ -1138,10 +2037,14 @@ export type Database = {
           client_id?: string
           created_at?: string
           file_id?: string
+          fit_snapshot?: Json | null
           funded_at?: string | null
           id?: string
           lender?: string
+          lender_id?: string | null
+          policy_version_id?: string | null
           program?: string | null
+          program_id?: string | null
           rate?: string | null
           status?: Database["public"]["Enums"]["funding_deal_status"]
           stips_outstanding?: number
@@ -1164,30 +2067,51 @@ export type Database = {
             referencedRelation: "funding_files"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "funding_deals_lender_id_fkey"
+            columns: ["lender_id"]
+            isOneToOne: false
+            referencedRelation: "lenders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funding_deals_policy_version_id_fkey"
+            columns: ["policy_version_id"]
+            isOneToOne: false
+            referencedRelation: "lender_policy_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funding_deals_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "lender_programs"
+            referencedColumns: ["id"]
+          },
         ]
       }
       funding_department_statuses: {
         Row: {
-          file_id: string | null
           assignee_id: string | null
           client_id: string
           department: Database["public"]["Enums"]["funding_department"]
+          file_id: string | null
           status: string
           updated_at: string
         }
         Insert: {
-          file_id?: string | null
           assignee_id?: string | null
           client_id: string
           department: Database["public"]["Enums"]["funding_department"]
+          file_id?: string | null
           status: string
           updated_at?: string
         }
         Update: {
-          file_id?: string | null
           assignee_id?: string | null
           client_id?: string
           department?: Database["public"]["Enums"]["funding_department"]
+          file_id?: string | null
           status?: string
           updated_at?: string
         }
@@ -1206,6 +2130,13 @@ export type Database = {
             referencedRelation: "funding_clients"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "funding_department_statuses_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "funding_files"
+            referencedColumns: ["id"]
+          },
         ]
       }
       funding_files: {
@@ -1219,10 +2150,15 @@ export type Database = {
           due_at: string | null
           id: string
           last_activity_at: string
+          public_id: string
           purpose: string
+          referred_by_membership_id: string | null
+          renews_file_id: string | null
           requested_amount: number
-          stage: Database["public"]["Enums"]["funding_file_stage"]
+          secondary_status: Database["public"]["Enums"]["funding_secondary_status"]
+          stage: Database["public"]["Enums"]["funding_pipeline_stage"]
           updated_at: string
+          waiting_on: Database["public"]["Enums"]["funding_waiting_on"]
         }
         Insert: {
           agency_id: string
@@ -1234,10 +2170,15 @@ export type Database = {
           due_at?: string | null
           id?: string
           last_activity_at?: string
+          public_id?: string
           purpose: string
+          referred_by_membership_id?: string | null
+          renews_file_id?: string | null
           requested_amount: number
-          stage?: Database["public"]["Enums"]["funding_file_stage"]
+          secondary_status?: Database["public"]["Enums"]["funding_secondary_status"]
+          stage?: Database["public"]["Enums"]["funding_pipeline_stage"]
           updated_at?: string
+          waiting_on?: Database["public"]["Enums"]["funding_waiting_on"]
         }
         Update: {
           agency_id?: string
@@ -1249,10 +2190,15 @@ export type Database = {
           due_at?: string | null
           id?: string
           last_activity_at?: string
+          public_id?: string
           purpose?: string
+          referred_by_membership_id?: string | null
+          renews_file_id?: string | null
           requested_amount?: number
-          stage?: Database["public"]["Enums"]["funding_file_stage"]
+          secondary_status?: Database["public"]["Enums"]["funding_secondary_status"]
+          stage?: Database["public"]["Enums"]["funding_pipeline_stage"]
           updated_at?: string
+          waiting_on?: Database["public"]["Enums"]["funding_waiting_on"]
         }
         Relationships: [
           {
@@ -1285,6 +2231,78 @@ export type Database = {
           },
           {
             foreignKeyName: "funding_files_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funding_files_referred_by_membership_id_fkey"
+            columns: ["referred_by_membership_id"]
+            isOneToOne: false
+            referencedRelation: "external_memberships"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funding_files_renews_file_id_fkey"
+            columns: ["renews_file_id"]
+            isOneToOne: false
+            referencedRelation: "funding_files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      funding_parties: {
+        Row: {
+          business_id: string | null
+          client_id: string
+          created_at: string
+          created_by: string | null
+          details: Json
+          display_name: string
+          id: string
+          kind: Database["public"]["Enums"]["funding_party_kind"]
+          ownership_pct: number | null
+        }
+        Insert: {
+          business_id?: string | null
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          details?: Json
+          display_name: string
+          id?: string
+          kind: Database["public"]["Enums"]["funding_party_kind"]
+          ownership_pct?: number | null
+        }
+        Update: {
+          business_id?: string | null
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          details?: Json
+          display_name?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["funding_party_kind"]
+          ownership_pct?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funding_parties_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "funding_businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funding_parties_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "funding_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funding_parties_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -1358,6 +2376,491 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lender_contacts: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          email: string | null
+          id: string
+          lender_id: string
+          name: string
+          notes: string | null
+          phone: string | null
+          role: string | null
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          lender_id: string
+          name: string
+          notes?: string | null
+          phone?: string | null
+          role?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          lender_id?: string
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          role?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lender_contacts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lender_contacts_lender_id_fkey"
+            columns: ["lender_id"]
+            isOneToOne: false
+            referencedRelation: "lenders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lender_contacts_verified_by_fkey"
+            columns: ["verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lender_decisions: {
+        Row: {
+          conditions: string | null
+          created_at: string
+          deal_id: string
+          decided_at: string
+          decision: Database["public"]["Enums"]["lender_decision_kind"]
+          id: string
+          note: string | null
+          reason_category:
+            | Database["public"]["Enums"]["decline_reason_category"]
+            | null
+          reason_verbatim: string | null
+          recorded_by: string | null
+          source: string
+          terms: Json
+        }
+        Insert: {
+          conditions?: string | null
+          created_at?: string
+          deal_id: string
+          decided_at?: string
+          decision: Database["public"]["Enums"]["lender_decision_kind"]
+          id?: string
+          note?: string | null
+          reason_category?:
+            | Database["public"]["Enums"]["decline_reason_category"]
+            | null
+          reason_verbatim?: string | null
+          recorded_by?: string | null
+          source?: string
+          terms?: Json
+        }
+        Update: {
+          conditions?: string | null
+          created_at?: string
+          deal_id?: string
+          decided_at?: string
+          decision?: Database["public"]["Enums"]["lender_decision_kind"]
+          id?: string
+          note?: string | null
+          reason_category?:
+            | Database["public"]["Enums"]["decline_reason_category"]
+            | null
+          reason_verbatim?: string | null
+          recorded_by?: string | null
+          source?: string
+          terms?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lender_decisions_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "funding_deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lender_decisions_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lender_file_shares: {
+        Row: {
+          file_id: string
+          id: string
+          lender_id: string
+          revoked_at: string | null
+          shared_at: string
+          shared_by: string | null
+        }
+        Insert: {
+          file_id: string
+          id?: string
+          lender_id: string
+          revoked_at?: string | null
+          shared_at?: string
+          shared_by?: string | null
+        }
+        Update: {
+          file_id?: string
+          id?: string
+          lender_id?: string
+          revoked_at?: string | null
+          shared_at?: string
+          shared_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lender_file_shares_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "funding_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lender_file_shares_lender_id_fkey"
+            columns: ["lender_id"]
+            isOneToOne: false
+            referencedRelation: "lenders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lender_file_shares_shared_by_fkey"
+            columns: ["shared_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lender_policy_versions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          criteria: Json
+          effective_from: string
+          effective_until: string | null
+          id: string
+          last_verified_at: string | null
+          program_id: string
+          source_published_date: string | null
+          source_reference: string | null
+          source_type: string
+          verified_by: string | null
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          criteria?: Json
+          effective_from: string
+          effective_until?: string | null
+          id?: string
+          last_verified_at?: string | null
+          program_id: string
+          source_published_date?: string | null
+          source_reference?: string | null
+          source_type: string
+          verified_by?: string | null
+          version: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          criteria?: Json
+          effective_from?: string
+          effective_until?: string | null
+          id?: string
+          last_verified_at?: string | null
+          program_id?: string
+          source_published_date?: string | null
+          source_reference?: string | null
+          source_type?: string
+          verified_by?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lender_policy_versions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lender_policy_versions_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "lender_programs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lender_policy_versions_verified_by_fkey"
+            columns: ["verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lender_programs: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          lender_id: string
+          name: string
+          product_family: string
+          product_subtype: string | null
+          states_allowed: string[]
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          lender_id: string
+          name: string
+          product_family: string
+          product_subtype?: string | null
+          states_allowed?: string[]
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          lender_id?: string
+          name?: string
+          product_family?: string
+          product_subtype?: string | null
+          states_allowed?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lender_programs_lender_id_fkey"
+            columns: ["lender_id"]
+            isOneToOne: false
+            referencedRelation: "lenders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lender_users: {
+        Row: {
+          created_at: string
+          lender_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          lender_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          lender_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lender_users_lender_id_fkey"
+            columns: ["lender_id"]
+            isOneToOne: false
+            referencedRelation: "lenders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lender_users_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lenders: {
+        Row: {
+          active: boolean
+          agency_id: string
+          created_at: string
+          created_by: string | null
+          fdic_certificate: string | null
+          id: string
+          last_contact_at: string | null
+          last_registry_check: string | null
+          lender_kind: string
+          name: string
+          ncua_charter: string | null
+          nmls_id: string | null
+          notes: string | null
+          official_domain: string | null
+          organization_id: string | null
+          partner_status: string
+          public_id: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          agency_id: string
+          created_at?: string
+          created_by?: string | null
+          fdic_certificate?: string | null
+          id?: string
+          last_contact_at?: string | null
+          last_registry_check?: string | null
+          lender_kind?: string
+          name: string
+          ncua_charter?: string | null
+          nmls_id?: string | null
+          notes?: string | null
+          official_domain?: string | null
+          organization_id?: string | null
+          partner_status?: string
+          public_id?: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          agency_id?: string
+          created_at?: string
+          created_by?: string | null
+          fdic_certificate?: string | null
+          id?: string
+          last_contact_at?: string | null
+          last_registry_check?: string | null
+          lender_kind?: string
+          name?: string
+          ncua_charter?: string | null
+          nmls_id?: string | null
+          notes?: string | null
+          official_domain?: string | null
+          organization_id?: string | null
+          partner_status?: string
+          public_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lenders_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lenders_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lenders_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      letter_templates: {
+        Row: {
+          agency_id: string
+          audience: Database["public"]["Enums"]["letter_audience"]
+          body: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          kind: Database["public"]["Enums"]["letter_kind"]
+          name: string
+          organization_id: string | null
+          placeholders: string[]
+          supersedes_id: string | null
+          version: number
+        }
+        Insert: {
+          agency_id: string
+          audience: Database["public"]["Enums"]["letter_audience"]
+          body: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          kind: Database["public"]["Enums"]["letter_kind"]
+          name: string
+          organization_id?: string | null
+          placeholders?: string[]
+          supersedes_id?: string | null
+          version?: number
+        }
+        Update: {
+          agency_id?: string
+          audience?: Database["public"]["Enums"]["letter_audience"]
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          kind?: Database["public"]["Enums"]["letter_kind"]
+          name?: string
+          organization_id?: string | null
+          placeholders?: string[]
+          supersedes_id?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "letter_templates_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "letter_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "letter_templates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "letter_templates_supersedes_id_fkey"
+            columns: ["supersedes_id"]
+            isOneToOne: false
+            referencedRelation: "letter_templates"
             referencedColumns: ["id"]
           },
         ]
@@ -1452,6 +2955,120 @@ export type Database = {
           },
         ]
       }
+      offers: {
+        Row: {
+          client_decided_at: string | null
+          created_at: string
+          created_by: string | null
+          deal_id: string
+          expires_at: string | null
+          file_id: string
+          id: string
+          lender_id: string | null
+          note: string | null
+          offer_amount: number | null
+          origination_fee: number | null
+          other_fees: Json
+          payment_amount: number | null
+          payment_frequency: string | null
+          prepayment_terms: string | null
+          presented_at: string | null
+          presented_by: string | null
+          pricing_type: Database["public"]["Enums"]["pricing_type"]
+          pricing_value: number | null
+          received_at: string
+          status: Database["public"]["Enums"]["offer_status"]
+          term_text: string | null
+          updated_at: string
+        }
+        Insert: {
+          client_decided_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          deal_id: string
+          expires_at?: string | null
+          file_id: string
+          id?: string
+          lender_id?: string | null
+          note?: string | null
+          offer_amount?: number | null
+          origination_fee?: number | null
+          other_fees?: Json
+          payment_amount?: number | null
+          payment_frequency?: string | null
+          prepayment_terms?: string | null
+          presented_at?: string | null
+          presented_by?: string | null
+          pricing_type?: Database["public"]["Enums"]["pricing_type"]
+          pricing_value?: number | null
+          received_at?: string
+          status?: Database["public"]["Enums"]["offer_status"]
+          term_text?: string | null
+          updated_at?: string
+        }
+        Update: {
+          client_decided_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          deal_id?: string
+          expires_at?: string | null
+          file_id?: string
+          id?: string
+          lender_id?: string | null
+          note?: string | null
+          offer_amount?: number | null
+          origination_fee?: number | null
+          other_fees?: Json
+          payment_amount?: number | null
+          payment_frequency?: string | null
+          prepayment_terms?: string | null
+          presented_at?: string | null
+          presented_by?: string | null
+          pricing_type?: Database["public"]["Enums"]["pricing_type"]
+          pricing_value?: number | null
+          received_at?: string
+          status?: Database["public"]["Enums"]["offer_status"]
+          term_text?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offers_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offers_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "funding_deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offers_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "funding_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offers_lender_id_fkey"
+            columns: ["lender_id"]
+            isOneToOne: false
+            referencedRelation: "lenders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offers_presented_by_fkey"
+            columns: ["presented_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       org_memberships: {
         Row: {
           assigned_only: boolean
@@ -1529,6 +3146,60 @@ export type Database = {
           },
         ]
       }
+      organization_role_access: {
+        Row: {
+          can_access_management: boolean
+          can_edit_progress: boolean
+          can_log_work: boolean
+          departments: string[]
+          organization_id: string
+          product: Database["public"]["Enums"]["product_key"]
+          role: Database["public"]["Enums"]["org_role"]
+          updated_at: string
+          updated_by: string | null
+          views: string[]
+        }
+        Insert: {
+          can_access_management?: boolean
+          can_edit_progress?: boolean
+          can_log_work?: boolean
+          departments?: string[]
+          organization_id: string
+          product: Database["public"]["Enums"]["product_key"]
+          role: Database["public"]["Enums"]["org_role"]
+          updated_at?: string
+          updated_by?: string | null
+          views?: string[]
+        }
+        Update: {
+          can_access_management?: boolean
+          can_edit_progress?: boolean
+          can_log_work?: boolean
+          departments?: string[]
+          organization_id?: string
+          product?: Database["public"]["Enums"]["product_key"]
+          role?: Database["public"]["Enums"]["org_role"]
+          updated_at?: string
+          updated_by?: string | null
+          views?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_role_access_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_role_access_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organization_trials: {
         Row: {
           blocked_reason: string | null
@@ -1583,107 +3254,60 @@ export type Database = {
           },
         ]
       }
-      organization_role_access: {
-        Row: {
-          can_access_management: boolean
-          can_edit_progress: boolean
-          can_log_work: boolean
-          departments: string[]
-          organization_id: string
-          product: Database["public"]["Enums"]["product_key"]
-          role: Database["public"]["Enums"]["org_role"]
-          updated_at: string
-          updated_by: string | null
-          views: string[]
-        }
-        Insert: {
-          can_access_management?: boolean
-          can_edit_progress?: boolean
-          can_log_work?: boolean
-          departments?: string[]
-          organization_id: string
-          product: Database["public"]["Enums"]["product_key"]
-          role: Database["public"]["Enums"]["org_role"]
-          updated_at?: string
-          updated_by?: string | null
-          views?: string[]
-        }
-        Update: {
-          can_access_management?: boolean
-          can_edit_progress?: boolean
-          can_log_work?: boolean
-          departments?: string[]
-          organization_id?: string
-          product?: Database["public"]["Enums"]["product_key"]
-          role?: Database["public"]["Enums"]["org_role"]
-          updated_at?: string
-          updated_by?: string | null
-          views?: string[]
-        }
-        Relationships: [
-          {
-            foreignKeyName: "organization_role_access_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       organizations: {
         Row: {
           address: string | null
           agency_id: string
           branding: Json
-          owner_user_id: string | null
-          workspace_views: Json
           code: string
           created_at: string
           id: string
           is_fulfillment_subscriber: boolean
           joined_at: string
           name: string
+          owner_user_id: string | null
           principal_email: string
           principal_name: string
           public_id: string
           status: Database["public"]["Enums"]["org_status"]
           updated_at: string
+          workspace_views: Json
         }
         Insert: {
           address?: string | null
           agency_id: string
           branding?: Json
-          owner_user_id?: string | null
-          workspace_views?: Json
           code: string
           created_at?: string
           id?: string
           is_fulfillment_subscriber?: boolean
           joined_at?: string
           name: string
+          owner_user_id?: string | null
           principal_email: string
           principal_name: string
           public_id?: string
           status?: Database["public"]["Enums"]["org_status"]
           updated_at?: string
+          workspace_views?: Json
         }
         Update: {
           address?: string | null
           agency_id?: string
           branding?: Json
-          owner_user_id?: string | null
-          workspace_views?: Json
           code?: string
           created_at?: string
           id?: string
           is_fulfillment_subscriber?: boolean
           joined_at?: string
           name?: string
+          owner_user_id?: string | null
           principal_email?: string
           principal_name?: string
           public_id?: string
           status?: Database["public"]["Enums"]["org_status"]
           updated_at?: string
+          workspace_views?: Json
         }
         Relationships: [
           {
@@ -1691,6 +3315,13 @@ export type Database = {
             columns: ["agency_id"]
             isOneToOne: false
             referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organizations_owner_user_id_fkey"
+            columns: ["owner_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1740,67 +3371,160 @@ export type Database = {
         ]
       }
       plan_addons: {
-        Row: { applies_to: string[]; key: string; label: string; monthly_cents: number; position: number; unit: string }
-        Insert: { applies_to: string[]; key: string; label: string; monthly_cents: number; position?: number; unit: string }
-        Update: { applies_to?: string[]; key?: string; label?: string; monthly_cents?: number; position?: number; unit?: string }
+        Row: {
+          applies_to: string[]
+          key: string
+          label: string
+          monthly_cents: number
+          position: number
+          unit: string
+        }
+        Insert: {
+          applies_to: string[]
+          key: string
+          label: string
+          monthly_cents: number
+          position?: number
+          unit: string
+        }
+        Update: {
+          applies_to?: string[]
+          key?: string
+          label?: string
+          monthly_cents?: number
+          position?: number
+          unit?: string
+        }
         Relationships: []
       }
       plans: {
         Row: {
-          is_public: boolean
-          monthly_cents: number
-          annual_cents: number | null
-          seats_included: number
           active_records_included: number
+          annual_cents: number | null
           choose_one: boolean
           includes_crm: boolean
+          is_public: boolean
           is_recommended: boolean
-          public_trial: boolean
-          trial_grant_plan: string | null
-          tagline: string | null
           key: string
           label: string
+          monthly_cents: number
           position: number
           products: Database["public"]["Enums"]["product_key"][]
+          public_trial: boolean
+          seats_included: number
+          tagline: string | null
           trial_days: number
+          trial_grant_plan: string | null
         }
         Insert: {
-          is_public?: boolean
-          monthly_cents?: number
-          annual_cents?: number | null
-          seats_included?: number
           active_records_included?: number
+          annual_cents?: number | null
           choose_one?: boolean
           includes_crm?: boolean
+          is_public?: boolean
           is_recommended?: boolean
-          public_trial?: boolean
-          trial_grant_plan?: string | null
-          tagline?: string | null
           key: string
           label: string
+          monthly_cents?: number
           position?: number
           products: Database["public"]["Enums"]["product_key"][]
+          public_trial?: boolean
+          seats_included?: number
+          tagline?: string | null
           trial_days?: number
+          trial_grant_plan?: string | null
         }
         Update: {
-          is_public?: boolean
-          monthly_cents?: number
-          annual_cents?: number | null
-          seats_included?: number
           active_records_included?: number
+          annual_cents?: number | null
           choose_one?: boolean
           includes_crm?: boolean
+          is_public?: boolean
           is_recommended?: boolean
-          public_trial?: boolean
-          trial_grant_plan?: string | null
-          tagline?: string | null
           key?: string
           label?: string
+          monthly_cents?: number
           position?: number
           products?: Database["public"]["Enums"]["product_key"][]
+          public_trial?: boolean
+          seats_included?: number
+          tagline?: string | null
           trial_days?: number
+          trial_grant_plan?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "plans_trial_grant_plan_fkey"
+            columns: ["trial_grant_plan"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
+      policy_updates: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          affected_file_ids: string[]
+          change_kind: Database["public"]["Enums"]["policy_change_kind"]
+          created_at: string
+          created_by: string | null
+          from_version: number | null
+          id: string
+          program_id: string
+          summary: string
+          to_version: number
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          affected_file_ids?: string[]
+          change_kind: Database["public"]["Enums"]["policy_change_kind"]
+          created_at?: string
+          created_by?: string | null
+          from_version?: number | null
+          id?: string
+          program_id: string
+          summary: string
+          to_version: number
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          affected_file_ids?: string[]
+          change_kind?: Database["public"]["Enums"]["policy_change_kind"]
+          created_at?: string
+          created_by?: string | null
+          from_version?: number | null
+          id?: string
+          program_id?: string
+          summary?: string
+          to_version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "policy_updates_acknowledged_by_fkey"
+            columns: ["acknowledged_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "policy_updates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "policy_updates_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "lender_programs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       product_entitlements: {
         Row: {
@@ -2101,6 +3825,411 @@ export type Database = {
           },
         ]
       }
+      renewal_opportunities: {
+        Row: {
+          file_id: string
+          funded_deal_id: string
+          id: string
+          new_file_id: string | null
+          next_follow_up_at: string | null
+          note: string | null
+          potential_renewal_date: string | null
+          status: Database["public"]["Enums"]["renewal_status"]
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          file_id: string
+          funded_deal_id: string
+          id?: string
+          new_file_id?: string | null
+          next_follow_up_at?: string | null
+          note?: string | null
+          potential_renewal_date?: string | null
+          status?: Database["public"]["Enums"]["renewal_status"]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          file_id?: string
+          funded_deal_id?: string
+          id?: string
+          new_file_id?: string | null
+          next_follow_up_at?: string | null
+          note?: string | null
+          potential_renewal_date?: string | null
+          status?: Database["public"]["Enums"]["renewal_status"]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "renewal_opportunities_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "funding_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "renewal_opportunities_funded_deal_id_fkey"
+            columns: ["funded_deal_id"]
+            isOneToOne: false
+            referencedRelation: "funded_deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "renewal_opportunities_new_file_id_fkey"
+            columns: ["new_file_id"]
+            isOneToOne: false
+            referencedRelation: "funding_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "renewal_opportunities_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      report_findings: {
+        Row: {
+          account_ref: string
+          catalogue_version: string
+          classification: Database["public"]["Enums"]["finding_classification"]
+          client_id: string
+          created_at: string
+          created_by: string | null
+          evidence: Json
+          fields: string[]
+          human_disposition:
+            | Database["public"]["Enums"]["finding_disposition"]
+            | null
+          human_review_required: boolean
+          id: string
+          observation: string
+          raw_metro2_verified: boolean
+          remedy: string
+          report_id: string
+          reviewed_at: string | null
+          reviewer: string | null
+          reviewer_reason: string | null
+          route: string
+          rule_id: string
+          rule_version: number
+          verdict: string
+        }
+        Insert: {
+          account_ref: string
+          catalogue_version: string
+          classification: Database["public"]["Enums"]["finding_classification"]
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          evidence?: Json
+          fields?: string[]
+          human_disposition?:
+            | Database["public"]["Enums"]["finding_disposition"]
+            | null
+          human_review_required?: boolean
+          id?: string
+          observation: string
+          raw_metro2_verified?: boolean
+          remedy: string
+          report_id: string
+          reviewed_at?: string | null
+          reviewer?: string | null
+          reviewer_reason?: string | null
+          route: string
+          rule_id: string
+          rule_version: number
+          verdict: string
+        }
+        Update: {
+          account_ref?: string
+          catalogue_version?: string
+          classification?: Database["public"]["Enums"]["finding_classification"]
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          evidence?: Json
+          fields?: string[]
+          human_disposition?:
+            | Database["public"]["Enums"]["finding_disposition"]
+            | null
+          human_review_required?: boolean
+          id?: string
+          observation?: string
+          raw_metro2_verified?: boolean
+          remedy?: string
+          report_id?: string
+          reviewed_at?: string | null
+          reviewer?: string | null
+          reviewer_reason?: string | null
+          route?: string
+          rule_id?: string
+          rule_version?: number
+          verdict?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_findings_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "fulfillment_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_findings_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_findings_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "credit_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_findings_reviewer_fkey"
+            columns: ["reviewer"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      report_items: {
+        Row: {
+          account_ref: string
+          balance_cents: number | null
+          balance_text: string | null
+          bureaus: string[]
+          dofd: string | null
+          id: string
+          kind: string
+          linked_creditor: string | null
+          name: string
+          open_date: string | null
+          position: number
+          raw: Json | null
+          remarks: string | null
+          report_id: string
+          status: string
+          subtype: string | null
+        }
+        Insert: {
+          account_ref: string
+          balance_cents?: number | null
+          balance_text?: string | null
+          bureaus: string[]
+          dofd?: string | null
+          id?: string
+          kind: string
+          linked_creditor?: string | null
+          name: string
+          open_date?: string | null
+          position: number
+          raw?: Json | null
+          remarks?: string | null
+          report_id: string
+          status: string
+          subtype?: string | null
+        }
+        Update: {
+          account_ref?: string
+          balance_cents?: number | null
+          balance_text?: string | null
+          bureaus?: string[]
+          dofd?: string | null
+          id?: string
+          kind?: string
+          linked_creditor?: string | null
+          name?: string
+          open_date?: string | null
+          position?: number
+          raw?: Json | null
+          remarks?: string | null
+          report_id?: string
+          status?: string
+          subtype?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_items_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "credit_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      report_scores: {
+        Row: {
+          bureau: string
+          model: string
+          report_id: string
+          score: number
+        }
+        Insert: {
+          bureau: string
+          model: string
+          report_id: string
+          score: number
+        }
+        Update: {
+          bureau?: string
+          model?: string
+          report_id?: string
+          score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_scores_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "credit_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      requirement_rules: {
+        Row: {
+          active: boolean
+          agency_id: string
+          all_pages_required: boolean
+          condition: Json
+          created_at: string
+          created_by: string | null
+          document_type: string
+          effective_from: string
+          effective_until: string | null
+          id: string
+          last_verified_at: string | null
+          lender_id: string | null
+          lookback_months: number | null
+          max_age_days: number | null
+          organization_id: string | null
+          party_kind: Database["public"]["Enums"]["funding_party_kind"]
+          product_family: string
+          product_subtype: string | null
+          program_id: string | null
+          requirement: Database["public"]["Enums"]["document_requirement"]
+          sequence_required: boolean
+          signature_required: boolean
+          source_published_date: string | null
+          source_reference: string | null
+          source_type: string
+          verified_by: string | null
+          version: number
+        }
+        Insert: {
+          active?: boolean
+          agency_id: string
+          all_pages_required?: boolean
+          condition?: Json
+          created_at?: string
+          created_by?: string | null
+          document_type: string
+          effective_from: string
+          effective_until?: string | null
+          id?: string
+          last_verified_at?: string | null
+          lender_id?: string | null
+          lookback_months?: number | null
+          max_age_days?: number | null
+          organization_id?: string | null
+          party_kind: Database["public"]["Enums"]["funding_party_kind"]
+          product_family: string
+          product_subtype?: string | null
+          program_id?: string | null
+          requirement?: Database["public"]["Enums"]["document_requirement"]
+          sequence_required?: boolean
+          signature_required?: boolean
+          source_published_date?: string | null
+          source_reference?: string | null
+          source_type: string
+          verified_by?: string | null
+          version?: number
+        }
+        Update: {
+          active?: boolean
+          agency_id?: string
+          all_pages_required?: boolean
+          condition?: Json
+          created_at?: string
+          created_by?: string | null
+          document_type?: string
+          effective_from?: string
+          effective_until?: string | null
+          id?: string
+          last_verified_at?: string | null
+          lender_id?: string | null
+          lookback_months?: number | null
+          max_age_days?: number | null
+          organization_id?: string | null
+          party_kind?: Database["public"]["Enums"]["funding_party_kind"]
+          product_family?: string
+          product_subtype?: string | null
+          program_id?: string | null
+          requirement?: Database["public"]["Enums"]["document_requirement"]
+          sequence_required?: boolean
+          signature_required?: boolean
+          source_published_date?: string | null
+          source_reference?: string | null
+          source_type?: string
+          verified_by?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "requirement_rules_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "requirement_rules_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "requirement_rules_lender_id_fkey"
+            columns: ["lender_id"]
+            isOneToOne: false
+            referencedRelation: "lenders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "requirement_rules_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "requirement_rules_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "lender_programs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "requirement_rules_verified_by_fkey"
+            columns: ["verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_memberships: {
         Row: {
           created_at: string
@@ -2307,6 +4436,80 @@ export type Database = {
             foreignKeyName: "user_preferences_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      verification_results: {
+        Row: {
+          created_at: string
+          file_id: string
+          id: string
+          instance_id: string | null
+          party_id: string | null
+          provider: string
+          provider_kind: Database["public"]["Enums"]["verification_provider_kind"]
+          provider_ref: string | null
+          requested_at: string
+          requested_by: string | null
+          signals: Json
+          status: Database["public"]["Enums"]["verification_status"]
+        }
+        Insert: {
+          created_at?: string
+          file_id: string
+          id?: string
+          instance_id?: string | null
+          party_id?: string | null
+          provider: string
+          provider_kind: Database["public"]["Enums"]["verification_provider_kind"]
+          provider_ref?: string | null
+          requested_at?: string
+          requested_by?: string | null
+          signals?: Json
+          status: Database["public"]["Enums"]["verification_status"]
+        }
+        Update: {
+          created_at?: string
+          file_id?: string
+          id?: string
+          instance_id?: string | null
+          party_id?: string | null
+          provider?: string
+          provider_kind?: Database["public"]["Enums"]["verification_provider_kind"]
+          provider_ref?: string | null
+          requested_at?: string
+          requested_by?: string | null
+          signals?: Json
+          status?: Database["public"]["Enums"]["verification_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "verification_results_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "funding_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "verification_results_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "document_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "verification_results_party_id_fkey"
+            columns: ["party_id"]
+            isOneToOne: false
+            referencedRelation: "funding_parties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "verification_results_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -3011,11 +5214,24 @@ export type Database = {
       }
     }
     Functions: {
+      acknowledge_policy_update: {
+        Args: { p_update: string }
+        Returns: undefined
+      }
       activity_service: {
         Args: { p_entity_type: string }
         Returns: Database["public"]["Enums"]["fulfillment_service"]
       }
+      advance_closing: {
+        Args: {
+          p_closing: string
+          p_note?: string
+          p_status: Database["public"]["Enums"]["closing_status"]
+        }
+        Returns: undefined
+      }
       agency_of_org: { Args: { p_org: string }; Returns: string }
+      approve_dispute_letter: { Args: { p_letter: string }; Returns: undefined }
       as_uuid: { Args: { p: string }; Returns: string }
       assignable_profiles: {
         Args: {
@@ -3069,9 +5285,75 @@ export type Database = {
         }
         Returns: boolean
       }
+      confirm_funding: {
+        Args: {
+          p_closing: string
+          p_funded_at: string
+          p_gross: number
+          p_net: number
+          p_note?: string
+          p_reference?: string
+        }
+        Returns: string
+      }
+      create_credit_report: {
+        Args: {
+          p_bureaus: string[]
+          p_client: string
+          p_consumer: string
+          p_file: string
+          p_group: string
+          p_items: Json
+          p_org: string
+          p_parser_version: string
+          p_pulled_at: string
+          p_scores: Json
+          p_source: string
+        }
+        Returns: string
+      }
+      create_renewal_file: {
+        Args: {
+          p_purpose: string
+          p_renewal: string
+          p_requested_amount: number
+        }
+        Returns: string
+      }
+      credit_client_visible: { Args: { p_client: string }; Returns: boolean }
+      credit_client_writable: { Args: { p_client: string }; Returns: boolean }
+      credit_report_visible: {
+        Args: { p_client: string; p_consumer: string; p_org: string }
+        Returns: boolean
+      }
+      creditops_department_statuses: {
+        Args: {
+          p_department: Database["public"]["Enums"]["fulfillment_department"]
+        }
+        Returns: string[]
+      }
       current_agency_role: {
         Args: never
         Returns: Database["public"]["Enums"]["agency_role"]
+      }
+      deal_status_for_decision: {
+        Args: {
+          p_decision: Database["public"]["Enums"]["lender_decision_kind"]
+        }
+        Returns: Database["public"]["Enums"]["funding_deal_status"]
+      }
+      default_role_access: {
+        Args: {
+          p_product: Database["public"]["Enums"]["product_key"]
+          p_role: Database["public"]["Enums"]["org_role"]
+        }
+        Returns: {
+          can_access_management: boolean
+          can_edit_progress: boolean
+          can_log_work: boolean
+          departments: string[]
+          views: string[]
+        }[]
       }
       dev_seed_user: {
         Args: { p_email: string; p_full_name: string; p_password: string }
@@ -3090,6 +5372,9 @@ export type Database = {
         Args: { p_entity_id: string; p_entity_type: string }
         Returns: boolean
       }
+      file_bes_in_scope: { Args: { p_file: string }; Returns: boolean }
+      file_org_admin: { Args: { p_file: string }; Returns: boolean }
+      file_reviewer: { Args: { p_file: string }; Returns: boolean }
       find_client_across_divisions: {
         Args: { p_email: string; p_scope: string }
         Returns: {
@@ -3099,7 +5384,35 @@ export type Database = {
           status: string
         }[]
       }
+      funding_event_visibility: {
+        Args: { p_agency: string; p_org: string }
+        Returns: Database["public"]["Enums"]["activity_visibility"]
+      }
+      funding_file_tenancy: {
+        Args: { p_file: string }
+        Returns: {
+          agency_id: string
+          client_id: string
+          organization_id: string
+        }[]
+      }
+      funding_file_visible: { Args: { p_file: string }; Returns: boolean }
+      fundingops_department_statuses: {
+        Args: {
+          p_department: Database["public"]["Enums"]["funding_department"]
+        }
+        Returns: string[]
+      }
       gen_org_public_id: { Args: never; Returns: string }
+      gen_public_code: { Args: { p_prefix: string }; Returns: string }
+      handoff_to_creditops: {
+        Args: { p_existing_client?: string; p_funding_client: string }
+        Returns: string
+      }
+      handoff_to_fundingops: {
+        Args: { p_fulfillment_client: string }
+        Returns: string
+      }
       in_scope: {
         Args: {
           p_agency: string
@@ -3114,13 +5427,27 @@ export type Database = {
       is_agency_admin: { Args: never; Returns: boolean }
       is_agency_manager_or_above: { Args: never; Returns: boolean }
       is_agency_staff: { Args: never; Returns: boolean }
+      is_borrower_of_file: { Args: { p_file: string }; Returns: boolean }
       is_external_member: { Args: { p_org: string }; Returns: boolean }
+      is_lender_for_file: { Args: { p_file: string }; Returns: boolean }
       is_manager_of: { Args: { p_agency: string }; Returns: boolean }
+      is_member_of_team: { Args: { p_team: string }; Returns: boolean }
       is_org_admin: { Args: { p_org: string }; Returns: boolean }
       is_org_member: { Args: { p_org: string }; Returns: boolean }
       is_org_owner_admin: { Args: { p_org: string }; Returns: boolean }
       is_staff_of: { Args: { p_agency: string }; Returns: boolean }
       is_team_lead_of: { Args: { p_team: string }; Returns: boolean }
+      lender_editable: { Args: { p_lender: string }; Returns: boolean }
+      lender_visible: { Args: { p_lender: string }; Returns: boolean }
+      letter_prohibited_phrase: { Args: { p_body: string }; Returns: string }
+      letter_template_editable: {
+        Args: { p_agency: string; p_org: string }
+        Returns: boolean
+      }
+      letter_template_visible: {
+        Args: { p_agency: string; p_org: string }
+        Returns: boolean
+      }
       log_audit: {
         Args: {
           p_action: string
@@ -3130,6 +5457,10 @@ export type Database = {
           p_entity_type: string
           p_org?: string
         }
+        Returns: undefined
+      }
+      mark_letter_mailed: {
+        Args: { p_letter: string; p_mailed_at?: string }
         Returns: undefined
       }
       merge_agency_branding: {
@@ -3144,109 +5475,27 @@ export type Database = {
         Args: { p_org: string; p_patch: Json }
         Returns: Json
       }
-      create_credit_report: {
-        Args: {
-          p_org: string | null
-          p_group: string | null
-          p_client: string | null
-          p_consumer: string | null
-          p_bureaus: string[]
-          p_pulled_at: string
-          p_source: string
-          p_file: string | null
-          p_parser_version: string
-          p_items: Json
-          p_scores: Json
-        }
-        Returns: string
-      }
-      credit_report_visible: {
-        Args: { p_client: string | null; p_consumer: string | null; p_org: string | null }
-        Returns: boolean
-      }
-      set_client_department_status: {
-        Args: {
-          p_client: string
-          p_department: Database["public"]["Enums"]["fulfillment_department"]
-          p_status: string
-          p_assignee?: string | null
-          p_note?: string | null
-        }
-        Returns: undefined
-      }
-      creditops_department_statuses: {
-        Args: { p_department: Database["public"]["Enums"]["fulfillment_department"] }
-        Returns: string[]
-      }
-      organization_seat_usage: { Args: { p_org: string }; Returns: number }
-      organization_active_records: { Args: { p_org: string }; Returns: number }
-      handoff_to_creditops: {
-        Args: { p_funding_client: string; p_existing_client?: string | null }
-        Returns: string
-      }
-      handoff_to_fundingops: {
-        Args: { p_fulfillment_client: string }
-        Returns: string
-      }
-      set_client_lifecycle: {
-        Args: { p_client: string; p_lifecycle: Database["public"]["Enums"]["client_lifecycle"]; p_reason?: string | null }
-        Returns: undefined
-      }
-      set_funding_department_status: {
+      move_funding_file: {
         Args: {
           p_file: string
-          p_department: Database["public"]["Enums"]["funding_department"]
-          p_status: string
-          p_assignee?: string | null
-          p_note?: string | null
-        }
-        Returns: undefined
-      }
-      fundingops_department_statuses: {
-        Args: { p_department: Database["public"]["Enums"]["funding_department"] }
-        Returns: string[]
-      }
-      default_role_access: {
-        Args: {
-          p_role: Database["public"]["Enums"]["org_role"]
-          p_product: Database["public"]["Enums"]["product_key"]
-        }
-        Returns: {
-          departments: string[]
-          views: string[]
-          can_log_work: boolean
-          can_edit_progress: boolean
-          can_access_management: boolean
-        }[]
-      }
-      workspace_view_ids: {
-        Args: { p_product: Database["public"]["Enums"]["product_key"] }
-        Returns: string[]
-      }
-      set_organization_role_access: {
-        Args: {
-          p_org: string
-          p_role: Database["public"]["Enums"]["org_role"]
-          p_product: Database["public"]["Enums"]["product_key"]
-          p_departments: string[]
-          p_views: string[]
-          p_can_log_work: boolean
-          p_can_edit_progress: boolean
-          p_can_access_management: boolean
-        }
-        Returns: Json
-      }
-      reset_organization_role_access: {
-        Args: {
-          p_org: string
-          p_role: Database["public"]["Enums"]["org_role"]
-          p_product: Database["public"]["Enums"]["product_key"]
+          p_note?: string
+          p_secondary?: Database["public"]["Enums"]["funding_secondary_status"]
+          p_stage?: Database["public"]["Enums"]["funding_pipeline_stage"]
+          p_waiting_on?: Database["public"]["Enums"]["funding_waiting_on"]
         }
         Returns: undefined
       }
       my_org_ids: { Args: never; Returns: string[] }
       normalize_business_name: { Args: { p: string }; Returns: string }
       normalize_phone: { Args: { p: string }; Returns: string }
+      open_dispute_round: {
+        Args: {
+          p_client: string
+          p_reset_cycle: boolean
+          p_strategy: Database["public"]["Enums"]["dispute_strategy"]
+        }
+        Returns: string
+      }
       org_agency: { Args: { p_org: string }; Returns: string }
       org_entitled: {
         Args: { p_org: string; p_product: string }
@@ -3267,11 +5516,92 @@ export type Database = {
         Args: { p_assignee: string; p_org: string }
         Returns: boolean
       }
+      organization_active_records: { Args: { p_org: string }; Returns: number }
+      organization_seat_usage: { Args: { p_org: string }; Returns: number }
+      record_document_disposition: {
+        Args: {
+          p_disposition: Database["public"]["Enums"]["document_disposition"]
+          p_instance: string
+          p_reason?: string
+        }
+        Returns: undefined
+      }
+      record_lender_decision: {
+        Args: {
+          p_conditions?: string
+          p_deal: string
+          p_decision: Database["public"]["Enums"]["lender_decision_kind"]
+          p_note?: string
+          p_terms?: Json
+        }
+        Returns: string
+      }
       record_owner: {
         Args: { p_entity_id: string; p_entity_type: string }
         Returns: Record<string, unknown>
       }
+      reset_organization_role_access: {
+        Args: {
+          p_org: string
+          p_product: Database["public"]["Enums"]["product_key"]
+          p_role: Database["public"]["Enums"]["org_role"]
+        }
+        Returns: undefined
+      }
+      set_client_department_status: {
+        Args: {
+          p_assignee?: string
+          p_client: string
+          p_department: Database["public"]["Enums"]["fulfillment_department"]
+          p_note?: string
+          p_status: string
+        }
+        Returns: undefined
+      }
+      set_client_lifecycle: {
+        Args: {
+          p_client: string
+          p_lifecycle: Database["public"]["Enums"]["client_lifecycle"]
+          p_reason?: string
+        }
+        Returns: undefined
+      }
+      set_funding_department_status: {
+        Args: {
+          p_assignee?: string
+          p_department: Database["public"]["Enums"]["funding_department"]
+          p_file: string
+          p_note?: string
+          p_status: string
+        }
+        Returns: undefined
+      }
+      set_offer_status: {
+        Args: {
+          p_note?: string
+          p_offer: string
+          p_status: Database["public"]["Enums"]["offer_status"]
+        }
+        Returns: undefined
+      }
+      set_organization_role_access: {
+        Args: {
+          p_can_access_management: boolean
+          p_can_edit_progress: boolean
+          p_can_log_work: boolean
+          p_departments: string[]
+          p_org: string
+          p_product: Database["public"]["Enums"]["product_key"]
+          p_role: Database["public"]["Enums"]["org_role"]
+          p_views: string[]
+        }
+        Returns: Json
+      }
       shares_scope_with: { Args: { p_user: string }; Returns: boolean }
+      start_closing: {
+        Args: { p_note?: string; p_offer: string }
+        Returns: string
+      }
       to_service: {
         Args: { p: string }
         Returns: Database["public"]["Enums"]["fulfillment_service"]
@@ -3285,6 +5615,10 @@ export type Database = {
           p_ws: string
         }
         Returns: boolean
+      }
+      workspace_view_ids: {
+        Args: { p_product: Database["public"]["Enums"]["product_key"] }
+        Returns: string[]
       }
     }
     Enums: {
@@ -3306,6 +5640,95 @@ export type Database = {
         | "agency_manager"
         | "agency_team_lead"
         | "agency_agent"
+      automated_review_status:
+        | "no_issue_detected"
+        | "review_recommended"
+        | "potential_discrepancy"
+        | "insufficient_data"
+        | "processing_failed"
+      client_lifecycle:
+        | "active"
+        | "program_completed"
+        | "graduated"
+        | "archived"
+      closing_status:
+        | "started"
+        | "requirements_outstanding"
+        | "awaiting_signatures"
+        | "signed"
+        | "funding_pending"
+        | "funded"
+        | "cancelled"
+      consumer_report_authorization: "authorized" | "pending" | "refused"
+      decline_reason_category:
+        | "personal_credit"
+        | "revenue"
+        | "cash_flow"
+        | "time_in_business"
+        | "industry"
+        | "documentation"
+        | "existing_debt"
+        | "identity_verification"
+        | "other"
+        | "not_stated"
+      dispute_letter_status:
+        | "draft"
+        | "approved"
+        | "printed"
+        | "mailed"
+        | "responded"
+        | "closed"
+      dispute_origin:
+        | "consumer_prepared"
+        | "attorney_assisted"
+        | "cro_prepared"
+        | "cra_forwarded"
+      dispute_strategy:
+        | "factual"
+        | "integrity"
+        | "hybrid"
+        | "freeze"
+        | "secondary"
+      dispute_timer_kind:
+        | "reinvestigation"
+        | "furnisher_notice"
+        | "results_notice"
+        | "reinsertion_watch"
+      document_disposition:
+        | "pending_review"
+        | "accepted"
+        | "needs_correction"
+        | "not_accepted"
+        | "escalated"
+      document_flag_code:
+        | "MISSING_REQUIRED_DOCUMENT"
+        | "WRONG_DOCUMENT_TYPE"
+        | "UNREADABLE_DOCUMENT"
+        | "MISSING_PAGE"
+        | "EXPIRED_DOCUMENT"
+        | "STALE_DOCUMENT"
+        | "DUPLICATE_DOCUMENT"
+        | "DUPLICATE_PERIOD"
+        | "STATEMENT_PERIOD_GAP"
+        | "NAME_MISMATCH"
+        | "BUSINESS_NAME_MISMATCH"
+        | "ADDRESS_MISMATCH"
+        | "APPLICATION_DATA_MISMATCH"
+        | "ACCOUNT_OWNERSHIP_MISMATCH"
+        | "ENTITY_VERIFICATION_MISMATCH"
+        | "FINANCIAL_PERIOD_MISMATCH"
+        | "CALCULATION_VARIANCE"
+        | "INCOME_VARIANCE"
+        | "PROPERTY_DATA_MISMATCH"
+        | "VIN_MISMATCH"
+        | "THIRD_PARTY_RISK_SIGNAL"
+        | "POSSIBLE_TAMPER_SIGNAL"
+        | "INSUFFICIENT_EXTRACTION_CONFIDENCE"
+        | "LENDER_SPECIFIC_EXCEPTION"
+        | "COMPLIANCE_REVIEW_REQUIRED"
+        | "PROCESSING_FAILURE"
+      document_request_status: "open" | "satisfied" | "waived"
+      document_requirement: "required" | "conditional"
       engagement_status: "pending" | "active" | "paused" | "ended"
       eod_state:
         | "draft"
@@ -3320,6 +5743,21 @@ export type Database = {
         | "lender"
         | "affiliate"
         | "client"
+      finding_classification:
+        | "observed_difference"
+        | "potential_anomaly"
+        | "evidence_supported_inaccuracy"
+        | "potential_legal_issue"
+      finding_disposition:
+        | "confirmed"
+        | "dismissed"
+        | "needs_evidence"
+        | "escalated"
+      flag_human_disposition:
+        | "accepted"
+        | "dismissed"
+        | "correction_requested"
+        | "escalated"
       fulfillment_client_status:
         | "Onboarding"
         | "NEW ONBOARDING"
@@ -3365,7 +5803,6 @@ export type Database = {
         | "Round 4+"
         | "Completed"
       fulfillment_service: "creditops" | "fundingops" | "bes_crm" | "talentops"
-      client_lifecycle: "active" | "program_completed" | "graduated" | "archived"
       funding_client_status:
         | "Onboarding"
         | "Credit Readiness"
@@ -3396,24 +5833,94 @@ export type Database = {
         | "Stipulations"
         | "Offers"
         | "Funded Deals"
-      funding_file_stage:
-        | "Readiness Review"
-        | "Document Review"
-        | "Lender Matching"
+      funding_party_kind:
+        | "person"
+        | "business"
+        | "owner_guarantor"
+        | "property"
+        | "vehicle"
+        | "seller"
+        | "affiliate"
+      funding_pipeline_stage:
+        | "New Application"
+        | "Application Review"
+        | "Document Collection"
+        | "File Review"
+        | "Needs Client Action"
+        | "Ready for Funding Review"
+        | "Lender Selection"
+        | "Ready for Submission"
         | "Submitted"
-        | "Stipulations"
+        | "Lender Review"
+        | "Additional Requirements"
+        | "Conditional Approval"
         | "Offer Received"
+        | "Offer Accepted"
+        | "Final Approval"
+        | "Funding"
         | "Funded"
-        | "Declined"
-        | "Withdrawn"
       funding_provenance: "bes_saas_synced" | "agency_manual"
+      funding_secondary_status:
+        | "Active Funding"
+        | "Funded"
+        | "Not Funding Ready"
+        | "No Current Program Fit"
+        | "Endorsed to Readiness"
+        | "Client Declined Offer"
+        | "Lender Declined"
+        | "Withdrawn"
+        | "Unable to Contact"
+        | "Duplicate"
+        | "Verification Concern"
+        | "Closed"
+        | "Renewal Candidate"
+      funding_waiting_on:
+        | "Client"
+        | "Internal Team"
+        | "Lender"
+        | "Third Party"
+        | "Documents"
+        | "Approval"
+        | "No Action Required"
       identity_kind:
         | "email"
         | "email_domain"
         | "phone"
         | "business_name"
         | "ein"
+      lender_decision_kind:
+        | "pending"
+        | "approved"
+        | "conditional"
+        | "declined"
+        | "withdrawn"
+        | "expired"
+      letter_audience:
+        | "cra"
+        | "furnisher"
+        | "collector"
+        | "secondary_bureau"
+        | "cfpb"
+      letter_kind:
+        | "factual"
+        | "integrity"
+        | "dofd"
+        | "mov"
+        | "escalation"
+        | "freeze"
+        | "alternate_bureau"
+        | "other"
       membership_kind: "agency" | "organization" | "external"
+      offer_status:
+        | "received"
+        | "internal_review"
+        | "ready_to_present"
+        | "presented"
+        | "client_considering"
+        | "client_accepted"
+        | "client_declined"
+        | "expired"
+        | "withdrawn"
       org_role:
         | "org_admin"
         | "org_manager"
@@ -3432,6 +5939,18 @@ export type Database = {
         | "funding_support"
       org_status: "Active" | "Pending Onboarding" | "At Risk" | "Paused"
       outsourcing_group_status: "Active" | "Paused" | "Onboarding"
+      policy_change_kind:
+        | "tightened"
+        | "relaxed"
+        | "paused"
+        | "resumed"
+        | "clarified"
+      pricing_type:
+        | "factor_rate"
+        | "interest_rate"
+        | "apr"
+        | "fee_based"
+        | "not_provided"
       product_key:
         | "creditOps"
         | "fundingOps"
@@ -3440,7 +5959,26 @@ export type Database = {
         | "crm"
         | "workspaces"
         | "talentOps"
+      renewal_status:
+        | "monitoring"
+        | "review_due"
+        | "outreach"
+        | "client_interested"
+        | "new_file_created"
+        | "not_pursued"
       trial_status: "active" | "converted" | "expired" | "blocked"
+      verification_provider_kind:
+        | "identity"
+        | "business"
+        | "bank"
+        | "document"
+        | "fraud_signal"
+        | "credit"
+      verification_status:
+        | "verified"
+        | "partially_verified"
+        | "unable_to_verify"
+        | "verification_failed"
       webhook_delivery_status: "emitted" | "failed" | "skipped"
       webhook_endpoint_type: "ghl" | "disputefox" | "generic"
       work_priority: "Normal" | "High" | "Urgent"
@@ -3585,9 +6123,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       access_scope: [
@@ -3611,6 +6146,105 @@ export const Constants = {
         "agency_team_lead",
         "agency_agent",
       ],
+      automated_review_status: [
+        "no_issue_detected",
+        "review_recommended",
+        "potential_discrepancy",
+        "insufficient_data",
+        "processing_failed",
+      ],
+      client_lifecycle: [
+        "active",
+        "program_completed",
+        "graduated",
+        "archived",
+      ],
+      closing_status: [
+        "started",
+        "requirements_outstanding",
+        "awaiting_signatures",
+        "signed",
+        "funding_pending",
+        "funded",
+        "cancelled",
+      ],
+      consumer_report_authorization: ["authorized", "pending", "refused"],
+      decline_reason_category: [
+        "personal_credit",
+        "revenue",
+        "cash_flow",
+        "time_in_business",
+        "industry",
+        "documentation",
+        "existing_debt",
+        "identity_verification",
+        "other",
+        "not_stated",
+      ],
+      dispute_letter_status: [
+        "draft",
+        "approved",
+        "printed",
+        "mailed",
+        "responded",
+        "closed",
+      ],
+      dispute_origin: [
+        "consumer_prepared",
+        "attorney_assisted",
+        "cro_prepared",
+        "cra_forwarded",
+      ],
+      dispute_strategy: [
+        "factual",
+        "integrity",
+        "hybrid",
+        "freeze",
+        "secondary",
+      ],
+      dispute_timer_kind: [
+        "reinvestigation",
+        "furnisher_notice",
+        "results_notice",
+        "reinsertion_watch",
+      ],
+      document_disposition: [
+        "pending_review",
+        "accepted",
+        "needs_correction",
+        "not_accepted",
+        "escalated",
+      ],
+      document_flag_code: [
+        "MISSING_REQUIRED_DOCUMENT",
+        "WRONG_DOCUMENT_TYPE",
+        "UNREADABLE_DOCUMENT",
+        "MISSING_PAGE",
+        "EXPIRED_DOCUMENT",
+        "STALE_DOCUMENT",
+        "DUPLICATE_DOCUMENT",
+        "DUPLICATE_PERIOD",
+        "STATEMENT_PERIOD_GAP",
+        "NAME_MISMATCH",
+        "BUSINESS_NAME_MISMATCH",
+        "ADDRESS_MISMATCH",
+        "APPLICATION_DATA_MISMATCH",
+        "ACCOUNT_OWNERSHIP_MISMATCH",
+        "ENTITY_VERIFICATION_MISMATCH",
+        "FINANCIAL_PERIOD_MISMATCH",
+        "CALCULATION_VARIANCE",
+        "INCOME_VARIANCE",
+        "PROPERTY_DATA_MISMATCH",
+        "VIN_MISMATCH",
+        "THIRD_PARTY_RISK_SIGNAL",
+        "POSSIBLE_TAMPER_SIGNAL",
+        "INSUFFICIENT_EXTRACTION_CONFIDENCE",
+        "LENDER_SPECIFIC_EXCEPTION",
+        "COMPLIANCE_REVIEW_REQUIRED",
+        "PROCESSING_FAILURE",
+      ],
+      document_request_status: ["open", "satisfied", "waived"],
+      document_requirement: ["required", "conditional"],
       engagement_status: ["pending", "active", "paused", "ended"],
       eod_state: [
         "draft",
@@ -3626,6 +6260,24 @@ export const Constants = {
         "lender",
         "affiliate",
         "client",
+      ],
+      finding_classification: [
+        "observed_difference",
+        "potential_anomaly",
+        "evidence_supported_inaccuracy",
+        "potential_legal_issue",
+      ],
+      finding_disposition: [
+        "confirmed",
+        "dismissed",
+        "needs_evidence",
+        "escalated",
+      ],
+      flag_human_disposition: [
+        "accepted",
+        "dismissed",
+        "correction_requested",
+        "escalated",
       ],
       fulfillment_client_status: [
         "Onboarding",
@@ -3677,6 +6329,7 @@ export const Constants = {
       fulfillment_service: ["creditops", "fundingops", "bes_crm", "talentops"],
       funding_client_status: [
         "Onboarding",
+        "Credit Readiness",
         "Readiness Review",
         "Document Review",
         "Lender Matching",
@@ -3707,20 +6360,97 @@ export const Constants = {
         "Offers",
         "Funded Deals",
       ],
-      funding_file_stage: [
-        "Readiness Review",
-        "Document Review",
-        "Lender Matching",
+      funding_party_kind: [
+        "person",
+        "business",
+        "owner_guarantor",
+        "property",
+        "vehicle",
+        "seller",
+        "affiliate",
+      ],
+      funding_pipeline_stage: [
+        "New Application",
+        "Application Review",
+        "Document Collection",
+        "File Review",
+        "Needs Client Action",
+        "Ready for Funding Review",
+        "Lender Selection",
+        "Ready for Submission",
         "Submitted",
-        "Stipulations",
+        "Lender Review",
+        "Additional Requirements",
+        "Conditional Approval",
         "Offer Received",
+        "Offer Accepted",
+        "Final Approval",
+        "Funding",
         "Funded",
-        "Declined",
-        "Withdrawn",
       ],
       funding_provenance: ["bes_saas_synced", "agency_manual"],
+      funding_secondary_status: [
+        "Active Funding",
+        "Funded",
+        "Not Funding Ready",
+        "No Current Program Fit",
+        "Endorsed to Readiness",
+        "Client Declined Offer",
+        "Lender Declined",
+        "Withdrawn",
+        "Unable to Contact",
+        "Duplicate",
+        "Verification Concern",
+        "Closed",
+        "Renewal Candidate",
+      ],
+      funding_waiting_on: [
+        "Client",
+        "Internal Team",
+        "Lender",
+        "Third Party",
+        "Documents",
+        "Approval",
+        "No Action Required",
+      ],
       identity_kind: ["email", "email_domain", "phone", "business_name", "ein"],
+      lender_decision_kind: [
+        "pending",
+        "approved",
+        "conditional",
+        "declined",
+        "withdrawn",
+        "expired",
+      ],
+      letter_audience: [
+        "cra",
+        "furnisher",
+        "collector",
+        "secondary_bureau",
+        "cfpb",
+      ],
+      letter_kind: [
+        "factual",
+        "integrity",
+        "dofd",
+        "mov",
+        "escalation",
+        "freeze",
+        "alternate_bureau",
+        "other",
+      ],
       membership_kind: ["agency", "organization", "external"],
+      offer_status: [
+        "received",
+        "internal_review",
+        "ready_to_present",
+        "presented",
+        "client_considering",
+        "client_accepted",
+        "client_declined",
+        "expired",
+        "withdrawn",
+      ],
       org_role: [
         "org_admin",
         "org_manager",
@@ -3740,6 +6470,20 @@ export const Constants = {
       ],
       org_status: ["Active", "Pending Onboarding", "At Risk", "Paused"],
       outsourcing_group_status: ["Active", "Paused", "Onboarding"],
+      policy_change_kind: [
+        "tightened",
+        "relaxed",
+        "paused",
+        "resumed",
+        "clarified",
+      ],
+      pricing_type: [
+        "factor_rate",
+        "interest_rate",
+        "apr",
+        "fee_based",
+        "not_provided",
+      ],
       product_key: [
         "creditOps",
         "fundingOps",
@@ -3749,7 +6493,29 @@ export const Constants = {
         "workspaces",
         "talentOps",
       ],
+      renewal_status: [
+        "monitoring",
+        "review_due",
+        "outreach",
+        "client_interested",
+        "new_file_created",
+        "not_pursued",
+      ],
       trial_status: ["active", "converted", "expired", "blocked"],
+      verification_provider_kind: [
+        "identity",
+        "business",
+        "bank",
+        "document",
+        "fraud_signal",
+        "credit",
+      ],
+      verification_status: [
+        "verified",
+        "partially_verified",
+        "unable_to_verify",
+        "verification_failed",
+      ],
       webhook_delivery_status: ["emitted", "failed", "skipped"],
       webhook_endpoint_type: ["ghl", "disputefox", "generic"],
       work_priority: ["Normal", "High", "Urgent"],

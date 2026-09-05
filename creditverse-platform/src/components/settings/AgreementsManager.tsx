@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { formatDate } from "@/lib/format-date";
 import {
   FileText,
   Plus,
@@ -85,14 +86,14 @@ export const AgreementsManager = () => {
       updateAgreement(editing.id, {
         ...form,
         version: `v${parseFloat(editing.version.slice(1)) + 0.1}`,
-        updatedAt: new Date().toLocaleDateString(),
+        updatedAt: formatDate(new Date()),
       });
     } else {
       addAgreement({
         ...form,
         status: "active",
         version: "v1.0",
-        updatedAt: new Date().toLocaleDateString(),
+        updatedAt: formatDate(new Date()),
       });
     }
     setShowForm(false);
@@ -151,7 +152,7 @@ export const AgreementsManager = () => {
                   </Badge>
                 </div>
                 <p className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">
-                  {a.version} · Updated {a.updatedAt}
+                  {a.version} · Updated {formatDate(a.updatedAt)}
                   {a.hasCroaDisclosures ? (
                     <span className="flex items-center gap-0.5 text-status-success">
                       <CheckCircle2 className="h-3 w-3" /> CROA disclosures

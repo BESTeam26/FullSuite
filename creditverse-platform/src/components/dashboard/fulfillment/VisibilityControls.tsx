@@ -9,13 +9,19 @@
  * The picker never preselects anything but BES Internal. Publishing is a
  * decision; a composer that quietly defaults to "shared" is how an internal
  * note reaches a customer.
+ *
+ * Audience: BES staff see the internal taxonomy ("BES Internal", "Shared
+ * (BES + organization)"). Organization users never do — they see a badge only
+ * when an entry is visible to their client, and a picker worded for them only
+ * when they actually have a choice (Dee, 2026-09-05).
  */
 import { Eye, Building2, Handshake, Lock } from "lucide-react";
 import { OpsSelect } from "@/components/ui/ops-select";
+import type { VisibilityAudience } from "@/lib/auth/use-visibility-audience";
 import { cn } from "@/lib/utils";
 import {
-  VISIBILITY_HINT,
-  VISIBILITY_LABEL,
+  visibilityHintFor,
+  visibilityLabelFor,
   type ActivityVisibility,
 } from "@/lib/data/activity";
 
@@ -40,15 +46,20 @@ const TONE: Record<ActivityVisibility, string> = {
 /** A small marker on a persisted entry, saying who can read it. */
 export function VisibilityBadge({
   visibility,
+  audience = "organization",
   className,
 }: {
   visibility: ActivityVisibility;
+  /** Defaults to the organization view — the safe side — so a caller must opt in to the internal taxonomy. */
+  audience?: VisibilityAudience;
   className?: string;
 }) {
+  const isAgencyStaff = audience === "bes";
+  if (!isAgencyStaff && visibility !== "client_visible") return null;
   const Icon = ICON[visibility];
   return (
     <span
-      title={VISIBILITY_HINT[visibility]}
+      title={visibilityHintFor(visibility, isAgencyStaff)}
       className={cn(
         "inline-flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide",
         TONE[visibility],
@@ -56,7 +67,7 @@ export function VisibilityBadge({
       )}
     >
       <Icon className="h-2.5 w-2.5" />
-      {VISIBILITY_LABEL[visibility]}
+      {visibilityLabelFor(visibility, isAgencyStaff)}
     </span>
   );
 }
@@ -72,12 +83,17 @@ export function VisibilityPicker({
   onChange,
   options,
   disabled,
+  audience = "organization",
 }: {
   value: ActivityVisibility;
   onChange: (v: ActivityVisibility) => void;
   options: ActivityVisibility[];
   disabled?: boolean;
+  audience?: VisibilityAudience;
 }) {
+  const isAgencyStaff = audience === "bes";
+  /* One option = no decision to make; an organization user is not shown BES taxonomy for it. */
+  if (!isAgencyStaff && options.length <= 1) return null;
   return (
     <div className="flex flex-wrap items-center gap-2">
       <span className="text-[11px] font-semibold text-muted-foreground">
@@ -86,14 +102,14 @@ export function VisibilityPicker({
       <OpsSelect
         value={value}
         onValueChange={(v) => onChange(v as ActivityVisibility)}
-        options={options.map((v) => ({ value: v, label: VISIBILITY_LABEL[v] }))}
+        options={options.map((v) => ({ value: v, label: visibilityLabelFor(v, isAgencyStaff) }))}
         disabled={disabled}
         aria-label="Who can see this note"
       />
       {/* Say the consequence in words next to the control, so the choice is
           legible before posting rather than discoverable afterwards. */}
       <span className="text-[11px] text-muted-foreground">
-        {VISIBILITY_HINT[value]}
+        {visibilityHintFor(value, isAgencyStaff)}
       </span>
     </div>
   );

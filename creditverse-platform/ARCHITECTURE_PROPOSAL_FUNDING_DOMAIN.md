@@ -243,6 +243,11 @@ rate · duplicate-event rate · **lender additional-document rate after "Funding
 Ready"** · lender rejection due to documentation.
 
 ## B7. Revised order (replaces "Order inside this step")
+
+**Status 2026-09-05:** steps 1–3 built and applied (migration 0058, engines,
+deal detail tabs, requirement resolver — see BUILD_STATUS). Steps 4–6 open.
+Rule rows and lender policy rows are authored by SQL until their settings
+screens exist; the interface says so instead of inventing defaults.
 1. Migration 0058 (rebuilt): parties, requirement_rules, document_requests,
    document_instances, document_flags, lender_programs + policy versions,
    lender_decisions, verification_results, consumer_report_requests, lenders
@@ -267,3 +272,144 @@ Ready"** · lender rejection due to documentation.
   tenant screening separate. Confirm the order.
 - Which lenders/programs BES already works with, so the first
   `lender_policy_versions` rows are real (source + date) rather than seeded.
+
+---
+
+# Addendum C — Reconciliation with Dee's FundingOS design (2026-09-05)
+
+**Status: proposal, with the cheap corrections applied the same day.** Source:
+Dee's *FundingOS — Complete Platform Logic, Design & Purpose* and the
+FundingOS preview (dashboard as action queues; Lender Network Intelligence
+with a policy-update feed). That design is the **authority** for FundingOps
+from here on; Addendum B stands where it agrees and yields where it differs.
+Doctrine, verbatim: *CRM owns the relationship. FundingOS owns the funding
+operation. Facts from the system. Math from deterministic code. Intelligence
+from AI. Decisions from people.*
+
+## C1. Where what exists already matches (FACT)
+
+| FundingOS design | In the platform today |
+|---|---|
+| Organization → Clients → Applicant → Business → Funding File; a business can have many files; a return is a **new** file | `funding_clients` (applicant) → `funding_businesses` → `funding_files`; nothing overwrites a file |
+| Own `organization_id` as tenant key; CRM is an attached integration | rule 16; GHL bridge planned as a broker with mappings |
+| Capital Providers → Programs → Policy Versions → Criteria; source + verification date on the version | `lenders` → `lender_programs` → `lender_policy_versions` (criteria jsonb, source type/reference/date, effective dates, last verified) |
+| Document requests ≠ uploaded instances; extraction ≠ verification; disposition is human | `document_requests`, `document_instances` (extraction jsonb + human disposition), `document_flags` |
+| Program Fit never says approved/qualified/probability | engine outputs "potential match"; never a probability |
+| Readiness is a third path, not decline; credit repair is one path | hand-off to CreditOps exists (0052/0053); "Endorsed to Readiness" wording adopted |
+| Lender decision is its own object, append-only | `lender_decisions` |
+| Consumer report only through a recorded permissible purpose | `consumer_report_requests` |
+| Language rules (no "fraud", no "approved", no APR for factor rate) | flag meanings, disposition labels, policy provenance on matches |
+
+## C2. Where the design differs — and what changes (PROPOSAL)
+
+| Design | Today | Change |
+|---|---|---|
+| **Three state axes**: Primary Stage (17 steps in 5 phases), Secondary Status (13 dispositions), Waiting On (7 owners) | `funding_files.stage` has 9 values and mixes stage with disposition (`Declined`, `Withdrawn`) | migration: extend `funding_file_stage` to the 17 steps; add `secondary_status` and `waiting_on` enums + columns; data map: `Readiness Review → Application Review`, `Document Review → Document Collection`, `Lender Matching → Lender Selection`, `Submitted → Submitted`, `Stipulations → Additional Requirements`, `Offer Received → Offer Received`, `Funded → Funded`, `Declined → stage unchanged + secondary Lender Declined`, `Withdrawn → secondary Withdrawn`. `waiting_on` derived once, then owned by operators |
+| Departments (Readiness Review … Funded Deals) as the internal work axis | `funding_department` + per-file statuses (0054) | **keep**: departments are *who does the work* (team routing, production, EOD); the 17-stage spine is *where the file is*. The phase groups (Intake · Preparation · Submission · Decision · Closing) map onto the departments for queues. Decision for Dee below |
+| Criteria with **rule strength** (Hard · Preferred/Guidance · Informational · Manual Review), each with source and verification metadata | criteria jsonb, one source per version | **`policy_criteria` rows** (version_id, key, operator, value, strength, source_id, verified_at); interim: `criteria.strength` map in the jsonb read by the engine (done today) |
+| Policy version lifecycle Draft → Verified → Pending Approval → Active → Superseded | effective dates + last verified | add `state` enum; only **Active** versions feed Program Fit |
+| **Source tiers** 1–4; Tier 4 research never drives fit | `source_type` text | `policy_sources` (tier, kind, reference, captured_at, verified_by); research queue = Tier 4 candidates |
+| **Program Fit vocabulary**: per criterion Meets / Does Not Meet / Needs Review / Missing Information / Not Applicable; overall Apparent Fit / Conditional Fit / Needs Review / Insufficient Information / Apparent Mismatch; Policy Unavailable | potential_match / not_matched / policy_verification_required | **engine renamed today** (see C4) |
+| **Readiness statuses**: Ready for Placement · Potential Fit · Conditional/Needs Improvement · Not Currently Funding Ready · Insufficient Information; constraint identified; readiness path chosen | ready / needs_work / not_ready | **engine renamed today**; `readiness_assessments` table later (constraint kind, path, reassessment date) |
+| **Lender Network Intelligence**: identity truth, published policy truth, relationship intelligence (BDM, partner status, last contact), observed outcomes with sample size; data confidence (never a score); policy update feed with deterministic file impact + acknowledge; SBA 7(a) lender import | registry ids, policy versions, decisions | `lender_contacts` (BDM, role, verified), `lender_relationships` (partner status, last contact), `policy_updates` (version from→to, change kind Tightened/Relaxed/Paused/Clarified, affected files computed by the fit engine, acknowledged_by/at), `outcome_rollups` (per program: submissions, funded, declined by normalized reason — descriptive only), SBA import as a research-candidate loader |
+| **Submissions** preserve policy version + fit snapshot; outcomes with lender-reported reason verbatim + normalized category | `funding_deals` + `lender_decisions.terms` | `funding_deals` gains `policy_version_id`, `fit_snapshot jsonb`; `lender_decisions` gains `reason_verbatim`, `reason_category` enum; outcome kinds extended (Additional Info, No Response, Expired) |
+| **Offers**: raw lender terms vs FundingOS-calculated values; factor rate never APR; Internal Review → Ready to Present → Presented → Client decision | terms jsonb on the decision | `offers` table (raw fields as provided + pricing_type; calculated fields separate and labelled; state machine with human actions) |
+| **Closing**: Start Closing → requirements/stipulations → signatures → Funding Pending → **Confirm Funding** creates the Funded Deal; four amounts kept apart | `funding_deals.status = Funded` | `closings` + `funded_deals` (requested, accepted, gross funded, net funded, discrepancy surfaced); only `confirm_funding()` writes a funded deal |
+| **Renewals**: monitoring, potential renewal date (reminder, not eligibility), review → outreach → interested → **new** file with lineage | — | `renewal_opportunities`; `funding_files.renews_file_id` |
+| **16-tab Funding File workspace** | 4 tabs (Overview · Application · Documents · Lenders & Offers) | grow to the 16 in the design's order; today's tabs are Overview, Requirements+Documents, Matches/Submission, Submissions+Offers |
+| **Dashboard = 14 action queues**, waiting-on distribution, team workload | department queues + My Work | FundingOps dashboard rebuilt as the design's queues (each a bounded query on stage/secondary/waiting_on/requests/timers) |
+| **AI layer**: Copilot (bounded, read-only), Document Intelligence, Policy & Outcome Analyst — all behind the backend | none live | Edge Functions + BES AI Credits; capabilities exactly the design's lists; no mutation |
+| **Never**: "Best Lender" ranking label | Addendum B allowed "Best chance / Lowest cost" rankings for the consumer marketplace | **withdrawn for FundingOps**: matches are shown in operational order with no ranking label; the marketplace idea stays separate and later |
+
+## C3. Decisions for Dee
+0. **Decided by Dee (2026-09-05):** the Funding File workspace is its own
+   in-frame surface, separate from the FundingOps Workspace — exactly as
+   Clients sits apart from the CreditOps Workspace. The Workspace keeps the
+   operational views (queues, department progress, client list) and links to
+   the file; the Funding File page carries the 16 tabs; Lender Network
+   Intelligence is a third surface under FundingOps. The deal detail leaves
+   the work file today. Dee's framing, kept verbatim in spirit: **FundingOps
+   is the engine** — the counterpart of DisputeFox/CRC for CreditOps — with
+   the funding pipeline, lender lookup and the roles around it (sales agents,
+   business relationship managers, lenders, clients); **the Workspace is the
+   operational add-on** that tracks the work.
+1. **Decided by Dee (2026-09-05): departments stay as the team axis** under the 17-stage spine. Dee's brief for the shape: a streamlined engine with one space for production and fulfillment (the Workspace) and one space to track client/file progress (Funding Files with the Pipeline view) — no redundant views.
+2. **Table naming**: keep `funding_deals` as the submission record (interface says "Submission") or rename the table in the migration. Recommended: rename once, now, before more code reads it.
+3. Confirm the 17 stage labels verbatim (I will not paraphrase them).
+
+## C4. Applied today (no database change)
+- Readiness engine speaks the design's five statuses; matching speaks the design's Program Fit vocabulary (per-criterion and overall, plus Policy Unavailable), honours `criteria.strength` (a Preferred criterion below guidance is *Needs Review*, never *Does Not Meet*), and the interface labels follow. Tests updated.
+- The deal-detail header says "Ready for Placement", never "Funding Ready".
+
+## C5. Layout — where the FundingOS surfaces live in BES (proposal for Dee)
+
+Principle: **one platform shell, module groups inside it.** FundingOS's own
+navigation was a whole product; in BES it is one module beside CreditOps,
+DIY Credit and Custom Workspaces, so platform-wide items stay platform-wide
+and the module group holds only the engine and its add-on.
+
+```
+Home                      one personalizable Home (cards link into modules)
+My Work                   = FundingOS "Tasks" (work items, department files, queues)
+Notifications             platform-wide
+Clients (CreditOps) …
+
+FundingOps
+  Dashboard               = FundingOS "Dashboard": the 14 action queues, waiting-on
+                            distribution, team workload (module dashboard, not Home)
+  Funding Files           list ⇄ Pipeline board (the 17 stages) — same records, two views
+      └ Funding File      the 16-tab workspace (Overview · Readiness · Submission ·
+                            Matches · Documents · Doc Intel · Bank Analysis ·
+                            Requirements · Tasks · Submissions · Offers · Closing ·
+                            Outcomes · Renewal · Copilot · Activity)
+  Lenders                 Lender Network Intelligence: Directory · Relationship ·
+                            Policy Matrix · Research Queue · Scorecard (observed
+                            outcomes, descriptive) · Policy Update feed at the top;
+                            "Import SBA 7(a) report" and "Add capital provider" here
+  Submissions             cross-file record list (every submission, its policy
+                            version snapshot, its outcome)
+  Offers                  cross-file record list (raw terms vs calculated; states)
+  Funded Deals            immutable record list (four amounts, discrepancies) → Renewals
+  Commissions             per funded deal, per party
+  Workspace               the operational add-on: department queues, department
+                            progress, client list, SLA, EOD/production — never the
+                            record of truth, always a view of it
+  Reports                 shared reporting (pivots, KPIs) — the "Lender Scorecard"
+                            numbers also surface here
+
+Settings › Users & roles  = FundingOS "Contacts": sales agents, BRMs, processors,
+                            closers as organization roles; lenders, clients and
+                            partners as external access (their portals)
+Settings › Billing        = FundingOS "Billing" (platform-wide)
+—                         "Legacy Pipeline": not carried over (nothing to migrate)
+```
+
+Why this shape:
+- **Records vs work.** Submissions / Offers / Funded Deals are *record* pages
+  (the truth, one row each). The Workspace's "Submissions · Offers · Funded"
+  views are *work queues* over the same rows (who does what next, SLA). Both
+  read the canonical tables (rule 2); the Workspace view names gain the word
+  "queue" so nobody mistakes a queue for the record.
+- **Pipeline is a view, not a second list.** The 17 stages are a board over
+  Funding Files; one search, one filter model, one deep link.
+- **Lender lookup lives in Lenders.** Directory search, policy matrix, the
+  update feed with deterministic file impact and acknowledgement, research
+  candidates (Tier 4, never driving fit), and the marketplace/registry
+  lookups later — all one surface, because they answer one question: *what
+  do we know about this capital provider, from which source, verified when?*
+- **Dashboard ≠ Home.** Home is the person's day across modules; the
+  FundingOps Dashboard is the module's operating picture. CreditOps gets the
+  same treatment later.
+- **Roles are settings, portals are surfaces.** Sales agents, BRMs,
+  processors and closers are organization roles with configurable access
+  (0047); lenders, clients and partners are external memberships with their
+  own portals, record-scoped by RLS.
+
+Built (2026-09-05): Funding Files (list ⇄ Pipeline board), the file page
+(Overview · Application · Documents · Matches & Submissions · Offers · Closing
+· Renewal, Move control), Lenders (directory, programs, policy versions,
+Scorecard), FundingOps Dashboard (fourteen queues), Deals (Submissions ·
+Offers · Funded · Commissions · Renewals as one record surface), Workspace.
+Schema C2 applied as 0060–0062. Still to come: lender contacts/relationship
+and the policy-update feed on Lenders, drag-and-drop stage moves, portal
+uploads, the AI layer (keys needed from Dee).

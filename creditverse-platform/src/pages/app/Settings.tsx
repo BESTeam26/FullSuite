@@ -60,6 +60,8 @@ import {
 } from "@/components/settings/sections/PlatformSections";
 import { WorkspaceViewsSection } from "@/components/settings/sections/OrganizationSections";
 import { RoleAccessSection } from "@/components/settings/sections/RoleAccessSection";
+import { OrganizationTeamsSection, TeamMembersSection } from "@/components/settings/sections/TeamMembersSection";
+import { LetterLibrarySection } from "@/components/settings/sections/LetterLibrarySection";
 import { useAgency } from "@/lib/agency-context";
 
 const groups: SettingsGroup[] = [
@@ -75,6 +77,7 @@ const groups: SettingsGroup[] = [
     label: "People & Access",
     items: [
       { key: "users", label: "Agency Users", icon: Users },
+      { key: "org-teams", label: "Organization Teams", icon: Users },
       { key: "permissions", label: "Roles & Permissions", icon: ShieldCheck },
       { key: "structure", label: "Divisions / Teams", icon: Network },
     ],
@@ -120,8 +123,10 @@ const organizationGroups: SettingsGroup[] = [
   {
     label: "Organization",
     items: [
-      { key: "workspace-views", label: "Workspace views", icon: LayoutGrid },
+      { key: "team", label: "Team Members", icon: Users },
       { key: "role-access", label: "Roles & access", icon: ShieldCheck },
+      { key: "workspace-views", label: "Workspace views", icon: LayoutGrid },
+      { key: "letters", label: "Letter Library", icon: FileText },
     ],
   },
 ];
@@ -129,11 +134,18 @@ const organizationGroups: SettingsGroup[] = [
 const SettingsContent = () => {
   const { viewMode, activeOrganization } = useAgency();
   const isOrganizationView = viewMode === "subaccount";
-  const [active, setActive] = useState(isOrganizationView ? "workspace-views" : "branding");
+  const [active, setActive] = useState(isOrganizationView ? "team" : "branding");
 
   const render = () => {
-    if (isOrganizationView) return active === "role-access" ? <RoleAccessSection /> : <WorkspaceViewsSection />;
+    if (isOrganizationView) {
+      if (active === "role-access") return <RoleAccessSection />;
+      if (active === "workspace-views") return <WorkspaceViewsSection />;
+      if (active === "letters") return activeOrganization ? <LetterLibrarySection organizationId={activeOrganization.id} /> : null;
+      return activeOrganization ? <TeamMembersSection organizationId={activeOrganization.id} organizationName={activeOrganization.name} /> : null;
+    }
     switch (active) {
+      case "org-teams":
+        return <OrganizationTeamsSection />;
       case "branding":
         return <AgencyBrandingSection />;
       case "subaccounts":

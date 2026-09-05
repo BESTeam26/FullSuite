@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { formatDate } from "@/lib/format-date";
 import {
   Printer,
   Download,
@@ -244,7 +245,7 @@ const PrintTab = () => {
                       Due date
                     </p>
                     <p className="flex items-center gap-1 text-sm font-semibold text-status-success">
-                      <Calendar className="h-3.5 w-3.5" /> {letter.dueDate}
+                      <Calendar className="h-3.5 w-3.5" /> {formatDate(letter.dueDate)}
                     </p>
                     <p className="text-[10px] text-muted-foreground">
                       {roundCycleDays} days from today

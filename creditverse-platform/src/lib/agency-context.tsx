@@ -155,6 +155,7 @@ interface AgencyContextType {
   switchToSubAccount: (id: string) => void;
   /** Route sync for /app/org/:publicId. */
   activateOrganizationByPublicId: (publicId: string) => "active" | "unknown" | "loading";
+  resolveOrganizationByPublicId: (publicId: string) => "active" | "unknown" | "loading";
   /** True while the organizations list is still loading (live mode). */
   organizationsLoading: boolean;
   togglePinSubAccount: (id: string) => void;
@@ -335,16 +336,25 @@ export const AgencyProvider = ({ children }: { children: ReactNode }) => {
   };
 
   /** Route → context: /app/org/:publicId selects that organization if this user can see it. */
-  const activateOrganizationByPublicId = useCallback(
+  /** Pure: what a route's public id resolves to. Safe to call during render. */
+  const resolveOrganizationByPublicId = useCallback(
     (publicId: string): "active" | "unknown" | "loading" => {
       if (live && orgQuery.isLoading) return "loading";
-      const org = organizations.find((o) => o.publicId === publicId);
-      if (!org) return "unknown";
+      return organizations.some((o) => o.publicId === publicId) ? "active" : "unknown";
+    },
+    [live, orgQuery.isLoading, organizations],
+  );
+  /** Side effect: make that organization the active one. Call from an effect, never during render. */
+  const activateOrganizationByPublicId = useCallback(
+    (publicId: string): "active" | "unknown" | "loading" => {
+      const state = resolveOrganizationByPublicId(publicId);
+      if (state !== "active") return state;
+      const org = organizations.find((o) => o.publicId === publicId)!;
       if (activeSubAccountId !== org.id) setActiveSubAccountId(org.id);
       if (viewMode !== "subaccount") setViewMode("subaccount");
       return "active";
     },
-    [live, orgQuery.isLoading, organizations, activeSubAccountId, viewMode, setActiveSubAccountId],
+    [resolveOrganizationByPublicId, organizations, activeSubAccountId, viewMode, setActiveSubAccountId],
   );
 
   const togglePinSubAccount = (id: string) => {
@@ -502,6 +512,7 @@ export const AgencyProvider = ({ children }: { children: ReactNode }) => {
         switchToAgencyView,
         switchToSubAccount,
         activateOrganizationByPublicId,
+        resolveOrganizationByPublicId,
         organizationsLoading: live && orgQuery.isLoading,
         togglePinSubAccount,
         updateSubAccountBranding,
@@ -534,6 +545,7 @@ const safeAgency: AgencyContextType = {
   switchToAgencyView: () => {},
   switchToSubAccount: () => {},
   activateOrganizationByPublicId: () => "unknown",
+  resolveOrganizationByPublicId: () => "unknown",
   organizationsLoading: false,
   togglePinSubAccount: () => {},
   updateSubAccountBranding: () => {},

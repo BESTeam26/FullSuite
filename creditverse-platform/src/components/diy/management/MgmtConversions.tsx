@@ -6,6 +6,7 @@ import {
   X,
   Clock,
 } from "lucide-react";
+import { formatDate } from "@/lib/format-date";
 import { useDiyManagement } from "@/lib/diy/diy-management-context";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -69,7 +70,7 @@ export const MgmtConversions = () => {
                     </p>
                   )}
                   <p className="mt-2 flex items-center gap-1 text-[11px] text-muted-foreground">
-                    <Clock className="h-3 w-3" /> {c.createdDate}
+                    <Clock className="h-3 w-3" /> {formatDate(c.createdDate)}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">

@@ -2674,3 +2674,526 @@ Metro 2 in CreditOps becomes context inside a fact → duty → responsible part
 imported reports are consumer-facing displays, so findings can never claim a
 raw Metro 2 field value. Legal citations in both addenda are Dee's research,
 carried for counsel to confirm, not verified by this codebase.
+
+---
+
+## FundingOps domain, first-class (migration 0058) · deal detail tabs · Addendum B built (2026-09-05)
+
+**Applied.** `20260904003800_funding_domain.sql` (ledger 63/63) creates the
+domain half of a funding file exactly as Addendum B of
+`ARCHITECTURE_PROPOSAL_FUNDING_DOMAIN.md` describes: `lenders` (with registry
+identifiers) → `lender_programs` → `lender_policy_versions` (criteria, source,
+effective dates, last verified); `funding_parties`; versioned
+`funding_applications`; effective-dated `requirement_rules`;
+`document_requests` (what must exist) separate from `document_instances` (what
+was uploaded — immutable, hashed, superseded by a new row); `document_flags`
+(26-code enum with evidence, never free text); `lender_decisions` (their own
+object, append-only); `verification_results`; `consumer_report_requests` (the
+permissible-purpose gate); `commissions`; `lender_file_shares`; `lender_id` /
+`program_id` on deals, `portal_user_id` on clients, referral link on files.
+Two SECURITY INVOKER functions carry the transitions with their activity
+event: `record_document_disposition` (accepting an upload is the only thing
+that satisfies a request; a disposition never returns to pending) and
+`record_lender_decision` (decision → deal status by a fixed mapping; a lender
+user may record on their own lender's deal, source `lender_portal`). GHL
+broker tables and `funding_leads` are deferred to the Edge Function step.
+
+**Verified live** (rolled-back replays as `bes.owner`): request opened →
+instance uploaded → accepted ⇒ request `satisfied`, instance `accepted`, one
+`Document disposition` event on the funding client with visibility
+`shared_with_partner`. Anonymous role: no execute on the new functions, no
+select on `document_instances`; 19 new policies present. A scope fact
+surfaced while probing: only the agency owner fixture is in scope for the
+Lakeside funding file (the other BES fixtures see zero rows of it), so the
+phase-22 probes run BES writes as `bes.owner`.
+
+**Types** are now generated from the live schema (`supabase gen types`), a
+drop-in for the hand-edited file: typecheck 0, tests green, lint clean.
+
+**Engines** (`src/lib/funding/`, pure, unit-tested): readiness (document
+vocabulary now `bank_statement · government_id · voided_check`), matching
+(`potential_match | not_matched | policy_verification_required`, 90-day policy
+review window, a failed criterion always decisive), `lender-catalogue.ts`
+(the policy version in force on the matching day, not the newest row),
+`document-vocabulary.ts` (labels, client-safe flag meanings, period shape).
+
+**Deal detail** (`components/dashboard/fulfillment/funding-domain/`), rendered
+per funding file inside the FundingOps work file under Department Progress:
+Overview (application version, request counts, readiness factors with the
+sentence "not a lender decision and not an approval") · Application (save =
+new version, nothing overwritten) · Documents (request a document with an
+optional period; upload against a request; dispositions through the function;
+waive with a reason; flags with their client-safe meaning for reviewers;
+duplicate-hash uploads get a DUPLICATE_DOCUMENT flag with evidence, still kept
+for the reviewer) · Lenders & Offers (potential matches with policy version
+and verified date, submit = a deal in Submitted, record a lender decision).
+History is the activity timeline beside it. Data access:
+`lib/data/funding-domain.ts` (one parallel batch per file, one nested select
+for the catalogue) and `use-funding-domain.ts`.
+
+**Browser-verified** on Lakeside → FundingOps → Client List → Juno Logistics:
+Overview rendered with "Needs work"; Application saved as v1 and the readiness
+factors recomputed from it (four pass, documents missing); a June 2026 bank
+statement request added (Open · Upload · Waive); a PDF uploaded through the
+request → storage object, `files` row, instance "Pending review"; Lenders tab
+reports honestly that no program with a policy in force is in the catalogue
+and lists the existing Summit Lending deal. Dispositions and decisions are
+verified at the database (replay + matrix), not through the Select control in
+the background tab.
+
+**Fixed in passing:** `OrganizationDashboard` activated the organization
+during render (a state update on `AgencyProvider` mid-render; React warned on
+every organization switch). Resolution is now pure during render
+(`resolveOrganizationByPublicId`) and activation runs in an effect.
+
+**Requirement resolver** (`requirement-resolver.ts`, pure, 6 tests): rules in
+force on the day, matching the application's product family/subtype, platform
+or the named lender/program, whose `condition` holds (amount band, states,
+entity types, owner ownership %, scenario flags) become requests — one per
+party for party-scoped kinds, one per complete lookback month for periodic
+documents; "required" wins over "conditional" for the same need;
+`missingRequests` subtracts what the file already asks for. The Documents
+tab reads all active rules in the file's batch and offers "Open required
+documents" (one insert) when the rules require something not yet requested;
+it says plainly when no rule targets the product yet. No rule rows exist
+until BES/organizations author them — the interface never invents a checklist.
+
+**Not built yet (in order):** rule authoring screen (rows are inserted by
+SQL today); deterministic document checks beyond duplicate hashing; cross-document comparisons;
+verification adapters (interfaces only in the proposal); client portal
+uploads; GHL broker (Edge Function); marketplace adapters. Seed rows for
+lenders/programs/policies wait on Dee naming the real programs (Addendum B8).
+
+**Matrix phase 22, first run: 6 misses, 1 defect.** Five probes assumed an
+empty fixture file; the interface verification above had persisted an
+application version and a June 2026 request on it, so inserts hit the unique
+constraints (23505). Probes now take the next application version, request a
+period nobody would (2031-01) and count only rows they wrote. The sixth was
+real: `lender_users` had a select policy only, so no one could link a user to
+a lender (42501). Migration `20260904003810_lender_users_write.sql` adds
+insert/delete for whoever may edit the lender; replayed live as `bes.owner`
+(link created; the lender user still sees nothing before a share). The second
+full run found the next link in the same chain: a lender user with a share
+could not read the `funding_files` row, so a deal insert selected nothing and
+the decision function saw no deal. `20260904003820_lender_reads_shared_file.
+sql` lets a lender read the shared FILE (purpose, amount, stage — never the
+funding client), adds `funding_file_tenancy()` (definer) and makes
+`record_lender_decision()` SECURITY DEFINER with its authorization spelled
+out, because a lender cannot see the client record the activity event is
+written against and a decision without its audit row is worse than none.
+Replayed live as the shared lender user: sees the file (1) and no clients
+(0), deal → Offer Received, source `lender_portal`, activity event under the
+organization with the lender as actor. Ledger 65/65.
+
+Verified: typecheck, 300 tests, 0 lint errors, migrations 65/65,
+verify-live, browser. RLS matrix 337/337 (phase ≤ 22) at the time; the full run after 0063 is recorded below.
+
+---
+
+## Credit Reporting Integrity engine · findings panel · report-hook loop fix (2026-09-05)
+
+**Built** (Letter Library proposal, Credit-Reporting-Integrity addendum, steps
+1 and 4): `lib/dispute/reporting-integrity-rules.ts` — the rule catalogue as
+data (id, version, effective date, the one-sentence test, classification,
+verdict, route, remedy, authorities with their level: statute > regulation >
+appellate > agency guidance > industry format; citations carried from Dee's
+research for counsel, none added from memory) and `ROUTE_GUIDANCE` (which
+party, which citations a letter may use, and the caution — § 1681e(b) never
+to a furnisher; § 1681s-2(b) only after CRA notice; Reg V § 1022.43's
+credit-repair-organization exception; FDCPA only for a collector; identity
+theft only on the consumer's own attestation).
+`lib/dispute/reporting-integrity-engine.ts` — deterministic, 12 tests:
+tolerant readers for display dates and money (never invents a value);
+item rules (DOFD before open date on a non-collection tradeline → potential
+legal issue for review; DOFD on a clean current $0 account → review first;
+paid with a balance → potential inaccuracy; charge-off with a balance and
+current-with-late-history → *possible*, no action; fewer than three bureaus →
+discrepancy only) and chronology across every stored import keyed by
+`account_ref` (DOFD moved later with no new delinquency → potential legal
+issue; present → absent → present → potential reinsertion event). The
+strongest classification the engine can emit is "potential legal issue";
+"established violation" is not a value it has. Every finding carries the rule
+id and version, the catalogue version and `rawMetro2Verified: false`.
+`ReportIntegrityPanel` sits under the import section of the client profile:
+three labels only (Data discrepancy · Potential inaccuracy · Potential legal
+issue), discrepancies folded away by default, the M1 sentence at the foot.
+`fetchReportItemsForReports` reads every snapshot's items in one query.
+Nothing is persisted yet (`report_findings` arrives with the Letter Library
+migration); the same inputs always give the same findings.
+
+**Letter merge** (`lib/dispute/letter-merge.ts`, pure, 5 tests): fills
+`{{placeholders}}` from facts the platform holds or names exactly what is
+missing (never an empty string); `approvalReadiness` mirrors the database
+approval gate in the drafted Letter Library migration — prohibited phrases,
+§ 1681e(b) never to a furnisher, § 1022.43 never for a CRO-prepared direct
+dispute, FDCPA only to a collector — so the interface explains a refusal
+before the database repeats it. The SQL gate is the one that decides.
+
+**Fixed in passing (real defect since 0048):** `useClientReports` /
+`useReportItems` returned a fresh `[]` every render when a client had no
+report; the client workspace provider's effect keyed on it re-set state
+forever ("Maximum update depth exceeded", hundreds of times, on any client
+without an import). The hooks now return stable empty references. Verified in
+the browser: zero depth warnings on Evan Ellis after the fix; the panel
+renders its empty state ("Import a credit report to run the checks").
+Browser checks stopped there because the preview tab shares Dee's live
+session and Dee was navigating from the phone.
+
+Verified: typecheck, 317 tests, 0 lint errors, build. No database change.
+
+**Realigned to Dee's FundingOS design (Addendum C, same day).** Dee supplied
+the complete FundingOS logic (17-stage pipeline in five phases; three state
+axes — primary stage, secondary status, waiting on; Program Fit vocabulary;
+readiness statuses; Lender Network Intelligence with source tiers, rule
+strength and a policy-update feed; offers, closing, funded deals, renewals;
+action-queue dashboard; bounded AI layer). The reconciliation is Addendum C
+of `ARCHITECTURE_PROPOSAL_FUNDING_DOMAIN.md`. Applied today, no database
+change: readiness speaks *Ready for Placement · Potential Fit · Conditional /
+Needs Improvement · Not Currently Funding Ready · Insufficient Information*;
+matching speaks Program Fit — per criterion *Meets · Does Not Meet · Needs
+Review · Missing Information · Not Applicable*, overall *Apparent Fit ·
+Conditional Fit · Needs Review · Insufficient Information · Current Criteria
+Mismatch · Policy Unavailable* — and honours rule strength from the policy
+(`criteria.strength`: a Preferred criterion below guidance is Needs Review,
+never Does Not Meet; Informational never affects fit; Manual Review makes the
+fit Needs Review). Results are shown in operational order with no ranking
+label. **Dee's decision:** FundingOps proper is the engine (Funding Files,
+Program Fit, lenders, the roles around them), the Workspace is the
+operational add-on. New in-frame surface: **Funding Files** (`/app/
+funding-files`, `/app/funding-files/:fileId`) under the FundingOps nav, apart
+from the Workspace exactly as Clients is apart from the CreditOps Workspace;
+the engine panel left the work file (kept inline only for outsourcing-only
+clients, who have no organization surface). Browser-verified in the active
+organization: list scoped by RLS, file page renders the tabs, no console
+errors. Schema changes for the 17 stages, secondary status, waiting-on,
+criteria rows, policy lifecycle, contacts/relationships, policy updates,
+submissions snapshots, offers, closing, funded deals and renewals are
+proposed in C2 and wait on the three decisions in C3.
+
+**Engine surfaces, continued (2026-09-05, Dee: departments stay; streamlined,
+no redundant views).** `Funding Files` now has two views of the same records:
+List and **Pipeline** — the 17 stages grouped by the five phases (Intake ·
+Preparation · Submission · Decision · Closing), each phase expandable to its
+stages with the files on them, and an off-pipeline section for dispositions
+(Lender Declined, Withdrawn — the only two stored today). The spine is data in
+`lib/funding/pipeline-stages.ts` (3 tests) with a deterministic map from the
+nine stored stage values until the schema carries the 17 stages, secondary
+status and waiting-on; moving a file between stages arrives with that schema
+and its function. **Lenders** (`/app/lenders`) is the first slice of Lender
+Network Intelligence: directory with data-confidence panel (identity,
+programs, criteria last verified, relationship and outcome evidence stated
+honestly as not yet recorded), programs, policy versions with source and
+verification, "Record policy version" (criteria + per-criterion strength +
+source + effective date + verified-today) and "Verified with the lender
+today"; organization catalogue entries resolve their agency from the
+organization record, never from the browser. Layout of every FundingOS
+surface in BES is Addendum C5.
+
+**Lender Scorecard and Workspace view order (2026-09-05).** The Lenders page
+gains a Scorecard tab — descriptive historical outcomes per lender computed
+deterministically from recorded submissions and lender decisions
+(`lib/funding/lender-scorecard.ts`, 3 tests): submissions (a deal that left
+Draft), offers (a deal with an approved/conditional decision or in Offer
+Received/Funded), funded, declined, offer rate and funding rate each shown as
+"n/N" and never out of nothing, median calendar days from submission to the
+first decision with its own sample, funded volume (the submission amount until
+the funded-deal record carries gross and net). Rows with fewer than 5
+submissions say "Limited sample", fewer than 15 "Small sample"; the sort is a
+display order with name as the stable tie-break; the page carries the
+design's cautions verbatim (descriptive only, not predictive, the lender
+decides). One query feeds it. **Workspace view order:** SOPs & Logins is
+reference material and now always comes last in both Workspace view
+catalogues (Dee's instruction); the SQL view-id catalogue is a set for
+validation and needs no change.
+
+---
+
+## Team Members settings, GHL-style, on today's authorization model (2026-09-05)
+
+Dee's ask: Roles & Permissions like GHL's "My Staff" — a place to add team
+members, each with User Info and Roles & Permissions (role dropdown, "Restrict
+data visibility to only assigned data", a per-module permission tree, Copy
+Permission), and BES HQ able to see and manage every organization's team for
+control and support. **Built now, no schema change:** Settings › **Team
+Members** (organization view, first item) — roster from `org_memberships` +
+`profiles` (name, email, role, data visibility, primary product, since),
+search, member page with User Info, role dropdown over the 15 organization
+roles, the assigned-only switch (this IS `org_memberships.assigned_only`,
+already enforced by `org_scope_allows`; admins/managers always see the whole
+organization), and a read-only tree of what the role may do in each entitled
+product from Roles & access (0047 rows or platform defaults); remove from
+organization; pending invitations (recorded against seats) with "Record
+invitation" (the `invitations` table existed unused; delivery and acceptance
+do not exist yet and the interface says so). The membership policies judge
+every write (owner/admin or agency manager, never one's own row) and the data
+layer refuses silently-ignored updates. **BES HQ:** Settings › People & Access
+› **Organization Teams** renders the same section for any organization.
+Verified live: the Lakeside roster renders with its four fixture members and
+correct visibility labels. **Proposed, not built:**
+`ARCHITECTURE_PROPOSAL_TEAM_PERMISSIONS.md` — permission keys as data, role
+defaults, per-member overrides, `member_can()` evaluated once and used by the
+security-relevant policies, Copy Permission, `invite_team_member()` /
+`accept_invitation()` and a `send-invitation` Edge Function. Decisions for
+Dee are in its §5. The customer-language test caught a "sub-account" in a
+comment and it was reworded — that test earns its keep.
+
+---
+
+## Letter Library (0059) · pipeline axes (0060) · offers, closing, funded deals, renewals (0061) · CN-/FND-/LDR- ids (0062) — applied 2026-09-05
+
+Dee: "Proceed with the full build." Four migrations applied in one push
+(ledger 69/69), verified live and covered by matrix phases 23–24.
+
+- **0059 Letter Library**: `letter_templates` (6 BES defaults seeded from the
+  Credit Reporting Integrity addendum: factual CRA dispute, internally
+  inconsistent reporting, DOFD, description-of-procedure request scoped to
+  § 1681i(a)(7), post-reinvestigation escalation, secondary-bureau security
+  freeze), `dispute_rounds` (opened only through `open_dispute_round()` — reset
+  the cycle or keep the counter, the client's round label follows),
+  `dispute_letters`, `dispute_attestations` (the truth gate, insert-only),
+  `dispute_timers`, `report_findings` (persisted only when a person acts; can
+  never claim raw Metro 2). `approve_dispute_letter()` is the QA gate in the
+  database; `mark_letter_mailed()` starts the statutory timers as data.
+- **0060 Pipeline axes**: `funding_files.stage` is the 17-step spine; new
+  `secondary_status` (13 dispositions) and `waiting_on` (7 owners); the old
+  nine-value stage mapped, not guessed (live: Lender Selection 1, Offer
+  Received 1, Additional Requirements 1; all Active Funding). Only
+  `move_funding_file()` moves an axis, one audit row per axis, and it refuses
+  Funded.
+- **0061 Records**: `offers` (raw lender terms with their pricing type; a
+  factor rate is never an APR), `closings`, immutable `funded_deals` (requested
+  · accepted · gross · net kept apart), `renewal_opportunities`, submission
+  snapshot (`policy_version_id`, `fit_snapshot`) and verbatim + normalised
+  decline reasons on decisions, `lender_contacts`, partner status,
+  `policy_updates` with acknowledgement. `set_offer_status()` is a state
+  machine (accepting moves the file to Offer Accepted and funds nothing);
+  `start_closing()` only on an accepted offer; `advance_closing()` cannot set
+  funded; **`confirm_funding()` is the only writer of a funded deal**, from
+  Funding Pending, with gross/net/date, and opens renewal monitoring;
+  `create_renewal_file()` makes a NEW file with lineage.
+- **0062 Public ids**: CN- on clients in both products (a funding client
+  linked to a CreditOps client adopts its CN-), FND- on funding files, LDR- on
+  lenders; generated by the database, unique, immutable, display-only. Live:
+  8 CN- credit clients, 3 CN- funding clients, 3 FND- files. The interface's
+  deal reference is now the file's FND- (the "FD-DDDDDDDD-…" label Dee saw was
+  a made-up label from the deal uuid; it survives only for seed deals).
+- **Interface**: Funding Files list, Pipeline cards and the file page show
+  the borrower first, then the business, with the FND- id; stage vocabulary,
+  queue views and dashboard breakdown read the spine through
+  `DEPARTMENT_STAGES` (every stage belongs to exactly one department queue,
+  tested). Types regenerated from the live schema. Letter data layer and hooks
+  in place (`lib/data/letters.ts`, `use-letters.ts`); the builder screens come
+  next.
+
+**Letter Builder, live (2026-09-05).** The client profile's Letter Builder tab
+runs on real rounds and templates for a live client (the sample builder stays
+for the sample walkthrough): choose the letter kind and a Library template
+(BES default or the organization's own), the recipient (bureau, furnisher,
+collector, secondary registry), and the report item disputed; facts the
+platform holds fill their placeholders (consumer, furnisher, masked account,
+reported status, DOFD) and every remaining placeholder is asked for by name —
+never guessed — with a live preview. If a round is open the build asks
+**keep round N (additional letters)** or **reset the cycle**; the first build
+opens Round 1. Each letter then walks the gate: **consumer attestation** (in
+the consumer's words; identity-theft certification required when the account
+is not theirs) → **approval** (the interface lists the database's reasons
+before the button is enabled; the database decides) → **mark mailed**, which
+starts the statutory clocks shown as data. Settings › **Letter Library** lists
+BES defaults and the organization's templates, adds new ones (prohibited
+phrases refused on entry), deactivates instead of deleting. Data access in
+`lib/data/letters.ts`; hooks in `use-letters.ts`.
+
+**Funding File page: three axes and the full decision → funding → renewal
+path (2026-09-05).** The file header shows stage · secondary status · waiting
+on from the live row; a **Move** control changes any axis through
+`move_funding_file()` (Funded is not offered — only confirming funding sets
+it). New tabs beside Overview · Application · Documents · Matches &
+Submissions: **Offers** (record the lender's raw terms with their pricing type;
+the platform's calculated total payback, financing cost and net proceeds
+labelled as calculated, with the reason when something cannot be computed; a
+factor rate is never an APR; state buttons follow the machine, and Client
+accepted moves the file to Offer Accepted without funding anything),
+**Closing** (Start closing from an accepted offer; requirements → signatures →
+Funding Pending; **Confirm funding** with gross, net, date and reference, the
+accepted-versus-actual difference shown before and after; immutable funded
+deals with the four amounts apart), **Renewal** (monitoring from the funding
+date, status and follow-up dates, "Create new funding file" when the client is
+interested — a new file with lineage, never a reuse of the prior fit).
+`lib/funding/offer-math.ts` (2 tests) holds the arithmetic.
+
+**FundingOps Dashboard (2026-09-05).** `/app/funding-dashboard`, first item of
+the FundingOps group: the design's fourteen action queues as deterministic
+predicates over the live rows (`lib/funding/action-queues.ts`, 4 tests) —
+needs client action, documents missing (open requests), ready for file review,
+ready for submission, lender requirements outstanding, offer requires review
+(offers received / in internal review), no movement > 48 hours, overdue
+tasks, closing stipulations outstanding, awaiting client signature, funding
+confirmation pending, renewal review due, renewal follow-up due, client
+interested / new file needed — each card listing the files it holds with a
+link; plus active/needs-action/waiting-on stat tiles, files by phase,
+waiting-on distribution and team workload (files and files needing action per
+assignee). Signals come from five bounded, RLS-scoped queries in parallel
+(`fetchFundingQueueSignals`), never per file. Counts, never forecasts.
+
+**Deals: the cross-file record pages (2026-09-05).** `/app/funding-deals`
+("Deals" in the FundingOps group, after Lenders) — Submissions · Offers ·
+Funded · Commissions · Renewals as one surface with one search, instead of
+five sidebar items (Dee: "avoid too redundant view"). Each tab is one bounded,
+RLS-scoped query over its canonical table (`lib/data/funding-records.ts`),
+fetched only while the tab is open; the Workspace's queue views read the same
+rows and add "who does what next". Every row leads with the borrower, then
+the business and the FND- id. **Submissions** show the policy version the
+submission was judged against and the Program Fit *at that moment* — closing
+a gap found on the way: migration 0061 added `policy_version_id` and
+`fit_snapshot` to submissions but the writer never filled them; `submitToLender`
+now stores both (`buildFitSnapshot`, tested), so a later decline reads against
+the policy in force then, not today's. **Offers** put the lender's stated
+terms beside the calculated figures (or the reason none can be computed).
+**Funded** keeps requested / accepted / gross / net apart and flags a gross
+that differs from the accepted offer and the amount withheld. **Commissions**
+per deal and party with basis, computed amount and state. **Renewals** with
+the follow-up dates and a link to the new file when one exists. Renewal status
+labels moved to `document-vocabulary.ts` (one copy). `lib/format-money.ts`
+formats exact amounts; the compact "$45K" stays for grids.
+Sweep on the way: every remaining `toLocaleDateString` / `toLocaleString` on a
+date in `src/components` and `src/pages` now goes through `formatDate` /
+`formatDateTime` (22 files) — Dee's rule that user-facing screens show a
+simple date, with ISO timestamps kept for audit logs.
+
+**0063 — grant hygiene and organization-operated submissions (2026-09-05).**
+The first full matrix through phase 24 came back 352/358. Six misses, two
+causes, both real: (1) `funding_deals` insert/update still admitted only BES
+staff (0044) while stage moves, offers, closings and funding already let the
+organization operate its own file — so the phase-24 probes, run as the
+Lakeside owner, were refused at the submission step, and inside
+`set_offer_status()`/`confirm_funding()` the deal-status writes matched 0 rows
+silently for organization users; (2) "an attestation is never edited" did not
+error because Supabase's default privileges grant `authenticated` UPDATE and
+DELETE on every new table and the migrations only revoked from `public`/`anon`
+— RLS kept the grants inert, but append-only must mean no grant. Inspection
+of the same catalogue found a third: `open_dispute_round()` (invoker rights)
+closes the previous round on reset with no update policy on `dispute_rounds`,
+so resets never closed the prior round. Migration
+`20260904004300_grant_hygiene_and_organization_submissions.sql` adds the
+rounds update policy, moves submissions to `file_reviewer()`, revokes every
+UPDATE/DELETE grant with no policy (60 across 47 tables, by catalogue query),
+revokes TRUNCATE/REFERENCES/TRIGGER/MAINTAIN, and changes the `postgres`
+default privileges so new tables start at SELECT+INSERT. Verified live: zero
+orphan grants; new tables default `authenticated=ar`; ledger 70/70. Two probes
+added. Full matrix reruns after 0063 are recorded below.
+
+**CreditOps Dispute Dashboard (2026-09-05).** Dee: "I also needs Dispute
+Dashboard for CreditOps." `/app/dispute-dashboard`, first item of the
+CreditOps group — the same shape as the FundingOps dashboard: twelve action
+queues as deterministic predicates over live rows (`lib/dispute/dispute-
+queues.ts`, 5 tests) — drafts awaiting attestation, ready for QA approval,
+approved not mailed, reinvestigation due within 7 days, response overdue,
+responses to review, findings needing human review, round complete, no credit
+report on file, no movement > 14 days, Awaiting Response with no clock, and
+the reinsertion watch (informational, kept out of "needs action") — each card
+listing the clients it holds with a link; stat tiles (active clients, needs
+action, letters awaiting response, reinvestigation clocks running), active
+clients by round, open letters by status, team workload. Signals come from six
+bounded, RLS-scoped queries in parallel (`fetchDisputeSignals`), never per
+client. The clocks are the statutory timers `mark_letter_mailed()` recorded;
+the dashboard reads them and invents none. Browser-verified on live data.
+
+**Lenders: relationship and the policy-update feed (2026-09-05).** The two
+Lender Network Intelligence pieces whose tables arrived in 0061 now have their
+surface. **Relationship** (on the selected lender): partner status (none ·
+prospect · active · preferred · paused), last contact with "We spoke today",
+named contacts with role, email, phone, notes and a person's verification
+stamp ("Mark verified" — only the stamp changes). Facts an operator recorded;
+no score. **Policy updates** (top of the Lenders page): recording policy
+version v2+ asks what changed (tightened · relaxed · paused · resumed ·
+clarified) and a summary; the feed row carries the files that had an open
+submission on that program at that moment — computed from `funding_deals`
+rows, never inferred — each linked; Acknowledge records that a person saw it
+and moves nothing. Data access in `lib/data/lender-relationship.ts`
+(policies `lender_visible`/`lender_editable` decide); hooks in
+`use-lender-relationship.ts`. Rendered live; the Lakeside catalogue holds no
+lender yet, so the panel and feed were verified by typecheck and empty-state
+render only.
+
+Matrix probe tightened on the way: "restricted blind DELETE" now requires a
+refusal (no delete grant since 0063) instead of accepting a silent 0 rows.
+
+**Pipeline board: drag a file to a stage (2026-09-05).** Cards on the Funding
+Files Pipeline view are draggable for users who may edit stage progress; a
+drop on another stage column calls `move_funding_file()` — the same function
+as the file page's Move control, so the audit row per axis and the refusal of
+Funded are the database's, not the board's. The Funded column is never a drop
+target (dimmed while dragging; only confirming funding sets it). Secondary
+status and waiting-on stay on the file page. Every list reading funding files
+refreshes after a move. Keyboard users move a file from its page.
+Found while verifying the board: `FundingOpsAccessProvider` was mounted only
+inside the Workspace pages, so every engine surface (Funding Files, the file
+page, Lenders, Deals, Dashboard) read the hook's deny fallback and rendered
+view-only — the "View only" badge on the file page was this, not the person's
+role. The provider now wraps those routes in `App.tsx`; RLS was never
+involved (the interface over-hid; the database decided correctly throughout).
+
+**Credit Reporting Integrity: findings on the record (2026-09-05).** The
+engine's output stays re-derivable; what is now persisted is that a person saw
+a finding and what they decided. On the client profile, **Save findings to the
+client record** writes the current review-class findings to `report_findings`
+(0059) against the latest stored report — rows that already exist for the same
+report, account and rule version are left exactly as they are, so a decision
+already given is never overwritten. Each saved finding then takes a
+**disposition** — confirmed (fact established with evidence), dismissed
+(explained, not an inaccuracy), needs evidence, escalated — with the
+reviewer's reason, who and when. Nothing here creates a dispute; a letter
+cites a finding only after the disposition and the consumer's attestation.
+The Dispute Dashboard's "Findings needing human review" queue reads these
+rows. `evaluateReports()` now stamps every finding with the report it was read
+against (tested). Data access in `lib/data/report-findings.ts`; controls
+follow the letter builder's pattern on this page (shown to a signed-in person;
+`credit_client_writable()` decides and a refusal is shown, never hidden).
+Verification note: no live client currently yields a review-class finding
+(Brian Blake's report gives one data discrepancy only), so the save and
+disposition path is verified by typecheck and unit tests; the panel's live
+render was checked in that empty state.
+Second full run after 0063: 357/360. The three misses were all probes, not
+policies: two append-only checks ("reports", "lender decisions") asserted a
+silent 0-row update and now receive the permission error 0063 intends — their
+expectations were tightened to require the refusal; the new "organization
+agent cannot record a submission" probe used an insert-select over a file the
+agent cannot see, which inserts nothing and proves nothing — it now inserts
+literal values so the row-level check actually fires. Third run, all probes corrected: 360/360 (phase ≤ 24).
+
+**Dashboards made visual (2026-09-05).** Dee: "fully VISUAL ENHANCED and
+modern … not pure text" and the FundingOS Operations Dashboard as the
+reference. Both module dashboards rebuilt to that shape with shared pieces in
+`components/dashboard/ops/` (KPI tile with icon badge, chart card, stage bar
+chart, donut with legend counts, horizontal bars, workload list with avatar
+initials, queue card with icon and count chip; recharts, theme tokens for
+every fill). **FundingOps Operations Dashboard:** Total Requested (active
+files), Total Approved (open or accepted lender offers, as stated), Active
+Files, Needs Action, Funded This Month (gross, from funded deals), Active
+Lenders (with an open submission), Team Members; Files by Pipeline Stage (all
+17), Waiting On donut, Team Workload, Lender Distribution (open submissions
+per lender — load, never a ranking), Action Needed cards. **Dispute
+Dashboard:** Active Clients, Needs Action, Letters Mailed This Month, Awaiting
+Response, Clocks Due in 7 Days, Findings to Review, Rounds in Progress; Active
+Clients by Round, Open Letters by Status donut, Team Workload, Open Letters by
+Recipient (bureau), Action Needed cards. Metrics are pure functions
+(`lib/funding/dashboard-metrics.ts`, 4 tests); the signals queries gained
+amounts, offers, funded deals, submissions and the assignee's name (a profiles
+join on the row — the members lookup serves organization admins only, which
+had left "Team member" on the workload). Browser-verified on Cedar Financial.
+The Lender Scorecard tab gained a stacked "Submissions by outcome" chart
+(funded · offer not funded · declined · pending, per lender) above its table —
+the same observed counts, drawn; still a description, never a recommendation.
+
+**Visibility taxonomy is BES-only (2026-09-05).** Dee: internal labels such
+as "Shared (BES + organization)" and "BES Internal" must never appear to
+organization users or clients. The activity badge and the composer's picker
+now read the viewer: BES staff keep the internal taxonomy; an organization
+user sees a badge only when an entry is visible to their client, and a picker
+worded for them ("Your team only" · "Your team + BES" · "Visible to your
+client") only when they actually have a choice. Labels live in
+`lib/data/activity.ts` beside the internal ones (tested: no organization-facing
+label mentions BES-internal wording). BES CRM project updates already hid the
+taxonomy from customers. Presentation only — who may post which level is still
+`allowedVisibilities()` plus the insert policy. Not browser-verified as an
+organization user (this session is BES staff).

@@ -13,6 +13,7 @@ import {
   BarChart3,
   Home,
 } from "lucide-react";
+import { formatDate } from "@/lib/format-date";
 import {
   PortalShell,
   type PortalNavItem,
@@ -142,7 +143,7 @@ const AffiliatePortal = () => {
                 <div>
                   <p className="text-sm font-medium">{r.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    BES DIY Credit · since {r.attribution.firstReferralDate}
+                    BES DIY Credit · since {formatDate(r.attribution.firstReferralDate)}
                   </p>
                 </div>
                 <div className="flex items-center gap-3">

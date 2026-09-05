@@ -12,6 +12,7 @@ import {
   DEFAULT_VISIBILITY,
   mayPostAs,
   VISIBILITY_LABEL,
+  ORG_FACING_VISIBILITY_LABEL,
   type ActivityVisibility,
 } from "@/lib/data/activity";
 
@@ -126,6 +127,8 @@ describe("labels", () => {
   it("names every level, so no picker option renders blank", () => {
     for (const level of ALL) {
       expect(VISIBILITY_LABEL[level]).toBeTruthy();
+      expect(ORG_FACING_VISIBILITY_LABEL[level]).toBeTruthy();
+      expect(ORG_FACING_VISIBILITY_LABEL[level]).not.toMatch(/BES Internal|Shared \(BES/);
     }
   });
 });

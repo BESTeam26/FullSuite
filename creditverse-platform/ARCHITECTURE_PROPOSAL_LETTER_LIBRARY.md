@@ -256,6 +256,14 @@ Credits (see `ARCHITECTURE_PROPOSAL_AI_CREDITS.md`). The model never selects
 the legal route or the remedy — the rules module does, before the model runs.
 
 ## M10. Order (revises "Order" above)
+
+**Status 2026-09-05:** step 1's rules module and finding engine are built and
+tested (`reporting-integrity-rules.ts`, `reporting-integrity-engine.ts`) and
+step 4's findings panel is live in the client profile; `report_findings`
+persistence, the Letter Library migration, the truth/QA gates in
+`build_round_letters` and Hybrid remain open. The existing
+`metro2-taxonomy` / `metro2-guardrails` (truth gate, permissible purpose,
+FCBA eligibility) stay as they are and are reused by the letter milestone.
 1. Rules module + finding engine + tests (fixtures from the high-priority and
    not-contradiction lists above); `report_findings` migration.
 2. Letter Library migration (§1–2) + attestation/timer/origin columns + QA gate

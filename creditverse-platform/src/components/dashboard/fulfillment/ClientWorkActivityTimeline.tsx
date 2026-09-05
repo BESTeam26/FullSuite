@@ -11,6 +11,7 @@ import { useTimeline } from "@/lib/data/use-timeline";
 import { useActivityAttachments } from "@/lib/data/use-activity-attachments";
 import { useAuth } from "@/lib/auth/auth-context";
 import { linkAttachments } from "@/lib/data/activity-attachments";
+import type { VisibilityAudience } from "@/lib/auth/use-visibility-audience";
 
 const ACTOR = "Agent (BES HQ)";
 const ENTITY = "fulfillment_client";
@@ -18,6 +19,7 @@ const ENTITY = "fulfillment_client";
 export function ClientWorkActivityTimeline({ clientId }: { clientId: string }) {
   const store = useCreditOpsStore();
   const auth = useAuth();
+  const audience: VisibilityAudience = auth.isAgencyStaff ? "bes" : "organization";
   /* Which audiences this user may post to — resolved centrally, not here. */
   const client = store.clients.find((c) => c.id === clientId);
   const { allowed, fallback } = useActivityVisibility(
@@ -47,6 +49,7 @@ export function ClientWorkActivityTimeline({ clientId }: { clientId: string }) {
       onSetMark={(id, mark) => store.setMark(id, mark)}
       composer={
         <ActivityComposer
+          audience={audience}
           entityType={ENTITY}
           entityId={clientId}
           organizationId={client?.organizationId}

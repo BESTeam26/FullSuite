@@ -10,6 +10,7 @@
  * as My Time: that file already carried six unrelated pages (rule 13).
  */
 import { useEffect, useState } from "react";
+import { formatDate } from "@/lib/format-date";
 import { Timer, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { ContentCard } from "@/components/dashboard/DivisionLayout";
 import { DataSourceBadge } from "@/components/dashboard/DataSourceBadge";
@@ -134,7 +135,7 @@ export const EodPage = () => {
               {eod.totals.totalUnits} Total Units Completed
             </h3>
             <p className="text-xs text-muted-foreground">
-              Work date: {eod.workDate} • Employee: {displayName} • Logs:{" "}
+              Work date: {formatDate(eod.workDate)} • Employee: {displayName} • Logs:{" "}
               {eod.totals.activeLogs.length}
             </p>
           </div>

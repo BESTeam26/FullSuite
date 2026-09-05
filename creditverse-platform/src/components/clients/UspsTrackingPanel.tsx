@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { formatDateTime } from "@/lib/format-date";
 import {
   Truck,
   PackageCheck,
@@ -74,7 +75,7 @@ export const UspsTrackingPanel = () => {
         letterName: newLetter,
         bureau: "—",
         status: "pending",
-        lastUpdate: new Date().toLocaleString(),
+        lastUpdate: formatDateTime(new Date()),
         location: "Awaiting first scan",
       },
     ]);
@@ -94,7 +95,7 @@ export const UspsTrackingPanel = () => {
             ? {
                 ...t,
                 status: "in-transit",
-                lastUpdate: new Date().toLocaleString(),
+                lastUpdate: formatDateTime(new Date()),
                 location: "USPS Regional Facility — Sort Center",
               }
             : t,

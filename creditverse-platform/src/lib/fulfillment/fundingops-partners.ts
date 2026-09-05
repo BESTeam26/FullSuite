@@ -94,9 +94,10 @@ export const getFundingPartnerByScope = (
  * No "Clients" tab (the tree is the client nav) and no "Funding Files" tab
  * (the Agency works from Client → Deals).
  */
+/* Order is the order the Workspace shows. SOPs & Logins is reference material,
+   so it always comes last (Dee, 2026-09-05). */
 export const FUNDING_PARTNER_VIEWS = [
   { id: "dashboard", label: "Dashboard" },
-  { id: "sops-logins", label: "SOPs & Logins" },
   { id: "client-list", label: "Client List" },
   { id: "deal-list", label: "Deal List" },
   { id: "readiness", label: "Readiness" },
@@ -105,6 +106,7 @@ export const FUNDING_PARTNER_VIEWS = [
   { id: "stipulations", label: "Stipulations" },
   { id: "offers", label: "Offers" },
   { id: "funded", label: "Funded" },
+  { id: "sops-logins", label: "SOPs & Logins" },
 ] as const;
 
 export type FundingPartnerViewId = (typeof FUNDING_PARTNER_VIEWS)[number]["id"];

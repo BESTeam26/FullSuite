@@ -7,6 +7,7 @@
  * comment an activity_events row, every file a files row linked to a note.
  */
 import { useState } from "react";
+import { formatDate } from "@/lib/format-date";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -35,6 +36,7 @@ import {
 } from "@/lib/workspaces/workspace-domain";
 import { CheckCircle2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { VisibilityAudience } from "@/lib/auth/use-visibility-audience";
 
 const NONE = "__none__";
 const toDateInput = (iso: string | null) => (iso ? iso.slice(0, 10) : "");
@@ -101,6 +103,7 @@ export function WorkItemDrawer({
   onClose: () => void;
 }) {
   const auth = useAuth();
+  const audience: VisibilityAudience = auth.isAgencyStaff ? "bes" : "organization";
   const qc = useQueryClient();
   const { items } = useWorkspaceItems(workspace.id);
   const item = items.find((i) => i.id === itemId) ?? null;
@@ -138,7 +141,7 @@ export function WorkItemDrawer({
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span>{workspace.name}</span>
             {item.completedAt ? (
-              <span className="inline-flex items-center gap-1 text-status-success"><CheckCircle2 className="h-3.5 w-3.5" /> Completed {new Date(item.completedAt).toLocaleDateString()}</span>
+              <span className="inline-flex items-center gap-1 text-status-success"><CheckCircle2 className="h-3.5 w-3.5" /> Completed {formatDate(item.completedAt)}</span>
             ) : isOverdue(item) ? (
               <span className="inline-flex items-center gap-1 text-red-700"><AlertTriangle className="h-3.5 w-3.5" /> Overdue</span>
             ) : null}
@@ -230,6 +233,7 @@ export function WorkItemDrawer({
               composer={
                 readOnly || !auth.user ? undefined : (
                   <ActivityComposer
+                    audience={audience}
                     entityType="work_item"
                     entityId={item.id}
                     organizationId={workspace.organizationId}

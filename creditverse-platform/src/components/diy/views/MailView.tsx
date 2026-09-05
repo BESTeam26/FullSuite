@@ -1,4 +1,5 @@
 import { Plus } from "lucide-react";
+import { formatDate } from "@/lib/format-date";
 import { useDiy } from "@/lib/diy/diy-context";
 import { Button } from "@/components/ui/button";
 
@@ -29,11 +30,7 @@ export const MailView = () => {
               recipient: "TransUnion Dispute Department",
               items: ["Chase Bank"],
               tracking: `9405 5018 9956 ${Date.now().toString().slice(-4)}`,
-              sentDate: new Date().toLocaleDateString("en-US", {
-                month: "short",
-                day: "2-digit",
-                year: "numeric",
-              }),
+              sentDate: formatDate(new Date()),
               status: "Printed",
               method: "USPS Certified",
             })
@@ -70,7 +67,7 @@ export const MailView = () => {
               </div>
               <div className="rounded-lg bg-navy-deep/60 p-2.5">
                 <p className="text-muted-foreground">Sent</p>
-                <p className="mt-0.5 font-semibold text-foreground">{m.sentDate}</p>
+                <p className="mt-0.5 font-semibold text-foreground">{formatDate(m.sentDate)}</p>
               </div>
               <div className="rounded-lg bg-navy-deep/60 p-2.5">
                 <p className="text-muted-foreground">Tracking</p>

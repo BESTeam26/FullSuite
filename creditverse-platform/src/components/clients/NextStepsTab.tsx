@@ -14,6 +14,7 @@ import {
   Snowflake,
   Send,
 } from "lucide-react";
+import { formatDate } from "@/lib/format-date";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useClientWorkspace } from "@/lib/client-workspace-context";
@@ -253,7 +254,7 @@ const NextStepsTab = () => {
                 <div>
                   <p className="text-sm font-medium">{l.itemName}</p>
                   <p className="text-xs text-muted-foreground">
-                    {l.category} · Due {l.dueDate}
+                    {l.category} · Due {formatDate(l.dueDate)}
                   </p>
                 </div>
                 <Badge className="bg-emerald-500/10 text-status-success">

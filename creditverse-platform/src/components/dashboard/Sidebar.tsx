@@ -10,6 +10,7 @@ import {
   Bell,
   FileText,
   Landmark,
+  FolderOpen,
   Workflow,
   UserCheck,
   Users,
@@ -199,6 +200,7 @@ export const Sidebar = () => {
       label: "CreditOps",
       show: isProductOn("creditOps"),
       items: [
+        { label: "Dashboard", icon: LayoutGrid, href: "/app/dispute-dashboard" },
         { label: "Clients", icon: Users, href: "/app/clients" },
         { label: "Workspace", icon: FileText, href: "/app/operations" },
         { label: "Reports", icon: BarChart3, href: "/app/reporting" },
@@ -208,7 +210,13 @@ export const Sidebar = () => {
       label: "FundingOps",
       show: isProductOn("fundingOps"),
       items: [
-        { label: "Workspace", icon: Landmark, href: "/app/metro2" },
+        /* The engine (funding files, Program Fit, lenders) sits apart from the
+           operational Workspace, as Clients does for CreditOps. */
+        { label: "Dashboard", icon: LayoutGrid, href: "/app/funding-dashboard" },
+        { label: "Funding Files", icon: FolderOpen, href: "/app/funding-files" },
+        { label: "Lenders", icon: Landmark, href: "/app/lenders" },
+        { label: "Deals", icon: Briefcase, href: "/app/funding-deals" },
+        { label: "Workspace", icon: FileText, href: "/app/metro2" },
         { label: "Reports", icon: BarChart3, href: "/app/reporting" },
       ],
     },

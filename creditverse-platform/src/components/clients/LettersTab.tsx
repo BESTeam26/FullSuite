@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { formatDate } from "@/lib/format-date";
 import {
   FileText,
   Send,
@@ -31,8 +32,15 @@ import {
 } from "./dispute-flow/BuilderSelectorPanel";
 import { getItemLetterCategory } from "@/lib/dispute/letters-and-channels";
 import type { ClassifiedItem } from "@/lib/credit-classification";
+import { RoundLettersPanel } from "./letters/RoundLettersPanel";
 
-const LettersTab = () => {
+interface LettersTabProps {
+  /** Live client (uuid) → the round-letters builder on real templates and rounds; absent → the sample builder. */
+  liveClientId?: string | null;
+  liveClientName?: string | null;
+}
+
+const LettersTab = ({ liveClientId = null, liveClientName = null }: LettersTabProps = {}) => {
   const { items, round, setRound, setTab, addActiveLetter, roundCycleDays } =
     useClientWorkspace();
   const [editingItem, setEditingItem] = useState<ClassifiedItem | null>(null);
@@ -63,8 +71,8 @@ const LettersTab = () => {
       category: cat?.label ?? "Dispute",
       builderMode: selectedBuilder ?? "factual",
       bureaus: editingItem.bureaus,
-      generatedDate: new Date().toLocaleDateString(),
-      dueDate: dueDate.toLocaleDateString(),
+      generatedDate: formatDate(new Date()),
+      dueDate: formatDate(dueDate),
       status: "draft",
       body: editText,
       attachments: [],
@@ -73,6 +81,20 @@ const LettersTab = () => {
     setEditingItem(null);
     setTab("print");
   };
+
+  if (liveClientId) {
+    return (
+      <div className="space-y-6">
+        <div className="rounded-2xl border border-border bg-card p-6">
+          <h2 className="text-base font-bold text-foreground">Letter Builder</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Round letters on the Letter Library's templates, filled from this client's own report items and the consumer's attestation. Facts from the report, wording from the template, approval by a person, clocks from the mailing date.
+          </p>
+        </div>
+        <RoundLettersPanel clientId={liveClientId} clientName={liveClientName ?? "Consumer"} items={items} disputeOrigin="cro_prepared" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

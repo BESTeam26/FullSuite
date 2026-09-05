@@ -26,6 +26,7 @@ import type {
 } from "@/lib/fulfillment/attachment-domain";
 import type { OpsActivityEntry } from "@/lib/fulfillment/ops-activity-domain";
 import { ActivityCard } from "./timeline/ActivityCard";
+import { useVisibilityAudience } from "@/lib/auth/use-visibility-audience";
 import type { TimelineAttachment } from "@/lib/data/use-activity-attachments";
 
 interface OpsActivityTimelineProps {
@@ -57,6 +58,7 @@ export function OpsActivityTimeline({
   onTogglePin,
   onSetMark,
 }: OpsActivityTimelineProps) {
+  const audience = useVisibilityAudience();
   const [viewerFiles, setViewerFiles] = useState<AttachmentFile[]>([]);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -118,6 +120,7 @@ export function OpsActivityTimeline({
       isHuman={isHumanNote(a.action)}
       attachments={attachmentsByActivity?.[a.id]}
       canAnnotate={canAnnotate}
+      audience={audience}
       onPin={() => onTogglePin(a.id)}
       onMark={(m) => onSetMark(a.id, m)}
       onOpenAttachment={openLegacy}

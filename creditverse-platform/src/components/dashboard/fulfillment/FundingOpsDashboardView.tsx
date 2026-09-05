@@ -22,6 +22,7 @@ import {
   isActiveFunding,
   formatCurrency,
 } from "@/lib/fulfillment/fundingops-domain";
+import { stagesForDepartment } from "@/lib/funding/pipeline-stages";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -74,9 +75,9 @@ export function FundingOpsDashboardView({
     (c) => c.slaHoursRemaining !== undefined && c.slaHoursRemaining <= 8,
   ).length;
   const stipsOpen = scopedFiles.filter(
-    (f) => f.stage === "Stipulations",
+    (f) => (stagesForDepartment("Stipulations") as string[]).includes(f.stage),
   ).length;
-  const submitted = scopedFiles.filter((f) => f.stage === "Submitted").length;
+  const submitted = scopedFiles.filter((f) => (stagesForDepartment("Submissions") as string[]).includes(f.stage)).length;
   const funded = scopedFiles.filter((f) => f.stage === "Funded").length;
 
   const totalRequested = activeClients.reduce(
@@ -84,43 +85,20 @@ export function FundingOpsDashboardView({
     0,
   );
 
-  const stageBreakdown = [
-    {
-      label: "READINESS REVIEW",
-      count: scopedFiles.filter((f) => f.stage === "Readiness Review").length,
-      color: "bg-amber-500",
-    },
-    {
-      label: "DOCUMENT REVIEW",
-      count: scopedFiles.filter((f) => f.stage === "Document Review").length,
-      color: "bg-blue-500",
-    },
-    {
-      label: "LENDER MATCHING",
-      count: scopedFiles.filter((f) => f.stage === "Lender Matching").length,
-      color: "bg-indigo-500",
-    },
-    {
-      label: "SUBMITTED",
-      count: scopedFiles.filter((f) => f.stage === "Submitted").length,
-      color: "bg-sky-500",
-    },
-    {
-      label: "STIPULATIONS",
-      count: scopedFiles.filter((f) => f.stage === "Stipulations").length,
-      color: "bg-amber-600",
-    },
-    {
-      label: "OFFER RECEIVED",
-      count: scopedFiles.filter((f) => f.stage === "Offer Received").length,
-      color: "bg-purple-500",
-    },
-    {
-      label: "FUNDED",
-      count: scopedFiles.filter((f) => f.stage === "Funded").length,
-      color: "bg-emerald-500",
-    },
-  ];
+  // Files per department queue — the seven departments over the 17-stage spine (pipeline-stages.ts).
+  const stageBreakdown = ([
+    ["Readiness Review", "READINESS REVIEW", "bg-amber-500"],
+    ["Document Review", "DOCUMENT REVIEW", "bg-blue-500"],
+    ["Lender Matching", "LENDER MATCHING", "bg-indigo-500"],
+    ["Submissions", "SUBMISSIONS", "bg-sky-500"],
+    ["Stipulations", "STIPULATIONS", "bg-amber-600"],
+    ["Offers", "OFFERS", "bg-purple-500"],
+    ["Funded Deals", "FUNDED", "bg-emerald-500"],
+  ] as const).map(([department, label, color]) => ({
+    label,
+    color,
+    count: scopedFiles.filter((f) => (stagesForDepartment(department) as string[]).includes(f.stage)).length,
+  }));
 
   return (
     <div className="space-y-5 text-xs text-foreground">
@@ -282,7 +260,7 @@ export function FundingOpsDashboardView({
             {scopedFiles
               .filter(
                 (f) =>
-                  f.stage === "Stipulations" ||
+                  (stagesForDepartment("Stipulations") as string[]).includes(f.stage) ||
                   (f.slaHoursRemaining !== undefined &&
                     f.slaHoursRemaining <= 8),
               )
@@ -302,7 +280,7 @@ export function FundingOpsDashboardView({
                     )}
                   />
                   <span className="text-sm text-foreground">
-                    {f.stage === "Stipulations"
+                    {(stagesForDepartment("Stipulations") as string[]).includes(f.stage)
                       ? `Stipulations outstanding — ${f.businessName}`
                       : `SLA critical — ${f.businessName}`}
                   </span>
@@ -310,7 +288,7 @@ export function FundingOpsDashboardView({
               ))}
             {scopedFiles.filter(
               (f) =>
-                f.stage === "Stipulations" ||
+                (stagesForDepartment("Stipulations") as string[]).includes(f.stage) ||
                 (f.slaHoursRemaining !== undefined && f.slaHoursRemaining <= 8),
             ).length === 0 && (
               <p className="text-sm text-muted-foreground">

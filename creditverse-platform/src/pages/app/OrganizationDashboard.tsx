@@ -11,6 +11,7 @@
  * way back — never another organization's data.
  */
 import { useEffect, useMemo, useState } from "react";
+import { formatDate } from "@/lib/format-date";
 import { Link, Navigate, useParams } from "react-router-dom";
 import { Building2, LayoutGrid, ListTodo, Users, FileText, Landmark, Workflow, ArrowRight, Hash, SlidersHorizontal } from "lucide-react";
 import { useAgency } from "@/lib/agency-context";
@@ -53,12 +54,19 @@ export default function OrganizationDashboard() {
   const { orgPublicId = "" } = useParams();
   const agency = useAgency();
   const auth = useAuth();
-  const state = agency.activateOrganizationByPublicId(orgPublicId);
+  const state = agency.resolveOrganizationByPublicId(orgPublicId);
   const org = agency.activeOrganization;
   const isThisOrg = !!org && org.publicId === orgPublicId;
 
-  // Route → context happens in render via the resolver; the effect only marks
-  // the end of a switch for the dev-mode timing readout.
+  // Route → context is a side effect on the provider, so it runs in an effect;
+  // resolving the id above is pure and safe during render. (Calling the
+  // activator in render updated AgencyProvider mid-render — React warned.)
+  const { activateOrganizationByPublicId } = agency;
+  useEffect(() => {
+    if (state === "active" && !isThisOrg) activateOrganizationByPublicId(orgPublicId);
+  }, [state, isThisOrg, orgPublicId, activateOrganizationByPublicId]);
+
+  // Dev-mode timing readout: marks the end of a switch.
   useEffect(() => {
     if (isThisOrg && typeof performance !== "undefined" && performance.getEntriesByName("bes:org-switch:start").length) {
       performance.mark("bes:org-switch:end");
@@ -158,7 +166,7 @@ export default function OrganizationDashboard() {
           role="status"
         >
           {trial.status === "active" && (
-            <>Introductory trial active until <strong>{new Date(trial.endsAt).toLocaleDateString()}</strong>.{trial.blockedReason === "name_match_review" ? " BES is reviewing this organization because a similar business is already on record." : ""}</>
+            <>Introductory trial active until <strong>{formatDate(trial.endsAt)}</strong>.{trial.blockedReason === "name_match_review" ? " BES is reviewing this organization because a similar business is already on record." : ""}</>
           )}
           {trial.status === "blocked" && (
             <>A free trial is not available for this business because it is already on record with BES. Contact BES to activate your organization.</>
@@ -210,7 +218,7 @@ export default function OrganizationDashboard() {
             ) : work.items.length === 0 ? (
               <p className="py-6 text-center text-sm text-muted-foreground">No open work items for this organization.</p>
             ) : (
-              <DivisionTable columns={["Item", "Stage", "Due"]} rows={work.items.slice(0, 12).map((w) => [w.title, <StatusPill status={w.stage} />, w.dueAt ? new Date(w.dueAt).toLocaleDateString() : "—"])} />
+              <DivisionTable columns={["Item", "Stage", "Due"]} rows={work.items.slice(0, 12).map((w) => [w.title, <StatusPill status={w.stage} />, w.dueAt ? formatDate(w.dueAt) : "—"])} />
             )}
           </ContentCard>
         </div>

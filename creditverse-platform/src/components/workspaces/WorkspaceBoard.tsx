@@ -5,6 +5,7 @@
  * row creates a canonical work item in one keystroke.
  */
 import { useMemo, useState } from "react";
+import { formatDate } from "@/lib/format-date";
 import { Plus, CheckCircle2, AlertTriangle, Calendar, User } from "lucide-react";
 import { useCreateWorkspaceItem, useUpdateWorkspaceItemStatus, useWorkspaceItems } from "@/lib/data/use-workspaces";
 import type { OrgMember, OrgTeam } from "@/lib/data/workspaces";
@@ -34,7 +35,7 @@ const ItemCard = ({ item, workspace, members, onOpen, onMove, disabled }: {
           {item.dueAt && (
             <span className={cn("inline-flex items-center gap-1", overdue && "font-semibold text-red-700")}>
               {overdue ? <AlertTriangle className="h-3 w-3" /> : <Calendar className="h-3 w-3" />}
-              {new Date(item.dueAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+              {formatDate(item.dueAt)}
             </span>
           )}
         </div>

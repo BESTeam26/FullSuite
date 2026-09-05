@@ -20,6 +20,7 @@
  */
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { formatDate } from "@/lib/format-date";
 import {
   X,
   ChevronLeft,
@@ -110,7 +111,7 @@ export function FileViewer({ files, startIndex, onClose }: Props) {
             {file.name}
           </p>
           <p className="truncate text-[11px] leading-tight text-white/60">
-            {file.uploadedBy} · {file.uploadedAt} · {file.category} ·{" "}
+            {file.uploadedBy} · {formatDate(file.uploadedAt)} · {file.category} ·{" "}
             {file.size}
             {files.length > 1 && ` · ${index + 1} of ${files.length}`}
           </p>

@@ -6,6 +6,7 @@
  * import. Nothing here is sample content.
  */
 import { useState } from "react";
+import { formatDate } from "@/lib/format-date";
 import { ChevronDown, ChevronRight, FileText } from "lucide-react";
 import { useClientWorkspace } from "@/lib/client-workspace-context";
 import { useClientReports } from "@/lib/data/use-credit-reports";
@@ -47,7 +48,7 @@ export function ClientCreditReportSection({ clientId, organizationId, outsourcin
         ) : latest ? (
           <div className="mt-3 space-y-2">
             <p className="text-xs text-foreground">
-              Latest report pulled <strong>{new Date(latest.pulledAt).toLocaleDateString()}</strong> · bureaus {latest.bureaus.join(", ")} ·{" "}
+              Latest report pulled <strong>{formatDate(latest.pulledAt)}</strong> · bureaus {latest.bureaus.join(", ")} ·{" "}
               {workspace.items.length} items · source {latest.source.replace("_", " ")}
             </p>
             {latest.scores.length > 0 && (
@@ -63,7 +64,7 @@ export function ClientCreditReportSection({ clientId, organizationId, outsourcin
             )}
             {reports.length > 1 && (
               <p className="text-[11px] text-muted-foreground">
-                {reports.length} reports on file — earliest {new Date(reports[reports.length - 1].pulledAt).toLocaleDateString()}. Each import is kept; nothing is overwritten.
+                {reports.length} reports on file — earliest {formatDate(reports[reports.length - 1].pulledAt)}. Each import is kept; nothing is overwritten.
               </p>
             )}
           </div>

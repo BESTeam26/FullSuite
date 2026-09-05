@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { formatDate } from "@/lib/format-date";
 import {
   Plug,
   KeyRound,
@@ -85,7 +86,7 @@ export const ConnectorWizard = () => {
                     <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
                       {c.status === "connected" && (
                         <>
-                          <span>Connected {c.connectedAt}</span>
+                          <span>Connected {formatDate(c.connectedAt)}</span>
                           <span>· Last sync {c.lastSync}</span>
                           <span>
                             · {c.reportsPulled.toLocaleString()} reports

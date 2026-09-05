@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth/auth-context";
 import { fetchFulfillmentClients } from "@/lib/data/fulfillment-clients";
 import { ClientCreditReportSection } from "@/components/dashboard/fulfillment/ClientCreditReportSection";
+import { ReportIntegrityPanel } from "@/components/clients/ReportIntegrityPanel";
 import {
   ArrowLeft,
   RefreshCw,
@@ -242,16 +243,19 @@ const ClientDetailInner = () => {
       {tab === "account" && <AccountTab />}
       {tab === "import" &&
         (liveClient ? (
-          <ClientCreditReportSection
-            clientId={clientId}
-            organizationId={liveClient.organizationId ?? null}
-            outsourcingGroupId={liveClient.outsourcingGroupId ?? null}
-          />
+          <div className="space-y-4">
+            <ClientCreditReportSection
+              clientId={clientId}
+              organizationId={liveClient.organizationId ?? null}
+              outsourcingGroupId={liveClient.outsourcingGroupId ?? null}
+            />
+            <ReportIntegrityPanel clientId={clientId} />
+          </div>
         ) : (
           <ImportAnalysisTab clientId={clientId} />
         ))}
       {tab === "disputes" && <DisputeDashboard />}
-      {tab === "letters" && <LettersTab />}
+      {tab === "letters" && <LettersTab liveClientId={liveClient?.id ?? null} liveClientName={liveClient?.name ?? null} />}
       {tab === "print" && <PrintTab />}
       {tab === "next-steps" && <NextStepsTab />}
       {tab === "build" && <BuildCreditTab />}

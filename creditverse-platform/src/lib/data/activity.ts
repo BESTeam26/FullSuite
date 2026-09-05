@@ -30,6 +30,27 @@ export const VISIBILITY_LABEL: Record<ActivityVisibility, string> = {
   client_visible: "Client Visible",
 };
 
+/**
+ * The same levels in an organization user's words. BES-internal taxonomy
+ * ("BES Internal", "Shared (BES + organization)") is for BES staff only; a
+ * customer's team sees who *they* are sharing with (Dee, 2026-09-05).
+ */
+export const ORG_FACING_VISIBILITY_LABEL: Record<ActivityVisibility, string> = {
+  bes_internal: "BES only",
+  organization_internal: "Your team only",
+  shared_with_partner: "Your team + BES",
+  client_visible: "Visible to your client",
+};
+export const ORG_FACING_VISIBILITY_HINT: Record<ActivityVisibility, string> = {
+  bes_internal: "Not shown to your organization.",
+  organization_internal: "Only your organization's own team.",
+  shared_with_partner: "Your team and the BES team working this file.",
+  client_visible: "Approved for your client to read.",
+};
+/** Labels for the viewer: BES staff get the internal taxonomy, everyone else the organization-facing words. */
+export const visibilityLabelFor = (v: ActivityVisibility, isAgencyStaff: boolean) => (isAgencyStaff ? VISIBILITY_LABEL[v] : ORG_FACING_VISIBILITY_LABEL[v]);
+export const visibilityHintFor = (v: ActivityVisibility, isAgencyStaff: boolean) => (isAgencyStaff ? VISIBILITY_HINT[v] : ORG_FACING_VISIBILITY_HINT[v]);
+
 /** One line explaining who actually ends up reading it. */
 export const VISIBILITY_HINT: Record<ActivityVisibility, string> = {
   bes_internal: "Only BES staff. Never the customer or the client.",

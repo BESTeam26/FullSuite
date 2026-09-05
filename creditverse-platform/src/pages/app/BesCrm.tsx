@@ -12,6 +12,7 @@
  * percentages and assignee initials were invented and are gone.
  */
 import { useMemo, useState } from "react";
+import { formatDate } from "@/lib/format-date";
 import { Workflow, FolderKanban, ShieldCheck, Clock, AlertTriangle, CheckCircle2, BarChart3, BookOpen, Eye } from "lucide-react";
 import {
   DivisionLayout,
@@ -74,8 +75,8 @@ export default function BesCrm() {
           columns={isBes ? ["Project", "Customer", "Stage", "Due", "Assigned"] : ["Project", "Stage", "Due"]}
           rows={projects.map((p) =>
             isBes
-              ? [p.title, orgName(p.subjectOrganizationId), <StatusPill status={p.stage} />, p.dueAt ? new Date(p.dueAt).toLocaleDateString() : "—", p.assignedTo ? "Yes" : "Unassigned"]
-              : [p.title, <StatusPill status={p.stage} />, p.dueAt ? new Date(p.dueAt).toLocaleDateString() : "—"],
+              ? [p.title, orgName(p.subjectOrganizationId), <StatusPill status={p.stage} />, p.dueAt ? formatDate(p.dueAt) : "—", p.assignedTo ? "Yes" : "Unassigned"]
+              : [p.title, <StatusPill status={p.stage} />, p.dueAt ? formatDate(p.dueAt) : "—"],
           )}
         />
       )}

@@ -198,7 +198,7 @@ export async function fetchFundingFiles(
   const { data, error } = await sb
     .from("funding_files")
     .select(
-      "*, funding_businesses(legal_name), funding_deals(count), assigned_agent:profiles!funding_files_assigned_agent_id_fkey(full_name, email)",
+      "*, funding_businesses(legal_name), funding_clients(name), funding_deals(count), assigned_agent:profiles!funding_files_assigned_agent_id_fkey(full_name, email)",
     )
     .eq("client_id", clientId)
     .order("created_at", { ascending: false });
@@ -206,17 +206,22 @@ export async function fetchFundingFiles(
   return (data ?? []).map((f) => {
     const r = f as typeof f & {
       funding_businesses: { legal_name: string } | null;
+      funding_clients: { name: string } | null;
       funding_deals: { count: number }[] | null;
       assigned_agent: { full_name: string | null; email: string } | null;
     };
     return {
       id: f.id,
+      publicId: f.public_id,
       clientId: f.client_id,
+      clientName: r.funding_clients?.name ?? undefined,
       businessId: f.business_id,
       businessName: r.funding_businesses?.legal_name ?? "—",
       purpose: f.purpose,
       requestedAmount: Number(f.requested_amount),
       stage: f.stage as FundingFile["stage"],
+      secondaryStatus: f.secondary_status as FundingFile["secondaryStatus"],
+      waitingOn: f.waiting_on as FundingFile["waitingOn"],
       assignedAgent:
         r.assigned_agent?.full_name?.trim() || r.assigned_agent?.email,
       dealCount: r.funding_deals?.[0]?.count ?? 0,
@@ -239,22 +244,27 @@ export async function fetchAllFundingFiles(): Promise<FundingFile[]> {
   const sb = requireSupabase();
   const { data, error } = await sb
     .from("funding_files")
-    .select("*, funding_businesses(legal_name), funding_deals(count)")
+    .select("*, funding_businesses(legal_name), funding_clients(name), funding_deals(count)")
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []).map((f) => {
     const r = f as typeof f & {
       funding_businesses: { legal_name: string } | null;
+      funding_clients: { name: string } | null;
       funding_deals: { count: number }[] | null;
     };
     return {
       id: f.id,
+      publicId: f.public_id,
       clientId: f.client_id,
+      clientName: r.funding_clients?.name ?? undefined,
       businessId: f.business_id,
       businessName: r.funding_businesses?.legal_name ?? "—",
       purpose: f.purpose,
       requestedAmount: Number(f.requested_amount),
       stage: f.stage as FundingFile["stage"],
+      secondaryStatus: f.secondary_status as FundingFile["secondaryStatus"],
+      waitingOn: f.waiting_on as FundingFile["waitingOn"],
       dealCount: r.funding_deals?.[0]?.count ?? 0,
       slaHoursRemaining: hoursUntil(f.due_at),
       lastActivity: relativeTime(f.last_activity_at),
@@ -263,9 +273,10 @@ export async function fetchAllFundingFiles(): Promise<FundingFile[]> {
   });
 }
 
-const mapDealRow = (d: Tables<"funding_deals">): FundingDeal => ({
+const mapDealRow = (d: Tables<"funding_deals"> & { funding_files?: { public_id: string } | null }): FundingDeal => ({
   id: d.id,
   fileId: d.file_id,
+  filePublicId: d.funding_files?.public_id,
   clientId: d.client_id,
   lender: d.lender,
   program: d.program ?? "—",
@@ -283,7 +294,7 @@ export async function fetchAllFundingDeals(): Promise<FundingDeal[]> {
   const sb = requireSupabase();
   const { data, error } = await sb
     .from("funding_deals")
-    .select("*")
+    .select("*, funding_files(public_id)")
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []).map(mapDealRow);
@@ -295,7 +306,7 @@ export async function fetchFundingDeals(
   const sb = requireSupabase();
   const { data, error } = await sb
     .from("funding_deals")
-    .select("*")
+    .select("*, funding_files(public_id)")
     .eq("file_id", fileId)
     .order("created_at", { ascending: false });
   if (error) throw error;

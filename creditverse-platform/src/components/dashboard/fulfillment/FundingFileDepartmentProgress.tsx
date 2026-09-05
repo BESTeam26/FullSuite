@@ -6,6 +6,7 @@
  * The file's funding stage and the client's lifecycle stay their own truths.
  */
 import { useMemo, useState } from "react";
+import { formatDate } from "@/lib/format-date";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowRightLeft, Loader2, Lock } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -111,7 +112,7 @@ export function FundingFileDepartmentProgress({ clientId, organizationId, files 
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-foreground">{department}</p>
                     <p className="text-[10px] text-muted-foreground">
-                      {row ? `Updated ${new Date(row.updatedAt).toLocaleDateString()}` : "No status yet"}
+                      {row ? `Updated ${formatDate(row.updatedAt)}` : "No status yet"}
                       {!authorized && " · not your department"}
                     </p>
                   </div>

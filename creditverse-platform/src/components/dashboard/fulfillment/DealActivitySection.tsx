@@ -9,6 +9,7 @@ import { OpsActivityTimeline } from "./OpsActivityTimeline";
 import { ActivityComposer } from "@/components/composer/ActivityComposer";
 import { useActivityVisibility } from "@/lib/data/use-activity-visibility";
 import { docToPlainText } from "@/lib/activity/note-body";
+import { useVisibilityAudience } from "@/lib/auth/use-visibility-audience";
 
 const ACTOR = "Agent (BES HQ)";
 
@@ -22,6 +23,7 @@ export function DealActivitySection({
   dealId: string;
   activity: FundingActivityEntry[];
 }) {
+  const audience = useVisibilityAudience();
   const { allowed, fallback } = useActivityVisibility(undefined, "fundingops");
   const dealStore = useFundingDealStore();
 
@@ -39,6 +41,7 @@ export function DealActivitySection({
       }
       composer={
         <ActivityComposer
+          audience={audience}
           entityType="funding_deal"
           entityId={dealId}
           allowedVisibilities={allowed}

@@ -277,3 +277,61 @@ used to route.
 | `set_funding_department_status(...)` | SECURITY INVOKER; file must be visible; status ∈ `fundingops_department_statuses(department)`; row keyed by file | 0054; organization branch on `funding_files` insert (admins) / update (reach) |
 | `set_client_lifecycle(...)` | SECURITY INVOKER; client must be visible and writable under existing policies; writes the activity event | 0055; `organization_active_records` counts `lifecycle = active` |
 | comment visibility (interface) | organization surface never offers `bes_internal`; default `shared_with_partner` when BES fulfils for the organization | `allowedVisibilities` / `defaultVisibility`; the database insert policy is unchanged and remains the enforcement |
+
+
+### 0058 — FundingOps domain data (Addendum B)
+
+| Object | Rule | How |
+|---|---|---|
+| `lenders`, `lender_programs`, `lender_policy_versions` (select) | BES catalogue rows (`organization_id` null): any agency staff or any organization member; an organization's own rows: its members or agency management; a lender user sees their own lender | `lender_visible(lender)` |
+| same (insert/update) | catalogue: agency manager; organization rows: `is_org_admin` with FundingOps | `lender_editable(lender)`; a policy version is verified (`last_verified_at`) or superseded, never rewritten in meaning |
+| `lender_users` (select) | the user themself, or whoever may edit the lender | 0058 |
+| `lender_users` (insert/delete) | whoever may edit the lender | 0058.1 (`20260904003810`) — found by the matrix: 0058 shipped select only |
+| `funding_parties` | follow the client (existing `funding_clients` policies) plus the borrower; reviewers write | EXISTS on `funding_clients` / `file_reviewer` |
+| `funding_applications` | readable with the file, by the borrower and by a lender the file is shared with; reviewers write; the borrower writes portal drafts until submitted | `funding_file_visible`, `is_borrower_of_file`, `is_lender_for_file`, `file_reviewer` |
+| `requirement_rules` | platform rows readable by anyone with a seat; organization rows by that organization and BES; agency managers / organization admins write | same shape as `lenders` |
+| `document_requests` | readable with the file, borrower, shared lender; **reviewers only** insert/update | `file_reviewer(file)` = `file_org_admin` OR `file_bes_in_scope` (the funding client's own BES scope rule: `bes_may_fulfil` AND `in_scope`) |
+| `document_instances` | borrower uploads (`upload_source = portal`, disposition pending) and sees their own; reviewers see all and update; a lender sees only instances marked shareable **and** accepted | policies + `record_document_disposition()` |
+| `document_flags` | reviewers only, in every direction; the borrower sees the plain-language request, never the flag | `file_reviewer` |
+| `record_document_disposition(instance, disposition, reason)` | SECURITY INVOKER; caller must be a reviewer; pending is never a target; accepting satisfies the linked request, anything else reopens it; activity event on the funding client | 42501 / 22023 |
+| `lender_decisions` | readable with the file or by the lender who posted; inserted by reviewers or by a lender user on their own lender's deal; **append-only** (no update grant, no update policy) | `record_lender_decision()` maps decision → deal status by `deal_status_for_decision()`; `funding_deals_lender_update` lets that status move on the lender's own deal |
+| `verification_results`, `consumer_report_requests` | reviewers only; append-only | no consumer report is pulled without a request row naming party, product, purpose, permissible-purpose basis and authorization state |
+| `commissions`, `lender_file_shares`, `funding_deals` lender branch | as the first draft: reviewers write shares/commissions; a party sees its own commission rows; a lender inserts/reads deals only on files shared with them | 0058 |
+| flag vocabulary, dispositions, decision kinds | Postgres enums, mirrored in `document-vocabulary.ts`; no free text | one source of truth |
+| `funding_files` (select, lender branch) | a lender user with an active share reads the shared file (purpose, amount, stage) — never `funding_clients` | 0058.2 (`20260904003820`) `funding_files_lender_select` |
+| `funding_file_tenancy(file)` | SECURITY DEFINER: agency, organization and client id of a file, for functions that must write audit rows on behalf of a lender | 0058.2 |
+| `record_lender_decision(...)` | now SECURITY DEFINER; authorization explicit inside: lender user of the deal's lender with a share, or a file reviewer; anyone else 42501; the activity event lands under the file's organization with the recorder as actor | 0058.2 |
+
+
+### 0059–0062 — Letter Library, pipeline axes, offers/closing/funded/renewals, public ids
+
+| Object | Rule | How |
+|---|---|---|
+| `letter_templates` | BES defaults (organization null) readable by any seat; an organization's own by its members/BES; agency managers write defaults, organization admins with CreditOps write their own | `letter_template_visible/editable` (0059) |
+| `dispute_rounds` | follow the CreditOps client; rows are created only by `open_dispute_round()` (select+insert grant, no update) | `credit_client_visible` / `credit_client_writable` = the client's own BES-scope and organization-scope update rules |
+| `report_findings`, `dispute_letters`, `dispute_timers` | follow the client; writers = whoever may write the client | same helpers |
+| `dispute_attestations` | one per letter; insert only — never edited | select+insert grant only |
+| `open_dispute_round(client, strategy, reset)` | SECURITY INVOKER; reset closes the running round and opens the next, otherwise returns the running round; client round label updated; activity written | 42501 when not writable |
+| `approve_dispute_letter(letter)` | the QA gate in the database: draft only; body ≥ 40 chars; attestation present; § 1681e(b) never to a furnisher; § 1022.43 never on a CRO-prepared direct dispute; forbidden phrases refused | 22023 with the reason |
+| `mark_letter_mailed(letter)` | approved/printed only; CRA letters start four timers (furnisher notice, 30-day reinvestigation, results notice, reinsertion watch) | data, not deadlines the code enforces |
+| `funding_files.stage` (17), `secondary_status` (13), `waiting_on` (7) | change only through `move_funding_file()`: reviewer of the file; **Funded refused** (only `confirm_funding()` sets it); one activity row per changed axis | 0060 |
+| `offers` | readable with the file, by the borrower and by the lender who made it; reviewers write; a lender user inserts on their own deal | 0061 |
+| `set_offer_status()` | state machine (received → internal review → ready to present → presented → considering/accepted/declined; expired/withdrawn from any open state); accepting moves the file to Offer Accepted and funds nothing | 22023 on an illegal transition |
+| `closings` / `start_closing()` / `advance_closing()` | reviewers; closing starts only on an accepted offer; Funding Pending moves the file to Funding; `funded` cannot be set here | 22023 |
+| `funded_deals` / `confirm_funding()` | **the only writer of a funded deal**; from Funding Pending; gross, net and date required; net ≤ gross; requested/accepted/gross/net kept apart; sets Funded on both file axes, the deal, the client, and opens renewal monitoring; select+insert only — never updated or deleted | 0061 |
+| `renewal_opportunities` / `create_renewal_file()` | reviewers; a NEW file with `renews_file_id` lineage; never reuses the prior fit | 0061 |
+| `lender_contacts`, `lenders.partner_status/last_contact_at`, `policy_updates` / `acknowledge_policy_update()` | follow the lender's visibility/editability | 0061 |
+| `public_id` on `fulfillment_clients`/`funding_clients` (CN-), `funding_files` (FND-), `lenders` (LDR-) | generated by the database, unique, immutable (trigger refuses change), display/support reference only — never authorization; a funding client linked to a CreditOps client adopts its CN- | 0062 |
+
+
+### 0063 — Grant hygiene and organization-operated submissions
+
+| Object | Rule | How |
+|---|---|---|
+| `dispute_rounds` (update) | whoever may build letters for the client may close a round — the gate `open_dispute_round()` already enforces; before 0063 the reset's "close previous round" matched 0 rows under RLS and raised nothing | `dispute_rounds_update` = `credit_client_writable(client_id)` |
+| `funding_deals` (insert, update) | submissions follow the file: an organization admin of the file's organization, or BES staff in scope — the same `file_reviewer()` gate as stage moves, offers, closings and funding (0060/0061). Replaces the 0044 staff-only policies that left organization-operated files unable to record submissions and left deal status stale after `set_offer_status()`/`confirm_funding()`. Delete stays with agency admins; the lender branch (0058.2) is unchanged | `funding_deals_insert/update` |
+| every table in `public` | `authenticated` holds UPDATE or DELETE **only** where a policy can allow it. Supabase's default privileges had granted both on every table; RLS kept them inert (0 rows, no error) but "append-only" now means no grant: `dispute_attestations`, `funded_deals`, `lender_decisions`, `credit_reports`, `audit_log`, `activity_events`, `document_instances`, `dispute_letters` (delete), … — 60 grants across 47 tables revoked by catalogue query, not by hand-kept list. TRUNCATE / REFERENCES / TRIGGER / MAINTAIN revoked from `authenticated` and `anon` everywhere | one `DO` block over `information_schema.role_table_grants` × `pg_policies` |
+| default privileges (`postgres` in `public`) | a new table starts at SELECT + INSERT for `authenticated`; UPDATE/DELETE are granted per table, deliberately. A forgotten grant fails loudly in the matrix — the safe direction | `alter default privileges … revoke update, delete, maintain` |
+| default privileges (`supabase_admin`) | still grants everything on tables *it* creates; none of the application's tables are owned by it. Recorded, not changed | out of scope |
+
+Matrix probes added: "resetting the cycle closes the previous round" (phase 23), "an organization agent (not an admin) cannot record a submission" (phase 24).

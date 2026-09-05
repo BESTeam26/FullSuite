@@ -8,6 +8,7 @@
  * (rule 17): there is no control for it, and no policy permits it.
  */
 import { useState } from "react";
+import { formatDate } from "@/lib/format-date";
 import { MessageSquare, Lock, Globe } from "lucide-react";
 import type { WorkItem } from "@/lib/bes-domain";
 import { VISIBILITY_LABEL, type ActivityVisibility } from "@/lib/data/activity";
@@ -40,7 +41,7 @@ export function ProjectUpdates({ project, isBes }: { project: WorkItem; isBes: b
         {project.description && <p className="text-xs text-muted-foreground">{project.description}</p>}
         <p className="mt-1 text-xs text-muted-foreground">
           Stage: <span className="font-medium text-foreground">{project.stage}</span>
-          {project.dueAt ? ` · due ${new Date(project.dueAt).toLocaleDateString()}` : ""}
+          {project.dueAt ? ` · due ${formatDate(project.dueAt)}` : ""}
         </p>
       </div>
 

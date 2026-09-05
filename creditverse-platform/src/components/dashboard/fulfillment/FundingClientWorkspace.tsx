@@ -11,6 +11,7 @@
  */
 
 import { useState } from "react";
+import { formatDate } from "@/lib/format-date";
 import {
   ArrowLeft,
   Building2,
@@ -174,7 +175,7 @@ export function FundingClientWorkspace({
                 }
               />
               <Row label="Open Files" value={String(client.openFiles)} />
-              <Row label="Created" value={client.createdAt} />
+              <Row label="Created" value={formatDate(client.createdAt)} />
             </dl>
           </div>
 

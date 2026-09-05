@@ -4,6 +4,7 @@
  * a delete. Only "Active" counts as an active client.
  */
 import { useState } from "react";
+import { formatDate } from "@/lib/format-date";
 import { useQueryClient } from "@tanstack/react-query";
 import { Archive, Loader2, RotateCcw } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -40,7 +41,7 @@ export function ClientLifecycleControl({ client, canEdit }: { client: Fulfillmen
       <span className={lifecycle === "active" ? "rounded-full bg-emerald-500/10 px-2.5 py-0.5 font-bold text-status-success" : "rounded-full bg-muted px-2.5 py-0.5 font-bold text-muted-foreground"}>
         {LIFECYCLE_LABELS[lifecycle]}
       </span>
-      {lifecycle !== "active" && client.archivedAt && <span className="text-muted-foreground">since {new Date(client.archivedAt).toLocaleDateString()}</span>}
+      {lifecycle !== "active" && client.archivedAt && <span className="text-muted-foreground">since {formatDate(client.archivedAt)}</span>}
       <span className="text-muted-foreground">· only Active counts as an active client</span>
       {live && canEdit && (
         <div className="ml-auto flex items-center gap-2">

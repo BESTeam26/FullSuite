@@ -4,6 +4,7 @@
  * sample list stays in demo mode only.
  */
 import { useMemo, useState } from "react";
+import { formatDate } from "@/lib/format-date";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Search, Users } from "lucide-react";
@@ -99,7 +100,7 @@ function LiveClientsListInner() {
                   <td className="px-4 py-3 text-foreground">{c.status}</td>
                   <td className="px-4 py-3 text-foreground">{c.round}</td>
                   <td className="px-4 py-3 text-muted-foreground">{c.assignedAgent ?? "Unassigned"}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{c.lastActivity ? (Number.isNaN(Date.parse(c.lastActivity)) ? c.lastActivity : new Date(c.lastActivity).toLocaleDateString()) : "—"}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{c.lastActivity ? (Number.isNaN(Date.parse(c.lastActivity)) ? c.lastActivity : formatDate(c.lastActivity)) : "—"}</td>
                 </tr>
               ))}
             </tbody>

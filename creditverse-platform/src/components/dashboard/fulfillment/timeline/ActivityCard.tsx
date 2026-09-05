@@ -21,6 +21,7 @@ import { isNoteDoc } from "@/lib/activity/note-body";
 import { MarkMenu } from "./MarkMenu";
 import { cn } from "@/lib/utils";
 import { VisibilityBadge } from "@/components/dashboard/fulfillment/VisibilityControls";
+import type { VisibilityAudience } from "@/lib/auth/use-visibility-audience";
 import {
   isImageFile,
   isPdfFile,
@@ -53,8 +54,11 @@ export function ActivityCard({
   onMark,
   onOpenAttachment,
   onOpenStored,
+  audience = "organization",
 }: {
   entry: ActivityEntry;
+  /** Who is looking; BES staff see the internal visibility taxonomy. */
+  audience?: VisibilityAudience;
   isHuman: boolean;
   /** Persisted attachments for this note, already signed. */
   attachments?: TimelineAttachment[];
@@ -116,7 +120,7 @@ export function ActivityCard({
               BES-internal notes with partner-shared events, and they must not
               be indistinguishable at a glance. */}
           {entry.visibility && (
-            <VisibilityBadge visibility={entry.visibility} />
+            <VisibilityBadge visibility={entry.visibility} audience={audience} />
           )}
           <span className="text-[10px] font-normal text-muted-foreground">
             {new Date(entry.timestamp).toLocaleString("en-US", {

@@ -1,4 +1,5 @@
 import type { ReactNode, ElementType } from "react";
+import { formatDate } from "@/lib/format-date";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   DivisionTable,
@@ -263,7 +264,7 @@ export const MyWorkPage = () => {
                   f.division,
                   f.department,
                   <StatusPill status={f.status} />,
-                  new Date(f.updatedAt).toLocaleDateString(),
+                  formatDate(f.updatedAt),
                 ])}
               />
             )}
@@ -287,7 +288,7 @@ export const MyWorkPage = () => {
                   f.division,
                   f.department,
                   <StatusPill status={f.status} />,
-                  new Date(f.updatedAt).toLocaleDateString(),
+                  formatDate(f.updatedAt),
                 ])}
               />
             )}
@@ -364,7 +365,7 @@ const formatWhen = (iso: string) => {
   if (mins < 60) return `${mins} min ago`;
   const hrs = Math.round(mins / 60);
   if (hrs < 24) return `${hrs} hr ago`;
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return formatDate(d);
 };
 
 const NotificationRow = ({

@@ -69,6 +69,27 @@ export async function fetchReportItems(reportId: string): Promise<CreditReportDe
   }));
 }
 
+/** Items of several reports in ONE query (chronology needs every snapshot; never one request per report). */
+export async function fetchReportItemsForReports(reportIds: string[]): Promise<Record<string, CreditReportDetail["items"]>> {
+  if (reportIds.length === 0) return {};
+  const sb = requireSupabase();
+  const { data, error } = await sb
+    .from("report_items")
+    .select("id, report_id, kind, name, subtype, status, balance_text, balance_cents, bureaus, dofd, open_date, linked_creditor, remarks, account_ref")
+    .in("report_id", reportIds)
+    .order("position");
+  if (error) throw error;
+  const out: Record<string, CreditReportDetail["items"]> = {};
+  for (const i of data ?? []) {
+    (out[i.report_id] ??= []).push({
+      id: i.id, kind: i.kind as RawReportItem["kind"], name: i.name, subtype: i.subtype ?? undefined, status: i.status,
+      balance: i.balance_text ?? undefined, balanceCents: i.balance_cents === null ? null : Number(i.balance_cents), bureaus: i.bureaus as Bureau[],
+      dofd: i.dofd ?? undefined, openDate: i.open_date ?? undefined, linkedCreditor: i.linked_creditor ?? undefined, remarks: i.remarks ?? undefined, accountRef: i.account_ref,
+    });
+  }
+  return out;
+}
+
 export interface CreateCreditReportInput {
   organizationId: string | null;
   outsourcingGroupId: string | null;

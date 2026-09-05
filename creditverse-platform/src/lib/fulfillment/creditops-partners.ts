@@ -93,9 +93,10 @@ export const getPartnerByScope = (
 ): CreditOpsPartner | undefined =>
   CREDIT_OPS_PARTNERS.find((p) => p.scopeId === scopeId);
 
+/* Order is the order the Workspace shows. SOPs & Logins is reference material,
+   so it always comes last (Dee, 2026-09-05). */
 export const PARTNER_VIEWS = [
   { id: "dashboard", label: "Dashboard" },
-  { id: "sops-logins", label: "SOPs & Logins" },
   { id: "main-list", label: "Main Client List" },
   { id: "dispute-queue", label: "Dispute Queue" },
   { id: "onboarding-queue", label: "Onboarding Queue" },
@@ -103,6 +104,7 @@ export const PARTNER_VIEWS = [
   { id: "escalation-queue", label: "Escalation Queue" },
   { id: "complaints-queue", label: "Complaints & Mailing" },
   { id: "bureau-queue", label: "Bureau Calling" },
+  { id: "sops-logins", label: "SOPs & Logins" },
 ] as const;
 
 export type PartnerViewId = (typeof PARTNER_VIEWS)[number]["id"];

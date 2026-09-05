@@ -12,6 +12,7 @@
  */
 
 import { useState } from "react";
+import { formatDate } from "@/lib/format-date";
 import { ArrowLeft, Clock } from "lucide-react";
 import { useFundingOpsStore } from "@/lib/fulfillment/fundingops-client-store";
 import { useFundingDealStore } from "@/lib/fulfillment/funding-deal-store";
@@ -58,7 +59,7 @@ export function FundingDealWorkspace({ dealId, onBack }: Props) {
 
   const [description, setDescription] = useState(
     deal
-      ? `Deal ${dealCode(deal.id)} — ${deal.lender} · ${deal.program}\nAmount: ${formatCurrency(deal.amount)}${deal.rate ? ` · Rate: ${deal.rate}` : ""}${deal.term ? ` · Term: ${deal.term}` : ""}\nStatus: ${deal.status}\nStips outstanding: ${deal.stipsOutstanding}`
+      ? `Deal ${dealCode(deal)} — ${deal.lender} · ${deal.program}\nAmount: ${formatCurrency(deal.amount)}${deal.rate ? ` · Rate: ${deal.rate}` : ""}${deal.term ? ` · Term: ${deal.term}` : ""}\nStatus: ${deal.status}\nStips outstanding: ${deal.stipsOutstanding}`
       : "",
   );
   const [isEditingDesc, setIsEditingDesc] = useState(false);
@@ -167,7 +168,7 @@ export function FundingDealWorkspace({ dealId, onBack }: Props) {
       clientId: client.id,
       actor: "Agent (BES HQ)",
       action: "Deal comment added",
-      detail: `${dealCode(deal.id)} (${deal.lender}): ${comment.trim()}`,
+      detail: `${dealCode(deal)} (${deal.lender}): ${comment.trim()}`,
     });
     setComment("");
   };
@@ -179,7 +180,7 @@ export function FundingDealWorkspace({ dealId, onBack }: Props) {
       clientId: client.id,
       actor: "Agent (BES HQ)",
       action: "Reported Blocker",
-      detail: `${dealCode(deal.id)} (${deal.lender}): ${blockerInput.trim()}`,
+      detail: `${dealCode(deal)} (${deal.lender}): ${blockerInput.trim()}`,
     });
     setBlockerInput("");
     setShowBlockerInput(false);
@@ -194,7 +195,7 @@ export function FundingDealWorkspace({ dealId, onBack }: Props) {
       requestId: crypto.randomUUID(),
       clientId: client.id,
       dealId: deal.id,
-      clientName: `${client.name} — ${dealCode(deal.id)} (${deal.lender})`,
+      clientName: `${client.name} — ${dealCode(deal)} (${deal.lender})`,
       partnerName: clientGroupLabel(client),
       department: dept,
       departmentKey: FUNDING_DEPARTMENT_FOR_GROUP[dept] ?? null,
@@ -221,7 +222,7 @@ export function FundingDealWorkspace({ dealId, onBack }: Props) {
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-bold text-foreground">
-                  {dealCode(deal.id)}
+                  {dealCode(deal)}
                 </h2>
                 {client && <FundingModeBadge client={client} />}
               </div>
@@ -435,7 +436,7 @@ function DealFieldsSection({
           <Row label="Amount" value={formatCurrency(deal.amount)} />
           <Row label="Rate" value={deal.rate ?? "—"} />
           <Row label="Term" value={deal.term ?? "—"} />
-          <Row label="Submitted" value={deal.submittedAt} />
+          <Row label="Submitted" value={formatDate(deal.submittedAt)} />
         </dl>
       )}
     </div>

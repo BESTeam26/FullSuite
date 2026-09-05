@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   Copy,
 } from "lucide-react";
+import { formatDate } from "@/lib/format-date";
 import { useReferral } from "@/lib/referral/referral-context";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -258,7 +259,7 @@ export const PartnerReferralDashboard = () => {
                       </Badge>
                     </td>
                     <td className="py-3 pr-4 text-xs text-muted-foreground">
-                      {p.attribution.firstReferralDate}
+                      {formatDate(p.attribution.firstReferralDate)}
                     </td>
                     <td className="py-3 pr-4 text-xs">{convStatus(p)}</td>
                     <td className="py-3 pr-4 text-xs">{interestLabel(p)}</td>
@@ -336,7 +337,7 @@ export const PartnerReferralDashboard = () => {
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">{l.note}</p>
                   <p className="mt-1 text-[11px] text-muted-foreground">
-                    {l.createdDate} · stage: {l.stage}
+                    {formatDate(l.createdDate)} · stage: {l.stage}
                   </p>
                 </div>
               );
@@ -371,8 +372,8 @@ export const PartnerReferralDashboard = () => {
                       {person?.name ?? "Unknown"}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {c.createdDate}
-                      {c.paidDate ? ` · paid ${c.paidDate}` : ""}
+                      {formatDate(c.createdDate)}
+                      {c.paidDate ? ` · paid ${formatDate(c.paidDate)}` : ""}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">

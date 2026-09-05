@@ -5,6 +5,7 @@
  * database enforces it; the panel is simply not rendered for anyone else.
  */
 import { useState } from "react";
+import { formatDate } from "@/lib/format-date";
 import { Share2, XCircle } from "lucide-react";
 import { useFulfillment } from "@/lib/data/use-fulfillment";
 import { isEngagementLive } from "@/lib/data/fulfillment-engagements";
@@ -85,7 +86,7 @@ export function SharePanel({ workspace }: { workspace: Workspace }) {
               size="sm"
               value={engagementId}
               onValueChange={setEngagementId}
-              options={talentOps.map((e) => ({ value: e.id, label: `TalentOps since ${e.effectiveFrom}` }))}
+              options={talentOps.map((e) => ({ value: e.id, label: `TalentOps since ${formatDate(e.effectiveFrom)}` }))}
             />
           )}
           <OpsSelect

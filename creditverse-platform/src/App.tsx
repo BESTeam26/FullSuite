@@ -16,6 +16,7 @@ import { AuthProvider } from "@/lib/auth/auth-context";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { RequireAgencyStaff } from "@/components/auth/RequireAgencyStaff";
 import { RequireEntitlement } from "./components/auth/RequireEntitlement";
+import { FundingOpsAccessProvider } from "@/lib/fulfillment/fundingops-access";
 
 /* ------------------------------------------------------------------ */
 /* Route-level code splitting                                          */
@@ -75,6 +76,12 @@ const Workspaces = lazy(() => import("./pages/app/Workspaces"));
 const OrganizationDashboard = lazy(() => import("./pages/app/OrganizationDashboard"));
 const Clients = lazy(() => import("./pages/app/Clients"));
 const ClientDetail = lazy(() => import("./pages/app/ClientDetail"));
+const FundingFiles = lazy(() => import("./pages/app/FundingFiles"));
+const FundingFileDetail = lazy(() => import("./pages/app/FundingFileDetail"));
+const Lenders = lazy(() => import("./pages/app/Lenders"));
+const FundingDashboard = lazy(() => import("./pages/app/FundingDashboard"));
+const DisputeDashboard = lazy(() => import("./pages/app/DisputeDashboard"));
+const FundingDeals = lazy(() => import("./pages/app/FundingDeals"));
 const Compliance = lazy(() => import("./pages/app/Compliance"));
 const OrganizationCreditOps = lazy(
   () => import("./pages/app/OrganizationCreditOps"),
@@ -385,6 +392,18 @@ const App = () => (
                                     </RequireEntitlement>
                                   }
                                 />
+                                {/* CreditOps engine dashboard: action queues over live dispute data. */}
+                                <Route
+                                  path="dispute-dashboard"
+                                  element={
+                                    <RequireEntitlement
+                                      product="creditOps"
+                                      label="CreditOps"
+                                    >
+                                      <DisputeDashboard />
+                                    </RequireEntitlement>
+                                  }
+                                />
                                 <Route path="clients" element={<Clients />} />
                                 <Route
                                   path="clients/:id"
@@ -409,6 +428,72 @@ const App = () => (
                                       label="FundingOps"
                                     >
                                       <OrganizationFundingOps />
+                                    </RequireEntitlement>
+                                  }
+                                />
+                                {/* FundingOps engine surfaces (Funding Files), separate from the Workspace. */}
+                                <Route
+                                  path="funding-files"
+                                  element={
+                                    <RequireEntitlement
+                                      product="fundingOps"
+                                      label="FundingOps"
+                                    >
+                                      <FundingOpsAccessProvider>
+                                        <FundingFiles />
+                                      </FundingOpsAccessProvider>
+                                    </RequireEntitlement>
+                                  }
+                                />
+                                <Route
+                                  path="funding-dashboard"
+                                  element={
+                                    <RequireEntitlement
+                                      product="fundingOps"
+                                      label="FundingOps"
+                                    >
+                                      <FundingOpsAccessProvider>
+                                        <FundingDashboard />
+                                      </FundingOpsAccessProvider>
+                                    </RequireEntitlement>
+                                  }
+                                />
+                                <Route
+                                  path="lenders"
+                                  element={
+                                    <RequireEntitlement
+                                      product="fundingOps"
+                                      label="FundingOps"
+                                    >
+                                      <FundingOpsAccessProvider>
+                                        <Lenders />
+                                      </FundingOpsAccessProvider>
+                                    </RequireEntitlement>
+                                  }
+                                />
+                                <Route
+                                  path="funding-deals"
+                                  element={
+                                    <RequireEntitlement
+                                      product="fundingOps"
+                                      label="FundingOps"
+                                    >
+                                      <FundingOpsAccessProvider>
+                                        <FundingDeals />
+                                      </FundingOpsAccessProvider>
+                                    </RequireEntitlement>
+                                  }
+                                />
+                                <Route
+                                  path="funding-files/:fileId"
+                                  element={
+                                    <RequireEntitlement
+                                      product="fundingOps"
+                                      label="FundingOps"
+                                    >
+                                      <FundingOpsAccessProvider>
+                                        <FundingFileDetail />
+                                      </FundingOpsAccessProvider>
                                     </RequireEntitlement>
                                   }
                                 />
