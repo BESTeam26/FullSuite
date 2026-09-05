@@ -213,6 +213,17 @@ export const Sidebar = () => {
       ],
     },
     {
+      /* DIY Credit is a BES service the organization resells under its own
+         brand — a module like CreditOps and FundingOps, gated by entitlement,
+         never a "BES" portal link. */
+      label: "DIY Credit",
+      show: isProductOn("diyCredit"),
+      items: [
+        { label: "Client Portal", icon: Zap, href: "/app/diy-management" },
+        { label: "Preview Portal", icon: UserCheck, href: "/diy" },
+      ],
+    },
+    {
       label: "Production",
       items: [
         { label: "Time Tracking", icon: Clock, href: "/app/my-time" },
@@ -339,6 +350,9 @@ export const Sidebar = () => {
             );
           })}
 
+          {/* BES portals are agency chrome. An organization sees only its own
+              modules (rule 16: no path into BES internal operations). */}
+          {viewMode === "agency" && (
           <div className="pt-4">
             {groupHeading("Portals & Apps")}
             <Link
@@ -366,6 +380,7 @@ export const Sidebar = () => {
               {!rail && "BES DIY Credit"}
             </Link>
           </div>
+          )}
         </nav>
 
         <div className={cn("border-t border-sidebar-border", rail ? "p-2" : "p-3")}>

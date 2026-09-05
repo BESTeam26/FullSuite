@@ -1,4 +1,4 @@
-// Score Simulator — toggle hypothetical actions and watch the estimated ceiling
+// Score Simulator — toggle hypothetical actions and watch the estimate index
 // recompute live. Hardcoded smart logic, not a guarantee.
 
 import { useMemo, useState } from "react";
@@ -100,8 +100,10 @@ const ScoreSimulator = () => {
               </span>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              Toggle hypothetical actions and watch the estimated ceiling
-              recompute live — smart analysis, not a guarantee.
+              Toggle hypothetical actions and watch the factor analysis
+              recompute. The index is an internal estimate built from FICO's
+              published factor weights — not a FICO score, not a prediction,
+              not a guarantee.
             </p>
           </div>
           <button
@@ -116,7 +118,7 @@ const ScoreSimulator = () => {
         <div className="mt-5 grid gap-4 sm:grid-cols-3">
           <div className="rounded-xl border border-border bg-card p-4">
             <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Baseline ceiling
+              Baseline estimate index
             </p>
             <p className="mt-1 text-3xl font-bold tracking-tight">
               {baseline.averageCeiling}
@@ -125,7 +127,7 @@ const ScoreSimulator = () => {
           </div>
           <div className="rounded-xl border border-blue-500/30 bg-blue-500/5 p-4">
             <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Simulated ceiling
+              Simulated estimate index
             </p>
             <p className="mt-1 text-3xl font-bold tracking-tight text-status-info">
               {result.analysis.averageCeiling}
@@ -170,7 +172,7 @@ const ScoreSimulator = () => {
               </p>
               <p className="text-[10px] text-status-success">
                 +{b.ceilingEstimate - baseline.bureaus[i].ceilingEstimate}{" "}
-                ceiling
+                index
               </p>
             </div>
           ))}

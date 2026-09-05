@@ -376,7 +376,14 @@ const App = () => (
                                 />
                                 <Route
                                   path="diy-management"
-                                  element={<DiyManagement />}
+                                  element={
+                                    <RequireEntitlement
+                                      product="diyCredit"
+                                      label="DIY Credit"
+                                    >
+                                      <DiyManagement />
+                                    </RequireEntitlement>
+                                  }
                                 />
                                 <Route path="clients" element={<Clients />} />
                                 <Route
