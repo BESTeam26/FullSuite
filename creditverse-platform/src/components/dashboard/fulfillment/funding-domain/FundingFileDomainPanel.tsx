@@ -1,8 +1,20 @@
 /**
- * Deal detail for one funding FILE — the domain half of the FundingOps work
- * file (Addendum B): Overview · Application · Documents · Lenders & Offers.
- * History is the activity timeline beside it: dispositions and decisions are
- * written there by the database functions.
+ * One funding FILE — the domain half of the FundingOps work file.
+ *
+ * Overview · Application · Business · Financials(with Business) · Readiness ·
+ * Documents · Lender Search · Selected Lenders · Deals · Offers · Closing ·
+ * Renewal · Activity.
+ *
+ * The order follows the canonical chain rather than the order the tabs were
+ * built in:
+ *
+ *   Client → Business → Funding File → Lender Search → Selected Lenders
+ *          → Deal → Offers → Closing → Funded → Renewal
+ *
+ * A funding file is not a deal, and a lender that appeared in a search is not
+ * a deal either. Selecting a lender records the intention; only submitting
+ * sends anything. That is why Lender Search, Selected Lenders and Deals are
+ * three tabs and not one.
  *
  * The panel gates its controls on the interface access model; the policies
  * decide what actually happens (rule 1).
@@ -17,6 +29,7 @@ import { useFundingOpsAccess } from "@/lib/fulfillment/fundingops-access";
 import type { FundingFile } from "@/lib/fulfillment/fundingops-domain";
 import { assessReadiness, READINESS_LEVEL_LABEL, type ReadinessLevel } from "@/lib/funding/readiness-engine";
 import { documentTypeLabel } from "@/lib/funding/document-vocabulary";
+import { isOutstanding } from "@/lib/funding/stipulation-lifecycle";
 import { ApplicationTab } from "./ApplicationTab";
 import { DocumentsTab } from "./DocumentsTab";
 import { LendersOffersTab } from "./LendersOffersTab";
@@ -24,6 +37,11 @@ import { MoveFileControl } from "./MoveFileControl";
 import { OffersTab } from "./OffersTab";
 import { ClosingTab } from "./ClosingTab";
 import { RenewalTab } from "./RenewalTab";
+import { SelectedLendersTab } from "./SelectedLendersTab";
+import { FileDealsTab } from "./FileDealsTab";
+import { FileBusinessTab } from "./FileBusinessTab";
+import { FileReadinessTab } from "./FileReadinessTab";
+import { FileActivityTab } from "./FileActivityTab";
 import { cn } from "@/lib/utils";
 import { usePermission } from "@/lib/auth/use-permission";
 
@@ -58,6 +76,13 @@ export function FundingFileDomainPanel({ file, clientId, organizationId }: Props
     commissions: usePermission("fundingops.commissions.view").allowed,
   };
   const actorId = auth.user?.id ?? null;
+  /* Draft = chosen, not sent. Everything else has actually gone to a lender. */
+  const selectedCount = domain.data?.deals.filter((x) => x.status === "Draft").length ?? 0;
+  const submittedCount = domain.data?.deals.filter((x) => x.status !== "Draft").length ?? 0;
+  /* A requirement has a lifecycle now (0112): assigned, waiting on the client
+     and under review are all still outstanding. Only satisfied and waived are
+     finished, which is what `isOutstanding` says once. */
+  const outstandingRequests = domain.data?.requests.filter((r) => isOutstanding(r.status)).length ?? 0;
 
   if (!live) {
     return (
@@ -115,13 +140,22 @@ export function FundingFileDomainPanel({ file, clientId, organizationId }: Props
           <TabsList className="h-8 bg-muted/60">
             <TabsTrigger value="overview" className="text-[11px]">Overview</TabsTrigger>
             <TabsTrigger value="application" className="text-[11px]">Application</TabsTrigger>
+            <TabsTrigger value="business" className="text-[11px]">Business &amp; Financials</TabsTrigger>
+            <TabsTrigger value="readiness" className="text-[11px]">Readiness</TabsTrigger>
             <TabsTrigger value="documents" className="text-[11px]">
-              Documents{d.requests.some((r) => r.status === "open") && <span className="ml-1 rounded-full bg-amber-500/20 px-1.5 text-[10px] font-bold text-amber-800">{d.requests.filter((r) => r.status === "open").length}</span>}
+              Documents{outstandingRequests > 0 && <span className="ml-1 rounded-full bg-amber-500/20 px-1.5 text-[10px] font-bold text-amber-800">{outstandingRequests}</span>}
             </TabsTrigger>
-            <TabsTrigger value="lenders" className="text-[11px]">Matches &amp; Submissions</TabsTrigger>
+            <TabsTrigger value="lenders" className="text-[11px]">Lender Search</TabsTrigger>
+            <TabsTrigger value="selected" className="text-[11px]">
+              Selected{selectedCount > 0 && <span className="ml-1 rounded-full bg-primary/15 px-1.5 text-[10px] font-bold text-primary">{selectedCount}</span>}
+            </TabsTrigger>
+            <TabsTrigger value="deals" className="text-[11px]">
+              Deals{submittedCount > 0 && <span className="ml-1 rounded-full bg-muted px-1.5 text-[10px] font-bold text-foreground">{submittedCount}</span>}
+            </TabsTrigger>
             <TabsTrigger value="offers" className="text-[11px]">Offers{d.offers.length > 0 && <span className="ml-1 rounded-full bg-muted px-1.5 text-[10px] font-bold text-foreground">{d.offers.length}</span>}</TabsTrigger>
             <TabsTrigger value="closing" className="text-[11px]">Closing</TabsTrigger>
             <TabsTrigger value="renewal" className="text-[11px]">Renewal</TabsTrigger>
+            <TabsTrigger value="activity" className="text-[11px]">Activity</TabsTrigger>
           </TabsList>
 
           <div className="mt-3">
@@ -132,7 +166,7 @@ export function FundingFileDomainPanel({ file, clientId, organizationId }: Props
             <div className="grid gap-2 sm:grid-cols-3">
               <Stat label="Application" value={d.application ? `v${d.application.version}` : "None yet"} hint={d.application ? `${d.application.source} · ${formatDate(d.application.createdAt)}` : "Record one on the Application tab"} />
               <Stat label="Document requests" value={`${d.requests.filter((r) => r.status === "satisfied").length}/${d.requests.length} satisfied`} hint={`${d.instances.filter((i) => i.disposition === "pending_review").length} upload(s) pending review`} />
-              <Stat label="Submissions" value={String(d.deals.length)} hint={d.deals.length ? d.deals.map((x) => x.status).join(", ") : "No submissions yet"} />
+              <Stat label="Deals" value={`${submittedCount} submitted`} hint={selectedCount > 0 ? `${selectedCount} lender(s) selected, not yet sent` : "No lender selected yet"} />
             </div>
             <div className="rounded-lg border border-border bg-background p-3">
               <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Readiness factors</p>
@@ -157,12 +191,19 @@ export function FundingFileDomainPanel({ file, clientId, organizationId }: Props
           <TabsContent value="documents" className="mt-3">
             <DocumentsTab fileId={file.id} agencyId={d.agencyId} organizationId={organizationId} domain={d} canEdit={canEdit && may.docs} actorId={actorId} />
           </TabsContent>
+          <TabsContent value="business" className="mt-3"><FileBusinessTab domain={d} /></TabsContent>
+          <TabsContent value="readiness" className="mt-3"><FileReadinessTab readiness={readiness} /></TabsContent>
           <TabsContent value="lenders" className="mt-3">
             <LendersOffersTab fileId={file.id} clientId={clientId} domain={d} canEdit={canEdit && may.submit} />
           </TabsContent>
+          <TabsContent value="selected" className="mt-3">
+            <SelectedLendersTab fileId={file.id} domain={d} canEdit={canEdit && may.submit} />
+          </TabsContent>
+          <TabsContent value="deals" className="mt-3"><FileDealsTab domain={d} /></TabsContent>
           <TabsContent value="offers" className="mt-3"><OffersTab fileId={file.id} domain={d} canEdit={canEdit && may.offers} /></TabsContent>
           <TabsContent value="closing" className="mt-3"><ClosingTab fileId={file.id} domain={d} organizationId={organizationId} actorId={actorId} canCommission={may.commissions} canEdit={canEdit && may.offers} canConfirm={canEdit && may.confirm} /></TabsContent>
           <TabsContent value="renewal" className="mt-3"><RenewalTab fileId={file.id} domain={d} canEdit={canEdit && may.edit} /></TabsContent>
+          <TabsContent value="activity" className="mt-3"><FileActivityTab fileId={file.id} /></TabsContent>
         </Tabs>
       )}
     </section>

@@ -17,7 +17,7 @@ export async function fetchBorrowerPortal(): Promise<BorrowerPortalData> {
   const sb = requireSupabase();
   const [files, requests, uploads] = await Promise.all([
     sb.from("borrower_funding_files").select("*").order("last_activity_at", { ascending: false }).limit(50),
-    sb.from("document_requests").select("id, file_id, document_type, period, status, requirement").eq("status", "open").limit(500),
+    sb.from("document_requests").select("id, file_id, document_type, period, status, requirement").not("status", "in", "(satisfied,waived)").limit(500),
     sb.from("document_instances").select("id, file_id, request_id, classified_type, classified_period, disposition, reason, created_at, size_bytes, mime_type").order("created_at", { ascending: false }).limit(500),
   ]);
   for (const r of [files, requests, uploads]) if (r.error) throw r.error;

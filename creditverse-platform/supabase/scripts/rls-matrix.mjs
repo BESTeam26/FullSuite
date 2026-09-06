@@ -1744,5 +1744,94 @@ if (PHASE >= 42) {
   }
 }
 
+
+/* ------------------------------------------------------------------ *
+ * Phase 43 — deal-level lender stipulations (0112, 0113).
+ *
+ * The questions worth asking about a stipulation are not "can I write one"
+ * but: does it stay attached to the right deal, can its lifecycle be
+ * short-circuited, and can a neighbouring organization see or move it.
+ * ------------------------------------------------------------------ */
+if (PHASE >= 43) {
+  const w43 = (uid, sql, seed = "") => { try { return q(`begin; ${seed} set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
+  const OWNER = U["org.owner@bes.test"], AGENT = U["org.agent@bes.test"], OTHER = U["org2.owner@bes.test"];
+  const FF = q(`select coalesce((select ff.id::text from public.funding_files ff join public.funding_clients fc on fc.id=ff.client_id where fc.organization_id='${lakesideOrg}' limit 1), '') as rows`)[0].rows;
+  const FC = FF ? q(`select client_id::text as rows from public.funding_files where id='${FF}'`)[0].rows : "";
+  /* A second file on the SAME organization, so "a deal on another file" is a
+     real question. The fixture has only one Lakeside funding file, so the
+     probe makes its own rather than silently degrading into "the deal does
+     not exist" — which is what it did on the first run, passing the FK check
+     instead of the cross-file guard and reporting 23503 for 22023. A probe
+     that cannot reach the rule it names is not testing anything. */
+  const FF2 = "99999999-0000-4000-8000-0000000043f2";
+  const D_SUB = "99999999-0000-4000-8000-0000000043d1";
+  const D_DRAFT = "99999999-0000-4000-8000-0000000043d2";
+  const D_OTHER = "99999999-0000-4000-8000-0000000043d3";
+
+  const base = `insert into public.funding_deals (id, file_id, client_id, lender, amount, status, submitted_at, stips_outstanding) values
+      ('${D_SUB}','${FF}','${FC}','Apex',90000,'Submitted', now(), 0),
+      ('${D_DRAFT}','${FF}','${FC}','Beacon',90000,'Draft', null, 0);`;
+  const otherFileDeal = `${base}
+    insert into public.funding_files (id, agency_id, business_id, client_id, purpose, requested_amount)
+      select '${FF2}', agency_id, business_id, client_id, 'PROBE second file', 12345
+        from public.funding_files where id='${FF}';
+    insert into public.funding_deals (id, file_id, client_id, lender, amount, status, submitted_at, stips_outstanding)
+      values ('${D_OTHER}','${FF2}','${FC}','Summit',5000,'Submitted', now(), 0);`;
+  /* One stipulation already asked for, for the lifecycle probes. */
+  const withStip = `${base} insert into public.document_requests (file_id, deal_id, document_type, requirement, status, created_by) values ('${FF}','${D_SUB}','bank_statement','required','open','${OWNER}');`;
+  const stipId = `(select id from public.document_requests where deal_id='${D_SUB}' and document_type='bank_statement')`;
+
+  const P43 = FF ? [
+    ["a submitted deal can be given a stipulation",
+      () => w43(OWNER, `select public.add_deal_stipulation('${D_SUB}','voided_check','Need a voided check'); select count(*)::int as rows from public.document_requests where deal_id='${D_SUB}'`, base), 1],
+    ["…and it records what the lender actually said",
+      () => w43(OWNER, `select public.add_deal_stipulation('${D_SUB}','voided_check','Need a voided check'); select lender_note as rows from public.document_requests where deal_id='${D_SUB}'`, base), "Need a voided check"],
+    ["a SELECTED deal cannot be stipulated on — nobody has seen it",
+      () => w43(OWNER, `select public.add_deal_stipulation('${D_DRAFT}','voided_check','x') as rows`, base), "ERR 22023"],
+    ["a stipulation with no document type is refused",
+      () => w43(OWNER, `select public.add_deal_stipulation('${D_SUB}','   ','x') as rows`, base), "ERR 22023"],
+    ["the second file and its deal really exist, so the next probe can fail",
+      () => w43(OWNER, `select count(*)::int as rows from public.funding_deals where id='${D_OTHER}'`, otherFileDeal), 1],
+    ["a stipulation cannot be attached to a deal on another funding file",
+      () => w43(OWNER, `insert into public.document_requests (file_id, deal_id, document_type, requirement, status, created_by) values ('${FF}','${D_OTHER}','p_and_l','required','open','${OWNER}'); select 1 as rows`, otherFileDeal), "ERR 22023"],
+    ["…and the guard is the trigger, not the foreign key: the same insert on its OWN file works",
+      () => w43(OWNER, `insert into public.document_requests (file_id, deal_id, document_type, requirement, status, created_by) values ('${FF2}','${D_OTHER}','p_and_l','required','open','${OWNER}'); select count(*)::int as rows from public.document_requests where deal_id='${D_OTHER}'`, otherFileDeal), 1],
+    ["the outstanding count on the deal is maintained, not asserted",
+      () => w43(OWNER, `select public.add_deal_stipulation('${D_SUB}','voided_check','x'); select stips_outstanding::int as rows from public.funding_deals where id='${D_SUB}'`, base), 1],
+    ["…and it falls again when the stipulation is waived",
+      () => w43(OWNER, `select public.move_document_request(${stipId}, 'waived', 'lender dropped it'); select stips_outstanding::int as rows from public.funding_deals where id='${D_SUB}'`, withStip), 0],
+    ["the lifecycle runs in order",
+      () => w43(OWNER, `select public.move_document_request(${stipId}, 'assigned'); select public.move_document_request(${stipId}, 'waiting_on_client'); select public.move_document_request(${stipId}, 'received'); select public.move_document_request(${stipId}, 'under_review'); select public.move_document_request(${stipId}, 'submitted_to_lender'); select public.move_document_request(${stipId}, 'satisfied'); select status::text as rows from public.document_requests where id=${stipId}`, withStip), "satisfied"],
+    ["it cannot skip straight to satisfied",
+      () => w43(OWNER, `select public.move_document_request(${stipId}, 'satisfied') as rows`, withStip), "ERR 22023"],
+    ["it cannot go back once satisfied",
+      () => w43(OWNER, `select public.move_document_request(${stipId}, 'assigned'); select public.move_document_request(${stipId}, 'received'); select public.move_document_request(${stipId}, 'under_review'); select public.move_document_request(${stipId}, 'submitted_to_lender'); select public.move_document_request(${stipId}, 'satisfied'); select public.move_document_request(${stipId}, 'open') as rows`, withStip), "ERR 22023"],
+    ["a document under review can go back to the client",
+      () => w43(OWNER, `select public.move_document_request(${stipId}, 'received'); select public.move_document_request(${stipId}, 'under_review'); select public.move_document_request(${stipId}, 'waiting_on_client'); select status::text as rows from public.document_requests where id=${stipId}`, withStip), "waiting_on_client"],
+    ["waiving without a reason is refused",
+      () => w43(OWNER, `select public.move_document_request(${stipId}, 'waived', '  ') as rows`, withStip), "ERR 22023"],
+    ["…and waiving with one records who and why",
+      () => w43(OWNER, `select public.move_document_request(${stipId}, 'waived', 'lender dropped it'); select waived_reason as rows from public.document_requests where id=${stipId}`, withStip), "lender dropped it"],
+    ["an agent cannot move a requirement they do not review",
+      () => w43(AGENT, `select public.move_document_request(${stipId}, 'assigned') as rows`, withStip), "ERR 42501"],
+    ["another organization cannot see the stipulation at all",
+      () => w43(OTHER, `select count(*)::int as rows from public.document_requests where deal_id='${D_SUB}'`, withStip), 0],
+    ["…nor move it, even naming its id",
+      () => w43(OTHER, `select public.move_document_request(${stipId}, 'assigned') as rows`, withStip), "ERR 42501"],
+    ["…nor add one to the deal",
+      () => w43(OTHER, `select public.add_deal_stipulation('${D_SUB}','p_and_l','x') as rows`, withStip), "ERR 42501"],
+    ["a file-level requirement is untouched by all of this",
+      () => w43(OWNER, `select count(*)::int as rows from public.document_requests where file_id='${FF}' and deal_id is null and status not in ('satisfied','waived')`, withStip),
+      Number(q(`select count(*)::int as rows from public.document_requests where file_id='${FF}' and deal_id is null and status not in ('satisfied','waived')`)[0].rows)],
+  ] : [["(no funding fixture)", () => "skip", "skip"]];
+  console.log("\nphase 43:");
+  for (const [label, fn, want] of P43) {
+    checks++;
+    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
+    const ok = String(got) === String(want); if (!ok) fails++;
+    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
+  }
+}
+
 console.log(`\n${checks - fails}/${checks} checks passed (phase ≤ ${PHASE})`);
 process.exit(fails ? 1 : 0);

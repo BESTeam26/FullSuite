@@ -2254,11 +2254,14 @@ export type Database = {
       }
       document_requests: {
         Row: {
+          assigned_to: string | null
           created_at: string
           created_by: string | null
+          deal_id: string | null
           document_type: string
           file_id: string
           id: string
+          lender_note: string | null
           party_id: string | null
           period: string | null
           requirement: Database["public"]["Enums"]["document_requirement"]
@@ -2272,11 +2275,14 @@ export type Database = {
           waived_reason: string | null
         }
         Insert: {
+          assigned_to?: string | null
           created_at?: string
           created_by?: string | null
+          deal_id?: string | null
           document_type: string
           file_id: string
           id?: string
+          lender_note?: string | null
           party_id?: string | null
           period?: string | null
           requirement?: Database["public"]["Enums"]["document_requirement"]
@@ -2290,11 +2296,14 @@ export type Database = {
           waived_reason?: string | null
         }
         Update: {
+          assigned_to?: string | null
           created_at?: string
           created_by?: string | null
+          deal_id?: string | null
           document_type?: string
           file_id?: string
           id?: string
+          lender_note?: string | null
           party_id?: string | null
           period?: string | null
           requirement?: Database["public"]["Enums"]["document_requirement"]
@@ -2309,10 +2318,24 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "document_requests_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "document_requests_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_requests_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "funding_deals"
             referencedColumns: ["id"]
           },
           {
@@ -7361,6 +7384,16 @@ export type Database = {
         Args: { p_entity_type: string }
         Returns: Database["public"]["Enums"]["fulfillment_service"]
       }
+      add_deal_stipulation: {
+        Args: {
+          p_deal: string
+          p_document_type: string
+          p_lender_note?: string
+          p_party?: string
+          p_period?: string
+        }
+        Returns: string
+      }
       advance_closing: {
         Args: {
           p_closing: string
@@ -7771,6 +7804,13 @@ export type Database = {
         Returns: string
       }
       diy_upgrade_to_managed: { Args: { p_client: string }; Returns: string }
+      document_request_transition_allowed: {
+        Args: {
+          p_from: Database["public"]["Enums"]["document_request_status"]
+          p_to: Database["public"]["Enums"]["document_request_status"]
+        }
+        Returns: boolean
+      }
       engagement_is_live: {
         Args: {
           p_from: string
@@ -7950,6 +7990,14 @@ export type Database = {
       merge_organization_workspace_views: {
         Args: { p_org: string; p_patch: Json }
         Returns: Json
+      }
+      move_document_request: {
+        Args: {
+          p_note?: string
+          p_request: string
+          p_status: Database["public"]["Enums"]["document_request_status"]
+        }
+        Returns: undefined
       }
       move_funding_file: {
         Args: {
@@ -8429,7 +8477,15 @@ export type Database = {
         | "LENDER_SPECIFIC_EXCEPTION"
         | "COMPLIANCE_REVIEW_REQUIRED"
         | "PROCESSING_FAILURE"
-      document_request_status: "open" | "satisfied" | "waived"
+      document_request_status:
+        | "open"
+        | "assigned"
+        | "waiting_on_client"
+        | "received"
+        | "under_review"
+        | "submitted_to_lender"
+        | "satisfied"
+        | "waived"
       document_requirement: "required" | "conditional"
       engagement_status: "pending" | "active" | "paused" | "ended"
       eod_state:
@@ -8995,7 +9051,16 @@ export const Constants = {
         "COMPLIANCE_REVIEW_REQUIRED",
         "PROCESSING_FAILURE",
       ],
-      document_request_status: ["open", "satisfied", "waived"],
+      document_request_status: [
+        "open",
+        "assigned",
+        "waiting_on_client",
+        "received",
+        "under_review",
+        "submitted_to_lender",
+        "satisfied",
+        "waived",
+      ],
       document_requirement: ["required", "conditional"],
       engagement_status: ["pending", "active", "paused", "ended"],
       eod_state: [

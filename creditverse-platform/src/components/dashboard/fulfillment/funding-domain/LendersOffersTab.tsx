@@ -7,10 +7,10 @@
  */
 import { useMemo, useState } from "react";
 import { formatDate, formatDateTime } from "@/lib/format-date";
-import { Loader2, Send } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 import { OpsSelect } from "@/components/ui/ops-select";
 import { errorMessage } from "@/lib/data/error-message";
-import { recordLenderDecision, submitToLender, type FundingFileDomain } from "@/lib/data/funding-domain";
+import { recordLenderDecision, selectLender, type FundingFileDomain } from "@/lib/data/funding-domain";
 import { useInvalidateFundingFile, useLenderCatalogue } from "@/lib/data/use-funding-domain";
 import { DECISION_LABELS, type LenderDecisionKind } from "@/lib/funding/document-vocabulary";
 import { toLenderCriteria } from "@/lib/funding/lender-catalogue";
@@ -33,7 +33,10 @@ const OUTCOME_TONE: Record<MatchOutcome, string> = {
   policy_unavailable: "border-amber-500/40 bg-amber-500/10 text-amber-800",
   apparent_mismatch: "border-red-500/30 bg-red-500/10 text-red-700",
 };
-const SUBMITTABLE: MatchOutcome[] = ["apparent_fit", "conditional_fit"];
+/* Only a fit the engine can stand behind may be selected. Needs Review and
+   Insufficient Information are not refusals — they mean somebody has to look
+   first, which is a different action from choosing to pursue the lender. */
+const SELECTABLE: MatchOutcome[] = ["apparent_fit", "conditional_fit"];
 const DECISIONS: LenderDecisionKind[] = ["pending", "approved", "conditional", "declined", "withdrawn", "expired"];
 
 export function LendersOffersTab({ fileId, clientId, domain, canEdit }: Props) {
@@ -42,6 +45,12 @@ export function LendersOffersTab({ fileId, clientId, domain, canEdit }: Props) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const app = domain.application;
+  /* A program already chosen for this file must not offer "Select" again —
+     one deliberate decision, one deal. */
+  const selectedProgramIds = useMemo(
+    () => new Set(domain.deals.map((d) => d.programId).filter((id): id is string => !!id)),
+    [domain.deals],
+  );
 
   const today = new Date().toISOString().slice(0, 10);
   const programIndex = useMemo(() => {
@@ -92,12 +101,18 @@ export function LendersOffersTab({ fileId, clientId, domain, canEdit }: Props) {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className={cn("inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold", OUTCOME_TONE[m.outcome])}>{PROGRAM_FIT_LABEL[m.outcome]}</span>
-                    {canEdit && ref && SUBMITTABLE.includes(m.outcome) && app?.requestedAmount && (
-                      <button type="button" disabled={busy !== null}
-                        onClick={() => void run(`submit:${m.lender.id}`, () => submitToLender({ fileId, clientId, lenderId: ref.lenderId, lenderName: ref.lenderName, programId: m.lender.id, programName: ref.programName, amount: app.requestedAmount!, policyVersionId: m.lender.policyVersionId ?? null, fitSnapshot: buildFitSnapshot(m) }), "Could not record the submission.")}
-                        className="inline-flex items-center gap-1 rounded-lg border border-primary/40 px-2 py-1 text-[11px] font-bold text-primary hover:bg-primary/10 disabled:opacity-60">
-                        {busy === `submit:${m.lender.id}` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />} Submit
-                      </button>
+                    {canEdit && ref && SELECTABLE.includes(m.outcome) && app?.requestedAmount && (
+                      selectedProgramIds.has(m.lender.id) ? (
+                        <span className="inline-flex items-center gap-1 rounded-lg border border-emerald-600/40 bg-emerald-500/10 px-2 py-1 text-[11px] font-bold text-status-success">
+                          <Check className="h-3.5 w-3.5" /> Selected
+                        </span>
+                      ) : (
+                        <button type="button" disabled={busy !== null}
+                          onClick={() => void run(`select:${m.lender.id}`, () => selectLender({ fileId, clientId, lenderId: ref.lenderId, lenderName: ref.lenderName, programId: m.lender.id, programName: ref.programName, amount: app.requestedAmount!, policyVersionId: m.lender.policyVersionId ?? null, fitSnapshot: buildFitSnapshot(m) }), "Could not select this lender.")}
+                          className="inline-flex items-center gap-1 rounded-lg border border-primary/40 px-2 py-1 text-[11px] font-bold text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60">
+                          {busy === `select:${m.lender.id}` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Select
+                        </button>
+                      )
                     )}
                   </div>
                 </div>

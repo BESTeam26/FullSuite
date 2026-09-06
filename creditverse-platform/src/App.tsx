@@ -84,6 +84,7 @@ const Clients = lazy(() => import("./pages/app/Clients"));
 const ClientProfile = lazy(() => import("./pages/app/ClientProfile"));
 const CreditCases = lazy(() => import("./pages/app/CreditCases"));
 const BesPartners = lazy(() => import("./pages/app/BesPartners"));
+const FundingDealDetail = lazy(() => import("./pages/app/FundingDealDetail"));
 const ClientDetail = lazy(() => import("./pages/app/ClientDetail"));
 const FundingFiles = lazy(() => import("./pages/app/FundingFiles"));
 const FundingFileDetail = lazy(() => import("./pages/app/FundingFileDetail"));
@@ -576,6 +577,19 @@ const App = () => (
                                       <FundingOpsAccessProvider>
                                         <RequirePermission permission="fundingops.files.view" label="Deals"><FundingDeals /></RequirePermission>
                                       </FundingOpsAccessProvider>
+                                    </RequireEntitlement>
+                                  }
+                                />
+                                {/* One deal — the domain record of taking a
+                                    file to one lender. Distinct from the
+                                    Workspace's operational working record. */}
+                                <Route
+                                  path="funding-deals/:dealId"
+                                  element={
+                                    <RequireEntitlement product="fundingOps" label="FundingOps">
+                                      <RequirePermission permission="fundingops.files.view" label="Deals">
+                                        <FundingDealDetail />
+                                      </RequirePermission>
                                     </RequireEntitlement>
                                   }
                                 />

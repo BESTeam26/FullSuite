@@ -21,6 +21,7 @@ import {
   type DocumentDisposition,
 } from "@/lib/funding/document-vocabulary";
 import { cn } from "@/lib/utils";
+import { REQUEST_STATUS_LABEL, isOutstanding } from "@/lib/funding/stipulation-lifecycle";
 
 interface Props {
   fileId: string;
@@ -31,8 +32,16 @@ interface Props {
   actorId: string | null;
 }
 
+/* The lifecycle grew in 0112. A Record<> over the enum means a new state can
+   never render with no surface under its own foreground (rule 15) — TypeScript
+   refuses the file until every value has one. */
 const REQUEST_TONE: Record<DocumentRequest["status"], string> = {
   open: "border-amber-500/40 bg-amber-500/10 text-amber-800",
+  assigned: "border-blue-500/30 bg-blue-500/10 text-status-info",
+  waiting_on_client: "border-amber-500/40 bg-amber-500/10 text-amber-800",
+  received: "border-blue-500/30 bg-blue-500/10 text-status-info",
+  under_review: "border-blue-500/30 bg-blue-500/10 text-status-info",
+  submitted_to_lender: "border-primary/40 bg-primary/10 text-primary",
   satisfied: "border-emerald-500/40 bg-emerald-500/10 text-status-success",
   waived: "border-border bg-muted text-muted-foreground",
 };
@@ -148,8 +157,8 @@ export function DocumentsTab({ fileId, agencyId, organizationId, domain, canEdit
                   <p className="text-[10px] text-muted-foreground">{r.requirement} · requested {formatDate(r.createdAt)}{r.waivedReason && ` · waived: ${r.waivedReason}`}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className={cn("inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold capitalize", REQUEST_TONE[r.status])}>{r.status}</span>
-                  {r.status === "open" && canEdit && (
+                  <span className={cn("inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold", REQUEST_TONE[r.status])}>{REQUEST_STATUS_LABEL[r.status]}</span>
+                  {isOutstanding(r.status) && canEdit && (
                     <>
                       <UploadButton disabled={busy !== null || !actorId} busy={busy === `upload:${r.id}`} onFile={(f) => upload(f, r)} />
                       <button type="button" disabled={busy !== null || !actorId}

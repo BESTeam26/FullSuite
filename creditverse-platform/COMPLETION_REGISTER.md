@@ -45,13 +45,13 @@ approved business workflow be completed?*
 | Item | Status | Notes |
 |---|---|---|
 | HQ Home, Organizations, Attention Center | **DONE** | |
+| **BES Partners** | **DONE** | On `fulfillment_engagements`; both partner shapes; BES-staff guarded (A) |
 | My Work · My Time · End of Day · Notifications | **DONE** | |
 | Managed Operations: CreditOps · FundingOps · BES CRM · TalentOps | **DONE** | All four render from RLS-returned rows only |
 | Workforce: People · Teams · Workforce | **DONE** | |
 | Management: Reports · Billing & Revenue · Compliance & Legal | **PARTIAL** | Billing has no payment provider — see 12 |
 | Company: Knowledge Base · Announcements · Calendar | **DONE** | |
 | System: Agency Settings · Support | **DONE** | |
-| **BES Partners surface** | **PENDING** | §5 of the 2026-09-06 doctrine. Data exists (`fulfillment_engagements` + organizations + outsourcing groups); no screen. **In progress — FundingOps correction A** |
 | "Portals & Apps" group (Partner Referral / Outsourcing / DIY) | **SUPERSEDED** | Removed in `cd526b0` as fabricated previews. DIY Credit is an organization module; partner/outsourcing portals are separate approved items (see 11) |
 | Rename "Managed Operations" → "Service Operations" | **DEFERRED** | Dee: "do not rename blindly if it creates unnecessary churn" |
 
@@ -138,12 +138,13 @@ approved business workflow be completed?*
 | Offers, closing, funded deals, renewals | **DONE** | |
 | Lender scorecard (published vs observed) | **DONE** | |
 | Commissions (C6) | **DONE** | Matrix phase 42 |
-| **Workspace route named `/app/metro2`** | **PENDING** | Destination is correct, the name is wrong. **Correction A** |
-| **FundingOps navigation per §13** | **PENDING** | **Correction A** |
-| **Funding File tabs: Business · Financials · Readiness · Deals · Activity** | **PENDING** | Data exists. **Correction B** |
-| **Deal as its own route with §13 tabs** | **PENDING** | `FundingDealWorkspace` exists, unrouted. **Correction B** |
-| **"Select lender" creating a Draft deal** | **PENDING** | Today only *submit* creates a deal. **Correction B** — no migration needed |
-| **Deal-level stipulations + §17 lifecycle** | **PENDING** | Real schema gap. **Correction C** — one additive migration |
+| Workspace route named `/app/metro2` | **DONE** | Renamed `/app/funding-workspace`, redirect kept (A) |
+| FundingOps navigation per §13 | **DONE** | (A) |
+| Funding File tabs: Business · Financials · Readiness · Deals · Activity | **DONE** | (B) |
+| Deal as its own route with §13 tabs | **DONE** | `/app/funding-deals/:dealId` (B) |
+| "Select lender" creating a Draft deal | **DONE** | Select → Draft; Submit → Submitted with its own timestamp (B) |
+| Deal-level stipulations + §17 lifecycle | **DONE** | 0112/0113, matrix phase 43 (C) |
+| Deal Communications tab | **PENDING** | No deal-scoped message table; Channels are not deal-scoped. Design decision not made |
 | Lender submission by email package | **PENDING** | **BLOCKED** on A2 |
 
 ## 8. DIY Credit
@@ -194,7 +195,9 @@ approved business workflow be completed?*
 | Report pivot + drill | **PARTIAL** | `report_pivot()` works; full Organization → Division → … → Evidence drill not built |
 | AI gateway + credits ledger (0070) | **DONE** | **BLOCKED** on A1 |
 | AI safeguards: reserve → reconcile → fail closed (0100) | **DONE** | |
-| AI provider pricing | **PARTIAL** | Three provisional prices marked unconfirmed — needs Dee |
+| AI provider pricing | **DONE** | 0114: confirmed against Anthropic's published list 2026-09-06. Two of three provisionals were wrong — Opus 5 was 3× too high, Sonnet 5 1.5× — which fed the customer charge through the markup |
+| Anthropic $100/month spend cap | **BLOCKED** | Dee sets it in the Anthropic console |
+| First controlled live AI request | **BLOCKED** | Dee's plan: Lakeside test client → Suggest wording. Needs A1 |
 | GHL bridge (0084) | **PARTIAL** | Scaffold + webhook; **BLOCKED** on A4 |
 
 ## 12. Billing & money
@@ -204,7 +207,7 @@ approved business workflow be completed?*
 | Pricing as data (0049) | **DONE** | |
 | Plans, add-ons, AI allowances, credit packs | **DONE** | |
 | Trials (0086) | **DONE** | |
-| **Authorize.Net integration** | **PENDING** | No code exists. **BLOCKED** on A3 |
+| **Authorize.Net integration** | **PENDING** | No code exists yet. **NOT blocked** — the secrets (login id, transaction key, signature key, env) have been set since 2026-09-05; only the browser-side public client key still needs confirming |
 | Customer-facing pricing UI | **DEFERRED** | Until Dee confirms public prices |
 | Invoicing / bookkeeping ledger | **DEFERRED** | Dee: GHL invoices today; record revenue/expenses later |
 
@@ -225,14 +228,14 @@ approved business workflow be completed?*
 
 | # | What Dee must do | What it unblocks |
 |---|---|---|
-| **A1** | `ANTHROPIC_API_KEY` into Supabase secrets | Scanned-report reading, letter wording help, fit explanations, Hub AI assistant |
-| **A2** | Resend API key with sending access + verified domain; and Resend SMTP into Supabase Auth | Activation/welcome email, lender submission packages, sign-up confirmation at volume |
-| **A3** | Authorize.Net public client key + confirmed plan prices | Paid sign-up, plan changes, DIY consumer billing |
+| ~~A1~~ | **DONE 2026-09-06 19:27** — `ANTHROPIC_API_KEY` is set. Validity proven by Dee's first live request (Lakeside → Suggest wording). Still needed: the **$100/month cap** in the Anthropic console | Scanned-report reading, letter wording help, fit explanations, Hub AI assistant |
+| **A2** | `MAIL_PROVIDER_API_KEY` + `MAIL_FROM` SET 2026-09-06. Still needed: confirm the **verified sending domain** in Resend, and the **Resend SMTP block** in Supabase Auth (separate from the API key) | Activation/welcome email, lender submission packages, sign-up confirmation at volume |
+| **A3** | ~~Authorize.Net keys~~ — server secrets SET 2026-09-05. Still needed: the **public client key** for Accept.js in the browser, and confirmed plan prices | Paid sign-up, plan changes, DIY consumer billing |
 | **A4** | GHL private integration token per location | CRM bridge both ways, GHL e-signature |
-| **A5** | Lob account + API key | Letters actually posted |
+| **A5** | Lob API key — and note nothing reads it yet; the mailing integration is unbuilt | Letters actually posted |
 | **A6** | 3–5 real credit report PDFs per monitoring service | Per-service parser accuracy |
 | **A7** | Real lender list with programs and last-verified policy | Program Fit against real criteria |
-| **A8** | Confirm the three provisional AI provider prices; set a console spend cap | AI economics reporting |
+| **A8** | ~~Confirm the provisional AI provider prices~~ **ANSWERED 2026-09-06** — use current official API pricing for the exact models used; provider cost and BES customer price stay separate. Read from Anthropic's published list and applied in 0114. Still needed from Dee: **set the $100/month spend cap in the Anthropic console** (only Dee can) | AI economics reporting |
 
 **These do not stop other work.** Each is recorded against its item above.
 
@@ -240,10 +243,8 @@ approved business workflow be completed?*
 
 ## Working order (priority: security → data integrity → authorization → business logic → approved requirements → performance → maintainability → UX)
 
-1. **FundingOps A** — workspace route name, BES Partners, navigation
-2. **FundingOps B** — funding file tabs, deal route, lender selection
-3. **FundingOps C** — deal-level stipulations (migration + matrix phase)
-4. **Seat doctrine** (§24) — authorization-adjacent, currently unencoded
+1. ~~FundingOps A / B / C~~ — **done 2026-09-06**
+2. **Seat doctrine** (§24) — authorization-adjacent, currently unencoded
 5. **Client-level documents / `entity_visible()` gap** — a security-shaped hole
 6. **Metro 2 Sections B–P** + wiring Section A into the detector
 7. **Lender portal** (tenancy change — proposal first)

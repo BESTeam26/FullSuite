@@ -92,6 +92,11 @@ const HELP: [prefix: string, help: PageHelp][] = [
     summary: "The companies BES is engaged to do work for — not SaaS subscribers, and not anyone's end customers.",
     steps: ["A company appears here because an engagement says BES was hired to perform a service for them.", "An outsourcing partner has no SaaS tenant at all; that is a valid shape, not missing data.", "The engagement is also what lets BES staff reach their records — no engagement, no access."],
   }],
+  ["/app/funding-deals/", {
+    title: "Deal",
+    summary: "This funding file taken to one lender: the submission, what they asked for, what they offered, and how it ended.",
+    steps: ["Stipulations are what THIS lender asked for after seeing the file — separate from the file's own document requirements.", "A stipulation is satisfied only once it has gone to the lender and been accepted.", "A decline closes this deal; the funding file carries on with the others."],
+  }],
   ["/app/funding-workspace", {
     title: "FundingOps Workspace",
     summary: "The operational side of funding: work items, assignments and stages behind each file.",

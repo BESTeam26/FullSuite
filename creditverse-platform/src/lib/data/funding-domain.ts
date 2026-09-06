@@ -9,7 +9,7 @@
  * a database function (dispositions, decisions); the rest are single inserts
  * the policies judge. Nothing here decides who may see what — RLS does.
  */
-import type { FitSnapshot } from "@/lib/funding/readiness-engine";
+import type { FitSnapshot, ProgramFitOutcome } from "@/lib/funding/readiness-engine";
 import { canMoveCommission, type CommissionBasis, type CommissionPartyKind, type CommissionState } from "@/lib/funding/commission-math";
 import { recordPolicyUpdate, type PolicyChangeKind } from "@/lib/data/lender-relationship";
 import { requireSupabase } from "@/lib/supabase/client";
@@ -110,6 +110,8 @@ export interface FileDeal {
   amount: number;
   status: Enums<"funding_deal_status">;
   submittedAt: string | null;
+  /** The Program Fit as it stood when this lender was chosen, never re-derived. */
+  fitOutcome: ProgramFitOutcome | null;
   decisions: LenderDecision[];
 }
 export interface FundingParty { id: string; kind: Enums<"funding_party_kind">; displayName: string; ownershipPct: number | null }
@@ -174,6 +176,21 @@ const mapFlag = (r: Tables<"document_flags">): DocumentFlag => ({
   id: r.id, fileId: r.file_id, instanceId: r.instance_id, requestId: r.request_id, flagCode: r.flag_code, automatedStatus: r.automated_status,
   evidence: obj(r.evidence), confidence: n(r.confidence), humanDisposition: r.human_disposition, reviewerReason: r.reviewer_reason, createdAt: r.created_at,
 });
+/* One reading of an offer and of a funded deal, shared by the file reader and
+   the deal reader. Two copies of this mapping is two places for a currency to
+   be read as a string (rule 6). */
+const mapOffer = (o: Tables<"offers">): Offer => ({
+  id: o.id, dealId: o.deal_id, lenderId: o.lender_id, receivedAt: o.received_at, offerAmount: n(o.offer_amount), pricingType: o.pricing_type, pricingValue: n(o.pricing_value),
+  termText: o.term_text, paymentFrequency: o.payment_frequency, paymentAmount: n(o.payment_amount), originationFee: n(o.origination_fee),
+  otherFees: Array.isArray(o.other_fees) ? (o.other_fees as { label: string; amount: number }[]) : [], prepaymentTerms: o.prepayment_terms, expiresAt: o.expires_at,
+  status: o.status, presentedAt: o.presented_at, clientDecidedAt: o.client_decided_at, note: o.note,
+});
+
+const mapFundedDeal = (d: Tables<"funded_deals">): FundedDeal => ({
+  id: d.id, dealId: d.deal_id, offerId: d.offer_id, lenderName: d.lender_name, requestedAmount: Number(d.requested_amount), acceptedOfferAmount: n(d.accepted_offer_amount),
+  grossFunded: Number(d.gross_funded), netFunded: Number(d.net_funded), fundedAt: d.funded_at, disbursementReference: d.disbursement_reference, confirmedAt: d.confirmed_at, note: d.note,
+});
+
 const mapDecision = (r: Tables<"lender_decisions">): LenderDecision => ({
   id: r.id, dealId: r.deal_id, decision: r.decision, decidedAt: r.decided_at, terms: obj(r.terms), conditions: r.conditions, source: r.source, note: r.note,
 });
@@ -187,10 +204,14 @@ export async function fetchFundingFileDomain(fileId: string): Promise<FundingFil
     sb.from("funding_files").select("agency_id, client_id, stage, secondary_status, waiting_on, funding_clients(funding_parties(id, kind, display_name, ownership_pct))").eq("id", fileId).single(),
     sb.from("requirement_rules").select("*").eq("active", true),
     sb.from("funding_applications").select("*").eq("file_id", fileId).order("version", { ascending: false }).limit(1).maybeSingle(),
-    sb.from("document_requests").select("*").eq("file_id", fileId).order("created_at", { ascending: true }),
+    /* deal_id IS NULL — file-level requirements only. A lender stipulation
+       carries the same file_id but belongs to its deal, and letting one in
+       here would both list it under the wrong heading and let it count
+       towards the file's readiness (0112). */
+    sb.from("document_requests").select("*").is("deal_id", null).eq("file_id", fileId).order("created_at", { ascending: true }),
     sb.from("document_instances").select("*, files(name)").eq("file_id", fileId).order("created_at", { ascending: false }),
     sb.from("document_flags").select("*").eq("file_id", fileId).order("created_at", { ascending: false }),
-    sb.from("funding_deals").select("id, lender, lender_id, program_id, program, amount, status, submitted_at, lender_decisions(*)").eq("file_id", fileId).order("created_at", { ascending: false }),
+    sb.from("funding_deals").select("id, lender, lender_id, program_id, program, amount, status, submitted_at, fit_snapshot, lender_decisions(*)").eq("file_id", fileId).order("created_at", { ascending: false }),
     sb.from("offers").select("*").eq("file_id", fileId).order("received_at", { ascending: false }),
     sb.from("closings").select("*").eq("file_id", fileId).order("started_at", { ascending: false }),
     sb.from("funded_deals").select("*").eq("file_id", fileId).order("funded_at", { ascending: false }),
@@ -204,21 +225,13 @@ export async function fetchFundingFileDomain(fileId: string): Promise<FundingFil
     stage: file.data!.stage,
     secondaryStatus: file.data!.secondary_status,
     waitingOn: file.data!.waiting_on,
-    offers: (offers.data ?? []).map((o) => ({
-      id: o.id, dealId: o.deal_id, lenderId: o.lender_id, receivedAt: o.received_at, offerAmount: n(o.offer_amount), pricingType: o.pricing_type, pricingValue: n(o.pricing_value),
-      termText: o.term_text, paymentFrequency: o.payment_frequency, paymentAmount: n(o.payment_amount), originationFee: n(o.origination_fee),
-      otherFees: Array.isArray(o.other_fees) ? (o.other_fees as { label: string; amount: number }[]) : [], prepaymentTerms: o.prepayment_terms, expiresAt: o.expires_at,
-      status: o.status, presentedAt: o.presented_at, clientDecidedAt: o.client_decided_at, note: o.note,
-    })),
+    offers: (offers.data ?? []).map(mapOffer),
     closings: (closings.data ?? []).map((c) => ({ id: c.id, offerId: c.offer_id, status: c.status, startedAt: c.started_at, signedAt: c.signed_at, note: c.note })),
     commissions: (commissions.data ?? []).map((c) => ({
       id: c.id, dealId: c.deal_id, partyKind: c.party_kind as CommissionPartyKind, partyId: c.party_id, basis: c.basis as CommissionBasis, rateOrAmount: Number(c.rate_or_amount), computedAmount: n(c.computed_amount),
       state: c.state as CommissionState, fundedAt: c.funded_at, paidAt: c.paid_at, note: c.note, createdAt: c.created_at,
     })),
-    fundedDeals: (funded.data ?? []).map((d) => ({
-      id: d.id, dealId: d.deal_id, offerId: d.offer_id, lenderName: d.lender_name, requestedAmount: Number(d.requested_amount), acceptedOfferAmount: n(d.accepted_offer_amount),
-      grossFunded: Number(d.gross_funded), netFunded: Number(d.net_funded), fundedAt: d.funded_at, disbursementReference: d.disbursement_reference, confirmedAt: d.confirmed_at, note: d.note,
-    })),
+    fundedDeals: (funded.data ?? []).map(mapFundedDeal),
     renewals: (renewals.data ?? []).map((r) => ({ id: r.id, fundedDealId: r.funded_deal_id, potentialRenewalDate: r.potential_renewal_date, status: r.status, nextFollowUpAt: r.next_follow_up_at, newFileId: r.new_file_id, note: r.note })),
     clientId: file.data!.client_id,
     parties: partyRows.map((p) => ({ id: p.id, kind: p.kind, displayName: p.display_name, ownershipPct: n(p.ownership_pct) })),
@@ -238,6 +251,7 @@ export async function fetchFundingFileDomain(fileId: string): Promise<FundingFil
     flags: (flags.data ?? []).map(mapFlag),
     deals: (deals.data ?? []).map((d) => ({
       id: d.id, lender: d.lender, lenderId: d.lender_id, programId: d.program_id, program: d.program, amount: Number(d.amount), status: d.status, submittedAt: d.submitted_at,
+      fitOutcome: (obj(d.fit_snapshot).outcome as ProgramFitOutcome | undefined) ?? null,
       decisions: ((d.lender_decisions ?? []) as Tables<"lender_decisions">[]).map(mapDecision).sort((a, b) => b.decidedAt.localeCompare(a.decidedAt)),
     })),
   };
@@ -443,13 +457,56 @@ export async function resolveDocumentFlag(flagId: string, humanDisposition: Enum
 
 /** A submission to a lender program is a deal in status Submitted, naming the program it was matched on. */
 /** A submission records which policy version it was judged against and the Program Fit at that moment (0061) — the outcome later reads against that, not against today's policy. */
-export async function submitToLender(input: { fileId: string; clientId: string; lenderId: string; lenderName: string; programId: string; programName: string; amount: number; policyVersionId: string | null; fitSnapshot: FitSnapshot | null }): Promise<void> {
+/**
+ * Select a lender to pursue — a DEAL, not yet a submission.
+ *
+ * Dee, 2026-09-06: *"Do not create Deals merely because a lender appeared in
+ * search results. A Deal becomes real when the team intentionally decides to
+ * pursue that lender/program."*
+ *
+ * So selecting writes a `Draft` deal and nothing else: no `submitted_at`, no
+ * claim that a lender has seen anything. The fit snapshot and the policy
+ * version are captured HERE, at the moment of the decision, because that is
+ * what the team judged — a policy that changes between selection and
+ * submission must not silently rewrite why the lender was chosen (rule 4).
+ */
+export async function selectLender(input: { fileId: string; clientId: string; lenderId: string; lenderName: string; programId: string; programName: string; amount: number; policyVersionId: string | null; fitSnapshot: FitSnapshot | null }): Promise<void> {
   const sb = requireSupabase();
   const { error } = await sb.from("funding_deals").insert({
     file_id: input.fileId, client_id: input.clientId, lender: input.lenderName, lender_id: input.lenderId, program_id: input.programId, program: input.programName,
-    amount: input.amount, status: "Submitted", submitted_at: new Date().toISOString(),
+    amount: input.amount, status: "Draft",
     policy_version_id: input.policyVersionId, fit_snapshot: input.fitSnapshot ? (input.fitSnapshot as unknown as Json) : null,
   });
+  if (error) throw error;
+}
+
+/**
+ * Submit a selected deal. Draft → Submitted, stamping when it went out.
+ *
+ * Guarded on `status = 'Draft'` in the WHERE clause rather than read-then-
+ * write: two people pressing Submit at the same moment must not produce two
+ * submission timestamps, and the second update simply matches no row.
+ */
+export async function submitSelectedDeal(dealId: string): Promise<void> {
+  const sb = requireSupabase();
+  const { error } = await sb
+    .from("funding_deals")
+    .update({ status: "Submitted", submitted_at: new Date().toISOString() })
+    .eq("id", dealId)
+    .eq("status", "Draft");
+  if (error) throw error;
+}
+
+/**
+ * Un-select a lender that was chosen and not yet submitted.
+ *
+ * Only a Draft may go: once a deal has been submitted, a lender has seen the
+ * file and the record is history (rule 11). Withdrawing a live deal is a
+ * lender decision, recorded through `record_lender_decision`, not a delete.
+ */
+export async function unselectLender(dealId: string): Promise<void> {
+  const sb = requireSupabase();
+  const { error } = await sb.from("funding_deals").delete().eq("id", dealId).eq("status", "Draft");
   if (error) throw error;
 }
 
@@ -560,7 +617,10 @@ export async function fetchFundingQueueSignals(): Promise<QueueSignals> {
   const sb = requireSupabase();
   const [files, requests, offers, closings, renewals, funded, deals] = await Promise.all([
     sb.from("funding_files").select("id, stage, secondary_status, waiting_on, last_activity_at, assigned_agent_id, purpose, public_id, requested_amount, funding_clients(name), funding_businesses(legal_name), assignee:profiles!assigned_agent_id(full_name, email)").limit(2000),
-    sb.from("document_requests").select("file_id").eq("status", "open").limit(5000),
+    /* Outstanding is more than `open` now that a requirement has a lifecycle:
+       assigned, waiting on the client and under review are all still work to
+       do. Only satisfied and waived are finished (0112). */
+    sb.from("document_requests").select("file_id").not("status", "in", "(satisfied,waived)").limit(5000),
     sb.from("offers").select("file_id, status, offer_amount").limit(3000),
     sb.from("closings").select("file_id, status").not("status", "in", "(funded,cancelled)").limit(2000),
     sb.from("renewal_opportunities").select("status, potential_renewal_date, next_follow_up_at, new_file_id").limit(2000),
@@ -590,4 +650,156 @@ export async function fetchFundingQueueSignals(): Promise<QueueSignals> {
     funded: (funded.data ?? []).map((f) => ({ gross: Number(f.gross_funded), fundedAt: f.funded_at })),
     submissions: (deals.data ?? []).map((d) => ({ fileId: d.file_id, lender: d.lender, status: d.status })),
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* One DEAL — the record of taking this file to one lender             */
+/* ------------------------------------------------------------------ */
+
+export interface DealStipulation {
+  id: string;
+  documentType: string;
+  period: string | null;
+  status: Enums<"document_request_status">;
+  lenderNote: string | null;
+  assignedTo: string | null;
+  waivedReason: string | null;
+  satisfiedByInstanceId: string | null;
+  createdAt: string;
+}
+
+export interface DealDetail {
+  id: string;
+  fileId: string;
+  filePublicId: string | null;
+  clientId: string;
+  clientName: string | null;
+  businessName: string | null;
+  lender: string;
+  lenderId: string | null;
+  program: string | null;
+  programId: string | null;
+  amount: number;
+  status: Enums<"funding_deal_status">;
+  submittedAt: string | null;
+  fundedAt: string | null;
+  rate: string | null;
+  term: string | null;
+  /** Program Fit as it stood when this lender was chosen. Never re-derived. */
+  fitOutcome: ProgramFitOutcome | null;
+  fitCriteria: { key: string; result: string; reason: string }[];
+  policyVersionId: string | null;
+  decisions: LenderDecision[];
+  stipulations: DealStipulation[];
+  offers: Offer[];
+  funded: FundedDeal | null;
+}
+
+/**
+ * One deal, in one bounded request.
+ *
+ * The nesting is the canonical chain read downward from the deal: its file
+ * (for the reference and the borrower), its lender decisions, its
+ * stipulations, its offers, and the funded record if one exists. A deal page
+ * that fetched each of those separately would be five round trips for one
+ * screen (rule 14).
+ */
+export async function fetchDealDetail(dealId: string): Promise<DealDetail | null> {
+  const sb = requireSupabase();
+  const { data, error } = await sb
+    .from("funding_deals")
+    .select(`
+      id, file_id, client_id, lender, lender_id, program, program_id, amount, status,
+      submitted_at, funded_at, rate, term, fit_snapshot, policy_version_id,
+      funding_files(public_id, funding_businesses(legal_name, dba)),
+      funding_clients(name),
+      lender_decisions(*),
+      document_requests(id, document_type, period, status, lender_note, assigned_to, waived_reason, satisfied_by_instance_id, created_at),
+      offers(*),
+      funded_deals(*)
+    `)
+    .eq("id", dealId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  const r = data as unknown as Tables<"funding_deals"> & {
+    funding_files: { public_id: string | null; funding_businesses: { legal_name: string; dba: string | null } | null } | null;
+    funding_clients: { name: string } | null;
+    lender_decisions: Tables<"lender_decisions">[] | null;
+    document_requests: Tables<"document_requests">[] | null;
+    offers: Tables<"offers">[] | null;
+    funded_deals: Tables<"funded_deals">[] | null;
+  };
+  const snapshot = obj(r.fit_snapshot);
+  const business = r.funding_files?.funding_businesses ?? null;
+  const fundedRow = (r.funded_deals ?? [])[0] ?? null;
+  return {
+    id: r.id,
+    fileId: r.file_id,
+    filePublicId: r.funding_files?.public_id ?? null,
+    clientId: r.client_id,
+    clientName: r.funding_clients?.name ?? null,
+    businessName: business ? business.dba?.trim() || business.legal_name : null,
+    lender: r.lender,
+    lenderId: r.lender_id,
+    program: r.program,
+    programId: r.program_id,
+    amount: Number(r.amount),
+    status: r.status,
+    submittedAt: r.submitted_at,
+    fundedAt: r.funded_at,
+    rate: r.rate,
+    term: r.term,
+    fitOutcome: (snapshot.outcome as ProgramFitOutcome | undefined) ?? null,
+    fitCriteria: Array.isArray(snapshot.criteria)
+      ? (snapshot.criteria as { key: string; result: string; reason: string }[])
+      : [],
+    policyVersionId: r.policy_version_id,
+    decisions: (r.lender_decisions ?? []).map(mapDecision).sort((a, b) => b.decidedAt.localeCompare(a.decidedAt)),
+    stipulations: (r.document_requests ?? []).map((s) => ({
+      id: s.id,
+      documentType: s.document_type,
+      period: s.period,
+      status: s.status,
+      lenderNote: s.lender_note,
+      assignedTo: s.assigned_to,
+      waivedReason: s.waived_reason,
+      satisfiedByInstanceId: s.satisfied_by_instance_id,
+      createdAt: s.created_at,
+    })).sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
+    offers: (r.offers ?? []).map(mapOffer).sort((a, b) => b.receivedAt.localeCompare(a.receivedAt)),
+    funded: fundedRow ? mapFundedDeal(fundedRow) : null,
+  };
+}
+
+/** Record what a lender asked for. Only a submitted deal may have one. */
+export async function addDealStipulation(input: {
+  dealId: string;
+  documentType: string;
+  lenderNote?: string | null;
+  period?: string | null;
+}): Promise<void> {
+  const sb = requireSupabase();
+  const { error } = await sb.rpc("add_deal_stipulation", {
+    p_deal: input.dealId,
+    p_document_type: input.documentType,
+    p_lender_note: input.lenderNote ?? undefined,
+    p_period: input.period ?? undefined,
+  });
+  if (error) throw error;
+}
+
+/** Move a requirement or stipulation along its lifecycle. */
+export async function moveDocumentRequest(
+  requestId: string,
+  status: Enums<"document_request_status">,
+  note?: string,
+): Promise<void> {
+  const sb = requireSupabase();
+  const { error } = await sb.rpc("move_document_request", {
+    p_request: requestId,
+    p_status: status,
+    p_note: note ?? undefined,
+  });
+  if (error) throw error;
 }
