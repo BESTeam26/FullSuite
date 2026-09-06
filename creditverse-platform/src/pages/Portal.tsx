@@ -10,6 +10,7 @@ import {
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useSeo } from "@/lib/use-seo";
+import { SampleContentNotice } from "@/components/dashboard/SampleContentNotice";
 
 const steps = [
   {
@@ -70,6 +71,7 @@ const Portal = () => {
   });
   return (
     <div className="min-h-screen bg-gradient-navy text-white">
+      <SampleContentNotice what="This is a preview of the client portal with example data. Real client portals open from a client's own sign-in." />
       <header className="border-b border-white/10">
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-2">

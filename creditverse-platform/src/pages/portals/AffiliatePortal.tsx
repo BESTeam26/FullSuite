@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useReferral } from "@/lib/referral/referral-context";
 import { useSeo } from "@/lib/use-seo";
+import { SampleContentNotice } from "@/components/dashboard/SampleContentNotice";
 
 const nav: PortalNavItem[] = [
   { label: "Overview", href: "/affiliate", icon: Home },
@@ -92,6 +93,7 @@ const AffiliatePortal = () => {
       gradientClass="bg-gradient-to-br from-amber-500 to-orange-500"
       nav={nav}
     >
+      <SampleContentNotice what="This is a preview of the affiliate portal with example figures; live referral tracking arrives with the referral model." />
       <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">

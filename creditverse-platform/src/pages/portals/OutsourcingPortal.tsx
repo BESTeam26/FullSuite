@@ -19,6 +19,7 @@ import { PermissionScopeCard } from "@/components/portals/PermissionScopeCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useSeo } from "@/lib/use-seo";
+import { SampleContentNotice } from "@/components/dashboard/SampleContentNotice";
 
 const nav: PortalNavItem[] = [
   { label: "My Queue", href: "/outsourcing", icon: Home },
@@ -105,6 +106,7 @@ const OutsourcingPortal = () => {
       gradientClass="bg-gradient-to-br from-indigo-500 to-blue-600"
       nav={nav}
     >
+      <SampleContentNotice what="This is a preview of the outsourcing partner portal with example work; a partner's live view opens from their own sign-in." />
       <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">

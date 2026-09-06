@@ -100,9 +100,9 @@ const ClientDetailInner = () => {
       )}
       {reportSource === "none" && (
         <div role="status" className="mb-4 rounded-xl border border-border bg-muted/30 px-4 py-2.5 text-xs text-foreground">
-          <strong className="font-bold">This page is the sample client walkthrough.</strong>{" "}
-          In a live session it has no report behind it, so nothing is analysed here. Real clients are opened from
-          CreditOps → Clients; their profile is where the report is imported and analysed.
+          <strong className="font-bold">No credit report imported yet.</strong>{" "}
+          Import this client's report from <span className="font-semibold">Import &amp; Analysis</span> to unlock the analysis, the
+          integrity checks, letter building on real items and the simulator. Nothing on this profile is estimated without it.
         </div>
       )}
       <Link

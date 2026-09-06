@@ -3514,3 +3514,10 @@ read-modify-write), Team Members, Roles & access, Workspace views, Letter
 Library, KPIs, AI usage, and **Plan & billing** (plan from sign-up, trial or
 active status with dates, seats in use plus invitations, modules enabled, and
 a pre-addressed email to BES for changes until the payment connection exists).
+
+**Polish pass 5 — honest words on live client profiles and portal previews
+(2026-09-05).** A live client without a report was told "this page is the
+sample client walkthrough"; it now says no report has been imported yet and
+what importing one unlocks. The public portal previews (client, affiliate,
+outsourcing) open with a demo notice so example figures are never mistaken for
+a real account.
