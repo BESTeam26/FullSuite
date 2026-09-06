@@ -107,6 +107,7 @@ members, roles and permissions, audit log, Workforce views for BES.
 | O1 | **Announcements** and **Knowledge Base** are sample content | Two small tables (`announcements`, `knowledge_articles`) with organization scope, an editor for admins, read views for everyone. This is the "company intranet". Small structural addition — I will propose and build unless you object. | Say if you want it now |
 | O2 | **Recurring** work and simple **automations** (e.g. when stage changes → create task) | A `recurrence` rule on work items and an automation rule table executed by a scheduled Edge Function. | No, but sequence it |
 | O3 | **Stale running timer** policy (a timer left running overnight) | A rule: auto-stop at a configurable cap with a note, shown to the person next sign-in. | Choose the cap (e.g. 10 h) |
+| O5 | **Personal profiles and greetings** | **Built** (0073): photo, preferred name, job title, phone, birthday (month/day, opt-in), password change and reset; birthday greetings as an organization automation for the team and for clients in their portal. | — |
 | O4 | **Team chat / comments on everything** | Comments exist on work items and clients; not on funding files or reports. Extend the one comments model. | No |
 
 ### 5. GHL as the sales front end

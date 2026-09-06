@@ -1250,5 +1250,37 @@ if (PHASE >= 31) {
   }
 }
 
+
+/* Phase 32 — personal profiles and greetings (0073). A person edits only their
+   own profile; a birthday is shown only when its owner allowed it; automations
+   need settings.manage; the avatars bucket is per-person. Rolled back. */
+if (PHASE >= 32) {
+  const w32 = (uid, sql, role = "authenticated") => { try { return q(`begin; set local role ${role}; set local request.jwt.claims = '{"sub":"${uid}","role":"${role}"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
+  const OWNER = U["org.owner@bes.test"], AGENT = U["org.agent@bes.test"], OTHER = U["org2.owner@bes.test"];
+  const P32 = [
+    ["a person updates their own profile",                                 () => w32(OWNER, `update public.profiles set preferred_name='Probe', birth_month=3, birth_day=14, birthday_visible=true where id='${OWNER}'; select count(*)::int as rows from public.profiles where id='${OWNER}' and preferred_name='Probe'`), 1],
+    ["a person cannot update a teammate's profile",                        () => w32(AGENT, `update public.profiles set preferred_name='Nope' where id='${OWNER}'; select count(*)::int as rows from public.profiles where id='${OWNER}' and preferred_name='Nope'`), 0],
+    ["a half birthday is refused by the constraint",                       () => w32(OWNER, `update public.profiles set birth_month=3, birth_day=null where id='${OWNER}'; select 1 as rows`), "ERR 23514"],
+    ["a hidden birthday is not listed for the team",                       () => w32(OWNER, `update public.profiles set birth_month=extract(month from current_date)::smallint, birth_day=extract(day from current_date)::smallint, birthday_visible=false where id='${OWNER}'; select count(*)::int as rows from public.team_birthdays('${lakesideOrg}', 30) where user_id='${OWNER}'`), 0],
+    ["a shown birthday is listed for the team, today first",               () => w32(OWNER, `update public.profiles set birth_month=extract(month from current_date)::smallint, birth_day=extract(day from current_date)::smallint, birthday_visible=true where id='${OWNER}'; select coalesce((select days_away from public.team_birthdays('${lakesideOrg}', 30) where user_id='${OWNER}'), -1)::int as rows`), 0],
+    ["another organization's owner sees no Lakeside birthdays",            () => w32(OTHER, `select count(*)::int as rows from public.team_birthdays('${lakesideOrg}', 365)`), 0],
+    ["the birthday list returns no email, phone or year",                  () => q(`select (pg_get_function_result(p.oid) !~* '(email|phone|year)')::int as rows from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='team_birthdays'`)[0].rows, 1],
+    ["organization admin switches an automation on",                       () => w32(OWNER, `select public.set_organization_automation('${lakesideOrg}', 'birthday_greeting_team', true, '{}'::jsonb); select count(*)::int as rows from public.organization_automations where organization_id='${lakesideOrg}' and key='birthday_greeting_team' and enabled`), 1],
+    ["an agent may not switch an automation",                              () => w32(AGENT, `select public.set_organization_automation('${lakesideOrg}', 'birthday_greeting_team', true, '{}'::jsonb)`), "ERR 42501"],
+    ["another organization's owner may not switch Lakeside's automation",  () => w32(OTHER, `select public.set_organization_automation('${lakesideOrg}', 'birthday_greeting_team', true, '{}'::jsonb)`), "ERR 42501"],
+    ["an unknown automation key is refused",                               () => w32(OWNER, `select public.set_organization_automation('${lakesideOrg}', 'send_all_the_things', true, '{}'::jsonb)`), "ERR 23514"],
+    ["direct insert into automations has no grant",                        () => w32(OWNER, `insert into public.organization_automations (organization_id, key, enabled) values ('${lakesideOrg}', 'birthday_greeting_team', true); select 1 as rows`), "ERR 42501"],
+    ["the avatars bucket is private",                                      () => q(`select (not public)::int as rows from storage.buckets where id='avatars'`)[0].rows, 1],
+    ["anon cannot read automations",                                       () => w32("00000000-0000-0000-0000-000000000000", `select count(*)::int as rows from public.organization_automations`, "anon"), "ERR 42501"],
+  ];
+  console.log("\nphase 32:");
+  for (const [label, fn, want] of P32) {
+    checks++;
+    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
+    const ok = String(got) === String(want); if (!ok) fails++;
+    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
+  }
+}
+
 console.log(`\n${checks - fails}/${checks} checks passed (phase ≤ ${PHASE})`);
 process.exit(fails ? 1 : 0);

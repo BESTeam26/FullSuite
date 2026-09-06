@@ -72,6 +72,7 @@ import { OrganizationProfileSection } from "@/components/settings/sections/Organ
 import { OrganizationPlanSection } from "@/components/settings/sections/OrganizationPlanSection";
 import { LetterLibrarySection } from "@/components/settings/sections/LetterLibrarySection";
 import { AccountSection } from "@/components/settings/sections/AccountSection";
+import { OrganizationAutomationsSection } from "@/components/settings/sections/OrganizationAutomationsSection";
 import { useAgency } from "@/lib/agency-context";
 import { useAuth } from "@/lib/auth/auth-context";
 import { usePermissions } from "@/lib/auth/use-permission";
@@ -151,6 +152,7 @@ const organizationGroups: SettingsGroup[] = [
       { key: "workspace-views", label: "Workspace views", icon: LayoutGrid, permission: "workspaces.manage" },
       { key: "letters", label: "Letter Library", icon: FileText, permission: "creditops.letters.templates" },
       { key: "kpis", label: "KPIs", icon: BarChart3, permission: "settings.manage" },
+      { key: "org-automations", label: "Automations", icon: Zap, permission: "settings.manage" },
       { key: "ai-usage", label: "AI usage", icon: Sparkles, permission: "billing.view" },
       { key: "plan", label: "Plan & billing", icon: CreditCard, permission: "billing.view" },
     ],
@@ -186,6 +188,7 @@ const SettingsContent = () => {
       if (active === "role-access") return <RoleAccessSection />;
       if (active === "workspace-views") return <WorkspaceViewsSection />;
       if (active === "ai-usage") return activeOrganization ? <AiUsageSection organizationId={activeOrganization.id} canEdit={canEditKpis} /> : null;
+      if (active === "org-automations") return <OrganizationAutomationsSection organizationId={activeOrganization?.id ?? null} canEdit={canEditKpis} />;
       if (active === "kpis") return activeOrganization ? <KpiSettingsSection organizationId={activeOrganization.id} canEdit={canEditKpis} /> : null;
       if (active === "letters") return activeOrganization ? <LetterLibrarySection organizationId={activeOrganization.id} /> : null;
       return activeOrganization ? <TeamMembersSection organizationId={activeOrganization.id} organizationName={activeOrganization.name} /> : null;

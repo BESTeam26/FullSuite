@@ -1829,6 +1829,7 @@ export type Database = {
           auto_sync: boolean
           created_at: string
           created_by: string | null
+          date_of_birth: string | null
           due_at: string | null
           email: string
           id: string
@@ -1841,6 +1842,7 @@ export type Database = {
           outsourcing_group_id: string | null
           partner_scope_id: string | null
           phone: string | null
+          preferred_name: string | null
           public_id: string
           round: Database["public"]["Enums"]["fulfillment_round"]
           status: Database["public"]["Enums"]["fulfillment_client_status"]
@@ -1855,6 +1857,7 @@ export type Database = {
           auto_sync?: boolean
           created_at?: string
           created_by?: string | null
+          date_of_birth?: string | null
           due_at?: string | null
           email: string
           id?: string
@@ -1867,6 +1870,7 @@ export type Database = {
           outsourcing_group_id?: string | null
           partner_scope_id?: string | null
           phone?: string | null
+          preferred_name?: string | null
           public_id?: string
           round?: Database["public"]["Enums"]["fulfillment_round"]
           status?: Database["public"]["Enums"]["fulfillment_client_status"]
@@ -1881,6 +1885,7 @@ export type Database = {
           auto_sync?: boolean
           created_at?: string
           created_by?: string | null
+          date_of_birth?: string | null
           due_at?: string | null
           email?: string
           id?: string
@@ -1893,6 +1898,7 @@ export type Database = {
           outsourcing_group_id?: string | null
           partner_scope_id?: string | null
           phone?: string | null
+          preferred_name?: string | null
           public_id?: string
           round?: Database["public"]["Enums"]["fulfillment_round"]
           status?: Database["public"]["Enums"]["fulfillment_client_status"]
@@ -3710,6 +3716,48 @@ export type Database = {
           },
         ]
       }
+      organization_automations: {
+        Row: {
+          config: Json
+          enabled: boolean
+          key: string
+          organization_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          config?: Json
+          enabled?: boolean
+          key: string
+          organization_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          config?: Json
+          enabled?: boolean
+          key?: string
+          organization_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_automations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_automations_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organization_identity: {
         Row: {
           created_at: string
@@ -4418,27 +4466,48 @@ export type Database = {
       }
       profiles: {
         Row: {
+          avatar_path: string | null
           avatar_url: string | null
+          birth_day: number | null
+          birth_month: number | null
+          birthday_visible: boolean
           created_at: string
           email: string
           full_name: string | null
           id: string
+          phone: string | null
+          preferred_name: string | null
+          title: string | null
           updated_at: string
         }
         Insert: {
+          avatar_path?: string | null
           avatar_url?: string | null
+          birth_day?: number | null
+          birth_month?: number | null
+          birthday_visible?: boolean
           created_at?: string
           email: string
           full_name?: string | null
           id: string
+          phone?: string | null
+          preferred_name?: string | null
+          title?: string | null
           updated_at?: string
         }
         Update: {
+          avatar_path?: string | null
           avatar_url?: string | null
+          birth_day?: number | null
+          birth_month?: number | null
+          birthday_visible?: boolean
           created_at?: string
           email?: string
           full_name?: string | null
           id?: string
+          phone?: string | null
+          preferred_name?: string | null
+          title?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -6141,6 +6210,16 @@ export type Database = {
         }
         Returns: boolean
       }
+      client_birthdays: {
+        Args: { p_org: string; p_within_days?: number }
+        Returns: {
+          birth_day: number
+          birth_month: number
+          client_id: string
+          days_away: number
+          name: string
+        }[]
+      }
       confirm_funding: {
         Args: {
           p_closing: string
@@ -6521,6 +6600,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      set_organization_automation: {
+        Args: {
+          p_config?: Json
+          p_enabled: boolean
+          p_key: string
+          p_org: string
+        }
+        Returns: undefined
+      }
       set_organization_role_access: {
         Args: {
           p_can_access_management: boolean
@@ -6538,6 +6626,17 @@ export type Database = {
       start_closing: {
         Args: { p_note?: string; p_offer: string }
         Returns: string
+      }
+      team_birthdays: {
+        Args: { p_org: string; p_within_days?: number }
+        Returns: {
+          avatar_path: string
+          birth_day: number
+          birth_month: number
+          days_away: number
+          name: string
+          user_id: string
+        }[]
       }
       to_service: {
         Args: { p: string }

@@ -21,6 +21,7 @@ import { StageBarChart } from "@/components/dashboard/ops/StageBarChart";
 import { useAgency } from "@/lib/agency-context";
 import { useAuth } from "@/lib/auth/auth-context";
 import { GettingStartedCard } from "@/components/dashboard/GettingStartedCard";
+import { BirthdayStrip } from "@/components/dashboard/BirthdayStrip";
 import { usePermissions } from "@/lib/auth/use-permission";
 import { useOrganizationWork } from "@/lib/data/use-work";
 import { useWorkspaces } from "@/lib/data/use-workspaces";
@@ -202,6 +203,7 @@ export default function OrganizationDashboard() {
           {trial.status === "converted" && <>Your organization is active.</>}
         </div>
       )}
+      {prefs.live && <BirthdayStrip organizationId={org.id} organizationName={org.name.replace(/^\[TEST\]\s*/, "")} />}
       {prefs.live && (
         <GettingStartedCard
           organizationId={org.id}

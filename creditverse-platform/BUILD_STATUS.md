@@ -3602,3 +3602,29 @@ shows 5/7 steps, Cleo Chan › Import & Analysis shows PDF/CSV import.
   (own profile row, self-row update policy) and password change (Supabase
   Auth `updateUser`; the application never stores or logs it). The
   organization default section remains the first Organization section.
+
+## Completion cycle 7 (2026-09-05, late) — people, not logins (0073)
+
+Dee asked for personalization: photos, preferred names, phone, birthdays and
+birthday greetings, "something personal and premium".
+
+- **0073 `profile_personalization`** — `profiles` gains preferred name, job
+  title, phone, birth month/day and `birthday_visible`; `fulfillment_clients`
+  gains date of birth and preferred name; a **private** `avatars` bucket where
+  each person owns the folder named by their id (read limited to people who
+  already share a scope); `organization_automations` with
+  `set_organization_automation()` (needs `settings.manage`, writes an audit
+  row); `team_birthdays()` / `client_birthdays()` returning month, day and days
+  away — no year, no email, no phone.
+  **Privacy taken deliberately:** no year of birth is stored for staff, and the
+  birthday is hidden until its owner ticks the box.
+- **Settings › Your account**: photo upload and removal, full name, preferred
+  name, job title, phone, read-only email, birthday with an explicit "let my
+  team wish me a happy birthday", password change, and "email me a reset link".
+- **Settings › Automations** (organization): team and client birthday
+  greetings, each with a plain statement of what it does and what it needs.
+- **Home**: a birthday strip that appears only when the automation is on, with
+  today's greeting first; the top bar now shows the person's own photo.
+- `lib/greetings/birthday.ts`: deterministic engine (days away, 29 February
+  greeted on the 28th in a common year, ordering, plain wording), tested.
+- Matrix phase 32 (14 probes) added. Matrix through phase 31 passed 434/434 before 0073 was applied; phase 32 runs in the next cycle.

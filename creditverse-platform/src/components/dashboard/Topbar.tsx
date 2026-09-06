@@ -17,6 +17,8 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { useSidebarState } from "@/components/dashboard/sidebar-state";
 import { GlobalSearch } from "@/components/dashboard/GlobalSearch";
 import { PageHelp } from "@/components/dashboard/PageHelp";
+import { Avatar } from "@/components/common/Avatar";
+import { useAvatarUrls, useOwnProfile } from "@/lib/data/use-account";
 
 export const Topbar = () => {
   const agencyContext = useAgency();
@@ -27,6 +29,10 @@ export const Topbar = () => {
   const navigate = useNavigate();
   const [newClientOpen, setNewClientOpen] = useState(false);
   const unreadNotifications = useUnreadNotificationCount();
+  const account = useOwnProfile();
+  const avatars = useAvatarUrls([account.profile?.avatarPath]);
+  const avatarUrl = account.profile?.avatarPath ? avatars.data?.[account.profile.avatarPath] : null;
+  const myName = account.profile?.preferredName || account.profile?.fullName || displayName;
   const activeSubAccount = agencyContext?.activeSubAccount || null;
   const switchToAgencyView = agencyContext?.switchToAgencyView || (() => {});
 
@@ -105,15 +111,11 @@ export const Topbar = () => {
         </Link>
 
         <div className="hidden items-center gap-2 sm:flex">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-gold font-bold text-charcoal text-sm">
-            {viewMode === "agency"
-              ? "HQ"
-              : activeSubAccount?.code.slice(0, 2) || "SA"}
-          </div>
+          <Avatar name={myName} url={avatarUrl} size="md" />
           <div className="hidden text-sm leading-tight sm:block">
             <p className="font-medium">
               {viewMode === "agency"
-                ? displayName
+                ? myName
                 : activeSubAccount?.ownerName}
             </p>
             <p className="text-xs text-muted-foreground">
