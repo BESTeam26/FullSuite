@@ -11,6 +11,7 @@ import { ChartCard } from "@/components/dashboard/ops/ChartCard";
 import { useOrgMembers } from "@/lib/data/use-workspaces";
 import type { PivotDimension, PivotFilters } from "@/lib/data/reporting-engine";
 import { useKpiDefinitions, usePivot } from "@/lib/data/use-reporting-engine";
+import { formatDate } from "@/lib/format-date";
 import { formatKpiValue, monthLabel, shapePivot } from "@/lib/reporting/pivot-shape";
 import { cn } from "@/lib/utils";
 
@@ -61,7 +62,7 @@ export function PivotBuilder({ organizationId, memberOrganizationId }: { organiz
           {table.rows.length > 1 && <tfoot><tr className="border-t-2 border-border bg-muted/30 font-bold"><td className="px-3 py-2 text-foreground">Total</td>{table.totals.map((t, i) => <td key={i} className="px-3 py-2 text-right text-foreground">{formatKpiValue(t, table.columns[i].aggregation)}</td>)}</tr></tfoot>}
         </table>
       </div>
-      <p className="mt-2 text-[10px] text-muted-foreground">Deterministic counts over the records you may see, from {period.from} to {period.to}. Distinct-client figures are not totalled across rows.</p>
+      <p className="mt-2 text-[10px] text-muted-foreground">Deterministic counts over the records you may see, from {formatDate(period.from)} to {formatDate(period.to)}. Distinct-client figures are not totalled across rows.</p>
     </ChartCard>
   );
 }
