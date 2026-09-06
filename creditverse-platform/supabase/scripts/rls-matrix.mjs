@@ -36,6 +36,19 @@ const q = (sql) => {
   if (doc._tag === "Error") throw new Error(doc.error?.message ?? "db query error");
   return Array.isArray(doc.rows) ? doc.rows : [];
 };
+/**
+ * A raw query whose failure is reported the way the per-phase helpers report
+ * it — "ERR <sqlstate>" — rather than as the shell command that failed. A
+ * probe that expects a refusal must be able to say which refusal it got.
+ */
+const tryQ = (sql) => {
+  try { return q(sql)[0].rows; }
+  catch (e) {
+    const text = String(e.message) + "\n" + String(e.stdout ?? "");
+    const m = text.match(/ERROR:\s*(\w+):/);
+    return "ERR " + (m ? m[1] : "unknown");
+  }
+};
 const asUser = (uid, selectList) =>
   q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; select ${selectList}; rollback;`)[0];
 
@@ -1204,7 +1217,10 @@ if (PHASE >= 29) {
     ["pricing policy is BES-only",                                             () => w29(U["org.owner@bes.test"], `select count(*)::int as rows from public.ai_pricing_policy`) + "|" + w29(U["org.owner@bes.test"], `insert into public.ai_pricing_policy (model, input_cost_per_million, output_cost_per_million) values ('m', 1, 1); select 1 as rows`), "0|ERR 42501"],
     ["the owner sets auto-recharge; a processor cannot",                      () => w29(U["org.owner@bes.test"], `insert into public.ai_recharge_settings (organization_id, enabled, threshold, pack_usd, updated_by) values ('${lakesideOrg}', true, 500, 25, auth.uid()); select count(*)::int as rows from public.ai_recharge_settings where organization_id='${lakesideOrg}'`) + "|" + w29(U["org.agent@bes.test"], `insert into public.ai_recharge_settings (organization_id, enabled, updated_by) values ('${lakesideOrg}', true, auth.uid()); select 1 as rows`), "1|ERR 42501"],
     ["the API role cannot meter itself (ai_record_usage is service-role only)", () => w29(U["bes.owner@bes.test"], `select * from public.ai_record_usage('${lakesideOrg}', auth.uid(), 'letters.assist', 'm', 1, 1, 0, 'probe-meter'); select 1 as rows`), "ERR 42501"],
-    ["ai_can_use needs an entitled feature and a positive balance",           () => w29(U["org.owner@bes.test"], `select public.ai_can_use('${lakesideOrg}', 'letters.assist')::text as rows`), "false"],
+    /* The dev fixtures now carry AI credits (0082), so asserting "false" on the
+       fixture balance stopped testing anything. The balance is zeroed inside
+       the transaction instead, which tests the rule wherever the fixtures go. */
+    ["ai_can_use needs an entitled feature and a positive balance",           () => { try { return q(`begin; insert into public.ai_credit_ledger (organization_id, delta_credits, kind) select '${lakesideOrg}', -coalesce(sum(delta_credits), 0), 'adjustment' from public.ai_credit_ledger where organization_id='${lakesideOrg}'; set local role authenticated; set local request.jwt.claims = '{"sub":"${U["org.owner@bes.test"]}","role":"authenticated"}'; select public.ai_can_use('${lakesideOrg}', 'letters.assist')::text as rows; rollback;`)[0].rows; } catch (e) { const m = String(e.message).match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } }, "false"],
     ["…true once credits exist (member of the organization, CreditOps entitled)", () => q(`select public.org_entitled('${lakesideOrg}','creditOps') as rows`)[0].rows === true ? w29(U["bes.manager@bes.test"], `select public.grant_ai_credits('${lakesideOrg}', 100, 'purchase'); set local request.jwt.claims = '{"sub":"${U["org.owner@bes.test"]}","role":"authenticated"}'; select public.ai_can_use('${lakesideOrg}', 'letters.assist')::text as rows`) : "skip", q(`select public.org_entitled('${lakesideOrg}','creditOps') as rows`)[0].rows === true ? "true" : "skip"],
   ];
   console.log("\nphase 29:");
@@ -1338,7 +1354,11 @@ if (PHASE >= 33) {
        one the sub-select was null, the call was a legitimate "clear the
        department", and the probe proved nothing. It also returns void, so the
        row is shaped by a marker select. */
-    ["a member cannot be moved into another organization's department", () => q(`begin; insert into public.organization_departments (organization_id, name) select id, 'Probe Foreign' from public.organizations where id <> '${lakesideOrg}' limit 1 on conflict do nothing; set local role authenticated; set local request.jwt.claims = '{"sub":"${OWNER}","role":"authenticated"}'; select public.set_member_department((select id from public.org_memberships where organization_id='${lakesideOrg}' limit 1), (select id from public.organization_departments where organization_id <> '${lakesideOrg}' and name='Probe Foreign' limit 1)); select 1 as rows; rollback;`)[0].rows, "ERR 42501"],
+    /* The foreign department is named by a literal id. Reading it back with a
+       subselect returned null, because the caller's own row-level security
+       hides another organization's departments — and a null department is a
+       legitimate "clear it" that succeeded, so the probe passed itself. */
+    ["a member cannot be moved into another organization's department", () => tryQ(`begin; insert into public.organization_departments (id, organization_id, name) select 'd0000000-0000-4000-8000-0000000033a1', id, 'Probe Foreign' from public.organizations where id <> '${lakesideOrg}' limit 1 on conflict do nothing; set local role authenticated; set local request.jwt.claims = '{"sub":"${OWNER}","role":"authenticated"}'; select public.set_member_department((select id from public.org_memberships where organization_id='${lakesideOrg}' limit 1), 'd0000000-0000-4000-8000-0000000033a1'); select 1 as rows; rollback;`), "ERR 42501"],
     ["the directory is empty for an outsider",                          () => w33(OTHER, `select count(*)::int as rows from public.organization_directory('${lakesideOrg}')`), 0],
     ["the directory reaches the organization's own members",            () => w33(OWNER, `select (count(*) > 0)::int as rows from public.organization_directory('${lakesideOrg}')`), 1],
     ["anon reads no hub registry",                                      () => w33("00000000-0000-0000-0000-000000000000", `select count(*)::int as rows from public.hub_modules`, "anon"), "ERR 42501"],
@@ -1387,11 +1407,25 @@ if (PHASE >= 35) {
   const LC = q(`select coalesce((select id::text from public.fulfillment_clients where organization_id='${lakesideOrg}' limit 1), '') as rows`)[0].rows;
   const body = (uid) => `'{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"see "},{"type":"mention","attrs":{"userId":"${uid}","label":"Someone"}}]}]}'::jsonb`;
   const post = (uid, visibility) => `insert into public.activity_events (agency_id, organization_id, entity_type, entity_id, action, detail, body, actor_id, visibility) values (public.org_agency('${lakesideOrg}'), '${lakesideOrg}', 'fulfillment_client', '${LC}', 'Comment posted', 'see @Someone', ${body(uid)}, auth.uid(), '${visibility}')`;
+  /* Count with RLS out of the way — `reset role` returns to the session's own
+     superuser role inside the same transaction.
+   *
+   * Counting as the author returned 0 whatever happened (a notification is
+   * only selectable by its recipient), so the positive probe failed and every
+   * negative probe passed for the wrong reason. Counting as the *recipient* is
+   * no better: notifications_select also requires entity_visible(), so a
+   * notification about a client the recipient cannot open is hidden even
+   * though it exists. What these probes are about is whether the row was
+   * CREATED, and only the database itself can answer that — which also makes
+   * each negative probe strictly stronger: it now proves nothing was written,
+   * not merely that nobody could see it. Scoped to this transaction so an
+   * older row cannot stand in. */
+  const countFor = (uid) => `reset role; select count(*)::int as rows from public.notifications where recipient_id='${uid}' and kind='mention' and created_at >= now()`;
   const P35 = LC ? [
-    ["a teammate named in an organization note is notified",            () => w35(OWNER, `${post(AGENT, 'organization_internal')}; select count(*)::int as rows from public.notifications where recipient_id='${AGENT}' and kind='mention'`), 1],
-    ["an outsider named in the same note is not",                       () => w35(OWNER, `${post(OTHER, 'organization_internal')}; select count(*)::int as rows from public.notifications where recipient_id='${OTHER}' and kind='mention'`), 0],
-    ["nobody is notified about their own note",                         () => w35(OWNER, `${post(OWNER, 'organization_internal')}; select count(*)::int as rows from public.notifications where recipient_id='${OWNER}' and kind='mention'`), 0],
-    ["an organization member named in a BES-internal note is not told", () => w35(BES, `${post(AGENT, 'bes_internal')}; select count(*)::int as rows from public.notifications where recipient_id='${AGENT}' and kind='mention'`), 0],
+    ["a teammate named in an organization note is notified",            () => w35(OWNER, `${post(AGENT, 'organization_internal')}; ${countFor(AGENT)}`), 1],
+    ["an outsider named in the same note is not",                       () => w35(OWNER, `${post(OTHER, 'organization_internal')}; ${countFor(OTHER)}`), 0],
+    ["nobody is notified about their own note",                         () => w35(OWNER, `${post(OWNER, 'organization_internal')}; ${countFor(OWNER)}`), 0],
+    ["an organization member named in a BES-internal note is not told", () => w35(BES, `${post(AGENT, 'bes_internal')}; ${countFor(AGENT)}`), 0],
     ["a malformed mention id notifies nobody and does not error",       () => w35(OWNER, `insert into public.activity_events (agency_id, organization_id, entity_type, entity_id, action, detail, body, actor_id, visibility) values (public.org_agency('${lakesideOrg}'), '${lakesideOrg}', 'fulfillment_client', '${LC}', 'Comment posted', 'see', '{"type":"doc","content":[{"type":"mention","attrs":{"userId":"not-a-uuid","label":"X"}}]}'::jsonb, auth.uid(), 'organization_internal'); select count(*)::int as rows from public.notifications where kind='mention' and created_at >= now()`), 0],
     ["the mention reader finds ids at any depth",                       () => q(`select array_length(public.mentioned_user_ids('{"type":"doc","content":[{"type":"paragraph","content":[{"type":"mention","attrs":{"userId":"11111111-1111-4111-8111-111111111111","label":"A"}}]}]}'::jsonb), 1)::int as rows`)[0].rows, 1],
     ["a person cannot insert a notification directly",                  () => w35(OWNER, `insert into public.notifications (recipient_id, actor_id, agency_id, kind, entity_type, entity_id, visibility, title) values ('${AGENT}', auth.uid(), public.org_agency('${lakesideOrg}'), 'mention', 'fulfillment_client', '${LC}', 'organization_internal', 'fake'); select 1 as rows`), "ERR 42501"],
@@ -1450,7 +1484,18 @@ if (PHASE >= 37) {
     ["only an owner can create another owner",                  () => w37(ADMIN, INVITE('agency_owner')), "ERR 42501"],
     ["…and an owner can",                                       () => w37(OWNER, `${INVITE('agency_owner')}; select count(*)::int as rows from public.invitations where kind='agency' and email='probe.teammate@bes.test' and agency_role='agency_owner'`), 1],
     ["inviting an existing teammate is refused",                () => w37(OWNER, `select public.invite_agency_member('bes.credit@bes.test', 'agency_agent')`), "ERR 23505"],
-    ["an invitation is accepted only by its own address",       () => w37(ORGOWNER, `select public.accept_agency_invitation((select token from public.invitations where kind='agency' limit 1))`), "ERR 42501"],
+    /* Every probe above rolls back, so there was no agency invitation left to
+       accept and the function refused a null token as "no longer valid"
+       (22023) — not the email check this is meant to prove. The invitation is
+       created inside the same transaction now. */
+    /* Two rounds of this probe lied. First it accepted a null token, because
+       every earlier probe had rolled its invitation back, and the function
+       refused it as "no longer valid" (22023) rather than on the email check.
+       Then the token was read back as the ORGANIZATION owner — who cannot see
+       a BES invitation at all (the very next probe proves it), so the subselect
+       was null again. The token is carried past the role switch in a temp
+       table, which RLS does not touch. */
+    ["an invitation is accepted only by its own address",       () => w37(OWNER, `${INVITE('agency_agent')}; create temp table probe_tok on commit drop as select token from public.invitations where kind='agency' and email='probe.teammate@bes.test' order by created_at desc limit 1; set local request.jwt.claims = '{"sub":"${ORGOWNER}","role":"authenticated"}'; select public.accept_agency_invitation((select token from probe_tok))`), "ERR 42501"],
     ["an organization member cannot read BES invitations",      () => w37(ORGOWNER, `select count(*)::int as rows from public.invitations where kind='agency'`), 0],
     ["a direct insert of an agency invitation is refused",      () => w37(ADMIN, `insert into public.invitations (email, kind, agency_id, agency_role) values ('sneak@bes.test', 'agency', (select agency_id from public.agency_memberships where user_id=auth.uid() limit 1), 'agency_owner'); select 1 as rows`), "ERR 42501"],
     ["every public plan a signer can choose has a price and a trial", () => q(`select (count(*) filter (where monthly_cents > 0 and trial_days > 0) = count(*))::int as rows from public.plans where is_public and public_trial`)[0].rows, 1],

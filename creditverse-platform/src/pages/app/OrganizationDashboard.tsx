@@ -232,13 +232,7 @@ export default function OrganizationDashboard() {
       <WelcomeEmailOnce organizationId={prefs.live ? org.id : null} />
       {prefs.live && <BirthdayStrip organizationId={org.id} organizationName={org.name.replace(/^\[TEST\]\s*/, "")} />}
       {prefs.live && (
-        <GettingStartedCard
-          organizationId={org.id}
-          enabledModules={enabledKeys}
-          brandingSet={!!(org.branding?.logoUrl || org.branding?.primaryColor)}
-          clients={figures.creditOps.active}
-          fundingFiles={figures.fundingOps.active}
-        />
+        <GettingStartedCard organizationId={org.id} enabledModules={enabledKeys} />
       )}
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">

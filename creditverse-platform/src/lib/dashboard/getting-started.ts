@@ -15,6 +15,10 @@ export interface GettingStartedState {
   letterTemplates: number;
   kpisChosen: number;
   fundingFiles: number;
+  /** Hub modules the organization has decided about, either way. */
+  hubChoices: number;
+  /** Automatic touches switched on — birthday greetings and the like. */
+  automations: number;
 }
 
 export interface GettingStartedStep {
@@ -23,6 +27,8 @@ export interface GettingStartedStep {
   detail: string;
   href: string;
   done: boolean;
+  /** A suggestion, not a chore: it never holds the guide open. */
+  optional?: boolean;
 }
 
 export function gettingStartedSteps(s: GettingStartedState): GettingStartedStep[] {
@@ -39,9 +45,16 @@ export function gettingStartedSteps(s: GettingStartedState): GettingStartedStep[
     {
       key: "team",
       title: "Invite your team",
-      detail: "Each person gets a role; the role decides what they can open and do.",
+      detail: "Each person gets a role; the role decides what they can open and do. They get an email asking them to activate.",
       href: "/app/settings?section=team",
       done: s.teammates > 0,
+    },
+    {
+      key: "hub",
+      title: "Choose what your company runs here",
+      detail: "Announcements, People, Departments, Knowledge, Files and Tools are ready to switch on or off. This decides what your team sees in the sidebar.",
+      href: "/app/settings?section=hub",
+      done: s.hubChoices > 0,
     },
   ];
   if (creditOps) {
@@ -78,17 +91,75 @@ export function gettingStartedSteps(s: GettingStartedState): GettingStartedStep[
       done: s.fundingFiles > 0,
     });
   }
-  steps.push({
-    key: "kpis",
-    title: "Choose the figures you track",
-    detail: "Pick the KPIs your Reports and Home cards show, and set targets if you use them.",
-    href: "/app/settings?section=kpis",
-    done: s.kpisChosen > 0,
-  });
+  steps.push(
+    {
+      key: "kpis",
+      title: "Choose the figures you track",
+      detail: "Pick the KPIs your Reports and Home cards show, and set targets if you use them.",
+      href: "/app/settings?section=kpis",
+      done: s.kpisChosen > 0,
+    },
+    {
+      key: "automations",
+      title: "Turn on the automatic touches",
+      detail: "Birthday greetings for your team and your clients, and the other messages that go out without anyone remembering.",
+      href: "/app/settings?section=org-automations",
+      done: s.automations > 0,
+      optional: true,
+    },
+  );
   return steps;
 }
 
+/**
+ * Progress counts only the steps that are actually required. An optional
+ * suggestion must never be the reason a guide refuses to go away — otherwise
+ * somebody who does not want birthday greetings is nagged forever.
+ */
 export function gettingStartedProgress(steps: GettingStartedStep[]): { done: number; total: number; complete: boolean } {
-  const done = steps.filter((s) => s.done).length;
-  return { done, total: steps.length, complete: done === steps.length };
+  const required = steps.filter((s) => !s.optional);
+  const done = required.filter((s) => s.done).length;
+  return { done, total: required.length, complete: done === required.length };
+}
+
+/* ------------------------------------------------------------------ */
+/* The other first run: somebody who was invited, not somebody who     */
+/* signed up. They configure nothing — the workspace is already set    */
+/* up around them — so their guide is only about themselves.           */
+/* ------------------------------------------------------------------ */
+
+export interface MemberFirstRunState {
+  avatarSet: boolean;
+  phoneSet: boolean;
+  preferredNameSet: boolean;
+  birthdayShared: boolean;
+}
+
+export function memberFirstRunSteps(s: MemberFirstRunState): GettingStartedStep[] {
+  return [
+    {
+      key: "photo",
+      title: "Add your photo",
+      detail: "Your colleagues see who they are working with in comments, mentions and the company directory.",
+      href: "/app/settings?section=account",
+      done: s.avatarSet,
+    },
+    {
+      key: "contact",
+      title: "Add your phone number",
+      detail: s.preferredNameSet
+        ? "So your team can reach you without hunting for it."
+        : "So your team can reach you — and set the name you actually go by while you are there.",
+      href: "/app/settings?section=account",
+      done: s.phoneSet,
+    },
+    {
+      key: "birthday",
+      title: "Share your birthday",
+      detail: "Only the day and month, and only if you want it marked. You can leave it out.",
+      href: "/app/settings?section=account",
+      done: s.birthdayShared,
+      optional: true,
+    },
+  ];
 }

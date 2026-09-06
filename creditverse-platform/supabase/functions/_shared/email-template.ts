@@ -122,7 +122,7 @@ export function renderEmailText(content: EmailContent): string {
   return lines.join("\n");
 }
 
-/** MAIL_FROM may be "Name <address>" or a bare address; Sender wants them apart. */
+/** MAIL_FROM may be "Name <address>" or a bare address; this pulls them apart. */
 export function parseFrom(raw: string, fallbackName: string): { email: string; name: string } {
   const match = /^\s*(.*?)\s*<([^>]+)>\s*$/.exec(raw);
   if (match) return { email: match[2].trim(), name: match[1] || fallbackName };
@@ -136,9 +136,16 @@ export interface SendResult {
 }
 
 /**
- * Sender's transactional API. The `from` address must be on a domain verified
- * in the Sender account; when it is not, Sender says so and that message is
- * handed back rather than swallowed.
+ * Resend's transactional API.
+ *
+ * The `from` address must be on a domain verified in the Resend account
+ * (Domains → the DNS records they give you). When it is not, Resend refuses
+ * the message and says why; that reason is handed back to the screen rather
+ * than swallowed, because "the email did not go and here is why" is useful and
+ * "sent!" when nothing was sent is not.
+ *
+ * Resend wants `from` as a single RFC-5322 string — "BES <no-reply@bes.com>" —
+ * so the name and address are recombined here rather than sent apart.
  */
 export async function sendEmail(params: {
   apiKey: string;
@@ -149,16 +156,16 @@ export async function sendEmail(params: {
   content: EmailContent;
 }): Promise<SendResult> {
   const from = parseFrom(params.from, params.fromName);
-  const res = await fetch("https://api.sender.net/v2/message/send", {
+  const name = (params.fromName || from.name || "").replace(/["\\<>]/g, "").trim();
+  const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${params.apiKey}`,
       "content-type": "application/json",
-      accept: "application/json",
     },
     body: JSON.stringify({
-      from: { email: from.email, name: params.fromName || from.name },
-      to: [{ email: params.to }],
+      from: name ? `${name} <${from.email}>` : from.email,
+      to: [params.to],
       subject: params.subject,
       html: renderEmail(params.content),
       text: renderEmailText(params.content),
@@ -166,6 +173,7 @@ export async function sendEmail(params: {
   });
   if (res.ok) return { ok: true, status: res.status };
   const detail = await res.text().catch(() => "");
-  console.error("sender error", res.status, detail.slice(0, 500));
+  /* The key itself is never logged — only the status and Resend's message. */
+  console.error("resend error", res.status, detail.slice(0, 500));
   return { ok: false, status: res.status, detail: detail.slice(0, 200) };
 }

@@ -1,69 +1,123 @@
 /**
- * First-run guide on an organization's Home, for administrators only.
+ * First-run guides on an organization's Home.
  *
- * Reads the organization's real records to decide what is done; disappears on
- * its own once every step is complete. Collapsing it is a per-viewer
- * convenience kept in the browser. Members without an administration
- * permission never see it — setup is not their job (rule 3).
+ * Two of them, because two different people arrive at a new workspace: the
+ * owner who signed up and has a company to configure, and somebody who was
+ * invited into a company that is already configured and whose only setup is
+ * their own profile. An administrator sees the first; everyone else sees the
+ * second (rule 3 — setup is not a processor's job, so it is not offered).
+ *
+ * Both read the organization's or the person's real records to decide what is
+ * done — never a "finished onboarding" flag, which lies the moment a step is
+ * undone or a second administrator does it instead. Both disappear on their
+ * own once the required steps are complete. Collapsing is a per-viewer
+ * convenience kept in the browser.
+ *
+ * Each guide costs one round trip, not one per fact (rule 14).
  */
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, CheckCircle2, ChevronDown, ChevronUp, Circle, Rocket } from "lucide-react";
 import type { ProductKey } from "@/lib/bes-domain";
-import { usePermissions } from "@/lib/auth/use-permission";
 import { useAuth } from "@/lib/auth/auth-context";
-import { useTeamMembers } from "@/lib/data/use-team-members";
-import { useLetterTemplates } from "@/lib/data/use-letters";
-import { useOrganizationKpiSettings } from "@/lib/data/use-reporting-engine";
-import { useOrganizationReportCount } from "@/lib/data/use-credit-reports";
-import { gettingStartedProgress, gettingStartedSteps } from "@/lib/dashboard/getting-started";
+import { usePermissions } from "@/lib/auth/use-permission";
+import { useMemberFirstRun, useOrganizationFirstRun } from "@/lib/data/use-first-run";
+import {
+  gettingStartedProgress,
+  gettingStartedSteps,
+  memberFirstRunSteps,
+  type GettingStartedStep,
+  type MemberFirstRunState,
+} from "@/lib/dashboard/getting-started";
 import { cn } from "@/lib/utils";
 
 interface Props {
   organizationId: string;
   enabledModules: ProductKey[];
-  brandingSet: boolean;
-  clients: number;
-  fundingFiles: number;
 }
 
-const storageKey = (orgId: string) => `bes.getting-started.collapsed.${orgId}`;
+const storageKey = (scope: string) => `bes.getting-started.collapsed.${scope}`;
 
-function readCollapsed(orgId: string): boolean {
-  try { return localStorage.getItem(storageKey(orgId)) === "1"; } catch { return false; }
+function readCollapsed(scope: string): boolean {
+  try { return localStorage.getItem(storageKey(scope)) === "1"; } catch { return false; }
 }
 
-export function GettingStartedCard({ organizationId, enabledModules, brandingSet, clients, fundingFiles }: Props) {
+export function GettingStartedCard({ organizationId, enabledModules }: Props) {
   const auth = useAuth();
   const { can, loading } = usePermissions();
   const isAdmin = !loading && can(["settings.manage", "team.manage"]);
-  const team = useTeamMembers(isAdmin ? organizationId : null);
-  const letters = useLetterTemplates();
-  const kpis = useOrganizationKpiSettings(isAdmin ? organizationId : null);
-  const reports = useOrganizationReportCount(isAdmin && enabledModules.includes("creditOps") ? organizationId : null);
-  const [collapsed, setCollapsed] = useState(() => readCollapsed(organizationId));
+  /* BES staff supporting a customer are looking at somebody else's workspace.
+     Its setup is not theirs to finish, and nor is this the place to be nudged
+     about their own photo — that belongs on their own Home. */
+  const isMemberHere = auth.orgMemberships.some((m) => m.organization_id === organizationId);
+  const org = useOrganizationFirstRun(isAdmin ? organizationId : null);
+  const member = useMemberFirstRun(!loading && !isAdmin && isMemberHere);
 
-  if (!isAdmin) return null;
-  const pending = team.isLoading || letters.isLoading || kpis.isLoading || reports.isLoading;
-  if (pending) return <div className="mb-6 h-14 rounded-xl border border-border bg-card" aria-busy="true" />;
+  if (loading) return <Skeleton />;
 
-  const steps = gettingStartedSteps({
-    enabledModules,
-    brandingSet,
-    teammates: team.members.filter((m) => m.userId !== auth.user?.id).length + team.invitations.length,
-    clients,
-    creditReports: reports.data ?? 0,
-    letterTemplates: letters.templates.length,
-    kpisChosen: (kpis.data ?? []).filter((k) => k.enabled).length,
-    fundingFiles,
-  });
+  if (isAdmin) {
+    if (org.isLoading) return <Skeleton />;
+    if (!org.data) return null;
+    return (
+      <Guide
+        scope={organizationId}
+        title="Getting started"
+        subtitle={(done, total) => `${done} of ${total} steps done. Finish these and this guide goes away on its own.`}
+        steps={gettingStartedSteps({ ...org.data, enabledModules })}
+      />
+    );
+  }
+
+  if (!isMemberHere) return null;
+  if (member.isLoading) return <Skeleton />;
+  if (!member.data) return null;
+  return <MemberGuide state={member.data} />;
+}
+
+/**
+ * The same welcome for somebody who was invited onto the BES team rather than
+ * into a customer organization. Their setup is identical — it is their own
+ * profile — so it is the same guide, not a second one.
+ */
+export function MemberFirstRunCard() {
+  const member = useMemberFirstRun(true);
+  if (member.isLoading) return <Skeleton />;
+  if (!member.data) return null;
+  return <MemberGuide state={member.data} />;
+}
+
+function MemberGuide({ state }: { state: MemberFirstRunState }) {
+  return (
+    <Guide
+      scope="me"
+      title="Welcome — finish setting yourself up"
+      subtitle={(done, total) => `${done} of ${total} done. Your colleagues will see who they are working with.`}
+      steps={memberFirstRunSteps(state)}
+    />
+  );
+}
+
+function Skeleton() {
+  return <div className="mb-6 h-14 rounded-xl border border-border bg-card" aria-busy="true" />;
+}
+
+interface GuideProps {
+  /** What the collapsed preference belongs to: an organization, or the person. */
+  scope: string;
+  title: string;
+  subtitle: (done: number, total: number) => string;
+  steps: GettingStartedStep[];
+}
+
+function Guide({ scope, title, subtitle, steps }: GuideProps) {
+  const [collapsed, setCollapsed] = useState(() => readCollapsed(scope));
   const progress = gettingStartedProgress(steps);
   if (progress.complete) return null;
 
   const toggle = () => {
     const next = !collapsed;
     setCollapsed(next);
-    try { localStorage.setItem(storageKey(organizationId), next ? "1" : "0"); } catch { /* per-viewer convenience only */ }
+    try { localStorage.setItem(storageKey(scope), next ? "1" : "0"); } catch { /* per-viewer convenience only */ }
   };
 
   return (
@@ -77,8 +131,8 @@ export function GettingStartedCard({ organizationId, enabledModules, brandingSet
         <span className="flex items-center gap-3">
           <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/15 text-primary"><Rocket className="h-4 w-4" /></span>
           <span>
-            <span id="getting-started-title" className="block text-sm font-bold text-foreground">Getting started</span>
-            <span className="block text-xs text-muted-foreground">{progress.done} of {progress.total} steps done. Finish these and this guide goes away on its own.</span>
+            <span id="getting-started-title" className="block text-sm font-bold text-foreground">{title}</span>
+            <span className="block text-xs text-muted-foreground">{subtitle(progress.done, progress.total)}</span>
           </span>
         </span>
         <span className="flex items-center gap-3">

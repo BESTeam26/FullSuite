@@ -468,11 +468,22 @@ export interface CreateFundingClientInput {
  * duplicate, so a collision that slips past the pre-check surfaces as a clear
  * message rather than a second file.
  */
+/**
+ * `client_id` is supplied by the database, not by us: a BEFORE INSERT trigger
+ * (0094) resolves or creates the canonical client from this row's own partner
+ * and email, so a caller never has to know about clients to record one. The
+ * column is NOT NULL — a case with no person should not exist — which is why
+ * the generated type asks for it and this one does not.
+ */
+type FundingClientsInsert = Omit<TablesInsert<"funding_clients">, "client_id">;
+/* The cast at the insert says the same thing to the compiler: the column is
+   required in the row and supplied by the trigger, not by this caller. */
+
 export async function createFundingClient(
   input: CreateFundingClientInput,
 ): Promise<string> {
   const sb = requireSupabase();
-  const row: TablesInsert<"funding_clients"> = {
+  const row: FundingClientsInsert = {
     agency_id: input.agencyId,
     name: input.name,
     email: input.email,
@@ -489,7 +500,7 @@ export async function createFundingClient(
   };
   const { data, error } = await sb
     .from("funding_clients")
-    .insert(row)
+    .insert(row as TablesInsert<"funding_clients">)
     .select("id")
     .single();
   if (error) {

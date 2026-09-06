@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       activity_events: {
@@ -703,6 +728,132 @@ export type Database = {
           },
         ]
       }
+      clients: {
+        Row: {
+          address_line1: string | null
+          address_line2: string | null
+          agency_id: string
+          city: string | null
+          created_at: string
+          created_by: string | null
+          date_of_birth: string | null
+          email: string
+          first_name: string | null
+          full_name: string | null
+          id: string
+          last_name: string
+          mode: Database["public"]["Enums"]["fulfillment_mode"]
+          needs_review: boolean
+          organization_id: string | null
+          outsourcing_group_id: string | null
+          partner_scope_id: string | null
+          phone: string | null
+          portal_user_id: string | null
+          postal_code: string | null
+          preferred_name: string | null
+          provenance: Database["public"]["Enums"]["client_provenance"]
+          public_id: string
+          review_note: string | null
+          state: string | null
+          status: Database["public"]["Enums"]["client_status"]
+          updated_at: string
+        }
+        Insert: {
+          address_line1?: string | null
+          address_line2?: string | null
+          agency_id: string
+          city?: string | null
+          created_at?: string
+          created_by?: string | null
+          date_of_birth?: string | null
+          email: string
+          first_name?: string | null
+          full_name?: string | null
+          id?: string
+          last_name: string
+          mode: Database["public"]["Enums"]["fulfillment_mode"]
+          needs_review?: boolean
+          organization_id?: string | null
+          outsourcing_group_id?: string | null
+          partner_scope_id?: string | null
+          phone?: string | null
+          portal_user_id?: string | null
+          postal_code?: string | null
+          preferred_name?: string | null
+          provenance: Database["public"]["Enums"]["client_provenance"]
+          public_id?: string
+          review_note?: string | null
+          state?: string | null
+          status?: Database["public"]["Enums"]["client_status"]
+          updated_at?: string
+        }
+        Update: {
+          address_line1?: string | null
+          address_line2?: string | null
+          agency_id?: string
+          city?: string | null
+          created_at?: string
+          created_by?: string | null
+          date_of_birth?: string | null
+          email?: string
+          first_name?: string | null
+          full_name?: string | null
+          id?: string
+          last_name?: string
+          mode?: Database["public"]["Enums"]["fulfillment_mode"]
+          needs_review?: boolean
+          organization_id?: string | null
+          outsourcing_group_id?: string | null
+          partner_scope_id?: string | null
+          phone?: string | null
+          portal_user_id?: string | null
+          postal_code?: string | null
+          preferred_name?: string | null
+          provenance?: Database["public"]["Enums"]["client_provenance"]
+          public_id?: string
+          review_note?: string | null
+          state?: string | null
+          status?: Database["public"]["Enums"]["client_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clients_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clients_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clients_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clients_outsourcing_group_id_fkey"
+            columns: ["outsourcing_group_id"]
+            isOneToOne: false
+            referencedRelation: "outsourcing_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clients_portal_user_id_fkey"
+            columns: ["portal_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       closings: {
         Row: {
           file_id: string
@@ -1204,6 +1355,88 @@ export type Database = {
             columns: ["template_id"]
             isOneToOne: false
             referencedRelation: "letter_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dispute_reasons: {
+        Row: {
+          agency_id: string
+          body: string
+          citations: string[]
+          claim_tier: Database["public"]["Enums"]["claim_tier"]
+          created_at: string
+          created_by: string | null
+          from_round: number
+          id: string
+          is_active: boolean
+          label: string
+          organization_id: string | null
+          requires: string[]
+          requires_attestation: string[]
+          subject: string
+          tier: Database["public"]["Enums"]["escalation_tier"]
+          updated_at: string
+          weight: number
+        }
+        Insert: {
+          agency_id: string
+          body: string
+          citations?: string[]
+          claim_tier: Database["public"]["Enums"]["claim_tier"]
+          created_at?: string
+          created_by?: string | null
+          from_round?: number
+          id?: string
+          is_active?: boolean
+          label: string
+          organization_id?: string | null
+          requires?: string[]
+          requires_attestation?: string[]
+          subject: string
+          tier: Database["public"]["Enums"]["escalation_tier"]
+          updated_at?: string
+          weight?: number
+        }
+        Update: {
+          agency_id?: string
+          body?: string
+          citations?: string[]
+          claim_tier?: Database["public"]["Enums"]["claim_tier"]
+          created_at?: string
+          created_by?: string | null
+          from_round?: number
+          id?: string
+          is_active?: boolean
+          label?: string
+          organization_id?: string | null
+          requires?: string[]
+          requires_attestation?: string[]
+          subject?: string
+          tier?: Database["public"]["Enums"]["escalation_tier"]
+          updated_at?: string
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dispute_reasons_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispute_reasons_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispute_reasons_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -1827,6 +2060,7 @@ export type Database = {
           archived_at: string | null
           assigned_agent_id: string | null
           auto_sync: boolean
+          client_id: string
           created_at: string
           created_by: string | null
           date_of_birth: string | null
@@ -1855,6 +2089,7 @@ export type Database = {
           archived_at?: string | null
           assigned_agent_id?: string | null
           auto_sync?: boolean
+          client_id: string
           created_at?: string
           created_by?: string | null
           date_of_birth?: string | null
@@ -1883,6 +2118,7 @@ export type Database = {
           archived_at?: string | null
           assigned_agent_id?: string | null
           auto_sync?: boolean
+          client_id?: string
           created_at?: string
           created_by?: string | null
           date_of_birth?: string | null
@@ -1918,6 +2154,13 @@ export type Database = {
             columns: ["assigned_agent_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fulfillment_clients_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
           {
@@ -2276,6 +2519,7 @@ export type Database = {
           archived_at: string | null
           assigned_agent_id: string | null
           auto_sync: boolean
+          client_id: string
           created_at: string
           created_by: string | null
           due_at: string | null
@@ -2303,6 +2547,7 @@ export type Database = {
           archived_at?: string | null
           assigned_agent_id?: string | null
           auto_sync?: boolean
+          client_id: string
           created_at?: string
           created_by?: string | null
           due_at?: string | null
@@ -2330,6 +2575,7 @@ export type Database = {
           archived_at?: string | null
           assigned_agent_id?: string | null
           auto_sync?: boolean
+          client_id?: string
           created_at?: string
           created_by?: string | null
           due_at?: string | null
@@ -2364,6 +2610,13 @@ export type Database = {
             columns: ["assigned_agent_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funding_clients_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
           {
@@ -3488,6 +3741,54 @@ export type Database = {
           },
         ]
       }
+      letter_standing_blocks: {
+        Row: {
+          agency_id: string
+          body: string
+          id: string
+          is_active: boolean
+          key: string
+          label: string
+          organization_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          body: string
+          id?: string
+          is_active?: boolean
+          key: string
+          label: string
+          organization_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          body?: string
+          id?: string
+          is_active?: boolean
+          key?: string
+          label?: string
+          organization_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "letter_standing_blocks_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "letter_standing_blocks_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       letter_templates: {
         Row: {
           agency_id: string
@@ -4292,6 +4593,7 @@ export type Database = {
           public_id: string
           status: Database["public"]["Enums"]["org_status"]
           updated_at: string
+          welcome_email_sent_at: string | null
           workspace_views: Json
         }
         Insert: {
@@ -4310,6 +4612,7 @@ export type Database = {
           public_id?: string
           status?: Database["public"]["Enums"]["org_status"]
           updated_at?: string
+          welcome_email_sent_at?: string | null
           workspace_views?: Json
         }
         Update: {
@@ -4328,6 +4631,7 @@ export type Database = {
           public_id?: string
           status?: Database["public"]["Enums"]["org_status"]
           updated_at?: string
+          welcome_email_sent_at?: string | null
           workspace_views?: Json
         }
         Relationships: [
@@ -6571,6 +6875,11 @@ export type Database = {
           name: string
         }[]
       }
+      client_visible: { Args: { p_client: string }; Returns: boolean }
+      client_writable: {
+        Args: { p_agency: string; p_group: string; p_org: string }
+        Returns: boolean
+      }
       confirm_funding: {
         Args: {
           p_closing: string
@@ -6817,6 +7126,15 @@ export type Database = {
         Returns: boolean
       }
       member_can: { Args: { p_key: string; p_org: string }; Returns: boolean }
+      member_first_run: {
+        Args: never
+        Returns: {
+          avatar_set: boolean
+          birthday_shared: boolean
+          phone_set: boolean
+          preferred_name_set: boolean
+        }[]
+      }
       mentioned_user_ids: { Args: { p_body: Json }; Returns: string[] }
       merge_agency_branding: {
         Args: { p_agency: string; p_patch: Json }
@@ -6902,6 +7220,20 @@ export type Database = {
           preferred_name: string
           since: string
           user_id: string
+        }[]
+      }
+      organization_first_run: {
+        Args: { p_org: string }
+        Returns: {
+          automations: number
+          branding_set: boolean
+          clients: number
+          credit_reports: number
+          funding_files: number
+          hub_choices: number
+          kpis_chosen: number
+          letter_templates: number
+          teammates: number
         }[]
       }
       organization_hub: {
@@ -7103,6 +7435,14 @@ export type Database = {
         Returns: Json
       }
       shares_scope_with: { Args: { p_user: string }; Returns: boolean }
+      split_person_name: {
+        Args: { p_name: string }
+        Returns: {
+          clean: boolean
+          given_name: string
+          surname: string
+        }[]
+      }
       start_closing: {
         Args: { p_note?: string; p_offer: string }
         Returns: string
@@ -7166,11 +7506,22 @@ export type Database = {
         | "potential_discrepancy"
         | "insufficient_data"
         | "processing_failed"
+      claim_tier:
+        | "observed_discrepancy"
+        | "procedural_demand"
+        | "consumer_asserted_fact"
+        | "legal_conclusion"
       client_lifecycle:
         | "active"
         | "program_completed"
         | "graduated"
         | "archived"
+      client_provenance:
+        | "saas_pulled"
+        | "outsourcing_only"
+        | "diy_converted"
+        | "ghl"
+      client_status: "active" | "paused" | "archived"
       closing_status:
         | "started"
         | "requirements_outstanding"
@@ -7256,6 +7607,7 @@ export type Database = {
         | "needs_clarification"
         | "reviewed"
         | "approved"
+      escalation_tier: "initial" | "firm" | "aggressive"
       external_role:
         | "brm"
         | "sales_partner"
@@ -7650,6 +8002,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       access_scope: [
@@ -7685,12 +8040,25 @@ export const Constants = {
         "insufficient_data",
         "processing_failed",
       ],
+      claim_tier: [
+        "observed_discrepancy",
+        "procedural_demand",
+        "consumer_asserted_fact",
+        "legal_conclusion",
+      ],
       client_lifecycle: [
         "active",
         "program_completed",
         "graduated",
         "archived",
       ],
+      client_provenance: [
+        "saas_pulled",
+        "outsourcing_only",
+        "diy_converted",
+        "ghl",
+      ],
+      client_status: ["active", "paused", "archived"],
       closing_status: [
         "started",
         "requirements_outstanding",
@@ -7785,6 +8153,7 @@ export const Constants = {
         "reviewed",
         "approved",
       ],
+      escalation_tier: ["initial", "firm", "aggressive"],
       external_role: [
         "brm",
         "sales_partner",

@@ -4016,20 +4016,29 @@ counts).
   this is a single-page app and only `/` exists as a file. Long-lived caching
   for hashed assets; `nosniff`, `DENY` framing and a strict referrer policy on
   everything.
-- **`send-invitation` now calls Sender** —
-  `POST https://api.sender.net/v2/message/send`, bearer token, `from` split
-  into name and address the way Sender expects. Sender rejects a `from` on an
-  unverified domain, so its own message is passed through to the screen rather
-  than a bare status code. Redeployed.
+- **`send-invitation` calls Resend** —
+  `POST https://api.resend.com/emails`, bearer token, `from` as one RFC-5322
+  string ("BES <no-reply@…>"), `to` as an array of plain addresses. Resend
+  rejects a `from` on an unverified domain, so its own message is passed
+  through to the screen rather than a bare status code. Redeployed.
+
+  *Corrected 2026-09-06.* This was first written against **Sender**
+  (sender.net) — a different company with a different API — because the
+  provider's name was taken down by ear. Dee's screenshot of the account
+  settled it: the keys are `re_…`, it is Resend. The Sender payload shape
+  (`to` as objects, `from` split into name and address) would have failed on
+  the first send. Rule 19 listed Resend under *explicitly not used*; that entry
+  is now inverted.
 - **`DEPLOYING.md`** records what is actually needed and what is not: Render
   is not, because there is no server — the front end is static files and
   everything dynamic runs in Supabase. It also separates the two email jobs,
   which are easy to conflate: **sign-in emails** (confirmation, password reset)
-  are sent by Supabase Auth and need Sender's **SMTP** credentials in the
-  Supabase dashboard; **app emails** (invitations) go through the Edge Function
-  and need the Sender **API token** as a secret. Sign-up cannot be tested
-  properly until the first is set — Supabase's built-in sender allows only a
-  few emails an hour.
+  are sent by Supabase Auth and need Resend's **SMTP** credentials in the
+  Supabase dashboard (`smtp.resend.com`, username the literal word `resend`,
+  password an API key); **app emails** (invitation, welcome) go through the
+  Edge Functions and need a Resend **API key** as a secret. Sign-up cannot be
+  tested properly until the first is set — Supabase's built-in sender allows
+  only a few emails an hour.
 
 ### The public site, too (2026-09-06)
 
@@ -4083,3 +4092,91 @@ a new sign-up should get a welcome.
 - **Recording the invitation and emailing it are separate steps.** If email is
   not connected the invitation still exists and the link can still be copied —
   the screen says which happened rather than implying a message went out.
+
+## Completion cycle 18 (2026-09-06) — activation, provisioning, and two first runs
+
+### The invitation email led nowhere for the person it was for
+
+The email said "Activate my account". The link led to a page that, for
+somebody signed out, redirected to `/login` — where the only way to create an
+account was the self-serve form that provisions an organization and a trial.
+An invited team member following their own invitation would have ended up
+owning a company.
+
+`/accept-invitation/:token` is now the activation page. Signed out it offers
+both doors on the spot, keeping the token; creating an account there sends no
+business details, so the provisioning trigger does not fire, and the
+confirmation email returns to the invitation. The return path is sanitised —
+only a path inside the application is honoured, never another origin.
+
+A malformed link is refused before the database sees it, and a Postgres
+message ("invalid input syntax for type uuid") is replaced with one plain
+sentence rather than shown to a stranger.
+
+### Supabase Auth's own emails are branded
+
+The confirmation email is the first thing a new sign-up sees, and it was the
+stock Supabase template. `supabase/templates/` now holds five branded
+messages (confirm, magic link, recovery, email change, invite), wired into
+`config.toml` for the local stack. **The hosted project keeps its own copies —
+paste them in Authentication → Emails.** See DEPLOYING.md.
+
+### Security: an invitation is written only by the function that judges it (0088)
+
+Found by the matrix, phase 37. `invitations_write` was `for all` with
+`using (is_agency_manager_or_above() or is_org_admin(...))`, so a BES **admin**
+could INSERT `kind='agency', agency_role='agency_owner'` directly and accept it
+with their own address — promoting themselves past the rule
+`invite_agency_member` enforces, that only an owner creates another owner. The
+same door skipped the seat check and the audit row on the organization side.
+
+The table now has **no INSERT and no UPDATE policy at all**: every write goes
+through the four SECURITY DEFINER functions. DELETE survives, narrowed to
+cancelling an *organization* invitation; an agency one goes through
+`cancel_agency_invitation`, which checks owner/admin and writes the audit row.
+
+### Five probes that could not fail
+
+The same trap in five places, worth naming because it will recur:
+
+- **Phases 19, 26, 28** skipped whenever no fixture client happened to belong
+  to Lakeside's own processor, or its funding client had moved past the
+  hand-off stage. They seed what they need inside the transaction they roll
+  back.
+- **Phase 33** read the foreign department back with a subselect the caller's
+  own RLS hides, so it passed `null` — which is a legitimate "clear the
+  department" that succeeded. The id is a literal now.
+- **Phase 35** counted notifications as their *author*. A notification is
+  visible only to its recipient, so every count was 0: the negative probes
+  passed for the wrong reason and the positive one failed. Counted as the
+  recipient now, scoped to the transaction.
+- **Phase 37** accepted a null token, because every earlier probe had rolled
+  its invitation back — the function refused it as "no longer valid" instead
+  of on the email check the probe claimed to prove.
+- **Phase 29** asserted "no credits" against fixtures that now have credits
+  (0082). It zeroes the balance inside the transaction instead.
+
+### A new workspace arrives configured, and both first runs are guided (0089, 0090)
+
+Dee: *"after the sign up process they should have auto provision of the account
+access and account configuration of the owner … same logic when a new user was
+provisioned."*
+
+- **0090** — only Home and My Work are `always_on`, so an organization that
+  bought Hub Core opened with no People, no Announcements, no Knowledge, no
+  Files and no Tools until somebody found the settings. Hub Core's modules are
+  now switched on by a trigger **on the entitlement itself**, so it covers both
+  a self-serve sign-up and BES granting Hub Core later, and layer one of rule
+  18 holds by construction. `on conflict do nothing` makes it the *initial*
+  state and never an override: switch People off and it stays off.
+- **0089** — one round trip per guide. The administrator's checklist was
+  making eight separate queries on Home; `organization_first_run()` answers all
+  of it in one `select`, and `member_first_run()` does the same for a person.
+- **Two guides, never the wrong one.** An administrator is asked to set the
+  company up — branding, team, **what the company runs here**, clients,
+  reports, letters, KPIs, and the automatic touches. Everybody else is asked
+  only about their own profile: photo, phone, and a birthday they may decline.
+  BES staff inside a customer's workspace are asked nothing at all.
+- **An optional step never holds a guide open.** Progress counts required
+  steps only, so somebody who does not want birthday greetings is not nagged
+  forever.

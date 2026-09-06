@@ -797,15 +797,15 @@ that was dropped — the cost of a second way to do the same job is paid forever
 | Source | **GitHub** — `BESTeam26/FullSuite`, branch `main` | |
 | Hosting | **Vercel** | Static build from `creditverse-platform/`; `vercel.json` at the repository root owns the build, the SPA rewrites and the security headers |
 | Backend | **Supabase** — project `wiojlgkzxlaiajwwrzuj` | Database, auth, storage, Edge Functions, and every authorization rule. Not replaceable piecemeal |
-| Email | **Sender** (sender.net) | Two jobs: Supabase Auth SMTP (`smtp.sender.net:587`) for sign-in email, and the transactional API (`api.sender.net/v2/message/send`) for app email |
+| Email | **Resend** (resend.com) | Two jobs: Supabase Auth SMTP (`smtp.resend.com`, username `resend`, password = an API key) for sign-in email, and the transactional API (`api.resend.com/emails`) for app email. **Corrected 2026-09-06** — this was written down as "Sender (sender.net)" from a misheard name; Dee's account is Resend, and the two are different companies with different APIs |
 | AI | **Anthropic**, through the `ai-gateway` Edge Function | The only path from a browser to a model; the key never leaves the server |
 | Posted letters | **Lob** | |
 | Payments | **Authorize.Net** | |
 | Sales front end | **GoHighLevel** | |
 
 **Explicitly not used:** Render, Netlify, Heroku (nothing to host — the front
-end is static and everything dynamic is Supabase); Resend, Postmark, SendGrid,
-Mailgun (Sender is the email platform); any second database, ORM or auth SDK.
+end is static and everything dynamic is Supabase); Sender, Postmark, SendGrid,
+Mailgun (Resend is the email platform); any second database, ORM or auth SDK.
 
 **Credentials arrive later.** Every one of these is coded against and waiting
 on a key. Where a key is missing the feature says it is not connected — it does
