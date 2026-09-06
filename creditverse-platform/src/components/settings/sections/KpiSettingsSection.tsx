@@ -43,7 +43,8 @@ export function KpiSettingsSection({ organizationId, canEdit }: { organizationId
           <div key={service} className="rounded-xl border border-border bg-background">
             <p className="border-b border-border/60 px-3 py-2 text-xs font-bold text-foreground">{SERVICE_LABEL[service] ?? service}</p>
             <ul className="divide-y divide-border/60">
-              {list.map((k) => {
+              {/* BES-internal figures never reach an organization's settings (rule 16). */}
+              {list.filter((k) => !organizationId || !k.besInternal).map((k) => {
                 const s = setting(k.key);
                 const enabled = !!s?.enabled;
                 return (
@@ -54,7 +55,7 @@ export function KpiSettingsSection({ organizationId, canEdit }: { organizationId
                     )}
                     <div className="min-w-0 flex-1">
                       <p className="flex items-center gap-1.5 font-semibold text-foreground">{k.label}{k.besInternal && <ShieldAlert className="h-3.5 w-3.5 text-status-warning" aria-label="BES-internal" />}</p>
-                      <p className="text-[10px] text-muted-foreground">{k.description ?? k.key}{k.besInternal && " · BES-internal, never shown to organizations"}</p>
+                      <p className="text-[10px] text-muted-foreground">{k.description ?? k.key}{k.besInternal && " · BES-internal — never shown to organizations"}</p>
                     </div>
                     {organizationId && enabled && (
                       <label className="flex items-center gap-1 text-[11px] text-muted-foreground">Target

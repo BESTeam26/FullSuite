@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useSidebarState } from "@/components/dashboard/sidebar-state";
 import { GlobalSearch } from "@/components/dashboard/GlobalSearch";
+import { PageHelp } from "@/components/dashboard/PageHelp";
 
 export const Topbar = () => {
   const agencyContext = useAgency();
@@ -80,6 +81,8 @@ export const Topbar = () => {
           <Plus className="h-4 w-4 sm:mr-1" />
           <span className="hidden sm:inline">{viewMode === "agency" ? "Add Organization" : "New Client"}</span>
         </Button>
+
+        <PageHelp />
 
         {/* The dot means exactly one thing: unread rows in `notifications`
             for this user, under their own RLS. Same query as the sidebar. */}

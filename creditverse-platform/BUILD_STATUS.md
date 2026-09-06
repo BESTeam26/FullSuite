@@ -3584,3 +3584,14 @@ shows 5/7 steps, Cleo Chan › Import & Analysis shows PDF/CSV import.
 - Matrix phase 31 (13 probes, all in rolled-back transactions) added; full run
   started after this commit — result recorded in the next entry.
 - Plan correction: borrower document uploads (F3) were already built in 0066.
+
+## Completion cycle 4 (2026-09-05, late) — page help, wording
+
+- **How this page works**: a "?" in the top bar opens a short, route-aware
+  explanation (`lib/help/page-help.ts`, 26 screens, longest-prefix match,
+  tested). Wording is for the people using the platform; no internal terms.
+- Wording: the team-invitation notice read as a garbled sentence — fixed;
+  "Uses BES AI Credits" → "Uses your organization's AI credits"; BES-internal
+  KPI definitions no longer appear in an organization's KPI settings at all
+  (rule 16); the education page is titled Knowledge Base and its sample
+  figures show only on the Course catalog tab.

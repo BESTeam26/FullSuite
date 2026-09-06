@@ -76,7 +76,7 @@ export function TeamMembersSection({ organizationId, organizationName }: Props) 
             <label className="block"><span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Role</span>
               <OpsSelect value={inviteRole} onValueChange={(v) => setInviteRole(v as OrgRole)} options={ROLE_OPTIONS} aria-label="Invitation role" /></label>
             <Button size="sm" onClick={submitInvite} disabled={team.invite.isPending}>{team.invite.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="mr-1 h-4 w-4" />} Record invitation</Button>
-            <p className="text-[11px] text-muted-foreground md:col-span-3">The invitation is recorded against your seats now and can be accepted from its link. Until email sending is connected, copy the link from Pending invitations and send it yourself proposal; until then, an invited person is added by BES support.</p>
+            <p className="text-[11px] text-muted-foreground md:col-span-3">The invitation is recorded against your seats now and can be accepted from its link. Until email sending is connected, copy the link from Pending invitations and send it yourself.</p>
           </div>
         )}
         <div className="relative mb-3 max-w-sm">
