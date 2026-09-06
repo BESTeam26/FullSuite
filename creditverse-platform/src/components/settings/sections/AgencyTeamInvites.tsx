@@ -6,8 +6,10 @@
  * address it was sent to. This screen offers the roles the caller may
  * actually grant and shows what came back when it refuses.
  *
- * Until the mail provider key is set, the link is copied and sent by hand —
- * which is stated, rather than implying an email went out.
+ * Creating the invitation and emailing it are separate steps, so a mail
+ * provider that is down never costs someone their invitation — the link is
+ * still there to copy, and the screen says which of the two happened rather
+ * than implying an email went out.
  */
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -137,7 +139,7 @@ export function AgencyTeamInvites() {
           <p className="text-[11px] text-muted-foreground">{AGENCY_ROLE_HINTS[chosen]}</p>
           <div className="flex flex-wrap items-center gap-3">
             <Button type="submit" size="sm" disabled={invite.isPending || !email.trim()}>
-              {invite.isPending ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Send className="mr-1 h-3.5 w-3.5" />} Create invitation
+              {invite.isPending ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Send className="mr-1 h-3.5 w-3.5" />} Send invitation
             </Button>
             {message && <p role="status" className={`text-xs ${message.error ? "text-status-danger" : "text-status-success"}`}>{message.text}</p>}
           </div>
@@ -184,8 +186,8 @@ export function AgencyTeamInvites() {
           <p className="mt-2 text-xs text-muted-foreground">None outstanding.</p>
         )}
         <p className="mt-2 text-[11px] text-muted-foreground">
-          Invitations last seven days. Email sending is not connected yet, so copy the link and send it yourself; the
-          person accepts it once they are signed in with that address.
+          Invitations last seven days and carry a BES-branded email asking the person to activate. The link only
+          works for the address it was sent to; copying it and sending it yourself works just as well.
         </p>
       </div>
     </SectionCard>

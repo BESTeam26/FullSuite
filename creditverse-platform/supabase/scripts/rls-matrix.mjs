@@ -857,22 +857,27 @@ if (PHASE >= 18) {
    activity event; the hand-off links/creates the CreditOps client and moves
    the funding status, both ways, with activity on both records. Rolled back. */
 if (PHASE >= 19) {
-  const w19 = (uid, sql) => { try { return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
+  const w19 = (uid, sql, seed = "") => { try { return q(`begin; ${seed} set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
   const creditOn = q(`select public.org_entitled('${lakesideOrg}','creditOps') as rows`)[0].rows === true;
   const fundingOn = q(`select public.org_entitled('${lakesideOrg}','fundingOps') as rows`)[0].rows === true;
   const roleOf = (uid) => q(`select coalesce((select role::text from public.org_memberships where user_id='${uid}' and organization_id='${lakesideOrg}'), 'none') as rows`)[0].rows;
   const SET = `select public.set_client_department_status('${T.lakeside_client}', 'Support', 'billing issue', null, null); select s.status || ':' || (select count(*) from public.activity_events a where a.entity_type='fulfillment_client' and a.entity_id='${T.lakeside_client}' and a.action='Department status' and a.new_value='BILLING ISSUE' and a.created_at >= now())::text as rows from public.client_department_statuses s where s.client_id='${T.lakeside_client}' and s.department='Support'`;
-  const lakesideFunding = q(`select coalesce((select id::text from public.funding_clients where organization_id='${lakesideOrg}' and status::text in ('Onboarding','Readiness Review','Declined') limit 1), '') as rows`)[0].rows;
+  /* Lakeside's only fixture funding client is already at Offer Received, and
+     the hand-off is an early-stage move. Rather than skip — a probe that skips
+     is a probe that cannot fail — seed one inside the transaction that is
+     rolled back, so the rules are exercised without touching the fixtures. */
+  const lakesideFunding = "f0000000-0000-4000-8000-0000000019a1";
+  const agency19 = q(`select agency_id::text as rows from public.organizations where id='${lakesideOrg}'`)[0].rows;
+  const seedLF = `insert into public.funding_clients (id, agency_id, name, email, mode, provenance, organization_id, auto_sync, status, created_by) values ('${lakesideFunding}', '${agency19}', '[PROBE] Handoff Co', 'probe.handoff.${Date.now()}@example.test', 'saas_pulled', 'bes_saas_synced', '${lakesideOrg}', false, 'Onboarding', '${U["org.owner@bes.test"]}');`;
+  const w19f = (uid, sql) => w19(uid, sql, seedLF);
   const P19 = [
     ["organization owner sets a department status; the activity event is written with it", () => w19(U["org.owner@bes.test"], SET), creditOn && ["org_admin","org_manager"].includes(roleOf(U["org.owner@bes.test"])) || creditOn ? "BILLING ISSUE:1" : "ERR 42501"],
     ["another organization's owner cannot",                          () => w19(U["org2.owner@bes.test"], SET), "ERR 42501"],
     ["a status outside the department's vocabulary is refused",      () => w19(U["org.owner@bes.test"], `select public.set_client_department_status('${T.lakeside_client}', 'Support', 'BC NEEDED', null, null); select 1 as rows`), creditOn ? "ERR 22023" : "ERR 42501"],
     ["BES staff in scope set a department status",                   () => w19(U["bes.manager@bes.test"], SET), "BILLING ISSUE:1"],
-    ...(lakesideFunding ? [
-      ["hand-off: funding client → CreditOps (creates/links, status Credit Readiness, activity both sides)", () => w19(U["org.owner@bes.test"], `select public.handoff_to_creditops('${lakesideFunding}', null); select (select status::text from public.funding_clients where id='${lakesideFunding}') || ':' || (select (fulfillment_client_id is not null)::text from public.funding_clients where id='${lakesideFunding}') || ':' || (select count(*) from public.activity_events where entity_id='${lakesideFunding}' and action like 'Sent to CreditOps%')::text as rows`), creditOn && fundingOn ? "Credit Readiness:true:1" : "ERR 42501"],
-      ["hand-off back: qualified → Readiness Review",                () => w19(U["org.owner@bes.test"], `select public.handoff_to_creditops('${lakesideFunding}', null); select public.handoff_to_fundingops((select fulfillment_client_id from public.funding_clients where id='${lakesideFunding}')); select status::text as rows from public.funding_clients where id='${lakesideFunding}'`), creditOn && fundingOn ? "Readiness Review" : "ERR 42501"],
-      ["another organization cannot hand off this client",           () => w19(U["org2.owner@bes.test"], `select public.handoff_to_creditops('${lakesideFunding}', null); select 1 as rows`), "ERR 42501"],
-    ] : [["(no early-stage Lakeside funding client to probe hand-off)", () => "skip", "skip"]]),
+    ["hand-off: funding client → CreditOps (creates/links, status Credit Readiness, activity both sides)", () => w19f(U["org.owner@bes.test"], `select public.handoff_to_creditops('${lakesideFunding}', null); select (select status::text from public.funding_clients where id='${lakesideFunding}') || ':' || (select (fulfillment_client_id is not null)::text from public.funding_clients where id='${lakesideFunding}') || ':' || (select count(*) from public.activity_events where entity_id='${lakesideFunding}' and action like 'Sent to CreditOps%')::text as rows`), creditOn && fundingOn ? "Credit Readiness:true:1" : "ERR 42501"],
+    ["hand-off back: qualified → Readiness Review",                () => w19f(U["org.owner@bes.test"], `select public.handoff_to_creditops('${lakesideFunding}', null); select public.handoff_to_fundingops((select fulfillment_client_id from public.funding_clients where id='${lakesideFunding}')); select status::text as rows from public.funding_clients where id='${lakesideFunding}'`), creditOn && fundingOn ? "Readiness Review" : "ERR 42501"],
+    ["another organization cannot hand off this client",           () => w19f(U["org2.owner@bes.test"], `select public.handoff_to_creditops('${lakesideFunding}', null); select 1 as rows`), "ERR 42501"],
   ];
   console.log("\nphase 19:");
   for (const [label, fn, want] of P19) {
@@ -1089,16 +1094,21 @@ if (PHASE >= 25) {
    build letters but not approve; a manager passes the permission gate and is
    stopped by the QA gate instead; BES staff are gated by scope, not keys. */
 if (PHASE >= 26) {
-  const w26 = (uid, sql) => { try { return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
-  const AC = q(`select coalesce((select id::text from public.fulfillment_clients where organization_id='${lakesideOrg}' and assigned_agent_id='${U["org.agent@bes.test"]}' limit 1), '') as rows`)[0].rows;
+  /* Seeded in-transaction for the same reason as phases 19 and 28: no fixture
+     client belongs to Lakeside's own processor, and a skipped probe proves
+     nothing. The seed is rolled back with the rest of the check. */
+  const AC = "c0000000-0000-4000-8000-0000000026a1";
+  const agency26 = q(`select agency_id::text as rows from public.organizations where id='${lakesideOrg}'`)[0].rows;
+  const seedAC = `insert into public.fulfillment_clients (id, agency_id, name, email, mode, organization_id, auto_sync, status, round, assigned_agent_id) values ('${AC}', '${agency26}', '[PROBE] Permission Client', 'probe.perm.${Date.now()}@example.test', 'saas_pulled', '${lakesideOrg}', false, 'In Processing', 'Round 1', '${U["org.agent@bes.test"]}');`;
+  const w26 = (uid, sql) => { try { return q(`begin; ${seedAC} set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
   const creditOn26 = q(`select public.org_entitled('${lakesideOrg}','creditOps') as rows`)[0].rows === true;
   const DRAFT = (who) => `select public.open_dispute_round('${AC}', 'factual', true); insert into public.dispute_letters (id, round_id, client_id, recipient_kind, recipient_name, body_final) select '99999999-0000-4000-8000-0000000000cd', r.id, '${AC}', 'cra', 'Equifax', repeat('Please investigate the account listed below. ', 4) from public.dispute_rounds r where r.client_id='${AC}' and r.closed_at is null order by r.round_number desc limit 1; insert into public.dispute_attestations (letter_id, attested_by, statements) values ('99999999-0000-4000-8000-0000000000cd', '${who}', '{"recognises_account":"no","disputed_information":"x","reason":"y","documents":[]}'::jsonb);`;
-  const P26 = AC ? [
+  const P26 = [
     ["a processor may build letters (letters.build): the round opens and the draft is written", () => w26(U["org.agent@bes.test"], `${DRAFT(U["org.agent@bes.test"])} select count(*)::int as rows from public.dispute_letters where id='99999999-0000-4000-8000-0000000000cd'`), creditOn26 ? 1 : "ERR 42501"],
     ["a processor may not approve (letters.approve is not in the role): refused before the QA gate", () => w26(U["org.agent@bes.test"], `${DRAFT(U["org.agent@bes.test"])} select public.approve_dispute_letter('99999999-0000-4000-8000-0000000000cd'); select 1 as rows`), "ERR 42501"],
     ["a manager passes the permission gate and reaches the QA gate (approval succeeds on an attested clean letter)", () => w26(U["org.lead@bes.test"], `${DRAFT(U["org.lead@bes.test"])} select public.approve_dispute_letter('99999999-0000-4000-8000-0000000000cd'); select status::text as rows from public.dispute_letters where id='99999999-0000-4000-8000-0000000000cd'`), creditOn26 ? "approved" : "ERR 42501"],
     ["the permission answer the interface shows matches the gate",       () => w26(U["org.agent@bes.test"], `select public.member_can('${lakesideOrg}','creditops.letters.build')::text || ':' || public.member_can('${lakesideOrg}','creditops.letters.approve')::text as rows`), "true:false"],
-  ] : [["(no Lakeside client assigned to org.agent to probe)", () => "skip", "skip"]];
+  ];
   console.log("\nphase 26:");
   for (const [label, fn, want] of P26) {
     checks++;
@@ -1145,8 +1155,14 @@ if (PHASE >= 27) {
    BES-internal KPIs never reach an organization; KPI settings are the owner's;
    manual outcomes follow the client's writers. Rolled back. */
 if (PHASE >= 28) {
-  const w28 = (uid, sql) => { try { return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
-  const LC = q(`select coalesce((select id::text from public.fulfillment_clients where organization_id='${lakesideOrg}' and assigned_agent_id='${U["org.agent@bes.test"]}' limit 1), '') as rows`)[0].rows;
+  const w28 = (uid, sql, seed = "") => { try { return q(`begin; ${seed} set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
+  /* Lakeside's own processor has no fixture client assigned to them, so these
+     probes seed one inside the transaction they roll back rather than skipping.
+     A probe that skips is a probe that cannot fail — the same trap as phase 33. */
+  const LC = "c0000000-0000-4000-8000-0000000028a1";
+  const agency28 = q(`select agency_id::text as rows from public.organizations where id='${lakesideOrg}'`)[0].rows;
+  const seedLC = `insert into public.fulfillment_clients (id, agency_id, name, email, mode, organization_id, auto_sync, status, round, assigned_agent_id) values ('${LC}', '${agency28}', '[PROBE] Outcome Client', 'probe.outcome.${Date.now()}@example.test', 'saas_pulled', '${lakesideOrg}', false, 'In Processing', 'Round 1', '${U["org.agent@bes.test"]}');`;
+  const w28c = (uid, sql) => w28(uid, sql, seedLC);
   const P28 = [
     ["an organization member sees no facts of another organization",         () => w28(U["org.owner@bes.test"], `select count(*)::int as rows from public.report_facts where organization_id is not null and organization_id <> '${lakesideOrg}'`), 0],
     ["another organization's owner sees no Lakeside facts",                  () => w28(U["org2.owner@bes.test"], `select count(*)::int as rows from public.report_facts where organization_id = '${lakesideOrg}'`), 0],
@@ -1158,9 +1174,9 @@ if (PHASE >= 28) {
     ["the owner enables a KPI with a target for the organization",           () => w28(U["org.owner@bes.test"], `insert into public.organization_kpi_settings (organization_id, kpi_key, enabled, target, sort, updated_by) values ('${lakesideOrg}', 'letters.mailed', true, 40, 1, auth.uid()); select count(*)::int as rows from public.organization_kpi_settings where organization_id='${lakesideOrg}' and kpi_key='letters.mailed'`), 1],
     ["a processor cannot change the organization's KPI settings",           () => w28(U["org.agent@bes.test"], `insert into public.organization_kpi_settings (organization_id, kpi_key, enabled, sort, updated_by) values ('${lakesideOrg}', 'letters.mailed', true, 1, auth.uid()); select 1 as rows`), "ERR 42501"],
     ["another organization's owner cannot set Lakeside's KPIs",             () => w28(U["org2.owner@bes.test"], `insert into public.organization_kpi_settings (organization_id, kpi_key, enabled, sort, updated_by) values ('${lakesideOrg}', 'letters.mailed', true, 1, auth.uid()); select 1 as rows`), "ERR 42501"],
-    ["a processor records a manual round outcome on an assigned client",    () => LC ? w28(U["org.agent@bes.test"], `insert into public.client_round_outcomes (client_id, round_number, bureau, items_disputed, deleted, updated, verified, recorded_by) values ('${LC}', 1, 'EQ', 5, 2, 1, 2, auth.uid()); select (select count(*) from public.report_facts where source='manual_outcome' and outcome='deleted' and client_id='${LC}' and quantity = 2)::int as rows`) : "skip", LC ? 1 : "skip"],
-    ["another organization's owner cannot record an outcome on it",         () => LC ? w28(U["org2.owner@bes.test"], `insert into public.client_round_outcomes (client_id, round_number, bureau, recorded_by) values ('${LC}', 1, 'EQ', auth.uid()); select 1 as rows`) : "skip", LC ? "ERR 42501" : "skip"],
-    ["an outcome must name its recorder",                                    () => LC ? w28(U["org.agent@bes.test"], `insert into public.client_round_outcomes (client_id, round_number, bureau, recorded_by) values ('${LC}', 1, 'TU', '${U["org.owner@bes.test"]}'); select 1 as rows`) : "skip", LC ? "ERR 42501" : "skip"],
+    ["a processor records a manual round outcome on an assigned client",    () => w28c(U["org.agent@bes.test"], `insert into public.client_round_outcomes (client_id, round_number, bureau, items_disputed, deleted, updated, verified, recorded_by) values ('${LC}', 1, 'EQ', 5, 2, 1, 2, auth.uid()); select (select count(*) from public.report_facts where source='manual_outcome' and outcome='deleted' and client_id='${LC}' and quantity = 2)::int as rows`), 1],
+    ["another organization's owner cannot record an outcome on it",         () => w28c(U["org2.owner@bes.test"], `insert into public.client_round_outcomes (client_id, round_number, bureau, recorded_by) values ('${LC}', 1, 'EQ', auth.uid()); select 1 as rows`), "ERR 42501"],
+    ["an outcome must name its recorder",                                    () => w28c(U["org.agent@bes.test"], `insert into public.client_round_outcomes (client_id, round_number, bureau, recorded_by) values ('${LC}', 1, 'TU', '${U["org.owner@bes.test"]}'); select 1 as rows`), "ERR 42501"],
   ];
   console.log("\nphase 28:");
   for (const [label, fn, want] of P28) {

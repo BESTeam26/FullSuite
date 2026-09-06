@@ -27,9 +27,18 @@ export function WelcomeEmailOnce({ organizationId }: { organizationId: string | 
   useEffect(() => {
     if (!organizationId || !isOrgAdmin) return;
     if (auth.mode !== "live" || auth.status !== "signed-in") return;
-    /* Once per organization per page load; the server owns the real guard. */
+    /* Once per organization per browser session. The server owns the real
+       guard; this only stops a reload from re-asking, which matters when email
+       is not connected and every ask is a wasted round trip. */
     if (asked.current === organizationId) return;
     asked.current = organizationId;
+    const key = `bes.welcome-asked.${organizationId}`;
+    try {
+      if (sessionStorage.getItem(key)) return;
+      sessionStorage.setItem(key, "1");
+    } catch {
+      /* Private browsing can refuse storage; asking again is harmless. */
+    }
     void sendWelcomeEmail(organizationId);
   }, [organizationId, isOrgAdmin, auth.mode, auth.status]);
 

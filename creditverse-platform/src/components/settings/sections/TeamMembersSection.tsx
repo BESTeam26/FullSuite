@@ -46,6 +46,20 @@ export function TeamMembersSection({ organizationId, organizationName }: Props) 
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [sent, setSent] = useState<string | null>(null);
+  const [resending, setResending] = useState<string | null>(null);
+
+  const resend = async (invitationId: string) => {
+    setResending(invitationId);
+    const outcome = await sendInvitationEmail(invitationId);
+    setResending(null);
+    setSent(
+      outcome.status === "sent"
+        ? "Activation email sent again."
+        : outcome.status === "not_connected"
+          ? "Email is not connected yet — copy the link instead."
+          : outcome.message,
+    );
+  };
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -69,7 +83,7 @@ export function TeamMembersSection({ organizationId, organizationName }: Props) 
       onSuccess: async (invitationId) => {
         setInviteEmail("");
         setInviteOpen(false);
-        const outcome = await sendInvitationEmail(invitationId as unknown as string);
+        const outcome = await sendInvitationEmail(invitationId);
         setSent(
           outcome.status === "sent"
             ? `An email asking them to activate is on its way, branded as ${organizationName}.`
@@ -93,8 +107,8 @@ export function TeamMembersSection({ organizationId, organizationName }: Props) 
               <input value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="person@company.com" className="mt-1 w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary" /></label>
             <label className="block"><span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Role</span>
               <OpsSelect value={inviteRole} onValueChange={(v) => setInviteRole(v as OrgRole)} options={ROLE_OPTIONS} aria-label="Invitation role" /></label>
-            <Button size="sm" onClick={submitInvite} disabled={team.invite.isPending}>{team.invite.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="mr-1 h-4 w-4" />} Record invitation</Button>
-            <p className="text-[11px] text-muted-foreground md:col-span-3">The invitation is recorded against your seats now and can be accepted from its link. Until email sending is connected, copy the link from Pending invitations and send it yourself.</p>
+            <Button size="sm" onClick={submitInvite} disabled={team.invite.isPending}>{team.invite.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="mr-1 h-4 w-4" />} Send invitation</Button>
+            <p className="text-[11px] text-muted-foreground md:col-span-3">They get an email in your branding asking them to activate their account. The invitation counts against your seats from now, lasts seven days, and can only be accepted by this email address.</p>
           </div>
         )}
         <div className="relative mb-3 max-w-sm">
@@ -129,11 +143,12 @@ export function TeamMembersSection({ organizationId, organizationName }: Props) 
       </SectionCard>
 
       {team.invitations.length > 0 && (
-        <SectionCard icon={Mail} title="Pending invitations" description="Invitations not yet accepted; they count against your seats. Send the link yourself until email sending is connected — the invitee must sign in with the invited email.">
+        <SectionCard icon={Mail} title="Pending invitations" description="Invitations not yet accepted; they count against your seats. Resend the activation email, or copy the link and send it yourself — either way it only works for the invited email address.">
           <ul className="divide-y divide-border/60">
             {team.invitations.map((i) => (
               <li key={i.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-xs">
                 <span><span className="font-semibold text-foreground">{i.email}</span><span className="text-muted-foreground"> · {i.role ? ORG_ROLE_LABELS[i.role] : "—"} · expires {formatDate(i.expiresAt)}</span></span>
+                <button type="button" onClick={() => void resend(i.id)} disabled={resending === i.id} className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline disabled:opacity-60">{resending === i.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />} Resend email</button>
                 <button type="button" onClick={() => { void navigator.clipboard?.writeText(`${window.location.origin}/accept-invitation/${i.token}`); setCopied(i.id); window.setTimeout(() => setCopied(null), 2000); }} className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"><Link2 className="h-3.5 w-3.5" /> {copied === i.id ? "Link copied" : "Copy invite link"}</button>
                 <button type="button" onClick={() => team.cancel.mutate(i.id)} className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-status-danger"><Trash2 className="h-3.5 w-3.5" /> Cancel</button>
               </li>

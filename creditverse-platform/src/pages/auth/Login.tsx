@@ -53,7 +53,7 @@ const Login = () => {
         if (!result.error) setNotice("Check your inbox for a sign-in link.");
         break;
       case "signup":
-        result = await auth.signUp(email, password, fullName, { businessName, phone, plan });
+        result = await auth.signUp(email, password, fullName, { business: { businessName, phone, plan } });
         if (!result.error)
           setNotice(
             "Account created. Confirm your email, then ask an administrator to grant workspace access.",

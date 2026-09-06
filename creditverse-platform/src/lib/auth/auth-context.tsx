@@ -28,6 +28,7 @@ import {
   type AuthMode,
 } from "@/lib/supabase/client";
 import type { Enums, Tables } from "@/lib/supabase/database.types";
+import { safeRedirectPath } from "@/lib/auth/safe-redirect";
 
 export type Profile = Tables<"profiles">;
 export type AgencyMembership = Tables<"agency_memberships">;
@@ -38,6 +39,23 @@ export type AgencyRole = Enums<"agency_role">;
 export type AccessScope = Enums<"access_scope">;
 
 export type AuthStatus = "loading" | "signed-out" | "signed-in";
+
+export interface SignUpOptions {
+  /** Present only for self-serve sign-up: the organization and its trial are
+   *  provisioned from these when the email is confirmed. Omit it when the
+   *  person is joining a team that already exists. */
+  business?: { businessName: string; phone?: string; plan: string };
+  /** Where the confirmation link should land, e.g. back on an invitation.
+   *  Sanitised — only a path inside this application is honoured. */
+  redirectPath?: string;
+}
+
+/** The confirmation/magic-link destination, carrying an onward path safely. */
+function callbackUrl(redirectPath?: string): string {
+  const base = `${siteUrl}/auth/callback`;
+  const next = safeRedirectPath(redirectPath, "");
+  return next ? `${base}?next=${encodeURIComponent(next)}` : base;
+}
 
 export interface AuthContextValue {
   mode: AuthMode;
@@ -75,13 +93,12 @@ export interface AuthContextValue {
     email: string,
     password: string,
   ) => Promise<{ error: string | null }>;
-  signInWithMagicLink: (email: string) => Promise<{ error: string | null }>;
+  signInWithMagicLink: (email: string, redirectPath?: string) => Promise<{ error: string | null }>;
   signUp: (
     email: string,
     password: string,
     fullName: string,
-    /** Self-serve sign-up: the organization is created on email confirmation from these. */
-    business?: { businessName: string; phone?: string; plan: string },
+    options?: SignUpOptions,
   ) => Promise<{ error: string | null }>;
   resetPassword: (email: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
@@ -257,25 +274,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     [],
   );
 
-  const signInWithMagicLink = useCallback(async (email: string) => {
+  const signInWithMagicLink = useCallback(async (email: string, redirectPath?: string) => {
     if (!supabase) return { error: "Backend not configured." };
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${siteUrl}/auth/callback` },
+      options: { emailRedirectTo: callbackUrl(redirectPath) },
     });
     return { error: error?.message ?? null };
   }, []);
 
   const signUp = useCallback(
-    async (
-      email: string,
-      password: string,
-      fullName: string,
-      business?: { businessName: string; phone?: string; plan: string },
-    ) => {
+    async (email: string, password: string, fullName: string, options?: SignUpOptions) => {
       if (!supabase) return { error: "Backend not configured." };
       // Nothing is created here. The database provisions the organization,
-      // membership, entitlements and trial when the email is confirmed.
+      // membership, entitlements and trial when the email is confirmed — and
+      // only when `business` is present, so someone joining a team that already
+      // exists does not get an organization of their own.
+      const business = options?.business;
       const { error } = await supabase.auth.signUp({
         email,
         password,
@@ -286,7 +301,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               ? { business_name: business.businessName.trim(), phone: business.phone?.trim() || null, plan: business.plan }
               : {}),
           },
-          emailRedirectTo: `${siteUrl}/auth/callback`,
+          emailRedirectTo: callbackUrl(options?.redirectPath),
         },
       });
       return { error: error?.message ?? null };
