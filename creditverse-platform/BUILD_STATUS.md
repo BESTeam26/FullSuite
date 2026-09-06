@@ -4030,3 +4030,29 @@ counts).
   and need the Sender **API token** as a secret. Sign-up cannot be tested
   properly until the first is set — Supabase's built-in sender allows only a
   few emails an hour.
+
+### The public site, too (2026-09-06)
+
+Two marketing sections were carrying invented figures, and the second set was
+the most serious thing found in this sweep because it was public and about
+security:
+
+- **AI positioning** claimed "Report analysis & extraction 95%", "Dispute
+  drafting 88%", "Progress reports 92%" — percentages of nothing. Replaced
+  with the rule they were trying to express, which needs no number: the
+  assistant reads and drafts, deterministic code computes what must never
+  vary, and people decide.
+- **Trust section** claimed "MFA & role-based access 100%", "Field-level
+  encryption 100%", "Billing eligibility engine 92%", "Credit monitoring
+  providers 80%". **There is no MFA, no field-level encryption and no
+  billing-eligibility engine.** Publishing security and compliance claims that
+  are untrue is worse than an invented dashboard tile. Each item now states
+  only what the platform actually does — row-level security on every table,
+  permissions re-checked inside each writer, an approval gate before a letter
+  is sent, an append-only audit — and says plainly that integrations switch on
+  when their accounts are connected.
+
+Left alone deliberately: the interface illustration on the marketing page
+(a mock-up of the product's own screens) and the structural counts "4
+connected products" / "1 client record", which are facts about the product
+rather than invented measurements.

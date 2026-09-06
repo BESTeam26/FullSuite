@@ -49,44 +49,37 @@ export const AiPositioning = () => (
         ))}
       </div>
 
-      {/* AI-assisted task breakdown */}
+      {/* What the assistant does, and what it never does. These used to be
+          four animated bars reading 95%, 88% and 92% — percentages of nothing,
+          on a public page where a prospect might rely on them. The rule they
+          were trying to express is real and needs no number. */}
       <div className="mx-auto mt-12 max-w-2xl rounded-2xl border border-white/10 bg-white/5 p-8">
         <p className="text-center text-sm font-semibold uppercase tracking-widest text-amber-400">
-          What AI assists with
+          Where the line sits
         </p>
-        <div className="mt-6 space-y-4">
-          <AnimatedBar
-            label="Report analysis & extraction"
-            value={95}
-            max={100}
-            color="bg-gradient-gold"
-            light
-          />
-          <AnimatedBar
-            label="Dispute drafting assistance"
-            value={88}
-            max={100}
-            color="bg-gradient-gold"
-            delay={150}
-            light
-          />
-          <AnimatedBar
-            label="Progress & summary reports"
-            value={92}
-            max={100}
-            color="bg-gradient-gold"
-            delay={300}
-            light
-          />
-          <AnimatedBar
-            label="Legal / lender decisions (human-only)"
-            value={0}
-            max={100}
-            color="bg-emerald-600"
-            delay={450}
-            light
-          />
-        </div>
+        <dl className="mt-6 space-y-4 text-sm">
+          <div>
+            <dt className="font-semibold text-white">The assistant reads and drafts</dt>
+            <dd className="mt-1 text-slate-300">
+              It transcribes a scanned report into a review grid, rephrases a letter in the consumer's own voice, and
+              puts an analysis into plain words. Every one of those lands in front of a person before it counts.
+            </dd>
+          </div>
+          <div>
+            <dt className="font-semibold text-white">The engine decides what is deterministic</dt>
+            <dd className="mt-1 text-slate-300">
+              Program fit against a stored lender policy, statutory response clocks, score factors, production and
+              End of Day are computed in code and are the same every time they run.
+            </dd>
+          </div>
+          <div>
+            <dt className="font-semibold text-white">People decide everything that matters</dt>
+            <dd className="mt-1 text-slate-300">
+              What to dispute, what a letter says, whether a document is acceptable, when a file is funded. No draft
+              becomes an action on its own, and no model is asked for a legal or lending judgement.
+            </dd>
+          </div>
+        </dl>
       </div>
     </div>
   </section>
