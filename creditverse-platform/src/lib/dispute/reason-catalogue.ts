@@ -74,6 +74,7 @@ export type ReasonCondition =
   | "severe_late_without_prior_30"
   | "dola_before_open_date"
   | "data_missing_or_deficient"
+  | "balance_above_high_credit"
   /* Account shape */
   | "auto_loan"
   | "student_loan"

@@ -1,7 +1,11 @@
 /**
- * The detector decides what a bureau is told about an account, so these cover
- * the contradictions Dee's library is built to attack — and, just as
- * importantly, the cases where it must stay silent rather than guess.
+ * The detector decides what a bureau is told about an account.
+ *
+ * Half of these cover the contradictions the library is built to attack. The
+ * other half — the ones that matter more — cover normal reporting that LOOKS
+ * like a contradiction, taken from the false-positive list in the BES dispute
+ * specification. A letter full of "violations" that are really ordinary
+ * reporting is how a dispute gets dismissed as frivolous.
  */
 import { describe, expect, it } from "vitest";
 import { detectConditions, type BureauRecord } from "./condition-detector";
@@ -16,29 +20,27 @@ const item = (over: Partial<ClassifiedItem> = {}): ClassifiedItem => ({
 const rec = (over: Partial<BureauRecord> & { bureau: BureauRecord["bureau"] }): BureauRecord => over;
 
 describe("contradictions inside one bureau's own record", () => {
-  it("finds a charge-off still carrying a balance", () => {
+  it("asks about a charge-off carrying a balance rather than asserting it", () => {
     const r = detectConditions({
       item: item({ category: "Charge-Off" }),
       records: [rec({ bureau: "EQ", status: "Charge-Off", balance: 15508 })],
     });
-    expect(r.conditions).toContain("charge_off_with_balance");
+    /* A charge-off is an accounting event, not forgiveness — the debt can
+       still be owed, so this is a question, not a stated fact. */
+    expect(r.conditions).not.toContain("charge_off_with_balance");
+    expect(r.questions.map((q) => q.condition)).toContain("charge_off_with_balance");
     expect(r.evidence.join(" ")).toContain("15508");
   });
 
-  it("finds a paid account that still carries late marks", () => {
-    const r = detectConditions({
-      item: item(),
-      records: [rec({ bureau: "TU", status: "Paid", paymentHistory: ["OK", "30", "OK"] })],
-    });
-    expect(r.conditions).toContain("paid_status_but_late_marks");
-  });
-
-  it("finds a 90-day mark with no 30-day mark before it", () => {
+  it("asks about a 90-day mark with no 30 before it, and does not assert it", () => {
     const r = detectConditions({
       item: item(),
       records: [rec({ bureau: "EX", paymentHistory: ["OK", "OK", "90", "120"] })],
     });
-    expect(r.conditions).toContain("severe_late_without_prior_30");
+    expect(r.questions.map((q) => q.condition)).toContain("severe_late_without_prior_30");
+    expect(r.conditions).not.toContain("severe_late_without_prior_30");
+    expect(r.questions.find((q) => q.condition === "severe_late_without_prior_30")?.needs)
+      .toContain("deferment");
   });
 
   it("does not flag a 90 that was reached properly", () => {
@@ -49,11 +51,12 @@ describe("contradictions inside one bureau's own record", () => {
     expect(r.conditions).not.toContain("severe_late_without_prior_30");
   });
 
-  it("finds a balance above the high credit", () => {
+  it("asks about a balance above the high credit — fees and interest do that", () => {
     const r = detectConditions({
       item: item(), records: [rec({ bureau: "EQ", balance: 900, highBalance: 500 })],
     });
-    expect(r.conditions).toContain("balance_inconsistent");
+    expect(r.conditions).not.toContain("balance_above_high_credit");
+    expect(r.questions.map((q) => q.condition)).toContain("balance_above_high_credit");
   });
 
   it("finds last activity dated before the account opened", () => {
@@ -63,21 +66,66 @@ describe("contradictions inside one bureau's own record", () => {
     expect(r.conditions).toContain("dola_before_open_date");
   });
 
-  it("finds a past-due amount on a collection", () => {
+  it("RULES OUT a past-due amount on a collection — it is permitted", () => {
     const r = detectConditions({
       item: item({ category: "3rd-Party Collection" }),
       records: [rec({ bureau: "TU", status: "Collection", pastDue: 412 })],
     });
-    expect(r.conditions).toContain("collection_with_past_due");
+    expect(r.conditions).not.toContain("collection_with_past_due");
+    expect(r.questions.map((q) => q.condition)).not.toContain("collection_with_past_due");
+    expect(r.ruledOut.map((q) => q.condition)).toContain("collection_with_past_due");
+  });
+});
+
+describe("normal reporting that looks like a violation", () => {
+  it("does not treat a paid account's historical lates as a contradiction", () => {
+    const r = detectConditions({
+      item: item(),
+      records: [rec({ bureau: "TU", status: "Paid", paymentHistory: ["OK", "30", "OK"] })],
+    });
+    /* A payment rating can describe the account before it was paid. */
+    expect(r.conditions).not.toContain("paid_status_but_late_marks");
+    expect(r.ruledOut.map((q) => q.condition)).toContain("paid_status_but_late_marks");
+  });
+
+  it("…but asks about it once the consumer says they were never late", () => {
+    const r = detectConditions({
+      item: item(),
+      records: [rec({ bureau: "TU", status: "Paid", paymentHistory: ["OK", "30", "OK"] })],
+      attestations: { neverLate: true },
+    });
+    expect(r.questions.map((q) => q.condition)).toContain("paid_status_but_late_marks");
+  });
+
+  it("treats single-bureau reporting as a question, never as proof", () => {
+    const r = detectConditions({ item: item(), records: [rec({ bureau: "TU" })] });
+    expect(r.conditions).not.toContain("single_bureau_only");
+    expect(r.questions.map((q) => q.condition)).toContain("single_bureau_only");
+  });
+
+  it("treats a deletion elsewhere as a question, never as binding", () => {
+    const r = detectConditions({
+      item: item(), records: [rec({ bureau: "TU" })], deletedFromBureaus: ["EQ", "EX"],
+    });
+    expect(r.conditions).not.toContain("deleted_from_other_bureaus");
+    const q = r.questions.find((x) => x.condition === "deleted_from_other_bureaus");
+    expect(q?.needs).toContain("does not legally bind");
+  });
+
+  it("does not demand fields a collection is meant to leave blank", () => {
+    const r = detectConditions({
+      item: item({ category: "3rd-Party Collection" }),
+      records: [rec({ bureau: "EQ", status: "Collection", balance: 400, accountNumberMasked: "****1234",
+                      accountType: "Collection", paymentStatus: "Collection", openDate: "2022-01-01",
+                      dateLastActive: "2023-01-01", dateLastPayment: "2022-06-01", pastDue: 0 })],
+    });
+    const blanks = r.ruledOut.find((x) => x.observation.includes("as expected"));
+    expect(blanks?.observation).toContain("Credit Limit");
+    expect(r.conditions).not.toContain("data_missing_or_deficient");
   });
 });
 
 describe("comparisons across bureaus", () => {
-  it("notices only one bureau reporting", () => {
-    expect(detectConditions({ item: item(), records: [rec({ bureau: "TU" })] }).conditions)
-      .toContain("single_bureau_only");
-  });
-
   it("notices a balance that differs between bureaus", () => {
     const r = detectConditions({
       item: item(),
@@ -92,11 +140,10 @@ describe("comparisons across bureaus", () => {
     expect(r.conditions).not.toContain("dates_inconsistent");
   });
 
-  it("records a deletion elsewhere as its own condition", () => {
+  it("records a deletion elsewhere with both bureaus named", () => {
     const r = detectConditions({
       item: item(), records: [rec({ bureau: "TU" })], deletedFromBureaus: ["EQ", "EX"],
     });
-    expect(r.conditions).toContain("deleted_from_other_bureaus");
     expect(r.evidence.join(" ")).toContain("EQ, EX");
   });
 });

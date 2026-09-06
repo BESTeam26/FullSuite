@@ -108,11 +108,43 @@ export const FIELD_LABELS: Record<ExpectedField, string> = {
   dateLastPayment: "Date of Last Payment",
 };
 
+/**
+ * How sure we are, in the vocabulary the BES dispute specification uses.
+ *
+ *   confirmed     the report itself establishes it. May be stated as fact.
+ *   apparent      it looks wrong, and a legitimate explanation exists. May be
+ *                 asked as a specific, neutral question. NEVER asserted.
+ *   not_an_error  it looks wrong to the untrained eye and is not. Recorded so
+ *                 nobody disputes it, and so a reviewer can see it was
+ *                 considered rather than missed.
+ *
+ * This distinction is the whole ballgame. A letter full of "violations" that
+ * are really normal reporting is how a dispute gets dismissed as frivolous —
+ * and how a credit repair organization ends up asserting things it cannot
+ * support. Only `confirmed` findings may be stated as facts.
+ */
+export type Confidence = "confirmed" | "apparent" | "not_an_error";
+
+export interface Finding {
+  condition: ReasonCondition;
+  confidence: Confidence;
+  /** Plain, checkable, never a conclusion. */
+  observation: string;
+  /** For an apparent finding: the fact that would settle it either way. */
+  needs?: string;
+}
+
 export interface DetectionResult {
+  /** Everything found, with how sure we are. */
+  findings: Finding[];
+  /** Only the confirmed ones — what a reason may be built on. */
   conditions: ReasonCondition[];
+  /** Apparent ones, for the questions section and the reviewer's queue. */
+  questions: Finding[];
+  /** Considered and ruled out, so nobody disputes normal reporting. */
+  ruledOut: Finding[];
   /** Which expected fields no bureau populated. Feeds the missing-data letter. */
   missingFields: ExpectedField[];
-  /** Plain observations a reviewer can check against the report themselves. */
   evidence: string[];
 }
 
@@ -143,38 +175,53 @@ export function detectConditions(input: DetectionInput): DetectionResult {
   const { item, records } = input;
   const att = input.attestations ?? {};
   const hist = input.history;
-  const found = new Set<ReasonCondition>();
-  const evidence: string[] = [];
-  const add = (c: ReasonCondition, why?: string) => { found.add(c); if (why) evidence.push(why); };
+  const findings: Finding[] = [];
+  const seen = new Set<string>();
+  const add = (condition: ReasonCondition, confidence: Confidence, observation: string, needs?: string) => {
+    const key = `${condition}|${observation}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    findings.push({ condition, confidence, observation, needs });
+  };
 
-  /* ---- Cross-bureau comparisons. Only meaningful with two or more. ---- */
+  /* ---- Cross-bureau comparisons. ----
+     A difference between bureaus is a real observation and a fair question.
+     It is NOT a violation on its own: furnishers choose which bureaus they
+     report to, and the BES specification is explicit that neither
+     single-bureau reporting nor a deletion elsewhere proves anything. */
   if (records.length === 1) {
-    add("single_bureau_only", `Only ${records[0].bureau} is reporting this account.`);
+    add("single_bureau_only", "apparent",
+      `Only ${records[0].bureau} is reporting this account.`,
+      "Whether the furnisher reports to this bureau alone by choice, which is permitted and common for specialty furnishers.");
   }
   if ((input.deletedFromBureaus?.length ?? 0) > 0) {
-    add("deleted_from_other_bureaus",
-      `Already deleted by ${input.deletedFromBureaus!.join(", ")}; still reported by ${records.map((r) => r.bureau).join(", ")}.`);
+    add("deleted_from_other_bureaus", "apparent",
+      `Deleted by ${input.deletedFromBureaus!.join(", ")}; still reported by ${records.map((r) => r.bureau).join(", ")}.`,
+      "How this bureau independently verified data another bureau removed. One bureau's deletion does not legally bind another.");
   }
   if (records.length > 1) {
-    if (distinct(records, "balance").length > 1) add("balance_inconsistent", "The balance differs between bureaus.");
-    if (distinct(records, "status").length > 1) add("status_inconsistent", "The account status differs between bureaus.");
-    if (distinct(records, "paymentStatus").length > 1) add("status_inconsistent", "The payment status differs between bureaus.");
-    const dateFields: (keyof BureauRecord)[] = ["openDate", "dateLastActive", "dateLastPayment", "dateClosed", "dofd"];
-    for (const f of dateFields) {
+    if (distinct(records, "balance").length > 1) {
+      add("balance_inconsistent", "confirmed", "The balance differs between the bureaus reporting this account.");
+    }
+    if (distinct(records, "status").length > 1 || distinct(records, "paymentStatus").length > 1) {
+      add("status_inconsistent", "confirmed", "The account or payment status differs between the bureaus reporting this account.");
+    }
+    for (const f of ["openDate", "dateLastActive", "dateLastPayment", "dateClosed", "dofd"] as (keyof BureauRecord)[]) {
       if (distinct(records, f).length > 1) {
-        add("dates_inconsistent", `${String(f)} differs between bureaus.`);
+        add("dates_inconsistent", "confirmed", `${String(f)} differs between the bureaus reporting this account.`);
         break;
       }
     }
-    const histories = records
-      .filter((r) => r.paymentHistory?.length)
-      .map((r) => (r.paymentHistory ?? []).join(","));
-    if (new Set(histories).size > 1) add("payment_history_inconsistent", "The payment history differs between bureaus.");
+    const histories = records.filter((r) => r.paymentHistory?.length).map((r) => (r.paymentHistory ?? []).join(","));
+    if (new Set(histories).size > 1) {
+      add("payment_history_inconsistent", "confirmed", "The payment history differs between the bureaus reporting this account.");
+    }
   }
 
-  /* ---- Contradictions inside one bureau's own record. ----
-     These are the strongest disputes: the bureau is not disagreeing with
-     another bureau, it is disagreeing with itself. */
+  /* ---- One bureau's record against itself. ----
+     Most of what looks like a contradiction here is normal reporting, and the
+     specification's false-positive list is applied literally. */
+  const isCollection = item.category === "3rd-Party Collection";
   for (const r of records) {
     const status = norm(r.status);
     const pay = norm(r.paymentStatus);
@@ -183,49 +230,67 @@ export function detectConditions(input: DetectionInput): DetectionResult {
     const late = (r.paymentHistory ?? []).filter((m) => m && LATE_CODES.has(m));
 
     if (status.includes("charge") && (bal ?? 0) > 0) {
-      add("charge_off_with_balance", `${r.bureau} reports a charge-off still carrying a balance of ${bal}.`);
+      /* A charge-off is an accounting event, not forgiveness: the debt can
+         still be owed and the balance can still grow. Only the consumer's own
+         evidence (a 1099-C, a settlement, a payoff) settles it. */
+      add("charge_off_with_balance", "apparent",
+        `${r.bureau} reports a charge-off carrying a balance of ${bal}.`,
+        "Whether the debt is still legally owed. A charged-off balance is permitted when it is.");
     }
-    if ((status.includes("collection") || item.category === "3rd-Party Collection") && (num(r.pastDue) ?? 0) > 0) {
-      add("collection_with_past_due", `${r.bureau} reports a past-due amount on a collection.`);
+    if ((status.includes("collection") || isCollection) && (num(r.pastDue) ?? 0) > 0) {
+      /* Explicitly NOT an error. A collection is allowed to report an amount
+         past due, and disputing it is the fastest way to look uninformed. */
+      add("collection_with_past_due", "not_an_error",
+        `${r.bureau} reports a past-due amount on a collection, which is permitted.`);
     }
     if ((status.includes("discharge") || norm(r.remarks).includes("bankruptcy")) && (bal ?? 0) > 0) {
-      add("discharged_with_balance", `${r.bureau} reports a balance on an account shown as discharged.`);
+      add("discharged_with_balance", "apparent",
+        `${r.bureau} reports a balance on an account shown as discharged.`,
+        "The Consumer Information Indicator, whether this debt was in the discharge, and whether it was reaffirmed or belongs to a non-filer.");
     }
     if ((status.includes("paid") || pay.includes("current") || pay.includes("pays as agreed")) && late.length > 0) {
+      /* A payment RATING can describe the account before it was paid, and a
+         current account keeps its history. Normal unless the consumer says the
+         lates never happened. */
       add("paid_status_but_late_marks",
-        `${r.bureau} shows the account as ${r.status ?? r.paymentStatus} while the history carries ${late.length} late mark(s).`);
-    }
-    if (pay.includes("current") && late.length === 1) {
-      add("current_but_late_mark", `${r.bureau} shows the status as current with a single late mark.`);
+        att.neverLate ? "apparent" : "not_an_error",
+        `${r.bureau} shows the account as ${r.status ?? r.paymentStatus} with ${late.length} historical late mark(s).`,
+        att.neverLate ? "The consumer states no payment was ever late; documentation of on-time payment for those months would confirm it." : undefined);
     }
     if (bal !== undefined && high !== undefined && bal > high) {
-      add("balance_inconsistent", `${r.bureau} reports a balance (${bal}) higher than the high credit (${high}).`);
+      add("balance_above_high_credit", "apparent",
+        `${r.bureau} reports a balance (${bal}) above the high credit (${high}).`,
+        "Whether fees or accrued interest account for the difference, which is legitimate.");
     }
-    /* A 90/120/150/180 mark with no 30 before it. A payment history that jumps
-       straight to 90 describes something that cannot have happened: you reach
-       90 days late by first being 30. */
+    /* A jump to 90 with no 30 before it is worth asking about, but deferment,
+       forbearance, a cure, missing months and reporting cadence all produce it
+       legitimately. It is a question, never an assertion. */
     const hist2 = r.paymentHistory ?? [];
     const firstSevere = hist2.findIndex((m) => m && ["90", "120", "150", "180"].includes(m));
-    if (firstSevere >= 0) {
-      const before = hist2.slice(0, firstSevere).filter((m) => m === "30");
-      if (before.length === 0) {
-        add("severe_late_without_prior_30",
-          `${r.bureau} reports a ${hist2[firstSevere]}-day mark with no 30-day mark before it.`);
-      }
+    if (firstSevere >= 0 && hist2.slice(0, firstSevere).filter((m) => m === "30").length === 0) {
+      add("severe_late_without_prior_30", "apparent",
+        `${r.bureau} reports a ${hist2[firstSevere]}-day mark with no 30-day mark before it.`,
+        "The monthly sequence, any missing months, and whether deferment, forbearance or a cure explains the jump.");
     }
-    if (late.length === 1) add("single_late_mark");
-    if (late.length > 1) add("multiple_late_marks");
+    if (late.length === 1) add("single_late_mark", "confirmed", `${r.bureau} reports one late mark.`);
+    if (late.length > 1) add("multiple_late_marks", "confirmed", `${r.bureau} reports ${late.length} late marks.`);
 
-    /* Date of last activity before the account existed. */
+    /* Activity before the account existed is not explainable. This one is
+       genuinely impossible and may be stated as a fact. */
     const opened = ym(r.openDate);
     const active = ym(r.dateLastActive);
     if (opened !== undefined && active !== undefined && active < opened) {
-      add("dola_before_open_date",
+      add("dola_before_open_date", "confirmed",
         `${r.bureau} reports last activity (${r.dateLastActive}) before the account opened (${r.openDate}).`);
     }
   }
 
-  /* ---- Missing data. A blank field is a fact, not an inference. ---- */
+  /* ---- Missing data. ----
+     A blank is a fact. Whether it is a DEFECT depends on the account: a
+     collection is intentionally blank on monthly payment, credit limit, terms
+     and payment history, so demanding them there is the classic false
+     positive the specification warns about. */
+  const COLLECTION_BLANKS: ExpectedField[] = ["monthlyPayment", "creditLimit", "termMonths", "highBalance"];
   const missingFields: ExpectedField[] = [];
   for (const f of EXPECTED_FIELDS) {
     const anyPopulated = records.some((r) => {
@@ -234,34 +299,58 @@ export function detectConditions(input: DetectionInput): DetectionResult {
     });
     if (!anyPopulated) missingFields.push(f);
   }
-  if (missingFields.length > 0) {
-    add("data_missing_or_deficient",
-      `Not reported by any bureau: ${missingFields.map((f) => FIELD_LABELS[f]).join(", ")}.`);
+  const meaningful = missingFields.filter((f) => !(isCollection && COLLECTION_BLANKS.includes(f)));
+  const expectedBlanks = missingFields.filter((f) => isCollection && COLLECTION_BLANKS.includes(f));
+  if (meaningful.length > 0) {
+    add("data_missing_or_deficient", "confirmed",
+      `Not reported by any bureau: ${meaningful.map((f) => FIELD_LABELS[f]).join(", ")}.`);
+  }
+  if (expectedBlanks.length > 0) {
+    add("data_missing_or_deficient", "not_an_error",
+      `Blank on this collection, as expected: ${expectedBlanks.map((f) => FIELD_LABELS[f]).join(", ")}.`);
   }
 
-  /* ---- Account shape, which decides the statute that applies. ---- */
+  /* ---- Account shape. Facts, not findings. ---- */
   const sub = norm(item.subtype);
-  if (sub.includes("auto")) add("auto_loan");
-  if (item.category === "Student Loan" || sub.includes("student")) add("student_loan");
-  if (sub.includes("medical") || norm(item.name).includes("medical")) add("medical");
-  if (sub.includes("revolving") && norm(item.status).includes("open")) add("open_revolving");
+  if (sub.includes("auto")) add("auto_loan", "confirmed", "Auto loan.");
+  if (item.category === "Student Loan" || sub.includes("student")) add("student_loan", "confirmed", "Student loan.");
+  if (sub.includes("medical") || norm(item.name).includes("medical")) add("medical", "confirmed", "Medical account.");
+  if (sub.includes("revolving") && norm(item.status).includes("open")) add("open_revolving", "confirmed", "Open revolving account.");
 
-  /* ---- Our own procedural history. Never guessed from the report. ---- */
+  /* ---- Our own procedural history. ---- */
   if (hist) {
-    if (hist.priorRounds > 0 && !hist.lastResponseAt) add("prior_dispute_unanswered");
-    if (hist.notatedAsDisputed === false) add("not_notated_as_disputed");
-    if (hist.everDeletedThenReturned) add("reinserted_after_deletion");
-    if (hist.verificationRequestedNotProduced) add("verification_not_produced");
+    if (hist.priorRounds > 0 && !hist.lastResponseAt) {
+      add("prior_dispute_unanswered", "confirmed", `${hist.priorRounds} prior dispute(s) with no response recorded.`);
+    }
+    if (hist.notatedAsDisputed === false) {
+      add("not_notated_as_disputed", "confirmed", "The account is not marked as disputed after our notice.");
+    }
+    if (hist.everDeletedThenReturned) {
+      add("reinserted_after_deletion", "confirmed", "This item was deleted and later reappeared.");
+    }
+    if (hist.verificationRequestedNotProduced) {
+      add("verification_not_produced", "confirmed", "A description of the verification procedure was requested and not produced.");
+    }
   }
 
-  /* ---- Signed consumer statements. ---- */
-  if (att.identityTheft) add("attested_identity_theft");
-  if (att.breachImpact) add("attested_breach_impact");
-  if (att.neverLate) add("attested_never_late");
-  if (att.notMine) add("attested_not_mine");
-  if (att.noWrittenConsent) add("attested_no_written_consent");
-  if (att.requestedProofNoneGiven) add("attested_requested_proof_none_given");
-  if (att.collectorStillContacting) add("attested_collector_still_contacting");
+  /* ---- Signed consumer statements. Never inferred. ---- */
+  if (att.identityTheft) add("attested_identity_theft", "confirmed", "The consumer has signed an identity theft statement.");
+  if (att.breachImpact) add("attested_breach_impact", "confirmed", "The consumer has signed that they were affected by a data breach.");
+  if (att.neverLate) add("attested_never_late", "confirmed", "The consumer states no payment on this account was late.");
+  if (att.notMine) add("attested_not_mine", "confirmed", "The consumer states this account is not theirs.");
+  if (att.noWrittenConsent) add("attested_no_written_consent", "confirmed", "The consumer states they gave no written consent.");
+  if (att.requestedProofNoneGiven) add("attested_requested_proof_none_given", "confirmed", "The consumer asked for proof and received none.");
+  if (att.collectorStillContacting) add("attested_collector_still_contacting", "confirmed", "The consumer states the collector is still making contact.");
 
-  return { conditions: [...found].sort(), missingFields, evidence };
+  const confirmed = findings.filter((f) => f.confidence === "confirmed");
+  return {
+    findings,
+    /* Only confirmed findings become a dispute reason. An apparent one becomes
+       a question in the letter; a ruled-out one becomes nothing at all. */
+    conditions: [...new Set(confirmed.map((f) => f.condition))].sort(),
+    questions: findings.filter((f) => f.confidence === "apparent"),
+    ruledOut: findings.filter((f) => f.confidence === "not_an_error"),
+    missingFields,
+    evidence: findings.map((f) => f.observation),
+  };
 }
