@@ -96,10 +96,12 @@ export const divisionLabel = (id: string) => DIVISION_LABELS[id] ?? id;
 /**
  * A timer left running overnight.
  *
- * Nobody works sixteen hours in one sitting, and a forgotten timer quietly
- * corrupts the day's production and the End of Day figure. The cap is a
- * judgement, not a law: it decides when to *warn*, never what to record.
- * Stopping is always the person's own act.
+ * Nobody works ten hours in one sitting without stopping, and a forgotten
+ * timer quietly corrupts the day's production and the End of Day figure. The
+ * cap is a judgement, not a law: it decides when to *warn*, never what to
+ * record. Stopping is always the person's own act.
+ *
+ * Ten hours confirmed by Dee, C8, 2026-09-06.
  */
 export const STALE_TIMER_HOURS = 10;
 

@@ -4180,3 +4180,47 @@ provisioned."*
 - **An optional step never holds a guide open.** Progress counts required
   steps only, so somebody who does not want birthday greetings is not nagged
   forever.
+
+## Decision set C1–C10 (2026-09-06) — three revisions to earlier answers
+
+Dee issued a formal decision set. Most confirm what was already being built;
+**three revise an earlier answer**, and one of those was already in the code.
+
+| # | Decision | Status |
+|---|---|---|
+| C1 | Client as an organization-level canonical asset; the two Ops are engines around it | **Built** (0091–0095) |
+| C2 | DIY Credit only after C1 | Sequenced; C1 is done, so DIY is unblocked |
+| C3 | Client Portal is a view/access layer on the canonical client, never a second identity | Model supports it: `clients.portal_user_id` is one login for both portals |
+| C4 | Channels private by default; BES sees only what is explicitly shared under a live engagement, and may **post and reply**, not read-only | Not yet built. Note the correction: shared ≠ read-only |
+| C5 | **REVISED** — email lender submission packages first; portal later | Earlier answer was "lenders full portal access" |
+| C6 | Commissions configurable flat **or** percentage, tiers later; earned on funding, payable only once revenue is confirmed | Not yet built |
+| C7 | **REVISED** — SignWell for e-signature; Lob stays for physical mail | Earlier answer was "GHL handles e-signature" |
+| C8 | 10-hour stale timer cap | **Already 10.** Confirmed; a stale comment saying "sixteen hours" corrected |
+| C9 | 7 years for uploaded report PDFs, **configurable**, legal review before locking | Retention not yet enforced; must be a setting, not a constant |
+| C10 | **REVISED** — organization admins resolve duplicates for their own data; BES only when engaged or escalated | Earlier answer was "the uploader or importer" |
+
+### C10 was already in the code, and is now corrected (0098)
+
+0091 and 0092 carry comments recording the superseded rule. Applied migrations
+are not edited, so 0098 states the correction and — the part that matters —
+**enforces it**, which the old rule never was. It was only ever a comment, and
+a comment authorizes nothing.
+
+`resolve_client_duplicate()` requires an organization administrator, or BES
+staff under a live engagement. A trigger stops `needs_review` being cleared by
+a plain update, so the check cannot be walked around through PostgREST.
+Verified against the live database: Lakeside's processor is refused with 42501,
+its owner succeeds.
+
+Deliberately narrow: it clears the flag and records what a person decided. It
+does **not** merge. Merging two client records is a separate, heavier operation
+with its own confirmation, because a wrong merge shows one client another
+client's credit report — the worst thing this platform could do. That is also
+why C10's revision is right: the person who happened to run an import at 2am is
+not the one who should make that call.
+
+### C5 changes the FundingOps build order
+
+Lender submission by **email package** first; the portal after the
+lender/deal/submission model is mature. The earlier answer would have had a
+portal built against a model still moving underneath it.
