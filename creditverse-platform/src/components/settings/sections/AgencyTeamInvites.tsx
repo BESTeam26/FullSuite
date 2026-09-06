@@ -11,12 +11,13 @@
  */
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Copy, Loader2, Send, Trash2, UserPlus } from "lucide-react";
+import { Check, Copy, Loader2, Mail, Send, Trash2, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SectionCard } from "@/components/settings/shared";
 import { useAuth } from "@/lib/auth/auth-context";
 import { formatDate } from "@/lib/format-date";
 import { errorMessage } from "@/lib/data/error-message";
+import { sendInvitationEmail } from "@/lib/data/emails";
 import {
   AGENCY_ROLES,
   AGENCY_ROLE_HINTS,
@@ -52,14 +53,43 @@ export function AgencyTeamInvites() {
   const [chosen, setChosen] = useState<AgencyRole>("agency_agent");
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [resending, setResending] = useState<string | null>(null);
+
+  const resend = async (id: string) => {
+    setResending(id);
+    const outcome = await sendInvitationEmail(id);
+    setResending(null);
+    setMessage(
+      outcome.status === "sent"
+        ? { text: "Activation email sent again.", error: false }
+        : outcome.status === "not_connected"
+          ? { text: "Email is not connected yet — copy the link instead.", error: false }
+          : { text: outcome.message, error: true },
+    );
+  };
 
   const refresh = () => void qc.invalidateQueries({ queryKey: ["agency", "invitations"] });
 
+  /**
+   * Creating the invitation and emailing it are two steps on purpose: the
+   * invitation exists whether or not the email goes out, so a mail provider
+   * that is not connected never costs someone their invitation — the link is
+   * still there to copy.
+   */
   const invite = useMutation({
-    mutationFn: () => inviteAgencyMember(email, chosen),
-    onSuccess: () => {
+    mutationFn: async () => {
+      const id = await inviteAgencyMember(email, chosen);
+      return { id, outcome: await sendInvitationEmail(id) };
+    },
+    onSuccess: ({ outcome }) => {
       setEmail("");
-      setMessage({ text: "Invitation created. Copy the link below and send it to them.", error: false });
+      setMessage(
+        outcome.status === "sent"
+          ? { text: "Invitation sent. They will get a branded email asking them to activate.", error: false }
+          : outcome.status === "not_connected"
+            ? { text: "Invitation created. Email is not connected yet, so copy the link below and send it yourself.", error: false }
+            : { text: `Invitation created, but the email did not go: ${outcome.message} Copy the link below instead.`, error: true },
+      );
       refresh();
     },
     onError: (e) => setMessage({ text: errorMessage(e, "That invitation could not be created."), error: true }),
@@ -130,6 +160,14 @@ export function AgencyTeamInvites() {
                     {i.role ? AGENCY_ROLE_LABELS[i.role] : "No role"} · expires {formatDate(i.expiresAt)}
                   </p>
                 </div>
+                <Button
+                  type="button" size="sm" variant="ghost"
+                  disabled={resending === i.id}
+                  onClick={() => void resend(i.id)}
+                  title="Send the activation email again"
+                >
+                  {resending === i.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
+                </Button>
                 <Button type="button" size="sm" variant="outline" onClick={() => void copy(i.token)}>
                   {copied === i.token ? <Check className="mr-1 h-3.5 w-3.5 text-status-success" /> : <Copy className="mr-1 h-3.5 w-3.5" />}
                   {copied === i.token ? "Copied" : "Copy link"}

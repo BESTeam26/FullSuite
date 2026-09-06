@@ -418,3 +418,7 @@ enabled = true
 # location it does not know).
 [functions.ghl-webhook]
 verify_jwt = false
+
+# The welcome email needs the service role to stamp the organization, which the
+# function holds; the caller still has to be a signed-in user who can see that
+# organization, so JWT verification stays on.

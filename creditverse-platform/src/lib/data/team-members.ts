@@ -71,8 +71,9 @@ export async function removeTeamMember(membershipId: string): Promise<void> {
 }
 
 /** Invitations go through invite_team_member() (0064): one open invitation per email, audited, authorization decided by the database. */
-export async function createInvitation(input: { organizationId: string; email: string; role: OrgRole; invitedBy: string }): Promise<void> {
-  await inviteTeamMember(input.organizationId, input.email.trim().toLowerCase(), input.role);
+/** Returns the invitation id so the caller can ask for the email to be sent. */
+export async function createInvitation(input: { organizationId: string; email: string; role: OrgRole; invitedBy: string }): Promise<string> {
+  return inviteTeamMember(input.organizationId, input.email.trim().toLowerCase(), input.role);
 }
 
 export async function cancelInvitation(id: string): Promise<void> {

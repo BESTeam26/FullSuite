@@ -22,6 +22,7 @@ import { useAgency } from "@/lib/agency-context";
 import { useAuth } from "@/lib/auth/auth-context";
 import { GettingStartedCard } from "@/components/dashboard/GettingStartedCard";
 import { BirthdayStrip } from "@/components/dashboard/BirthdayStrip";
+import { WelcomeEmailOnce } from "@/components/dashboard/WelcomeEmailOnce";
 import { CompanyFeedCard } from "@/components/dashboard/CompanyFeedCard";
 import { Avatar } from "@/components/common/Avatar";
 import { useOwnProfile, useAvatarUrls } from "@/lib/data/use-account";
@@ -228,6 +229,7 @@ export default function OrganizationDashboard() {
           {trial.status === "converted" && <>Your organization is active.</>}
         </div>
       )}
+      <WelcomeEmailOnce organizationId={prefs.live ? org.id : null} />
       {prefs.live && <BirthdayStrip organizationId={org.id} organizationName={org.name.replace(/^\[TEST\]\s*/, "")} />}
       {prefs.live && (
         <GettingStartedCard

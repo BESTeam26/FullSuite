@@ -4056,3 +4056,30 @@ Left alone deliberately: the interface illustration on the marketing page
 (a mock-up of the product's own screens) and the structural counts "4
 connected products" / "1 client record", which are facts about the product
 rather than invented measurements.
+
+## Completion cycle 17 (2026-09-06) — branded activation and welcome emails
+
+Dee: an invited person should get a branded email asking them to activate, and
+a new sign-up should get a welcome.
+
+- **`_shared/email-template.ts`** — one layout both functions use. Colours and
+  logos come from the organization's own branding, so a customer's staff get
+  an email from *their* company, not from BES (rule 16); BES's own colours are
+  the fallback and the brand for BES team invitations. Every caller-supplied
+  string is escaped, a logo URL must be `http(s)`, and a colour must be a plain
+  hex value — a branding field is customer input and is treated as such.
+  Plain-text alternative included.
+- **Invitation email** now says "Activate my account", names the address the
+  invitation is tied to, states the seven-day expiry, and handles **both**
+  kinds — organization and BES team. The invite panels send it automatically
+  and there is a resend button on each pending invitation.
+- **Welcome email (0087, queued)** — sent once, when an organization's own
+  administrator first opens their workspace. Deliberately *not* the sign-up
+  confirmation, which Supabase Auth sends over SMTP to prove the address; this
+  one comes after the workspace exists, so it can say what to do first.
+  `organizations.welcome_email_sent_at` is stamped by the function with the
+  service role, updating only `where welcome_email_sent_at is null`, so two
+  tabs or a retry cannot send twice.
+- **Recording the invitation and emailing it are separate steps.** If email is
+  not connected the invitation still exists and the link can still be copied —
+  the screen says which happened rather than implying a message went out.

@@ -28,6 +28,7 @@ import { MemberPermissionTree } from "@/components/settings/sections/MemberPermi
 import { CONFIGURABLE_ROLES, ORG_ROLE_LABELS, defaultRoleAccess, departmentsFor, type OpsProduct, type RoleAccess } from "@/lib/fulfillment/role-access-defaults";
 import { workspaceViewOptions } from "@/lib/fulfillment/workspace-views";
 import { cn } from "@/lib/utils";
+import { sendInvitationEmail } from "@/lib/data/emails";
 
 const ROLE_OPTIONS = (Object.keys(ORG_ROLE_LABELS) as OrgRole[]).map((r) => ({ value: r, label: ORG_ROLE_LABELS[r] }));
 const PRODUCT_LABEL: Record<OpsProduct, string> = { creditOps: "CreditOps", fundingOps: "FundingOps" };
@@ -44,6 +45,7 @@ export function TeamMembersSection({ organizationId, organizationName }: Props) 
   const [inviteRole, setInviteRole] = useState<OrgRole>("credit_processor");
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [sent, setSent] = useState<string | null>(null);
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -57,10 +59,25 @@ export function TeamMembersSection({ organizationId, organizationName }: Props) 
   if (member) return <MemberPage member={member} organizationId={organizationId} onBack={() => setSelected(null)} />;
 
   const submitInvite = () => {
+    setSent(null);
     if (!auth.user || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(inviteEmail.trim())) { setError("Enter a valid email address."); return; }
     setError(null);
+    /* The invitation is recorded first and emailed second: if email is not
+       connected the person still has an invitation and the link can be
+       copied, rather than the whole action failing. */
     team.invite.mutate({ organizationId, email: inviteEmail, role: inviteRole, invitedBy: auth.user.id }, {
-      onSuccess: () => { setInviteEmail(""); setInviteOpen(false); },
+      onSuccess: async (invitationId) => {
+        setInviteEmail("");
+        setInviteOpen(false);
+        const outcome = await sendInvitationEmail(invitationId as unknown as string);
+        setSent(
+          outcome.status === "sent"
+            ? `An email asking them to activate is on its way, branded as ${organizationName}.`
+            : outcome.status === "not_connected"
+              ? "Invitation recorded. Email is not connected yet, so copy the link from Pending invitations and send it yourself."
+              : `Invitation recorded, but the email did not go: ${outcome.message}`,
+        );
+      },
       onError: (e) => setError(errorMessage(e, "Could not record the invitation.")),
     });
   };
@@ -69,6 +86,7 @@ export function TeamMembersSection({ organizationId, organizationName }: Props) 
     <div className="space-y-4">
       <SectionCard icon={Users} title="Team Members" description={`Add and manage the people of ${organizationName}. Roles decide what each person may do; the assigned-only switch decides what they see.`}
         action={<Button size="sm" onClick={() => setInviteOpen((v) => !v)}><UserPlus className="mr-1 h-4 w-4" /> Invite team member</Button>}>
+        {sent && <p role="status" className="mb-3 text-xs text-status-success">{sent}</p>}
         {inviteOpen && (
           <div className="mb-4 grid gap-2 rounded-xl border border-border bg-background p-3 md:grid-cols-[1.6fr_1.2fr_auto] md:items-end">
             <label className="block"><span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Email</span>
