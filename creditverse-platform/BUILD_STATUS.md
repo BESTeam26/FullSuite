@@ -3969,3 +3969,37 @@ enrolled consumers / 68% completion".
 
 `SampleContentNotice` itself is deleted: there is no sample content left to
 label.
+
+## Completion cycle 16 (2026-09-06) — ready for real testing
+
+**Sign-up (`/signup`).** Plans, prices, trial lengths and the "choose one"
+rule are read from the `plans` table; nothing about them is written into the
+page. The account is created through Supabase Auth, and the organization, its
+entitlements and the trial are created by the database on email confirmation —
+which is also where a business already on record is caught. Verified in the
+browser against the five live public plans.
+
+**Inviting the BES team (0086).** `invitations` always had room for an agency
+invitation but nothing could create one, and `accept_invitation()` refuses
+anything that is not an organization invitation — so BES could invite a
+customer's staff and not its own. Added: `invite_agency_member()` (owner or
+admin only; **only an owner may create another owner**; re-inviting refreshes
+rather than duplicating), `accept_agency_invitation()` (accepted only by the
+address it was sent to) and `cancel_agency_invitation()`. The existing accept
+function is untouched — a sibling handles the agency kind, and the accept
+screen tries organization first, then team.
+
+Settings › Agency Users now has the invite panel: the roles offered are the
+ones the caller may actually grant, the link is copied by hand while email is
+unconnected (and says so), and pending invitations can be cancelled. Verified
+end to end against the live database: created, listed with its real expiry,
+then cancelled.
+
+Matrix phase 37 (11 probes) covers all of it.
+
+### A rule I broke
+
+I applied migration 0086 while the RLS matrix was running, which the project
+rules forbid because the harness validates a database that is changing under
+it. I stopped that run rather than trusting it, and the full run below is the
+one that counts.

@@ -9,6 +9,7 @@ import { SectionCard, Field, StatusBadge, ToggleRow, PlaceholderNote } from "../
 import type { EntitlementState } from "@/lib/agency-settings-context";
 import { useWorkforce } from "@/lib/data/use-workforce";
 import { formatDate } from "@/lib/format-date";
+import { AgencyTeamInvites } from "@/components/settings/sections/AgencyTeamInvites";
 
 /* ---------------- Agency & Branding ---------------- */
 export const AgencyBrandingSection = () => {
@@ -234,6 +235,8 @@ export const AgencyUsersSection = () => {
   const teamsOf = new Map<string, string[]>();
   for (const t of wf.data?.teams ?? []) for (const m of t.members) teamsOf.set(m.userId, [...(teamsOf.get(m.userId) ?? []), t.name]);
   return (
+    <div className="space-y-4">
+      <AgencyTeamInvites />
     <SectionCard
       icon={Users}
       title="Agency Users"
@@ -260,6 +263,7 @@ export const AgencyUsersSection = () => {
         {!wf.isLoading && people.length === 0 && <p className="text-xs text-muted-foreground">No BES staff visible to you.</p>}
       </div>
     </SectionCard>
+    </div>
   );
 };
 

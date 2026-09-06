@@ -1418,5 +1418,35 @@ if (PHASE >= 36) {
   }
 }
 
+
+/* Phase 37 — team invitations (0086) and public sign-up plans. Only BES
+   owners and admins invite; only an owner creates an owner; an invitation is
+   accepted by its own address and no other. */
+if (PHASE >= 37) {
+  const w37 = (uid, sql, role = "authenticated") => { try { return q(`begin; set local role ${role}; set local request.jwt.claims = '{"sub":"${uid}","role":"${role}"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
+  const OWNER = U["bes.owner@bes.test"], ADMIN = U["bes.admin@bes.test"], AGENT = U["bes.credit@bes.test"], ORGOWNER = U["org.owner@bes.test"];
+  const INVITE = (role) => `select public.invite_agency_member('probe.teammate@bes.test', '${role}')`;
+  const P37 = [
+    ["a BES owner invites an agent",                            () => w37(OWNER, `${INVITE('agency_agent')}; select count(*)::int as rows from public.invitations where kind='agency' and email='probe.teammate@bes.test'`), 1],
+    ["a BES admin may invite too",                              () => w37(ADMIN, `${INVITE('agency_agent')}; select count(*)::int as rows from public.invitations where kind='agency' and email='probe.teammate@bes.test'`), 1],
+    ["a BES agent may not invite",                              () => w37(AGENT, INVITE('agency_agent')), "ERR 42501"],
+    ["an organization owner may not invite onto the BES team",  () => w37(ORGOWNER, INVITE('agency_agent')), "ERR 42501"],
+    ["only an owner can create another owner",                  () => w37(ADMIN, INVITE('agency_owner')), "ERR 42501"],
+    ["…and an owner can",                                       () => w37(OWNER, `${INVITE('agency_owner')}; select count(*)::int as rows from public.invitations where kind='agency' and email='probe.teammate@bes.test' and agency_role='agency_owner'`), 1],
+    ["inviting an existing teammate is refused",                () => w37(OWNER, `select public.invite_agency_member('bes.credit@bes.test', 'agency_agent')`), "ERR 23505"],
+    ["an invitation is accepted only by its own address",       () => w37(ORGOWNER, `select public.accept_agency_invitation((select token from public.invitations where kind='agency' limit 1))`), "ERR 42501"],
+    ["an organization member cannot read BES invitations",      () => w37(ORGOWNER, `select count(*)::int as rows from public.invitations where kind='agency'`), 0],
+    ["a direct insert of an agency invitation is refused",      () => w37(ADMIN, `insert into public.invitations (email, kind, agency_id, agency_role) values ('sneak@bes.test', 'agency', (select agency_id from public.agency_memberships where user_id=auth.uid() limit 1), 'agency_owner'); select 1 as rows`), "ERR 42501"],
+    ["every public plan a signer can choose has a price and a trial", () => q(`select (count(*) filter (where monthly_cents > 0 and trial_days > 0) = count(*))::int as rows from public.plans where is_public and public_trial`)[0].rows, 1],
+  ];
+  console.log("\nphase 37:");
+  for (const [label, fn, want] of P37) {
+    checks++;
+    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
+    const ok = String(got) === String(want); if (!ok) fails++;
+    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
+  }
+}
+
 console.log(`\n${checks - fails}/${checks} checks passed (phase ≤ ${PHASE})`);
 process.exit(fails ? 1 : 0);

@@ -1,6 +1,6 @@
 /**
  * /accept-invitation/:token — the landing for an invitation link. Signed out:
- * go to login and come back here. Signed in: accept_invitation() decides —
+ * go to login and come back here. Signed in: the database decides —
  * the caller's email must match the invitation's, and it must be open — then
  * the person lands in the app with the new membership loaded.
  */
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth/auth-context";
 import { errorMessage } from "@/lib/data/error-message";
 import { acceptInvitation } from "@/lib/data/team-permissions";
+import { acceptAgencyInvitation } from "@/lib/data/agency-invitations";
 
 export default function AcceptInvitation() {
   const { token } = useParams<{ token: string }>();
@@ -23,7 +24,12 @@ export default function AcceptInvitation() {
   useEffect(() => {
     if (!signedIn || !token) return;
     let cancelled = false;
+    /* One link, two kinds. An organization invitation is the common case, so
+       it is tried first; a team invitation to BES itself is refused by that
+       function ("Only organization invitations"), and answered by its sibling
+       rather than by asking the person which sort of invitation they hold. */
     acceptInvitation(token)
+      .catch(() => acceptAgencyInvitation(token))
       .then(async () => { await auth.refreshMemberships(); if (!cancelled) { setState({ status: "done" }); navigate("/app", { replace: true }); } })
       .catch((e) => { if (!cancelled) setState({ status: "error", message: errorMessage(e, "This invitation could not be accepted.") }); });
     return () => { cancelled = true; };

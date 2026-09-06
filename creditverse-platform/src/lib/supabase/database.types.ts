@@ -6447,6 +6447,7 @@ export type Database = {
       }
     }
     Functions: {
+      accept_agency_invitation: { Args: { p_token: string }; Returns: string }
       accept_invitation: { Args: { p_token: string }; Returns: string }
       acknowledge_policy_update: {
         Args: { p_update: string }
@@ -6559,6 +6560,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      cancel_agency_invitation: { Args: { p_id: string }; Returns: undefined }
       client_birthdays: {
         Args: { p_org: string; p_within_days?: number }
         Returns: {
@@ -6748,6 +6750,13 @@ export type Database = {
         Returns: boolean
       }
       intranet_may_write: { Args: { p_org: string }; Returns: boolean }
+      invite_agency_member: {
+        Args: {
+          p_email: string
+          p_role: Database["public"]["Enums"]["agency_role"]
+        }
+        Returns: string
+      }
       invite_team_member: {
         Args: {
           p_assigned_only?: boolean
