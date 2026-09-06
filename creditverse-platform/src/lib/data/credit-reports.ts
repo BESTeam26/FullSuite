@@ -20,7 +20,7 @@ export interface CreditReportSummary {
 }
 
 export interface CreditReportDetail extends CreditReportSummary {
-  items: (RawReportItem & { accountRef: string; balanceCents: number | null })[];
+  items: (RawReportItem & { accountRef: string; balanceCents: number | null; creditLimitCents: number | null })[];
 }
 
 export async function fetchClientReports(fulfillmentClientId: string): Promise<CreditReportSummary[]> {
@@ -48,7 +48,7 @@ export async function fetchReportItems(reportId: string): Promise<CreditReportDe
   const sb = requireSupabase();
   const { data, error } = await sb
     .from("report_items")
-    .select("id, kind, name, subtype, status, balance_text, balance_cents, bureaus, dofd, open_date, linked_creditor, remarks, account_ref")
+    .select("id, kind, name, subtype, status, balance_text, balance_cents, credit_limit_text, credit_limit_cents, bureaus, dofd, open_date, linked_creditor, remarks, account_ref")
     .eq("report_id", reportId)
     .order("position");
   if (error) throw error;
@@ -60,6 +60,8 @@ export async function fetchReportItems(reportId: string): Promise<CreditReportDe
     status: i.status,
     balance: i.balance_text ?? undefined,
     balanceCents: i.balance_cents === null ? null : Number(i.balance_cents),
+    creditLimit: i.credit_limit_text ?? undefined,
+    creditLimitCents: i.credit_limit_cents === null ? null : Number(i.credit_limit_cents),
     bureaus: i.bureaus as Bureau[],
     dofd: i.dofd ?? undefined,
     openDate: i.open_date ?? undefined,
@@ -75,7 +77,7 @@ export async function fetchReportItemsForReports(reportIds: string[]): Promise<R
   const sb = requireSupabase();
   const { data, error } = await sb
     .from("report_items")
-    .select("id, report_id, kind, name, subtype, status, balance_text, balance_cents, bureaus, dofd, open_date, linked_creditor, remarks, account_ref")
+    .select("id, report_id, kind, name, subtype, status, balance_text, balance_cents, credit_limit_text, credit_limit_cents, bureaus, dofd, open_date, linked_creditor, remarks, account_ref")
     .in("report_id", reportIds)
     .order("position");
   if (error) throw error;
@@ -83,7 +85,7 @@ export async function fetchReportItemsForReports(reportIds: string[]): Promise<R
   for (const i of data ?? []) {
     (out[i.report_id] ??= []).push({
       id: i.id, kind: i.kind as RawReportItem["kind"], name: i.name, subtype: i.subtype ?? undefined, status: i.status,
-      balance: i.balance_text ?? undefined, balanceCents: i.balance_cents === null ? null : Number(i.balance_cents), bureaus: i.bureaus as Bureau[],
+      balance: i.balance_text ?? undefined, balanceCents: i.balance_cents === null ? null : Number(i.balance_cents), creditLimit: i.credit_limit_text ?? undefined, creditLimitCents: i.credit_limit_cents === null ? null : Number(i.credit_limit_cents), bureaus: i.bureaus as Bureau[],
       dofd: i.dofd ?? undefined, openDate: i.open_date ?? undefined, linkedCreditor: i.linked_creditor ?? undefined, remarks: i.remarks ?? undefined, accountRef: i.account_ref,
     });
   }
@@ -123,6 +125,8 @@ export async function createCreditReport(input: CreateCreditReportInput): Promis
       status: i.status,
       balance_text: i.balance ?? null,
       balance_cents: i.balanceCents,
+      credit_limit_text: i.creditLimit ?? null,
+      credit_limit_cents: i.creditLimitCents,
       bureaus: i.bureaus,
       dofd: i.dofd ?? null,
       open_date: i.openDate ?? null,

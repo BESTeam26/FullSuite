@@ -208,7 +208,11 @@ export const ClientWorkspaceProvider = ({
       setItems,
       hasImported,
       setHasImported,
-      scores: liveScores ?? defaultScores,
+      /* A live client with no imported report has no scores — not the sample
+         ones. Showing 654/660/635 there put demo numbers under the heading
+         "reported score" on a real person's profile (rule 12). The sample set
+         belongs to demo mode alone. */
+      scores: liveScores ?? (live ? [] : defaultScores),
       round,
       setRound,
       tab,

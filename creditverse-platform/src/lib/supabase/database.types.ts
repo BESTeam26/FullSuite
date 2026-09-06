@@ -5099,6 +5099,8 @@ export type Database = {
           balance_cents: number | null
           balance_text: string | null
           bureaus: string[]
+          credit_limit_cents: number | null
+          credit_limit_text: string | null
           dofd: string | null
           id: string
           kind: string
@@ -5117,6 +5119,8 @@ export type Database = {
           balance_cents?: number | null
           balance_text?: string | null
           bureaus: string[]
+          credit_limit_cents?: number | null
+          credit_limit_text?: string | null
           dofd?: string | null
           id?: string
           kind: string
@@ -5135,6 +5139,8 @@ export type Database = {
           balance_cents?: number | null
           balance_text?: string | null
           bureaus?: string[]
+          credit_limit_cents?: number | null
+          credit_limit_text?: string | null
           dofd?: string | null
           id?: string
           kind?: string

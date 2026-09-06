@@ -58,13 +58,30 @@ const BUREAU_KEY: Record<"EQ" | "EX" | "TU", "equifax" | "experian" | "transunio
  */
 const ScorePotentialCard = ({ items }: { items: ClassifiedItem[] }) => {
   const [expanded, setExpanded] = useState(false);
-  const { scores } = useClientWorkspace();
+  const { scores, reportSource } = useClientWorkspace();
+  /* With no report there is nothing to analyse: the index would be a baseline
+     computed from an empty list, which reads as a statement about this person
+     (rule 9). */
+  const noReport = reportSource === "none";
   const reportedFor = (bureau: "EQ" | "EX" | "TU") =>
     scores.find((sc) => sc.key === BUREAU_KEY[bureau] && sc.score > 0)?.score ?? null;
 
   const analysis = useMemo(() => analyzeScorePotential(items), [items]);
   const lever = leverConfig[analysis.assessment.primaryLever];
   const LeverIcon = lever.icon;
+
+  if (noReport) {
+    return (
+      <div className="rounded-2xl border border-dashed border-border bg-card p-6 text-center">
+        <TrendingUp className="mx-auto h-5 w-5 text-muted-foreground" />
+        <p className="mt-2 text-sm font-semibold text-foreground">No score analysis yet</p>
+        <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
+          Scores and the factor analysis come from this client's own imported report. Import one from Import &amp;
+          Analysis — nothing here is estimated before that.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-card via-card to-blue-500/5 p-6">

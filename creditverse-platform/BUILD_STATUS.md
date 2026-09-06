@@ -3900,3 +3900,34 @@ presented as findings that came from nothing:
 Tests were updated, not weakened: the fixtures now state limits (so they test
 real arithmetic) and two new tests cover the "no limit stated" and "some
 limits stated" paths. 436 tests pass.
+
+## Completion cycle 14 (2026-09-06) — the credit limit becomes real data
+
+Removing the assumed $5,000 limit left utilization unknown, which is honest but
+not useful. This makes it knowable:
+
+- **0085** adds `credit_limit_text` / `credit_limit_cents` to `report_items`
+  and threads them through `create_credit_report`. Nullable on purpose: a
+  report that states no limit keeps saying so.
+- The **CSV importer** takes an optional `credit_limit` column (validated like
+  a balance, refused by line if it is not an amount); the **PDF parser** now
+  keeps the limit it was already reading and discarding; the **assistant** is
+  asked for `creditLimit` and told never to estimate one.
+- The data layer carries it both ways, so an imported limit reaches the
+  analysis and utilization is a real figure again — for the accounts that
+  state one.
+
+**The verification step earned its keep.** The migration's first draft was
+transcribed from the 0048 file and said `security definer`; the live function
+is **security invoker**. Applying it would have quietly escalated the
+function's privileges. Diffing against `pg_get_functiondef` caught it, and the
+applied version matches the live security context (confirmed: `prosecdef` is
+false).
+
+### And one more piece of sample data on a real profile
+
+A live client with no imported report was showing the **sample bureau scores
+(654 / 660 / 635)** under the heading "reported score", because the workspace
+fell back to `defaultScores` whenever no live report existed. It now falls back
+only in demo mode; a live client with no report has no scores, and the Score
+Potential card says so instead of drawing an index computed from an empty list.

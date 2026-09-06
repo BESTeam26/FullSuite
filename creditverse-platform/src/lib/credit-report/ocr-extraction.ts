@@ -33,7 +33,7 @@ export const OCR_SYSTEM_PROMPT = [
 
 export const OCR_PROMPT = [
   "Transcribe every item in this credit report into JSON of exactly this shape:",
-  '{"items":[{"name":"","kind":"Account|Inquiry|Personal|Public Record","subtype":"","status":"","balance":"","bureaus":["EQ","EX","TU"],"dofd":"","openDate":"","remarks":"","accountRef":""}],',
+  '{"items":[{"name":"","kind":"Account|Inquiry|Personal|Public Record","subtype":"","status":"","balance":"","creditLimit":"","bureaus":["EQ","EX","TU"],"dofd":"","openDate":"","remarks":"","accountRef":""}],',
   '"scores":[{"bureau":"EQ|EX|TU","model":"","score":0}]}',
   "",
   "Rules:",
@@ -41,6 +41,7 @@ export const OCR_PROMPT = [
   "- kind: Account for tradelines and collections, Inquiry for credit inquiries, Public Record for bankruptcies, judgments and liens, Personal for names, addresses and employers.",
   "- status: copy the payment or account status text as printed.",
   "- balance: copy the amount with its currency symbol, e.g. \"$1,240.50\". Omit if none is printed.",
+  "- creditLimit: the credit limit or high credit as printed, for revolving accounts. Omit it entirely if the report does not print one — never estimate a limit.",
   "- bureaus: only the bureaus that actually report this item. If the report covers one bureau, use that one.",
   "- dofd: date of first delinquency, openDate: date opened, both exactly as printed.",
   "- accountRef: the last four digits of the account number when printed, otherwise omit.",
@@ -51,7 +52,7 @@ export const OCR_PROMPT = [
 ].join("\n");
 
 interface RawItem {
-  name?: unknown; kind?: unknown; subtype?: unknown; status?: unknown; balance?: unknown;
+  name?: unknown; kind?: unknown; subtype?: unknown; status?: unknown; balance?: unknown; creditLimit?: unknown;
   bureaus?: unknown; dofd?: unknown; openDate?: unknown; remarks?: unknown; accountRef?: unknown;
 }
 
@@ -99,6 +100,8 @@ export function parseOcrAnswer(answer: string): OcrParseResult {
       .filter((b): b is Bureau => (BUREAUS as readonly string[]).includes(b));
     const balance = text(raw.balance);
     const cents = parseBalanceCents(balance);
+    const limit = text(raw.creditLimit);
+    const limitCents = parseBalanceCents(limit);
     const statusText = text(raw.status);
     const subtype = text(raw.subtype);
     const accountRef = text(raw.accountRef);
@@ -113,6 +116,8 @@ export function parseOcrAnswer(answer: string): OcrParseResult {
       bureaus,
       balance: Number.isNaN(cents) ? undefined : balance,
       balanceCents: Number.isNaN(cents) ? null : cents,
+      creditLimit: Number.isNaN(limitCents) ? undefined : limit,
+      creditLimitCents: Number.isNaN(limitCents) ? null : limitCents,
       dofd: text(raw.dofd),
       openDate: text(raw.openDate),
       remarks: text(raw.remarks),

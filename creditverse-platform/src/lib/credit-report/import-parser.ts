@@ -14,7 +14,7 @@ import type { Bureau, ItemKind, RawReportItem } from "@/lib/credit-classificatio
 export const IMPORT_PARSER_VERSION = "csv-1";
 
 export const REQUIRED_COLUMNS = ["name", "kind", "status", "bureaus"] as const;
-export const OPTIONAL_COLUMNS = ["subtype", "balance", "dofd", "open_date", "linked_creditor", "remarks", "account_ref"] as const;
+export const OPTIONAL_COLUMNS = ["subtype", "balance", "credit_limit", "dofd", "open_date", "linked_creditor", "remarks", "account_ref"] as const;
 
 const KINDS: readonly ItemKind[] = ["Account", "Inquiry", "Personal", "Public Record"];
 const BUREAUS: readonly Bureau[] = ["EQ", "EX", "TU"];
@@ -23,6 +23,11 @@ export interface ParsedReportItem extends RawReportItem {
   /** Stable handle for matching the same tradeline across imports. */
   accountRef: string;
   balanceCents: number | null;
+  /**
+   * The limit as the report states it. Null means it did not state one, which
+   * is why utilization is left uncomputed rather than assumed.
+   */
+  creditLimitCents: number | null;
 }
 
 export interface ParseFailure {
@@ -93,6 +98,9 @@ export function parseCreditReportCsv(text: string): ParseResult {
     const balanceText = cell(row, "balance") || undefined;
     const balanceCents = parseBalanceCents(balanceText);
     if (Number.isNaN(balanceCents)) failures.push({ line, problem: `balance "${balanceText}" is not an amount.` });
+    const limitText = cell(row, "credit_limit") || undefined;
+    const limitCents = parseBalanceCents(limitText);
+    if (Number.isNaN(limitCents)) failures.push({ line, problem: `credit_limit "${limitText}" is not an amount.` });
     if (failures.some((f) => f.line === line)) return;
     const subtype = cell(row, "subtype") || undefined;
     items.push({
@@ -104,6 +112,8 @@ export function parseCreditReportCsv(text: string): ParseResult {
       bureaus,
       balance: balanceText,
       balanceCents: balanceCents as number | null,
+      creditLimit: limitText,
+      creditLimitCents: limitCents as number | null,
       dofd: cell(row, "dofd") || undefined,
       openDate: cell(row, "open_date") || undefined,
       linkedCreditor: cell(row, "linked_creditor") || undefined,

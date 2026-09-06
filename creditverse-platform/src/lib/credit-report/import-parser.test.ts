@@ -40,3 +40,20 @@ describe("credit report CSV import", () => {
     expect(parseBalanceCents("n/a")).toBeNaN();
   });
 });
+
+describe("credit limit", () => {
+  it("reads a stated limit and leaves it null when the column is absent", () => {
+    const withLimit = parseCreditReportCsv(
+      "name,kind,status,bureaus,balance,credit_limit\nCard,Account,Open,EQ,$500,\"$5,000\"",
+    );
+    expect(withLimit.ok && withLimit.items[0].creditLimitCents).toBe(500000);
+    const without = parseCreditReportCsv("name,kind,status,bureaus,balance\nCard,Account,Open,EQ,$500");
+    expect(without.ok && without.items[0].creditLimitCents).toBeNull();
+  });
+
+  it("refuses a limit that is not an amount, by line", () => {
+    const r = parseCreditReportCsv("name,kind,status,bureaus,credit_limit\nCard,Account,Open,EQ,lots");
+    expect(r.ok).toBe(false);
+    expect("failures" in r && r.failures[0].problem).toMatch(/credit_limit/);
+  });
+});

@@ -96,7 +96,7 @@ export function CreditReportCsvImport({ fulfillmentClientId, organizationId, out
         </Button>
       </div>
       <p className="mt-1 text-xs text-muted-foreground">
-        One row per tradeline, inquiry, public record or personal item. Columns: {REQUIRED_COLUMNS.join(", ")} (required); {OPTIONAL_COLUMNS.join(", ")} (optional). Bureaus as EQ, EX, TU separated by ";". Rows the parser cannot read are listed — nothing is guessed. Have a PDF instead? Switch to the PDF import.
+        One row per tradeline, inquiry, public record or personal item. Columns: {REQUIRED_COLUMNS.join(", ")} (required); {OPTIONAL_COLUMNS.join(", ")} (optional). Bureaus as EQ, EX, TU separated by ";". Rows the parser cannot read are listed — nothing is guessed. Have a PDF instead? Switch to the PDF import. Include credit_limit where the report states one — utilization is only computed from limits that are actually reported.
       </p>
 
       {fileName && <p className="mt-2 text-xs text-foreground">File: <span className="font-mono">{fileName}</span></p>}

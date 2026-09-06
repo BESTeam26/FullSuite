@@ -289,6 +289,10 @@ function accountCandidate(block: Block, documentBureaus: Bureau[]): PdfCandidate
   const subtype = isCollectionSection && (!typeText || /collection/i.test(typeText)) ? "Collection" : typeText ? titleCase(norm(typeText)) : undefined;
   const balanceText = block.fields.balance?.value.match(AMOUNT_RE)?.[0] ?? block.fields.balance?.value;
   const balanceCents = parseBalanceCents(balanceText);
+  /* The limit is read when the report prints one, and left alone when it does
+     not: utilization is computed only from stated limits. */
+  const limitText = block.fields.limit?.value.match(AMOUNT_RE)?.[0] ?? block.fields.limit?.value;
+  const limitCents = parseBalanceCents(limitText);
   const balance = Number.isNaN(balanceCents) ? undefined : balanceText || undefined;
   const opened = block.fields.opened?.value.match(DATE_RE)?.[0];
   const dofd = block.fields.dofd?.value.match(DATE_RE)?.[0];
@@ -306,6 +310,8 @@ function accountCandidate(block: Block, documentBureaus: Bureau[]): PdfCandidate
     bureaus: blockBureaus(block, documentBureaus),
     balance,
     balanceCents: Number.isNaN(balanceCents) ? null : balanceCents,
+    creditLimit: Number.isNaN(limitCents) ? undefined : limitText,
+    creditLimitCents: Number.isNaN(limitCents) ? null : limitCents,
     dofd,
     openDate: opened,
     remarks: differs ? [remarks, "Bureau columns differ — check each bureau's figure."].filter(Boolean).join(" · ") : remarks,
@@ -331,7 +337,7 @@ function inquiryCandidates(lines: string[], documentBureaus: Bureau[]): PdfCandi
     consumed.add(i);
     out.push({
       id: nextId(), name: name === name.toUpperCase() ? titleCase(name) : name, kind: "Inquiry", status: "Inquiry",
-      bureaus: bureaus.length ? bureaus : documentBureaus, openDate: m[2], balanceCents: null,
+      bureaus: bureaus.length ? bureaus : documentBureaus, openDate: m[2], balanceCents: null, creditLimitCents: null,
       accountRef: normalizeAccountRef(name, `inquiry ${m[2]}`), confidence: "high", evidence: [text],
     });
   });
@@ -342,7 +348,8 @@ function inquiryCandidates(lines: string[], documentBureaus: Bureau[]): PdfCandi
     const date = block.fields.date?.value.match(DATE_RE)?.[0];
     out.push({
       id: nextId(), name, kind: "Inquiry", status: "Inquiry", bureaus: blockBureaus(block, documentBureaus), openDate: date,
-      balanceCents: null, accountRef: normalizeAccountRef(name, `inquiry ${date ?? ""}`), confidence: date ? "high" : "review",
+      balanceCents: null,
+      creditLimitCents: null, accountRef: normalizeAccountRef(name, `inquiry ${date ?? ""}`), confidence: date ? "high" : "review",
       evidence: block.lines.map(norm),
     });
   }
@@ -359,7 +366,7 @@ function publicRecordCandidates(lines: string[], documentBureaus: Bureau[]): Pdf
       .filter(Boolean).join(" · ") || undefined;
     return {
       id: nextId(), name, kind: "Public Record" as ItemKind, subtype: typeText ? titleCase(norm(typeText)) : undefined, status,
-      bureaus: blockBureaus(block, documentBureaus), openDate: filed, balanceCents: null, remarks,
+      bureaus: blockBureaus(block, documentBureaus), openDate: filed, balanceCents: null, creditLimitCents: null, remarks,
       accountRef: normalizeAccountRef(name, filed), confidence: "review" as Confidence, evidence: block.lines.map(norm),
     };
   });
@@ -384,7 +391,7 @@ function personalCandidates(lines: string[], documentBureaus: Bureau[]): PdfCand
       const { value: first, differs } = firstColumn(value);
       out.push({
         id: nextId(), name: first, kind: "Personal", subtype: label, status: "Reported",
-        bureaus: bureausIn(text).length ? bureausIn(text) : documentBureaus, balanceCents: null,
+        bureaus: bureausIn(text).length ? bureausIn(text) : documentBureaus, balanceCents: null, creditLimitCents: null,
         remarks: differs ? "Bureaus report different values." : undefined,
         accountRef: normalizeAccountRef(first, label), confidence: "review", evidence,
       });
