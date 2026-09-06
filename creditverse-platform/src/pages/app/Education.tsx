@@ -185,7 +185,9 @@ const Education = () => {
                 className="rounded-2xl border border-border bg-card p-6"
               >
                 <div className="flex items-center justify-between">
-                  <Badge className="bg-gradient-navy text-white">{v.law}</Badge>
+                  {/* Was bg-gradient-navy + text-white: that gradient does not exist, so
+                      this read as white on the light card. */}
+                  <Badge className="bg-primary text-primary-foreground">{v.law}</Badge>
                   <span
                     className={`rounded-full px-2.5 py-1 text-xs font-medium ${
                       v.severity === "high"

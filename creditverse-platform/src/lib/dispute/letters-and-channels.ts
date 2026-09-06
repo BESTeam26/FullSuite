@@ -10,7 +10,7 @@ export const TRAP_CHANNELS = {
   CRA: {
     label: "CRA Dispute",
     description:
-      "Bureau reinvestigation under FCRA §1681i and §1681e(b). Filed with Equifax, Experian (upload only), and TransUnion.",
+      "Bureau reinvestigation under FCRA §1681i and §1681e(b). Filed with Equifax, Experian and TransUnion.",
     icon: "Building2",
   },
   FTC: {
@@ -138,7 +138,6 @@ export interface LetterCategory {
   recipient: "CRA" | "Furnisher" | "Collection Agency" | "FTC" | "CFPB";
   requiresFTC: boolean;
   requiresCFPB: boolean;
-  experianSpecial: boolean;
   icon: string;
   tone: string;
 }
@@ -152,7 +151,6 @@ export const LETTER_CATEGORIES: LetterCategory[] = [
     recipient: "Collection Agency",
     requiresFTC: true,
     requiresCFPB: true,
-    experianSpecial: true,
     icon: "Building2",
     tone: "text-red-600",
   },
@@ -164,7 +162,6 @@ export const LETTER_CATEGORIES: LetterCategory[] = [
     recipient: "Furnisher",
     requiresFTC: false,
     requiresCFPB: true,
-    experianSpecial: true,
     icon: "AlertTriangle",
     tone: "text-red-600",
   },
@@ -176,7 +173,6 @@ export const LETTER_CATEGORIES: LetterCategory[] = [
     recipient: "Furnisher",
     requiresFTC: false,
     requiresCFPB: true,
-    experianSpecial: true,
     icon: "Clock",
     tone: "text-amber-600",
   },
@@ -188,7 +184,6 @@ export const LETTER_CATEGORIES: LetterCategory[] = [
     recipient: "CRA",
     requiresFTC: true,
     requiresCFPB: true,
-    experianSpecial: true,
     icon: "FileSearch",
     tone: "text-amber-600",
   },
@@ -200,7 +195,6 @@ export const LETTER_CATEGORIES: LetterCategory[] = [
     recipient: "CRA",
     requiresFTC: false,
     requiresCFPB: true,
-    experianSpecial: true,
     icon: "UserRound",
     tone: "text-blue-600",
   },
@@ -212,7 +206,6 @@ export const LETTER_CATEGORIES: LetterCategory[] = [
     recipient: "Furnisher",
     requiresFTC: false,
     requiresCFPB: true,
-    experianSpecial: true,
     icon: "GraduationCap",
     tone: "text-amber-600",
   },
@@ -224,7 +217,6 @@ export const LETTER_CATEGORIES: LetterCategory[] = [
     recipient: "CRA",
     requiresFTC: false,
     requiresCFPB: true,
-    experianSpecial: true,
     icon: "Scale",
     tone: "text-red-600",
   },
@@ -304,16 +296,6 @@ export function requiresCFPB(item: ClassifiedItem): boolean {
   return getCFPBCategory(item) !== null;
 }
 
-// ─── Experian Handling Rule ──────────────────────────────────────────────────
-
-export function getExperianHandling() {
-  return {
-    rule: "Experian = upload only",
-    detail:
-      "Do not mail Experian dispute letters. Upload to the Experian Upload Center. Mailing applies to other bureaus and applicable letters through approved mailing workflow.",
-  };
-}
-
 // ─── Mailing & Submission Order ──────────────────────────────────────────────
 
 export const MAILING_ORDER = [
@@ -321,7 +303,6 @@ export const MAILING_ORDER = [
   "Generate FTC report where applicable",
   "Attach FTC to the letter before mailing where required",
   "Mail via LetterStream (all Round 1 letters for paper trail)",
-  "Upload Experian via portal (do NOT mail)",
   "File CFPB complaints by category",
 ];
 

@@ -178,12 +178,6 @@ const LettersTab = ({ liveClientId = null, liveClientName = null }: LettersTabPr
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {pkgItem.experianUploadOnly &&
-                    pkgItem.item.bureaus.includes("EX") && (
-                      <Badge className="bg-blue-500/10 text-status-info text-[10px]">
-                        Experian: Upload only
-                      </Badge>
-                    )}
                   <Button
                     size="sm"
                     variant="outline"

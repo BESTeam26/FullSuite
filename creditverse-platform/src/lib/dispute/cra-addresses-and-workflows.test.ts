@@ -74,9 +74,11 @@ describe("detectReinsertions", () => {
 });
 
 describe("getActiveCRAAddress", () => {
-  it("returns Experian as upload-only and unknown bureaus as null", () => {
-    expect(getActiveCRAAddress("Experian")?.handling).toBe("upload-only");
-    expect(getActiveCRAAddress("Equifax")?.handling).toBe("mail");
+  it("returns an active address for a bureau it knows, and null otherwise", () => {
+    /* Per-bureau submission handling was removed: how a letter reaches a
+       bureau is an operating decision, not something the engine encodes. */
+    expect(getActiveCRAAddress("Experian")?.addressee).toBeTruthy();
+    expect(getActiveCRAAddress("Equifax")?.addressee).toBeTruthy();
     expect(getActiveCRAAddress("Innovis")).toBeNull();
   });
 });

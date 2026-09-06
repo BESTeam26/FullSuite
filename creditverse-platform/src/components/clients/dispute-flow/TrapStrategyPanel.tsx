@@ -15,7 +15,7 @@ export const TrapStrategyPanel = ({ pkg }: { pkg: DisputePackage }) => {
       key: "CRA" as const,
       ...TRAP_CHANNELS.CRA,
       count: pkg.totalItems,
-      detail: `${pkg.experianUploads} Experian upload${pkg.experianUploads === 1 ? "" : "s"} · ${pkg.mailPieces} mail piece${pkg.mailPieces === 1 ? "" : "s"}`,
+      detail: `${pkg.mailPieces} mail piece${pkg.mailPieces === 1 ? "" : "s"} across ${pkg.totalLetters} letter${pkg.totalLetters === 1 ? "" : "s"}`,
     },
     {
       key: "FTC" as const,

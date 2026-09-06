@@ -32,15 +32,8 @@ const NextStepsTab = () => {
     {
       icon: Mail,
       title: "Mail certified letters via LetterStream",
-      desc: "Mail all non-Experian letters through the approved mailing workflow. Use certified mail with tracking for paper trail.",
+      desc: "Mail letters through the approved mailing workflow. Use certified mail with tracking for a paper trail.",
       tone: "text-status-success bg-emerald-500/10",
-      done: true,
-    },
-    {
-      icon: Upload,
-      title: "Upload Experian disputes to Upload Center",
-      desc: "Do NOT mail Experian letters. Upload directly to the Experian Upload Center portal.",
-      tone: "text-status-info bg-blue-500/10",
       done: true,
     },
     {
@@ -205,11 +198,9 @@ const NextStepsTab = () => {
               DIY mailing instructions
             </p>
             <p className="mt-1">
-              Print all letters, attach supporting documents and FTC reports,
-              then mail via certified mail with return receipt. Keep the
-              certified mail tracking number and receipt as proof of delivery.
-              For Experian, upload through the Experian Upload Center instead of
-              mailing.
+              Print all letters, attach supporting documents, then mail via
+              certified mail with return receipt. Keep the tracking number and
+              receipt as proof of delivery.
             </p>
           </div>
         </div>

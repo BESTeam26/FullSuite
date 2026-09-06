@@ -86,7 +86,6 @@ export const ROUND_DEFINITIONS: RoundDefinition[] = [
       "CFPB complaint filing by category (collections, charge-offs, late payments, inquiries, PID)",
       "Attach FTC report to dispute package and CFPB complaint",
       "Mail all Round 1 letters via LetterStream (paper trail)",
-      "Upload Experian dispute to Experian Upload Center (do NOT mail)",
     ],
     legalBasis: ["FCRA §1681i", "FCRA §1681e(b)", "FCRA §1681s-2(a)"],
     statusAfter: {

@@ -12,8 +12,6 @@ export interface CRAAddress {
   lastVerifiedAt: string;
   source: string;
   active: boolean;
-  handling: "mail" | "upload-only";
-  handlingNote: string;
 }
 
 export const CRA_ADDRESS_REGISTRY: CRAAddress[] = [
@@ -26,9 +24,6 @@ export const CRA_ADDRESS_REGISTRY: CRAAddress[] = [
     lastVerifiedAt: "2026-08-29",
     source: "Experian dispute page (current)",
     active: true,
-    handling: "upload-only",
-    handlingNote:
-      "Experian = upload only. Do not mail Experian dispute letters. Upload to the Experian Upload Center.",
   },
   {
     bureau: "Equifax",
@@ -39,8 +34,6 @@ export const CRA_ADDRESS_REGISTRY: CRAAddress[] = [
     lastVerifiedAt: "2026-08-29",
     source: "Equifax published mail-dispute address (current)",
     active: true,
-    handling: "mail",
-    handlingNote: "Equifax disputes are mailed via LetterStream (paper trail).",
   },
   {
     bureau: "TransUnion",
@@ -51,9 +44,6 @@ export const CRA_ADDRESS_REGISTRY: CRAAddress[] = [
     lastVerifiedAt: "2026-08-29",
     source: "TransUnion dispute page (current, ZIP+4 19016-2000)",
     active: true,
-    handling: "mail",
-    handlingNote:
-      "TransUnion disputes are mailed via LetterStream (paper trail).",
   },
 ];
 

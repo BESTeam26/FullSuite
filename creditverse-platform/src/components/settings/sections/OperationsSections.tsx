@@ -111,13 +111,6 @@ export const CreditOpsSection = () => (
         onChange={() => {}}
         state="unbuilt"
       />
-      <ToggleRow
-        label="Experian upload-only (no mail)"
-        description="Fixed in the dispute engine (cra-addresses-and-workflows, package-builder). Not configurable."
-        checked
-        onChange={() => {}}
-        state="enforced"
-      />
     </div>
   </SectionCard>
 );

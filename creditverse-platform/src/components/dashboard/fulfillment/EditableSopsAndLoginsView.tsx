@@ -102,7 +102,7 @@ export function EditableSopsAndLoginsView({
   const [notes, setNotes] = useState<PartnerNoteItem[]>([
     {
       id: "note-1",
-      note: "Special instruction for Apex: Do not mail Experian paper letters. All Experian disputes must be uploaded via Experian Upload Center portal.",
+      note: "",
       createdBy: "Amia Gallardo",
       createdDate: "2026-03-01",
       lastUpdated: "2026-03-01",

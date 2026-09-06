@@ -72,7 +72,6 @@ export interface DisputePackageItem {
   ftcRequired: boolean;
   ftcBlocked: boolean;
   cfpbCategory: string | null;
-  experianUploadOnly: boolean;
 }
 
 export interface DisputePackage {
@@ -84,7 +83,6 @@ export interface DisputePackage {
   totalLetters: number;
   ftcFilings: number;
   cfpbComplaints: number;
-  experianUploads: number;
   mailPieces: number;
   trapChannels: string[];
   layersActivated: number[];
@@ -106,7 +104,6 @@ export function buildDisputePackage(
       ftcRequired: requiresFTC(item),
       ftcBlocked: isFTCBlocked(item),
       cfpbCategory: getCFPBCategory(item),
-      experianUploadOnly: true,
     };
   });
 
@@ -123,12 +120,10 @@ export function buildDisputePackage(
   const cfpbComplaints = new Set(
     packageItems.filter((p) => p.cfpbCategory).map((p) => p.cfpbCategory),
   ).size;
-  const experianUploads = packageItems.filter((p) =>
-    p.item.bureaus.includes("EX"),
-  ).length;
-  const mailPieces = packageItems.filter(
-    (p) => !p.item.bureaus.every((b) => b === "EX"),
-  ).length;
+  /* Every dispute item produces a mail piece. How a letter actually reaches a
+     bureau is an operating decision made outside the engine, so the package no
+     longer encodes a per-bureau submission channel. */
+  const mailPieces = packageItems.length;
 
   return {
     round,
@@ -139,7 +134,6 @@ export function buildDisputePackage(
     totalLetters: Object.keys(byCategory).length,
     ftcFilings,
     cfpbComplaints,
-    experianUploads,
     mailPieces,
     trapChannels: ["CRA", ftcFilings > 0 ? "FTC" : null, "CFPB"].filter(
       Boolean,
@@ -259,15 +253,6 @@ export function runComplianceChecks(
       uncategorized.length === 0
         ? "All dispute items are mapped to a category-based letter."
         : `${uncategorized.length} item(s) lack a letter category.`,
-    severity: "warn",
-  });
-
-  checks.push({
-    id: "experian-upload",
-    label: "Experian disputes set to upload only",
-    passed: true,
-    detail:
-      "All Experian disputes are routed to the Experian Upload Center. No Experian letters will be mailed.",
     severity: "warn",
   });
 

@@ -481,7 +481,7 @@ export const CreditReportDetailGrid = ({
                   <td className="p-2 font-mono text-status-success">
                     August 24th, 2026
                   </td>
-                  <td className="p-2 font-semibold">Experian (Upload)</td>
+                  <td className="p-2 font-semibold">Experian</td>
                   <td className="p-2">
                     <Badge
                       variant="outline"

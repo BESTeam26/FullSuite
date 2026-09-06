@@ -7,7 +7,6 @@ import {
   Paperclip,
   Plus,
   Mail,
-  Upload,
   ShieldAlert,
   Scale,
   CheckCircle2,
@@ -180,8 +179,6 @@ const PrintTab = () => {
           {activeLetters.map((letter) => {
             const isPrinted = printed.has(letter.id);
             const letterAttachments = attachments[letter.id] ?? [];
-            const hasExperian = letter.bureaus.includes("EX");
-            const hasNonExperian = letter.bureaus.some((b) => b !== "EX");
 
             return (
               <div
@@ -224,16 +221,9 @@ const PrintTab = () => {
                         {letter.bureaus.join(", ")}
                       </p>
                       <div className="mt-2 flex flex-wrap gap-1.5">
-                        {hasExperian && (
-                          <span className="flex items-center gap-1 rounded-full bg-blue-500/10 px-2.5 py-1 text-[10px] font-medium text-status-info">
-                            <Upload className="h-3 w-3" /> Experian: Upload only
-                          </span>
-                        )}
-                        {hasNonExperian && (
-                          <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[10px] font-medium text-status-success">
-                            <Mail className="h-3 w-3" /> Mail via LetterStream
-                          </span>
-                        )}
+                        <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[10px] font-medium text-status-success">
+                          <Mail className="h-3 w-3" /> Mail via LetterStream
+                        </span>
                         <span className="flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-1 text-[10px] font-medium text-status-warning">
                           <Scale className="h-3 w-3" /> CFPB by category
                         </span>
@@ -331,18 +321,6 @@ const PrintTab = () => {
         </div>
       )}
 
-      {/* Experian reminder */}
-      <div className="flex items-start gap-3 rounded-2xl border border-blue-500/20 bg-blue-500/5 p-5">
-        <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-status-info" />
-        <p className="text-sm text-muted-foreground">
-          <span className="font-medium text-status-info">
-            Experian = upload only.
-          </span>{" "}
-          Do not mail Experian dispute letters. Upload to the Experian Upload
-          Center. Mailing applies to other bureaus through approved mailing
-          workflow.
-        </p>
-      </div>
 
       {/* Proceed to next steps */}
       <div className="flex items-center justify-between rounded-2xl border border-emerald-500/20 bg-emerald-950/80 p-5 text-emerald-50 shadow-sm">
