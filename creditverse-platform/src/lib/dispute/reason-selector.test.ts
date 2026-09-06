@@ -9,7 +9,7 @@ import { selectReason, suggestedTier } from "./reason-selector";
 import type { DisputeReason } from "./reason-catalogue";
 
 const reason = (over: Partial<DisputeReason> & { id: string }): DisputeReason => ({
-  organizationId: null, isActive: true, subject: "Charge-Off", tier: "firm",
+  organizationId: null, isActive: true, subject: "Charge-Off", tier: "firm", voice: "plain",
   requires: [], requiresAttestation: [], fromRound: 1, claimTier: "observed_discrepancy",
   citations: [], weight: 100, body: "…", label: over.id, ...over,
 });
@@ -83,6 +83,14 @@ describe("selectReason", () => {
     const b = reason({ id: "bbb" });
     expect(selectReason({ ...base, catalogue: [b, a] }).chosen?.id).toBe("aaa");
     expect(selectReason({ ...base, catalogue: [a, b] }).chosen?.id).toBe("aaa");
+  });
+
+  it("keeps the register separate from how hard the letter pushes", () => {
+    const plain = reason({ id: "plain", voice: "plain" });
+    const angry = reason({ id: "angry", voice: "frustrated" });
+    /* Same tier, different register — the organization picks the voice. */
+    expect(selectReason({ ...base, voice: "frustrated", catalogue: [plain, angry] }).chosen?.id).toBe("angry");
+    expect(selectReason({ ...base, catalogue: [plain, angry] }).candidates).toHaveLength(2);
   });
 
   it("skips a retired reason", () => {

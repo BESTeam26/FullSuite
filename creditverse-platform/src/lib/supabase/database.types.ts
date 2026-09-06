@@ -1377,6 +1377,7 @@ export type Database = {
           subject: string
           tier: Database["public"]["Enums"]["escalation_tier"]
           updated_at: string
+          voice: Database["public"]["Enums"]["reason_voice"]
           weight: number
         }
         Insert: {
@@ -1396,6 +1397,7 @@ export type Database = {
           subject: string
           tier: Database["public"]["Enums"]["escalation_tier"]
           updated_at?: string
+          voice?: Database["public"]["Enums"]["reason_voice"]
           weight?: number
         }
         Update: {
@@ -1415,6 +1417,7 @@ export type Database = {
           subject?: string
           tier?: Database["public"]["Enums"]["escalation_tier"]
           updated_at?: string
+          voice?: Database["public"]["Enums"]["reason_voice"]
           weight?: number
         }
         Relationships: [
@@ -7838,6 +7841,7 @@ export type Database = {
         | "hubOperations"
         | "hubPerformance"
         | "hubAi"
+      reason_voice: "plain" | "frustrated"
       renewal_status:
         | "monitoring"
         | "review_due"
@@ -8401,6 +8405,7 @@ export const Constants = {
         "hubPerformance",
         "hubAi",
       ],
+      reason_voice: ["plain", "frustrated"],
       renewal_status: [
         "monitoring",
         "review_due",

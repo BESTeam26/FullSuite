@@ -19,13 +19,15 @@
  * An organization's own reason always beats the BES default it was copied
  * from — same rule the Letter Library already follows.
  */
-import type { DisputeReason, EscalationTier, ReasonCondition, ReasonSubject } from "./reason-catalogue";
+import type { DisputeReason, EscalationTier, ReasonCondition, ReasonSubject, Voice } from "./reason-catalogue";
 
 export interface SelectionInput {
   subject: ReasonSubject;
   detected: ReasonCondition[];
   round: number;
   tier: EscalationTier;
+  /** Register. Omit to accept either. */
+  voice?: Voice;
   /** Which attestations the consumer actually signed. */
   attested: ReasonCondition[];
   catalogue: DisputeReason[];
@@ -49,6 +51,7 @@ export function selectReason(input: SelectionInput): SelectionResult {
     if (!r.isActive) continue;
     if (r.subject !== input.subject) continue;
     if (r.tier !== input.tier) continue;
+    if (input.voice && r.voice !== input.voice) continue;
 
     if (input.round < r.fromRound) {
       withheld.push({ reason: r, because: `Held until round ${r.fromRound}.` });

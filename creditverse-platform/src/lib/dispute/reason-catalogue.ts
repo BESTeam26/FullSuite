@@ -100,6 +100,19 @@ export type ReasonCondition =
 export type EscalationTier = "initial" | "firm" | "aggressive";
 
 /**
+ * How it sounds, which is a separate axis from how hard it pushes.
+ *
+ * Dee's "AGGRESSIVE ATTACK" and "SOME HEAVY ASS WORDS" columns are not another
+ * tier and not a destination — they are the register: a real person, annoyed,
+ * writing about their own report. A firm letter can be plain and an aggressive
+ * one can still be measured, so the two are chosen independently.
+ *
+ * The rule that keeps them apart: `voice` governs TONE, `claimTier` governs
+ * what may be ASSERTED. Being annoyed is never the compliance question.
+ */
+export type Voice = "plain" | "frustrated";
+
+/**
  * What kind of claim the wording makes — this, not a banned-word list, is what
  * the gate reasons about.
  */
@@ -125,6 +138,8 @@ export interface DisputeReason {
   /** Offered from this round onward. */
   fromRound: number;
   claimTier: ClaimTier;
+  /** Register. Independent of tier: how it sounds, not how hard it pushes. */
+  voice: Voice;
   /**
    * The attestations the consumer must have signed before this wording may be
    * used. Empty means the report alone supports it.
