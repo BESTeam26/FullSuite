@@ -15,46 +15,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { fcraSections, metro2Fields, violationLibrary } from "@/lib/knowledge";
-import { SampleContentNotice } from "@/components/dashboard/SampleContentNotice";
 import { KnowledgeBase } from "@/components/intranet/KnowledgeBase";
 import { useAgency } from "@/lib/agency-context";
 import { useAuth } from "@/lib/auth/auth-context";
 import { usePermissions } from "@/lib/auth/use-permission";
-
-const courses = [
-  {
-    title: "Understanding your credit report",
-    lessons: 6,
-    progress: 100,
-    level: "Beginner",
-    summary:
-      "Learn how to read tradelines, payment history profiles, inquiry codes, and public record snapshots.",
-  },
-  {
-    title: "FCRA Factual Disputing Masterclass",
-    lessons: 8,
-    progress: 60,
-    level: "Beginner",
-    summary:
-      "Move beyond generic template letters. Learn how to structure disputes around specific field inaccuracies and consumer attestations.",
-  },
-  {
-    title: "Metro 2 Data Integrity & Field Inconsistencies",
-    lessons: 10,
-    progress: 25,
-    level: "Intermediate",
-    summary:
-      "Deep dive into DOFD re-aging, Compliance Condition Codes, PHP grids, and cross-bureau field mismatches.",
-  },
-  {
-    title: "Consumer Law Violations (FDCPA, CROA, TSR/Reg V)",
-    lessons: 12,
-    progress: 0,
-    level: "Advanced",
-    summary:
-      "Recognize collector misrepresentations, advance-fee restrictions, telemarketing TSR rules, and furnisher direct-dispute exceptions.",
-  },
-];
 
 const levelColor: Record<string, string> = {
   Beginner: "bg-emerald-500/10 text-status-success",
@@ -64,7 +28,6 @@ const levelColor: Record<string, string> = {
 
 const edTabs = [
   { key: "articles", label: "Knowledge Base", icon: BookOpen },
-  { key: "courses", label: "Course catalog", icon: GraduationCap },
   { key: "fcra", label: "FCRA Statutory Guide", icon: Scale },
   { key: "metro2", label: "Metro 2 Field Guide", icon: Database },
   { key: "violations", label: "Violation Library", icon: FileWarning },
@@ -91,32 +54,6 @@ const Education = () => {
         </p>
       </div>
 
-      {tab === "courses" && (
-      <div className="mb-8 grid gap-4 sm:grid-cols-4">
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <BookOpen className="h-5 w-5 text-status-success" />
-          <p className="mt-3 text-2xl font-bold">16</p>
-          <p className="text-sm text-muted-foreground">Active modules</p>
-        </div>
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <Trophy className="h-5 w-5 text-status-success" />
-          <p className="mt-3 text-2xl font-bold">847</p>
-          <p className="text-sm text-muted-foreground">Enrolled consumers</p>
-        </div>
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <CheckCircle2 className="h-5 w-5 text-status-success" />
-          <p className="mt-3 text-2xl font-bold">68%</p>
-          <p className="text-sm text-muted-foreground">Completion rate</p>
-        </div>
-        <div className="rounded-2xl border border-emerald-900/40 bg-emerald-950/80 p-5 text-white shadow-md">
-          <Sparkles className="h-5 w-5 text-emerald-400" />
-          <p className="mt-3 text-2xl font-bold text-white">100%</p>
-          <p className="text-xs text-emerald-200 font-medium">
-            Evidence-grounded FCRA AI
-          </p>
-        </div>
-      </div>
-      )}
 
       <div className="mb-6 flex flex-wrap gap-1.5 rounded-xl border border-border bg-card p-1">
         {edTabs.map((t) => (
@@ -145,56 +82,6 @@ const Education = () => {
               : [{ value: "organization", label: "Every organization's team" }, { value: "both", label: "Every organization and their consumers" }, { value: "bes_internal", label: "BES internal only" }]
           }
         />
-      )}
-
-      {tab === "courses" && (
-        <SampleContentNotice what="These courses and progress figures illustrate the education module; real enrolments and progress arrive with the course model." />
-      )}
-      {tab === "courses" && (
-        <div className="grid gap-6 md:grid-cols-2">
-          {courses.map((c) => (
-            <div
-              key={c.title}
-              className="flex flex-col rounded-2xl border border-border bg-card p-6"
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-800 text-white shadow-sm">
-                  <GraduationCap className="h-5 w-5" />
-                </div>
-                <span
-                  className={`rounded-full px-2.5 py-1 text-xs font-medium ${levelColor[c.level]}`}
-                >
-                  {c.level}
-                </span>
-              </div>
-              <h3 className="mt-4 font-semibold">{c.title}</h3>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {c.lessons} lessons
-              </p>
-              <p className="mt-2.5 flex-1 text-sm text-muted-foreground leading-relaxed">
-                {c.summary}
-              </p>
-
-              <div className="mt-4">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">Progress</span>
-                  <span className="font-medium">{c.progress}%</span>
-                </div>
-                <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full bg-emerald-600"
-                    style={{ width: `${c.progress}%` }}
-                  />
-                </div>
-              </div>
-
-              <Button disabled title="Sample content — this action connects when the live data model behind it exists" variant="outline" className="mt-4 w-full">
-                <Play className="h-4 w-4" />{" "}
-                {c.progress > 0 ? "Continue" : "Start course"}
-              </Button>
-            </div>
-          ))}
-        </div>
       )}
 
       {tab === "fcra" && (

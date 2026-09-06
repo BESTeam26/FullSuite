@@ -99,50 +99,11 @@ export const AttentionCenter = () => {
   ];
 
   // Not yet wired to a backend — labelled so nobody reads them as real.
-  const pendingCards: AttentionCard[] = [
-    {
-      icon: DollarSign,
-      label: "Billing issues",
-      count: 0,
-      severity: "low",
-      action: "Review billing",
-      route: "/app/billing",
-      description: "Arrives with Billing",
-      live: false,
-    },
-    {
-      icon: ShieldCheck,
-      label: "Compliance reviews",
-      count: 0,
-      severity: "low",
-      action: "Open compliance",
-      route: "/app/compliance",
-      description: "Arrives with Compliance",
-      live: false,
-    },
-    {
-      icon: Zap,
-      label: "Integration problems",
-      count: 0,
-      severity: "low",
-      action: "Open settings",
-      route: "/app/settings",
-      description: "Arrives with Integrations",
-      live: false,
-    },
-    {
-      icon: Crown,
-      label: "Escalations",
-      count: 0,
-      severity: "low",
-      action: "Review escalations",
-      route: "/app/subaccounts",
-      description: "Arrives with Workforce",
-      live: false,
-    },
-  ];
-
-  const cards = [...workCards, ...pendingCards];
+  /* Only the queues that are actually counted. Four placeholder cards —
+     billing issues, compliance reviews, integration problems, escalations —
+     used to sit here permanently reading zero; a card that can never be
+     anything but zero tells nobody anything. */
+  const cards = workCards;
 
   return (
     <Card className="p-5 border-border shadow-sm">

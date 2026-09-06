@@ -15,7 +15,6 @@
  */
 
 import { logProduction } from "@/lib/data/production";
-import { seedFundingClients } from "@/lib/fulfillment/fundingops-seed";
 import type { FundingClient } from "@/lib/fulfillment/fundingops-domain";
 import {
   type FundingActivityEntry,
@@ -111,7 +110,6 @@ const live: OpsClientLiveBackend<FundingClient, FundingDepartmentStatus> = {
 };
 
 const store = createOpsClientStore<FundingClient, FundingDepartmentStatus>({
-  seedClients: seedFundingClients,
   seedDepartmentStatuses: seedFundingDepartmentStatuses,
   activityEntityType: "funding_client",
   activityIdPrefix: "fact",

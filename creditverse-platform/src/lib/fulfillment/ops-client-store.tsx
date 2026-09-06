@@ -200,10 +200,11 @@ export interface OpsClientLiveBackend<T extends OpsClient, D> {
 }
 
 export interface OpsClientStoreConfig<T extends OpsClient, D> {
-  seedClients: T[];
   /** `activity_events.entity_type` for this division's records. */
   activityEntityType: string;
   /** Initial per-department / per-stage statuses for a client. */
+  /** Test fixtures only. Production passes none — there is no invented client. */
+  initialClients?: T[];
   seedDepartmentStatuses: (client: T) => D[];
   /** Prefix for generated activity ids, e.g. "act" or "fact". */
   activityIdPrefix: string;
@@ -277,22 +278,24 @@ export function createOpsClientStore<T extends OpsClient, D>(
     }
   };
 
-  /** Seed-data implementation. Used in demo mode, and by any division
-      that has no live backend yet. */
+  /**
+   * The no-backend implementation. Production passes no clients: this
+   * workspace used to open on invented ones so it "stayed explorable", which
+   * meant every figure on the screen was fiction. `initialClients` remains for
+   * the store's own tests, which need something to act on.
+   */
   function DemoProvider({ children }: { children: ReactNode }) {
     const [clients, setClients] = useState<T[]>(() =>
-      config.seedClients.map((c) => ({ ...c })),
+      (config.initialClients ?? []).map((c) => ({ ...c })),
     );
     const [activity, setActivity] = useState<OpsActivityEntry[]>([]);
-    const [deptStatuses, setDeptStatuses] = useState<Record<string, D[]>>(
-      () => {
-        const map: Record<string, D[]> = {};
-        config.seedClients.forEach((c) => {
-          map[c.id] = config.seedDepartmentStatuses(c);
-        });
-        return map;
-      },
-    );
+    const [deptStatuses, setDeptStatuses] = useState<Record<string, D[]>>(() => {
+      const map: Record<string, D[]> = {};
+      (config.initialClients ?? []).forEach((c) => {
+        map[c.id] = config.seedDepartmentStatuses(c);
+      });
+      return map;
+    });
 
     const addActivity = useCallback(
       async (entry: Omit<OpsActivityEntry, "id" | "timestamp">) => {
@@ -605,7 +608,13 @@ export function createOpsClientStore<T extends OpsClient, D>(
 
     /* Department statuses belong to one open file, so they are fetched per
        client and cached separately — never loaded with the whole list. */
-    const [deptStatuses, setDeptStatuses] = useState<Record<string, D[]>>({});
+    const [deptStatuses, setDeptStatuses] = useState<Record<string, D[]>>(() => {
+      const map: Record<string, D[]> = {};
+      (config.initialClients ?? []).forEach((c) => {
+        map[c.id] = config.seedDepartmentStatuses(c);
+      });
+      return map;
+    });
     const requested = useRef<Set<string>>(new Set());
 
     /**

@@ -3931,3 +3931,41 @@ A live client with no imported report was showing the **sample bureau scores
 fell back to `defaultScores` whenever no live report existed. It now falls back
 only in demo mode; a live client with no report has no scores, and the Score
 Potential card says so instead of drawing an index computed from an empty list.
+
+## Completion cycle 15 (2026-09-06) — the invented data is deleted
+
+Dee: *"remove all fabricated information — all numbers must be real … even the
+hardcoded fabricated data delete them, we don't need them, they are not
+accurate."* Deleted, not labelled.
+
+**BES HQ home.** Gone: platform health ("99.9% uptime"), revenue mix
+("$8,495"), DIY statistics ("418 active consumers"), fulfillment health, the
+organization health table ("Apex Credit Co. · 127 clients · 98% SLA") and "HQ
+updates" ("286 dispute letters processed"). The page now shows counts taken
+from the database — organizations, credit clients, funding files, funded
+files, attention — plus the live attention queue, the real organizations, the
+metering panel and the announcements BES has actually published. Four
+permanently-zero placeholder cards in the attention centre went too.
+
+**Seed data.** `bes-seed-data.ts`, `fulfillment-client-seed.ts`,
+`fundingops-seed.ts`, `client-seed.ts` and `sample-credit-report.ts` are
+deleted. The workspace stores start empty rather than opening on invented
+clients "so the workspace stays explorable"; the funding hooks return nothing
+without a backend; the funding client and deal workspaces read live businesses
+and files instead of filtering hard-coded arrays (they had been showing the
+same three fictional companies for every client).
+
+**Screens that were only fiction.** The DIY module (44 files over a bundled
+credit report, no tables behind it), the simulated import flow, and the
+client / affiliate / outsourcing portal previews are deleted; each route now
+says plainly what is not built and why. The real borrower portal at
+`/portal/funding` is untouched.
+
+**Billing** shows the metering that is actually measured instead of four
+invented revenue figures. **Compliance** lists what the platform really
+records — agreements, letter approval, the audit log — and names what does not
+exist yet. **Knowledge** lost its invented course catalogue and its "847
+enrolled consumers / 68% completion".
+
+`SampleContentNotice` itself is deleted: there is no sample content left to
+label.

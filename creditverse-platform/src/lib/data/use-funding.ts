@@ -6,7 +6,7 @@
  *
  * Each hook reports its `source` so the screen can label sample figures rather
  * than presenting them as real (rule 12). These exist so components stop
- * importing `fundingops-seed` directly: a component reaching past the data
+ * importing seed data directly: a component reaching past the data
  * layer is how a screen ends up showing seeds while the database is live
  * (rule 5).
  */
@@ -20,11 +20,6 @@ import {
   findClientAcrossDivisions,
   type CrossDivisionMatch,
 } from "@/lib/data/funding-clients";
-import {
-  seedFundingBusinesses,
-  seedFundingDeals,
-  seedFundingFiles,
-} from "@/lib/fulfillment/fundingops-seed";
 import type {
   FundingBusiness,
   FundingDeal,
@@ -57,9 +52,7 @@ export function useFundingFiles(
   });
   if (!live) {
     return {
-      data: seedFundingFiles.filter(
-        (f) => !clientId || f.clientId === clientId,
-      ),
+      data: [],
       source: "demo",
       isLoading: false,
       error: null,
@@ -84,7 +77,7 @@ export function useAllFundingFiles(): Result<FundingFile[]> {
   });
   if (!live) {
     return {
-      data: seedFundingFiles,
+      data: [],
       source: "demo",
       isLoading: false,
       error: null,
@@ -111,7 +104,7 @@ export function useFundingDeals(
   });
   if (!live) {
     return {
-      data: seedFundingDeals.filter((d) => !fileId || d.fileId === fileId),
+      data: [],
       source: "demo",
       isLoading: false,
       error: null,
@@ -138,9 +131,7 @@ export function useFundingBusinesses(
   });
   if (!live) {
     return {
-      data: seedFundingBusinesses.filter(
-        (b) => !clientId || b.clientId === clientId,
-      ),
+      data: [],
       source: "demo",
       isLoading: false,
       error: null,

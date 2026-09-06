@@ -23,10 +23,7 @@ import {
   type DealStatus,
   type FundingDeal,
 } from "@/lib/fulfillment/fundingops-domain";
-import {
-  seedFundingBusinesses,
-  seedFundingFiles,
-} from "@/lib/fulfillment/fundingops-seed";
+import { useFundingBusinesses, useFundingFiles } from "@/lib/data/use-funding";
 import { FundingModeBadge } from "./funding-client-list-helpers";
 import { dealCode, SEED_STIPS } from "./funding-deal-data";
 import {
@@ -56,6 +53,10 @@ export function FundingDealWorkspace({ dealId, onBack }: Props) {
   const store = useFundingOpsStore();
   const dealStore = useFundingDealStore();
   const deal = dealStore.getDeal(dealId);
+  const filesQuery = useFundingFiles(deal?.clientId);
+  const businessesQuery = useFundingBusinesses(deal?.clientId);
+  const files = filesQuery.data;
+  const businesses = businessesQuery.data;
 
   const [description, setDescription] = useState(
     deal
@@ -115,8 +116,10 @@ export function FundingDealWorkspace({ dealId, onBack }: Props) {
   }
 
   const client = store.clients.find((c) => c.id === deal.clientId);
-  const file = seedFundingFiles.find((f) => f.id === deal.fileId);
-  const business = seedFundingBusinesses.find((b) => b.id === file?.businessId);
+  /* The file and business this deal belongs to, read live rather than looked
+     up in a hard-coded list. */
+  const file = files.find((f) => f.id === deal.fileId);
+  const business = businesses.find((b) => b.id === file?.businessId);
   const deptStatuses = client ? store.getDepartmentStatuses(client.id) : [];
   const clientActivity = client ? store.getActivity(client.id) : [];
   const dealActivity = dealStore.getDealActivity(deal.id);

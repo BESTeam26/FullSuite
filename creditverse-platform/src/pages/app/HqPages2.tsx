@@ -7,8 +7,8 @@ import {
 } from "@/components/dashboard/DivisionLayout";
 import { HqPageShell } from "@/pages/app/HqPages";
 import { cn } from "@/lib/utils";
-import { SampleContentNotice } from "@/components/dashboard/SampleContentNotice";
 import { LiveCalendar } from "@/components/dashboard/LiveCalendar";
+import { SubAccountInvoicingMetering } from "@/components/dashboard/SubAccountInvoicingMetering";
 import { useAgencySettings } from "@/lib/agency-settings-context";
 import { Link } from "react-router-dom";
 import { useWorkforce } from "@/lib/data/use-workforce";
@@ -137,65 +137,24 @@ export const WorkforcePage = () => {
 /* Billing & Revenue                                                     */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Billing & Revenue.
+ *
+ * The figures that used to be here — "$31,650 platform MRR", "$6,624 usage",
+ * "$11,250 fulfillment", "$5,281 DIY" — were written into the page. What is
+ * actually measured today is per-organization seats and active records, and
+ * AI credit usage; both are shown by the metering panel, which reads the
+ * database. Invoices and MRR arrive with the payment connection.
+ */
 export const BillingPage = () => (
   <HqPageShell
     title="Billing & Revenue"
-    description="Platform MRR, usage metering, DFY fulfillment fees, and invoicing"
+    description="What each organization is using today. Invoicing and revenue reporting arrive with the payment connection."
     icon={Receipt}
   >
-    <SampleContentNotice what="These revenue figures illustrate the billing view; live MRR, metering and invoices arrive with the Authorize.Net connection and the plan catalogue." />
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-      <StatCard
-        label="Platform MRR"
-        value="$31,650"
-        icon={DollarSign}
-        trend="+14.2%"
-      />
-      <StatCard label="Usage / Metering" value="$6,624" icon={Receipt} />
-      <StatCard label="DFY Fulfillment" value="$11,250" icon={Briefcase} />
-      <StatCard label="DIY / Other" value="$5,281" icon={DollarSign} />
-    </div>
-    <div className="mt-5">
-      <ContentCard
-        title="Revenue Mix"
-        action={
-          <button type="button" disabled title="Live billing data arrives with the payment connection" className="text-xs font-medium text-muted-foreground">
-            Export
-          </button>
-        }
-      >
-        <div className="space-y-3">
-          {[
-            ["Platform SaaS Subscriptions", "$8,495", "27%"],
-            ["Usage / Metering", "$6,624", "21%"],
-            ["DFY Fulfillment Fees", "$11,250", "36%"],
-            ["DIY Credit & Other", "$5,281", "16%"],
-          ].map(([label, amount, pct]) => (
-            <div key={label} className="flex items-center gap-3">
-              <span className="flex-1 text-sm text-foreground">{label}</span>
-              <span className="w-20 text-right text-sm font-bold text-foreground">
-                {amount}
-              </span>
-              <div className="h-2 w-24 overflow-hidden rounded-full bg-muted">
-                <div
-                  className="h-full rounded-full bg-gradient-gold"
-                  style={{ width: `${pct}` }}
-                />
-              </div>
-              <span className="w-10 text-right text-xs text-muted-foreground">
-                {pct}
-              </span>
-            </div>
-          ))}
-        </div>
-      </ContentCard>
-    </div>
+    <SubAccountInvoicingMetering />
   </HqPageShell>
 );
-
-/* ------------------------------------------------------------------ */
-/* Announcements                                                         */
-/* ------------------------------------------------------------------ */
 
 export const AnnouncementsPage = () => {
   const agency = useAgency();

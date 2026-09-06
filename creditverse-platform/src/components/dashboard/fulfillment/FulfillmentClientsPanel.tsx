@@ -16,7 +16,6 @@ import { useDepartmentStatusMap } from "@/lib/data/use-department-statuses";
 import { currentDepartment, openDepartments } from "@/lib/fulfillment/department-domain";
 import type { DepartmentStatus } from "@/lib/fulfillment/creditops-store-types";
 import { ContentCard } from "@/components/dashboard/DivisionLayout";
-import { seedOutsourcingGroups } from "@/lib/fulfillment/fulfillment-client-seed";
 import { useCreditOpsStore } from "@/lib/fulfillment/creditops-client-store";
 import type { CreditOpsPartner } from "@/lib/fulfillment/creditops-partners";
 import {
@@ -33,7 +32,6 @@ import {
 import { ClientListTable } from "./ClientListTable";
 import { ClientListGrid } from "./ClientListGrid";
 import { OpsClientListToolbar } from "./OpsClientListToolbar";
-import { OutsourcingGroupCard } from "./OutsourcingGroupCard";
 import { AddClientModal } from "./AddClientModal";
 import { ClientWorkWorkspace } from "./ClientWorkWorkspace";
 
@@ -144,10 +142,6 @@ export function FulfillmentClientsPanel({
     prefs.visibleCols.includes(c.id),
   );
 
-  const scopedGroup = seedOutsourcingGroups.find(
-    (g) => g.id === selectedScope && selectedScope !== "all",
-  );
-
   if (openClientId) {
     return (
       <ClientWorkWorkspace
@@ -209,8 +203,6 @@ export function FulfillmentClientsPanel({
       ) : (
         <ClientListGrid clients={filtered} onOpenClient={setOpenClientId} />
       )}
-
-      {scopedGroup && <OutsourcingGroupCard group={scopedGroup} />}
 
       <AddClientModal
         open={showAddClient}

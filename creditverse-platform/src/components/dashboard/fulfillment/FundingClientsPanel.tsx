@@ -13,7 +13,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useFundingDepartmentStatusMap } from "@/lib/data/use-funding-department-statuses";
 import { isActiveFundingClient } from "@/lib/fulfillment/fundingops-domain";
 import { ContentCard } from "@/components/dashboard/DivisionLayout";
-import { seedFundingGroups } from "@/lib/fulfillment/fundingops-seed";
 import { useFundingOpsStore } from "@/lib/fulfillment/fundingops-client-store";
 import type { FundingOpsPartner } from "@/lib/fulfillment/fundingops-partners";
 import {
@@ -29,7 +28,6 @@ import {
 import { FundingClientListTable } from "./FundingClientListTable";
 import { FundingClientListGrid } from "./FundingClientListGrid";
 import { OpsClientListToolbar } from "./OpsClientListToolbar";
-import { OutsourcingGroupCard } from "./OutsourcingGroupCard";
 import { FundingAddClientModal } from "./FundingAddClientModal";
 import { FundingClientWorkWorkspace } from "./FundingClientWorkWorkspace";
 import { usePartners } from "@/lib/data/use-partners";
@@ -122,10 +120,6 @@ export function FundingClientsPanel({
     prefs.visibleCols.includes(c.id),
   );
 
-  const scopedGroup = seedFundingGroups.find(
-    (g) => g.id === selectedScope && selectedScope !== "all",
-  );
-
   if (openClientId) {
     return (
       <FundingClientWorkWorkspace
@@ -177,8 +171,6 @@ export function FundingClientsPanel({
           onOpenClient={setOpenClientId}
         />
       )}
-
-      {scopedGroup && <OutsourcingGroupCard group={scopedGroup} />}
 
       <FundingAddClientModal
         open={showAddClient}

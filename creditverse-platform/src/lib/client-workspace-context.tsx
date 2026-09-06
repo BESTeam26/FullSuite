@@ -13,7 +13,6 @@ import {
   type ClassifiedItem,
   type Disposition,
 } from "@/lib/credit-classification";
-import { sampleRaw } from "@/lib/sample-credit-report";
 
 export type ClientTab =
   | "overview"
@@ -129,12 +128,13 @@ export const ClientWorkspaceProvider = ({
   const reports = useClientReports(live && isUuid ? clientId : null);
   const latest = reports.latest;
   const reportItems = useReportItems(latest?.id ?? null);
-  const reportSource: ReportSource = !live ? "sample" : latest ? "live" : "none";
+  /* There is no bundled report any more: a client either has one imported or
+     they do not. "sample" survives only as a type until every reader is
+     updated; nothing produces it. */
+  const reportSource: ReportSource = latest ? "live" : "none";
 
-  const [items, setItems] = useState<ClassifiedItem[]>(() =>
-    live ? [] : classifyReport(sampleRaw),
-  );
-  const [hasImported, setHasImported] = useState(!live);
+  const [items, setItems] = useState<ClassifiedItem[]>([]);
+  const [hasImported, setHasImported] = useState(false);
   useEffect(() => {
     if (!live) return;
     if (latest && !reportItems.isLoading) {

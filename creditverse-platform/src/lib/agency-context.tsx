@@ -31,11 +31,7 @@ import type {
   AgencyUser,
 } from "@/lib/bes-domain";
 import { isProductEnabled, orgPlanLabel } from "@/lib/bes-domain";
-import {
-  seedOrganizations,
-  seedWorkItems,
-  seedAgencyUsers,
-} from "@/lib/bes-seed-data";
+
 import { useAuth } from "@/lib/auth/auth-context";
 import {
   createOrganization,
@@ -200,7 +196,9 @@ export const AgencyProvider = ({ children }: { children: ReactNode }) => {
     enabled: live,
     staleTime: 30_000,
   });
-  const [localOrgs, setLocalOrgs] = useState<Organization[]>(seedOrganizations);
+  /* No invented organizations. Without a backend there are none, and every
+     screen that lists them says so rather than showing a fictional roster. */
+  const [localOrgs, setLocalOrgs] = useState<Organization[]>([]);
   /* Memoised so the derived subAccounts list keeps a stable identity between
      renders; a fresh array each render would rebuild it every time. */
   /* Fulfillment status is the engagement, never the dead column
@@ -248,8 +246,8 @@ export const AgencyProvider = ({ children }: { children: ReactNode }) => {
   );
 
   /* ---- work items (seed until Phase 2) ---- */
-  const [workItems, setWorkItems] = useState<WorkItem[]>(seedWorkItems);
-  const agencyUsers = seedAgencyUsers;
+  const [workItems, setWorkItems] = useState<WorkItem[]>([]);
+  const agencyUsers: never[] = [];
 
   const activeOrganization =
     organizations.find((o) => o.id === activeSubAccountId) || null;

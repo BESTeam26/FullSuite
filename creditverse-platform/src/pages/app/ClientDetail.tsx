@@ -23,7 +23,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import OverviewTab from "@/components/clients/OverviewTab";
 import AccountTab from "@/components/clients/AccountTab";
-import { ImportAnalysisTab } from "@/components/clients/ImportAnalysisTab";
 import { DisputeDashboard } from "@/components/clients/DisputeDashboard";
 import LettersTab from "@/components/clients/LettersTab";
 import PrintTab from "@/components/clients/PrintTab";
@@ -256,7 +255,12 @@ const ClientDetailInner = () => {
             <RoundOutcomesPanel clientId={clientId} />
           </div>
         ) : (
-          <ImportAnalysisTab clientId={clientId} />
+          /* No live client behind this id — nothing to import into. The old
+             fallback ran a simulated import over a bundled report, which put
+             a full analysis on screen for a client that does not exist. */
+          <p className="rounded-xl border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
+            This client could not be found. Open one from Clients to import their report.
+          </p>
         ))}
       {tab === "disputes" && <DisputeDashboard />}
       {tab === "letters" && <LettersTab liveClientId={liveClient?.id ?? null} liveClientName={liveClient?.name ?? null} />}

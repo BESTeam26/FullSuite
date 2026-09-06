@@ -22,7 +22,6 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { seedFundingDeals } from "@/lib/fulfillment/fundingops-seed";
 import { useAuth } from "@/lib/auth/auth-context";
 import {
   fetchAllFundingDeals,
@@ -91,7 +90,7 @@ export function FundingDealStoreProvider({
      once and keeps them in the same local shape the rest of this store already
      works with, so behaviour below is identical in both modes. */
   const [deals, setDeals] = useState<FundingDeal[]>(() =>
-    live ? [] : seedFundingDeals.map((d) => ({ ...d })),
+    [],
   );
   const [dealActivity, setDealActivity] = useState<DealActivityEntry[]>([]);
 

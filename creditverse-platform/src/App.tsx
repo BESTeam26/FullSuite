@@ -34,19 +34,17 @@ const named =
 // Auth
 const Login = lazy(() => import("./pages/auth/Login"));
 const AcceptInvitation = lazy(() => import("./pages/auth/AcceptInvitation"));
+const SignUp = lazy(() => import("./pages/auth/SignUp"));
 const BorrowerPortal = lazy(() => import("./pages/portals/BorrowerPortal"));
 const AuthCallback = lazy(() => import("./pages/auth/AuthCallback"));
 
 // Public / marketing
 const Index = lazy(() => import("./pages/Index"));
-const Portal = lazy(() => import("./pages/Portal"));
+const Portal = lazy(() => import("./pages/portals/PortalPreviewsRemoved").then((m) => ({ default: m.ClientPortalPreview })));
 const NotFound = lazy(() => import("./pages/NotFound"));
-const DiyPortal = lazy(() => import("./pages/DiyPortal"));
-const DiyConsumerPortal = lazy(() => import("./pages/DiyConsumerPortal"));
-const AffiliatePortal = lazy(() => import("./pages/portals/AffiliatePortal"));
-const OutsourcingPortal = lazy(
-  () => import("./pages/portals/OutsourcingPortal"),
-);
+const DiyNotBuilt = lazy(() => import("./pages/DiyNotBuilt"));
+const AffiliatePortal = lazy(() => import("./pages/portals/PortalPreviewsRemoved").then((m) => ({ default: m.AffiliatePortalPreview })));
+const OutsourcingPortal = lazy(() => import("./pages/portals/PortalPreviewsRemoved").then((m) => ({ default: m.OutsourcingPortalPreview })));
 const DiyCreditPage = lazy(() => import("./pages/products/DiyCreditPage"));
 const CreditOpsPage = lazy(() => import("./pages/products/CreditOpsPage"));
 const FundingOpsPage = lazy(() => import("./pages/products/FundingOpsPage"));
@@ -97,7 +95,7 @@ const OrganizationFundingOps = lazy(
 const Reporting = lazy(() => import("./pages/app/Reporting"));
 const Education = lazy(() => import("./pages/app/Education"));
 const Settings = lazy(() => import("./pages/app/Settings"));
-const DiyManagement = lazy(() => import("./pages/app/DiyManagement"));
+
 const CreditOps = lazy(() => import("./pages/app/CreditOps"));
 const FundingOps = lazy(() => import("./pages/app/FundingOps"));
 const BesCrm = lazy(() => import("./pages/app/BesCrm"));
@@ -172,7 +170,8 @@ const App = () => (
                           <Suspense fallback={<RouteFallback />}>
                             <Routes>
                               <Route path="/" element={<Index />} />
-                              <Route path="/login" element={<Login />} />
+                              <Route path="/signup" element={<SignUp />} />
+                          <Route path="/login" element={<Login />} />
                               <Route path="/accept-invitation/:token" element={<AcceptInvitation />} />
                               <Route
                                 path="/portal/funding"
@@ -187,10 +186,10 @@ const App = () => (
                                 element={<AuthCallback />}
                               />
                               <Route path="/portal" element={<Portal />} />
-                              <Route path="/diy" element={<DiyPortal />} />
+                              <Route path="/diy" element={<DiyNotBuilt />} />
                               <Route
                                 path="/diy-consumer"
-                                element={<DiyConsumerPortal />}
+                                element={<DiyNotBuilt />}
                               />
                               <Route
                                 path="/affiliate"
@@ -427,7 +426,7 @@ const App = () => (
                                       product="diyCredit"
                                       label="DIY Credit"
                                     >
-                                      <DiyManagement />
+                                      <DiyNotBuilt />
                                     </RequireEntitlement>
                                   }
                                 />

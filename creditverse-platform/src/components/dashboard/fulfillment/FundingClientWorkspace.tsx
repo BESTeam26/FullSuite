@@ -27,10 +27,7 @@ import {
   formatCurrency,
   FUNDING_STATUS_TONE,
 } from "@/lib/fulfillment/fundingops-domain";
-import {
-  seedFundingBusinesses,
-  seedFundingFiles,
-} from "@/lib/fulfillment/fundingops-seed";
+import { useFundingBusinesses, useFundingFiles } from "@/lib/data/use-funding";
 import { useFundingDealStore } from "@/lib/fulfillment/funding-deal-store";
 import {
   FundingStatusPill,
@@ -63,6 +60,11 @@ export function FundingClientWorkspace({
   const store = useFundingOpsStore();
   const dealStore = useFundingDealStore();
   const client = store.clients.find((c) => c.id === clientId);
+  /* The client's own businesses and files, read live. This screen used to
+     filter hard-coded arrays, so it showed the same three fictional companies
+     for every client. */
+  const businessesQuery = useFundingBusinesses(clientId);
+  const filesQuery = useFundingFiles(clientId);
   const [tab, setTab] = useState<Tab>("overview");
 
   if (!client) {
@@ -83,10 +85,8 @@ export function FundingClientWorkspace({
     );
   }
 
-  const businesses = seedFundingBusinesses.filter(
-    (b) => b.clientId === clientId,
-  );
-  const files = seedFundingFiles.filter((f) => f.clientId === clientId);
+  const businesses = businessesQuery.data;
+  const files = filesQuery.data;
   const deals = dealStore.deals.filter((d) => d.clientId === clientId);
 
   return (

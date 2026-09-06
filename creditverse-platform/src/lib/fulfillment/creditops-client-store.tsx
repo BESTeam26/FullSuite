@@ -12,7 +12,6 @@
  * seeding, id prefixes and the live backend.
  */
 
-import { seedFulfillmentClients } from "@/lib/fulfillment/fulfillment-client-seed";
 import type { FulfillmentClient } from "@/lib/fulfillment/fulfillment-client-domain";
 import {
   type ActivityEntry,
@@ -100,7 +99,6 @@ const live: OpsClientLiveBackend<FulfillmentClient, DepartmentStatus> = {
 };
 
 const store = createOpsClientStore<FulfillmentClient, DepartmentStatus>({
-  seedClients: seedFulfillmentClients,
   seedDepartmentStatuses,
   activityEntityType: "fulfillment_client",
   activityIdPrefix: "act",

@@ -81,7 +81,7 @@ function makeBackend() {
 
 function buildHarness(backendImpl: ReturnType<typeof makeBackend>["backend"]) {
   const store = createOpsClientStore<TestClient, unknown>({
-    seedClients: [seedClient],
+    initialClients: [seedClient],
     seedDepartmentStatuses: () => [],
     activityEntityType: "test_client",
     activityIdPrefix: "t",
