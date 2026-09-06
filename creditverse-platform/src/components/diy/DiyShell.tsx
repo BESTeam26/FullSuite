@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { useDiy, type DiyView } from "@/lib/diy/diy-context";
 import { Link } from "react-router-dom";
+import { useAuth } from "@/lib/auth/auth-context";
+import { useNavigate } from "react-router-dom";
 
 const navItems: {
   key: DiyView;
@@ -34,6 +36,8 @@ const navItems: {
 ];
 
 export const DiyShell = ({ children }: { children: ReactNode }) => {
+  const { signOut } = useAuth();
+  const navigate = useNavigate();
   const { view, setView } = useDiy();
 
   return (
@@ -63,7 +67,7 @@ export const DiyShell = ({ children }: { children: ReactNode }) => {
               Signed in as{" "}
               <span className="font-medium text-foreground">John D.</span>
             </span>
-            <button className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted">
+            <button type="button" onClick={() => { void signOut(); navigate("/"); }} className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted">
               <LogOut className="h-3.5 w-3.5" /> Sign out
             </button>
           </div>

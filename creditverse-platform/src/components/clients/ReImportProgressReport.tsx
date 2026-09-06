@@ -10,6 +10,7 @@ import { ScoreGauge, type BureauScore } from "./reimport/ReImportGauges";
 import { ChangeSummarySection } from "./reimport/ReImportChangeCards";
 import { ItemTableSection } from "./reimport/ReImportItemTable";
 import { ReImportSidebar } from "./reimport/ReImportSidebar";
+import { useClientWorkspace } from "@/lib/client-workspace-context";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -39,6 +40,7 @@ export const ReImportProgressReport = ({
   onDiscardSideBySide,
   onDiscardReimport,
 }: ReImportReportProps) => {
+  const { setTab } = useClientWorkspace();
   const [editedItems, setEditedItems] = useState<ClassifiedItem[]>(items);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [exposed, setExposed] = useState<Record<string, boolean>>({});
@@ -84,21 +86,22 @@ export const ReImportProgressReport = ({
         <div className="flex flex-wrap items-center gap-2">
           <Button
             size="sm"
+            onClick={() => setTab("disputes")}
             className="bg-gradient-to-r from-pink-500 to-red-500 text-white"
           >
             Next: Save Auto Re-Import{" "}
             <ArrowRight className="ml-1 h-3.5 w-3.5" />
           </Button>
-          <Button size="sm" variant="outline">
+          <Button size="sm" variant="outline" onClick={() => setTab("disputes")}>
             Choose Disputes
           </Button>
-          <Button size="sm" variant="outline">
+          <Button size="sm" variant="outline" onClick={() => setTab("letters")}>
             Build Round Letters
           </Button>
-          <Button size="sm" variant="outline">
+          <Button size="sm" variant="outline" onClick={() => setTab("print")}>
             Download / Send Letters
           </Button>
-          <Button size="sm" variant="outline">
+          <Button size="sm" variant="outline" onClick={() => setTab("next-steps")}>
             Update Round
           </Button>
           <button

@@ -30,9 +30,7 @@ export function ReImportSidebar() {
             </div>
           </div>
 
-          <Button className="w-full bg-cyan-500 text-white hover:bg-cyan-600">
-            <Download className="mr-2 h-4 w-4" /> Download PDF
-          </Button>
+          <Button className="w-full bg-cyan-500 text-white hover:bg-cyan-600" onClick={() => window.print()} title="Opens the print dialog — choose Save as PDF"><Download className="mr-2 h-4 w-4" /> Download PDF</Button>
           <p className="text-center text-[11px] text-muted-foreground">
             View / Save the report
           </p>
@@ -63,7 +61,7 @@ export function ReImportSidebar() {
                 className="w-full rounded-lg border border-border px-2 py-1.5 text-xs"
                 placeholder="customer@email.com"
               />
-              <button className="rounded-lg bg-red-500 p-1.5 text-white">
+              <button disabled title="Sample content — this action connects when the live data model behind it exists" className="rounded-lg bg-red-500 p-1.5 text-white">
                 <Mail className="h-3.5 w-3.5" />
               </button>
             </div>
@@ -83,7 +81,7 @@ export function ReImportSidebar() {
                 className="w-full rounded-lg border border-border px-2 py-1.5 text-xs"
                 placeholder="+1 (xxx) xxx-xxxx"
               />
-              <button className="rounded-lg bg-red-500 p-1.5 text-white">
+              <button disabled title="Sample content — this action connects when the live data model behind it exists" className="rounded-lg bg-red-500 p-1.5 text-white">
                 <MessageSquare className="h-3.5 w-3.5" />
               </button>
             </div>

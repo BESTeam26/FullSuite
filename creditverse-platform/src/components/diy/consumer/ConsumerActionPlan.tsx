@@ -137,7 +137,7 @@ export const ConsumerActionPlan = () => {
               If you'd rather have a professional manage this process, you can
               request Done-For-You help from your organization.
             </p>
-            <button className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-status-warning hover:text-status-warning">
+            <button disabled title="Sample content — this action connects when the live data model behind it exists" className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-status-warning hover:text-status-warning">
               Request professional help <ArrowRight className="h-3 w-3" />
             </button>
           </div>

@@ -185,11 +185,11 @@ const Compliance = () => (
               account.
             </p>
             <div className="mt-5 flex flex-wrap justify-center gap-3">
-              <Button variant="outline">View rule</Button>
-              <Button variant="outline">
+              <Button disabled title="Sample content — this action connects when the live data model behind it exists" variant="outline">View rule</Button>
+              <Button disabled title="Sample content — this action connects when the live data model behind it exists" variant="outline">
                 <Eye className="h-4 w-4" /> View evidence
               </Button>
-              <Button className="bg-gradient-emerald text-white hover:opacity-90">
+              <Button disabled title="Sample content — this action connects when the live data model behind it exists" className="bg-gradient-emerald text-white hover:opacity-90">
                 Escalate to compliance <ArrowUpRight className="h-4 w-4" />
               </Button>
             </div>
@@ -251,7 +251,7 @@ const Compliance = () => (
             statutory cancellation dates are generated at onboarding from the
             consumer's state.
           </p>
-          <Button
+          <Button disabled title="Sample content — this action connects when the live data model behind it exists"
             variant="outline"
             className="mt-4 border-white/20 bg-transparent text-white hover:bg-white/10"
           >

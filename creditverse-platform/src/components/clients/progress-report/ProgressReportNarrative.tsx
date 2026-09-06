@@ -109,6 +109,8 @@ export function ProgressReportNarrative({
           {tab === "clientSms" ? (
             <Button
               size="sm"
+              disabled
+              title="Messaging arrives with the mail and SMS connection"
               className="bg-gradient-emerald text-white hover:opacity-90"
             >
               <MessageSquare className="h-3.5 w-3.5" /> Send SMS to client
@@ -116,6 +118,8 @@ export function ProgressReportNarrative({
           ) : (
             <Button
               size="sm"
+              disabled
+              title="Messaging arrives with the mail and SMS connection"
               className="bg-gradient-emerald text-white hover:opacity-90"
             >
               <Mail className="h-3.5 w-3.5" /> Email to client

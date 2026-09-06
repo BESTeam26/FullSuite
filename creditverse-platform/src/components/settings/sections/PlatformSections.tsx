@@ -354,6 +354,8 @@ export const DangerZoneSection = () => (
           <Button
             size="sm"
             variant="outline"
+            disabled
+            title="Not available yet — each action needs its confirmation flow, reason and audit event before it can run"
             className="border-red-500/40 text-status-danger hover:bg-red-500/10"
           >
             Execute

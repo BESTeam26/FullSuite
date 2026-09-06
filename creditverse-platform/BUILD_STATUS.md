@@ -3447,3 +3447,25 @@ registrations, linter flags, eligibility checks), Education (courses,
 progress) and DIY Credit management (in-memory example organization). Each now
 opens with a "Sample content" notice saying so (`SampleContentNotice`), per
 rule 12; every sidebar link was checked against the router (all routed).
+
+**Polish pass 1 — every control does something honest (2026-09-05).** Dee:
+"double check all the logic and functions of all tabs and buttons and links
+and pages … premium feel." A multi-line-aware scan found 61 buttons with no
+behaviour. Now: **wired** — the top bar's New Client (a real New Client dialog
+creating a CreditOps client of the active organization through
+`createFulfillmentClient`, then opening the profile) and Add Organization;
+Agency dashboard "Ask Lina" opens the copilot; partner referral "Copy link";
+billing ledger CSV export (`lib/export-csv.ts`, tested); Print / Download PDF
+on the client tabs through the browser's print-to-PDF; "Mark Dispute Ready"
+and "Approve & Queue" move the item through the workspace context; the
+re-import step buttons drive the workflow tabs; DIY shells sign out for real.
+**Honest disabled states** with a reason on hover — messaging (no mail/SMS
+connection), Danger Zone Execute (needs its confirmation flow), 32
+sample-walkthrough controls on sample surfaces. **Live data instead of
+fixtures** — the Calendar now lists real deadlines for the next two weeks
+(work items due for me and for the active organization, statutory letter
+clocks, renewal follow-ups); Billing & Revenue carries a sample notice and its
+Export waits for the payment connection. The six remaining scanner hits are
+dropdown triggers whose handler lives on the parent. Every sidebar link has a
+route; no console errors on the pages walked (My Work, Workspace, My Time,
+EOD, Notifications, Calendar, Billing, Reports, Home, Settings).

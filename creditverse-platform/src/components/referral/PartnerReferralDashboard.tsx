@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Link2,
   MousePointerClick,
@@ -64,6 +65,7 @@ const leadTypeLabel: Record<string, string> = {
 };
 
 export const PartnerReferralDashboard = () => {
+  const [copied, setCopied] = useState(false);
   const {
     currentPartnerId,
     partners,
@@ -161,8 +163,8 @@ export const PartnerReferralDashboard = () => {
           <span className="text-sm text-muted-foreground">
             {partner.referralLink}
           </span>
-          <Button size="sm" variant="outline">
-            <Copy className="h-3.5 w-3.5" /> Copy link
+          <Button size="sm" variant="outline" onClick={() => { void navigator.clipboard?.writeText(partner.referralLink); setCopied(true); window.setTimeout(() => setCopied(false), 2000); }}>
+            <Copy className="h-3.5 w-3.5" /> {copied ? "Copied" : "Copy link"}
           </Button>
         </div>
       </div>

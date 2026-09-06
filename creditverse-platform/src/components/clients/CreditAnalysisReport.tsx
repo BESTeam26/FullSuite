@@ -70,9 +70,8 @@ export const CreditAnalysisReport = ({ items }: CreditAnalysisReportProps) => {
           <Badge className="bg-emerald-500/10 text-status-success">
             Saved to dashboard
           </Badge>
-          <Button variant="outline" size="sm">
-            <Save className="h-3.5 w-3.5" /> Save report
-          </Button>
+          <Button variant="outline" size="sm" onClick={() => window.print()} title="Opens the print dialog — choose Save as PDF">
+            <Save className="h-3.5 w-3.5" /> Print / Save as PDF</Button>
         </div>
       </div>
 

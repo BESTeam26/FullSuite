@@ -121,7 +121,7 @@ export const MgmtConsumers = () => {
               >
                 <Banknote className="h-3.5 w-3.5" /> Request funding readiness
               </Button>
-              <Button size="sm" variant="ghost">
+              <Button disabled title="Sample content — this action connects when the live data model behind it exists" size="sm" variant="ghost">
                 View journey
               </Button>
             </div>

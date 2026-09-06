@@ -131,7 +131,7 @@ const SampleClients = () => {
             workspace is connected.
           </p>
         </div>
-        <Button className="bg-gradient-emerald text-white font-semibold shadow-sm hover:opacity-90">
+        <Button disabled title="Sample content — this action connects when the live data model behind it exists" className="bg-gradient-emerald text-white font-semibold shadow-sm hover:opacity-90">
           <Plus className="h-4 w-4 mr-1.5" /> Add Client
         </Button>
       </div>
@@ -153,7 +153,7 @@ const SampleClients = () => {
             have stalled disputes or missing documents that need review today.
           </p>
         </div>
-        <Button
+        <Button disabled title="Sample content — this action connects when the live data model behind it exists"
           variant="outline"
           size="sm"
           className="border-white/20 bg-transparent text-white hover:bg-white/10"
@@ -195,7 +195,7 @@ const SampleClients = () => {
             onChange={(e) => setQ(e.target.value)}
           />
         </div>
-        <Button variant="outline">
+        <Button disabled title="Sample content — this action connects when the live data model behind it exists" variant="outline">
           <SlidersHorizontal className="h-4 w-4" /> Smart filters
         </Button>
       </div>
@@ -321,7 +321,7 @@ const SampleClients = () => {
                   >
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <button className="rounded-lg p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100">
+                        <button disabled title="Sample content — this action connects when the live data model behind it exists" className="rounded-lg p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100">
                           <MoreHorizontal className="h-4 w-4" />
                         </button>
                       </DropdownMenuTrigger>
@@ -356,7 +356,7 @@ const SampleClients = () => {
         )}
       </div>
 
-      <button className="mt-3 flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground">
+      <button disabled title="Sample content — this action connects when the live data model behind it exists" className="mt-3 flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground">
         <ChevronDown className="h-3.5 w-3.5" /> Load more clients
       </button>
     </div>

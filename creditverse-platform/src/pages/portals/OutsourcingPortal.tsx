@@ -168,7 +168,7 @@ const OutsourcingPortal = () => {
                 <span className="flex items-center gap-1 text-xs font-medium">
                   <Clock className="h-3 w-3" /> {q.due}
                 </span>
-                <Button
+                <Button disabled title="Sample content — this action connects when the live data model behind it exists"
                   size="sm"
                   className="bg-gradient-emerald text-white hover:opacity-90"
                 >

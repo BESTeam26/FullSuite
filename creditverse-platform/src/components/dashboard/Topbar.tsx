@@ -1,5 +1,7 @@
 import { useUnreadNotificationCount } from "@/lib/data/use-notifications";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { NewClientDialog } from "@/components/clients/NewClientDialog";
 import {
   Bell,
   Plus,
@@ -21,6 +23,8 @@ export const Topbar = () => {
   const { setMobileOpen } = useSidebarState();
 
   const viewMode = agencyContext?.viewMode || "agency";
+  const navigate = useNavigate();
+  const [newClientOpen, setNewClientOpen] = useState(false);
   const unreadNotifications = useUnreadNotificationCount();
   const activeSubAccount = agencyContext?.activeSubAccount || null;
   const switchToAgencyView = agencyContext?.switchToAgencyView || (() => {});
@@ -66,6 +70,7 @@ export const Topbar = () => {
 
         <Button
           size="sm"
+          onClick={() => (viewMode === "agency" ? navigate("/app/subaccounts") : setNewClientOpen(true))}
           className="bg-emerald-700 hover:bg-emerald-800 text-white font-medium shadow-sm"
         >
           <Plus className="h-4 w-4 mr-1" />{" "}
@@ -112,6 +117,7 @@ export const Topbar = () => {
           </div>
         </div>
       </div>
-    </header>
+          <NewClientDialog open={newClientOpen} onOpenChange={setNewClientOpen} />
+</header>
   );
 };

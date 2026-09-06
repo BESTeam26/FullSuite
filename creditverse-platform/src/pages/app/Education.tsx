@@ -162,7 +162,7 @@ const Education = () => {
                 </div>
               </div>
 
-              <Button variant="outline" className="mt-4 w-full">
+              <Button disabled title="Sample content — this action connects when the live data model behind it exists" variant="outline" className="mt-4 w-full">
                 <Play className="h-4 w-4" />{" "}
                 {c.progress > 0 ? "Continue" : "Start course"}
               </Button>

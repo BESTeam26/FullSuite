@@ -165,10 +165,10 @@ const Portal = () => {
                 Is one of these values inaccurate?
               </p>
               <div className="mt-3 flex flex-wrap gap-3">
-                <button className="rounded-lg bg-gradient-emerald px-4 py-2 text-sm font-medium text-white hover:opacity-90">
+                <button disabled title="Sample content — this action connects when the live data model behind it exists" className="rounded-lg bg-gradient-emerald px-4 py-2 text-sm font-medium text-white hover:opacity-90">
                   Yes, review this
                 </button>
-                <button className="rounded-lg border border-white/20 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-white/10">
+                <button disabled title="Sample content — this action connects when the live data model behind it exists" className="rounded-lg border border-white/20 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-white/10">
                   I'm not sure
                 </button>
               </div>

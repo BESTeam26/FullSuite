@@ -107,7 +107,7 @@ const AffiliatePortal = () => {
           <span className="text-sm text-muted-foreground">
             bes.app/diy?ref=JORDAN
           </span>
-          <Button size="sm" variant="outline">
+          <Button disabled title="Sample content — this action connects when the live data model behind it exists" size="sm" variant="outline">
             <Copy className="h-3.5 w-3.5" /> Copy link
           </Button>
         </div>
@@ -183,7 +183,7 @@ const AffiliatePortal = () => {
               </div>
             ))}
           </div>
-          <Button variant="outline" className="mt-4 w-full">
+          <Button disabled title="Sample content — this action connects when the live data model behind it exists" variant="outline" className="mt-4 w-full">
             <BarChart3 className="h-4 w-4" /> View full statement
           </Button>
         </div>
@@ -209,7 +209,7 @@ const AffiliatePortal = () => {
                   <p className="text-xs text-muted-foreground">{a.type}</p>
                 </div>
               </div>
-              <Button size="icon" variant="ghost" className="h-8 w-8">
+              <Button disabled title="Sample content — this action connects when the live data model behind it exists" size="icon" variant="ghost" className="h-8 w-8">
                 <Download className="h-3.5 w-3.5" />
               </Button>
             </div>

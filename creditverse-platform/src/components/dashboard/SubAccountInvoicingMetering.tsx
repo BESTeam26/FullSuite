@@ -23,6 +23,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { downloadCsv } from "@/lib/export-csv";
 
 interface InvoicingItem {
   id: string;
@@ -147,7 +148,7 @@ export const SubAccountInvoicingMetering = () => {
               DFY fulfillment fees.
             </p>
           </div>
-          <Button variant="outline" size="sm" className="text-xs">
+          <Button variant="outline" size="sm" className="text-xs" onClick={() => downloadCsv("billing-ledger", ["Organization", "Plan fee", "Per-client fee", "DFY fulfillment fee", "Total due", "Status", "Due date"], items.map((i) => [i.subAccountName, i.planFee, i.perClientFee, i.dfyFulfillmentFee, i.totalDue, i.status, i.dueDate]))}>
             <Download className="h-3.5 w-3.5 mr-1" /> Export Billing Ledger CSV
           </Button>
         </div>

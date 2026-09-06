@@ -28,6 +28,7 @@ import { getLegalPathwayMeta } from "@/lib/dispute/legal-paths";
 import { CreditReportDetailGrid } from "./CreditReportDetailGrid";
 import type { ClassifiedItem } from "@/lib/credit-classification";
 import { OpsSelect } from "@/components/ui/ops-select";
+import { useClientWorkspace } from "@/lib/client-workspace-context";
 
 const PRESET_REASONS = [
   "Inaccurate Account Balance & Credit Limit reported",
@@ -56,6 +57,7 @@ export const ItemDetailPanel = ({
   round: number;
   onPreview: () => void;
 }) => {
+  const { moveItem, setTab } = useClientWorkspace();
   const [showDraft, setShowDraft] = useState(false);
   const [selectedReason, setSelectedReason] = useState<string>(
     item.aiReason || PRESET_REASONS[0],
@@ -129,6 +131,7 @@ export const ItemDetailPanel = ({
           </Button>
           <Button
             size="sm"
+            onClick={() => moveItem(item.id, "dispute")}
             className="h-8 text-xs gap-1 bg-emerald-600 text-white hover:bg-emerald-700"
           >
             <Check className="h-3.5 w-3.5" /> Mark Dispute Ready
@@ -257,6 +260,7 @@ export const ItemDetailPanel = ({
                 </Button>
                 <Button
                   size="sm"
+                  onClick={() => { moveItem(item.id, "dispute"); setTab("letters"); }}
                   className="h-7 text-xs bg-emerald-600 text-white"
                 >
                   <Send className="h-3 w-3 mr-1" /> Approve & Queue

@@ -307,12 +307,8 @@ const PrintTab = () => {
                 {/* Actions */}
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm">
-                      <Download className="h-3.5 w-3.5" /> Download PDF
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      <Printer className="h-3.5 w-3.5" /> Print
-                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => window.print()} title="Opens the print dialog — choose Save as PDF"><Download className="h-3.5 w-3.5" /> Download PDF</Button>
+                    <Button variant="outline" size="sm" onClick={() => window.print()}><Printer className="h-3.5 w-3.5" /> Print</Button>
                   </div>
                   {!isPrinted ? (
                     <Button

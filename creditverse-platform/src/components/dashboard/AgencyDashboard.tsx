@@ -12,11 +12,13 @@ import { FulfillmentHealthPanel } from "./agency/FulfillmentHealthPanel";
 import { RevenueAndDiyPanels } from "./agency/RevenueAndDiyPanels";
 import { SubAccountMiniGrid } from "./agency/SubAccountMiniGrid";
 import { HqUpdatesPanel } from "./agency/HqUpdatesPanel";
+import { useCopilot } from "@/lib/copilot-context";
 
 export const AgencyDashboard = () => {
   const attention = useAttention();
   const { subAccounts, workOrders, switchToSubAccount } = useAgency();
   const navigate = useNavigate();
+  const copilot = useCopilot();
 
   const totalClients = subAccounts.reduce((acc, s) => acc + s.activeClients, 0);
   const totalMrr = subAccounts.reduce((acc, s) => acc + s.monthlyRevenue, 0);
@@ -53,6 +55,7 @@ export const AgencyDashboard = () => {
           </Button>
           <Button
             variant="outline"
+            onClick={() => copilot.setOpen(true)}
             className="border-emerald-500/30 text-status-success hover:bg-emerald-500/10 font-semibold"
           >
             <Sparkles className="h-4 w-4 mr-1.5" /> Ask Lina

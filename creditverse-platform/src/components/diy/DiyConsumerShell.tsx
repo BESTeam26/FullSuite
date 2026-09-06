@@ -20,6 +20,8 @@ import { ConsumerTruthGate } from "@/components/diy/consumer/ConsumerTruthGate";
 import { ConsumerActionPlan } from "@/components/diy/consumer/ConsumerActionPlan";
 import { ConsumerDisputePrep } from "@/components/diy/consumer/ConsumerDisputePrep";
 import { ConsumerProgress } from "@/components/diy/consumer/ConsumerProgress";
+import { useAuth } from "@/lib/auth/auth-context";
+import { useNavigate } from "react-router-dom";
 import {
   ConsumerIssues,
   ConsumerEvidence,
@@ -86,6 +88,8 @@ const renderView = (view: ConsumerView) => {
 };
 
 export const DiyConsumerShell = ({ children }: { children?: ReactNode }) => {
+  const { signOut } = useAuth();
+  const navigate = useNavigate();
   const { whiteLabel } = useDiyManagement();
   const [view, setView] = useState<ConsumerView>("home");
 
@@ -118,7 +122,7 @@ export const DiyConsumerShell = ({ children }: { children?: ReactNode }) => {
               Signed in as{" "}
               <span className="font-medium text-foreground">Maria T.</span>
             </span>
-            <button className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted">
+            <button type="button" onClick={() => { void signOut(); navigate("/"); }} className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted">
               <LogOut className="h-3.5 w-3.5" /> Sign out
             </button>
           </div>

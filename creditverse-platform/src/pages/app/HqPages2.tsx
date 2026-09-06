@@ -7,6 +7,8 @@ import {
 } from "@/components/dashboard/DivisionLayout";
 import { HqPageShell } from "@/pages/app/HqPages";
 import { cn } from "@/lib/utils";
+import { SampleContentNotice } from "@/components/dashboard/SampleContentNotice";
+import { LiveCalendar } from "@/components/dashboard/LiveCalendar";
 import {
   Users,
   Network,
@@ -172,6 +174,7 @@ export const BillingPage = () => (
     description="Platform MRR, usage metering, DFY fulfillment fees, and invoicing"
     icon={Receipt}
   >
+    <SampleContentNotice what="These revenue figures illustrate the billing view; live MRR, metering and invoices arrive with the Authorize.Net connection and the plan catalogue." />
     <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
       <StatCard
         label="Platform MRR"
@@ -187,7 +190,7 @@ export const BillingPage = () => (
       <ContentCard
         title="Revenue Mix"
         action={
-          <button className="text-xs font-medium text-primary hover:underline">
+          <button type="button" disabled title="Live billing data arrives with the payment connection" className="text-xs font-medium text-muted-foreground">
             Export
           </button>
         }
@@ -276,79 +279,12 @@ export const AnnouncementsPage = () => (
 export const CalendarPage = () => (
   <HqPageShell
     title="Calendar"
-    description="Upcoming deadlines, meetings, and operational events"
+    description="Real deadlines for the next two weeks — work items due, statutory letter clocks and renewal follow-ups — from the records you may see."
     icon={Calendar}
   >
-    <ContentCard title="This Week">
-      <div className="space-y-2">
-        {[
-          {
-            day: "Today",
-            time: "10:00 AM",
-            title: "CreditOps Round 2 SLA — Maria Gonzalez",
-            type: "Deadline",
-          },
-          {
-            day: "Today",
-            time: "2:00 PM",
-            title: "QA Review — Anthony Ramos CFPB",
-            type: "Review",
-          },
-          {
-            day: "Tomorrow",
-            time: "9:00 AM",
-            title: "Weekly Workforce Standup",
-            type: "Meeting",
-          },
-          {
-            day: "Wed",
-            time: "11:00 AM",
-            title: "Apex Credit — Quarterly Business Review",
-            type: "Meeting",
-          },
-          {
-            day: "Thu",
-            time: "3:00 PM",
-            title: "FD-2002 Offer deadline — Triton Capital",
-            type: "Deadline",
-          },
-          {
-            day: "Fri",
-            time: "5:00 PM",
-            title: "EOD — Monthly close",
-            type: "Deadline",
-          },
-        ].map((e) => (
-          <div
-            key={e.title}
-            className="flex items-center gap-3 rounded-lg border border-border px-4 py-2.5"
-          >
-            <div className="w-16 shrink-0">
-              <p className="text-xs font-bold text-foreground">{e.day}</p>
-              <p className="text-[11px] text-muted-foreground">{e.time}</p>
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium text-foreground">{e.title}</p>
-            </div>
-            <StatusPill
-              status={
-                e.type === "Deadline"
-                  ? "Attention"
-                  : e.type === "Review"
-                    ? "Review"
-                    : "Active"
-              }
-            />
-          </div>
-        ))}
-      </div>
-    </ContentCard>
+    <LiveCalendar />
   </HqPageShell>
 );
-
-/* ------------------------------------------------------------------ */
-/* Support                                                               */
-/* ------------------------------------------------------------------ */
 
 export const SupportPage = () => (
   <HqPageShell

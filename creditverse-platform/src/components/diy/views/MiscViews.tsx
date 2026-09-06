@@ -17,7 +17,7 @@ export const DocumentsView = () => (
           Your evidence vault. Everything attached to your disputes is here.
         </p>
       </div>
-      <Button className="bg-gradient-emerald text-white hover:opacity-90">
+      <Button disabled title="Sample content — this action connects when the live data model behind it exists" className="bg-gradient-emerald text-white hover:opacity-90">
         <Plus className="h-4 w-4" /> Upload
       </Button>
     </div>
@@ -34,7 +34,7 @@ export const DocumentsView = () => (
               {d.type} · {d.date}
             </p>
           </div>
-          <button className="text-muted-foreground hover:text-foreground">
+          <button disabled title="Sample content — this action connects when the live data model behind it exists" className="text-muted-foreground hover:text-foreground">
             <Download className="h-4 w-4" />
           </button>
         </div>

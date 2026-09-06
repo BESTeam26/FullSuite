@@ -220,7 +220,7 @@ export const ConsumerHome = () => {
         </button>
       </div>
 
-      <button className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold text-slate-200 hover:bg-muted">
+      <button disabled title="Sample content — this action connects when the live data model behind it exists" className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold text-slate-200 hover:bg-muted">
         <GraduationCap className="h-4 w-4" /> Learn how this works{" "}
         <ArrowRight className="h-3 w-3" />
       </button>

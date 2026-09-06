@@ -56,7 +56,7 @@ export const CreditMonitoringCard = ({ provider }: { provider: string }) => {
           <p className="mt-1 text-sm font-medium">9978</p>
         </div>
       </div>
-      <Button variant="outline" size="sm" className="mt-4">
+      <Button disabled title="Sample content — this action connects when the live data model behind it exists" variant="outline" size="sm" className="mt-4">
         Log in to monitoring
       </Button>
     </div>

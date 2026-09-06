@@ -59,14 +59,14 @@ export const ConsumerIssues = () => (
             </span>
           </div>
           <div className="mt-3 flex gap-2">
-            <Button
+            <Button disabled title="Sample content — this action connects when the live data model behind it exists"
               size="sm"
               variant="outline"
               className="border-border text-slate-200"
             >
               Confirm facts
             </Button>
-            <Button size="sm" variant="ghost" className="text-muted-foreground">
+            <Button disabled title="Sample content — this action connects when the live data model behind it exists" size="sm" variant="ghost" className="text-muted-foreground">
               Add evidence
             </Button>
           </div>
@@ -97,7 +97,7 @@ export const ConsumerEvidence = () => (
         Your supporting documents. A dispute is only as strong as its facts.
       </p>
     </div>
-    <Button className="bg-gradient-green text-white hover:opacity-90">
+    <Button disabled title="Sample content — this action connects when the live data model behind it exists" className="bg-gradient-green text-white hover:opacity-90">
       <Plus className="h-4 w-4" /> Upload evidence
     </Button>
     <div className="grid gap-3 sm:grid-cols-2">
@@ -113,7 +113,7 @@ export const ConsumerEvidence = () => (
               {e.type} · {e.date}
             </p>
           </div>
-          <button className="text-muted-foreground hover:text-foreground">
+          <button disabled title="Sample content — this action connects when the live data model behind it exists" className="text-muted-foreground hover:text-foreground">
             <Download className="h-4 w-4" />
           </button>
         </div>
@@ -136,7 +136,7 @@ export const ConsumerDocuments = () => (
         Everything attached to your disputes and reports.
       </p>
     </div>
-    <Button className="bg-gradient-green text-white hover:opacity-90">
+    <Button disabled title="Sample content — this action connects when the live data model behind it exists" className="bg-gradient-green text-white hover:opacity-90">
       <Plus className="h-4 w-4" /> Upload
     </Button>
     <div className="grid gap-3 sm:grid-cols-2">
@@ -152,7 +152,7 @@ export const ConsumerDocuments = () => (
               {d.type} · {d.date}
             </p>
           </div>
-          <button className="text-muted-foreground hover:text-foreground">
+          <button disabled title="Sample content — this action connects when the live data model behind it exists" className="text-muted-foreground hover:text-foreground">
             <Download className="h-4 w-4" />
           </button>
         </div>
@@ -207,7 +207,7 @@ export const ConsumerEducation = () => (
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
             {m.desc}
           </p>
-          <button className="mt-3 text-xs font-semibold text-status-success hover:text-status-success">
+          <button disabled title="Sample content — this action connects when the live data model behind it exists" className="mt-3 text-xs font-semibold text-status-success hover:text-status-success">
             Start lesson →
           </button>
         </div>

@@ -122,7 +122,7 @@ export const FulfillmentLiveChatModal = ({ workOrder, onClose }: Props) => {
           className="text-xs min-h-[60px]"
         />
         <div className="flex items-center justify-between">
-          <Button
+          <Button disabled title="Sample content — this action connects when the live data model behind it exists"
             variant="outline"
             size="sm"
             className="text-xs text-muted-foreground"
