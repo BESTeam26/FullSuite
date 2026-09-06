@@ -9,7 +9,7 @@ blocks the rest of the build; each item unblocks the thing named beside it.
 | # | What | Where it goes | What it turns on |
 |---|---|---|---|
 | A1 | **Anthropic API key** | `npx supabase secrets set ANTHROPIC_API_KEY=…` | Reading scanned reports, letter wording help, "explain this fit", plain-language item explanations. **Everything else for these is built and deployed** — the gateway answers "not connected" until this exists. |
-| A2 | **Mail provider key + from address** (Resend, Postmark or SendGrid) | `npx supabase secrets set MAIL_PROVIDER_API_KEY=… MAIL_FROM="BES <no-reply@yourdomain>"` | Team invitations by email, and later client and lender emails. Today an invitation link must be copied and sent by hand. |
+| A2 | **Resend API key + from address** — you chose Resend, and the invitation function already targets it, so only the key is missing | `npx supabase secrets set MAIL_PROVIDER_API_KEY=… MAIL_FROM="BES <no-reply@yourdomain>"` | Team invitations by email, and later client and lender emails. Today an invitation link must be copied and sent by hand. |
 | A3 | **Authorize.Net public client key** + your plan prices | Settings › Plans (and one migration) | Paid sign-up, plan changes, DIY consumer billing later. |
 | A4 | **GHL credentials** — a Private Integration token per location, or a Marketplace app | The CRM bridge | Won opportunities creating clients and funding files here; stage changes flowing back. |
 
@@ -34,10 +34,19 @@ Run all `supabase` commands from `creditverse-platform`.
 | C4 | **Channels (internal chat)** — `ARCHITECTURE_PROPOSAL_MESSAGING.md`: default private, BES reads only channels you mark shared, only under a live engagement | Approve the default (private) and whether BES staff may post or only read. |
 | C5 | **Do lenders log in** to a portal, or receive submission packages by email? | Email packages first; a lender portal is a bigger tenancy change. |
 | C6 | **Partner / affiliate commissions**: flat, percentage or tiers, and when earned (submission, funding, or cleared) | Needed before the partner portal is designed. |
-| C7 | **Mail vendor for letters** (Lob or Click2Mail) and **e-signature** (Dropbox Sign, DocuSign or SignWell) | Lob and SignWell are the cheapest to start. |
+| C7 | ~~Mail vendor for letters~~ — **you chose Lob.** Still open: **e-signature** (Dropbox Sign, DocuSign or SignWell) | SignWell is the cheapest to start. Lob needs an account and an API key when you want letters actually posted. |
 | C8 | **Stale timer cap** — a timer left running overnight is stopped at N hours with a note | 10 hours. |
 | C9 | **How long to keep uploaded report PDFs** | Seven years, matching dispute records. It becomes a setting. |
 | C10 | **Duplicate clients found during the C1 move**: who resolves them — your organization admins, or BES? | Your admins; it is their data. |
+
+## C-later. Money, when you are ready
+
+You said invoicing and bookkeeping are not a priority, and that GHL already
+invoices. Recorded so it is not lost: the eventual need is **recording revenue
+and expenses** — a FreshBooks/Xero-shaped ledger — rather than a second
+invoicing tool competing with GHL. When it comes up, the choice is to
+integrate with one of those or to keep a simple internal ledger; nothing in
+the platform today assumes either, so the decision stays open at no cost.
 
 ## D. Things you should look at, not decide
 

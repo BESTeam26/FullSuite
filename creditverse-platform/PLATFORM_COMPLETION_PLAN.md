@@ -258,6 +258,12 @@ DIY build so a converted consumer becomes this record.
 | 10 | Mail vendor (Lob / Click2Mail) and e-sign provider | C4, C6, F6 |
 | 11 | Stale timer cap (hours) | O3 |
 
+**Decided 2026-09-05:** email through **Resend** (the invitation function
+already targets it), letters through **Lob**, scanned reports read by
+**Claude** through the existing gateway. Bookkeeping — recording revenue and
+expenses, FreshBooks/Xero-shaped — is wanted eventually but is not a priority;
+GHL already invoices.
+
 Set secrets from the application folder only:
 
 ```bash

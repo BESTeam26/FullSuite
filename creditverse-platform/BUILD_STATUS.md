@@ -3800,3 +3800,19 @@ with BES joining the channels when a fulfillment engagement exists.
   mention notifies only someone plainly in the row's own scope.
 - Matrix phase 35 (7 probes) added.
 - `WHAT_I_NEED_FROM_DEE.md` — every key, sample and decision in one list.
+
+### Cycle 11 additions
+
+- **Mentions for BES's own records**: an agency-scope note offers the BES
+  roster (the agency directory is fetched only for BES staff on such a record,
+  never on an organization surface).
+- **Stale running timer** (Dee's C8, default 10 hours): the time page now says
+  plainly that a timer has been running longer than a working day, how long,
+  and why it matters (production and End of Day read it), with a clock-out
+  button. The rule lives in `time-domain` and is tested; nothing stops a timer
+  behind the person's back.
+- **Providers decided by Dee**: Resend for email (the invitation function
+  already targets it — only the key is missing), Lob for posted letters,
+  Claude for reading scans. Bookkeeping (recording revenue and expenses,
+  FreshBooks/Xero-shaped) is wanted eventually but is not a priority; GHL
+  already invoices. Recorded in the plan and in `WHAT_I_NEED_FROM_DEE.md`.

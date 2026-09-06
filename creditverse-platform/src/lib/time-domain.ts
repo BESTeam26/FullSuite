@@ -92,3 +92,32 @@ export const DIVISION_LABELS: Record<string, string> = {
 };
 
 export const divisionLabel = (id: string) => DIVISION_LABELS[id] ?? id;
+
+/**
+ * A timer left running overnight.
+ *
+ * Nobody works sixteen hours in one sitting, and a forgotten timer quietly
+ * corrupts the day's production and the End of Day figure. The cap is a
+ * judgement, not a law: it decides when to *warn*, never what to record.
+ * Stopping is always the person's own act.
+ */
+export const STALE_TIMER_HOURS = 10;
+
+export function runningHours(entry: TimeEntry, now: Date = new Date()): number {
+  return entryMinutes(entry, now) / 60;
+}
+
+export function isStaleTimer(entry: TimeEntry | null | undefined, now: Date = new Date()): boolean {
+  if (!entry) return false;
+  return runningHours(entry, now) >= STALE_TIMER_HOURS;
+}
+
+/** "16 hours" / "1 hour 30 minutes" — for telling someone what they left on. */
+export function describeRunningFor(entry: TimeEntry, now: Date = new Date()): string {
+  const minutes = Math.max(0, Math.round(entryMinutes(entry, now)));
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  const hourPart = hours > 0 ? `${hours} hour${hours === 1 ? "" : "s"}` : "";
+  const minutePart = rest > 0 ? `${rest} minute${rest === 1 ? "" : "s"}` : "";
+  return [hourPart, minutePart].filter(Boolean).join(" ") || "less than a minute";
+}

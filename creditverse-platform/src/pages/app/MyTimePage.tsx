@@ -19,6 +19,7 @@ import { DataSourceBadge } from "@/components/dashboard/DataSourceBadge";
 import { OpsSelect } from "@/components/ui/ops-select";
 import { HqPageShell } from "@/pages/app/HqPages";
 import { useTimesheet } from "@/lib/data/use-time";
+import { STALE_TIMER_HOURS, describeRunningFor, isStaleTimer } from "@/lib/time-domain";
 import {
   DIVISION_LABELS,
   divisionLabel,
@@ -42,6 +43,9 @@ export const MyTimePage = () => {
   const [taskNote, setTaskNote] = useState("");
 
   const running = Boolean(t.openEntry);
+  /* A timer left running overnight quietly corrupts production and End of Day,
+     so it is said out loud. Stopping it stays the person's own act. */
+  const stale = isStaleTimer(t.openEntry);
 
   // Only the two busiest divisions get a card; the rest are in the table. Four
   // fixed division cards would show three zeroes for most people.
@@ -130,6 +134,25 @@ export const MyTimePage = () => {
           </span>
         )}
       </div>
+
+      {stale && t.openEntry && (
+        <div role="status" className="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-xs text-foreground">
+          <AlertTriangle className="h-4 w-4 shrink-0 text-status-warning" />
+          <p className="min-w-0 flex-1">
+            This timer has been running for {describeRunningFor(t.openEntry)} — longer than a working day
+            ({STALE_TIMER_HOURS} hours). If you forgot to clock out, stop it now and fix the entry below;
+            production and End of Day read this figure.
+          </p>
+          <button
+            type="button"
+            onClick={t.clockOut}
+            disabled={t.isMutating}
+            className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Clock out now
+          </button>
+        </div>
+      )}
 
       {t.actionError && (
         <p className="mt-2 text-xs font-semibold text-status-danger">
