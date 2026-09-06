@@ -2750,6 +2750,130 @@ export type Database = {
           },
         ]
       }
+      ghl_connections: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          label: string | null
+          last_event_at: string | null
+          location_id: string
+          organization_id: string
+          status: Database["public"]["Enums"]["ghl_connection_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label?: string | null
+          last_event_at?: string | null
+          location_id: string
+          organization_id: string
+          status?: Database["public"]["Enums"]["ghl_connection_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label?: string | null
+          last_event_at?: string | null
+          location_id?: string
+          organization_id?: string
+          status?: Database["public"]["Enums"]["ghl_connection_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ghl_connections_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ghl_connections_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ghl_credentials: {
+        Row: {
+          access_token: string
+          location_id: string
+          rotated_at: string
+          webhook_secret: string | null
+        }
+        Insert: {
+          access_token: string
+          location_id: string
+          rotated_at?: string
+          webhook_secret?: string | null
+        }
+        Update: {
+          access_token?: string
+          location_id?: string
+          rotated_at?: string
+          webhook_secret?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ghl_credentials_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: true
+            referencedRelation: "ghl_connections"
+            referencedColumns: ["location_id"]
+          },
+        ]
+      }
+      ghl_events: {
+        Row: {
+          event_type: string
+          external_id: string | null
+          id: number
+          location_id: string
+          organization_id: string | null
+          outcome: string | null
+          payload: Json
+          processed_at: string | null
+          received_at: string
+        }
+        Insert: {
+          event_type: string
+          external_id?: string | null
+          id?: never
+          location_id: string
+          organization_id?: string | null
+          outcome?: string | null
+          payload: Json
+          processed_at?: string | null
+          received_at?: string
+        }
+        Update: {
+          event_type?: string
+          external_id?: string | null
+          id?: never
+          location_id?: string
+          organization_id?: string | null
+          outcome?: string | null
+          payload?: Json
+          processed_at?: string | null
+          received_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ghl_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hub_modules: {
         Row: {
           always_on: boolean
@@ -6450,6 +6574,16 @@ export type Database = {
         }
         Returns: string
       }
+      connect_ghl_location: {
+        Args: {
+          p_label: string
+          p_location_id: string
+          p_org: string
+          p_token: string
+          p_webhook_secret: string
+        }
+        Returns: string
+      }
       copy_member_permissions: {
         Args: { p_copy_scope?: boolean; p_from: string; p_to: string }
         Returns: undefined
@@ -6520,6 +6654,10 @@ export type Database = {
         Returns: string
       }
       dev_uuid: { Args: { p_key: string }; Returns: string }
+      disconnect_ghl_location: {
+        Args: { p_location_id: string }
+        Returns: undefined
+      }
       engagement_is_live: {
         Args: {
           p_from: string
@@ -6654,7 +6792,17 @@ export type Database = {
         Args: { p_letter: string; p_mailed_at?: string }
         Returns: undefined
       }
+      may_notify_mention: {
+        Args: {
+          p_agency: string
+          p_org: string
+          p_user: string
+          p_visibility: Database["public"]["Enums"]["activity_visibility"]
+        }
+        Returns: boolean
+      }
       member_can: { Args: { p_key: string; p_org: string }; Returns: boolean }
+      mentioned_user_ids: { Args: { p_body: Json }; Returns: string[] }
       merge_agency_branding: {
         Args: { p_agency: string; p_patch: Json }
         Returns: Json
@@ -6687,6 +6835,12 @@ export type Database = {
       }
       normalize_business_name: { Args: { p: string }; Returns: string }
       normalize_phone: { Args: { p: string }; Returns: string }
+      notify_mentions: {
+        Args: {
+          p_activity: Database["public"]["Tables"]["activity_events"]["Row"]
+        }
+        Returns: undefined
+      }
       open_dispute_round: {
         Args: {
           p_client: string
@@ -7233,6 +7387,7 @@ export type Database = {
         | "Documents"
         | "Approval"
         | "No Action Required"
+      ghl_connection_status: "connected" | "paused" | "error"
       hub_module_status: "available" | "planned"
       identity_kind:
         | "email"
@@ -7775,6 +7930,7 @@ export const Constants = {
         "Approval",
         "No Action Required",
       ],
+      ghl_connection_status: ["connected", "paused", "error"],
       hub_module_status: ["available", "planned"],
       identity_kind: ["email", "email_domain", "phone", "business_name", "ein"],
       knowledge_audience: ["organization", "consumer", "both", "bes_internal"],

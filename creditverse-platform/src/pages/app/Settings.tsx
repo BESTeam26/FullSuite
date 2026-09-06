@@ -74,6 +74,7 @@ import { LetterLibrarySection } from "@/components/settings/sections/LetterLibra
 import { AccountSection } from "@/components/settings/sections/AccountSection";
 import { OrganizationAutomationsSection } from "@/components/settings/sections/OrganizationAutomationsSection";
 import { HubSection } from "@/components/settings/sections/HubSection";
+import { GhlBridgeSection } from "@/components/settings/sections/GhlBridgeSection";
 import { useAgency } from "@/lib/agency-context";
 import { useAuth } from "@/lib/auth/auth-context";
 import { usePermissions } from "@/lib/auth/use-permission";
@@ -125,6 +126,7 @@ const groups: SettingsGroup[] = [
     items: [
       { key: "integrations", label: "Integrations", icon: Plug },
       { key: "crm", label: "CRM Automation Bridge", icon: Zap },
+      { key: "ghl", label: "GoHighLevel", icon: Plug },
       { key: "connectors", label: "Credit Data Connectors", icon: Plug },
       { key: "agreements", label: "Agreements (CROA)", icon: FileText },
       { key: "portals", label: "Portals", icon: MonitorSmartphone },
@@ -238,6 +240,8 @@ const SettingsContent = () => {
         return <IntegrationsSection />;
       case "crm":
         return <CrmAutomationManager />;
+      case "ghl":
+        return <GhlBridgeSection />;
       case "connectors":
         return <ConnectorWizard />;
       case "agreements":

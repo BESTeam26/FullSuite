@@ -3852,3 +3852,16 @@ Typed "@pi" in a work item note: the picker offered only Lakeside's own
 people, choosing one inserted a chip carrying the real user id, and the node
 now emits just `data-mention-user` (the stray `userid`/`label` attributes
 TipTap rendered by default are gone).
+
+### Cycle 12 applied and verified
+
+Migrations 0082 (dev AI credits), 0083 (mentions) and 0084 (GHL bridge) are
+live — 89 in total. Verified against the database: the mention trigger exists,
+`ghl_credentials` grants **nothing** to `anon` or `authenticated`, and the two
+test organizations hold 500 AI credits each so the assistant paths can be
+exercised the moment the key lands. `ghl-webhook` deployed. HQ › Platform ›
+GoHighLevel renders with its honest "recorded, not yet acted on" note.
+
+Two more matrix probes of mine were wrong and are fixed: the phase-33
+"foreign department" probe passed a null department (a legitimate "clear it")
+and read a column that a void function never returns, so it proved nothing.
