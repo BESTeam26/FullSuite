@@ -83,8 +83,6 @@ const groups: SettingsGroup[] = [
     items: [
       { key: "users", label: "Agency Users", icon: Users },
       { key: "org-teams", label: "Organization Teams", icon: Users },
-      { key: "kpi-catalogue", label: "KPI Catalogue", icon: BarChart3 },
-      { key: "ai-credits", label: "AI Credits", icon: Sparkles },
       { key: "permissions", label: "Roles & Permissions", icon: ShieldCheck },
       { key: "structure", label: "Divisions / Teams", icon: Network },
     ],
@@ -98,6 +96,7 @@ const groups: SettingsGroup[] = [
       { key: "diy", label: "DIY & Referrals", icon: Gift },
       { key: "templates", label: "Templates", icon: FileText },
       { key: "automations", label: "Automations", icon: Zap },
+      { key: "kpi-catalogue", label: "KPI Catalogue", icon: BarChart3 },
     ],
   },
   {
@@ -105,6 +104,7 @@ const groups: SettingsGroup[] = [
     items: [
       { key: "billing", label: "Plans & Billing", icon: CreditCard },
       { key: "usage", label: "Usage & Metering", icon: Gauge },
+      { key: "ai-credits", label: "AI Credits", icon: Sparkles },
     ],
   },
   {

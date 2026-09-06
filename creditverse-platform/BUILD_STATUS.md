@@ -3490,3 +3490,18 @@ mail, and marks System Status and Video Tutorials as not connected instead of
 dead links. Announcements labelled sample until an announcements model exists.
 Organization admins without a BES partner can now add a client (New Client
 dialog on the top bar and the Clients page).
+
+**Polish pass 3 — settings that tell the truth (2026-09-05).** Agency Users now
+lists the live BES roster (roles, teams, since) instead of sample rows with
+locked switches; the Audit Log reads `audit_log` itself (actor, action,
+record, fields changed, exact timestamps — the one place they belong); Billing
+and Usage & Metering carry a note that their rates are not stored yet (pricing
+is the plans catalogue; invoicing arrives with Authorize.Net). KPI Catalogue
+moved under Operations and AI Credits under Commercial so the settings groups
+read by purpose. Every section is classified: live-wired (Team Members,
+Organization Teams, KPIs, AI, Letter Library, Roles & access, Audit, Agency
+Users, Organizations, Products), local-only configuration awaiting its model
+(Fulfillment, CreditOps, FundingOps, DIY & Referrals, Templates, Automations,
+Portals, Notifications, Security, System Controls — each shows its
+placeholder note), and connectors awaiting credentials (Integrations, CRM
+bridge, Credit Data Connectors, Agreements).

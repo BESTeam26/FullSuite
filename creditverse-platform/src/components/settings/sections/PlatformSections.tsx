@@ -14,6 +14,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAgencySettings } from "@/lib/agency-settings-context";
 import { SectionCard, Field, ToggleRow, StatusBadge, PlaceholderNote } from "../shared";
+import { useAuditLog } from "@/lib/data/use-audit";
+import type { AuditRow } from "@/lib/data/audit";
+import { formatDateTime } from "@/lib/format-date";
 
 /* ---------------- Plans & Billing ---------------- */
 export const BillingSection = () => (
@@ -85,6 +88,7 @@ export const IntegrationsSection = () => {
       title="Integrations"
       description="Central integration center. Secrets are never exposed on settings screens."
     >
+      <PlaceholderNote what="Usage metering figures are illustrative until the payment connection; AI usage is live under AI Credits" />
       <div className="grid gap-3 sm:grid-cols-2">
         {integrations.map((i) => (
           <div
@@ -245,53 +249,46 @@ export const SecuritySection = () => (
 
 /* ---------------- Audit Log ---------------- */
 export const AuditSection = () => {
-  const { audit } = useAgencySettings();
-  const sevTone: Record<string, string> = {
-    info: "bg-blue-500/10 text-blue-700 border-blue-500/30",
-    warning: "bg-amber-500/10 text-status-warning border-amber-500/30",
-    critical: "bg-red-500/10 text-red-700 border-red-500/30",
+  const audit = useAuditLog(null, 200);
+  const rows = audit.data ?? [];
+  const summary = (a: AuditRow) => {
+    const keys = new Set<string>([...Object.keys((a.before as Record<string, unknown> | null) ?? {}), ...Object.keys((a.after as Record<string, unknown> | null) ?? {})]);
+    return [...keys].slice(0, 4).join(", ");
   };
   return (
     <SectionCard
       icon={ScrollText}
       title="Audit & Admin Activity"
-      description="Meaningful administrative events only — not every page view or UI click."
+      description="Every meaningful administrative mutation the database recorded — actor, record, previous and new value. Append-only; nothing here can be edited or deleted."
     >
-      <div className="overflow-hidden rounded-xl border border-border">
+      {audit.isLoading && <p className="text-xs text-muted-foreground">Loading the audit log…</p>}
+      {audit.error && <p role="alert" className="text-xs text-status-danger">Could not load the audit log.</p>}
+      <div className="overflow-x-auto rounded-xl border border-border">
         <table className="w-full text-sm">
           <thead className="bg-muted/40 text-left text-[11px] uppercase text-muted-foreground">
             <tr>
-              <th className="px-4 py-2.5 font-medium">Time</th>
+              <th className="px-4 py-2.5 font-medium">When</th>
               <th className="px-4 py-2.5 font-medium">Actor</th>
               <th className="px-4 py-2.5 font-medium">Action</th>
-              <th className="px-4 py-2.5 font-medium">Target</th>
-              <th className="px-4 py-2.5 font-medium">Severity</th>
+              <th className="px-4 py-2.5 font-medium">Record</th>
+              <th className="px-4 py-2.5 font-medium">Fields changed</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {audit.map((a) => (
+            {!audit.isLoading && rows.length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-muted-foreground">No administrative events recorded yet.</td></tr>}
+            {rows.map((a) => (
               <tr key={a.id} className="hover:bg-muted/20">
-                <td className="px-4 py-3 text-[11px] text-muted-foreground">
-                  {a.at}
-                </td>
-                <td className="px-4 py-3 font-medium text-foreground">
-                  {a.actor}
-                </td>
+                <td className="px-4 py-3 font-mono text-[11px] text-muted-foreground" title={a.createdAt}>{formatDateTime(a.createdAt)}</td>
+                <td className="px-4 py-3 font-medium text-foreground">{a.actor}</td>
                 <td className="px-4 py-3">{a.action}</td>
-                <td className="px-4 py-3 text-muted-foreground">{a.target}</td>
-                <td className="px-4 py-3">
-                  <Badge
-                    variant="outline"
-                    className={`text-[10px] ${sevTone[a.severity]}`}
-                  >
-                    {a.severity}
-                  </Badge>
-                </td>
+                <td className="px-4 py-3 text-muted-foreground">{a.entityType}{a.entityId ? <span className="ml-1 font-mono text-[10px]">{a.entityId.slice(0, 8)}</span> : null}</td>
+                <td className="px-4 py-3 text-[11px] text-muted-foreground">{summary(a) || "—"}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      <p className="mt-2 text-[10px] text-muted-foreground">Times here are exact timestamps (audit view); the rest of the interface shows simple dates.</p>
     </SectionCard>
   );
 };
