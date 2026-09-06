@@ -4,6 +4,8 @@ import { HELP_ROUTE_COUNT, helpFor } from "./page-help";
 describe("helpFor", () => {
   it("prefers the most specific route", () => {
     expect(helpFor("/app/clients/123")?.title).toBe("Client profile");
+    expect(helpFor("/app/creditops/cases/123")?.title).toBe("Credit case");
+    expect(helpFor("/app/creditops/cases")?.title).toBe("Credit Cases");
     expect(helpFor("/app/clients")?.title).toBe("Clients");
     expect(helpFor("/app/funding-files/abc")?.title).toBe("Funding file");
     expect(helpFor("/app/funding-files")?.title).toBe("Funding Files");

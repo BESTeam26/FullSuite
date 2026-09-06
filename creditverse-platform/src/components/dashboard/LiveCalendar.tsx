@@ -37,7 +37,7 @@ export function LiveCalendar({ days = 14 }: { days?: number }) {
     const out: CalendarEntry[] = [];
     for (const w of work.items) if (w.dueAt && w.stage !== "Completed") { const t = Date.parse(w.dueAt); if (t <= horizon) out.push({ id: `w-${w.id}`, at: w.dueAt, title: w.title, kind: "work", href: "/app/my-work", overdue: t < now }); }
     const names = Object.fromEntries((dispute.data?.clients ?? []).map((c) => [c.id, c.name]));
-    for (const t of dispute.data?.timers ?? []) { const ts = Date.parse(t.dueAt); if (ts <= horizon) out.push({ id: `t-${t.letterId}-${t.kind}`, at: t.dueAt, title: `${TIMER_LABEL[t.kind] ?? t.kind} · ${names[t.clientId] ?? "client"}`, kind: "clock", href: `/app/clients/${t.clientId}`, overdue: ts < now }); }
+    for (const t of dispute.data?.timers ?? []) { const ts = Date.parse(t.dueAt); if (ts <= horizon) out.push({ id: `t-${t.letterId}-${t.kind}`, at: t.dueAt, title: `${TIMER_LABEL[t.kind] ?? t.kind} · ${names[t.clientId] ?? "client"}`, kind: "clock", href: `/app/creditops/cases/${t.clientId}`, overdue: ts < now }); }
     for (const r of funding.data?.renewals ?? []) {
       const when = r.nextFollowUpAt ?? r.potentialRenewalDate; if (!when) continue;
       const ts = Date.parse(when); if (ts <= horizon) out.push({ id: `r-${when}-${r.status}`, at: when, title: r.nextFollowUpAt ? "Renewal follow-up" : "Potential renewal date", kind: "renewal", href: "/app/funding-deals", overdue: ts < now });

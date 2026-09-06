@@ -165,7 +165,7 @@ export function ClientWorkWorkspace({ clientId, onBack }: Props) {
           and analysis live in the client's profile (CreditOps → Clients). */}
       <div className="flex justify-end">
         <Link
-          to={`/app/clients/${clientId}`}
+          to={`/app/creditops/cases/${clientId}`}
           className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           Open client profile (report, disputes, letters)

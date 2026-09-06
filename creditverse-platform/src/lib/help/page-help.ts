@@ -34,16 +34,27 @@ const HELP: [prefix: string, help: PageHelp][] = [
     summary: "Where every client stands in the dispute cycle, and what needs attention today.",
     steps: ["Each queue lists clients by what is next: letters to build, approvals waiting, responses due.", "Open a queue to work the clients in it.", "Figures come only from your clients' records."],
   }],
+  ["/app/creditops/cases/", {
+    title: "Credit case",
+    summary: "One client's credit repair work: report, analysis, disputes, letters, progress.",
+    steps: ["Import & Analysis: bring in the credit report (PDF or CSV) and review every item before it is saved.", "Letter Builder: build letters from the client's real items; approval happens before anything is mailed.", "Dispute Dashboard and Next Steps show what to do next for this case."],
+    tip: "Nothing is estimated until a report is imported.",
+  }],
+  ["/app/creditops/cases", {
+    title: "Credit Cases",
+    summary: "Who you are doing credit repair work for right now, with lifecycle, status and round.",
+    steps: ["Open a case to work it: import, analyse, dispute, mail.", "Use the lifecycle filter to see active, archived or every case.", "A case belongs to a client — the person lives under Clients."],
+  }],
   ["/app/clients/", {
     title: "Client profile",
-    summary: "One client's whole file: report, analysis, disputes, letters, progress.",
-    steps: ["Import & Analysis: bring in the credit report (PDF or CSV) and review every item before it is saved.", "Letter Builder: build letters from the client's real items; approval happens before anything is mailed.", "Dispute Dashboard and Next Steps show what to do next for this client."],
-    tip: "Nothing is estimated until a report is imported.",
+    summary: "The whole customer record: who they are, what they buy, their businesses and their history.",
+    steps: ["Services & Plans shows every relationship — CreditOps, FundingOps, DIY Credit — and opens each one.", "Personal Info edits identity once, for every service at the same time.", "Activity is the cross-service history you are authorized to see."],
+    tip: "Opening a client does not open a credit repair application. Use Open in CreditOps for that.",
   }],
   ["/app/clients", {
     title: "Clients",
-    summary: "Your credit repair clients. Open one to work their profile.",
-    steps: ["New client creates the record; the client's ID (CN-…) is on their profile.", "Use the lifecycle filter to see active, archived or every client.", "Search by name or email."],
+    summary: "Every customer this organization serves — a directory, not a pipeline.",
+    steps: ["Filter by service, status, business or assignment; search name, email, phone, business or CN- code.", "New client creates the person; services are started from their profile.", "The credit and funding work lives in CreditOps and FundingOps."],
   }],
   ["/app/operations", {
     title: "CreditOps Workspace",

@@ -112,7 +112,7 @@ export default function DisputeDashboard() {
           {DISPUTE_QUEUES.map((q) => {
             const ids = queueMembers[q.key];
             const { icon, tone } = QUEUE_ICON[q.key];
-            return <QueueCard key={q.key} title={q.title} description={q.description} count={ids.length} icon={icon} tone={tone} informational={q.key === "reinsertion_watch"} items={ids.map((id) => ({ id, label: clientName[id] ?? id, href: `/app/clients/${id}` }))} />;
+            return <QueueCard key={q.key} title={q.title} description={q.description} count={ids.length} icon={icon} tone={tone} informational={q.key === "reinsertion_watch"} items={ids.map((id) => ({ id, label: clientName[id] ?? id, href: `/app/creditops/cases/${id}` }))} />;
           })}
         </div>
       </section>

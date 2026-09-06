@@ -100,7 +100,7 @@ function LiveClientsListInner() {
               <li key={c.id}>
                 <button
                   type="button"
-                  onClick={() => navigate(`/app/clients/${c.id}`)}
+                  onClick={() => navigate(`/app/creditops/cases/${c.id}`)}
                   className="flex w-full flex-col gap-1 px-4 py-3 text-left transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none"
                 >
                   <span className="flex items-center justify-between gap-2">
@@ -121,8 +121,8 @@ function LiveClientsListInner() {
               {rows.map((c) => (
                 <tr
                   key={c.id}
-                  onClick={() => navigate(`/app/clients/${c.id}`)}
-                  onKeyDown={(e) => { if (e.key === "Enter") navigate(`/app/clients/${c.id}`); }}
+                  onClick={() => navigate(`/app/creditops/cases/${c.id}`)}
+                  onKeyDown={(e) => { if (e.key === "Enter") navigate(`/app/creditops/cases/${c.id}`); }}
                   tabIndex={0}
                   className="cursor-pointer border-t border-border/60 transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none"
                 >

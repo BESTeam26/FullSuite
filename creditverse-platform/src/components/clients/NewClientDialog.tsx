@@ -39,7 +39,7 @@ export function NewClientDialog({ open, onOpenChange }: { open: boolean; onOpenC
       const id = await createFulfillmentClient({ agencyId: org.data.agency_id, name: f.name.trim(), email: f.email.trim().toLowerCase(), phone: f.phone.trim() || undefined, mode: "saas_pulled", organizationId: activeOrganization.id, autoSync: true, status: "Onboarding", round: "Pre-Round" });
       void qc.invalidateQueries({ queryKey: ["fulfillment-clients"] }); void qc.invalidateQueries({ queryKey: ["creditops"] });
       onOpenChange(false); setF({ name: "", email: "", phone: "" });
-      navigate(`/app/clients/${id}`);
+      navigate(`/app/creditops/cases/${id}`);
     } catch (err) { setError(errorMessage(err, "Could not create the client.")); } finally { setBusy(false); }
   };
 

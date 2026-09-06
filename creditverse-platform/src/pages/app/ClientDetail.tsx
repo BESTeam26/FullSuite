@@ -105,10 +105,10 @@ const ClientDetailInner = () => {
         </div>
       )}
       <Link
-        to="/app/clients"
+        to="/app/creditops/cases"
         className="mb-4 flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
       >
-        <ArrowLeft className="h-4 w-4" /> Back to clients
+        <ArrowLeft className="h-4 w-4" /> Back to credit cases
       </Link>
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">

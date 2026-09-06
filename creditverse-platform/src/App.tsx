@@ -43,6 +43,7 @@ const AuthCallback = lazy(() => import("./pages/auth/AuthCallback"));
 const Index = lazy(() => import("./pages/Index"));
 const ClientPortal = lazy(() => import("./pages/portal/ClientPortal"));
 const Channels = lazy(() => import("./pages/app/Channels"));
+const Commissions = lazy(() => import("./pages/app/Commissions"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const DiyNotBuilt = lazy(() => import("./pages/DiyNotBuilt"));
 const AffiliatePortal = lazy(() => import("./pages/portals/PortalPreviewsRemoved").then((m) => ({ default: m.AffiliatePortalPreview })));
@@ -80,6 +81,8 @@ const Dashboard = lazy(() => import("./pages/app/Dashboard"));
 const Workspaces = lazy(() => import("./pages/app/Workspaces"));
 const OrganizationDashboard = lazy(() => import("./pages/app/OrganizationDashboard"));
 const Clients = lazy(() => import("./pages/app/Clients"));
+const ClientProfile = lazy(() => import("./pages/app/ClientProfile"));
+const CreditCases = lazy(() => import("./pages/app/CreditCases"));
 const ClientDetail = lazy(() => import("./pages/app/ClientDetail"));
 const FundingFiles = lazy(() => import("./pages/app/FundingFiles"));
 const FundingFileDetail = lazy(() => import("./pages/app/FundingFileDetail"));
@@ -457,10 +460,30 @@ const App = () => (
                                 {/* No permission key: the database returns
                                     only the channels this person is in. */}
                                 <Route path="channels" element={<Channels />} />
-                                <Route path="clients" element={<RequirePermission permission="creditops.clients.view" label="Clients"><Clients /></RequirePermission>} />
+                                <Route path="commissions" element={<RequirePermission permission="fundingops.commissions.view" label="Commissions"><Commissions /></RequirePermission>} />
+                                {/*
+                                  CLIENTS IS ORGANIZATION-LEVEL.
+
+                                  Either service's key opens the directory,
+                                  because the client list is the relationship
+                                  layer under both — a FundingOps-only
+                                  organization has no CreditOps key at all and
+                                  must still be able to see its own customers.
+
+                                  The credit-repair application moved to
+                                  /app/creditops/cases/:id, where it keeps the
+                                  CreditOps key it always had. Opening a client
+                                  no longer opens a dispute screen.
+                                */}
+                                <Route path="clients" element={<RequirePermission permission={["creditops.clients.view", "fundingops.files.view"]} label="Clients"><Clients /></RequirePermission>} />
                                 <Route
                                   path="clients/:id"
-                                  element={<RequirePermission permission="creditops.clients.view" label="Clients"><ClientDetail /></RequirePermission>}
+                                  element={<RequirePermission permission={["creditops.clients.view", "fundingops.files.view"]} label="Clients"><ClientProfile /></RequirePermission>}
+                                />
+                                <Route path="creditops/cases" element={<RequirePermission permission="creditops.clients.view" label="Credit Cases"><CreditCases /></RequirePermission>} />
+                                <Route
+                                  path="creditops/cases/:id"
+                                  element={<RequirePermission permission="creditops.clients.view" label="Credit Cases"><ClientDetail /></RequirePermission>}
                                 />
                                 <Route
                                   path="operations"

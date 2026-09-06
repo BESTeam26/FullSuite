@@ -17,6 +17,7 @@ import {
   Network,
   Briefcase,
   BarChart3,
+  HandCoins,
   MessagesSquare,
   Scale,
   BookOpen,
@@ -213,11 +214,39 @@ export const Sidebar = () => {
       ],
     },
     {
+      /*
+       * CLIENTS IS ORGANIZATION-LEVEL, not a CreditOps tab.
+       *
+       * The boundary Dee drew, and the one the data has enforced since C1:
+       *
+       *   Client      who the person is
+       *   CreditOps   what credit repair work is being done for them
+       *   FundingOps  what funding work is being done for them
+       *
+       * The same Alice can be a credit client, a funding client, both, or
+       * neither yet. Putting Clients under CreditOps said the opposite — that
+       * a person only exists once credit work starts — and made "she also
+       * needs funding" look like a reason to create her again.
+       *
+       * Visible whenever the organization runs EITHER service, because the
+       * client list is the relationship layer under both.
+       */
+      label: "Clients",
+      show: isProductOn("creditOps") || isProductOn("fundingOps"),
+      items: [
+        { label: "All Clients", icon: Users, href: "/app/clients", permission: ["creditops.clients.view", "fundingops.files.view"] },
+      ],
+    },
+    {
       label: "CreditOps",
       show: isProductOn("creditOps"),
       items: [
         { label: "Dashboard", icon: LayoutGrid, href: "/app/dispute-dashboard", permission: "creditops.clients.view" },
-        { label: "Clients", icon: Users, href: "/app/clients", permission: "creditops.clients.view" },
+        /* Credit Cases is not "Clients moved back". All Clients answers "who
+           are our customers"; this answers "who are we doing credit repair
+           work for right now", which needs lifecycle, status and round —
+           columns that have no business on a canonical person. */
+        { label: "Credit Cases", icon: Users, href: "/app/creditops/cases", permission: "creditops.clients.view" },
         { label: "Workspace", icon: FileText, href: "/app/operations" },
         { label: "Reports", icon: BarChart3, href: "/app/reporting", permission: "reports.view" },
       ],
@@ -226,10 +255,10 @@ export const Sidebar = () => {
       label: "FundingOps",
       show: isProductOn("fundingOps"),
       items: [
-        /* The engine (funding files, Program Fit, lenders) sits apart from the
-           operational Workspace, as Clients does for CreditOps. */
         { label: "Dashboard", icon: LayoutGrid, href: "/app/funding-dashboard", permission: "fundingops.files.view" },
         { label: "Funding Files", icon: FolderOpen, href: "/app/funding-files", permission: "fundingops.files.view" },
+        /* Lender intelligence is a FundingOps capability in its own right —
+           searched and matched against, not a tab on one client. */
         { label: "Lenders", icon: Landmark, href: "/app/lenders", permission: "fundingops.files.view" },
         { label: "Deals", icon: Briefcase, href: "/app/funding-deals", permission: "fundingops.files.view" },
         { label: "Workspace", icon: FileText, href: "/app/metro2" },
@@ -268,6 +297,7 @@ export const Sidebar = () => {
            gates the entry — an empty list is the honest answer for somebody in
            no channels. */
         { label: "Channels", icon: MessagesSquare, href: "/app/channels" },
+        { label: "Commissions", icon: HandCoins, href: "/app/commissions", permission: "fundingops.commissions.view" },
         { label: "Compliance & Billing", icon: Scale, href: "/app/compliance", permission: "billing.view" },
         { label: "Settings", icon: Settings, href: "/app/settings", permission: SETTINGS_KEYS },
       ],
