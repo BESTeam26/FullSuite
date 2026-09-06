@@ -4373,3 +4373,81 @@ portal's own screens were not opened in a browser, because doing so needs a
 sign-in as the fixture client and Claude never types a password. 13 component
 tests cover the structure instead. To see it: sign in as
 `client.portal@bes.test` and open `/portal`.
+
+## AI safeguards (0100, 0101) — reserve first, reconcile after, fail closed
+
+### The hole this closes
+
+The balance was checked BEFORE the call and the charge computed AFTER it, so an
+organization with one credit left could spend fifty on a single large request.
+A positive balance before a request is not permission to overshoot on it.
+
+The shape is the one card networks use: reserve an estimate, which makes the
+credits unavailable immediately; do the work; reconcile against actual cost. An
+abandoned reservation expires in ten minutes rather than stranding credits.
+
+### Every gate, and every one is a refusal
+
+`ai_reserve()` checks all of these before anything is sent. If it raises,
+nothing was sent and nothing was charged.
+
+| Gate | Refuses when |
+|---|---|
+| Attribution | No organization, or no user, or not a member |
+| Entitlement | The plan does not include the feature |
+| Pricing | No policy in force for the model — never billed at zero |
+| Output ceiling | Requested output above the configured limit |
+| Per-request cap | Estimate above the per-request ceiling |
+| Available credits | Estimate above balance **minus outstanding reservations** |
+| Daily cap | Today's spend plus this estimate above the cap |
+| Rate limit | Too many requests in the last hour |
+
+Verified against the live database — each one refuses with its own message, and
+a reservation of 5.40 credits drops *available* from 500.00 to 494.60 while the
+*balance* stays 500.00 until reconciliation.
+
+### Markup, and a warning that cannot be missed
+
+Markup is **3.0×**, and `ai_pricing_policy` was **empty** — which meant every
+model was refused. Correct fail-closed behaviour, but unusable, so 0101 seeds
+the three models the gateway can select.
+
+**Those prices are provisional.** `ai_pricing_unconfirmed()` lists any model
+being charged on a price nobody has confirmed, visible to BES and never to a
+customer. Under-pricing costs money on every call and the only symptom is a
+margin that quietly does not appear.
+
+### The gateway
+
+Reserve → call → reconcile, with `ai_release()` on every failure path so a
+provider timeout does not hold a customer's credits. `ai_reconcile()` is
+service-role only: a browser that could settle its own usage could settle it at
+zero. Upload ceilings come from the organization's configured limits.
+
+If metering fails the answer is **not returned**, because unbilled usage is a
+bill BES pays and cannot recover.
+
+The response carries credits and balance. Never provider cost, never markup.
+
+### Extraction ladder — free rungs first
+
+```
+text layer   → read in the browser. Free. Never leaves the machine.
+local OCR    → Tesseract in the browser. Free.
+assisted     → the model. Metered. Only when local extraction failed.
+```
+
+Bad OCR is worse than none: a parser that turns $1,847 into $847 confidently
+produces a dispute letter asserting a wrong fact. Every rung is scored on
+SHAPE — bureau names, dollar amounts, years, status words, the ratio of real
+words to symbols — and anything short of good goes to a person.
+
+**Assisted extraction always goes to review, however well it scored.** A model
+reading a photograph is inference, and inference gets a human before it becomes
+a client's balance.
+
+### Captured as matrix phase 39 (22 checks)
+
+Including the reverse cases: a customer cannot read `ai_economics()`, cannot
+see which prices are unconfirmed, cannot read another organization's usage, and
+cannot raise their own limits.

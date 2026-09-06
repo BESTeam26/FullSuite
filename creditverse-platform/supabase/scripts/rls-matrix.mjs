@@ -12,7 +12,7 @@
  * fixtures change instead of drifting into hard-coded numbers.
  *
  *   node supabase/scripts/rls-matrix.mjs            # phase-1 checks
- *   node supabase/scripts/rls-matrix.mjs --phase 38 # include later phases
+ *   node supabase/scripts/rls-matrix.mjs --phase 39 # include later phases
  *
  * Exit code is non-zero on any failed check in the requested phases. Run from
  * creditverse-platform/ (the CLI resolves the linked project from there).
@@ -1546,6 +1546,47 @@ if (PHASE >= 38) {
   ] : [["(no portal client fixture)", () => "skip", "skip"]];
   console.log("\nphase 38:");
   for (const [label, fn, want] of P38) {
+    checks++;
+    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
+    const ok = String(got) === String(want); if (!ok) fails++;
+    console.log(`  ${ok ? "\u2713" : "\u2717"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
+  }
+}
+
+
+/* Phase 39 — AI safeguards (0100/0101). Reserve before the call, reconcile
+   after, and fail closed on anything that cannot be attributed or priced. */
+if (PHASE >= 39) {
+  const w39 = (uid, sql, seed = "") => { try { return q(`begin; ${seed} set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
+  const OWN = U["org.owner@bes.test"], BES = U["bes.owner@bes.test"], OTHER = U["org2.owner@bes.test"];
+  const M = "claude-sonnet-5";
+  const RES = (i, o) => `select 1 as rows from public.ai_reserve('${lakesideOrg}','letters.assist','${M}',${i},${o})`;
+  const P39 = [
+    ["the markup is 3x provider cost",                       () => q(`select (count(*) filter (where markup_multiplier = 3.000) = count(*))::text as rows from public.ai_pricing_policy where effective_until is null`)[0].rows, "true"],
+    ["a normal request reserves",                            () => w39(OWN, `select (reservation_id is not null)::text as rows from public.ai_reserve('${lakesideOrg}','letters.assist','${M}',2000,800)`), "true"],
+    ["reserving reduces AVAILABLE without spending BALANCE", () => w39(OWN, `select public.ai_reserve('${lakesideOrg}','letters.assist','${M}',2000,800); select ((public.ai_credit_balance('${lakesideOrg}') > public.ai_available_credits('${lakesideOrg}')))::text as rows`), "true"],
+    ["usage with no organization is refused, never absorbed",() => w39(OWN, `select 1 as rows from public.ai_reserve(null,'letters.assist','${M}',100,100)`), "ERR 42501"],
+    ["a non-member is refused",                              () => w39(BES, RES(100, 100)), "ERR 42501"],
+    ["another organization's owner is refused",              () => w39(OTHER, RES(100, 100)), "ERR 42501"],
+    ["an unpriced model is refused, never billed at zero",   () => w39(OWN, `select 1 as rows from public.ai_reserve('${lakesideOrg}','letters.assist','no-such-model',100,100)`), "ERR 22023"],
+    ["the output ceiling refuses",                           () => w39(OWN, RES(2000, 999999)), "ERR 22023"],
+    ["the per-request ceiling refuses",                      () => w39(OWN, RES(50000000, 4000)), "ERR 22023"],
+    ["the daily cap refuses",                                () => w39(OWN, RES(2000, 800), `update public.ai_limits set daily_spend_cap_credits = 0 where organization_id is null;`), "ERR 22023"],
+    ["the hourly rate limit refuses",                        () => w39(OWN, RES(100, 100), `update public.ai_limits set requests_per_hour = 1 where organization_id is null; insert into public.ai_reservations (organization_id,user_id,feature_key,model,estimated_credits) values ('${lakesideOrg}','${OWN}','letters.assist','${M}',1);`), "ERR 22023"],
+    ["an exhausted balance refuses",                         () => w39(OWN, RES(2000, 800), `insert into public.ai_credit_ledger (organization_id, delta_credits, kind) select '${lakesideOrg}', -coalesce(sum(delta_credits),0), 'adjustment' from public.ai_credit_ledger where organization_id='${lakesideOrg}';`), "ERR 42501"],
+    ["a browser cannot settle its own usage",                () => w39(OWN, `select 1 as rows from public.ai_reconcile('00000000-0000-0000-0000-000000000000',1,1,0,'x')`), "ERR 42501"],
+    ["…nor release a reservation",                           () => w39(OWN, `select public.ai_release('00000000-0000-0000-0000-000000000000'); select 1 as rows`), "ERR 42501"],
+    ["a customer never sees provider cost or margin",        () => w39(OWN, `select count(*)::int as rows from public.ai_economics()`), 0],
+    ["…nor which prices are unconfirmed",                    () => w39(OWN, `select count(*)::int as rows from public.ai_pricing_unconfirmed()`), 0],
+    ["BES sees the economics",                               () => w39(BES, `select (count(*) >= 0)::text as rows from public.ai_economics()`), "true"],
+    ["…and is warned about provisional prices",              () => w39(BES, `select (count(*) > 0)::text as rows from public.ai_pricing_unconfirmed()`), "true"],
+    ["a customer reads their OWN credit usage",              () => w39(OWN, `select (count(*) >= 0)::text as rows from public.ai_my_usage('${lakesideOrg}')`), "true"],
+    ["…and not another organization's",                      () => w39(OTHER, `select count(*)::int as rows from public.ai_my_usage('${lakesideOrg}')`), 0],
+    ["a customer cannot raise their own limits",             () => w39(OWN, `update public.ai_limits set daily_spend_cap_credits = 999999 where organization_id is null; select count(*)::int as rows from public.ai_limits where daily_spend_cap_credits = 999999`), 0],
+    ["allowances are rows, not constants",                   () => q(`select (count(*) > 0)::text as rows from public.plan_ai_allowances`)[0].rows, "true"],
+  ];
+  console.log("\nphase 39:");
+  for (const [label, fn, want] of P39) {
     checks++;
     let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
     const ok = String(got) === String(want); if (!ok) fails++;
