@@ -41,7 +41,7 @@ the sales front end feeding it.
 | C2 | Read **scanned / image** PDFs (true OCR) | An OCR step. See §B. | Decision + key |
 | C3 | Plain-language "translation" of every report item for the client | Deterministic explanations exist for findings; item-level plain wording is an AI draft (explain, never decide). Ships when the Anthropic key is set. | `ANTHROPIC_API_KEY` |
 | C4 | Letters actually **mailed** (print-and-mail vendor) and USPS tracking live | A mail vendor account (Lob or Click2Mail) and the USPS tracking API. Panels exist; they are not connected. | Vendor choice + keys |
-| C5 | **Client portal** for credit-repair clients (progress, letters sent, upload ID/proof docs, sign agreement) | The borrower portal pattern already built for funding, applied to credit clients: a `client` portal role, read-only views, document upload into `files`. Structural: needs a short proposal. | Approve proposal |
+| C5 | **Client portal** for credit-repair clients (progress, letters sent, upload ID/proof docs, sign agreement) | The borrower portal pattern applied to credit clients. **Proposal written:** `ARCHITECTURE_PROPOSAL_CLIENT_PORTAL.md`. | Approve proposal |
 | C6 | **E-signature** for CROA agreements and disclosures | An e-sign provider (Dropbox Sign / DocuSign / SignWell) or GHL documents. Agreements module exists as local configuration. | Provider choice |
 | C7 | Monitoring-service **connectors** (IdentityIQ, SmartCredit, MyScoreIQ…) | Most have no public API; the practical path is C1/C2 (their PDF exports). Any connector needs a partner agreement. | Partner agreements |
 

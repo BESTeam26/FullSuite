@@ -135,9 +135,16 @@ const SupportPage = lazy(named(hq2, "SupportPage"));
 
 const queryClient = new QueryClient();
 
+/* A page-shaped placeholder while a lazy screen loads: the layout the screen
+   will take (title, tiles, a card) instead of a spinner, so nothing jumps
+   when it arrives (rule 15: loading preserves layout). */
 const RouteFallback = () => (
-  <div className="flex min-h-screen items-center justify-center bg-background">
-    <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+  <div className="animate-pulse p-6 md:p-8" aria-busy="true" aria-label="Loading">
+    <div className="mb-6 h-7 w-56 rounded-lg bg-muted" />
+    <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+      {[0, 1, 2, 3].map((i) => <div key={i} className="h-24 rounded-xl border border-border bg-card" />)}
+    </div>
+    <div className="h-64 rounded-xl border border-border bg-card" />
   </div>
 );
 
