@@ -22,6 +22,7 @@ import {
   LayoutGrid,
   BarChart3,
   Sparkles,
+  Palette,
 } from "lucide-react";
 import {
   AgencySettingsProvider,
@@ -65,6 +66,8 @@ import { RoleAccessSection } from "@/components/settings/sections/RoleAccessSect
 import { OrganizationTeamsSection, TeamMembersSection } from "@/components/settings/sections/TeamMembersSection";
 import { KpiSettingsSection } from "@/components/settings/sections/KpiSettingsSection";
 import { AiUsageSection } from "@/components/settings/sections/AiUsageSection";
+import { OrganizationProfileSection } from "@/components/settings/sections/OrganizationProfileSection";
+import { OrganizationPlanSection } from "@/components/settings/sections/OrganizationPlanSection";
 import { LetterLibrarySection } from "@/components/settings/sections/LetterLibrarySection";
 import { useAgency } from "@/lib/agency-context";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -130,12 +133,14 @@ const organizationGroups: SettingsGroup[] = [
   {
     label: "Organization",
     items: [
+      { key: "profile", label: "Profile & branding", icon: Palette },
       { key: "team", label: "Team Members", icon: Users },
       { key: "role-access", label: "Roles & access", icon: ShieldCheck },
       { key: "workspace-views", label: "Workspace views", icon: LayoutGrid },
       { key: "letters", label: "Letter Library", icon: FileText },
       { key: "kpis", label: "KPIs", icon: BarChart3 },
       { key: "ai-usage", label: "AI usage", icon: Sparkles },
+      { key: "plan", label: "Plan & billing", icon: CreditCard },
     ],
   },
 ];
@@ -149,6 +154,8 @@ const SettingsContent = () => {
 
   const render = () => {
     if (isOrganizationView) {
+      if (active === "profile") return <OrganizationProfileSection canEdit={canEditKpis} />;
+      if (active === "plan") return <OrganizationPlanSection />;
       if (active === "role-access") return <RoleAccessSection />;
       if (active === "workspace-views") return <WorkspaceViewsSection />;
       if (active === "ai-usage") return activeOrganization ? <AiUsageSection organizationId={activeOrganization.id} canEdit={canEditKpis} /> : null;

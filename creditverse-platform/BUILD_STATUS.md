@@ -3505,3 +3505,12 @@ Users, Organizations, Products), local-only configuration awaiting its model
 Portals, Notifications, Security, System Controls — each shows its
 placeholder note), and connectors awaiting credentials (Integrations, CRM
 bridge, Credit Data Connectors, Agreements).
+
+**Polish pass 4 — organization settings complete (2026-09-05).** An
+organization's Settings now covers what an owner expects, in navigation
+order: **Profile & branding** (logo, primary colour with live preview,
+tagline, custom domain — saved through the SQL merge, never
+read-modify-write), Team Members, Roles & access, Workspace views, Letter
+Library, KPIs, AI usage, and **Plan & billing** (plan from sign-up, trial or
+active status with dates, seats in use plus invitations, modules enabled, and
+a pre-addressed email to BES for changes until the payment connection exists).
