@@ -47,9 +47,8 @@ export type Recipient =
   | "furnisher_compliance"
   | "furnisher_executive"
   | "collector"
-  | "regulator_cfpb"
-  | "regulator_state"
-  | "regulator_ftc"
+  /** The consumer themself. Rounds that produce guidance, not an envelope. */
+  | "consumer_guidance"
   | "counsel";
 
 /** What must already be true in the case record to enter a round. */
@@ -217,25 +216,37 @@ export const ESCALATION_LADDER: RoundDefinition[] = [
   },
   {
     number: 9,
-    name: "CFPB complaint",
-    focus: "The documented record goes to the regulator — with the consumer's say-so.",
-    recipients: ["regulator_cfpb"],
-    requires: ["consumer_authorised_regulator", "compliance_contact_exhausted"],
-    asksFor: ["A response through the CFPB portal, with the full correspondence record attached"],
-    legalBasis: ["12 U.S.C. § 5493(b)(3)"],
+    name: "Regulator guidance: CFPB",
+    focus: "The record is strong enough for a complaint. Explain it and let the consumer decide.",
+    /* Dee, 2026-09-06: "Filing FTC and CFPB is something that can be
+       recommended but these are not done in the system." So this round
+       produces GUIDANCE, addressed to the consumer — what the channel does,
+       what it does not do, what to have ready. They file in their own name or
+       they do not. The platform never files, and the specification forbids it
+       outright. */
+    recipients: ["consumer_guidance"],
+    requires: ["compliance_contact_exhausted", "still_reported_after_result"],
+    asksFor: [
+      "An explanation of what a CFPB complaint does and does not do",
+      "The correspondence record assembled in date order, ready for the consumer to attach",
+    ],
+    legalBasis: [],
     humanReview: true,
-    consumerAuthorisation: true,
+    consumerAuthorisation: false,
   },
   {
     number: 10,
-    name: "State regulator and FTC",
-    focus: "The CFPB response did not resolve it. Widen the audience.",
-    recipients: ["regulator_state", "regulator_ftc"],
-    requires: ["cfpb_response_inadequate", "consumer_authorised_regulator"],
-    asksFor: ["State-level review, and an FTC record of the reporting conduct"],
-    legalBasis: ["15 U.S.C. § 1681s"],
+    name: "Regulator guidance: state Attorney General",
+    focus: "The CFPB response did not address it. Explain the state route.",
+    recipients: ["consumer_guidance"],
+    requires: ["cfpb_response_inadequate"],
+    asksFor: [
+      "An explanation of the state consumer protection route and any state credit reporting statute",
+      "The full record, in date order, ready for the consumer to attach",
+    ],
+    legalBasis: [],
     humanReview: true,
-    consumerAuthorisation: true,
+    consumerAuthorisation: false,
   },
   {
     number: 11,
@@ -321,7 +332,7 @@ export const REQUIREMENT_LABELS: Record<EntryRequirement, string> = {
   deleted_then_reinserted: "the item deleted and later returned",
   no_reinsertion_notice: "no notice of the reinsertion within five business days",
   compliance_contact_exhausted: "the furnisher's compliance function contacted without resolution",
-  consumer_authorised_regulator: "the consumer's authorisation to file with a regulator",
+  consumer_authorised_regulator: "the consumer's decision to approach a regulator, which is theirs alone to make",
   cfpb_response_inadequate: "a CFPB response that did not resolve it",
   willfulness_record: "repeated notice of the same error with responses that did not address it",
   consumer_authorised_legal: "the consumer's authorisation to take legal steps",

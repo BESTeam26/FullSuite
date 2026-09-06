@@ -18,8 +18,18 @@ describe("the ladder itself", () => {
     expect(getRound(3)?.recipients).toContain("furnisher");
     expect(getRound(4)?.recipients).toContain("furnisher_compliance");
     expect(getRound(8)?.recipients).toContain("furnisher_executive");
-    expect(getRound(9)?.recipients).toContain("regulator_cfpb");
     expect(getRound(12)?.recipients).toEqual(["counsel"]);
+  });
+
+  it("NEVER addresses a regulator — those rounds produce guidance for the consumer", () => {
+    /* The platform does not file with the CFPB, the FTC, a state AG or the
+       BBB. It explains the channel and hands over the record; the consumer
+       decides and files in their own name. */
+    for (const r of ESCALATION_LADDER) {
+      expect(r.recipients.some((x) => x.startsWith("regulator"))).toBe(false);
+    }
+    expect(getRound(9)?.recipients).toEqual(["consumer_guidance"]);
+    expect(getRound(10)?.recipients).toEqual(["consumer_guidance"]);
   });
 
   it("puts a person in front of every round past the routine ones", () => {
@@ -28,10 +38,9 @@ describe("the ladder itself", () => {
     }
   });
 
-  it("never files with a regulator or threatens legal steps without the consumer", () => {
+  it("never takes a legal step without the consumer", () => {
     for (const r of ESCALATION_LADDER) {
-      const touchesOutside = r.recipients.some((x) => x.startsWith("regulator") || x === "counsel");
-      if (touchesOutside) expect(r.consumerAuthorisation).toBe(true);
+      if (r.recipients.includes("counsel")) expect(r.consumerAuthorisation).toBe(true);
     }
     /* And the reverse: no ordinary dispute round demands authorisation it
        does not need, which would stall a routine correction. */
@@ -85,12 +94,11 @@ describe("what the record has earned", () => {
     expect(availableRound(record)?.number).toBe(7);
   });
 
-  it("holds the regulator back until the consumer says yes", () => {
-    const almost: CaseRecord = { confirmed_finding: true, compliance_contact_exhausted: true };
-    expect(roundAvailability(almost).find((r) => r.round.number === 9)!.missing)
-      .toEqual(["consumer_authorised_regulator"]);
-    expect(roundAvailability({ ...almost, consumer_authorised_regulator: true })
-      .find((r) => r.round.number === 9)!.available).toBe(true);
+  it("offers regulator guidance only once the record would survive a complaint", () => {
+    const early: CaseRecord = { confirmed_finding: true };
+    expect(roundAvailability(early).find((r) => r.round.number === 9)!.available).toBe(false);
+    const earned: CaseRecord = { compliance_contact_exhausted: true, still_reported_after_result: true };
+    expect(roundAvailability(earned).find((r) => r.round.number === 9)!.available).toBe(true);
   });
 
   it("holds pre-litigation back on all three of its gates", () => {
