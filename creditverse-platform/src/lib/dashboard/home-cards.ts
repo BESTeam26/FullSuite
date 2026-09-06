@@ -42,9 +42,9 @@ export const HOME_CARDS: readonly HomeCardDef[] = [
   { key: "creditops.processing", label: "In processing", product: "creditOps", href: "/app/operations" },
   { key: "creditops.awaiting", label: "Awaiting bureau response", product: "creditOps", href: "/app/operations" },
   { key: "creditops.attention", label: "Needs attention", product: "creditOps", href: "/app/operations" },
-  { key: "fundingops.active", label: "Active funding clients", product: "fundingOps", href: "/app/metro2" },
-  { key: "fundingops.funded", label: "Funded", product: "fundingOps", href: "/app/metro2" },
-  { key: "fundingops.overdue", label: "Funding files overdue", product: "fundingOps", href: "/app/metro2" },
+  { key: "fundingops.active", label: "Active funding clients", product: "fundingOps", href: "/app/funding-workspace" },
+  { key: "fundingops.funded", label: "Funded", product: "fundingOps", href: "/app/funding-workspace" },
+  { key: "fundingops.overdue", label: "Funding files overdue", product: "fundingOps", href: "/app/funding-workspace" },
 ];
 
 const CARD_BY_KEY = new Map(HOME_CARDS.map((c) => [c.key, c]));

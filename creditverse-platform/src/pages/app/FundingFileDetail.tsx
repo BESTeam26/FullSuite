@@ -21,7 +21,7 @@ export default function FundingFileDetail() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link to="/app/funding-files" className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"><ArrowLeft className="h-3.5 w-3.5" /> All funding files</Link>
         {file && (
-          <Link to={`/app/metro2?client=${file.clientId}`} className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-bold text-foreground hover:bg-muted">
+          <Link to={`/app/funding-workspace?client=${file.clientId}`} className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-bold text-foreground hover:bg-muted">
             <Briefcase className="h-3.5 w-3.5" /> Open the work file in the Workspace
           </Link>
         )}

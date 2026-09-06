@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { RoleProvider } from "@/lib/role-context";
 import { ReferralProvider } from "@/lib/referral/referral-context";
 import { AgencyProvider } from "@/lib/agency-context";
@@ -83,6 +83,7 @@ const OrganizationDashboard = lazy(() => import("./pages/app/OrganizationDashboa
 const Clients = lazy(() => import("./pages/app/Clients"));
 const ClientProfile = lazy(() => import("./pages/app/ClientProfile"));
 const CreditCases = lazy(() => import("./pages/app/CreditCases"));
+const BesPartners = lazy(() => import("./pages/app/BesPartners"));
 const ClientDetail = lazy(() => import("./pages/app/ClientDetail"));
 const FundingFiles = lazy(() => import("./pages/app/FundingFiles"));
 const FundingFileDetail = lazy(() => import("./pages/app/FundingFileDetail"));
@@ -460,6 +461,15 @@ const App = () => (
                                 {/* No permission key: the database returns
                                     only the channels this person is in. */}
                                 <Route path="channels" element={<Channels />} />
+                                {/*
+                                  BES PARTNERS — the companies BES is engaged
+                                  to work for. Not end consumers (those are an
+                                  organization's Clients) and not every SaaS
+                                  subscriber. RequireAgency keeps it to BES
+                                  staff; the engagement rows RLS returns decide
+                                  what is actually on it.
+                                */}
+                                <Route path="bes-partners" element={<RequireAgencyStaff label="BES Partners"><BesPartners /></RequireAgencyStaff>} />
                                 <Route path="commissions" element={<RequirePermission permission="fundingops.commissions.view" label="Commissions"><Commissions /></RequirePermission>} />
                                 {/*
                                   CLIENTS IS ORGANIZATION-LEVEL.
@@ -497,7 +507,7 @@ const App = () => (
                                   }
                                 />
                                 <Route
-                                  path="metro2"
+                                  path="funding-workspace"
                                   element={
                                     <RequireEntitlement
                                       product="fundingOps"
@@ -507,6 +517,15 @@ const App = () => (
                                     </RequireEntitlement>
                                   }
                                 />
+                                {/*
+                                  This screen answered to /app/metro2 for most
+                                  of the build. The destination was always
+                                  right — it is the FundingOps Workspace — but
+                                  Metro 2 is a credit-reporting format and has
+                                  nothing to do with funding. The name was a
+                                  leftover. Old links keep working.
+                                */}
+                                <Route path="metro2" element={<Navigate to="/app/funding-workspace" replace />} />
                                 {/* FundingOps engine surfaces (Funding Files), separate from the Workspace. */}
                                 <Route
                                   path="funding-files"

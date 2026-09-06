@@ -44,7 +44,7 @@ import { DataSourceBadge } from "@/components/dashboard/DataSourceBadge";
 
 const MODULE_LINKS: Partial<Record<ProductKey, { href: string; icon: typeof FileText; blurb: string }>> = {
   creditOps: { href: "/app/operations", icon: FileText, blurb: "Credit repair operations" },
-  fundingOps: { href: "/app/metro2", icon: Landmark, blurb: "Funding pipeline" },
+  fundingOps: { href: "/app/funding-workspace", icon: Landmark, blurb: "Funding pipeline" },
   workspaces: { href: "/app/workspaces", icon: LayoutGrid, blurb: "Your own boards and work items" },
   crm: { href: "/app/bes-crm", icon: Workflow, blurb: "BES delivery projects and published updates" },
 };

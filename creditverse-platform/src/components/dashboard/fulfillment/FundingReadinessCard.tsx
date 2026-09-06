@@ -53,7 +53,7 @@ export function FundingReadinessCard({ fulfillmentClientId }: { fulfillmentClien
     creditOpsEntitled,
     fundingOpsEntitled,
   });
-  const fundingPath = isAgencyView ? `/app/fundingops?client=${f?.id}` : `/app/metro2?client=${f?.id}`;
+  const fundingPath = isAgencyView ? `/app/fundingops?client=${f?.id}` : `/app/funding-workspace?client=${f?.id}`;
 
   const returnToFunding = async () => {
     setBusy(true); setError(null);

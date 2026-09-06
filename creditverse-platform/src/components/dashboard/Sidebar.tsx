@@ -15,6 +15,7 @@ import {
   UserCheck,
   Users,
   Network,
+  Handshake,
   Briefcase,
   BarChart3,
   HandCoins,
@@ -118,6 +119,14 @@ export const Sidebar = () => {
           href: "/app/subaccounts",
           badge: subAccounts.length,
         },
+        /*
+         * BES PARTNERS sits beside Organizations, not inside it, because the
+         * two answer different questions. Organizations = who buys the
+         * software. BES Partners = who BES actually does work for. A company
+         * can be either, both, or (model 3) a partner with no SaaS tenant at
+         * all — which is why a partner is not a subclass of an organization.
+         */
+        { label: "BES Partners", icon: Handshake, href: "/app/bes-partners" },
         {
           label: "Attention Center",
           icon: AlertTriangle,
@@ -257,11 +266,18 @@ export const Sidebar = () => {
       items: [
         { label: "Dashboard", icon: LayoutGrid, href: "/app/funding-dashboard", permission: "fundingops.files.view" },
         { label: "Funding Files", icon: FolderOpen, href: "/app/funding-files", permission: "fundingops.files.view" },
-        /* Lender intelligence is a FundingOps capability in its own right —
-           searched and matched against, not a tab on one client. */
-        { label: "Lenders", icon: Landmark, href: "/app/lenders", permission: "fundingops.files.view" },
+        /* Lender Intelligence is a FundingOps domain capability in its own
+           right — a catalogue with provenance, searched and matched against.
+           It is not a task board and not a tab on one client. */
+        { label: "Lender Intelligence", icon: Landmark, href: "/app/lenders", permission: "fundingops.files.view" },
+        /* Deals are the cross-file record surface: submissions, offers,
+           funded, commissions, renewals. A deal belongs to a funding file;
+           this is the view across all of them. */
         { label: "Deals", icon: Briefcase, href: "/app/funding-deals", permission: "fundingops.files.view" },
-        { label: "Workspace", icon: FileText, href: "/app/metro2" },
+        /* The Workspace runs the PEOPLE doing the funding work — queues,
+           assignments, hand-offs, SLA. Distinct from the domain screens
+           above, which are the work itself. */
+        { label: "Workspace", icon: FileText, href: "/app/funding-workspace" },
         { label: "Reports", icon: BarChart3, href: "/app/reporting", permission: "reports.view" },
       ],
     },

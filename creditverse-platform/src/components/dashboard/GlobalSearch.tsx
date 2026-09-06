@@ -118,7 +118,7 @@ export function GlobalSearch({ className }: { className?: string }) {
     navigate(path);
   };
   const creditPath = (id: string) => (isAgencyView ? `/app/creditops?client=${id}` : `/app/operations?client=${id}`);
-  const fundingPath = (id: string) => (isAgencyView ? `/app/fundingops?client=${id}` : `/app/metro2?client=${id}`);
+  const fundingPath = (id: string) => (isAgencyView ? `/app/fundingops?client=${id}` : `/app/funding-workspace?client=${id}`);
   const filePath = (entityType: string | null, entityId: string | null) => {
     if (!entityId) return null;
     if (entityType === "fulfillment_client") return creditPath(entityId);

@@ -208,7 +208,7 @@ export const MyWorkPage = () => {
   const fileHref = (f: { division: string; clientId: string }) =>
     f.division === "CreditOps"
       ? (viewMode === "agency" ? `/app/creditops?client=${f.clientId}` : `/app/operations?client=${f.clientId}`)
-      : (viewMode === "agency" ? `/app/fundingops?client=${f.clientId}` : `/app/metro2?client=${f.clientId}`);
+      : (viewMode === "agency" ? `/app/fundingops?client=${f.clientId}` : `/app/funding-workspace?client=${f.clientId}`);
   // Deep link from a notification: /app/my-work?item=<id>. The row is
   // highlighted if it is in the caller's list; if RLS no longer returns it,
   // nothing is highlighted and nothing is claimed.

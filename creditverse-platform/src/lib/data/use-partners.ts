@@ -93,3 +93,21 @@ export function usePartners(
     byScope: (scopeId) => partners.find((p) => p.scopeId === scopeId),
   };
 }
+
+/**
+ * The outsourcing groups alone, on the same cache key the partner trees use.
+ *
+ * BES Partners needs the groups but not a product-filtered partner tree — a
+ * group with no SaaS tenant belongs on that screen whatever it is entitled to.
+ * Same key, so no second request (rule 14).
+ */
+export function useOutsourcingGroups() {
+  const auth = useAuth();
+  const live = auth.mode === "live" && auth.status === "signed-in";
+  return useQuery({
+    queryKey: ["outsourcing-groups"],
+    queryFn: fetchOutsourcingGroups,
+    enabled: live,
+    staleTime: 5 * 60_000,
+  });
+}

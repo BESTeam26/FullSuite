@@ -87,7 +87,12 @@ const HELP: [prefix: string, help: PageHelp][] = [
     summary: "Submissions, offers, funded deals, commissions and renewals as one record surface.",
     steps: ["Each tab is a stage of the same deal record; nothing is duplicated.", "Commissions appear once funding is confirmed."],
   }],
-  ["/app/metro2", {
+  ["/app/bes-partners", {
+    title: "BES Partners",
+    summary: "The companies BES is engaged to do work for — not SaaS subscribers, and not anyone's end customers.",
+    steps: ["A company appears here because an engagement says BES was hired to perform a service for them.", "An outsourcing partner has no SaaS tenant at all; that is a valid shape, not missing data.", "The engagement is also what lets BES staff reach their records — no engagement, no access."],
+  }],
+  ["/app/funding-workspace", {
     title: "FundingOps Workspace",
     summary: "The operational side of funding: work items, assignments and stages behind each file.",
     steps: ["Move work through its stages; assign to a teammate.", "Funding files themselves live under Funding Files."],
