@@ -13,8 +13,14 @@ import { RevenueAndDiyPanels } from "./agency/RevenueAndDiyPanels";
 import { SubAccountMiniGrid } from "./agency/SubAccountMiniGrid";
 import { HqUpdatesPanel } from "./agency/HqUpdatesPanel";
 import { useCopilot } from "@/lib/copilot-context";
+import { AgencyBirthdayStrip } from "@/components/dashboard/AgencyBirthdayStrip";
+import { useOwnProfile } from "@/lib/data/use-account";
+import { useAuth } from "@/lib/auth/auth-context";
+import { dayGreeting } from "@/lib/greetings/day-greeting";
 
 export const AgencyDashboard = () => {
+  const auth = useAuth();
+  const account = useOwnProfile();
   const attention = useAttention();
   const { subAccounts, workOrders, switchToSubAccount } = useAgency();
   const navigate = useNavigate();
@@ -29,6 +35,8 @@ export const AgencyDashboard = () => {
 
   return (
     <div className="p-6 md:p-8 space-y-6 max-w-[1600px] mx-auto">
+      <AgencyBirthdayStrip />
+
       {/* ===== HEADER ===== */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
@@ -38,7 +46,7 @@ export const AgencyDashboard = () => {
             </Badge>
           </div>
           <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight mt-1.5 text-foreground">
-            Good morning, Platform Admin
+            {dayGreeting(new Date(), account.profile?.preferredName, account.profile?.fullName ?? auth.displayName)}
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             Managing {subAccounts.length} organizations across the BES

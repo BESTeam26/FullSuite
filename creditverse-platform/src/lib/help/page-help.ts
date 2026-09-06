@@ -102,6 +102,26 @@ const HELP: [prefix: string, help: PageHelp][] = [
     steps: ["Team Members: invite people and set their role.", "Roles & access: what each role may open and do.", "Letter Library: the approved letters your team builds from."],
     tip: "You only see the sections your role may change.",
   }],
+  ["/app/people", {
+    title: "People",
+    summary: "Everyone at your company, what they do and how to reach them.",
+    steps: ["Search by name, role or department.", "An administrator can move someone into a department here.", "A birthday shows only if that person chose to share it."],
+  }],
+  ["/app/teams", {
+    title: "Departments",
+    summary: "How your company is organised, and who belongs where.",
+    steps: ["Create a department, give it a lead, then assign people from People.", "Archiving a department releases its people and keeps the history."],
+  }],
+  ["/app/files", {
+    title: "Files",
+    summary: "Shared company documents everyone can open.",
+    steps: ["An administrator adds and removes files.", "Open creates a private link that works for a few minutes."],
+  }],
+  ["/app/tools", {
+    title: "Tools",
+    summary: "Links to the other systems your team uses every day.",
+    steps: ["An administrator keeps the list.", "Each card shows the website it opens, so nobody clicks blind."],
+  }],
   ["/app/announcements", {
     title: "Announcements",
     summary: "Updates for everyone in your organization, plus notices from the platform.",

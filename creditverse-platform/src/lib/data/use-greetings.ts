@@ -6,6 +6,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth/auth-context";
 import {
+  fetchAgencyBirthdays,
   fetchClientBirthdays,
   fetchOrganizationAutomations,
   fetchTeamBirthdays,
@@ -61,6 +62,18 @@ export function useClientBirthdays(organizationId: string | null, enabled: boole
     queryKey: clientBirthdaysKey(organizationId),
     queryFn: () => fetchClientBirthdays(organizationId!, withinDays),
     enabled: live && !!organizationId && enabled,
+    staleTime: 30 * 60_000,
+  });
+}
+
+/** BES staff birthdays for the HQ home. Runs only for agency staff. */
+export function useAgencyBirthdays(withinDays = 14) {
+  const auth = useAuth();
+  const live = auth.mode === "live" && auth.status === "signed-in" && auth.isAgencyStaff;
+  return useQuery({
+    queryKey: ["greetings", "agency"],
+    queryFn: () => fetchAgencyBirthdays(withinDays),
+    enabled: live,
     staleTime: 30 * 60_000,
   });
 }

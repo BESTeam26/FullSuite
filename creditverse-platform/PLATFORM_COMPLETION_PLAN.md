@@ -38,7 +38,7 @@ the sales front end feeding it.
 | # | Missing | What it takes | Needs you? |
 |---|---|---|---|
 | C1 | Import a credit report from a **PDF** | Text-layer extraction in the browser + a deterministic parser + a review grid before anything is saved. **Building now** (parser version `pdf-text-1`). Per-format rules need real sample PDFs. | Sample PDFs (see §D) |
-| C2 | Read **scanned / image** PDFs (true OCR) | An OCR step. See §B. | Decision + key |
+| C2 | Read **scanned / image** PDFs | **Built** (approved 2026-09-05): the assistant reads them through the AI gateway; every row is reviewed before import. | `ANTHROPIC_API_KEY` |
 | C3 | Plain-language "translation" of every report item for the client | Deterministic explanations exist for findings; item-level plain wording is an AI draft (explain, never decide). Ships when the Anthropic key is set. | `ANTHROPIC_API_KEY` |
 | C4 | Letters actually **mailed** (print-and-mail vendor) and USPS tracking live | A mail vendor account (Lob or Click2Mail) and the USPS tracking API. Panels exist; they are not connected. | Vendor choice + keys |
 | C5 | **Client portal** for credit-repair clients (progress, letters sent, upload ID/proof docs, sign agreement) | The borrower portal pattern applied to credit clients. **Proposal written:** `ARCHITECTURE_PROPOSAL_CLIENT_PORTAL.md`. | Approve proposal |
@@ -104,7 +104,8 @@ members, roles and permissions, audit log, Workforce views for BES.
 **GAP**
 | # | Missing | What it takes | Needs you? |
 |---|---|---|---|
-| O1 | **Announcements** and **Knowledge Base** are sample content | Two small tables (`announcements`, `knowledge_articles`) with organization scope, an editor for admins, read views for everyone. This is the "company intranet". Small structural addition — I will propose and build unless you object. | Say if you want it now |
+| O1 | ~~Announcements and Knowledge Base are sample content~~ | **Built** (0072, and the Organization Hub in 0074–0079): announcements, knowledge, people, departments, files and tools are live, entitlement- and permission-gated. | — |
+| O1b | *(original note)* | Two small tables (`announcements`, `knowledge_articles`) with organization scope, an editor for admins, read views for everyone. This is the "company intranet". Small structural addition — I will propose and build unless you object. | Say if you want it now |
 | O2 | **Recurring** work and simple **automations** (e.g. when stage changes → create task) | A `recurrence` rule on work items and an automation rule table executed by a scheduled Edge Function. | No, but sequence it |
 | O3 | **Stale running timer** policy (a timer left running overnight) | A rule: auto-stop at a configurable cap with a note, shown to the person next sign-in. | Choose the cap (e.g. 10 h) |
 | O5 | **Personal profiles and greetings** | **Built** (0073): photo, preferred name, job title, phone, birthday (month/day, opt-in), password change and reset; birthday greetings as an organization automation for the team and for clients in their portal. | — |
@@ -175,8 +176,13 @@ Sample screens are labelled. Dates are plain everywhere users read them.
 | 2 | **Scanned or photographed** reports (image-only PDF, phone photo) | Optical character recognition. Two realistic options below. | Not started; needs your decision |
 | 3 | **Direct connector** to the monitoring service | Partner API | Not available publicly for most services |
 
-**Tier 2 options (PROPOSAL — pick one)**
-- **Option A — Claude via the existing AI gateway (recommended).** The Anthropic
+**Tier 2 — decided.** Dee approved **Option A** on 2026-09-05: the assistant
+reads scans and photos through the existing AI gateway, charged as AI credits,
+with every transcribed row marked for review and the import recorded as
+`pdf-ocr-claude-1`. Built; it starts working the moment `ANTHROPIC_API_KEY` is
+set. The original options are kept below for the record.
+
+- **Option A — Claude via the existing AI gateway (chosen).** The Anthropic
   API accepts PDFs and images natively; the gateway, credits ledger and
   organization-level metering are already built and deployed. The model
   extracts items into the same review grid as tier 1; a human confirms before
@@ -227,6 +233,15 @@ forever.
 4. **On your decisions**: partner/affiliate model (F1), lender access (F2),
    client portal (C5), OCR tier 2 (B), mail vendor (C4), e-sign (C6).
 
+## C2. The client record moves out of the engines (2026-09-05)
+
+Dee: the Client becomes an organization asset holding identity, logins and
+documents; CreditOps and FundingOps become the fulfilment engines only.
+Written up in `ARCHITECTURE_PROPOSAL_CLIENT_RECORD.md` — five reversible
+migrations, an email-only dedupe with a review screen for the rest, and the
+client portal folded into it. Awaiting approval; recommended **before** the
+DIY build so a converted consumer becomes this record.
+
 ## D. Decisions and materials only you can provide
 
 | # | Item | Why it blocks |
@@ -236,7 +251,7 @@ forever.
 | 3 | Authorize.Net public client key + plan prices | Organization billing, later DIY consumer billing |
 | 4 | GHL credentials: Private Integration token per location **or** Marketplace app | Any GHL sync |
 | 5 | Sample credit report PDFs per service | Parser accuracy beyond generic layouts |
-| 6 | OCR tier 2 choice (A or B) | Scanned reports |
+| 6 | ~~OCR tier 2 choice~~ — decided: Claude via the gateway | done |
 | 7 | PDF retention policy | Storage bucket and compliance setting |
 | 8 | Do lenders log in (portal) or receive packages by email? | F2 design |
 | 9 | Partner/affiliate commission rules (flat, %, tiers, when earned) | F1 design |

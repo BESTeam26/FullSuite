@@ -1,6 +1,13 @@
 # Architecture proposal — CreditOps client portal
 
-**Status: PROPOSAL. Nothing here is built.** Written 2026-09-05 for Dee's
+**Status: PROPOSAL, now dependent on `ARCHITECTURE_PROPOSAL_CLIENT_RECORD.md`.**
+Dee asked (2026-09-05) that the client become an organization-level asset
+holding identity, login and documents. Build that first: this portal then uses
+the client's single login instead of adding a second identity model, and §3 of
+this document (a `portal_user_id` on `fulfillment_clients`) is replaced by
+`clients.portal_user_id`. The screens in §4 are unaffected.
+
+**Nothing here is built.** Written 2026-09-05 for Dee's
 approval (PLATFORM_COMPLETION_PLAN.md §A.1, C5). It gives a credit repair
 client a sign-in of their own, so it must be agreed before a migration exists.
 

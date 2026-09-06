@@ -6334,6 +6334,17 @@ export type Database = {
         }
         Returns: undefined
       }
+      agency_birthdays: {
+        Args: { p_within_days?: number }
+        Returns: {
+          avatar_path: string
+          birth_day: number
+          birth_month: number
+          days_away: number
+          name: string
+          user_id: string
+        }[]
+      }
       agency_of_org: { Args: { p_org: string }; Returns: string }
       ai_can_use: {
         Args: { p_feature: string; p_org: string }
@@ -6502,6 +6513,7 @@ export type Database = {
           views: string[]
         }[]
       }
+      delete_company_document: { Args: { p_id: string }; Returns: string }
       delete_hub_tool: { Args: { p_id: string }; Returns: undefined }
       dev_seed_user: {
         Args: { p_email: string; p_full_name: string; p_password: string }
@@ -6794,6 +6806,16 @@ export type Database = {
           p_publish: boolean
           p_tag: string
           p_title: string
+        }
+        Returns: string
+      }
+      save_company_document: {
+        Args: {
+          p_mime: string
+          p_name: string
+          p_org: string
+          p_path: string
+          p_size: number
         }
         Returns: string
       }

@@ -136,6 +136,7 @@ const CalendarPage = lazy(named(hq2, "CalendarPage"));
 const CompanyPeople = lazy(() => import("./pages/app/CompanyPeople"));
 const CompanyDepartments = lazy(() => import("./pages/app/CompanyDepartments"));
 const CompanyTools = lazy(() => import("./pages/app/CompanyTools"));
+const CompanyFiles = lazy(() => import("./pages/app/CompanyFiles"));
 const SupportPage = lazy(named(hq2, "SupportPage"));
 
 const queryClient = new QueryClient();
@@ -402,6 +403,10 @@ const App = () => (
                                 />
                                 {/* System */}
                                 <Route path="settings" element={<RequirePermission permission={["settings.manage", "team.manage", "team.permissions", "billing.view", "creditops.letters.templates"]} label="Settings"><Settings /></RequirePermission>} />
+                                <Route
+                                  path="files"
+                                  element={<RequireHubModule module="files" label="Files"><CompanyFiles /></RequireHubModule>}
+                                />
                                 <Route
                                   path="tools"
                                   element={<RequireHubModule module="tools" label="Tools"><CompanyTools /></RequireHubModule>}

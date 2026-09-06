@@ -7,8 +7,18 @@
  */
 import { requireSupabase } from "@/lib/supabase/client";
 
-export type AiFeatureKey = "credit.analysis" | "letters.assist" | "funding.analysis" | "funding.doc_intel" | "ops.assistant";
-export interface AiDraftRequest { organizationId: string; feature: AiFeatureKey; product?: "creditOps" | "fundingOps"; system?: string; prompt: string; maxTokens?: number }
+export type AiFeatureKey = "credit.analysis" | "credit.report_read" | "letters.assist" | "funding.analysis" | "funding.doc_intel" | "ops.assistant";
+/** A document or photo for the model to read; base64, no data: prefix. */
+export interface AiAttachment { mediaType: "application/pdf" | "image/png" | "image/jpeg" | "image/webp"; data: string }
+export interface AiDraftRequest {
+  organizationId: string;
+  feature: AiFeatureKey;
+  product?: "creditOps" | "fundingOps";
+  system?: string;
+  prompt: string;
+  maxTokens?: number;
+  attachments?: AiAttachment[];
+}
 export type AiDraftResult =
   | { status: "ok"; text: string; creditsCharged: number | null; balance: number | null }
   | { status: "not_connected" | "no_credits" | "error"; message: string };
@@ -24,6 +34,7 @@ export async function requestAiDraft(input: AiDraftRequest): Promise<AiDraftResu
         const body = (await ctx.json()) as { error?: string; code?: string };
         if (body.code === "not_connected") return { status: "not_connected", message: body.error ?? "AI is not connected yet." };
         if (body.code === "no_credits") return { status: "no_credits", message: body.error ?? "No AI credits." };
+        if (body.code === "too_large") return { status: "error", message: body.error ?? "That file is too large to read." };
         return { status: "error", message: body.error ?? error.message };
       } catch { /* fall through */ }
     }

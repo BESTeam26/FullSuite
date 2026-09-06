@@ -18,27 +18,6 @@ export interface OwnProfile {
   avatarPath: string | null;
 }
 
-const PROFILE_COLUMNS = "id, email, full_name, preferred_name, title, phone, birth_month, birth_day, birthday_visible, avatar_path";
-
-export async function fetchOwnProfile(userId: string): Promise<OwnProfile | null> {
-  const sb = requireSupabase();
-  const { data, error } = await sb.from("profiles").select(PROFILE_COLUMNS).eq("id", userId).maybeSingle();
-  if (error) throw error;
-  if (!data) return null;
-  return {
-    id: data.id,
-    email: String(data.email),
-    fullName: data.full_name,
-    preferredName: data.preferred_name,
-    title: data.title,
-    phone: data.phone,
-    birthMonth: data.birth_month,
-    birthDay: data.birth_day,
-    birthdayVisible: data.birthday_visible,
-    avatarPath: data.avatar_path,
-  };
-}
-
 export interface ProfileEdits {
   fullName: string;
   preferredName: string;

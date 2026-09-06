@@ -75,3 +75,18 @@ export async function fetchClientBirthdays(organizationId: string, withinDays = 
     daysAway: Number(r.days_away),
   }));
 }
+
+/** BES's own people, for the HQ hub. Staff only; no customer sees this list. */
+export async function fetchAgencyBirthdays(withinDays = 14): Promise<TeamBirthday[]> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("agency_birthdays", { p_within_days: withinDays });
+  if (error) throw error;
+  return (data ?? []).map((r) => ({
+    id: r.user_id as string,
+    name: r.name as string,
+    avatarPath: (r.avatar_path as string | null) ?? null,
+    birthMonth: Number(r.birth_month),
+    birthDay: Number(r.birth_day),
+    daysAway: Number(r.days_away),
+  }));
+}

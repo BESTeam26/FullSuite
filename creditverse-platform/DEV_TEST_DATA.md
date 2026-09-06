@@ -154,3 +154,24 @@ during UI work — and so a figure on screen is never mistaken for a real record
 **Already live and safe to test against real data:** CreditOps client list and
 queues, the client work timeline, FundingOps client list and Deal List, partner
 trees in both divisions, My Time, End of Day, Sub-Accounts, Reporting charts.
+
+## Organization Hub fixtures (0078)
+
+Three organizations differ on purpose, so all three paths of rule 18 can be
+exercised without editing data by hand:
+
+| Organization | Hub packages | Modules switched on |
+|---|---|---|
+| [TEST] Lakeside Partners | Core + Operations + Performance | Announcements, People, Departments, Knowledge, Tools, Calendar |
+| [TEST] Cedar Financial | Core only | Announcements, People, Knowledge |
+| [TEST] Harbor Capital Group | none | — (every hub screen offers an upgrade) |
+
+Lakeside also has three departments (Processing, Sales, Support) with no
+members assigned, so the People page shows the "not in a department yet"
+group until someone is placed.
+
+**Signing in matters here.** BES staff are *not* members of a customer
+organization, so the hub switches, department controls, company files and the
+announcement composer are hidden for them by design — the database refuses
+those writes (`member_can`). To exercise them, sign in as
+`org.owner@bes.test` (Lakeside org_admin).

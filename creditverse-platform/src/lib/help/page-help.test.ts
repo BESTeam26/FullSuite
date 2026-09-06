@@ -15,8 +15,8 @@ describe("helpFor", () => {
   });
 
   it("covers the main screens with user-facing wording", () => {
-    expect(HELP_ROUTE_COUNT).toBeGreaterThanOrEqual(24);
-    for (const path of ["/app/my-work", "/app/reporting", "/app/settings", "/app/dispute-dashboard", "/app/funding-dashboard"]) {
+    expect(HELP_ROUTE_COUNT).toBeGreaterThanOrEqual(28);
+    for (const path of ["/app/my-work", "/app/reporting", "/app/settings", "/app/dispute-dashboard", "/app/funding-dashboard", "/app/people", "/app/teams", "/app/files", "/app/tools"]) {
       const h = helpFor(path);
       expect(h?.steps.length).toBeGreaterThan(0);
       expect(JSON.stringify(h)).not.toMatch(/RLS|tenant|saas_pulled|outsourcing/i);

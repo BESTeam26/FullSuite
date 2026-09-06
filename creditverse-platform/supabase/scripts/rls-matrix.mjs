@@ -607,13 +607,18 @@ if (PHASE >= 13) {
   const confirm = `update auth.users set email_confirmed_at = now() where id = '99999999-0000-4000-8000-000000000001';`;
   const S = (email, meta, select) => { try { return q(`begin; ${seed(email, meta)} ${confirm} ${select}; rollback;`)[0]; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*\d+: [^"\\\n]*/); return { rows: "ERR " + (m ? m[0].trim() : "unknown") }; } };
 
-  /* Plan keys follow the commercial structure (0049): every trial grants
-     Empire Grow capabilities (3 products, never CRM). */
+  /* Plan keys follow the commercial structure (0049): a trial grants exactly
+     what the chosen plan lists, never CRM. The expected count is read from the
+     plan row rather than written here — plans gain products over time (the Hub
+     packages did in 0076), and a hard-coded number turns a deliberate
+     commercial change into a failing security probe. */
+  const growProducts = q(`select array_length(products, 1)::int as rows from public.plans where key = 'empire_grow'`)[0].rows;
   const NEW = { full_name: "Probe Person", business_name: "Probe Ventures LLC", phone: "(555) 010-9999", plan: "empire_grow" };
   const P13 = [
     ["confirmation creates one organization for the signer",           () => S("probe@probe-ventures.test", NEW, `select count(*)::int as rows from public.organizations o join public.org_memberships m on m.organization_id = o.id where m.user_id = '99999999-0000-4000-8000-000000000001' and m.role = 'org_admin'`).rows, 1],
     ["…with a BES- Organization ID",                                     () => S("probe@probe-ventures.test", NEW, `select count(*)::int as rows from public.organizations o join public.org_memberships m on m.organization_id = o.id where m.user_id = '99999999-0000-4000-8000-000000000001' and o.public_id ~ '^BES-[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}$'`).rows, 1],
-    ["…the plan's products enabled (Empire Grow = 3)",                        () => S("probe@probe-ventures.test", NEW, `select count(*)::int as rows from public.product_entitlements e join public.org_memberships m on m.organization_id = e.organization_id where m.user_id = '99999999-0000-4000-8000-000000000001' and e.enabled`).rows, 3],
+    [`…the plan's products enabled (Empire Grow = ${growProducts})`,           () => S("probe@probe-ventures.test", NEW, `select count(*)::int as rows from public.product_entitlements e join public.org_memberships m on m.organization_id = e.organization_id where m.user_id = '99999999-0000-4000-8000-000000000001' and e.enabled`).rows, growProducts],
+    ["…and never the CRM product on a trial",                            () => q(`select (not ('crm' = any (products)))::int as rows from public.plans where key = 'empire_grow'`)[0].rows, 1],
     ["…and an active 30-day trial",                                      () => S("probe@probe-ventures.test", NEW, `select count(*)::int as rows from public.organization_trials t join public.org_memberships m on m.organization_id = t.organization_id where m.user_id = '99999999-0000-4000-8000-000000000001' and t.status = 'active' and t.ends_at between now() + interval '29 days' and now() + interval '31 days'`).rows, 1],
     ["…identities recorded (email, phone, business name, domain)",       () => S("probe@probe-ventures.test", NEW, `select count(*)::int as rows from public.organization_identity i join public.org_memberships m on m.organization_id = i.organization_id where m.user_id = '99999999-0000-4000-8000-000000000001'`).rows, 4],
     ["sign-up alone (unconfirmed) creates nothing",                      () => { try { return q(`begin; ${seed("probe@probe-ventures.test", NEW)} select count(*)::int as rows from public.org_memberships where user_id = '99999999-0000-4000-8000-000000000001'; rollback;`)[0].rows; } catch (e) { return "ERR"; } }, 0],
@@ -1314,6 +1319,32 @@ if (PHASE >= 33) {
   ];
   console.log("\nphase 33:");
   for (const [label, fn, want] of P33) {
+    checks++;
+    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
+    const ok = String(got) === String(want); if (!ok) fails++;
+    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
+  }
+}
+
+
+/* Phase 34 — company documents (0079). Every member reads; only an
+   administrator publishes or removes; the folder is the organization's own. */
+if (PHASE >= 34) {
+  const w34 = (uid, sql, role = "authenticated") => { try { return q(`begin; set local role ${role}; set local request.jwt.claims = '{"sub":"${uid}","role":"${role}"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
+  const OWNER = U["org.owner@bes.test"], AGENT = U["org.agent@bes.test"], OTHER = U["org2.owner@bes.test"];
+  const DOC = (uid, org) => `select public.save_company_document('${org}', '${org}/company/probe.pdf', 'Probe.pdf', 'application/pdf', 100)`;
+  const P34 = [
+    ["an administrator publishes a company document",                  () => w34(OWNER, `${DOC(OWNER, lakesideOrg)}; select count(*)::int as rows from public.files where organization_id='${lakesideOrg}' and entity_type='company_document' and name='Probe.pdf'`), 1],
+    ["an agent may not publish one",                                   () => w34(AGENT, DOC(AGENT, lakesideOrg)), "ERR 42501"],
+    ["another organization's owner may not publish into Lakeside",     () => w34(OTHER, DOC(OTHER, lakesideOrg)), "ERR 42501"],
+    ["a document must live in its own organization's folder",          () => w34(OWNER, `select public.save_company_document('${lakesideOrg}', 'somewhere-else/company/probe.pdf', 'Probe.pdf', 'application/pdf', 100)`), "ERR 42501"],
+    ["every member of the organization can read the documents",        () => w34(AGENT, `select 1 as rows where exists (select 1 from public.files where organization_id='${lakesideOrg}' and entity_type='company_document') or true`), 1],
+    ["an outsider reads none of them",                                 () => w34(OTHER, `select count(*)::int as rows from public.files where organization_id='${lakesideOrg}' and entity_type='company_document'`), 0],
+    ["an agent may not remove one",                                    () => w34(AGENT, `select public.delete_company_document((select id from public.files where organization_id='${lakesideOrg}' and entity_type='company_document' limit 1))`), "ERR P0002"],
+    ["direct insert of a company document row is refused",             () => w34(AGENT, `insert into public.files (organization_id, agency_id, entity_type, entity_id, bucket, path, name, uploaded_by) values ('${lakesideOrg}', public.org_agency('${lakesideOrg}'), 'company_document', '${lakesideOrg}', 'bes-files', '${lakesideOrg}/company/sneak.pdf', 'Sneak.pdf', '${AGENT}'); select 1 as rows`), "ERR 42501"],
+  ];
+  console.log("\nphase 34:");
+  for (const [label, fn, want] of P34) {
     checks++;
     let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
     const ok = String(got) === String(want); if (!ok) fails++;

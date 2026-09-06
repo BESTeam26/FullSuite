@@ -1,20 +1,34 @@
 /**
- * Import a credit report from PDF files that carry a text layer.
+ * Import a credit report from a PDF.
  *
- * Choose up to three PDFs (one per bureau, or one tri-merge) → the text is read
- * in the browser → the deterministic parser proposes items → the person reviews
- * every row (edit, untick, fix bureaus) → one append-only import records
- * `parser_version = pdf-text-1`. A scanned PDF is refused with a plain reason:
- * reading images needs the OCR step, which is not connected yet.
+ * Two readers, one review grid:
+ *   • a PDF with a text layer is read in the browser and parsed
+ *     deterministically (`pdf-text-1`) — nothing leaves the machine;
+ *   • a scan or a photo is read by the assistant through the AI gateway
+ *     (`pdf-ocr-claude-1`), which meters the charge as AI credits.
+ *
+ * Either way the person reviews and corrects every row before one append-only
+ * import records which reader produced it. Extraction is data entry; the
+ * human decides (rule 9).
  */
 import { useRef, useState } from "react";
-import { AlertTriangle, CheckCircle2, FileText, Loader2, Trash2, UploadCloud } from "lucide-react";
+import { AlertTriangle, CheckCircle2, FileText, Loader2, ScanText, Sparkles, Trash2, UploadCloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Bureau, ItemKind } from "@/lib/credit-classification";
 import { errorMessage } from "@/lib/data/error-message";
 import { useImportCreditReport } from "@/lib/data/use-credit-reports";
 import { extractPdfLines } from "@/lib/credit-report/pdf-text";
 import { PDF_PARSER_VERSION, parseCreditReportPdfText, type PdfCandidate } from "@/lib/credit-report/pdf-report-parser";
+import {
+  MAX_OCR_BYTES,
+  OCR_PARSER_VERSION,
+  OCR_PROMPT,
+  OCR_SYSTEM_PROMPT,
+  fileToBase64,
+  ocrFileProblem,
+  parseOcrAnswer,
+} from "@/lib/credit-report/ocr-extraction";
+import { requestAiDraft, type AiAttachment } from "@/lib/data/ai-gateway";
 import { parseBalanceCents } from "@/lib/credit-report/import-parser";
 import { EMPTY_SCORE_INPUTS, REPORT_BUREAUS, buildScoreRows, hasInvalidScore, type ScoreInputs } from "@/lib/credit-report/report-scores";
 import { ReportMetaFields } from "./import/ReportMetaFields";
@@ -28,6 +42,8 @@ interface Props {
 }
 
 type ReviewRow = PdfCandidate & { include: boolean };
+/** Which reader produced the rows in front of the person; recorded on import. */
+type Reader = "text" | "ocr";
 
 const KINDS: ItemKind[] = ["Account", "Inquiry", "Personal", "Public Record"];
 const cell = "w-full rounded border border-border bg-background px-1.5 py-1 text-xs text-foreground";
@@ -42,39 +58,104 @@ export function CreditReportPdfImport({ fulfillmentClientId, organizationId, out
   const [scores, setScores] = useState<ScoreInputs>(EMPTY_SCORE_INPUTS);
   const [model, setModel] = useState("");
   const [problem, setProblem] = useState<string | null>(null);
+  const [reader, setReader] = useState<Reader>("text");
+  /* Files kept aside when a PDF turns out to be a scan, so the person can ask
+     for it to be read without choosing the file again. */
+  const [scanned, setScanned] = useState<File[]>([]);
+  const [readingScan, setReadingScan] = useState(false);
+  const [scanNotes, setScanNotes] = useState<string[]>([]);
+  const [charge, setCharge] = useState<{ credits: number | null; balance: number | null } | null>(null);
   const importMutation = useImportCreditReport(fulfillmentClientId);
 
   const onFiles = async (files: File[]) => {
     setProblem(null);
     setRows(null);
+    setScanned([]);
+    setScanNotes([]);
+    setCharge(null);
     setReading(true);
     setFileNames(files.map((f) => f.name));
     try {
       const results = await Promise.all(files.map((f) => extractPdfLines(f)));
-      const scanned = results.map((r, i) => (r.hasTextLayer ? null : files[i].name)).filter(Boolean);
-      if (scanned.length) {
+      const noText = files.filter((_, i) => !results[i].hasTextLayer);
+      if (noText.length > 0) {
+        /* A scan has no text to parse. Offer the reading assistant instead of
+           refusing outright — the person still reviews every row. */
+        setScanned(noText);
         setProblem(
-          `${scanned.join(", ")} has no readable text — it is a scanned image or a photo. Reading scanned reports needs the OCR step, which is not connected yet. Save the report as a PDF from the monitoring service instead, or import a CSV.`,
+          `${noText.map((f) => f.name).join(", ")} has no readable text — it is a scan or a photo. You can have it read below, or save the report as a PDF from the monitoring service and try again.`,
         );
         return;
       }
       const parsed = parseCreditReportPdfText(results.flatMap((r) => r.lines));
       if (parsed.candidates.length === 0) {
-        setProblem("The text was read but no credit report items were recognised in it. Check that this is a credit report; if it is, send this layout to support so the parser learns it.");
+        setScanned(files);
+        setProblem("The text was read but no credit report items were recognised in it. You can have the file read below, or check that this is a credit report.");
         return;
       }
+      setReader("text");
       setRows(parsed.candidates.map((c) => ({ ...c, include: true })));
       setReadSummary({ sections: parsed.sections, total: parsed.totalLines, consumed: parsed.consumedLines, pages: results.reduce((n, r) => n + r.pageCount, 0) });
-      if (parsed.scores.length) {
-        const next = { ...EMPTY_SCORE_INPUTS };
-        for (const s of parsed.scores) next[s.bureau] = String(s.score);
-        setScores(next);
-        setModel(parsed.scores[0].model === "as stated on report" ? "" : parsed.scores[0].model);
-      }
+      applyScores(parsed.scores);
     } catch (e) {
       setProblem(errorMessage(e, "The PDF could not be read."));
     } finally {
       setReading(false);
+    }
+  };
+
+  const applyScores = (found: { bureau: Bureau; model: string; score: number }[]) => {
+    if (found.length === 0) return;
+    const next = { ...EMPTY_SCORE_INPUTS };
+    for (const s of found) next[s.bureau] = String(s.score);
+    setScores(next);
+    setModel(found[0].model === "as stated on report" ? "" : found[0].model);
+  };
+
+  /**
+   * Reading a scan with the assistant. The gateway holds the key, checks the
+   * organization's entitlement and balance, and meters the charge; the rows
+   * that come back are transcription, and every one of them is marked for
+   * review before anything is saved.
+   */
+  const readWithAssistant = async () => {
+    if (!organizationId) { setProblem("Reading a scan needs an organization; open this client from their organization."); return; }
+    const files = scanned.length ? scanned : [];
+    if (files.length === 0) return;
+    for (const f of files) {
+      const bad = ocrFileProblem(f);
+      if (bad) { setProblem(bad); return; }
+    }
+    setReadingScan(true);
+    setProblem(null);
+    setScanNotes([]);
+    try {
+      const attachments: AiAttachment[] = await Promise.all(
+        files.map(async (f) => ({ mediaType: f.type as AiAttachment["mediaType"], data: await fileToBase64(f) })),
+      );
+      const result = await requestAiDraft({
+        organizationId,
+        feature: "credit.report_read",
+        product: "creditOps",
+        system: OCR_SYSTEM_PROMPT,
+        prompt: OCR_PROMPT,
+        maxTokens: 8000,
+        attachments,
+      });
+      if (result.status !== "ok") { setProblem(result.message); return; }
+      const parsed = parseOcrAnswer(result.text);
+      setCharge({ credits: result.creditsCharged, balance: result.balance });
+      setScanNotes(parsed.skipped);
+      if (parsed.candidates.length === 0) { setProblem(parsed.skipped[0] ?? "Nothing could be read from that file."); return; }
+      setReader("ocr");
+      setRows(parsed.candidates.map((c) => ({ ...c, include: true })));
+      setReadSummary({ sections: [], total: parsed.candidates.length, consumed: parsed.candidates.length, pages: files.length });
+      applyScores(parsed.scores);
+      setScanned([]);
+    } catch (e) {
+      setProblem(errorMessage(e, "The file could not be read."));
+    } finally {
+      setReadingScan(false);
     }
   };
 
@@ -100,7 +181,7 @@ export function CreditReportPdfImport({ fulfillmentClientId, organizationId, out
         pulledAt,
         source: "manual_upload",
         fileId: null,
-        parserVersion: PDF_PARSER_VERSION,
+        parserVersion: reader === "ocr" ? OCR_PARSER_VERSION : PDF_PARSER_VERSION,
         items: included.map((r) => ({ ...r, balanceCents: parseBalanceCents(r.balance) })),
         scores: buildScoreRows(scores, model),
       },
@@ -111,7 +192,7 @@ export function CreditReportPdfImport({ fulfillmentClientId, organizationId, out
     );
   };
 
-  const reset = () => { setRows(null); setFileNames([]); setProblem(null); setReadSummary(null); };
+  const reset = () => { setRows(null); setFileNames([]); setProblem(null); setReadSummary(null); setScanned([]); setScanNotes([]); setCharge(null); };
 
   return (
     <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
@@ -122,7 +203,7 @@ export function CreditReportPdfImport({ fulfillmentClientId, organizationId, out
         <input
           ref={fileRef}
           type="file"
-          accept="application/pdf,.pdf"
+          accept="application/pdf,.pdf,image/png,image/jpeg,image/webp"
           multiple
           className="hidden"
           onChange={(e) => { const files = Array.from(e.target.files ?? []).slice(0, 3); if (files.length) void onFiles(files); e.target.value = ""; }}
@@ -132,7 +213,7 @@ export function CreditReportPdfImport({ fulfillmentClientId, organizationId, out
         </Button>
       </div>
       <p className="mt-1 text-xs text-muted-foreground">
-        Up to three PDFs saved from the monitoring service (one per bureau, or a single 3-bureau report). The text is read here in your browser and every item is shown for review before anything is saved. Scanned images cannot be read yet.
+        Up to three files: PDFs saved from the monitoring service, or photos and scans. A PDF with real text is read here in your browser; a scan is read by the assistant if you ask. Either way, every item is shown for review before anything is saved.
       </p>
 
       {fileNames.length > 0 && <p className="mt-2 text-xs text-foreground">Files: <span className="font-mono">{fileNames.join(", ")}</span></p>}
@@ -143,11 +224,46 @@ export function CreditReportPdfImport({ fulfillmentClientId, organizationId, out
         </div>
       )}
 
+      {scanned.length > 0 && (
+        <div className="mt-3 rounded-lg border border-primary/30 bg-primary/5 p-3">
+          <p className="flex items-center gap-2 text-xs font-bold text-foreground">
+            <ScanText className="h-4 w-4 text-primary" /> Have this read for you
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            The assistant reads the pages and types the items out for you. It copies what it sees and never fills in a
+            blank — you check every row before anything is saved, exactly as with a text report. This uses your
+            organization's AI credits.
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Button type="button" size="sm" onClick={() => void readWithAssistant()} disabled={readingScan}>
+              {readingScan ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1 h-3.5 w-3.5" />}
+              {readingScan ? "Reading…" : `Read ${scanned.length === 1 ? "this file" : `these ${scanned.length} files`}`}
+            </Button>
+            <span className="text-[11px] text-muted-foreground">Up to {Math.round(MAX_OCR_BYTES / (1024 * 1024))} MB per file.</span>
+          </div>
+        </div>
+      )}
+
       {rows && readSummary && (
         <div className="mt-3 space-y-3">
+          {reader === "ocr" && (
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs text-foreground">
+              <p className="flex items-center gap-1.5 font-bold"><ScanText className="h-3.5 w-3.5 text-primary" /> Read from a scan by the assistant</p>
+              <p className="mt-0.5 text-muted-foreground">
+                Every row is marked for review because it was transcribed, not parsed. Check each one against the
+                report before importing — especially balances, dates and which bureaus report the item.
+                {charge?.credits !== null && charge?.credits !== undefined && <> This reading used {charge.credits} credit{charge.credits === 1 ? "" : "s"}{charge.balance !== null && <>; {charge.balance} left</>}.</>}
+              </p>
+              {scanNotes.length > 0 && (
+                <ul className="mt-1.5 list-disc space-y-0.5 pl-5 text-status-warning">
+                  {scanNotes.slice(0, 6).map((n) => <li key={n}>{n}</li>)}
+                </ul>
+              )}
+            </div>
+          )}
           <p className="flex flex-wrap items-center gap-1.5 text-xs text-foreground">
-            <CheckCircle2 className="h-3.5 w-3.5 text-status-success" /> {rows.length} items found across {readSummary.pages} page{readSummary.pages === 1 ? "" : "s"}
-            {readSummary.sections.length ? <> · sections read: {readSummary.sections.join(", ")}</> : <> · no section headings found, read as a flat list</>}.
+            <CheckCircle2 className="h-3.5 w-3.5 text-status-success" /> {rows.length} items found across {readSummary.pages} {reader === "ocr" ? (readSummary.pages === 1 ? "file" : "files") : `page${readSummary.pages === 1 ? "" : "s"}`}
+            {reader === "text" && (readSummary.sections.length ? <> · sections read: {readSummary.sections.join(", ")}</> : <> · no section headings found, read as a flat list</>)}.
             {reviewCount > 0 && <span className="text-status-warning">{reviewCount} need a closer look (marked Review).</span>}
           </p>
           <div className="max-h-[28rem] overflow-auto rounded-lg border border-border">

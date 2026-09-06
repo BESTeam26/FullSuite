@@ -98,3 +98,18 @@ production; role resolver matches membership for every fixture user. Browser:
 as the two-organization fixture (Dee signs in), Home per organization,
 sidebar per entitlement, CreditOps workspace on Lakeside's clients, record work,
 dashboard personalization persists across reload.
+
+---
+
+## Superseded in part by the Organization Hub (2026-09-05)
+
+The parity questions this document raised — should an organization have its
+own People, Departments, Announcements, Knowledge and Files, or only the
+CreditOps and FundingOps screens? — were answered by Dee's Organization Hub
+doctrine, now **CLAUDE.md rule 18** and built in migrations 0072 and 0074–0079.
+
+The answer is: yes, but as an entitled, switchable product layer, and over the
+organization's own records. One Hub framework serves BES HQ and every
+customer; three layers decide what each person sees (subscription, the
+organization's own choice, the person's role). Read rule 18 first; anything
+here that contradicts it is out of date.

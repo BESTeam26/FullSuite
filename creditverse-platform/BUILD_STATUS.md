@@ -3680,3 +3680,70 @@ announcements and knowledge in the organization view.
 
 Gates: 404 tests · tsc, lint, build, madge clean. Matrix phase 33 (21 probes)
 added; full run in progress.
+
+## Completion cycle 9 (2026-09-05, late) — Home that greets you, company Files
+
+- **Home composes itself** (Dee's sketch): a personal line — "Good evening,
+  Dee" — from `lib/greetings/day-greeting.ts` (tested), the person's own photo,
+  then the birthday strip, the getting-started guide, the figures their role
+  may see, and **Latest from your company** when the hub has Announcements on.
+- **Files** (Hub Core, migration 0079): shared company documents as canonical
+  `files` rows (`entity_type = 'company_document'`) in the existing private
+  bucket at `<organization>/company/<uuid>`. Every member reads and downloads
+  through a five-minute signed link; only `settings.manage` publishes or
+  removes. The `company` folder is **carved out** of the general tenancy
+  storage policy, the way `activity` already is, because permissive policies
+  OR together and the looser one would otherwise win. The writer fills the
+  agency from the organization, so the browser never supplies a tenancy.
+- **One fewer request per session:** `useOwnProfile` now reads the profile the
+  auth context already loaded (`select *`) instead of fetching the same row
+  again (rule 14). The dead fetch was deleted rather than left behind.
+- Matrix phase 34 (8 probes) added for company documents.
+
+## Completion cycle 10 (2026-09-05, late) — reading scanned reports (0081)
+
+Dee approved the assistant as the reader for scans and photographs.
+
+- The **AI gateway** now accepts attachments (PDF, PNG, JPG, WEBP; at most
+  three, about 7 MB each) and sends them as document/image blocks. Everything
+  else is unchanged: the key stays on the server, `ai_can_use()` still gates
+  entitlement and balance, and `ai_record_usage()` still meters the charge.
+- `lib/credit-report/ocr-extraction.ts` holds the instructions and the strict
+  reading of the answer. The model is told to copy, never infer, and never to
+  transcribe an SSN, date of birth, licence number or telephone number; the
+  parser drops anything that still looks like an identifier, skips rows it
+  cannot use and says why. **Every OCR candidate is marked "review"** whatever
+  the model claims, and the import records `parser_version = pdf-ocr-claude-1`
+  so a transcribed report is distinguishable from a parsed one forever.
+- In the import: a PDF with no text layer no longer dead-ends. It offers
+  "Have this read for you", states plainly that it uses the organization's AI
+  credits, and after reading shows what it cost, what was skipped, and a
+  standing reminder to check balances, dates and bureaus. Photos are accepted
+  as well as PDFs.
+- 0081 adds `credit.report_read` as its own AI feature so document reading
+  shows as its own line in AI usage, separate from letter assistance.
+
+## Proposal queue (awaiting Dee)
+
+1. `ARCHITECTURE_PROPOSAL_CLIENT_RECORD.md` — the Client as an organization
+   asset (Dee's 2026-09-05 direction). Recommended first: DIY conversion and
+   the client portal both land on it.
+2. `ARCHITECTURE_PROPOSAL_DIY_CREDIT.md` — the white-label consumer system.
+3. `ARCHITECTURE_PROPOSAL_CLIENT_PORTAL.md` — now a set of screens on top of
+   proposal 1 rather than its own identity model.
+
+### Honesty fix in the same cycle
+
+The sample client's import screen still *simulated* OCR with a timer
+("Running OCR on …"). With real reading built, that was a demonstration
+pretending to be a feature, so it is gone: the panel now says PDF import works
+on a real client and links to Clients. `PdfDropZone.tsx` went with it (nothing
+else used it).
+
+### Matrix probe corrected
+
+Phase 13 asserted "Empire Grow = 3 products" and failed once the Hub packages
+joined the plan — a deliberate commercial change reported as a security
+failure. The probe now reads the expected count from the plan row, and a
+separate probe keeps the rule that actually matters: **a trial never includes
+CRM**.

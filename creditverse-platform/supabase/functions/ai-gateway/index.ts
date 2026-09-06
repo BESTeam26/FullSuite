@@ -20,7 +20,24 @@ const MODEL_DEFAULT = "claude-sonnet-5";
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, content-type, apikey" };
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { ...cors, "content-type": "application/json" } });
 
-interface GatewayRequest { organizationId: string; feature: string; product?: "creditOps" | "fundingOps" | "diyCredit" | "oi" | "crm"; system?: string; prompt: string; model?: string; maxTokens?: number }
+/**
+ * An attachment is a document or an image the model must read — a credit
+ * report saved as a PDF, or a photograph of one. It is passed straight
+ * through; nothing is stored here. The caps below are deliberate: a scan
+ * larger than this belongs in a smaller export, not in a bigger request.
+ */
+interface GatewayAttachment { mediaType: string; data: string }
+interface GatewayRequest {
+  organizationId: string; feature: string;
+  product?: "creditOps" | "fundingOps" | "diyCredit" | "oi" | "crm";
+  system?: string; prompt: string; model?: string; maxTokens?: number;
+  attachments?: GatewayAttachment[];
+}
+
+const ATTACHMENT_TYPES = ["application/pdf", "image/png", "image/jpeg", "image/webp"];
+/** Base64 characters, not bytes: about 7 MB of file. */
+const MAX_ATTACHMENT_CHARS = 9_500_000;
+const MAX_ATTACHMENTS = 3;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -45,13 +62,34 @@ Deno.serve(async (req) => {
 
   if (!providerKey) return json(503, { error: "AI is not connected yet. BES has not added the provider key.", code: "not_connected" });
 
+  const attachments = body.attachments ?? [];
+  if (attachments.length > MAX_ATTACHMENTS) return json(400, { error: `Send at most ${MAX_ATTACHMENTS} files in one request.` });
+  for (const a of attachments) {
+    if (!ATTACHMENT_TYPES.includes(a.mediaType)) return json(400, { error: `${a.mediaType} cannot be read. Send a PDF, PNG, JPG or WEBP.` });
+    if (!a.data || a.data.length > MAX_ATTACHMENT_CHARS) return json(413, { error: "That file is too large to read. Save a smaller export, or split it.", code: "too_large" });
+  }
+
   const model = body.model ?? MODEL_DEFAULT;
+  /* Attachments first, then the instruction: the model should read the
+     document before it is told what to do with it. */
+  const content = [
+    ...attachments.map((a) =>
+      a.mediaType === "application/pdf"
+        ? { type: "document", source: { type: "base64", media_type: a.mediaType, data: a.data } }
+        : { type: "image", source: { type: "base64", media_type: a.mediaType, data: a.data } },
+    ),
+    { type: "text", text: body.prompt },
+  ];
   const providerRes = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "x-api-key": providerKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-    body: JSON.stringify({ model, max_tokens: Math.min(body.maxTokens ?? 1024, 4096), system: body.system, messages: [{ role: "user", content: body.prompt }] }),
+    body: JSON.stringify({ model, max_tokens: Math.min(body.maxTokens ?? 1024, 8192), system: body.system, messages: [{ role: "user", content }] }),
   });
-  if (!providerRes.ok) return json(502, { error: `Provider error ${providerRes.status}` });
+  if (!providerRes.ok) {
+    const detail = await providerRes.text().catch(() => "");
+    console.error("provider error", providerRes.status, detail.slice(0, 500));
+    return json(502, { error: `The reading service refused the request (${providerRes.status}).` });
+  }
   const out = await providerRes.json();
   const text = (out.content ?? []).filter((c: { type: string }) => c.type === "text").map((c: { text: string }) => c.text).join("\n");
   const usage = out.usage ?? {};

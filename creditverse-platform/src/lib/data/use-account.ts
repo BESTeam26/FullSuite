@@ -1,20 +1,22 @@
 /**
- * The signed-in person's own profile and avatar. One query for the row, one
- * for the signed avatar URL (the bucket is private), and mutations that
- * refresh both plus the auth context's cached identity.
+ * The signed-in person's own profile and avatar.
+ *
+ * The row itself is already loaded once per session by the auth context
+ * (`select *` on `profiles`), so this hook reads that rather than asking for
+ * it again — one source of truth, one request (rule 14). It adds the
+ * mutations and refreshes the cached identity after each one.
  */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth/auth-context";
 import {
-  fetchOwnProfile,
   removeOwnAvatar,
   signAvatarUrls,
   updateOwnProfile,
   uploadOwnAvatar,
+  type OwnProfile,
   type ProfileEdits,
 } from "@/lib/data/account";
 
-export const ownProfileKey = (userId: string) => ["account", "profile", userId] as const;
 export const avatarUrlKey = (paths: string[]) => ["account", "avatar-urls", paths.join(",")] as const;
 
 export function useOwnProfile() {
@@ -22,23 +24,31 @@ export function useOwnProfile() {
   const live = auth.mode === "live" && auth.status === "signed-in";
   const userId = auth.user?.id ?? "";
   const qc = useQueryClient();
-  const q = useQuery({
-    queryKey: ownProfileKey(userId),
-    queryFn: () => fetchOwnProfile(userId),
-    enabled: live && !!userId,
-    staleTime: 60_000,
-  });
+  const row = auth.profile;
+  const profile: OwnProfile | null = row
+    ? {
+        id: row.id,
+        email: String(row.email),
+        fullName: row.full_name,
+        preferredName: row.preferred_name,
+        title: row.title,
+        phone: row.phone,
+        birthMonth: row.birth_month,
+        birthDay: row.birth_day,
+        birthdayVisible: row.birthday_visible,
+        avatarPath: row.avatar_path,
+      }
+    : null;
   const refresh = async () => {
-    await qc.invalidateQueries({ queryKey: ownProfileKey(userId) });
     await qc.invalidateQueries({ queryKey: ["account", "avatar-urls"] });
     await auth.refreshMemberships();
   };
   return {
     live,
     userId,
-    profile: q.data ?? null,
-    isLoading: live && !!userId && q.isLoading,
-    error: (q.error as Error | null)?.message ?? null,
+    profile,
+    isLoading: live && !!userId && !row,
+    error: null as string | null,
     save: useMutation({ mutationFn: (edits: ProfileEdits) => updateOwnProfile(userId, edits), onSuccess: refresh }),
     uploadAvatar: useMutation({ mutationFn: (file: File) => uploadOwnAvatar(userId, file), onSuccess: refresh }),
     removeAvatar: useMutation({ mutationFn: (path: string | null) => removeOwnAvatar(userId, path), onSuccess: refresh }),

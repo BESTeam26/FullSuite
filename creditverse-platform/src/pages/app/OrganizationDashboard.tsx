@@ -22,6 +22,11 @@ import { useAgency } from "@/lib/agency-context";
 import { useAuth } from "@/lib/auth/auth-context";
 import { GettingStartedCard } from "@/components/dashboard/GettingStartedCard";
 import { BirthdayStrip } from "@/components/dashboard/BirthdayStrip";
+import { CompanyFeedCard } from "@/components/dashboard/CompanyFeedCard";
+import { Avatar } from "@/components/common/Avatar";
+import { useOwnProfile, useAvatarUrls } from "@/lib/data/use-account";
+import { useOrganizationHub } from "@/lib/data/use-hub";
+import { dayGreeting } from "@/lib/greetings/day-greeting";
 import { usePermissions } from "@/lib/auth/use-permission";
 import { useOrganizationWork } from "@/lib/data/use-work";
 import { useWorkspaces } from "@/lib/data/use-workspaces";
@@ -101,6 +106,12 @@ export default function OrganizationDashboard() {
      lists show are already limited to what their role may see (RLS). */
   const permissions = usePermissions();
   const seesFigures = permissions.can("reports.view");
+  /* Home greets the person and shows the company's own layer when the hub has
+     it switched on (rule 18). Both read caches the rest of the app already
+     holds, so this adds no waterfall. */
+  const account = useOwnProfile();
+  const myAvatar = useAvatarUrls([account.profile?.avatarPath]);
+  const hub = useOrganizationHub(isThisOrg ? org?.id ?? null : null);
   const [customizing, setCustomizing] = useState(false);
   const cards = useMemo(
     () => resolveHomeCards(prefs.preferences?.dashboard_cards, enabledKeys),
@@ -164,6 +175,20 @@ export default function OrganizationDashboard() {
 
   return (
     <div className="p-6 md:p-8">
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <Avatar
+          name={account.profile?.preferredName || account.profile?.fullName || auth.displayName}
+          url={account.profile?.avatarPath ? myAvatar.data?.[account.profile.avatarPath] : null}
+          size="md"
+        />
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-foreground md:text-2xl">
+            {dayGreeting(new Date(), account.profile?.preferredName, account.profile?.fullName ?? auth.displayName)}
+          </h1>
+          <p className="text-xs text-muted-foreground">Here is your day at {org.name.replace(/^\[TEST\]\s*/, "")}.</p>
+        </div>
+      </div>
+
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-card p-4">
         <div className="flex items-center gap-3">
           {org.branding?.logoUrl ? (
@@ -172,7 +197,7 @@ export default function OrganizationDashboard() {
             <div className="flex h-11 w-11 items-center justify-center rounded-xl text-sm font-bold text-white" style={{ background: org.branding?.primaryColor || "hsl(var(--primary))" }}>{initials}</div>
           )}
           <div>
-            <h1 className="text-lg font-bold text-foreground">{org.name}</h1>
+            <p className="text-lg font-bold text-foreground">{org.name}</p>
             <p className="flex flex-wrap items-center gap-x-3 text-xs text-muted-foreground">
               <span className="inline-flex items-center gap-1 font-mono text-foreground"><Hash className="h-3 w-3" />{org.publicId}</span>
               <span>{org.principal.name} · {org.principal.email}</span>
@@ -274,7 +299,8 @@ export default function OrganizationDashboard() {
       )}
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+        <div className="space-y-4 lg:col-span-2">
+          {prefs.live && <CompanyFeedCard organizationId={org.id} active={hub.isActive("announcements")} />}
           <ContentCard title={seesFigures ? "Open work" : "Your open work"}>
             {work.error ? (
               <p className="text-sm text-red-700">Could not load work: {work.error}</p>

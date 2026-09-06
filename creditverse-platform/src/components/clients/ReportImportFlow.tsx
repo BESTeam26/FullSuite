@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import {
   UploadCloud,
   Sparkles,
@@ -33,7 +34,6 @@ import {
 } from "@/lib/monitoring-status";
 import { ReImportProgressReport } from "./ReImportProgressReport";
 import { SideBySideCompareView } from "./reimport/SideBySideCompareView";
-import { PdfDropZone, type PdfFile } from "./PdfDropZone";
 import { useClientWorkspace } from "@/lib/client-workspace-context";
 
 const providers = [
@@ -60,8 +60,7 @@ type Phase =
   | "done"
   | "report"
   | "sidebyside"
-  | "pdf-upload"
-  | "pdf-ocr";
+  | "pdf-upload";
 
 interface ReportImportFlowProps {
   clientId: string;
@@ -79,13 +78,6 @@ export const ReportImportFlow = ({
   const [provider, setProvider] = useState(providers[0]);
   const [classified, setClassified] = useState<ClassifiedItem[]>([]);
   const [blockReason, setBlockReason] = useState("");
-  const [pdfFiles, setPdfFiles] = useState<
-    Record<"EQ" | "EX" | "TU", PdfFile | null>
-  >({
-    EQ: null,
-    EX: null,
-    TU: null,
-  });
   const { getState, recordFailedAttempt, recordSuccess, setManualStatus } =
     useMonitoringStatus();
 
@@ -120,29 +112,6 @@ export const ReportImportFlow = ({
     setPhase("idle");
   };
 
-  const handlePdfSelect = (bureau: "EQ" | "EX" | "TU", file: File | null) => {
-    if (!file) return;
-    setPdfFiles((prev) => ({
-      ...prev,
-      [bureau]: { bureau, name: file.name, size: file.size },
-    }));
-  };
-
-  const allThreeUploaded = pdfFiles.EQ && pdfFiles.EX && pdfFiles.TU;
-
-  const runPdfOcr = () => {
-    setPhase("pdf-ocr");
-    setTimeout(() => {
-      setPhase("analyzing");
-      setTimeout(() => {
-        const result = classifyReport(sampleRaw);
-        setClassified(result);
-        setPhase("report");
-        recordSuccess(clientId);
-        onClassified(result);
-      }, 1400);
-    }, 2200);
-  };
 
   /* The simulated provider login and OCR below are DEMO content. In a live
      session the sample-client page has no real report behind it; real imports
@@ -263,7 +232,7 @@ export const ReportImportFlow = ({
             <div className="h-px flex-1 bg-border" />
           </div>
           <Button variant="outline" onClick={() => setPhase("pdf-upload")}>
-            <FileText className="h-4 w-4" /> Upload 3-bureau PDF report
+            <FileText className="h-4 w-4" /> How PDF import works
           </Button>
         </div>
       )}
@@ -273,60 +242,22 @@ export const ReportImportFlow = ({
           <div className="flex items-start gap-3 rounded-xl border border-blue-500/20 bg-blue-500/5 p-4">
             <ScanLine className="mt-0.5 h-4 w-4 shrink-0 text-status-info" />
             <div className="text-sm">
-              <p className="font-medium text-blue-700">
-                Manual PDF upload — OCR &amp; data extraction
-              </p>
+              <p className="font-medium text-blue-700">PDF import works on a real client</p>
               <p className="mt-0.5 text-muted-foreground">
-                Upload all three bureau PDF reports for accuracy review. The
-                engine reads and scrapes tradeline data via OCR, then updates
-                items on the dispute dashboard.
+                Open a client from Clients, then <strong>Import &amp; Analysis</strong>. A PDF saved from the
+                monitoring service is read in your browser and parsed; a scan or a photo can be read by the
+                assistant. Either way you review and correct every item before anything is saved. This
+                demonstration page has no client to import into.
               </p>
             </div>
           </div>
-          <div className="grid gap-3 sm:grid-cols-3">
-            {(["EQ", "EX", "TU"] as const).map((b) => (
-              <PdfDropZone
-                key={b}
-                bureau={b}
-                file={pdfFiles[b]}
-                onSelect={(f) => handlePdfSelect(b, f)}
-              />
-            ))}
-          </div>
           <div className="flex items-center gap-2">
-            <Button
-              onClick={runPdfOcr}
-              disabled={!allThreeUploaded}
-              className="bg-gradient-emerald text-white hover:opacity-90"
-            >
-              <ScanLine className="h-4 w-4" /> Run OCR &amp; extract data
+            <Button asChild variant="outline">
+              <Link to="/app/clients">Open Clients</Link>
             </Button>
-            <Button variant="outline" onClick={() => setPhase("idle")}>
-              <X className="h-3.5 w-3.5" /> Cancel
+            <Button variant="ghost" onClick={() => setPhase("idle")}>
+              <X className="h-3.5 w-3.5" /> Back
             </Button>
-            {!allThreeUploaded && (
-              <span className="text-xs text-muted-foreground">
-                Upload all 3 bureau PDFs to continue
-              </span>
-            )}
-          </div>
-        </div>
-      )}
-
-      {phase === "pdf-ocr" && (
-        <div className="mt-6 space-y-3">
-          <div className="flex items-center gap-3 text-sm">
-            <Loader2 className="h-4 w-4 animate-spin text-status-success" />
-            Running OCR on {pdfFiles.EQ?.name}, {pdfFiles.EX?.name},{" "}
-            {pdfFiles.TU?.name}…
-          </div>
-          <div className="flex items-center gap-3 text-sm">
-            <Loader2 className="h-4 w-4 animate-spin text-status-success" />
-            Extracting tradelines, balances, dates &amp; payment history…
-          </div>
-          <div className="flex items-center gap-3 text-sm">
-            <Loader2 className="h-4 w-4 animate-spin text-status-success" />
-            Cross-referencing 3 bureaus for accuracy…
           </div>
         </div>
       )}
