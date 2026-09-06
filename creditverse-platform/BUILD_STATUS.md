@@ -531,7 +531,7 @@ Everything below has UI and looks live but is backed by hardcoded literals or se
 - **Report providers** (SmartCredit / IDIQ / MFSN): adapter interface `ReportProvider { connect, pull, normalize }`; credentials stored server-side only (Supabase Vault), never in the browser.
 - **OCR:** queue job (Supabase queue or Inngest/Trigger.dev) → extraction service → `report_snapshots`.
 - **Billing:** Stripe (subscriptions per org, metered usage for fulfillment units, Connect for affiliate payouts).
-- **Notifications:** Resend/Postmark (email), Twilio (SMS), in-app via `notifications` table + realtime.
+- **Notifications:** Sender (email — locked 2026-09-06), SMS provider undecided, in-app via `notifications` table + realtime.
 - **AI copilot:** Anthropic API behind an Edge Function, grounded on `lib/knowledge` + tenant data with retrieval; never returns legal conclusions (per docs).
 
 ### Platform

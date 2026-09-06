@@ -785,3 +785,28 @@ Performance; AI stays usage-based on top.
 > Why this matters commercially as well as architecturally: the Hub is what
 > turns BES from credit and funding software into the company's operating
 > system. It is also the reason a customer moves from Build to Grow or Scale.
+
+## 19. The stack is locked
+
+Dee's decision, 2026-09-06: *"lock those stack."* These are the pieces the
+platform runs on. Do not introduce an alternative, and do not re-suggest one
+that was dropped — the cost of a second way to do the same job is paid forever.
+
+| Job | Locked choice | Notes |
+|---|---|---|
+| Source | **GitHub** — `BESTeam26/FullSuite`, branch `main` | |
+| Hosting | **Vercel** | Static build from `creditverse-platform/`; `vercel.json` at the repository root owns the build, the SPA rewrites and the security headers |
+| Backend | **Supabase** — project `wiojlgkzxlaiajwwrzuj` | Database, auth, storage, Edge Functions, and every authorization rule. Not replaceable piecemeal |
+| Email | **Sender** (sender.net) | Two jobs: Supabase Auth SMTP (`smtp.sender.net:587`) for sign-in email, and the transactional API (`api.sender.net/v2/message/send`) for app email |
+| AI | **Anthropic**, through the `ai-gateway` Edge Function | The only path from a browser to a model; the key never leaves the server |
+| Posted letters | **Lob** | |
+| Payments | **Authorize.Net** | |
+| Sales front end | **GoHighLevel** | |
+
+**Explicitly not used:** Render, Netlify, Heroku (nothing to host — the front
+end is static and everything dynamic is Supabase); Resend, Postmark, SendGrid,
+Mailgun (Sender is the email platform); any second database, ORM or auth SDK.
+
+**Credentials arrive later.** Every one of these is coded against and waiting
+on a key. Where a key is missing the feature says it is not connected — it does
+not fall back to a stub, a sample, or a second provider.
