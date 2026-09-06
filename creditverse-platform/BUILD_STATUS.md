@@ -3816,3 +3816,39 @@ with BES joining the channels when a fulfillment engagement exists.
   Claude for reading scans. Bookkeeping (recording revenue and expenses,
   FreshBooks/Xero-shaped) is wanted eventually but is not a priority; GHL
   already invoices. Recorded in the plan and in `WHAT_I_NEED_FROM_DEE.md`.
+
+## Completion cycle 12 (2026-09-05, late) — GHL bridge scaffold (0084)
+
+Everything that can exist before credentials do:
+
+- `ghl_connections` (a GHL location tied to an organization; BES manages, the
+  organization's admins can see it exists and whether it is healthy),
+  `ghl_credentials` (**no grants to anyone**, RLS on with no policy — only the
+  Edge Function's service role touches it; the token is never returned, and
+  the audit records that a connection changed, never the secret), and
+  `ghl_events` (append-only, unique on location + type + external id, so a GHL
+  retry cannot become a second client).
+- `ghl-webhook` Edge Function: identify the location, refuse an unknown one,
+  compare the shared secret **in constant time**, record the event once,
+  answer 200. `verify_jwt = false` for this function only, with the reason in
+  `config.toml` beside it — a webhook has no session, so the secret is the
+  authentication.
+- **Deliberately not built:** turning an event into a client or funding file.
+  The client record is moving to the organization level, and writing that
+  mapping twice would be waste. Events are captured now so the backlog can be
+  replayed later.
+- Matrix phase 36 (11 probes) added.
+
+### Two more stale matrix expectations corrected
+
+Phase 17 asserted the exact product list a trial grants ("creditOps,
+fundingOps, workspaces"), which the Hub packages changed. The bundle is now
+read from the plan row, and the rule that matters keeps its own probe: **a
+trial never includes CRM**.
+
+### Mentions verified in the browser
+
+Typed "@pi" in a work item note: the picker offered only Lakeside's own
+people, choosing one inserted a chip carrying the real user id, and the node
+now emits just `data-mention-user` (the stray `userid`/`label` attributes
+TipTap rendered by default are gone).

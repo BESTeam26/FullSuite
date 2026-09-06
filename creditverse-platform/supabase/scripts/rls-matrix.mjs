@@ -788,16 +788,22 @@ if (PHASE >= 17) {
   const S17 = (email, meta, select) => { try { return q(`begin; ${seed17(email, meta)} ${select}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
   const ENT = `select string_agg(e.product::text, ',' order by e.product::text) as rows from public.product_entitlements e join public.org_memberships m on m.organization_id = e.organization_id where m.user_id = '99999999-0000-4000-8000-000000000003' and e.enabled`;
   const B = { full_name: "Pricing Probe", business_name: "Pricing Probe LLC", phone: "(555) 010-7777" };
+  /* Every trial grants the Grow bundle, whatever plan was chosen. What that
+     bundle contains is a commercial decision that changes (the Hub packages
+     joined it in 0076), so it is read from the plan rather than written here;
+     the rule this phase actually guards is that a trial never includes CRM. */
+  const growBundle = q(`select string_agg(p::text, ',' order by p::text) as rows from public.plans, unnest(products) as p where key = 'empire_grow'`)[0].rows;
   const asUser17 = (uid, sql) => { try { return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { return "ERR"; } };
   const seatOracle = q(`select count(*)::int as rows from public.org_memberships m where m.organization_id='${lakesideOrg}' and m.user_id <> coalesce((select owner_user_id from public.organizations where id='${lakesideOrg}'), '00000000-0000-0000-0000-000000000000'::uuid) and not exists (select 1 from public.agency_memberships am where am.user_id = m.user_id)`)[0].rows;
   const recOracle = q(`select (select count(*) from public.fulfillment_clients c where c.organization_id='${lakesideOrg}' and c.status::text not in ('Completed','Archived','Graduated'))::int + (select count(*) from public.funding_clients f where f.organization_id='${lakesideOrg}' and f.status::text not in ('Funded','Declined','Withdrawn','Archived'))::int as rows`)[0].rows;
   const P17 = [
     ["five public plans, priced, Grow recommended",                    () => { try { return q(`begin; set local role anon; select count(*)::text || ':' || (select key from public.plans where is_recommended and is_public) || ':' || (select monthly_cents::text from public.plans where key='empire_grow') as rows from public.plans where is_public and monthly_cents > 0; rollback;`)[0].rows; } catch (e) { return "ERR"; } }, "5:empire_grow:24900"],
-    ["Build trial with a choice grants Grow capabilities, never CRM",    () => S17("probe@pricing-probe.test", { ...B, plan: "empire_build", selected_product: "creditOps" }, ENT), "creditOps,fundingOps,workspaces"],
+    ["Build trial with a choice grants Grow capabilities, never CRM",    () => S17("probe@pricing-probe.test", { ...B, plan: "empire_build", selected_product: "creditOps" }, ENT), growBundle],
     ["…and the choice is kept for conversion",                          () => S17("probe@pricing-probe.test", { ...B, plan: "empire_build", selected_product: "creditOps" }, `select t.plan_key || ':' || t.selected_product::text as rows from public.organization_trials t join public.org_memberships m on m.organization_id = t.organization_id where m.user_id = '99999999-0000-4000-8000-000000000003'`), "empire_build:creditOps"],
     ["Build without a choice is refused",                               () => S17("probe@pricing-probe.test", { ...B, plan: "empire_build" }, `select 1 as rows`), "ERR 23514"],
-    ["CRM-only sign-up still trials the operating platform, no CRM",    () => S17("probe@pricing-probe.test", { ...B, plan: "bes_crm" }, ENT), "creditOps,fundingOps,workspaces"],
-    ["Scale trial grants Grow capabilities (CRM provisioned only when paid)", () => S17("probe@pricing-probe.test", { ...B, plan: "empire_scale" }, ENT), "creditOps,fundingOps,workspaces"],
+    ["CRM-only sign-up still trials the operating platform, no CRM",    () => S17("probe@pricing-probe.test", { ...B, plan: "bes_crm" }, ENT), growBundle],
+    ["Scale trial grants Grow capabilities (CRM provisioned only when paid)", () => S17("probe@pricing-probe.test", { ...B, plan: "empire_scale" }, ENT), growBundle],
+    ["no trial bundle includes CRM, whatever the plan",                 () => q(`select (not ('crm' = any (products)))::int as rows from public.plans where key = 'empire_grow'`)[0].rows, 1],
     ["Enterprise is by agreement, not self-serve",                      () => S17("probe@pricing-probe.test", { ...B, plan: "empire_enterprise" }, `select 1 as rows`), "ERR 23514"],
     ["the signer is recorded as the Organization Owner",                () => S17("probe@pricing-probe.test", { ...B, plan: "empire_grow" }, `select (o.owner_user_id = '99999999-0000-4000-8000-000000000003')::text as rows from public.organizations o join public.org_memberships m on m.organization_id = o.id where m.user_id = '99999999-0000-4000-8000-000000000003'`), "true"],
     ["seat usage excludes the owner and BES personnel (member reads own org)", () => asUser17(U["org.owner@bes.test"], `select public.organization_seat_usage('${lakesideOrg}') as rows`), seatOracle],
@@ -1372,6 +1378,35 @@ if (PHASE >= 35) {
   ] : [["(no Lakeside client to probe)", () => "skip", "skip"]];
   console.log("\nphase 35:");
   for (const [label, fn, want] of P35) {
+    checks++;
+    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
+    const ok = String(got) === String(want); if (!ok) fails++;
+    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
+  }
+}
+
+
+/* Phase 36 — the GHL bridge (0084). Secrets are unreachable from any browser,
+   only BES connects a location, and an organization sees only its own events. */
+if (PHASE >= 36) {
+  const w36 = (uid, sql, role = "authenticated") => { try { return q(`begin; set local role ${role}; set local request.jwt.claims = '{"sub":"${uid}","role":"${role}"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
+  const OWNER = U["org.owner@bes.test"], AGENT = U["org.agent@bes.test"], OTHER = U["org2.owner@bes.test"], BES = U["bes.owner@bes.test"];
+  const CONNECT = (org) => `select public.connect_ghl_location('${org}', 'probe-location', 'Probe', 'probe-token', 'probe-secret')`;
+  const P36 = [
+    ["BES connects a location",                                    () => w36(BES, `${CONNECT(lakesideOrg)}; select count(*)::int as rows from public.ghl_connections where location_id='probe-location'`), 1],
+    ["an organization owner cannot connect one",                   () => w36(OWNER, CONNECT(lakesideOrg)), "ERR 42501"],
+    ["an agent cannot connect one",                                () => w36(AGENT, CONNECT(lakesideOrg)), "ERR 42501"],
+    ["the token table is unreadable by a signed-in user",          () => w36(OWNER, `select count(*)::int as rows from public.ghl_credentials`), "ERR 42501"],
+    ["…and by BES staff too — only the function touches it",       () => w36(BES, `select count(*)::int as rows from public.ghl_credentials`), "ERR 42501"],
+    ["…and by anon",                                               () => w36("00000000-0000-0000-0000-000000000000", `select count(*)::int as rows from public.ghl_credentials`, "anon"), "ERR 42501"],
+    ["an organization admin sees their own connection",            () => q(`begin; insert into public.ghl_connections (organization_id, location_id) values ('${lakesideOrg}', 'probe-see') on conflict do nothing; set local role authenticated; set local request.jwt.claims = '{"sub":"${OWNER}","role":"authenticated"}'; select count(*)::int as rows from public.ghl_connections where location_id='probe-see'; rollback;`)[0].rows, 1],
+    ["an agent does not",                                          () => q(`begin; insert into public.ghl_connections (organization_id, location_id) values ('${lakesideOrg}', 'probe-see') on conflict do nothing; set local role authenticated; set local request.jwt.claims = '{"sub":"${AGENT}","role":"authenticated"}'; select count(*)::int as rows from public.ghl_connections where location_id='probe-see'; rollback;`)[0].rows, 0],
+    ["another organization's owner sees no Lakeside events",       () => w36(OTHER, `select count(*)::int as rows from public.ghl_events where organization_id='${lakesideOrg}'`), 0],
+    ["an event cannot be inserted from a browser",                 () => w36(BES, `insert into public.ghl_events (location_id, event_type, payload) values ('probe-location', 'probe', '{}'::jsonb); select 1 as rows`), "ERR 42501"],
+    ["the same event twice is one row",                            () => q(`begin; insert into public.ghl_connections (organization_id, location_id) values ('${lakesideOrg}', 'probe-dupe') on conflict do nothing; insert into public.ghl_events (location_id, organization_id, event_type, external_id, payload) values ('probe-dupe', '${lakesideOrg}', 'ContactCreate', 'evt-1', '{}'::jsonb); insert into public.ghl_events (location_id, organization_id, event_type, external_id, payload) values ('probe-dupe', '${lakesideOrg}', 'ContactCreate', 'evt-1', '{}'::jsonb) on conflict do nothing; select count(*)::int as rows from public.ghl_events where location_id='probe-dupe'; rollback;`)[0].rows, 1],
+  ];
+  console.log("\nphase 36:");
+  for (const [label, fn, want] of P36) {
     checks++;
     let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
     const ok = String(got) === String(want); if (!ok) fails++;

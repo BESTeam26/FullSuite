@@ -269,3 +269,21 @@ Set secrets from the application folder only:
 ```bash
 npx supabase secrets set ANTHROPIC_API_KEY=… MAIL_PROVIDER_API_KEY=… MAIL_FROM="…"
 ```
+
+## G. GHL bridge — what is built and what waits (2026-09-05)
+
+**Built (0084, awaiting credentials):** a connection per GHL location tied to
+an organization, a credentials table **no browser can read** (no grants, RLS
+on with no policy — only the Edge Function's service role touches it), an
+append-only event log with idempotency so a GHL retry cannot become a second
+client, and the `ghl-webhook` function: identify the location, check the
+shared secret in constant time, record the event once, answer 200.
+
+**Deliberately not built yet:** turning an event into a client or a funding
+file. The client record is moving to the organization level (C1), and writing
+that mapping twice would be waste. Events are captured from day one, so
+nothing is lost — the backlog is replayed once the mapping exists.
+
+**To connect, you will need** a GHL Private Integration token per location and
+a webhook secret you choose, plus the webhook URL
+`https://<project>.functions.supabase.co/ghl-webhook`.

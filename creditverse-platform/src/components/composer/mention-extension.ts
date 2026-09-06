@@ -21,9 +21,20 @@ export const MentionNode = Node.create({
   draggable: false,
 
   addAttributes() {
+    /* Both attributes live in the document (that is the point — the id is the
+       fact), but neither is emitted as a bare HTML attribute: the id goes out
+       once as `data-mention-user`, and the label is the element's text. */
     return {
-      userId: { default: null },
-      label: { default: "" },
+      userId: {
+        default: null,
+        parseHTML: (element) => element.getAttribute("data-mention-user"),
+        renderHTML: () => ({}),
+      },
+      label: {
+        default: "",
+        parseHTML: (element) => (element.textContent ?? "").replace(/^@/, ""),
+        renderHTML: () => ({}),
+      },
     };
   },
 
