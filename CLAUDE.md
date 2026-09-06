@@ -721,3 +721,67 @@ role + permission + scope + assignment + entitlement + engagement
 > Forcing every operational service through one generic project manager would
 > lose the first; letting every workspace define its own engine would lose the
 > second.
+
+## 18. Organization Hub product doctrine — three layers of control
+
+Dee's decision, 2026-09-05. The platform is not only CreditOps and FundingOps.
+A customer organization is a **company**, and it may run its company life on
+BES: announcements from its owner, its people and departments, its knowledge,
+its calendar, its files. That is the **Organization Hub**.
+
+```
+BES Platform
+  → Organization subscription            (1) BES decides what was purchased
+    → Organization Hub entitlement
+      → Organization admin enables modules  (2) the customer decides what it uses
+        → role · department · team · scope  (3) the person's own authorization
+          → personalized employee experience
+```
+
+A person sees a Hub module only when **all three** are true:
+
+```
+PRODUCT ENTITLED   and   ORGANIZATION ENABLED   and   USER AUTHORIZED
+```
+
+### Hard rules
+
+- **One Hub framework, two tenancies.** BES HQ's company hub and a customer's
+  Organization Hub are the *same* engine with different owners and different
+  records. Do **not** build a second intranet, a `CustomerHub`, or a parallel
+  set of tables (rules 2 and 6).
+- **Reuse the canonical systems.** My Work → `work_items`. People →
+  memberships and profiles. Departments → the existing teams/divisions.
+  Performance → production, EOD, reporting. Files → canonical `files` and
+  storage. Announcements and Knowledge → `announcements`,
+  `knowledge_articles`. AI → the existing gateway and credits ledger. No
+  module invents its own engine.
+- **An organization toggle must never activate an unpurchased product.** The
+  entitlement check lives in the **database writer**, not in the interface. A
+  module the organization is not entitled to is offered as an upgrade, never
+  as a toggle that quietly does nothing (rule 12: no dishonest controls).
+- **A disabled or unauthorized module is not rendered and not served** — no
+  navigation entry, no route, no data (rules 1 and 3).
+- **BES HQ configures entitlement, never the customer's internal choices.**
+  Which modules a customer runs, and what its owner announces, are the
+  customer's own (rule 16). BES sets the subscription and platform safety
+  rules; nothing else.
+- **Modules are data, not code branches.** The registry (`hub_modules`) and the
+  organization's choices (`organization_hub_modules`) are rows. Adding a module
+  is a row plus its screen, never a new permission system.
+
+### Packages (commercial grouping, not fifteen add-ons)
+
+| Package | Modules |
+|---|---|
+| **Hub Core** | Home, People, Departments, My Work, Knowledge, Announcements, Files, Tools |
+| **Hub Operations** | Calendar, Requests & Approvals, Forms, Department workspaces, Operational dashboards |
+| **Hub Performance** | KPIs, Scorecards, Goals, Training, Productivity, End of Day, Coaching |
+| **Hub AI** | Company assistant, Knowledge search, SOP questions — entitlement-gated, usage metered as credits |
+
+Plans: Build → Core; Grow → Core + Operations; Scale → Core + Operations +
+Performance; AI stays usage-based on top.
+
+> Why this matters commercially as well as architecturally: the Hub is what
+> turns BES from credit and funding software into the company's operating
+> system. It is also the reason a customer moves from Build to Grow or Scale.

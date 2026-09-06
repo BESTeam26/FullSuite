@@ -2750,6 +2750,39 @@ export type Database = {
           },
         ]
       }
+      hub_modules: {
+        Row: {
+          always_on: boolean
+          backed_by: string
+          description: string
+          key: string
+          label: string
+          package: Database["public"]["Enums"]["product_key"]
+          sort: number
+          status: Database["public"]["Enums"]["hub_module_status"]
+        }
+        Insert: {
+          always_on?: boolean
+          backed_by: string
+          description: string
+          key: string
+          label: string
+          package: Database["public"]["Enums"]["product_key"]
+          sort?: number
+          status?: Database["public"]["Enums"]["hub_module_status"]
+        }
+        Update: {
+          always_on?: boolean
+          backed_by?: string
+          description?: string
+          key?: string
+          label?: string
+          package?: Database["public"]["Enums"]["product_key"]
+          sort?: number
+          status?: Database["public"]["Enums"]["hub_module_status"]
+        }
+        Relationships: []
+      }
       invitations: {
         Row: {
           accepted_at: string | null
@@ -3673,6 +3706,8 @@ export type Database = {
           assigned_only: boolean
           created_at: string
           id: string
+          job_title: string | null
+          organization_department_id: string | null
           organization_id: string
           product: Database["public"]["Enums"]["product_key"] | null
           role: Database["public"]["Enums"]["org_role"]
@@ -3683,6 +3718,8 @@ export type Database = {
           assigned_only?: boolean
           created_at?: string
           id?: string
+          job_title?: string | null
+          organization_department_id?: string | null
           organization_id: string
           product?: Database["public"]["Enums"]["product_key"] | null
           role: Database["public"]["Enums"]["org_role"]
@@ -3693,6 +3730,8 @@ export type Database = {
           assigned_only?: boolean
           created_at?: string
           id?: string
+          job_title?: string | null
+          organization_department_id?: string | null
           organization_id?: string
           product?: Database["public"]["Enums"]["product_key"] | null
           role?: Database["public"]["Enums"]["org_role"]
@@ -3700,6 +3739,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "org_memberships_organization_department_id_fkey"
+            columns: ["organization_department_id"]
+            isOneToOne: false
+            referencedRelation: "organization_departments"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "org_memberships_organization_id_fkey"
             columns: ["organization_id"]
@@ -3754,6 +3800,164 @@ export type Database = {
             columns: ["updated_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organization_departments: {
+        Row: {
+          archived_at: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          lead_user_id: string | null
+          name: string
+          organization_id: string
+          sort: number
+          updated_at: string
+        }
+        Insert: {
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          lead_user_id?: string | null
+          name: string
+          organization_id: string
+          sort?: number
+          updated_at?: string
+        }
+        Update: {
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          lead_user_id?: string | null
+          name?: string
+          organization_id?: string
+          sort?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_departments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_departments_lead_user_id_fkey"
+            columns: ["lead_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_departments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organization_hub_modules: {
+        Row: {
+          enabled: boolean
+          module_key: string
+          organization_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          enabled?: boolean
+          module_key: string
+          organization_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          enabled?: boolean
+          module_key?: string
+          organization_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_hub_modules_module_key_fkey"
+            columns: ["module_key"]
+            isOneToOne: false
+            referencedRelation: "hub_modules"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "organization_hub_modules_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_hub_modules_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organization_hub_tools: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          label: string
+          note: string | null
+          organization_id: string
+          sort: number
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label: string
+          note?: string | null
+          organization_id: string
+          sort?: number
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label?: string
+          note?: string | null
+          organization_id?: string
+          sort?: number
+          updated_at?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_hub_tools_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_hub_tools_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -6157,6 +6361,10 @@ export type Database = {
       approve_dispute_letter: { Args: { p_letter: string }; Returns: undefined }
       archive_announcement: { Args: { p_id: string }; Returns: undefined }
       archive_knowledge_article: { Args: { p_id: string }; Returns: undefined }
+      archive_organization_department: {
+        Args: { p_id: string }
+        Returns: undefined
+      }
       as_uuid: { Args: { p: string }; Returns: string }
       assignable_profiles: {
         Args: {
@@ -6294,6 +6502,7 @@ export type Database = {
           views: string[]
         }[]
       }
+      delete_hub_tool: { Args: { p_id: string }; Returns: undefined }
       dev_seed_user: {
         Args: { p_email: string; p_full_name: string; p_password: string }
         Returns: string
@@ -6360,6 +6569,17 @@ export type Database = {
       handoff_to_fundingops: {
         Args: { p_fulfillment_client: string }
         Returns: string
+      }
+      hub_module_active: {
+        Args: { p_module: string; p_org: string }
+        Returns: boolean
+      }
+      hub_package_entitled: {
+        Args: {
+          p_org: string
+          p_package: Database["public"]["Enums"]["product_key"]
+        }
+        Returns: boolean
       }
       in_scope: {
         Args: {
@@ -6484,6 +6704,41 @@ export type Database = {
         Returns: boolean
       }
       organization_active_records: { Args: { p_org: string }; Returns: number }
+      organization_directory: {
+        Args: { p_org: string }
+        Returns: {
+          avatar_path: string
+          birth_day: number
+          birth_month: number
+          department_id: string
+          department_name: string
+          email: string
+          job_title: string
+          membership_id: string
+          name: string
+          phone: string
+          platform_role: Database["public"]["Enums"]["org_role"]
+          preferred_name: string
+          since: string
+          user_id: string
+        }[]
+      }
+      organization_hub: {
+        Args: { p_org: string }
+        Returns: {
+          active: boolean
+          always_on: boolean
+          backed_by: string
+          description: string
+          enabled: boolean
+          entitled: boolean
+          key: string
+          label: string
+          package: Database["public"]["Enums"]["product_key"]
+          sort: number
+          status: Database["public"]["Enums"]["hub_module_status"]
+        }[]
+      }
       organization_seat_usage: { Args: { p_org: string }; Returns: number }
       record_document_disposition: {
         Args: {
@@ -6542,6 +6797,17 @@ export type Database = {
         }
         Returns: string
       }
+      save_hub_tool: {
+        Args: {
+          p_id: string
+          p_label: string
+          p_note: string
+          p_org: string
+          p_sort: number
+          p_url: string
+        }
+        Returns: string
+      }
       save_knowledge_article: {
         Args: {
           p_audience: string
@@ -6552,6 +6818,17 @@ export type Database = {
           p_publish: boolean
           p_sort: number
           p_title: string
+        }
+        Returns: string
+      }
+      save_organization_department: {
+        Args: {
+          p_description: string
+          p_id: string
+          p_lead: string
+          p_name: string
+          p_org: string
+          p_sort: number
         }
         Returns: string
       }
@@ -6580,6 +6857,18 @@ export type Database = {
           p_file: string
           p_note?: string
           p_status: string
+        }
+        Returns: undefined
+      }
+      set_hub_module: {
+        Args: { p_enabled: boolean; p_module: string; p_org: string }
+        Returns: undefined
+      }
+      set_member_department: {
+        Args: {
+          p_department: string
+          p_job_title?: string
+          p_membership: string
         }
         Returns: undefined
       }
@@ -6922,6 +7211,7 @@ export type Database = {
         | "Documents"
         | "Approval"
         | "No Action Required"
+      hub_module_status: "available" | "planned"
       identity_kind:
         | "email"
         | "email_domain"
@@ -7000,6 +7290,10 @@ export type Database = {
         | "crm"
         | "workspaces"
         | "talentOps"
+        | "hubCore"
+        | "hubOperations"
+        | "hubPerformance"
+        | "hubAi"
       renewal_status:
         | "monitoring"
         | "review_due"
@@ -7459,6 +7753,7 @@ export const Constants = {
         "Approval",
         "No Action Required",
       ],
+      hub_module_status: ["available", "planned"],
       identity_kind: ["email", "email_domain", "phone", "business_name", "ein"],
       knowledge_audience: ["organization", "consumer", "both", "bes_internal"],
       lender_decision_kind: [
@@ -7539,6 +7834,10 @@ export const Constants = {
         "crm",
         "workspaces",
         "talentOps",
+        "hubCore",
+        "hubOperations",
+        "hubPerformance",
+        "hubAi",
       ],
       renewal_status: [
         "monitoring",

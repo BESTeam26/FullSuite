@@ -73,6 +73,7 @@ import { OrganizationPlanSection } from "@/components/settings/sections/Organiza
 import { LetterLibrarySection } from "@/components/settings/sections/LetterLibrarySection";
 import { AccountSection } from "@/components/settings/sections/AccountSection";
 import { OrganizationAutomationsSection } from "@/components/settings/sections/OrganizationAutomationsSection";
+import { HubSection } from "@/components/settings/sections/HubSection";
 import { useAgency } from "@/lib/agency-context";
 import { useAuth } from "@/lib/auth/auth-context";
 import { usePermissions } from "@/lib/auth/use-permission";
@@ -152,6 +153,7 @@ const organizationGroups: SettingsGroup[] = [
       { key: "workspace-views", label: "Workspace views", icon: LayoutGrid, permission: "workspaces.manage" },
       { key: "letters", label: "Letter Library", icon: FileText, permission: "creditops.letters.templates" },
       { key: "kpis", label: "KPIs", icon: BarChart3, permission: "settings.manage" },
+      { key: "hub", label: "Organization Hub", icon: Boxes, permission: "settings.manage" },
       { key: "org-automations", label: "Automations", icon: Zap, permission: "settings.manage" },
       { key: "ai-usage", label: "AI usage", icon: Sparkles, permission: "billing.view" },
       { key: "plan", label: "Plan & billing", icon: CreditCard, permission: "billing.view" },
@@ -163,6 +165,9 @@ const SettingsContent = () => {
   const { viewMode, activeOrganization } = useAgency();
   const auth = useAuth();
   const canEditKpis = auth.isAgencyStaff || auth.orgMemberships.some((m) => m.organization_id === activeOrganization?.id && m.role === "org_admin");
+  /* The organization's own settings are written by its members: the database
+     writers call member_can(), which refuses BES staff who are not members. */
+  const canEditAsMember = auth.orgMemberships.some((m) => m.organization_id === activeOrganization?.id && (m.role === "org_admin" || m.role === "org_manager"));
   const isOrganizationView = viewMode === "subaccount";
   const permissions = usePermissions();
   /* Members see only the sections their role may use; the same keys guard the
@@ -188,7 +193,8 @@ const SettingsContent = () => {
       if (active === "role-access") return <RoleAccessSection />;
       if (active === "workspace-views") return <WorkspaceViewsSection />;
       if (active === "ai-usage") return activeOrganization ? <AiUsageSection organizationId={activeOrganization.id} canEdit={canEditKpis} /> : null;
-      if (active === "org-automations") return <OrganizationAutomationsSection organizationId={activeOrganization?.id ?? null} canEdit={canEditKpis} />;
+      if (active === "hub") return <HubSection organizationId={activeOrganization?.id ?? null} canEdit={canEditAsMember} />;
+      if (active === "org-automations") return <OrganizationAutomationsSection organizationId={activeOrganization?.id ?? null} canEdit={canEditAsMember} />;
       if (active === "kpis") return activeOrganization ? <KpiSettingsSection organizationId={activeOrganization.id} canEdit={canEditKpis} /> : null;
       if (active === "letters") return activeOrganization ? <LetterLibrarySection organizationId={activeOrganization.id} /> : null;
       return activeOrganization ? <TeamMembersSection organizationId={activeOrganization.id} organizationName={activeOrganization.name} /> : null;

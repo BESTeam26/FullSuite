@@ -37,6 +37,8 @@ import { useMyWork, useAttention } from "@/lib/data/use-work";
 import { useUnreadNotificationCount } from "@/lib/data/use-notifications";
 import { useAuth } from "@/lib/auth/auth-context";
 import { usePermissions, type PermissionKeyName } from "@/lib/auth/use-permission";
+import { useHubNavigation } from "@/lib/data/use-hub";
+import { HUB_MODULE_ICONS } from "@/lib/hub/hub-icons";
 import { useSidebarState } from "@/components/dashboard/sidebar-state";
 
 const SETTINGS_KEYS: readonly PermissionKeyName[] = ["settings.manage", "team.manage", "team.permissions", "billing.view", "creditops.letters.templates"];
@@ -66,6 +68,13 @@ export const Sidebar = () => {
 
   const viewMode = agencyContext?.viewMode || "agency";
   const permissions = usePermissions();
+  /* The company side of the sidebar is composed from the organization's hub:
+     entitled, switched on, and permitted (rule 18). Home and My Work already
+     sit at the top, so they are not repeated here. */
+  const hubNav = useHubNavigation();
+  const companyItems: NavItem[] = hubNav.modules
+    .filter((m) => m.key !== "home" && m.key !== "my_work")
+    .map((m) => ({ label: m.label, icon: HUB_MODULE_ICONS[m.key] ?? Building2, href: m.route.href }));
   const subAccounts = agencyContext?.subAccounts || [];
   const isProductOn = agencyContext?.isProductOn || (() => false);
   const activeSubAccount = agencyContext?.activeSubAccount || null;
@@ -245,11 +254,15 @@ export const Sidebar = () => {
       ],
     },
     {
+      /* Company: whatever this organization's hub actually has. */
+      label: "Company",
+      show: companyItems.length > 0,
+      items: companyItems,
+    },
+    {
       label: "Organization",
       items: [
         { label: "Compliance & Billing", icon: Scale, href: "/app/compliance", permission: "billing.view" },
-        { label: "Announcements", icon: Megaphone, href: "/app/announcements" },
-        { label: "Knowledge Base", icon: BookOpen, href: "/app/education" },
         { label: "Settings", icon: Settings, href: "/app/settings", permission: SETTINGS_KEYS },
       ],
     },

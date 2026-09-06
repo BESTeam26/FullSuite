@@ -77,7 +77,7 @@ const Education = () => {
   const permissions = usePermissions();
   const organizationView = agency.viewMode === "subaccount" && !!agency.activeOrganization;
   const organizationId = organizationView ? agency.activeOrganization!.id : null;
-  const canWrite = organizationView ? permissions.can("settings.manage") : auth.isAgencyStaff;
+  const canWrite = organizationView ? permissions.canAsMember("settings.manage") : auth.isAgencyStaff;
 
   return (
     <div className="p-6 md:p-8">

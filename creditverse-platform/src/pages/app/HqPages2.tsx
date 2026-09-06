@@ -205,7 +205,7 @@ export const AnnouncementsPage = () => {
   const organizationId = organizationView ? agency.activeOrganization!.id : null;
   /* BES HQ posts to every organization or to BES staff only; an organization
      posts to its own team. The database function re-checks either way. */
-  const canWrite = organizationView ? permissions.can("settings.manage") : auth.isAgencyStaff;
+  const canWrite = organizationView ? permissions.canAsMember("settings.manage") : auth.isAgencyStaff;
   return (
     <HqPageShell
       title="Announcements"

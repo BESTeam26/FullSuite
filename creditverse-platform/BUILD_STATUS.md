@@ -3628,3 +3628,55 @@ birthday greetings, "something personal and premium".
 - `lib/greetings/birthday.ts`: deterministic engine (days away, 29 February
   greeted on the 28th in a common year, ordering, plain wording), tested.
 - Matrix phase 32 (14 probes) added. Matrix through phase 31 passed 434/434 before 0073 was applied; phase 32 runs in the next cycle.
+
+## Completion cycle 8 (2026-09-05, late) — the Organization Hub (0074–0078)
+
+Dee's doctrine, recorded as **CLAUDE.md rule 18**: an organization is a
+company, not just CreditOps and FundingOps. One Hub framework, two tenancies,
+three layers of control:
+
+```
+PRODUCT ENTITLED  and  ORGANIZATION ENABLED  and  USER AUTHORIZED
+```
+
+- **0074** adds the package keys `hubCore`, `hubOperations`, `hubPerformance`,
+  `hubAi` to `product_key`.
+- **0075** is the Hub: a `hub_modules` registry (21 modules as rows, each
+  naming the canonical system behind it — no module has an engine of its own),
+  `organization_hub_modules` for the customer's choices, `hub_package_entitled()`,
+  `hub_module_active()`, `organization_hub()` (one call for the whole hub) and
+  `set_hub_module()`, **which refuses a module the subscription does not
+  include, whatever the interface sends**. Plus `organization_hub_tools` (the
+  app launcher) with its own writers.
+- **0076** puts the packages on the Empire plans: Build → Core; Grow → Core +
+  Operations; Scale and Enterprise → Core + Operations + Performance. Hub AI
+  stays off every plan because its usage is metered as credits.
+- **0077** gives organizations their own departments
+  (`organization_departments`, `org_memberships.organization_department_id`
+  and `job_title`, writers, `organization_directory()`), and corrects the
+  registry so modules with no screen read "Coming soon" instead of offering a
+  toggle that does nothing.
+- **0078** grants hub packages to the dev fixtures: Lakeside = Core +
+  Operations + Performance, Cedar = Core only, Harbor = none, so all three
+  paths can be tested.
+
+Screens: **People** (company directory with photos, preferred names, titles,
+phones and opt-in birthdays, grouped by department), **Departments** (create,
+lead, archive; archiving releases people and keeps history), **Tools** (the
+company's app launcher), and **Settings › Organization Hub** (packages owned,
+switches, "Upgrade" where a package is not in the plan, "Coming soon" where a
+screen is not built). The organization sidebar's **Company** group is composed
+from the hub; `/app/people` and `/app/teams` render BES's own screens in the
+agency view and the company screens in an organization (`HubOrAgencyPage`),
+guarded by `RequireHubModule`.
+
+**A real defect this surfaced:** the interface treated BES staff as able to do
+anything in a customer's organization, but the database's `member_can()`
+writers refuse them — so an organization-internal control would have failed
+silently when a BES user pressed it. `usePermissions().canAsMember()` now
+answers that question honestly, and every control whose writer calls
+`member_can()` uses it: departments, tools, the hub switches, automations,
+announcements and knowledge in the organization view.
+
+Gates: 404 tests · tsc, lint, build, madge clean. Matrix phase 33 (21 probes)
+added; full run in progress.

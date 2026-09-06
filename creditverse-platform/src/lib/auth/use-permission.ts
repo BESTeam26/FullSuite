@@ -32,6 +32,15 @@ export function usePermission(key: PermissionKeyName): { allowed: boolean; loadi
  */
 export function usePermissions(): {
   can: (key: PermissionKeyName | readonly PermissionKeyName[]) => boolean;
+  /**
+   * The same question, asked of the *organization's own* writers. BES staff
+   * are not members, and the database refuses them an organization's internal
+   * changes — its team, its departments, its hub, its announcements are the
+   * customer's own (rule 16, rule 18). Use this for any control whose writer
+   * calls `member_can()`, so we never render a control that will be refused.
+   */
+  canAsMember: (key: PermissionKeyName | readonly PermissionKeyName[]) => boolean;
+  isMember: boolean;
   loading: boolean;
   gated: boolean;
 } {
@@ -40,11 +49,15 @@ export function usePermissions(): {
   const live = auth.mode === "live" && auth.status === "signed-in";
   const gated = live && !auth.isAgencyStaff && !!activeOrganization;
   const mine = useMyPermissions(gated ? activeOrganization?.id ?? null : null);
+  const isMember = !live || !activeOrganization
+    ? !live
+    : auth.orgMemberships.some((m) => m.organization_id === activeOrganization.id);
   const can = (key: PermissionKeyName | readonly PermissionKeyName[]) => {
     if (!gated) return true;
     if (!mine.data) return false;
     const keys = Array.isArray(key) ? key : [key as PermissionKeyName];
     return keys.some((k) => mine.data?.[k] === true);
   };
-  return { can, loading: gated && mine.isLoading, gated };
+  const canAsMember = (key: PermissionKeyName | readonly PermissionKeyName[]) => isMember && can(key);
+  return { can, canAsMember, isMember, loading: gated && mine.isLoading, gated };
 }

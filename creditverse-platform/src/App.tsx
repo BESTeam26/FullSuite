@@ -17,6 +17,8 @@ import { RequireAuth } from "@/components/auth/RequireAuth";
 import { RequireAgencyStaff } from "@/components/auth/RequireAgencyStaff";
 import { RequireEntitlement } from "./components/auth/RequireEntitlement";
 import { RequirePermission } from "./components/auth/RequirePermission";
+import { RequireHubModule } from "./components/auth/RequireHubModule";
+import { HubOrAgencyPage } from "./components/auth/HubOrAgencyPage";
 import { FundingOpsAccessProvider } from "@/lib/fulfillment/fundingops-access";
 
 /* ------------------------------------------------------------------ */
@@ -131,6 +133,9 @@ const WorkforcePage = lazy(named(hq2, "WorkforcePage"));
 const BillingPage = lazy(named(hq2, "BillingPage"));
 const AnnouncementsPage = lazy(named(hq2, "AnnouncementsPage"));
 const CalendarPage = lazy(named(hq2, "CalendarPage"));
+const CompanyPeople = lazy(() => import("./pages/app/CompanyPeople"));
+const CompanyDepartments = lazy(() => import("./pages/app/CompanyDepartments"));
+const CompanyTools = lazy(() => import("./pages/app/CompanyTools"));
 const SupportPage = lazy(named(hq2, "SupportPage"));
 
 const queryClient = new QueryClient();
@@ -338,17 +343,23 @@ const App = () => (
                                 <Route
                                   path="people"
                                   element={
-                                    <RequireAgencyStaff label="People">
-                                      <PeoplePage />
-                                    </RequireAgencyStaff>
+                                    <HubOrAgencyPage
+                                      module="people"
+                                      label="People"
+                                      agency={<RequireAgencyStaff label="People"><PeoplePage /></RequireAgencyStaff>}
+                                      organization={<CompanyPeople />}
+                                    />
                                   }
                                 />
                                 <Route
                                   path="teams"
                                   element={
-                                    <RequireAgencyStaff label="Teams">
-                                      <TeamsPage />
-                                    </RequireAgencyStaff>
+                                    <HubOrAgencyPage
+                                      module="departments"
+                                      label="Departments"
+                                      agency={<RequireAgencyStaff label="Teams"><TeamsPage /></RequireAgencyStaff>}
+                                      organization={<CompanyDepartments />}
+                                    />
                                   }
                                 />
                                 <Route
@@ -383,14 +394,18 @@ const App = () => (
                                 />
                                 <Route
                                   path="announcements"
-                                  element={<AnnouncementsPage />}
+                                  element={<RequireHubModule module="announcements" label="Announcements"><AnnouncementsPage /></RequireHubModule>}
                                 />
                                 <Route
                                   path="calendar"
-                                  element={<CalendarPage />}
+                                  element={<RequireHubModule module="calendar" label="Calendar"><CalendarPage /></RequireHubModule>}
                                 />
                                 {/* System */}
                                 <Route path="settings" element={<RequirePermission permission={["settings.manage", "team.manage", "team.permissions", "billing.view", "creditops.letters.templates"]} label="Settings"><Settings /></RequirePermission>} />
+                                <Route
+                                  path="tools"
+                                  element={<RequireHubModule module="tools" label="Tools"><CompanyTools /></RequireHubModule>}
+                                />
                                 <Route
                                   path="support"
                                   element={<SupportPage />}

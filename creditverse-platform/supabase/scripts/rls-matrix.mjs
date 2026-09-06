@@ -1282,5 +1282,44 @@ if (PHASE >= 32) {
   }
 }
 
+
+/* Phase 33 — Organization Hub (0075–0078). The three layers: an organization
+   cannot switch on what it did not buy, an agent cannot switch anything, and
+   BES staff do not configure a customer's internal hub. Rolled back. */
+if (PHASE >= 33) {
+  const w33 = (uid, sql, role = "authenticated") => { try { return q(`begin; set local role ${role}; set local request.jwt.claims = '{"sub":"${uid}","role":"${role}"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
+  const OWNER = U["org.owner@bes.test"], AGENT = U["org.agent@bes.test"], OTHER = U["org2.owner@bes.test"], BES = U["bes.owner@bes.test"];
+  const P33 = [
+    ["owner switches on an entitled, built module",                     () => w33(OWNER, `select public.set_hub_module('${lakesideOrg}', 'ops_dashboard', true); select public.hub_module_active('${lakesideOrg}', 'ops_dashboard')::int as rows`), 1],
+    ["owner cannot switch on a package the plan does not include",      () => w33(OWNER, `select public.set_hub_module('${lakesideOrg}', 'assistant', true)`), "ERR 42501"],
+    ["owner cannot switch on a module that is not built",               () => w33(OWNER, `select public.set_hub_module('${lakesideOrg}', 'requests', true)`), "ERR 42501"],
+    ["an always-on module cannot be switched off",                      () => w33(OWNER, `select public.set_hub_module('${lakesideOrg}', 'home', false)`), "ERR 42501"],
+    ["an agent cannot switch a module",                                 () => w33(AGENT, `select public.set_hub_module('${lakesideOrg}', 'calendar', false)`), "ERR 42501"],
+    ["another organization's owner cannot switch Lakeside's modules",   () => w33(OTHER, `select public.set_hub_module('${lakesideOrg}', 'calendar', false)`), "ERR 42501"],
+    ["BES staff do not configure a customer's own hub",                 () => w33(BES, `select public.set_hub_module('${lakesideOrg}', 'calendar', false)`), "ERR 42501"],
+    ["an unpurchased module is never active",                           () => w33(OWNER, `select public.hub_module_active('${lakesideOrg}', 'assistant')::int as rows`), 0],
+    ["a switched-off module is not active",                             () => w33(OWNER, `select public.set_hub_module('${lakesideOrg}', 'calendar', false); select public.hub_module_active('${lakesideOrg}', 'calendar')::int as rows`), 0],
+    ["direct insert into the hub table has no grant",                   () => w33(OWNER, `insert into public.organization_hub_modules (organization_id, module_key, enabled) values ('${lakesideOrg}', 'calendar', true); select 1 as rows`), "ERR 42501"],
+    ["another organization's owner reads no Lakeside hub rows",         () => w33(OTHER, `select count(*)::int as rows from public.organization_hub('${lakesideOrg}')`), 0],
+    ["owner adds a company tool; agent cannot",                         () => w33(OWNER, `select public.save_hub_tool(null, '${lakesideOrg}', 'Probe', 'https://example.com', '', 10); select count(*)::int as rows from public.organization_hub_tools where organization_id='${lakesideOrg}' and label='Probe'`), 1],
+    ["an agent cannot add a company tool",                              () => w33(AGENT, `select public.save_hub_tool(null, '${lakesideOrg}', 'Probe', 'https://example.com', '', 10)`), "ERR 42501"],
+    ["a tool link must be a real web address",                          () => w33(OWNER, `select public.save_hub_tool(null, '${lakesideOrg}', 'Probe', 'javascript:alert(1)', '', 10)`), "ERR 23514"],
+    ["owner creates a department; the agent cannot",                    () => w33(OWNER, `select public.save_organization_department(null, '${lakesideOrg}', 'Probe Dept', '', null, 10); select count(*)::int as rows from public.organization_departments where organization_id='${lakesideOrg}' and name='Probe Dept'`), 1],
+    ["an agent cannot create a department",                             () => w33(AGENT, `select public.save_organization_department(null, '${lakesideOrg}', 'Probe Dept', '', null, 10)`), "ERR 42501"],
+    ["a department lead must be a member of the organization",          () => w33(OWNER, `select public.save_organization_department(null, '${lakesideOrg}', 'Probe Dept 2', '', '${OTHER}', 10)`), "ERR 42501"],
+    ["a member cannot be moved into another organization's department", () => w33(OWNER, `select public.set_member_department((select id from public.org_memberships where organization_id='${lakesideOrg}' limit 1), (select id from public.organization_departments where organization_id <> '${lakesideOrg}' limit 1))`), "ERR 42501"],
+    ["the directory is empty for an outsider",                          () => w33(OTHER, `select count(*)::int as rows from public.organization_directory('${lakesideOrg}')`), 0],
+    ["the directory reaches the organization's own members",            () => w33(OWNER, `select (count(*) > 0)::int as rows from public.organization_directory('${lakesideOrg}')`), 1],
+    ["anon reads no hub registry",                                      () => w33("00000000-0000-0000-0000-000000000000", `select count(*)::int as rows from public.hub_modules`, "anon"), "ERR 42501"],
+  ];
+  console.log("\nphase 33:");
+  for (const [label, fn, want] of P33) {
+    checks++;
+    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
+    const ok = String(got) === String(want); if (!ok) fails++;
+    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
+  }
+}
+
 console.log(`\n${checks - fails}/${checks} checks passed (phase ≤ ${PHASE})`);
 process.exit(fails ? 1 : 0);
