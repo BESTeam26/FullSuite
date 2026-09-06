@@ -3553,3 +3553,14 @@ what only Dee can provide) and built the first slice:
 Gates: tsc clean · lint 0 errors · 378 tests · build clean (pdf.js split into
 its own chunk) · no circular imports. Verified in the browser: Cedar Home
 shows 5/7 steps, Cleo Chan › Import & Analysis shows PDF/CSV import.
+
+## Completion cycle 2 (2026-09-05, late) — DIY proposal, mobile pass 1
+
+- `ARCHITECTURE_PROPOSAL_DIY_CREDIT.md`: consumer as a portal user (never a
+  member), tables, RLS chain, reuse of reports/letters/files, conversion rule,
+  four build phases, decisions for Dee. Nothing built.
+- Mobile: the top bar no longer overflows 375 px (labels collapse to icons
+  with aria-labels; the identity block hides below sm); Clients and Funding
+  Files render cards below md and the table from md up (one row reading shared
+  by both); the Clients filter row wraps. Measured: page scroll width equals
+  viewport width at 375 px.

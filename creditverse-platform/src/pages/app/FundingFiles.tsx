@@ -71,7 +71,26 @@ export default function FundingFiles() {
 
       {view === "list" && (
       <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
-        <table className="w-full text-left text-xs">
+        {!files.isLoading && rows.length > 0 && (
+          <ul className="divide-y divide-border/60 md:hidden">
+            {rows.map((f) => (
+              <li key={f.id}>
+                <Link to={`/app/funding-files/${f.id}`} className="flex flex-col gap-1 px-4 py-3 transition-colors hover:bg-muted/30 focus-visible:bg-muted/30 focus-visible:outline-none">
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="font-semibold text-primary">{f.clientName ?? f.businessName}</span>
+                    <span className="font-bold text-foreground">{formatCurrency(f.requestedAmount)}</span>
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">{f.clientName ? `${f.businessName} · ` : ""}{f.purpose}</span>
+                  <span className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                    <span className={cn("inline-flex rounded-full border px-2 py-0.5 text-[10px] font-medium", FUNDING_STATUS_TONE[f.stage] ?? "border-border")}>{f.stage}</span>
+                    {f.dealCount} submission{f.dealCount === 1 ? "" : "s"} · {f.lastActivity || "—"}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+        <table className={cn("w-full text-left text-xs", !files.isLoading && rows.length > 0 && "hidden md:table")}>
           <thead className="bg-muted/50 text-[11px] uppercase tracking-wider text-muted-foreground">
             <tr>
               <th className="px-4 py-2 font-bold">Client · business · purpose</th>

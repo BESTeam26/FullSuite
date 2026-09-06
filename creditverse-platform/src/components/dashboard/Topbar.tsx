@@ -30,7 +30,7 @@ export const Topbar = () => {
   const switchToAgencyView = agencyContext?.switchToAgencyView || (() => {});
 
   return (
-    <header className="flex h-16 items-center justify-between gap-3 border-b border-border bg-background px-4 md:gap-4 md:px-6">
+    <header className="flex h-16 items-center justify-between gap-2 overflow-hidden border-b border-border bg-background px-3 md:gap-4 md:px-6">
       {/* Small screens only: the main menu lives in a drawer. */}
       <button
         type="button"
@@ -46,11 +46,11 @@ export const Topbar = () => {
         <GlobalSearch className="w-full max-w-md" />
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex shrink-0 items-center gap-1.5 md:gap-3">
         {/* View Mode Indicator Badge */}
         {viewMode === "agency" ? (
-          <Badge className="bg-gradient-gold text-charcoal font-bold flex items-center gap-1.5 px-3 py-1">
-            <Building2 className="h-3.5 w-3.5" /> Agency Owner HQ
+          <Badge className="bg-gradient-gold text-charcoal font-bold flex items-center gap-1.5 px-3 py-1" title="Agency Owner HQ">
+            <Building2 className="h-3.5 w-3.5" /> <span className="hidden md:inline">Agency Owner HQ</span><span className="md:hidden">HQ</span>
             {mode === "demo" ? " · Demo" : ""}
           </Badge>
         ) : isAgencyStaff ? (
@@ -61,8 +61,10 @@ export const Topbar = () => {
             size="sm"
             onClick={switchToAgencyView}
             className="text-xs text-muted-foreground hover:text-foreground"
+            aria-label="Return to Agency View"
+            title="Return to Agency View"
           >
-            <Layers className="h-3.5 w-3.5 mr-1" /> Return to Agency View
+            <Layers className="h-3.5 w-3.5 md:mr-1" /> <span className="hidden md:inline">Return to Agency View</span>
           </Button>
         ) : null}
 
@@ -72,9 +74,11 @@ export const Topbar = () => {
           size="sm"
           onClick={() => (viewMode === "agency" ? navigate("/app/subaccounts") : setNewClientOpen(true))}
           className="bg-emerald-700 hover:bg-emerald-800 text-white font-medium shadow-sm"
+          aria-label={viewMode === "agency" ? "Add Organization" : "New Client"}
+          title={viewMode === "agency" ? "Add Organization" : "New Client"}
         >
-          <Plus className="h-4 w-4 mr-1" />{" "}
-          {viewMode === "agency" ? "Add Organization" : "New Client"}
+          <Plus className="h-4 w-4 sm:mr-1" />
+          <span className="hidden sm:inline">{viewMode === "agency" ? "Add Organization" : "New Client"}</span>
         </Button>
 
         {/* The dot means exactly one thing: unread rows in `notifications`
@@ -97,7 +101,7 @@ export const Topbar = () => {
           )}
         </Link>
 
-        <div className="flex items-center gap-2">
+        <div className="hidden items-center gap-2 sm:flex">
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-gold font-bold text-charcoal text-sm">
             {viewMode === "agency"
               ? "HQ"

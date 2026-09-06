@@ -68,10 +68,10 @@ which already anticipates a consumer owning their own report.
    full-service client (a DIY consumer becoming a `fulfillment_client` keeps one
    canonical person, provenance `diy_converted`).
 
-**PROPOSAL** — write `ARCHITECTURE_PROPOSAL_DIY_CREDIT.md` (tables, RLS,
-consumer role, white-label routing, conversion rule) as the next proposal.
-Nothing here can be built responsibly without that document, because it adds a
-new kind of user to the tenancy model (rule 16).
+**PROPOSAL** — written: `ARCHITECTURE_PROPOSAL_DIY_CREDIT.md` (tables, RLS,
+consumer access, white-label routing, conversion rule, four build phases).
+Nothing is built until you approve it, because it adds a new kind of user to
+the tenancy model (rule 16).
 
 ### 3. FundingOps (the Funding Operation System)
 

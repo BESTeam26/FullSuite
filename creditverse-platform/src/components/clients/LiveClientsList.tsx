@@ -22,6 +22,12 @@ import { AddClientModal } from "@/components/dashboard/fulfillment/AddClientModa
 import { LIFECYCLE_LABELS, isActiveClient, type ClientLifecycle } from "@/lib/fulfillment/fulfillment-client-domain";
 import { NewClientDialog } from "@/components/clients/NewClientDialog";
 
+/* One reading of a row for both the table (from md up) and the cards below it. */
+const lifecycleLabel = (c: { lifecycle?: string | null; status: string }) =>
+  LIFECYCLE_LABELS[(c.lifecycle ?? (isActiveClient(c as never) ? "active" : "archived")) as ClientLifecycle];
+const lastActivityLabel = (c: { lastActivity?: string | null }) =>
+  c.lastActivity ? (Number.isNaN(Date.parse(c.lastActivity)) ? c.lastActivity : formatDate(c.lastActivity)) : "—";
+
 export function LiveClientsList() {
   return (
     <CreditOpsStoreProvider>
@@ -57,7 +63,7 @@ function LiveClientsListInner() {
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-foreground"><Users className="h-6 w-6 text-primary" /> Clients</h1>
           <p className="text-sm text-muted-foreground">Open a client to work their profile — report, disputes, letters, analysis.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <DataSourceBadge source="live" />
           <OpsSelect
             value={lifecycleView}
@@ -74,9 +80,9 @@ function LiveClientsListInner() {
               <Plus className="mr-1 h-4 w-4" /> New client
             </Button>
           ) : null}
-          <div className="relative">
+          <div className="relative w-full sm:w-auto">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search clients…" className="w-64 pl-9" aria-label="Search clients" />
+            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search clients…" className="w-full pl-9 sm:w-64" aria-label="Search clients" />
           </div>
         </div>
       </div>
@@ -88,7 +94,26 @@ function LiveClientsListInner() {
         ) : rows.length === 0 ? (
           <p className="p-6 text-sm text-muted-foreground">{q ? "No clients match." : lifecycleView === "active" ? "No active clients yet. Use New client to add one." : "No clients in this view."}</p>
         ) : (
-          <table className="w-full text-sm">
+          <>
+          <ul className="divide-y divide-border/60 md:hidden">
+            {rows.map((c) => (
+              <li key={c.id}>
+                <button
+                  type="button"
+                  onClick={() => navigate(`/app/clients/${c.id}`)}
+                  className="flex w-full flex-col gap-1 px-4 py-3 text-left transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none"
+                >
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="font-medium text-foreground">{c.name}</span>
+                    <span className="shrink-0 rounded-full border border-border px-2 py-0.5 text-[10px] font-semibold text-foreground">{c.status}</span>
+                  </span>
+                  <span className="text-xs text-muted-foreground">{c.email}</span>
+                  <span className="text-[11px] text-muted-foreground">{lifecycleLabel(c)} · {c.round} · {c.assignedAgent ?? "Unassigned"} · {lastActivityLabel(c)}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+          <table className="hidden w-full text-sm md:table">
             <thead className="bg-muted/40 text-left text-[11px] uppercase tracking-wider text-muted-foreground">
               <tr><th className="px-4 py-2.5">Client</th><th className="px-4 py-2.5">Lifecycle</th><th className="px-4 py-2.5">Processing status</th><th className="px-4 py-2.5">Round</th><th className="px-4 py-2.5">Assigned</th><th className="px-4 py-2.5">Last activity</th></tr>
             </thead>
@@ -102,15 +127,16 @@ function LiveClientsListInner() {
                   className="cursor-pointer border-t border-border/60 transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none"
                 >
                   <td className="px-4 py-3"><p className="font-medium text-foreground">{c.name}</p><p className="text-xs text-muted-foreground">{c.email}</p></td>
-                  <td className="px-4 py-3 text-foreground">{LIFECYCLE_LABELS[(c.lifecycle ?? (isActiveClient(c) ? "active" : "archived")) as ClientLifecycle]}</td>
+                  <td className="px-4 py-3 text-foreground">{lifecycleLabel(c)}</td>
                   <td className="px-4 py-3 text-foreground">{c.status}</td>
                   <td className="px-4 py-3 text-foreground">{c.round}</td>
                   <td className="px-4 py-3 text-muted-foreground">{c.assignedAgent ?? "Unassigned"}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{c.lastActivity ? (Number.isNaN(Date.parse(c.lastActivity)) ? c.lastActivity : formatDate(c.lastActivity)) : "—"}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{lastActivityLabel(c)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
+          </>
         )}
       </div>
       <AddClientModal open={adding} onClose={() => setAdding(false)} partner={partner} />
