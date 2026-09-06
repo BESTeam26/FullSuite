@@ -9,42 +9,8 @@
 import { requireSupabase } from "@/lib/supabase/client";
 import type { DiyStage } from "@/lib/diy/journey";
 
-export interface DiyJourneyRow {
-  clientId: string;
-  stage: DiyStage;
-  roundNumber: number;
-  identityTheftPathway: boolean;
-  startedAt: string;
-}
-
-export async function fetchDiyJourney(clientId: string): Promise<DiyJourneyRow | null> {
-  const sb = requireSupabase();
-  const { data, error } = await sb
-    .from("diy_journeys")
-    .select("client_id, stage, round_number, identity_theft_pathway, started_at")
-    .eq("client_id", clientId)
-    .maybeSingle();
-  if (error) throw error;
-  if (!data) return null;
-  return {
-    clientId: data.client_id,
-    stage: data.stage as DiyStage,
-    roundNumber: data.round_number,
-    identityTheftPathway: data.identity_theft_pathway,
-    startedAt: data.started_at,
-  };
-}
-
-export async function fetchDiyConsents(clientId: string) {
-  const sb = requireSupabase();
-  const { data, error } = await sb
-    .from("diy_consents")
-    .select("id, kind, version, agreed_at, withdrawn_at")
-    .eq("client_id", clientId)
-    .is("withdrawn_at", null);
-  if (error) throw error;
-  return data ?? [];
-}
+/* No journey reader here: the journey comes down with client_portal_home(),
+   in one request with the rest of the first screen (rule 14). */
 
 export async function enrolInDiy(organizationId: string, firstName: string, lastName: string, phone?: string) {
   const sb = requireSupabase();

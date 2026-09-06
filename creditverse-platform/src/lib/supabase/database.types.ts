@@ -254,6 +254,33 @@ export type Database = {
           },
         ]
       }
+      ai_credit_packs: {
+        Row: {
+          credits: number
+          is_active: boolean
+          key: string
+          label: string
+          price_cents: number
+          sort: number
+        }
+        Insert: {
+          credits: number
+          is_active?: boolean
+          key: string
+          label: string
+          price_cents: number
+          sort?: number
+        }
+        Update: {
+          credits?: number
+          is_active?: boolean
+          key?: string
+          label?: string
+          price_cents?: number
+          sort?: number
+        }
+        Relationships: []
+      }
       ai_features: {
         Row: {
           active: boolean
@@ -750,6 +777,162 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "businesses_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      channel_members: {
+        Row: {
+          channel_id: string
+          is_manager: boolean
+          joined_at: string
+          last_read_at: string | null
+          user_id: string
+        }
+        Insert: {
+          channel_id: string
+          is_manager?: boolean
+          joined_at?: string
+          last_read_at?: string | null
+          user_id: string
+        }
+        Update: {
+          channel_id?: string
+          is_manager?: boolean
+          joined_at?: string
+          last_read_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_members_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channel_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      channel_shares: {
+        Row: {
+          channel_id: string
+          created_at: string
+          created_by: string
+          engagement_id: string
+          id: string
+          revoked_at: string | null
+          revoked_by: string | null
+        }
+        Insert: {
+          channel_id: string
+          created_at?: string
+          created_by: string
+          engagement_id: string
+          id?: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+        }
+        Update: {
+          channel_id?: string
+          created_at?: string
+          created_by?: string
+          engagement_id?: string
+          id?: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_shares_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channel_shares_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channel_shares_engagement_id_fkey"
+            columns: ["engagement_id"]
+            isOneToOne: false
+            referencedRelation: "fulfillment_engagements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channel_shares_revoked_by_fkey"
+            columns: ["revoked_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      channels: {
+        Row: {
+          archived_at: string | null
+          created_at: string
+          created_by: string | null
+          department_id: string | null
+          id: string
+          kind: Database["public"]["Enums"]["channel_kind"]
+          name: string
+          organization_id: string
+          purpose: string | null
+        }
+        Insert: {
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          department_id?: string | null
+          id?: string
+          kind?: Database["public"]["Enums"]["channel_kind"]
+          name: string
+          organization_id: string
+          purpose?: string | null
+        }
+        Update: {
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          department_id?: string | null
+          id?: string
+          kind?: Database["public"]["Enums"]["channel_kind"]
+          name?: string
+          organization_id?: string
+          purpose?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channels_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channels_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "organization_departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channels_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -4141,6 +4324,67 @@ export type Database = {
           },
         ]
       }
+      messages: {
+        Row: {
+          author_id: string
+          author_is_bes: boolean
+          body: Json
+          body_text: string
+          channel_id: string
+          created_at: string
+          deleted_at: string | null
+          edited_at: string | null
+          id: number
+          reply_to_id: number | null
+        }
+        Insert: {
+          author_id: string
+          author_is_bes?: boolean
+          body: Json
+          body_text: string
+          channel_id: string
+          created_at?: string
+          deleted_at?: string | null
+          edited_at?: string | null
+          id?: never
+          reply_to_id?: number | null
+        }
+        Update: {
+          author_id?: string
+          author_is_bes?: boolean
+          body?: Json
+          body_text?: string
+          channel_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          edited_at?: string | null
+          id?: never
+          reply_to_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_reply_to_id_fkey"
+            columns: ["reply_to_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           activity_id: number | null
@@ -7208,6 +7452,10 @@ export type Database = {
         Returns: boolean
       }
       cancel_agency_invitation: { Args: { p_id: string }; Returns: undefined }
+      channel_manager: { Args: { p_channel: string }; Returns: boolean }
+      channel_shared_with_bes: { Args: { p_channel: string }; Returns: boolean }
+      channel_visible: { Args: { p_channel: string }; Returns: boolean }
+      channel_writable: { Args: { p_channel: string }; Returns: boolean }
       client_birthdays: {
         Args: { p_org: string; p_within_days?: number }
         Returns: {
@@ -7224,9 +7472,13 @@ export type Database = {
           client_id: string
           credit_round: string
           credit_status: string
+          diy_identity_theft: boolean
+          diy_round: number
+          diy_stage: string
           full_name: string
           funding_status: string
           has_creditops: boolean
+          has_diy: boolean
           has_fundingops: boolean
           open_document_requests: number
           open_funding_files: number
@@ -7370,6 +7622,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      ensure_general_channel: { Args: { p_org: string }; Returns: string }
       entity_visible: {
         Args: { p_entity_id: string; p_entity_type: string }
         Returns: boolean
@@ -7901,6 +8154,7 @@ export type Database = {
         | "potential_discrepancy"
         | "insufficient_data"
         | "processing_failed"
+      channel_kind: "general" | "department" | "topic" | "direct"
       claim_tier:
         | "observed_discrepancy"
         | "procedural_demand"
@@ -8454,6 +8708,7 @@ export const Constants = {
         "insufficient_data",
         "processing_failed",
       ],
+      channel_kind: ["general", "department", "topic", "direct"],
       claim_tier: [
         "observed_discrepancy",
         "procedural_demand",

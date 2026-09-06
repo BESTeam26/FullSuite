@@ -17,6 +17,7 @@ import {
   Network,
   Briefcase,
   BarChart3,
+  MessagesSquare,
   Scale,
   BookOpen,
   Megaphone,
@@ -262,6 +263,11 @@ export const Sidebar = () => {
     {
       label: "Organization",
       items: [
+        /* Channels are the organization's own. Everyone who is in one may open
+           it; the database decides which ones arrive, so no permission key
+           gates the entry — an empty list is the honest answer for somebody in
+           no channels. */
+        { label: "Channels", icon: MessagesSquare, href: "/app/channels" },
         { label: "Compliance & Billing", icon: Scale, href: "/app/compliance", permission: "billing.view" },
         { label: "Settings", icon: Settings, href: "/app/settings", permission: SETTINGS_KEYS },
       ],

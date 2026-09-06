@@ -4517,3 +4517,109 @@ attestation; staff cannot move somebody else's journey or consent for them; a
 consumer cannot promote themself to managed; upgrading twice makes one case;
 another organization sees no journey and no consents; a consumer cannot write
 a journey or consent row directly.
+
+## C4 — Channels (0104)
+
+Private by default. BES reaches a channel only through an explicit share **plus**
+a live engagement **plus** scope. All three, every time.
+
+### Not a new sharing model
+
+`workspace_shares` already did this shape for TalentOps: a share row pointing at
+an engagement, so access ends when the engagement does without anybody revoking
+anything. `channel_shares` is the same pattern deliberately — a second way to
+share would be a second thing to get wrong.
+
+Nothing else is new either. Authors are `profiles`, membership is
+`org_memberships`, mentions reuse `mentioned_user_ids()`, attachments reuse
+`files`, notifications reuse `notifications`, history reuses `activity_events`.
+
+### The doctrine, and the proof
+
+Verified against the live database, twelve scenarios:
+
+| Scenario | Result |
+|---|---|
+| Private channel vs BES | 0 |
+| Live engagement, not shared | 0 |
+| Shared, engagement not live | 0 |
+| Shared + live + scope | **sees it** |
+| …reads history | **1** |
+| …posts a reply | **1** — not read-only |
+| Assigned-scope BES agent, shared + live | 0 |
+| Engagement ends → access | **0, immediately** |
+| …including historical messages | **0** |
+| Organization keeps its history | **1** |
+| BES participation stays attributable to the org | **1** |
+| BES self-share / self-add / create a channel | refused |
+
+**A finding worth recording:** an `assigned`-scope BES agent gets nothing even
+on a shared channel with a live engagement. A channel has no assignee, so
+`in_scope()` refuses. That is correct — an agent scoped to their own
+assignments should not read a whole organization's conversation — and it means
+sharing grants reach to the service's managers and division, not to everyone
+with a BES badge.
+
+### Ending an engagement deletes nothing
+
+`revoked_at` and `engagement_is_live()` do the work. No message, share or
+membership is removed, so the organization's history is untouched and BES's own
+messages remain attributable in it. There is no permanent BES read access and
+no back door; if BES ever needs historical records for a dispute or a legal
+reason, that is a separate privileged mechanism and is **not** built here.
+
+### The screen tells the truth
+
+A shared channel is marked in the list and warned above the conversation, so
+somebody typing knows BES can read it. A message from BES is labelled. Neither
+is security — the database decided long before the screen rendered — but "who
+can read this" should never be a guess.
+
+Captured as **matrix phase 41** (20 checks).
+
+## SECURITY INCIDENT — credit_report_visible() lost SECURITY INVOKER (0102 → 0108)
+
+Introduced by me in 0102 and caught by the authorization matrix, phase 16.
+Recorded in full because the lesson is more valuable than the fix.
+
+**What happened.** Adding one branch to `credit_report_visible()`, I restated
+the function and silently changed it from SECURITY INVOKER to SECURITY DEFINER.
+
+**Why one word mattered.** Its first branch calls
+`entity_visible('fulfillment_client', …)`, which tests *"does a row with this
+id exist?"* — a question whose answer depends entirely on the caller's
+row-level security. As INVOKER it means "can you see this client". As DEFINER
+it means "does this client exist", which is true for every client in the
+database.
+
+**What it exposed.** `credit_reports` uses the function in **both** its select
+and insert policies. Any organization's owner could read and CREATE credit
+reports against any other organization's client. Reproduced before fixing:
+org2's owner successfully imported a report for a Lakeside client.
+
+**Fixed and verified.** org2 importing → refused 42501; org2 reading → 0;
+Lakeside's own owner → still works.
+
+**Scope.** Dev/staging only. The window was tonight, between 0102 and 0108, and
+the only records involved were test fixtures.
+
+**The lesson, which is the point of writing this down.** A function's security
+context is part of its meaning. `pg_get_functiondef` before every rewrite — I
+did exactly that for `assign_client_public_id` in 0093 and it caught a real
+problem; I skipped it here. The matrix is what found it, which is the argument
+for keeping every probe able to fail.
+
+## Full matrix green: 592/592 (41 phases)
+
+Also in this batch:
+
+- **0104/0105 Channels** — see the C4 section above. Phase 41, 23 checks.
+- **0106 portal waterfall** — the client portal made three sequential requests
+  before showing anything (home → journey → consents), the second unable to
+  start until the first returned the client id. DIY now arrives with the home
+  in one request and consents drop out entirely, because the STAGE proves
+  consent. Two dead hooks removed.
+- **0107 AI pricing shape** — markup 3.0×; allowances 3,000 / 8,000 / 18,000 /
+  40,000 set at the ninetieth-percentile month rather than the average;
+  top-ups $25/$50/$100/$250 at one credit = one cent, no volume tier.
+  Reasoning is in the migration. Provider per-token prices remain estimates.

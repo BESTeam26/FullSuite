@@ -42,6 +42,7 @@ const AuthCallback = lazy(() => import("./pages/auth/AuthCallback"));
 // Public / marketing
 const Index = lazy(() => import("./pages/Index"));
 const ClientPortal = lazy(() => import("./pages/portal/ClientPortal"));
+const Channels = lazy(() => import("./pages/app/Channels"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const DiyNotBuilt = lazy(() => import("./pages/DiyNotBuilt"));
 const AffiliatePortal = lazy(() => import("./pages/portals/PortalPreviewsRemoved").then((m) => ({ default: m.AffiliatePortalPreview })));
@@ -453,6 +454,9 @@ const App = () => (
                                     </RequireEntitlement>
                                   }
                                 />
+                                {/* No permission key: the database returns
+                                    only the channels this person is in. */}
+                                <Route path="channels" element={<Channels />} />
                                 <Route path="clients" element={<RequirePermission permission="creditops.clients.view" label="Clients"><Clients /></RequirePermission>} />
                                 <Route
                                   path="clients/:id"

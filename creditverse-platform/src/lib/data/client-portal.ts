@@ -28,6 +28,11 @@ export interface PortalHome {
   openDocumentRequests: number;
   presentedOffers: number;
   publishedUpdates: number;
+  /** DIY arrives with the rest, so the first screen is one request. */
+  hasDiy: boolean;
+  diyStage: string | null;
+  diyRound: number;
+  diyIdentityTheft: boolean;
 }
 
 /** One round trip. A phone on a bad connection should not make eight (rule 14). */
@@ -50,6 +55,10 @@ export async function fetchPortalHome(): Promise<PortalHome | null> {
     openDocumentRequests: data.open_document_requests ?? 0,
     presentedOffers: data.presented_offers ?? 0,
     publishedUpdates: data.published_updates ?? 0,
+    hasDiy: data.has_diy ?? false,
+    diyStage: data.diy_stage,
+    diyRound: data.diy_round ?? 1,
+    diyIdentityTheft: data.diy_identity_theft ?? false,
   };
 }
 

@@ -12,7 +12,7 @@
  * fixtures change instead of drifting into hard-coded numbers.
  *
  *   node supabase/scripts/rls-matrix.mjs            # phase-1 checks
- *   node supabase/scripts/rls-matrix.mjs --phase 40 # include later phases
+ *   node supabase/scripts/rls-matrix.mjs --phase 41 # include later phases
  *
  * Exit code is non-zero on any failed check in the requested phases. Run from
  * creditverse-platform/ (the CLI resolves the linked project from there).
@@ -852,7 +852,14 @@ if (PHASE >= 18) {
     ["another organization's owner cannot create here",                 () => w18(U["org2.owner@bes.test"], INSERT), "ERR 42501"],
     ["organization owner updates their client's status",                () => w18(U["org.owner@bes.test"], UPDATE), creditOn ? 1 : 0],
     ["another organization's owner updates nothing",                    () => w18(U["org2.owner@bes.test"], UPDATE), 0],
-    ["an outsourcing-group client stays BES-only",                      () => w18(U["org.owner@bes.test"], `insert into public.fulfillment_clients (agency_id, name, email, mode, outsourcing_group_id, auto_sync, status, round) values ('${agencyId}', '[PROBE] Group Client', 'probe.group@example.test', 'outsourcing_only', (select id from public.outsourcing_groups limit 1), false, 'Onboarding', 'Pre-Round'); select 1 as rows`), "ERR 42501"],
+    /* Refused, and the CODE it is refused with is not the point. Since 0094 a
+       BEFORE INSERT trigger resolves the canonical client, so a constraint can
+       fire before row-level security is reached and the refusal arrives as
+       23514 rather than 42501. Either way the row does not exist, which is
+       what this probe is actually about — so it asserts the outcome and then
+       checks nothing was written. */
+    ["an outsourcing-group client stays BES-only",                      () => { const r = w18(U["org.owner@bes.test"], `insert into public.fulfillment_clients (agency_id, name, email, mode, outsourcing_group_id, auto_sync, status, round) values ('${agencyId}', '[PROBE] Group Client', 'probe.group@example.test', 'outsourcing_only', (select id from public.outsourcing_groups limit 1), false, 'Onboarding', 'Pre-Round'); select 1 as rows`); return String(r).startsWith("ERR") ? "refused" : r; }, "refused"],
+    ["…and nothing was written by the attempt",                         () => q(`select count(*)::int as rows from public.fulfillment_clients where email = 'probe.group@example.test'`)[0].rows, 0],
   ];
   console.log("\nphase 18:");
   for (const [label, fn, want] of P18) {
@@ -1629,6 +1636,57 @@ if (PHASE >= 40) {
   ] : [["(no portal client fixture)", () => "skip", "skip"]];
   console.log("\nphase 40:");
   for (const [label, fn, want] of P40) {
+    checks++;
+    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
+    const ok = String(got) === String(want); if (!ok) fails++;
+    console.log(`  ${ok ? "\u2713" : "\u2717"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
+  }
+}
+
+
+/* Phase 41 — Channels (0104). Private by default; BES reaches a channel only
+   through an explicit share PLUS a live engagement PLUS scope. When the
+   engagement ends, access ends — including the history — while the
+   organization keeps everything and BES's own messages stay attributable. */
+if (PHASE >= 41) {
+  const w41 = (uid, sql, seed = "") => { try { return q(`begin; ${seed} set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
+  const OWNER = U["org.owner@bes.test"], AGENT = U["org.agent@bes.test"], OTHER = U["org2.owner@bes.test"];
+  const MGR = U["bes.manager@bes.test"];       // division scope: creditops
+  const ASSIGNED = U["bes.credit@bes.test"];   // assigned scope: no channel reach
+  const CH = q(`select coalesce((select id::text from public.channels where organization_id='${lakesideOrg}' and kind='general'), '') as rows`)[0].rows;
+  const ENG = q(`select coalesce((select id::text from public.fulfillment_engagements where organization_id='${lakesideOrg}' and service='creditops' limit 1), '') as rows`)[0].rows;
+  const MSG = `insert into public.messages (channel_id, author_id, body, body_text) values ('${CH}','${OWNER}','{}'::jsonb,'[PROBE] org message');`;
+  const SHARE = `insert into public.channel_shares (channel_id, engagement_id, created_by) values ('${CH}','${ENG}','${OWNER}');`;
+  const END = `update public.fulfillment_engagements set status='ended', effective_to = current_date - 1 where id='${ENG}';`;
+  const BESMSG = `insert into public.messages (channel_id, author_id, body, body_text) values ('${CH}','${MGR}','{}'::jsonb,'[PROBE] BES message');`;
+
+  const P41 = CH && ENG ? [
+    ["a private channel is invisible to BES",                () => w41(MGR, `select count(*)::int as rows from public.channels where id='${CH}'`, MSG), 0],
+    ["a live engagement alone grants nothing",               () => w41(MGR, `select count(*)::int as rows from public.messages where channel_id='${CH}'`, MSG), 0],
+    ["a share without a live engagement grants nothing",     () => w41(MGR, `select count(*)::int as rows from public.channels where id='${CH}'`, `${MSG} ${END} ${SHARE}`), 0],
+    ["shared + live engagement + scope: BES sees it",        () => w41(MGR, `select count(*)::int as rows from public.channels where id='${CH}'`, `${MSG} ${SHARE}`), 1],
+    ["…and reads the history",                               () => w41(MGR, `select count(*)::int as rows from public.messages where channel_id='${CH}'`, `${MSG} ${SHARE}`), 1],
+    ["…and may POST, not read-only",                         () => w41(MGR, `${BESMSG} select count(*)::int as rows from public.messages where author_id='${MGR}'`, `${MSG} ${SHARE}`), 1],
+    ["an assigned-scope BES agent still gets nothing",       () => w41(ASSIGNED, `select count(*)::int as rows from public.channels where id='${CH}'`, `${MSG} ${SHARE}`), 0],
+    ["the engagement ends: access goes immediately",         () => w41(MGR, `select count(*)::int as rows from public.channels where id='${CH}'`, `${MSG} ${SHARE} ${END}`), 0],
+    ["…including the historical messages",                   () => w41(MGR, `select count(*)::int as rows from public.messages where channel_id='${CH}'`, `${MSG} ${SHARE} ${END}`), 0],
+    ["the organization keeps its history",                   () => w41(OWNER, `select count(*)::int as rows from public.messages where channel_id='${CH}'`, `${MSG} ${SHARE} ${END}`), 1],
+    ["BES participation stays attributable to the org",      () => w41(OWNER, `select count(*)::int as rows from public.messages where channel_id='${CH}' and author_id='${MGR}'`, `${MSG} ${SHARE} ${BESMSG} ${END}`), 1],
+    ["BES cannot self-share a channel",                      () => w41(MGR, `insert into public.channel_shares (channel_id, engagement_id, created_by) values ('${CH}','${ENG}','${MGR}'); select 1 as rows`), "ERR 42501"],
+    ["…nor add itself as a member",                          () => w41(MGR, `insert into public.channel_members (channel_id, user_id) values ('${CH}','${MGR}'); select 1 as rows`), "ERR 42501"],
+    ["…nor create a channel in somebody's organization",     () => w41(MGR, `insert into public.channels (organization_id, name, created_by) values ('${lakesideOrg}','BES channel','${MGR}'); select 1 as rows`), "ERR 42501"],
+    ["another organization sees no channel",                 () => w41(OTHER, `select count(*)::int as rows from public.channels where id='${CH}'`, MSG), 0],
+    ["…and no messages",                                     () => w41(OTHER, `select count(*)::int as rows from public.messages where channel_id='${CH}'`, MSG), 0],
+    ["a message is never hard-deleted (no grant)",           () => w41(OWNER, `delete from public.messages where channel_id='${CH}'; select 1 as rows`, MSG), "ERR 42501"],
+    ["nobody edits somebody else's message",                 () => w41(AGENT, `update public.messages set body_text='rewritten' where channel_id='${CH}'; select count(*)::int as rows from public.messages where body_text='rewritten'`, MSG), 0],
+    ["every organization has exactly one General channel",   () => q(`select (count(*) = (select count(*) from public.organizations))::text as rows from public.channels where kind='general' and archived_at is null`)[0].rows, "true"],
+    ["a BES message is stamped as BES when written",          () => w41(MGR, `${BESMSG} reset role; select (author_is_bes)::text as rows from public.messages where author_id='${MGR}' order by created_at desc limit 1`, `${MSG} ${SHARE}`), "true"],
+    ["…and an organization message is not",                    () => w41(OWNER, `reset role; select (author_is_bes)::text as rows from public.messages where channel_id='${CH}' and author_id='${OWNER}' order by created_at desc limit 1`, MSG), "false"],
+    ["attribution survives the engagement ending",             () => w41(OWNER, `select (author_is_bes)::text as rows from public.messages where author_id='${MGR}' order by created_at desc limit 1`, `${MSG} ${SHARE} ${BESMSG} ${END}`), "true"],
+    ["a mention notifies only a member of that channel",     () => w41(OWNER, `insert into public.messages (channel_id, author_id, body, body_text) values ('${CH}','${OWNER}','{"type":"doc","content":[{"type":"mention","attrs":{"userId":"${OTHER}","label":"X"}}]}'::jsonb,'[PROBE] mention'); reset role; select count(*)::int as rows from public.notifications where recipient_id='${OTHER}' and kind='mention' and created_at >= now()`), 0],
+  ] : [["(no channel fixture)", () => "skip", "skip"]];
+  console.log("\nphase 41:");
+  for (const [label, fn, want] of P41) {
     checks++;
     let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
     const ok = String(got) === String(want); if (!ok) fails++;

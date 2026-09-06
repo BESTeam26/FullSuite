@@ -14,39 +14,32 @@
  */
 import { CheckCircle2, Circle, Loader2, ShieldQuestion } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { DIY_JOURNEY, canAdvance, nextAction, progress, stageIndex, type JourneyState } from "@/lib/diy/journey";
-import { useAdvanceDiy, useDiyConsents, useDiyJourney } from "@/lib/data/use-diy";
+import { DIY_JOURNEY, canAdvance, nextAction, progress, stageIndex, type DiyStage, type JourneyState } from "@/lib/diy/journey";
+import { useAdvanceDiy } from "@/lib/data/use-diy";
 import { cn } from "@/lib/utils";
 
-export function DiySection({ clientId }: { clientId: string }) {
-  const journey = useDiyJourney(clientId);
-  const consents = useDiyConsents(clientId);
+interface Props {
+  clientId: string;
+  /* These arrive with the portal home rather than being fetched again. The
+     client id was not known until that request returned, so fetching here was
+     a waterfall on the first screen a client sees (rule 14). */
+  stage: DiyStage;
+  roundNumber: number;
+  identityTheftPathway: boolean;
+}
+
+export function DiySection({ clientId, stage, roundNumber, identityTheftPathway }: Props) {
   const advance = useAdvanceDiy(clientId);
 
-  if (journey.isLoading || consents.isLoading) {
-    return (
-      <p className="inline-flex items-center gap-2 text-sm text-muted-foreground" aria-busy="true">
-        <Loader2 className="h-4 w-4 animate-spin" /> Loading…
-      </p>
-    );
-  }
-  if (!journey.data) return null;
-
   const state: JourneyState = {
-    stage: journey.data.stage,
-    roundNumber: journey.data.roundNumber,
-    /* Either a consent row, OR a journey already past enrolment — because the
-       database refuses to move past `enrolled` without one, so the stage is
-       itself proof. Reading only the consents query would tell somebody who
-       consented last week to consent again the moment that query was slow. */
-    hasConsent:
-      (consents.data ?? []).some((c) => c.kind === "service_terms")
-      || stageIndex(journey.data.stage) >= stageIndex("consented"),
-    /* Attestation lives with the letters, which this milestone does not build.
-       Until it does, the gate holds closed — which is the safe direction. */
-    hasAttestation: stageIndex(journey.data.stage) >= stageIndex("attested"),
+    stage,
+    roundNumber,
+    /* The STAGE proves consent: diy_advance() refuses to leave `enrolled`
+       without one on record, so there is nothing else to look up. */
+    hasConsent: stageIndex(stage) >= stageIndex("consented"),
+    hasAttestation: stageIndex(stage) >= stageIndex("attested"),
     unreviewedExtraction: false,
-    identityTheftPathway: journey.data.identityTheftPathway,
+    identityTheftPathway,
   };
 
   const p = progress(state.stage);
