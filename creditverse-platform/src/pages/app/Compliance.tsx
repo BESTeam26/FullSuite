@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { SampleContentNotice } from "@/components/dashboard/SampleContentNotice";
 
 const billingEvents = [
   {
@@ -76,6 +77,7 @@ const eligibilityChecks = [
 
 const Compliance = () => (
   <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
+    <SampleContentNotice what="These billing events, registrations, linter flags and eligibility checks illustrate how the compliance module will read once it is connected to live records." />
     <div className="border-b border-border/60 pb-5">
       <div className="flex items-center gap-2">
         <Badge className="bg-amber-500/10 text-status-warning border border-amber-500/30 font-semibold px-2.5 py-0.5 shadow-sm">

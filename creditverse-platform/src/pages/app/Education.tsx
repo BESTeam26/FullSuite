@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { fcraSections, metro2Fields, violationLibrary } from "@/lib/knowledge";
+import { SampleContentNotice } from "@/components/dashboard/SampleContentNotice";
 
 const courses = [
   {
@@ -69,6 +70,7 @@ const Education = () => {
 
   return (
     <div className="p-6 md:p-8">
+      <SampleContentNotice what="These courses and progress figures illustrate the education module; real enrolments and progress arrive with the Knowledge Base build." />
       <div className="mb-8">
         <h1 className="text-2xl font-bold tracking-tight">
           Credit Law & Education Academy

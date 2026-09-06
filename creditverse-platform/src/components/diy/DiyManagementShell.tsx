@@ -19,6 +19,7 @@ import { MgmtInvitations } from "@/components/diy/management/MgmtInvitations";
 import { MgmtConversions } from "@/components/diy/management/MgmtConversions";
 import { MgmtBranding } from "@/components/diy/management/MgmtBranding";
 import { MgmtPlans, MgmtSettings } from "@/components/diy/management/MgmtPlans";
+import { SampleContentNotice } from "@/components/dashboard/SampleContentNotice";
 
 export type MgmtView =
   | "overview"
@@ -67,6 +68,7 @@ export const DiyManagementShell = () => {
   if (!isDiyEntitled(entitlements)) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 p-12 text-center">
+        <SampleContentNotice what="The DIY Credit management workspace runs on an in-memory example organization; enrolments, conversions and activity here are illustrations until the DIY data model is built." />
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted">
           <Lock className="h-7 w-7 text-muted-foreground" />
         </div>

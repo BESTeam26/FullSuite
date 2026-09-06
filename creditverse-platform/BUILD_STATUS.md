@@ -3433,3 +3433,17 @@ Interface for 0071: the client profile's Import & Analysis tab gains
 reported or changed since the previous import, grouped by the date observed,
 with the caution that a disappearance is not proof of a bureau deletion until
 confirmed. Hidden when a client has fewer than two imports.
+`npm run verify:live` replayed after 0071: all anonymous-caller checks pass
+(reads denied, writes rejected, audit trail append-only).
+Gateway check: a POST to the deployed `ai-gateway` with only the anonymous key
+answers 401 "Session not valid" — the function runs, verifies the caller, and
+refuses before any provider or metering step. The interface path (Wording
+help → gateway → "AI is not connected yet") completes once a draft letter
+exists; no fixture rows were fabricated to force it.
+
+**Sample content labelled (2026-09-05).** Three surfaces still run on bundled
+examples with no live model behind them: Compliance (billing events,
+registrations, linter flags, eligibility checks), Education (courses,
+progress) and DIY Credit management (in-memory example organization). Each now
+opens with a "Sample content" notice saying so (`SampleContentNotice`), per
+rule 12; every sidebar link was checked against the router (all routed).
