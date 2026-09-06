@@ -157,12 +157,23 @@ function scorePayment(items: ClassifiedItem[]): {
 /**
  * Utilization factor (30%).
  * Based on revolving balances vs limits. We approximate from open revolving
- * accounts; if limits are unknown we infer a conservative estimate.
+ * accounts.
+ *
+ * Utilization needs a credit limit, and a credit limit is something the report
+ * either states or does not. This used to assume $5,000 per open card when the
+ * limit was missing, which produced a percentage — and advice a person acts on
+ * — out of a number nobody reported. It no longer does: an account with no
+ * stated limit is left out, and if none of them state one, utilization is
+ * `null` and the interface says it is not known (rule 9).
+ *
+ * The import does not yet capture the credit limit column; until it does,
+ * `creditLimit` is only present on items whose source provided it.
  */
 function scoreUtilization(items: ClassifiedItem[]): {
   current: number;
   ceiling: number;
-  utilizationPct: number;
+  /** Null when no open revolving account states a credit limit. */
+  utilizationPct: number | null;
   note: string;
 } {
   const revolving = items.filter(
@@ -176,24 +187,33 @@ function scoreUtilization(items: ClassifiedItem[]): {
     return {
       current: 60,
       ceiling: 95,
-      utilizationPct: 0,
+      utilizationPct: null,
       note: "No open revolving accounts — utilization cannot be scored. Building revolving credit is a lever.",
     };
   }
 
-  // Approximate limits: if balance is low relative to typical, assume a limit.
-  // In a real system these come from the report's credit limit field.
+  /* Only accounts whose limit the report actually states. No limit, no maths. */
   let totalBalance = 0;
   let totalLimit = 0;
+  let withLimit = 0;
   revolving.forEach((i) => {
-    const bal = parseBalance(i.balance);
-    totalBalance += bal;
-    // Conservative inferred limit: assume ~$5,000 per open revolving card if
-    // not otherwise available (placeholder heuristic for the demo layer).
-    totalLimit += 5000;
+    const limit = parseBalance(i.creditLimit);
+    if (limit <= 0) return;
+    withLimit += 1;
+    totalBalance += parseBalance(i.balance);
+    totalLimit += limit;
   });
 
-  const utilizationPct = totalLimit > 0 ? (totalBalance / totalLimit) * 100 : 0;
+  if (withLimit === 0) {
+    return {
+      current: 60,
+      ceiling: 95,
+      utilizationPct: null,
+      note: `Utilization is not known: none of the ${revolving.length} open revolving account(s) shows a credit limit on the report. Add the limits, or import a report that states them, and this becomes a live figure.`,
+    };
+  }
+
+  const utilizationPct = (totalBalance / totalLimit) * 100;
 
   // FICO utilization bands (ideal < 10%)
   let current: number;
@@ -206,7 +226,7 @@ function scoreUtilization(items: ClassifiedItem[]): {
   // Ceiling = pay down to < 9%
   const ceiling = 95;
 
-  let note = `Utilization ~${Math.round(utilizationPct)}% across ${revolving.length} open revolving account(s).`;
+  let note = `Utilization ~${Math.round(utilizationPct)}% across ${withLimit} open revolving account(s) with a stated limit${withLimit < revolving.length ? ` (${revolving.length - withLimit} more have no limit on the report)` : ""}.`;
   if (utilizationPct > 30)
     note +=
       " High utilization is a major, fast lever — paying down can lift the score within a billing cycle.";

@@ -38,12 +38,16 @@ const profile = (): ClassifiedItem[] => [
     id: "revA",
     subtype: "Revolving",
     balance: "$1,500",
+    /* Stated limits: utilization is computed only from limits the report
+       gives, so a fixture without one exercises the "not known" path. */
+    creditLimit: "$5,000",
     openDate: "01/2015",
   }),
   item({
     id: "revB",
     subtype: "Revolving",
     balance: "$1,000",
+    creditLimit: "$5,000",
     openDate: "01/2018",
   }),
   derog("col1", {

@@ -20,12 +20,18 @@ const item = (o: Partial<ClassifiedItem> & { id: string }): ClassifiedItem => ({
   ...o,
 });
 
+/**
+ * A revolving card. The limit is stated by default because utilization is only
+ * computed from limits the report actually gives — an account without one is
+ * excluded rather than assumed (see `scoreUtilization`). Pass
+ * `{ creditLimit: undefined }` to exercise that path.
+ */
 const revolving = (
   id: string,
   balance: string,
   openDate: string,
   extra: Partial<ClassifiedItem> = {},
-) => item({ id, subtype: "Revolving", balance, openDate, ...extra });
+) => item({ id, subtype: "Revolving", balance, openDate, creditLimit: "$5,000", ...extra });
 
 const collection = (id: string, extra: Partial<ClassifiedItem> = {}) =>
   item({
@@ -91,6 +97,25 @@ describe("analyzeScorePotential", () => {
     expect(factor(r, "EQ", "utilization").note).toMatch(
       /No open revolving accounts/,
     );
+  });
+
+  it("refuses to compute utilization when the report states no credit limit", () => {
+    const r = analyzeScorePotential([
+      revolving("c1", "$2,000", "01/2015", { creditLimit: undefined }),
+      revolving("c2", "$1,000", "01/2016", { creditLimit: undefined }),
+    ]);
+    const util = factor(r, "EQ", "utilization");
+    expect(util.note).toMatch(/Utilization is not known/);
+    expect(util.note).toMatch(/shows a credit limit/);
+  });
+
+  it("computes utilization from the accounts that do state a limit, and says how many did not", () => {
+    const r = analyzeScorePotential([
+      revolving("c1", "$500", "01/2015", { creditLimit: "$5,000" }),
+      revolving("c2", "$9,000", "01/2016", { creditLimit: undefined }),
+    ]);
+    const util = factor(r, "EQ", "utilization");
+    expect(util.note).toMatch(/^Utilization ~10% across 1 open revolving account\(s\) with a stated limit \(1 more have no limit/);
   });
 
   it("scores a clean, seasoned, diversified profile as BALANCED with strong factors", () => {

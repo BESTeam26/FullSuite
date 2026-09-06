@@ -3875,3 +3875,28 @@ proven by matrix phase 35 rather than by reading the table during a run — the
 harness must be the only thing touching fixtures while it works. (I wrote that
 one fixture row mid-run before thinking; noted so it does not become a habit.)
 `mention` now has its own icon in the notifications list.
+
+## Completion cycle 13 (2026-09-06) — three invented figures removed from Build Credit
+
+Walking the client tabs on a client with no report imported turned up numbers
+presented as findings that came from nothing:
+
+1. **"Thin file detected"** on a client with no report. Absence of data is not
+   a thin file. It now says no report has been imported and that whether the
+   file is thin cannot be known without one.
+2. **A $5,000 credit limit assumed per open card** when the report states
+   none — producing a utilization percentage, and paydown advice, from a
+   number nobody reported. `scoreUtilization` now computes only from limits
+   the report actually states, returns **null** when none does, and says how
+   many accounts were left out. `creditLimit` is now part of the report item
+   shape; the CSV and PDF importers do not capture it yet, which is the next
+   step and is recorded rather than papered over.
+3. **Six hard-coded months of payment history** (five paid, one pending) shown
+   for every client, and a **hard-coded utilization decline** (22 → 18 → 12 →
+   9 → 8) with only the last point real. Both are gone: the strip says payment
+   history is not captured by the import, and the trend says a line needs at
+   least two imported reports.
+
+Tests were updated, not weakened: the fixtures now state limits (so they test
+real arithmetic) and two new tests cover the "no limit stated" and "some
+limits stated" paths. 436 tests pass.

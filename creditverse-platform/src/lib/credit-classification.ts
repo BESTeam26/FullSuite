@@ -34,6 +34,12 @@ export interface RawReportItem {
   kind: ItemKind;
   subtype?: string; // e.g. "Revolving", "Auto Loan", "Collection", "Bankruptcy"
   balance?: string;
+  /**
+   * The credit limit as the report states it, when it states one. Absent is
+   * meaningful: utilization is not computed for an account without it, rather
+   * than computed from an assumed limit.
+   */
+  creditLimit?: string;
   status: string; // "Open", "Closed", "Collection", "Charge-Off", "Paid", etc.
   bureaus: Bureau[];
   dofd?: string;

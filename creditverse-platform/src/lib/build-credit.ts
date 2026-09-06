@@ -37,9 +37,17 @@ export interface BuildCreditState {
   flows: BuildFlow[];
   isThinFile: boolean;
   utilizationTarget: number;
-  currentUtilization: number;
+  /** Null when no open revolving account states a credit limit. */
+  currentUtilization: number | null;
+  /**
+   * Month-by-month payment history. Empty until an import captures it: the
+   * report's payment grid is not among the fields the CSV and PDF parsers
+   * read, and inventing six green ticks for every client — which this used to
+   * do — is worse than an empty strip that says so.
+   */
   onTimePayments: OnTimePayment[];
-  onTimeRate: number;
+  /** Null while payment history is not captured. */
+  onTimeRate: number | null;
   totalAccounts: number;
   openPositiveCount: number;
 }
@@ -167,23 +175,18 @@ export function buildCreditState(items: ClassifiedItem[]): BuildCreditState {
     },
   ];
 
-  // On-time payment tracking (12-month rolling)
-  const onTimePayments: OnTimePayment[] = [
-    { month: "Mar", status: "paid" },
-    { month: "Apr", status: "paid" },
-    { month: "May", status: "paid" },
-    { month: "Jun", status: "paid" },
-    { month: "Jul", status: "paid" },
-    { month: "Aug", status: "pending" },
-  ];
-  const paidCount = onTimePayments.filter((p) => p.status === "paid").length;
-  const onTimeRate = Math.round((paidCount / onTimePayments.length) * 100);
+  /* Payment history: nothing to show until an import captures the report's
+     payment grid. This used to return six hard-coded months — five paid, one
+     pending — for every client, which is a claim about someone's payment
+     record made from no data at all. */
+  const onTimePayments: OnTimePayment[] = [];
+  const onTimeRate: number | null = null;
 
   return {
     flows,
     isThinFile,
     utilizationTarget: 9,
-    currentUtilization: Math.round(a.utilizationPct),
+    currentUtilization: a.utilizationPct === null ? null : Math.round(a.utilizationPct),
     onTimePayments,
     onTimeRate,
     totalAccounts: a.totalAccounts,

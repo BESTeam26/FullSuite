@@ -35,8 +35,12 @@ const iconMap = {
 } as const;
 
 const BuildCreditTab = () => {
-  const { items } = useClientWorkspace();
+  const { items, reportSource } = useClientWorkspace();
   const state = useMemo(() => buildCreditState(items), [items]);
+  /* No report is not the same as a thin file. With nothing imported we know
+     nothing about this person's credit, and saying "thin file detected" would
+     be a finding invented from an empty list (rule 9). */
+  const noReport = reportSource === "none";
   const [openFlow, setOpenFlow] = useState<BuildFlowType | null>(
     state.flows.find((f) => f.recommended)?.id ?? "secured-card",
   );
@@ -51,25 +55,41 @@ const BuildCreditTab = () => {
       return next;
     });
 
+  const utilization = state.currentUtilization;
+  const utilKnown = utilization !== null;
   const utilTone =
-    state.currentUtilization <= 9
-      ? "text-status-success"
-      : state.currentUtilization <= 29
-        ? "text-sky-600"
-        : "text-status-warning";
+    !utilKnown
+      ? "text-muted-foreground"
+      : utilization <= 9
+        ? "text-status-success"
+        : utilization <= 29
+          ? "text-sky-600"
+          : "text-status-warning";
 
-  const utilData = [
-    { month: "Mar", util: 22 },
-    { month: "Apr", util: 18 },
-    { month: "May", util: 12 },
-    { month: "Jun", util: 9 },
-    { month: "Jul", util: 8 },
-    { month: "Aug", util: state.currentUtilization || 8 },
-  ];
+  /* There is no month-by-month utilization history to draw: an import records
+     one snapshot per report. The chart used to show a hard-coded decline
+     (22 → 18 → 12 → 9 → 8) with only the last point real, which read as this
+     client's progress. It now draws one point per imported report, and says so
+     when there are too few to make a line. */
+  const utilData = utilKnown ? [{ month: "Now", util: utilization }] : [];
 
   return (
     <div className="space-y-6">
-      {/* Thin-file banner */}
+      {/* What we actually know: nothing, a thin file, or an established one. */}
+      {noReport ? (
+        <div className="flex items-start gap-3 rounded-2xl border border-border bg-muted/20 p-5">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+            <AlertTriangle className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-foreground">No credit report imported yet</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Whether this client has a thin file is not something we can tell without their report. Import one from
+              Import &amp; Analysis; the build actions below are general guidance until then.
+            </p>
+          </div>
+        </div>
+      ) : (
       <div
         className={`flex items-start gap-3 rounded-2xl border p-5 ${
           state.isThinFile
@@ -106,6 +126,7 @@ const BuildCreditTab = () => {
           </p>
         </div>
       </div>
+      )}
 
       {/* Utilization + on-time tracking */}
       <div className="grid gap-6 lg:grid-cols-3">
@@ -115,22 +136,26 @@ const BuildCreditTab = () => {
             <h3 className="text-sm font-semibold">Utilization target</h3>
           </div>
           <p className={`mt-3 text-3xl font-bold ${utilTone}`}>
-            {state.currentUtilization}%
+            {utilKnown ? `${utilization}%` : "—"}
           </p>
           <p className="text-[11px] text-muted-foreground">
-            current · target under {state.utilizationTarget}%
+            {utilKnown
+              ? `current · target under ${state.utilizationTarget}%`
+              : noReport
+                ? `not known yet · target under ${state.utilizationTarget}%`
+                : `no credit limit on the report · target under ${state.utilizationTarget}%`}
           </p>
           <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted">
             <div
               className={`h-full rounded-full ${
-                state.currentUtilization <= 9
+                utilKnown && utilization <= 9
                   ? "bg-emerald-500"
-                  : state.currentUtilization <= 29
+                  : utilKnown && utilization <= 29
                     ? "bg-sky-500"
                     : "bg-amber-500"
               }`}
               style={{
-                width: `${Math.min(100, state.currentUtilization)}%`,
+                width: `${utilKnown ? Math.min(100, utilization) : 0}%`,
               }}
             />
           </div>
@@ -145,10 +170,14 @@ const BuildCreditTab = () => {
             <CheckCircle2 className="h-4 w-4 text-status-success" />
             <h3 className="text-sm font-semibold">On-time payments</h3>
           </div>
-          <p className="mt-3 text-3xl font-bold text-status-success">
-            {state.onTimeRate}%
+          <p className={`mt-3 text-3xl font-bold ${state.onTimeRate === null ? "text-muted-foreground" : "text-status-success"}`}>
+            {state.onTimeRate === null ? "—" : `${state.onTimeRate}%`}
           </p>
-          <p className="text-[11px] text-muted-foreground">6-month rolling</p>
+          <p className="text-[11px] text-muted-foreground">
+            {state.onTimeRate === null
+              ? "not tracked yet — the import does not read the report's payment grid"
+              : "6-month rolling"}
+          </p>
           <div className="mt-3 flex gap-1.5">
             {state.onTimePayments.map((p) => (
               <div
@@ -183,6 +212,12 @@ const BuildCreditTab = () => {
             <TrendingUp className="h-4 w-4 text-status-success" />
             <h3 className="text-sm font-semibold">Utilization trend</h3>
           </div>
+          {utilData.length < 2 ? (
+            <p className="mt-3 flex h-[120px] items-center justify-center rounded-lg border border-dashed border-border px-4 text-center text-[11px] text-muted-foreground">
+              A trend needs at least two imported reports. Import this client's report again after the next cycle and
+              the line appears here.
+            </p>
+          ) : (
           <div className="mt-3 h-[120px]">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart
@@ -223,6 +258,7 @@ const BuildCreditTab = () => {
               </AreaChart>
             </ResponsiveContainer>
           </div>
+          )}
         </div>
       </div>
 
