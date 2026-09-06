@@ -76,20 +76,29 @@ export function CreditReportPdfImport({ fulfillmentClientId, organizationId, out
     setReading(true);
     setFileNames(files.map((f) => f.name));
     try {
-      const results = await Promise.all(files.map((f) => extractPdfLines(f)));
-      const noText = files.filter((_, i) => !results[i].hasTextLayer);
+      /* A photo has no text layer to look for; only PDFs go through the
+         reader. Images go straight to the assistant path below. */
+      const pdfs = files.filter((f) => f.type === "application/pdf");
+      const images = files.filter((f) => f.type !== "application/pdf");
+      if (pdfs.length === 0) {
+        setScanned(images);
+        setProblem(`${images.map((f) => f.name).join(", ")} ${images.length === 1 ? "is a photo" : "are photos"}, so there is no text to read directly. Have ${images.length === 1 ? "it" : "them"} read below, or import a PDF saved from the monitoring service.`);
+        return;
+      }
+      const results = await Promise.all(pdfs.map((f) => extractPdfLines(f)));
+      const noText = [...pdfs.filter((_, i) => !results[i].hasTextLayer), ...images];
       if (noText.length > 0) {
         /* A scan has no text to parse. Offer the reading assistant instead of
            refusing outright — the person still reviews every row. */
         setScanned(noText);
         setProblem(
-          `${noText.map((f) => f.name).join(", ")} has no readable text — it is a scan or a photo. You can have it read below, or save the report as a PDF from the monitoring service and try again.`,
+          `${noText.map((f) => f.name).join(", ")} ${noText.length === 1 ? "has" : "have"} no readable text — ${noText.length === 1 ? "it is a scan or a photo" : "they are scans or photos"}. You can have ${noText.length === 1 ? "it" : "them"} read below, or save the report as a PDF from the monitoring service and try again.`,
         );
         return;
       }
       const parsed = parseCreditReportPdfText(results.flatMap((r) => r.lines));
       if (parsed.candidates.length === 0) {
-        setScanned(files);
+        setScanned(pdfs);
         setProblem("The text was read but no credit report items were recognised in it. You can have the file read below, or check that this is a credit report.");
         return;
       }

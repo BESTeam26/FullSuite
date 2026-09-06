@@ -3747,3 +3747,21 @@ joined the plan — a deliberate commercial change reported as a security
 failure. The probe now reads the expected count from the plan row, and a
 separate probe keeps the rule that actually matters: **a trial never includes
 CRM**.
+
+### A bug the verification caught: every Edge Function call was blocked
+
+Reading a photo failed with "Failed to send a request to the Edge Function".
+The cause was not the new code: `supabase-js` sends `x-client-info` on every
+`functions.invoke`, and both functions listed only
+`authorization, content-type, apikey` in `Access-Control-Allow-Headers`. The
+browser blocked the preflight, so **every** call through the gateway would
+have failed the moment it was tried from the app — letter wording help,
+"explain this fit" and invitations included. Both functions now allow
+`x-client-info` and `x-supabase-api-version` and were redeployed. Verified in
+the browser: `invoke` now reaches the function and returns its real answer
+(402 "no credits" for an organization without a balance), shown to the person
+in those words.
+
+Also fixed while testing: a photo was being sent through the PDF text reader
+and failed as "The PDF could not be read". Images now go straight to the
+assistant path with a plain explanation.

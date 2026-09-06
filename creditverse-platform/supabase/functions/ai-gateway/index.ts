@@ -17,7 +17,12 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const MODEL_DEFAULT = "claude-sonnet-5";
-const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, content-type, apikey" };
+const cors = { "Access-Control-Allow-Origin": "*", /* supabase-js sends x-client-info (and a version header) on every invoke.
+   Leaving them out of this list makes the browser block the preflight, and
+   the caller sees "Failed to send a request to the Edge Function" with no
+   clue why — which is exactly what happened. */
+  "Access-Control-Allow-Headers": "authorization, content-type, apikey, x-client-info, x-supabase-api-version",
+  "Access-Control-Max-Age": "86400" };
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { ...cors, "content-type": "application/json" } });
 
 /**
