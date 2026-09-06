@@ -3595,3 +3595,10 @@ shows 5/7 steps, Cleo Chan › Import & Analysis shows PDF/CSV import.
   KPI definitions no longer appear in an organization's KPI settings at all
   (rule 16); the education page is titled Knowledge Base and its sample
   figures show only on the Course catalog tab.
+
+## Completion cycle 5 (2026-09-05, late) — Your account
+
+- New settings group **You › Your account** in both views: display name
+  (own profile row, self-row update policy) and password change (Supabase
+  Auth `updateUser`; the application never stores or logs it). The
+  organization default section remains the first Organization section.

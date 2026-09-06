@@ -24,6 +24,7 @@ import {
   BarChart3,
   Sparkles,
   Palette,
+  UserRound,
 } from "lucide-react";
 import {
   AgencySettingsProvider,
@@ -70,11 +71,16 @@ import { AiUsageSection } from "@/components/settings/sections/AiUsageSection";
 import { OrganizationProfileSection } from "@/components/settings/sections/OrganizationProfileSection";
 import { OrganizationPlanSection } from "@/components/settings/sections/OrganizationPlanSection";
 import { LetterLibrarySection } from "@/components/settings/sections/LetterLibrarySection";
+import { AccountSection } from "@/components/settings/sections/AccountSection";
 import { useAgency } from "@/lib/agency-context";
 import { useAuth } from "@/lib/auth/auth-context";
 import { usePermissions } from "@/lib/auth/use-permission";
 
 const groups: SettingsGroup[] = [
+  {
+    label: "You",
+    items: [{ key: "account", label: "Your account", icon: UserRound }],
+  },
   {
     label: "General",
     items: [
@@ -133,6 +139,10 @@ const groups: SettingsGroup[] = [
    not offered here — an organization user must not see BES's controls. */
 const organizationGroups: SettingsGroup[] = [
   {
+    label: "You",
+    items: [{ key: "account", label: "Your account", icon: UserRound }],
+  },
+  {
     label: "Organization",
     items: [
       { key: "profile", label: "Profile & branding", icon: Palette, permission: "settings.manage" },
@@ -159,7 +169,7 @@ const SettingsContent = () => {
     ...g,
     items: g.items.filter((i) => !i.permission || permissions.can(i.permission)),
   }));
-  const firstVisible = visibleOrganizationGroups[0]?.items[0]?.key ?? "profile";
+  const firstVisible = visibleOrganizationGroups[1]?.items[0]?.key ?? "account";
   const [params] = useSearchParams();
   /* Guides and links land on a section directly (…/settings?section=team);
      an unknown or not-permitted section falls back to the first visible one. */
@@ -169,6 +179,7 @@ const SettingsContent = () => {
   const active = chosen ?? (requestedVisible ? requested : isOrganizationView ? firstVisible : "branding");
 
   const render = () => {
+    if (active === "account") return <AccountSection />;
     if (isOrganizationView) {
       if (active === "profile") return <OrganizationProfileSection canEdit={canEditKpis} />;
       if (active === "plan") return <OrganizationPlanSection />;
