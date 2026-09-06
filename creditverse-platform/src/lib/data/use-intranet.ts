@@ -22,13 +22,20 @@ function useLive() {
   return auth.mode === "live" && auth.status === "signed-in";
 }
 
-export function useAnnouncements(organizationId: string | null) {
+/**
+ * `organizationId` null means BES HQ's own board, which is a real query — so
+ * a caller that is merely *not ready yet* (an organization still resolving, a
+ * hub module still loading) must say so with `enabled: false`. Without that
+ * distinction the screen fetches the BES board first and the organization's
+ * second, which is the duplicate request rule 14 forbids.
+ */
+export function useAnnouncements(organizationId: string | null, options: { enabled?: boolean } = {}) {
   const live = useLive();
   const qc = useQueryClient();
   const q = useQuery({
     queryKey: announcementsKey(organizationId),
     queryFn: () => fetchAnnouncements(organizationId),
-    enabled: live,
+    enabled: live && (options.enabled ?? true),
     staleTime: 30_000,
   });
   const refresh = () => void qc.invalidateQueries({ queryKey: announcementsKey(organizationId) });
@@ -42,13 +49,13 @@ export function useAnnouncements(organizationId: string | null) {
   };
 }
 
-export function useKnowledgeArticles(organizationId: string | null) {
+export function useKnowledgeArticles(organizationId: string | null, options: { enabled?: boolean } = {}) {
   const live = useLive();
   const qc = useQueryClient();
   const q = useQuery({
     queryKey: knowledgeKey(organizationId),
     queryFn: () => fetchKnowledgeArticles(organizationId),
-    enabled: live,
+    enabled: live && (options.enabled ?? true),
     staleTime: 60_000,
   });
   const refresh = () => void qc.invalidateQueries({ queryKey: knowledgeKey(organizationId) });

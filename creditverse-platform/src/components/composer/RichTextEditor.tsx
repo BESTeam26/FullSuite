@@ -9,7 +9,7 @@
  * shown. Output is a structured document, never HTML — see `note-body.ts` for
  * why that distinction is the security model rather than a formatting choice.
  */
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
@@ -34,6 +34,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EMPTY_DOC, safeUrl, type NoteDoc } from "@/lib/activity/note-body";
+import { mentionQueryAt } from "@/lib/activity/mentions";
+import { MentionNode } from "@/components/composer/mention-extension";
+import { MentionPicker, type MentionCandidate } from "@/components/composer/MentionPicker";
 
 export interface RichTextEditorProps {
   /** Bumping this resets the editor — used to clear after a successful post. */
@@ -45,6 +48,15 @@ export interface RichTextEditorProps {
   onSubmit: () => void;
   /** Files pasted or dropped into the writing area. */
   onFiles: (files: File[]) => void;
+  /**
+   * People this author may mention here — already scoped by the surface
+   * (a work item's team, the organization's directory, a channel's members).
+   * Omit it and "@" does nothing, which is the right default for a surface
+   * that has not decided who is in scope.
+   */
+  mentionable?: MentionCandidate[];
+  /** Signed avatar URLs by path, for the picker. */
+  mentionAvatars?: Record<string, string>;
 }
 
 interface ToolButton {
@@ -159,7 +171,13 @@ export default function RichTextEditor({
   onChange,
   onSubmit,
   onFiles,
+  mentionable,
+  mentionAvatars,
 }: RichTextEditorProps) {
+  /* The word being typed after an "@", or null. Held here so the picker is a
+     plain component and the trigger rule stays in one tested function. */
+  const [mentionQuery, setMentionQuery] = useState<{ query: string; from: number } | null>(null);
+  const canMention = !!mentionable && mentionable.length > 0;
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
@@ -167,6 +185,7 @@ export default function RichTextEditor({
       TaskList,
       TaskItem.configure({ nested: true }),
       Placeholder.configure({ placeholder }),
+      MentionNode,
       Link.configure({
         openOnClick: false,
         autolink: true,
@@ -208,8 +227,40 @@ export default function RichTextEditor({
     },
     onUpdate: ({ editor: e }) => {
       onChange(e.getJSON() as NoteDoc, e.isEmpty);
+      if (!canMention) return;
+      /* Only the text of the block the caret sits in is examined, so an "@"
+         earlier in the note cannot re-open the picker. */
+      const { $from } = e.state.selection;
+      const caret = $from.parentOffset;
+      const text = $from.parent.textBetween(0, $from.parent.content.size, "\n", " ");
+      setMentionQuery(mentionQueryAt(text, caret));
     },
   });
+
+  /**
+   * Replace the "@query" the person typed with the mention node. The range is
+   * computed from the block the caret is in, so nothing else in the note is
+   * touched.
+   */
+  const insertMention = useCallback(
+    (person: MentionCandidate) => {
+      if (!editor || !mentionQuery) return;
+      const { $from } = editor.state.selection;
+      const blockStart = $from.start();
+      const from = blockStart + mentionQuery.from;
+      const to = blockStart + $from.parentOffset;
+      editor
+        .chain()
+        .focus()
+        .insertContentAt({ from, to }, [
+          { type: "mention", attrs: { userId: person.userId, label: person.name } },
+          { type: "text", text: " " },
+        ])
+        .run();
+      setMentionQuery(null);
+    },
+    [editor, mentionQuery],
+  );
 
   /* Cleared only when the parent says the post succeeded. */
   useEffect(() => {
@@ -266,7 +317,18 @@ export default function RichTextEditor({
           ),
         )}
       </div>
-      <EditorContent editor={editor} />
+      <div className="relative">
+        <EditorContent editor={editor} />
+        {canMention && mentionQuery && editor && (
+          <MentionPicker
+            query={mentionQuery.query}
+            people={mentionable!}
+            avatarUrls={mentionAvatars}
+            onDismiss={() => setMentionQuery(null)}
+            onPick={(person) => insertMention(person)}
+          />
+        )}
+      </div>
     </div>
   );
 }

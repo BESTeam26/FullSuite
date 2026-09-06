@@ -1352,5 +1352,32 @@ if (PHASE >= 34) {
   }
 }
 
+
+/* Phase 35 — mentions (0083). A mention notifies only someone who plainly
+   belongs to the row's scope, and the browser cannot manufacture one. */
+if (PHASE >= 35) {
+  const w35 = (uid, sql, role = "authenticated") => { try { return q(`begin; set local role ${role}; set local request.jwt.claims = '{"sub":"${uid}","role":"${role}"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
+  const OWNER = U["org.owner@bes.test"], AGENT = U["org.agent@bes.test"], OTHER = U["org2.owner@bes.test"], BES = U["bes.owner@bes.test"];
+  const LC = q(`select coalesce((select id::text from public.fulfillment_clients where organization_id='${lakesideOrg}' limit 1), '') as rows`)[0].rows;
+  const body = (uid) => `'{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"see "},{"type":"mention","attrs":{"userId":"${uid}","label":"Someone"}}]}]}'::jsonb`;
+  const post = (uid, visibility) => `insert into public.activity_events (agency_id, organization_id, entity_type, entity_id, action, detail, body, actor_id, visibility) values (public.org_agency('${lakesideOrg}'), '${lakesideOrg}', 'fulfillment_client', '${LC}', 'Comment posted', 'see @Someone', ${body(uid)}, auth.uid(), '${visibility}')`;
+  const P35 = LC ? [
+    ["a teammate named in an organization note is notified",            () => w35(OWNER, `${post(AGENT, 'organization_internal')}; select count(*)::int as rows from public.notifications where recipient_id='${AGENT}' and kind='mention'`), 1],
+    ["an outsider named in the same note is not",                       () => w35(OWNER, `${post(OTHER, 'organization_internal')}; select count(*)::int as rows from public.notifications where recipient_id='${OTHER}' and kind='mention'`), 0],
+    ["nobody is notified about their own note",                         () => w35(OWNER, `${post(OWNER, 'organization_internal')}; select count(*)::int as rows from public.notifications where recipient_id='${OWNER}' and kind='mention'`), 0],
+    ["an organization member named in a BES-internal note is not told", () => w35(BES, `${post(AGENT, 'bes_internal')}; select count(*)::int as rows from public.notifications where recipient_id='${AGENT}' and kind='mention'`), 0],
+    ["a malformed mention id notifies nobody and does not error",       () => w35(OWNER, `insert into public.activity_events (agency_id, organization_id, entity_type, entity_id, action, detail, body, actor_id, visibility) values (public.org_agency('${lakesideOrg}'), '${lakesideOrg}', 'fulfillment_client', '${LC}', 'Comment posted', 'see', '{"type":"doc","content":[{"type":"mention","attrs":{"userId":"not-a-uuid","label":"X"}}]}'::jsonb, auth.uid(), 'organization_internal'); select count(*)::int as rows from public.notifications where kind='mention' and created_at >= now()`), 0],
+    ["the mention reader finds ids at any depth",                       () => q(`select array_length(public.mentioned_user_ids('{"type":"doc","content":[{"type":"paragraph","content":[{"type":"mention","attrs":{"userId":"11111111-1111-4111-8111-111111111111","label":"A"}}]}]}'::jsonb), 1)::int as rows`)[0].rows, 1],
+    ["a person cannot insert a notification directly",                  () => w35(OWNER, `insert into public.notifications (recipient_id, actor_id, agency_id, kind, entity_type, entity_id, visibility, title) values ('${AGENT}', auth.uid(), public.org_agency('${lakesideOrg}'), 'mention', 'fulfillment_client', '${LC}', 'organization_internal', 'fake'); select 1 as rows`), "ERR 42501"],
+  ] : [["(no Lakeside client to probe)", () => "skip", "skip"]];
+  console.log("\nphase 35:");
+  for (const [label, fn, want] of P35) {
+    checks++;
+    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
+    const ok = String(got) === String(want); if (!ok) fails++;
+    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
+  }
+}
+
 console.log(`\n${checks - fails}/${checks} checks passed (phase ≤ ${PHASE})`);
 process.exit(fails ? 1 : 0);

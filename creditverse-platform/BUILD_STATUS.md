@@ -3765,3 +3765,38 @@ in those words.
 Also fixed while testing: a photo was being sent through the PDF text reader
 and failed as "The PDF could not be read". Images now go straight to the
 assistant path with a plain explanation.
+
+## Completion cycle 11 (2026-09-05, late) — mentions, and the messaging proposal
+
+Dee asked for @mentions everywhere and a Slack-like channel for the company,
+with BES joining the channels when a fulfillment engagement exists.
+
+- **`ARCHITECTURE_PROPOSAL_MESSAGING.md`** covers both, with the conflict
+  analysis Dee asked for: one body model and one mention rule shared by notes
+  and messages; channel messages deliberately **not** in `activity_events`;
+  BES access per-channel opt-in **and** live engagement **and** authorized
+  team, with a visible label on shared channels; mentions notify, messages
+  count.
+- **Mentions, built:** a mention is a node (`{type:"mention",attrs:{userId,
+  label}}`), not text to re-parse. `lib/activity/mentions.ts` (pure, tested:
+  extraction at any depth, a bad id ignored, the "@" trigger rule that never
+  fires inside an email address, candidate ranking). The editor gained the
+  node and a scoped picker; posted notes render a chip.
+- **The picker is scope-limited by construction** — it offers only the people
+  the surface passes in (the organization directory today). A picker that can
+  find people outside your scope tells you they exist.
+- **The composer does not fetch.** It takes `mentionable` as a prop, so it
+  stays renderable without providers and its tests need none — the same
+  correction made earlier for the visibility control.
+- **0083 (written, applies after the matrix run):** `mentioned_user_ids()`,
+  `may_notify_mention()`, and a **separate** trigger. The first draft restated
+  `notify_from_activity()`'s body copied from the migration that created it —
+  the 0066 mistake exactly: the live version also notifies a record's team, so
+  the copy would have silently dropped that. Two AFTER INSERT triggers fire in
+  name order; nothing existing is touched.
+- **The mention rule is stricter than the reading rule, deliberately.** A
+  trigger runs as the author, so `can_view_activity()` cannot answer for a
+  recipient; rather than restate it per recipient and risk drifting looser, a
+  mention notifies only someone plainly in the row's own scope.
+- Matrix phase 35 (7 probes) added.
+- `WHAT_I_NEED_FROM_DEE.md` — every key, sample and decision in one list.

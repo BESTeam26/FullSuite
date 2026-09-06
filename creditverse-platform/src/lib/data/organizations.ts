@@ -156,9 +156,17 @@ export async function fetchUserPreferences(userId: string) {
   );
 }
 
-export async function fetchOrganizations(
-  userId: string,
-): Promise<Organization[]> {
+/**
+ * Organizations for this user, with their pinned ones marked.
+ *
+ * The preferences row is read alongside because pinning lives on it. The Home
+ * layout reads the same row through `useUserPreferences`, so a session makes
+ * two reads of one small row — both in parallel, neither blocking the other.
+ * Collapsing them would mean moving pinning out of this query and applying it
+ * in the provider, which is more moving parts than the saving is worth; it is
+ * noted here so the next reader knows it was considered, not missed.
+ */
+export async function fetchOrganizations(userId: string): Promise<Organization[]> {
   const sb = requireSupabase();
   const [{ data, error }, prefs] = await Promise.all([
     sb.from("organizations").select(ORG_SELECT).order("name"),

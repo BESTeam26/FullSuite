@@ -16,6 +16,7 @@ import {
   type NoteMark,
   type NoteNode,
 } from "@/lib/activity/note-body";
+import { readMention } from "@/lib/activity/mentions";
 
 /** Marks we render. Anything else on a text run is ignored. */
 function withMarks(text: ReactNode, marks: NoteMark[] | undefined): ReactNode {
@@ -78,6 +79,20 @@ function renderNode(node: NoteNode): ReactNode {
       return withMarks(node.text ?? "", node.marks);
     case "hardBreak":
       return <br />;
+    /* A mention shows the label the author picked. A malformed one renders as
+       nothing rather than as a name we cannot vouch for. */
+    case "mention": {
+      const mention = readMention(node);
+      if (!mention) return null;
+      return (
+        <span
+          className="rounded bg-primary/10 px-1 py-0.5 font-semibold text-primary"
+          data-mention-user={mention.userId}
+        >
+          @{mention.label}
+        </span>
+      );
+    }
     case "paragraph":
       return <p className="my-1 leading-relaxed">{renderNodes(node.content)}</p>;
     case "heading": {

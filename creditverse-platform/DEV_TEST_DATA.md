@@ -175,3 +175,10 @@ organization, so the hub switches, department controls, company files and the
 announcement composer are hidden for them by design — the database refuses
 those writes (`member_can`). To exercise them, sign in as
 `org.owner@bes.test` (Lakeside org_admin).
+
+## AI credits (0082)
+
+Lakeside Partners and Cedar Financial each start with 500 AI credits, so the
+assistant paths (reading a scan, letter wording help, explaining a fit) can be
+exercised as soon as `ANTHROPIC_API_KEY` is set. Harbor has none, which is the
+right fixture for testing the "AI features are paused" message.

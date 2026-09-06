@@ -37,6 +37,7 @@ import {
 import { CheckCircle2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { VisibilityAudience } from "@/lib/auth/use-visibility-audience";
+import { useMentionable } from "@/lib/data/use-mentionable";
 
 const NONE = "__none__";
 const toDateInput = (iso: string | null) => (iso ? iso.slice(0, 10) : "");
@@ -112,6 +113,7 @@ export function WorkItemDrawer({
   const setValue = useSetItemFieldValue(item?.id ?? "");
   const { entries, isLoading: tlLoading } = useWorkItemTimeline(item?.id ?? null);
   const attachments = useActivityAttachments(entries.map((e) => e.id));
+  const mention = useMentionable(workspace.organizationId);
   const { allowed, fallback } = useActivityVisibility(workspace.organizationId, "talentops");
   const [title, setTitle] = useState(item?.title ?? "");
   const [description, setDescription] = useState(item?.description ?? "");
@@ -237,6 +239,8 @@ export function WorkItemDrawer({
                     entityType="work_item"
                     entityId={item.id}
                     organizationId={workspace.organizationId}
+          mentionable={mention.mentionable}
+          mentionAvatars={mention.mentionAvatars}
                     allowedVisibilities={allowed}
           defaultVisibility={fallback}
                     onPost={async ({ body, plainText, visibility }) => {

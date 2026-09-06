@@ -12,6 +12,7 @@ import { useActivityAttachments } from "@/lib/data/use-activity-attachments";
 import { useAuth } from "@/lib/auth/auth-context";
 import { linkAttachments } from "@/lib/data/activity-attachments";
 import type { VisibilityAudience } from "@/lib/auth/use-visibility-audience";
+import { useMentionable } from "@/lib/data/use-mentionable";
 
 const ACTOR = "Agent (BES HQ)";
 const ENTITY = "fulfillment_client";
@@ -22,6 +23,7 @@ export function ClientWorkActivityTimeline({ clientId }: { clientId: string }) {
   const audience: VisibilityAudience = auth.isAgencyStaff ? "bes" : "organization";
   /* Which audiences this user may post to — resolved centrally, not here. */
   const client = store.clients.find((c) => c.id === clientId);
+  const mention = useMentionable(client?.organizationId);
   const { allowed, fallback } = useActivityVisibility(
     client?.organizationId ?? client?.outsourcingGroupId,
     "creditops",
@@ -53,6 +55,8 @@ export function ClientWorkActivityTimeline({ clientId }: { clientId: string }) {
           entityType={ENTITY}
           entityId={clientId}
           organizationId={client?.organizationId}
+          mentionable={mention.mentionable}
+          mentionAvatars={mention.mentionAvatars}
           allowedVisibilities={allowed}
           defaultVisibility={fallback}
           /* The store persists the note and places the returned row into the

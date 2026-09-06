@@ -9,7 +9,8 @@ import { formatDate } from "@/lib/format-date";
 import { useAnnouncements } from "@/lib/data/use-intranet";
 
 export function CompanyFeedCard({ organizationId, active }: { organizationId: string; active: boolean }) {
-  const board = useAnnouncements(active ? organizationId : null);
+  /* One query, and only once the hub has said the module is on. */
+  const board = useAnnouncements(organizationId, { enabled: active });
   if (!active) return null;
   const published = board.announcements.filter((a) => a.publishedAt).slice(0, 3);
   if (board.isLoading) return <div className="h-32 rounded-xl border border-border bg-card" aria-busy="true" />;

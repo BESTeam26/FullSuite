@@ -37,10 +37,12 @@ import {
   isDocEmpty,
   type NoteDoc,
 } from "@/lib/activity/note-body";
+import type { MentionCandidate } from "@/components/composer/MentionPicker";
 
 /* The editor is ~the size of the rest of this screen put together, and most
    screens never render a composer. Split so they do not pay for it (rule 14). */
 const RichTextEditor = lazy(() => import("./RichTextEditor"));
+
 
 /** One file the author has added but not yet posted. */
 interface PendingAttachment {
@@ -83,9 +85,20 @@ export interface ActivityComposerProps {
     objects: UploadedObject[],
     visibility: ActivityVisibility,
   ) => Promise<void>;
+  /**
+   * People this author may mention here. The surface supplies them because
+   * the surface knows the scope (a client's organization, a work item's
+   * team); this component does not fetch, so it stays renderable on its own
+   * and its tests need no providers.
+   */
+  mentionable?: MentionCandidate[];
+  /** Signed avatar URLs by path, for the picker. */
+  mentionAvatars?: Record<string, string>;
 }
 
 export function ActivityComposer({
+  mentionable,
+  mentionAvatars,
   entityType,
   entityId,
   organizationId,
@@ -240,6 +253,8 @@ export function ActivityComposer({
         <RichTextEditor
           resetToken={resetToken}
           disabled={posting}
+          mentionable={mentionable}
+          mentionAvatars={mentionAvatars}
           onChange={(next, isEmpty) => {
             setDoc(next);
             setEmpty(isEmpty);
