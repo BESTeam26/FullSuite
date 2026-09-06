@@ -20,6 +20,7 @@ import { partnerForOrganization } from "@/lib/data/partners";
 import { CreditOpsStoreProvider } from "@/lib/fulfillment/creditops-client-store";
 import { AddClientModal } from "@/components/dashboard/fulfillment/AddClientModal";
 import { LIFECYCLE_LABELS, isActiveClient, type ClientLifecycle } from "@/lib/fulfillment/fulfillment-client-domain";
+import { NewClientDialog } from "@/components/clients/NewClientDialog";
 
 export function LiveClientsList() {
   return (
@@ -36,6 +37,7 @@ function LiveClientsListInner() {
   const [q, setQ] = useState("");
   const [lifecycleView, setLifecycleView] = useState<"active" | "all" | "archived">("active");
   const [adding, setAdding] = useState(false);
+  const [orgAdding, setOrgAdding] = useState(false);
   const clients = useQuery({ queryKey: ["creditops", "clients"], queryFn: fetchFulfillmentClients, staleTime: 15_000 });
   const orgId = agency.viewMode === "subaccount" ? agency.activeOrganization?.id ?? null : null;
 
@@ -63,11 +65,15 @@ function LiveClientsListInner() {
             options={[{ value: "active", label: "Active clients" }, { value: "all", label: "All clients" }, { value: "archived", label: "Not active" }]}
             aria-label="Lifecycle filter"
           />
-          {partner && (
+          {partner ? (
             <Button type="button" size="sm" onClick={() => setAdding(true)}>
               <Plus className="mr-1 h-4 w-4" /> New client
             </Button>
-          )}
+          ) : agency.activeOrganization ? (
+            <Button type="button" size="sm" onClick={() => setOrgAdding(true)}>
+              <Plus className="mr-1 h-4 w-4" /> New client
+            </Button>
+          ) : null}
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search clients…" className="w-64 pl-9" aria-label="Search clients" />
@@ -108,6 +114,7 @@ function LiveClientsListInner() {
         )}
       </div>
       <AddClientModal open={adding} onClose={() => setAdding(false)} partner={partner} />
+      <NewClientDialog open={orgAdding} onOpenChange={setOrgAdding} />
     </div>
   );
 }

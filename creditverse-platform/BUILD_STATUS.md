@@ -3469,3 +3469,24 @@ Export waits for the payment connection. The six remaining scanner hits are
 dropdown triggers whose handler lives on the parent. Every sidebar link has a
 route; no console errors on the pages walked (My Work, Workspace, My Time,
 EOD, Notifications, Calendar, Billing, Reports, Home, Settings).
+Client intake has two surfaces on purpose, both calling
+`createFulfillmentClient`: `AddClientModal` (BES fulfillment intake — partner
+scope, team, assignee, conflict check, from the Workspace and the Clients page
+when a BES partner relationship exists) and `NewClientDialog` (an
+organization's own admin adding a client of their organization, from the top
+bar and the Clients page when no BES partner is involved — the case that had
+no entry point at all). The store behind the first requires a BES agency
+membership; the second resolves the organization's agency from its row.
+
+**Polish pass 2 — BES Workforce pages live (2026-09-05).** People, Teams and
+Workforce showed fictitious staff (Carlos Mendoza, Keila Betancourt…) in a
+live session. They now read the real agency roster (`agency_memberships` +
+profiles), BES teams with department, division, lead and members, and this
+week's time entries — clocked-in now, logged this week, utilization of a
+40-hour week, time by division (`lib/data/agency-workforce.ts`, one batch;
+staff-scoped by policy). Support reads the support email and phone from Agency
+Settings (and says so when unset), links Contact Support and Report a Bug to
+mail, and marks System Status and Video Tutorials as not connected instead of
+dead links. Announcements labelled sample until an announcements model exists.
+Organization admins without a BES partner can now add a client (New Client
+dialog on the top bar and the Clients page).

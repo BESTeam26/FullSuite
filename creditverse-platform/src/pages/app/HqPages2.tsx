@@ -9,6 +9,9 @@ import { HqPageShell } from "@/pages/app/HqPages";
 import { cn } from "@/lib/utils";
 import { SampleContentNotice } from "@/components/dashboard/SampleContentNotice";
 import { LiveCalendar } from "@/components/dashboard/LiveCalendar";
+import { useAgencySettings } from "@/lib/agency-settings-context";
+import { Link } from "react-router-dom";
+import { useWorkforce } from "@/lib/data/use-workforce";
 import {
   Users,
   Network,
@@ -26,49 +29,32 @@ import {
 /* People                                                                */
 /* ------------------------------------------------------------------ */
 
+const AGENCY_ROLE_LABEL: Record<string, string> = { agency_owner: "Agency Owner", agency_admin: "Agency Admin", agency_manager: "Agency Manager", agency_team_lead: "Team Lead", agency_agent: "Agent" };
+const DIVISION_LABEL: Record<string, string> = { creditops: "CreditOps", fundingops: "FundingOps", bes_crm: "BES CRM", talentops: "TalentOps", general: "General" };
+const divisionLabel = (d: string | null) => (d ? DIVISION_LABEL[d] ?? d : null);
+const fmtMinutes = (m: number) => { const h = Math.floor(m / 60), r = Math.round(m % 60); return h > 0 ? `${h}h ${r}m` : `${r}m`; };
+
 export const PeoplePage = () => {
-  const { agencyUsers = [] } = useAgency() || {};
-  const users =
-    agencyUsers.length > 0
-      ? agencyUsers
-      : [
-          {
-            id: "ag-1",
-            name: "Platform Admin",
-            email: "admin@bes.io",
-            role: "agency_owner",
-          },
-          {
-            id: "ag-2",
-            name: "Carlos Mendoza",
-            email: "carlos@bes.io",
-            role: "agency_team_lead",
-          },
-          {
-            id: "ag-3",
-            name: "Keila Betancourt",
-            email: "keila@bes.io",
-            role: "agency_agent",
-          },
-        ];
+  const wf = useWorkforce();
+  const people = wf.data?.people ?? [];
+  const time = new Map((wf.data?.time ?? []).map((t) => [t.employeeId, t]));
+  const leadOf = new Map<string, string[]>();
+  for (const t of wf.data?.teams ?? []) for (const m of t.members) leadOf.set(m.userId, [...(leadOf.get(m.userId) ?? []), t.name]);
   return (
-    <HqPageShell
-      title="People"
-      description="BES Agency employees — manage roles, scopes, and assignments"
-      icon={Users}
-    >
-      <ContentCard title="Agency Employees">
-        <DivisionTable
-          columns={["Name", "Email", "Role", "Status"]}
-          rows={users.map((u) => [
-            u.name,
-            u.email,
-            u.role
-              ?.replace(/_/g, " ")
-              .replace(/\b\w/g, (c: string) => c.toUpperCase()),
-            <StatusPill status="Active" />,
-          ])}
-        />
+    <HqPageShell title="People" description="BES agency staff — roles, teams and this week's time, from the live roster" icon={Users}>
+      <ContentCard title={`Agency staff · ${people.length}`}>
+        {wf.isLoading ? <p className="py-6 text-center text-sm text-muted-foreground">Loading the roster…</p> : wf.error ? <p className="py-6 text-center text-sm text-status-danger">Could not load the roster.</p> : people.length === 0 ? <p className="py-6 text-center text-sm text-muted-foreground">No BES staff visible to you.</p> : (
+          <DivisionTable
+            columns={["Name", "Email", "Role", "Teams", "This week"]}
+            rows={people.map((u) => [
+              u.name,
+              u.email,
+              <StatusPill status={AGENCY_ROLE_LABEL[u.role] ?? u.role} />,
+              (leadOf.get(u.userId) ?? []).join(", ") || "—",
+              time.get(u.userId) ? `${fmtMinutes(time.get(u.userId)!.minutes)}${time.get(u.userId)!.running ? " · clocked in" : ""}` : "—",
+            ])}
+          />
+        )}
       </ContentCard>
     </HqPageShell>
   );
@@ -78,91 +64,71 @@ export const PeoplePage = () => {
 /* Teams                                                                 */
 /* ------------------------------------------------------------------ */
 
-export const TeamsPage = () => (
-  <HqPageShell
-    title="Teams"
-    description="Organizational teams and department structure"
-    icon={Network}
-  >
-    <div className="grid gap-4 md:grid-cols-2">
-      {[
-        { name: "CreditOps Division", members: 6, lead: "Carlos Mendoza" },
-        { name: "FundingOps Division", members: 4, lead: "Dana Pierce" },
-        { name: "BES CRM Team", members: 3, lead: "Daniel Reyes" },
-        { name: "TalentOps Team", members: 5, lead: "Liza Garcia" },
-      ].map((team) => (
-        <ContentCard key={team.name} title={team.name}>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Team Lead</p>
-              <p className="font-medium text-foreground">{team.lead}</p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Members</p>
-              <p className="text-right text-lg font-bold text-foreground">
-                {team.members}
-              </p>
-            </div>
-          </div>
-        </ContentCard>
-      ))}
-    </div>
-  </HqPageShell>
-);
+export const TeamsPage = () => {
+  const wf = useWorkforce();
+  const teams = (wf.data?.teams ?? []).filter((t) => !t.archived);
+  const names = new Map((wf.data?.people ?? []).map((p) => [p.userId, p.name]));
+  return (
+    <HqPageShell title="Teams" description="BES teams by division and department, with their leads and members" icon={Network}>
+      {wf.isLoading ? <p className="py-6 text-center text-sm text-muted-foreground">Loading teams…</p> : teams.length === 0 ? <ContentCard title="Teams"><p className="py-6 text-center text-sm text-muted-foreground">No BES teams yet. Create them in Agency Settings → Divisions / Teams.</p></ContentCard> : (
+        <div className="grid gap-4 md:grid-cols-2">
+          {teams.map((t) => {
+            const leads = t.members.filter((m) => m.isLead).map((m) => names.get(m.userId) ?? "Team member");
+            return (
+              <ContentCard key={t.id} title={t.name}>
+                <p className="text-xs text-muted-foreground">{[divisionLabel(t.division), t.department].filter(Boolean).join(" · ") || "No department"}</p>
+                <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                  <div><p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Team lead</p><p className="font-medium text-foreground">{leads.join(", ") || "—"}</p></div>
+                  <div><p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Members</p><p className="font-medium text-foreground">{t.members.length}</p></div>
+                </div>
+              </ContentCard>
+            );
+          })}
+        </div>
+      )}
+    </HqPageShell>
+  );
+};
 
 /* ------------------------------------------------------------------ */
 /* Workforce                                                             */
 /* ------------------------------------------------------------------ */
 
-export const WorkforcePage = () => (
-  <HqPageShell
-    title="Workforce"
-    description="Capacity, workload distribution, and workforce utilization"
-    icon={Briefcase}
-  >
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-      <StatCard label="Total Agents" value={18} icon={Users} />
-      <StatCard label="Available Now" value={12} icon={CheckCircle2} />
-      <StatCard label="On Leave" value={2} icon={Clock} />
-      <StatCard label="Utilization" value="82%" icon={Briefcase} />
-    </div>
-    <ContentCard title="Workload by Division">
-      <div className="space-y-3">
-        {[
-          ["CreditOps", 6, 82],
-          ["FundingOps", 4, 75],
-          ["BES CRM", 3, 90],
-          ["TalentOps", 5, 68],
-        ].map(([div, count, util]) => (
-          <div key={div as string} className="flex items-center gap-3">
-            <span className="w-28 text-sm font-medium text-foreground">
-              {div}
-            </span>
-            <span className="w-12 text-sm text-muted-foreground">
-              {count as number} agents
-            </span>
-            <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
-              <div
-                className={cn(
-                  "h-full rounded-full",
-                  (util as number) > 85
-                    ? "bg-red-500"
-                    : (util as number) > 70
-                      ? "bg-amber-500"
-                      : "bg-emerald-600",
-                )}
-                style={{ width: `${util}%` }}
-              />
-            </div>
-            <span className="w-10 text-right text-sm font-medium text-foreground">
-              {util as string}%
-            </span>
-          </div>
-        ))}
+export const WorkforcePage = () => {
+  const wf = useWorkforce();
+  const people = wf.data?.people ?? [];
+  const time = wf.data?.time ?? [];
+  const clockedIn = time.filter((t) => t.running).length;
+  const logged = time.reduce((s, t) => s + t.minutes, 0);
+  const capacity = people.length * 40 * 60;
+  const utilization = capacity > 0 ? Math.round((logged / capacity) * 100) : null;
+  const byDivision = new Map<string, { agents: Set<string>; minutes: number }>();
+  for (const t of wf.data?.teams ?? []) { const key = divisionLabel(t.division) ?? "Unassigned"; const row = byDivision.get(key) ?? { agents: new Set<string>(), minutes: 0 }; for (const m of t.members) { row.agents.add(m.userId); row.minutes += time.find((x) => x.employeeId === m.userId)?.minutes ?? 0; } byDivision.set(key, row); }
+  return (
+    <HqPageShell title="Workforce" description="Capacity and this week's logged time across BES staff — counts from time entries, never estimates" icon={Briefcase}>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <StatCard label="BES staff" value={people.length} icon={Users} />
+        <StatCard label="Clocked in now" value={clockedIn} icon={CheckCircle2} />
+        <StatCard label="Logged this week" value={fmtMinutes(logged)} icon={Clock} />
+        <StatCard label="Utilization (of 40h)" value={utilization === null ? "—" : `${utilization}%`} icon={Briefcase} />
       </div>
-    </ContentCard>
-  </HqPageShell>
-);
+      <div className="mt-5">
+        <ContentCard title="Time by division (this week)">
+          {byDivision.size === 0 ? <p className="py-6 text-center text-sm text-muted-foreground">No BES teams yet — divisions appear once teams exist.</p> : (
+            <div className="space-y-3">
+              {[...byDivision.entries()].map(([div, row]) => (
+                <div key={div} className="flex items-center justify-between rounded-lg border border-border px-3 py-2 text-sm">
+                  <span className="font-medium text-foreground">{div}</span>
+                  <span className="text-muted-foreground">{row.agents.size} staff · {fmtMinutes(row.minutes)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </ContentCard>
+      </div>
+    </HqPageShell>
+  );
+};
 
 /* ------------------------------------------------------------------ */
 /* Billing & Revenue                                                     */
@@ -234,6 +200,7 @@ export const AnnouncementsPage = () => (
     description="Company-wide updates and internal communications"
     icon={Megaphone}
   >
+    <SampleContentNotice what="These announcements illustrate the format; company announcements will be posted here once the announcements model exists." />
     <div className="space-y-3">
       {[
         {
@@ -286,61 +253,39 @@ export const CalendarPage = () => (
   </HqPageShell>
 );
 
-export const SupportPage = () => (
-  <HqPageShell
-    title="Support"
-    description="Get help, browse documentation, or contact the BES team"
-    icon={LifeBuoy}
-  >
-    <div className="grid gap-4 md:grid-cols-3">
-      {[
-        {
-          title: "Knowledge Base",
-          desc: "SOPs, guides, and operational documentation",
-          icon: "📚",
-          link: "/app/education",
-        },
-        {
-          title: "Contact Support",
-          desc: "support@bes.io · (817) 985-3536",
-          icon: "💬",
-          link: "#",
-        },
-        {
-          title: "System Status",
-          desc: "All systems operational",
-          icon: "✅",
-          link: "#",
-        },
-        {
-          title: "Release Notes",
-          desc: "Latest platform updates and changelog",
-          icon: "📝",
-          link: "/app/announcements",
-        },
-        {
-          title: "Video Tutorials",
-          desc: "Watch walkthroughs of key workflows",
-          icon: "🎬",
-          link: "#",
-        },
-        {
-          title: "Report a Bug",
-          desc: "Submit an issue for engineering review",
-          icon: "🐛",
-          link: "#",
-        },
-      ].map((card) => (
-        <a
-          key={card.title}
-          href={card.link}
-          className="block rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary/40 hover:bg-muted/30"
-        >
-          <div className="mb-3 text-2xl">{card.icon}</div>
-          <h3 className="font-semibold text-foreground">{card.title}</h3>
-          <p className="mt-1 text-sm text-muted-foreground">{card.desc}</p>
-        </a>
-      ))}
-    </div>
-  </HqPageShell>
-);
+export const SupportPage = () => {
+  const { agency } = useAgencySettings();
+  const email = agency.supportEmail?.trim();
+  const phone = agency.supportPhone?.trim();
+  const cards: { title: string; desc: string; icon: string; link?: string; pending?: string }[] = [
+    { title: "Knowledge Base", desc: "SOPs, guides, and operational documentation", icon: "📚", link: "/app/education" },
+    { title: "Contact Support", desc: [email, phone].filter(Boolean).join(" · ") || "Set the support email and phone in Agency Settings → Agency & Branding", icon: "💬", link: email ? `mailto:${email}` : undefined },
+    { title: "Release Notes", desc: "What changed in the platform, release by release", icon: "📝", link: "/app/announcements" },
+    { title: "Report a Bug", desc: "Send engineering what you saw, where, and what you expected", icon: "🐛", link: email ? `mailto:${email}?subject=${encodeURIComponent("BES bug report")}` : undefined },
+    { title: "System Status", desc: "Live status arrives with platform monitoring", icon: "✅", pending: "Not connected yet" },
+    { title: "Video Tutorials", desc: "Walkthroughs of key workflows", icon: "🎬", pending: "Recorded with the Knowledge Base build" },
+  ];
+  return (
+    <HqPageShell title="Support" description="Get help, browse documentation, or contact the BES team" icon={LifeBuoy}>
+      <div className="grid gap-4 md:grid-cols-3">
+        {cards.map((card) => {
+          const body = (
+            <>
+              <div className="mb-3 text-2xl">{card.icon}</div>
+              <h3 className="font-semibold text-foreground">{card.title}</h3>
+              <p className="mt-1 text-sm text-muted-foreground">{card.desc}</p>
+              {card.pending && <p className="mt-2 text-[11px] font-semibold text-muted-foreground">{card.pending}</p>}
+            </>
+          );
+          const cls = "block rounded-xl border border-border bg-card p-5 transition-colors";
+          if (!card.link) return <div key={card.title} className={`${cls} opacity-80`}>{body}</div>;
+          return card.link.startsWith("/") ? (
+            <Link key={card.title} to={card.link} className={`${cls} hover:border-primary/40 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}>{body}</Link>
+          ) : (
+            <a key={card.title} href={card.link} className={`${cls} hover:border-primary/40 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}>{body}</a>
+          );
+        })}
+      </div>
+    </HqPageShell>
+  );
+};
