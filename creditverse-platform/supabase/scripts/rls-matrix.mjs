@@ -12,7 +12,7 @@
  * fixtures change instead of drifting into hard-coded numbers.
  *
  *   node supabase/scripts/rls-matrix.mjs            # phase-1 checks
- *   node supabase/scripts/rls-matrix.mjs --phase 41 # include later phases
+ *   node supabase/scripts/rls-matrix.mjs --phase 42 # include later phases
  *
  * Exit code is non-zero on any failed check in the requested phases. Run from
  * creditverse-platform/ (the CLI resolves the linked project from there).
@@ -1687,6 +1687,56 @@ if (PHASE >= 41) {
   ] : [["(no channel fixture)", () => "skip", "skip"]];
   console.log("\nphase 41:");
   for (const [label, fn, want] of P41) {
+    checks++;
+    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
+    const ok = String(got) === String(want); if (!ok) fails++;
+    console.log(`  ${ok ? "\u2713" : "\u2717"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
+  }
+}
+
+
+/* Phase 42 — commissions (0109/0110). Earned when a deal funds; payable only
+   once the organization confirms the money arrived. Nothing skips a stage and
+   nothing is typed by hand. */
+if (PHASE >= 42) {
+  const w42 = (uid, sql, seed = "") => { try { return q(`begin; ${seed} set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
+  const OWNER = U["org.owner@bes.test"], AGENT = U["org.agent@bes.test"], BRM = U["org.brm@bes.test"], OTHER = U["org2.owner@bes.test"];
+  const EM = q(`select coalesce((select id::text from public.external_memberships where user_id='${BRM}' limit 1), '') as rows`)[0].rows;
+  const FF = q(`select coalesce((select ff.id::text from public.funding_files ff join public.funding_clients fc on fc.id=ff.client_id where fc.organization_id='${lakesideOrg}' limit 1), '') as rows`)[0].rows;
+  const FC = FF ? q(`select client_id::text as rows from public.funding_files where id='${FF}'`)[0].rows : "";
+  const D = "99999999-0000-4000-8000-0000000042d1", FD = "99999999-0000-4000-8000-0000000042c1";
+  const seed = (basis, rate) => `update public.funding_files set referred_by_membership_id='${EM}' where id='${FF}';
+    insert into public.commission_plans (organization_id, label, party_kind, basis, rate_or_amount, applies_to, created_by) values ('${lakesideOrg}','[PROBE]','partner','${basis}',${rate},'net_funded','${OWNER}');
+    insert into public.funding_deals (id, file_id, client_id, lender, amount, status, funded_at, stips_outstanding) values ('${D}','${FF}','${FC}','L',90000,'Funded', now(), 0);
+    insert into public.funded_deals (id, deal_id, file_id, lender_name, requested_amount, accepted_offer_amount, gross_funded, net_funded, funded_at, confirmed_by) values ('${FD}','${D}','${FF}','L',100000,90000,90000,80000, now(), '${OWNER}');`;
+  const PCT = seed("pct", 5), FLAT = seed("flat", 750);
+  const NOPLAN = `update public.funding_files set referred_by_membership_id='${EM}' where id='${FF}';
+    insert into public.funding_deals (id, file_id, client_id, lender, amount, status, funded_at, stips_outstanding) values ('${D}','${FF}','${FC}','L',90000,'Funded', now(), 0);
+    insert into public.funded_deals (id, deal_id, file_id, lender_name, requested_amount, accepted_offer_amount, gross_funded, net_funded, funded_at, confirmed_by) values ('${FD}','${D}','${FF}','L',100000,90000,90000,80000, now(), '${OWNER}');`;
+
+  const P42 = FF && EM ? [
+    ["funding a deal earns 5% of net funded",              () => w42(OWNER, `select computed_amount::text as rows from public.commissions where deal_id='${D}'`, PCT), "4000.00"],
+    ["…recorded as earned, not payable",                   () => w42(OWNER, `select state as rows from public.commissions where deal_id='${D}'`, PCT), "earned"],
+    ["…and the figure it was a percentage OF is kept",     () => w42(OWNER, `select basis_amount::text as rows from public.commissions where deal_id='${D}'`, PCT), "80000.00"],
+    ["a flat plan pays exactly the flat amount",           () => w42(OWNER, `select computed_amount::text as rows from public.commissions where deal_id='${D}'`, FLAT), "750.00"],
+    ["no plan in force earns nothing, and invents nothing",() => w42(OWNER, `select count(*)::int as rows from public.commissions where deal_id='${D}'`, NOPLAN), 0],
+    ["paying before the revenue is confirmed is refused",  () => w42(OWNER, `select public.mark_commission_paid((select id from public.commissions where deal_id='${D}'), 'r'); select 1 as rows`, PCT), "ERR 22023"],
+    ["confirming revenue moves it to payable",             () => w42(OWNER, `select public.confirm_deal_revenue('${FD}', 6000); select state as rows from public.commissions where deal_id='${D}'`, PCT), "payable"],
+    ["…and then it can be paid, with a reference",         () => w42(OWNER, `select public.confirm_deal_revenue('${FD}', 6000); select public.mark_commission_paid((select id from public.commissions where deal_id='${D}'), 'ACH-1'); select state || ':' || payment_reference as rows from public.commissions where deal_id='${D}'`, PCT), "paid:ACH-1"],
+    ["an agent cannot confirm revenue",                    () => w42(AGENT, `select public.confirm_deal_revenue('${FD}', 6000) as rows`, PCT), "ERR 42501"],
+    ["the partner cannot confirm their own revenue",       () => w42(BRM, `select public.confirm_deal_revenue('${FD}', 6000) as rows`, PCT), "ERR 42501"],
+    ["the partner sees their own commission",              () => w42(BRM, `select computed_amount::text as rows from public.commissions where party_id='${BRM}'`, PCT), "4000.00"],
+    ["another organization sees none of it",               () => w42(OTHER, `select count(*)::int as rows from public.commissions where deal_id='${D}'`, PCT), 0],
+    ["an amount cannot be edited directly",                () => w42(OWNER, `update public.commissions set computed_amount = 99999 where deal_id='${D}'; select computed_amount::text as rows from public.commissions where deal_id='${D}'`, PCT), "4000.00"],
+    ["a browser cannot compute commissions itself",        () => w42(OWNER, `select public.compute_commissions_for_deal('${FD}') as rows`, PCT), "ERR 42501"],
+    ["a reversal keeps the row and records why",           () => w42(OWNER, `select public.reverse_commission((select id from public.commissions where deal_id='${D}'), 'clawed back'); select state as rows from public.commissions where deal_id='${D}'`, PCT), "reversed"],
+    ["a reversal without a reason is refused",             () => w42(OWNER, `select public.reverse_commission((select id from public.commissions where deal_id='${D}'), '  '); select 1 as rows`, PCT), "ERR 22023"],
+    ["a deal can only fund once, so it can only pay once", () => w42(OWNER, `insert into public.funded_deals (id, deal_id, file_id, lender_name, requested_amount, accepted_offer_amount, gross_funded, net_funded, funded_at, confirmed_by) values ('99999999-0000-4000-8000-0000000042c2','${D}','${FF}','L',100000,90000,90000,80000, now(), '${OWNER}'); select 1 as rows`, PCT), "ERR 23505"],
+    ["only an administrator writes a commission plan",     () => w42(AGENT, `insert into public.commission_plans (organization_id, label, party_kind, basis, rate_or_amount, created_by) values ('${lakesideOrg}','x','partner','flat',1,'${AGENT}'); select 1 as rows`), "ERR 42501"],
+    ["another organization cannot write one here",         () => w42(OTHER, `insert into public.commission_plans (organization_id, label, party_kind, basis, rate_or_amount, created_by) values ('${lakesideOrg}','x','partner','flat',1,'${OTHER}'); select 1 as rows`), "ERR 42501"],
+  ] : [["(no funding fixture)", () => "skip", "skip"]];
+  console.log("\nphase 42:");
+  for (const [label, fn, want] of P42) {
     checks++;
     let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
     const ok = String(got) === String(want); if (!ok) fails++;

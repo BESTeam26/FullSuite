@@ -1233,52 +1233,130 @@ export type Database = {
           },
         ]
       }
+      commission_plans: {
+        Row: {
+          applies_to: string
+          basis: string
+          created_at: string
+          created_by: string | null
+          effective_from: string
+          effective_to: string | null
+          id: string
+          label: string
+          organization_id: string
+          party_id: string | null
+          party_kind: string
+          rate_or_amount: number
+        }
+        Insert: {
+          applies_to?: string
+          basis: string
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          label: string
+          organization_id: string
+          party_id?: string | null
+          party_kind: string
+          rate_or_amount: number
+        }
+        Update: {
+          applies_to?: string
+          basis?: string
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          label?: string
+          organization_id?: string
+          party_id?: string | null
+          party_kind?: string
+          rate_or_amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commission_plans_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commission_plans_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       commissions: {
         Row: {
           basis: string
+          basis_amount: number | null
           computed_amount: number | null
           created_at: string
           created_by: string | null
           deal_id: string
+          earned_at: string | null
           funded_at: string | null
           id: string
           note: string | null
           paid_at: string | null
           party_id: string
           party_kind: string
+          payable_at: string | null
+          payment_reference: string | null
+          plan_id: string | null
           rate_or_amount: number
+          reversed_at: string | null
           state: string
           updated_at: string
         }
         Insert: {
           basis: string
+          basis_amount?: number | null
           computed_amount?: number | null
           created_at?: string
           created_by?: string | null
           deal_id: string
+          earned_at?: string | null
           funded_at?: string | null
           id?: string
           note?: string | null
           paid_at?: string | null
           party_id: string
           party_kind: string
+          payable_at?: string | null
+          payment_reference?: string | null
+          plan_id?: string | null
           rate_or_amount: number
+          reversed_at?: string | null
           state?: string
           updated_at?: string
         }
         Update: {
           basis?: string
+          basis_amount?: number | null
           computed_amount?: number | null
           created_at?: string
           created_by?: string | null
           deal_id?: string
+          earned_at?: string | null
           funded_at?: string | null
           id?: string
           note?: string | null
           paid_at?: string | null
           party_id?: string
           party_kind?: string
+          payable_at?: string | null
+          payment_reference?: string | null
+          plan_id?: string | null
           rate_or_amount?: number
+          reversed_at?: string | null
           state?: string
           updated_at?: string
         }
@@ -1295,6 +1373,13 @@ export type Database = {
             columns: ["deal_id"]
             isOneToOne: false
             referencedRelation: "funding_deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commissions_plan_fk"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "commission_plans"
             referencedColumns: ["id"]
           },
         ]
@@ -2694,6 +2779,9 @@ export type Database = {
           note: string | null
           offer_id: string | null
           requested_amount: number
+          revenue_amount: number | null
+          revenue_confirmed_at: string | null
+          revenue_confirmed_by: string | null
         }
         Insert: {
           accepted_offer_amount?: number | null
@@ -2712,6 +2800,9 @@ export type Database = {
           note?: string | null
           offer_id?: string | null
           requested_amount: number
+          revenue_amount?: number | null
+          revenue_confirmed_at?: string | null
+          revenue_confirmed_by?: string | null
         }
         Update: {
           accepted_offer_amount?: number | null
@@ -2730,6 +2821,9 @@ export type Database = {
           note?: string | null
           offer_id?: string | null
           requested_amount?: number
+          revenue_amount?: number | null
+          revenue_confirmed_at?: string | null
+          revenue_confirmed_by?: string | null
         }
         Relationships: [
           {
@@ -2779,6 +2873,13 @@ export type Database = {
             columns: ["offer_id"]
             isOneToOne: false
             referencedRelation: "offers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funded_deals_revenue_confirmed_by_fkey"
+            columns: ["revenue_confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -7493,6 +7594,62 @@ export type Database = {
         Args: { p_agency: string; p_group: string; p_org: string }
         Returns: boolean
       }
+      commission_list: {
+        Args: never
+        Returns: {
+          basis: string
+          basis_amount: number
+          computed_amount: number
+          deal_id: string
+          funded_at: string
+          funded_deal_id: string
+          id: string
+          paid_at: string
+          party_id: string
+          party_name: string
+          payment_reference: string
+          rate_or_amount: number
+          revenue_confirmed: boolean
+          state: string
+        }[]
+      }
+      commission_org: { Args: { p_commission: string }; Returns: string }
+      commission_plan_for: {
+        Args: {
+          p_on: string
+          p_org: string
+          p_party: string
+          p_party_kind: string
+        }
+        Returns: {
+          applies_to: string
+          basis: string
+          created_at: string
+          created_by: string | null
+          effective_from: string
+          effective_to: string | null
+          id: string
+          label: string
+          organization_id: string
+          party_id: string | null
+          party_kind: string
+          rate_or_amount: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "commission_plans"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      compute_commissions_for_deal: {
+        Args: { p_funded_deal: string }
+        Returns: number
+      }
+      confirm_deal_revenue: {
+        Args: { p_amount: number; p_funded_deal: string }
+        Returns: number
+      }
       confirm_funding: {
         Args: {
           p_closing: string
@@ -7754,6 +7911,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      mark_commission_paid: {
+        Args: { p_commission: string; p_reference: string }
+        Returns: undefined
+      }
       mark_letter_mailed: {
         Args: { p_letter: string; p_mailed_at?: string }
         Returns: undefined
@@ -7942,6 +8103,10 @@ export type Database = {
       }
       resolve_client_duplicate: {
         Args: { p_client: string; p_note?: string; p_outcome: string }
+        Returns: undefined
+      }
+      reverse_commission: {
+        Args: { p_commission: string; p_reason: string }
         Returns: undefined
       }
       save_announcement: {
