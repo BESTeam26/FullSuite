@@ -258,9 +258,12 @@ DIY build so a converted consumer becomes this record.
 | 10 | Mail vendor (Lob / Click2Mail) and e-sign provider | C4, C6, F6 |
 | 11 | Stale timer cap (hours) | O3 |
 
-**Decided 2026-09-05:** email through **Resend** (the invitation function
-already targets it), letters through **Lob**, scanned reports read by
-**Claude** through the existing gateway. Bookkeeping — recording revenue and
+**Decided:** email through **Sender** (2026-09-06 — Dee's platform is Sender;
+an earlier note said Resend and was wrong, and the invitation function has
+been switched to Sender's transactional API), letters through **Lob**, scanned
+reports read by **Claude** through the existing gateway. Hosting is **Vercel**
+with **Supabase** as the backend; **Render is not needed** — there is no
+server to host. Bookkeeping — recording revenue and
 expenses, FreshBooks/Xero-shaped — is wanted eventually but is not a priority;
 GHL already invoices.
 

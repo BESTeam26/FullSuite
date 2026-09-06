@@ -9,7 +9,8 @@ blocks the rest of the build; each item unblocks the thing named beside it.
 | # | What | Where it goes | What it turns on |
 |---|---|---|---|
 | A1 | **Anthropic API key** | `npx supabase secrets set ANTHROPIC_API_KEY=…` | Reading scanned reports, letter wording help, "explain this fit", plain-language item explanations. **Everything else for these is built and deployed** — the gateway answers "not connected" until this exists. |
-| A2 | **Resend API key + from address** — you chose Resend, and the invitation function already targets it, so only the key is missing | `npx supabase secrets set MAIL_PROVIDER_API_KEY=… MAIL_FROM="BES <no-reply@yourdomain>"` | Team invitations by email, and later client and lender emails. Today an invitation link must be copied and sent by hand. |
+| A2 | **Sender API token + a verified sending domain** (your email platform is Sender, not Resend — the invitation function now calls Sender's transactional API) | `npx supabase secrets set MAIL_PROVIDER_API_KEY=… MAIL_FROM="BES <no-reply@yourdomain>"` | Team invitations by email. Today the link is copied and sent by hand. |
+| A2b | **Sender SMTP credentials into Supabase** (Authentication → Emails → SMTP: `smtp.sender.net`, port 587) | Supabase dashboard | **Sign-up confirmation and password-reset emails.** Supabase's built-in sender allows only a few an hour, which is not enough to test sign-up properly. |
 | A3 | **Authorize.Net public client key** + your plan prices | Settings › Plans (and one migration) | Paid sign-up, plan changes, DIY consumer billing later. |
 | A4 | **GHL credentials** — a Private Integration token per location, or a Marketplace app | The CRM bridge | Won opportunities creating clients and funding files here; stage changes flowing back. |
 

@@ -1,7 +1,15 @@
 /**
- * Sends a team invitation email for an open invitation the caller may see.
- * Requires MAIL_PROVIDER_API_KEY (and MAIL_FROM); without them it answers 503
- * "email not connected" — the administrator copies the link instead. The
+ * Sends an invitation email for an open invitation the caller may see —
+ * either an organization invitation or a BES team one.
+ *
+ * The provider is **Sender** (sender.net), Dee's email platform:
+ * `POST https://api.sender.net/v2/message/send` with a bearer token. Sender
+ * requires the `from` address to belong to a domain verified in the account
+ * (SPF, DKIM and DMARC), so a mismatched MAIL_FROM is rejected by them, not
+ * by us — the error is passed through rather than swallowed.
+ *
+ * Requires MAIL_PROVIDER_API_KEY and MAIL_FROM; without them it answers 503
+ * "email not connected" and the administrator copies the link instead. The
  * token is read by the caller's own session (RLS decides), never listed.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -32,11 +40,22 @@ Deno.serve(async (req) => {
 
   const link = `${appOrigin}/accept-invitation/${inv.token}`;
   const orgName = (inv.organizations as { name: string } | null)?.name ?? "your organization";
-  // Resend-compatible payload; swap the endpoint if BES chooses another provider.
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST", headers: { Authorization: `Bearer ${mailKey}`, "content-type": "application/json" },
-    body: JSON.stringify({ from, to: [inv.email], subject: `You're invited to ${orgName} on BES`, html: `<p>You have been invited to join <strong>${orgName}</strong>.</p><p><a href="${link}">Accept the invitation</a> and sign in with this email address. The link expires in seven days.</p>` }),
+  /* MAIL_FROM may be "Name <address>" or a bare address; Sender wants the two
+     apart. */
+  const fromMatch = /^\s*(.*?)\s*<([^>]+)>\s*$/.exec(from);
+  const fromEmail = fromMatch ? fromMatch[2] : from.trim();
+  const fromName = fromMatch && fromMatch[1] ? fromMatch[1] : "BES";
+  const res = await fetch("https://api.sender.net/v2/message/send", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${mailKey}`, "content-type": "application/json", accept: "application/json" },
+    body: JSON.stringify({ from: { email: fromEmail, name: fromName }, to: [{ email: inv.email }], subject: `You're invited to ${orgName} on BES`, html: `<p>You have been invited to join <strong>${orgName}</strong>.</p><p><a href="${link}">Accept the invitation</a> and sign in with this email address. The link expires in seven days.</p>` }),
   });
-  if (!res.ok) return json(502, { error: `Mail provider error ${res.status}` });
+  if (!res.ok) {
+    /* Sender's own message says what is wrong — usually an unverified sending
+       domain — so it is passed on instead of a bare status code. */
+    const detail = await res.text().catch(() => "");
+    console.error("sender error", res.status, detail.slice(0, 500));
+    return json(502, { error: `The email provider refused the message (${res.status}). ${detail.slice(0, 200)}` });
+  }
   return json(200, { sent: true });
 });

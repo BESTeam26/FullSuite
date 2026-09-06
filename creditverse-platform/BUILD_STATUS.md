@@ -4003,3 +4003,30 @@ I applied migration 0086 while the RLS matrix was running, which the project
 rules forbid because the harness validates a database that is changing under
 it. I stopped that run rather than trusting it, and the full run below is the
 one that counts.
+
+## Deployment and email corrected (2026-09-06)
+
+Dee: hosting is **Vercel**, not Render; the email platform is **Sender**, not
+Resend (an earlier note of mine recorded "render" as Resend — wrong on both
+counts).
+
+- **`vercel.json`** added at the repository root: it points Vercel at
+  `creditverse-platform/`, and rewrites every path to `index.html`. Without
+  that rewrite, opening `/signup` or refreshing any screen would 404, because
+  this is a single-page app and only `/` exists as a file. Long-lived caching
+  for hashed assets; `nosniff`, `DENY` framing and a strict referrer policy on
+  everything.
+- **`send-invitation` now calls Sender** —
+  `POST https://api.sender.net/v2/message/send`, bearer token, `from` split
+  into name and address the way Sender expects. Sender rejects a `from` on an
+  unverified domain, so its own message is passed through to the screen rather
+  than a bare status code. Redeployed.
+- **`DEPLOYING.md`** records what is actually needed and what is not: Render
+  is not, because there is no server — the front end is static files and
+  everything dynamic runs in Supabase. It also separates the two email jobs,
+  which are easy to conflate: **sign-in emails** (confirmation, password reset)
+  are sent by Supabase Auth and need Sender's **SMTP** credentials in the
+  Supabase dashboard; **app emails** (invitations) go through the Edge Function
+  and need the Sender **API token** as a secret. Sign-up cannot be tested
+  properly until the first is set — Supabase's built-in sender allows only a
+  few emails an hour.
