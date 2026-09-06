@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth/auth-context";
 import { fetchFulfillmentClients } from "@/lib/data/fulfillment-clients";
 import { ClientCreditReportSection } from "@/components/dashboard/fulfillment/ClientCreditReportSection";
+import { ReportChangesPanel } from "@/components/clients/ReportChangesPanel";
 import { ReportIntegrityPanel } from "@/components/clients/ReportIntegrityPanel";
 import { RoundOutcomesPanel } from "@/components/clients/RoundOutcomesPanel";
 import {
@@ -250,6 +251,7 @@ const ClientDetailInner = () => {
               organizationId={liveClient.organizationId ?? null}
               outsourcingGroupId={liveClient.outsourcingGroupId ?? null}
             />
+            <ReportChangesPanel clientId={clientId} />
             <ReportIntegrityPanel clientId={clientId} />
             <RoundOutcomesPanel clientId={clientId} />
           </div>

@@ -850,6 +850,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "consumer_report_requests_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "report_item_changes"
+            referencedColumns: ["report_id"]
+          },
+          {
             foreignKeyName: "consumer_report_requests_requested_by_fkey"
             columns: ["requested_by"]
             isOneToOne: false
@@ -4554,6 +4561,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "report_findings_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "report_item_changes"
+            referencedColumns: ["report_id"]
+          },
+          {
             foreignKeyName: "report_findings_reviewer_fkey"
             columns: ["reviewer"]
             isOneToOne: false
@@ -4625,6 +4639,13 @@ export type Database = {
             referencedRelation: "credit_reports"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "report_items_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "report_item_changes"
+            referencedColumns: ["report_id"]
+          },
         ]
       }
       report_scores: {
@@ -4653,6 +4674,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "credit_reports"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_scores_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "report_item_changes"
+            referencedColumns: ["report_id"]
           },
         ]
       }
@@ -5752,6 +5780,32 @@ export type Database = {
           unit: string | null
         }
         Relationships: []
+      }
+      report_item_changes: {
+        Row: {
+          account_ref: string | null
+          bureaus: string[] | null
+          change: string | null
+          client_id: string | null
+          current_balance_cents: number | null
+          current_status: string | null
+          kind: string | null
+          name: string | null
+          observed_on: string | null
+          prev_report_id: string | null
+          previous_balance_cents: number | null
+          previous_status: string | null
+          report_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_reports_fulfillment_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "fulfillment_clients"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       work_attention: {
         Row: {

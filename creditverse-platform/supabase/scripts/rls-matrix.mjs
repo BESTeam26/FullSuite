@@ -1189,5 +1189,31 @@ if (PHASE >= 29) {
   }
 }
 
+
+/* Phase 30 — report-derived outcomes (0071): two imports of the same client
+   compared by account_ref; a deletion is an observation on the later import;
+   organizations see only their own; the KPI equals the direct count. */
+if (PHASE >= 30) {
+  const w30 = (uid, sql) => { try { return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
+  const LC30 = q(`select coalesce((select id::text from public.fulfillment_clients where organization_id='${lakesideOrg}' limit 1), '') as rows`)[0].rows;
+  const A = `'[{"kind":"Account","name":"Probe Card","status":"Open","bureaus":["EQ"],"balance_text":"$100","balance_cents":10000,"account_ref":"probe card"},{"kind":"Account","name":"Probe Loan","status":"Open","bureaus":["EQ"],"balance_text":"$500","balance_cents":50000,"account_ref":"probe loan"}]'::jsonb`;
+  const B = `'[{"kind":"Account","name":"Probe Card","status":"Paid","bureaus":["EQ"],"balance_text":"$0","balance_cents":0,"account_ref":"probe card"}]'::jsonb`;
+  const TWO = `select public.create_credit_report('${lakesideOrg}', null, '${LC30}', null, array['EQ'], '2031-02-01', 'manual_upload', null, 'probe-a', ${A}, null); select public.create_credit_report('${lakesideOrg}', null, '${LC30}', null, array['EQ'], '2031-03-01', 'manual_upload', null, 'probe-b', ${B}, null);`;
+  const P30 = LC30 ? [
+    ["two imports → one deletion and one update observed on the later import", () => w30(U["org.owner@bes.test"], `${TWO} select (select count(*) from public.report_item_changes where client_id='${LC30}' and observed_on='2031-03-01' and change='deleted')::text || ':' || (select count(*) from public.report_item_changes where client_id='${LC30}' and observed_on='2031-03-01' and change='updated')::text as rows`), "1:1"],
+    ["the facts carry provenance engine (report_outcome), apart from manual",  () => w30(U["org.owner@bes.test"], `${TWO} select count(*)::int as rows from public.report_facts where source='report_outcome' and client_id='${LC30}' and fact_date='2031-03-01' and outcome in ('deleted','updated')`), 2],
+    ["the deletions KPI equals the direct count",                              () => w30(U["org.owner@bes.test"], `${TWO} select ((select coalesce(sum((r->>'outcomes.deleted_engine')::int), 0) from public.report_pivot('client', array['outcomes.deleted_engine'], '{}'::jsonb, '2031-01-01', '2031-12-31') r) = (select count(*) from public.report_item_changes where change='deleted' and observed_on between '2031-01-01' and '2031-12-31'))::text as rows`), "true"],
+    ["another organization's owner sees no changes for a Lakeside client",     () => w30(U["org2.owner@bes.test"], `select count(*)::int as rows from public.report_item_changes where client_id='${LC30}'`), 0],
+    ["a client role (borrower fixture) sees no report changes at all",         () => { const P = q(`select coalesce((select id::text from public.profiles where email='client.portal@bes.test'), '') as rows`)[0].rows; return P ? w30(P, `select count(*)::int as rows from public.report_item_changes`) : "skip"; }, q(`select coalesce((select id::text from public.profiles where email='client.portal@bes.test'), '') as rows`)[0].rows ? 0 : "skip"],
+  ] : [["(no Lakeside client to probe)", () => "skip", "skip"]];
+  console.log("\nphase 30:");
+  for (const [label, fn, want] of P30) {
+    checks++;
+    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
+    const ok = got === want; if (!ok) fails++;
+    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
+  }
+}
+
 console.log(`\n${checks - fails}/${checks} checks passed (phase ≤ ${PHASE})`);
 process.exit(fails ? 1 : 0);

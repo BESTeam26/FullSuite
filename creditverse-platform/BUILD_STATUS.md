@@ -3410,3 +3410,26 @@ Browser: Settings › AI usage on Cedar Financial renders balance (0, "AI
 features paused"), monthly use, auto-recharge, and — for BES staff — provider
 cost and the Grant credits form. No ledger row was written in verification;
 the matrix probes exercise grants and roll back.
+
+**Edge Functions deployed (2026-09-05).** `ai-gateway` and `send-invitation`
+are ACTIVE on the project (deployed with `--use-api`, JWT verification on).
+They hold no provider keys yet, so the gateway answers "AI is not connected
+yet" and the mailer "Email is not connected yet" — both surfaced verbatim in
+the interface — and nothing is charged or sent. When Dee sets
+`ANTHROPIC_API_KEY`, `MAIL_PROVIDER_API_KEY` and `MAIL_FROM` with
+`npx supabase secrets set`, the same deployments start working; no code
+change is needed.
+
+**0071 — Report-derived outcomes (2026-09-05; reporting step 2).**
+`report_item_changes` compares each client's consecutive imports by account:
+present then absent = deletion observed on the later import; status or
+balance changed = update. Observations of the consumer-facing display, never
+a statement about the furnisher's record; provenance `engine`, beside the
+manual outcomes an outside-CRM team types. `report_facts` gains the source and
+the KPI catalogue two definitions ("from reports"). Matrix phase 30 written
+(5 probes); full run 421/421 (phase ≤ 30).
+Interface for 0071: the client profile's Import & Analysis tab gains
+**Changes between imports** (`ReportChangesPanel`) — accounts no longer
+reported or changed since the previous import, grouped by the date observed,
+with the caution that a disappearance is not proof of a bureau deletion until
+confirmed. Hidden when a client has fewer than two imports.

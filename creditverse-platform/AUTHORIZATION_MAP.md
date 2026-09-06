@@ -412,3 +412,13 @@ Matrix phase 28: cross-organization facts 0; internal KPI absent from the organi
 | `grant_ai_credits(org, credits, kind, reference)` | BES manager of the organization's agency; kinds purchase · refund · adjustment; audit row | 42501 / 22023 |
 
 Matrix phase 29 (12 probes): grant + balance = sum + audit; owner cannot grant or write the ledger; API role cannot write usage; unknown kind; owner reads, processor does not; other organization sees none; pricing BES-only; recharge owner-only; `ai_can_use` false at zero balance and true with credits.
+
+
+### 0071 — Report-derived outcomes
+
+| Object | Rule | How |
+|---|---|---|
+| `report_item_changes` (view, security invoker) | consecutive imports of one client compared by `account_ref`: deleted · updated · unchanged, observed on the later import's date; rows follow `credit_reports` / `report_items` RLS | no policy of its own |
+| `report_facts` | gains source `report_outcome` (provenance engine) beside `manual_outcome`; the KPI catalogue gains "Items deleted / updated (from reports)" | same invoker semantics |
+
+Matrix phase 30 (5 probes): two imports yield one deletion and one update; facts carry `report_outcome`; the KPI equals the direct count; another organization and a client role see nothing.
