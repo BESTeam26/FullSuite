@@ -6878,6 +6878,24 @@ export type Database = {
           name: string
         }[]
       }
+      client_portal_home: {
+        Args: never
+        Returns: {
+          client_id: string
+          credit_round: string
+          credit_status: string
+          full_name: string
+          funding_status: string
+          has_creditops: boolean
+          has_fundingops: boolean
+          open_document_requests: number
+          open_funding_files: number
+          organization_name: string
+          presented_offers: number
+          public_id: string
+          published_updates: number
+        }[]
+      }
       client_visible: { Args: { p_client: string }; Returns: boolean }
       client_writable: {
         Args: { p_agency: string; p_group: string; p_org: string }
@@ -7083,6 +7101,7 @@ export type Database = {
       is_agency_manager_or_above: { Args: never; Returns: boolean }
       is_agency_staff: { Args: never; Returns: boolean }
       is_borrower_of_file: { Args: { p_file: string }; Returns: boolean }
+      is_client_of: { Args: { p_client: string }; Returns: boolean }
       is_external_member: { Args: { p_org: string }; Returns: boolean }
       is_lender_for_file: { Args: { p_file: string }; Returns: boolean }
       is_manager_of: { Args: { p_agency: string }; Returns: boolean }
@@ -7090,6 +7109,7 @@ export type Database = {
       is_org_admin: { Args: { p_org: string }; Returns: boolean }
       is_org_member: { Args: { p_org: string }; Returns: boolean }
       is_org_owner_admin: { Args: { p_org: string }; Returns: boolean }
+      is_portal_client: { Args: never; Returns: boolean }
       is_staff_of: { Args: { p_agency: string }; Returns: boolean }
       is_team_lead_of: { Args: { p_team: string }; Returns: boolean }
       kpi_match_sql: { Args: { p_match: Json }; Returns: string }
@@ -7161,6 +7181,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      my_client_ids: { Args: never; Returns: string[] }
       my_org_ids: { Args: never; Returns: string[] }
       my_permissions: {
         Args: { p_org: string }
@@ -7298,6 +7319,10 @@ export type Database = {
           p_product: Database["public"]["Enums"]["product_key"]
           p_role: Database["public"]["Enums"]["org_role"]
         }
+        Returns: undefined
+      }
+      resolve_client_duplicate: {
+        Args: { p_client: string; p_note?: string; p_outcome: string }
         Returns: undefined
       }
       save_announcement: {

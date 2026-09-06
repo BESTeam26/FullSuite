@@ -12,7 +12,7 @@
  * fixtures change instead of drifting into hard-coded numbers.
  *
  *   node supabase/scripts/rls-matrix.mjs            # phase-1 checks
- *   node supabase/scripts/rls-matrix.mjs --phase 3  # include later phases
+ *   node supabase/scripts/rls-matrix.mjs --phase 38 # include later phases
  *
  * Exit code is non-zero on any failed check in the requested phases. Run from
  * creditverse-platform/ (the CLI resolves the linked project from there).
@@ -1506,6 +1506,50 @@ if (PHASE >= 37) {
     let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
     const ok = String(got) === String(want); if (!ok) fails++;
     console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
+  }
+}
+
+
+/* Phase 38 — the Client Portal (0099). C3: a view on the canonical client, not
+   a second identity. A client reads their OWN records and only the activity
+   somebody published to them; everything internal is excluded by the value on
+   the row, not by a filter in the interface. */
+if (PHASE >= 38) {
+  const w38 = (uid, sql, seed = "") => { try { return q(`begin; ${seed} set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
+  const PORTAL = q(`select coalesce((select portal_user_id::text from public.clients where portal_user_id is not null limit 1), '') as rows`)[0].rows;
+  const PCLIENT = q(`select coalesce((select id::text from public.clients where portal_user_id is not null limit 1), '') as rows`)[0].rows;
+  const PFUND = PCLIENT ? q(`select coalesce((select id::text from public.funding_clients where client_id='${PCLIENT}' limit 1), '') as rows`)[0].rows : "";
+  const AG = `(select agency_id from public.organizations where id='${lakesideOrg}')`;
+  /* One activity of every visibility on the client's own record, so the probe
+     proves which ones reach them rather than that none exist. */
+  const seedAll = PFUND ? `insert into public.activity_events (agency_id, organization_id, entity_type, entity_id, action, detail, actor_id, visibility) values
+    (${AG},'${lakesideOrg}','funding_client','${PFUND}','[PROBE] internal','x',null,'bes_internal'),
+    (${AG},'${lakesideOrg}','funding_client','${PFUND}','[PROBE] org','x',null,'organization_internal'),
+    (${AG},'${lakesideOrg}','funding_client','${PFUND}','[PROBE] partner','x',null,'shared_with_partner'),
+    (${AG},'${lakesideOrg}','funding_client','${PFUND}','[PROBE] published','x',null,'client_visible');` : "";
+
+  const P38 = PORTAL ? [
+    ["the client reads their own portal home",                       () => w38(PORTAL, `select count(*)::int as rows from public.client_portal_home()`), 1],
+    ["…and exactly one client, their own",                           () => w38(PORTAL, `select count(*)::int as rows from public.clients`), 1],
+    ["…which is the one they are the portal user for",               () => w38(PORTAL, `select (id = '${PCLIENT}')::text as rows from public.clients`), "true"],
+    ["ONLY client_visible activity reaches them",                    () => w38(PORTAL, `select coalesce(string_agg(distinct visibility::text, ','), 'none') as rows from public.activity_events where action like '[PROBE]%'`, seedAll), "client_visible"],
+    ["a BES-internal note never does",                               () => w38(PORTAL, `select count(*)::int as rows from public.activity_events where visibility = 'bes_internal'`, seedAll), 0],
+    ["an organization-internal note never does",                     () => w38(PORTAL, `select count(*)::int as rows from public.activity_events where visibility = 'organization_internal'`, seedAll), 0],
+    ["a partner-shared note never does",                             () => w38(PORTAL, `select count(*)::int as rows from public.activity_events where visibility = 'shared_with_partner'`, seedAll), 0],
+    ["an offer nobody presented is not shown",                       () => w38(PORTAL, `select count(*)::int as rows from public.offers`, `update public.offers set presented_at = null;`), 0],
+    ["another client's funding file is not reachable",               () => w38(PORTAL, `select count(*)::int as rows from public.funding_files ff join public.funding_clients fc on fc.id = ff.client_id where fc.client_id <> '${PCLIENT}'`), 0],
+    ["the client cannot move their own funding status",              () => w38(PORTAL, `update public.funding_clients set status = 'Funded' where client_id = '${PCLIENT}'; select count(*)::int as rows from public.funding_clients where status = 'Funded'`), 0],
+    ["the client cannot rewrite their own identity",                 () => w38(PORTAL, `update public.clients set first_name = 'Rewritten' where portal_user_id = '${PORTAL}'; select count(*)::int as rows from public.clients where first_name = 'Rewritten'`), 0],
+    ["a staff member is not a portal client",                        () => w38(U["org.agent@bes.test"], `select public.is_portal_client()::text as rows`), "false"],
+    ["…and gets no portal home",                                     () => w38(U["org.agent@bes.test"], `select count(*)::int as rows from public.client_portal_home()`), 0],
+    ["the organization still sees its own internal notes",           () => w38(U["org.owner@bes.test"], `select count(*)::int as rows from public.activity_events where action = '[PROBE] org'`, seedAll), 1],
+  ] : [["(no portal client fixture)", () => "skip", "skip"]];
+  console.log("\nphase 38:");
+  for (const [label, fn, want] of P38) {
+    checks++;
+    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
+    const ok = String(got) === String(want); if (!ok) fails++;
+    console.log(`  ${ok ? "\u2713" : "\u2717"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
   }
 }
 

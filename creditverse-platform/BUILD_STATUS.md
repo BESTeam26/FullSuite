@@ -4224,3 +4224,152 @@ not the one who should make that call.
 Lender submission by **email package** first; the portal after the
 lender/deal/submission model is mature. The earlier answer would have had a
 portal built against a model still moving underneath it.
+
+## Roadmap fixed by Dee, 2026-09-06
+
+**Client Portal (C3) → DIY Credit (C2) → Channels (C4) → Commissions (C6) →
+Metro 2 catalogue A–P.** Each milestone finished, tested, committed and pushed
+before the next begins.
+
+**Metro 2 A–P is paused, not dropped.** It is the next major CreditOps
+intelligence expansion, and it waits because the customer-facing identity and
+access foundation should be finished before the dispute library deepens.
+
+### The rules for that work, when it resumes
+
+Dee: *"do NOT bulk-convert the entire document into vague AI rules."* Every
+defect becomes an explicit, testable field relationship carrying:
+
+```
+source/provenance → required fields → evaluation conditions →
+confirmed/apparent/unknown → false-positive guardrails →
+permitted claim language → applicable recipient → tests
+```
+
+Three lines that do not move:
+
+- **UNKNOWN must never become CONFIRMED.**
+- **An inferred Metro 2 code is never treated as a displayed one.** Already
+  enforced in `metro2-status-rules.ts`; it applies to every section.
+- **A data inconsistency does not generate a legal claim by itself.**
+
+And the chain stays visible end to end, never collapsed into one step:
+
+```
+data observation → Metro 2 relationship → apparent defect →
+legal applicability → dispute claim → recipient → letter language
+```
+
+One section at a time, with tests, before the next.
+
+### On the large reference books
+
+Not yet. The structured materials already in hand — the defect catalogue, the
+letter library, the skill references — are exhausted first. The books
+(Yeagley, BES Reason 2026, LAW REFERENCES, Pay-As-You-Go) are for targeted
+verification and expansion later, not a source to mine now.
+
+## Queued next: AI usage safeguards and OCR fallback (Dee, 2026-09-06)
+
+Received mid-C3 and deliberately not started, because the standing rule is to
+finish a milestone before opening the next. Recorded in full so nothing is lost.
+
+1. Markup **3.0×** provider cost.
+2. **Every** AI call through `ai-gateway`. No browser component, module or
+   future feature calls Anthropic directly.
+3. Hard controls before AI is exposed broadly: estimate cost before sending;
+   refuse when the estimate exceeds available balance; configurable upload and
+   page ceiling; per-organization daily spend cap; per-request maximum cost;
+   rate limiting; output token ceiling; auditable ledger by organization, user,
+   feature and model; **fail closed when usage cannot be attributed to an
+   organization**.
+4. OCR ladder: digital PDF → local deterministic parse. Scanned → **local OCR
+   first** → quality validation → Anthropic vision only when local extraction
+   is insufficient. Low-confidence extraction requires review; bad OCR is never
+   silently trusted.
+5. Doctrine preserved: AI does not decide dispute validity, lender
+   qualification, compliance findings or legal violations. It explains,
+   summarises, extracts and rephrases inside its feature boundary.
+6. **Entitlement ≠ consumption.** No SaaS tier grants unlimited usage.
+7. Customer-facing unit stays BES AI Credits; internally retain provider,
+   model, input/output/cached tokens, provider cost, markup, customer charge,
+   feature, organization, user, timestamp.
+8. Monthly included allowances are **catalog data, not constants**, and are not
+   locked yet.
+9. Internal AI economics report: provider cost vs credits charged vs included
+   consumed vs top-ups vs gross margin, filterable by organization, plan,
+   feature, model and date.
+10. **Reserve then reconcile.** A positive balance before the request is not
+    permission to overshoot on it.
+11. Never expose provider keys, raw provider cost, markup logic or model
+    credentials to organization users.
+12. Safeguards verified BEFORE the key is placed. Dee puts the key into
+    Supabase Secrets themselves; it is never pasted into chat or source.
+
+## C3 — the Client Portal (0099)
+
+A view on the canonical client. **No new table.** Not one — which is the whole
+brief: no second identity, no second login, no duplicate documents, messages or
+history.
+
+What the migration adds instead: two helpers that answer "is the caller this
+client", a client branch on the policies that already govern each record, and
+one reader that returns a portal home in a single round trip.
+
+### Visibility comes from the row, not from the screen
+
+Activity already carries four visibilities. A client reads **`client_visible`
+and nothing else**:
+
+| Visibility | Who |
+|---|---|
+| `bes_internal` | BES only |
+| `organization_internal` | The organization's staff |
+| `shared_with_partner` | BES and the organization |
+| `client_visible` | Published to the client |
+
+Internal notes, staff workload, SLA timers, dispute strategy, lender notes and
+commissions all travel on the first three, so they are excluded **by the value
+on the row** rather than by a list of things to hide. A new internal feature is
+therefore private by default, because the default visibility is not
+`client_visible`.
+
+Offers work the same way: `presented_at` is the switch. An offer still being
+negotiated never arrives, so there is nothing for the interface to filter.
+
+### Verified against the live database, as the client
+
+| | |
+|---|---|
+| Their own portal home | 1 row |
+| Clients visible to them | 1 of 11 |
+| `bes_internal` / `organization_internal` / `shared_with_partner` | 0, 0, 0 |
+| `client_visible` | reaches them |
+| Un-presented offer | 0 |
+| Another client's funding file | 0 |
+| Writing their own funding status | refused |
+| Rewriting their own name | refused |
+
+Captured as **matrix phase 38** so it stays proven. A staff member is not a
+portal client and gets no portal home; the organization still sees its own
+internal notes, so the client branch narrowed nothing that already worked.
+
+### Interface
+
+Phone-first: tabs along the bottom where a thumb reaches, one column, and the
+first screen answers "where am I up to" without scrolling. Light theme
+unchanged. Sections load when opened, never before.
+
+Home · Progress (credit, funding, presented offers) · Documents · Updates ·
+Account. A service the client does not have is not rendered at all.
+
+Outstanding document requests are promoted to the top of Home, because that is
+the thing actually holding their file up.
+
+### Not verified visually, and why
+
+The browser confirms the **guard**: staff hitting `/portal` land on `/app`. The
+portal's own screens were not opened in a browser, because doing so needs a
+sign-in as the fixture client and Claude never types a password. 13 component
+tests cover the structure instead. To see it: sign in as
+`client.portal@bes.test` and open `/portal`.

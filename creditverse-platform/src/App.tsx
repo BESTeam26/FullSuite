@@ -13,6 +13,7 @@ import { ConnectorsProvider } from "@/lib/connectors-context";
 import { CrmAutomationProvider } from "@/lib/crm-automation-context";
 import { AgencySettingsProvider } from "@/lib/agency-settings-context";
 import { AuthProvider } from "@/lib/auth/auth-context";
+import { RequirePortalClient } from "@/components/auth/RequirePortalClient";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { RequireAgencyStaff } from "@/components/auth/RequireAgencyStaff";
 import { RequireEntitlement } from "./components/auth/RequireEntitlement";
@@ -40,7 +41,7 @@ const AuthCallback = lazy(() => import("./pages/auth/AuthCallback"));
 
 // Public / marketing
 const Index = lazy(() => import("./pages/Index"));
-const Portal = lazy(() => import("./pages/portals/PortalPreviewsRemoved").then((m) => ({ default: m.ClientPortalPreview })));
+const ClientPortal = lazy(() => import("./pages/portal/ClientPortal"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const DiyNotBuilt = lazy(() => import("./pages/DiyNotBuilt"));
 const AffiliatePortal = lazy(() => import("./pages/portals/PortalPreviewsRemoved").then((m) => ({ default: m.AffiliatePortalPreview })));
@@ -185,7 +186,17 @@ const App = () => (
                                 path="/auth/callback"
                                 element={<AuthCallback />}
                               />
-                              <Route path="/portal" element={<Portal />} />
+                              {/* C3: one client identity, one portal. The guard
+                                  decides routing; row-level security decides what
+                                  is inside. */}
+                              <Route
+                                path="/portal"
+                                element={
+                                  <RequirePortalClient>
+                                    <ClientPortal />
+                                  </RequirePortalClient>
+                                }
+                              />
                               <Route path="/diy" element={<DiyNotBuilt />} />
                               <Route
                                 path="/diy-consumer"
