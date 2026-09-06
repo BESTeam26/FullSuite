@@ -22,6 +22,7 @@ import { hrefForEntity, type Notification } from "@/lib/data/notifications";
 import { useAuth } from "@/lib/auth/auth-context";
 import { describeScope } from "@/lib/auth/scope";
 import {
+  AtSign,
   AlertTriangle,
   ListTodo,
   Clock,
@@ -350,6 +351,7 @@ const KIND_ICON: Record<Notification["kind"], ElementType> = {
   unassigned: UserMinus,
   note: MessageSquare,
   status: ArrowRightLeft,
+  mention: AtSign,
 };
 
 const ENTITY_LABEL: Record<string, string> = {

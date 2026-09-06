@@ -11,7 +11,7 @@ import type { Database } from "@/lib/supabase/database.types";
 export type NotificationRow =
   Database["public"]["Tables"]["notifications"]["Row"];
 
-export type NotificationKind = "assigned" | "unassigned" | "note" | "status";
+export type NotificationKind = "assigned" | "unassigned" | "note" | "status" | "mention";
 
 export interface Notification {
   id: number;

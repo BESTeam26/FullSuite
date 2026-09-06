@@ -3865,3 +3865,13 @@ GoHighLevel renders with its honest "recorded, not yet acted on" note.
 Two more matrix probes of mine were wrong and are fixed: the phase-33
 "foreign department" probe passed a null department (a legitimate "clear it")
 and read a column that a void function never returns, so it proved nothing.
+
+### Mentions, end to end
+
+Posted a real comment carrying a mention on a Lakeside work item from the
+browser: the picker offered only Lakeside people, the chip stored the user id,
+and the note posted with the plain text `@…` intact. The notification side is
+proven by matrix phase 35 rather than by reading the table during a run — the
+harness must be the only thing touching fixtures while it works. (I wrote that
+one fixture row mid-run before thinking; noted so it does not become a habit.)
+`mention` now has its own icon in the notifications list.
