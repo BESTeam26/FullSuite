@@ -89,7 +89,7 @@ the tenancy model (rule 16).
 |---|---|---|---|
 | F1 | **BRM / sales partner / affiliate** as first-class people with their own portal | Today referral partners are not users. Needs: a `partner` relationship record (organization → partner person, commission plan, referral attribution by stable id), an affiliate portal role, referral tracking on funding files and clients. Structural — proposal first. | Approve proposal; commission rules |
 | F2 | **Lender portal access** | Lenders are records, not users. A lender user would see only submissions sent to them and respond (decision, documents requested). New tenancy branch — proposal first. | Decide if lenders log in or receive email packages |
-| F3 | Borrower **uploads** documents from the portal | The portal is read-only today. Upload into `files` with the borrower's own scope; the document request list already exists. Small. | No |
+| F3 | ~~Borrower uploads documents from the portal~~ | **Already built** (checked after writing the first draft): the borrower portal lists requested documents with an upload control, and storage policies scope uploads to the borrower's own file (0066/0068). | — |
 | F4 | Bank-statement and tax-return **reading** for underwriting prep | Same OCR decision as C2; extraction to a review grid, never auto-underwriting. | Decision + key |
 | F5 | Sending a **submission package** to a lender by email/API | Mail provider (same key as invitations) for email; lender APIs are one-by-one partner work. | `MAIL_PROVIDER_API_KEY` |
 | F6 | E-signature on applications and disclosures | Same provider as C6. | Provider choice |

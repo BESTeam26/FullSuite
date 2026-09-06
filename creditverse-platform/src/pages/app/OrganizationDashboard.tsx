@@ -13,7 +13,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { formatDate } from "@/lib/format-date";
 import { Link, Navigate, useParams } from "react-router-dom";
-import { Building2, LayoutGrid, ListTodo, Users, FileText, Landmark, Workflow, ArrowRight, Hash, SlidersHorizontal } from "lucide-react";
+import { Building2, LayoutGrid, ListTodo, Users, FileText, Landmark, Workflow, ArrowRight, Hash, SlidersHorizontal, Clock, Timer } from "lucide-react";
 import { ChartCard } from "@/components/dashboard/ops/ChartCard";
 import { DonutLegend } from "@/components/dashboard/ops/DonutLegend";
 import { KpiTile, TONE_FILL, type KpiTone } from "@/components/dashboard/ops/KpiTile";
@@ -21,6 +21,7 @@ import { StageBarChart } from "@/components/dashboard/ops/StageBarChart";
 import { useAgency } from "@/lib/agency-context";
 import { useAuth } from "@/lib/auth/auth-context";
 import { GettingStartedCard } from "@/components/dashboard/GettingStartedCard";
+import { usePermissions } from "@/lib/auth/use-permission";
 import { useOrganizationWork } from "@/lib/data/use-work";
 import { useWorkspaces } from "@/lib/data/use-workspaces";
 import { useOrganizationTrial } from "@/lib/data/use-organization-trial";
@@ -94,6 +95,11 @@ export default function OrganizationDashboard() {
   });
   const prefs = useUserPreferences();
   const saveCards = useSaveDashboardCards();
+  /* Organization-wide figures and charts are reporting; a member without
+     "View reports" gets a Home about their own day instead. The rows the
+     lists show are already limited to what their role may see (RLS). */
+  const permissions = usePermissions();
+  const seesFigures = permissions.can("reports.view");
   const [customizing, setCustomizing] = useState(false);
   const cards = useMemo(
     () => resolveHomeCards(prefs.preferences?.dashboard_cards, enabledKeys),
@@ -210,7 +216,7 @@ export default function OrganizationDashboard() {
           <DataSourceBadge source={work.source} />
           <span className="text-xs text-muted-foreground">Figures are derived from this organization's own records.</span>
         </div>
-        {prefs.live && !customizing && (
+        {prefs.live && seesFigures && !customizing && (
           <button
             type="button"
             onClick={() => setCustomizing(true)}
@@ -230,15 +236,31 @@ export default function OrganizationDashboard() {
           onSave={(next) => saveCards.mutate(next, { onSuccess: () => setCustomizing(false) })}
         />
       )}
-      <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-        {cards.map((card) => (
+      {!seesFigures && !permissions.loading && (
+        <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+          <Link to="/app/my-work" className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <KpiTile label="Assigned to you" value={loadingWork ? "…" : mine} icon={CARD_ICONS["work.mine"]} tone="blue" />
+          </Link>
+          <Link to="/app/my-work" className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <KpiTile label="Overdue on your list" value={loadingWork ? "…" : overdue} icon={CARD_ICONS["work.overdue"]} tone="amber" attention={overdue > 0} />
+          </Link>
+          <Link to="/app/my-time" className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <KpiTile label="Time tracking" value="Open" icon={Clock} tone="emerald" />
+          </Link>
+          <Link to="/app/eod" className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <KpiTile label="End of Day" value="Open" icon={Timer} tone="slate" />
+          </Link>
+        </div>
+      )}
+      <div className={seesFigures ? "mb-6 grid grid-cols-2 gap-3 md:grid-cols-4" : "hidden"}>
+        {seesFigures && cards.map((card) => (
           <Link key={card.key} to={card.href} className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <KpiTile label={card.label} value={cardValue(card.key)} icon={CARD_ICONS[card.key]} tone={cardTone(card.key)} attention={card.key === "work.overdue" && typeof cardValue(card.key) === "number" && (cardValue(card.key) as number) > 0} />
           </Link>
         ))}
       </div>
 
-      {!work.isLoading && work.items.length > 0 && (
+      {seesFigures && !work.isLoading && work.items.length > 0 && (
         <div className="mb-6 grid gap-4 xl:grid-cols-[2fr_1fr]">
           <ChartCard title="Open work by stage">
             <StageBarChart data={byStage} tone="amber" height={220} />
@@ -251,7 +273,7 @@ export default function OrganizationDashboard() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <ContentCard title="Open work">
+          <ContentCard title={seesFigures ? "Open work" : "Your open work"}>
             {work.error ? (
               <p className="text-sm text-red-700">Could not load work: {work.error}</p>
             ) : work.isLoading ? (

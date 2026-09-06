@@ -1215,5 +1215,40 @@ if (PHASE >= 30) {
   }
 }
 
+
+/* Phase 31 — intranet (0072): announcements and knowledge articles. Every
+   probe runs inside a rolled-back transaction, so nothing persists. Writers
+   are functions: organization admins write their organization's rows, BES
+   staff write BES rows, nobody else; direct inserts have no grant; anon has
+   no select. */
+if (PHASE >= 31) {
+  const w31 = (uid, sql, role = "authenticated") => { try { return q(`begin; set local role ${role}; set local request.jwt.claims = '{"sub":"${uid}","role":"${role}"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
+  const ORG_ANN = (org) => `select public.save_announcement(null, '${org}', 'organization', 'Probe 31', 'Body', 'Ops', false, true); select count(*)::int as rows from public.announcements where organization_id='${org}' and title='Probe 31'`;
+  const BES_ANN = `select public.save_announcement(null, null, 'bes_internal', 'Probe 31', 'Body', '', true, true); select count(*)::int as rows from public.announcements where organization_id is null and title='Probe 31'`;
+  const ORG_KB = (org) => `select public.save_knowledge_article(null, '${org}', 'organization', 'Procedures', 'Probe 31', 'Body', 0, true); select count(*)::int as rows from public.knowledge_articles where organization_id='${org}' and title='Probe 31'`;
+  const P31 = [
+    ["Lakeside owner publishes an announcement and reads it back",         () => w31(U["org.owner@bes.test"], ORG_ANN(lakesideOrg)), 1],
+    ["Lakeside agent may not publish (settings.manage)",                    () => w31(U["org.agent@bes.test"], ORG_ANN(lakesideOrg)), "ERR 42501"],
+    ["Cedar owner may not publish into Lakeside",                          () => w31(U["org2.owner@bes.test"], ORG_ANN(lakesideOrg)), "ERR 42501"],
+    ["BES owner may not publish into an organization's own board",         () => w31(U["bes.owner@bes.test"], ORG_ANN(lakesideOrg)), "ERR 42501"],
+    ["BES owner publishes a BES-internal announcement",                    () => w31(U["bes.owner@bes.test"], BES_ANN), 1],
+    ["Lakeside owner may not publish a BES announcement",                  () => w31(U["org.owner@bes.test"], BES_ANN), "ERR 42501"],
+    ["organization row with a BES audience is refused by the constraint",  () => w31(U["org.owner@bes.test"], `select public.save_announcement(null, '${lakesideOrg}', 'all_organizations', 'Probe 31', 'Body', '', false, true) is not null as rows`), "ERR 23514"],
+    ["direct insert bypassing the function has no grant",                  () => w31(U["org.owner@bes.test"], `insert into public.announcements (organization_id, title, body) values ('${lakesideOrg}', 'Probe 31', 'Body'); select 1 as rows`), "ERR 42501"],
+    ["Lakeside owner publishes a knowledge article and reads it back",     () => w31(U["org.owner@bes.test"], ORG_KB(lakesideOrg)), 1],
+    ["Lakeside agent may not publish a knowledge article",                 () => w31(U["org.agent@bes.test"], ORG_KB(lakesideOrg)), "ERR 42501"],
+    ["Lakeside owner archives their own article (archive is the only removal)", () => w31(U["org.owner@bes.test"], `select public.save_knowledge_article(null, '${lakesideOrg}', 'organization', null, 'Probe 31', 'Body', 0, true); select public.archive_knowledge_article((select id from public.knowledge_articles where title='Probe 31' and organization_id='${lakesideOrg}')); select count(*)::int as rows from public.knowledge_articles where title='Probe 31' and organization_id='${lakesideOrg}'`), 0],
+    ["anon has no read on announcements",                                  () => w31("00000000-0000-0000-0000-000000000000", `select count(*)::int as rows from public.announcements`, "anon"), "ERR 42501"],
+    ["anon has no read on knowledge articles",                             () => w31("00000000-0000-0000-0000-000000000000", `select count(*)::int as rows from public.knowledge_articles`, "anon"), "ERR 42501"],
+  ];
+  console.log("\nphase 31:");
+  for (const [label, fn, want] of P31) {
+    checks++;
+    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
+    const ok = got === want; if (!ok) fails++;
+    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
+  }
+}
+
 console.log(`\n${checks - fails}/${checks} checks passed (phase ≤ ${PHASE})`);
 process.exit(fails ? 1 : 0);

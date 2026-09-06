@@ -16,6 +16,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { fcraSections, metro2Fields, violationLibrary } from "@/lib/knowledge";
 import { SampleContentNotice } from "@/components/dashboard/SampleContentNotice";
+import { KnowledgeBase } from "@/components/intranet/KnowledgeBase";
+import { useAgency } from "@/lib/agency-context";
+import { useAuth } from "@/lib/auth/auth-context";
+import { usePermissions } from "@/lib/auth/use-permission";
 
 const courses = [
   {
@@ -59,29 +63,35 @@ const levelColor: Record<string, string> = {
 };
 
 const edTabs = [
-  { key: "courses", label: "Course catalog", icon: BookOpen },
+  { key: "articles", label: "Knowledge Base", icon: BookOpen },
+  { key: "courses", label: "Course catalog", icon: GraduationCap },
   { key: "fcra", label: "FCRA Statutory Guide", icon: Scale },
   { key: "metro2", label: "Metro 2 Field Guide", icon: Database },
   { key: "violations", label: "Violation Library", icon: FileWarning },
 ] as const;
 
 const Education = () => {
-  const [tab, setTab] = useState<(typeof edTabs)[number]["key"]>("courses");
+  const [tab, setTab] = useState<(typeof edTabs)[number]["key"]>("articles");
+  const agency = useAgency();
+  const auth = useAuth();
+  const permissions = usePermissions();
+  const organizationView = agency.viewMode === "subaccount" && !!agency.activeOrganization;
+  const organizationId = organizationView ? agency.activeOrganization!.id : null;
+  const canWrite = organizationView ? permissions.can("settings.manage") : auth.isAgencyStaff;
 
   return (
     <div className="p-6 md:p-8">
-      <SampleContentNotice what="These courses and progress figures illustrate the education module; real enrolments and progress arrive with the Knowledge Base build." />
       <div className="mb-8">
         <h1 className="text-2xl font-bold tracking-tight">
-          Credit Law & Education Academy
+          Knowledge Base
         </h1>
         <p className="text-sm text-muted-foreground">
-          White-label consumer courses, FCRA statutory breakdowns, Metro 2 field
-          references, and consumer-law violation guides for your team & DIY
-          consumers.
+          Your procedures, scripts and guides in one place, with reference
+          material on the FCRA and Metro 2 reporting for your team.
         </p>
       </div>
 
+      {tab === "courses" && (
       <div className="mb-8 grid gap-4 sm:grid-cols-4">
         <div className="rounded-2xl border border-border bg-card p-5">
           <BookOpen className="h-5 w-5 text-status-success" />
@@ -106,6 +116,7 @@ const Education = () => {
           </p>
         </div>
       </div>
+      )}
 
       <div className="mb-6 flex flex-wrap gap-1.5 rounded-xl border border-border bg-card p-1">
         {edTabs.map((t) => (
@@ -124,6 +135,21 @@ const Education = () => {
         ))}
       </div>
 
+      {tab === "articles" && (
+        <KnowledgeBase
+          organizationId={organizationId}
+          canWrite={canWrite}
+          audienceChoices={
+            organizationView
+              ? [{ value: "organization", label: "Your team" }, { value: "both", label: "Team and your DIY consumers" }, { value: "consumer", label: "DIY consumers only" }]
+              : [{ value: "organization", label: "Every organization's team" }, { value: "both", label: "Every organization and their consumers" }, { value: "bes_internal", label: "BES internal only" }]
+          }
+        />
+      )}
+
+      {tab === "courses" && (
+        <SampleContentNotice what="These courses and progress figures illustrate the education module; real enrolments and progress arrive with the course model." />
+      )}
       {tab === "courses" && (
         <div className="grid gap-6 md:grid-cols-2">
           {courses.map((c) => (

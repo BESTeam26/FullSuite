@@ -12,6 +12,9 @@ import { LiveCalendar } from "@/components/dashboard/LiveCalendar";
 import { useAgencySettings } from "@/lib/agency-settings-context";
 import { Link } from "react-router-dom";
 import { useWorkforce } from "@/lib/data/use-workforce";
+import { useAuth } from "@/lib/auth/auth-context";
+import { usePermissions } from "@/lib/auth/use-permission";
+import { AnnouncementsBoard } from "@/components/intranet/AnnouncementsBoard";
 import {
   Users,
   Network,
@@ -194,50 +197,33 @@ export const BillingPage = () => (
 /* Announcements                                                         */
 /* ------------------------------------------------------------------ */
 
-export const AnnouncementsPage = () => (
-  <HqPageShell
-    title="Announcements"
-    description="Company-wide updates and internal communications"
-    icon={Megaphone}
-  >
-    <SampleContentNotice what="These announcements illustrate the format; company announcements will be posted here once the announcements model exists." />
-    <div className="space-y-3">
-      {[
-        {
-          title: "SOP Update v2.3",
-          date: "Aug 31, 2026",
-          body: "Updated dispute processing SOP with new Metro 2 field analysis workflow. All processors must review before next round.",
-          tag: "Operations",
-        },
-        {
-          title: "Output Benchmark — August",
-          date: "Aug 29, 2026",
-          body: "CreditOps division achieved 96.2% QA pass rate this month, up from 94.1% in July.",
-          tag: "Performance",
-        },
-        {
-          title: "System Release — v3.1",
-          date: "Aug 28, 2026",
-          body: "New PDF OCR report parser deployed. Manual HTML import now supports all 5 monitoring providers.",
-          tag: "Product",
-        },
-      ].map((a) => (
-        <ContentCard
-          key={a.title}
-          title={a.title}
-          action={
-            <span className="text-xs text-muted-foreground">{a.date}</span>
-          }
-        >
-          <span className="inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary mb-2">
-            {a.tag}
-          </span>
-          <p className="text-sm text-muted-foreground">{a.body}</p>
-        </ContentCard>
-      ))}
-    </div>
-  </HqPageShell>
-);
+export const AnnouncementsPage = () => {
+  const agency = useAgency();
+  const auth = useAuth();
+  const permissions = usePermissions();
+  const organizationView = agency.viewMode === "subaccount" && !!agency.activeOrganization;
+  const organizationId = organizationView ? agency.activeOrganization!.id : null;
+  /* BES HQ posts to every organization or to BES staff only; an organization
+     posts to its own team. The database function re-checks either way. */
+  const canWrite = organizationView ? permissions.can("settings.manage") : auth.isAgencyStaff;
+  return (
+    <HqPageShell
+      title="Announcements"
+      description={organizationView ? "Updates for everyone in your organization, and notices from BES." : "Notices to every organization, and BES-internal announcements."}
+      icon={Megaphone}
+    >
+      <AnnouncementsBoard
+        organizationId={organizationId}
+        canWrite={canWrite}
+        audienceChoices={
+          organizationView
+            ? [{ value: "organization", label: "Your team" }]
+            : [{ value: "all_organizations", label: "Every organization" }, { value: "bes_internal", label: "BES internal only" }]
+        }
+      />
+    </HqPageShell>
+  );
+};
 
 /* ------------------------------------------------------------------ */
 /* Calendar                                                              */

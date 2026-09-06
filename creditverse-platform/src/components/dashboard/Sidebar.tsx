@@ -248,6 +248,7 @@ export const Sidebar = () => {
       label: "Organization",
       items: [
         { label: "Compliance & Billing", icon: Scale, href: "/app/compliance", permission: "billing.view" },
+        { label: "Announcements", icon: Megaphone, href: "/app/announcements" },
         { label: "Knowledge Base", icon: BookOpen, href: "/app/education" },
         { label: "Settings", icon: Settings, href: "/app/settings", permission: SETTINGS_KEYS },
       ],

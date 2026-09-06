@@ -418,6 +418,66 @@ export type Database = {
           },
         ]
       }
+      announcements: {
+        Row: {
+          archived_at: string | null
+          audience: Database["public"]["Enums"]["announcement_audience"]
+          body: string
+          created_at: string
+          created_by: string | null
+          id: string
+          organization_id: string | null
+          pinned: boolean
+          published_at: string | null
+          tag: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          archived_at?: string | null
+          audience?: Database["public"]["Enums"]["announcement_audience"]
+          body: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          organization_id?: string | null
+          pinned?: boolean
+          published_at?: string | null
+          tag?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          archived_at?: string | null
+          audience?: Database["public"]["Enums"]["announcement_audience"]
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          organization_id?: string | null
+          pinned?: boolean
+          published_at?: string | null
+          tag?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "announcements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "announcements_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_log: {
         Row: {
           action: string
@@ -2747,6 +2807,66 @@ export type Database = {
           },
           {
             foreignKeyName: "invitations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_articles: {
+        Row: {
+          archived_at: string | null
+          audience: Database["public"]["Enums"]["knowledge_audience"]
+          body: string
+          category: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          organization_id: string | null
+          published_at: string | null
+          sort: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          archived_at?: string | null
+          audience?: Database["public"]["Enums"]["knowledge_audience"]
+          body: string
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          organization_id?: string | null
+          published_at?: string | null
+          sort?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          archived_at?: string | null
+          audience?: Database["public"]["Enums"]["knowledge_audience"]
+          body?: string
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          organization_id?: string | null
+          published_at?: string | null
+          sort?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_articles_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_articles_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -5966,6 +6086,8 @@ export type Database = {
         }[]
       }
       approve_dispute_letter: { Args: { p_letter: string }; Returns: undefined }
+      archive_announcement: { Args: { p_id: string }; Returns: undefined }
+      archive_knowledge_article: { Args: { p_id: string }; Returns: undefined }
       as_uuid: { Args: { p: string }; Returns: string }
       assignable_profiles: {
         Args: {
@@ -6170,6 +6292,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      intranet_may_write: { Args: { p_org: string }; Returns: boolean }
       invite_team_member: {
         Args: {
           p_assigned_only?: boolean
@@ -6327,6 +6450,32 @@ export type Database = {
         }
         Returns: undefined
       }
+      save_announcement: {
+        Args: {
+          p_audience: string
+          p_body: string
+          p_id: string
+          p_org: string
+          p_pinned: boolean
+          p_publish: boolean
+          p_tag: string
+          p_title: string
+        }
+        Returns: string
+      }
+      save_knowledge_article: {
+        Args: {
+          p_audience: string
+          p_body: string
+          p_category: string
+          p_id: string
+          p_org: string
+          p_publish: boolean
+          p_sort: number
+          p_title: string
+        }
+        Returns: string
+      }
       set_client_department_status: {
         Args: {
           p_assignee?: string
@@ -6428,6 +6577,10 @@ export type Database = {
         | "agency_manager"
         | "agency_team_lead"
         | "agency_agent"
+      announcement_audience:
+        | "organization"
+        | "all_organizations"
+        | "bes_internal"
       automated_review_status:
         | "no_issue_detected"
         | "review_recommended"
@@ -6676,6 +6829,7 @@ export type Database = {
         | "phone"
         | "business_name"
         | "ein"
+      knowledge_audience: "organization" | "consumer" | "both" | "bes_internal"
       lender_decision_kind:
         | "pending"
         | "approved"
@@ -6933,6 +7087,11 @@ export const Constants = {
         "agency_manager",
         "agency_team_lead",
         "agency_agent",
+      ],
+      announcement_audience: [
+        "organization",
+        "all_organizations",
+        "bes_internal",
       ],
       automated_review_status: [
         "no_issue_detected",
@@ -7202,6 +7361,7 @@ export const Constants = {
         "No Action Required",
       ],
       identity_kind: ["email", "email_domain", "phone", "business_name", "ein"],
+      knowledge_audience: ["organization", "consumer", "both", "bes_internal"],
       lender_decision_kind: [
         "pending",
         "approved",

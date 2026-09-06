@@ -3564,3 +3564,23 @@ shows 5/7 steps, Cleo Chan › Import & Analysis shows PDF/CSV import.
   Files render cards below md and the table from md up (one row reading shared
   by both); the Clients filter row wraps. Measured: page scroll width equals
   viewport width at 375 px.
+
+## Completion cycle 3 (2026-09-05, late) — role-tailored Home, company intranet (0072)
+
+- **Home by role.** Organization-wide figures, charts and "Customize Home" show
+  only to members with *View reports*; everyone else gets tiles about their own
+  day (assigned, overdue, time, End of Day) and "Your open work". Rows were
+  already RLS-scoped; this aligns the presentation with the permission.
+- **0072 `intranet`** — `announcements` and `knowledge_articles` (80 migrations
+  live). Organization rows: members read published rows, admins
+  (`settings.manage`) read drafts and write; BES rows: `all_organizations` /
+  shared library to every organization, `bes_internal` to staff only. BES staff
+  status grants nothing on an organization's own rows. Writers are
+  `save_/archive_*` functions with `intranet_may_write()` + `log_audit`; no
+  INSERT/UPDATE grants; anon has no SELECT (verified on the linked database).
+  Announcements page (HQ and organization views, org nav link added) and the
+  Knowledge Base tab on the education page now read and write live records;
+  sample course figures show only on the Course catalog tab.
+- Matrix phase 31 (13 probes, all in rolled-back transactions) added; full run
+  started after this commit — result recorded in the next entry.
+- Plan correction: borrower document uploads (F3) were already built in 0066.
