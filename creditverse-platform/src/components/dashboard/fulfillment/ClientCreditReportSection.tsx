@@ -11,6 +11,7 @@ import { ChevronDown, ChevronRight, FileText } from "lucide-react";
 import { useClientWorkspace } from "@/lib/client-workspace-context";
 import { useClientReports } from "@/lib/data/use-credit-reports";
 import { CreditReportCsvImport } from "@/components/clients/CreditReportCsvImport";
+import { CreditReportPdfImport } from "@/components/clients/CreditReportPdfImport";
 import ScoreSimulator from "@/components/clients/ScoreSimulator";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +25,7 @@ export function ClientCreditReportSection({ clientId, organizationId, outsourcin
   const workspace = useClientWorkspace();
   const { reports } = useClientReports(clientId);
   const [showImport, setShowImport] = useState(false);
+  const [importKind, setImportKind] = useState<"pdf" | "csv">("pdf");
   const [showAnalysis, setShowAnalysis] = useState(false);
   const latest = reports[0] ?? null;
 
@@ -75,13 +77,39 @@ export function ClientCreditReportSection({ clientId, organizationId, outsourcin
         )}
 
         {showImport && (
-          <div className="mt-3">
-            <CreditReportCsvImport
-              fulfillmentClientId={clientId}
-              organizationId={organizationId}
-              outsourcingGroupId={outsourcingGroupId}
-              onImported={() => setShowImport(false)}
-            />
+          <div className="mt-3 space-y-2">
+            <div role="tablist" aria-label="Import format" className="inline-flex rounded-lg border border-border bg-muted/30 p-0.5 text-xs">
+              {(["pdf", "csv"] as const).map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  role="tab"
+                  aria-selected={importKind === k}
+                  onClick={() => setImportKind(k)}
+                  className={cn(
+                    "rounded-md px-3 py-1 font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                    importKind === k ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {k === "pdf" ? "PDF report" : "CSV file"}
+                </button>
+              ))}
+            </div>
+            {importKind === "pdf" ? (
+              <CreditReportPdfImport
+                fulfillmentClientId={clientId}
+                organizationId={organizationId}
+                outsourcingGroupId={outsourcingGroupId}
+                onImported={() => setShowImport(false)}
+              />
+            ) : (
+              <CreditReportCsvImport
+                fulfillmentClientId={clientId}
+                organizationId={organizationId}
+                outsourcingGroupId={outsourcingGroupId}
+                onImported={() => setShowImport(false)}
+              />
+            )}
           </div>
         )}
       </div>

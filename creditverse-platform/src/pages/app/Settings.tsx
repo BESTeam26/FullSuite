@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Building2,
   Network,
@@ -71,6 +72,7 @@ import { OrganizationPlanSection } from "@/components/settings/sections/Organiza
 import { LetterLibrarySection } from "@/components/settings/sections/LetterLibrarySection";
 import { useAgency } from "@/lib/agency-context";
 import { useAuth } from "@/lib/auth/auth-context";
+import { usePermissions } from "@/lib/auth/use-permission";
 
 const groups: SettingsGroup[] = [
   {
@@ -133,14 +135,14 @@ const organizationGroups: SettingsGroup[] = [
   {
     label: "Organization",
     items: [
-      { key: "profile", label: "Profile & branding", icon: Palette },
-      { key: "team", label: "Team Members", icon: Users },
-      { key: "role-access", label: "Roles & access", icon: ShieldCheck },
-      { key: "workspace-views", label: "Workspace views", icon: LayoutGrid },
-      { key: "letters", label: "Letter Library", icon: FileText },
-      { key: "kpis", label: "KPIs", icon: BarChart3 },
-      { key: "ai-usage", label: "AI usage", icon: Sparkles },
-      { key: "plan", label: "Plan & billing", icon: CreditCard },
+      { key: "profile", label: "Profile & branding", icon: Palette, permission: "settings.manage" },
+      { key: "team", label: "Team Members", icon: Users, permission: "team.manage" },
+      { key: "role-access", label: "Roles & access", icon: ShieldCheck, permission: "team.permissions" },
+      { key: "workspace-views", label: "Workspace views", icon: LayoutGrid, permission: "workspaces.manage" },
+      { key: "letters", label: "Letter Library", icon: FileText, permission: "creditops.letters.templates" },
+      { key: "kpis", label: "KPIs", icon: BarChart3, permission: "settings.manage" },
+      { key: "ai-usage", label: "AI usage", icon: Sparkles, permission: "billing.view" },
+      { key: "plan", label: "Plan & billing", icon: CreditCard, permission: "billing.view" },
     ],
   },
 ];
@@ -150,7 +152,21 @@ const SettingsContent = () => {
   const auth = useAuth();
   const canEditKpis = auth.isAgencyStaff || auth.orgMemberships.some((m) => m.organization_id === activeOrganization?.id && m.role === "org_admin");
   const isOrganizationView = viewMode === "subaccount";
-  const [active, setActive] = useState(isOrganizationView ? "team" : "branding");
+  const permissions = usePermissions();
+  /* Members see only the sections their role may use; the same keys guard the
+     writers in the database. The first visible section opens by default. */
+  const visibleOrganizationGroups = organizationGroups.map((g) => ({
+    ...g,
+    items: g.items.filter((i) => !i.permission || permissions.can(i.permission)),
+  }));
+  const firstVisible = visibleOrganizationGroups[0]?.items[0]?.key ?? "profile";
+  const [params] = useSearchParams();
+  /* Guides and links land on a section directly (…/settings?section=team);
+     an unknown or not-permitted section falls back to the first visible one. */
+  const requested = params.get("section");
+  const requestedVisible = requested && (isOrganizationView ? visibleOrganizationGroups : groups).some((g) => g.items.some((i) => i.key === requested));
+  const [chosen, setActive] = useState<string | null>(null);
+  const active = chosen ?? (requestedVisible ? requested : isOrganizationView ? firstVisible : "branding");
 
   const render = () => {
     if (isOrganizationView) {
@@ -226,7 +242,7 @@ const SettingsContent = () => {
   return (
     <div className="p-6 md:p-8">
       <AgencySettingsShell
-        groups={isOrganizationView ? organizationGroups : groups}
+        groups={isOrganizationView ? visibleOrganizationGroups : groups}
         active={active}
         onSelect={setActive}
         {...(isOrganizationView

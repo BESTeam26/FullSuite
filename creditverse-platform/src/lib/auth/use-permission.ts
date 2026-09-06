@@ -24,3 +24,27 @@ export function usePermission(key: PermissionKeyName): { allowed: boolean; loadi
   if (mine.isLoading || !mine.data) return { allowed: false, loading: mine.isLoading };
   return { allowed: mine.data[key] === true, loading: false };
 }
+
+/**
+ * The whole permission set at once, for surfaces that gate many controls
+ * (navigation, settings menus). One cached query, no per-item hooks.
+ * `gated` is false for BES staff and demo mode: nothing is hidden for them.
+ */
+export function usePermissions(): {
+  can: (key: PermissionKeyName | readonly PermissionKeyName[]) => boolean;
+  loading: boolean;
+  gated: boolean;
+} {
+  const auth = useAuth();
+  const { activeOrganization } = useAgency();
+  const live = auth.mode === "live" && auth.status === "signed-in";
+  const gated = live && !auth.isAgencyStaff && !!activeOrganization;
+  const mine = useMyPermissions(gated ? activeOrganization?.id ?? null : null);
+  const can = (key: PermissionKeyName | readonly PermissionKeyName[]) => {
+    if (!gated) return true;
+    if (!mine.data) return false;
+    const keys = Array.isArray(key) ? key : [key as PermissionKeyName];
+    return keys.some((k) => mine.data?.[k] === true);
+  };
+  return { can, loading: gated && mine.isLoading, gated };
+}

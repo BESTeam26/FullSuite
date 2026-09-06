@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth/auth-context";
 import { errorMessage } from "@/lib/data/error-message";
 import { useImportCreditReport } from "@/lib/data/use-credit-reports";
+import { EMPTY_SCORE_INPUTS, REPORT_BUREAUS, buildScoreRows, hasInvalidScore, type ScoreInputs } from "@/lib/credit-report/report-scores";
+import { ReportMetaFields } from "./import/ReportMetaFields";
 import {
   IMPORT_PARSER_VERSION,
   OPTIONAL_COLUMNS,
@@ -27,7 +29,6 @@ interface Props {
   onImported?: (reportId: string) => void;
 }
 
-const BUREAUS: Bureau[] = ["EQ", "EX", "TU"];
 
 export function CreditReportCsvImport({ fulfillmentClientId, organizationId, outsourcingGroupId, onImported }: Props) {
   const auth = useAuth();
@@ -35,7 +36,7 @@ export function CreditReportCsvImport({ fulfillmentClientId, organizationId, out
   const [fileName, setFileName] = useState<string | null>(null);
   const [parsed, setParsed] = useState<ParseResult | null>(null);
   const [pulledAt, setPulledAt] = useState(() => new Date().toISOString().slice(0, 10));
-  const [scores, setScores] = useState<Record<Bureau, string>>({ EQ: "", EX: "", TU: "" });
+  const [scores, setScores] = useState<ScoreInputs>(EMPTY_SCORE_INPUTS);
   const [model, setModel] = useState("");
   const [error, setError] = useState<string | null>(null);
   const importMutation = useImportCreditReport(fulfillmentClientId);
@@ -48,15 +49,10 @@ export function CreditReportCsvImport({ fulfillmentClientId, organizationId, out
   };
 
   const bureausPresent = parsed?.ok
-    ? BUREAUS.filter((b) => parsed.items.some((i) => i.bureaus.includes(b)))
+    ? REPORT_BUREAUS.filter((b) => parsed.items.some((i) => i.bureaus.includes(b)))
     : [];
-  const scoreRows = BUREAUS.flatMap((b) => {
-    const v = scores[b].trim();
-    if (!v) return [];
-    const n = Number(v);
-    return Number.isInteger(n) && n >= 250 && n <= 900 ? [{ bureau: b, model: model.trim() || "as stated on report", score: n }] : [];
-  });
-  const scoresInvalid = BUREAUS.some((b) => scores[b].trim() && !scoreRows.some((r) => r.bureau === b));
+  const scoreRows = buildScoreRows(scores, model);
+  const scoresInvalid = hasInvalidScore(scores);
 
   const runImport = () => {
     if (!parsed?.ok || !auth.user) return;
@@ -100,7 +96,7 @@ export function CreditReportCsvImport({ fulfillmentClientId, organizationId, out
         </Button>
       </div>
       <p className="mt-1 text-xs text-muted-foreground">
-        One row per tradeline, inquiry, public record or personal item. Columns: {REQUIRED_COLUMNS.join(", ")} (required); {OPTIONAL_COLUMNS.join(", ")} (optional). Bureaus as EQ, EX, TU separated by ";". Rows the parser cannot read are listed — nothing is guessed. PDF extraction is not available yet.
+        One row per tradeline, inquiry, public record or personal item. Columns: {REQUIRED_COLUMNS.join(", ")} (required); {OPTIONAL_COLUMNS.join(", ")} (optional). Bureaus as EQ, EX, TU separated by ";". Rows the parser cannot read are listed — nothing is guessed. Have a PDF instead? Switch to the PDF import.
       </p>
 
       {fileName && <p className="mt-2 text-xs text-foreground">File: <span className="font-mono">{fileName}</span></p>}
@@ -138,23 +134,7 @@ export function CreditReportCsvImport({ fulfillmentClientId, organizationId, out
               </tbody>
             </table>
           </div>
-          <div className="grid gap-3 sm:grid-cols-5">
-            <label className="text-xs text-foreground">
-              <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Report date</span>
-              <input type="date" value={pulledAt} onChange={(e) => setPulledAt(e.target.value)} className="mt-1 w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground" />
-            </label>
-            {BUREAUS.map((b) => (
-              <label key={b} className="text-xs text-foreground">
-                <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{b} score (as stated)</span>
-                <input inputMode="numeric" value={scores[b]} onChange={(e) => setScores({ ...scores, [b]: e.target.value })} placeholder="optional" className="mt-1 w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground" />
-              </label>
-            ))}
-            <label className="text-xs text-foreground">
-              <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Score model</span>
-              <input value={model} onChange={(e) => setModel(e.target.value)} placeholder="e.g. FICO 8" className="mt-1 w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground" />
-            </label>
-          </div>
-          {scoresInvalid && <p className="text-xs text-status-warning">Scores must be whole numbers between 250 and 900, exactly as the report states them.</p>}
+          <ReportMetaFields pulledAt={pulledAt} onPulledAt={setPulledAt} scores={scores} onScores={setScores} model={model} onModel={setModel} />
           <div className="flex items-center gap-2">
             <Button type="button" size="sm" onClick={runImport} disabled={importMutation.isPending || scoresInvalid || bureausPresent.length === 0}>
               {importMutation.isPending ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : null} Import {parsed.items.length} items

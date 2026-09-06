@@ -3,6 +3,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import {
   createCreditReport,
   fetchClientReports,
+  fetchOrganizationReportCount,
   fetchReportItems,
   fetchReportItemsForReports,
   type CreateCreditReportInput,
@@ -85,5 +86,16 @@ export function useImportCreditReport(fulfillmentClientId: string | null) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: clientReportsKey(fulfillmentClientId) });
     },
+  });
+}
+
+export function useOrganizationReportCount(organizationId: string | null) {
+  const auth = useAuth();
+  const live = auth.mode === "live" && auth.status === "signed-in";
+  return useQuery({
+    queryKey: ["credit-reports", "organization-count", organizationId],
+    queryFn: () => fetchOrganizationReportCount(organizationId!),
+    enabled: live && !!organizationId,
+    staleTime: 60_000,
   });
 }

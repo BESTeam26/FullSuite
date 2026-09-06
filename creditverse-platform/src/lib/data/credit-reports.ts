@@ -136,3 +136,11 @@ export async function createCreditReport(input: CreateCreditReportInput): Promis
   if (error) throw error;
   return data as string;
 }
+
+/** How many reports this organization has imported — a head count, no rows (Home guide). */
+export async function fetchOrganizationReportCount(organizationId: string): Promise<number> {
+  const sb = requireSupabase();
+  const { count, error } = await sb.from("credit_reports").select("id", { count: "exact", head: true }).eq("organization_id", organizationId);
+  if (error) throw error;
+  return count ?? 0;
+}

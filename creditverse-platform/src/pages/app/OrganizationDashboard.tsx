@@ -20,6 +20,7 @@ import { KpiTile, TONE_FILL, type KpiTone } from "@/components/dashboard/ops/Kpi
 import { StageBarChart } from "@/components/dashboard/ops/StageBarChart";
 import { useAgency } from "@/lib/agency-context";
 import { useAuth } from "@/lib/auth/auth-context";
+import { GettingStartedCard } from "@/components/dashboard/GettingStartedCard";
 import { useOrganizationWork } from "@/lib/data/use-work";
 import { useWorkspaces } from "@/lib/data/use-workspaces";
 import { useOrganizationTrial } from "@/lib/data/use-organization-trial";
@@ -194,6 +195,15 @@ export default function OrganizationDashboard() {
           {trial.status === "expired" && <>Your introductory trial has ended. Contact BES to activate your organization.</>}
           {trial.status === "converted" && <>Your organization is active.</>}
         </div>
+      )}
+      {prefs.live && (
+        <GettingStartedCard
+          organizationId={org.id}
+          enabledModules={enabledKeys}
+          brandingSet={!!(org.branding?.logoUrl || org.branding?.primaryColor)}
+          clients={figures.creditOps.active}
+          fundingFiles={figures.fundingOps.active}
+        />
       )}
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">

@@ -1,10 +1,11 @@
 import { useState, type ReactNode } from "react";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import type { PermissionKeyName } from "@/lib/auth/use-permission";
 
 export interface SettingsGroup {
   label: string;
-  items: { key: string; label: string; icon: React.ElementType }[];
+  items: { key: string; label: string; icon: React.ElementType; permission?: PermissionKeyName | readonly PermissionKeyName[] }[];
 }
 
 export const AgencySettingsShell = ({

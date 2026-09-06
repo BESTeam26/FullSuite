@@ -3521,3 +3521,35 @@ sample client walkthrough"; it now says no report has been imported yet and
 what importing one unlocks. The public portal previews (client, affiliate,
 outsourcing) open with a demo notice so example figures are never mistaken for
 a real account.
+
+## Completion cycle 1 (2026-09-05, late) — plan, role-scoped navigation, PDF import, first-run guide
+
+Dee widened the mandate: user-facing wording, each role sees only its own
+pages, mobile navigation, guidance for new users, PDF/OCR report import, and a
+gap analysis for DIY, CreditOps and FundingOps. Answered in
+`PLATFORM_COMPLETION_PLAN.md` (FACT / GAP / PROPOSAL per area, the OCR tiers,
+what only Dee can provide) and built the first slice:
+
+- **Permission-scoped navigation.** Organization sidebar items and Settings
+  sections are hidden without the matching permission key (`usePermissions()`
+  reads the one cached `my_permissions()` query); routes for Clients, the two
+  dashboards, Funding Files/Lenders/Deals, Reports and Settings refuse a typed
+  URL through `RequirePermission` with a plain message. Interface mirror of
+  `member_can()`; the database remains the protection. Settings opens on the
+  first visible section and accepts `?section=` deep links.
+- **PDF credit report import (`pdf-text-1`).** pdf.js (lazy chunk) reads the
+  text layer in the browser; `pdf-report-parser.ts` recognises sections,
+  label/value tradeline blocks, one-line inquiries, public records, personal
+  items (never SSN/DOB/phone) and scores; every candidate carries confidence and
+  source lines and passes a review grid before the append-only import. Scanned
+  PDFs are refused with the reason (OCR not connected). Verified against a real
+  text-layer PDF through pdf.js + the parser (8 candidates, 3 scores). Date and
+  score fields are shared with the CSV import (`ReportMetaFields`,
+  `report-scores.ts`).
+- **Getting started guide** on the organization Home for administrators only,
+  derived from real records (branding, teammates, clients, reports, letter
+  library, funding files, KPIs); disappears when complete.
+
+Gates: tsc clean · lint 0 errors · 378 tests · build clean (pdf.js split into
+its own chunk) · no circular imports. Verified in the browser: Cedar Home
+shows 5/7 steps, Cleo Chan › Import & Analysis shows PDF/CSV import.

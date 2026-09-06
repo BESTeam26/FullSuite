@@ -16,6 +16,7 @@ import { AuthProvider } from "@/lib/auth/auth-context";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { RequireAgencyStaff } from "@/components/auth/RequireAgencyStaff";
 import { RequireEntitlement } from "./components/auth/RequireEntitlement";
+import { RequirePermission } from "./components/auth/RequirePermission";
 import { FundingOpsAccessProvider } from "@/lib/fulfillment/fundingops-access";
 
 /* ------------------------------------------------------------------ */
@@ -354,7 +355,7 @@ const App = () => (
                                 {/* Management */}
                                 <Route
                                   path="reporting"
-                                  element={<Reporting />}
+                                  element={<RequirePermission permission="reports.view" label="Reports"><Reporting /></RequirePermission>}
                                 />
                                 <Route
                                   path="billing"
@@ -382,7 +383,7 @@ const App = () => (
                                   element={<CalendarPage />}
                                 />
                                 {/* System */}
-                                <Route path="settings" element={<Settings />} />
+                                <Route path="settings" element={<RequirePermission permission={["settings.manage", "team.manage", "team.permissions", "billing.view", "creditops.letters.templates"]} label="Settings"><Settings /></RequirePermission>} />
                                 <Route
                                   path="support"
                                   element={<SupportPage />}
@@ -411,14 +412,14 @@ const App = () => (
                                       product="creditOps"
                                       label="CreditOps"
                                     >
-                                      <DisputeDashboard />
+                                      <RequirePermission permission="creditops.clients.view" label="The CreditOps dashboard"><DisputeDashboard /></RequirePermission>
                                     </RequireEntitlement>
                                   }
                                 />
-                                <Route path="clients" element={<Clients />} />
+                                <Route path="clients" element={<RequirePermission permission="creditops.clients.view" label="Clients"><Clients /></RequirePermission>} />
                                 <Route
                                   path="clients/:id"
-                                  element={<ClientDetail />}
+                                  element={<RequirePermission permission="creditops.clients.view" label="Clients"><ClientDetail /></RequirePermission>}
                                 />
                                 <Route
                                   path="operations"
@@ -451,7 +452,7 @@ const App = () => (
                                       label="FundingOps"
                                     >
                                       <FundingOpsAccessProvider>
-                                        <FundingFiles />
+                                        <RequirePermission permission="fundingops.files.view" label="Funding Files"><FundingFiles /></RequirePermission>
                                       </FundingOpsAccessProvider>
                                     </RequireEntitlement>
                                   }
@@ -464,7 +465,7 @@ const App = () => (
                                       label="FundingOps"
                                     >
                                       <FundingOpsAccessProvider>
-                                        <FundingDashboard />
+                                        <RequirePermission permission="fundingops.files.view" label="The FundingOps dashboard"><FundingDashboard /></RequirePermission>
                                       </FundingOpsAccessProvider>
                                     </RequireEntitlement>
                                   }
@@ -477,7 +478,7 @@ const App = () => (
                                       label="FundingOps"
                                     >
                                       <FundingOpsAccessProvider>
-                                        <Lenders />
+                                        <RequirePermission permission="fundingops.files.view" label="Lenders"><Lenders /></RequirePermission>
                                       </FundingOpsAccessProvider>
                                     </RequireEntitlement>
                                   }
@@ -490,7 +491,7 @@ const App = () => (
                                       label="FundingOps"
                                     >
                                       <FundingOpsAccessProvider>
-                                        <FundingDeals />
+                                        <RequirePermission permission="fundingops.files.view" label="Deals"><FundingDeals /></RequirePermission>
                                       </FundingOpsAccessProvider>
                                     </RequireEntitlement>
                                   }
@@ -503,7 +504,7 @@ const App = () => (
                                       label="FundingOps"
                                     >
                                       <FundingOpsAccessProvider>
-                                        <FundingFileDetail />
+                                        <RequirePermission permission="fundingops.files.view" label="Funding Files"><FundingFileDetail /></RequirePermission>
                                       </FundingOpsAccessProvider>
                                     </RequireEntitlement>
                                   }

@@ -36,7 +36,10 @@ import { SubAccountSwitcher } from "@/components/dashboard/SubAccountSwitcher";
 import { useMyWork, useAttention } from "@/lib/data/use-work";
 import { useUnreadNotificationCount } from "@/lib/data/use-notifications";
 import { useAuth } from "@/lib/auth/auth-context";
+import { usePermissions, type PermissionKeyName } from "@/lib/auth/use-permission";
 import { useSidebarState } from "@/components/dashboard/sidebar-state";
+
+const SETTINGS_KEYS: readonly PermissionKeyName[] = ["settings.manage", "team.manage", "team.permissions", "billing.view", "creditops.letters.templates"];
 
 type NavItem = {
   label: string;
@@ -44,6 +47,8 @@ type NavItem = {
   href: string;
   badge?: number;
   show?: boolean;
+  /** Hidden for members without any of these keys (interface mirror of member_can). */
+  permission?: PermissionKeyName | readonly PermissionKeyName[];
 };
 
 type NavGroup = {
@@ -60,6 +65,7 @@ export const Sidebar = () => {
     useSidebarState();
 
   const viewMode = agencyContext?.viewMode || "agency";
+  const permissions = usePermissions();
   const subAccounts = agencyContext?.subAccounts || [];
   const isProductOn = agencyContext?.isProductOn || (() => false);
   const activeSubAccount = agencyContext?.activeSubAccount || null;
@@ -148,7 +154,7 @@ export const Sidebar = () => {
     {
       label: "Management",
       items: [
-        { label: "Reports", icon: BarChart3, href: "/app/reporting" },
+        { label: "Reports", icon: BarChart3, href: "/app/reporting", permission: "reports.view" },
         { label: "Billing & Revenue", icon: Receipt, href: "/app/billing" },
         { label: "Compliance & Legal", icon: Scale, href: "/app/compliance" },
       ],
@@ -200,10 +206,10 @@ export const Sidebar = () => {
       label: "CreditOps",
       show: isProductOn("creditOps"),
       items: [
-        { label: "Dashboard", icon: LayoutGrid, href: "/app/dispute-dashboard" },
-        { label: "Clients", icon: Users, href: "/app/clients" },
+        { label: "Dashboard", icon: LayoutGrid, href: "/app/dispute-dashboard", permission: "creditops.clients.view" },
+        { label: "Clients", icon: Users, href: "/app/clients", permission: "creditops.clients.view" },
         { label: "Workspace", icon: FileText, href: "/app/operations" },
-        { label: "Reports", icon: BarChart3, href: "/app/reporting" },
+        { label: "Reports", icon: BarChart3, href: "/app/reporting", permission: "reports.view" },
       ],
     },
     {
@@ -212,12 +218,12 @@ export const Sidebar = () => {
       items: [
         /* The engine (funding files, Program Fit, lenders) sits apart from the
            operational Workspace, as Clients does for CreditOps. */
-        { label: "Dashboard", icon: LayoutGrid, href: "/app/funding-dashboard" },
-        { label: "Funding Files", icon: FolderOpen, href: "/app/funding-files" },
-        { label: "Lenders", icon: Landmark, href: "/app/lenders" },
-        { label: "Deals", icon: Briefcase, href: "/app/funding-deals" },
+        { label: "Dashboard", icon: LayoutGrid, href: "/app/funding-dashboard", permission: "fundingops.files.view" },
+        { label: "Funding Files", icon: FolderOpen, href: "/app/funding-files", permission: "fundingops.files.view" },
+        { label: "Lenders", icon: Landmark, href: "/app/lenders", permission: "fundingops.files.view" },
+        { label: "Deals", icon: Briefcase, href: "/app/funding-deals", permission: "fundingops.files.view" },
         { label: "Workspace", icon: FileText, href: "/app/metro2" },
-        { label: "Reports", icon: BarChart3, href: "/app/reporting" },
+        { label: "Reports", icon: BarChart3, href: "/app/reporting", permission: "reports.view" },
       ],
     },
     {
@@ -241,9 +247,9 @@ export const Sidebar = () => {
     {
       label: "Organization",
       items: [
-        { label: "Compliance & Billing", icon: Scale, href: "/app/compliance" },
+        { label: "Compliance & Billing", icon: Scale, href: "/app/compliance", permission: "billing.view" },
         { label: "Knowledge Base", icon: BookOpen, href: "/app/education" },
-        { label: "Settings", icon: Settings, href: "/app/settings" },
+        { label: "Settings", icon: Settings, href: "/app/settings", permission: SETTINGS_KEYS },
       ],
     },
   ];
@@ -311,7 +317,7 @@ export const Sidebar = () => {
         <nav className={cn("flex-1 overflow-y-auto py-3", rail ? "px-2" : "px-3")}>
           {navGroups.map((group, index) => {
             if (group.show === false) return null;
-            const visibleItems = group.items.filter((n) => n.show !== false);
+            const visibleItems = group.items.filter((n) => n.show !== false && (!n.permission || permissions.can(n.permission)));
             if (visibleItems.length === 0) return null;
             /* Keyed by position: the first group is titled with the
                organization's name, which is "Organization" until it loads and
