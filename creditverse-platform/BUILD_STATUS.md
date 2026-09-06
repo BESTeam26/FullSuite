@@ -4451,3 +4451,69 @@ a client's balance.
 Including the reverse cases: a customer cannot read `ai_economics()`, cannot
 see which prices are unconfirmed, cannot read another organization's usage, and
 cannot raise their own limits.
+
+## C2 — DIY Credit (0102, 0103)
+
+A consumer journey over the engines that already exist. **No consumer table, no
+consumer login, no consumer report, no consumer document model.** A DIY
+customer is a `clients` row with a portal login — the same row a managed client
+has. What DIY adds is a JOURNEY: where this person has got to doing the work
+themselves.
+
+### Whose customer is a DIY consumer?
+
+The organization whose DIY product they enrolled through. DIY is
+white-labelable and rule 16 says an organization serves its own customers, so a
+consumer who signs up through Lakeside's offering is Lakeside's client. That
+keeps one tenancy rule for everybody and makes the upgrade a row rather than a
+migration of a person between systems.
+
+### The upgrade, which is the whole point
+
+`credit_reports` keyed a DIY report by `consumer_user_id` and a managed one by
+`fulfillment_client_id`, so on upgrade the DIY history would have been
+invisible to the managed case — exactly the loss Dee ruled out. A canonical
+`client_id` on the report fixes it: the report is the person's, and upgrading
+re-points nothing.
+
+**Verified end to end against the live database.** Before: a DIY report, a
+consent, a journey at `sent`, no credit case. After `diy_upgrade_to_managed()`:
+
+| | |
+|---|---|
+| Still one person | 1 |
+| Clients for that login | 1 |
+| Reports kept | 1 |
+| Consents kept | 1 |
+| DIY stage kept | `sent` |
+| Credit cases created | 1 |
+
+### A bug the negative tests caught
+
+Enrolling created a **second client** for somebody who was already a client of
+that organization. 0102 looked the person up by email only, and the fixture's
+file carries the address the organization has for them while their sign-in uses
+a different one — the normal shape of a person whose file an agent opened.
+
+0103 fixes the ordering: **portal link first, email second, new record last.**
+A portal link is an explicit statement that this login belongs to that file; an
+email address can be stale. Re-verified: one client, reused.
+
+### The two gates
+
+**Consent before anything.** **Attestation before approval** — a consumer signs
+their own letters, so they must first say the facts are true. Both enforced in
+the state machine *and* independently in the database, because a gate enforced
+in one place can be walked around.
+
+Identity theft is a separate pathway, never inferred from report data, and
+needs both a declaration and an Identity Theft Report.
+
+### Captured as matrix phase 40 (19 checks)
+
+Including: cannot enrol where DIY is not sold; enrolling reuses the existing
+client; nothing moves before consent; a letter is not approved before
+attestation; staff cannot move somebody else's journey or consent for them; a
+consumer cannot promote themself to managed; upgrading twice makes one case;
+another organization sees no journey and no consents; a consumer cannot write
+a journey or consent row directly.

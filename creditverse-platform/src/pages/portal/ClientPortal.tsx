@@ -21,6 +21,8 @@ import { formatDate } from "@/lib/format-date";
 import {
   usePortalDocumentRequests, usePortalHome, usePortalOffers, usePortalUpdates,
 } from "@/lib/data/use-client-portal";
+import { DiySection } from "@/pages/portal/DiySection";
+import { useDiyJourney } from "@/lib/data/use-diy";
 import { cn } from "@/lib/utils";
 
 type Tab = "home" | "progress" | "documents" | "updates" | "account";
@@ -40,9 +42,12 @@ export default function ClientPortal() {
   const updates = usePortalUpdates(tab === "updates" || tab === "home");
   const documents = usePortalDocumentRequests(tab === "documents");
   const offers = usePortalOffers(tab === "progress");
+  /* DIY is one more thing this same client may be doing. Not a second app. */
+  const diy = useDiyJourney(home.data?.clientId ?? null);
 
   const c = home.data;
   if (!c) return null;
+  const hasDiy = !!diy.data;
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -84,6 +89,7 @@ export default function ClientPortal() {
                 <FileText className="h-5 w-5 shrink-0 text-primary" />
               </button>
             )}
+            {hasDiy && <DiySection clientId={c.clientId} />}
             <Card title="Latest update" icon={Megaphone}>
               {updates.isLoading ? <Busy /> : updates.data && updates.data.length > 0 ? (
                 <>
@@ -134,7 +140,8 @@ export default function ClientPortal() {
                 <Empty>No offers to look at yet. They appear here once your team puts one in front of you.</Empty>
               )}
             </Card>
-            {!c.hasCreditOps && !c.hasFundingOps && (
+            {hasDiy && <DiySection clientId={c.clientId} />}
+            {!c.hasCreditOps && !c.hasFundingOps && !hasDiy && (
               <Empty>Nothing is running on your file yet.</Empty>
             )}
           </div>

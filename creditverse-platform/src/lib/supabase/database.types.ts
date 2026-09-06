@@ -281,6 +281,60 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_limits: {
+        Row: {
+          daily_spend_cap_credits: number
+          id: string
+          max_output_tokens: number
+          max_pages: number
+          max_upload_mb: number
+          organization_id: string | null
+          per_request_cap_credits: number
+          requests_per_hour: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          daily_spend_cap_credits?: number
+          id?: string
+          max_output_tokens?: number
+          max_pages?: number
+          max_upload_mb?: number
+          organization_id?: string | null
+          per_request_cap_credits?: number
+          requests_per_hour?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          daily_spend_cap_credits?: number
+          id?: string
+          max_output_tokens?: number
+          max_pages?: number
+          max_upload_mb?: number
+          organization_id?: string | null
+          per_request_cap_credits?: number
+          requests_per_hour?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_limits_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_limits_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_pricing_policy: {
         Row: {
           cached_cost_per_million: number
@@ -294,6 +348,8 @@ export type Database = {
           markup_multiplier: number
           model: string
           output_cost_per_million: number
+          price_confirmed_at: string | null
+          source_note: string | null
         }
         Insert: {
           cached_cost_per_million?: number
@@ -307,6 +363,8 @@ export type Database = {
           markup_multiplier?: number
           model: string
           output_cost_per_million: number
+          price_confirmed_at?: string | null
+          source_note?: string | null
         }
         Update: {
           cached_cost_per_million?: number
@@ -320,6 +378,8 @@ export type Database = {
           markup_multiplier?: number
           model?: string
           output_cost_per_million?: number
+          price_confirmed_at?: string | null
+          source_note?: string | null
         }
         Relationships: [
           {
@@ -367,6 +427,77 @@ export type Database = {
           {
             foreignKeyName: "ai_recharge_settings_updated_by_fkey"
             columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_reservations: {
+        Row: {
+          created_at: string
+          estimated_credits: number
+          expires_at: string
+          feature_key: string
+          id: string
+          model: string
+          organization_id: string
+          settled_at: string | null
+          status: Database["public"]["Enums"]["ai_reservation_status"]
+          usage_event_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          estimated_credits: number
+          expires_at?: string
+          feature_key: string
+          id?: string
+          model: string
+          organization_id: string
+          settled_at?: string | null
+          status?: Database["public"]["Enums"]["ai_reservation_status"]
+          usage_event_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          estimated_credits?: number
+          expires_at?: string
+          feature_key?: string
+          id?: string
+          model?: string
+          organization_id?: string
+          settled_at?: string | null
+          status?: Database["public"]["Enums"]["ai_reservation_status"]
+          usage_event_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_reservations_feature_key_fkey"
+            columns: ["feature_key"]
+            isOneToOne: false
+            referencedRelation: "ai_features"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "ai_reservations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_reservations_usage_event_id_fkey"
+            columns: ["usage_event_id"]
+            isOneToOne: false
+            referencedRelation: "ai_usage_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_reservations_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -1079,6 +1210,7 @@ export type Database = {
       credit_reports: {
         Row: {
           bureaus: string[]
+          client_id: string | null
           consumer_user_id: string | null
           created_at: string
           file_id: string | null
@@ -1093,6 +1225,7 @@ export type Database = {
         }
         Insert: {
           bureaus: string[]
+          client_id?: string | null
           consumer_user_id?: string | null
           created_at?: string
           file_id?: string | null
@@ -1107,6 +1240,7 @@ export type Database = {
         }
         Update: {
           bureaus?: string[]
+          client_id?: string | null
           consumer_user_id?: string | null
           created_at?: string
           file_id?: string | null
@@ -1120,6 +1254,13 @@ export type Database = {
           source?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "credit_reports_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "credit_reports_consumer_user_id_fkey"
             columns: ["consumer_user_id"]
@@ -1523,6 +1664,88 @@ export type Database = {
             columns: ["letter_id"]
             isOneToOne: false
             referencedRelation: "dispute_letters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      diy_consents: {
+        Row: {
+          agreed_at: string
+          agreed_ip: unknown
+          client_id: string
+          id: string
+          kind: string
+          statement: string
+          version: string
+          withdrawn_at: string | null
+        }
+        Insert: {
+          agreed_at?: string
+          agreed_ip?: unknown
+          client_id: string
+          id?: string
+          kind: string
+          statement: string
+          version: string
+          withdrawn_at?: string | null
+        }
+        Update: {
+          agreed_at?: string
+          agreed_ip?: unknown
+          client_id?: string
+          id?: string
+          kind?: string
+          statement?: string
+          version?: string
+          withdrawn_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "diy_consents_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      diy_journeys: {
+        Row: {
+          client_id: string
+          identity_theft_pathway: boolean
+          identity_theft_report_at: string | null
+          round_number: number
+          stage: Database["public"]["Enums"]["diy_stage"]
+          stage_changed_at: string
+          started_at: string
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          identity_theft_pathway?: boolean
+          identity_theft_report_at?: string | null
+          round_number?: number
+          stage?: Database["public"]["Enums"]["diy_stage"]
+          stage_changed_at?: string
+          started_at?: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          identity_theft_pathway?: boolean
+          identity_theft_report_at?: string | null
+          round_number?: number
+          stage?: Database["public"]["Enums"]["diy_stage"]
+          stage_changed_at?: string
+          started_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "diy_journeys_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: true
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
         ]
@@ -4752,6 +4975,35 @@ export type Database = {
         }
         Relationships: []
       }
+      plan_ai_allowances: {
+        Row: {
+          monthly_credits: number
+          note: string | null
+          plan_key: string
+          updated_at: string
+        }
+        Insert: {
+          monthly_credits?: number
+          note?: string | null
+          plan_key: string
+          updated_at?: string
+        }
+        Update: {
+          monthly_credits?: number
+          note?: string | null
+          plan_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_ai_allowances_plan_key_fkey"
+            columns: ["plan_key"]
+            isOneToOne: true
+            referencedRelation: "plans"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
       plans: {
         Row: {
           active_records_included: number
@@ -6784,11 +7036,82 @@ export type Database = {
         }[]
       }
       agency_of_org: { Args: { p_org: string }; Returns: string }
+      ai_available_credits: { Args: { p_org: string }; Returns: number }
       ai_can_use: {
         Args: { p_feature: string; p_org: string }
         Returns: boolean
       }
       ai_credit_balance: { Args: { p_org: string }; Returns: number }
+      ai_economics: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: {
+          credits_charged: number
+          feature_key: string
+          gross_margin_cents: number
+          input_tokens: number
+          model: string
+          organization_id: string
+          organization_name: string
+          output_tokens: number
+          plan_key: string
+          provider_cost_cents: number
+          requests: number
+        }[]
+      }
+      ai_estimate_credits: {
+        Args: { p_input: number; p_model: string; p_output: number }
+        Returns: number
+      }
+      ai_limits_for: {
+        Args: { p_org: string }
+        Returns: {
+          daily_spend_cap_credits: number
+          id: string
+          max_output_tokens: number
+          max_pages: number
+          max_upload_mb: number
+          organization_id: string | null
+          per_request_cap_credits: number
+          requests_per_hour: number
+          updated_at: string
+          updated_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ai_limits"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      ai_my_usage: {
+        Args: { p_from?: string; p_org: string }
+        Returns: {
+          credits_charged: number
+          feature_key: string
+          requests: number
+        }[]
+      }
+      ai_pricing_unconfirmed: {
+        Args: never
+        Returns: {
+          effective_from: string
+          model: string
+          source_note: string
+        }[]
+      }
+      ai_reconcile: {
+        Args: {
+          p_cached: number
+          p_input: number
+          p_output: number
+          p_request_id: string
+          p_reservation: string
+        }
+        Returns: {
+          balance: number
+          credits_charged: number
+        }[]
+      }
       ai_record_usage: {
         Args: {
           p_cached: number
@@ -6807,6 +7130,23 @@ export type Database = {
           provider_cost_cents: number
         }[]
       }
+      ai_release: { Args: { p_reservation: string }; Returns: undefined }
+      ai_reserve: {
+        Args: {
+          p_est_input: number
+          p_est_output: number
+          p_feature: string
+          p_model: string
+          p_org: string
+        }
+        Returns: {
+          available_after: number
+          estimated_credits: number
+          reservation_id: string
+        }[]
+      }
+      ai_reserved_credits: { Args: { p_org: string }; Returns: number }
+      ai_spend_today: { Args: { p_org: string }; Returns: number }
       approve_dispute_letter: { Args: { p_letter: string }; Returns: undefined }
       archive_announcement: { Args: { p_id: string }; Returns: undefined }
       archive_knowledge_article: { Args: { p_id: string }; Returns: undefined }
@@ -6996,6 +7336,32 @@ export type Database = {
         Args: { p_location_id: string }
         Returns: undefined
       }
+      diy_advance: {
+        Args: {
+          p_client: string
+          p_stage: Database["public"]["Enums"]["diy_stage"]
+        }
+        Returns: undefined
+      }
+      diy_enroll: {
+        Args: {
+          p_first_name: string
+          p_last_name: string
+          p_org: string
+          p_phone?: string
+        }
+        Returns: string
+      }
+      diy_record_consent: {
+        Args: {
+          p_client: string
+          p_kind: string
+          p_statement: string
+          p_version: string
+        }
+        Returns: string
+      }
+      diy_upgrade_to_managed: { Args: { p_client: string }; Returns: string }
       engagement_is_live: {
         Args: {
           p_from: string
@@ -7524,6 +7890,7 @@ export type Database = {
         | "agency_manager"
         | "agency_team_lead"
         | "agency_agent"
+      ai_reservation_status: "reserved" | "reconciled" | "released" | "expired"
       announcement_audience:
         | "organization"
         | "all_organizations"
@@ -7549,6 +7916,7 @@ export type Database = {
         | "outsourcing_only"
         | "diy_converted"
         | "ghl"
+        | "diy_self_serve"
       client_status: "active" | "paused" | "archived"
       closing_status:
         | "started"
@@ -7593,6 +7961,22 @@ export type Database = {
         | "furnisher_notice"
         | "results_notice"
         | "reinsertion_watch"
+      diy_stage:
+        | "enrolled"
+        | "consented"
+        | "report_added"
+        | "data_reviewed"
+        | "facts_confirmed"
+        | "issues_identified"
+        | "attested"
+        | "plan_built"
+        | "drafts_reviewed"
+        | "approved"
+        | "sent"
+        | "awaiting_response"
+        | "response_recorded"
+        | "reimported"
+        | "compared"
       document_disposition:
         | "pending_review"
         | "accepted"
@@ -8057,6 +8441,7 @@ export const Constants = {
         "agency_team_lead",
         "agency_agent",
       ],
+      ai_reservation_status: ["reserved", "reconciled", "released", "expired"],
       announcement_audience: [
         "organization",
         "all_organizations",
@@ -8086,6 +8471,7 @@ export const Constants = {
         "outsourcing_only",
         "diy_converted",
         "ghl",
+        "diy_self_serve",
       ],
       client_status: ["active", "paused", "archived"],
       closing_status: [
@@ -8136,6 +8522,23 @@ export const Constants = {
         "furnisher_notice",
         "results_notice",
         "reinsertion_watch",
+      ],
+      diy_stage: [
+        "enrolled",
+        "consented",
+        "report_added",
+        "data_reviewed",
+        "facts_confirmed",
+        "issues_identified",
+        "attested",
+        "plan_built",
+        "drafts_reviewed",
+        "approved",
+        "sent",
+        "awaiting_response",
+        "response_recorded",
+        "reimported",
+        "compared",
       ],
       document_disposition: [
         "pending_review",

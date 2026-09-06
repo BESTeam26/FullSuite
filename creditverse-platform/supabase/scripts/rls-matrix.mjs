@@ -12,7 +12,7 @@
  * fixtures change instead of drifting into hard-coded numbers.
  *
  *   node supabase/scripts/rls-matrix.mjs            # phase-1 checks
- *   node supabase/scripts/rls-matrix.mjs --phase 39 # include later phases
+ *   node supabase/scripts/rls-matrix.mjs --phase 40 # include later phases
  *
  * Exit code is non-zero on any failed check in the requested phases. Run from
  * creditverse-platform/ (the CLI resolves the linked project from there).
@@ -1587,6 +1587,48 @@ if (PHASE >= 39) {
   ];
   console.log("\nphase 39:");
   for (const [label, fn, want] of P39) {
+    checks++;
+    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
+    const ok = String(got) === String(want); if (!ok) fails++;
+    console.log(`  ${ok ? "\u2713" : "\u2717"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
+  }
+}
+
+
+/* Phase 40 — DIY Credit (0102/0103). One person, one canonical client, and an
+   upgrade to managed that recreates nothing. */
+if (PHASE >= 40) {
+  const w40 = (uid, sql, seed = "") => { try { return q(`begin; ${seed} set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
+  const PORTAL = q(`select coalesce((select portal_user_id::text from public.clients where portal_user_id is not null limit 1), '') as rows`)[0].rows;
+  const PC = q(`select coalesce((select id::text from public.clients where portal_user_id is not null limit 1), '') as rows`)[0].rows;
+  const ENT = `insert into public.product_entitlements (organization_id, product, enabled) values ('${lakesideOrg}','diyCredit',true) on conflict (organization_id, product) do update set enabled = true;`;
+  const NOENT = `delete from public.product_entitlements where organization_id='${lakesideOrg}' and product='diyCredit';`;
+  const JOURNEY = `${ENT} insert into public.diy_journeys (client_id) values ('${PC}') on conflict do nothing;`;
+  const CONSENT = `${JOURNEY} insert into public.diy_consents (client_id, kind, statement, version) values ('${PC}','service_terms','x','v1');`;
+
+  const P40 = PORTAL ? [
+    ["a consumer cannot enrol where DIY is not sold",       () => w40(PORTAL, `select public.diy_enroll('${lakesideOrg}','A','B') as rows`, NOENT), "ERR 42501"],
+    ["enrolling REUSES the existing client, never a second person", () => w40(PORTAL, `select public.diy_enroll('${lakesideOrg}','A','B'); select count(*)::int as rows from public.clients where portal_user_id='${PORTAL}'`, ENT), 1],
+    ["…and the id is the one they already had",             () => w40(PORTAL, `select (public.diy_enroll('${lakesideOrg}','A','B') = '${PC}')::text as rows`, ENT), "true"],
+    ["nothing moves before consent",                        () => w40(PORTAL, `select public.diy_advance('${PC}','report_added'); select 1 as rows`, JOURNEY), "ERR 42501"],
+    ["consent cannot be marked without one on record",      () => w40(PORTAL, `select public.diy_advance('${PC}','consented'); select 1 as rows`, JOURNEY), "ERR 42501"],
+    ["…and works once it is",                               () => w40(PORTAL, `select public.diy_advance('${PC}','consented'); select stage::text as rows from public.diy_journeys where client_id='${PC}'`, CONSENT), "consented"],
+    ["a letter is not approved before the facts are attested", () => w40(PORTAL, `select public.diy_advance('${PC}','consented'); select public.diy_advance('${PC}','approved'); select 1 as rows`, CONSENT), "ERR 42501"],
+    ["staff cannot move somebody else's journey",           () => w40(U["org.agent@bes.test"], `select public.diy_advance('${PC}','consented'); select 1 as rows`, CONSENT), "ERR 42501"],
+    ["staff cannot consent on their behalf",                () => w40(U["org.owner@bes.test"], `select public.diy_record_consent('${PC}','service_terms','x','v1') is not null as rows`, ENT), "ERR 42501"],
+    ["a consumer cannot promote themself to managed",       () => w40(PORTAL, `select public.diy_upgrade_to_managed('${PC}') is not null as rows`, ENT), "ERR 42501"],
+    ["the organization can, and it creates ONE credit case", () => w40(U["org.owner@bes.test"], `select public.diy_upgrade_to_managed('${PC}'); select count(*)::int as rows from public.fulfillment_clients where client_id='${PC}'`, ENT), 1],
+    ["upgrading twice does not make a second case",         () => w40(U["org.owner@bes.test"], `select public.diy_upgrade_to_managed('${PC}'); select public.diy_upgrade_to_managed('${PC}'); select count(*)::int as rows from public.fulfillment_clients where client_id='${PC}'`, ENT), 1],
+    ["upgrading keeps the person as ONE client",            () => w40(U["org.owner@bes.test"], `select public.diy_upgrade_to_managed('${PC}'); select count(*)::int as rows from public.clients where portal_user_id='${PORTAL}'`, ENT), 1],
+    ["a DIY report survives the upgrade on the same client", () => w40(U["org.owner@bes.test"], `select public.diy_upgrade_to_managed('${PC}'); select count(*)::int as rows from public.credit_reports where client_id='${PC}'`, `${ENT} insert into public.credit_reports (organization_id, consumer_user_id, bureaus, pulled_at, source, parser_version, imported_by) values ('${lakesideOrg}','${PORTAL}', array['EQ'], current_date, 'manual_upload', 'pdf-text-1', '${PORTAL}');`), 1],
+    ["consents survive the upgrade",                        () => w40(U["org.owner@bes.test"], `select public.diy_upgrade_to_managed('${PC}'); select count(*)::int as rows from public.diy_consents where client_id='${PC}'`, CONSENT), 1],
+    ["another organization's owner sees no DIY journey",    () => w40(U["org2.owner@bes.test"], `select count(*)::int as rows from public.diy_journeys where client_id='${PC}'`, JOURNEY), 0],
+    ["…and no consents",                                    () => w40(U["org2.owner@bes.test"], `select count(*)::int as rows from public.diy_consents where client_id='${PC}'`, CONSENT), 0],
+    ["a consumer cannot write a journey row directly",      () => w40(PORTAL, `insert into public.diy_journeys (client_id, stage) values ('${PC}','approved'); select 1 as rows`, ENT), "ERR 42501"],
+    ["…nor a consent row directly",                         () => w40(PORTAL, `insert into public.diy_consents (client_id, kind, statement, version) values ('${PC}','service_terms','x','v1'); select 1 as rows`, ENT), "ERR 42501"],
+  ] : [["(no portal client fixture)", () => "skip", "skip"]];
+  console.log("\nphase 40:");
+  for (const [label, fn, want] of P40) {
     checks++;
     let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
     const ok = String(got) === String(want); if (!ok) fails++;

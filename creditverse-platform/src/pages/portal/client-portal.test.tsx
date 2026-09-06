@@ -15,9 +15,19 @@ let home: PortalHome | null;
 let updates: { id: number; action: string; detail: string | null; at: string }[];
 let documents: unknown[];
 let offers: unknown[];
+let diyJourney: unknown;
+let diyConsents: { kind: string }[];
 
 vi.mock("@/lib/auth/auth-context", () => ({
   useAuth: () => ({ user: { email: "juno@example.test" } }),
+}));
+
+/* DIY is one more thing this client may be doing; these tests are about the
+   portal shell, so it is mocked as absent unless a test says otherwise. */
+vi.mock("@/lib/data/use-diy", () => ({
+  useDiyJourney: () => ({ data: diyJourney, isLoading: false }),
+  useDiyConsents: () => ({ data: diyConsents, isLoading: false }),
+  useAdvanceDiy: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
 }));
 
 vi.mock("@/lib/data/use-client-portal", () => ({
@@ -40,6 +50,8 @@ beforeEach(() => {
   updates = [];
   documents = [];
   offers = [];
+  diyJourney = null;
+  diyConsents = [];
 });
 
 describe("what the client sees", () => {
@@ -122,6 +134,55 @@ describe("moving around on a phone", () => {
     fireEvent.click(screen.getByRole("button", { name: "Account" }));
     expect(screen.getByText("juno@example.test")).toBeInTheDocument();
     expect(screen.getByText(/message your team/)).toBeInTheDocument();
+  });
+});
+
+describe("DIY inside the same portal", () => {
+  it("is not shown to a client who is not doing it", () => {
+    render(<ClientPortal />);
+    expect(screen.queryByText("Doing it yourself")).not.toBeInTheDocument();
+  });
+
+  it("appears for the same client, without a second identity", () => {
+    diyJourney = { clientId: "c1", stage: "consented", roundNumber: 1, identityTheftPathway: false, startedAt: "2026-09-01T00:00:00Z" };
+    render(<ClientPortal />);
+    expect(screen.getByText("Doing it yourself")).toBeInTheDocument();
+    /* Still one person: the header is unchanged. */
+    expect(screen.getByText("Juno Logistics")).toBeInTheDocument();
+    expect(screen.getByText("Reference CN-4821")).toBeInTheDocument();
+  });
+
+  it("names the next step and offers its action", () => {
+    diyJourney = { clientId: "c1", stage: "consented", roundNumber: 1, identityTheftPathway: false, startedAt: "2026-09-01T00:00:00Z" };
+    render(<ClientPortal />);
+    /* Twice on purpose: the call to action, and the same step marked current
+       in the map below it. A consumer sees where they are and what to press. */
+    expect(screen.getAllByText("Add your credit report")).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Upload your report." })).toBeInTheDocument();
+    expect(screen.getByText("Step 2 of 15")).toBeInTheDocument();
+  });
+
+  it("does not ask somebody to consent twice when the consents query is empty", () => {
+    /* The stage is proof: the database refuses to leave `enrolled` without a
+       consent on record, so a slow query must not re-prompt. */
+    diyJourney = { clientId: "c1", stage: "report_added", roundNumber: 1, identityTheftPathway: false, startedAt: "2026-09-01T00:00:00Z" };
+    diyConsents = [];
+    render(<ClientPortal />);
+    expect(screen.queryByText(/Agree how this works before anything else/)).not.toBeInTheDocument();
+  });
+
+  it("does hold the gate closed while they are still at enrolment", () => {
+    diyJourney = { clientId: "c1", stage: "enrolled", roundNumber: 1, identityTheftPathway: false, startedAt: "2026-09-01T00:00:00Z" };
+    diyConsents = [];
+    render(<ClientPortal />);
+    expect(screen.getByText(/We have no record of your agreement yet/)).toBeInTheDocument();
+  });
+
+  it("keeps identity theft as a deliberate, separate route", () => {
+    diyJourney = { clientId: "c1", stage: "consented", roundNumber: 1, identityTheftPathway: false, startedAt: "2026-09-01T00:00:00Z" };
+    render(<ClientPortal />);
+    expect(screen.getByText(/IdentityTheft.gov/)).toBeInTheDocument();
+    expect(screen.getByText(/Do not use it for an account that is yours/)).toBeInTheDocument();
   });
 });
 
