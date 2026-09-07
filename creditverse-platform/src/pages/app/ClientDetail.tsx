@@ -6,6 +6,7 @@ import { ClientCreditReportSection } from "@/components/dashboard/fulfillment/Cl
 import { ReportChangesPanel } from "@/components/clients/ReportChangesPanel";
 import { ReportIntegrityPanel } from "@/components/clients/ReportIntegrityPanel";
 import { Metro2IdentitySection } from "@/components/clients/Metro2IdentitySection";
+import { ChronologySection } from "@/components/clients/ChronologySection";
 import { RoundOutcomesPanel } from "@/components/clients/RoundOutcomesPanel";
 import {
   ArrowLeft,
@@ -254,6 +255,7 @@ const ClientDetailInner = () => {
             <ReportChangesPanel clientId={clientId} />
             <ReportIntegrityPanel clientId={clientId} />
             <Metro2IdentitySection clientId={clientId} />
+            <ChronologySection clientId={clientId} />
             <RoundOutcomesPanel clientId={clientId} />
           </div>
         ) : (

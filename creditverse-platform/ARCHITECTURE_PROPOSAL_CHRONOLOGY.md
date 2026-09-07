@@ -1,7 +1,30 @@
-# Architecture proposal — the chronology layer
+# The chronology layer — BUILT
 
-**Status: proposal. Nothing built. No migration written.**
-Requires Dee's approval: this changes the canonical credit-report model.
+**Status: shipped 2026-09-07 as CR-3, and with NO schema change.**
+
+The proposal below expected three migrations. None was needed: CR-2 put
+per-bureau values, `reporting_period` and `account_information_date` on the
+snapshot, and CR-14 put the coverage verdict on the report. Chronology turned
+out to be a pure computation over data already persisted —
+`src/lib/credit-report/chronology.ts` — plus a UI.
+
+What that means for the two analyses the proposal said were guesswork:
+
+| Proposal said | As built |
+|---|---|
+| §4.2 needs a `report_bureau_coverage` table before "no longer observed" is honest | `credit_reports.import_quality` + `credit_reports.bureaus` answer it. `comparableFor()` requires a **complete** verdict AND coverage of that bureau; anything else is `COMPARISON_UNAVAILABLE` with the reason |
+| §4.4 cure reconstruction needs grid positions mapped to months | CR-2's dated `payment_history` already carries month and year, so history is compared **by month** — a month present on one side only is a new observation, not a change |
+| §4.3 timeline events table | **Not built, and deliberately out of CR-3.** Dispute receipt, CRA notice and investigation deadlines are G-11's. Mixing them into a report comparison is how a diff starts implying a legal clock; a test asserts the chronology contains no such word |
+
+One thing the proposal did not anticipate, found while building: **a renamed
+creditor changes the account handle**, so the same obligation looks like one
+account dying and another being born. `nearMatchIn()` blocks the
+disappearance and raises `MATCH_REVIEW_REQUIRED` instead — histories are never
+merged on a guess, and never split on one either.
+
+The record of the original proposal follows.
+
+---
 
 Governed by `docs/creditops/CREDIT_REPORTING_INTELLIGENCE_RULEBOOK.md` §10.
 

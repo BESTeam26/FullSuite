@@ -2808,6 +2808,16 @@ if (runs(53)) {
 
     ["nothing was backfilled: no historical report was graded",
       () => q(`select ((select count(*) from public.report_completeness) = 0 and (select count(*) from public.report_reconciliation) = 0 and (select count(*) from public.credit_reports where import_quality is not null) = 0)::text as rows`)[0].rows, "true"],
+
+    /* CR-3 reads per-bureau values across SEVERAL reports at once to build a
+       chronology. Same policy chain as the single-report read, and the probe
+       exists because a cross-report query is exactly where a join could widen
+       what one organization sees. */
+    ["a cross-report read of bureau values stays inside the organization",
+      () => probe53(OWNER53, `${imp(PASS53)}; ${imp(PASS53)}; set local request.jwt.claims = '{"sub":"${OTHER53}","role":"authenticated"}'; select count(*)::int as rows from public.report_item_bureau_values v join public.report_items i on i.id=v.report_item_id join public.credit_reports r on r.id=i.report_id where r.fulfillment_client_id='${T.lakeside_client}'`), 0],
+
+    ["…and the owner reading two snapshots at once sees both",
+      () => probe53(OWNER53, `${imp(PASS53)}; ${imp(PASS53)}; select count(distinct r.id)::int as rows from public.credit_reports r where r.fulfillment_client_id='${T.lakeside_client}' and r.parser_version='probe-138'`), 2],
   ] : [["(no Lakeside client to probe)", () => "skip", "skip"]];
   runPhase("phase 53", P53, { strict: true });
 }

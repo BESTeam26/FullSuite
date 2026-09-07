@@ -16,6 +16,8 @@ export interface CreditReportSummary {
   bureaus: Bureau[];
   source: string;
   parserVersion: string;
+  /** CR-14's verdict. Null means UNKNOWN — never complete. */
+  importQuality: ImportQuality | null;
   createdAt: string;
   scores: { bureau: Bureau; model: string; score: number }[];
 }
@@ -28,7 +30,7 @@ export async function fetchClientReports(fulfillmentClientId: string): Promise<C
   const sb = requireSupabase();
   const { data, error } = await sb
     .from("credit_reports")
-    .select("id, pulled_at, bureaus, source, parser_version, created_at, report_scores(bureau, model, score)")
+    .select("id, pulled_at, bureaus, source, parser_version, import_quality, created_at, report_scores(bureau, model, score)")
     .eq("fulfillment_client_id", fulfillmentClientId)
     .order("pulled_at", { ascending: false })
     .order("created_at", { ascending: false })
@@ -40,6 +42,7 @@ export async function fetchClientReports(fulfillmentClientId: string): Promise<C
     bureaus: r.bureaus as Bureau[],
     source: r.source,
     parserVersion: r.parser_version,
+    importQuality: (r.import_quality as ImportQuality | null) ?? null,
     createdAt: r.created_at,
     scores: (r.report_scores ?? []).map((s) => ({ bureau: s.bureau as Bureau, model: s.model, score: s.score })),
   }));
@@ -195,6 +198,63 @@ export async function fetchBureauValues(reportId: string): Promise<Record<string
     if (!parent) continue;
     const cents = (v: number | string | null) => (v === null ? undefined : Number(v) / 100);
     (out[parent.account_ref] ??= []).push({
+      bureau: row.bureau as Bureau,
+      status: row.status ?? undefined,
+      paymentStatus: row.payment_status ?? undefined,
+      accountType: row.account_type ?? undefined,
+      accountNumberMasked: row.account_number_masked ?? undefined,
+      balance: cents(row.balance_cents),
+      highBalance: cents(row.high_balance_cents),
+      creditLimit: cents(row.credit_limit_cents),
+      pastDue: cents(row.past_due_cents),
+      monthlyPayment: cents(row.monthly_payment_cents),
+      termMonths: row.term_months ?? undefined,
+      openDate: row.open_date ?? undefined,
+      dateClosed: row.date_closed ?? undefined,
+      dateLastPayment: row.date_last_payment ?? undefined,
+      dateLastActive: row.date_last_active ?? undefined,
+      dofd: row.dofd ?? undefined,
+      paymentHistory: row.payment_history ?? undefined,
+      remarks: row.remarks ?? undefined,
+      responsibilityRaw: row.responsibility_raw ?? undefined,
+      disputeStatus: row.dispute_status ?? undefined,
+      accountRating: row.account_rating ?? undefined,
+      creditorType: row.creditor_type ?? undefined,
+      paymentFrequency: row.payment_frequency ?? undefined,
+      lastVerified: row.last_verified ?? undefined,
+      accountInformationDate: row.account_information_date ?? undefined,
+    });
+  }
+  return out;
+}
+
+/**
+ * Per-bureau values for SEVERAL reports at once (CR-3).
+ *
+ * One bounded query for a whole chronology, never one per report and never one
+ * per item. Returned keyed by report and then by `account_ref`, which is the
+ * stable handle that matches the same tradeline across imports.
+ */
+export async function fetchBureauValuesForReports(
+  reportIds: string[],
+): Promise<Record<string, Record<string, BureauValues[]>>> {
+  if (reportIds.length === 0) return {};
+  const sb = requireSupabase();
+  const { data, error } = await sb
+    .from("report_item_bureau_values")
+    .select(
+      "bureau, status, payment_status, account_type, account_number_masked, balance_cents, high_balance_cents, credit_limit_cents, past_due_cents, monthly_payment_cents, term_months, open_date, date_closed, date_last_payment, date_last_active, dofd, payment_history, remarks, responsibility_raw, dispute_status, account_rating, creditor_type, payment_frequency, last_verified, account_information_date, reporting_period, report_items!inner(account_ref, report_id)",
+    )
+    .in("report_items.report_id", reportIds)
+    .limit(5000);
+  if (error) throw error;
+
+  const out: Record<string, Record<string, BureauValues[]>> = {};
+  for (const row of data ?? []) {
+    const parent = row.report_items as unknown as { account_ref: string; report_id: string } | null;
+    if (!parent) continue;
+    const cents = (v: number | string | null) => (v === null ? undefined : Number(v) / 100);
+    ((out[parent.report_id] ??= {})[parent.account_ref] ??= []).push({
       bureau: row.bureau as Bureau,
       status: row.status ?? undefined,
       paymentStatus: row.payment_status ?? undefined,
