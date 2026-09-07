@@ -85,6 +85,7 @@ const ClientProfile = lazy(() => import("./pages/app/ClientProfile"));
 const CreditCases = lazy(() => import("./pages/app/CreditCases"));
 const BesPartners = lazy(() => import("./pages/app/BesPartners"));
 const FundingDealDetail = lazy(() => import("./pages/app/FundingDealDetail"));
+const DiyReferrals = lazy(() => import("./pages/app/DiyReferrals"));
 const ClientDetail = lazy(() => import("./pages/app/ClientDetail"));
 const FundingFiles = lazy(() => import("./pages/app/FundingFiles"));
 const FundingFileDetail = lazy(() => import("./pages/app/FundingFileDetail"));
@@ -470,6 +471,7 @@ const App = () => (
                                   staff; the engagement rows RLS returns decide
                                   what is actually on it.
                                 */}
+                                <Route path="diy-referrals" element={<RequireEntitlement product="diyCredit" label="DIY Credit"><DiyReferrals /></RequireEntitlement>} />
                                 <Route path="bes-partners" element={<RequireAgencyStaff label="BES Partners"><BesPartners /></RequireAgencyStaff>} />
                                 <Route path="commissions" element={<RequirePermission permission="fundingops.commissions.view" label="Commissions"><Commissions /></RequirePermission>} />
                                 {/*

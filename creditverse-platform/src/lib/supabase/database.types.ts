@@ -1300,7 +1300,7 @@ export type Database = {
           computed_amount: number | null
           created_at: string
           created_by: string | null
-          deal_id: string
+          deal_id: string | null
           earned_at: string | null
           funded_at: string | null
           id: string
@@ -1312,6 +1312,7 @@ export type Database = {
           payment_reference: string | null
           plan_id: string | null
           rate_or_amount: number
+          referral_event_id: string | null
           reversed_at: string | null
           state: string
           updated_at: string
@@ -1322,7 +1323,7 @@ export type Database = {
           computed_amount?: number | null
           created_at?: string
           created_by?: string | null
-          deal_id: string
+          deal_id?: string | null
           earned_at?: string | null
           funded_at?: string | null
           id?: string
@@ -1334,6 +1335,7 @@ export type Database = {
           payment_reference?: string | null
           plan_id?: string | null
           rate_or_amount: number
+          referral_event_id?: string | null
           reversed_at?: string | null
           state?: string
           updated_at?: string
@@ -1344,7 +1346,7 @@ export type Database = {
           computed_amount?: number | null
           created_at?: string
           created_by?: string | null
-          deal_id?: string
+          deal_id?: string | null
           earned_at?: string | null
           funded_at?: string | null
           id?: string
@@ -1356,6 +1358,7 @@ export type Database = {
           payment_reference?: string | null
           plan_id?: string | null
           rate_or_amount?: number
+          referral_event_id?: string | null
           reversed_at?: string | null
           state?: string
           updated_at?: string
@@ -1380,6 +1383,13 @@ export type Database = {
             columns: ["plan_id"]
             isOneToOne: false
             referencedRelation: "commission_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commissions_referral_event_id_fkey"
+            columns: ["referral_event_id"]
+            isOneToOne: false
+            referencedRelation: "referral_events"
             referencedColumns: ["id"]
           },
         ]
@@ -6268,6 +6278,145 @@ export type Database = {
           },
         ]
       }
+      referral_attributions: {
+        Row: {
+          attributed_at: string
+          client_id: string
+          code_id: string
+          id: string
+          organization_id: string
+          source: string
+        }
+        Insert: {
+          attributed_at?: string
+          client_id: string
+          code_id: string
+          id?: string
+          organization_id: string
+          source?: string
+        }
+        Update: {
+          attributed_at?: string
+          client_id?: string
+          code_id?: string
+          id?: string
+          organization_id?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_attributions_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: true
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_attributions_code_id_fkey"
+            columns: ["code_id"]
+            isOneToOne: false
+            referencedRelation: "referral_codes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_attributions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      referral_codes: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string
+          created_by: string | null
+          id: string
+          label: string | null
+          organization_id: string
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label?: string | null
+          organization_id: string
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label?: string | null
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_codes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_codes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      referral_events: {
+        Row: {
+          amount_cents: number | null
+          attribution_id: string
+          id: string
+          kind: Database["public"]["Enums"]["referral_event_kind"]
+          note: string | null
+          occurred_at: string
+          recorded_by: string | null
+        }
+        Insert: {
+          amount_cents?: number | null
+          attribution_id: string
+          id?: string
+          kind: Database["public"]["Enums"]["referral_event_kind"]
+          note?: string | null
+          occurred_at?: string
+          recorded_by?: string | null
+        }
+        Update: {
+          amount_cents?: number | null
+          attribution_id?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["referral_event_kind"]
+          note?: string | null
+          occurred_at?: string
+          recorded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_events_attribution_id_fkey"
+            columns: ["attribution_id"]
+            isOneToOne: false
+            referencedRelation: "referral_attributions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_events_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       renewal_opportunities: {
         Row: {
           file_id: string
@@ -7996,6 +8145,10 @@ export type Database = {
           role: string
         }[]
       }
+      attribute_referral: {
+        Args: { p_client: string; p_code: string }
+        Returns: string
+      }
       begin_letter_mailing: {
         Args: { p_from: Json; p_letter: string; p_to: Json }
         Returns: string
@@ -8699,6 +8852,37 @@ export type Database = {
         }
         Returns: string
       }
+      record_referral_event: {
+        Args: {
+          p_amount_cents?: number
+          p_client: string
+          p_kind: Database["public"]["Enums"]["referral_event_kind"]
+          p_note?: string
+        }
+        Returns: string
+      }
+      referral_applies_to: {
+        Args: { p_kind: Database["public"]["Enums"]["referral_event_kind"] }
+        Returns: string
+      }
+      referral_list: {
+        Args: { p_org: string }
+        Returns: {
+          attributed_at: string
+          attribution_id: string
+          client_id: string
+          commission_earned: number
+          commission_paid: number
+          consumer_email: string
+          consumer_name: string
+          converted_credit: boolean
+          converted_funding: boolean
+          diy_stage: string
+          signed_up: boolean
+          source: string
+          subscribed: boolean
+        }[]
+      }
       report_pivot: {
         Args: {
           p_filters?: Json
@@ -8880,6 +9064,10 @@ export type Database = {
           p_views: string[]
         }
         Returns: Json
+      }
+      set_referral_code: {
+        Args: { p_code: string; p_label?: string; p_org: string }
+        Returns: string
       }
       shares_scope_with: { Args: { p_user: string }; Returns: boolean }
       split_person_name: {
@@ -9330,6 +9518,11 @@ export type Database = {
         | "hubPerformance"
         | "hubAi"
       reason_voice: "plain" | "frustrated"
+      referral_event_kind:
+        | "signup"
+        | "subscription_active"
+        | "converted_credit"
+        | "converted_funding"
       renewal_status:
         | "monitoring"
         | "review_due"
@@ -9948,6 +10141,12 @@ export const Constants = {
         "hubAi",
       ],
       reason_voice: ["plain", "frustrated"],
+      referral_event_kind: [
+        "signup",
+        "subscription_active",
+        "converted_credit",
+        "converted_funding",
+      ],
       renewal_status: [
         "monitoring",
         "review_due",

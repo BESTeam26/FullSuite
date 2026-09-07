@@ -16,6 +16,7 @@ import {
   Users,
   Network,
   Handshake,
+  Gift,
   Send,
   BadgeDollarSign,
   CircleDollarSign,
@@ -314,6 +315,7 @@ export const Sidebar = () => {
       show: isProductOn("diyCredit"),
       items: [
         { label: "Client Portal", icon: Zap, href: "/app/diy-management" },
+        { label: "Referrals", icon: Gift, href: "/app/diy-referrals" },
         { label: "Preview Portal", icon: UserCheck, href: "/diy" },
       ],
     },

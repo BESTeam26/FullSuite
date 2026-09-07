@@ -2493,6 +2493,100 @@ if (runs(50)) {
   runPhase("phase 50", P50);
 }
 
+/* ------------------------------------------------------------------ *
+ * Phase 51 — DIY referrals (0132, 0133).
+ *
+ * The rule this phase exists for: ATTRIBUTION IS NOT ACCESS. Being owed money
+ * for a consumer must tell you nothing about their credit report, their
+ * disputes, their documents or their journey.
+ * ------------------------------------------------------------------ */
+if (runs(51)) {
+  startPhase("phase 51");
+  const w51 = (uid, sql, seed = "") => { try { return q(`begin; ${seed} set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
+  const svc51 = (sql, seed = "") => { try { return q(`begin; ${seed} set local role service_role; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
+  const OWNER = U["org.owner@bes.test"], OTHER = U["org2.owner@bes.test"], AGENT = U["org.agent@bes.test"];
+  const CL51 = q(`select coalesce((select c.id::text from public.clients c where c.organization_id='${lakesideOrg}' limit 1), '') as rows`)[0].rows;
+  const OTHER_ORG = q(`select coalesce((select id::text from public.organizations where id <> '${lakesideOrg}' limit 1), '') as rows`)[0].rows;
+
+  const CODE = `insert into public.referral_codes (organization_id, code, label) values ('${lakesideOrg}', 'PROBECODE', 'Probe');`;
+  const ATTR = `${CODE}
+    insert into public.referral_attributions (code_id, organization_id, client_id)
+      select id, '${lakesideOrg}', '${CL51}' from public.referral_codes where code='PROBECODE';`;
+  const PLAN_FLAT = `${ATTR}
+    insert into public.commission_plans (organization_id, label, party_kind, basis, rate_or_amount, applies_to, created_by)
+      values ('${lakesideOrg}','DIY signup','partner','flat',5,'referral_signup','${OWNER}');`;
+  const PLAN_PCT = `${ATTR}
+    insert into public.commission_plans (organization_id, label, party_kind, basis, rate_or_amount, applies_to, created_by)
+      values ('${lakesideOrg}','Active subscription','partner','pct',20,'referral_subscription','${OWNER}');`;
+
+  const P51 = CL51 ? [
+    ["a signup on a flat plan earns exactly the flat amount",
+      () => svc51(`select public.record_referral_event('${CL51}', 'signup'); select computed_amount::text as rows from public.commissions c join public.referral_events e on e.id=c.referral_event_id`, PLAN_FLAT), "5.00"],
+    ["…recorded as earned, not payable",
+      () => svc51(`select public.record_referral_event('${CL51}', 'signup'); select state as rows from public.commissions c join public.referral_events e on e.id=c.referral_event_id`, PLAN_FLAT), "earned"],
+    ["a percentage plan takes its cut of the amount recorded",
+      () => svc51(`select public.record_referral_event('${CL51}', 'subscription_active', 5000); select computed_amount::text as rows from public.commissions c join public.referral_events e on e.id=c.referral_event_id`, PLAN_PCT), "10.00"],
+    ["…and keeps the figure it was a percentage OF",
+      () => svc51(`select public.record_referral_event('${CL51}', 'subscription_active', 5000); select basis_amount::text as rows from public.commissions c join public.referral_events e on e.id=c.referral_event_id`, PLAN_PCT), "50.00"],
+    ["a percentage of an amount nobody recorded is refused, never booked as zero",
+      () => svc51(`select public.record_referral_event('${CL51}', 'subscription_active') as rows`, PLAN_PCT), "ERR 22023"],
+    ["the same event twice does not pay twice",
+      () => svc51(`select public.record_referral_event('${CL51}', 'signup'); select public.record_referral_event('${CL51}', 'signup'); select count(*)::int as rows from public.commissions c join public.referral_events e on e.id=c.referral_event_id`, PLAN_FLAT), 1],
+    ["no plan for that event: the event is recorded and nothing is invented",
+      () => svc51(`select public.record_referral_event('${CL51}', 'converted_funding'); select count(*)::int as rows from public.commissions c join public.referral_events e on e.id=c.referral_event_id`, ATTR), 0],
+    ["a BES-direct consumer earns nobody anything",
+      () => svc51(`select coalesce(public.record_referral_event('${CL51}', 'signup')::text, 'none') as rows`, CODE), "none"],
+    ["attribution is decided once — a second code does not move them",
+      () => svc51(`insert into public.referral_codes (organization_id, code) values ('${OTHER_ORG}', 'OTHERCODE');
+        select public.attribute_referral('${CL51}', 'OTHERCODE');
+        select organization_id::text as rows from public.referral_attributions where client_id='${CL51}'`, ATTR), lakesideOrg],
+
+    /* ---- attribution is not access ---- */
+    ["ATTRIBUTION IS NOT ACCESS: the referrer sees the referral",
+      () => w51(OWNER, `select count(*)::int as rows from public.referral_list('${lakesideOrg}')`, ATTR), 1],
+    ["…and still cannot read that consumer's credit reports",
+      () => w51(OWNER, `select count(*)::int as rows from public.credit_reports r where r.client_id='${CL51}' and not public.client_visible('${CL51}')`, ATTR), 0],
+    ["…and there is no join from a referral to a dispute, a document or a journey",
+      /* Structural: the referral tables reference clients and nothing else. */
+      () => q(`select count(*)::int as rows
+                 from pg_constraint con
+                 join pg_class src on src.oid = con.conrelid
+                 join pg_class tgt on tgt.oid = con.confrelid
+                where con.contype='f'
+                  and src.relname in ('referral_codes','referral_attributions','referral_events')
+                  and tgt.relname in ('credit_reports','dispute_letters','dispute_rounds','files','diy_journeys','report_items')`)[0].rows, 0],
+    ["another organization sees none of the referrals",
+      () => w51(OTHER, `select count(*)::int as rows from public.referral_attributions where organization_id='${lakesideOrg}'`, ATTR), 0],
+    ["…nor the list",
+      () => w51(OTHER, `select count(*)::int as rows from public.referral_list('${lakesideOrg}')`, ATTR), 0],
+    ["a browser cannot attribute a consumer to itself",
+      () => w51(OWNER, `select public.attribute_referral('${CL51}', 'PROBECODE') as rows`, CODE), "ERR 42501"],
+    ["…nor record an event, which is how it would book its own commission",
+      () => w51(OWNER, `select public.record_referral_event('${CL51}', 'signup') as rows`, PLAN_FLAT), "ERR 42501"],
+    ["…nor write an attribution row directly",
+      () => w51(OWNER, `insert into public.referral_attributions (code_id, organization_id, client_id) select id, '${lakesideOrg}', '${CL51}' from public.referral_codes where code='PROBECODE'; select 1 as rows`, CODE), "ERR 42501"],
+    ["an administrator sets the organization's code",
+      () => w51(OWNER, `select public.set_referral_code('${lakesideOrg}', 'SUMMIT2', 'Main'); select code::text as rows from public.referral_codes where organization_id='${lakesideOrg}' and active`), "SUMMIT2"],
+    ["a processor cannot",
+      () => w51(AGENT, `select public.set_referral_code('${lakesideOrg}', 'NOPE') as rows`), "ERR 42501"],
+    ["…nor another organization",
+      () => w51(OTHER, `select public.set_referral_code('${lakesideOrg}', 'NOPE2') as rows`), "ERR 42501"],
+    ["a malformed code is refused",
+      () => w51(OWNER, `select public.set_referral_code('${lakesideOrg}', 'no') as rows`), "ERR 22023"],
+    ["a commission must have exactly one cause — never neither",
+      /* party_id supplied, so the constraint under test is the one that
+         refuses rather than the NOT NULL firing first. */
+      () => svc51(`insert into public.commissions (deal_id, referral_event_id, party_kind, party_id, basis, rate_or_amount, state) values (null, null, 'organization', '${lakesideOrg}', 'flat', 5, 'earned'); select 1 as rows`), "ERR 23514"],
+    ["…and the referrer can see what it is owed",
+      () => w51(OWNER, `select count(*)::int as rows from public.commissions c join public.referral_events e on e.id=c.referral_event_id`,
+        `${PLAN_FLAT} set local role service_role; select public.record_referral_event('${CL51}', 'signup'); reset role;`), 1],
+    ["…and another organization cannot",
+      () => w51(OTHER, `select count(*)::int as rows from public.commissions c join public.referral_events e on e.id=c.referral_event_id`,
+        `${PLAN_FLAT} set local role service_role; select public.record_referral_event('${CL51}', 'signup'); reset role;`), 0],
+  ] : [["(no Lakeside client to probe)", () => "skip", "skip"]];
+  runPhase("phase 51", P51);
+}
+
 endPhase();
 
 /* ------------------------------------------------------------------ *

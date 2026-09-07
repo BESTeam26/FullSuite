@@ -97,6 +97,12 @@ const HELP: [prefix: string, help: PageHelp][] = [
     summary: "This funding file taken to one lender: the submission, what they asked for, what they offered, and how it ended.",
     steps: ["Stipulations are what THIS lender asked for after seeing the file — separate from the file's own document requirements.", "A stipulation is satisfied only once it has gone to the lender and been accepted.", "A decline closes this deal; the funding file carries on with the others."],
   }],
+  ["/app/diy-referrals", {
+    title: "DIY Referrals",
+    summary: "The consumers you sent to BES DIY Credit, and what each has earned you.",
+    steps: ["Create a code once; the link is yours and consumers who sign up through it are attributed to you permanently.", "Every figure is a count of the rows below it — nothing is estimated.", "Being attributed a consumer does not give you access to their credit account."],
+    tip: "Consumers who came to BES directly are never assigned to anyone, so they do not appear here.",
+  }],
   ["/app/funding-workspace", {
     title: "FundingOps Workspace",
     summary: "The operational side of funding: work items, assignments and stages behind each file.",

@@ -22,6 +22,7 @@ obsolete milestone numbers.
 | C3 | Client Portal | DONE |
 | C4 | Channels (internal messaging) | DONE |
 | C6 | Commissions on funded deals | DONE |
+| DIY referral programme | Referral attribution + the same commission ledger | DONE |
 | C7 | Letters actually posted (Lob) | DONE |
 | C10 | Duplicate-client resolution by the importer | DONE |
 | AP / pricing work | Plans, trials, subscriptions, Authorize.Net | DONE (needs the browser client key) |
@@ -179,7 +180,8 @@ approved business workflow be completed?*
 | Enrolment reuses the canonical client, never a second person | **DONE** | Matrix phase 40 proves it |
 | Upgrade DIY → managed CreditOps | **DONE** | One credit case, reports and consents survive |
 | Consumer portal surface | **DONE** | |
-| **DIY Referrals** (partner attribution + commission ledger) | **PENDING** | Reference supplied 2026-09-06 |
+| **DIY Referrals** | **DONE** | 0132–0134 + phase 51 (25 probes). Attribution, events, and the SAME commission ledger — not a second one |
+| Referral link click counting | **PENDING** | Needs a public endpoint recording clicks; the page says so rather than showing a number it does not have |
 | DIY consumer billing | **PENDING** | **BLOCKED** on A3 |
 
 ## 9. Client & partner portals
@@ -288,7 +290,7 @@ approved business workflow be completed?*
 5. ~~Client-level documents~~ — **done 2026-09-07**
 6. **Metro 2 Sections B–P** + wiring Section A into the detector
 7. **Lender portal** (tenancy change — proposal first)
-8. **DIY Referrals**
+8. ~~DIY Referrals~~ — **done 2026-09-07**
 9. **Authorize.Net** (build against sandbox; go-live blocked on A3)
 10. **Hub Operations / Hub Performance packages**
 11. **Reporting drill-through**
