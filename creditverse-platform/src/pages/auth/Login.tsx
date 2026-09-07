@@ -69,16 +69,36 @@ const Login = () => {
   };
 
   const demo = auth.mode === "demo";
+  const [logoOk, setLogoOk] = useState(true);
 
   return (
     <div className="flex min-h-screen bg-gradient-charcoal text-white">
       <div className="mx-auto flex w-full max-w-md flex-col justify-center px-6 py-12">
-        <Link to="/" className="mb-8 flex items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-gold text-charcoal">
-            <ShieldCheck className="h-5 w-5" />
+        {/* The real mark, not a stock icon.
+            This page runs BEFORE sign-in, so it cannot read `agencies.branding`
+            — RLS has nobody to answer for yet. The logo therefore comes from
+            the file in `public/`, which is the same fallback `BrandLogo` uses
+            once a session exists, so the two never disagree. If the image is
+            missing the wordmark stands in rather than leaving a gap. */}
+        <Link to="/" className="mb-8 flex items-center gap-3">
+          {logoOk ? (
+            <img
+              src="/bes-logo.png"
+              alt="Blessed Empire Services"
+              className="h-11 w-11 shrink-0 object-contain"
+              onError={() => setLogoOk(false)}
+            />
+          ) : (
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-gradient-gold text-lg font-black text-charcoal">
+              BES
+            </span>
+          )}
+          <span className="min-w-0">
+            <span className="block text-lg font-bold leading-tight">Blessed Empire Services</span>
+            <span className="block text-xs leading-tight text-white/50">
+              Credit + Funding Operations. One Connected Platform.
+            </span>
           </span>
-          <span className="text-lg font-bold">BES</span>
-          <span className="text-sm text-white/50">Operations Platform</span>
         </Link>
 
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur">
