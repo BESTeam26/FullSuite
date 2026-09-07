@@ -9,6 +9,26 @@ Reconciled from: 119 migrations, the full git history, `BUILD_STATUS.md`,
 proposals, the 42-phase RLS matrix, every route in `App.tsx`, and the screens
 as they actually render.
 
+## Historical milestone labels → current product capability
+
+Old internal names are tracking labels, not architecture. Both are kept so no
+approved request disappears, while the product stops being organised around
+obsolete milestone numbers.
+
+| Historical milestone | Current product capability | Status |
+|---|---|---|
+| C1 | Canonical Client record + directory + 360° profile | DONE |
+| C2 | DIY Credit consumer journey | DONE |
+| C3 | Client Portal | DONE |
+| C4 | Channels (internal messaging) | DONE |
+| C6 | Commissions on funded deals | DONE |
+| C7 | Letters actually posted (Lob) | DONE |
+| C10 | Duplicate-client resolution by the importer | DONE |
+| AP / pricing work | Plans, trials, subscriptions, Authorize.Net | DONE (needs the browser client key) |
+| §24 | Seats and membership lifecycle | DONE |
+| **Metro 2 Sections A–P** | **CreditOps dispute defect catalogue** — a credit-REPORTING format. Not FundingOps lender matching; the two are unrelated systems | Section A done; B–P pending |
+| FundingOps A/B/C | FundingOps navigation, funding file, deal, stipulations | DONE |
+
 ## How to read this
 
 | Status | Meaning |
@@ -64,7 +84,9 @@ approved business workflow be completed?*
 | Three-layer control (entitled → enabled → authorized) | **DONE** | Rule 18, enforced in the DB writer |
 | Public sign-up + 30-day trial (0086) | **DONE** | |
 | Invitations + activation + branded email | **DONE** | Email delivery **BLOCKED** on A2 |
-| Seat doctrine (§24: owner free, BES staff free, portal users free) | **PENDING** | Not encoded anywhere yet |
+| Seat doctrine (§24) | **DONE** | 0127/0128 + phase 48 (20 probes). One definition read by the screen, the invite, the accept and the reactivation |
+| Membership lifecycle (deactivate / reactivate) | **DONE** | `archived_at` + `set_member_archived`. Never a delete, never a role change; attribution preserved, seat freed |
+| Over-capacity handling | **DONE** | A downgrade is never blocked and never removes access; the organization is flagged and new/reactivated seats are refused until resolved |
 
 ## 4. Canonical Clients
 

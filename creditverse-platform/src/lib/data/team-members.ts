@@ -21,6 +21,8 @@ export interface TeamMember {
   product: ProductKey | null;
   assignedOnly: boolean;
   since: string;
+  /** Deactivated: keeps every historical attribution, frees the seat (0127). */
+  archivedAt: string | null;
 }
 export interface PendingInvitation { id: string; email: string; role: OrgRole | null; invitedBy: string | null; expiresAt: string; createdAt: string; token: string }
 
@@ -28,13 +30,13 @@ export async function fetchTeamMembers(organizationId: string): Promise<TeamMemb
   const sb = requireSupabase();
   const { data, error } = await sb
     .from("org_memberships")
-    .select("id, user_id, role, product, assigned_only, created_at, profiles(full_name, email)")
+    .select("id, user_id, role, product, assigned_only, created_at, archived_at, profiles(full_name, email)")
     .eq("organization_id", organizationId)
     .order("created_at");
   if (error) throw error;
   return (data ?? []).map((m) => {
     const p = m.profiles as { full_name: string | null; email: string } | null;
-    return { membershipId: m.id, userId: m.user_id, name: p?.full_name?.trim() || p?.email || "Member", email: p?.email ?? "", role: m.role, product: m.product, assignedOnly: m.assigned_only, since: m.created_at };
+    return { membershipId: m.id, userId: m.user_id, name: p?.full_name?.trim() || p?.email || "Member", email: p?.email ?? "", role: m.role, product: m.product, assignedOnly: m.assigned_only, since: m.created_at, archivedAt: m.archived_at };
   });
 }
 

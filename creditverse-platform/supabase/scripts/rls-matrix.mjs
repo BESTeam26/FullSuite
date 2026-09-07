@@ -2266,6 +2266,20 @@ if (runs(48)) {
   /* The fixture organization has no owner_user_id, so the probes that test the
      owner rule set one — rolled back with everything else. */
   const WITH_OWNER = `update public.organizations set owner_user_id='${OWNER}' where id='${lakesideOrg}';`;
+  /* Seats are set in the SEED, which runs before `set local role
+     authenticated` — a browser has no write grant on subscriptions and must
+     not get one just so a probe can arrange its scenario. */
+  const COUNTED = `(select count(*) from public.org_memberships m
+      where m.organization_id='${lakesideOrg}' and m.archived_at is null
+        and m.user_id <> '${OWNER}'
+        and not exists (select 1 from public.agency_memberships am where am.user_id = m.user_id))`;
+  const seats = (expr, extra = "") => `${WITH_OWNER}
+    ${extra}
+    update public.organization_subscriptions set status='cancelled' where organization_id='${lakesideOrg}';
+    insert into public.organization_subscriptions (organization_id, plan_key, status, interval, price_cents, seats)
+      select '${lakesideOrg}', key, 'active', 'monthly', 0, ${expr} from public.plans order by position limit 1;`;
+  const ARCHIVE_AGENT = `update public.org_memberships set archived_at = now() where id='${AGENT_M}';`;
+
   /* A plan sized to EXACTLY the seats in use, so the organization is full but
      not over — which is the only state in which "archive one, invite one"
      proves anything. A one-seat plan on a five-member organization stays over
@@ -2280,6 +2294,9 @@ if (runs(48)) {
             and m.user_id <> '${OWNER}'
             and not exists (select 1 from public.agency_memberships am where am.user_id = m.user_id))
       from public.plans order by position limit 1;`;
+
+  const memberCount48 = q(`select count(*)::int as rows from public.org_memberships where organization_id='${lakesideOrg}'`)[0].rows;
+  const activeCount48 = q(`select count(*)::int as rows from public.org_memberships where organization_id='${lakesideOrg}' and archived_at is null`)[0].rows;
 
   const P48 = AGENT_M && OWNER_M ? [
     ["the owner is included, never billed",
@@ -2324,6 +2341,41 @@ if (runs(48)) {
       /* They hold no org_membership, so they cannot appear in the detail at
          all — which is the point: portal access is not a platform seat. */
       () => w48(OWNER, `select count(*)::int as rows from public.organization_seat_detail('${lakesideOrg}') d join public.clients c on c.portal_user_id = d.user_id where d.counts`), 0],
+    /* ---- the lifecycle cases, named by Dee 2026-09-07 ---- */
+
+    ["owner + N members on an N-seat plan is VALID, because the owner is excluded",
+      /* The plan is sized to exactly the counted members, and the owner is one
+         of the memberships — so this only passes if the owner is genuinely
+         outside the count. */
+      () => w48(OWNER, `select (over_capacity = false and seats_used = seats_included)::text as rows from public.organization_seat_summary('${lakesideOrg}')`, TINY), "true"],
+    ["one more active member than the plan allows is refused",
+      () => w48(OWNER, `select public.invite_team_member('${lakesideOrg}', 'seat.overflow@bes.test', 'credit_processor') as rows`, TINY), "ERR 22023"],
+    ["a GoHighLevel-only person changes nothing — they hold no membership here",
+      () => w48(OWNER, `select (public.organization_seat_usage('${lakesideOrg}') = (select count(*)::int from public.organization_seat_detail('${lakesideOrg}') d where d.counts))::text as rows`), "true"],
+    ["reactivation takes a seat back",
+      () => w48(OWNER, `create temp table _r on commit drop as select 1;
+        select public.set_member_archived('${AGENT_M}', true);
+        select public.set_member_archived('${AGENT_M}', false);
+        select counts::text as rows from public.organization_seat_detail('${lakesideOrg}') where user_id='${AGENT}'`), "true"],
+    ["…and is REFUSED when the plan is full",
+      /* The agent is archived in the seed and the plan sized to the REMAINING
+         members, so the house is full without them and restoring them would be
+         one too many. */
+      () => w48(OWNER, `select public.set_member_archived('${AGENT_M}', false) as rows`, seats(COUNTED, ARCHIVE_AGENT)), "ERR 22023"],
+    ["raising the plan's seats immediately raises what is available, rewriting no membership",
+      () => w48(OWNER, `select ((select seats_available from public.organization_seat_summary('${lakesideOrg}')) = 5
+                and (select count(*)::int from public.org_memberships where organization_id='${lakesideOrg}') = ${memberCount48})::text as rows`, seats(`${COUNTED} + 5`)), "true"],
+    ["lowering the plan below current usage does NOT delete or deactivate anybody",
+      () => w48(OWNER, `select (count(*) filter (where archived_at is null) = ${activeCount48})::text as rows from public.org_memberships where organization_id='${lakesideOrg}'`, seats("1")), "true"],
+    ["…it flags the organization over capacity instead",
+      () => w48(OWNER, `select over_capacity::text as rows from public.organization_seat_summary('${lakesideOrg}')`, seats("1")), "true"],
+    ["…and blocks new seats until it is resolved",
+      () => w48(OWNER, `select public.invite_team_member('${lakesideOrg}', 'seat.blocked@bes.test', 'credit_processor') as rows`, seats("1")), "ERR 22023"],
+    ["…and blocks reactivation too, without touching anyone already active",
+      () => w48(OWNER, `select public.set_member_archived('${AGENT_M}', false) as rows`, seats("1", ARCHIVE_AGENT)), "ERR 22023"],
+    ["a downgrade is never blocked by capacity — that decision is the customer's",
+      () => w48(OWNER, `select (public.choose_subscription_plan('${lakesideOrg}', (select key from public.plans order by position limit 1), 'monthly', 1) is not null)::text as rows`, TINY), "true"],
+
     ["a seat is a count, not a permission — archiving changes no entitlement",
       () => w48(OWNER, `select public.set_member_archived('${AGENT_M}', true); select public.org_entitled('${lakesideOrg}','creditOps')::text as rows`), q(`select public.org_entitled('${lakesideOrg}','creditOps') as rows`)[0].rows === true ? "true" : "false"],
   ] : [["(no Lakeside memberships to probe)", () => "skip", "skip"]];

@@ -122,13 +122,13 @@ export function TeamMembersSection({ organizationId, organizationName }: Props) 
         <div className="overflow-x-auto rounded-xl border border-border">
           <table className="w-full text-left text-xs">
             <thead className="bg-muted/50 text-[11px] uppercase tracking-wider text-muted-foreground">
-              <tr><th className="px-4 py-2 font-bold">Member</th><th className="px-4 py-2 font-bold">Role</th><th className="px-4 py-2 font-bold">Data visibility</th><th className="px-4 py-2 font-bold">Primary product</th><th className="px-4 py-2 font-bold">Since</th></tr>
+              <tr><th className="px-4 py-2 font-bold">Member</th><th className="px-4 py-2 font-bold">Role</th><th className="px-4 py-2 font-bold">Data visibility</th><th className="px-4 py-2 font-bold">Primary product</th><th className="px-4 py-2 font-bold">Since</th><th className="px-4 py-2 font-bold">Seat</th></tr>
             </thead>
             <tbody>
-              {team.isLoading && <tr><td colSpan={5} className="px-4 py-6 text-center text-muted-foreground"><Loader2 className="mr-1 inline h-4 w-4 animate-spin" /> Loading team…</td></tr>}
-              {!team.isLoading && rows.length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-muted-foreground">No team members match.</td></tr>}
+              {team.isLoading && <tr><td colSpan={6} className="px-4 py-6 text-center text-muted-foreground"><Loader2 className="mr-1 inline h-4 w-4 animate-spin" /> Loading team…</td></tr>}
+              {!team.isLoading && rows.length === 0 && <tr><td colSpan={6} className="px-4 py-6 text-center text-muted-foreground">No team members match.</td></tr>}
               {rows.map((m) => (
-                <tr key={m.membershipId} className="border-t border-border/60 hover:bg-muted/30">
+                <tr key={m.membershipId} className={`border-t border-border/60 hover:bg-muted/30 ${m.archivedAt ? "opacity-60" : ""}`}>
                   <td className="px-4 py-2">
                     <button type="button" onClick={() => setSelected(m.membershipId)} className="text-left font-semibold text-primary hover:underline">{m.name}</button>
                     <p className="text-[11px] text-muted-foreground">{m.email}{m.userId === auth.user?.id && " · you"}</p>
@@ -137,6 +137,31 @@ export function TeamMembersSection({ organizationId, organizationName }: Props) 
                   <td className="px-4 py-2 text-foreground">{m.role === "org_admin" || m.role === "org_manager" ? "Everything in the organization" : m.assignedOnly ? "Assigned records only" : "All records in their departments"}</td>
                   <td className="px-4 py-2 text-foreground">{m.product ? m.product : "—"}</td>
                   <td className="px-4 py-2 text-muted-foreground">{formatDate(m.since)}</td>
+                  {/* Deactivate, never delete: the seat is freed and every
+                      attribution this person has is kept (rule 4). The database
+                      refuses reactivation when the plan is full. */}
+                  <td className="px-4 py-2">
+                    {m.userId === auth.user?.id ? (
+                      <span className="text-[11px] text-muted-foreground">—</span>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={team.setActive.isPending}
+                        onClick={() => team.setActive.mutate(
+                          { membershipId: m.membershipId, active: !!m.archivedAt },
+                          { onError: (e) => setError(errorMessage(e, "That could not be changed.")) },
+                        )}
+                        className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60 ${
+                          m.archivedAt
+                            ? "border-border bg-muted text-muted-foreground hover:border-primary/40 hover:bg-primary/10 hover:text-foreground"
+                            : "border-emerald-600/30 bg-emerald-500/10 text-status-success hover:border-amber-600/40 hover:bg-amber-500/10 hover:text-status-warning"
+                        }`}
+                        title={m.archivedAt ? "Reactivate — takes a seat" : "Deactivate — frees the seat, keeps their history"}
+                      >
+                        {m.archivedAt ? "Deactivated" : "Active"}
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
