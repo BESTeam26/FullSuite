@@ -130,6 +130,8 @@ export function parseFrom(raw: string, fallbackName: string): { email: string; n
 }
 
 export interface SendResult {
+  /** What an operator should do about it, when the status makes that clear. */
+  hint?: string;
   ok: boolean;
   status: number;
   detail?: string;
@@ -175,5 +177,34 @@ export async function sendEmail(params: {
   const detail = await res.text().catch(() => "");
   /* The key itself is never logged — only the status and Resend's message. */
   console.error("resend error", res.status, detail.slice(0, 500));
-  return { ok: false, status: res.status, detail: detail.slice(0, 200) };
+  return { ok: false, status: res.status, detail: detail.slice(0, 200), hint: hintFor(res.status, detail) };
+}
+
+/**
+ * What the provider's refusal actually means, for whoever has to fix it.
+ *
+ * The raw body — `{"statusCode":401,"name":"validation_error","message":"API
+ * key is invalid"}` — is accurate and tells an operator nothing about what to
+ * do. These two statuses have completely different causes and completely
+ * different fixes, and confusing them wastes an afternoon: a 401 is the
+ * credential, a 403 is almost always the sending domain.
+ */
+function hintFor(status: number, detail: string): string | undefined {
+  const body = detail.toLowerCase();
+  if (status === 401 || body.includes("api key is invalid")) {
+    return (
+      "The email provider rejected the API key itself, so nothing about this message was the problem. " +
+      "Set a current Resend sending key: npx supabase secrets set MAIL_PROVIDER_API_KEY=re_… " +
+      "Check it has not been revoked, that it belongs to the same Resend account as the verified " +
+      "sending domain, and that no quotes or trailing spaces were included when it was set."
+    );
+  }
+  if (status === 403 || body.includes("domain") || body.includes("not verified")) {
+    return (
+      "The key worked but the sending address was refused — usually a domain that is not verified. " +
+      "Verify the domain in Resend → Domains, and make sure MAIL_FROM uses an address on it."
+    );
+  }
+  if (status === 429) return "The provider is rate-limiting. Wait and try again.";
+  return undefined;
 }

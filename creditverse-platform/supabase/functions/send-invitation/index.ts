@@ -94,7 +94,14 @@ Deno.serve(async (req) => {
   });
 
   if (!result.ok) {
-    return json(502, { error: `The email provider refused the message (${result.status}). ${result.detail ?? ""}`.trim() });
+    /* The hint first, because it is the part somebody can act on; the
+       provider's own words after it, because they are the evidence. */
+    return json(502, {
+      error: result.hint
+        ? `${result.hint} (Provider said ${result.status}: ${result.detail ?? ""})`.trim()
+        : `The email provider refused the message (${result.status}). ${result.detail ?? ""}`.trim(),
+      code: result.status === 401 ? "bad_api_key" : result.status === 403 ? "sender_not_verified" : "provider_refused",
+    });
   }
   return json(200, { sent: true });
 });

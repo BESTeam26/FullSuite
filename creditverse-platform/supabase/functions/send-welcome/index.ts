@@ -87,7 +87,12 @@ Deno.serve(async (req) => {
   });
 
   if (!result.ok) {
-    return json(502, { error: `The email provider refused the message (${result.status}). ${result.detail ?? ""}`.trim() });
+    return json(502, {
+      error: result.hint
+        ? `${result.hint} (Provider said ${result.status}: ${result.detail ?? ""})`.trim()
+        : `The email provider refused the message (${result.status}). ${result.detail ?? ""}`.trim(),
+      code: result.status === 401 ? "bad_api_key" : result.status === 403 ? "sender_not_verified" : "provider_refused",
+    });
   }
 
   /* Stamped with the service role: the mark belongs to the platform, not to
