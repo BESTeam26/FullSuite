@@ -24,26 +24,10 @@ interface TrackingEntry {
   location: string;
 }
 
-const INITIAL_TRACKING: TrackingEntry[] = [
-  {
-    id: "trk-1",
-    trackingNumber: "9405 5118 9956 4521 8830 47",
-    letterName: "Portfolio Recovery — Equifax",
-    bureau: "Equifax",
-    status: "delivered",
-    lastUpdate: "Aug 27, 2026 11:02 AM",
-    location: "Atlanta, GA 30374",
-  },
-  {
-    id: "trk-2",
-    trackingNumber: "9405 5118 9956 4521 8831 22",
-    letterName: "LVNV Funding — TransUnion",
-    bureau: "TransUnion",
-    status: "in-transit",
-    lastUpdate: "Aug 29, 2026 8:45 AM",
-    location: "Philadelphia, PA 19176",
-  },
-];
+/* Empty. This list used to open with two fabricated certified mailings —
+   real-looking tracking numbers, real bureau addresses, real dates — on EVERY
+   client. A colleague reading it would believe letters were in the post. */
+const INITIAL_TRACKING: TrackingEntry[] = [];
 
 const statusTone: Record<TrackingEntry["status"], string> = {
   pending: "bg-amber-500/10 text-status-warning",

@@ -58,25 +58,21 @@ export function FundingClientWorkWorkspace({ clientId, onBack }: Props) {
       : "",
   );
   const [isEditingDesc, setIsEditingDesc] = useState(false);
-  const [nextAction, setNextAction] = useState(
-    "Collect outstanding stipulations & submit to matched lender",
-  );
+  /* Empty. A next action nobody chose, shown on every file, is an instruction
+     somebody follows. This one is not stored either — the panel says so. */
+  const [nextAction, setNextAction] = useState("");
   const [workabilityBlocker, setWorkabilityBlocker] = useState<string | null>(
     null,
   );
   const [blockerInput, setBlockerInput] = useState("");
   const [showBlockerInput, setShowBlockerInput] = useState(false);
 
-  const [checklists, setChecklists] = useState([
-    { id: "fchk-1", text: "Business profile & EIN verified", done: true },
-    { id: "fchk-2", text: "Bank statements collected (3 months)", done: true },
-    {
-      id: "fchk-3",
-      text: "Funding readiness assessment complete",
-      done: false,
-    },
-    { id: "fchk-4", text: "Lender program shortlist prepared", done: false },
-  ]);
+  /* Empty. Four checklist items with two already ticked used to appear on
+     every funding file, including one created minutes earlier — claiming an
+     EIN had been verified and three months of bank statements collected. */
+  const [checklists, setChecklists] = useState<
+    { id: string; text: string; done: boolean }[]
+  >([]);
   const [newCheckitem, setNewCheckitem] = useState("");
 
   if (!client) {

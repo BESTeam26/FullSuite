@@ -27,32 +27,14 @@ const ADDITIONAL_LOGIN_OPTIONS = [
   "LexisNexis",
 ];
 
-/* Placeholder credentials for the sample screen. Real bureau logins must never
-   be literals in frontend code, and must not be stored in a plain column when
-   this is wired up — they belong in a secrets store (rule 1). */
-const DEFAULT_LOGINS: LoginEntry[] = [
-  {
-    id: "exp",
-    label: "Experian (Direct)",
-    isCustom: false,
-    username: "maria.g@email.com",
-    password: "sample-not-a-real-password",
-  },
-  {
-    id: "eqf",
-    label: "Equifax (Direct)",
-    isCustom: false,
-    username: "maria.g@email.com",
-    password: "sample-not-a-real-password",
-  },
-  {
-    id: "tun",
-    label: "TransUnion (Direct)",
-    isCustom: false,
-    username: "maria.g@email.com",
-    password: "sample-not-a-real-password",
-  },
-];
+/* Empty. This card used to open with a consumer's email address filled in as
+   the username on three bureau logins, on every client. Credentials never
+   belong in frontend code, and a pre-filled one is worse than none: somebody
+   reads it as this client's actual login.
+
+   When this is wired up the values belong in a secrets store, never in a plain
+   column (rule 1). */
+const DEFAULT_LOGINS: LoginEntry[] = [];
 
 export const AdditionalLoginsCard = () => {
   const { revealed, reveal } = usePasswordReveal();

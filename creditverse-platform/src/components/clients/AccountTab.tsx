@@ -46,7 +46,8 @@ const AccountTab = () => {
     "2055 Anthony Ave, Apt 5B, Hazleton, PA 18201",
   );
   const [showPrevAddress, setShowPrevAddress] = useState(true);
-  const [email, setEmail] = useState("maria.g@email.com");
+  /* Empty. A fabricated address used to be pre-filled on every client. */
+  const [email, setEmail] = useState("");
   const [emailTouched, setEmailTouched] = useState(false);
 
   const emailValid = isValidEmail(email);

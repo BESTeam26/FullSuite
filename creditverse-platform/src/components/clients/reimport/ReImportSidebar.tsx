@@ -57,7 +57,6 @@ export function ReImportSidebar() {
             <div className="flex items-center gap-2">
               <input
                 type="email"
-                defaultValue="maria.g@email.com"
                 className="w-full rounded-lg border border-border px-2 py-1.5 text-xs"
                 placeholder="customer@email.com"
               />
@@ -77,7 +76,6 @@ export function ReImportSidebar() {
             <div className="flex items-center gap-2">
               <input
                 type="tel"
-                defaultValue="+1 (678) 283-8554"
                 className="w-full rounded-lg border border-border px-2 py-1.5 text-xs"
                 placeholder="+1 (xxx) xxx-xxxx"
               />

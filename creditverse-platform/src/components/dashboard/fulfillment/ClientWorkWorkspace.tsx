@@ -14,7 +14,6 @@ import { clientGroupLabel } from "@/lib/fulfillment/fulfillment-client-domain";
 import { ClientWorkHeader } from "./ClientWorkHeader";
 import { ClientWorkAttachments } from "./ClientWorkAttachments";
 import {
-  DEFAULT_ATTACHMENTS,
   type AttachmentFile,
 } from "@/lib/fulfillment/attachment-domain";
 import { ClientWorkActivityTimeline } from "./ClientWorkActivityTimeline";
@@ -37,46 +36,39 @@ export function ClientWorkWorkspace({ clientId, onBack }: Props) {
   const access = useCreditOpsAccess();
 
   /**
-   * Sample text only, and deliberately free of personal data.
+   * ── A NEW CLIENT'S FILE IS EMPTY, AND SAYS SO ──────────────────────────
    *
-   * This field previously carried a hardcoded SSN, date of birth, home address
-   * and a consumer's plaintext portal password, shown for EVERY client. Rule 1:
-   * identifiers and credentials never live in frontend code. When this panel is
-   * backed by a real column, it must also never be the place a password is
-   * stored — those belong in a secrets store, not a free-text note.
+   * These four panels used to open with somebody else's case pre-filled: a
+   * note about "Round 4 responses received from two bureaus", a next action
+   * to file a CFPB complaint, three checklist items with two already ticked,
+   * and three documents — a driver's licence, a utility bill and a credit
+   * report — that do not exist.
+   *
+   * Shown on EVERY client, including one created minutes earlier. Dee found
+   * it exactly that way. The danger is not that it looks untidy: a colleague
+   * reading this file would believe identity documents were on file and that
+   * a round of disputes had been worked.
+   *
+   * None of these fields has a database column yet, so none of them persists.
+   * They start empty and each panel says plainly that it is not stored — an
+   * empty box a person can see is not yet saved is honest; a filled one that
+   * silently forgets is not (rule 12: never present sample data as real).
    */
-  const [description, setDescription] = useState(
-    `Sample note - not real client data.\n\n${client?.name ?? "Client"}\n${client?.email ?? "email@example.com"}\n\nRound 4 responses received from two bureaus. Reinvestigation results are inconsistent with the documents on file; preparing the next round.`,
-  );
+  const [description, setDescription] = useState("");
   const [isEditingDesc, setIsEditingDesc] = useState(false);
-  const [nextAction, setNextAction] = useState(
-    "Review Round 4 responses & prepare CFPB complaint",
-  );
+  const [nextAction, setNextAction] = useState("");
   const [workabilityBlocker, setWorkabilityBlocker] = useState<string | null>(
     null,
   );
 
-  const [checklists, setChecklists] = useState([
-    {
-      id: "chk-1",
-      text: "Verify Driver License address matches Proof of Residency",
-      done: true,
-    },
-    {
-      id: "chk-2",
-      text: "Confirm IdentityIQ monitoring logins active",
-      done: true,
-    },
-    {
-      id: "chk-3",
-      text: "File CFPB complaint for Collection Accounts",
-      done: false,
-    },
-  ]);
+  const [checklists, setChecklists] = useState<
+    { id: string; text: string; done: boolean }[]
+  >([]);
   const [newCheckitem, setNewCheckitem] = useState("");
 
-  const [attachments, setAttachments] =
-    useState<AttachmentFile[]>(DEFAULT_ATTACHMENTS);
+  /* Empty. The three sample documents that used to seed this list implied a
+     client's identity papers were on file when nothing had been uploaded. */
+  const [attachments, setAttachments] = useState<AttachmentFile[]>([]);
 
   // Clipboard paste listener for images — adds directly to the attachments
   // gallery. (The comment composer has its own paste handler for inline
@@ -203,9 +195,18 @@ export function ClientWorkWorkspace({ clientId, onBack }: Props) {
               />
             ) : (
               <div className="mt-3 whitespace-pre-wrap rounded-lg bg-muted/30 p-3 font-mono text-xs leading-relaxed text-foreground">
-                {description}
+                {description || (
+                  <span className="font-sans not-italic text-muted-foreground">
+                    Nothing recorded for this client yet.
+                  </span>
+                )}
               </div>
             )}
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              Not saved yet — this panel has no database column, so what is typed
+              here is lost on reload. Notes that must survive belong on the
+              client's activity timeline.
+            </p>
           </div>
 
           {/* Next Action */}
@@ -219,6 +220,7 @@ export function ClientWorkWorkspace({ clientId, onBack }: Props) {
               placeholder="What needs to happen next?"
               className="mt-2 w-full rounded-lg border border-border bg-background px-3 py-2 text-xs font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
             />
+            <p className="mt-1 text-[11px] text-muted-foreground">Not saved yet.</p>
           </div>
 
           {/* Department Progress — access controlled */}
@@ -239,10 +241,11 @@ export function ClientWorkWorkspace({ clientId, onBack }: Props) {
             </div>
             <button
               onClick={() => {
-                const b = prompt(
-                  "Reason for reporting blocker:",
-                  "Missing IdentityIQ password",
-                );
+                /* No suggested reason: a pre-filled blocker is how a made-up
+                   one gets recorded against a real client by somebody pressing
+                   OK. This one DOES persist — it writes to the activity
+                   timeline — so it must be typed. */
+                const b = prompt("Reason for reporting blocker:");
                 if (b) {
                   setWorkabilityBlocker(b);
                   store.addActivity({
@@ -265,6 +268,12 @@ export function ClientWorkWorkspace({ clientId, onBack }: Props) {
               <CheckSquare className="h-4 w-4 text-primary" /> Checklist (
               {checklists.filter((c) => c.done).length}/{checklists.length})
             </h3>
+            {checklists.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                No checklist yet. Add the steps this file needs — they are not
+                saved between visits.
+              </p>
+            )}
             <div className="space-y-1.5">
               {checklists.map((c) => (
                 <label

@@ -25,14 +25,19 @@ export const CreditMonitoringCard = ({ provider }: { provider: string }) => {
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <div>
           <Label className="text-xs text-muted-foreground">Login email</Label>
-          <Input defaultValue="maria.g29@email.com" className="mt-1" />
+          {/* Empty. A fabricated login email used to appear on every client. */}
+          <Input placeholder="Not recorded" className="mt-1" />
         </div>
         <div>
           <Label className="text-xs text-muted-foreground">Password</Label>
           <div className="mt-1 flex items-center gap-2">
             <KeyRound className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-sm font-medium">
-              {revealed["monitoring"] ? "Mfsn2026!" : "••••••••"}
+            {/* There is no password here, and there must never be one. A
+                plaintext credential in frontend code is readable by anyone
+                with the page open (rule 1); monitoring logins belong in a
+                secrets store when this is wired up. */}
+            <span className="text-sm font-medium text-muted-foreground">
+              {revealed["monitoring"] ? "Not stored" : "••••••••"}
             </span>
             <button
               onClick={() => reveal("monitoring")}
