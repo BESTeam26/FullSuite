@@ -274,9 +274,37 @@ approved business workflow be completed?*
 | **A7** | Real lender list with programs and last-verified policy | Program Fit against real criteria |
 | ~~A8~~ | ~~Confirm the provisional AI provider prices~~ **ANSWERED 2026-09-06** — use current official API pricing for the exact models used; provider cost and BES customer price stay separate. Read from Anthropic's published list and applied in 0114. Still needed from Dee: **set the $100/month spend cap in the Anthropic console** (only Dee can) | AI economics reporting |
 
+| **A10** | **Resend acceptable-use confirmation, in writing, for funding-offer, lender-outreach, affiliate and referral messaging.** Dee's competitor research raised this against *Sender*; BES does not use Sender (rule 19 — the name was a misheard "Resend", corrected 2026-09-06), so flagging Sender protects nothing. The concern itself is real and is redirected to the provider we actually use. A transactional endpoint does not create an exception to a content policy | Any funding, lender, affiliate or referral email. Transactional auth and app mail are unaffected |
+
 **These do not stop other work.** Each is recorded against its item above.
 
 ---
+
+## Competitor research (Dee, 2026-09-07) — reconciled, deltas awaiting approval
+
+Committed verbatim on receipt at `docs/research/BES_CRM_Research_and_Implementation_Framework.md`;
+reconciled against the actual repository at `docs/research/RESEARCH_RECONCILIATION_2026-09-07.md`.
+
+The research was written without sight of this repository and says so. Most of
+what it recommends is already built: 33 items reconcile as ALREADY IMPLEMENTED,
+6 as PARTIALLY IMPLEMENTED. Four recommendations conflict with locked doctrine
+and are rejected with reasons (Next.js; a reseller tenancy tier; a `tenants`
+table beside `organizations`; a monorepo restructure). One — the Sender
+anti-spam warning — does not apply, and is redirected to Resend as blocker A10.
+
+**Nine genuine gaps, recorded as PROPOSALS. None is approved work yet.**
+
+| # | Delta | Status | Note |
+|---|---|---|---|
+| R1 | Per-bureau report observations | **PROPOSAL — highest priority** | Same gap as `ENGINE_INVENTORY.md` §5, independently confirmed. Unblocks `BUREAU.VALUE_DIFFERS`, six cross-bureau conditions, and `detectConditions`, which has no product caller at all. Canonical-model change |
+| R2 | Transactional outbox | **PROPOSAL** | `ghl_events` is already a proper inbound ledger; the outbound half is not committed in the business transaction |
+| R3 | Document checksum, scan state, retention, legal hold | **PROPOSAL** | Dee's approved 7-year retention (2026-09-06) has nothing in the schema enforcing it |
+| R4 | Work-item `blocked_reason` + dependencies | **PROPOSAL** | No new statuses — one engine (rule 17) |
+| R5 | Comparison outcome vocabulary | **PROPOSAL** | "Bureau-confirmed deletion" and "no longer observed" currently collapse into one `deleted` count shown to clients |
+| R6 | Agreements, signatures, billing eligibility | **PROPOSAL** | CROA service-start and cancellation gating. Needs Dee's rules and counsel review — never AI-generated |
+| R7 | Offer revisions | **PROPOSAL** | Mirror `funding_applications`, which is already versioned |
+| R8 | Time-limited HQ support access grants | **PROPOSAL — highest risk** | Creates a new path to customer data; must be customer-granted, time-boxed and audited. Written proposal before any migration |
+| R9 | Metering beyond AI (postage, pages, storage) | **PROPOSAL** | Generalise the existing ledger; do not add a second one |
 
 ## Verification strategy (2026-09-07)
 
