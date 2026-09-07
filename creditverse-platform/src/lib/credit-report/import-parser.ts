@@ -43,6 +43,14 @@ export interface BureauValueInput {
   dofd?: string;
   payment_history?: string[];
   remarks?: string;
+  /* The six added by migration 0136. `responsibility_raw` keeps its suffix on
+     purpose: a consumer report prints a translated word, not an ECOA code. */
+  responsibility_raw?: string;
+  dispute_status?: string;
+  account_rating?: string;
+  creditor_type?: string;
+  payment_frequency?: string;
+  last_verified?: string;
   /** Where in the source this came from, so a finding can be checked by hand. */
   source_locator?: Record<string, unknown>;
   reporting_period?: string;

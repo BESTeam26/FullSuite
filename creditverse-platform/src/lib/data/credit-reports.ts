@@ -6,8 +6,7 @@
  */
 import { requireSupabase } from "@/lib/supabase/client";
 import type { Json } from "@/lib/supabase/database.types";
-import type { Bureau, RawReportItem } from "@/lib/credit-classification";
-import type { BureauRecord } from "@/lib/dispute/condition-detector";
+import type { Bureau, BureauValues, RawReportItem } from "@/lib/credit-classification";
 import type { ParsedReportItem } from "@/lib/credit-report/import-parser";
 
 export interface CreditReportSummary {
@@ -163,18 +162,18 @@ export async function createCreditReport(input: CreateCreditReportInput): Promis
  * `credit_reports` to `credit_report_visible`. Nothing here supplies an
  * organization id, so nothing here can forge one.
  */
-export async function fetchBureauValues(reportId: string): Promise<Record<string, BureauRecord[]>> {
+export async function fetchBureauValues(reportId: string): Promise<Record<string, BureauValues[]>> {
   const sb = requireSupabase();
   const { data, error } = await sb
     .from("report_item_bureau_values")
     .select(
-      "bureau, status, payment_status, account_type, account_number_masked, balance_cents, high_balance_cents, credit_limit_cents, past_due_cents, monthly_payment_cents, term_months, open_date, date_closed, date_last_payment, date_last_active, dofd, payment_history, remarks, report_items!inner(id, account_ref, report_id)",
+      "bureau, status, payment_status, account_type, account_number_masked, balance_cents, high_balance_cents, credit_limit_cents, past_due_cents, monthly_payment_cents, term_months, open_date, date_closed, date_last_payment, date_last_active, dofd, payment_history, remarks, responsibility_raw, dispute_status, account_rating, creditor_type, payment_frequency, last_verified, account_information_date, report_items!inner(id, account_ref, report_id)",
     )
     .eq("report_items.report_id", reportId)
     .limit(1000);
   if (error) throw error;
 
-  const out: Record<string, BureauRecord[]> = {};
+  const out: Record<string, BureauValues[]> = {};
   for (const row of data ?? []) {
     const parent = row.report_items as unknown as { account_ref: string } | null;
     if (!parent) continue;
@@ -198,6 +197,13 @@ export async function fetchBureauValues(reportId: string): Promise<Record<string
       dofd: row.dofd ?? undefined,
       paymentHistory: row.payment_history ?? undefined,
       remarks: row.remarks ?? undefined,
+      responsibilityRaw: row.responsibility_raw ?? undefined,
+      disputeStatus: row.dispute_status ?? undefined,
+      accountRating: row.account_rating ?? undefined,
+      creditorType: row.creditor_type ?? undefined,
+      paymentFrequency: row.payment_frequency ?? undefined,
+      lastVerified: row.last_verified ?? undefined,
+      accountInformationDate: row.account_information_date ?? undefined,
     });
   }
   return out;

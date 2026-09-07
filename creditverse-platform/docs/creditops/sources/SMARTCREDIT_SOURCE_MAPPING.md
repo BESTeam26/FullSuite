@@ -1,6 +1,10 @@
 # SmartCredit — source mapping and completeness contract
 
-**Specification only. No parser built, no schema changed.**
+**Mapper BUILT 2026-09-07.** `src/lib/credit-report/smartcredit-html-parser.ts`,
+against the synthetic fixture beside this file. The six missing tradeline
+fields exist as columns (migrations 0136 and 0137). The completeness manifest
+and reconciliation persistence (§5, §6) are still specification — the parser
+computes reconciliation and returns it; nothing stores it yet.
 Written 2026-09-07 from one sample supplied privately by Dee.
 
 > **The sample is not in this repository and never will be.** It is a real
@@ -147,14 +151,15 @@ Destination legend:
 | 15 | Date Reported | **canonical** | `account_information_date` — the provenance field CR-2 added |
 | 16 | Creditor Remarks | **canonical** | `remarks` |
 | 17 | Two-Year Payment History | **canonical, shape change needed** | `payment_history` — see §3 |
-| 18 | **Account Description** | **missing** | Responsibility-like (individual / joint / authorised user). **See the caution below.** |
-| 19 | **Dispute Status** | **missing** | Observed field. **See the caution below.** |
-| 20 | **Account Rating** | **missing** | The bureau's own rating token. Raw-only until its vocabulary is confirmed |
-| 21 | **Creditor Type** | **missing** | Furnisher category as the source classifies it. Raw-only |
-| 22 | **Payment Frequency** | **missing** | Monthly / weekly / as stated. Raw-only |
-| — | **Last Verified** | **missing** | A *second* date, distinct from Date Reported. Both must be kept; conflating them loses a comparability signal |
+| 18 | **Account Description** | **canonical (0136)** | `responsibility_raw` — the `_raw` suffix is a promise. **See the caution below.** |
+| 19 | **Dispute Status** | **canonical (0136)** | `dispute_status` — observed field. **See the caution below.** |
+| 20 | **Account Rating** | **canonical (0136)** | `account_rating` — raw-only; no rule reads it |
+| 21 | **Creditor Type** | **canonical (0136)** | `creditor_type` — raw-only |
+| 22 | **Payment Frequency** | **canonical (0136)** | `payment_frequency` — raw-only |
+| — | **Last Verified** | **canonical (0136)** | `last_verified` — a *second* date, deliberately not folded into `account_information_date` |
 
-**16 canonical · 1 canonical-with-shape-change · 6 missing.**
+**All 22 mapped.** 16 were canonical already; 6 were added by migration 0136;
+`payment_history` still carries its dates as an encoded `text[]` pending S-11.
 
 ### 2.1 Account Description is not an ECOA code
 

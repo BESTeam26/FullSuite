@@ -12,13 +12,17 @@
  * human decides (rule 9).
  */
 import { useRef, useState } from "react";
-import { AlertTriangle, CheckCircle2, FileText, Loader2, ScanText, Sparkles, Trash2, UploadCloud } from "lucide-react";
+import { AlertTriangle, CheckCircle2, FileText, Loader2, ScanText, Sparkles, Trash2, UploadCloud,
+  ChevronDown,
+  ChevronRight} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Bureau, ItemKind } from "@/lib/credit-classification";
 import { errorMessage } from "@/lib/data/error-message";
 import { useImportCreditReport } from "@/lib/data/use-credit-reports";
 import { extractPdfLines } from "@/lib/credit-report/pdf-text";
 import { PDF_PARSER_VERSION, parseCreditReportPdfText, type PdfCandidate } from "@/lib/credit-report/pdf-report-parser";
+import { accountHeading, describeAccountNumber } from "@/lib/credit-report/account-heading";
+import { BureauComparisonGrid } from "@/components/clients/BureauComparisonGrid";
 import {
   MAX_OCR_BYTES,
   OCR_PARSER_VERSION,
@@ -53,6 +57,8 @@ export function CreditReportPdfImport({ fulfillmentClientId, organizationId, out
   const [fileNames, setFileNames] = useState<string[]>([]);
   const [reading, setReading] = useState(false);
   const [rows, setRows] = useState<ReviewRow[] | null>(null);
+  /** Which account's bureau comparison is open. One at a time. */
+  const [expanded, setExpanded] = useState<string | null>(null);
   const [readSummary, setReadSummary] = useState<{ sections: string[]; total: number; consumed: number; pages: number } | null>(null);
   const [pulledAt, setPulledAt] = useState(() => new Date().toISOString().slice(0, 10));
   const [scores, setScores] = useState<ScoreInputs>(EMPTY_SCORE_INPUTS);
@@ -201,7 +207,7 @@ export function CreditReportPdfImport({ fulfillmentClientId, organizationId, out
     );
   };
 
-  const reset = () => { setRows(null); setFileNames([]); setProblem(null); setReadSummary(null); setScanned([]); setScanNotes([]); setCharge(null); };
+  const reset = () => { setExpanded(null); setRows(null); setFileNames([]); setProblem(null); setReadSummary(null); setScanned([]); setScanNotes([]); setCharge(null); };
 
   return (
     <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
@@ -279,8 +285,8 @@ export function CreditReportPdfImport({ fulfillmentClientId, organizationId, out
             <table className="w-full min-w-[54rem] text-left text-xs">
               <thead className="sticky top-0 bg-muted/60 text-[10px] uppercase tracking-wider text-muted-foreground backdrop-blur">
                 <tr>
-                  <th className="px-2 py-1.5">Import</th><th className="px-2 py-1.5">Item</th><th className="px-2 py-1.5">Kind</th><th className="px-2 py-1.5">Type</th>
-                  <th className="px-2 py-1.5">Status</th><th className="px-2 py-1.5">Balance</th><th className="px-2 py-1.5">Bureaus</th><th className="px-2 py-1.5">Read as</th>
+                  <th className="px-2 py-1.5">Import</th><th className="px-2 py-1.5">Account</th><th className="px-2 py-1.5">Kind</th><th className="px-2 py-1.5">Type</th>
+                  <th className="px-2 py-1.5">Status</th><th className="px-2 py-1.5">Balance</th><th className="px-2 py-1.5">Bureaus</th><th className="px-2 py-1.5">Review</th>
                 </tr>
               </thead>
               <tbody>
@@ -291,7 +297,31 @@ export function CreditReportPdfImport({ fulfillmentClientId, organizationId, out
                       <td className="px-2 py-1.5">
                         <input type="checkbox" checked={r.include} onChange={(e) => update(r.id, { include: e.target.checked })} aria-label={`Import ${r.name}`} className="h-3.5 w-3.5 accent-primary" />
                       </td>
-                      <td className="px-2 py-1.5 min-w-[12rem]"><input value={r.name} onChange={(e) => update(r.id, { name: e.target.value })} className={cell} aria-label="Item name" /></td>
+                      <td className="px-2 py-1.5 min-w-[14rem]">
+                        <div className="flex items-start gap-1.5">
+                          {r.bureauValues && r.bureauValues.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setExpanded((prev) => (prev === r.id ? null : r.id))}
+                              aria-expanded={expanded === r.id}
+                              aria-label={expanded === r.id ? `Hide bureau detail for ${r.name}` : `Show bureau detail for ${r.name}`}
+                              className="mt-1 rounded text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                            >
+                              {expanded === r.id ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                            </button>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <input value={r.name} onChange={(e) => update(r.id, { name: e.target.value })} className={cell} aria-label="Account name" />
+                            {/* The masked number, as the source gave it. Never a
+                                master number, and never reconstructed. */}
+                            <p className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground">
+                              {describeAccountNumber(
+                                (r.bureauValues ?? []).map((v) => ({ bureau: v.bureau as Bureau, masked: v.account_number_masked })),
+                              ).text}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
                       <td className="px-2 py-1.5">
                         <select value={r.kind} onChange={(e) => update(r.id, { kind: e.target.value as ItemKind })} className={cell} aria-label="Kind">
                           {KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
@@ -326,16 +356,32 @@ export function CreditReportPdfImport({ fulfillmentClientId, organizationId, out
                     </tr>
                   );
                 })}
+                {rows.map((r) =>
+                  expanded === r.id && r.bureauValues && r.bureauValues.length > 0 ? (
+                    <tr key={`${r.id}-detail`} className="bg-muted/20">
+                      <td colSpan={8} className="px-3 py-3">
+                        <p className="mb-2 text-xs font-bold text-foreground">
+                          {accountHeading(r.name, r.bureauValues.map((v) => ({ bureau: v.bureau as Bureau, masked: v.account_number_masked })))}
+                        </p>
+                        <BureauComparisonGrid values={r.bureauValues} sourceColumns={r.sourceColumns} />
+                      </td>
+                    </tr>
+                  ) : null,
+                )}
               </tbody>
             </table>
           </div>
-          <p className="text-[11px] text-muted-foreground">Hover a row to see the lines it was read from. Rows shaded red are missing a name, a status, a bureau, or have a balance that is not an amount.</p>
+          <p className="text-[11px] text-muted-foreground">
+            One row per account. Expand an account to see what each bureau reported, field by field.
+            {reviewCount > 0 && <> <span className="font-semibold text-foreground">{reviewCount} account{reviewCount === 1 ? "" : "s"} need a look</span> before import.</>}
+            {" "}Rows shaded red are missing a name, a status, a bureau, or have a balance that is not an amount.
+          </p>
 
           <ReportMetaFields pulledAt={pulledAt} onPulledAt={setPulledAt} scores={scores} onScores={setScores} model={model} onModel={setModel} />
 
           <div className="flex flex-wrap items-center gap-2">
             <Button type="button" size="sm" onClick={runImport} disabled={importMutation.isPending || hasInvalidScore(scores) || blocking.length > 0 || included.length === 0}>
-              {importMutation.isPending ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : null} Import {included.length} item{included.length === 1 ? "" : "s"}
+              {importMutation.isPending ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : null} Import {included.length} account{included.length === 1 ? "" : "s"}
             </Button>
             <Button type="button" size="sm" variant="ghost" onClick={reset} disabled={importMutation.isPending}>
               <Trash2 className="mr-1 h-3.5 w-3.5" /> Discard

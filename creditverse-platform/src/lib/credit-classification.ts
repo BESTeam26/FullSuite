@@ -80,6 +80,14 @@ export interface BureauValues {
   dofd?: string;
   paymentHistory?: (string | null)[];
   remarks?: string;
+  /* Added by migration 0136. See `report_item_bureau_values` comments. */
+  responsibilityRaw?: string;
+  disputeStatus?: string;
+  accountRating?: string;
+  creditorType?: string;
+  paymentFrequency?: string;
+  lastVerified?: string;
+  accountInformationDate?: string;
 }
 
 export interface ClassifiedItem extends RawReportItem {

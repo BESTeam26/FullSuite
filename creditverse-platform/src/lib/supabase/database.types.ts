@@ -6595,27 +6595,33 @@ export type Database = {
         Row: {
           account_information_date: string | null
           account_number_masked: string | null
+          account_rating: string | null
           account_type: string | null
           balance_cents: number | null
           bureau: string
           created_at: string
           credit_limit_cents: number | null
+          creditor_type: string | null
           date_closed: string | null
           date_last_active: string | null
           date_last_payment: string | null
+          dispute_status: string | null
           dofd: string | null
           high_balance_cents: number | null
           id: string
+          last_verified: string | null
           monthly_payment_cents: number | null
           open_date: string | null
           parser_version: string
           past_due_cents: number | null
+          payment_frequency: string | null
           payment_history: string[] | null
           payment_status: string | null
           raw_metro2_verified: boolean
           remarks: string | null
           report_item_id: string
           reporting_period: string | null
+          responsibility_raw: string | null
           source_locator: Json | null
           source_type: string
           status: string | null
@@ -6624,27 +6630,33 @@ export type Database = {
         Insert: {
           account_information_date?: string | null
           account_number_masked?: string | null
+          account_rating?: string | null
           account_type?: string | null
           balance_cents?: number | null
           bureau: string
           created_at?: string
           credit_limit_cents?: number | null
+          creditor_type?: string | null
           date_closed?: string | null
           date_last_active?: string | null
           date_last_payment?: string | null
+          dispute_status?: string | null
           dofd?: string | null
           high_balance_cents?: number | null
           id?: string
+          last_verified?: string | null
           monthly_payment_cents?: number | null
           open_date?: string | null
           parser_version: string
           past_due_cents?: number | null
+          payment_frequency?: string | null
           payment_history?: string[] | null
           payment_status?: string | null
           raw_metro2_verified?: boolean
           remarks?: string | null
           report_item_id: string
           reporting_period?: string | null
+          responsibility_raw?: string | null
           source_locator?: Json | null
           source_type?: string
           status?: string | null
@@ -6653,27 +6665,33 @@ export type Database = {
         Update: {
           account_information_date?: string | null
           account_number_masked?: string | null
+          account_rating?: string | null
           account_type?: string | null
           balance_cents?: number | null
           bureau?: string
           created_at?: string
           credit_limit_cents?: number | null
+          creditor_type?: string | null
           date_closed?: string | null
           date_last_active?: string | null
           date_last_payment?: string | null
+          dispute_status?: string | null
           dofd?: string | null
           high_balance_cents?: number | null
           id?: string
+          last_verified?: string | null
           monthly_payment_cents?: number | null
           open_date?: string | null
           parser_version?: string
           past_due_cents?: number | null
+          payment_frequency?: string | null
           payment_history?: string[] | null
           payment_status?: string | null
           raw_metro2_verified?: boolean
           remarks?: string | null
           report_item_id?: string
           reporting_period?: string | null
+          responsibility_raw?: string | null
           source_locator?: Json | null
           source_type?: string
           status?: string | null

@@ -2672,6 +2672,22 @@ if (runs(52)) {
 
     ["nothing was backfilled onto historical reports",
       () => q(`select ((select count(*) from public.report_item_bureau_values) = 0 and (select count(*) from public.report_items where source_columns is not null) = 0)::text as rows`)[0].rows, "true"],
+
+    /* 0136/0137 — six fields the source exposes. Additive columns on the CR-2
+       table: the point of probing them is that they inherited its
+       authorization and its append-only behaviour unchanged. */
+    ["the six fields 0136 added are written and read back by the owner",
+      () => probe52(OWNER52, `select public.create_credit_report('${lakesideOrg}', null, '${T.lakeside_client}', null, array['EQ'], current_date, 'manual_upload', null, 'probe-137', '[{"kind":"Account","name":"Six Fields","status":"Open","bureaus":["EQ"],"account_ref":"six fields","bureau_values":[{"bureau":"EQ","responsibility_raw":"Individual","dispute_status":"Account not disputed","account_rating":"Paid as agreed","creditor_type":"Bank","payment_frequency":"Monthly","last_verified":"03/2026"}]}]'::jsonb, null); select (v.responsibility_raw || '|' || v.dispute_status || '|' || v.account_rating || '|' || v.creditor_type || '|' || v.payment_frequency || '|' || v.last_verified) as rows from public.report_item_bureau_values v join public.report_items i on i.id=v.report_item_id where i.account_ref='six fields'`),
+      "Individual|Account not disputed|Paid as agreed|Bank|Monthly|03/2026"],
+
+    ["…and are invisible to an unrelated organization, like every other column",
+      () => probe52(OWNER52, `select public.create_credit_report('${lakesideOrg}', null, '${T.lakeside_client}', null, array['EQ'], current_date, 'manual_upload', null, 'probe-137', '[{"kind":"Account","name":"Six Fields","status":"Open","bureaus":["EQ"],"account_ref":"six fields","bureau_values":[{"bureau":"EQ","dispute_status":"Account disputed"}]}]'::jsonb, null); set local request.jwt.claims = '{"sub":"${OTHER52}","role":"authenticated"}'; select count(*)::int as rows from public.report_item_bureau_values where dispute_status is not null`), 0],
+
+    ["…and are append-only, like every other column",
+      () => probe52(OWNER52, `select public.create_credit_report('${lakesideOrg}', null, '${T.lakeside_client}', null, array['EQ'], current_date, 'manual_upload', null, 'probe-137', '[{"kind":"Account","name":"Six Fields","status":"Open","bureaus":["EQ"],"account_ref":"six fields","bureau_values":[{"bureau":"EQ","last_verified":"03/2026"}]}]'::jsonb, null); update public.report_item_bureau_values set last_verified='01/1900'; select 0 as rows`), "ERR 42501"],
+
+    ["a bureau value with no per-bureau fields writes no row at all",
+      () => probe52(OWNER52, `select public.create_credit_report('${lakesideOrg}', null, '${T.lakeside_client}', null, array['EQ'], current_date, 'manual_upload', null, 'probe-137', '[{"kind":"Account","name":"Bare","status":"Open","bureaus":["EQ"],"account_ref":"bare","bureau_values":[]}]'::jsonb, null); select count(*)::int as rows from public.report_item_bureau_values v join public.report_items i on i.id=v.report_item_id where i.account_ref='bare'`), 0],
   ] : [["(no Lakeside client to probe)", () => "skip", "skip"]];
   runPhase("phase 52", P52, { strict: true });
 }
