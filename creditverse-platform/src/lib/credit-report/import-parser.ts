@@ -19,6 +19,36 @@ export const OPTIONAL_COLUMNS = ["subtype", "balance", "credit_limit", "dofd", "
 const KINDS: readonly ItemKind[] = ["Account", "Inquiry", "Personal", "Public Record"];
 const BUREAUS: readonly Bureau[] = ["EQ", "EX", "TU"];
 
+/**
+ * What ONE bureau said about ONE item, where the source's own header proved
+ * the attribution (CR-2). Column names match `report_item_bureau_values`, so
+ * the writer needs no translation layer.
+ */
+export interface BureauValueInput {
+  bureau: string;
+  status?: string;
+  payment_status?: string;
+  account_type?: string;
+  account_number_masked?: string;
+  balance_cents?: number;
+  high_balance_cents?: number;
+  credit_limit_cents?: number;
+  past_due_cents?: number;
+  monthly_payment_cents?: number;
+  term_months?: number;
+  open_date?: string;
+  date_closed?: string;
+  date_last_payment?: string;
+  date_last_active?: string;
+  dofd?: string;
+  payment_history?: string[];
+  remarks?: string;
+  /** Where in the source this came from, so a finding can be checked by hand. */
+  source_locator?: Record<string, unknown>;
+  reporting_period?: string;
+  account_information_date?: string;
+}
+
 export interface ParsedReportItem extends RawReportItem {
   /** Stable handle for matching the same tradeline across imports. */
   accountRef: string;
@@ -28,6 +58,18 @@ export interface ParsedReportItem extends RawReportItem {
    * is why utilization is left uncomputed rather than assumed.
    */
   creditLimitCents: number | null;
+  /**
+   * Per-bureau values, ONLY where the source header proved which column
+   * belongs to which bureau. Absent is the ordinary case and stays UNKNOWN —
+   * never reconstructed from column position.
+   */
+  bureauValues?: BureauValueInput[];
+  /**
+   * Multi-column values the header could NOT resolve, preserved verbatim as
+   * `field -> [values in source order]`. The figures survive; nobody's name is
+   * attached to them.
+   */
+  sourceColumns?: Record<string, string[]>;
 }
 
 export interface ParseFailure {

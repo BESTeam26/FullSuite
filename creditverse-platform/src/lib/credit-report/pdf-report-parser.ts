@@ -13,7 +13,8 @@
  * `parser_version = pdf-text-1`. Extraction is data entry, not a decision.
  */
 import type { Bureau, ItemKind } from "@/lib/credit-classification";
-import { normalizeAccountRef, parseBalanceCents, type ParsedReportItem } from "./import-parser";
+import { normalizeAccountRef, parseBalanceCents, type BureauValueInput, type ParsedReportItem } from "./import-parser";
+import { attributeColumns } from "./column-attribution";
 import type { ScoreRow } from "./report-scores";
 
 export const PDF_PARSER_VERSION = "pdf-text-1";
@@ -119,6 +120,24 @@ function bureausIn(text: string): Bureau[] {
   return out;
 }
 
+/**
+ * Bureaus named in the text, IN THE ORDER THE TEXT NAMES THEM.
+ *
+ * `bureausIn` walks BUREAU_WORDS, so it always answers EQ, EX, TU regardless
+ * of what the header said — fine for "who reports this account", useless for
+ * "which column is whose". Attribution needs the header's own order, and
+ * reading it from a fixed list instead is how a TransUnion figure ends up
+ * labelled Equifax.
+ */
+export function bureausInOrder(text: string): Bureau[] {
+  const found: { at: number; bureau: Bureau }[] = [];
+  for (const [re, bureau] of BUREAU_WORDS) {
+    const m = new RegExp(re.source, re.flags.replace("g", "")).exec(text);
+    if (m) found.push({ at: m.index, bureau });
+  }
+  return found.sort((a, b) => a.at - b.at).map((f) => f.bureau);
+}
+
 function matchLabel(line: string): { field: Field; value: string } | null {
   /* Internal spacing is kept: two or more spaces separate one bureau column
      from the next in tri-merge layouts, and firstColumn() relies on them. */
@@ -132,12 +151,20 @@ function matchLabel(line: string): { field: Field; value: string } | null {
   return null;
 }
 
-/** "$500  $500  $520" (one column per bureau) → "$500", flagged when the columns differ. */
-function firstColumn(value: string): { value: string; differs: boolean } {
+/**
+ * "$500  $500  $520" (one column per bureau) → "$500", flagged when the
+ * columns differ — AND the columns themselves, kept rather than discarded.
+ *
+ * CR-2: this function used to return `columns[0]` and throw the rest away, so
+ * the platform knew the bureaus disagreed and could not say what any of them
+ * said. `columns` is now returned so attribution can be attempted against the
+ * header, and so the raw values survive even when it cannot be.
+ */
+function firstColumn(value: string): { value: string; differs: boolean; columns: string[] } {
   const columns = value.split(/\s{2,}|\s\|\s|\t/).map((c) => c.trim()).filter(Boolean);
-  if (columns.length <= 1) return { value: value.trim(), differs: false };
+  if (columns.length <= 1) return { value: value.trim(), differs: false, columns };
   const distinct = new Set(columns.map((c) => c.toLowerCase()));
-  return { value: columns[0], differs: distinct.size > 1 };
+  return { value: columns[0], differs: distinct.size > 1, columns };
 }
 
 /**
@@ -217,7 +244,7 @@ function detectModel(lines: string[]): string {
 interface Block {
   title: string;
   lines: string[];
-  fields: Partial<Record<Field, { value: string; differs: boolean }>>;
+  fields: Partial<Record<Field, { value: string; differs: boolean; columns: string[] }>>;
   section: Section;
 }
 
@@ -275,6 +302,80 @@ function blockBureaus(block: Block, documentBureaus: Bureau[]): Bureau[] {
   return documentBureaus;
 }
 
+/**
+ * The bureaus this block's OWN header names, in the order it names them.
+ *
+ * Deliberately different from `blockBureaus`, which falls back to the
+ * document's bureau list. That fallback is right for "who reports this
+ * account" and fatal for attribution: a document-level list has no order the
+ * source vouched for, so using it here would attribute by position while
+ * appearing not to.
+ */
+function headerBureausInOrder(block: Block): Bureau[] {
+  if (block.fields.bureau?.value) {
+    const named = bureausInOrder(block.fields.bureau.value);
+    if (named.length > 0) return named;
+  }
+  for (const line of block.lines) {
+    if (/^(reported by|bureau|source)\b/i.test(norm(line))) {
+      const named = bureausInOrder(line);
+      if (named.length > 0) return named;
+    }
+  }
+  return [];
+}
+
+/* Parser field → `report_item_bureau_values` column. Fields absent from this
+   map are not per-bureau facts (creditor, court, reference) and are skipped
+   rather than guessed at. */
+const BUREAU_FIELD_COLUMN: Partial<Record<Field, keyof BureauValueInput>> = {
+  status: "status",
+  payStatus: "payment_status",
+  type: "account_type",
+  accountNumber: "account_number_masked",
+  balance: "balance_cents",
+  highBalance: "high_balance_cents",
+  limit: "credit_limit_cents",
+  pastDue: "past_due_cents",
+  payment: "monthly_payment_cents",
+  term: "term_months",
+  opened: "open_date",
+  closed: "date_closed",
+  lastReported: "date_last_active",
+  dofd: "dofd",
+  remarks: "remarks",
+};
+
+const MONEY_COLUMNS = new Set<keyof BureauValueInput>([
+  "balance_cents", "high_balance_cents", "credit_limit_cents",
+  "past_due_cents", "monthly_payment_cents",
+]);
+
+/**
+ * Turn one bureau's attributed columns into the row the writer stores.
+ *
+ * Money is parsed to cents and DROPPED when unreadable rather than stored as
+ * zero: a figure we could not read is not a figure of nothing. Dates keep the
+ * source's own text — normalising them here would lose what the report said.
+ */
+function toBureauValue(bureau: Bureau, fields: Record<string, string>): BureauValueInput {
+  const row: BureauValueInput = { bureau };
+  for (const [field, raw] of Object.entries(fields)) {
+    const column = BUREAU_FIELD_COLUMN[field as Field];
+    if (!column || !raw.trim()) continue;
+    if (MONEY_COLUMNS.has(column)) {
+      const cents = parseBalanceCents(raw.match(AMOUNT_RE)?.[0] ?? raw);
+      if (!Number.isNaN(cents)) (row[column] as number) = cents;
+    } else if (column === "term_months") {
+      const months = Number.parseInt(raw.replace(/[^0-9]/g, ""), 10);
+      if (Number.isFinite(months)) row.term_months = months;
+    } else {
+      (row[column] as string) = norm(raw);
+    }
+  }
+  return row;
+}
+
 let counter = 0;
 const nextId = () => `pdf-${++counter}`;
 
@@ -301,6 +402,14 @@ function accountCandidate(block: Block, documentBureaus: Bureau[]): PdfCandidate
   const tail = block.fields.accountNumber?.value.replace(/\D/g, "").slice(-4);
   const differs = Object.values(block.fields).some((f) => f?.differs);
   const confidence: Confidence = normalized && (balance || opened) && !differs ? "high" : "review";
+
+  /* CR-2. Attribution decided by the block's own header, per field. What it
+     cannot resolve is preserved rather than summarised away. */
+  const attribution = attributeColumns(block.fields, headerBureausInOrder(block));
+  const bureauValues = [...attribution.attributed.entries()]
+    .map(([bureau, fields]) => toBureauValue(bureau, fields))
+    .filter((row) => Object.keys(row).length > 1);
+  const unattributedCount = Object.keys(attribution.unattributed).length;
   return {
     id: nextId(),
     name: name === name.toUpperCase() ? titleCase(name) : name,
@@ -314,7 +423,18 @@ function accountCandidate(block: Block, documentBureaus: Bureau[]): PdfCandidate
     creditLimitCents: Number.isNaN(limitCents) ? null : limitCents,
     dofd,
     openDate: opened,
-    remarks: differs ? [remarks, "Bureau columns differ — check each bureau's figure."].filter(Boolean).join(" · ") : remarks,
+    /* The remark says which of the two things happened, because "columns
+       differ" alone left a reviewer with no idea whether the figures survived. */
+    remarks: differs
+      ? [
+          remarks,
+          bureauValues.length > 0
+            ? "Bureau columns differ; each bureau's value is recorded separately."
+            : "Bureau columns differ and the header did not say which column is whose — the values are preserved unattributed.",
+        ].filter(Boolean).join(" · ")
+      : remarks,
+    bureauValues: bureauValues.length > 0 ? bureauValues : undefined,
+    sourceColumns: unattributedCount > 0 ? attribution.unattributed : undefined,
     accountRef: `${normalizeAccountRef(name, subtype)}${tail ? ` ${tail}` : ""}`,
     confidence,
     evidence: block.lines.map(norm),

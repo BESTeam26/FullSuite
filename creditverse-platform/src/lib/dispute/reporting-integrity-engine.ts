@@ -9,7 +9,7 @@
  * issue does not entitle anyone to whole-account deletion. Establish the fact,
  * identify the duty and the party, choose the remedy the law supports.
  */
-import type { RawReportItem } from "@/lib/credit-classification";
+import type { BureauValues, RawReportItem } from "@/lib/credit-classification";
 import { INTEGRITY_RULES, RULES_CATALOGUE_VERSION, ruleById, type FindingClassification, type IntegrityRule } from "./reporting-integrity-rules";
 
 export interface SnapshotItem extends RawReportItem { accountRef: string }
@@ -81,6 +81,49 @@ function finding(rule: IntegrityRule, item: RawReportItem & { accountRef: string
   };
 }
 
+/**
+ * The fields this engine compares between bureaus, and the label a reviewer
+ * reads. Exactly the four `BUREAU.VALUE_DIFFERS` declares — widening the list
+ * would widen the rule without widening its authorities.
+ */
+const CROSS_BUREAU_FIELDS: { key: keyof BureauValues; rule: string; label: string }[] = [
+  { key: "balance", rule: "balance", label: "Balance" },
+  { key: "status", rule: "status", label: "Status" },
+  { key: "dofd", rule: "dofd", label: "Date of first delinquency" },
+  { key: "openDate", rule: "open_date", label: "Date opened" },
+];
+
+/**
+ * What each bureau said about one field, where two or more of them said
+ * something and they did not agree.
+ *
+ * Fed ONLY by `item.records`, which exists only where the source's own header
+ * proved the attribution (CR-2). It is never derived from `item.bureaus` —
+ * three bureau names on an item say who reports the account, not what any of
+ * them reported, and a comparison built from that would be an invention.
+ */
+export function crossBureauDifferences(
+  records: BureauValues[] | undefined,
+): { field: string; label: string; byBureau: Record<string, string> }[] {
+  if (!records || records.length < 2) return [];
+  const out: { field: string; label: string; byBureau: Record<string, string> }[] = [];
+  for (const { key, rule, label } of CROSS_BUREAU_FIELDS) {
+    const said: Record<string, string> = {};
+    for (const r of records) {
+      const v = r[key];
+      if (v === undefined || v === null || v === "") continue;
+      said[r.bureau] = typeof v === "number" ? v.toFixed(2) : String(v).trim();
+    }
+    /* Two bureaus must have SAID something. One value plus two silences is not
+       a disagreement — it is one bureau reporting and two not. */
+    const values = Object.values(said);
+    if (values.length < 2) continue;
+    if (new Set(values.map((v) => v.toLowerCase())).size < 2) continue;
+    out.push({ field: rule, label, byBureau: said });
+  }
+  return out;
+}
+
 /** Rules that read one item as reported today. */
 export function evaluateItem(item: SnapshotItem): IntegrityFinding[] {
   if (item.kind !== "Account") return [];
@@ -106,6 +149,17 @@ export function evaluateItem(item: SnapshotItem): IntegrityFinding[] {
   }
   if (item.bureaus.length > 0 && item.bureaus.length < 3) {
     out.push(finding(ruleById("BUREAU.MISSING_ON_ONE")!, item, `Reported by ${item.bureaus.join(", ")} only. Absence at another bureau is not proof this bureau cannot verify it.`, { bureaus: item.bureaus }));
+  }
+
+  /* CR-2. Reachable at last, and only from attributed values. */
+  for (const diff of crossBureauDifferences(item.records)) {
+    const said = Object.entries(diff.byBureau).map(([b, v]) => `${b}: ${v}`).join(", ");
+    out.push(finding(
+      ruleById("BUREAU.VALUE_DIFFERS")!,
+      item,
+      `${diff.label} is reported differently — ${said}. A difference is a question about which figure is current, not proof that any of them is wrong.`,
+      { field: diff.field, by_bureau: diff.byBureau },
+    ));
   }
   return out;
 }

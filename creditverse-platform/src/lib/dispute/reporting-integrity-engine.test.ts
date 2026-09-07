@@ -118,6 +118,14 @@ describe("every catalogued rule is either reachable or declared unreachable", ()
       ...evaluateItem(item({ status: "Current", balance: "$0", dofd: "01/2023" })),
       ...evaluateItem(item({ status: "Current", balance: "$0", remarks: "30 days late 03/2024" })),
       ...evaluateItem(item({ status: "Open", bureaus: ["EQ"] })),
+      /* CR-2: reachable from attributed per-bureau values, and only from those. */
+      ...evaluateItem(item({
+        bureaus: ["EQ", "TU"],
+        records: [
+          { bureau: "EQ", balance: 1400 },
+          { bureau: "TU", balance: 0 },
+        ],
+      })),
       ...evaluateChronology([
         { reportId: "r1", pulledAt: "2025-01-01", items: [item({ dofd: "01/2020" })] },
         { reportId: "r2", pulledAt: "2025-06-01", items: [] },
@@ -149,14 +157,98 @@ describe("every catalogued rule is either reachable or declared unreachable", ()
     expect([...claimed, ...blocked].sort()).toEqual(INTEGRITY_RULES.map((r) => r.id).sort());
   });
 
-  it("still records BUREAU.VALUE_DIFFERS as blocked rather than quietly dropping it", () => {
-    /* Deleting the rule would lose its authorities and the fact that we know
-       the gap exists. It stays catalogued, and stays honest. */
-    expect(RULES_NOT_YET_EVALUABLE.map((r) => r.id)).toContain("BUREAU.VALUE_DIFFERS");
+  /* CR-2 unblocked BUREAU.VALUE_DIFFERS. Nothing else was unblocked with it,
+     and nothing should be: a rule leaves this list only when a migration
+     genuinely gives it data. */
+  it("has no rules left blocked, and any future one must say why", () => {
+    for (const r of RULES_NOT_YET_EVALUABLE) expect(r.blockedBy.length).toBeGreaterThan(20);
+    expect(RULES_NOT_YET_EVALUABLE.map((r) => r.id)).not.toContain("BUREAU.VALUE_DIFFERS");
   });
+});
 
-  it("never fabricates a cross-bureau finding from one value and a list of bureau names", () => {
+/**
+ * CR-2. The rule this migration existed for, and the fences around it.
+ * A difference between bureaus is a question about which figure is current.
+ * It is not proof that any of them is wrong, and it is never derived from a
+ * list of bureau names.
+ */
+describe("cross-bureau differences, from attributed values only", () => {
+  const twoBureaus = (over: Partial<SnapshotItem> = {}) =>
+    item({ bureaus: ["EQ", "TU"], status: "Open", ...over });
+
+  it("never fabricates a finding from one value and a list of bureau names", () => {
     const out = evaluateItem(item({ status: "Charge-Off", balance: "$900", bureaus: ["EQ", "EX", "TU"] }));
     expect(out.some((f) => f.ruleId === "BUREAU.VALUE_DIFFERS")).toBe(false);
+  });
+
+  it("fires when two bureaus report different balances", () => {
+    const out = evaluateItem(twoBureaus({
+      records: [{ bureau: "EQ", balance: 1400 }, { bureau: "TU", balance: 0 }],
+    }));
+    const f = out.find((x) => x.ruleId === "BUREAU.VALUE_DIFFERS")!;
+    expect(f).toBeDefined();
+    expect(f.observation).toMatch(/EQ: 1400\.00/);
+    expect(f.observation).toMatch(/TU: 0\.00/);
+    expect(f.evidence).toMatchObject({ field: "balance" });
+  });
+
+  it("stays at observation level — never a violation, never unverifiable, never a dispute route", () => {
+    const f = evaluateItem(twoBureaus({
+      records: [{ bureau: "EQ", balance: 1400 }, { bureau: "TU", balance: 0 }],
+    })).find((x) => x.ruleId === "BUREAU.VALUE_DIFFERS")!;
+    expect(f.classification).toBe("observed_difference");
+    expect(f.route).toBe("none");
+    expect(f.remedy).toBe("investigate_first");
+    expect(f.observation).toMatch(/not proof that any of them is wrong/i);
+    expect(f.observation).not.toMatch(/unverifiab/i);
+    expect(f.observation).not.toMatch(/violation/i);
+  });
+
+  it("says nothing when the bureaus agree", () => {
+    const out = evaluateItem(twoBureaus({
+      records: [{ bureau: "EQ", balance: 500 }, { bureau: "TU", balance: 500 }],
+    }));
+    expect(out.some((x) => x.ruleId === "BUREAU.VALUE_DIFFERS")).toBe(false);
+  });
+
+  /* One value plus a silence is one bureau reporting, not a disagreement. */
+  it("says nothing when only one bureau reported the field", () => {
+    const out = evaluateItem(twoBureaus({
+      records: [{ bureau: "EQ", balance: 500 }, { bureau: "TU" }],
+    }));
+    expect(out.some((x) => x.ruleId === "BUREAU.VALUE_DIFFERS")).toBe(false);
+  });
+
+  it("says nothing from a single attributed record", () => {
+    const out = evaluateItem(twoBureaus({ records: [{ bureau: "EQ", balance: 500 }] }));
+    expect(out.some((x) => x.ruleId === "BUREAU.VALUE_DIFFERS")).toBe(false);
+  });
+
+  it("compares only the four fields the rule declares", () => {
+    const out = evaluateItem(twoBureaus({
+      records: [
+        { bureau: "EQ", remarks: "Account closed by consumer", pastDue: 40 },
+        { bureau: "TU", remarks: "Disputed by consumer", pastDue: 90 },
+      ],
+    }));
+    expect(out.some((x) => x.ruleId === "BUREAU.VALUE_DIFFERS")).toBe(false);
+  });
+
+  it("raises one finding per differing field", () => {
+    const out = evaluateItem(twoBureaus({
+      records: [
+        { bureau: "EQ", balance: 1400, dofd: "03/2021", openDate: "01/2018" },
+        { bureau: "TU", balance: 0, dofd: "09/2021", openDate: "01/2018" },
+      ],
+    })).filter((x) => x.ruleId === "BUREAU.VALUE_DIFFERS");
+    expect(out).toHaveLength(2);
+    expect(out.map((f) => (f.evidence as { field: string }).field).sort()).toEqual(["balance", "dofd"]);
+  });
+
+  it("never claims a raw Metro 2 value from a consumer-report observation", () => {
+    const out = evaluateItem(twoBureaus({
+      records: [{ bureau: "EQ", status: "Open" }, { bureau: "TU", status: "Closed" }],
+    }));
+    expect(out.every((f) => f.rawMetro2Verified === false)).toBe(true);
   });
 });

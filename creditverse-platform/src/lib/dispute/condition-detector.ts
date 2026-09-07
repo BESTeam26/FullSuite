@@ -171,6 +171,28 @@ function ym(date?: string): number | undefined {
   return d.getUTCFullYear() * 12 + d.getUTCMonth();
 }
 
+/**
+ * Every condition `detectConditions` can emit.
+ *
+ * Exported so a test can count them: CR-2 made `BureauRecord` constructible
+ * for the first time, and these thirty-one conditions have never been
+ * product-active. Widening the list should be a deliberate act with a failing
+ * test attached, not a side effect of enabling the data they read.
+ */
+export const REASON_CONDITIONS_IN_USE: readonly ReasonCondition[] = [
+  "deleted_from_other_bureaus", "single_bureau_only", "balance_inconsistent",
+  "dates_inconsistent", "status_inconsistent", "payment_history_inconsistent",
+  "charge_off_with_balance", "collection_with_past_due", "discharged_with_balance",
+  "paid_status_but_late_marks", "balance_above_high_credit", "severe_late_without_prior_30",
+  "single_late_mark", "multiple_late_marks", "dola_before_open_date",
+  "data_missing_or_deficient", "auto_loan", "student_loan", "medical",
+  "open_revolving", "prior_dispute_unanswered", "not_notated_as_disputed",
+  "reinserted_after_deletion", "verification_not_produced",
+  "attested_identity_theft", "attested_breach_impact", "attested_never_late",
+  "attested_not_mine", "attested_no_written_consent",
+  "attested_requested_proof_none_given", "attested_collector_still_contacting",
+] as const;
+
 export function detectConditions(input: DetectionInput): DetectionResult {
   const { item, records } = input;
   const att = input.attestations ?? {};

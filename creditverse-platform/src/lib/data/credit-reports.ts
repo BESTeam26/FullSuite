@@ -7,6 +7,7 @@
 import { requireSupabase } from "@/lib/supabase/client";
 import type { Json } from "@/lib/supabase/database.types";
 import type { Bureau, RawReportItem } from "@/lib/credit-classification";
+import type { BureauRecord } from "@/lib/dispute/condition-detector";
 import type { ParsedReportItem } from "@/lib/credit-report/import-parser";
 
 export interface CreditReportSummary {
@@ -134,11 +135,72 @@ export async function createCreditReport(input: CreateCreditReportInput): Promis
       remarks: i.remarks ?? null,
       account_ref: i.accountRef,
       raw: null,
+      /* CR-2. Two destinations, and which one a value reaches is decided by
+         the source's own header, never by column position:
+           bureau_values   attribution proven → one row per bureau
+           source_columns  attribution not proven → the raw values, unattributed
+         Both absent is the ordinary case for a single-bureau row, and stays
+         UNKNOWN rather than becoming an assumption. */
+      bureau_values: i.bureauValues ?? null,
+      source_columns: i.sourceColumns ?? null,
     })) as unknown as Json,
     p_scores: input.scores as unknown as Json,
   });
   if (error) throw error;
   return data as string;
+}
+
+/**
+ * Per-bureau observations for one report's items (CR-2).
+ *
+ * Fetched SEPARATELY rather than embedded in `fetchReportItems`, and only when
+ * something asks for them: most screens show one merged value per field and
+ * have no use for three. One bounded query for the whole report, never one per
+ * item.
+ *
+ * Authorization is the parent's — `report_item_bureau_values` has no tenancy
+ * column of its own, and its policy resolves through `report_items` to
+ * `credit_reports` to `credit_report_visible`. Nothing here supplies an
+ * organization id, so nothing here can forge one.
+ */
+export async function fetchBureauValues(reportId: string): Promise<Record<string, BureauRecord[]>> {
+  const sb = requireSupabase();
+  const { data, error } = await sb
+    .from("report_item_bureau_values")
+    .select(
+      "bureau, status, payment_status, account_type, account_number_masked, balance_cents, high_balance_cents, credit_limit_cents, past_due_cents, monthly_payment_cents, term_months, open_date, date_closed, date_last_payment, date_last_active, dofd, payment_history, remarks, report_items!inner(id, account_ref, report_id)",
+    )
+    .eq("report_items.report_id", reportId)
+    .limit(1000);
+  if (error) throw error;
+
+  const out: Record<string, BureauRecord[]> = {};
+  for (const row of data ?? []) {
+    const parent = row.report_items as unknown as { account_ref: string } | null;
+    if (!parent) continue;
+    const cents = (v: number | string | null) => (v === null ? undefined : Number(v) / 100);
+    (out[parent.account_ref] ??= []).push({
+      bureau: row.bureau as Bureau,
+      status: row.status ?? undefined,
+      paymentStatus: row.payment_status ?? undefined,
+      accountType: row.account_type ?? undefined,
+      accountNumberMasked: row.account_number_masked ?? undefined,
+      balance: cents(row.balance_cents),
+      highBalance: cents(row.high_balance_cents),
+      creditLimit: cents(row.credit_limit_cents),
+      pastDue: cents(row.past_due_cents),
+      monthlyPayment: cents(row.monthly_payment_cents),
+      termMonths: row.term_months ?? undefined,
+      openDate: row.open_date ?? undefined,
+      dateClosed: row.date_closed ?? undefined,
+      dateLastPayment: row.date_last_payment ?? undefined,
+      dateLastActive: row.date_last_active ?? undefined,
+      dofd: row.dofd ?? undefined,
+      paymentHistory: row.payment_history ?? undefined,
+      remarks: row.remarks ?? undefined,
+    });
+  }
+  return out;
 }
 
 /** How many reports this organization has imported — a head count, no rows (Home guide). */

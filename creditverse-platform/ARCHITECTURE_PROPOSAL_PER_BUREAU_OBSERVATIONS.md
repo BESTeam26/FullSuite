@@ -1,7 +1,9 @@
-# Architecture proposal — per-bureau observations
+# Per-bureau observations — IMPLEMENTED
 
-**Status: proposal. Nothing built. No migration written.**
-Requires Dee's approval: this changes the canonical credit-report model.
+**Status: shipped 2026-09-07 as CR-2.** Migration `0135`
+(`20260904011300_per_bureau_observations.sql`) applied and verified against the
+live database. Approved by Dee with four refinements, all of which changed the
+design — recorded in §9 below.
 
 Governed by `docs/creditops/CREDIT_REPORTING_INTELLIGENCE_RULEBOOK.md` §9.
 
@@ -127,7 +129,52 @@ time.
 `OBSERVED_REPORTING_DIFFERENCE`, never a legal violation; comparability
 questions gate any stronger classification.
 
-## 8. What this does not do
+## 8. What shipped, against what was proposed
+
+| Proposed | Shipped | Why it changed |
+|---|---|---|
+| Unattributed columns stay on the item's `differs` remark | **`report_items.source_columns jsonb`** — `field -> [values in source order]` | **Dee's refinement 1.** The proposal lost the figures along with the attribution: a reviewer was told "bureau columns differ" and could not see what any of them said. Now the values survive with nobody's name attached |
+| `RawReportItem.records?: BureauRecord[]` | `RawReportItem.records?: BureauValues[]`, declared in `credit-classification` | `credit-classification` is the lower layer and may not import from `dispute/`. Same shape; the layering holds |
+| Engines read it when present | **Only `BUREAU.VALUE_DIFFERS` reads it** | **Dee's refinement 2.** `detectConditions` stays dormant. `dormant-rules.test.ts` reads the source tree and fails if anything calls it — verified by planting a real call |
+| — | `source_type` constrained to five V1 values; `raw_metro2_verified = false` as a CHECK, not a default | **Dee's refinement 4.** A consumer-report observation cannot be recorded as authorized raw Metro 2 even by a deliberate insert. Both refusals are probed |
+| — | Two SQL statements in the writer, not one data-modifying CTE | A CTE's inserted rows share the statement's snapshot, so the child's `WITH CHECK` sub-select would have found no parent and refused every row. Found while writing it |
+| — | Attribution decided **per field**, not per block | A row where all bureaus agree often prints one column beside a neighbour printing three. All-or-nothing would have discarded the resolvable fields with the unresolvable ones |
+
+### The three things that were harder than they looked
+
+**`bureausIn` answers in the wrong order.** It walks a fixed `BUREAU_WORDS`
+list, so it returns EQ, EX, TU whatever the header said. Correct for "who
+reports this account", useless for "which column is whose" — and using it would
+have attributed by position while appearing not to. `bureausInOrder` reads the
+header's own order, and a test reverses a header to prove the values follow it.
+
+**A single column is not agreement.** One value under a three-bureau header
+could mean all three agree, or that one of them reports the account at all.
+Spreading it across three would invent two facts, so a single-column field is
+never attributed and never counted as a disagreement either.
+
+**One value plus two silences is not a disagreement.**
+`crossBureauDifferences` requires two bureaus to have *said* something before
+it compares. Without that, an account reported by one bureau would have
+produced a difference against nothing.
+
+## 9. Dee's four refinements, and where each lives
+
+1. **Preserve unattributed values** → `report_items.source_columns`;
+   `attributeColumns` returns them under the field label with a `reason`;
+   the item's remark now says which of the two things happened.
+2. **Data capability, not rule activation** → `dormant-rules.test.ts`. Six
+   structural tests: no product caller for `detectConditions` or
+   `selectReason`, the detector's 31-condition list unchanged in size, exactly
+   one rule unblocked, and it stays at `observed_difference` / route `none`.
+3. **No backfill** → no `UPDATE` anywhere in 0135. Verified live: 0 child rows,
+   0 `source_columns` set. A matrix probe asserts it, so a later backfill would
+   fail the gate.
+4. **Source provenance** → all six fields on the child table, with
+   `source_type` CHECK-constrained to the five V1 values and
+   `raw_metro2_verified` CHECK-constrained to false.
+
+## 10. What this does not do
 
 It does not add `import_jobs`, `parser_runs` or `field_evidence`. Those are
 correct designs that belong *after* this one — building an import-job record

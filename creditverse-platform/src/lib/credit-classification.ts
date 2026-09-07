@@ -46,6 +46,40 @@ export interface RawReportItem {
   openDate?: string;
   linkedCreditor?: string; // for inquiries — creditor the inquiry is associated with
   remarks?: string;
+  /**
+   * What each bureau said, where the SOURCE proved which value belongs to
+   * which bureau (CR-2). Absent is the ordinary case and means UNKNOWN — never
+   * that the bureaus agree, and never reconstructible from `bureaus` above,
+   * which lists who reports the account and not what any of them said.
+   */
+  records?: BureauValues[];
+}
+
+/**
+ * One bureau's values for one item. Structurally the same shape as
+ * `BureauRecord` in `dispute/condition-detector`, which is the canonical
+ * per-bureau record; declared here because `credit-classification` is the
+ * lower layer and may not import from `dispute/`.
+ */
+export interface BureauValues {
+  bureau: Bureau;
+  status?: string;
+  paymentStatus?: string;
+  accountType?: string;
+  accountNumberMasked?: string;
+  balance?: number;
+  highBalance?: number;
+  creditLimit?: number;
+  pastDue?: number;
+  monthlyPayment?: number;
+  termMonths?: number;
+  openDate?: string;
+  dateClosed?: string;
+  dateLastPayment?: string;
+  dateLastActive?: string;
+  dofd?: string;
+  paymentHistory?: (string | null)[];
+  remarks?: string;
 }
 
 export interface ClassifiedItem extends RawReportItem {

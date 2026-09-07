@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       activity_events: {
@@ -6616,6 +6591,104 @@ export type Database = {
           },
         ]
       }
+      report_item_bureau_values: {
+        Row: {
+          account_information_date: string | null
+          account_number_masked: string | null
+          account_type: string | null
+          balance_cents: number | null
+          bureau: string
+          created_at: string
+          credit_limit_cents: number | null
+          date_closed: string | null
+          date_last_active: string | null
+          date_last_payment: string | null
+          dofd: string | null
+          high_balance_cents: number | null
+          id: string
+          monthly_payment_cents: number | null
+          open_date: string | null
+          parser_version: string
+          past_due_cents: number | null
+          payment_history: string[] | null
+          payment_status: string | null
+          raw_metro2_verified: boolean
+          remarks: string | null
+          report_item_id: string
+          reporting_period: string | null
+          source_locator: Json | null
+          source_type: string
+          status: string | null
+          term_months: number | null
+        }
+        Insert: {
+          account_information_date?: string | null
+          account_number_masked?: string | null
+          account_type?: string | null
+          balance_cents?: number | null
+          bureau: string
+          created_at?: string
+          credit_limit_cents?: number | null
+          date_closed?: string | null
+          date_last_active?: string | null
+          date_last_payment?: string | null
+          dofd?: string | null
+          high_balance_cents?: number | null
+          id?: string
+          monthly_payment_cents?: number | null
+          open_date?: string | null
+          parser_version: string
+          past_due_cents?: number | null
+          payment_history?: string[] | null
+          payment_status?: string | null
+          raw_metro2_verified?: boolean
+          remarks?: string | null
+          report_item_id: string
+          reporting_period?: string | null
+          source_locator?: Json | null
+          source_type?: string
+          status?: string | null
+          term_months?: number | null
+        }
+        Update: {
+          account_information_date?: string | null
+          account_number_masked?: string | null
+          account_type?: string | null
+          balance_cents?: number | null
+          bureau?: string
+          created_at?: string
+          credit_limit_cents?: number | null
+          date_closed?: string | null
+          date_last_active?: string | null
+          date_last_payment?: string | null
+          dofd?: string | null
+          high_balance_cents?: number | null
+          id?: string
+          monthly_payment_cents?: number | null
+          open_date?: string | null
+          parser_version?: string
+          past_due_cents?: number | null
+          payment_history?: string[] | null
+          payment_status?: string | null
+          raw_metro2_verified?: boolean
+          remarks?: string | null
+          report_item_id?: string
+          reporting_period?: string | null
+          source_locator?: Json | null
+          source_type?: string
+          status?: string | null
+          term_months?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_item_bureau_values_report_item_id_fkey"
+            columns: ["report_item_id"]
+            isOneToOne: false
+            referencedRelation: "report_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       report_items: {
         Row: {
           account_ref: string
@@ -6634,6 +6707,7 @@ export type Database = {
           raw: Json | null
           remarks: string | null
           report_id: string
+          source_columns: Json | null
           status: string
           subtype: string | null
         }
@@ -6654,6 +6728,7 @@ export type Database = {
           raw?: Json | null
           remarks?: string | null
           report_id: string
+          source_columns?: Json | null
           status: string
           subtype?: string | null
         }
@@ -6674,6 +6749,7 @@ export type Database = {
           raw?: Json | null
           remarks?: string | null
           report_id?: string
+          source_columns?: Json | null
           status?: string
           subtype?: string | null
         }
@@ -9693,9 +9769,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       access_scope: [

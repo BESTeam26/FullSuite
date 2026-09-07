@@ -118,16 +118,18 @@ export const INTEGRITY_RULES: readonly IntegrityRule[] = [
     classification: "observed_difference", verdict: "needs_source_document", humanReviewRequired: false, route: "none", remedy: "investigate_first",
     fields: ["balance", "status", "dofd", "open_date"],
     authorities: [{ level: "agency_guidance", citation: "CFPB consumer guidance", note: "the three nationwide CRAs may hold different information; a difference is a question, not proof of inaccuracy" }],
-    /* The canonical stored report holds ONE value per field plus a list of
-       bureau names (`report_items.bureaus`), so there is nothing per-bureau to
-       compare. The PDF parser does read the tri-merge columns and knows they
-       differ — `firstColumn()` returns a `differs` flag, which lowers parse
-       confidence and adds a remark — but it keeps only the first column, so
-       which bureau said what is lost before storage. Closing this needs the
-       parser to keep the columns, a child table to store them, and the engine
-       to read them: written up in ENGINE_INVENTORY.md §5. Deliberately NOT
-       faked from one value plus a list of bureau names. */
-    blockedBy: "report_items stores one value per field; per-bureau values are discarded by the parser before storage",
+    /* REACHABLE since CR-2 (migration 0135). `report_item_bureau_values` holds
+       what each bureau said, but ONLY where the source's own header proved
+       which column belongs to which bureau — so this rule fires from real
+       attributed values or not at all. It is never derived from
+       `report_items.bureaus`, which lists who reports the account and not what
+       any of them said.
+
+       Note the classification: `observed_difference`, route `none`, remedy
+       `investigate_first`. A difference between bureaus is a question about
+       which figure is current, and the Rulebook (§9) keeps it at
+       OBSERVED_REPORTING_DIFFERENCE until comparability is established and a
+       source document contradicts one of the values. */
   },
   {
     id: "BUREAU.MISSING_ON_ONE", version: 1, effectiveFrom: "2026-09-05",

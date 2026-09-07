@@ -37,13 +37,14 @@ dispute`. **Section A now feeds that same flow** through
 record and dispositioned by a person like every other finding — it is no longer
 rendered and discarded.
 
-**The condition detector has no product caller at all.** `detectConditions` is
-invoked only by its own tests. `letter-composer` imports its *types* and never
-runs it. The cause is the same model gap as §5: the detector's input is
-`BureauRecord[]`, one record per bureau, and nothing in the application can
-build one. Thirty-one conditions and a reason-selection engine sit behind that
-one missing input. This is the single largest piece of unreachable CreditOps
-logic and it is not a rules problem.
+**The condition detector still has no product caller — now by decision, not by
+accident.** CR-2 (2026-09-07) made `BureauRecord` constructible for the first
+time, so the detector *could* be wired in. Dee's refinement 2 to CR-2 is that
+it must not be: a rule that has never been product-active stays dormant until
+it is reconciled under the new Rulebook, one rule at a time. Thirty-one
+conditions and the reason-selection engine remain deliberately unwired, and
+`dormant-rules.test.ts` reads the source tree and fails if anything calls
+`detectConditions` or `selectReason` — verified by planting a real call.
 
 ---
 
@@ -220,21 +221,26 @@ source-data gap as well as a missing-rule gap.
 | `single_bureau_only` | `records.length === 1` | one bureau reporting | **`apparent`** — single-bureau reporting is permitted and common | — | same |
 | `deleted_from_other_bureaus` | `deletedFromBureaus` | ≥1 bureau deleted it, others still report | **`apparent`** — one bureau's deletion does not bind another | — | same |
 | `BUREAU.MISSING_ON_ONE` | `item.bureaus` | fewer than three bureaus report it | `observed_difference`; explicitly *not* proof of unverifiability | authorities on the rule | `reporting-integrity-engine.test.ts` |
-| `BUREAU.VALUE_DIFFERS` | — | **CATALOGUED, DECLARED UNREACHABLE** — see §5 | none produced | authorities present; `blockedBy` states why | `reporting-integrity-engine.test.ts` (6 structural tests) |
+| `BUREAU.VALUE_DIFFERS` | `item.records` — **attributed** per-bureau values, ≥2 bureaus having said something | Two or more bureaus report different values for balance, status, DOFD or open date | `observed_difference`, route `none`, remedy `investigate_first`, and an observation ending "not proof that any of them is wrong" | authorities present; `blockedBy` removed by CR-2 | `reporting-integrity-engine.test.ts` (9 CR-2 tests) |
 | `detectAnomaly` | `field`, `values[]` per bureau, `hasSourceDocument`, `sourceDocumentContradictsReport`, `sameReportingPeriodConfirmed`, `consumerAssertedValue`, `isDebtCollector`, `consumerDisputedDebt`, `reportCommunicatesDispute` | Field-level: cross-bureau difference → potential Reg V issue; source document contradicting the report → evidence-supported inaccuracy; consumer assertion without a document → needs source document | `AnomalyResult` with classification + field verdict + evidence strength | Metro 2 field context from `METRO2_FIELD_ANALYSES` (14 fields) | `metro2-engine.test.ts` (16) |
 
-**Handled 2026-09-07, not faked.** The rule keeps its authorities and now
-carries `blockedBy` saying exactly what is missing. `RULES_IN_USE` — the string
-that travels onto compliance output as the statement of what was applied — no
-longer advertises it; `RULES_NOT_YET_EVALUABLE` lists it with the reason. A
-structural test asserts that **every unblocked rule is actually reached by
-running code**, so a rule can never again sit in the catalogue reading as
-coverage. Verified by planting the regression: unblocking it makes the suite
-fail.
+**Declared unreachable 2026-09-07 morning; REACHABLE the same day via CR-2.**
 
-The underlying cause is §5, and it is *not* the same as the detector's
-`balance_inconsistent` — that one does compare per-bureau values, but its input
-has no producer either.
+The two-step is worth recording because it is the shape this kind of gap should
+take. First the rule stopped pretending: it kept its authorities and gained
+`blockedBy`, `RULES_IN_USE` stopped advertising it, and a structural test
+asserted every unblocked rule is reached by running code. Then migration 0135
+gave it data, and the block came off — with the structural test still standing
+to catch the next one.
+
+It fires only from **attributed** values: `report_item_bureau_values` rows
+exist only where the source's own header proved which column belongs to which
+bureau. It is never derived from `report_items.bureaus`, which lists who
+reports the account and not what any of them said — a probe asserts that
+directly.
+
+The detector's `balance_inconsistent` compares the same thing and remains
+unwired, per §0: CR-2 was storage, not activation.
 
 ### 1.12 Round-to-round comparison
 

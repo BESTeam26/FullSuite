@@ -6,6 +6,7 @@ import {
   fetchClientReports,
   fetchOrganizationReportCount,
   fetchReportItems,
+  fetchBureauValues,
   fetchReportItemsForReports,
   type CreateCreditReportInput,
 } from "@/lib/data/credit-reports";
@@ -92,9 +93,31 @@ export function useReportIntegrityFindings(fulfillmentClientId: string | null) {
   const q = useQuery({
     queryKey: ["credit-reports", "integrity", fulfillmentClientId, ids.join(",")],
     queryFn: async () => {
-      const byReport = await fetchReportItemsForReports(ids);
+      /* Two bounded requests, in PARALLEL. Per-bureau values are fetched only
+         for the LATEST report: cross-bureau comparison is about what is on the
+         file now, and pulling them for every historical snapshot would be a
+         payload nobody reads. */
+      const [byReport, bureauValues] = await Promise.all([
+        fetchReportItemsForReports(ids),
+        latestId ? fetchBureauValues(latestId) : Promise.resolve({}),
+      ]);
+
+      /* Attach by account_ref, which is the stable handle that matches the
+         same tradeline across imports. An item with no attributed values keeps
+         `records` undefined — UNKNOWN, never an empty array, because an empty
+         array would read as "asked and nobody said anything". */
+      const snapshots = reports.map((r) => ({
+        reportId: r.id,
+        pulledAt: r.pulledAt,
+        items: (byReport[r.id] ?? []).map((i) =>
+          r.id === latestId && bureauValues[i.accountRef]?.length
+            ? { ...i, records: bureauValues[i.accountRef] }
+            : i,
+        ),
+      }));
+
       return {
-        integrity: evaluateReports(reports.map((r) => ({ reportId: r.id, pulledAt: r.pulledAt, items: byReport[r.id] ?? [] }))),
+        integrity: evaluateReports(snapshots),
         /* Kept so Section A runs over the newest snapshot without a second
            request for items this query already holds. */
         latestItems: latestId ? byReport[latestId] ?? [] : [],

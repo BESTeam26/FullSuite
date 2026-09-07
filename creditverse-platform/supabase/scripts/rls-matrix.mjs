@@ -2587,6 +2587,95 @@ if (runs(51)) {
   runPhase("phase 51", P51);
 }
 
+/* Phase 52 — per-bureau observations (0135, CR-2). A child of an immutable
+   report snapshot, holding sensitive credit facts and carrying NO tenancy
+   column of its own: authorization must resolve entirely through
+   report_items → credit_reports → credit_report_visible(). So the probes here
+   are mostly refusals, and the one that matters most is the last: a caller who
+   knows a row id must not be able to reach it by going at the child directly.
+
+   Also proved: append-only (no update, no delete grant), the unique bureau per
+   item, and the raw_metro2_verified = false invariant — a consumer-report
+   observation may never claim to be a verified Metro 2 field. */
+if (runs(52)) {
+  startPhase("phase 52");
+  const probe52 = (uid, sql, seed = "") => {
+    try {
+      return q(`begin; ${seed} set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows;
+    } catch (e) {
+      const text = String(e.message) + "\n" + String(e.stdout ?? "");
+      const m = text.match(/ERROR:\s*(\w+):/);
+      return "ERR " + (m ? m[1] : "unknown");
+    }
+  };
+  const OWNER52 = U["org.owner@bes.test"];
+  const OTHER52 = U["org2.owner@bes.test"];
+  const BES52 = U["bes.credit@bes.test"];
+  const AGENT52 = U["org.agent@bes.test"];
+  const ownerSees = probe52(OWNER52, `select count(*)::int as rows from public.fulfillment_clients where id='${T.lakeside_client}'`) === 1;
+
+  /* One item carrying two attributed bureau values. Written through the same
+     writer the application uses, as the importer — never as service_role. */
+  const ITEMS52 = `'[{"kind":"Account","name":"Probe Bank","status":"Open","bureaus":["EQ","TU"],"account_ref":"probe bureau vals","bureau_values":[{"bureau":"EQ","balance_cents":140000,"status":"Open"},{"bureau":"TU","balance_cents":0,"status":"Closed"}],"source_columns":{"remarks":["a","b"]}}]'::jsonb`;
+  const IMPORT52 = (uid) => `select public.create_credit_report('${lakesideOrg}', null, '${T.lakeside_client}', null, array['EQ','TU'], current_date, 'manual_upload', null, 'probe-135', ${ITEMS52}, null)`;
+  const COUNT52 = `select count(*)::int as rows from public.report_item_bureau_values v join public.report_items i on i.id=v.report_item_id join public.credit_reports r on r.id=i.report_id where r.fulfillment_client_id='${T.lakeside_client}'`;
+
+  const P52 = ownerSees ? [
+    ["the organization's owner writes and reads back both bureaus' values",
+      () => probe52(OWNER52, `${IMPORT52(OWNER52)}; ${COUNT52}`), 2],
+
+    ["unattributed columns are preserved, not summarised away",
+      () => probe52(OWNER52, `${IMPORT52(OWNER52)}; select (i.source_columns->'remarks'->>1) as rows from public.report_items i join public.credit_reports r on r.id=i.report_id where r.fulfillment_client_id='${T.lakeside_client}' and i.account_ref='probe bureau vals'`), "b"],
+
+    /* THE PROBE THIS PHASE EXISTS FOR. The child table has no organization_id,
+       so an unrelated organization has nothing to supply and must see nothing
+       — including when it queries the child table on its own. */
+    ["an unrelated organization sees none of it",
+      () => probe52(OWNER52, `${IMPORT52(OWNER52)}; set local request.jwt.claims = '{"sub":"${OTHER52}","role":"authenticated"}'; ${COUNT52}`), 0],
+
+    ["…and cannot reach it by going straight at the child table",
+      () => probe52(OWNER52, `${IMPORT52(OWNER52)}; set local request.jwt.claims = '{"sub":"${OTHER52}","role":"authenticated"}'; select count(*)::int as rows from public.report_item_bureau_values`), 0],
+
+    ["…and cannot insert one against another organization's item",
+      () => probe52(OWNER52, `${IMPORT52(OWNER52)}; set local request.jwt.claims = '{"sub":"${OTHER52}","role":"authenticated"}'; insert into public.report_item_bureau_values (report_item_id, bureau, parser_version) select i.id, 'EX', 'x' from public.report_items i limit 1; select count(*)::int as rows from public.report_item_bureau_values where bureau='EX'`), "ERR 42501"],
+
+    ["BES staff reach it only through the engagement and scope that reach the client",
+      () => probe52(OWNER52, `${IMPORT52(OWNER52)}; set local request.jwt.claims = '{"sub":"${BES52}","role":"authenticated"}'; ${COUNT52}`),
+      probe52(BES52, `select count(*)::int as rows from public.fulfillment_clients where id='${T.lakeside_client}'`) === 1 ? 2 : 0],
+
+    ["a consumer's own report stays theirs: another organization sees no bureau values",
+      () => probe52(AGENT52, `select public.create_credit_report('${lakesideOrg}', null, null, '${AGENT52}', array['EQ','TU'], current_date, 'manual_upload', null, 'probe-135', ${ITEMS52}, null); set local request.jwt.claims = '{"sub":"${OTHER52}","role":"authenticated"}'; select count(*)::int as rows from public.report_item_bureau_values v join public.report_items i on i.id=v.report_item_id join public.credit_reports r on r.id=i.report_id where r.consumer_user_id='${AGENT52}'`), 0],
+
+    ["append-only: no update grant",
+      () => probe52(OWNER52, `${IMPORT52(OWNER52)}; update public.report_item_bureau_values set status='x'; select count(*)::int as rows from public.report_item_bureau_values where status='x'`), "ERR 42501"],
+
+    ["append-only: no delete grant",
+      () => probe52(OWNER52, `${IMPORT52(OWNER52)}; delete from public.report_item_bureau_values; select 0 as rows`), "ERR 42501"],
+
+    ["one row per bureau per item — a second EQ is refused",
+      () => probe52(OWNER52, `${IMPORT52(OWNER52)}; insert into public.report_item_bureau_values (report_item_id, bureau, parser_version) select v.report_item_id, 'EQ', 'x' from public.report_item_bureau_values v limit 1; select 0 as rows`), "ERR 23505"],
+
+    ["a consumer-report observation can never claim to be verified Metro 2",
+      () => probe52(OWNER52, `${IMPORT52(OWNER52)}; update public.report_item_bureau_values set raw_metro2_verified = true; select 0 as rows`), "ERR 42501"],
+
+    ["…and cannot be inserted claiming it either",
+      () => probe52(OWNER52, `${IMPORT52(OWNER52)}; insert into public.report_item_bureau_values (report_item_id, bureau, parser_version, raw_metro2_verified) select v.report_item_id, 'EX', 'x', true from public.report_item_bureau_values v limit 1; select 0 as rows`), "ERR 23514"],
+
+    ["a source_type outside the V1 list is refused",
+      () => probe52(OWNER52, `${IMPORT52(OWNER52)}; insert into public.report_item_bureau_values (report_item_id, bureau, parser_version, source_type) select v.report_item_id, 'EX', 'x', 'authorized_raw_metro2_data' from public.report_item_bureau_values v limit 1; select 0 as rows`), "ERR 23514"],
+
+    ["an import with no bureau_values writes no child rows — absence stays absence",
+      () => probe52(OWNER52, `select public.create_credit_report('${lakesideOrg}', null, '${T.lakeside_client}', null, array['EQ'], current_date, 'manual_upload', null, 'probe-135', '[{"kind":"Account","name":"Plain","status":"Open","bureaus":["EQ"],"account_ref":"plain"}]'::jsonb, null); select count(*)::int as rows from public.report_item_bureau_values v join public.report_items i on i.id=v.report_item_id where i.account_ref='plain'`), 0],
+
+    ["the writer is still SECURITY INVOKER — policies decide, not the function",
+      () => q(`select (not prosecdef)::text as rows from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='create_credit_report'`)[0].rows, "true"],
+
+    ["nothing was backfilled onto historical reports",
+      () => q(`select ((select count(*) from public.report_item_bureau_values) = 0 and (select count(*) from public.report_items where source_columns is not null) = 0)::text as rows`)[0].rows, "true"],
+  ] : [["(no Lakeside client to probe)", () => "skip", "skip"]];
+  runPhase("phase 52", P52, { strict: true });
+}
+
 endPhase();
 
 /* ------------------------------------------------------------------ *
