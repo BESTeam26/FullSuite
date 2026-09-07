@@ -323,7 +323,20 @@ export const RolesPermissionsSection = () => {
 };
 
 /* ---------------- Divisions / Departments / Teams ---------------- */
-export const AgencyStructureSection = () => (
+export const AgencyStructureSection = () => {
+  /* Real teams and real leads. This card used to list three invented teams
+     with two invented leads, read as fact by anyone opening Settings. */
+  const roster = useWorkforce();
+  const people = new Map((roster.data?.people ?? []).map((x) => [x.userId, x.name]));
+  const teams = (roster.data?.teams ?? [])
+    .filter((t) => !t.archived)
+    .map((t) => ({
+      t: t.name,
+      l: t.members.filter((m) => m.isLead).map((m) => people.get(m.userId) ?? "").filter(Boolean).join(", ")
+         || "No lead assigned",
+    }));
+
+  return (
   <SectionCard
     icon={Network}
     title="Agency Structure"
@@ -355,11 +368,10 @@ export const AgencyStructureSection = () => (
           Teams
         </p>
         <div className="space-y-2">
-          {[
-            { t: "Processing Team", l: "Carlos Mendoza" },
-            { t: "QA Team", l: "Keila Betancourt" },
-            { t: "Complaints", l: "Unassigned" },
-          ].map((tm) => (
+          {/* The real teams, with their real leads. This block listed three
+              invented teams with two invented leads — read as fact by anyone
+              opening Settings. */}
+          {teams.map((tm) => (
             <div
               key={tm.t}
               className="flex items-center justify-between rounded-lg border border-border p-3 text-sm"
@@ -371,7 +383,13 @@ export const AgencyStructureSection = () => (
             </div>
           ))}
         </div>
+        {teams.length === 0 && (
+          <p className="text-xs text-muted-foreground">
+            No teams yet. They are created under Teams and appear here.
+          </p>
+        )}
       </div>
     </div>
   </SectionCard>
-);
+  );
+};

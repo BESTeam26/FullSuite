@@ -15,6 +15,7 @@ import {
 } from "@/lib/fulfillment/fundingops-client-store";
 import type { FundingClient } from "@/lib/fulfillment/fundingops-domain";
 import type { FundingOpsPartner } from "@/lib/fulfillment/fundingops-partners";
+import { useWorkforce } from "@/lib/data/use-workforce";
 import { OpsAddClientModal } from "./OpsAddClientModal";
 
 const STATUS_OPTIONS = [
@@ -42,6 +43,13 @@ export function FundingAddClientModal({
   onClose,
   partner,
 }: FundingAddClientModalProps) {
+  /* The real roster, not a list of names in the source. "Unassigned" first so
+     the honest choice is the default and nobody has to pick a person to save. */
+  const roster = useWorkforce();
+  const assignees = [
+    ...FUNDING_ELIGIBLE_ASSIGNEES,
+    ...(roster.data?.people ?? []).map((x) => x.name).filter(Boolean),
+  ];
   const store = useFundingOpsStore();
   const [requested, setRequested] = useState("");
   /* Creation is a ceiling act (migration 0023): a team-scoped user can only
@@ -60,7 +68,7 @@ export function FundingAddClientModal({
       partnerOptions={partnerOptions}
       statusOptions={STATUS_OPTIONS}
       defaultStatus="Onboarding"
-      assignees={FUNDING_ELIGIBLE_ASSIGNEES}
+      assignees={assignees}
       onResetExtras={() => {
         setRequested("");
         setTeamId(defaultTeamId ?? "");

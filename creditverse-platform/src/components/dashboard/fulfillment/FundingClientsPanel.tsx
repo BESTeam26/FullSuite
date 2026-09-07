@@ -32,9 +32,12 @@ import { FundingAddClientModal } from "./FundingAddClientModal";
 import { FundingClientWorkWorkspace } from "./FundingClientWorkWorkspace";
 import { usePartners } from "@/lib/data/use-partners";
 import { FUNDING_OPS_PARTNERS } from "@/lib/fulfillment/fundingops-partners";
+import { useAuth } from "@/lib/auth/auth-context";
 
 const ALL_STATUSES = "All Statuses";
-const CURRENT_AGENT = "Keila Betancourt";
+/* Who is looking, not a name in the source. "Assigned to me" used to mean
+   "assigned to Keila Betancourt" for everybody, so the filter showed the wrong
+   person's work to whoever opened it. */
 
 /** Groups whose Partner workspace hides the Mode / Source column. */
 const GROUPS_HIDING_MODE = ["outsourcing"];
@@ -50,6 +53,7 @@ export function FundingClientsPanel({
   assignedOnlyFilter = false,
   partner,
 }: FundingClientsPanelProps) {
+  const { displayName } = useAuth();
   /* Offered in the Add Client modal when this panel has no partner in context
      (the management-level list). Cached by query key, so asking here costs
      nothing extra. */
@@ -84,7 +88,7 @@ export function FundingClientsPanel({
           statusFilter,
           allStatusesLabel: ALL_STATUSES,
           assignedOnly,
-          currentAgent: CURRENT_AGENT,
+          currentAgent: displayName ?? "",
         },
         {
           field: prefs.sortField,

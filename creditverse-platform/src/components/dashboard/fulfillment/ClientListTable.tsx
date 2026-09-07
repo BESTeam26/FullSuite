@@ -22,8 +22,13 @@ import {
 import { OpsClientListTable } from "./OpsClientListTable";
 import type { DepartmentStatus } from "@/lib/fulfillment/creditops-store-types";
 import { currentDepartment, openDepartments } from "@/lib/fulfillment/department-domain";
+import { useAuth } from "@/lib/auth/auth-context";
+import { useWorkforce } from "@/lib/data/use-workforce";
 
-const ACTOR = "Agent (BES HQ)";
+/* Who is actually doing it. Every activity entry used to be attributed to
+   "Agent (BES HQ)" — a name nobody has — so history could not say who did the
+   work (rules 4 and 10). Read from the session, per render. */
+const useActor = () => useAuth().displayName ?? "BES staff";
 const SLA_WARNING_HOURS = 4;
 
 interface ClientListTableProps {
@@ -44,6 +49,14 @@ export function ClientListTable({
   onOpenClient,
   departmentRows,
 }: ClientListTableProps) {
+  /* The real roster, not a list of names in the source. "Unassigned" first so
+     the honest choice is the default and nobody has to pick a person to save. */
+  const roster = useWorkforce();
+  const assignees = [
+    ...ELIGIBLE_ASSIGNEES,
+    ...(roster.data?.people ?? []).map((x) => x.name).filter(Boolean),
+  ];
+  const actor = useActor();
   const store = useCreditOpsStore();
 
   return (
@@ -53,9 +66,9 @@ export function ClientListTable({
       prefs={prefs}
       setPrefs={setPrefs}
       onOpenClient={onOpenClient}
-      actor={ACTOR}
+      actor={actor}
       statusOptions={ALL_STATUS_OPTIONS}
-      assignees={ELIGIBLE_ASSIGNEES}
+      assignees={assignees}
       slaWarningHours={SLA_WARNING_HOURS}
       renderStatusPill={(status) => <FulfillmentStatusPill status={status} />}
       actions={{

@@ -18,6 +18,7 @@ import type { DepartmentStatus } from "@/lib/fulfillment/creditops-store-types";
 import { ContentCard } from "@/components/dashboard/DivisionLayout";
 import { useCreditOpsStore } from "@/lib/fulfillment/creditops-client-store";
 import type { CreditOpsPartner } from "@/lib/fulfillment/creditops-partners";
+import { useAuth } from "@/lib/auth/auth-context";
 import {
   countActive,
   filterAndSortClients,
@@ -36,7 +37,9 @@ import { AddClientModal } from "./AddClientModal";
 import { ClientWorkWorkspace } from "./ClientWorkWorkspace";
 
 const ALL_STATUSES = "All Statuses";
-const CURRENT_AGENT = "Keila Betancourt";
+/* Who is looking, not a name in the source. "Assigned to me" used to mean
+   "assigned to Keila Betancourt" for everybody, so the filter showed the wrong
+   person's work to whoever opened it. */
 
 /** Groups whose Partner workspace hides the Mode / Source column. */
 const GROUPS_HIDING_MODE = ["managed", "outsourcing"];
@@ -55,6 +58,7 @@ export function FulfillmentClientsPanel({
   partner,
   initialOpenClientId = null,
 }: FulfillmentClientsPanelProps) {
+  const { displayName } = useAuth();
   const store = useCreditOpsStore();
   const [prefs, setPrefs] = useState<ViewPrefs>(() => loadPrefs());
   const [search, setSearch] = useState("");
@@ -94,7 +98,7 @@ export function FulfillmentClientsPanel({
           statusFilter,
           allStatusesLabel: ALL_STATUSES,
           assignedOnly,
-          currentAgent: CURRENT_AGENT,
+          currentAgent: displayName ?? "",
         },
         {
           field: prefs.sortField,

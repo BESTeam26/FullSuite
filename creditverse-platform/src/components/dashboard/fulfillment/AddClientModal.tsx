@@ -15,6 +15,7 @@ import type { CreditOpsPartner } from "@/lib/fulfillment/creditops-partners";
 import { OpsAddClientModal } from "./OpsAddClientModal";
 import { OpsSelect } from "@/components/ui/ops-select";
 import { useTeams } from "@/lib/data/use-teams";
+import { useWorkforce } from "@/lib/data/use-workforce";
 
 const STATUS_OPTIONS = [
   "Onboarding",
@@ -45,6 +46,13 @@ export function AddClientModal({
   onClose,
   partner,
 }: AddClientModalProps) {
+  /* The real roster, not a list of names in the source. "Unassigned" first so
+     the honest choice is the default and nobody has to pick a person to save. */
+  const roster = useWorkforce();
+  const assignees = [
+    ...ELIGIBLE_ASSIGNEES,
+    ...(roster.data?.people ?? []).map((x) => x.name).filter(Boolean),
+  ];
   const store = useCreditOpsStore();
   const [round, setRound] = useState<FulfillmentClient["round"]>("Pre-Round");
   /* Creation is a ceiling act (migration 0023): a team-scoped user can only
@@ -62,7 +70,7 @@ export function AddClientModal({
       partnerName={partner?.name}
       statusOptions={STATUS_OPTIONS}
       defaultStatus="Onboarding"
-      assignees={ELIGIBLE_ASSIGNEES}
+      assignees={assignees}
       onResetExtras={() => {
         setRound("Pre-Round");
         setTeamId(defaultTeamId ?? "");

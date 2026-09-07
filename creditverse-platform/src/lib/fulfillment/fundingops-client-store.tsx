@@ -49,13 +49,19 @@ export type {
 export { FUNDING_COMMENT_MARKS, getFundingMark };
 
 /* Eligible assignees — scoped, NOT the entire agency directory. */
-export const FUNDING_ELIGIBLE_ASSIGNEES = [
-  "Keila Betancourt",
-  "Carlos Mendoza",
-  "Maria Santos",
-  "James Wilson",
-  "Unassigned",
-];
+/**
+ * Only "Unassigned".
+ *
+ * This list used to hold four invented staff names — Keila Betancourt, Carlos
+ * Mendoza, Maria Santos, James Wilson — offered as assignees on live client
+ * records. Assigning real work to somebody who does not exist attributes it to
+ * nobody, and reads as though it is being handled.
+ *
+ * The real roster is `useWorkforce()`, and the picker reads it. This constant
+ * stays as the empty case so a caller with no roster loaded still has the one
+ * honest option.
+ */
+export const FUNDING_ELIGIBLE_ASSIGNEES = ["Unassigned"];
 
 /**
  * `updateAssignee` is deliberately ABSENT, exactly as in CreditOps.

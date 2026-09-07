@@ -14,10 +14,14 @@ import { linkAttachments } from "@/lib/data/activity-attachments";
 import type { VisibilityAudience } from "@/lib/auth/use-visibility-audience";
 import { useMentionable } from "@/lib/data/use-mentionable";
 
-const ACTOR = "Agent (BES HQ)";
+/* Who is actually doing it. Every activity entry used to be attributed to
+   "Agent (BES HQ)" — a name nobody has — so history could not say who did the
+   work (rules 4 and 10). Read from the session, per render. */
+const useActor = () => useAuth().displayName ?? "BES staff";
 const ENTITY = "funding_client";
 
 export function FundingOpsActivityTimeline({ clientId }: { clientId: string }) {
+  const actor = useActor();
   const store = useFundingOpsStore();
   const auth = useAuth();
   const audience: VisibilityAudience = auth.isAgencyStaff ? "bes" : "organization";
@@ -43,7 +47,7 @@ export function FundingOpsActivityTimeline({ clientId }: { clientId: string }) {
   return (
     <OpsActivityTimeline
       entries={entries}
-      actor={ACTOR}
+      actor={actor}
       emptyMessage="No activity yet. Status changes, comments, and updates are logged here."
       attachmentsByActivity={byActivity}
       canAnnotate={store.canAnnotate}
@@ -64,7 +68,7 @@ export function FundingOpsActivityTimeline({ clientId }: { clientId: string }) {
           onPost={({ body, plainText, visibility }) =>
             store.addActivity({
               clientId,
-              actor: ACTOR,
+              actor: actor,
               action: "Comment posted",
               detail: plainText,
               visibility,

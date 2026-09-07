@@ -10,6 +10,8 @@ import type { FundingClient } from "@/lib/fulfillment/fundingops-domain";
 import type { FundingDepartmentStatus } from "@/lib/fulfillment/fundingops-store-types";
 import { FUNDINGOPS_DEPARTMENT_ORDER, isOpenFundingStatus } from "@/lib/fulfillment/funding-department-domain";
 import { formatCurrency } from "@/lib/fulfillment/fundingops-domain";
+import { useAuth } from "@/lib/auth/auth-context";
+import { useWorkforce } from "@/lib/data/use-workforce";
 import {
   useFundingOpsStore,
   FUNDING_ELIGIBLE_ASSIGNEES,
@@ -23,7 +25,10 @@ import {
 } from "./funding-client-list-helpers";
 import { OpsClientListTable } from "./OpsClientListTable";
 
-const ACTOR = "Agent (BES HQ)";
+/* Who is actually doing it. Every activity entry used to be attributed to
+   "Agent (BES HQ)" — a name nobody has — so history could not say who did the
+   work (rules 4 and 10). Read from the session, per render. */
+const useActor = () => useAuth().displayName ?? "BES staff";
 const SLA_WARNING_HOURS = 8;
 
 /** "All Statuses" is a filter option, not an assignable status. */
@@ -49,6 +54,14 @@ export function FundingClientListTable({
   onOpenClient,
   departmentRows,
 }: FundingClientListTableProps) {
+  /* The real roster, not a list of names in the source. "Unassigned" first so
+     the honest choice is the default and nobody has to pick a person to save. */
+  const roster = useWorkforce();
+  const assignees = [
+    ...FUNDING_ELIGIBLE_ASSIGNEES,
+    ...(roster.data?.people ?? []).map((x) => x.name).filter(Boolean),
+  ];
+  const actor = useActor();
   const order = new Map(FUNDINGOPS_DEPARTMENT_ORDER.map((d, i) => [d as string, i]));
   const openRows = (id: string) =>
     (departmentRows[id] ?? [])
@@ -63,9 +76,9 @@ export function FundingClientListTable({
       prefs={prefs}
       setPrefs={setPrefs}
       onOpenClient={onOpenClient}
-      actor={ACTOR}
+      actor={actor}
       statusOptions={ASSIGNABLE_STATUSES}
-      assignees={FUNDING_ELIGIBLE_ASSIGNEES}
+      assignees={assignees}
       slaWarningHours={SLA_WARNING_HOURS}
       renderStatusPill={(status) => <FundingStatusPill status={status} />}
       actions={{
