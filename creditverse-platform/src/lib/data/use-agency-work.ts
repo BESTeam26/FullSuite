@@ -7,9 +7,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth/auth-context";
 import {
-  addBlocker, addChecklistItem, createAgencyWorkspace, fetchAgencyWorkspaces,
-  fetchBlockers, fetchChecklist, removeChecklistItem, renameChecklistItem,
-  resolveBlocker, setChecklistDone,
+  addBlocker, addChecklistItem, createAgencyWorkspace, fetchAgencyMembers,
+  fetchAgencyTeams, fetchAgencyWorkspaces, fetchBlockers, fetchChecklist,
+  removeChecklistItem, renameChecklistItem, resolveBlocker, setChecklistDone,
 } from "@/lib/data/agency-workspace";
 import type { WorkspaceInput } from "@/lib/data/workspaces";
 
@@ -84,4 +84,26 @@ export function useBlockerActions(workItemId: string) {
     add: useMutation({ mutationFn: (v: { blockedById?: string | null; note?: string | null }) => addBlocker({ workItemId, ...v }), onSuccess: refresh }),
     resolve: useMutation({ mutationFn: (id: string) => resolveBlocker(id), onSuccess: refresh }),
   };
+}
+
+/** BES staff who can be assigned work. Scoped by `assignable_profiles`. */
+export function useAgencyMembers() {
+  const { live } = useLive();
+  return useQuery({
+    queryKey: ["agency", "members"],
+    queryFn: fetchAgencyMembers,
+    enabled: live,
+    staleTime: 300_000,
+  });
+}
+
+/** BES's own teams. */
+export function useAgencyTeams() {
+  const { live, agencyId } = useLive();
+  return useQuery({
+    queryKey: ["agency", "teams", agencyId ?? ""],
+    queryFn: () => fetchAgencyTeams(agencyId!),
+    enabled: live && !!agencyId,
+    staleTime: 300_000,
+  });
 }

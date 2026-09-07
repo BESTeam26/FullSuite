@@ -49,11 +49,14 @@ export const HqPageShell = ({
   description,
   icon: Icon,
   children,
+  actions,
 }: {
   title: string;
   description: string;
   icon: ElementType;
   children: ReactNode;
+  /** Page-level controls, shown beside the heading. */
+  actions?: ReactNode;
 }) => (
   <div className="p-6">
     <div className="mx-auto max-w-6xl">
@@ -61,10 +64,11 @@ export const HqPageShell = ({
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
           <Icon className="h-5 w-5" />
         </div>
-        <div>
+        <div className="min-w-0 flex-1">
           <h1 className="text-xl font-bold text-foreground">{title}</h1>
           <p className="text-sm text-muted-foreground">{description}</p>
         </div>
+        {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
       </div>
       {children}
     </div>

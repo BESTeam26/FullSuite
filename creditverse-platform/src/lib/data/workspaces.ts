@@ -134,7 +134,15 @@ export async function fetchAllWorkspaceItems(): Promise<(WorkspaceItem & { works
 
 export interface CreateWorkspaceItemInput {
   workspaceId: string;
-  organizationId: string;
+  /**
+   * The owning organization, or NULL for a BES-internal workspace.
+   *
+   * The workspace's own owner decides the item's scope — the database checks
+   * exactly that in `work_items_workspace_consistency`. Passing null here is
+   * how BES holds work that is not about any customer, and it is why there is
+   * no separate agency task writer.
+   */
+  organizationId: string | null;
   boardId: string | null;
   title: string;
   itemTypeId: string | null;
@@ -154,7 +162,7 @@ export async function createWorkspaceItem(input: CreateWorkspaceItemInput): Prom
   const { data, error } = await supabase
     .from("work_items")
     .insert({
-      scope: "ORGANIZATION",
+      scope: input.organizationId ? "ORGANIZATION" : "AGENCY",
       organization_id: input.organizationId,
       related_type: "project",
       title: input.title.trim(),

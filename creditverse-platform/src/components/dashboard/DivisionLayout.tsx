@@ -103,7 +103,8 @@ export const ContentCard = ({
   children,
   action,
 }: {
-  title: string;
+  /** ReactNode so a card can carry an icon or a count beside its name. */
+  title: ReactNode;
   children: ReactNode;
   action?: ReactNode;
 }) => (

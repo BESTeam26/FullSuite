@@ -11,7 +11,7 @@
  * organization. An internal task stands on its own.
  */
 import { requireSupabase } from "@/lib/supabase/client";
-import { mapWorkspace, type WorkspaceInput } from "@/lib/data/workspaces";
+import { mapWorkspace, type OrgMember, type OrgTeam, type WorkspaceInput } from "@/lib/data/workspaces";
 import type { Workspace } from "@/lib/workspaces/workspace-domain";
 
 export async function fetchAgencyWorkspaces(agencyId: string): Promise<Workspace[]> {
@@ -126,4 +126,100 @@ export async function resolveBlocker(id: string): Promise<void> {
   const sb = requireSupabase();
   const { error } = await sb.from("work_item_blockers").update({ resolved_at: new Date().toISOString() }).eq("id", id);
   if (error) throw error;
+}
+
+/* ── Who BES work can be assigned to ──────────────────────────────────── */
+
+/**
+ * BES staff, from the same scoped picker organization work uses.
+ * `assignable_profiles` decides — never a directory dump.
+ */
+export async function fetchAgencyMembers(): Promise<OrgMember[]> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("assignable_profiles", { p_scope: "AGENCY", p_org: undefined });
+  if (error) throw error;
+  return (data ?? []).map((r) => ({
+    id: r.id, name: r.full_name?.trim() || r.email, email: r.email, role: r.role,
+  }));
+}
+
+/** BES's own teams. `teams` already carries the same one-owner rule. */
+export async function fetchAgencyTeams(agencyId: string): Promise<OrgTeam[]> {
+  const sb = requireSupabase();
+  const { data, error } = await sb
+    .from("teams").select("id, name, team_memberships(user_id)")
+    .eq("agency_id", agencyId).is("archived_at", null).order("name");
+  if (error) throw error;
+  return (data ?? []).map((t) => ({
+    id: t.id, name: t.name,
+    memberIds: ((t.team_memberships ?? []) as { user_id: string }[]).map((m) => m.user_id),
+  }));
+}
+
+/* ── List lifecycle ───────────────────────────────────────────────────── */
+
+/**
+ * How many live tasks a board holds.
+ *
+ * Asked before a board is deleted, because deleting a list that still holds
+ * work would take the work with it — and the tasks, their comments and their
+ * history are the part that mattered (rule 11).
+ */
+export async function countBoardItems(boardId: string): Promise<{ open: number; total: number }> {
+  const sb = requireSupabase();
+  const [total, open] = await Promise.all([
+    sb.from("work_items").select("id", { count: "exact", head: true }).eq("board_id", boardId),
+    sb.from("work_items").select("id", { count: "exact", head: true }).eq("board_id", boardId).is("completed_at", null),
+  ]);
+  if (total.error) throw total.error;
+  if (open.error) throw open.error;
+  return { total: total.count ?? 0, open: open.count ?? 0 };
+}
+
+/** Move every task from one list to another, so a list can be emptied safely. */
+export async function moveBoardItems(fromBoardId: string, toBoardId: string | null): Promise<number> {
+  const sb = requireSupabase();
+  const { data, error } = await sb
+    .from("work_items").update({ board_id: toBoardId } as never).eq("board_id", fromBoardId).select("id");
+  if (error) throw error;
+  return (data ?? []).length;
+}
+
+/** One task to another list. */
+export async function moveWorkItem(itemId: string, boardId: string | null): Promise<void> {
+  const sb = requireSupabase();
+  const { error } = await sb.from("work_items").update({ board_id: boardId } as never).eq("id", itemId);
+  if (error) throw error;
+}
+
+/**
+ * Copy a task's definition — not its history.
+ *
+ * Deliberately does NOT carry over comments, activity, completion or who did
+ * it: those describe something that happened to the original, and attaching
+ * them to a new task would invent a past it never had (rule 4).
+ */
+export async function duplicateWorkItem(itemId: string, title?: string): Promise<string> {
+  const sb = requireSupabase();
+  const { data: src, error: readErr } = await sb
+    .from("work_items")
+    .select("agency_id, scope, organization_id, related_type, title, description, priority, workspace_id, board_id, item_type_id, team_id, division, due_at")
+    .eq("id", itemId).single();
+  if (readErr) throw readErr;
+  const row = src as Record<string, unknown>;
+  const { data, error } = await sb
+    .from("work_items")
+    .insert({ ...row, title: title ?? `${row.title as string} (copy)`, stage: "Queued", status_id: null } as never)
+    .select("id").single();
+  if (error) throw error;
+
+  /* The checklist is part of the definition, so it travels — unticked. */
+  const items = await fetchChecklist(itemId);
+  if (items.length > 0) {
+    const { error: cErr } = await sb.from("work_checklist_items").insert(
+      items.map((c, i) => ({ work_item_id: data.id as string, label: c.label, position: i, done: false })) as never,
+    );
+    if (cErr) throw cErr;
+  }
+  return data.id as string;
 }
