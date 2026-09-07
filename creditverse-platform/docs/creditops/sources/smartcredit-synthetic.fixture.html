@@ -1,0 +1,514 @@
+<!--
+  SYNTHETIC SmartCredit-shaped fixture. STRUCTURE ONLY.
+
+  Every person, creditor, account number, balance, date, address, phone and
+  payment mark below is INVENTED. Nothing here came from a real report, and no
+  real report may ever replace it. See SMARTCREDIT_SOURCE_MAPPING.md.
+
+  What this fixture deliberately encodes, so a parser can be held to it:
+
+    Account 1  all three bureaus agree            → attributed, no difference
+    Account 2  bureaus differ on balance + status → attributed, difference found
+    Account 3  reported by two bureaus of three   → third is BUREAU_NOT_PRESENT
+    Account 4  three columns, NO declared header  → AMBIGUOUS, source_columns
+    Account 2  a gap in the payment grid          → absent entry, not shifted
+
+  The bureau→column order is deliberately NOT transunion/experian/equifax
+  everywhere: section "Account History 4" reverses it, and the header classes
+  are the only correct way to resolve it. A parser that reads position will
+  attribute account 4 wrongly and fail its test.
+
+  The Summary counts are DERIVED from the accounts below by a stated rule (see
+  that section's comment), so a correct parser reconciles and publishes. For
+  the REVIEW_REQUIRED test, delete one account block and leave Summary alone.
+-->
+<section id="personal-information">
+  <h5>Personal Information</h5>
+  <dl class="grid">
+    <dt class="grid-cell col-start-1">&nbsp;</dt>
+    <dt class="bg-transunion text-white text-center col-start-2">transunion<sup>&reg;</sup></dt>
+    <dt class="bg-experian text-white text-center col-start-3">experian<sup>&reg;</sup></dt>
+    <dt class="bg-equifax text-white text-center col-start-4">equifax<sup>&reg;</sup></dt>
+
+    <p class="grid-cell row-start-2 col-start-1 fw-bold">Credit Report Date</p>
+    <p class="grid-cell row-start-2 col-start-2">03/14/2026</p>
+    <p class="grid-cell row-start-2 col-start-3">03/14/2026</p>
+    <p class="grid-cell row-start-2 col-start-4">03/12/2026</p>
+
+    <p class="grid-cell row-start-3 col-start-1 fw-bold">Name&nbsp;&nbsp;Also Known As:</p>
+    <p class="grid-cell row-start-3 col-start-2">AVERY T BLACKWOOD</p>
+    <p class="grid-cell row-start-3 col-start-3">AVERY BLACKWOOD</p>
+    <p class="grid-cell row-start-3 col-start-4">BLACKWOOD,AVERY,TAMSIN</p>
+
+    <p class="grid-cell row-start-4 col-start-1 fw-bold">Date of Birth</p>
+    <p class="grid-cell row-start-4 col-start-2">1984</p>
+    <p class="grid-cell row-start-4 col-start-3">1984</p>
+    <p class="grid-cell row-start-4 col-start-4">1984</p>
+
+    <p class="grid-cell row-start-5 col-start-1 fw-bold">Current Address</p>
+    <p class="grid-cell row-start-5 col-start-2">418 LARKSPUR WAY, FERNDALE OH 45999</p>
+    <p class="grid-cell row-start-5 col-start-3">418 LARKSPUR WAY, FERNDALE OH 45999</p>
+    <p class="grid-cell row-start-5 col-start-4">418 LARKSPUR WAY APT 2, FERNDALE OH 45999</p>
+
+    <p class="grid-cell row-start-6 col-start-1 fw-bold">Previous Address</p>
+    <p class="grid-cell row-start-6 col-start-2">77 OLD MILL RD, CALDER OH 45012</p>
+    <p class="grid-cell row-start-6 col-start-3">NONE REPORTED</p>
+    <p class="grid-cell row-start-6 col-start-4">77 OLD MILL RD, CALDER OH 45012</p>
+
+    <p class="grid-cell row-start-7 col-start-1 fw-bold">Employer</p>
+    <p class="grid-cell row-start-7 col-start-2">NONE REPORTED</p>
+    <p class="grid-cell row-start-7 col-start-3">NONE REPORTED</p>
+    <p class="grid-cell row-start-7 col-start-4"></p>
+
+    <p class="grid-cell row-start-8 col-start-1 fw-bold">Consumer Statement</p>
+    <p class="grid-cell row-start-8 col-start-2">NONE REPORTED</p>
+    <p class="grid-cell row-start-8 col-start-3">NONE REPORTED</p>
+    <p class="grid-cell row-start-8 col-start-4">NONE REPORTED</p>
+  </dl>
+</section>
+
+<section id="scores">
+  <!-- No model or version is named anywhere. Score model must be UNKNOWN. -->
+  <dl class="grid">
+    <dt class="bg-transunion text-white text-center col-start-2">transunion<sup>&reg;</sup></dt>
+    <dd class="col-start-2"><h5 class="fw-bold">641</h5></dd>
+    <dt class="bg-experian text-white text-center col-start-3">experian<sup>&reg;</sup></dt>
+    <dd class="col-start-3"><h5 class="fw-bold">658</h5></dd>
+    <dt class="bg-equifax text-white text-center col-start-4">equifax<sup>&reg;</sup></dt>
+    <dd class="col-start-4"><h5 class="fw-bold">633</h5></dd>
+  </dl>
+</section>
+
+<section id="summary">
+  <h5>Summary</h5>
+  <!--
+    RECONCILIATION FIXTURE. These counts are derived from the accounts below,
+    per bureau, by the stated rule — so a correct parser reconciles and
+    publishes. For the REVIEW_REQUIRED test, delete one account block and
+    leave this section untouched.
+
+    Derivation, per bureau column, ATTRIBUTED VALUES ONLY (account 4 has no
+    declared header, so it is AMBIGUOUS and contributes to nothing):
+
+      Open Accounts     Account Status reads "Open"
+      Closed Accounts   Account Status reads "Closed" or "Paid"
+      Delinquent        7-year 30/60/90 counts show any late
+      Derogatory        Account Type reads "Collection"
+      Balances          sum of Balance Owed
+      Payments          sum of Payment Amount
+      Public Records    public records with data in that column
+      Inquiries         inquiries naming that bureau
+
+    Note account 5 reverses the header: equifax is col-start-2 there and
+    transunion is col-start-4. A positional parser produces different counts
+    and fails reconciliation — which is the point.
+  -->
+  <dl class="grid">
+    <dt class="grid-cell col-start-1">&nbsp;</dt>
+    <dt class="bg-transunion col-start-2">transunion<sup>&reg;</sup></dt>
+    <dt class="bg-experian col-start-3">experian<sup>&reg;</sup></dt>
+    <dt class="bg-equifax col-start-4">equifax<sup>&reg;</sup></dt>
+
+    <p class="grid-cell row-start-2 col-start-1 fw-bold">Open Accounts:</p>
+    <p class="grid-cell row-start-2 col-start-2">1</p>
+    <p class="grid-cell row-start-2 col-start-3">1</p>
+    <p class="grid-cell row-start-2 col-start-4">2</p>
+
+    <p class="grid-cell row-start-3 col-start-1 fw-bold">Closed Accounts:</p>
+    <p class="grid-cell row-start-3 col-start-2">2</p>
+    <p class="grid-cell row-start-3 col-start-3">2</p>
+    <p class="grid-cell row-start-3 col-start-4">1</p>
+
+    <p class="grid-cell row-start-4 col-start-1 fw-bold">Delinquent:</p>
+    <p class="grid-cell row-start-4 col-start-2">1</p>
+    <p class="grid-cell row-start-4 col-start-3">1</p>
+    <p class="grid-cell row-start-4 col-start-4">1</p>
+
+    <p class="grid-cell row-start-5 col-start-1 fw-bold">Derogatory:</p>
+    <p class="grid-cell row-start-5 col-start-2">1</p>
+    <p class="grid-cell row-start-5 col-start-3">1</p>
+    <p class="grid-cell row-start-5 col-start-4">0</p>
+
+    <p class="grid-cell row-start-6 col-start-1 fw-bold">Balances:</p>
+    <p class="grid-cell row-start-6 col-start-2">$8,430</p>
+    <p class="grid-cell row-start-6 col-start-3">$8,430</p>
+    <p class="grid-cell row-start-6 col-start-4">$2,930</p>
+
+    <p class="grid-cell row-start-7 col-start-1 fw-bold">Payments:</p>
+    <p class="grid-cell row-start-7 col-start-2">$45</p>
+    <p class="grid-cell row-start-7 col-start-3">$45</p>
+    <p class="grid-cell row-start-7 col-start-4">$45</p>
+
+    <p class="grid-cell row-start-8 col-start-1 fw-bold">Public Records:</p>
+    <p class="grid-cell row-start-8 col-start-2">1</p>
+    <p class="grid-cell row-start-8 col-start-3">1</p>
+    <p class="grid-cell row-start-8 col-start-4">0</p>
+
+    <p class="grid-cell row-start-9 col-start-1 fw-bold">Inquiries (2 years):</p>
+    <p class="grid-cell row-start-9 col-start-2">1</p>
+    <p class="grid-cell row-start-9 col-start-3">0</p>
+    <p class="grid-cell row-start-9 col-start-4">1</p>
+  </dl>
+</section>
+
+<section id="account-history">
+  <h5>Account History</h5>
+
+  <!-- ─── ACCOUNT 1: all three bureaus agree ─────────────────────────── -->
+  <div class="account" data-fixture-case="agree">
+    <p class="fw-bold">NORTHWIND BANK</p>
+    <dl class="grid">
+      <dt class="grid-cell col-start-1">&nbsp;</dt>
+      <dt class="bg-transunion col-start-2">transunion<sup>&reg;</sup></dt>
+      <dt class="bg-experian col-start-3">experian<sup>&reg;</sup></dt>
+      <dt class="bg-equifax col-start-4">equifax<sup>&reg;</sup></dt>
+
+      <p class="grid-cell row-start-2 col-start-1 fw-bold">Account #:</p>
+      <p class="grid-cell row-start-2 col-start-2">****4417</p>
+      <p class="grid-cell row-start-2 col-start-3">****4417</p>
+      <p class="grid-cell row-start-2 col-start-4">****4417</p>
+
+      <p class="grid-cell row-start-3 col-start-1 fw-bold">Account Type:</p>
+      <p class="grid-cell row-start-3 col-start-2">Revolving</p>
+      <p class="grid-cell row-start-3 col-start-3">Revolving</p>
+      <p class="grid-cell row-start-3 col-start-4">Revolving</p>
+
+      <p class="grid-cell row-start-4 col-start-1 fw-bold">Account Status:</p>
+      <p class="grid-cell row-start-4 col-start-2">Open</p>
+      <p class="grid-cell row-start-4 col-start-3">Open</p>
+      <p class="grid-cell row-start-4 col-start-4">Open</p>
+
+      <p class="grid-cell row-start-5 col-start-1 fw-bold">Payment Status:</p>
+      <p class="grid-cell row-start-5 col-start-2">Current</p>
+      <p class="grid-cell row-start-5 col-start-3">Current</p>
+      <p class="grid-cell row-start-5 col-start-4">Current</p>
+
+      <p class="grid-cell row-start-6 col-start-1 fw-bold">Balance Owed:</p>
+      <p class="grid-cell row-start-6 col-start-2">$1,430</p>
+      <p class="grid-cell row-start-6 col-start-3">$1,430</p>
+      <p class="grid-cell row-start-6 col-start-4">$1,430</p>
+
+      <p class="grid-cell row-start-7 col-start-1 fw-bold">High Balance:</p>
+      <p class="grid-cell row-start-7 col-start-2">$2,100</p>
+      <p class="grid-cell row-start-7 col-start-3">$2,100</p>
+      <p class="grid-cell row-start-7 col-start-4">$2,100</p>
+
+      <p class="grid-cell row-start-8 col-start-1 fw-bold">Credit Limit:</p>
+      <p class="grid-cell row-start-8 col-start-2">$3,000</p>
+      <p class="grid-cell row-start-8 col-start-3">$3,000</p>
+      <p class="grid-cell row-start-8 col-start-4">$3,000</p>
+
+      <p class="grid-cell row-start-9 col-start-1 fw-bold">Past Due Amount:</p>
+      <p class="grid-cell row-start-9 col-start-2">$0</p>
+      <p class="grid-cell row-start-9 col-start-3">$0</p>
+      <p class="grid-cell row-start-9 col-start-4">$0</p>
+
+      <p class="grid-cell row-start-10 col-start-1 fw-bold">Payment Amount:</p>
+      <p class="grid-cell row-start-10 col-start-2">$45</p>
+      <p class="grid-cell row-start-10 col-start-3">$45</p>
+      <p class="grid-cell row-start-10 col-start-4">$45</p>
+
+      <p class="grid-cell row-start-11 col-start-1 fw-bold">Payment Frequency:</p>
+      <p class="grid-cell row-start-11 col-start-2">Monthly</p>
+      <p class="grid-cell row-start-11 col-start-3">Monthly</p>
+      <p class="grid-cell row-start-11 col-start-4">Monthly</p>
+
+      <p class="grid-cell row-start-12 col-start-1 fw-bold">Term Length:</p>
+      <p class="grid-cell row-start-12 col-start-2"></p>
+      <p class="grid-cell row-start-12 col-start-3"></p>
+      <p class="grid-cell row-start-12 col-start-4"></p>
+
+      <p class="grid-cell row-start-13 col-start-1 fw-bold">Date Opened:</p>
+      <p class="grid-cell row-start-13 col-start-2">06/2018</p>
+      <p class="grid-cell row-start-13 col-start-3">06/2018</p>
+      <p class="grid-cell row-start-13 col-start-4">06/2018</p>
+
+      <p class="grid-cell row-start-14 col-start-1 fw-bold">Closed Date:</p>
+      <p class="grid-cell row-start-14 col-start-2"></p>
+      <p class="grid-cell row-start-14 col-start-3"></p>
+      <p class="grid-cell row-start-14 col-start-4"></p>
+
+      <p class="grid-cell row-start-15 col-start-1 fw-bold">Last Payment:</p>
+      <p class="grid-cell row-start-15 col-start-2">02/2026</p>
+      <p class="grid-cell row-start-15 col-start-3">02/2026</p>
+      <p class="grid-cell row-start-15 col-start-4">02/2026</p>
+
+      <p class="grid-cell row-start-16 col-start-1 fw-bold">Date of Last Activity:</p>
+      <p class="grid-cell row-start-16 col-start-2">02/2026</p>
+      <p class="grid-cell row-start-16 col-start-3">02/2026</p>
+      <p class="grid-cell row-start-16 col-start-4">02/2026</p>
+
+      <p class="grid-cell row-start-17 col-start-1 fw-bold">Date Reported:</p>
+      <p class="grid-cell row-start-17 col-start-2">03/2026</p>
+      <p class="grid-cell row-start-17 col-start-3">03/2026</p>
+      <p class="grid-cell row-start-17 col-start-4">03/2026</p>
+
+      <p class="grid-cell row-start-18 col-start-1 fw-bold">Last Verified:</p>
+      <p class="grid-cell row-start-18 col-start-2">03/2026</p>
+      <p class="grid-cell row-start-18 col-start-3">03/2026</p>
+      <p class="grid-cell row-start-18 col-start-4">02/2026</p>
+
+      <p class="grid-cell row-start-19 col-start-1 fw-bold">Account Rating:</p>
+      <p class="grid-cell row-start-19 col-start-2">Paid as agreed</p>
+      <p class="grid-cell row-start-19 col-start-3">Paid as agreed</p>
+      <p class="grid-cell row-start-19 col-start-4">Paid as agreed</p>
+
+      <p class="grid-cell row-start-20 col-start-1 fw-bold">Account Description:</p>
+      <p class="grid-cell row-start-20 col-start-2">Individual</p>
+      <p class="grid-cell row-start-20 col-start-3">Individual</p>
+      <p class="grid-cell row-start-20 col-start-4">Individual</p>
+
+      <p class="grid-cell row-start-21 col-start-1 fw-bold">Dispute Status:</p>
+      <p class="grid-cell row-start-21 col-start-2">Account not disputed</p>
+      <p class="grid-cell row-start-21 col-start-3">Account not disputed</p>
+      <p class="grid-cell row-start-21 col-start-4">Account not disputed</p>
+
+      <p class="grid-cell row-start-22 col-start-1 fw-bold">Creditor Type:</p>
+      <p class="grid-cell row-start-22 col-start-2">Bank</p>
+      <p class="grid-cell row-start-22 col-start-3">Bank</p>
+      <p class="grid-cell row-start-22 col-start-4">Bank</p>
+
+      <p class="grid-cell row-start-23 col-start-1 fw-bold">Creditor Remarks:</p>
+      <p class="grid-cell row-start-23 col-start-2"></p>
+      <p class="grid-cell row-start-23 col-start-3"></p>
+      <p class="grid-cell row-start-23 col-start-4"></p>
+    </dl>
+
+    <p class="fw-bold">Two-Year Payment History</p>
+    <div class="history" data-bureau-col="2">
+      <div class="status-C flex-grow-1"><p class="month-badge">OK</p><p class="month-label">Mar</p><p class="month-label">'26</p></div>
+      <div class="status-C flex-grow-1"><p class="month-badge">OK</p><p class="month-label">Feb</p><p class="month-label">'26</p></div>
+      <div class="status-C flex-grow-1"><p class="month-badge">OK</p><p class="month-label">Jan</p><p class="month-label">'26</p></div>
+      <div class="status-C flex-grow-1"><p class="month-badge">OK</p><p class="month-label">Dec</p><p class="month-label">'25</p></div>
+    </div>
+
+    <p class="fw-bold">Days Late - 7 Year History</p>
+    <dl class="grid">
+      <dt class="bg-transunion col-start-2">transunion<sup>&reg;</sup></dt>
+      <dd class="col-start-2"><p>30: 0</p><p>60: 0</p><p>90: 0</p></dd>
+      <dt class="bg-experian col-start-3">experian<sup>&reg;</sup></dt>
+      <dd class="col-start-3"><p>30: 0</p><p>60: 0</p><p>90: 0</p></dd>
+      <dt class="bg-equifax col-start-4">equifax<sup>&reg;</sup></dt>
+      <dd class="col-start-4"><p>30: 0</p><p>60: 0</p><p>90: 0</p></dd>
+    </dl>
+  </div>
+
+  <!-- ─── ACCOUNT 2: bureaus differ, and the grid has a gap ──────────── -->
+  <div class="account" data-fixture-case="differ">
+    <p class="fw-bold">MERIDIAN CARD SERVICES</p>
+    <dl class="grid">
+      <dt class="grid-cell col-start-1">&nbsp;</dt>
+      <dt class="bg-transunion col-start-2">transunion<sup>&reg;</sup></dt>
+      <dt class="bg-experian col-start-3">experian<sup>&reg;</sup></dt>
+      <dt class="bg-equifax col-start-4">equifax<sup>&reg;</sup></dt>
+
+      <p class="grid-cell row-start-2 col-start-1 fw-bold">Account #:</p>
+      <p class="grid-cell row-start-2 col-start-2">****9002</p>
+      <p class="grid-cell row-start-2 col-start-3">****9002</p>
+      <p class="grid-cell row-start-2 col-start-4">****9002</p>
+
+      <p class="grid-cell row-start-4 col-start-1 fw-bold">Account Status:</p>
+      <p class="grid-cell row-start-4 col-start-2">Closed</p>
+      <p class="grid-cell row-start-4 col-start-3">Closed</p>
+      <p class="grid-cell row-start-4 col-start-4">Open</p>
+
+      <p class="grid-cell row-start-6 col-start-1 fw-bold">Balance Owed:</p>
+      <p class="grid-cell row-start-6 col-start-2">$0</p>
+      <p class="grid-cell row-start-6 col-start-3">$0</p>
+      <p class="grid-cell row-start-6 col-start-4">$1,500</p>
+
+      <p class="grid-cell row-start-13 col-start-1 fw-bold">Date Opened:</p>
+      <p class="grid-cell row-start-13 col-start-2">01/2020</p>
+      <p class="grid-cell row-start-13 col-start-3">01/2020</p>
+      <p class="grid-cell row-start-13 col-start-4">01/2020</p>
+
+      <p class="grid-cell row-start-21 col-start-1 fw-bold">Dispute Status:</p>
+      <p class="grid-cell row-start-21 col-start-2">Account disputed</p>
+      <p class="grid-cell row-start-21 col-start-3">Account not disputed</p>
+      <p class="grid-cell row-start-21 col-start-4">Account not disputed</p>
+    </dl>
+
+    <p class="fw-bold">Two-Year Payment History</p>
+    <!-- Jan '26 is absent: a GAP, not a shift. -->
+    <div class="history" data-bureau-col="2">
+      <div class="status-C flex-grow-1"><p class="month-badge">OK</p><p class="month-label">Mar</p><p class="month-label">'26</p></div>
+      <div class="status-1 flex-grow-1"><p class="month-badge">30</p><p class="month-label">Feb</p><p class="month-label">'26</p></div>
+      <div class="status-C flex-grow-1"><p class="month-badge">OK</p><p class="month-label">Dec</p><p class="month-label">'25</p></div>
+    </div>
+
+    <p class="fw-bold">Days Late - 7 Year History</p>
+    <dl class="grid">
+      <dt class="bg-transunion col-start-2">transunion<sup>&reg;</sup></dt>
+      <dd class="col-start-2"><p>30: 2</p><p>60: 1</p><p>90: 0</p></dd>
+      <dt class="bg-experian col-start-3">experian<sup>&reg;</sup></dt>
+      <dd class="col-start-3"><p>30: 2</p><p>60: 1</p><p>90: 0</p></dd>
+      <dt class="bg-equifax col-start-4">equifax<sup>&reg;</sup></dt>
+      <dd class="col-start-4"><p>30: 1</p><p>60: 0</p><p>90: 0</p></dd>
+    </dl>
+  </div>
+
+  <!-- ─── ACCOUNT 3: two bureaus of three ───────────────────────────── -->
+  <div class="account" data-fixture-case="bureau-absent">
+    <p class="fw-bold">HALCYON RECOVERY LLC</p>
+    <dl class="grid">
+      <dt class="grid-cell col-start-1">&nbsp;</dt>
+      <dt class="bg-transunion col-start-2">transunion<sup>&reg;</sup></dt>
+      <dt class="bg-experian col-start-3">experian<sup>&reg;</sup></dt>
+      <dt class="bg-equifax col-start-4">equifax<sup>&reg;</sup></dt>
+
+      <p class="grid-cell row-start-3 col-start-1 fw-bold">Account Type:</p>
+      <p class="grid-cell row-start-3 col-start-2">Collection</p>
+      <p class="grid-cell row-start-3 col-start-3">Collection</p>
+      <p class="grid-cell row-start-3 col-start-4"></p>
+
+      <p class="grid-cell row-start-6 col-start-1 fw-bold">Balance Owed:</p>
+      <p class="grid-cell row-start-6 col-start-2">$7,000</p>
+      <p class="grid-cell row-start-6 col-start-3">$7,000</p>
+      <p class="grid-cell row-start-6 col-start-4"></p>
+
+      <p class="grid-cell row-start-13 col-start-1 fw-bold">Date Opened:</p>
+      <p class="grid-cell row-start-13 col-start-2">08/2023</p>
+      <p class="grid-cell row-start-13 col-start-3">08/2023</p>
+      <p class="grid-cell row-start-13 col-start-4"></p>
+      <!-- No delinquency date field exists in this format at all:
+           NOT_EXPOSED_BY_PROVIDER, on every account. -->
+    </dl>
+  </div>
+
+  <!-- ─── ACCOUNT 4: three columns, NO declared bureau header ────────
+       A parser that assumes transunion/experian/equifax by position will
+       attribute these wrongly. There is no header, so every value here is
+       AMBIGUOUS and belongs in source_columns, unattributed. -->
+  <div class="account" data-fixture-case="no-header">
+    <p class="fw-bold">CALDER MUTUAL AUTO</p>
+    <dl class="grid">
+      <dt class="grid-cell col-start-1">&nbsp;</dt>
+      <dt class="grid-cell col-start-2">&nbsp;</dt>
+      <dt class="grid-cell col-start-3">&nbsp;</dt>
+      <dt class="grid-cell col-start-4">&nbsp;</dt>
+
+      <p class="grid-cell row-start-6 col-start-1 fw-bold">Balance Owed:</p>
+      <p class="grid-cell row-start-6 col-start-2">$4,120</p>
+      <p class="grid-cell row-start-6 col-start-3">$4,120</p>
+      <p class="grid-cell row-start-6 col-start-4">$3,980</p>
+
+      <p class="grid-cell row-start-12 col-start-1 fw-bold">Term Length:</p>
+      <p class="grid-cell row-start-12 col-start-2">60</p>
+      <p class="grid-cell row-start-12 col-start-3">60</p>
+      <p class="grid-cell row-start-12 col-start-4">60</p>
+    </dl>
+  </div>
+
+  <!-- ─── ACCOUNT 5: header order REVERSED ───────────────────────────
+       equifax is col-start-2 here. The declared classes are the only correct
+       way to resolve it; a positional parser will label these backwards. -->
+  <div class="account" data-fixture-case="reversed-header">
+    <p class="fw-bold">FERNDALE CREDIT UNION</p>
+    <dl class="grid">
+      <dt class="grid-cell col-start-1">&nbsp;</dt>
+      <dt class="bg-equifax col-start-2">equifax<sup>&reg;</sup></dt>
+      <dt class="bg-experian col-start-3">experian<sup>&reg;</sup></dt>
+      <dt class="bg-transunion col-start-4">transunion<sup>&reg;</sup></dt>
+
+      <p class="grid-cell row-start-6 col-start-1 fw-bold">Balance Owed:</p>
+      <p class="grid-cell row-start-6 col-start-2">$0</p>
+      <p class="grid-cell row-start-6 col-start-3">$0</p>
+      <p class="grid-cell row-start-6 col-start-4">$0</p>
+
+      <p class="grid-cell row-start-4 col-start-1 fw-bold">Account Status:</p>
+      <p class="grid-cell row-start-4 col-start-2">Closed</p>
+      <p class="grid-cell row-start-4 col-start-3">Closed</p>
+      <p class="grid-cell row-start-4 col-start-4">Paid</p>
+    </dl>
+  </div>
+</section>
+
+<section id="public-information">
+  <p>Public Information</p>
+  <dl class="grid">
+    <dt class="bg-transunion col-start-2">transunion<sup>&reg;</sup></dt>
+    <dt class="bg-experian col-start-3">experian<sup>&reg;</sup></dt>
+    <dt class="bg-equifax col-start-4">equifax<sup>&reg;</sup></dt>
+
+    <p class="grid-cell row-start-2 col-start-1 fw-bold">Type</p>
+    <p class="grid-cell row-start-2 col-start-2">Chapter 7 Bankruptcy</p>
+    <p class="grid-cell row-start-2 col-start-3">Chapter 7 Bankruptcy</p>
+    <p class="grid-cell row-start-2 col-start-4"></p>
+
+    <p class="grid-cell row-start-3 col-start-1 fw-bold">Status</p>
+    <p class="grid-cell row-start-3 col-start-2">Discharged</p>
+    <p class="grid-cell row-start-3 col-start-3">Discharged</p>
+    <p class="grid-cell row-start-3 col-start-4"></p>
+
+    <p class="grid-cell row-start-4 col-start-1 fw-bold">Date Filed/Reported</p>
+    <p class="grid-cell row-start-4 col-start-2">04/2019</p>
+    <p class="grid-cell row-start-4 col-start-3">04/2019</p>
+    <p class="grid-cell row-start-4 col-start-4"></p>
+
+    <p class="grid-cell row-start-5 col-start-1 fw-bold">Reference#</p>
+    <p class="grid-cell row-start-5 col-start-2">19-40771</p>
+    <p class="grid-cell row-start-5 col-start-3">19-40771</p>
+    <p class="grid-cell row-start-5 col-start-4"></p>
+
+    <p class="grid-cell row-start-6 col-start-1 fw-bold">Closing Date</p>
+    <p class="grid-cell row-start-6 col-start-2">09/2019</p>
+    <p class="grid-cell row-start-6 col-start-3">09/2019</p>
+    <p class="grid-cell row-start-6 col-start-4"></p>
+
+    <p class="grid-cell row-start-7 col-start-1 fw-bold">Court</p>
+    <p class="grid-cell row-start-7 col-start-2">US BKPT CT OH FERNDALE</p>
+    <p class="grid-cell row-start-7 col-start-3">U.S. Bankruptcy Court</p>
+    <p class="grid-cell row-start-7 col-start-4"></p>
+
+    <p class="grid-cell row-start-8 col-start-1 fw-bold">Liability</p>
+    <p class="grid-cell row-start-8 col-start-2">$41,200</p>
+    <p class="grid-cell row-start-8 col-start-3">$41,200</p>
+    <p class="grid-cell row-start-8 col-start-4"></p>
+
+    <p class="grid-cell row-start-9 col-start-1 fw-bold">Asset Amount</p>
+    <p class="grid-cell row-start-9 col-start-2">$2,000</p>
+    <p class="grid-cell row-start-9 col-start-3">$2,000</p>
+    <p class="grid-cell row-start-9 col-start-4"></p>
+
+    <p class="grid-cell row-start-10 col-start-1 fw-bold">Exempt Amount</p>
+    <p class="grid-cell row-start-10 col-start-2">$2,000</p>
+    <p class="grid-cell row-start-10 col-start-3">$2,000</p>
+    <p class="grid-cell row-start-10 col-start-4"></p>
+  </dl>
+</section>
+
+<section id="inquiries">
+  <p>Inquiries</p>
+  <!-- The bureau is stated PER INQUIRY, not as three columns.
+       Inquiry type (hard/soft) is NOT_EXPOSED_BY_PROVIDER. -->
+  <div class="inquiry">
+    <p class="fw-bold">Creditor Name</p><p>CALDER MUTUAL AUTO</p>
+    <p class="fw-bold">Date of Inquiry</p><p>11/04/2025</p>
+    <p class="fw-bold">Credit Bureau</p><p>TransUnion</p>
+  </div>
+  <div class="inquiry">
+    <p class="fw-bold">Creditor Name</p><p>NORTHWIND BANK</p>
+    <p class="fw-bold">Date of Inquiry</p><p>07/22/2025</p>
+    <p class="fw-bold">Credit Bureau</p><p>Equifax</p>
+  </div>
+</section>
+
+<section id="creditor-contacts">
+  <h5>Creditor Contacts</h5>
+  <!-- Positional: name, address, phone. No labels. -->
+  <div class="contact">
+    <p>NORTHWIND BANK</p>
+    <p>PO BOX 1180, DEVON OH 45001</p>
+    <p>8005550140</p>
+  </div>
+  <div class="contact">
+    <p>MERIDIAN CARD SERVICES</p>
+    <p>240 HARBOUR ST, SALTON OH 45220</p>
+    <p>8005550188</p>
+  </div>
+  <div class="contact">
+    <p>HALCYON RECOVERY LLC</p>
+    <p>19 CRESCENT PKWY STE 4, ORWELL OH 45310</p>
+    <p>8005550216</p>
+  </div>
+</section>
