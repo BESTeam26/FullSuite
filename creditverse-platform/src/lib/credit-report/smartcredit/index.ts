@@ -113,9 +113,17 @@ export const SmartCreditPdfAdapter = {
  * The source's own summary counts against what was parsed — the same check
  * CR-14 applies to the HTML, run on the PDF's summary table.
  *
- * A mismatch is `partial / review required`. It is never read as "the missing
- * accounts were deleted": an account we did not parse is an account we did not
- * parse.
+ * A mismatch is `partial / review required`. It is NEVER read as "the missing
+ * items were deleted": an item we did not parse is an item we did not parse.
+ * That is the whole reason the check exists — an unread account and a removed
+ * account look identical to a comparison and mean opposite things.
+ *
+ * Every count the summary states is checked, not just accounts. Public records
+ * and inquiries are the ones that matter most today, because the PDF adapter
+ * does not yet read those sections: a report stating any will reconcile short
+ * and grade the import partial, which is the correct and visible failure.
+ * Silence there would have let a report with three judgments import as
+ * complete with none.
  */
 function reconcilePdf(
   summary: Record<Bureau, Record<string, string>>,
@@ -123,22 +131,43 @@ function reconcilePdf(
   bureaus: Bureau[],
 ): ReconciliationCheck[] {
   const checks: ReconciliationCheck[] = [];
+  /* Summary label → what it should be counted against. The attribute counts
+     the export also prints — open, closed, delinquent, derogatory, balances,
+     payments — are not item counts and cannot be reconciled by counting
+     items; they are captured in `summary` and left unchecked rather than
+     compared against something they do not mean. */
+  const COUNTED: { label: string; checkKey: string; kind: ParsedReportItem["kind"] }[] = [
+    { label: "total accounts", checkKey: "accounts", kind: "Account" },
+    { label: "public records", checkKey: "public_records", kind: "Public Record" },
+    { label: "inquiries", checkKey: "inquiries", kind: "Inquiry" },
+  ];
+
   for (const bureau of bureaus) {
-    const stated = Number((summary[bureau]?.["total accounts"] ?? "").replace(/[^\d]/g, ""));
-    const parsed = items.filter((i) => i.bureaus.includes(bureau)).length;
-    if (!Number.isFinite(stated) || !(summary[bureau]?.["total accounts"] ?? "")) {
+    for (const { label, checkKey, kind } of COUNTED) {
+      const printed = summary[bureau]?.[label] ?? "";
+      const parsed = items.filter((i) => i.kind === kind && i.bureaus.includes(bureau)).length;
+      if (!printed) {
+        checks.push({
+          bureau, checkKey, parsed, ok: false,
+          reason: `The report states no ${checkKey.replace(/_/g, " ")} total for this bureau, so the parse cannot be reconciled.`,
+        });
+        continue;
+      }
+      const stated = Number(printed.replace(/[^\d]/g, ""));
+      if (!Number.isFinite(stated)) {
+        checks.push({
+          bureau, checkKey, parsed, ok: false,
+          reason: `The report's ${checkKey.replace(/_/g, " ")} total for this bureau could not be read as a number.`,
+        });
+        continue;
+      }
       checks.push({
-        bureau, checkKey: "accounts", parsed, ok: false,
-        reason: "The report states no account total for this bureau, so the parse cannot be reconciled.",
+        bureau, checkKey, stated, parsed, ok: stated === parsed,
+        reason: stated === parsed ? undefined
+          : `The report states ${stated} and ${parsed} were read. ` +
+            `The ${Math.abs(stated - parsed)} not read are unread, not absent from the file.`,
       });
-      continue;
     }
-    checks.push({
-      bureau, checkKey: "accounts", stated, parsed, ok: stated === parsed,
-      reason: stated === parsed ? undefined
-        : `The report states ${stated} accounts for this bureau and ${parsed} were read. ` +
-          `The ${Math.abs(stated - parsed)} not read are unread, not absent from the file.`,
-    });
   }
   return checks;
 }

@@ -68,6 +68,17 @@ export interface SmartCreditPdfResult {
   /** Per-field states: a zero, a dash and a "NONE REPORTED" stay distinct. */
   facts: CompletenessFact[];
   history: Record<string, PdfHistoryEntry[]>;
+  /**
+   * Figures the PROVIDER derived rather than a bureau furnished — Utilization
+   * is the one the export prints. Kept, because the instruction is to lose
+   * nothing the source exposes, but kept HERE rather than among the reported
+   * values: storing it as a furnished field would make arithmetic look like
+   * something a bureau said, and a later balance correction would leave a
+   * stale percentage sitting beside it.
+   *
+   *   accountRef -> bureau -> label -> value as printed
+   */
+  derived: Record<string, Record<string, Record<string, string>>>;
   pageCount: number;
 }
 
@@ -334,7 +345,8 @@ export function parseSmartCreditPdf(geometry: PdfGeometry): SmartCreditPdfResult
     warnings.push("This PDF has no text layer. It is a scan, and this adapter does not read scans.");
     return {
       items: [], summary: emptySummary(), bureaus: [], publicRecords: [], inquiries: [],
-      scores: [], sections: {}, warnings, facts, history: {}, pageCount: geometry.pageCount,
+      scores: [], sections: {}, warnings, facts, history: {}, derived: {},
+      pageCount: geometry.pageCount,
     };
   }
 
@@ -342,6 +354,7 @@ export function parseSmartCreditPdf(geometry: PdfGeometry): SmartCreditPdfResult
   const blocks = findBlocks(rows);
   const items: ParsedReportItem[] = [];
   const history: Record<string, PdfHistoryEntry[]> = {};
+  const derived: Record<string, Record<string, Record<string, string>>> = {};
 
   for (const block of blocks) {
     const bands = attributeColumns(block.rows, block.headerRow);
@@ -356,7 +369,17 @@ export function parseSmartCreditPdf(geometry: PdfGeometry): SmartCreditPdfResult
     for (const row of block.rows) {
       const label = labelOf(row);
       if (!label) continue;
-      if (DERIVED_LABELS.has(label)) continue;
+      if (DERIVED_LABELS.has(label)) {
+        for (const band of bands) {
+          if (!band.bureau) continue;
+          const text = textInBand(row, band.from, band.to);
+          if (classifyCell(text) !== "value") continue;
+          derived[accountRef] ??= {};
+          derived[accountRef][band.bureau] ??= {};
+          derived[accountRef][band.bureau][label] = text;
+        }
+        continue;
+      }
       const field = mappedField(label);
       if (!field) continue;
 
@@ -456,7 +479,7 @@ export function parseSmartCreditPdf(geometry: PdfGeometry): SmartCreditPdfResult
     items, summary, bureaus: declared,
     publicRecords: [], inquiries: [],
     scores: declared.map((bureau) => ({ bureau })),
-    sections, warnings, facts, history, pageCount: geometry.pageCount,
+    sections, warnings, facts, history, derived, pageCount: geometry.pageCount,
   };
 }
 

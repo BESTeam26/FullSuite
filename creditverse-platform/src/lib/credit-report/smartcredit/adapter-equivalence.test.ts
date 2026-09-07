@@ -260,3 +260,32 @@ describe("the dated-mark encoding", () => {
     expect(decodeHistoryMark("2025-13:C")).toBeNull();
   });
 });
+
+describe("what the PDF adapter does not yet read is visible, not silent", () => {
+  it("preserves the provider's derived Utilization without calling it a reported value", async () => {
+    const geometry = await pdfGeometry();
+    const parsed = parseSmartCreditPdf(geometry);
+    const ref = Object.keys(parsed.derived).find((r) => r.includes("northstar"));
+    /* The fixture prints no Utilization row, so nothing is derived from it —
+       the assertion that matters is that a derived figure could never land
+       among the reported per-bureau values. */
+    const northstar = parsed.items.find((i) => i.name.includes("NORTHSTAR"))!;
+    for (const values of northstar.bureauValues ?? [])
+      expect(Object.keys(values)).not.toContain("utilization");
+    expect(ref === undefined || typeof parsed.derived[ref] === "object").toBe(true);
+  });
+
+  it("reconciles public records and inquiries, so a stated count cannot import as complete", async () => {
+    const geometry = await pdfGeometry();
+    const report = SmartCreditPdfAdapter.parse(geometry);
+    for (const key of ["accounts", "public_records", "inquiries"])
+      expect(report.reconciliation.some((c) => c.checkKey === key)).toBe(true);
+
+    /* The fixture states zero of each, so these pass. The point is that a
+       report stating three judgments would reconcile SHORT and grade the
+       import partial — never "the records are absent from the file". */
+    const shortfall = report.reconciliation.filter((c) => !c.ok);
+    for (const check of shortfall)
+      expect(check.reason).toMatch(/unread, not absent|cannot be reconciled|could not be read/i);
+  });
+});

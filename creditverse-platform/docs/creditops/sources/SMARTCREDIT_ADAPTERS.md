@@ -167,6 +167,30 @@ Building the second reader found four live defects in the first, all fixed:
 4. **`——` was stored as a literal value**, so an account every bureau left
    blank read as an account every bureau reports.
 
+## Known gaps in the PDF adapter, stated rather than hidden
+
+**Public records and inquiries are not yet read from the PDF.** The HTML
+adapter reads both (S-15 / S-16); the PDF adapter returns none.
+
+This is deliberately *visible*: the reconciliation checks
+`public_records` and `inquiries` against the summary's own counts, so a PDF
+stating three judgments reconciles short and grades the import **partial /
+review required**. It never reads as "the records are absent from the file" —
+an unread item and a removed item look identical to a comparison and mean
+opposite things.
+
+**Attribute counts are captured but not reconciled.** The summary also prints
+open, closed, delinquent, derogatory, balances and payments. They are kept in
+`summary` and left unchecked, because they are not item counts and comparing
+them against a count of items would compare two different things.
+
+**Utilization is preserved, but not as a reported value.** It appears under
+`derived` — `accountRef → bureau → label → value as printed` — because it is
+arithmetic on balance and limit rather than something a bureau furnished.
+Storing it among the reported fields would make a derived number look
+furnished, and a later balance correction would leave a stale percentage
+beside it.
+
 ## Other providers
 
 The layout was measured from a SmartCredit export, but the doctrine is the
