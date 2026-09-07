@@ -2,7 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useAgencyPermissions } from "@/lib/data/agency-permissions";
 import {
-  fetchPartnerBilling, fetchPartnerCatalogues, fetchPartnerOperations, fetchPartnerRevenue, fetchPartnerServices,
+  fetchPartnerBilling, fetchPartnerCatalogues, fetchPartnerOperations, fetchPartnerRevenue,
+  fetchPartnerServiceSummary, fetchPartnerServices,
   archivePartner, cancelPartnerService, restorePartner,
   savePartnerBilling, savePartnerOperations, savePartnerService, saveRevenueEntry,
   type PartnerBilling, type PartnerOperations,
@@ -142,5 +143,16 @@ export function usePartnerCatalogues() {
     queryFn: fetchPartnerCatalogues,
     enabled: live(auth),
     staleTime: 3_600_000,
+  });
+}
+
+/** Every partner's services at once, for the directory. */
+export function usePartnerServiceSummary() {
+  const auth = useAuth();
+  return useQuery({
+    queryKey: ["partner", "service-summary"],
+    queryFn: fetchPartnerServiceSummary,
+    enabled: live(auth),
+    staleTime: 60_000,
   });
 }

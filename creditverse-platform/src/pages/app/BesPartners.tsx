@@ -1,69 +1,106 @@
 /**
- * BES Partners — the companies BES actually does work for.
+ * The BES Partner directory.
  *
- * Dee, 2026-09-06: *"AGENCY HQ 'Clients' should NOT mean end consumers. At BES
- * Agency HQ, use BES PARTNERS."*
+ * ── WHAT IS ON THIS LIST ───────────────────────────────────────────────────
  *
- * This is deliberately NOT a directory of anyone's end customers, and not a
- * list of SaaS subscribers either. A company appears here because a
- * `fulfillment_engagements` row says BES was hired to do something for them —
- * the same row `bes_may_fulfil()` reads inside RLS. Screen and database agree
- * because they read the same fact.
+ * Every company or person BES has a commercial service relationship with.
+ * Not only CreditOps companies: somebody who bought one GHL build is here, so
+ * is an hourly TalentOps arrangement, a retainer and a CRM subscription. The
+ * canonical partner record is what puts them here.
+ *
+ * ── THE SECOND TABLE, AND WHY IT IS SEPARATE ───────────────────────────────
+ *
+ * A SaaS customer who ALSO bought fulfilment (rule 16, model 2) is a partner
+ * too, but their record is an organization with a `fulfillment_engagements`
+ * row — an AUTHORIZATION, which is the thing that lets BES staff reach their
+ * data at all. Merging the two tables would put an access grant and a
+ * commercial relationship in the same column, which is exactly the confusion
+ * this release exists to end. They are listed apart and labelled.
  */
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Handshake, Search, Building2, ExternalLink, AlertTriangle, Plus } from "lucide-react";
+import { AlertTriangle, Building2, ExternalLink, Handshake, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { AddPartnerDialog } from "@/components/agency/AddPartnerDialog";
-import { useAgencyPartners } from "@/lib/data/use-agency-partners";
-import { useAuth } from "@/lib/auth/auth-context";
-import { atLeast, type AgencyRole } from "@/lib/agency/navigation";
 import { Input } from "@/components/ui/input";
 import { OpsSelect } from "@/components/ui/ops-select";
+import { AddPartnerDialog } from "@/components/agency/AddPartnerDialog";
 import { DataSourceBadge } from "@/components/dashboard/DataSourceBadge";
-import { formatDate } from "@/lib/format-date";
+import { Pill } from "@/components/agency/partner/partner-ui";
+import { useAgencyPartners, usePartnerClientCounts } from "@/lib/data/use-agency-partners";
+import { usePartnerCatalogues, usePartnerServiceSummary } from "@/lib/data/use-partner-services";
+import { useWorkforce } from "@/lib/data/use-workforce";
+import { useAgencyPermissions } from "@/lib/data/agency-permissions";
 import { useAgency } from "@/lib/agency-context";
 import { useFulfillment } from "@/lib/data/use-fulfillment";
 import { useOutsourcingGroups } from "@/lib/data/use-partners";
 import {
-  buildBesPartners,
-  filterPartners,
-  serviceTotals,
-  RELATIONSHIP_LABEL,
-  SERVICE_LABEL,
-  type PartnerFilter,
-} from "@/lib/partners/bes-partner-domain";
-import type { FulfillmentService } from "@/lib/data/fulfillment-engagements";
+  HEALTH_LABEL, HEALTH_TONE, LIFECYCLE_LABEL, LIFECYCLE_TONE,
+  PARTNER_HEALTHS, PARTNER_LIFECYCLES, healthNeedsAttention,
+  type PartnerHealth, type PartnerLifecycle,
+} from "@/lib/partners/partner-account";
+import { buildBesPartners, RELATIONSHIP_LABEL, SERVICE_LABEL } from "@/lib/partners/bes-partner-domain";
+import { formatDate } from "@/lib/format-date";
 
-const SERVICE_ORDER: FulfillmentService[] = ["creditops", "fundingops", "bes_crm", "talentops"];
-
-const Tile = ({ label, value, hint }: { label: string; value: number; hint: string }) => (
+const Tile = ({ label, value, hint, tone }: {
+  label: string; value: number | string; hint: string; tone?: string;
+}) => (
   <div className="rounded-2xl border border-border bg-card p-4">
     <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</p>
-    <p className="mt-1 text-2xl font-bold text-foreground">{value}</p>
+    <p className={`mt-1 text-2xl font-bold ${tone ?? "text-foreground"}`}>{value}</p>
     <p className="mt-0.5 text-[11px] text-muted-foreground">{hint}</p>
   </div>
 );
 
 export default function BesPartners() {
+  const partners = useAgencyPartners(true);
+  const services = usePartnerServiceSummary();
+  const counts = usePartnerClientCounts();
+  const catalogues = usePartnerCatalogues();
+  const workforce = useWorkforce();
+  const perms = useAgencyPermissions();
+  const navigate = useNavigate();
+
+  const [q, setQ] = useState("");
+  const [lifecycle, setLifecycle] = useState<string>("open");
+  const [health, setHealth] = useState<string>("any");
+  const [serviceType, setServiceType] = useState<string>("any");
+  const [adding, setAdding] = useState(false);
+
+  const typeLabel = useMemo(() => Object.fromEntries(
+    (catalogues.data?.serviceTypes ?? []).map((t) => [t.code, t.label]),
+  ), [catalogues.data]);
+  const people = workforce.data?.people ?? [];
+
+  const all = partners.data ?? [];
+  const rows = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    return all.filter((p) => {
+      if (lifecycle === "open" && (p.lifecycle === "archived" || p.lifecycle === "suspended")) return false;
+      if (lifecycle !== "open" && lifecycle !== "any" && p.lifecycle !== lifecycle) return false;
+      if (health === "attention" && !healthNeedsAttention(p.health)) return false;
+      if (health !== "any" && health !== "attention" && p.health !== health) return false;
+      if (serviceType !== "any" && !(services.data?.[p.id]?.live ?? []).includes(serviceType)) return false;
+      if (!needle) return true;
+      return [p.name, p.companyName ?? "", p.contactEmail, p.primaryContact ?? "", p.contractRef ?? ""]
+        .join(" ").toLowerCase().includes(needle);
+    });
+  }, [all, q, lifecycle, health, serviceType, services.data]);
+
+  const active = all.filter((p) => p.lifecycle === "active").length;
+  const onboarding = all.filter((p) => p.lifecycle === "onboarding" || p.lifecycle === "new").length;
+  const atRisk = all.filter((p) => healthNeedsAttention(p.health)).length;
+  const totalClients = Object.values(counts.data ?? {}).reduce((n, c) => n + c.activeClients, 0);
+
+  /* Model 2: organizations BES also fulfils for. A different record shape and
+     a different meaning, so a different table. */
   const agency = useAgency();
   const fulfillment = useFulfillment();
   const groups = useOutsourcingGroups();
-  const [filter, setFilter] = useState<PartnerFilter>("live");
-  const [q, setQ] = useState("");
-
-  const partners = useMemo(
-    () => buildBesPartners(agency.organizations, groups.data ?? [], fulfillment.engagements),
+  const engaged = useMemo(
+    () => buildBesPartners(agency.organizations, groups.data ?? [], fulfillment.engagements)
+      .filter((p) => p.relationship === "saas_and_fulfillment"),
     [agency.organizations, groups.data, fulfillment.engagements],
   );
-  const rows = useMemo(() => filterPartners(partners, filter, q), [partners, filter, q]);
-  const totals = useMemo(() => serviceTotals(partners), [partners]);
-  const loading = fulfillment.isLoading || groups.isLoading;
-  const manual = useAgencyPartners();
-  const { agencyMembership } = useAuth();
-  const canManage = atLeast((agencyMembership?.role as AgencyRole) ?? null, "agency_manager");
-  const [adding, setAdding] = useState(false);
-  const navigate = useNavigate();
 
   return (
     <div className="p-6 md:p-8">
@@ -73,14 +110,14 @@ export default function BesPartners() {
             <Handshake className="h-6 w-6 text-primary" /> BES Partners
           </h1>
           <p className="max-w-3xl text-sm text-muted-foreground">
-            The companies BES is engaged to do work for. A software subscription alone does not put a
-            company on this list — an engagement does, and that same engagement is what lets BES staff
-            reach their records at all.
+            Every company or person BES has a commercial service relationship with — fulfilment,
+            CRM, staffing, retainers and one-off builds alike. A partner is the account; what BES
+            sells them lives underneath it as service engagements.
           </p>
         </div>
         <div className="flex items-center gap-2">
           <DataSourceBadge source="live" />
-          {canManage && (
+          {perms.can("partners.create") && (
             <Button size="sm" onClick={() => setAdding(true)}>
               <Plus className="mr-1.5 h-4 w-4" /> Add partner
             </Button>
@@ -88,163 +125,199 @@ export default function BesPartners() {
         </div>
       </div>
 
-      {/* Partners added by hand, with no engagement and no SaaS tenant. They
-          are the same records the list above reads — a partner reaches this
-          page because BES recorded them, not because they bought software. */}
-      {(manual.data ?? []).length > 0 && (
-        <div className="mb-4 rounded-2xl border border-border bg-card p-3">
-          <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-            All partner records
-          </p>
-          <ul className="divide-y divide-border/50">
-            {(manual.data ?? []).map((m) => (
-              <li key={m.id}>
-                <Link to={`/app/bes-partners/${m.id}`}
-                  className="flex flex-wrap items-center justify-between gap-2 py-2 transition-colors hover:bg-muted/50">
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-medium text-foreground">{m.name}</span>
-                    <span className="block truncate text-xs text-muted-foreground">
-                      {m.companyName ? `${m.companyName} · ` : ""}{m.contactEmail}
-                    </span>
-                  </span>
-                  <span className="shrink-0 rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
-                    {m.status}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
       <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {SERVICE_ORDER.map((s) => (
-          <Tile key={s} label={SERVICE_LABEL[s]} value={totals[s]} hint="partners with a live engagement" />
-        ))}
+        <Tile label="Active partners" value={active} hint="Relationships currently running" />
+        <Tile label="New and onboarding" value={onboarding} hint="Not yet fully running" />
+        <Tile label="Needing attention" value={atRisk}
+          tone={atRisk > 0 ? "text-orange-700" : undefined}
+          hint="Concerned or at risk, as somebody recorded it" />
+        <Tile label="End clients" value={totalClients} hint="Counted from real client records" />
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-card p-3">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
+          <Input value={q} onChange={(e) => setQ(e.target.value)}
             placeholder="Partner, contact, contract reference…"
-            className="w-full pl-9 sm:w-72"
-            aria-label="Search partners"
-          />
+            className="w-full pl-9 sm:w-72" aria-label="Search partners" />
         </div>
-        <OpsSelect
-          value={filter}
-          onValueChange={(v) => setFilter(v as PartnerFilter)}
+        <OpsSelect aria-label="Lifecycle" value={lifecycle} onValueChange={setLifecycle}
           options={[
-            { value: "live", label: "Live engagements" },
-            { value: "all", label: "All partners" },
-            { value: "dormant", label: "Nothing live" },
-          ]}
-          aria-label="Engagement filter"
-        />
+            { value: "open", label: "Currently working with" },
+            { value: "any", label: "Every partner" },
+            ...PARTNER_LIFECYCLES.map((l) => ({ value: l, label: LIFECYCLE_LABEL[l] })),
+          ]} />
+        <OpsSelect aria-label="Health" value={health} onValueChange={setHealth}
+          options={[
+            { value: "any", label: "Any health" },
+            { value: "attention", label: "Needs attention" },
+            ...PARTNER_HEALTHS.map((h) => ({ value: h, label: HEALTH_LABEL[h] })),
+          ]} />
+        <OpsSelect aria-label="Service" value={serviceType} onValueChange={setServiceType}
+          options={[
+            { value: "any", label: "Any service" },
+            ...(catalogues.data?.serviceTypes ?? []).map((t) => ({ value: t.code, label: t.label })),
+          ]} />
       </div>
 
       <div className="overflow-x-auto rounded-2xl border border-border bg-card">
-        {loading ? (
+        {partners.isLoading ? (
           <p className="p-6 text-sm text-muted-foreground">Loading partners…</p>
         ) : rows.length === 0 ? (
           <p className="p-6 text-sm text-muted-foreground">
-            {partners.length === 0
-              ? "No engagements recorded yet. A partner appears here once BES is engaged to perform a service for them."
-              : "No partners match."}
+            {all.length === 0
+              ? "No partners recorded yet. Adding one needs a name and an email — nothing else."
+              : "No partners match those filters."}
           </p>
         ) : (
           <table className="w-full text-sm">
             <thead className="bg-muted/40 text-left text-[11px] uppercase tracking-wider text-muted-foreground">
               <tr>
                 <th className="px-4 py-2.5">Partner</th>
-                <th className="px-4 py-2.5">Relationship</th>
-                <th className="px-4 py-2.5">Engagements</th>
-                <th className="px-4 py-2.5">Primary contact</th>
-                <th className="px-4 py-2.5">Organization</th>
+                <th className="px-4 py-2.5">Status</th>
+                <th className="px-4 py-2.5">Services</th>
+                <th className="px-4 py-2.5">Account manager</th>
+                <th className="px-4 py-2.5 text-right">Clients</th>
+                <th className="px-4 py-2.5">Since</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((p) => (
-                <tr key={p.scopeId} className="border-t border-border/60 align-top">
-                  <td className="px-4 py-3">
-                    <p className="font-medium text-foreground">{p.name}</p>
-                    {p.contractRef && (
-                      <p className="font-mono text-[10px] text-muted-foreground">{p.contractRef}</p>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 py-0.5 text-[11px] font-semibold text-foreground">
-                      {p.relationship === "outsourcing_only" ? (
-                        <AlertTriangle className="h-3 w-3" />
-                      ) : (
-                        <Building2 className="h-3 w-3" />
-                      )}
-                      {RELATIONSHIP_LABEL[p.relationship]}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    {p.services.length === 0 ? (
-                      <span className="text-xs text-muted-foreground">
-                        None recorded — BES cannot reach their records until one is
-                      </span>
-                    ) : (
-                      <ul className="space-y-1">
-                        {p.services.map((s) => (
-                          <li key={`${s.service}-${s.effectiveFrom}`} className="flex flex-wrap items-center gap-2">
-                            <span
-                              className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
-                                s.live
-                                  ? "border-emerald-600/30 bg-emerald-500/10 text-status-success"
-                                  : "border-border bg-muted text-muted-foreground"
-                              }`}
-                            >
-                              {SERVICE_LABEL[s.service]}
-                            </span>
-                            <span className="text-[11px] text-muted-foreground">
-                              {s.live ? "Live" : s.status} · from {formatDate(s.effectiveFrom)}
-                              {s.effectiveTo ? ` to ${formatDate(s.effectiveTo)}` : ""}
-                              {s.authorizedTeam ? " · team-scoped" : ""}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <p className="text-foreground">{p.contactName}</p>
-                    <p className="text-xs text-muted-foreground">{p.contactEmail}</p>
-                  </td>
-                  <td className="px-4 py-3">
-                    {p.organizationPublicId ? (
-                      <Link
-                        to={`/app/org/${p.organizationPublicId}`}
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                      >
-                        Open organization <ExternalLink className="h-3 w-3" />
+              {rows.map((p) => {
+                const summary = services.data?.[p.id];
+                const count = counts.data?.[p.id]?.activeClients;
+                return (
+                  <tr key={p.id} className="border-t border-border/60 align-top transition-colors hover:bg-muted/40">
+                    <td className="px-4 py-3">
+                      <Link to={`/app/bes-partners/${p.id}`}
+                        className="font-medium text-foreground hover:text-primary hover:underline">
+                        {p.name}
                       </Link>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">No SaaS tenant</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
+                      <p className="text-xs text-muted-foreground">
+                        {p.companyName ? `${p.companyName} · ` : ""}{p.primaryContact ?? p.contactEmail}
+                      </p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="flex flex-wrap gap-1">
+                        <Pill tone={LIFECYCLE_TONE[p.lifecycle as PartnerLifecycle]}>
+                          {LIFECYCLE_LABEL[p.lifecycle as PartnerLifecycle]}
+                        </Pill>
+                        {p.health && (
+                          <Pill tone={HEALTH_TONE[p.health as PartnerHealth]}>
+                            {HEALTH_LABEL[p.health as PartnerHealth].split(" / ")[0]}
+                          </Pill>
+                        )}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {!summary || summary.liveCount === 0 ? (
+                        <span className="text-xs text-muted-foreground">
+                          {summary?.historicalCount
+                            ? `${summary.historicalCount} finished or cancelled`
+                            : "None recorded"}
+                        </span>
+                      ) : (
+                        <span className="flex flex-wrap gap-1">
+                          {summary.live.map((code) => (
+                            <Pill key={code} tone="border-border bg-muted text-foreground">
+                              {typeLabel[code] ?? code}
+                            </Pill>
+                          ))}
+                          {summary.historicalCount > 0 && (
+                            <span className="text-[11px] text-muted-foreground">
+                              +{summary.historicalCount} past
+                            </span>
+                          )}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">
+                      {people.find((x) => x.userId === p.accountManagerId)?.name ?? "Unassigned"}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums text-foreground">
+                      {count === undefined ? "—" : count}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">{formatDate(p.startedOn)}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
       </div>
       <p className="mt-2 text-[11px] text-muted-foreground">
-        Showing {rows.length} of {partners.length} partner{partners.length === 1 ? "" : "s"}. Partner
-        health, SLA and recent activity are not shown because no canonical measure of them exists yet.
+        Showing {rows.length} of {all.length} partner{all.length === 1 ? "" : "s"}. Client counts come
+        from real client records, not a figure anybody typed.
       </p>
+
+      {engaged.length > 0 && (
+        <div className="mt-6">
+          <h2 className="mb-1 text-sm font-bold text-foreground">Organizations BES also fulfils for</h2>
+          <p className="mb-2 max-w-3xl text-xs text-muted-foreground">
+            SaaS customers who separately bought BES fulfilment. Their record is an organization with a
+            live engagement — the same engagement that lets BES staff reach their operational data.
+            Listed apart because an access grant and a commercial relationship are not the same thing.
+          </p>
+          <div className="overflow-x-auto rounded-2xl border border-border bg-card">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/40 text-left text-[11px] uppercase tracking-wider text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-2.5">Organization</th>
+                  <th className="px-4 py-2.5">Relationship</th>
+                  <th className="px-4 py-2.5">Live engagements</th>
+                  <th className="px-4 py-2.5">Principal</th>
+                  <th className="px-4 py-2.5" />
+                </tr>
+              </thead>
+              <tbody>
+                {engaged.map((p) => (
+                  <tr key={p.scopeId} className="border-t border-border/60 align-top">
+                    <td className="px-4 py-3 font-medium text-foreground">{p.name}</td>
+                    <td className="px-4 py-3">
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 py-0.5 text-[11px] font-semibold text-foreground">
+                        {p.relationship === "outsourcing_only"
+                          ? <AlertTriangle className="h-3 w-3" />
+                          : <Building2 className="h-3 w-3" />}
+                        {RELATIONSHIP_LABEL[p.relationship]}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {p.liveServices.length === 0 ? (
+                        <span className="text-xs text-muted-foreground">
+                          None live — BES cannot reach their records until one is
+                        </span>
+                      ) : (
+                        <span className="flex flex-wrap gap-1">
+                          {p.liveServices.map((s) => (
+                            <Pill key={s} tone="border-emerald-500/30 bg-emerald-500/10 text-emerald-700">
+                              {SERVICE_LABEL[s]}
+                            </Pill>
+                          ))}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="text-foreground">{p.contactName}</p>
+                      <p className="text-xs text-muted-foreground">{p.contactEmail}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      {p.organizationPublicId && (
+                        <Link to={`/app/org/${p.organizationPublicId}`}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
+                          Open <ExternalLink className="h-3 w-3" />
+                        </Link>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {adding && (
-        <AddPartnerDialog
-          open={adding}
-          onOpenChange={setAdding}
-          onCreated={(id) => { setAdding(false); navigate(`/app/bes-partners/${id}`); }}
-        />
+        <AddPartnerDialog open={adding} onOpenChange={setAdding}
+          onCreated={(id) => { setAdding(false); navigate(`/app/bes-partners/${id}`); }} />
       )}
     </div>
   );

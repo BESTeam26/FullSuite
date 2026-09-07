@@ -126,3 +126,92 @@ export async function clearAgencyPermission(membershipId: string, key: string): 
   const { error } = await sb.rpc("clear_agency_permission", { p_membership: membershipId, p_key: key });
   if (error) throw error;
 }
+
+/* ── The catalogue, and what each role gets by default ────────────────── */
+
+export interface PermissionKeyRow {
+  key: string;
+  module: string;
+  label: string;
+  description: string | null;
+  securityRelevant: boolean;
+  sort: number;
+}
+
+/**
+ * Every capability that exists, and the default each role holds.
+ *
+ * Two round trips, in parallel, for a screen that shows a grid of both. The
+ * alternative — asking `agency_can` once per person per key — is thirty
+ * requests to draw one table.
+ */
+export async function fetchPermissionCatalogue(): Promise<{
+  keys: PermissionKeyRow[];
+  roleDefaults: Record<string, Record<string, boolean>>;
+}> {
+  const sb = requireSupabase();
+  const [keys, defaults] = await Promise.all([
+    sb.from("permission_keys")
+      .select("key, module, label, description, security_relevant, sort")
+      .in("key", AGENCY_PERMISSIONS as unknown as string[])
+      .order("sort"),
+    sb.from("agency_role_permissions").select("agency_id, role, key, allowed"),
+  ]);
+  if (keys.error) throw keys.error;
+  if (defaults.error) throw defaults.error;
+
+  /* An agency row overrides the platform default for that role, exactly as
+     `agency_can` resolves it. Platform rows are applied first so the agency's
+     own row wins wherever both exist. */
+  const roleDefaults: Record<string, Record<string, boolean>> = {};
+  const rows = (defaults.data ?? []) as Record<string, unknown>[];
+  for (const scope of [null, "agency"]) {
+    for (const r of rows) {
+      const isPlatform = r.agency_id === null;
+      if ((scope === null) !== isPlatform) continue;
+      const role = r.role as string;
+      roleDefaults[role] = { ...(roleDefaults[role] ?? {}), [r.key as string]: r.allowed as boolean };
+    }
+  }
+
+  return {
+    keys: (keys.data ?? []).map((row) => {
+      const r = row as Record<string, unknown>;
+      return {
+        key: r.key as string, module: r.module as string, label: r.label as string,
+        description: (r.description as string) ?? null,
+        securityRelevant: Boolean(r.security_relevant),
+        sort: Number(r.sort ?? 0),
+      };
+    }),
+    roleDefaults,
+  };
+}
+
+/**
+ * What one person actually holds, resolved the way the database resolves it.
+ *
+ * Mirrors `agency_can`'s precedence exactly:
+ *
+ *   owner / admin → true
+ *   → their own explicit grant or denial
+ *     → their agency's default for that role
+ *       → the platform default for that role
+ *         → false
+ *
+ * A mirror, not the authority: this decides what a switch LOOKS like. The
+ * database decides what anybody receives, and it re-checks every time.
+ */
+export function effectiveAgencyPermission(
+  role: string,
+  key: string,
+  overrides: Record<string, boolean>,
+  roleDefaults: Record<string, Record<string, boolean>>,
+): { allowed: boolean; source: "role" | "granted" | "denied" | "default" } {
+  if (role === "agency_owner" || role === "agency_admin") return { allowed: true, source: "role" };
+  if (key in overrides) {
+    return { allowed: overrides[key], source: overrides[key] ? "granted" : "denied" };
+  }
+  const fallback = roleDefaults[role]?.[key];
+  return { allowed: fallback ?? false, source: "default" };
+}

@@ -473,3 +473,43 @@ export async function restorePartner(groupId: string): Promise<{ partner: string
   const r = (data ?? {}) as Record<string, unknown>;
   return { partner: String(r.partner ?? ""), clientsRestored: Number(r.clients_restored ?? 0) };
 }
+
+/* ── The directory's per-partner summary ──────────────────────────────── */
+
+export interface PartnerServiceSummary {
+  groupId: string;
+  live: string[];
+  liveCount: number;
+  historicalCount: number;
+}
+
+/**
+ * Every partner's services in ONE request, for the directory.
+ *
+ * Not one query per row — twenty-five partners would be twenty-five round
+ * trips to draw one column (rule 14). Only the four fields the list shows are
+ * selected; opening a partner fetches the rest.
+ */
+export async function fetchPartnerServiceSummary(): Promise<Record<string, PartnerServiceSummary>> {
+  const sb = requireSupabase();
+  const { data, error } = await sb
+    .from("partner_services").select("group_id, name, service_type, status");
+  if (error) throw error;
+
+  const out: Record<string, PartnerServiceSummary> = {};
+  for (const row of data ?? []) {
+    const r = row as Record<string, unknown>;
+    const id = r.group_id as string;
+    const entry = out[id] ?? { groupId: id, live: [], liveCount: 0, historicalCount: 0 };
+    const status = r.status as string;
+    if (status === "active" || status === "onboarding") {
+      entry.liveCount += 1;
+      const label = (r.service_type as string) ?? (r.name as string);
+      if (!entry.live.includes(label)) entry.live.push(label);
+    } else if (["completed", "cancelled", "ended"].includes(status)) {
+      entry.historicalCount += 1;
+    }
+    out[id] = entry;
+  }
+  return out;
+}

@@ -5,6 +5,7 @@ import {
   StatCard,
   StatusPill,
 } from "@/components/dashboard/DivisionLayout";
+import { AgencyAccessPanel } from "@/components/agency/AgencyAccessPanel";
 import { HqPageShell } from "@/pages/app/HqPages";
 import { cn } from "@/lib/utils";
 import { LiveCalendar } from "@/components/dashboard/LiveCalendar";
@@ -59,6 +60,11 @@ export const PeoplePage = () => {
           />
         )}
       </ContentCard>
+      {/* Owner and administrator only — the panel returns null for everyone
+          else rather than rendering a locked version of itself. */}
+      <div className="mt-4">
+        <AgencyAccessPanel />
+      </div>
     </HqPageShell>
   );
 };
