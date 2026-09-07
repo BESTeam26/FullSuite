@@ -1,53 +1,68 @@
 /**
  * One BES Partner, in full.
  *
- * A partner is not an end consumer and not a SaaS tenant, so this is not the
- * client profile with different words on it — it is the partner's own record:
- * who they are, who we deal with there, what portal access those people have,
- * and what BES has shared with them.
+ * ── WHAT A PARTNER IS ──────────────────────────────────────────────────────
  *
- * Lifecycle is archive, never delete. A partner with any history is a record
- * of something that happened, and destroying it destroys the history of every
- * engagement, file and note attached to it (rule 11).
+ * A company or person BES has a commercial service relationship with. Not a
+ * CreditOps client, not a SaaS tenant, not necessarily a company with end
+ * clients at all. This screen has to read correctly for a fulfilment company
+ * with five hundred clients AND for somebody who bought one GHL build, so
+ * nothing on it assumes CreditOps and nothing assumes end clients exist.
+ *
+ * ── THE TAB LIST IS BUILT FROM PERMISSIONS ─────────────────────────────────
+ *
+ * Dee, 2026-09-07: "if they don't have access, do not show it." A manager
+ * without partner financials gets no Billing & Revenue tab — not a locked one,
+ * not a greyed one. The database refuses those queries as well; this is the
+ * second half of the same rule rather than the first line of defence.
+ *
+ * Radix unmounts an inactive tab, so each tab's queries fire when it is opened
+ * and not before — rule 14's "do not preload hidden tabs", enforced by the
+ * component rather than by remembering.
  */
 import { useState } from "react";
+import { ArrowLeft, Handshake, Loader2 } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
-import {
-  ArrowLeft, Ban, Building2, Handshake, Loader2, Mail, Phone, Plus,
-  RotateCcw, ShieldCheck, UserPlus,
-} from "lucide-react";
 import { HqPageShell } from "@/pages/app/HqPages";
-import { ContentCard } from "@/components/dashboard/DivisionLayout";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { useAgencyPartner, usePartnerContacts, usePartnerActions } from "@/lib/data/use-agency-partners";
-import { PORTAL_LABEL, portalState } from "@/lib/data/agency-partners";
-import { useAuth } from "@/lib/auth/auth-context";
-import { atLeast, type AgencyRole } from "@/lib/agency/navigation";
-import { formatDate } from "@/lib/format-date";
-import { cn } from "@/lib/utils";
-
-const STATUS_TONE: Record<string, string> = {
-  Active: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700",
-  Onboarding: "border-blue-500/30 bg-blue-500/10 text-blue-700",
-  Paused: "border-amber-500/30 bg-amber-500/10 text-amber-700",
-  Suspended: "border-amber-500/40 bg-amber-500/10 text-amber-700",
-  Archived: "border-border bg-muted text-muted-foreground",
-};
+import { OpsSelect } from "@/components/ui/ops-select";
+import { Pill } from "@/components/agency/partner/partner-ui";
+import { PartnerOverviewTab } from "@/components/agency/partner/PartnerOverviewTab";
+import { PartnerServicesTab } from "@/components/agency/partner/PartnerServicesTab";
+import { PartnerOperationsTab } from "@/components/agency/partner/PartnerOperationsTab";
+import { PartnerClientsTab } from "@/components/agency/partner/PartnerClientsTab";
+import { PartnerContactsTab } from "@/components/agency/partner/PartnerContactsTab";
+import { PartnerTeamTab } from "@/components/agency/partner/PartnerTeamTab";
+import { PartnerFilesTab } from "@/components/agency/partner/PartnerFilesTab";
+import { PartnerPortalTab } from "@/components/agency/partner/PartnerPortalTab";
+import { PartnerActivityTab } from "@/components/agency/partner/PartnerActivityTab";
+import { PartnerBillingTab } from "@/components/agency/partner/PartnerBillingTab";
+import {
+  useAgencyPartner, usePartnerActions, usePartnerClientCounts, usePartnerContacts,
+} from "@/lib/data/use-agency-partners";
+import { usePartnerCatalogues, usePartnerServices } from "@/lib/data/use-partner-services";
+import { useAgencyPermissions } from "@/lib/data/agency-permissions";
+import { useWorkforce } from "@/lib/data/use-workforce";
+import {
+  HEALTH_LABEL, HEALTH_TONE, LIFECYCLE_LABEL, LIFECYCLE_TONE, PARTNER_LIFECYCLES,
+  formatDaysActive, daysActive, rollUpServices, suggestedLifecycle,
+  type PartnerLifecycle,
+} from "@/lib/partners/partner-account";
 
 export const PartnerProfilePage = () => {
   const { id = "" } = useParams();
   const partner = useAgencyPartner(id);
+  const perms = useAgencyPermissions();
+  const workforce = useWorkforce();
+  const services = usePartnerServices(id);
+  const catalogues = usePartnerCatalogues();
+  const counts = usePartnerClientCounts();
   const contacts = usePartnerContacts(id);
   const actions = usePartnerActions();
-  const { agencyMembership } = useAuth();
-  const canManage = atLeast((agencyMembership?.role as AgencyRole) ?? null, "agency_manager");
+  const [tab, setTab] = useState("overview");
 
-  const [addingContact, setAddingContact] = useState(false);
-  const [contactName, setContactName] = useState("");
-  const [contactEmail, setContactEmail] = useState("");
-
-  if (partner.isLoading) {
+  if (partner.isLoading || perms.loading) {
     return (
       <HqPageShell title="Partner" description="Loading…" icon={Handshake}>
         <p className="py-10 text-center text-sm text-muted-foreground">
@@ -56,6 +71,7 @@ export const PartnerProfilePage = () => {
       </HqPageShell>
     );
   }
+
   const p = partner.data;
   if (!p) {
     return (
@@ -70,181 +86,142 @@ export const PartnerProfilePage = () => {
     );
   }
 
+  const people = workforce.data?.people ?? [];
+  const teams = workforce.data?.teams ?? [];
+  const serviceRows = services.data ?? [];
+  const roll = rollUpServices(serviceRows.map((s) => ({
+    id: s.id, name: s.name, serviceType: s.serviceType, status: s.status,
+  })));
+  const clientCount = counts.data?.[p.id]?.activeClients ?? null;
+  const activePortal = (contacts.data ?? []).filter((c) => c.userId && c.status === "active").length;
+  const days = daysActive(p.startedOn, new Date().toISOString());
+  const typeLabels = Object.fromEntries(
+    (catalogues.data?.serviceTypes ?? []).map((t) => [t.code, t.label]),
+  );
+  const suggestion = suggestedLifecycle(p.lifecycle, roll);
+
+  /* Built here, once. Both the trigger list and the content list read it, so a
+     tab cannot exist in one and not the other. */
+  const tabs = [
+    { key: "overview", label: "Overview", show: true },
+    { key: "services", label: "Services", show: true },
+    { key: "operations", label: "Operations", show: true },
+    { key: "clients", label: "Clients", show: true },
+    { key: "contacts", label: "Contacts", show: true },
+    { key: "team", label: "Team", show: true },
+    { key: "files", label: "Files", show: perms.can("partners.files.view") },
+    { key: "portal", label: "Portal", show: true },
+    { key: "activity", label: "Activity", show: true },
+    { key: "billing", label: "Billing & Revenue", show: perms.can("partners.financials.view") },
+  ].filter((t) => t.show);
+
   return (
     <HqPageShell
       title={p.name}
       description={p.companyName ?? "BES Partner"}
       icon={Handshake}
       actions={
-        canManage && (
+        perms.can("partners.edit") && (
           <div className="flex flex-wrap items-center gap-2">
-            <span className={cn("rounded-full border px-2 py-0.5 text-xs font-bold", STATUS_TONE[p.status])}>
-              {p.status}
-            </span>
-            {p.status !== "Suspended" && p.status !== "Archived" && (
-              <Button size="sm" variant="ghost"
-                onClick={() => actions.setStatus.mutate({ id: p.id, status: "Suspended" })}>
-                <Ban className="mr-1.5 h-3.5 w-3.5" /> Suspend
-              </Button>
-            )}
-            {p.status === "Suspended" && (
-              <Button size="sm" variant="ghost"
-                onClick={() => actions.setStatus.mutate({ id: p.id, status: "Active" })}>
-                <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Reactivate
-              </Button>
-            )}
-            {p.status !== "Archived" ? (
-              <Button size="sm" variant="ghost"
-                onClick={() => actions.setStatus.mutate({ id: p.id, status: "Archived" })}>
-                Archive
-              </Button>
-            ) : (
-              <Button size="sm" variant="ghost"
-                onClick={() => actions.setStatus.mutate({ id: p.id, status: "Active" })}>
-                <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Restore
-              </Button>
-            )}
+            <OpsSelect aria-label="Partner lifecycle" size="sm" value={p.lifecycle}
+              onValueChange={(v) => actions.setLifecycle.mutate({ id: p.id, lifecycle: v as PartnerLifecycle })}
+              options={PARTNER_LIFECYCLES.map((l) => ({ value: l, label: LIFECYCLE_LABEL[l] }))} />
+            {actions.setLifecycle.isPending && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
           </div>
         )
       }
     >
-      <Link to="/app/bes-partners" className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+      <Link to="/app/bes-partners" className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="h-4 w-4" /> BES Partners
       </Link>
 
-      {p.status === "Archived" && (
-        <div className="mb-4 rounded-xl border border-border bg-muted px-4 py-3 text-sm text-muted-foreground">
-          This partner is archived. Everything about them is kept; they no longer appear in
-          active lists, and their portal access is off.
+      {/* The header facts, in the order somebody actually asks for them. */}
+      <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-border bg-card px-4 py-3">
+        <Pill tone={LIFECYCLE_TONE[p.lifecycle]}>{LIFECYCLE_LABEL[p.lifecycle]}</Pill>
+        {p.health && <Pill tone={HEALTH_TONE[p.health]}>{HEALTH_LABEL[p.health]}</Pill>}
+        <Fact label="Primary contact" value={p.primaryContact ?? p.contactEmail} />
+        <Fact label="Account manager"
+          value={people.find((x) => x.userId === p.accountManagerId)?.name ?? "Unassigned"} />
+        <Fact label="Team" value={teams.find((t) => t.id === p.teamId)?.name ?? "None"} />
+        <Fact label="Services" value={`${roll.live} running`} />
+        <Fact label="End clients" value={clientCount === null ? "—" : String(clientCount)} />
+        <Fact label="Portal" value={activePortal === 0 ? "Nobody active" : `${activePortal} active`} />
+        {days !== null && <Fact label="With BES" value={formatDaysActive(days)} />}
+      </div>
+
+      {p.lifecycle === "archived" && (
+        <div className="mb-3 rounded-xl border border-border bg-muted px-4 py-3 text-sm text-muted-foreground">
+          This partner is archived. Everything about them is kept — clients, work, invoices,
+          payments, files and history. They no longer appear in active lists, and portal access
+          is off.
         </div>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="space-y-4 lg:col-span-2">
-          <ContentCard title="Details">
-            <dl className="grid gap-3 sm:grid-cols-2">
-              <Detail label="Name" value={p.name} />
-              <Detail label="Company" value={p.companyName} icon={Building2} />
-              <Detail label="Email" value={p.contactEmail} icon={Mail} />
-              <Detail label="Phone" value={p.phone} icon={Phone} />
-              <Detail label="Service / relationship" value={p.service} />
-              <Detail label="Primary contact" value={p.primaryContact} />
-              <Detail label="Contract reference" value={p.contractRef} />
-              <Detail label="Added" value={formatDate(p.createdAt)} />
-            </dl>
-            {p.address && <Detail className="mt-3" label="Address" value={p.address} />}
-            {p.notes && (
-              <div className="mt-3">
-                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Notes</p>
-                <p className="mt-0.5 whitespace-pre-wrap text-sm text-foreground">{p.notes}</p>
-              </div>
-            )}
-          </ContentCard>
-
-          <ContentCard
-            title="People and portal access"
-            action={canManage && (
-              <Button size="sm" variant="ghost" onClick={() => setAddingContact((v) => !v)}>
-                <UserPlus className="mr-1.5 h-3.5 w-3.5" /> Add contact
-              </Button>
-            )}
-          >
-            {addingContact && canManage && (
-              <div className="mb-3 flex flex-wrap items-end gap-2 rounded-lg border border-border bg-muted/40 p-3">
-                <Input value={contactName} onChange={(e) => setContactName(e.target.value)}
-                  placeholder="Full name" aria-label="Contact name" className="h-8 w-44" />
-                <Input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)}
-                  placeholder="name@company.com" aria-label="Contact email" className="h-8 w-56" />
-                <Button size="sm"
-                  disabled={!contactName.trim() || !contactEmail.trim() || actions.addContact.isPending}
-                  onClick={async () => {
-                    await actions.addContact.mutateAsync({
-                      groupId: p.id, fullName: contactName, email: contactEmail,
-                      isPrimary: (contacts.data ?? []).length === 0,
-                    });
-                    setContactName(""); setContactEmail(""); setAddingContact(false);
-                  }}>
-                  <Plus className="mr-1 h-3.5 w-3.5" /> Add
-                </Button>
-              </div>
-            )}
-
-            {contacts.isLoading ? (
-              <p className="py-4 text-center text-xs text-muted-foreground">Loading…</p>
-            ) : (contacts.data ?? []).length === 0 ? (
-              <p className="py-4 text-center text-sm text-muted-foreground">
-                Nobody recorded yet. Add a contact to invite them to the portal.
-              </p>
-            ) : (
-              <ul className="divide-y divide-border/50">
-                {(contacts.data ?? []).map((c) => {
-                  const state = portalState(c);
-                  return (
-                    <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-medium text-foreground">
-                          {c.fullName}{c.isPrimary && <span className="ml-1.5 text-[10px] font-bold text-muted-foreground">PRIMARY</span>}
-                        </span>
-                        <span className="block truncate text-xs text-muted-foreground">{c.email}</span>
-                      </span>
-                      <span className="flex shrink-0 items-center gap-2">
-                        <span className={cn(
-                          "rounded-full border px-2 py-0.5 text-[10px] font-bold",
-                          state === "active" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
-                            : state === "invited" ? "border-blue-500/30 bg-blue-500/10 text-blue-700"
-                            : "border-border bg-muted text-muted-foreground",
-                        )}>
-                          {PORTAL_LABEL[state]}
-                        </span>
-                        {canManage && c.status === "active" && (
-                          <Button size="sm" variant="ghost" className="h-6 px-2 text-xs"
-                            onClick={() => actions.setContactStatus.mutate({ id: c.id, groupId: p.id, status: "suspended" })}>
-                            Suspend
-                          </Button>
-                        )}
-                        {canManage && c.status === "suspended" && (
-                          <Button size="sm" variant="ghost" className="h-6 px-2 text-xs"
-                            onClick={() => actions.setContactStatus.mutate({ id: c.id, groupId: p.id, status: "active" })}>
-                            Restore
-                          </Button>
-                        )}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </ContentCard>
+      {suggestion && perms.can("partners.edit") && (
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-2.5 text-sm text-blue-900">
+          <span>
+            This partner is marked <strong>{LIFECYCLE_LABEL[p.lifecycle]}</strong>, but {suggestion.because}.
+            Should it be <strong>{LIFECYCLE_LABEL[suggestion.lifecycle]}</strong>?
+          </span>
+          <Button size="sm" variant="outline"
+            onClick={() => actions.setLifecycle.mutate({ id: p.id, lifecycle: suggestion.lifecycle })}>
+            Set {LIFECYCLE_LABEL[suggestion.lifecycle]}
+          </Button>
         </div>
+      )}
 
-        <div className="space-y-4">
-          <ContentCard title={<span className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-muted-foreground" /> What the partner can see</span>}>
-            <p className="text-sm text-muted-foreground">
-              An invited contact sees their own partner record, their status, and any file or
-              update BES has deliberately shared with them.
-            </p>
-            <p className="mt-2 text-xs text-muted-foreground">
-              They never see BES internal tasks, EOD, internal notes, workforce, financials,
-              other partners, or any organization. Filing a document against this partner does
-              not share it — sharing is a separate, deliberate act.
-            </p>
-          </ContentCard>
-        </div>
-      </div>
+      <Tabs value={tab} onValueChange={setTab}>
+        <TabsList className="h-8 flex-wrap bg-muted/60">
+          {tabs.map((t) => (
+            <TabsTrigger key={t.key} value={t.key} className="text-[11px]">{t.label}</TabsTrigger>
+          ))}
+        </TabsList>
+
+        <TabsContent value="overview" className="mt-3">
+          <PartnerOverviewTab partner={p} services={serviceRows} people={people} teams={teams}
+            clientCount={clientCount} catalogue={typeLabels} />
+        </TabsContent>
+        <TabsContent value="services" className="mt-3">
+          <PartnerServicesTab groupId={p.id} people={people} teams={teams} />
+        </TabsContent>
+        <TabsContent value="operations" className="mt-3">
+          <PartnerOperationsTab groupId={p.id} people={people} />
+        </TabsContent>
+        <TabsContent value="clients" className="mt-3">
+          <PartnerClientsTab groupId={p.id} />
+        </TabsContent>
+        <TabsContent value="contacts" className="mt-3">
+          <PartnerContactsTab groupId={p.id} />
+        </TabsContent>
+        <TabsContent value="team" className="mt-3">
+          <PartnerTeamTab partner={p} services={serviceRows} people={people} teams={teams} />
+        </TabsContent>
+        {perms.can("partners.files.view") && (
+          <TabsContent value="files" className="mt-3">
+            <PartnerFilesTab groupId={p.id} />
+          </TabsContent>
+        )}
+        <TabsContent value="portal" className="mt-3">
+          <PartnerPortalTab partner={p} />
+        </TabsContent>
+        <TabsContent value="activity" className="mt-3">
+          <PartnerActivityTab groupId={p.id} />
+        </TabsContent>
+        {perms.can("partners.financials.view") && (
+          <TabsContent value="billing" className="mt-3">
+            <PartnerBillingTab groupId={p.id} people={people} />
+          </TabsContent>
+        )}
+      </Tabs>
     </HqPageShell>
   );
 };
 
-function Detail({ label, value, icon: Icon, className }: {
-  label: string; value: string | null | undefined; icon?: typeof Mail; className?: string;
-}) {
+function Fact({ label, value }: { label: string; value: string }) {
   return (
-    <div className={className}>
-      <dt className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{label}</dt>
-      <dd className="mt-0.5 flex items-center gap-1.5 text-sm text-foreground">
-        {Icon && value && <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
-        {value || <span className="italic text-muted-foreground">Not recorded</span>}
-      </dd>
-    </div>
+    <span className="min-w-0">
+      <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</span>
+      <span className="block truncate text-sm text-foreground">{value}</span>
+    </span>
   );
 }

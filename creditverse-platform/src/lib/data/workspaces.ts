@@ -112,6 +112,9 @@ export async function fetchWorkspaceItems(workspaceId: string): Promise<Workspac
     .from("work_items")
     .select(ITEM_COLUMNS)
     .eq("workspace_id", workspaceId)
+    /* Work archived by a cancellation stays in the record and out of the
+       board — it is history, not a card somebody still has to move. */
+    .is("archived_at", null)
     .order("created_at", { ascending: false })
     .limit(WORKSPACE_ITEMS_LIMIT);
   if (error) throw new Error(error.message);
@@ -126,6 +129,7 @@ export async function fetchAllWorkspaceItems(): Promise<(WorkspaceItem & { works
     .from("work_items")
     .select(`${ITEM_COLUMNS}, workspace_id`)
     .not("workspace_id", "is", null)
+    .is("archived_at", null)
     .order("created_at", { ascending: false })
     .limit(SHARED_ITEMS_LIMIT);
   if (error) throw new Error(error.message);

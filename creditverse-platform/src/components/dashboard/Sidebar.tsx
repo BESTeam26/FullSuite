@@ -25,6 +25,7 @@ import {
   RefreshCw,
   Briefcase,
   BarChart3,
+  Banknote,
   HandCoins,
   MessagesSquare,
   Scale,
@@ -48,6 +49,7 @@ import { useUnreadNotificationCount } from "@/lib/data/use-notifications";
 import { useAuth } from "@/lib/auth/auth-context";
 import { usePermissions, type PermissionKeyName } from "@/lib/auth/use-permission";
 import { accessTo, routeFor, type AccessContext, type AgencyRole } from "@/lib/agency/navigation";
+import { useAgencyPermissions, type AgencyPermission } from "@/lib/data/agency-permissions";
 import { useHubNavigation } from "@/lib/data/use-hub";
 import { HUB_MODULE_ICONS } from "@/lib/hub/hub-icons";
 import { useSidebarState } from "@/components/dashboard/sidebar-state";
@@ -94,9 +96,14 @@ export const Sidebar = () => {
 
   const viewMode = agencyContext?.viewMode || "agency";
   const permissions = usePermissions();
+  const agencyPermissions = useAgencyPermissions();
+  /* The SAME context RequireAgencyRoute builds, including the agency
+     capability engine. The menu and the door must not be able to disagree
+     about who may be where — if one consulted an engine the other did not,
+     a link would appear that leads to a refusal, or vice versa. */
   const navContext: AccessContext = {
     role: (agencyMembership?.role as AgencyRole) ?? null,
-    can: (key) => permissions.can(key as PermissionKeyName),
+    can: (key) => agencyPermissions.can(key as AgencyPermission) || permissions.can(key as PermissionKeyName),
   };
   /* The company side of the sidebar is composed from the organization's hub:
      entitled, switched on, and permitted (rule 18). Home and My Work already
@@ -216,7 +223,12 @@ export const Sidebar = () => {
       label: "Management",
       items: [
         { label: "Reports", icon: BarChart3, href: "/app/reporting", permission: "reports.view" },
-        { label: "Billing & Revenue", icon: Receipt, href: "/app/billing" },
+        /* BES's own money — partner receivables and agency expenses. Distinct
+           from "Organization billing", which is SaaS subscription metering for
+           customers. Same word, two revenue streams; naming them apart is how
+           somebody stops opening the wrong one. */
+        { label: "Finance", icon: Banknote, href: "/app/finance" },
+        { label: "Organization billing", icon: Receipt, href: "/app/billing" },
         { label: "Compliance & Legal", icon: Scale, href: "/app/compliance" },
       ],
     },

@@ -94,11 +94,21 @@ export function mapClientRow(row: ClientRow): FulfillmentClient {
 /* Reads                                                               */
 /* ------------------------------------------------------------------ */
 
+/**
+ * The active client list.
+ *
+ * Excludes archived files. A partner whose fulfilment service was cancelled
+ * keeps every client record it ever had — the cascade sets `archived_at`, which
+ * takes them out of the working queues without touching their status, history,
+ * letters or activity. Historical review reads them by id, which does not
+ * filter (see `fetchFulfillmentClient`).
+ */
 export async function fetchFulfillmentClients(): Promise<FulfillmentClient[]> {
   const sb = requireSupabase();
   const { data, error } = await sb
     .from("fulfillment_clients")
     .select(CLIENT_SELECT)
+    .is("archived_at", null)
     .order("name");
   if (error) throw error;
   return ((data ?? []) as unknown as ClientRow[]).map(mapClientRow);

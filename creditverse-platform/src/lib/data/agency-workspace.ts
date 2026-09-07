@@ -171,9 +171,13 @@ export async function fetchAgencyTeams(agencyId: string): Promise<OrgTeam[]> {
  */
 export async function countBoardItems(boardId: string): Promise<{ open: number; total: number }> {
   const sb = requireSupabase();
+  /* Archived work is out of both counts: a list is not "still busy" because a
+     cancelled service's tasks are filed under it. */
   const [total, open] = await Promise.all([
-    sb.from("work_items").select("id", { count: "exact", head: true }).eq("board_id", boardId),
-    sb.from("work_items").select("id", { count: "exact", head: true }).eq("board_id", boardId).is("completed_at", null),
+    sb.from("work_items").select("id", { count: "exact", head: true })
+      .eq("board_id", boardId).is("archived_at", null),
+    sb.from("work_items").select("id", { count: "exact", head: true })
+      .eq("board_id", boardId).is("archived_at", null).is("completed_at", null),
   ]);
   if (total.error) throw total.error;
   if (open.error) throw open.error;

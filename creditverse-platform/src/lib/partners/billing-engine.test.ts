@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import {
   collectedInMonth, expectedCollectionForMonth, financialPosition, invoiceStatus,
   monthOf, mrrLostToCancellation, normalizeToMonthly, occurrencesInMonth,
-  revenueClass, rollUpRecurring, runningCollectible,
+  netCashForMonth, revenueClass, rollUpExpenses, rollUpRecurring, runningCollectible,
   type EngagementTerms, type InvoiceRecord, type PaymentRecord, type ScheduledObligation,
 } from "./billing-engine";
 
@@ -285,5 +285,54 @@ describe("the numbers that must never merge", () => {
       paidOn: "2026-09-08", status: "succeeded",
     };
     expect(collectedInMonth([refunded], SEPT)).toBe(usd(300));
+  });
+});
+
+describe("expenses, and the owner's net cash", () => {
+  const expense = (over: Partial<import("./billing-engine").ExpenseRecord> &
+    Pick<import("./billing-engine").ExpenseRecord, "id" | "amountCents">) => ({
+    dueDate: null, paidOn: null, status: "upcoming", ...over,
+  });
+
+  it("counts money out by the day it left, not the day it was due", () => {
+    /* Due 28 August, paid 3 September — September's cash, like the revenue
+       side. Both halves of net cash are on the same basis or the figure lies. */
+    const roll = rollUpExpenses(
+      [expense({ id: "a", amountCents: usd(120), dueDate: "2026-08-28", paidOn: "2026-09-03", status: "paid" })],
+      SEPT, "2026-09-15",
+    );
+    expect(roll.paidCents).toBe(usd(120));
+    expect(roll.dueCents).toBe(0);
+  });
+
+  it("keeps a bill that is due apart from a bill that is paid", () => {
+    const roll = rollUpExpenses([
+      expense({ id: "a", amountCents: usd(20), dueDate: "2026-09-20" }),
+      expense({ id: "b", amountCents: usd(99), dueDate: "2026-09-05", paidOn: "2026-09-05", status: "paid" }),
+    ], SEPT, "2026-09-15");
+    expect(roll.dueCents).toBe(usd(20));
+    expect(roll.paidCents).toBe(usd(99));
+  });
+
+  it("keeps an unpaid bill from a past month in overdue, not out of sight", () => {
+    const roll = rollUpExpenses(
+      [expense({ id: "old", amountCents: usd(45), dueDate: "2026-07-01" })],
+      SEPT, "2026-09-15",
+    );
+    expect(roll.overdueCents).toBe(usd(45));
+    expect(roll.dueCents).toBe(0);
+  });
+
+  it("ignores a voided bill entirely", () => {
+    const roll = rollUpExpenses(
+      [expense({ id: "v", amountCents: usd(500), dueDate: "2026-09-01", status: "void" })],
+      SEPT, "2026-09-15",
+    );
+    expect(roll).toEqual({ paidCents: 0, dueCents: 0, overdueCents: 0 });
+  });
+
+  it("is cash in less cash out, and can be negative", () => {
+    expect(netCashForMonth(usd(24_750), usd(6_100))).toBe(usd(18_650));
+    expect(netCashForMonth(usd(1_000), usd(2_500))).toBe(usd(-1_500));
   });
 });

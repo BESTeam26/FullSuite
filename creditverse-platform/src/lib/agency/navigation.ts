@@ -96,7 +96,11 @@ export const AGENCY_ROUTES: AgencyRouteSpec[] = [
 
   /* ── Admins and the owner ─────────────────────────────────────────── */
   { key: "organizations", label: "Organizations", path: "/app/subaccounts", readiness: "ready", minRole: "agency_admin" },
-  { key: "billing", label: "Billing & Revenue", path: "/app/billing", readiness: "ready", minRole: "agency_admin" },
+  /* The agency's own money: what partners owe BES and what BES pays out.
+     Separate from "Organization billing", which is SaaS subscription metering
+     for customers — a different revenue stream and a different question. */
+  { key: "finance", label: "Finance", path: "/app/finance", readiness: "ready", minRole: "agency_admin", permission: "finance.dashboard.view" },
+  { key: "billing", label: "Organization billing", path: "/app/billing", readiness: "ready", minRole: "agency_admin" },
   { key: "compliance", label: "Compliance & Legal", path: "/app/compliance", readiness: "ready", minRole: "agency_admin" },
   { key: "settings", label: "Agency Settings", path: "/app/settings", readiness: "ready", minRole: "agency_admin" },
   { key: "support", label: "Support", path: "/app/support", readiness: "ready", minRole: "agency_admin" },

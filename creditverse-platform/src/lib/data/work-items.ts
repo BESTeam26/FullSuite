@@ -92,6 +92,10 @@ export async function fetchMyWork(userId: string): Promise<WorkItemRow[]> {
     .select("*")
     .eq("assigned_to", userId)
     .in("stage", OPEN_STAGES)
+    /* Archived work has no assignee any more, but the filter is explicit so a
+       future query that keeps one cannot leak a cancelled service's work back
+       into somebody's day. */
+    .is("archived_at", null)
     .order("due_at", { ascending: true, nullsFirst: false })
     .limit(100);
   if (error) throw error;
@@ -107,6 +111,7 @@ export async function fetchOrganizationWork(organizationId: string): Promise<Wor
     .eq("scope", "ORGANIZATION")
     .eq("organization_id", organizationId)
     .in("stage", OPEN_STAGES)
+    .is("archived_at", null)
     .order("due_at", { ascending: true, nullsFirst: false })
     .limit(200);
   if (error) throw error;
@@ -120,6 +125,7 @@ export async function fetchAgencyWork(): Promise<WorkItemRow[]> {
     .from("work_items")
     .select("*")
     .eq("scope", "AGENCY")
+    .is("archived_at", null)
     .order("due_at", { ascending: true, nullsFirst: false })
     .limit(500);
   if (error) throw error;
@@ -134,6 +140,7 @@ export async function fetchOrgWork(orgId: string): Promise<WorkItemRow[]> {
     .select("*")
     .eq("scope", "ORGANIZATION")
     .eq("organization_id", orgId)
+    .is("archived_at", null)
     .order("due_at", { ascending: true, nullsFirst: false })
     .limit(500);
   if (error) throw error;

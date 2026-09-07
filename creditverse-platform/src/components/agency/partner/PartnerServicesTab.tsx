@@ -1,181 +1,280 @@
 /**
- * What BES does for this partner.
+ * Every service BES sells this partner, running or finished.
  *
- * Prices are NOT here. Billing lives in its own table behind
- * `partners.financials.view`, so a manager's query genuinely cannot return a
- * rate. Putting a price beside a status in one card would make the screen
- * responsible for hiding it, which is the arrangement this release replaces.
+ * Operational only. Rates, payment terms and revenue are on Billing & Revenue
+ * and are stored in a different table, because Postgres RLS is row-level: a
+ * policy cannot withhold a column, so the only way a manager's query genuinely
+ * cannot return a rate is for the rate to live where their query does not go.
+ *
+ * A cancelled or completed line stays on this list. That is the history of the
+ * relationship, and hiding it would make a partner who has bought three things
+ * over two years look like a partner who has bought one.
  */
 import { useState } from "react";
-import { Loader2, Pencil, Plus } from "lucide-react";
+import { Ban, Loader2, Pencil, Plus } from "lucide-react";
 import { ContentCard } from "@/components/dashboard/DivisionLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { OpsSelect } from "@/components/ui/ops-select";
-import { usePartnerServiceActions, usePartnerServices } from "@/lib/data/use-partner-services";
+import { Empty, Pill } from "@/components/agency/partner/partner-ui";
+import { CancelServiceDialog } from "@/components/agency/partner/CancelServiceDialog";
+import {
+  SERVICE_STATUSES, SERVICE_STATUS_LABEL, SERVICE_STATUS_TONE, serviceIsHistorical,
+} from "@/lib/partners/partner-account";
+import { usePartnerCatalogues, usePartnerServiceActions, usePartnerServices } from "@/lib/data/use-partner-services";
 import { useAgencyPermissions } from "@/lib/data/agency-permissions";
-import { useAgencyMembers, useAgencyTeams } from "@/lib/data/use-agency-work";
-import { formatDate } from "@/lib/format-date";
 import type { PartnerService, PartnerServiceStatus } from "@/lib/data/partner-services";
-import { cn } from "@/lib/utils";
+import type { AgencyPerson, AgencyTeam } from "@/lib/data/agency-workforce";
+import { formatDate } from "@/lib/format-date";
 
-const NONE = "__none__";
-const STATUSES: PartnerServiceStatus[] = ["onboarding", "active", "paused", "ended"];
-const STATUS_TONE: Record<PartnerServiceStatus, string> = {
-  onboarding: "border-blue-500/30 bg-blue-500/10 text-blue-700",
-  active: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700",
-  paused: "border-amber-500/30 bg-amber-500/10 text-amber-700",
-  ended: "border-border bg-muted text-muted-foreground",
-};
-
-export function PartnerServicesTab({ groupId }: { groupId: string }) {
+export function PartnerServicesTab({ groupId, people, teams }: {
+  groupId: string;
+  people: AgencyPerson[];
+  teams: AgencyTeam[];
+}) {
   const services = usePartnerServices(groupId);
+  const catalogues = usePartnerCatalogues();
   const actions = usePartnerServiceActions(groupId);
   const perms = useAgencyPermissions();
-  const members = useAgencyMembers();
-  const teams = useAgencyTeams();
-  const [editing, setEditing] = useState<PartnerService | "new" | null>(null);
-
   const canEdit = perms.can("partners.edit");
-  const nameOf = (id: string | null) =>
-    id ? (members.data ?? []).find((m) => m.id === id)?.name ?? "Assigned" : "Unassigned";
+  const [editing, setEditing] = useState<string | "new" | null>(null);
+  const [cancelling, setCancelling] = useState<string | null>(null);
+
+  const rows = services.data ?? [];
+  const live = rows.filter((s) => !serviceIsHistorical(s.status));
+  const history = rows.filter((s) => serviceIsHistorical(s.status));
+  const typeLabel = (code: string | null) =>
+    (catalogues.data?.serviceTypes ?? []).find((t) => t.code === code)?.label ?? null;
 
   return (
     <div className="space-y-3">
       <ContentCard
-        title="Services"
-        action={canEdit ? (
-          <Button size="sm" variant="ghost" onClick={() => setEditing("new")}>
+        title="Service engagements"
+        action={canEdit && (
+          <Button size="sm" variant="ghost" onClick={() => setEditing(editing === "new" ? null : "new")}>
             <Plus className="mr-1.5 h-3.5 w-3.5" /> Add service
           </Button>
-        ) : undefined}
+        )}
       >
-        <p className="mb-2 text-xs text-muted-foreground">
-          A partner buying a second service gets a second row here, never a second partner record.
-        </p>
+        {editing === "new" && (
+          <ServiceForm
+            people={people} teams={teams}
+            serviceTypes={catalogues.data?.serviceTypes ?? []}
+            saving={actions.saveService.isPending}
+            onCancel={() => setEditing(null)}
+            onSave={async (v) => { await actions.saveService.mutateAsync(v); setEditing(null); }}
+          />
+        )}
 
         {services.isLoading ? (
           <p className="py-6 text-center text-sm text-muted-foreground">
             <Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Loading…
           </p>
-        ) : (services.data ?? []).length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">No services recorded yet.</p>
+        ) : rows.length === 0 ? (
+          <Empty
+            title="No services recorded yet"
+            hint="A partner is the account. Add what BES actually does for them — CreditOps, a CRM subscription, dedicated staff, a one-off build."
+          />
         ) : (
           <ul className="divide-y divide-border/50">
-            {(services.data ?? []).map((s) => (
-              <li key={s.id} className="flex flex-wrap items-start justify-between gap-2 py-2.5">
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-foreground">{s.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {s.quantity !== null && <>{s.quantity} {s.quantityUnit ?? "units"} · </>}
-                    {nameOf(s.processorId)}
-                    {s.startedOn && <> · since {formatDate(s.startedOn)}</>}
-                    {s.endedOn && <> · ended {formatDate(s.endedOn)}</>}
-                  </p>
-                  {s.notes && <p className="mt-0.5 text-xs italic text-muted-foreground">{s.notes}</p>}
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-bold", STATUS_TONE[s.status])}>
-                    {s.status}
-                  </span>
-                  {canEdit && (
-                    <Button size="sm" variant="ghost" className="h-7 px-2" aria-label={`Edit ${s.name}`}
-                      onClick={() => setEditing(s)}>
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
-                </div>
-              </li>
+            {live.map((s) => (
+              <ServiceRow key={s.id} service={s} typeLabel={typeLabel(s.serviceType)}
+                people={people} teams={teams} canEdit={canEdit}
+                open={editing === s.id} onToggle={() => setEditing(editing === s.id ? null : s.id)}
+                serviceTypes={catalogues.data?.serviceTypes ?? []}
+                saving={actions.saveService.isPending}
+                onSave={async (v) => { await actions.saveService.mutateAsync({ ...v, id: s.id }); setEditing(null); }}
+                onCancelService={canEdit ? () => setCancelling(cancelling === s.id ? null : s.id) : undefined}
+                cancelling={cancelling === s.id}
+                cancelPanel={cancelling === s.id && (
+                  <CancelServiceDialog groupId={groupId} serviceId={s.id} serviceName={s.name}
+                    onClose={() => setCancelling(null)} />
+                )}
+              />
             ))}
           </ul>
         )}
       </ContentCard>
 
-      {editing && canEdit && (
-        <ContentCard title={editing === "new" ? "New service" : `Edit ${editing.name}`}>
-          <ServiceForm
-            service={editing === "new" ? null : editing}
-            members={members.data ?? []}
-            teams={teams.data ?? []}
-            saving={actions.saveService.isPending}
-            onCancel={() => setEditing(null)}
-            onSave={async (v) => {
-              await actions.saveService.mutateAsync({
-                id: editing === "new" ? undefined : editing.id, ...v,
-              } as never);
-              setEditing(null);
-            }}
-          />
+      {history.length > 0 && (
+        <ContentCard title={`Finished and cancelled (${history.length})`}>
+          <p className="mb-2 text-xs text-muted-foreground">
+            Kept, and counted separately. A completed build or a cancelled subscription does not
+            end the relationship — the partner's own lifecycle says whether BES still works with them.
+          </p>
+          <ul className="divide-y divide-border/50">
+            {history.map((s) => (
+              <ServiceRow key={s.id} service={s} typeLabel={typeLabel(s.serviceType)}
+                people={people} teams={teams} canEdit={canEdit}
+                open={editing === s.id} onToggle={() => setEditing(editing === s.id ? null : s.id)}
+                serviceTypes={catalogues.data?.serviceTypes ?? []}
+                saving={actions.saveService.isPending}
+                onSave={async (v) => { await actions.saveService.mutateAsync({ ...v, id: s.id }); setEditing(null); }}
+              />
+            ))}
+          </ul>
         </ContentCard>
       )}
     </div>
   );
 }
 
-function ServiceForm({ service, members, teams, saving, onSave, onCancel }: {
-  service: PartnerService | null;
-  members: { id: string; name: string }[];
-  teams: { id: string; name: string }[];
+type ServiceInput = Parameters<ReturnType<typeof usePartnerServiceActions>["saveService"]["mutateAsync"]>[0];
+
+function ServiceRow({
+  service, typeLabel, people, teams, canEdit, open, onToggle, serviceTypes, saving, onSave,
+  onCancelService, cancelling, cancelPanel,
+}: {
+  service: PartnerService;
+  typeLabel: string | null;
+  people: AgencyPerson[];
+  teams: AgencyTeam[];
+  canEdit: boolean;
+  open: boolean;
+  onToggle: () => void;
+  serviceTypes: { code: string; label: string; category: string }[];
   saving: boolean;
-  onSave: (v: Record<string, unknown>) => void;
+  onSave: (v: ServiceInput) => void;
+  onCancelService?: () => void;
+  cancelling?: boolean;
+  cancelPanel?: React.ReactNode;
+}) {
+  const processor = people.find((p) => p.userId === service.processorId);
+  const team = teams.find((t) => t.id === service.teamId);
+  return (
+    <li className="py-2.5">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-foreground">
+            {service.name}
+            <Pill tone={SERVICE_STATUS_TONE[service.status]}>{SERVICE_STATUS_LABEL[service.status]}</Pill>
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {[
+              typeLabel,
+              service.quantity !== null && `${service.quantity} ${service.quantityUnit ?? ""}`.trim(),
+              service.clientVolumeText,
+              processor?.name && `run by ${processor.name}`,
+              team?.name,
+              service.startedOn && `from ${formatDate(service.startedOn)}`,
+              service.endedOn && `to ${formatDate(service.endedOn)}`,
+            ].filter(Boolean).join(" · ") || "No detail recorded"}
+          </p>
+          {service.description && <p className="mt-0.5 text-xs text-foreground">{service.description}</p>}
+          {service.notes && <p className="mt-0.5 text-xs italic text-muted-foreground">{service.notes}</p>}
+        </div>
+        <span className="flex shrink-0 items-center gap-1">
+          {canEdit && (
+            <Button size="sm" variant="ghost" className="h-7 px-2" aria-label={`Edit ${service.name}`} onClick={onToggle}>
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          {onCancelService && (
+            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={onCancelService}>
+              <Ban className="mr-1 h-3.5 w-3.5" /> {cancelling ? "Keep" : "Cancel"}
+            </Button>
+          )}
+        </span>
+      </div>
+      {cancelPanel}
+      {open && canEdit && (
+        <ServiceForm current={service} people={people} teams={teams} serviceTypes={serviceTypes}
+          saving={saving} onCancel={onToggle} onSave={onSave} />
+      )}
+    </li>
+  );
+}
+
+function ServiceForm({ current, people, teams, serviceTypes, saving, onSave, onCancel }: {
+  current?: PartnerService;
+  people: AgencyPerson[];
+  teams: AgencyTeam[];
+  serviceTypes: { code: string; label: string; category: string }[];
+  saving: boolean;
+  onSave: (v: ServiceInput) => void;
   onCancel: () => void;
 }) {
-  const [name, setName] = useState(service?.name ?? "");
-  const [status, setStatus] = useState<PartnerServiceStatus>(service?.status ?? "active");
-  const [startedOn, setStartedOn] = useState(service?.startedOn ?? "");
-  const [endedOn, setEndedOn] = useState(service?.endedOn ?? "");
-  const [processorId, setProcessorId] = useState(service?.processorId ?? NONE);
-  const [teamId, setTeamId] = useState(service?.teamId ?? NONE);
-  const [quantity, setQuantity] = useState(service?.quantity?.toString() ?? "");
-  const [quantityUnit, setQuantityUnit] = useState(service?.quantityUnit ?? "");
-  const [notes, setNotes] = useState(service?.notes ?? "");
+  const [name, setName] = useState(current?.name ?? "");
+  const [serviceType, setServiceType] = useState(current?.serviceType ?? "");
+  const [status, setStatus] = useState<PartnerServiceStatus>(current?.status ?? "active");
+  const [startedOn, setStartedOn] = useState(current?.startedOn ?? "");
+  const [endedOn, setEndedOn] = useState(current?.endedOn ?? "");
+  const [processorId, setProcessorId] = useState(current?.processorId ?? "__none__");
+  const [teamId, setTeamId] = useState(current?.teamId ?? "__none__");
+  const [quantity, setQuantity] = useState(current?.quantity === null || current?.quantity === undefined ? "" : String(current.quantity));
+  const [quantityUnit, setQuantityUnit] = useState(current?.quantityUnit ?? "");
+  const [volumeText, setVolumeText] = useState(current?.clientVolumeText ?? "");
+  const [description, setDescription] = useState(current?.description ?? "");
+  const [notes, setNotes] = useState(current?.notes ?? "");
+
+  /* Picking a catalogue type fills the display name once, so the common case
+     is one click and the unusual one ("2 Dedicated Support Agents") is still
+     free text. */
+  const chooseType = (code: string) => {
+    setServiceType(code);
+    const label = serviceTypes.find((t) => t.code === code)?.label;
+    if (label && !name.trim()) setName(label);
+  };
 
   return (
-    <div className="space-y-3">
-      <Input value={name} onChange={(e) => setName(e.target.value)}
-        placeholder="Service name — e.g. CreditOps Fulfillment" aria-label="Service name" />
+    <div className="mt-2 space-y-2 rounded-lg border border-border bg-muted/30 p-3">
       <div className="grid gap-2 sm:grid-cols-2">
-        <OpsSelect aria-label="Status" size="sm" value={status}
+        <OpsSelect aria-label="Service type" size="field" value={serviceType || "__none__"}
+          onValueChange={(v) => chooseType(v === "__none__" ? "" : v)}
+          options={[{ value: "__none__", label: "Choose a service type" },
+            ...serviceTypes.map((t) => ({ value: t.code, label: `${t.label} · ${t.category}` }))]} />
+        <Input value={name} onChange={(e) => setName(e.target.value)}
+          placeholder="What we call it" aria-label="Service name" />
+        <OpsSelect aria-label="Service status" size="field" value={status}
           onValueChange={(v) => setStatus(v as PartnerServiceStatus)}
-          options={STATUSES.map((s) => ({ value: s, label: s }))} />
-        <OpsSelect aria-label="Assigned processor" size="sm" value={processorId} onValueChange={setProcessorId}
-          options={[{ value: NONE, label: "No processor" }, ...members.map((m) => ({ value: m.id, label: m.name }))]} />
-        <OpsSelect aria-label="Team" size="sm" value={teamId} onValueChange={setTeamId}
-          options={[{ value: NONE, label: "No team" }, ...teams.map((t) => ({ value: t.id, label: t.name }))]} />
+          options={SERVICE_STATUSES.map((s) => ({ value: s, label: SERVICE_STATUS_LABEL[s] }))} />
+        <OpsSelect aria-label="Processor" size="field" value={processorId} onValueChange={setProcessorId}
+          options={[{ value: "__none__", label: "No processor assigned" },
+            ...people.map((p) => ({ value: p.userId, label: p.name }))]} />
+        <OpsSelect aria-label="Team" size="field" value={teamId} onValueChange={setTeamId}
+          options={[{ value: "__none__", label: "No team assigned" },
+            ...teams.filter((t) => !t.archived).map((t) => ({ value: t.id, label: t.name }))]} />
         <div className="grid grid-cols-2 gap-2">
-          <Input type="number" min="0" value={quantity} onChange={(e) => setQuantity(e.target.value)}
+          <Input type="number" min="0" step="1" value={quantity} onChange={(e) => setQuantity(e.target.value)}
             placeholder="How many" aria-label="Quantity" />
           <Input value={quantityUnit} onChange={(e) => setQuantityUnit(e.target.value)}
-            placeholder="clients / agents" aria-label="Unit" />
+            placeholder="clients, agents…" aria-label="Quantity unit" />
         </div>
         <label className="text-xs text-muted-foreground">
           Started
-          <Input type="date" className="mt-0.5 h-8" value={startedOn}
-            onChange={(e) => setStartedOn(e.target.value)} aria-label="Started" />
+          <Input type="date" value={startedOn ?? ""} onChange={(e) => setStartedOn(e.target.value)} aria-label="Started on" />
         </label>
         <label className="text-xs text-muted-foreground">
-          Ended — blank while it is running
-          <Input type="date" className="mt-0.5 h-8" value={endedOn}
-            onChange={(e) => setEndedOn(e.target.value)} aria-label="Ended" />
+          Ended
+          <Input type="date" value={endedOn ?? ""} onChange={(e) => setEndedOn(e.target.value)} aria-label="Ended on" />
         </label>
       </div>
+      <Input value={volumeText} onChange={(e) => setVolumeText(e.target.value)}
+        placeholder='Volume as the old tracker recorded it — "300-400", "60 average"'
+        aria-label="Legacy client volume" />
+      <Textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)}
+        placeholder="What this engagement covers" aria-label="Description" />
       <Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)}
-        placeholder="Operational notes" aria-label="Notes" />
-      <p className="text-xs text-muted-foreground">
+        placeholder="Operational notes" aria-label="Service notes" />
+      <p className="text-[11px] text-muted-foreground">
         Rates and payment terms are on Billing &amp; Revenue, and are stored separately.
       </p>
       <div className="flex gap-2">
-        <Button size="sm" disabled={!name.trim() || saving}
+        <Button size="sm" disabled={saving || !name.trim()}
           onClick={() => onSave({
-            name, status,
-            startedOn: startedOn || null, endedOn: endedOn || null,
-            processorId: processorId === NONE ? null : processorId,
-            teamId: teamId === NONE ? null : teamId,
-            quantity: quantity === "" ? null : Number(quantity),
-            quantityUnit: quantityUnit || null, notes: notes || null,
+            groupId: "", agencyId: "", name,
+            serviceType: serviceType || null,
+            description: description || null,
+            status, startedOn: startedOn || null, endedOn: endedOn || null,
+            processorId: processorId === "__none__" ? null : processorId,
+            teamId: teamId === "__none__" ? null : teamId,
+            quantity: quantity.trim() === "" ? null : Number(quantity),
+            quantityUnit: quantityUnit || null,
+            clientVolumeText: volumeText || null,
+            notes: notes || null,
           })}>
-          {saving && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />} Save
+          {saving && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />} Save service
         </Button>
         <Button size="sm" variant="ghost" onClick={onCancel}>Cancel</Button>
       </div>

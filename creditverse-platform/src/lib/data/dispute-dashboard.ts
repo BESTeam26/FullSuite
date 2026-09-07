@@ -10,7 +10,7 @@ export interface DisputeSignals { clients: QueueClient[]; letters: QueueLetter[]
 export async function fetchDisputeSignals(): Promise<DisputeSignals> {
   const sb = requireSupabase();
   const [clients, reports, letters, timers, findings, rounds] = await Promise.all([
-    sb.from("fulfillment_clients").select("id, name, public_id, status, round, lifecycle, assigned_agent_id, last_activity_at, assignee:profiles!assigned_agent_id(full_name, email)").limit(2000),
+    sb.from("fulfillment_clients").select("id, name, public_id, status, round, lifecycle, assigned_agent_id, last_activity_at, assignee:profiles!assigned_agent_id(full_name, email)").is("archived_at", null).limit(2000),
     sb.from("credit_reports").select("fulfillment_client_id").not("fulfillment_client_id", "is", null).limit(5000),
     sb.from("dispute_letters").select("id, client_id, status, recipient_kind, bureau, mailed_at, responded_at, dispute_attestations(id)").neq("status", "closed").limit(3000),
     sb.from("dispute_timers").select("letter_id, kind, due_at, satisfied_at, dispute_letters(client_id)").is("satisfied_at", null).limit(3000),

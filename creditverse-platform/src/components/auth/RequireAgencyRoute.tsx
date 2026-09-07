@@ -13,6 +13,7 @@ import type { ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 import { Lock, ShieldAlert } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-context";
+import { useAgencyPermissions, type AgencyPermission } from "@/lib/data/agency-permissions";
 import { usePermissions, type PermissionKeyName } from "@/lib/auth/use-permission";
 import { accessTo, routeFor, type AccessContext, type AgencyRole } from "@/lib/agency/navigation";
 
@@ -31,6 +32,7 @@ function Refusal({ icon: Icon, title, body }: { icon: typeof Lock; title: string
 export const RequireAgencyRoute = ({ children }: { children: ReactNode }) => {
   const { agencyMembership, isAgencyStaff, status } = useAuth();
   const permissions = usePermissions();
+  const agencyPermissions = useAgencyPermissions();
   const { pathname } = useLocation();
 
   const spec = routeFor(pathname);
@@ -40,13 +42,19 @@ export const RequireAgencyRoute = ({ children }: { children: ReactNode }) => {
 
   /* Still resolving. Render nothing rather than flashing a refusal at
      somebody who is in fact allowed. */
-  if (status === "loading" || permissions.loading) {
+  if (status === "loading" || permissions.loading || agencyPermissions.loading) {
     return <div className="min-h-[60vh]" aria-busy="true" />;
   }
 
   const ctx: AccessContext = {
     role: (agencyMembership?.role as AgencyRole) ?? null,
-    can: (key) => permissions.can(key as PermissionKeyName),
+    /* Two engines answer the same question for different populations: the
+       organization permission context, and `agency_can` for capabilities that
+       exist only inside BES HQ (partner financials, the finance dashboard).
+       Either granting is a grant — a capability is not withheld because the
+       other engine has never heard of it. Both are already resolved once per
+       session, so this asks nothing extra of the network. */
+    can: (key) => agencyPermissions.can(key as AgencyPermission) || permissions.can(key as PermissionKeyName),
   };
   const access = accessTo(spec, ctx);
   if (access === "allow") return <>{children}</>;

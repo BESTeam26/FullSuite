@@ -49,7 +49,14 @@ export interface PartnerService {
 
 /** What BES charges. Behind a named permission. */
 export interface PartnerBilling {
+  id?: string;
   serviceId: string;
+  /** These terms took effect on this date and applied until `effectiveTo`. */
+  effectiveFrom?: string;
+  effectiveTo?: string | null;
+  quantity?: number | null;
+  quantitySource?: string;
+  autopay?: boolean;
   /** A catalogue code from `partner_billing_models`. */
   billingModel: string | null;
   billingStatus: string | null;
@@ -99,17 +106,35 @@ export async function fetchPartnerServices(groupId: string): Promise<PartnerServ
  * deliberate — the screen asks `agency_can` separately to decide what to SAY,
  * rather than inferring permission from missing data.
  */
-export async function fetchPartnerBilling(serviceIds: string[]): Promise<Record<string, PartnerBilling>> {
+export async function fetchPartnerBilling(
+  serviceIds: string[],
+  asOf = new Date().toISOString().slice(0, 10),
+): Promise<Record<string, PartnerBilling>> {
   if (serviceIds.length === 0) return {};
   const sb = requireSupabase();
+  /* Newest first, so the first row per service that covers `asOf` wins. Terms
+     are effective-dated rows: a rate that rose in October must not restate
+     what January was billed. */
   const { data, error } = await sb
-    .from("partner_service_billing").select("*").in("service_id", serviceIds);
+    .from("partner_service_billing").select("*").in("service_id", serviceIds)
+    .order("effective_from", { ascending: false });
   if (error) throw error;
   const out: Record<string, PartnerBilling> = {};
   for (const row of data ?? []) {
     const r = row as Record<string, unknown>;
+    const serviceId = r.service_id as string;
+    const from = (r.effective_from as string) ?? "0000-01-01";
+    const to = (r.effective_to as string) ?? null;
+    /* Skip terms that are not in force today; keep the first that is. */
+    if (from > asOf || (to !== null && to < asOf) || out[serviceId]) continue;
     out[r.service_id as string] = {
+      id: r.id as string,
       serviceId: r.service_id as string,
+      effectiveFrom: (r.effective_from as string) ?? undefined,
+      effectiveTo: (r.effective_to as string) ?? null,
+      quantity: r.quantity === null || r.quantity === undefined ? null : Number(r.quantity),
+      quantitySource: (r.quantity_source as string) ?? "manual",
+      autopay: Boolean(r.autopay),
       billingModel: (r.billing_model as string) ?? null,
       billingStatus: (r.billing_status as string) ?? null,
       paymentChannel: (r.payment_channel as string) ?? null,
@@ -157,10 +182,25 @@ export async function savePartnerService(input: {
   return (data as { id: string }).id;
 }
 
-export async function savePartnerBilling(input: PartnerBilling & { agencyId: string }): Promise<void> {
+/**
+ * Change what a partner is charged, from a date.
+ *
+ * NOT an update. A new terms row is inserted and the previous one is closed
+ * the day before it, because January's invoices were issued under January's
+ * terms — overwriting them would silently restate history, and every past
+ * month would suddenly agree with today's rate (Dee, §29-30).
+ *
+ * Editing terms that took effect TODAY is a correction, not a change, so that
+ * one row is updated in place rather than leaving two rows for one day.
+ */
+export async function savePartnerBilling(
+  input: PartnerBilling & { agencyId: string; effectiveFrom?: string },
+): Promise<void> {
   const sb = requireSupabase();
-  const { error } = await sb.from("partner_service_billing").upsert({
+  const from = input.effectiveFrom || new Date().toISOString().slice(0, 10);
+  const row = {
     service_id: input.serviceId, agency_id: input.agencyId,
+    effective_from: from,
     billing_model: input.billingModel, billing_status: input.billingStatus,
     payment_channel: input.paymentChannel ?? "UNKNOWN",
     transaction_type: input.transactionType,
@@ -168,11 +208,37 @@ export async function savePartnerBilling(input: PartnerBilling & { agencyId: str
     rate_cents: input.rateCents, currency: input.currency,
     expected_monthly_cents: input.expectedMonthlyCents,
     mrr_cents: input.mrrCents, contracted_hours: input.contractedHours,
+    quantity: input.quantity ?? null,
+    quantity_source: input.quantitySource ?? "manual",
+    autopay: input.autopay ?? false,
     currency_original: input.currencyOriginal, fx_rate_used: input.fxRateUsed,
     pricing_notes: input.pricingNotes,
-    updated_by: (await sb.auth.getUser()).data.user?.id ?? null,
-  } as never, { onConflict: "service_id" });
+  };
+
+  const { data: existing, error: readError } = await sb
+    .from("partner_service_billing").select("id, effective_from")
+    .eq("service_id", input.serviceId).order("effective_from", { ascending: false }).limit(1);
+  if (readError) throw readError;
+  const previous = (existing ?? [])[0] as { id: string; effective_from: string } | undefined;
+
+  if (previous && previous.effective_from === from) {
+    const { error } = await sb.from("partner_service_billing")
+      .update(row as never).eq("id", previous.id);
+    if (error) throw error;
+    return;
+  }
+
+  const { data: inserted, error } = await sb
+    .from("partner_service_billing").insert(row as never).select("id").single();
   if (error) throw error;
+
+  if (previous) {
+    const closesOn = new Date(Date.parse(`${from}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
+    const { error: closeError } = await sb.from("partner_service_billing")
+      .update({ effective_to: closesOn, superseded_by: (inserted as { id: string }).id } as never)
+      .eq("id", previous.id);
+    if (closeError) throw closeError;
+  }
 }
 
 /* ── Monthly revenue ──────────────────────────────────────────────────── */
@@ -316,4 +382,94 @@ export async function fetchPartnerCatalogues(): Promise<PartnerCatalogues> {
     billingModels: (models.data ?? []) as BillingModelEntry[],
     paymentChannels: (channels.data ?? []) as CatalogueEntry[],
   };
+}
+
+/* ── Cancellation ─────────────────────────────────────────────────────── */
+
+export interface CancellationOutcome {
+  service: string;
+  effective: string;
+  scheduledCancelled: number;
+  workArchived: number;
+  workspacesArchived: number;
+  clientsParked: number;
+  partnerStillActive: boolean;
+}
+
+/**
+ * End one service engagement and everything that hangs off it.
+ *
+ * ONE database call, not five screens: future billing stops, the run-rate
+ * drops, that service's open work leaves the active queues and its assignees
+ * are released. Scope-aware — another live service is untouched and the
+ * partner stays active.
+ *
+ * Returns what actually happened, so the interface can tell somebody exactly
+ * what the cancellation moved rather than claiming it worked.
+ */
+export async function cancelPartnerService(
+  serviceId: string, effectiveOn: string, reason?: string,
+): Promise<CancellationOutcome> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("cancel_partner_service", {
+    p_service: serviceId, p_effective: effectiveOn, p_reason: reason?.trim() || null,
+  });
+  if (error) throw error;
+  const r = (data ?? {}) as Record<string, unknown>;
+  return {
+    service: String(r.service ?? ""),
+    effective: String(r.effective ?? effectiveOn),
+    scheduledCancelled: Number(r.scheduled_cancelled ?? 0),
+    workArchived: Number(r.work_archived ?? 0),
+    workspacesArchived: Number(r.workspaces_archived ?? 0),
+    clientsParked: Number(r.clients_parked ?? 0),
+    partnerStillActive: Boolean(r.partner_still_active),
+  };
+}
+
+export interface ArchiveOutcome {
+  partner: string;
+  workArchived: number;
+  workspacesArchived: number;
+  clientsParked: number;
+  portalSuspended: number;
+}
+
+/**
+ * End the whole relationship.
+ *
+ * Refuses while any service is still running, and names it — archiving a
+ * partner BES is still being paid to serve would stop the work without
+ * stopping the invoice.
+ */
+export async function archivePartner(groupId: string, reason?: string): Promise<ArchiveOutcome> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("archive_partner", {
+    p_group: groupId, p_reason: reason?.trim() || null,
+  });
+  if (error) throw error;
+  const r = (data ?? {}) as Record<string, unknown>;
+  return {
+    partner: String(r.partner ?? ""),
+    workArchived: Number(r.work_archived ?? 0),
+    workspacesArchived: Number(r.workspaces_archived ?? 0),
+    clientsParked: Number(r.clients_parked ?? 0),
+    portalSuspended: Number(r.portal_suspended ?? 0),
+  };
+}
+
+/**
+ * Bring an archived partner back.
+ *
+ * Undoes what archiving did to the active views — client files return to the
+ * queues, the lifecycle goes back to active — and deliberately not more.
+ * Portal contacts and work assignments are given back one at a time, because
+ * some were suspended or released on purpose and an undo cannot tell which.
+ */
+export async function restorePartner(groupId: string): Promise<{ partner: string; clientsRestored: number }> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("restore_partner", { p_group: groupId });
+  if (error) throw error;
+  const r = (data ?? {}) as Record<string, unknown>;
+  return { partner: String(r.partner ?? ""), clientsRestored: Number(r.clients_restored ?? 0) };
 }

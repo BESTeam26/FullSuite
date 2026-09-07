@@ -22,6 +22,8 @@ export const AGENCY_PERMISSIONS = [
   "partners.contacts", "partners.portal", "partners.clients", "partners.operations",
   "partners.assignments", "partners.files.view", "partners.files.upload",
   "partners.financials.view", "partners.financials.edit", "partners.revenue.record",
+  "partners.invoices.view", "partners.invoices.manage", "partners.payments.record",
+  "finance.dashboard.view", "expenses.view", "expenses.manage",
   "reports.view",
 ] as const;
 
@@ -29,7 +31,7 @@ export type AgencyPermission = (typeof AGENCY_PERMISSIONS)[number];
 
 /**
  * Resolve every capability in one round trip rather than one call per switch.
- * A permissions screen asks about fifteen of these at once; fifteen requests
+ * A permissions screen asks about all of these at once; one request per switch
  * to render one page is the waterfall rule 14 forbids.
  */
 async function fetchMyAgencyPermissions(): Promise<Record<string, boolean>> {

@@ -198,6 +198,169 @@ export type Database = {
           },
         ]
       }
+      agency_expense_templates: {
+        Row: {
+          active: boolean
+          agency_id: string
+          amount_cents: number
+          cadence: string
+          category: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          description: string | null
+          due_day: number | null
+          id: string
+          notes: string | null
+          payment_method: string | null
+          transaction_type: string | null
+          updated_at: string
+          vendor: string
+        }
+        Insert: {
+          active?: boolean
+          agency_id: string
+          amount_cents: number
+          cadence?: string
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          description?: string | null
+          due_day?: number | null
+          id?: string
+          notes?: string | null
+          payment_method?: string | null
+          transaction_type?: string | null
+          updated_at?: string
+          vendor: string
+        }
+        Update: {
+          active?: boolean
+          agency_id?: string
+          amount_cents?: number
+          cadence?: string
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          description?: string | null
+          due_day?: number | null
+          id?: string
+          notes?: string | null
+          payment_method?: string | null
+          transaction_type?: string | null
+          updated_at?: string
+          vendor?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_expense_templates_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_expense_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agency_expenses: {
+        Row: {
+          agency_id: string
+          amount_cents: number
+          category: string | null
+          created_at: string
+          currency: string
+          description: string | null
+          due_date: string | null
+          fx_rate_used: number | null
+          id: string
+          invoice_url: string | null
+          notes: string | null
+          paid_on: string | null
+          payment_method: string | null
+          receipt_url: string | null
+          recorded_by: string | null
+          status: Database["public"]["Enums"]["expense_status"]
+          template_id: string | null
+          transaction_type: string | null
+          updated_at: string
+          vendor: string
+        }
+        Insert: {
+          agency_id: string
+          amount_cents: number
+          category?: string | null
+          created_at?: string
+          currency?: string
+          description?: string | null
+          due_date?: string | null
+          fx_rate_used?: number | null
+          id?: string
+          invoice_url?: string | null
+          notes?: string | null
+          paid_on?: string | null
+          payment_method?: string | null
+          receipt_url?: string | null
+          recorded_by?: string | null
+          status?: Database["public"]["Enums"]["expense_status"]
+          template_id?: string | null
+          transaction_type?: string | null
+          updated_at?: string
+          vendor: string
+        }
+        Update: {
+          agency_id?: string
+          amount_cents?: number
+          category?: string | null
+          created_at?: string
+          currency?: string
+          description?: string | null
+          due_date?: string | null
+          fx_rate_used?: number | null
+          id?: string
+          invoice_url?: string | null
+          notes?: string | null
+          paid_on?: string | null
+          payment_method?: string | null
+          receipt_url?: string | null
+          recorded_by?: string | null
+          status?: Database["public"]["Enums"]["expense_status"]
+          template_id?: string | null
+          transaction_type?: string | null
+          updated_at?: string
+          vendor?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_expenses_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_expenses_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_expenses_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "agency_expense_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agency_member_permissions: {
         Row: {
           allowed: boolean
@@ -9247,6 +9410,8 @@ export type Database = {
       work_items: {
         Row: {
           agency_id: string
+          archived_at: string | null
+          archived_reason: string | null
           assigned_to: string | null
           board_id: string | null
           completed_at: string | null
@@ -9258,6 +9423,9 @@ export type Database = {
           id: string
           item_type_id: string | null
           organization_id: string | null
+          partner_group_id: string | null
+          partner_service_id: string | null
+          previous_assigned_to: string | null
           priority: Database["public"]["Enums"]["work_priority"]
           related_ref: string | null
           related_type: Database["public"]["Enums"]["work_related_type"]
@@ -9272,6 +9440,8 @@ export type Database = {
         }
         Insert: {
           agency_id: string
+          archived_at?: string | null
+          archived_reason?: string | null
           assigned_to?: string | null
           board_id?: string | null
           completed_at?: string | null
@@ -9283,6 +9453,9 @@ export type Database = {
           id?: string
           item_type_id?: string | null
           organization_id?: string | null
+          partner_group_id?: string | null
+          partner_service_id?: string | null
+          previous_assigned_to?: string | null
           priority?: Database["public"]["Enums"]["work_priority"]
           related_ref?: string | null
           related_type: Database["public"]["Enums"]["work_related_type"]
@@ -9297,6 +9470,8 @@ export type Database = {
         }
         Update: {
           agency_id?: string
+          archived_at?: string | null
+          archived_reason?: string | null
           assigned_to?: string | null
           board_id?: string | null
           completed_at?: string | null
@@ -9308,6 +9483,9 @@ export type Database = {
           id?: string
           item_type_id?: string | null
           organization_id?: string | null
+          partner_group_id?: string | null
+          partner_service_id?: string | null
+          previous_assigned_to?: string | null
           priority?: Database["public"]["Enums"]["work_priority"]
           related_ref?: string | null
           related_type?: Database["public"]["Enums"]["work_related_type"]
@@ -9361,6 +9539,27 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_items_partner_group_id_fkey"
+            columns: ["partner_group_id"]
+            isOneToOne: false
+            referencedRelation: "outsourcing_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_items_partner_service_id_fkey"
+            columns: ["partner_service_id"]
+            isOneToOne: false
+            referencedRelation: "partner_services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_items_previous_assigned_to_fkey"
+            columns: ["previous_assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -9622,6 +9821,8 @@ export type Database = {
           id: string
           name: string
           organization_id: string | null
+          partner_group_id: string | null
+          partner_service_id: string | null
           updated_at: string
         }
         Insert: {
@@ -9635,6 +9836,8 @@ export type Database = {
           id?: string
           name: string
           organization_id?: string | null
+          partner_group_id?: string | null
+          partner_service_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -9648,6 +9851,8 @@ export type Database = {
           id?: string
           name?: string
           organization_id?: string | null
+          partner_group_id?: string | null
+          partner_service_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -9670,6 +9875,20 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspaces_partner_group_id_fkey"
+            columns: ["partner_group_id"]
+            isOneToOne: false
+            referencedRelation: "outsourcing_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspaces_partner_service_id_fkey"
+            columns: ["partner_service_id"]
+            isOneToOne: false
+            referencedRelation: "partner_services"
             referencedColumns: ["id"]
           },
         ]
@@ -10024,6 +10243,10 @@ export type Database = {
         Args: { p_id: string }
         Returns: undefined
       }
+      archive_partner: {
+        Args: { p_group: string; p_reason?: string }
+        Returns: Json
+      }
       as_uuid: { Args: { p: string }; Returns: string }
       assert_seat_available: {
         Args: { p_for_user?: string; p_ignore_pending?: boolean; p_org: string }
@@ -10091,6 +10314,10 @@ export type Database = {
       }
       can_write_work_item: { Args: { p_item: string }; Returns: boolean }
       cancel_agency_invitation: { Args: { p_id: string }; Returns: undefined }
+      cancel_partner_service: {
+        Args: { p_effective?: string; p_reason?: string; p_service: string }
+        Returns: Json
+      }
       cancel_subscription: {
         Args: { p_immediately?: boolean; p_org: string }
         Returns: undefined
@@ -10416,6 +10643,10 @@ export type Database = {
       }
       gen_org_public_id: { Args: never; Returns: string }
       gen_public_code: { Args: { p_prefix: string }; Returns: string }
+      generate_expenses_for_month: {
+        Args: { p_agency: string; p_month: number; p_year: number }
+        Returns: number
+      }
       ghl_agency_status: {
         Args: never
         Returns: {
@@ -10542,6 +10773,7 @@ export type Database = {
         Args: { p_letter: string; p_mailed_at?: string }
         Returns: undefined
       }
+      mark_overdue_expenses: { Args: never; Returns: number }
       mark_overdue_invoices: { Args: never; Returns: number }
       may_notify_mention: {
         Args: {
@@ -10855,6 +11087,7 @@ export type Database = {
         Args: { p_client: string; p_note?: string; p_outcome: string }
         Returns: undefined
       }
+      restore_partner: { Args: { p_group: string }; Returns: Json }
       reverse_commission: {
         Args: { p_commission: string; p_reason: string }
         Returns: undefined
@@ -11263,6 +11496,7 @@ export type Database = {
         | "reviewed"
         | "approved"
       escalation_tier: "initial" | "firm" | "aggressive"
+      expense_status: "upcoming" | "due" | "paid" | "overdue" | "void"
       external_role:
         | "brm"
         | "sales_partner"
@@ -11956,6 +12190,7 @@ export const Constants = {
         "approved",
       ],
       escalation_tier: ["initial", "firm", "aggressive"],
+      expense_status: ["upcoming", "due", "paid", "overdue", "void"],
       external_role: [
         "brm",
         "sales_partner",

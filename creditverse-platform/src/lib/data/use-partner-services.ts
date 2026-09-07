@@ -3,6 +3,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { useAgencyPermissions } from "@/lib/data/agency-permissions";
 import {
   fetchPartnerBilling, fetchPartnerCatalogues, fetchPartnerOperations, fetchPartnerRevenue, fetchPartnerServices,
+  archivePartner, cancelPartnerService, restorePartner,
   savePartnerBilling, savePartnerOperations, savePartnerService, saveRevenueEntry,
   type PartnerBilling, type PartnerOperations,
 } from "@/lib/data/partner-services";
@@ -94,6 +95,35 @@ export function usePartnerServiceActions(groupId: string) {
     saveOperations: useMutation({
       mutationFn: (patch: Partial<PartnerOperations>) => savePartnerOperations(groupId, agencyId, patch),
       onSuccess: refresh,
+    }),
+    /* Both cascades invalidate work and clients as well as the partner: they
+       archive rows in tables this screen does not own, and a stale board would
+       keep showing cards that are no longer anybody's. */
+    cancelService: useMutation({
+      mutationFn: (v: { serviceId: string; effectiveOn: string; reason?: string }) =>
+        cancelPartnerService(v.serviceId, v.effectiveOn, v.reason),
+      onSuccess: () => {
+        refresh();
+        void qc.invalidateQueries({ queryKey: ["work"] });
+        void qc.invalidateQueries({ queryKey: ["workspaces"] });
+        void qc.invalidateQueries({ queryKey: ["agency"] });
+      },
+    }),
+    restorePartner: useMutation({
+      mutationFn: () => restorePartner(groupId),
+      onSuccess: () => {
+        refresh();
+        void qc.invalidateQueries({ queryKey: ["agency"] });
+      },
+    }),
+    archivePartner: useMutation({
+      mutationFn: (v: { reason?: string }) => archivePartner(groupId, v.reason),
+      onSuccess: () => {
+        refresh();
+        void qc.invalidateQueries({ queryKey: ["work"] });
+        void qc.invalidateQueries({ queryKey: ["workspaces"] });
+        void qc.invalidateQueries({ queryKey: ["agency"] });
+      },
     }),
   };
 }

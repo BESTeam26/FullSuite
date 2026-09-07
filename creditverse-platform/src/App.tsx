@@ -146,6 +146,7 @@ const PeoplePage = lazy(named(hq2, "PeoplePage"));
 const TeamsPage = lazy(named(hq2, "TeamsPage"));
 const WorkforcePage = lazy(named(hq2, "WorkforcePage"));
 const BillingPage = lazy(named(hq2, "BillingPage"));
+const AgencyFinance = lazy(() => import("./pages/app/AgencyFinance").then((m) => ({ default: m.AgencyFinance })));
 const AnnouncementsPage = lazy(named(hq2, "AnnouncementsPage"));
 const CalendarPage = lazy(named(hq2, "CalendarPage"));
 const CompanyPeople = lazy(() => import("./pages/app/CompanyPeople"));
@@ -438,10 +439,15 @@ const App = () => (
                                   path="reporting"
                                   element={<RequirePermission permission="reports.view" label="Reports"><Reporting /></RequirePermission>}
                                 />
+                                {/* No guard here: the /app route above wraps
+                                    every Agency HQ page in RequireAgencyRoute,
+                                    which reads the path and refuses on the same
+                                    spec the menu uses. */}
+                                <Route path="finance" element={<AgencyFinance />} />
                                 <Route
                                   path="billing"
                                   element={
-                                    <RequireAgencyStaff label="Billing & Revenue">
+                                    <RequireAgencyStaff label="Organization billing">
                                       <BillingPage />
                                     </RequireAgencyStaff>
                                   }

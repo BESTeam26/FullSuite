@@ -471,3 +471,55 @@ export function financialPosition(
     projectValueCents,
   };
 }
+
+/* ── The other side: what BES pays out ────────────────────────────────── */
+
+export interface ExpenseRecord {
+  id: string;
+  amountCents: number;
+  dueDate: string | null;
+  paidOn: string | null;
+  status: string;
+}
+
+export interface ExpenseRollup {
+  /** Money that actually left the bank this month. */
+  paidCents: number;
+  /** Bills falling due this month that are not paid yet. */
+  dueCents: number;
+  /** Unpaid and past their date — from any month, because they are still owed. */
+  overdueCents: number;
+}
+
+/**
+ * Expenses split the same way revenue is: what moved, and what is owed.
+ *
+ * `paid_on` is the cash date and `due_date` is the obligation. A bill that is
+ * due is not money out — and an owner deciding what to pay this week needs
+ * them apart, not summed.
+ */
+export function rollUpExpenses(expenses: ExpenseRecord[], month: Month, asOf: string): ExpenseRollup {
+  let paidCents = 0, dueCents = 0, overdueCents = 0;
+  for (const e of expenses) {
+    if (e.status === "void") continue;
+    if (e.paidOn) {
+      if (inMonth(e.paidOn, month)) paidCents += e.amountCents;
+      continue;
+    }
+    if (!e.dueDate) continue;
+    if (dayOf(e.dueDate) < dayOf(asOf)) overdueCents += e.amountCents;
+    else if (inMonth(e.dueDate, month)) dueCents += e.amountCents;
+  }
+  return { paidCents, dueCents, overdueCents };
+}
+
+/**
+ * The owner's operating figure: cash in less cash out, this month.
+ *
+ * NOT accounting net income. It ignores accruals, depreciation, tax and
+ * anything else an accountant would insist on — it answers "did more come in
+ * than went out this month", which is the question being asked.
+ */
+export function netCashForMonth(collectedCents: number, expensesPaidCents: number): number {
+  return collectedCents - expensesPaidCents;
+}

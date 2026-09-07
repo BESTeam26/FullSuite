@@ -344,3 +344,36 @@ export async function fetchPartnerClientCounts(): Promise<Record<string, Partner
   }
   return out;
 }
+
+/* ── Documents filed against a partner ────────────────────────────────── */
+
+export interface PartnerFile {
+  id: string;
+  name: string;
+  mimeType: string | null;
+  sizeBytes: number | null;
+  createdAt: string;
+}
+
+/**
+ * Documents filed against this partner.
+ *
+ * Filing a document here does NOT share it with the partner. Their portal
+ * policy reads the same rows, so anything filed against the partner IS
+ * visible to them — which is why the upload control says so plainly rather
+ * than leaving somebody to discover it (rule 16: association is not
+ * publication, and where a surface breaks that rule it must say so).
+ */
+export async function fetchPartnerFiles(groupId: string): Promise<PartnerFile[]> {
+  const sb = requireSupabase();
+  const { data, error } = await sb
+    .from("files")
+    .select("id, name, mime_type, size_bytes, created_at")
+    .eq("entity_type", "partner").eq("entity_id", groupId)
+    .order("created_at", { ascending: false }).limit(200);
+  if (error) throw error;
+  return (data ?? []).map((r) => ({
+    id: r.id, name: r.name, mimeType: r.mime_type,
+    sizeBytes: r.size_bytes, createdAt: r.created_at,
+  }));
+}
