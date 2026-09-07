@@ -134,7 +134,7 @@ describe("the same report in either format", () => {
   });
 
   /* The one documented divergence, asserted rather than smoothed over. */
-  it("carries the marks in the HTML and refuses to invent them in the PDF", async () => {
+  it("labels the marks in the HTML, and in the PDF keeps them unlabelled rather than inferred", async () => {
     const { fromHtml, fromPdf } = await both();
     const htmlStatuses = Object.values(fromHtml.history).flat().map((e) => e.status);
     expect(htmlStatuses.some((s) => s === "C")).toBe(true);
@@ -151,7 +151,11 @@ describe("the same report in either format", () => {
     const fact = fromPdf.facts.find((f) => f.fieldKey === "payment_history_status");
     expect(fact?.state).toBe("not_exposed_by_provider");
     expect(fact?.bureau).toBeUndefined();
-    expect(fact?.reason).toMatch(/not the marks or the legend/i);
+    /* The wording matters: the marks ARE rendered. What is missing is a
+       machine-readable label and an embedded colour key. */
+    expect(fact?.reason).toMatch(/renders the payment-history marks visually/i);
+    expect(fact?.reason).toMatch(/no machine-readable status/i);
+    expect(fact?.reason).toMatch(/no embedded colour-to-status key/i);
   });
 });
 
@@ -278,14 +282,24 @@ describe("what the PDF adapter does not yet read is visible, not silent", () => 
   it("reconciles public records and inquiries, so a stated count cannot import as complete", async () => {
     const geometry = await pdfGeometry();
     const report = SmartCreditPdfAdapter.parse(geometry);
-    for (const key of ["accounts", "public_records", "inquiries"])
+    for (const key of ["accounts", "public_records", "inquiries@2_years"])
       expect(report.reconciliation.some((c) => c.checkKey === key)).toBe(true);
+
+    /* The window is part of the key, so the summary's two-year figure and the
+       listing's three-year one cannot collide in storage. */
+    const inquiryKeys = new Set(
+      report.reconciliation.filter((c) => c.checkKey.startsWith("inquiries")).map((c) => c.checkKey),
+    );
+    expect(inquiryKeys.has("inquiries@2_years")).toBe(true);
+    expect(inquiryKeys.has("inquiries@3_years")).toBe(true);
+    for (const c of report.reconciliation.filter((c) => c.checkKey === "inquiries@2_years"))
+      expect(c.comparable).toBe(false);
 
     /* The fixture states zero of each, so these pass. The point is that a
        report stating three judgments would reconcile SHORT and grade the
        import partial — never "the records are absent from the file". */
     const shortfall = report.reconciliation.filter((c) => !c.ok);
     for (const check of shortfall)
-      expect(check.reason).toMatch(/unread, not absent|cannot be reconciled|could not be read/i);
+      expect(check.reason).toMatch(/unread, not absent|could not be verified|could not be read|different periods/i);
   });
 });

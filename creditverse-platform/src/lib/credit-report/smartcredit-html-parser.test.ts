@@ -242,7 +242,11 @@ describe("reconciliation against the source's own summary", () => {
 
   it("agrees with the fixture on every check the source makes possible", () => {
     const checks = reconcile(parsed);
-    const failed = checks.filter((c) => !c.ok);
+    /* Only the checks that actually COMPARED something can pass or fail. The
+       summary's two-year inquiry figure is not the population the inquiry
+       listing shows, so it is recorded and not compared — see the scope
+       tests below. */
+    const failed = checks.filter((c) => !c.ok && c.comparable !== false);
     expect(failed).toEqual([]);
     expect(deriveQuality(checks)).toBe("complete");
   });
@@ -251,7 +255,9 @@ describe("reconciliation against the source's own summary", () => {
     const checks = reconcile(parsed);
     expect(checks.filter((c) => c.checkKey === "accounts")).toHaveLength(3);
     expect(checks.some((c) => c.checkKey === "public_records")).toBe(true);
-    expect(checks.some((c) => c.checkKey === "inquiries")).toBe(true);
+    /* The window is part of the key, so a two-year figure and a three-year
+       one cannot collide on `report_reconciliation`'s uniqueness constraint. */
+    expect(checks.some((c) => c.checkKey === "inquiries@2_years")).toBe(true);
     expect(checks.some((c) => c.checkKey === "scores")).toBe(true);
     expect(checks.some((c) => c.checkKey.startsWith("section:"))).toBe(true);
   });
@@ -486,20 +492,48 @@ describe("records and enquiries reconcile", () => {
     expect(pr.find((c) => c.bureau === "EQ")).toMatchObject({ stated: 0, parsed: 0 });
   });
 
-  it("counts the enquiries against the source's own figure", () => {
+  /* THE SCOPE RULE. The summary counts two years per bureau; the listing
+     covers three years across all three. Both figures are kept, and neither
+     is compared to the other. */
+  it("records the summary's two-year enquiry figure without comparing it to the listing", () => {
     const checks = reconcile(parsed);
-    const inq = checks.filter((c) => c.checkKey === "inquiries");
-    expect(inq.every((c) => c.ok)).toBe(true);
-    expect(inq.find((c) => c.bureau === "TU")).toMatchObject({ stated: 1, parsed: 1 });
-    expect(inq.find((c) => c.bureau === "EX")).toMatchObject({ stated: 0, parsed: 0 });
+    const perBureau = checks.filter((c) => c.checkKey === "inquiries@2_years");
+    expect(perBureau.length).toBeGreaterThan(0);
+    for (const c of perBureau) {
+      expect(c.comparable).toBe(false);
+      expect(c.window).toBe("2_years");
+      expect(c.stated).toBeDefined();
+      expect(c.reason).toMatch(/different periods/i);
+    }
+  });
+
+  it("reconciles the listing against the total the listing itself states", () => {
+    const checks = reconcile(parsed);
+    const listing = checks.find((c) => c.checkKey === "inquiries@3_years")!;
+    expect(listing).toBeDefined();
+    expect(listing.bureau).toBeUndefined();      // all bureaus, so none is named
+    expect(listing.window).toBe("3_years");
+    expect(listing.comparable).not.toBe(false);  // like-for-like
+    expect(listing).toMatchObject({ stated: 2, parsed: 2, ok: true });
+  });
+
+  it("keeps a two-year and a three-year figure under different keys", () => {
+    /* `report_reconciliation` is unique on (report, bureau, check_key). One
+       shared key and the two windows would overwrite each other in the
+       database — the conflation, happening in storage. */
+    const keys = reconcile(parsed).filter((c) => c.checkKey.startsWith("inquiries"));
+    expect(new Set(keys.map((c) => c.checkKey)).size).toBeGreaterThan(1);
   });
 
   it("goes partial when an enquiry is not read — never 'deleted'", () => {
     const dropped = fixture.replace(/<div class="inquiry">\s*<p class="fw-bold">Creditor Name<\/p><p>CALDER MUTUAL AUTO<\/p>[\s\S]*?<\/div>/, "");
     const checks = reconcile(parseSmartCreditHtml(dropped));
     expect(deriveQuality(checks)).toBe("partial");
-    const failed = checks.find((c) => c.checkKey === "inquiries" && !c.ok)!;
+    /* Caught by the LISTING'S own total, which is like-for-like. The
+       summary's two-year figure could never have caught it. */
+    const failed = checks.find((c) => c.checkKey === "inquiries@3_years" && !c.ok)!;
     expect(failed.stated).toBeGreaterThan(failed.parsed);
+    expect(failed.reason).toMatch(/unread, not absent/i);
   });
 
   it("goes partial when the public record is not read", () => {

@@ -84,36 +84,101 @@ provider's legend**. The obvious reading is 180 days, which is exactly why it
 is not written down: a plausible guess about a delinquency severity is still a
 guess, and it would be printed to a consumer as fact.
 
-## The one thing the PDF does not carry
+## What the PDF renders visually but does not label
 
-The print drops the payment-history **marks** and the **legend** that decodes
-them. Verified against the real 36-page export: zero occurrences of `OK`,
-`PP`, `RF`, or any delinquency glyph in the text layer, and no legend block.
+The PDF **does** carry the payment-history marks — visually. Each month is
+drawn as a filled rectangle, and those rectangles are recoverable from the
+page's drawing operators (`#16a35c` green, `#efefef` grey in the export
+examined). What it does not carry is any **machine-readable status label** for
+them, and no **authoritative embedded colour-to-status mapping**.
 
-The cells survive as coloured rectangles — `#16a35c` green, `#efefef` grey —
-and the colours are recoverable from the page's drawing operators. **They are
-not translated into statuses.** Neither supplied document declares a
-colour-to-status key: the status colours live in external stylesheets the saved
-page does not inline (`16a35c` appears zero times in the HTML). Decoding them
-would mean publishing our own guess about a delinquency to a consumer, and it
-would break silently the first time the provider restyled.
+Verified against the real 36-page export: zero occurrences of `OK`, `PP`, `RF`
+or any delinquency glyph in the text layer, and the `payment-history-legend`
+block that decodes the marks does not print. The status colours are defined in
+external stylesheets the saved page does not inline — `16a35c` appears zero
+times in the HTML source — so nothing in either supplied document states which
+status a given green means.
 
-So the PDF adapter reads and dates the months, and records each status as
-undetermined with the observed fill attached:
+So the adapter reads and dates every month, records the observed graphic
+provenance, and leaves the meaning undetermined:
 
 ```
-facts: { fieldKey: "payment_history_status", state: "not_exposed_by_provider",
-         reason: "…prints the payment-history months but not the marks or the
-                  legend that decodes them…" }
+history: { bureau, year, month,
+           status: null,
+           unreadable: { reason: "status_not_in_text_layer", fill: "#16a35c" } }
+
+facts:   { fieldKey: "payment_history_status", state: "not_exposed_by_provider",
+           reason: "…prints the payment-history months but not the marks or the
+                    legend that decodes them…" }
 ```
 
-Recorded once for the report, not per bureau, because no bureau is at fault.
-`?` in the encoding means *the format did not carry the mark*; `U` means *the
-bureau reported nothing*. Different claims.
+- **month and year are preserved**, from the source's own year markers
+- **the observed fill is preserved**, so a reviewer can see which cell was
+  unreadable and what it looked like
+- **the status is UNKNOWN / NOT_EXPOSED** wherever the meaning is not proven
+- **delinquency is never inferred from colour alone**
 
-**To get PDF payment-history statuses**, one of: import the HTML export for
-that report; supply the provider's stylesheet so a colour key can be declared
-with provenance; or supply a print that carries the legend.
+The fact is recorded once for the report, not per bureau, because no bureau is
+at fault. `?` in the `YYYY-MM:status` encoding means *the format did not label
+the mark*; `U` means *the bureau reported nothing that month*, which the
+provider declares in its own legend. Different claims, kept apart.
+
+Reading a colour as a delinquency severity would mean publishing our own
+inference to a consumer on the strength of a stylesheet we were never given,
+and it would break silently the first time the provider restyled.
+
+**To resolve PDF payment-history statuses**, one of: import the HTML export
+for that report; supply the provider's stylesheet so a colour key can be
+declared with provenance and a version; or supply a print that carries the
+legend.
+
+## Reconciliation windows
+
+A count without its window is not a count. The real export states the same
+noun over two different scopes:
+
+| Where | Wording | Scope |
+|---|---|---|
+| Summary, p1 | `Inquiries (2 Years)` | per bureau, 2-year window |
+| Inquiry listing, p31 | `We found 49 inquiries in the past 3 years` | all bureaus, 3-year window |
+
+Both parsers were checking the first against a parse of the second. On the real
+file that compares **23 against a population of 49** — a discrepancy
+manufactured entirely out of the two figures counting different periods.
+
+Every stated figure now carries five things:
+
+```
+metric · bureau (where the source states one) · time window
+       · source section · the source's own wording, verbatim
+```
+
+and two figures reconcile **only when metric and window agree**. A pair that
+does not agree keeps both numbers and is marked `comparable = false`: it grades
+nothing, because it measured nothing. Passing it would claim a verification
+that never happened; failing it would report a shortfall from arithmetic that
+was never valid.
+
+The window is also part of `check_key` (`inquiries@2_years`,
+`inquiries@3_years`). That is load-bearing, not cosmetic:
+`report_reconciliation` is unique on `(report, bureau, check_key)`, so two
+windows sharing a key would collide and one would silently overwrite the other
+— the same conflation, happening in storage.
+
+The verdict follows the same rule in **both** layers. Migration 0141 teaches
+`create_credit_report` to exclude non-comparable rows from its arithmetic, so
+the database and the application cannot disagree about one import. A report
+where *nothing* was comparable grades `review_required` — never complete.
+
+**What still catches an unread item** is the like-for-like check: the listing
+against the total the listing itself states. That comparison is real, and it is
+the one that turns an unparsed inquiry into `partial` rather than into a claim
+that the inquiry is absent from the file.
+
+Attribute counts — open, closed, delinquent, derogatory, balances, payments —
+are captured in `summary` and deliberately **not** reconciled. They are not
+item counts, and comparing them against a count of items would compare two
+different things.
 
 ## The acceptance test
 
@@ -166,6 +231,39 @@ Building the second reader found four live defects in the first, all fixed:
    the provider marked `status-U`.
 4. **`——` was stored as a literal value**, so an account every bureau left
    blank read as an account every bureau reports.
+
+## Real-source validation, 2026-09-07
+
+Run against a real 36-page SmartCredit PDF export, locally. The file is not in
+this repository and never will be; only aggregates are recorded here.
+
+| | |
+|---|---|
+| pages / text fragments | 36 / 8,482, text layer present |
+| account blocks → canonical items | 46 → 46 (one block, one item) |
+| blocks spanning a page break | **29**, all still single items |
+| per-bureau observations | TU 42, EX 42, EQ 0 |
+| summary's stated account totals | TU 42, EX 42, EQ 0 — **reconciles per bureau** |
+| unattributed / duplicate-header columns | 0 / 0 |
+| account-number outcomes | 21 shared · 8 single-bureau · 17 varies-by-bureau |
+| stored values not verbatim in the source | **0** — no digit reconstructed |
+| dated history entries | 1,152 across 2022–2026, no month outside 1–12 |
+| observed fills preserved | 1,152 of 1,152, two distinct colours |
+| completeness facts | 1,589 present · 1,447 bureau-not-present · 1 not-exposed |
+| parse failures / warnings | 0 / 0 |
+
+Note that **46 canonical accounts exceeds any single bureau's total of 42**.
+That is correct and is why reconciliation is per bureau: some accounts are
+reported by one bureau and not another, so a unique-account count can never be
+checked against one bureau's figure.
+
+Equifax reports nothing at all in this file — no score, no accounts. It is
+recorded as 1,012 `bureau_not_present` facts, never as "Equifax removed
+everything", and its stated total of 0 reconciles against 0 parsed.
+
+Verdict: **partial**, driven by the one honest shortfall — the inquiry listing
+states 49 and the adapter parses none, because it does not yet read that
+section. Not "49 inquiries absent from the file".
 
 ## Known gaps in the PDF adapter, stated rather than hidden
 

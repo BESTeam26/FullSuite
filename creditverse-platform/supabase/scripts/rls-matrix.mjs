@@ -2873,6 +2873,29 @@ if (runs(53)) {
 
     ["…and the owner reading two snapshots at once sees both",
       () => probe53(OWNER53, `${imp(PASS53)}; ${imp(PASS53)}; select count(distinct r.id)::int as rows from public.credit_reports r where r.fulfillment_client_id='${T.lakeside_client}' and r.parser_version='probe-138'`), 2],
+
+    /* ── R5-adjacent (0141): a count without its window is not a count ──
+       The summary states "Inquiries (2 Years)" per bureau; the inquiry
+       listing covers three years across all three. The verdict must not be
+       graded on a comparison between them — in either layer, or the database
+       and the application disagree about the same import. */
+    ["a not-comparable check does not grade the import partial",
+      () => probe53(OWNER53, `select public.create_credit_report('${lakesideOrg}', null, '${T.lakeside_client}', null, array['EQ'], current_date, 'manual_upload', null, 'probe-141', '${ITEM53}'::jsonb, null, '[]'::jsonb, '[{"bureau":"EQ","check_key":"accounts","stated":1,"parsed":1,"ok":true},{"bureau":"EQ","check_key":"inquiries@2_years","stated":23,"parsed":0,"ok":false,"comparable":false,"window":"2_years"}]'::jsonb); ${QUALITY}`), "complete"],
+
+    ["…and a like-for-like shortfall still does",
+      () => probe53(OWNER53, `select public.create_credit_report('${lakesideOrg}', null, '${T.lakeside_client}', null, array['EQ'], current_date, 'manual_upload', null, 'probe-141b', '${ITEM53}'::jsonb, null, '[]'::jsonb, '[{"bureau":"EQ","check_key":"accounts","stated":1,"parsed":1,"ok":true},{"check_key":"inquiries@3_years","stated":49,"parsed":0,"ok":false,"comparable":true,"window":"3_years"}]'::jsonb); ${QUALITY}`), "partial"],
+
+    ["a report where NOTHING was comparable is review_required, never complete",
+      () => probe53(OWNER53, `select public.create_credit_report('${lakesideOrg}', null, '${T.lakeside_client}', null, array['EQ'], current_date, 'manual_upload', null, 'probe-141c', '${ITEM53}'::jsonb, null, '[]'::jsonb, '[{"bureau":"EQ","check_key":"inquiries@2_years","stated":23,"parsed":0,"ok":false,"comparable":false,"window":"2_years"}]'::jsonb); ${QUALITY}`), "review_required"],
+
+    ["the window and the source's own wording are stored, not just the numbers",
+      () => probe53(OWNER53, `select public.create_credit_report('${lakesideOrg}', null, '${T.lakeside_client}', null, array['EQ'], current_date, 'manual_upload', null, 'probe-141d', '${ITEM53}'::jsonb, null, '[]'::jsonb, '[{"bureau":"EQ","check_key":"inquiries@2_years","stated":23,"parsed":0,"ok":false,"comparable":false,"window":"2_years","source_section":"Summary","source_definition":"Inquiries (2 Years)"}]'::jsonb); select (count(*) = 1)::text as rows from public.report_reconciliation where count_window = '2_years' and source_section = 'Summary' and source_definition = 'Inquiries (2 Years)'`), "true"],
+
+    ["two windows of one metric coexist instead of overwriting each other",
+      () => probe53(OWNER53, `select public.create_credit_report('${lakesideOrg}', null, '${T.lakeside_client}', null, array['EQ'], current_date, 'manual_upload', null, 'probe-141e', '${ITEM53}'::jsonb, null, '[]'::jsonb, '[{"bureau":"EQ","check_key":"accounts","stated":1,"parsed":1,"ok":true},{"check_key":"inquiries@2_years","stated":23,"parsed":0,"ok":false,"comparable":false,"window":"2_years"},{"check_key":"inquiries@3_years","stated":49,"parsed":0,"ok":false,"window":"3_years"}]'::jsonb); select count(*)::int as rows from public.report_reconciliation where check_key like 'inquiries@%'`), 2],
+
+    ["the writer is still SECURITY INVOKER after 0141",
+      () => q(`select (not prosecdef)::text as rows from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='create_credit_report'`)[0].rows, "true"],
   ] : [["(no Lakeside client to probe)", () => "skip", "skip"]];
   runPhase("phase 53", P53, { strict: true });
 }

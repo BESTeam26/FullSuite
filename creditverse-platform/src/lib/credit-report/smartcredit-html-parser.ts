@@ -46,6 +46,10 @@ import { normalizeAccountRef, parseBalanceCents, type BureauValueInput, type Par
 import { bureausInOrder, normalizeStatus } from "./pdf-report-parser";
 import { reasonFor, type CompletenessFact, type ReconciliationCheck } from "./completeness";
 import { BADGE_TO_CODE, classifyCell } from "./smartcredit/source-fields";
+import {
+  comparable as comparableCheck, metricForLabel, notComparable, readSectionTotal,
+  type SectionTotal,
+} from "./smartcredit/reconciliation-scope";
 
 export const SMARTCREDIT_PARSER_VERSION = "smartcredit-html-1";
 
@@ -114,6 +118,12 @@ export interface SmartCreditParseResult {
   sections: Record<string, boolean>;
   /** Anything a reviewer must be told. Never silently swallowed. */
   warnings: string[];
+  /**
+   * Totals a section states about itself, with the window it covers — e.g.
+   * "We found 49 inquiries in the past 3 years". Kept apart from `summary`,
+   * whose inquiry figure is per bureau over two years.
+   */
+  sectionTotals?: SectionTotal[];
 }
 
 /** Money as the source prints it, so a stated figure is read and a blank is not. */
@@ -590,7 +600,17 @@ export function parseSmartCreditHtml(html: string): SmartCreditParseResult {
   }
 
   if (items.length === 0) warnings.push("No account blocks were found. The layout may have changed.");
-  return { items, summary, bureaus: [...named], publicRecords, inquiries, scores, sections, warnings };
+
+  /* Totals a section states about itself. Read from the document's own
+     sentence — "We found 49 inquiries in the past 3 years" — so the window
+     comes from the source and is never assumed. */
+  const sectionTotals: SectionTotal[] = [];
+  for (const sentence of doc.replace(/<[^>]*>/g, " ").split(/[.\n]/)) {
+    const total = readSectionTotal(sentence);
+    if (total && !sectionTotals.some((t) => t.metric === total.metric)) sectionTotals.push(total);
+  }
+
+  return { items, summary, bureaus: [...named], publicRecords, inquiries, scores, sections, warnings, sectionTotals };
 }
 
 /**
@@ -607,6 +627,7 @@ export function parseSmartCreditHtml(html: string): SmartCreditParseResult {
  */
 export function reconcile(result: SmartCreditParseResult): ReconciliationCheck[] {
   const checks: ReconciliationCheck[] = [];
+  const sectionTotals = result.sectionTotals ?? [];
   const num = (s: string | undefined) => {
     if (s === undefined) return undefined;
     const digits = s.replace(/[^0-9]/g, "");
@@ -650,8 +671,23 @@ export function reconcile(result: SmartCreditParseResult): ReconciliationCheck[]
     push(bureau, "public_records", num(stated["public records"]),
       result.publicRecords.filter((r) => r.bureaus.includes(bureau)).length);
 
-    push(bureau, "inquiries", num(stated["inquiries (2 years)"]),
-      result.inquiries.filter((r) => r.bureaus.includes(bureau)).length);
+    /* The summary's inquiry figure covers TWO YEARS per bureau; the inquiry
+       listing this would be checked against covers three across all three
+       bureaus. Comparing them reports a shortfall nobody measured, so both
+       figures are kept and neither is compared to the other. The listing's
+       own stated total is reconciled separately below, where it is
+       like-for-like. */
+    const statedInquiries = num(stated["inquiries (2 years)"] ?? stated["inquiries"]);
+    const inquiryMetric = metricForLabel("inquiries (2 years)");
+    const parsedInquiries = result.inquiries.filter((r) => r.bureaus.includes(bureau)).length;
+    if (statedInquiries !== undefined && inquiryMetric) {
+      checks.push(notComparable({
+        bureau, metric: inquiryMetric, stated: statedInquiries, parsed: parsedInquiries,
+        parsedWindow: sectionTotals.find((t) => t.metric === "inquiries")?.window ?? "unstated",
+      }));
+    } else {
+      push(bureau, "inquiries@2_years", statedInquiries, parsedInquiries);
+    }
 
     /* Score PRESENCE, not value or count.
        The expectation of 1 comes from the report's own structure — it named
@@ -669,6 +705,25 @@ export function reconcile(result: SmartCreditParseResult): ReconciliationCheck[]
         ? undefined
         : "The report names this bureau but shows no score for it. The expectation of one comes from the report's own structure, not from a figure it printed.",
     });
+  }
+
+  /* A section's own total — "We found 49 inquiries in the past 3 years" — IS
+     the population that section lists, so this is the one inquiry figure that
+     can legitimately be reconciled. All bureaus, so no bureau is named. */
+  for (const total of sectionTotals) {
+    const parsed =
+      total.metric === "inquiries" ? result.inquiries.length
+      : total.metric === "public_records" ? result.publicRecords.length
+      : result.items.filter((i) => i.kind === "Account").length;
+    checks.push(comparableCheck({
+      metric: total.metric,
+      window: total.window,
+      section: `${total.metric.replace(/_/g, " ")} listing`,
+      definition: total.definition,
+      stated: total.stated,
+      parsed,
+      noun: total.metric.replace(/_/g, " "),
+    }));
   }
 
   /* Required sections. A missing section is `review_required`, not partial:

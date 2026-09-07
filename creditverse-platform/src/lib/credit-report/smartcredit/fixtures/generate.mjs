@@ -113,7 +113,12 @@ function pdfHistory(page, rows) {
 }
 
 function buildPdf() {
-  const pages = [new Page(), new Page(), new Page()];
+  /* Four pages: three of accounts, then the listing sections on their own —
+     which is where the real 36-page export puts them (p31). Crowding them
+     onto the last account page pushed them below the MediaBox, where pdf.js
+     drops them; a fixture that silently loses a line it claims to test is
+     worse than no fixture. */
+  const pages = [new Page(), new Page(), new Page(), new Page()];
   const p1 = pages[0];
 
   p1.text(LABEL_X, p1.y, "Credit Scores", 11); p1.y += 19;
@@ -140,7 +145,10 @@ function buildPdf() {
     ["Delinquent", ["0", "0", "0"]],
     ["Derogatory", ["1", "1", "1"]],
     ["Public Records", ["0", "0", "0"]],
-    ["Inquiries", ["0", "0", "0"]],
+    /* The real export labels this "Inquiries (2 Years)". The window is part
+       of the label, and reading it without the window is how a two-year
+       figure comes to be checked against a three-year listing. */
+    ["Inquiries (2 Years)", ["0", "0", "0"]],
   ]) {
     p1.text(LABEL_X, p1.y, label);
     vals.forEach((v, i) => p1.text(COLS[i], p1.y + 1, v));
@@ -162,6 +170,17 @@ function buildPdf() {
       pdfHistory(pages[account.page], next);
     }
   }
+
+  /* The listing sections come AFTER the accounts, where the real export puts
+     them, and each states its own total with its own window. That total is
+     the figure a parse of its section can be reconciled against; the
+     summary's two-year inquiry count is a different population. */
+  const last = pages[pages.length - 1];
+  last.y = 60;
+  last.text(LABEL_X, last.y, "Public Records", 11); last.y += 16;
+  last.text(LABEL_X, last.y, "We found 0 public records in the past 7 years"); last.y += 16;
+  last.text(LABEL_X, last.y, "Inquiries", 11); last.y += 16;
+  last.text(LABEL_X, last.y, "We found 0 inquiries in the past 3 years"); last.y += 14;
 
   const objects = [];
   objects[1] = "<< /Type /Catalog /Pages 2 0 R >>";
@@ -273,8 +292,8 @@ function buildHtml() {
     ].join("\n");
   });
   parts.push(`<section id="account-history">\n  <h5>Account History</h5>\n${blocks.join("\n\n")}\n</section>`);
-  parts.push(`<section id="public-records">\n  <h5>Public Records</h5>\n  <p>NONE REPORTED</p>\n</section>`);
-  parts.push(`<section id="inquiries">\n  <h5>Inquiries</h5>\n  <p>NONE REPORTED</p>\n</section>`);
+  parts.push(`<section id="public-records">\n  <h5>Public Records</h5>\n  <p>We found 0 public records in the past 7 years</p>\n  <p>NONE REPORTED</p>\n</section>`);
+  parts.push(`<section id="inquiries">\n  <h5>Inquiries</h5>\n  <p>We found 0 inquiries in the past 3 years, and they stay on your report for two years.</p>\n  <p>NONE REPORTED</p>\n</section>`);
   return parts.join("\n\n") + "\n";
 }
 

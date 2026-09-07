@@ -23,13 +23,13 @@
  *   block runs from its header to the next account heading, so a page break
  *   inside an account is invisible to the result. One tradeline, one item.
  *
- *   A colour is not a payment status. The print drops the history badges and
- *   the legend that decodes them; the cells survive as coloured rectangles
- *   whose key lives in a stylesheet the export does not include. The months
- *   are read and dated from the source's own year markers, and the status of
- *   each is recorded as read-but-unattributable with the observed colour
- *   attached. Translating the colour would mean printing our own guess about
- *   a delinquency to a consumer.
+ *   A colour is not a payment status. The print DOES render the history
+ *   marks — they are filled rectangles, and their colours are recoverable —
+ *   but it carries no machine-readable status label for them and no embedded
+ *   key saying what a colour means. The months are read and dated from the
+ *   source's own year markers, and each status is left undetermined with the
+ *   observed fill attached as provenance. Translating the colour would mean
+ *   printing our own inference about a delinquency to a consumer.
  */
 import type { Bureau } from "@/lib/credit-classification";
 import { normalizeAccountRef, type BureauValueInput, type ParsedReportItem } from "@/lib/credit-report/import-parser";
@@ -38,6 +38,7 @@ import {
   BUREAU_BY_NAME, DERIVED_LABELS, MONEY_FIELDS, MONTH_ABBREVIATIONS,
   SOURCE_FIELD_MAP, classifyCell, encodeHistoryMark, normaliseLabel,
 } from "./source-fields";
+import { SUMMARY_LABELS as SHARED_SUMMARY_LABELS, readSectionTotal, type SectionTotal } from "./reconciliation-scope";
 import {
   COLUMN_TOLERANCE, cellAt, textInBand, toRows,
   type PdfFragment, type PdfGeometry, type PdfRect,
@@ -79,6 +80,13 @@ export interface SmartCreditPdfResult {
    *   accountRef -> bureau -> label -> value as printed
    */
   derived: Record<string, Record<string, Record<string, string>>>;
+  /**
+   * Totals a SECTION states about itself, e.g. "We found 49 inquiries in the
+   * past 3 years". Kept apart from `summary` because they cover different
+   * periods and different bureaus — the summary's figures are per bureau over
+   * two years, these are all bureaus over three.
+   */
+  sectionTotals: SectionTotal[];
   pageCount: number;
 }
 
@@ -325,13 +333,32 @@ function yearFrom(text: string): number | null {
   return null;
 }
 
-/** The rectangle a month's cell sits in, if the page drew one. */
+/**
+ * The colour of the cell a month's label sits in, if the page drew one.
+ *
+ * The TIGHTEST containing rectangle, not the first. A print nests containers,
+ * panels and clip boxes, and a page-wide background contains every month on
+ * the page — taking the first match records one colour for the whole grid and
+ * calls it each cell's own. A cell is the smallest box around its label.
+ *
+ * A box larger than a plausible cell yields nothing rather than a guess: the
+ * point of recording the fill is to let a person check WHICH cell was
+ * unreadable, and provenance pointing at a container is worse than none.
+ */
+const MAX_CELL_AREA = 2_000;
+const MAX_CELL_SIDE = 60;
+
 function fillAt(rects: PdfRect[], page: number, x: number, y: number): string | null {
-  const hit = rects.find(
-    (r) => r.page === page && x >= r.x - COLUMN_TOLERANCE && x <= r.x + r.width + COLUMN_TOLERANCE
-      && y >= r.y - 24 && y <= r.y + r.height + 24,
-  );
-  return hit?.fill ?? null;
+  let best: PdfRect | null = null;
+  for (const r of rects) {
+    if (r.page !== page) continue;
+    if (r.width > MAX_CELL_SIDE || r.height > MAX_CELL_SIDE) continue;
+    if (r.width * r.height > MAX_CELL_AREA) continue;
+    if (x < r.x - COLUMN_TOLERANCE || x > r.x + r.width + COLUMN_TOLERANCE) continue;
+    if (y < r.y - 24 || y > r.y + r.height + 24) continue;
+    if (!best || r.width * r.height < best.width * best.height) best = r;
+  }
+  return best?.fill ?? null;
 }
 
 /* ── The adapter ───────────────────────────────────────────────────────── */
@@ -346,7 +373,7 @@ export function parseSmartCreditPdf(geometry: PdfGeometry): SmartCreditPdfResult
     return {
       items: [], summary: emptySummary(), bureaus: [], publicRecords: [], inquiries: [],
       scores: [], sections: {}, warnings, facts, history: {}, derived: {},
-      pageCount: geometry.pageCount,
+      sectionTotals: [], pageCount: geometry.pageCount,
     };
   }
 
@@ -456,6 +483,25 @@ export function parseSmartCreditPdf(geometry: PdfGeometry): SmartCreditPdfResult
   }
 
   const summary = readSummary(rows, declared);
+  /* A section describing itself is the only figure that can be checked
+     against a parse of that section. Read from the sentence, so a report
+     saying two years is never checked as three. */
+  const sectionTotals: SectionTotal[] = [];
+  {
+    /* Scanned per PAGE, not per row. The sentence is one row in the export
+       seen so far, but a narrower layout wraps it — and a total split over
+       two lines is still the source stating its total. */
+    const byPage = new Map<number, string[]>();
+    for (const row of rows) {
+      const page = row[0]?.page ?? 1;
+      byPage.set(page, [...(byPage.get(page) ?? []), textInBand(row, 0, Number.POSITIVE_INFINITY)]);
+    }
+    for (const lines of byPage.values()) {
+      for (const total of [readSectionTotal(lines.join(" ")), ...lines.map(readSectionTotal)]) {
+        if (total && !sectionTotals.some((t) => t.metric === total.metric)) sectionTotals.push(total);
+      }
+    }
+  }
   const sections = {
     personal_information: hasHeading(rows, /^personal information$/i),
     summary: hasHeading(rows, /^summary$/i),
@@ -471,15 +517,17 @@ export function parseSmartCreditPdf(geometry: PdfGeometry): SmartCreditPdfResult
     fieldKey: "payment_history_status",
     state: "not_exposed_by_provider",
     reason:
-      "This provider's PDF export prints the payment-history months but not the marks or the legend that decodes them. " +
-      "The months are read and dated; each status is left undetermined rather than inferred from a cell colour.",
+      "This provider's PDF export renders the payment-history marks visually but carries no machine-readable status " +
+      "label for them, and no embedded colour-to-status key. The months are read and dated and the observed fill is " +
+      "kept; each status is left undetermined rather than inferred from a cell colour.",
   });
 
   return {
     items, summary, bureaus: declared,
     publicRecords: [], inquiries: [],
     scores: declared.map((bureau) => ({ bureau })),
-    sections, warnings, facts, history, derived, pageCount: geometry.pageCount,
+    sections, warnings, facts, history, derived, sectionTotals,
+    pageCount: geometry.pageCount,
   };
 }
 
@@ -527,10 +575,11 @@ function declaredBureaus(rows: PdfFragment[][]): Bureau[] {
   return [...seen];
 }
 
-const SUMMARY_LABELS = [
-  "total accounts", "open accounts", "closed accounts", "delinquent",
-  "derogatory", "balances", "payments", "public records", "inquiries",
-];
+/* The summary's labels, with their scopes, from the shared table. The real
+   export writes "Inquiries (2 Years)", not "Inquiries" — the two-year window
+   is part of the label, and reading it without the window is how a two-year
+   figure comes to be checked against a three-year listing. */
+const SUMMARY_LABELS = SHARED_SUMMARY_LABELS;
 
 function readSummary(rows: PdfFragment[][], declared: Bureau[]): Record<Bureau, Record<string, string>> {
   const out = emptySummary();

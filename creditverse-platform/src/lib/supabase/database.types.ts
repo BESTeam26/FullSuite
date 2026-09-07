@@ -6981,34 +6981,46 @@ export type Database = {
         Row: {
           bureau: string | null
           check_key: string
+          comparable: boolean
+          count_window: string | null
           created_at: string
           id: string
           ok: boolean
           parsed: number
           reason: string | null
           report_id: string
+          source_definition: string | null
+          source_section: string | null
           stated: number | null
         }
         Insert: {
           bureau?: string | null
           check_key: string
+          comparable?: boolean
+          count_window?: string | null
           created_at?: string
           id?: string
           ok: boolean
           parsed: number
           reason?: string | null
           report_id: string
+          source_definition?: string | null
+          source_section?: string | null
           stated?: number | null
         }
         Update: {
           bureau?: string | null
           check_key?: string
+          comparable?: boolean
+          count_window?: string | null
           created_at?: string
           id?: string
           ok?: boolean
           parsed?: number
           reason?: string | null
           report_id?: string
+          source_definition?: string | null
+          source_section?: string | null
           stated?: number | null
         }
         Relationships: [

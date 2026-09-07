@@ -58,7 +58,59 @@ export interface CompletenessFact {
   reason?: string;
 }
 
-/** 'accounts' | 'public_records' | 'inquiries' | 'scores' | 'section:<name>' */
+/* ─────────────────────────────────────────────────────────────────────────
+ * A COUNT WITHOUT ITS WINDOW IS NOT A COUNT
+ *
+ * A consumer report states the same noun over different scopes. The real
+ * SmartCredit export prints, on its summary page:
+ *
+ *     Inquiries (2 Years)      — per bureau, two-year window
+ *
+ * and thirty pages later, over the inquiry listing:
+ *
+ *     We found 49 inquiries in the past 3 years
+ *                              — all bureaus, three-year window
+ *
+ * Those are different metrics. Reconciling one against the other manufactures
+ * a discrepancy out of nothing, or hides a real one — and either way it grades
+ * an import on a comparison that was never valid.
+ *
+ * So a stated figure carries the window it covers, the section it was read
+ * from, and the source's own wording. Two figures reconcile only when their
+ * metric AND window agree. When they do not, `comparable` is false: BOTH
+ * figures are preserved and the import is graded review_required, because
+ * "these cannot be compared" is a species of "we could not verify this", not
+ * of "we verified it and we are short".
+ * ───────────────────────────────────────────────────────────────────────── */
+
+export type CountWindow =
+  | "all_shown"
+  | "2_years"
+  | "3_years"
+  | "7_years"
+  | "10_years"
+  /** The source states a figure but never says what period it covers. */
+  | "unstated";
+
+export const WINDOW_LABEL: Record<CountWindow, string> = {
+  all_shown: "everything the report shows",
+  "2_years": "the last 2 years",
+  "3_years": "the last 3 years",
+  "7_years": "the last 7 years",
+  "10_years": "the last 10 years",
+  unstated: "an unstated period",
+};
+
+/**
+ * 'accounts' | 'public_records' | 'inquiries@2_years' | 'scores' |
+ * 'section:<name>'
+ *
+ * Where a metric exists over more than one window, the window is part of the
+ * key. That is not cosmetic: `report_reconciliation` is unique on
+ * (report, bureau, check_key), so two windows sharing a key would collide and
+ * one would silently overwrite the other — the conflation this guards against,
+ * happening in the database instead of in the arithmetic.
+ */
 export interface ReconciliationCheck {
   bureau?: Bureau;
   checkKey: string;
@@ -67,6 +119,17 @@ export interface ReconciliationCheck {
   parsed: number;
   ok: boolean;
   reason?: string;
+  /** The period the stated figure covers. */
+  window?: CountWindow;
+  /** Where in the document it was read, so a reviewer can find it. */
+  sourceSection?: string;
+  /** The source's own wording, verbatim, so the scope can be checked by hand. */
+  sourceDefinition?: string;
+  /**
+   * False when the two figures are not like-for-like and no comparison was
+   * attempted. Absent means an ordinary comparison was made.
+   */
+  comparable?: boolean;
 }
 
 export type ImportQuality = "complete" | "partial" | "review_required";
@@ -96,7 +159,20 @@ export const QUALITY_LABEL: Record<ImportQuality, string> = {
  */
 export function deriveQuality(checks: ReconciliationCheck[]): ImportQuality | null {
   if (checks.length === 0) return null;
-  const failed = checks.filter((c) => !c.ok);
+
+  /* A not-comparable pair measured NOTHING, so it grades nothing.
+     It is neither a pass — that would claim a verification that never
+     happened — nor a failure, which would report a shortfall out of two
+     figures counting different periods. The report keeps both numbers and
+     says they were not compared; the verdict is decided by the checks that
+     actually compared something.
+     Grading them as failures would put every SmartCredit import in
+     review_required for ever, on the strength of one inquiry figure whose
+     window the summary and the listing will never share. */
+  const measured = checks.filter((c) => c.comparable !== false);
+  if (measured.length === 0) return "review_required";
+
+  const failed = measured.filter((c) => !c.ok);
   if (failed.length === 0) return "complete";
   const blocking = failed.filter((c) => c.stated === undefined || c.checkKey.startsWith("section:"));
   return blocking.length > 0 ? "review_required" : "partial";

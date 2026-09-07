@@ -17,6 +17,10 @@ import type { Bureau } from "@/lib/credit-classification";
 import type { ParsedReportItem } from "@/lib/credit-report/import-parser";
 import type { CompletenessFact, ReconciliationCheck } from "@/lib/credit-report/completeness";
 import {
+  SUMMARY_METRICS, comparable as comparableCheck, notComparable,
+  type SectionTotal,
+} from "./reconciliation-scope";
+import {
   SMARTCREDIT_PARSER_VERSION, completenessFacts, parseSmartCreditHtml, reconcile,
 } from "@/lib/credit-report/smartcredit-html-parser";
 import {
@@ -43,6 +47,8 @@ export interface CanonicalSmartCreditReport {
   facts: CompletenessFact[];
   /** Dated months per account. `status: null` where the format omits it. */
   history: Record<string, PdfHistoryEntry[]>;
+  /** Totals a section states about itself, with the window it covers. */
+  sectionTotals: SectionTotal[];
   warnings: string[];
 }
 
@@ -78,6 +84,7 @@ export const SmartCreditHtmlAdapter = {
       reconciliation: reconcile(parsed),
       facts: completenessFacts(parsed),
       history,
+      sectionTotals: parsed.sectionTotals ?? [],
       warnings: parsed.warnings,
     };
   },
@@ -98,9 +105,10 @@ export const SmartCreditPdfAdapter = {
       publicRecords: parsed.publicRecords,
       inquiries: parsed.inquiries,
       sections: parsed.sections,
-      reconciliation: reconcilePdf(parsed.summary, parsed.items, parsed.bureaus),
+      reconciliation: reconcilePdf(parsed.summary, parsed.items, parsed.bureaus, parsed.sectionTotals),
       facts: parsed.facts,
       history: parsed.history,
+      sectionTotals: parsed.sectionTotals,
       warnings: parsed.warnings,
     };
   },
@@ -110,65 +118,82 @@ export const SmartCreditPdfAdapter = {
 };
 
 /**
- * The source's own summary counts against what was parsed — the same check
- * CR-14 applies to the HTML, run on the PDF's summary table.
+ * The source's own counts against what was parsed — like-for-like only.
  *
  * A mismatch is `partial / review required`. It is NEVER read as "the missing
  * items were deleted": an item we did not parse is an item we did not parse.
  * That is the whole reason the check exists — an unread account and a removed
  * account look identical to a comparison and mean opposite things.
  *
- * Every count the summary states is checked, not just accounts. Public records
- * and inquiries are the ones that matter most today, because the PDF adapter
- * does not yet read those sections: a report stating any will reconcile short
- * and grade the import partial, which is the correct and visible failure.
- * Silence there would have let a report with three judgments import as
- * complete with none.
+ * And a comparison only happens where the two figures count the same period
+ * over the same population. The summary's "Inquiries (2 Years)" is per bureau
+ * over two years; the inquiry listing covers three years across all three.
+ * Checking one against the other would report a shortfall nobody measured, so
+ * both figures are kept and the pair is marked not comparable — which grades
+ * the import review_required, honestly, rather than partial by arithmetic that
+ * was never valid.
  */
 function reconcilePdf(
   summary: Record<Bureau, Record<string, string>>,
   items: ParsedReportItem[],
   bureaus: Bureau[],
+  sectionTotals: SectionTotal[],
 ): ReconciliationCheck[] {
   const checks: ReconciliationCheck[] = [];
-  /* Summary label → what it should be counted against. The attribute counts
-     the export also prints — open, closed, delinquent, derogatory, balances,
-     payments — are not item counts and cannot be reconciled by counting
-     items; they are captured in `summary` and left unchecked rather than
-     compared against something they do not mean. */
-  const COUNTED: { label: string; checkKey: string; kind: ParsedReportItem["kind"] }[] = [
-    { label: "total accounts", checkKey: "accounts", kind: "Account" },
-    { label: "public records", checkKey: "public_records", kind: "Public Record" },
-    { label: "inquiries", checkKey: "inquiries", kind: "Inquiry" },
-  ];
+  const KIND: Record<string, ParsedReportItem["kind"]> = {
+    accounts: "Account", public_records: "Public Record", inquiries: "Inquiry",
+  };
+  const num = (printed: string | undefined) => {
+    const digits = (printed ?? "").replace(/[^\d]/g, "");
+    return digits === "" ? undefined : Number(digits);
+  };
 
   for (const bureau of bureaus) {
-    for (const { label, checkKey, kind } of COUNTED) {
-      const printed = summary[bureau]?.[label] ?? "";
+    for (const metric of SUMMARY_METRICS) {
+      const kind = KIND[metric.metric];
+      /* Attribute metrics — open, closed, delinquent, derogatory, balances,
+         payments — are not item counts. They are captured in `summary` and
+         left unchecked rather than compared against a count of items, which
+         would compare two different things. */
+      if (!kind) continue;
+      const stated = num(summary[bureau]?.[metric.label ?? ""]);
       const parsed = items.filter((i) => i.kind === kind && i.bureaus.includes(bureau)).length;
-      if (!printed) {
-        checks.push({
-          bureau, checkKey, parsed, ok: false,
-          reason: `The report states no ${checkKey.replace(/_/g, " ")} total for this bureau, so the parse cannot be reconciled.`,
-        });
+
+      if (stated !== undefined && !metric.comparableToSection) {
+        /* The section this would be checked against covers a different
+           period. Where the section states its own window, say so; otherwise
+           the period we read is simply unstated. */
+        const section = sectionTotals.find((t) => t.metric === metric.metric);
+        checks.push(notComparable({
+          bureau, metric, stated, parsed,
+          parsedWindow: section?.window ?? "unstated",
+        }));
         continue;
       }
-      const stated = Number(printed.replace(/[^\d]/g, ""));
-      if (!Number.isFinite(stated)) {
-        checks.push({
-          bureau, checkKey, parsed, ok: false,
-          reason: `The report's ${checkKey.replace(/_/g, " ")} total for this bureau could not be read as a number.`,
-        });
-        continue;
-      }
-      checks.push({
-        bureau, checkKey, stated, parsed, ok: stated === parsed,
-        reason: stated === parsed ? undefined
-          : `The report states ${stated} and ${parsed} were read. ` +
-            `The ${Math.abs(stated - parsed)} not read are unread, not absent from the file.`,
-      });
+      checks.push(comparableCheck({
+        bureau, metric: metric.metric, window: metric.window,
+        section: metric.section, definition: metric.definition,
+        stated, parsed, noun: metric.metric.replace(/_/g, " "),
+      }));
     }
   }
+
+  /* The section's own total, which IS the population the section lists — the
+     one inquiry figure that can legitimately be reconciled. All bureaus, so
+     no bureau is named. */
+  for (const total of sectionTotals) {
+    const kind = KIND[total.metric];
+    if (!kind) continue;
+    checks.push(comparableCheck({
+      metric: total.metric, window: total.window,
+      section: `${total.metric.replace(/_/g, " ")} listing`,
+      definition: total.definition,
+      stated: total.stated,
+      parsed: items.filter((i) => i.kind === kind).length,
+      noun: total.metric.replace(/_/g, " "),
+    }));
+  }
+
   return checks;
 }
 

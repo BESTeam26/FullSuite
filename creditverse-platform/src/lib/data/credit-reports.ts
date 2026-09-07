@@ -159,9 +159,16 @@ export async function createCreditReport(input: CreateCreditReportInput): Promis
     p_completeness: (input.completeness ?? []).map((c) => ({
       bureau: c.bureau ?? null, field_key: c.fieldKey, state: c.state, reason: c.reason ?? null,
     })) as unknown as Json,
+    /* The SCOPE travels with every figure. A count whose window is missing is
+       a count that can be compared against the wrong population later — the
+       summary's two-year inquiry figure against a three-year listing — and
+       `comparable: false` is what stops the database grading a verdict on a
+       comparison that was never made. */
     p_reconciliation: (input.reconciliation ?? []).map((c) => ({
       bureau: c.bureau ?? null, check_key: c.checkKey,
       stated: c.stated ?? null, parsed: c.parsed, ok: c.ok, reason: c.reason ?? null,
+      comparable: c.comparable ?? true, window: c.window ?? null,
+      source_section: c.sourceSection ?? null, source_definition: c.sourceDefinition ?? null,
     })) as unknown as Json,
   });
   if (error) throw error;

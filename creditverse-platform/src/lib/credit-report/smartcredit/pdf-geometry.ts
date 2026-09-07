@@ -104,12 +104,29 @@ const round = (n: number) => Math.round(n * 10) / 10;
 /**
  * The filled rectangles on a page, from its drawing operators.
  *
- * Collected so a reviewer can be shown WHICH cell could not be read and what
- * colour it was. The colour is deliberately not translated into a payment
- * status: see `PDF_EXPORT_OMITS` in `source-fields` for why a plausible
- * colour-to-severity guess is the one thing this adapter will not do.
+ * Collected so a reviewer can be shown WHICH payment-history cell could not be
+ * read and what colour it was rendered in. The mark IS rendered — it is a
+ * filled rectangle — but it carries no machine-readable status label, and no
+ * embedded key says what its colour means. So the colour is recorded as
+ * provenance and never translated into a payment status; see
+ * `PDF_EXPORT_UNLABELLED` in `source-fields` for why a plausible
+ * colour-to-severity inference is the one thing this adapter will not make.
+ *
+ * Two things make this fiddlier than it looks, and both were found against a
+ * real export rather than assumed:
+ *
+ *   The box is in `constructPath`'s THIRD argument — a min/max bounding box.
+ *   The second argument is an interleaved command-and-coordinate array, and
+ *   reading that as x/y pairs mixes the command codes in with the geometry
+ *   and yields a box that is simply wrong.
+ *
+ *   The coordinates are pre-transform. A print nests `save`/`transform`, so a
+ *   cell's box is stated in its own space and lands somewhere else on the
+ *   page. Without tracking the matrix the rect gets attributed to the wrong
+ *   month — and provenance pointing at the wrong cell is worse than none,
+ *   because it invites exactly the confident misreading the module refuses.
  */
-async function filledRects(
+export async function filledRects(
   pdfjs: typeof import("pdfjs-dist"),
   page: Awaited<ReturnType<import("pdfjs-dist").PDFDocumentProxy["getPage"]>>,
   pageHeight: number,
@@ -117,59 +134,88 @@ async function filledRects(
 ): Promise<PdfRect[]> {
   const ops = await page.getOperatorList();
   const out: PdfRect[] = [];
+  const identity: number[] = [1, 0, 0, 1, 0, 0];
+  let ctm = identity;
+  const stack: number[][] = [];
   let fill = "#000000";
-  let pending: { x: number; y: number; w: number; h: number } | null = null;
+
   for (let i = 0; i < ops.fnArray.length; i++) {
     const fn = ops.fnArray[i];
     const args = ops.argsArray[i] as unknown[];
-    if (fn === pdfjs.OPS.setFillRGBColor) {
+    if (fn === pdfjs.OPS.save) {
+      stack.push(ctm);
+    } else if (fn === pdfjs.OPS.restore) {
+      ctm = stack.pop() ?? identity;
+    } else if (fn === pdfjs.OPS.transform) {
+      const m = (args as number[]).slice(0, 6);
+      if (m.length === 6 && m.every((n) => Number.isFinite(n))) ctm = compose(m, ctm);
+    } else if (fn === pdfjs.OPS.setFillRGBColor) {
       fill = String(args[0] ?? fill);
     } else if (fn === pdfjs.OPS.constructPath) {
-      pending = rectangleFrom(args);
-    } else if (
-      (fn === pdfjs.OPS.fill || fn === pdfjs.OPS.eoFill || fn === pdfjs.OPS.closePath) &&
-      pending
-    ) {
+      const box = boundingBox(args);
+      if (!box) continue;
+      /* Both corners through the current matrix; the box is re-derived from
+         them, because a rotation or flip can swap which corner is which. */
+      const [x0, y0] = apply(box[0], box[1], ctm);
+      const [x1, y1] = apply(box[2], box[3], ctm);
+      const left = Math.min(x0, x1);
+      const width = Math.abs(x1 - x0);
+      const height = Math.abs(y1 - y0);
+      if (!(width > 0 && height > 0)) continue;
       out.push({
         page: pageNumber,
-        x: round(pending.x),
-        y: round(pageHeight - pending.y - pending.h),
-        width: round(pending.w),
-        height: round(pending.h),
+        x: round(left),
+        /* PDF y grows upward; flip so it matches the fragments' top-down y. */
+        y: round(pageHeight - Math.max(y0, y1)),
+        width: round(width),
+        height: round(height),
         fill,
       });
-      pending = null;
     }
   }
   return out;
 }
 
+/** m1 applied before m2, in PDF matrix order. */
+function compose(m1: number[], m2: number[]): number[] {
+  return [
+    m1[0] * m2[0] + m1[1] * m2[2],
+    m1[0] * m2[1] + m1[1] * m2[3],
+    m1[2] * m2[0] + m1[3] * m2[2],
+    m1[2] * m2[1] + m1[3] * m2[3],
+    m1[4] * m2[0] + m1[5] * m2[2] + m2[4],
+    m1[4] * m2[1] + m1[5] * m2[3] + m2[5],
+  ];
+}
+
+const apply = (x: number, y: number, m: number[]): [number, number] => [
+  m[0] * x + m[2] * y + m[4],
+  m[1] * x + m[3] * y + m[5],
+];
+
 /**
- * A path's bounding box, when the path is a plain rectangle.
+ * A path's bounding box: `constructPath`'s min/max argument, `[minX, minY,
+ * maxX, maxY]`.
  *
- * pdf.js hands `constructPath` an ops array and a flat coordinate array whose
- * layout differs between builds, so the box is taken from the coordinates
- * themselves rather than from an assumed operator sequence. A path that is not
- * an axis-aligned box yields nothing, which is correct: this exists to find
- * cells, not to reimplement a renderer.
+ * Taken from the FOUR-element numeric argument specifically. The neighbouring
+ * argument is the path's interleaved commands and coordinates, and reading
+ * that as a box mixes command codes in with the geometry.
  */
-function rectangleFrom(args: unknown[]): { x: number; y: number; w: number; h: number } | null {
-  const coords = args.find((a): a is number[] | Float32Array =>
-    Array.isArray(a) ? a.every((n) => typeof n === "number") : a instanceof Float32Array,
-  );
-  if (!coords) return null;
-  const nums = Array.from(coords as ArrayLike<number>);
-  if (nums.length < 4) return null;
-  const xs: number[] = [];
-  const ys: number[] = [];
-  for (let i = 0; i + 1 < nums.length; i += 2) {
-    xs.push(nums[i]);
-    ys.push(nums[i + 1]);
+function boundingBox(args: unknown[]): [number, number, number, number] | null {
+  for (const arg of args) {
+    /* Duck-typed, not `instanceof Float32Array`. pdf.js hands back a typed
+       array constructed in its OWN module realm, and `instanceof` against
+       this realm's constructor is false there — so the box was silently
+       skipped on every path and no rectangle was ever recorded. Checking the
+       shape works whichever realm built it. */
+    if (typeof arg !== "object" || arg === null) continue;
+    const candidate = arg as ArrayLike<unknown>;
+    if (typeof candidate.length !== "number" || candidate.length !== 4) continue;
+    const nums = [candidate[0], candidate[1], candidate[2], candidate[3]];
+    if (!nums.every((n): n is number => typeof n === "number" && Number.isFinite(n))) continue;
+    return [nums[0], nums[1], nums[2], nums[3]];
   }
-  const x = Math.min(...xs), y = Math.min(...ys);
-  const w = Math.max(...xs) - x, h = Math.max(...ys) - y;
-  if (!(w > 0 && h > 0) || !Number.isFinite(w) || !Number.isFinite(h)) return null;
-  return { x, y, w, h };
+  return null;
 }
 
 /* ── Grid primitives, pure and shared by the parser ─────────────────────── */

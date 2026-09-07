@@ -167,32 +167,35 @@ export function legendDeclares(code: string): boolean {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
- * What the PDF export does not carry
+ * What the PDF export renders visually but does not label
  *
  * The PDF is a browser print of the same page. Printing keeps the field grid
- * intact — every label, every value, every column header — but it drops two
- * things, and both were checked against a real 36-page export rather than
- * assumed:
+ * intact — every label, every value, every column header — and it keeps the
+ * payment-history marks too, but only as GRAPHICS. Checked against a real
+ * 36-page export rather than assumed:
  *
- *   the payment-history badges   zero occurrences of OK, PP, RF or any
- *                                delinquency glyph in the text layer
- *   the legend itself            the block that declares what a mark means
- *                                does not print
+ *   the marks     drawn as filled rectangles, recoverable from the page's
+ *                 drawing operators, with NO machine-readable status label
+ *                 anywhere in the text layer — zero occurrences of OK, PP,
+ *                 RF or any delinquency glyph
+ *   the legend    the block that declares what a mark means does not print,
+ *                 and the colours live in external stylesheets the saved
+ *                 page does not inline
  *
  * The month row DOES print, with the provider's own year markers, so the
- * chronology survives. The status of each month does not, and the cells are
- * left as coloured rectangles whose key is in an external stylesheet the
- * export does not include.
+ * chronology survives intact. What is absent is the mapping from a cell's
+ * colour to a payment status, and neither supplied document states it.
  *
- * Which is why the PDF adapter records a month as read-but-unattributable
- * instead of translating a colour. The colour is recoverable — the fills are
- * right there in the page's drawing operators — but nothing in either
- * supplied document says which status a given green means. Reading it would
- * mean publishing our own guess about a delinquency to a consumer, and it
- * would break silently the first time the provider restyled.
+ * So the adapter dates every month, keeps the observed fill as provenance —
+ * a reviewer can see which cell was unreadable and what it looked like — and
+ * leaves the meaning undetermined. Reading a colour as a delinquency
+ * severity would mean publishing our own inference to a consumer on the
+ * strength of a stylesheet we were never given, and it would break silently
+ * the first time the provider restyled.
  * ───────────────────────────────────────────────────────────────────────── */
 
-export const PDF_EXPORT_OMITS = [
+/** Rendered by the print, but carrying no machine-readable label. */
+export const PDF_EXPORT_UNLABELLED = [
   "payment_history_status",
   "payment_history_legend",
 ] as const;
