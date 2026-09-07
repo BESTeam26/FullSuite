@@ -37,6 +37,9 @@ export function useClientLetters(clientId: string | null) {
   };
   return {
     live,
+    /* Shared by every letter action, and by posting — a posted letter changes
+       its status and its timers, which are on the same cached query. */
+    refresh,
     rounds: q.data?.rounds ?? [],
     letters: q.data?.letters ?? [],
     openRound: q.data?.rounds.find((r) => r.closedAt === null) ?? null,

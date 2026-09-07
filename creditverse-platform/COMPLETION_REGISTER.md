@@ -108,7 +108,7 @@ approved business workflow be completed?*
 | **Metro 2 Sections B–P** | **PENDING** | ~293 defects. Largest single remaining CreditOps item |
 | Metro 2 rules wired into the detector | **PENDING** | Section A exists but nothing calls it yet |
 | Experian upload-only rule | **SUPERSEDED** | Removed 2026-09-06 — internal operating rule, not domain |
-| Letters actually posted (Lob) | **PENDING** | **BLOCKED** on a Lob account + key |
+| Letters actually posted (Lob) | **DONE** | 0116 + `post-letter` + `lob-webhook`. Reserve-then-reconcile: the letter is only marked mailed when Lob accepted it, and a TEST key deliberately does not start the statutory clocks |
 | CROA e-signature | **PENDING** | Dee chose GHL e-sign — needs A4 |
 | Monitoring-service connectors | **DEFERRED** | No public APIs; PDF import is the path |
 
@@ -207,7 +207,9 @@ approved business workflow be completed?*
 | Pricing as data (0049) | **DONE** | |
 | Plans, add-ons, AI allowances, credit packs | **DONE** | |
 | Trials (0086) | **DONE** | |
-| **Authorize.Net integration** | **PENDING** | No code exists yet. **NOT blocked** — the secrets (login id, transaction key, signature key, env) have been set since 2026-09-05; only the browser-side public client key still needs confirming |
+| **Authorize.Net integration** | **DONE (needs one key)** | 0117 + `payments` function + Accept.js card field + Settings › Plans & Billing. The card never reaches BES — Accept.js tokenises it in the browser and the schema has no column for a PAN. Needs `AUTHNET_PUBLIC_CLIENT_KEY` set before the card field will load |
+| Subscriptions (`organization_subscriptions`) | **DONE** | Price copied at purchase; a charge is what makes a subscription active, not a browser claim |
+| Recurring billing / dunning | **PENDING** | Charging is manual today. A scheduled renewal run is the next payment item |
 | Customer-facing pricing UI | **DEFERRED** | Until Dee confirms public prices |
 | Invoicing / bookkeeping ledger | **DEFERRED** | Dee: GHL invoices today; record revenue/expenses later |
 
@@ -215,7 +217,8 @@ approved business workflow be completed?*
 
 | Item | Status | Notes |
 |---|---|---|
-| RLS matrix — 42 phases, 611 checks | **DONE** | Green 2026-09-06 |
+| RLS matrix — 46 phases | **DONE** | Green 2026-09-06 |
+| Integration health check | **DONE** | Settings › Integrations tests all four providers read-only |
 | Unit tests — 690 | **DONE** | |
 | TypeScript + build | **DONE** | |
 | Theme/contrast regression test | **DONE** | 2026-09-06 |
@@ -228,14 +231,15 @@ approved business workflow be completed?*
 
 | # | What Dee must do | What it unblocks |
 |---|---|---|
-| ~~A1~~ | **DONE 2026-09-06 19:27** — `ANTHROPIC_API_KEY` is set. Validity proven by Dee's first live request (Lakeside → Suggest wording). Still needed: the **$100/month cap** in the Anthropic console | Scanned-report reading, letter wording help, fit explanations, Hub AI assistant |
-| **A2** | `MAIL_PROVIDER_API_KEY` + `MAIL_FROM` SET 2026-09-06. Still needed: confirm the **verified sending domain** in Resend, and the **Resend SMTP block** in Supabase Auth (separate from the API key) | Activation/welcome email, lender submission packages, sign-up confirmation at volume |
-| **A3** | ~~Authorize.Net keys~~ — server secrets SET 2026-09-05. Still needed: the **public client key** for Accept.js in the browser, and confirmed plan prices | Paid sign-up, plan changes, DIY consumer billing |
-| **A4** | GHL private integration token per location | CRM bridge both ways, GHL e-signature |
-| **A5** | Lob API key — and note nothing reads it yet; the mailing integration is unbuilt | Letters actually posted |
+| ~~A1~~ | **DONE 2026-09-06 19:27** — `ANTHROPIC_API_KEY` is set. Validity proven by Dee's first live request (Lakeside → Suggest wording). $100/month cap SET by Dee 2026-09-06. Still needed: the first live request (Lakeside → Suggest wording) as proof the key works | Scanned-report reading, letter wording help, fit explanations, Hub AI assistant |
+| **A2** | `MAIL_PROVIDER_API_KEY` + `MAIL_FROM` SET 2026-09-06. Sending domain and the Supabase Auth SMTP block both DONE by Dee 2026-09-06. Verify with Settings → Integrations → Check connections | Activation/welcome email, lender submission packages, sign-up confirmation at volume |
+| **A3** | Server secrets SET. Still needed: `npx supabase secrets set AUTHNET_PUBLIC_CLIENT_KEY=…` — the Accept.js public key from the Authorize.Net console (API Credentials & Keys → Public Client Key). Also `AUTHNET_ENV=production` when going live | Paid sign-up, plan changes, DIY consumer billing |
+| **A9** | `npx supabase secrets set LOB_WEBHOOK_SECRET=…` and point a Lob webhook at `/functions/v1/lob-webhook` | Delivery tracking on posted letters |
+| **A4** | GHL **agency** token + Company ID, entered at Settings → GoHighLevel | Location discovery, CRM bridge both ways, GHL e-signature |
+| ~~A5~~ | `LOB_API_KEY` SET 2026-09-06. Nothing reads it yet — the mailing integration is the next build | Letters actually posted |
 | **A6** | 3–5 real credit report PDFs per monitoring service | Per-service parser accuracy |
 | **A7** | Real lender list with programs and last-verified policy | Program Fit against real criteria |
-| **A8** | ~~Confirm the provisional AI provider prices~~ **ANSWERED 2026-09-06** — use current official API pricing for the exact models used; provider cost and BES customer price stay separate. Read from Anthropic's published list and applied in 0114. Still needed from Dee: **set the $100/month spend cap in the Anthropic console** (only Dee can) | AI economics reporting |
+| ~~A8~~ | ~~Confirm the provisional AI provider prices~~ **ANSWERED 2026-09-06** — use current official API pricing for the exact models used; provider cost and BES customer price stay separate. Read from Anthropic's published list and applied in 0114. Still needed from Dee: **set the $100/month spend cap in the Anthropic console** (only Dee can) | AI economics reporting |
 
 **These do not stop other work.** Each is recorded against its item above.
 

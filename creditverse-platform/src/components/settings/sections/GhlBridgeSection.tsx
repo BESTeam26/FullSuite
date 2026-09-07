@@ -1,7 +1,11 @@
 /**
  * BES HQ › Integrations › GoHighLevel.
  *
- * Connect a GHL location to a customer organization, and watch what arrives.
+ * Two ways in, and the agency one is the main one (0115): connect the AGENCY
+ * once and discover its locations, or connect a single location by hand.
+ * The second is kept because an organization may hand BES one location without
+ * agency access, and because everything already connected that way still
+ * works exactly as it did.
  * The token and webhook secret are typed once and sent straight to the
  * database function that stores them; nothing here can read them back, and
  * neither can any other screen.
@@ -16,6 +20,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Cable, Info, Loader2, Plug, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SectionCard } from "@/components/settings/shared";
+import { GhlAgencyCard } from "@/components/settings/sections/GhlAgencyCard";
 import { useAgency } from "@/lib/agency-context";
 import { useAuth } from "@/lib/auth/auth-context";
 import { formatDateTime } from "@/lib/format-date";
@@ -70,11 +75,24 @@ export function GhlBridgeSection() {
   });
 
   const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL ?? "https://<project>.supabase.co"}/functions/v1/ghl-webhook`;
+  /* A connection with no company_id was typed in before the agency credential
+     existed. Those keep their own token and their own webhook secret. */
+  const byHand = (connections.data ?? []).filter((c) => !c.companyId);
   const ready = organizationId && locationId.trim() && token.trim() && secret.trim();
 
   return (
     <div className="space-y-4">
-      <SectionCard icon={Plug} title="GoHighLevel" description="Connect a GHL location to a customer organization.">
+      <GhlAgencyCard
+        connections={connections.data ?? []}
+        organizations={organizations}
+        onChanged={refresh}
+      />
+
+      <SectionCard
+        icon={Plug}
+        title="Connect a single location"
+        description="For a location handed to BES without agency access. The agency credential above is the usual route."
+      >
         <div className="mb-3 flex items-start gap-2 rounded-lg border border-blue-500/30 bg-blue-500/5 p-3 text-xs text-foreground">
           <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-status-info" />
           <p>
@@ -130,12 +148,12 @@ export function GhlBridgeSection() {
         </p>
       </SectionCard>
 
-      <SectionCard icon={Plug} title="Connected locations" description="One row per GHL location.">
+      <SectionCard icon={Plug} title="Locations connected by hand" description="Those with their own token, from before the agency credential.">
         {connections.isLoading ? (
           <div className="h-16 animate-pulse rounded-lg bg-muted/40" aria-busy="true" />
-        ) : connections.data && connections.data.length > 0 ? (
+        ) : byHand.length > 0 ? (
           <ul className="divide-y divide-border/60">
-            {connections.data.map((c) => {
+            {byHand.map((c) => {
               const org = organizations.find((o) => o.id === c.organizationId);
               return (
                 <li key={c.id} className="flex flex-wrap items-center gap-3 py-2.5 text-xs">
@@ -157,7 +175,7 @@ export function GhlBridgeSection() {
             })}
           </ul>
         ) : (
-          <p className="text-xs text-muted-foreground">No locations connected yet.</p>
+          <p className="text-xs text-muted-foreground">None. Locations discovered through the agency are listed above.</p>
         )}
       </SectionCard>
 

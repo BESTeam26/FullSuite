@@ -63,6 +63,7 @@ import {
   SystemControlsSection,
   DangerZoneSection,
 } from "@/components/settings/sections/PlatformSections";
+import { SubscriptionSection } from "@/components/settings/sections/SubscriptionSection";
 import { WorkspaceViewsSection } from "@/components/settings/sections/OrganizationSections";
 import { RoleAccessSection } from "@/components/settings/sections/RoleAccessSection";
 import { OrganizationTeamsSection, TeamMembersSection } from "@/components/settings/sections/TeamMembersSection";
@@ -233,7 +234,14 @@ const SettingsContent = () => {
       case "automations":
         return <AutomationsSection />;
       case "billing":
-        return <BillingSection />;
+        /* The real subscription for the organization in view; BillingSection
+           is the agency-level rules screen and stays beneath it. */
+        return (
+          <div className="space-y-4">
+            <SubscriptionSection />
+            <BillingSection />
+          </div>
+        );
       case "usage":
         return <UsageSection />;
       case "integrations":

@@ -8,7 +8,7 @@
  * the running round.
  */
 import { useMemo, useState } from "react";
-import { CheckCircle2, FileText, Loader2, Mail, ShieldCheck } from "lucide-react";
+import { CheckCircle2, FileText, Loader2, Mail, Send, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { OpsSelect } from "@/components/ui/ops-select";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -21,6 +21,9 @@ import { formatDate } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
 import { usePermission } from "@/lib/auth/use-permission";
 import { AiWordingAssist } from "@/components/clients/letters/AiWordingAssist";
+import { PostLetterDialog } from "@/components/clients/letters/PostLetterDialog";
+import { useSenderAddress } from "@/lib/data/use-client-address";
+import type { PostalAddress } from "@/lib/data/letter-mailing";
 
 interface Props {
   clientId: string;
@@ -49,6 +52,10 @@ export function RoundLettersPanel({ clientId, clientName, items, disputeOrigin }
   const lib = useLetterTemplates();
   const rounds = useClientLetters(clientId);
   const canBuild = usePermission("creditops.letters.build").allowed;
+  /* The consumer's own address: a dispute letter is from them, and it lives on
+     the canonical client record rather than on the credit case. */
+  const senderQuery = useSenderAddress(clientId);
+  const sender: PostalAddress = senderQuery.data ?? { name: clientName, line1: "", line2: "", city: "", state: "", zip: "" };
   const [kind, setKind] = useState<LetterKind>("factual");
   const [templateId, setTemplateId] = useState<string>("");
   const [bureau, setBureau] = useState<string>("EQ");
@@ -159,17 +166,18 @@ export function RoundLettersPanel({ clientId, clientName, items, disputeOrigin }
         {rounds.isLoading && <p className="mt-2 text-xs text-muted-foreground"><Loader2 className="mr-1 inline h-3.5 w-3.5 animate-spin" /> Loading…</p>}
         {!rounds.isLoading && rounds.letters.length === 0 && <p className="mt-2 text-xs text-muted-foreground">No letters yet.</p>}
         <ul className="mt-2 space-y-2">
-          {rounds.letters.map((l) => <LetterRow key={l.id} letter={l} rounds={rounds} roundNumber={rounds.rounds.find((r) => r.id === l.roundId)?.roundNumber} actorId={auth.user?.id ?? null} />)}
+          {rounds.letters.map((l) => <LetterRow key={l.id} letter={l} rounds={rounds} roundNumber={rounds.rounds.find((r) => r.id === l.roundId)?.roundNumber} actorId={auth.user?.id ?? null} sender={sender} />)}
         </ul>
       </section>
     </div>
   );
 }
 
-function LetterRow({ letter, rounds, roundNumber, actorId }: { letter: DisputeLetter; rounds: ReturnType<typeof useClientLetters>; roundNumber?: number; actorId: string | null }) {
+function LetterRow({ letter, rounds, roundNumber, actorId, sender }: { letter: DisputeLetter; rounds: ReturnType<typeof useClientLetters>; roundNumber?: number; actorId: string | null; sender: PostalAddress }) {
   const canApprove = usePermission("creditops.letters.approve").allowed;
   const canBuild = usePermission("creditops.letters.build").allowed;
   const [open, setOpen] = useState(false);
+  const [posting, setPosting] = useState(false);
   const [attest, setAttest] = useState({ recognises: "yes" as "yes" | "no" | "unsure", disputed: "", reason: "", documents: "", certification: "" });
   const [error, setError] = useState<string | null>(null);
   const readiness = approvalReadiness({ body: letter.bodyFinal, recipient: letter.recipientKind, origin: letter.disputeOrigin, attested: letter.attested });
@@ -225,7 +233,29 @@ function LetterRow({ letter, rounds, roundNumber, actorId }: { letter: DisputeLe
             </div>
           )}
           {(letter.status === "approved" || letter.status === "printed") && (
-            <Button size="sm" variant="outline" disabled={!canBuild} onClick={() => void run(() => rounds.markMailed.mutateAsync(letter.id), "Could not mark the letter mailed.")}><Mail className="mr-1 h-4 w-4" /> Mark mailed today</Button>
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Posting it and recording that somebody else posted it are two
+                  different claims, so they are two different buttons. */}
+              <Button size="sm" disabled={!canBuild} onClick={() => setPosting(true)}>
+                <Send className="mr-1 h-4 w-4" /> Post via Lob
+              </Button>
+              <Button size="sm" variant="outline" disabled={!canBuild} onClick={() => void run(() => rounds.markMailed.mutateAsync(letter.id), "Could not mark the letter mailed.")}>
+                <Mail className="mr-1 h-4 w-4" /> Mark mailed today
+              </Button>
+              <span className="text-[10px] text-muted-foreground">Posting charges your Lob account. Marking mailed only records that it went.</span>
+            </div>
+          )}
+          {posting && (
+            <PostLetterDialog
+              open={posting}
+              onOpenChange={setPosting}
+              letterId={letter.id}
+              bureau={letter.bureau ?? null}
+              recipientName={letter.recipientName}
+              body={letter.bodyFinal}
+              sender={sender}
+              onPosted={() => rounds.refresh()}
+            />
           )}
           {letter.timers.length > 0 && (
             <div>

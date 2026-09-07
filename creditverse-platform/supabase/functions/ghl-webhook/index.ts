@@ -67,34 +67,66 @@ Deno.serve(async (req) => {
   const sb = createClient(url, service);
   const { data: connection, error: connectionError } = await sb
     .from("ghl_connections")
-    .select("organization_id, status")
+    .select("organization_id, status, company_id")
     .eq("location_id", locationId)
     .maybeSingle();
   if (connectionError) return json(500, { error: "Lookup failed" });
-  // An unknown location is refused without saying whether others exist.
-  if (!connection || connection.status === "paused") return json(404, { error: "Unknown location" });
+  // A paused location stays refused: pausing is a decision, not a gap.
+  if (connection?.status === "paused") return json(404, { error: "Unknown location" });
 
-  const { data: credentials } = await sb
-    .from("ghl_credentials")
-    .select("webhook_secret")
-    .eq("location_id", locationId)
-    .maybeSingle();
+  /*
+   * Two ways to authenticate an event, because there are two ways GHL can be
+   * connected (0115):
+   *
+   *   • a per-location secret, from the days when each sub-account was
+   *     connected by hand;
+   *   • the AGENCY secret, when the webhook is configured once for the whole
+   *     agency and every sub-account posts to the same endpoint.
+   *
+   * The location's own secret wins where it exists, so an existing
+   * per-location setup keeps behaving exactly as it did.
+   */
+  const [{ data: credentials }, { data: agency }] = await Promise.all([
+    sb.from("ghl_credentials").select("webhook_secret").eq("location_id", locationId).maybeSingle(),
+    sb.from("ghl_agency_credentials").select("company_id, webhook_secret").maybeSingle(),
+  ]);
 
   const presented = req.headers.get("x-ghl-signature") ?? req.headers.get("x-wh-signature") ?? "";
-  const expected = credentials?.webhook_secret ?? "";
+  const expected = credentials?.webhook_secret ?? agency?.webhook_secret ?? "";
   if (!expected) {
-    // Configured without a secret: record the attempt and refuse. An open
-    // endpoint that writes rows is worse than one that is switched off.
-    return json(401, { error: "This location has no webhook secret set" });
+    // Configured without a secret: refuse. An open endpoint that writes rows
+    // is worse than one that is switched off.
+    return json(401, { error: "No webhook secret is set for this location or agency" });
   }
   if (!secretsMatch(presented, expected)) return json(401, { error: "Signature did not match" });
+
+  /*
+   * An authenticated event from a sub-account we have not synced yet is
+   * recorded, not thrown away. Under an agency credential a new sub-account
+   * can exist in GHL before anybody presses Sync here, and losing its events
+   * until then would be losing real work. It is recorded UNMAPPED — no
+   * organization is guessed — and `map_ghl_location` attributes the backlog
+   * when someone maps it.
+   */
+  if (!connection) {
+    if (!agency?.webhook_secret) return json(404, { error: "Unknown location" });
+    const { error: discoverError } = await sb.from("ghl_connections").insert({
+      location_id: locationId,
+      company_id: agency.company_id,
+      discovered_at: new Date().toISOString(),
+    });
+    if (discoverError && discoverError.code !== "23505") {
+      console.error("ghl discovery insert failed", discoverError.message);
+      return json(500, { error: "Could not record the location" });
+    }
+  }
 
   const eventType = firstString(payload, ["type", "event", "eventType"]) ?? "unknown";
   const externalId = firstString(payload, ["id", "eventId", "webhookId"]);
 
   const { error: insertError } = await sb.from("ghl_events").insert({
     location_id: locationId,
-    organization_id: connection.organization_id,
+    organization_id: connection?.organization_id ?? null,
     event_type: eventType,
     external_id: externalId,
     payload,

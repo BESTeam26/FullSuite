@@ -8,15 +8,24 @@ import {
   ScrollText,
   SlidersHorizontal,
   AlertTriangle,
+  Loader2,
+  RefreshCw,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAgencySettings } from "@/lib/agency-settings-context";
-import { SectionCard, Field, ToggleRow, StatusBadge, PlaceholderNote } from "../shared";
+import { SectionCard, Field, ToggleRow, PlaceholderNote } from "../shared";
 import { useAuditLog } from "@/lib/data/use-audit";
 import type { AuditRow } from "@/lib/data/audit";
 import { formatDateTime } from "@/lib/format-date";
+import { useQuery } from "@tanstack/react-query";
+import { errorMessage } from "@/lib/data/error-message";
+import {
+  STATE_LABEL,
+  fetchIntegrationHealth,
+  type IntegrationState,
+} from "@/lib/data/integration-health";
 
 /* ---------------- Plans & Billing ---------------- */
 export const BillingSection = () => (
@@ -80,31 +89,88 @@ export const UsageSection = () => (
 );
 
 /* ---------------- Integrations ---------------- */
+/**
+ * Integrations — checked, not asserted.
+ *
+ * This panel used to list integrations from a hand-written array with invented
+ * "last sync" times. It now asks each provider a read-only question with the
+ * real credential and shows the answer, including the distinction that
+ * actually bites: a Resend key can be perfectly valid while no sending domain
+ * is verified, in which case mail still fails.
+ *
+ * Nothing here sends, posts, charges or spends. The check is manual because a
+ * background poll would make provider calls nobody asked for.
+ */
 export const IntegrationsSection = () => {
-  const { integrations } = useAgencySettings();
+  const health = useQuery({
+    queryKey: ["integration-health"],
+    queryFn: fetchIntegrationHealth,
+    enabled: false,
+    retry: false,
+  });
+
+  const TONE: Record<IntegrationState, string> = {
+    working: "border-emerald-600/30 bg-emerald-500/10 text-status-success",
+    rejected: "border-red-500/30 bg-red-500/10 text-status-danger",
+    not_configured: "border-border bg-muted text-muted-foreground",
+    unreachable: "border-amber-600/30 bg-amber-500/10 text-status-warning",
+  };
+
   return (
     <SectionCard
       icon={Plug}
       title="Integrations"
-      description="Central integration center. Secrets are never exposed on settings screens."
+      description="Every provider credential, tested against the provider. Secrets are never shown here or anywhere else."
     >
-      <PlaceholderNote what="Usage metering figures are illustrative until the payment connection; AI usage is live under AI Credits" />
+      <div className="mb-3 flex flex-wrap items-center gap-3">
+        <Button type="button" size="sm" onClick={() => void health.refetch()} disabled={health.isFetching}>
+          {health.isFetching ? (
+            <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <RefreshCw className="mr-1 h-3.5 w-3.5" />
+          )}
+          Check connections
+        </Button>
+        {health.data && (
+          <span className="text-[11px] text-muted-foreground">
+            Checked {formatDateTime(health.data.checkedAt)}
+          </span>
+        )}
+      </div>
+
+      {health.error && (
+        <p role="alert" className="mb-3 text-xs text-status-danger">
+          {errorMessage(health.error, "The check could not run.")}
+        </p>
+      )}
+
+      {!health.data && !health.isFetching && !health.error && (
+        <p className="text-xs text-muted-foreground">
+          Nothing is checked until you ask. Press Check connections to test each provider with its real
+          key — a read-only call that sends no email, posts no letter and charges nothing.
+        </p>
+      )}
+
       <div className="grid gap-3 sm:grid-cols-2">
-        {integrations.map((i) => (
-          <div
-            key={i.id}
-            className="flex items-center justify-between rounded-xl border border-border p-4"
-          >
-            <div>
-              <p className="text-sm font-medium text-foreground">{i.name}</p>
-              <p className="text-[11px] text-muted-foreground">
-                {i.category} · Last sync {i.lastSync}
-              </p>
+        {(health.data?.checks ?? []).map((c) => (
+          <div key={c.provider} className="rounded-xl border border-border p-4">
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-sm font-medium text-foreground">{c.provider}</p>
+              <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${TONE[c.state]}`}>
+                {STATE_LABEL[c.state]}
+              </span>
             </div>
-            <StatusBadge state={i.status} />
+            <p className="mt-1.5 text-xs text-foreground">{c.detail}</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">{c.powers}</p>
           </div>
         ))}
       </div>
+
+      <p className="mt-3 text-[11px] text-muted-foreground">
+        Supabase Auth's own SMTP settings are not testable from here — they live in the Supabase
+        dashboard, not in this app. The way to prove them is to request a password reset on your own
+        account and see whether the mail arrives.
+      </p>
     </SectionCard>
   );
 };

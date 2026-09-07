@@ -5,6 +5,7 @@ import { fetchFulfillmentClients } from "@/lib/data/fulfillment-clients";
 import { ClientCreditReportSection } from "@/components/dashboard/fulfillment/ClientCreditReportSection";
 import { ReportChangesPanel } from "@/components/clients/ReportChangesPanel";
 import { ReportIntegrityPanel } from "@/components/clients/ReportIntegrityPanel";
+import { Metro2IdentitySection } from "@/components/clients/Metro2IdentitySection";
 import { RoundOutcomesPanel } from "@/components/clients/RoundOutcomesPanel";
 import {
   ArrowLeft,
@@ -252,6 +253,7 @@ const ClientDetailInner = () => {
             />
             <ReportChangesPanel clientId={clientId} />
             <ReportIntegrityPanel clientId={clientId} />
+            <Metro2IdentitySection clientId={clientId} />
             <RoundOutcomesPanel clientId={clientId} />
           </div>
         ) : (

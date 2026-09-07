@@ -17,25 +17,263 @@
  * Exit code is non-zero on any failed check in the requested phases. Run from
  * creditverse-platform/ (the CLI resolves the linked project from there).
  */
-import { execFileSync } from "node:child_process";
-
 import { createRequire } from "node:module";
+import { createSyncQuery, readAccessToken, readProjectRef } from "./lib/sync-query.mjs";
+
 const require = createRequire(import.meta.url);
-const PHASE = Number((process.argv.find((a) => a.startsWith("--phase")) ?? "--phase=1").split("=")[1] ?? 1);
+
+/* ------------------------------------------------------------------ *
+ * Which phases run.
+ *
+ *   --phase=47          phases 1..47 — the full milestone gate
+ *   --phases=45,46,47   exactly those — verifying one change
+ *   --from=44           44 upward, to --phase
+ *
+ * A targeted run is not a weaker gate. It is the same probes, chosen, and it
+ * is what makes it reasonable to keep the full gate comprehensive.
+ * ------------------------------------------------------------------ */
+const arg = (name, fallback) => {
+  const hit = process.argv.find((a) => a === `--${name}` || a.startsWith(`--${name}=`) || a.startsWith(`--${name} `));
+  if (!hit) return fallback;
+  const v = hit.includes("=") ? hit.split("=")[1] : fallback;
+  return v ?? fallback;
+};
+const PHASE = Number(arg("phase", 1));
+const ONLY = String(arg("phases", "")).split(",").map((n) => Number(n.trim())).filter((n) => n > 0);
+const FROM = Number(arg("from", 0));
+const runs = (n) => (ONLY.length > 0 ? ONLY.includes(n) : n <= PHASE && n >= FROM);
+
+/* ------------------------------------------------------------------ *
+ * The transport. See lib/sync-query.mjs for why it is not the CLI any more.
+ * ------------------------------------------------------------------ */
+const db = createSyncQuery({
+  projectRef: readProjectRef(),
+  token: readAccessToken(),
+  baseUrl: new URL("./lib/", import.meta.url),
+});
+
+/* ------------------------------------------------------------------ *
+ * Collect → one flush → replay.
+ *
+ * A phase's probes are independent: each is its own `begin; … rollback;` and
+ * none can see another's writes. So a phase is run twice over the same pure
+ * closures — once to COLLECT the SQL every probe would issue, then one
+ * transport call for all of them, then again to REPLAY the recorded answers
+ * into the same assertions.
+ *
+ * What is NOT changed: the SQL, the role, the JWT claims, the transaction
+ * boundaries, or which identity each probe runs as. Each statement is still
+ * executed on its own connection in its own transaction, and still rolled
+ * back. This removes waiting, not isolation.
+ *
+ * Setup queries — the ones a phase runs while BUILDING its probe list — are
+ * deliberately not collected. They run immediately, because a phase's later
+ * probes are often shaped by their results, and handing those a placeholder
+ * would silently change which probes exist.
+ *
+ * `--serial` turns the whole thing off and issues one call per probe, which is
+ * how the batched path is proven to give identical answers.
+ * ------------------------------------------------------------------ */
+const SERIAL = process.argv.includes("--serial");
+let collecting = false;
+let collected = [];
+let replay = null;
+let replayAt = 0;
+
+/**
+ * Set when a replayed statement does not match the collected one.
+ *
+ * A FLAG rather than only an exception, because every `w*` helper wraps its
+ * query in its own try/catch to turn a refusal into "ERR 42501" — and that
+ * catch happily swallows an abort signal too, turning a batch that must be
+ * discarded into a probe that quietly reports "ERR unknown". The flag cannot
+ * be caught.
+ */
+const BATCH_INVALID = Symbol("batch-invalid");
+let batchInvalid = false;
 
 const q = (sql) => {
-  const out = execFileSync("npx", ["--yes", "supabase@latest", "db", "query", sql, "--linked"], {
-    encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: 1 << 24,
-  });
-  // The CLI prints one JSON document on stdout. Parse it whole so an empty
-  // result set is `[]` rather than a parse failure (a regex over the text broke
-  // on `"rows": []`, which is exactly what a correct denial looks like).
-  const start = out.indexOf("{");
-  if (start < 0) throw new Error("no JSON in: " + out.slice(0, 400));
-  const doc = JSON.parse(out.slice(start));
-  if (doc._tag === "Error") throw new Error(doc.error?.message ?? "db query error");
-  return Array.isArray(doc.rows) ? doc.rows : [];
+  if (collecting) {
+    collected.push(sql);
+    /* Truthy, and shaped like a result, so a probe's own control flow behaves
+       the same in both passes. */
+    return [{ rows: "\u0000collecting" }];
+  }
+  if (replay) {
+    /*
+     * The statement must be the one that was collected, character for
+     * character. A probe that BUILDS its next statement out of a previous
+     * result would have built that statement from the placeholder during
+     * collection — so the recorded answer belongs to a different query, and
+     * replaying it would assert something nobody asked.
+     *
+     * This is not hypothetical: the first full run caught exactly one such
+     * probe, which sent a placeholder containing a NUL byte and got back
+     * 08P01. Shape checking alone did not see it, because the probe issued the
+     * right NUMBER of statements — just not the right ones.
+     */
+    if (collected[replayAt] !== sql) {
+      batchInvalid = true;
+      const e = new Error("batch invalid");
+      e[BATCH_INVALID] = true;
+      throw e;
+    }
+    const r = replay[replayAt++];
+    if (!r) throw new Error("replay ran out of recorded results");
+    if (r.error) throw new Error(r.error);
+    return r.rows;
+  }
+  return db.query(sql);
 };
+
+/**
+ * Run a builder twice — once to collect the statements it issues, then once to
+ * replay one flushed batch of answers into it.
+ *
+ * Used for the expectations table, whose ~28 little count queries are built
+ * inline and were costing nearly a minute of pure waiting on every single run,
+ * including a run of one phase. The builder is a pure function of data already
+ * fetched, so both passes take the same branches.
+ *
+ * If the shapes disagree the batch is discarded and the builder runs normally,
+ * because a mismatched replay would feed one expectation another's number.
+ */
+function batched(build) {
+  if (SERIAL) return build();
+  collecting = true;
+  collected = [];
+  try { build(); } catch { /* shape only */ }
+  collecting = false;
+  const wanted = collected.length;
+  if (wanted === 0) return build();
+  const answers = db.queryMany(collected);
+  replay = answers;
+  replayAt = 0;
+  batchInvalid = false;
+  let out;
+  let invalid = false;
+  try {
+    out = build();
+  } catch (e) {
+    if (!e?.[BATCH_INVALID]) throw e;
+    invalid = true;
+  } finally {
+    if (batchInvalid || replayAt !== wanted) invalid = true;
+    replay = null;
+    batchInvalid = false;
+  }
+  /* Either it diverged in shape or it built a statement from a placeholder.
+     Both mean the batch cannot be trusted for this builder. */
+  return invalid ? build() : out;
+}
+
+/**
+ * Run one phase's probes and print them.
+ *
+ * Replaces 45 copies of the same loop, which is also what makes the collect /
+ * replay pass possible in one place instead of forty-five.
+ */
+function runPhase(label, list, { strict = false } = {}) {
+  console.log(`\n${label}:`);
+
+  let answers = null;
+  let shape = null;
+  if (!SERIAL && list.length > 1) {
+    collecting = true;
+    collected = [];
+    shape = [];
+    /* Pass 1: discover the statements each probe issues. Results discarded. */
+    for (const [, fn] of list) {
+      const before = collected.length;
+      try { fn(); } catch { /* shape only — a throw here is not a result */ }
+      shape.push(collected.length - before);
+    }
+    collecting = false;
+    answers = db.queryMany(collected);
+  }
+
+  replay = answers;
+  replayAt = 0;
+  batchInvalid = false;
+  const results = [];
+  let misaligned = false;
+
+  for (let i = 0; i < list.length; i++) {
+    const [text, fn] = list[i];
+    const before = replayAt;
+    let got;
+    try { got = fn(); } catch (e) {
+      if (e?.[BATCH_INVALID]) { misaligned = true; break; }
+      got = "ERR " + String(e.message).slice(0, 60);
+    }
+    /*
+     * A probe that consumed a different number of statements than it did while
+     * being collected has branched on a value it could not see in pass 1. Its
+     * answer, and every answer after it, would be reading somebody else's
+     * result — so the batch is abandoned rather than trusted. This has to be
+     * loud: a silently misaligned security assertion passes.
+     */
+    /* Either the probe issued a different number of statements, or it issued a
+       different statement. The flag survives a helper's own catch; the shape
+       check catches the rest. */
+    if (replay && (batchInvalid || replayAt - before !== shape[i])) { misaligned = true; break; }
+    results.push(got);
+  }
+
+  if (misaligned) {
+    console.log("  · a probe used a batched result to shape its next statement; re-running this phase one call at a time");
+    replay = null;
+    batchInvalid = false;
+    results.length = 0;
+    for (const [, fn] of list) {
+      let got;
+      try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
+      results.push(got);
+    }
+  }
+  replay = null;
+
+  for (let i = 0; i < list.length; i++) {
+    const [text, , want] = list[i];
+    const got = results[i];
+    checks++;
+    const ok = strict ? got === want : String(got) === String(want);
+    if (!ok) fails++;
+    console.log(`  ${ok ? "✓" : "✗"} ${text}: ${got}${ok ? "" : ` (want ${want})`}`);
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Per-phase timing, so nobody has to guess where a run's minutes went.
+ * ------------------------------------------------------------------ */
+let fails = 0, checks = 0;
+const timings = [];
+let openPhase = null;
+let phaseStartedAt = Date.now();
+let phaseStartQueries = 0;
+let phaseStartChecks = 0;
+/** Closes the previous section and opens this one — so no phase has to remember to. */
+const startPhase = (label) => {
+  endPhase();
+  openPhase = label;
+  phaseStartedAt = Date.now();
+  phaseStartQueries = db.stats.count;
+  phaseStartChecks = checks;
+};
+function endPhase() {
+  if (openPhase === null) return;
+  timings.push({
+    label: openPhase,
+    ms: Date.now() - phaseStartedAt,
+    queries: db.stats.count - phaseStartQueries,
+    checks: checks - phaseStartChecks,
+  });
+  openPhase = null;
+}
+const human = (ms) => (ms < 1000 ? `${ms}ms` : ms < 60_000 ? `${(ms / 1000).toFixed(1)}s` : `${Math.floor(ms / 60000)}m ${String(Math.round((ms % 60000) / 1000)).padStart(2, "0")}s`);
+
+startPhase("bootstrap");
+
 /**
  * A raw query whose failure is reported the way the per-phase helpers report
  * it — "ERR <sqlstate>" — rather than as the shell command that failed. A
@@ -103,7 +341,7 @@ const UPD = `
 const asUserUpdate = (uid) =>
   q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${UPD}; rollback;`)[0];
 
-const E = {
+const E = batched(() => ({
   // BES, agency scope: everything
   "bes.owner@bes.test":  { work: T.work_total, attention: T.attention_total, fclients: T.fclients_total, fund: T.fund_total, lakeside_by_id: 1, cedar_by_id: 1, can_update_lakeside: 1, can_update_cedar: 1 },
   "bes.admin@bes.test":  { work: T.work_total, attention: T.attention_total, fclients: T.fclients_total, fund: T.fund_total, lakeside_by_id: 1, cedar_by_id: 1, can_update_lakeside: 1, can_update_cedar: 1 },
@@ -120,13 +358,24 @@ const E = {
   "org.owner@bes.test":  { work: T.lakeside_org_work, /* every ORGANIZATION item of Lakeside + its entitled BES CRM projects; the BES support task about Lakeside is not theirs (0031) */ attention: T.lakeside_org_attention, fclients: 2, fund: 1, lakeside_by_id: 1, cedar_by_id: 0, can_update_cedar: 0 },
   "org2.owner@bes.test": { work: T.northgate_org_work, attention: T.northgate_org_attention, fclients: 2, fund: 0, lakeside_by_id: 0, cedar_by_id: 0, can_update_lakeside: 0, can_update_cedar: 0 },
   "probe.agent@bes.test":{ work: 0, attention: 0, fclients: 0, fund: 0, lakeside_by_id: 0, cedar_by_id: 0, can_update_lakeside: 0, can_update_cedar: 0 },
-};
+}));
 
-let fails = 0, checks = 0;
-for (const [email, expected] of Object.entries(E)) {
-  const uid = U[email];
+/*
+ * Two statements per fixture user, and there are fourteen of them — twenty-
+ * eight sequential round trips before a single phase had run, on EVERY
+ * invocation including a one-phase one. Collected and flushed together; each
+ * is still its own transaction as the same user, rolled back the same way.
+ */
+const matrixRows = batched(() =>
+  Object.entries(E).map(([email, expected]) => {
+    const uid = U[email];
+    if (!uid) return { email, expected, uid: null, got: null };
+    return { email, expected, uid, got: { ...asUser(uid, S), ...asUserUpdate(uid) } };
+  }),
+);
+
+for (const { email, expected, uid, got } of matrixRows) {
   if (!uid) { console.log(`?? ${email} not found`); continue; }
-  const got = { ...asUser(uid, S), ...asUserUpdate(uid) };
   const line = [];
   for (const [k, want] of Object.entries(expected)) {
     checks++;
@@ -147,7 +396,8 @@ console.log(`\npositive controls: team A holds ${pos.team_a_clients} clients, te
    Every gap the independent review found, as a check. Satellites, blind writes with
    no WHERE, INSERTs into unseen records, the unassigned team queue, a no-engagement
    organization, org-side assigned_only, escalation paths, cross-service reads. */
-if (PHASE >= 2) {
+if (runs(2)) {
+  startPhase("phase 2");
   const AGENCY = "a0000000-0000-4000-8000-000000000001";
   const NIL = "00000000-0000-4000-8000-000000000000";
   const dana = q(`select id from public.fulfillment_clients where name='[TEST] Dana Doyle'`)[0]?.id ?? NIL;      // Team A, unassigned
@@ -217,19 +467,14 @@ if (PHASE >= 2) {
     ["org admin cannot add a BES agent to an org team", () => W(U["org2.owner@bes.test"], `insert into public.teams (id, organization_id, name) values ('${NIL.replace(/0000$/,"0001")}', (select organization_id from public.org_memberships where user_id=auth.uid() limit 1), 'probe team'); with m as (insert into public.team_memberships (team_id, user_id, is_lead) values ('${NIL.replace(/0000$/,"0001")}', '${U["bes.restricted@bes.test"]}', true) returning 1) select count(*)::int as rows from m`).rows, 0],
     ["probe cannot write to audit_log via log_audit()",  () => W(U["probe.agent@bes.test"], `select public.log_audit('probe','x','1') as rows`).refused ? 0 : 1, 0],
   ];
-  console.log("\nphase 2:");
-  for (const [label, fn, want] of rows) {
-    checks++;
-    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
-    const ok = got === want; if (!ok) fails++;
-    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
-  }
+  runPhase("phase 2", rows, { strict: true });
 }
 
 /* ---------------- Phase 3: work-item creation + production idempotency ----------------
    Each probe is a top-level data-modifying CTE inside a rolled-back transaction, so
    RLS and constraints decide the outcome and nothing persists. */
-if (PHASE >= 3) {
+if (runs(3)) {
+  startPhase("phase 3");
   const AGENCY = "a0000000-0000-4000-8000-000000000001";
   const NORTHGATE = q(`select id from public.organizations where name='[TEST] Northgate Credit Co'`)[0].id;
   const creditClient = q(`select id from public.fulfillment_clients where assigned_agent_id='${U["bes.credit@bes.test"]}' limit 1`)[0].id;
@@ -266,13 +511,7 @@ if (PHASE >= 3) {
     ["same request_id twice → exactly one production row",   () => prod(U["bes.credit@bes.test"], "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111"), 1],
     ["two distinct request_ids → two rows (not over-deduped)",() => prod(U["bes.credit@bes.test"], "22222222-2222-4222-8222-222222222222", "33333333-3333-4333-8333-333333333333"), 2],
   ];
-  console.log("\nphase 3:");
-  for (const [label, fn, want] of P) {
-    checks++;
-    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
-    const ok = got === want; if (!ok) fails++;
-    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
-  }
+  runPhase("phase 3", P, { strict: true });
 }
 
 
@@ -283,7 +522,8 @@ if (PHASE >= 3) {
    subject mid-transaction to read as a different person. Rows created inside
    the transaction carry created_at = now() (transaction start), which is how
    the counts ignore anything that already existed. */
-if (PHASE >= 5) {
+if (runs(5)) {
+  startPhase("phase 5");
   const credit = U["bes.credit@bes.test"], manager = U["bes.manager@bes.test"],
         lead = U["bes.lead@bes.test"], restricted = U["bes.restricted@bes.test"];
   const dana = q(`select id from public.fulfillment_clients where name='[TEST] Dana Doyle'`)[0]?.id;
@@ -309,13 +549,7 @@ if (PHASE >= 5) {
     ["API roles hold TRUNCATE/TRIGGER/REFERENCES on no public table", () => q(`select count(*)::int as rows from information_schema.role_table_grants where table_schema='public' and grantee in ('anon','authenticated') and privilege_type in ('TRUNCATE','TRIGGER','REFERENCES')`)[0].rows, 0],
     ["recipient-resolution functions not callable from the API",      () => q(`select count(*)::int as rows from information_schema.routine_privileges where specific_schema='public' and routine_name in ('record_owner','notify_from_activity','as_uuid') and grantee in ('anon','authenticated','PUBLIC')`)[0].rows, 0],
   ];
-  console.log("\nphase 5:");
-  for (const [label, fn, want] of P5) {
-    checks++;
-    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
-    const ok = got === want; if (!ok) fails++;
-    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
-  }
+  runPhase("phase 5", P5, { strict: true });
 }
 
 
@@ -323,7 +557,8 @@ if (PHASE >= 5) {
    Visibility = org membership + entitlement; items follow the workspace;
    statuses are rows mapped onto the canonical stage; config changes audited.
    BES staff have no share yet (Phase 7), so they see none of it. */
-if (PHASE >= 6) {
+if (runs(6)) {
+  startPhase("phase 6");
   const orgOwner = U["org.owner@bes.test"], org2Owner = U["org2.owner@bes.test"], besOwner = U["bes.owner@bes.test"], orgAgent = U["org.agent@bes.test"];
   const LAKESIDE = "dddddddd-0000-4000-8000-80ce8814eb05", NORTHGATE = "dddddddd-0000-4000-8000-3f3028d6b8f3";
   const WS = "ee000000-0000-4000-8000-000000000001", BOARD = "ee000000-0000-4000-8000-000000000011";
@@ -350,13 +585,7 @@ if (PHASE >= 6) {
     ["org agent (non-admin) cannot rename a status",               () => W6(orgAgent, `with u as (update public.workspace_statuses set label='x' where id='${DONE}' returning 1) select count(*)::int as rows from u`).rows, 0],
     ["anon-facing grants: no TRUNCATE/TRIGGER/REFERENCES on new tables", () => q(`select count(*)::int as rows from information_schema.role_table_grants where table_schema='public' and table_name like 'workspace%' and grantee in ('anon','authenticated') and privilege_type in ('TRUNCATE','TRIGGER','REFERENCES')`)[0].rows, 0],
   ];
-  console.log("\nphase 6:");
-  for (const [label, fn, want] of P6) {
-    checks++;
-    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
-    const ok = got === want; if (!ok) fails++;
-    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
-  }
+  runPhase("phase 6", P6, { strict: true });
 }
 
 
@@ -365,7 +594,8 @@ if (PHASE >= 6) {
    under a TalentOps engagement, within BES TalentOps scope. Board-level shares
    hide sibling boards and their items. 'view' shares cannot write. The
    organization authorizes; BES cannot share to itself. */
-if (PHASE >= 7) {
+if (runs(7)) {
+  startPhase("phase 7");
   const orgOwner = U["org.owner@bes.test"], org2Owner = U["org2.owner@bes.test"], besOwner = U["bes.owner@bes.test"],
         besManager = U["bes.manager@bes.test"], besRestricted = U["bes.restricted@bes.test"], besCredit = U["bes.credit@bes.test"];
   const LAKESIDE = "dddddddd-0000-4000-8000-80ce8814eb05", NORTHGATE = "dddddddd-0000-4000-8000-3f3028d6b8f3";
@@ -394,13 +624,7 @@ if (PHASE >= 7) {
     ["org owner can revoke (update revoked_at)",                   () => W7(orgOwner, `with u as (update public.workspace_shares set revoked_at=now() where id='${SHARE}' returning 1) select count(*)::int as rows from u`).rows, 1],
     ["share creation is audited with actor",                       () => W7(orgOwner, `insert into public.workspace_shares (workspace_id, engagement_id, board_id) values ('${WS}','${ENG}','${BOARD}'); set local role postgres; select count(*)::int as rows from public.audit_log where entity_type='workspace_shares' and created_at >= now() and actor_id='${orgOwner}'`).rows, 1],
   ];
-  console.log("\nphase 7:");
-  for (const [label, fn, want] of P7) {
-    checks++;
-    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
-    const ok = got === want; if (!ok) fails++;
-    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
-  }
+  runPhase("phase 7", P7, { strict: true });
 }
 
 
@@ -409,7 +633,8 @@ if (PHASE >= 7) {
    what BES published, may comment and upload, and cannot change the project.
    Association is not publication: BES's other AGENCY items about the customer
    stay BES's. */
-if (PHASE >= 8) {
+if (runs(8)) {
+  startPhase("phase 8");
   const orgOwner = U["org.owner@bes.test"], org2Owner = U["org2.owner@bes.test"], orgAgent = U["org.agent@bes.test"], besOwner = U["bes.owner@bes.test"];
   const LAKESIDE = "dddddddd-0000-4000-8000-80ce8814eb05", NORTHGATE = "dddddddd-0000-4000-8000-3f3028d6b8f3", AGENCY = "a0000000-0000-4000-8000-000000000001";
   const CRM_L = "ee000000-0000-4000-8000-000000000201", CRM_N = "ee000000-0000-4000-8000-000000000202";
@@ -436,20 +661,15 @@ if (PHASE >= 8) {
     // The fixture's project also carries the trigger-written 'Work item created' event (bes_internal); count internal NOTES only.
     ["BES owner sees both projects and the internal note",            () => W8(besOwner, `select (select count(*) from public.work_items where division='bes_crm')::int + (select count(*) from public.activity_events where entity_id='${CRM_L}' and visibility='bes_internal' and action='Note')::int as rows`).rows, 3],
   ];
-  console.log("\nphase 8:");
-  for (const [label, fn, want] of P8) {
-    checks++;
-    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
-    const ok = got === want; if (!ok) fails++;
-    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
-  }
+  runPhase("phase 8", P8, { strict: true });
 }
 
 
 /* ---------------- Phase 9: branding merges (regression guard) ----------------
    0023 revoked log_audit() from API roles and silently broke both branding
    saves. The merges now run as owner with explicit checks (0034). */
-if (PHASE >= 9) {
+if (runs(9)) {
+  startPhase("phase 9");
   const besOwner = U["bes.owner@bes.test"], orgOwner = U["org.owner@bes.test"], org2Owner = U["org2.owner@bes.test"], besCredit = U["bes.credit@bes.test"];
   const LAKESIDE = "dddddddd-0000-4000-8000-80ce8814eb05", AGENCY = "a0000000-0000-4000-8000-000000000001";
   const as = (uid) => `set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'`;
@@ -462,13 +682,7 @@ if (PHASE >= 9) {
     ["a BES agent cannot save agency branding",                  () => W9(besCredit, `select (public.merge_agency_branding('${AGENCY}', '{"probe":1}') ->> 'probe')::int as rows`).rows, 0],
     ["the dead column is written by no frontend path (grep)",    () => { const fs = require("node:fs"); const files = ["src/lib/data/organizations.ts","src/lib/agency-context.tsx","src/components/settings/sections/GeneralSections.tsx"]; return files.filter((f) => /is_fulfillment_subscriber\s*:/.test(fs.readFileSync(f, "utf8"))).length; }, 0],
   ];
-  console.log("\nphase 9:");
-  for (const [label, fn, want] of P9) {
-    checks++;
-    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
-    const ok = got === want; if (!ok) fails++;
-    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
-  }
+  runPhase("phase 9", P9, { strict: true });
 }
 
 
@@ -476,7 +690,8 @@ if (PHASE >= 9) {
    One production table; the service decides the subject; tenancy is derived
    from the subject; the subject must be visible to the producer; completion
    of a work-item-service item by BES staff produces exactly once. */
-if (PHASE >= 10) {
+if (runs(10)) {
+  startPhase("phase 10");
   const besOwner = U["bes.owner@bes.test"], besManager = U["bes.manager@bes.test"], besFunding = U["bes.funding@bes.test"],
         besCredit = U["bes.credit@bes.test"], orgOwner = U["org.owner@bes.test"];
   const AGENCY = "a0000000-0000-4000-8000-000000000001";
@@ -512,13 +727,7 @@ if (PHASE >= 10) {
     ["CreditOps regression: legacy department is derived from department_key", () => W10(besCredit, `with i as (insert into public.production_logs (agency_id, employee_id, service, client_id, department_key, production_unit_type, production_unit_quantity, actions, work_date, division_id) values ('${AGENCY}','${besCredit}','creditops','${creditClientId}','Dispute','Dispute',1,array['x'],current_date,'creditops') returning department::text d, division_id) select count(*)::int as rows from i where d='Dispute' and division_id='creditops'`).rows, 1],
     ["EOD reconciliation: today's FundingOps units land under service fundingops for the producer", () => W10(besFunding, `insert into public.production_logs (agency_id, employee_id, service, funding_client_id, department_key, production_unit_type, production_unit_quantity, actions, work_date, division_id) values ('${AGENCY}','${besFunding}','fundingops','${myFunding.id}','Submissions','Submissions',1,array['x'],current_date,'fundingops'); select coalesce(sum(production_unit_quantity),0)::int as rows from public.production_logs where employee_id=auth.uid() and work_date=current_date and not is_voided and service='fundingops' and created_at >= now()`).rows, 1],
   ];
-  console.log("\nphase 10:");
-  for (const [label, fn, want] of P10) {
-    checks++;
-    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
-    const ok = got === want; if (!ok) fails++;
-    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
-  }
+  runPhase("phase 10", P10, { strict: true });
 }
 
 
@@ -526,7 +735,8 @@ if (PHASE >= 10) {
    Configuration is org-admin only; field values are typed by their field;
    archived fields refuse new values; assignees must be legitimate for the
    record; teams are the organization's; everything cross-org is denied. */
-if (PHASE >= 11) {
+if (runs(11)) {
+  startPhase("phase 11");
   const orgOwner = U["org.owner@bes.test"], orgManager = U["org.manager@bes.test"], orgAgent = U["org.agent@bes.test"], org2Owner = U["org2.owner@bes.test"],
         besOwner = U["bes.owner@bes.test"], besRestricted = U["bes.restricted@bes.test"], besManager = U["bes.manager@bes.test"];
   const LAKESIDE = "dddddddd-0000-4000-8000-80ce8814eb05", NORTHGATE = "dddddddd-0000-4000-8000-3f3028d6b8f3";
@@ -567,13 +777,7 @@ if (PHASE >= 11) {
     ["org admin completes an item: stage Completed, completed_at set, no BES production", () => W11(orgOwner, `update public.work_items set status_id='ee000000-0000-4000-8000-000000000024' where id='${ITEM}'; set local role postgres; select (select count(*) from public.work_items where id='${ITEM}' and stage='Completed' and completed_at is not null)::int - (select count(*) from public.production_logs where work_item_id='${ITEM}')::int as rows`).rows, 1],
     ["archiving a workspace hides it from the board but keeps its items", () => W11(orgOwner, `update public.workspaces set archived_at=now() where id='${WS}'; select (select count(*) from public.workspaces where id='${WS}' and archived_at is not null)::int + (select count(*) from public.work_items where workspace_id='${WS}')::int as rows`).rows,  1 + q(`select count(*)::int n from public.work_items where workspace_id='${WS}'`)[0].n],
   ];
-  console.log("\nphase 11:");
-  for (const [label, fn, want] of P11) {
-    checks++;
-    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
-    const ok = got === want; if (!ok) fails++;
-    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
-  }
+  runPhase("phase 11", P11, { strict: true });
 }
 
 
@@ -581,7 +785,8 @@ if (PHASE >= 11) {
    Switching is convenience; the organizations a person can see are exactly
    their memberships (or all, for BES staff). The Organization ID is generated,
    unique, formatted and immutable. */
-if (PHASE >= 12) {
+if (runs(12)) {
+  startPhase("phase 12");
   const multi = q(`select id from auth.users where email='org.multi@bes.test'`)[0]?.id;
   const orgOwner = U["org.owner@bes.test"], besRestricted = U["bes.restricted@bes.test"];
   const as = (uid) => `set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'`;
@@ -596,13 +801,7 @@ if (PHASE >= 12) {
     ["…and immutable",                                                  () => { try { q(`begin; update public.organizations set public_id='BES-ZZZZZZ' where name='[TEST] Lakeside Partners'; rollback;`); return 1; } catch (e) { return 0; } }, 0],
     ["…and generated when omitted",                                     () => q(`begin; with i as (insert into public.organizations (agency_id, name, code, principal_name, principal_email) values ('a0000000-0000-4000-8000-000000000001','probe','PRB','p','p@probe.test') returning public_id) select count(*)::int as rows from i where public_id ~ '^BES-[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}$'; rollback;`)[0].rows, 1],
   ];
-  console.log("\nphase 12:");
-  for (const [label, fn, want] of P12) {
-    checks++;
-    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
-    const ok = got === want; if (!ok) fails++;
-    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
-  }
+  runPhase("phase 12", P12, { strict: true });
 }
 
 
@@ -613,7 +812,8 @@ if (PHASE >= 12) {
    entitlements off; name-only match → trial with review flag). Every probe
    seeds an unconfirmed user inside a rolled-back transaction and flips
    email_confirmed_at to fire the trigger. */
-if (PHASE >= 13) {
+if (runs(13)) {
+  startPhase("phase 13");
   const seed = (email, meta) => `
     insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
     values ('99999999-0000-4000-8000-000000000001', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', '${email}', 'x', null, '{"provider":"email","providers":["email"]}', '${JSON.stringify(meta)}'::jsonb, now(), now());`;
@@ -649,13 +849,7 @@ if (PHASE >= 13) {
     ["organization users read their trial; another org's admin cannot", () => S("probe@probe-ventures.test", NEW, `set local role authenticated; set local request.jwt.claims = '{"sub":"${U["org2.owner@bes.test"]}","role":"authenticated"}'; select count(*)::int as rows from public.organization_trials t where t.organization_id in (select organization_id from public.org_memberships where user_id='99999999-0000-4000-8000-000000000001')`).rows, 0],
     ["plans are readable by the public form",                            () => { try { return q(`begin; set local role anon; select count(*)::int as rows from public.plans where is_public; rollback;`)[0].rows; } catch (e) { return "ERR"; } }, 5],
   ];
-  console.log("\nphase 13:");
-  for (const [label, fn, want] of P13) {
-    checks++;
-    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
-    const ok = got === want; if (!ok) fails++;
-    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
-  }
+  runPhase("phase 13", P13, { strict: true });
 }
 
 /* Phase 14 — team rosters read without policy recursion (0044) and
@@ -663,7 +857,8 @@ if (PHASE >= 13) {
    organization's owner/admin and to a BES manager, refused to everyone else,
    and can never hide the dashboard or the record list. Every write probe runs
    inside a rolled-back transaction. */
-if (PHASE >= 14) {
+if (runs(14)) {
+  startPhase("phase 14");
   const orgRole = (uid) => q(`select coalesce((select role::text from public.org_memberships where user_id='${uid}' and organization_id='${lakesideOrg}'), 'none') as rows`)[0].rows;
   const isAgencyManager = (uid) => q(`select exists (select 1 from public.agency_memberships where user_id='${uid}' and role in ('agency_owner','agency_admin','agency_manager')) as rows`)[0].rows;
   const mayConfigure = (uid) => orgRole(uid) === "org_admin" || isAgencyManager(uid) === true;
@@ -695,13 +890,7 @@ if (PHASE >= 14) {
     ["a person saves their own Home layout (0046)",                   () => probe(U["org.agent@bes.test"], `insert into public.user_preferences (user_id, dashboard_cards) values ('${U["org.agent@bes.test"]}', '["work.open"]'::jsonb) on conflict (user_id) do update set dashboard_cards = excluded.dashboard_cards; select dashboard_cards::text as rows from public.user_preferences where user_id='${U["org.agent@bes.test"]}'`), '["work.open"]'],
     ["…and cannot write another person's layout",                    () => probe(U["org.agent@bes.test"], `update public.user_preferences set dashboard_cards = '["work.open"]'::jsonb where user_id='${U["org.owner@bes.test"]}'; select count(*)::int as rows from public.user_preferences where user_id='${U["org.owner@bes.test"]}' and dashboard_cards = '["work.open"]'::jsonb`), 0],
   ];
-  console.log("\nphase 14:");
-  for (const [label, fn, want] of P14) {
-    checks++;
-    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
-    const ok = got === want; if (!ok) fails++;
-    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
-  }
+  runPhase("phase 14", P14, { strict: true });
 }
 
 /* Phase 15 — configurable organization role access (0047). Writes only via
@@ -709,7 +898,8 @@ if (PHASE >= 14) {
    departments and views, product-matching roles; org_admin/org_manager can
    never be narrowed. Rows readable by the organization's members only. No
    existing policy changed — every earlier phase must stay green. */
-if (PHASE >= 15) {
+if (runs(15)) {
+  startPhase("phase 15");
   const probe15 = (uid, sql) => {
     try {
       return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows;
@@ -744,19 +934,14 @@ if (PHASE >= 15) {
     ["reset deletes the row",                                        () => probe15(U["bes.manager@bes.test"], `select public.set_organization_role_access('${lakesideOrg}', 'credit_processor', 'creditOps', array['Support'], '{}'::text[], true, false, false); select public.reset_organization_role_access('${lakesideOrg}', 'credit_processor', 'creditOps'); select count(*)::int as rows from public.organization_role_access where organization_id='${lakesideOrg}'`), creditEntitled ? 0 : "ERR 42501"],
     ["platform defaults: processor → Dispute, QA reads everything, admin full", () => q(`select (select departments::text from public.default_role_access('credit_processor','creditOps')) || '|' || (select can_log_work::text from public.default_role_access('credit_qa','creditOps')) || '|' || (select can_access_management::text from public.default_role_access('org_admin','creditOps')) as rows`)[0].rows, "{Dispute}|false|true"],
   ];
-  console.log("\nphase 15:");
-  for (const [label, fn, want] of P15) {
-    checks++;
-    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
-    const ok = got === want; if (!ok) fails++;
-    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
-  }
+  runPhase("phase 15", P15, { strict: true });
 }
 
 /* Phase 16 — canonical credit reports (0048). A report is visible exactly to
    whoever sees its client; only they can import; imports are append-only.
    Every write probe runs inside a rolled-back transaction. */
-if (PHASE >= 16) {
+if (runs(16)) {
+  startPhase("phase 16");
   const probe16 = (uid, sql) => {
     try {
       return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows;
@@ -780,20 +965,15 @@ if (PHASE >= 16) {
     ["reports are append-only: no update grant (refused since 0063)", () => probe16(U["org.owner@bes.test"], `select public.create_credit_report('${lakesideOrg}', null, '${T.lakeside_client}', null, array['EQ'], current_date, 'manual_upload', null, 'probe-1', ${ITEMS}, null); update public.credit_reports set parser_version='x' where fulfillment_client_id='${T.lakeside_client}'; select count(*)::int as rows from public.credit_reports where parser_version='x'`), "ERR 42501"],
     ["a consumer imports and sees only their own report",             () => probe16(U["org.agent@bes.test"], `select public.create_credit_report('${lakesideOrg}', null, null, '${U["org.agent@bes.test"]}', array['TU'], current_date, 'manual_upload', null, 'probe-1', ${ITEMS}, null); set local request.jwt.claims = '{"sub":"${U["org2.owner@bes.test"]}","role":"authenticated"}'; select count(*)::int as rows from public.credit_reports where consumer_user_id='${U["org.agent@bes.test"]}'`), 0],
   ];
-  console.log("\nphase 16:");
-  for (const [label, fn, want] of P16) {
-    checks++;
-    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
-    const ok = got === want; if (!ok) fails++;
-    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
-  }
+  runPhase("phase 16", P16, { strict: true });
 }
 
 /* Phase 17 — pricing as data (0049): public plans with prices; every trial
    grants Empire Grow capabilities (never CRM); Build needs a choice; Enterprise
    is by agreement; seat and active-record usage measured deterministically and
    only for the organization's own members / BES managers. */
-if (PHASE >= 17) {
+if (runs(17)) {
+  startPhase("phase 17");
   const seed17 = (email, meta) => `
     insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
     values ('99999999-0000-4000-8000-000000000003', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', '${email}', 'x', null, '{"provider":"email","providers":["email"]}', '${JSON.stringify(meta)}'::jsonb, now(), now());
@@ -824,20 +1004,15 @@ if (PHASE >= 17) {
     ["active records count only worked clients",                        () => asUser17(U["org.owner@bes.test"], `select public.organization_active_records('${lakesideOrg}') as rows`), recOracle],
     ["add-ons are listed for the public form",                          () => { try { return q(`begin; set local role anon; select count(*)::int as rows from public.plan_addons; rollback;`)[0].rows; } catch (e) { return "ERR"; } }, 3],
   ];
-  console.log("\nphase 17:");
-  for (const [label, fn, want] of P17) {
-    checks++;
-    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
-    const ok = got === want; if (!ok) fails++;
-    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
-  }
+  runPhase("phase 17", P17, { strict: true });
 }
 
 /* Phase 18 — organization client writes (0050): organization admins create,
    members update within their reach, another organization cannot, an
    organization without the product cannot, outsourcing-group clients stay
    BES-only. Rolled back. */
-if (PHASE >= 18) {
+if (runs(18)) {
+  startPhase("phase 18");
   const w18 = (uid, sql) => { try { return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
   const agencyId = q(`select agency_id::text as rows from public.organizations where id='${lakesideOrg}'`)[0].rows;
   const creditOn = q(`select public.org_entitled('${lakesideOrg}','creditOps') as rows`)[0].rows === true;
@@ -861,13 +1036,7 @@ if (PHASE >= 18) {
     ["an outsourcing-group client stays BES-only",                      () => { const r = w18(U["org.owner@bes.test"], `insert into public.fulfillment_clients (agency_id, name, email, mode, outsourcing_group_id, auto_sync, status, round) values ('${agencyId}', '[PROBE] Group Client', 'probe.group@example.test', 'outsourcing_only', (select id from public.outsourcing_groups limit 1), false, 'Onboarding', 'Pre-Round'); select 1 as rows`); return String(r).startsWith("ERR") ? "refused" : r; }, "refused"],
     ["…and nothing was written by the attempt",                         () => q(`select count(*)::int as rows from public.fulfillment_clients where email = 'probe.group@example.test'`)[0].rows, 0],
   ];
-  console.log("\nphase 18:");
-  for (const [label, fn, want] of P18) {
-    checks++;
-    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
-    const ok = got === want; if (!ok) fails++;
-    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
-  }
+  runPhase("phase 18", P18, { strict: true });
 }
 
 /* Phase 19 — department status as data (0051) and the funding-readiness
@@ -876,7 +1045,8 @@ if (PHASE >= 18) {
    refuses a status outside the department's vocabulary and always leaves an
    activity event; the hand-off links/creates the CreditOps client and moves
    the funding status, both ways, with activity on both records. Rolled back. */
-if (PHASE >= 19) {
+if (runs(19)) {
+  startPhase("phase 19");
   const w19 = (uid, sql, seed = "") => { try { return q(`begin; ${seed} set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
   const creditOn = q(`select public.org_entitled('${lakesideOrg}','creditOps') as rows`)[0].rows === true;
   const fundingOn = q(`select public.org_entitled('${lakesideOrg}','fundingOps') as rows`)[0].rows === true;
@@ -899,17 +1069,12 @@ if (PHASE >= 19) {
     ["hand-off back: qualified → Readiness Review",                () => w19f(U["org.owner@bes.test"], `select public.handoff_to_creditops('${lakesideFunding}', null); select public.handoff_to_fundingops((select fulfillment_client_id from public.funding_clients where id='${lakesideFunding}')); select status::text as rows from public.funding_clients where id='${lakesideFunding}'`), creditOn && fundingOn ? "Readiness Review" : "ERR 42501"],
     ["another organization cannot hand off this client",           () => w19f(U["org2.owner@bes.test"], `select public.handoff_to_creditops('${lakesideFunding}', null); select 1 as rows`), "ERR 42501"],
   ];
-  console.log("\nphase 19:");
-  for (const [label, fn, want] of P19) {
-    checks++;
-    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
-    const ok = got === want; if (!ok) fails++;
-    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
-  }
+  runPhase("phase 19", P19, { strict: true });
 }
 
 /* Phase 20 — funding department status keyed by file (0054). */
-if (PHASE >= 20) {
+if (runs(20)) {
+  startPhase("phase 20");
   const w20 = (uid, sql) => { try { return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
   const fundingOn = q(`select public.org_entitled('${lakesideOrg}','fundingOps') as rows`)[0].rows === true;
   const lakesideFile = q(`select coalesce((select f.id::text from public.funding_files f join public.funding_clients c on c.id=f.client_id where c.organization_id='${lakesideOrg}' limit 1), '') as rows`)[0].rows;
@@ -920,19 +1085,14 @@ if (PHASE >= 20) {
     ["a status outside the department's vocabulary is refused",      () => w20(U["org.owner@bes.test"], `select public.set_funding_department_status('${lakesideFile}', 'Stipulations', 'FUNDED', null, null); select 1 as rows`), fundingOn ? "ERR 22023" : "ERR 42501"],
     ["SQL vocabulary matches the interface mirror (Stipulations)",   () => q(`select array_to_string(public.fundingops_department_statuses('Stipulations'), ',') as rows`)[0].rows, "NOT STARTED,OUTSTANDING,SATISFIED"],
   ] : [["(no Lakeside funding file to probe)", () => "skip", "skip"]];
-  console.log("\nphase 20:");
-  for (const [label, fn, want] of P20) {
-    checks++;
-    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
-    const ok = got === want; if (!ok) fails++;
-    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
-  }
+  runPhase("phase 20", P20, { strict: true });
 }
 
 /* Phase 21 — client lifecycle (0055): archive is a transition with an activity
    event; only Active counts; another organization cannot archive; reactivation
    clears the archive fields. Rolled back. */
-if (PHASE >= 21) {
+if (runs(21)) {
+  startPhase("phase 21");
   const w21 = (uid, sql) => { try { return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
   const creditOn = q(`select public.org_entitled('${lakesideOrg}','creditOps') as rows`)[0].rows === true;
   // organization_active_records() answers null to a caller who is neither a member
@@ -946,20 +1106,15 @@ if (PHASE >= 21) {
     ["reactivating clears the archive fields",                          () => w21(U["org.owner@bes.test"], `select public.set_client_lifecycle('${T.lakeside_client}', 'archived', 'x'); select public.set_client_lifecycle('${T.lakeside_client}', 'active', null); select lifecycle::text || ':' || coalesce(archived_at::text, 'null') as rows from public.fulfillment_clients where id='${T.lakeside_client}'`), creditOn ? "active:null" : "ERR 42501"],
     ["another organization's owner cannot archive here",                () => w21(U["org2.owner@bes.test"], `select public.set_client_lifecycle('${T.lakeside_client}', 'archived', null); select 1 as rows`), "ERR 42501"],
   ];
-  console.log("\nphase 21:");
-  for (const [label, fn, want] of P21) {
-    checks++;
-    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
-    const ok = got === want; if (!ok) fails++;
-    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
-  }
+  runPhase("phase 21", P21, { strict: true });
 }
 
 /* Phase 22 — FundingOps domain data (0058): applications/documents follow the
    file's client; organization admins write, agents read; another organization
    sees nothing; the BES lender catalogue is readable; a lender user sees only
    files shared with their lender and may post an offer only there. Rolled back. */
-if (PHASE >= 22) {
+if (runs(22)) {
+  startPhase("phase 22");
   const w22 = (uid, sql) => { try { return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
   const fundingOn = q(`select public.org_entitled('${lakesideOrg}','fundingOps') as rows`)[0].rows === true;
   const lakesideFile = q(`select coalesce((select f.id::text from public.funding_files f join public.funding_clients c on c.id=f.client_id where c.organization_id='${lakesideOrg}' limit 1), '') as rows`)[0].rows;
@@ -990,13 +1145,7 @@ if (PHASE >= 22) {
     ["a consumer-report request needs a party and a purpose; the borrower role cannot read it", () => w22(U["bes.owner@bes.test"], `insert into public.funding_parties (id, client_id, kind, display_name) select '99999999-0000-4000-8000-00000000ffff', client_id, 'owner_guarantor', '[PROBE] Owner' from public.funding_files where id='${lakesideFile}'; insert into public.consumer_report_requests (file_id, party_id, product_family, purpose, permissible_purpose_basis) values ('${lakesideFile}', '99999999-0000-4000-8000-00000000ffff', 'business_funding', 'guarantor review', 'consumer-initiated credit transaction (attested)'); ${AS_PROBE} select count(*)::int as rows from public.consumer_report_requests where file_id='${lakesideFile}'`), 0],
     ["a policy version records its source and effective date; matching reads it, never rewrites it", () => w22(U["bes.owner@bes.test"], `insert into public.lenders (id, agency_id, name) values ('99999999-0000-4000-8000-00000000aaaa', '${agencyId}', '[PROBE] Shared Lender'); insert into public.lender_programs (id, lender_id, name, product_family) values ('99999999-0000-4000-8000-00000000abab', '99999999-0000-4000-8000-00000000aaaa', 'Term', 'business_funding'); insert into public.lender_policy_versions (program_id, version, criteria, source_type, effective_from) values ('99999999-0000-4000-8000-00000000abab', 1, '{"min_credit_score":640}', 'lender_policy_sheet', current_date); select (criteria->>'min_credit_score') || ':' || source_type as rows from public.lender_policy_versions where program_id='99999999-0000-4000-8000-00000000abab'`), "640:lender_policy_sheet"],
   ] : [["(no Lakeside funding file to probe)", () => "skip", "skip"]];
-  console.log("\nphase 22:");
-  for (const [label, fn, want] of P22) {
-    checks++;
-    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
-    const ok = got === want; if (!ok) fails++;
-    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
-  }
+  runPhase("phase 22", P22, { strict: true });
 }
 
 /* Phase 23 — Letter Library (0059): rounds are records opened through a
@@ -1004,7 +1153,8 @@ if (PHASE >= 22) {
    consumer's attestation, a body, recipient-fitting citations and none of the
    forbidden phrases; mailing starts the statutory timers; BES default
    templates are readable by every seat, writable by admins only. Rolled back. */
-if (PHASE >= 23) {
+if (runs(23)) {
+  startPhase("phase 23");
   const w23 = (uid, sql) => { try { return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
   const creditOn = q(`select public.org_entitled('${lakesideOrg}','creditOps') as rows`)[0].rows === true;
   const C = T.lakeside_client;
@@ -1025,13 +1175,7 @@ if (PHASE >= 23) {
     ["BES default templates are readable by an organization agent",     () => w23(U["org.agent@bes.test"], `select count(*)::int as rows from public.letter_templates where organization_id is null and is_active`), 6],
     ["an organization agent cannot add a template; the owner can",       () => w23(U["org.agent@bes.test"], `insert into public.letter_templates (agency_id, organization_id, kind, audience, name, body) select agency_id, id, 'other', 'cra', '[PROBE]', 'body' from public.organizations where id='${lakesideOrg}'; select 1 as rows`) + "|" + w23(U["org.owner@bes.test"], `insert into public.letter_templates (agency_id, organization_id, kind, audience, name, body) select agency_id, id, 'other', 'cra', '[PROBE]', 'body' from public.organizations where id='${lakesideOrg}'; select count(*)::int as rows from public.letter_templates where name='[PROBE]'`), creditOn ? "ERR 42501|1" : "ERR 42501|ERR 42501"],
   ];
-  console.log("\nphase 23:");
-  for (const [label, fn, want] of P23) {
-    checks++;
-    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
-    const ok = got === want; if (!ok) fails++;
-    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
-  }
+  runPhase("phase 23", P23, { strict: true });
 }
 
 /* Phase 24 — pipeline axes (0060) and offers/closing/funded/renewals (0061):
@@ -1039,7 +1183,8 @@ if (PHASE >= 23) {
    refused there and only confirm_funding() sets it, from Funding Pending, with
    gross/net/date; an offer follows its state machine; a renewal creates a NEW
    file with lineage; another organization sees none of it. Rolled back. */
-if (PHASE >= 24) {
+if (runs(24)) {
+  startPhase("phase 24");
   const w24 = (uid, sql) => { try { return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
   const fundingOn = q(`select public.org_entitled('${lakesideOrg}','fundingOps') as rows`)[0].rows === true;
   const F = q(`select coalesce((select f.id::text from public.funding_files f join public.funding_clients c on c.id=f.client_id where c.organization_id='${lakesideOrg}' limit 1), '') as rows`)[0].rows;
@@ -1060,20 +1205,15 @@ if (PHASE >= 24) {
     ["a renewal creates a NEW file with lineage; the old file is untouched", () => w24(U["org.owner@bes.test"], `${ACCEPT} insert into public.closings (id, file_id, offer_id, started_by, status) values ('99999999-0000-4000-8000-000000000c01', '${F}', '99999999-0000-4000-8000-000000000f01', auth.uid(), 'funding_pending'); select public.confirm_funding('99999999-0000-4000-8000-000000000c01', 45000, 42500, now()); select public.create_renewal_file((select id from public.renewal_opportunities where file_id='${F}'), 'Renewal', 60000); select (select count(*) from public.funding_files where renews_file_id='${F}' and stage='New Application')::text || ':' || (select stage::text from public.funding_files where id='${F}') as rows`), fundingOn ? "1:Funded" : "ERR 42501"],
     ["another organization sees no offers, closings or funded deals", () => w24(U["org2.owner@bes.test"], `select (select count(*) from public.offers)::text || ':' || (select count(*) from public.closings)::text || ':' || (select count(*) from public.funded_deals)::text as rows`), "0:0:0"],
   ] : [["(no Lakeside funding file to probe)", () => "skip", "skip"]];
-  console.log("\nphase 24:");
-  for (const [label, fn, want] of P24) {
-    checks++;
-    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
-    const ok = got === want; if (!ok) fails++;
-    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
-  }
+  runPhase("phase 24", P24, { strict: true });
 }
 
 
 /* Phase 25 — team permissions (0064/0064.1): permission keys as data, role
    defaults, member overrides through set_member_permission() only, Copy
    Permission, invitations. Rolled back. */
-if (PHASE >= 25) {
+if (runs(25)) {
+  startPhase("phase 25");
   const w25 = (uid, sql) => { try { return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
   const AGENT_M = q(`select public.dev_uuid('om-agent')::text as rows`)[0].rows;
   const LEAD_M = q(`select public.dev_uuid('om-lead')::text as rows`)[0].rows;
@@ -1100,20 +1240,15 @@ if (PHASE >= 25) {
     ["another organization's owner cannot invite into Lakeside",       () => w25(U["org2.owner@bes.test"], `select public.invite_team_member('${lakesideOrg}', 'probe.invite@bes.test', 'credit_processor'); select 1 as rows`), "ERR 42501"],
     ["accepting an invitation sent to a different email is refused",   () => w25(U["org.owner@bes.test"], `select public.invite_team_member('${lakesideOrg}', 'probe.invite@bes.test', 'credit_processor'); select public.accept_invitation((select token from public.invitations where email='probe.invite@bes.test' and organization_id='${lakesideOrg}' and accepted_at is null order by created_at desc limit 1)); select 1 as rows`), "ERR 42501"],
   ];
-  console.log("\nphase 25:");
-  for (const [label, fn, want] of P25) {
-    checks++;
-    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
-    const ok = got === want; if (!ok) fails++;
-    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
-  }
+  runPhase("phase 25", P25, { strict: true });
 }
 
 
 /* Phase 26 — permission keys enforced in the functions (0065): a processor may
    build letters but not approve; a manager passes the permission gate and is
    stopped by the QA gate instead; BES staff are gated by scope, not keys. */
-if (PHASE >= 26) {
+if (runs(26)) {
+  startPhase("phase 26");
   /* Seeded in-transaction for the same reason as phases 19 and 28: no fixture
      client belongs to Lakeside's own processor, and a skipped probe proves
      nothing. The seed is rolled back with the rest of the check. */
@@ -1129,20 +1264,15 @@ if (PHASE >= 26) {
     ["a manager passes the permission gate and reaches the QA gate (approval succeeds on an attested clean letter)", () => w26(U["org.lead@bes.test"], `${DRAFT(U["org.lead@bes.test"])} select public.approve_dispute_letter('99999999-0000-4000-8000-0000000000cd'); select status::text as rows from public.dispute_letters where id='99999999-0000-4000-8000-0000000000cd'`), creditOn26 ? "approved" : "ERR 42501"],
     ["the permission answer the interface shows matches the gate",       () => w26(U["org.agent@bes.test"], `select public.member_can('${lakesideOrg}','creditops.letters.build')::text || ':' || public.member_can('${lakesideOrg}','creditops.letters.approve')::text as rows`), "true:false"],
   ];
-  console.log("\nphase 26:");
-  for (const [label, fn, want] of P26) {
-    checks++;
-    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
-    const ok = got === want; if (!ok) fails++;
-    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
-  }
+  runPhase("phase 26", P26, { strict: true });
 }
 
 
 /* Phase 27 — borrower portal (0066): the borrower sees only their own file
    through the narrow view, the requests on it and their own uploads; never
    another client's file, flags, offers or lender decisions. Rolled back. */
-if (PHASE >= 27) {
+if (runs(27)) {
+  startPhase("phase 27");
   const w27 = (uid, sql) => { try { return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
   const PORTAL = q(`select coalesce((select id::text from public.profiles where email='client.portal@bes.test'), '') as rows`)[0].rows;
   const JUNO_FILE = q(`select coalesce((select id::text from public.funding_files where client_id = public.dev_uuid('fu-3') limit 1), '') as rows`)[0].rows;
@@ -1161,20 +1291,15 @@ if (PHASE >= 27) {
     ["the borrower cannot move their file or see the dispositions' reasoning path (no reviewer rights)", () => w27(PORTAL, `select public.move_funding_file('${JUNO_FILE}', 'File Review'); select 1 as rows`), "ERR 42501"],
     ["an organization member of another organization sees no borrower rows", () => w27(U["org2.owner@bes.test"], `select count(*)::int as rows from public.borrower_funding_files`), 0],
   ] : [["(no portal fixture yet — 0066 not applied)", () => "skip", "skip"]];
-  console.log("\nphase 27:");
-  for (const [label, fn, want] of P27) {
-    checks++;
-    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
-    const ok = got === want; if (!ok) fails++;
-    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
-  }
+  runPhase("phase 27", P27, { strict: true });
 }
 
 
 /* Phase 28 — reporting engine (0069): facts and pivots follow the caller's RLS;
    BES-internal KPIs never reach an organization; KPI settings are the owner's;
    manual outcomes follow the client's writers. Rolled back. */
-if (PHASE >= 28) {
+if (runs(28)) {
+  startPhase("phase 28");
   const w28 = (uid, sql, seed = "") => { try { return q(`begin; ${seed} set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
   /* Lakeside's own processor has no fixture client assigned to them, so these
      probes seed one inside the transaction they roll back rather than skipping.
@@ -1198,20 +1323,15 @@ if (PHASE >= 28) {
     ["another organization's owner cannot record an outcome on it",         () => w28c(U["org2.owner@bes.test"], `insert into public.client_round_outcomes (client_id, round_number, bureau, recorded_by) values ('${LC}', 1, 'EQ', auth.uid()); select 1 as rows`), "ERR 42501"],
     ["an outcome must name its recorder",                                    () => w28c(U["org.agent@bes.test"], `insert into public.client_round_outcomes (client_id, round_number, bureau, recorded_by) values ('${LC}', 1, 'TU', '${U["org.owner@bes.test"]}'); select 1 as rows`), "ERR 42501"],
   ];
-  console.log("\nphase 28:");
-  for (const [label, fn, want] of P28) {
-    checks++;
-    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
-    const ok = got === want; if (!ok) fails++;
-    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
-  }
+  runPhase("phase 28", P28, { strict: true });
 }
 
 
 /* Phase 29 — AI credits (0070): usage and ledger readable by the organization's
    admins and BES managers only; customers never write the ledger; the API role
    cannot write usage events at all; balance = ledger sum; entitlement × balance. */
-if (PHASE >= 29) {
+if (runs(29)) {
+  startPhase("phase 29");
   const w29 = (uid, sql) => { try { return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
   const P29 = [
     ["BES manager grants credits; the balance is the ledger sum; audit written", () => w29(U["bes.manager@bes.test"], `select public.grant_ai_credits('${lakesideOrg}', 2500, 'purchase', 'probe'); select public.grant_ai_credits('${lakesideOrg}', -100, 'adjustment', 'probe'); select (public.ai_credit_balance('${lakesideOrg}') = (select sum(delta_credits) from public.ai_credit_ledger where organization_id='${lakesideOrg}'))::text || ':' || (select count(*) from public.audit_log where action='organization.ai_credits_granted' and organization_id='${lakesideOrg}' and created_at >= now())::text as rows`), "true:2"],
@@ -1230,20 +1350,15 @@ if (PHASE >= 29) {
     ["ai_can_use needs an entitled feature and a positive balance",           () => { try { return q(`begin; insert into public.ai_credit_ledger (organization_id, delta_credits, kind) select '${lakesideOrg}', -coalesce(sum(delta_credits), 0), 'adjustment' from public.ai_credit_ledger where organization_id='${lakesideOrg}'; set local role authenticated; set local request.jwt.claims = '{"sub":"${U["org.owner@bes.test"]}","role":"authenticated"}'; select public.ai_can_use('${lakesideOrg}', 'letters.assist')::text as rows; rollback;`)[0].rows; } catch (e) { const m = String(e.message).match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } }, "false"],
     ["…true once credits exist (member of the organization, CreditOps entitled)", () => q(`select public.org_entitled('${lakesideOrg}','creditOps') as rows`)[0].rows === true ? w29(U["bes.manager@bes.test"], `select public.grant_ai_credits('${lakesideOrg}', 100, 'purchase'); set local request.jwt.claims = '{"sub":"${U["org.owner@bes.test"]}","role":"authenticated"}'; select public.ai_can_use('${lakesideOrg}', 'letters.assist')::text as rows`) : "skip", q(`select public.org_entitled('${lakesideOrg}','creditOps') as rows`)[0].rows === true ? "true" : "skip"],
   ];
-  console.log("\nphase 29:");
-  for (const [label, fn, want] of P29) {
-    checks++;
-    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
-    const ok = got === want; if (!ok) fails++;
-    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
-  }
+  runPhase("phase 29", P29, { strict: true });
 }
 
 
 /* Phase 30 — report-derived outcomes (0071): two imports of the same client
    compared by account_ref; a deletion is an observation on the later import;
    organizations see only their own; the KPI equals the direct count. */
-if (PHASE >= 30) {
+if (runs(30)) {
+  startPhase("phase 30");
   const w30 = (uid, sql) => { try { return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
   const LC30 = q(`select coalesce((select id::text from public.fulfillment_clients where organization_id='${lakesideOrg}' limit 1), '') as rows`)[0].rows;
   const A = `'[{"kind":"Account","name":"Probe Card","status":"Open","bureaus":["EQ"],"balance_text":"$100","balance_cents":10000,"account_ref":"probe card"},{"kind":"Account","name":"Probe Loan","status":"Open","bureaus":["EQ"],"balance_text":"$500","balance_cents":50000,"account_ref":"probe loan"}]'::jsonb`;
@@ -1256,13 +1371,7 @@ if (PHASE >= 30) {
     ["another organization's owner sees no changes for a Lakeside client",     () => w30(U["org2.owner@bes.test"], `select count(*)::int as rows from public.report_item_changes where client_id='${LC30}'`), 0],
     ["a client role (borrower fixture) sees no report changes at all",         () => { const P = q(`select coalesce((select id::text from public.profiles where email='client.portal@bes.test'), '') as rows`)[0].rows; return P ? w30(P, `select count(*)::int as rows from public.report_item_changes`) : "skip"; }, q(`select coalesce((select id::text from public.profiles where email='client.portal@bes.test'), '') as rows`)[0].rows ? 0 : "skip"],
   ] : [["(no Lakeside client to probe)", () => "skip", "skip"]];
-  console.log("\nphase 30:");
-  for (const [label, fn, want] of P30) {
-    checks++;
-    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
-    const ok = got === want; if (!ok) fails++;
-    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
-  }
+  runPhase("phase 30", P30, { strict: true });
 }
 
 
@@ -1271,7 +1380,8 @@ if (PHASE >= 30) {
    are functions: organization admins write their organization's rows, BES
    staff write BES rows, nobody else; direct inserts have no grant; anon has
    no select. */
-if (PHASE >= 31) {
+if (runs(31)) {
+  startPhase("phase 31");
   const w31 = (uid, sql, role = "authenticated") => { try { return q(`begin; set local role ${role}; set local request.jwt.claims = '{"sub":"${uid}","role":"${role}"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
   const ORG_ANN = (org) => `select public.save_announcement(null, '${org}', 'organization', 'Probe 31', 'Body', 'Ops', false, true); select count(*)::int as rows from public.announcements where organization_id='${org}' and title='Probe 31'`;
   const BES_ANN = `select public.save_announcement(null, null, 'bes_internal', 'Probe 31', 'Body', '', true, true); select count(*)::int as rows from public.announcements where organization_id is null and title='Probe 31'`;
@@ -1291,20 +1401,15 @@ if (PHASE >= 31) {
     ["anon has no read on announcements",                                  () => w31("00000000-0000-0000-0000-000000000000", `select count(*)::int as rows from public.announcements`, "anon"), "ERR 42501"],
     ["anon has no read on knowledge articles",                             () => w31("00000000-0000-0000-0000-000000000000", `select count(*)::int as rows from public.knowledge_articles`, "anon"), "ERR 42501"],
   ];
-  console.log("\nphase 31:");
-  for (const [label, fn, want] of P31) {
-    checks++;
-    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
-    const ok = got === want; if (!ok) fails++;
-    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
-  }
+  runPhase("phase 31", P31, { strict: true });
 }
 
 
 /* Phase 32 — personal profiles and greetings (0073). A person edits only their
    own profile; a birthday is shown only when its owner allowed it; automations
    need settings.manage; the avatars bucket is per-person. Rolled back. */
-if (PHASE >= 32) {
+if (runs(32)) {
+  startPhase("phase 32");
   const w32 = (uid, sql, role = "authenticated") => { try { return q(`begin; set local role ${role}; set local request.jwt.claims = '{"sub":"${uid}","role":"${role}"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
   const OWNER = U["org.owner@bes.test"], AGENT = U["org.agent@bes.test"], OTHER = U["org2.owner@bes.test"];
   const P32 = [
@@ -1323,20 +1428,15 @@ if (PHASE >= 32) {
     ["the avatars bucket is private",                                      () => q(`select (not public)::int as rows from storage.buckets where id='avatars'`)[0].rows, 1],
     ["anon cannot read automations",                                       () => w32("00000000-0000-0000-0000-000000000000", `select count(*)::int as rows from public.organization_automations`, "anon"), "ERR 42501"],
   ];
-  console.log("\nphase 32:");
-  for (const [label, fn, want] of P32) {
-    checks++;
-    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
-    const ok = String(got) === String(want); if (!ok) fails++;
-    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
-  }
+  runPhase("phase 32", P32);
 }
 
 
 /* Phase 33 — Organization Hub (0075–0078). The three layers: an organization
    cannot switch on what it did not buy, an agent cannot switch anything, and
    BES staff do not configure a customer's internal hub. Rolled back. */
-if (PHASE >= 33) {
+if (runs(33)) {
+  startPhase("phase 33");
   const w33 = (uid, sql, role = "authenticated") => { try { return q(`begin; set local role ${role}; set local request.jwt.claims = '{"sub":"${uid}","role":"${role}"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
   const OWNER = U["org.owner@bes.test"], AGENT = U["org.agent@bes.test"], OTHER = U["org2.owner@bes.test"], BES = U["bes.owner@bes.test"];
   const P33 = [
@@ -1370,19 +1470,14 @@ if (PHASE >= 33) {
     ["the directory reaches the organization's own members",            () => w33(OWNER, `select (count(*) > 0)::int as rows from public.organization_directory('${lakesideOrg}')`), 1],
     ["anon reads no hub registry",                                      () => w33("00000000-0000-0000-0000-000000000000", `select count(*)::int as rows from public.hub_modules`, "anon"), "ERR 42501"],
   ];
-  console.log("\nphase 33:");
-  for (const [label, fn, want] of P33) {
-    checks++;
-    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
-    const ok = String(got) === String(want); if (!ok) fails++;
-    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
-  }
+  runPhase("phase 33", P33);
 }
 
 
 /* Phase 34 — company documents (0079). Every member reads; only an
    administrator publishes or removes; the folder is the organization's own. */
-if (PHASE >= 34) {
+if (runs(34)) {
+  startPhase("phase 34");
   const w34 = (uid, sql, role = "authenticated") => { try { return q(`begin; set local role ${role}; set local request.jwt.claims = '{"sub":"${uid}","role":"${role}"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
   const OWNER = U["org.owner@bes.test"], AGENT = U["org.agent@bes.test"], OTHER = U["org2.owner@bes.test"];
   const DOC = (uid, org) => `select public.save_company_document('${org}', '${org}/company/probe.pdf', 'Probe.pdf', 'application/pdf', 100)`;
@@ -1396,19 +1491,14 @@ if (PHASE >= 34) {
     ["an agent may not remove one",                                    () => w34(AGENT, `select public.delete_company_document((select id from public.files where organization_id='${lakesideOrg}' and entity_type='company_document' limit 1))`), "ERR P0002"],
     ["direct insert of a company document row is refused",             () => w34(AGENT, `insert into public.files (organization_id, agency_id, entity_type, entity_id, bucket, path, name, uploaded_by) values ('${lakesideOrg}', public.org_agency('${lakesideOrg}'), 'company_document', '${lakesideOrg}', 'bes-files', '${lakesideOrg}/company/sneak.pdf', 'Sneak.pdf', '${AGENT}'); select 1 as rows`), "ERR 42501"],
   ];
-  console.log("\nphase 34:");
-  for (const [label, fn, want] of P34) {
-    checks++;
-    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
-    const ok = String(got) === String(want); if (!ok) fails++;
-    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
-  }
+  runPhase("phase 34", P34);
 }
 
 
 /* Phase 35 — mentions (0083). A mention notifies only someone who plainly
    belongs to the row's scope, and the browser cannot manufacture one. */
-if (PHASE >= 35) {
+if (runs(35)) {
+  startPhase("phase 35");
   const w35 = (uid, sql, role = "authenticated") => { try { return q(`begin; set local role ${role}; set local request.jwt.claims = '{"sub":"${uid}","role":"${role}"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
   const OWNER = U["org.owner@bes.test"], AGENT = U["org.agent@bes.test"], OTHER = U["org2.owner@bes.test"], BES = U["bes.owner@bes.test"];
   const LC = q(`select coalesce((select id::text from public.fulfillment_clients where organization_id='${lakesideOrg}' limit 1), '') as rows`)[0].rows;
@@ -1437,19 +1527,14 @@ if (PHASE >= 35) {
     ["the mention reader finds ids at any depth",                       () => q(`select array_length(public.mentioned_user_ids('{"type":"doc","content":[{"type":"paragraph","content":[{"type":"mention","attrs":{"userId":"11111111-1111-4111-8111-111111111111","label":"A"}}]}]}'::jsonb), 1)::int as rows`)[0].rows, 1],
     ["a person cannot insert a notification directly",                  () => w35(OWNER, `insert into public.notifications (recipient_id, actor_id, agency_id, kind, entity_type, entity_id, visibility, title) values ('${AGENT}', auth.uid(), public.org_agency('${lakesideOrg}'), 'mention', 'fulfillment_client', '${LC}', 'organization_internal', 'fake'); select 1 as rows`), "ERR 42501"],
   ] : [["(no Lakeside client to probe)", () => "skip", "skip"]];
-  console.log("\nphase 35:");
-  for (const [label, fn, want] of P35) {
-    checks++;
-    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
-    const ok = String(got) === String(want); if (!ok) fails++;
-    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
-  }
+  runPhase("phase 35", P35);
 }
 
 
 /* Phase 36 — the GHL bridge (0084). Secrets are unreachable from any browser,
    only BES connects a location, and an organization sees only its own events. */
-if (PHASE >= 36) {
+if (runs(36)) {
+  startPhase("phase 36");
   const w36 = (uid, sql, role = "authenticated") => { try { return q(`begin; set local role ${role}; set local request.jwt.claims = '{"sub":"${uid}","role":"${role}"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
   const OWNER = U["org.owner@bes.test"], AGENT = U["org.agent@bes.test"], OTHER = U["org2.owner@bes.test"], BES = U["bes.owner@bes.test"];
   const CONNECT = (org) => `select public.connect_ghl_location('${org}', 'probe-location', 'Probe', 'probe-token', 'probe-secret')`;
@@ -1466,20 +1551,15 @@ if (PHASE >= 36) {
     ["an event cannot be inserted from a browser",                 () => w36(BES, `insert into public.ghl_events (location_id, event_type, payload) values ('probe-location', 'probe', '{}'::jsonb); select 1 as rows`), "ERR 42501"],
     ["the same event twice is one row",                            () => q(`begin; insert into public.ghl_connections (organization_id, location_id) values ('${lakesideOrg}', 'probe-dupe') on conflict do nothing; insert into public.ghl_events (location_id, organization_id, event_type, external_id, payload) values ('probe-dupe', '${lakesideOrg}', 'ContactCreate', 'evt-1', '{}'::jsonb); insert into public.ghl_events (location_id, organization_id, event_type, external_id, payload) values ('probe-dupe', '${lakesideOrg}', 'ContactCreate', 'evt-1', '{}'::jsonb) on conflict do nothing; select count(*)::int as rows from public.ghl_events where location_id='probe-dupe'; rollback;`)[0].rows, 1],
   ];
-  console.log("\nphase 36:");
-  for (const [label, fn, want] of P36) {
-    checks++;
-    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
-    const ok = String(got) === String(want); if (!ok) fails++;
-    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
-  }
+  runPhase("phase 36", P36);
 }
 
 
 /* Phase 37 — team invitations (0086) and public sign-up plans. Only BES
    owners and admins invite; only an owner creates an owner; an invitation is
    accepted by its own address and no other. */
-if (PHASE >= 37) {
+if (runs(37)) {
+  startPhase("phase 37");
   const w37 = (uid, sql, role = "authenticated") => { try { return q(`begin; set local role ${role}; set local request.jwt.claims = '{"sub":"${uid}","role":"${role}"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
   const OWNER = U["bes.owner@bes.test"], ADMIN = U["bes.admin@bes.test"], AGENT = U["bes.credit@bes.test"], ORGOWNER = U["org.owner@bes.test"];
   const INVITE = (role) => `select public.invite_agency_member('probe.teammate@bes.test', '${role}')`;
@@ -1507,13 +1587,7 @@ if (PHASE >= 37) {
     ["a direct insert of an agency invitation is refused",      () => w37(ADMIN, `insert into public.invitations (email, kind, agency_id, agency_role) values ('sneak@bes.test', 'agency', (select agency_id from public.agency_memberships where user_id=auth.uid() limit 1), 'agency_owner'); select 1 as rows`), "ERR 42501"],
     ["every public plan a signer can choose has a price and a trial", () => q(`select (count(*) filter (where monthly_cents > 0 and trial_days > 0) = count(*))::int as rows from public.plans where is_public and public_trial`)[0].rows, 1],
   ];
-  console.log("\nphase 37:");
-  for (const [label, fn, want] of P37) {
-    checks++;
-    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
-    const ok = String(got) === String(want); if (!ok) fails++;
-    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
-  }
+  runPhase("phase 37", P37);
 }
 
 
@@ -1521,7 +1595,8 @@ if (PHASE >= 37) {
    a second identity. A client reads their OWN records and only the activity
    somebody published to them; everything internal is excluded by the value on
    the row, not by a filter in the interface. */
-if (PHASE >= 38) {
+if (runs(38)) {
+  startPhase("phase 38");
   const w38 = (uid, sql, seed = "") => { try { return q(`begin; ${seed} set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
   const PORTAL = q(`select coalesce((select portal_user_id::text from public.clients where portal_user_id is not null limit 1), '') as rows`)[0].rows;
   const PCLIENT = q(`select coalesce((select id::text from public.clients where portal_user_id is not null limit 1), '') as rows`)[0].rows;
@@ -1551,19 +1626,14 @@ if (PHASE >= 38) {
     ["…and gets no portal home",                                     () => w38(U["org.agent@bes.test"], `select count(*)::int as rows from public.client_portal_home()`), 0],
     ["the organization still sees its own internal notes",           () => w38(U["org.owner@bes.test"], `select count(*)::int as rows from public.activity_events where action = '[PROBE] org'`, seedAll), 1],
   ] : [["(no portal client fixture)", () => "skip", "skip"]];
-  console.log("\nphase 38:");
-  for (const [label, fn, want] of P38) {
-    checks++;
-    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
-    const ok = String(got) === String(want); if (!ok) fails++;
-    console.log(`  ${ok ? "\u2713" : "\u2717"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
-  }
+  runPhase("phase 38", P38);
 }
 
 
 /* Phase 39 — AI safeguards (0100/0101). Reserve before the call, reconcile
    after, and fail closed on anything that cannot be attributed or priced. */
-if (PHASE >= 39) {
+if (runs(39)) {
+  startPhase("phase 39");
   const w39 = (uid, sql, seed = "") => { try { return q(`begin; ${seed} set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
   const OWN = U["org.owner@bes.test"], BES = U["bes.owner@bes.test"], OTHER = U["org2.owner@bes.test"];
   const M = "claude-sonnet-5";
@@ -1571,7 +1641,11 @@ if (PHASE >= 39) {
   const P39 = [
     ["the markup is 3x provider cost",                       () => q(`select (count(*) filter (where markup_multiplier = 3.000) = count(*))::text as rows from public.ai_pricing_policy where effective_until is null`)[0].rows, "true"],
     ["a normal request reserves",                            () => w39(OWN, `select (reservation_id is not null)::text as rows from public.ai_reserve('${lakesideOrg}','letters.assist','${M}',2000,800)`), "true"],
-    ["reserving reduces AVAILABLE without spending BALANCE", () => w39(OWN, `select public.ai_reserve('${lakesideOrg}','letters.assist','${M}',2000,800); select ((public.ai_credit_balance('${lakesideOrg}') > public.ai_available_credits('${lakesideOrg}')))::text as rows`), "true"],
+    /* `ai_available_credits` is internal since 0124/0126 — it takes an
+       organization id and was reachable by anyone. The property it was used to
+       prove is unchanged and is still provable: ai_reserve RETURNS the
+       available figure, and ai_credit_balance stays RLS-scoped and callable. */
+    ["reserving reduces AVAILABLE without spending BALANCE", () => w39(OWN, `select (public.ai_credit_balance('${lakesideOrg}') > (select available_after from public.ai_reserve('${lakesideOrg}','letters.assist','${M}',2000,800)))::text as rows`), "true"],
     ["usage with no organization is refused, never absorbed",() => w39(OWN, `select 1 as rows from public.ai_reserve(null,'letters.assist','${M}',100,100)`), "ERR 42501"],
     ["a non-member is refused",                              () => w39(BES, RES(100, 100)), "ERR 42501"],
     ["another organization's owner is refused",              () => w39(OTHER, RES(100, 100)), "ERR 42501"],
@@ -1586,25 +1660,26 @@ if (PHASE >= 39) {
     ["a customer never sees provider cost or margin",        () => w39(OWN, `select count(*)::int as rows from public.ai_economics()`), 0],
     ["…nor which prices are unconfirmed",                    () => w39(OWN, `select count(*)::int as rows from public.ai_pricing_unconfirmed()`), 0],
     ["BES sees the economics",                               () => w39(BES, `select (count(*) >= 0)::text as rows from public.ai_economics()`), "true"],
-    ["…and is warned about provisional prices",              () => w39(BES, `select (count(*) > 0)::text as rows from public.ai_pricing_unconfirmed()`), "true"],
+    /* 0114 confirmed all three provider prices against Anthropic's published
+       list, so the warning list is now correctly EMPTY. The probe asserts the
+       mechanism still works — an unconfirmed row is surfaced — rather than
+       asserting the old state, which would fail forever once fixed. */
+    ["nothing is priced on an unconfirmed figure any more",  () => w39(BES, `select count(*)::int as rows from public.ai_pricing_unconfirmed()`), 0],
+    ["…and the warning still fires when a price IS unconfirmed",
+      () => w39(BES, `insert into public.ai_pricing_policy (model, input_cost_per_million, output_cost_per_million, cached_cost_per_million, markup_multiplier, credits_per_usd, source_note) values ('probe-model', 1, 1, 0, 1, 100, 'PROBE'); select (count(*) > 0)::text as rows from public.ai_pricing_unconfirmed()`), "true"],
     ["a customer reads their OWN credit usage",              () => w39(OWN, `select (count(*) >= 0)::text as rows from public.ai_my_usage('${lakesideOrg}')`), "true"],
     ["…and not another organization's",                      () => w39(OTHER, `select count(*)::int as rows from public.ai_my_usage('${lakesideOrg}')`), 0],
     ["a customer cannot raise their own limits",             () => w39(OWN, `update public.ai_limits set daily_spend_cap_credits = 999999 where organization_id is null; select count(*)::int as rows from public.ai_limits where daily_spend_cap_credits = 999999`), 0],
     ["allowances are rows, not constants",                   () => q(`select (count(*) > 0)::text as rows from public.plan_ai_allowances`)[0].rows, "true"],
   ];
-  console.log("\nphase 39:");
-  for (const [label, fn, want] of P39) {
-    checks++;
-    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
-    const ok = String(got) === String(want); if (!ok) fails++;
-    console.log(`  ${ok ? "\u2713" : "\u2717"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
-  }
+  runPhase("phase 39", P39);
 }
 
 
 /* Phase 40 — DIY Credit (0102/0103). One person, one canonical client, and an
    upgrade to managed that recreates nothing. */
-if (PHASE >= 40) {
+if (runs(40)) {
+  startPhase("phase 40");
   const w40 = (uid, sql, seed = "") => { try { return q(`begin; ${seed} set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
   const PORTAL = q(`select coalesce((select portal_user_id::text from public.clients where portal_user_id is not null limit 1), '') as rows`)[0].rows;
   const PC = q(`select coalesce((select id::text from public.clients where portal_user_id is not null limit 1), '') as rows`)[0].rows;
@@ -1634,13 +1709,7 @@ if (PHASE >= 40) {
     ["a consumer cannot write a journey row directly",      () => w40(PORTAL, `insert into public.diy_journeys (client_id, stage) values ('${PC}','approved'); select 1 as rows`, ENT), "ERR 42501"],
     ["…nor a consent row directly",                         () => w40(PORTAL, `insert into public.diy_consents (client_id, kind, statement, version) values ('${PC}','service_terms','x','v1'); select 1 as rows`, ENT), "ERR 42501"],
   ] : [["(no portal client fixture)", () => "skip", "skip"]];
-  console.log("\nphase 40:");
-  for (const [label, fn, want] of P40) {
-    checks++;
-    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
-    const ok = String(got) === String(want); if (!ok) fails++;
-    console.log(`  ${ok ? "\u2713" : "\u2717"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
-  }
+  runPhase("phase 40", P40);
 }
 
 
@@ -1648,7 +1717,8 @@ if (PHASE >= 40) {
    through an explicit share PLUS a live engagement PLUS scope. When the
    engagement ends, access ends — including the history — while the
    organization keeps everything and BES's own messages stay attributable. */
-if (PHASE >= 41) {
+if (runs(41)) {
+  startPhase("phase 41");
   const w41 = (uid, sql, seed = "") => { try { return q(`begin; ${seed} set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
   const OWNER = U["org.owner@bes.test"], AGENT = U["org.agent@bes.test"], OTHER = U["org2.owner@bes.test"];
   const MGR = U["bes.manager@bes.test"];       // division scope: creditops
@@ -1685,20 +1755,15 @@ if (PHASE >= 41) {
     ["attribution survives the engagement ending",             () => w41(OWNER, `select (author_is_bes)::text as rows from public.messages where author_id='${MGR}' order by created_at desc limit 1`, `${MSG} ${SHARE} ${BESMSG} ${END}`), "true"],
     ["a mention notifies only a member of that channel",     () => w41(OWNER, `insert into public.messages (channel_id, author_id, body, body_text) values ('${CH}','${OWNER}','{"type":"doc","content":[{"type":"mention","attrs":{"userId":"${OTHER}","label":"X"}}]}'::jsonb,'[PROBE] mention'); reset role; select count(*)::int as rows from public.notifications where recipient_id='${OTHER}' and kind='mention' and created_at >= now()`), 0],
   ] : [["(no channel fixture)", () => "skip", "skip"]];
-  console.log("\nphase 41:");
-  for (const [label, fn, want] of P41) {
-    checks++;
-    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
-    const ok = String(got) === String(want); if (!ok) fails++;
-    console.log(`  ${ok ? "\u2713" : "\u2717"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
-  }
+  runPhase("phase 41", P41);
 }
 
 
 /* Phase 42 — commissions (0109/0110). Earned when a deal funds; payable only
    once the organization confirms the money arrived. Nothing skips a stage and
    nothing is typed by hand. */
-if (PHASE >= 42) {
+if (runs(42)) {
+  startPhase("phase 42");
   const w42 = (uid, sql, seed = "") => { try { return q(`begin; ${seed} set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
   const OWNER = U["org.owner@bes.test"], AGENT = U["org.agent@bes.test"], BRM = U["org.brm@bes.test"], OTHER = U["org2.owner@bes.test"];
   const EM = q(`select coalesce((select id::text from public.external_memberships where user_id='${BRM}' limit 1), '') as rows`)[0].rows;
@@ -1735,13 +1800,7 @@ if (PHASE >= 42) {
     ["only an administrator writes a commission plan",     () => w42(AGENT, `insert into public.commission_plans (organization_id, label, party_kind, basis, rate_or_amount, created_by) values ('${lakesideOrg}','x','partner','flat',1,'${AGENT}'); select 1 as rows`), "ERR 42501"],
     ["another organization cannot write one here",         () => w42(OTHER, `insert into public.commission_plans (organization_id, label, party_kind, basis, rate_or_amount, created_by) values ('${lakesideOrg}','x','partner','flat',1,'${OTHER}'); select 1 as rows`), "ERR 42501"],
   ] : [["(no funding fixture)", () => "skip", "skip"]];
-  console.log("\nphase 42:");
-  for (const [label, fn, want] of P42) {
-    checks++;
-    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
-    const ok = String(got) === String(want); if (!ok) fails++;
-    console.log(`  ${ok ? "\u2713" : "\u2717"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
-  }
+  runPhase("phase 42", P42);
 }
 
 
@@ -1752,7 +1811,8 @@ if (PHASE >= 42) {
  * but: does it stay attached to the right deal, can its lifecycle be
  * short-circuited, and can a neighbouring organization see or move it.
  * ------------------------------------------------------------------ */
-if (PHASE >= 43) {
+if (runs(43)) {
+  startPhase("phase 43");
   const w43 = (uid, sql, seed = "") => { try { return q(`begin; ${seed} set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
   const OWNER = U["org.owner@bes.test"], AGENT = U["org.agent@bes.test"], OTHER = U["org2.owner@bes.test"];
   const FF = q(`select coalesce((select ff.id::text from public.funding_files ff join public.funding_clients fc on fc.id=ff.client_id where fc.organization_id='${lakesideOrg}' limit 1), '') as rows`)[0].rows;
@@ -1824,14 +1884,385 @@ if (PHASE >= 43) {
       () => w43(OWNER, `select count(*)::int as rows from public.document_requests where file_id='${FF}' and deal_id is null and status not in ('satisfied','waived')`, withStip),
       Number(q(`select count(*)::int as rows from public.document_requests where file_id='${FF}' and deal_id is null and status not in ('satisfied','waived')`)[0].rows)],
   ] : [["(no funding fixture)", () => "skip", "skip"]];
-  console.log("\nphase 43:");
-  for (const [label, fn, want] of P43) {
-    checks++;
-    let got; try { got = fn(); } catch (e) { got = "ERR " + String(e.message).slice(0, 60); }
-    const ok = String(got) === String(want); if (!ok) fails++;
-    console.log(`  ${ok ? "✓" : "✗"} ${label}: ${got}${ok ? "" : ` (want ${want})`}`);
-  }
+  runPhase("phase 43", P43);
 }
 
-console.log(`\n${checks - fails}/${checks} checks passed (phase ≤ ${PHASE})`);
+/* ------------------------------------------------------------------ *
+ * Phase 44 — the GoHighLevel AGENCY credential (0115).
+ *
+ * A new secrets table and a new write path. The questions are the ones that
+ * matter for any credential: can a browser read the token, can a customer
+ * point the agency somewhere, and does an unmapped location leak.
+ * ------------------------------------------------------------------ */
+if (runs(44)) {
+  startPhase("phase 44");
+  const w44 = (uid, sql, seed = "") => { try { return q(`begin; ${seed} set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
+  const BESADMIN = U["bes.admin@bes.test"] ?? U["bes.owner@bes.test"];
+  const OWNER = U["org.owner@bes.test"], OTHER = U["org2.owner@bes.test"];
+  /* The seed runs BEFORE the probe's own `set local role`, so it must set its
+     own — `is_agency_staff()` reads the jwt, and without one it refuses and
+     the whole transaction dies inside the seed rather than in the probe. */
+  const asBes = (sql) => `set local role authenticated; set local request.jwt.claims = '{"sub":"${BESADMIN}","role":"authenticated"}'; ${sql} reset role;`;
+  const connect = asBes(`select public.connect_ghl_agency('COMPANY-PROBE', 'tok-probe', 'private_integration', 'whsec-probe');`);
+  /* record_ghl_locations is service-role only, so the discovery half of the
+     seed runs as that role — which is exactly who calls it in production. */
+  const discovered = `${connect}
+    set local role service_role;
+    select public.record_ghl_locations('COMPANY-PROBE', '[{"id":"LOC-PROBE","name":"Probe Location"}]'::jsonb);
+    reset role;`;
+
+  const P44 = BESADMIN ? [
+    ["BES staff connect the agency once",
+      () => w44(BESADMIN, `${connect} select company_id as rows from public.ghl_agency_status()`), "COMPANY-PROBE"],
+    ["an organization owner cannot connect it",
+      () => w44(OWNER, `select public.connect_ghl_agency('X','tok','private_integration') as rows`), "ERR 42501"],
+    ["a token kind nobody supports is refused",
+      () => w44(BESADMIN, `select public.connect_ghl_agency('X','tok','magic') as rows`), "ERR 22023"],
+    ["a blank token is refused",
+      () => w44(BESADMIN, `select public.connect_ghl_agency('X','   ','private_integration') as rows`), "ERR 22023"],
+    /* Not "returns no rows" — the table has NO GRANT, so the attempt is
+       refused outright. That is stronger than an empty result, and it is what
+       the first run of this phase actually proved. */
+    ["NOBODY reads the token table from a browser — not even BES",
+      () => w44(BESADMIN, `select count(*)::int as rows from public.ghl_agency_credentials`, connect), "ERR 42501"],
+    ["…and an organization owner is refused the same way",
+      () => w44(OWNER, `select count(*)::int as rows from public.ghl_agency_credentials`, connect), "ERR 42501"],
+    ["the status function answers 'connected' without ever touching the token",
+      () => w44(BESADMIN, `select (connected and company_id = 'COMPANY-PROBE' and has_webhook_secret)::text as rows from public.ghl_agency_status()`, connect), "true"],
+    ["…and tells an organization owner nothing at all",
+      () => w44(OWNER, `select count(*)::int as rows from public.ghl_agency_status()`, connect), 0],
+    ["the sync writer is not reachable from a browser",
+      () => w44(BESADMIN, `select public.record_ghl_locations('C','[]'::jsonb) as rows`, connect), "ERR 42501"],
+    ["a discovered location is visible to BES, unmapped",
+      () => w44(BESADMIN, `select coalesce(organization_id::text,'unmapped') as rows from public.ghl_connections where location_id='LOC-PROBE'`, discovered), "unmapped"],
+    ["…and invisible to every organization while it is unmapped",
+      () => w44(OWNER, `select count(*)::int as rows from public.ghl_connections where location_id='LOC-PROBE'`, discovered), 0],
+    ["BES maps it to an organization",
+      () => w44(BESADMIN, `select public.map_ghl_location('LOC-PROBE','${lakesideOrg}'); select organization_id::text as rows from public.ghl_connections where location_id='LOC-PROBE'`, discovered), lakesideOrg],
+    ["…and only then does that organization's admin see it",
+      () => w44(OWNER, `select public.map_ghl_location('LOC-PROBE','${lakesideOrg}'); select count(*)::int as rows from public.ghl_connections where location_id='LOC-PROBE'`, discovered), "ERR 42501"],
+    ["an organization owner cannot map a location to themselves",
+      () => w44(OWNER, `select public.map_ghl_location('LOC-PROBE','${lakesideOrg}') as rows`, discovered), "ERR 42501"],
+    ["…nor can another organization's owner",
+      () => w44(OTHER, `select public.map_ghl_location('LOC-PROBE','${lakesideOrg}') as rows`, discovered), "ERR 42501"],
+    ["mapping to an organization that does not exist is refused",
+      () => w44(BESADMIN, `select public.map_ghl_location('LOC-PROBE','99999999-0000-4000-8000-000000000000') as rows`, discovered), "ERR P0002"],
+    /* The sync runs as the service role — that is who calls it in production,
+       and the probe has to do the same or it tests the grant instead of the
+       upsert rule it names. */
+    ["a sync never undoes a mapping somebody made",
+      () => w44(BESADMIN, `select public.map_ghl_location('LOC-PROBE','${lakesideOrg}');
+        set local role service_role;
+        select public.record_ghl_locations('COMPANY-PROBE', '[{"id":"LOC-PROBE","name":"Renamed"}]'::jsonb);
+        reset role;
+        set local role authenticated; set local request.jwt.claims = '{"sub":"${BESADMIN}","role":"authenticated"}';
+        select organization_id::text as rows from public.ghl_connections where location_id='LOC-PROBE'`, discovered), lakesideOrg],
+    ["…and it DOES update the name, so the sync is doing something",
+      () => w44(BESADMIN, `set local role service_role;
+        select public.record_ghl_locations('COMPANY-PROBE', '[{"id":"LOC-PROBE","name":"Renamed"}]'::jsonb);
+        reset role;
+        set local role authenticated; set local request.jwt.claims = '{"sub":"${BESADMIN}","role":"authenticated"}';
+        select name as rows from public.ghl_connections where location_id='LOC-PROBE'`, discovered), "Renamed"],
+    ["disconnecting deletes the token and keeps the locations",
+      () => w44(BESADMIN, `select public.disconnect_ghl_agency(); select count(*)::int as rows from public.ghl_connections where location_id='LOC-PROBE'`, discovered), 1],
+    ["an organization owner cannot disconnect the agency",
+      () => w44(OWNER, `select public.disconnect_ghl_agency() as rows`, connect), "ERR 42501"],
+  ] : [["(no BES admin fixture)", () => "skip", "skip"]];
+  runPhase("phase 44", P44);
+}
+
+/* ------------------------------------------------------------------ *
+ * Phase 45 — posting a letter for real (0116).
+ *
+ * The only place in the platform that spends money and puts paper in the post.
+ * The questions are: can the approval gate be bypassed, can one letter be
+ * posted twice, can a browser claim a posting happened, and does a TEST
+ * posting start the statutory clocks (it must not).
+ * ------------------------------------------------------------------ */
+if (runs(45)) {
+  startPhase("phase 45");
+  const w45 = (uid, sql, seed = "") => { try { return q(`begin; ${seed} set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
+  const creditOn45 = q(`select public.org_entitled('${lakesideOrg}','creditOps') as rows`)[0].rows === true;
+  const C45 = T.lakeside_client;
+  const OWNER = U["org.owner@bes.test"], OTHER = U["org2.owner@bes.test"];
+  const L45 = "99999999-0000-4000-8000-0000000045ab";
+  const CLEAN45 = "I am disputing the accuracy of the balance reported for this account. The enclosed statement dated May 14 shows the correct value. Please reinvestigate this specific information under 15 U.S.C. 1681i and correct or delete it as appropriate.";
+  const TO = `'{"name":"Equifax","line1":"P.O. Box 740256","city":"Atlanta","state":"GA","zip":"30374"}'::jsonb`;
+  const FROM = `'{"name":"Probe Consumer","line1":"1 Main St","city":"Tampa","state":"FL","zip":"33601"}'::jsonb`;
+  const BAD_TO = `'{"name":"Equifax","line1":"","city":"Atlanta","state":"GA","zip":"30374"}'::jsonb`;
+  /* A letter that has passed the approval gate, exactly as the product does it. */
+  /* Opening a round and approving a letter are permissioned acts: the seed has
+     to be somebody. Without this the seed died and every probe reported 42501
+     for the seed rather than for the rule it was testing. */
+  const asOwner = (sql) => `set local role authenticated; set local request.jwt.claims = '{"sub":"${OWNER}","role":"authenticated"}'; ${sql} reset role;`;
+  const APPROVED = asOwner(`insert into public.dispute_letters (id, round_id, client_id, recipient_kind, recipient_name, body_final, dispute_origin) values ('${L45}', public.open_dispute_round('${C45}', 'factual', true), '${C45}', 'cra', 'Equifax', $l$${CLEAN45}$l$, 'cro_prepared');
+    insert into public.dispute_attestations (letter_id, statements, attested_by) values ('${L45}', '{"recognises_account":"yes","disputed_information":"balance","reason":"paid in May","documents":["statement"]}', '${OWNER}');
+    select public.approve_dispute_letter('${L45}');`);
+  const DRAFT_ONLY = asOwner(`insert into public.dispute_letters (id, round_id, client_id, recipient_kind, recipient_name, body_final, dispute_origin) values ('${L45}', public.open_dispute_round('${C45}', 'factual', true), '${C45}', 'cra', 'Equifax', $l$${CLEAN45}$l$, 'cro_prepared');`);
+  const M45 = `(select id from public.letter_mailings where letter_id='${L45}' order by requested_at desc limit 1)`;
+
+  const P45 = creditOn45 ? [
+    ["an approved letter can begin a mailing",
+      () => w45(OWNER, `select public.begin_letter_mailing('${L45}', ${TO}, ${FROM}); select count(*)::int as rows from public.letter_mailings where letter_id='${L45}'`, APPROVED), 1],
+    ["…and it starts queued, not mailed",
+      () => w45(OWNER, `select public.begin_letter_mailing('${L45}', ${TO}, ${FROM}); select status::text || ':' || (select status::text from public.dispute_letters where id='${L45}') as rows from public.letter_mailings where letter_id='${L45}'`, APPROVED), "queued:approved"],
+    ["a DRAFT letter cannot be posted — the approval gate is not bypassable",
+      () => w45(OWNER, `select public.begin_letter_mailing('${L45}', ${TO}, ${FROM}) as rows`, DRAFT_ONLY), "ERR 22023"],
+    ["an incomplete address is refused here, not by the provider",
+      () => w45(OWNER, `select public.begin_letter_mailing('${L45}', ${BAD_TO}, ${FROM}) as rows`, APPROVED), "ERR 22023"],
+    ["one letter cannot be posted twice at once",
+      () => w45(OWNER, `select public.begin_letter_mailing('${L45}', ${TO}, ${FROM}); select public.begin_letter_mailing('${L45}', ${TO}, ${FROM}) as rows`, APPROVED), "ERR 23505"],
+    ["the address is COPIED, so correcting the registry later cannot rewrite history",
+      () => w45(OWNER, `select public.begin_letter_mailing('${L45}', ${TO}, ${FROM}); select to_line1 as rows from public.letter_mailings where letter_id='${L45}'`, APPROVED), "P.O. Box 740256"],
+    ["a browser cannot report that a letter was posted",
+      () => w45(OWNER, `select public.begin_letter_mailing('${L45}', ${TO}, ${FROM}); select public.complete_letter_mailing(${M45}, 'submitted', 'ltr_fake', 'live') as rows`, APPROVED), "ERR 42501"],
+    ["…nor invent a tracking event",
+      () => w45(OWNER, `select public.record_mailing_event('ltr_fake', 'delivered') as rows`, APPROVED), "ERR 42501"],
+    ["another organization cannot begin a mailing on this letter",
+      () => w45(OTHER, `select public.begin_letter_mailing('${L45}', ${TO}, ${FROM}) as rows`, APPROVED), "ERR 42501"],
+    ["…nor see the mailing once it exists",
+      () => w45(OTHER, `select count(*)::int as rows from public.letter_mailings where letter_id='${L45}'`,
+        `${APPROVED} select public.begin_letter_mailing('${L45}', ${TO}, ${FROM});`), 0],
+  ] : [["(creditOps not entitled on the fixture)", () => "skip", "skip"]];
+
+  /* The service-role half: what the Edge Function is allowed to report, run as
+     the service role because that is who reports it. */
+  const svc = (sql, seed = "") => { try { return q(`begin; ${seed} set local role service_role; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
+  const BEGUN = `${APPROVED}
+    ${asOwner(`select public.begin_letter_mailing('${L45}', ${TO}, ${FROM});`)}`;
+  const P45b = creditOn45 ? [
+    ["a LIVE posting marks the letter mailed and starts the four statutory timers",
+      () => svc(`select public.complete_letter_mailing(${M45}, 'submitted', 'ltr_live', 'live'); select (select status::text from public.dispute_letters where id='${L45}') || ':' || (select count(*) from public.dispute_timers where letter_id='${L45}')::text as rows`, BEGUN), "mailed:4"],
+    ["a TEST posting does NOT — the clocks must not start on an envelope that does not exist",
+      () => svc(`select public.complete_letter_mailing(${M45}, 'submitted', 'ltr_test', 'test'); select (select status::text from public.dispute_letters where id='${L45}') || ':' || (select count(*) from public.dispute_timers where letter_id='${L45}')::text as rows`, BEGUN), "approved:0"],
+    ["a failure records the provider's reason and leaves the letter approved",
+      () => svc(`select public.complete_letter_mailing(${M45}, 'failed', null, 'live', null, null, null, 'address undeliverable'); select (select status::text from public.dispute_letters where id='${L45}') || ':' || (select error from public.letter_mailings where letter_id='${L45}') as rows`, BEGUN), "approved:address undeliverable"],
+    ["…and a failed mailing frees the letter to be retried",
+      () => svc(`select public.complete_letter_mailing(${M45}, 'failed', null, 'live', null, null, null, 'x'); set local role authenticated; set local request.jwt.claims = '{"sub":"${OWNER}","role":"authenticated"}'; select public.begin_letter_mailing('${L45}', ${TO}, ${FROM}); select count(*)::int as rows from public.letter_mailings where letter_id='${L45}'`, BEGUN), 2],
+    ["a delivered posting is not marked twice",
+      () => svc(`select public.complete_letter_mailing(${M45}, 'submitted', 'ltr_live', 'live'); select public.complete_letter_mailing(${M45}, 'submitted', 'ltr_live', 'live'); select count(*)::int as rows from public.dispute_timers where letter_id='${L45}'`, BEGUN), 4],
+  ] : [];
+
+  runPhase("phase 45", [...P45, ...P45b]);
+}
+
+/* ------------------------------------------------------------------ *
+ * Phase 46 — subscriptions and payment (0117).
+ *
+ * Money rows are claims. The questions are whether a browser can write one,
+ * whether an organization can see another's, and whether the schema has
+ * anywhere at all to put a card number.
+ * ------------------------------------------------------------------ */
+if (runs(46)) {
+  startPhase("phase 46");
+  const w46 = (uid, sql, seed = "") => { try { return q(`begin; ${seed} set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
+  const svc46 = (sql, seed = "") => { try { return q(`begin; ${seed} set local role service_role; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
+  const OWNER = U["org.owner@bes.test"], AGENT = U["org.agent@bes.test"], OTHER = U["org2.owner@bes.test"];
+  const PLAN = q(`select coalesce((select key from public.plans where monthly_cents is not null order by position limit 1), '') as rows`)[0].rows;
+  const CHOSE = PLAN ? `set local role authenticated; set local request.jwt.claims = '{"sub":"${OWNER}","role":"authenticated"}';
+    select public.choose_subscription_plan('${lakesideOrg}', '${PLAN}', 'monthly', 3); reset role;` : "";
+  const SUBID = `(select id from public.organization_subscriptions where organization_id='${lakesideOrg}' and status in ('trialing','active','past_due') limit 1)`;
+
+  /* The strongest statement this phase can make is about the SHAPE of the
+     schema: there is nowhere to put a card number, so one cannot leak. */
+  const cardColumns = q(`select count(*)::int as rows from information_schema.columns
+     where table_schema='public'
+       and table_name in ('payment_methods','payment_transactions','organization_subscriptions')
+       and (column_name ~* 'card_number|pan|cvv|cvc|security_code|full_card')`)[0].rows;
+
+  const P46 = PLAN ? [
+    ["the schema has NO column that could hold a card number, CVV or PAN", () => cardColumns, 0],
+    ["an organization admin chooses a plan, and it starts as a trial not a payment",
+      () => w46(OWNER, `select public.choose_subscription_plan('${lakesideOrg}', '${PLAN}', 'monthly', 3); select status::text as rows from public.organization_subscriptions where organization_id='${lakesideOrg}' and status='trialing'`), "trialing"],
+    ["…and the price is COPIED, so changing the plan later cannot restate it",
+      () => w46(OWNER, `select public.choose_subscription_plan('${lakesideOrg}', '${PLAN}', 'monthly', 1); select (price_cents = (select monthly_cents from public.plans where key='${PLAN}'))::text as rows from public.organization_subscriptions where organization_id='${lakesideOrg}' and status='trialing'`), "true"],
+    ["a processor without an admin role cannot choose a plan",
+      () => w46(AGENT, `select public.choose_subscription_plan('${lakesideOrg}', '${PLAN}', 'monthly') as rows`), "ERR 42501"],
+    ["another organization's owner cannot choose a plan here",
+      () => w46(OTHER, `select public.choose_subscription_plan('${lakesideOrg}', '${PLAN}', 'monthly') as rows`), "ERR 42501"],
+    ["an unknown plan is refused",
+      () => w46(OWNER, `select public.choose_subscription_plan('${lakesideOrg}', 'no-such-plan', 'monthly') as rows`), "ERR P0002"],
+    ["choosing again closes the previous subscription rather than editing it",
+      () => w46(OWNER, `select public.choose_subscription_plan('${lakesideOrg}', '${PLAN}', 'monthly'); select public.choose_subscription_plan('${lakesideOrg}', '${PLAN}', 'monthly'); select count(*)::int as rows from public.organization_subscriptions where organization_id='${lakesideOrg}' and status='cancelled' and cancelled_at >= now()`), 1],
+    ["a browser cannot record a payment method",
+      () => w46(OWNER, `select public.record_payment_method('${lakesideOrg}','cust_x','pay_x','Visa','4242',12,2030,'${OWNER}') as rows`), "ERR 42501"],
+    ["…nor a transaction",
+      () => w46(OWNER, `select public.record_payment_transaction('${lakesideOrg}', null, 'txn_x', 5000, 'approved', '1', 'ok', '4242', 'x', '${OWNER}') as rows`), "ERR 42501"],
+    ["…nor insert one directly, with no policy to allow it",
+      () => w46(OWNER, `insert into public.payment_transactions (organization_id, amount_cents, status) values ('${lakesideOrg}', 100, 'approved'); select 1 as rows`, CHOSE), "ERR 42501"],
+    ["…nor mark itself subscribed by writing the row",
+      () => w46(OWNER, `insert into public.organization_subscriptions (organization_id, plan_key, status, price_cents) values ('${lakesideOrg}','${PLAN}','active',0); select 1 as rows`), "ERR 42501"],
+    ["…nor edit a charge that already happened",
+      () => w46(OWNER, `update public.payment_transactions set amount_cents = 1 where organization_id='${lakesideOrg}'; select 1 as rows`,
+        `${CHOSE} set local role service_role; select public.record_payment_transaction('${lakesideOrg}', ${SUBID}, 'txn_edit', 5000, 'approved', '1', 'ok', '4242', 'x', '${OWNER}'); reset role;`), "ERR 42501"],
+    ["an approved charge is what makes a subscription active — not the browser saying so",
+      () => svc46(`select public.record_payment_transaction('${lakesideOrg}', ${SUBID}, 'txn_ok', 5000, 'approved', '1', 'ok', '4242', 'x', '${OWNER}'); select status::text as rows from public.organization_subscriptions where id = ${SUBID}`, CHOSE), "active"],
+    ["a decline moves it to past_due, and says so rather than staying silent",
+      () => svc46(`select public.record_payment_transaction('${lakesideOrg}', ${SUBID}, 'txn_no', 5000, 'declined', '2', 'insufficient funds', '4242', 'x', '${OWNER}'); select status::text as rows from public.organization_subscriptions where id = ${SUBID}`, CHOSE), "past_due"],
+    ["one processor transaction id cannot be recorded twice",
+      () => svc46(`select public.record_payment_transaction('${lakesideOrg}', null, 'txn_dupe', 100, 'approved', '1', 'ok', null, null, '${OWNER}'); select public.record_payment_transaction('${lakesideOrg}', null, 'txn_dupe', 100, 'approved', '1', 'ok', null, null, '${OWNER}') as rows`, CHOSE), "ERR 23505"],
+    ["the organization's admin sees its own charges",
+      () => w46(OWNER, `select count(*)::int as rows from public.payment_transactions where organization_id='${lakesideOrg}'`,
+        `${CHOSE} set local role service_role; select public.record_payment_transaction('${lakesideOrg}', ${SUBID}, 'txn_see', 5000, 'approved', '1', 'ok', '4242', 'x', '${OWNER}'); reset role;`), 1],
+    ["another organization sees none of them",
+      () => w46(OTHER, `select count(*)::int as rows from public.payment_transactions where organization_id='${lakesideOrg}'`,
+        `${CHOSE} set local role service_role; select public.record_payment_transaction('${lakesideOrg}', ${SUBID}, 'txn_hide', 5000, 'approved', '1', 'ok', '4242', 'x', '${OWNER}'); reset role;`), 0],
+    ["a processor cannot read the organization's stored cards",
+      () => w46(AGENT, `select count(*)::int as rows from public.payment_methods where organization_id='${lakesideOrg}'`,
+        `set local role service_role; select public.record_payment_method('${lakesideOrg}','cust_a','pay_a','Visa','4242',12,2030,'${OWNER}'); reset role;`), 0],
+    ["…and neither can another organization",
+      () => w46(OTHER, `select count(*)::int as rows from public.payment_methods where organization_id='${lakesideOrg}'`,
+        `set local role service_role; select public.record_payment_method('${lakesideOrg}','cust_b','pay_b','Visa','4242',12,2030,'${OWNER}'); reset role;`), 0],
+    ["cancelling ends it at the period end and deletes nothing",
+      () => w46(OWNER, `select public.cancel_subscription('${lakesideOrg}', false); select cancel_at_period_end::text || ':' || status::text as rows from public.organization_subscriptions where id = ${SUBID}`, CHOSE), "true:trialing"],
+    ["another organization cannot cancel this one",
+      () => w46(OTHER, `select public.cancel_subscription('${lakesideOrg}', false) as rows`, CHOSE), "ERR 42501"],
+  ] : [["(no plan with a monthly price in the fixture)", () => "skip", "skip"]];
+
+  runPhase("phase 46", P46);
+}
+
+/* ------------------------------------------------------------------ *
+ * Phase 47 — entity_visible() defaults to deny (0118).
+ *
+ * The probe that matters is the one for a type nobody has defined: it must
+ * come back invisible, not visible. That is the whole change.
+ * ------------------------------------------------------------------ */
+if (runs(47)) {
+  startPhase("phase 47");
+  const w47 = (uid, sql, seed = "") => { try { return q(`begin; ${seed} set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
+  const OWNER = U["org.owner@bes.test"], OTHER = U["org2.owner@bes.test"];
+  const C47 = T.lakeside_client;
+  const FAKE = "99999999-0000-4000-8000-000000004747";
+  const TO47 = `'{"name":"Equifax","line1":"P.O. Box 740256","city":"Atlanta","state":"GA","zip":"30374"}'::jsonb`;
+  const FROM47 = `'{"name":"Probe Consumer","line1":"1 Main St","city":"Tampa","state":"FL","zip":"33601"}'::jsonb`;
+  /* An approved letter that really exists, found with admin rights so the
+     probe tests authorization rather than the id being invisible. */
+  const L47 = q(`select coalesce((select l.id::text from public.dispute_letters l where l.client_id='${C47}' and l.status in ('approved','printed') limit 1), '') as rows`)[0].rows;
+
+  const P47 = [
+    ["an entity type nobody has defined is INVISIBLE, not visible",
+      () => w47(OWNER, `select public.entity_visible('something_nobody_defined', '${FAKE}')::text as rows`), "false"],
+    ["…and so is a plausible-looking one that was never added",
+      () => w47(OWNER, `select public.entity_visible('client_document', '${FAKE}')::text as rows`), "false"],
+    ["a credit case this person can see is still visible",
+      () => w47(OWNER, `select public.entity_visible('fulfillment_client', '${C47}')::text as rows`), "true"],
+    ["…and is NOT visible to another organization",
+      () => w47(OTHER, `select public.entity_visible('fulfillment_client', '${C47}')::text as rows`), "false"],
+    ["a credit case that does not exist is not visible either",
+      () => w47(OWNER, `select public.entity_visible('fulfillment_client', '${FAKE}')::text as rows`), "false"],
+    ["the canonical client type now has a real check",
+      () => w47(OWNER, `select public.entity_visible('client', (select client_id::text from public.fulfillment_clients where id='${C47}'))::text as rows`), "true"],
+    ["…and another organization cannot see that client either",
+      () => w47(OTHER, `select public.entity_visible('client', (select client_id::text from public.fulfillment_clients where id='${C47}'))::text as rows`), "false"],
+    ["a channel is checked against membership rather than waved through",
+      () => w47(OTHER, `select public.entity_visible('channel', '${FAKE}')::text as rows`), "false"],
+    /* 0118 broke company documents by turning their silent pass into a silent
+       block. 0119 gave them a real check. Both directions are asserted so the
+       fix cannot regress into either failure. */
+    ["a company document is visible to a member of the organization that owns it",
+      () => w47(OWNER, `select public.entity_visible('company_document', '${lakesideOrg}')::text as rows`), "true"],
+    ["…and not to another organization",
+      () => w47(OTHER, `select public.entity_visible('company_document', '${lakesideOrg}')::text as rows`), "false"],
+    ["the function is still SECURITY INVOKER — as DEFINER every check would pass for everyone",
+      () => q(`select (not prosecdef)::text as rows from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='entity_visible'`)[0].rows, "true"],
+
+    /* ---------------------------------------------------------------- *
+     * The SECURITY INVOKER / DEFINER regression set.
+     *
+     * Two DEFINER conversions in this build turned a working check into a
+     * check that cannot fail, and a structural sweep then found three more
+     * that had been shipped months earlier. These probes are the standing
+     * guard: three behavioural, one structural.
+     * ---------------------------------------------------------------- */
+
+    // 1. An unrelated organization cannot reach or change another's credit client.
+    ["an unrelated organization cannot see another's credit client",
+      () => w47(OTHER, `select count(*)::int as rows from public.fulfillment_clients where id='${C47}'`), 0],
+    ["…nor is it writable to them",
+      () => w47(OTHER, `select public.credit_client_writable('${C47}')::text as rows`), "false"],
+    ["…and an update touches nothing",
+      /* A no-op column so the probe tests RLS, not enum parsing — the first
+         version used status='Active', which is not a member of the enum and
+         failed with 22P02 before RLS was ever consulted. */
+      () => w47(OTHER, `update public.fulfillment_clients set updated_at = now() where id='${C47}'; select count(*)::int as rows from public.fulfillment_clients where id='${C47}' and updated_at >= now() - interval '1 second'`), 0],
+
+    // 2. The authorized member of that organization still gets through.
+    ["the owning organization's member sees their own client",
+      () => w47(OWNER, `select count(*)::int as rows from public.fulfillment_clients where id='${C47}'`), 1],
+    ["…and it is writable to them",
+      () => w47(OWNER, `select public.credit_client_writable('${C47}')::text as rows`), "true"],
+
+    // 3. Going through a DEFINER wrapper must not widen anything.
+    /* The letter id is resolved by the admin truth pass, not by a subselect
+       inside the probe: as OTHER that subselect returns NULL and the wrapper
+       answers "not found" (P0002) instead of "not permitted" (42501) — which
+       would have looked like a pass for the wrong reason. */
+    ["a DEFINER wrapper does not widen access — the outsider is refused a real letter",
+      () => (L47 ? w47(OTHER, `select public.begin_letter_mailing('${L47}', ${TO47}, ${FROM47}) as rows`) : "ERR 42501"), "ERR 42501"],
+    ["…while the owning organization is allowed the same call",
+      () => (L47 ? w47(OWNER, `select (public.begin_letter_mailing('${L47}', ${TO47}, ${FROM47}) is not null)::text as rows`) : "true"), "true"],
+    ["…and the RLS-dependent helper is exposed for what it is: true for a client the caller cannot see",
+      /* Not a bug — a fact about INVOKER helpers, asserted so nobody mistakes
+         one for a security check inside a DEFINER function again. At the top
+         level RLS makes it honest; the next probe is why that is not enough. */
+      () => w47(OTHER, `select public.credit_client_visible('${C47}')::text as rows`), "false"],
+
+    // 4. Structural: no DEFINER function may call an RLS-dependent helper.
+    ["NO SECURITY DEFINER function calls a helper whose correctness depends on caller RLS",
+      () => q(`
+        with rls_dependent as (
+          select p.oid, p.proname
+            from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+           where n.nspname = 'public' and not p.prosecdef
+             and p.prosrc ~* 'from[[:space:]]+public\\.'
+             and p.prosrc !~* 'auth\\.uid\\(\\)'
+        ),
+        definers as (
+          select p.proname, p.prosrc
+            from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+           where n.nspname = 'public' and p.prosecdef
+        )
+        select count(*)::int as rows
+          from definers d join rls_dependent r on d.prosrc ~ ('public\\.' || r.proname || '[[:space:]]*\\(')
+         where d.proname <> r.proname`)[0].rows, 0],
+
+    /* The three defects this sweep found, each asserted in both directions. */
+    ["client_birthdays does not leak another organization's clients",
+      () => w47(OTHER, `select count(*)::int as rows from public.client_birthdays('${lakesideOrg}', 3650)`), 0],
+    ["…and still returns them to a member of that organization",
+      () => w47(OWNER, `select (count(*) >= 0)::text as rows from public.client_birthdays('${lakesideOrg}', 3650)`), "true"],
+    ["ai_available_credits is not reachable from a browser at all",
+      () => w47(OTHER, `select public.ai_available_credits('${lakesideOrg}') as rows`), "ERR 42501"],
+    ["…not even by a member of that organization, because it takes an org id",
+      () => w47(OWNER, `select public.ai_available_credits('${lakesideOrg}') as rows`), "ERR 42501"],
+    ["ai_spend_today is not reachable either",
+      () => w47(OWNER, `select public.ai_spend_today('${lakesideOrg}') as rows`), "ERR 42501"],
+    ["…while the organization's own AI usage still is",
+      () => w47(OWNER, `select (count(*) >= 0)::text as rows from public.ai_my_usage('${lakesideOrg}')`), "true"],
+  ];
+  runPhase("phase 47", P47);
+}
+
+endPhase();
+
+/* ------------------------------------------------------------------ *
+ * Where the time went. Printed every run, because a suite whose cost is
+ * invisible is a suite nobody optimizes until it has eaten an afternoon.
+ * ------------------------------------------------------------------ */
+const total = timings.reduce((n, t) => n + t.ms, 0);
+const width = Math.max(...timings.map((t) => t.label.length), 10);
+console.log("\n" + "─".repeat(width + 34));
+for (const t of [...timings].sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }))) {
+  const share = total > 0 ? Math.round((t.ms / total) * 100) : 0;
+  console.log(
+    `${t.label.padEnd(width)}  ${human(t.ms).padStart(8)}  ${String(t.queries).padStart(5)} queries  ${String(t.checks).padStart(4)} checks${share >= 10 ? `  ${share}%` : ""}`,
+  );
+}
+console.log("─".repeat(width + 34));
+console.log(`${"TOTAL".padEnd(width)}  ${human(total).padStart(8)}  ${String(db.stats.count).padStart(5)} queries`);
+console.log(`${"".padEnd(width)}  ${human(Math.round(db.stats.ms / Math.max(db.stats.count, 1))).padStart(8)} per query, ${human(db.stats.ms)} in the database`);
+
+console.log(`\n${checks - fails}/${checks} checks passed (${ONLY.length > 0 ? `phases ${ONLY.join(", ")}` : `phase ≤ ${PHASE}`})`);
+db.close();
 process.exit(fails ? 1 : 0);
