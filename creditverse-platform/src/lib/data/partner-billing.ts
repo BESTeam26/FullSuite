@@ -450,3 +450,24 @@ export async function fetchFinancialInputs(month: Month): Promise<FinancialInput
     }),
   };
 }
+
+/**
+ * Invoices past their due date across every partner, for the Attention Center.
+ *
+ * A count and the minimum a card needs to name the worst one — not the whole
+ * invoice, and not every invoice ever. `overdue` is a stored status maintained
+ * by `mark_overdue_invoices()`, so reading this page does not write rows.
+ */
+export async function fetchOverdueInvoices(limit = 50): Promise<PartnerInvoice[]> {
+  const sb = requireSupabase();
+  const { data, error } = await sb
+    .from("partner_invoices").select(INVOICE_COLUMNS)
+    .in("status", ["overdue", "sent", "partially_paid"])
+    .lt("due_date", new Date().toISOString().slice(0, 10))
+    .order("due_date")
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? [])
+    .map((r) => mapInvoice(r as Record<string, unknown>))
+    .filter((i) => i.totalCents > i.amountPaidCents);
+}

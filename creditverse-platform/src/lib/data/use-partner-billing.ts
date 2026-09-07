@@ -11,7 +11,8 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { useAgencyPermissions } from "@/lib/data/agency-permissions";
 import {
   cancelScheduleEntry, createInstalmentPlan, createInvoice, fetchFinancialInputs,
-  fetchInvoiceLines, fetchPartnerInvoices, fetchPartnerPayments, fetchPartnerSchedule,
+  fetchInvoiceLines, fetchOverdueInvoices, fetchPartnerInvoices, fetchPartnerPayments,
+  fetchPartnerSchedule,
   markInvoiceSent, recordPayment, refundPayment, voidInvoice,
 } from "@/lib/data/partner-billing";
 import type { Month } from "@/lib/partners/billing-engine";
@@ -128,4 +129,21 @@ export function usePartnerBillingActions(groupId: string) {
     }),
     cancelScheduled: useMutation({ mutationFn: cancelScheduleEntry, onSuccess: refresh }),
   };
+}
+
+/**
+ * Every overdue invoice, agency-wide. One key, so the Attention Center and a
+ * finance card share the request rather than issuing two.
+ */
+export function useOverdueInvoices() {
+  const auth = useAuth();
+  const perms = useAgencyPermissions();
+  const allowed = perms.can("partners.invoices.view");
+  const q = useQuery({
+    queryKey: ["agency", "overdue-invoices"],
+    queryFn: () => fetchOverdueInvoices(),
+    enabled: live(auth) && allowed,
+    staleTime: 60_000,
+  });
+  return { ...q, allowed };
 }

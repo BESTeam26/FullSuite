@@ -18,6 +18,7 @@ import {
   ListTodo, Megaphone, Timer, Users,
 } from "lucide-react";
 import { ContentCard } from "@/components/dashboard/DivisionLayout";
+import { HomeFinanceStrip } from "@/components/agency/finance/HomeFinanceStrip";
 import { HolidayBanner, UpcomingHolidaysCard } from "@/components/agency/HolidayBanner";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useAgencyWork } from "@/lib/data/use-work";
@@ -88,6 +89,10 @@ export const AgencyHome = () => {
                 <Tile to="/app/team-workspace" icon={CheckCircle2} label="Done today" value={buckets.completedToday.length} tone="text-status-success" />
               </div>
             </section>
+
+            {/* Renders nothing without the finance capability — the strip is
+                not part of the page for anybody else. */}
+            <HomeFinanceStrip />
 
             <ContentCard
               title={<span className="flex items-center gap-2"><Timer className="h-4 w-4 text-muted-foreground" /> My End of Day</span>}

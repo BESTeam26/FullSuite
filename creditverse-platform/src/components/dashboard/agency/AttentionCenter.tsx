@@ -9,6 +9,8 @@ import {
   ArrowRight,
   Clock,
   Ban,
+  Handshake,
+  Receipt,
 } from "lucide-react";
 import type { ElementType } from "react";
 import { Card } from "@/components/ui/card";
@@ -16,6 +18,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { useAttention } from "@/lib/data/use-work";
+import { useAgencyPartners } from "@/lib/data/use-agency-partners";
+import { useOverdueInvoices } from "@/lib/data/use-partner-billing";
+import { useAgencyPermissions } from "@/lib/data/agency-permissions";
+import { healthNeedsAttention } from "@/lib/partners/partner-account";
 import { DataSourceBadge } from "@/components/dashboard/DataSourceBadge";
 
 type Severity = "high" | "medium" | "low";
@@ -63,6 +69,17 @@ const severityConfig: Record<
 export const AttentionCenter = () => {
   const navigate = useNavigate();
   const { counts, items, source } = useAttention();
+  const perms = useAgencyPermissions();
+  /* Already fetched by the partner directory under the same key, so this adds
+     no request when either has run (rule 14). */
+  const partners = useAgencyPartners();
+  const atRisk = (partners.data ?? []).filter((p) => healthNeedsAttention(p.health)).length;
+
+  /* Overdue money is only a card for somebody the database would show it to.
+     Not greyed out, not zero — absent. */
+  const overdue = useOverdueInvoices();
+  const canSeeMoney = overdue.allowed;
+  const overdueInvoices = (overdue.data ?? []).length;
 
   // Work-engine signals are real (live or seed-derived, never invented).
   const workCards: AttentionCard[] = [
@@ -103,7 +120,36 @@ export const AttentionCenter = () => {
      billing issues, compliance reviews, integration problems, escalations —
      used to sit here permanently reading zero; a card that can never be
      anything but zero tells nobody anything. */
-  const cards = workCards;
+  /* Two signals that are real and were not on this board: a relationship
+     somebody has judged to be in trouble, and money that is late. Both link to
+     the screen that can act on them. */
+  const partnerCards: AttentionCard[] = [
+    {
+      icon: Handshake,
+      label: "Partners at risk",
+      count: atRisk,
+      severity: "medium",
+      action: "Open BES Partners",
+      route: "/app/bes-partners",
+      description: "Concerned or at risk, as somebody recorded it",
+      live: true,
+    },
+  ];
+
+  const financeCards: AttentionCard[] = canSeeMoney ? [
+    {
+      icon: Receipt,
+      label: "Overdue invoices",
+      count: overdueInvoices,
+      severity: "high",
+      action: "Open Finance",
+      route: "/app/finance",
+      description: "Past the due date and still owed",
+      live: true,
+    },
+  ] : [];
+
+  const cards = [...workCards, ...partnerCards, ...financeCards];
 
   return (
     <Card className="p-5 border-border shadow-sm">
