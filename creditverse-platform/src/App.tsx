@@ -17,6 +17,7 @@ import { RequirePortalClient } from "@/components/auth/RequirePortalClient";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { RequireAgencyStaff } from "@/components/auth/RequireAgencyStaff";
 import { RequireAgencyRoute } from "@/components/auth/RequireAgencyRoute";
+import { AuthLandingRedirect } from "@/components/auth/AuthLandingRedirect";
 import { RequireEntitlement } from "./components/auth/RequireEntitlement";
 import { RequirePermission } from "./components/auth/RequirePermission";
 import { RequireHubModule } from "./components/auth/RequireHubModule";
@@ -185,7 +186,7 @@ const App = () => (
                         <CrmAutomationProvider>
                           <Suspense fallback={<RouteFallback />}>
                             <Routes>
-                              <Route path="/" element={<Index />} />
+                              <Route path="/" element={<AuthLandingRedirect><Index /></AuthLandingRedirect>} />
                               <Route path="/signup" element={<SignUp />} />
                           <Route path="/login" element={<Login />} />
                               <Route path="/accept-invitation/:token" element={<AcceptInvitation />} />
