@@ -133,6 +133,7 @@ const MyTimePage = lazy(
   named(() => import("./pages/app/MyTimePage"), "MyTimePage"),
 );
 const EodPage = lazy(named(() => import("./pages/app/EodPage"), "EodPage"));
+const TeamEodPage = lazy(named(() => import("./pages/app/TeamEodPage"), "TeamEodPage"));
 const AgencyTeamWorkspace = lazy(
   named(() => import("./pages/app/AgencyTeamWorkspace"), "AgencyTeamWorkspace"),
 );
@@ -313,6 +314,14 @@ const App = () => (
                                   element={<MyTimePage />}
                                 />
                                 <Route path="eod" element={<EodPage />} />
+                                <Route
+                                  path="team-eod"
+                                  element={
+                                    <RequireAgencyStaff label="Team EOD">
+                                      <TeamEodPage />
+                                    </RequireAgencyStaff>
+                                  }
+                                />
                                 {/* The BES team's own workspace. Agency staff
                                     only — this is internal work, not a
                                     customer's (rule 16). */}

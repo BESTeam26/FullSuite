@@ -1,270 +1,184 @@
 /**
- * End of Day — auto-derived production totals plus the employee's shift context.
+ * End of Day — written by the system, confirmed by the person.
  *
- * The totals on this screen are never entered and never stored: they are
- * derived from non-voided production logs every time the page renders
- * (engine rules 1 and 2). There is deliberately no input that could change a
- * number here — the only way to move a total is to complete work.
+ * The employee does not retype their day. Tasks completed, tasks moved, files
+ * worked, actions ticked, time recorded, what is overdue and what is blocked
+ * all come from the canonical records. They add only what the system cannot
+ * know: why something stalled, what help they need, what tomorrow looks like.
  *
- * Extracted from HqPages when it was wired to real data, for the same reason
- * as My Time: that file already carried six unrelated pages (rule 13).
+ * Submission is honest about itself. A person submitting is named; the system
+ * submitting at the cutoff names nobody and says so. The value of an EOD is
+ * that somebody stood behind it, and a report that forges that signature has
+ * destroyed the only thing it was measuring.
  */
 import { useEffect, useState } from "react";
-import { formatDate } from "@/lib/format-date";
-import { Timer, AlertTriangle, CheckCircle2 } from "lucide-react";
-import { ContentCard } from "@/components/dashboard/DivisionLayout";
-import { DataSourceBadge } from "@/components/dashboard/DataSourceBadge";
+import {
+  AlertTriangle, CalendarClock, CheckCircle2, CircleSlash, Clock,
+  Loader2, Send, Timer,
+} from "lucide-react";
 import { HqPageShell } from "@/pages/app/HqPages";
+import { ContentCard } from "@/components/dashboard/DivisionLayout";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { EodProductionSummary } from "@/components/agency/EodProductionSummary";
 import { useAuth } from "@/lib/auth/auth-context";
-import { useEod } from "@/lib/data/use-time";
-import { isEodMissing } from "@/lib/eod-production-engine";
-import { divisionLabel } from "@/lib/time-domain";
+import { useEodActivity, useEodDay, useSaveEod, todayLocal } from "@/lib/data/use-eod-day";
+import { SUBMISSION_LABEL, submissionKind, type EodNotes } from "@/lib/data/eod-day";
+import { formatDate } from "@/lib/format-date";
+import { cn } from "@/lib/utils";
 
-const DIVISION_ORDER = [
-  "creditops",
-  "fundingops",
-  "bes-crm",
-  "talentops",
-] as const;
+const NOTE_FIELDS: { key: keyof EodNotes; label: string; placeholder: string }[] = [
+  { key: "additionalNotes", label: "Accomplishments not shown above", placeholder: "Anything you did that is not a task or a file — a call, a fix, helping someone." },
+  { key: "blockers", label: "Blockers and issues", placeholder: "What is in your way?" },
+  { key: "escalations", label: "Help needed", placeholder: "What do you need from someone else?" },
+  { key: "unfinishedWork", label: "Carryover", placeholder: "What is not finished and moves to tomorrow?" },
+  { key: "nextWorkdayPriority", label: "Tomorrow's priorities", placeholder: "What comes first tomorrow?" },
+];
 
-interface ContextFields {
-  unfinishedWork: string;
-  blockers: string;
-  additionalNotes: string;
-  nextWorkdayPriority: string;
+function Count({ icon: Icon, label, value, tone }: { icon: typeof Clock; label: string; value: number; tone?: string }) {
+  return (
+    <div className="rounded-lg border border-border bg-card px-3 py-2">
+      <div className="flex items-center gap-1.5">
+        <Icon className={cn("h-3.5 w-3.5", tone ?? "text-muted-foreground")} />
+        <span className="text-lg font-bold text-foreground">{value}</span>
+      </div>
+      <p className="text-[11px] text-muted-foreground">{label}</p>
+    </div>
+  );
 }
 
-const EMPTY: ContextFields = {
-  unfinishedWork: "",
-  blockers: "",
-  additionalNotes: "",
-  nextWorkdayPriority: "",
-};
-
 export const EodPage = () => {
-  const { displayName } = useAuth();
-  const eod = useEod();
-  const [fields, setFields] = useState<ContextFields>(EMPTY);
-  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  const { user } = useAuth();
+  const date = todayLocal();
+  const activity = useEodActivity(date);
+  const day = useEodDay(date);
+  const save = useSaveEod(date);
 
-  // Seed the form from the saved EOD once it arrives, but never overwrite what
-  // the user has since typed — hence keying on the record rather than syncing
-  // on every render.
-  const recordKey = eod.context?.id ?? null;
+  const [notes, setNotes] = useState<EodNotes>({});
+  const [dirty, setDirty] = useState(false);
+
+  /* Load the person's own words once; never overwrite what they are typing. */
   useEffect(() => {
-    if (recordKey === loadedFor) return;
-    setFields({
-      unfinishedWork: eod.context?.unfinishedWork ?? "",
-      blockers: eod.context?.blockers ?? "",
-      additionalNotes: eod.context?.additionalNotes ?? "",
-      nextWorkdayPriority: eod.context?.nextWorkdayPriority ?? "",
+    if (!day.data || dirty) return;
+    setNotes({
+      unfinishedWork: day.data.unfinishedWork ?? "",
+      blockers: day.data.blockers ?? "",
+      escalations: day.data.escalations ?? "",
+      additionalNotes: day.data.additionalNotes ?? "",
+      nextWorkdayPriority: day.data.nextWorkdayPriority ?? "",
     });
-    setLoadedFor(recordKey);
-  }, [recordKey, loadedFor, eod.context]);
+  }, [day.data, dirty]);
 
-  const set = (k: keyof ContextFields) => (v: string) =>
-    setFields((f) => ({ ...f, [k]: v }));
-
-  const state = eod.context?.state;
-  const filed =
-    state === "submitted" || state === "reviewed" || state === "approved";
-  const missing = isEodMissing(
-    eod.context
-      ? {
-          ...eod.context,
-          totalUnits: 0,
-          unitsByDivision: {} as never,
-          unitsByType: {},
-          logCount: 0,
-        }
-      : null,
-  );
-
-  const field = (
-    label: string,
-    key: keyof ContextFields,
-    placeholder: string,
-  ) => (
-    <ContentCard title={label}>
-      <textarea
-        value={fields[key]}
-        onChange={(e) => set(key)(e.target.value)}
-        placeholder={placeholder}
-        rows={3}
-        aria-label={label}
-        className="w-full rounded-xl border border-border bg-card p-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-      />
-    </ContentCard>
-  );
+  const a = activity.data;
+  const kind = day.data ? submissionKind(day.data) : "not_submitted";
+  const submitted = kind !== "not_submitted";
 
   return (
     <HqPageShell
-      title="End of Day (EOD) Report"
-      description="Production totals are auto-derived from non-voided production logs. Submit shift context & blockers."
+      title="End of Day"
+      description="Built from today's work. Add what the system cannot see, then submit."
       icon={Timer}
     >
-      <div className="mb-4 flex items-center gap-2">
-        <DataSourceBadge source={eod.source} />
-        {eod.source === "demo" && (
-          <span className="text-xs text-muted-foreground">
-            Sample totals — sign in to see your own production.
-          </span>
-        )}
-      </div>
-
-      {eod.error && (
-        <div className="mb-4 flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3.5 py-2 text-xs font-semibold text-red-700">
-          <AlertTriangle className="h-4 w-4 shrink-0" />
-          {eod.error}
-        </div>
-      )}
-
-      {/* Auto-derived totals. No control on this panel can alter a figure. */}
-      <div className="mb-6 rounded-2xl border border-primary/20 bg-primary/5 p-5">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-primary">
-                Auto-Derived Production Totals
-              </span>
-              <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-status-success">
-                Live Aggregation
-              </span>
-            </div>
-            <h3 className="mt-1 text-2xl font-extrabold text-foreground">
-              {eod.totals.totalUnits} Total Units Completed
-            </h3>
-            <p className="text-xs text-muted-foreground">
-              Work date: {formatDate(eod.workDate)} • Employee: {displayName} • Logs:{" "}
-              {eod.totals.activeLogs.length}
+      {/* What the submission actually is. Never blurred. */}
+      <div className={cn(
+        "mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3",
+        kind === "submitted_by_person" ? "border-emerald-500/30 bg-emerald-500/5"
+          : kind === "auto_submitted" ? "border-amber-500/40 bg-amber-500/5"
+          : "border-border bg-card",
+      )}>
+        <div>
+          <p className="text-sm font-semibold text-foreground">
+            {formatDate(date)} · {SUBMISSION_LABEL[kind]}
+          </p>
+          {kind === "auto_submitted" && (
+            <p className="text-xs text-amber-700">
+              Nobody submitted this before the cutoff, so the system submitted what it had.
+              It is not recorded as your submission.
             </p>
-          </div>
-          {missing && !filed && (
-            <div className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-2 text-xs font-semibold text-status-warning">
-              <AlertTriangle className="h-4 w-4 shrink-0" />
-              EOD Submission Pending Grace Period
-            </div>
+          )}
+          {day.data?.submittedAt && (
+            <p className="text-xs text-muted-foreground">Submitted {formatDate(day.data.submittedAt)}</p>
           )}
         </div>
-
-        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {DIVISION_ORDER.map((d) => (
-            <div
-              key={d}
-              className="rounded-xl border border-border bg-card p-3"
-            >
-              <p className="text-[11px] font-medium text-muted-foreground">
-                {divisionLabel(d)}
-              </p>
-              <p className="text-lg font-bold text-foreground">
-                {eod.totals.unitsByDivision[d]} units
-              </p>
-            </div>
-          ))}
-        </div>
+        <Button
+          onClick={() => { void save.mutateAsync({ notes, submit: true }).then(() => setDirty(false)); }}
+          disabled={save.isPending || !user}
+          variant={submitted ? "secondary" : "default"}
+        >
+          {save.isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Send className="mr-1.5 h-4 w-4" />}
+          {submitted ? "Re-submit with my changes" : "Submit EOD"}
+        </Button>
       </div>
 
-      {filed ? (
-        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-6 text-center">
-          <CheckCircle2 className="mx-auto mb-2 h-12 w-12 text-status-success" />
-          <h3 className="text-lg font-bold text-foreground">
-            EOD Report Submitted
-          </h3>
-          <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
-            Your production totals ({eod.totals.totalUnits} units) and shift
-            context are on the Agency EOD ledger.
-          </p>
-          <button
-            onClick={() => eod.save({ ...fields, state: "draft" })}
-            disabled={eod.isSaving}
-            className="mt-4 rounded-xl border border-border bg-card px-4 py-2 text-xs font-semibold text-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            Reopen for editing
-          </button>
-        </div>
+      {activity.isLoading || !a ? (
+        <p className="py-10 text-center text-sm text-muted-foreground">
+          <Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Building today's report…
+        </p>
       ) : (
         <div className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            {field(
-              "Unfinished Work",
-              "unfinishedWork",
-              "Describe items carried over to tomorrow…",
-            )}
-            {field(
-              "Blockers & Escalations",
-              "blockers",
-              "Any technical or partner blockers encountered…",
-            )}
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            {field(
-              "Next Workday Priority",
-              "nextWorkdayPriority",
-              "Primary focus for your next shift…",
-            )}
-            {field(
-              "Additional Notes",
-              "additionalNotes",
-              "Any shift context or client call notes…",
-            )}
-          </div>
+          <ContentCard title="Today's production">
+            <EodProductionSummary activity={a} />
+          </ContentCard>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-            <p className="text-xs text-muted-foreground">
-              Production totals are non-editable to prevent manual entry errors.
-            </p>
-            <div className="flex items-center gap-2">
-              {eod.saveError && (
-                <span className="text-xs font-semibold text-status-danger">
-                  {eod.saveError}
-                </span>
-              )}
-              <button
-                onClick={() => eod.save(fields)}
-                disabled={!eod.canSave || eod.isSaving}
-                className="rounded-xl border border-border bg-card px-4 py-2.5 text-xs font-semibold text-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Save draft
-              </button>
-              <button
-                onClick={() => eod.save({ ...fields, state: "submitted" })}
-                disabled={!eod.canSave || eod.isSaving}
-                className="rounded-xl bg-primary px-6 py-2.5 text-xs font-bold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-                title={
-                  eod.canSave ? undefined : "Sign in to submit an EOD report."
-                }
-              >
-                Submit EOD Report
-              </button>
+          <ContentCard title="Today's tasks">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+              <Count icon={CheckCircle2} label="Completed" value={a.completed.length} tone="text-status-success" />
+              <Count icon={Clock} label="Worked on" value={a.worked.length} />
+              <Count icon={CalendarClock} label="In progress" value={a.inProgress.length} />
+              <Count icon={AlertTriangle} label="Overdue" value={a.overdue.length} tone="text-status-danger" />
+              <Count icon={CircleSlash} label="Blocked" value={a.blocked.length} tone="text-amber-600" />
+              <Count icon={Timer} label="Minutes logged" value={a.minutesLogged} />
             </div>
-          </div>
-        </div>
-      )}
 
-      {eod.logs.length > 0 && (
-        <ContentCard title="Production logs behind these totals">
-          <div className="space-y-1.5">
-            {eod.logs.map((l) => (
-              <div
-                key={l.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-muted/20 px-3 py-2 text-xs"
-              >
-                <span className="font-semibold text-foreground">
-                  {l.productionUnitQuantity} × {l.productionUnitType}
-                </span>
-                <span className="text-muted-foreground">
-                  {divisionLabel(l.divisionId)}
-                  {l.partnerName ? ` · ${l.partnerName}` : ""}
-                </span>
-                {l.isVoided && (
-                  <span className="rounded bg-red-500/10 px-1.5 py-0.5 text-[10px] font-bold text-status-danger">
-                    VOIDED — excluded from totals
-                  </span>
-                )}
+            {a.completed.length > 0 && (
+              <div className="mt-3">
+                <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">Completed today</p>
+                <ul className="space-y-0.5">
+                  {a.completed.map((t) => (
+                    <li key={t.id} className="flex items-center gap-1.5 text-sm text-foreground">
+                      <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-status-success" /> {t.title}
+                    </li>
+                  ))}
+                </ul>
               </div>
-            ))}
-          </div>
-        </ContentCard>
+            )}
+
+            {a.blocked.length > 0 && (
+              <div className="mt-3">
+                <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">Blocked</p>
+                <ul className="space-y-0.5">
+                  {a.blocked.map((t) => (
+                    <li key={t.id} className="text-sm text-foreground">
+                      {t.title} <span className="text-muted-foreground">— {t.reason}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </ContentCard>
+
+          <ContentCard title="What the system cannot see">
+            <div className="space-y-3">
+              {NOTE_FIELDS.map((f) => (
+                <label key={f.key} className="block">
+                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{f.label}</span>
+                  <Textarea
+                    rows={2}
+                    className="mt-1"
+                    value={(notes[f.key] as string) ?? ""}
+                    onChange={(e) => { setDirty(true); setNotes((n) => ({ ...n, [f.key]: e.target.value })); }}
+                    onBlur={() => { if (dirty) void save.mutateAsync({ notes, submit: false }); }}
+                    placeholder={f.placeholder}
+                    aria-label={f.label}
+                  />
+                </label>
+              ))}
+              <p className="text-xs text-muted-foreground">
+                Saved as you go. Submitting records who submitted it and when.
+              </p>
+            </div>
+          </ContentCard>
+        </div>
       )}
     </HqPageShell>
   );

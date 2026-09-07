@@ -16,6 +16,28 @@ import { requireSupabase } from "@/lib/supabase/client";
 export interface EodTask { id: string; title: string; stage?: string; priority?: string; due_at?: string | null; completed_at?: string | null; reason?: string }
 export interface EodProduction { unit: string; quantity: number }
 
+/** One file completed, and the actions ticked inside it. */
+export interface EodFile {
+  id: string;
+  subject: string;
+  department: string | null;
+  unit: string;
+  actions: string[];
+  action_count: number;
+  notes: string | null;
+  resulting_status: string | null;
+  completed_at: string;
+}
+
+export interface EodDepartmentTotals {
+  department: string;
+  files: number;
+  units: number;
+  actions: number;
+}
+
+export interface EodActionCount { action: string; count: number }
+
 /** The day as the system observed it. Every list may legitimately be empty. */
 export interface EodActivity {
   workDate: string;
@@ -25,12 +47,22 @@ export interface EodActivity {
   overdue: EodTask[];
   blocked: EodTask[];
   production: EodProduction[];
+  /**
+   * ONE FILE IS ONE PRODUCTION UNIT, however many actions it contained.
+   * `actionsCompleted` is what happened inside those files. The two are never
+   * added together: five files with thirty-five actions and a hundred files
+   * with a hundred are different days, and one number cannot tell them apart.
+   */
+  filesWorked: number;
+  productionUnits: number;
+  actionsCompleted: number;
+  actionBreakdown: EodActionCount[];
+  byDepartment: EodDepartmentTotals[];
+  files: EodFile[];
   minutesLogged: number;
 }
 
-const EMPTY: Omit<EodActivity, "workDate"> = {
-  completed: [], worked: [], inProgress: [], overdue: [], blocked: [], production: [], minutesLogged: 0,
-};
+
 
 export function mapActivity(json: unknown, workDate: string): EodActivity {
   const j = (json ?? {}) as Record<string, unknown>;
@@ -43,6 +75,12 @@ export function mapActivity(json: unknown, workDate: string): EodActivity {
     overdue: list("overdue"),
     blocked: list("blocked"),
     production: Array.isArray(j.production) ? (j.production as EodProduction[]) : [],
+    filesWorked: typeof j.files_worked === "number" ? j.files_worked : 0,
+    productionUnits: typeof j.production_units === "number" ? j.production_units : 0,
+    actionsCompleted: typeof j.actions_completed === "number" ? j.actions_completed : 0,
+    actionBreakdown: Array.isArray(j.action_breakdown) ? (j.action_breakdown as EodActionCount[]) : [],
+    byDepartment: Array.isArray(j.by_department) ? (j.by_department as EodDepartmentTotals[]) : [],
+    files: Array.isArray(j.files) ? (j.files as EodFile[]) : [],
     minutesLogged: typeof j.minutes_logged === "number" ? j.minutes_logged : 0,
   };
 }
