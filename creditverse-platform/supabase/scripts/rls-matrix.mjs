@@ -254,9 +254,7 @@ let phaseStartQueries = 0;
 let phaseStartChecks = 0;
 /** Closes the previous section and opens this one — so no phase has to remember to. */
 const startPhase = (label) => {
-  
-
-endPhase();
+  endPhase();
   openPhase = label;
   phaseStartedAt = Date.now();
   phaseStartQueries = db.stats.count;
@@ -3289,6 +3287,196 @@ if (runs(56)) {
       () => { try { q(`begin; set local role anon; select 1 from public.partner_service_billing limit 1; rollback;`); return "readable"; } catch { return "refused"; } }, "refused"],
   ] : [["(no partner to probe)", () => "skip", "skip"]];
   runPhase("phase 56", P56, { strict: true });
+}
+
+
+if (runs(57)) {
+  startPhase("phase 57");
+  /* The money, and what cancelling does to everything else.
+     Three things are proved here:
+       • a manager runs operations and receives no invoice, payment or expense
+         — because those tables have no branch that would let them;
+       • an invoice cannot be declared paid by anyone: the ledger decides, and
+         the same provider transaction twice is still one payment;
+       • cancelling one service stops that service and NOTHING else — the
+         partner's other engagement, its work and its MRR are untouched. */
+  /* The claims are set BEFORE the seed, and the role after it.
+     Seeding a work item fires the activity trigger, which refuses to record
+     anything with no actor — "Cannot record activity without an agency
+     context". Setting the claim first gives the seed an author while it still
+     runs as the owner, so RLS is bypassed for the setup and enforced for the
+     probe, which is the whole point of the shape. */
+  const asUser = (uid, seed, sql) => {
+    try {
+      return q(`begin; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${seed} set local role authenticated; ${sql}; rollback;`)[0].rows;
+    } catch (e) {
+      const m = (String(e.message) + String(e.stdout ?? "")).match(/ERROR:\s*(\w+):/);
+      return "ERR " + (m ? m[1] : "unknown");
+    }
+  };
+  const p57 = (uid, sql, seed = "") => asUser(uid, seed, sql);
+  /* Same call, named for what it reads: a cascade has to be observed AFTER it
+     has run, inside the one transaction that is rolled back. */
+  const cascade = (uid, seed, sql) => asUser(uid, seed, sql);
+
+  const OWN57 = U["bes.owner@bes.test"], MGR57 = U["bes.manager@bes.test"];
+  const AGT57 = U["bes.credit@bes.test"];
+  const AG57 = q(`select id::text as rows from public.agencies limit 1`)[0].rows;
+  const GRP57 = q(`select coalesce((select id::text from public.outsourcing_groups limit 1),'') as rows`)[0].rows;
+
+  const S1 = "22222222-0000-4000-8000-00000000a001";
+  const S2 = "22222222-0000-4000-8000-00000000a002";
+  const INV = "22222222-0000-4000-8000-00000000b001";
+  const WRK = "22222222-0000-4000-8000-00000000c001";
+  const EXP = "22222222-0000-4000-8000-00000000d001";
+
+  /* Two services, one invoice, one scheduled instalment, one open work item
+     on the FIRST service only. Everything is inside the probe's own
+     transaction and rolled back. */
+  const seed57 = GRP57 ? `
+    insert into public.partner_services (id, group_id, agency_id, name, service_type, status)
+      values ('${S1}','${GRP57}','${AG57}','Probe CreditOps','CREDITOPS_FULFILLMENT','active'),
+             ('${S2}','${GRP57}','${AG57}','Probe CRM','BES_CRM','active');
+    insert into public.partner_service_billing (service_id, agency_id, billing_model, rate_cents, effective_from)
+      values ('${S1}','${AG57}','RECURRING_WEEKLY', 47500, current_date - 30),
+             ('${S2}','${AG57}','RECURRING_MONTHLY', 29900, current_date - 30);
+    insert into public.partner_invoices (id, agency_id, group_id, invoice_number, due_date, total_cents, status)
+      values ('${INV}','${AG57}','${GRP57}','PROBE-57-0001', current_date + 10, 50000, 'sent');
+    insert into public.partner_billing_schedule (agency_id, group_id, service_id, kind, due_on, amount_cents)
+      values ('${AG57}','${GRP57}','${S1}','instalment', current_date + 20, 200000);
+    insert into public.work_items (id, agency_id, scope, related_type, title, stage, partner_service_id, partner_group_id, assigned_to)
+      values ('${WRK}','${AG57}','AGENCY','fulfillment','Probe work','Assigned','${S1}','${GRP57}','${AGT57}');
+    insert into public.agency_expenses (id, agency_id, vendor, amount_cents, due_date)
+      values ('${EXP}','${AG57}','Probe Vendor', 12345, current_date + 3);
+  ` : "";
+
+  const seeInvoices = `select count(*)::int as rows from public.partner_invoices where id='${INV}'`;
+  const seePayments = `select count(*)::int as rows from public.partner_payments where group_id='${GRP57}'`;
+  const seeSchedule = `select count(*)::int as rows from public.partner_billing_schedule where service_id='${S1}'`;
+  const seeExpenses = `select count(*)::int as rows from public.agency_expenses where id='${EXP}'`;
+
+  const P57 = GRP57 ? [
+    /* ── A manager runs the work and never receives the money ────── */
+    ["a manager receives no invoices", () => p57(MGR57, seeInvoices, seed57), 0],
+    ["a manager receives no payments", () => p57(MGR57, seePayments, seed57), 0],
+    ["a manager receives no billing schedule", () => p57(MGR57, seeSchedule, seed57), 0],
+    ["a manager receives no expenses", () => p57(MGR57, seeExpenses, seed57), 0],
+    ["an agent receives none of it",
+      () => p57(AGT57, seeInvoices, seed57) === 0 && p57(AGT57, seeExpenses, seed57) === 0 ? "correct" : "wrong", "correct"],
+    ["the owner receives all of it",
+      () => p57(OWN57, seeInvoices, seed57) === 1 && p57(OWN57, seeExpenses, seed57) === 1 ? "correct" : "wrong", "correct"],
+
+    /* ── The money tables have no partner branch at all ──────────── */
+    ["no invoice policy mentions a partner contact",
+      () => q(`select count(*)::int as rows from pg_policy where polname like 'partner_invoices%' and position('partner_contact' in pg_get_expr(polqual, polrelid)) > 0`)[0].rows, 0],
+    ["no payment policy mentions a partner contact",
+      () => q(`select count(*)::int as rows from pg_policy where polname like 'partner_payments%' and position('partner_contact' in pg_get_expr(polqual, polrelid)) > 0`)[0].rows, 0],
+    ["expenses are BES-only: no organization branch either",
+      () => q(`select count(*)::int as rows from pg_policy where polname like 'agency_expenses%' and position('is_org_member' in pg_get_expr(polqual, polrelid)) > 0`)[0].rows, 0],
+    ["anon reaches no invoice",
+      () => { try { q(`begin; set local role anon; select 1 from public.partner_invoices limit 1; rollback;`); return "readable"; } catch { return "refused"; } }, "refused"],
+    ["anon reaches no expense",
+      () => { try { q(`begin; set local role anon; select 1 from public.agency_expenses limit 1; rollback;`); return "readable"; } catch { return "refused"; } }, "refused"],
+
+    /* ── An invoice is paid by the ledger, not by a screen ───────── */
+    ["recording a payment is what makes an invoice paid",
+      () => cascade(OWN57, seed57,
+        `insert into public.partner_payments (agency_id, group_id, invoice_id, provider, amount_cents, paid_on)
+           values ('${AG57}','${GRP57}','${INV}','authorize_net', 50000, current_date);
+         select status::text as rows from public.partner_invoices where id='${INV}'`), "paid"],
+
+    ["a part payment leaves it partly paid, and the rest collectible",
+      () => cascade(OWN57, seed57,
+        `insert into public.partner_payments (agency_id, group_id, invoice_id, provider, amount_cents, paid_on)
+           values ('${AG57}','${GRP57}','${INV}','authorize_net', 30000, current_date);
+         select (status::text || ' ' || (total_cents - amount_paid_cents)::text) as rows
+           from public.partner_invoices where id='${INV}'`), "partially_paid 20000"],
+
+    ["the same provider transaction twice is one payment",
+      () => cascade(OWN57, seed57,
+        `insert into public.partner_payments (agency_id, group_id, invoice_id, provider, provider_transaction_id, amount_cents, paid_on)
+           values ('${AG57}','${GRP57}','${INV}','authorize_net','probe-txn-57', 50000, current_date);
+         insert into public.partner_payments (agency_id, group_id, invoice_id, provider, provider_transaction_id, amount_cents, paid_on)
+           values ('${AG57}','${GRP57}','${INV}','authorize_net','probe-txn-57', 50000, current_date)
+           on conflict do nothing;
+         select count(*)::int as rows from public.partner_payments where provider_transaction_id='probe-txn-57'`), 1],
+
+    ["a manager cannot record a payment",
+      () => cascade(MGR57, seed57,
+        `insert into public.partner_payments (agency_id, group_id, invoice_id, provider, amount_cents, paid_on)
+           values ('${AG57}','${GRP57}','${INV}','authorize_net', 50000, current_date); select 1 as rows`), "ERR 42501"],
+
+    /* ── An expense is not paid until a date says so ─────────────── */
+    ["an expense with no payment date is not paid",
+      () => cascade(OWN57, seed57, `select status::text as rows from public.agency_expenses where id='${EXP}'`), "due"],
+    ["…and setting the date is what pays it",
+      () => cascade(OWN57, seed57,
+        `update public.agency_expenses set paid_on = current_date where id='${EXP}';
+         select status::text as rows from public.agency_expenses where id='${EXP}'`), "paid"],
+
+    /* ── CANCELLING ONE SERVICE ──────────────────────────────────── */
+    ["cancelling a service archives its own open work",
+      () => cascade(OWN57, seed57,
+        `perform_result as (select 1); select (public.cancel_partner_service('${S1}', current_date, 'probe')->>'work_archived') as rows`.replace('perform_result as (select 1); ', '')), "1"],
+
+    ["…and releases the assignee, remembering who it was",
+      () => cascade(OWN57, seed57,
+        `select public.cancel_partner_service('${S1}', current_date, 'probe');
+         select (case when assigned_to is null and previous_assigned_to = '${AGT57}' then 'released' else 'still held' end) as rows
+           from public.work_items where id='${WRK}'`), "released"],
+
+    ["…and stops its future scheduled charges",
+      () => cascade(OWN57, seed57,
+        `select public.cancel_partner_service('${S1}', current_date, 'probe');
+         select count(*)::int as rows from public.partner_billing_schedule
+          where service_id='${S1}' and status='scheduled'`), 0],
+
+    ["…and leaves the partner's OTHER service running",
+      () => cascade(OWN57, seed57,
+        `select public.cancel_partner_service('${S1}', current_date, 'probe');
+         select status::text as rows from public.partner_services where id='${S2}'`), "active"],
+
+    ["…and the partner is still active",
+      () => cascade(OWN57, seed57,
+        `select (public.cancel_partner_service('${S1}', current_date, 'probe')->>'partner_still_active') as rows`), "true"],
+
+    ["…and its invoice is untouched",
+      () => cascade(OWN57, seed57,
+        `select public.cancel_partner_service('${S1}', current_date, 'probe');
+         select status::text as rows from public.partner_invoices where id='${INV}'`), "sent"],
+
+    ["an agent cannot cancel a service",
+      () => cascade(AGT57, seed57, `select public.cancel_partner_service('${S1}', current_date, 'probe') as rows`), "ERR P0001"],
+
+    /* ── ARCHIVING THE PARTNER ───────────────────────────────────── */
+    ["archiving refuses while a service is running",
+      () => cascade(OWN57, seed57, `select public.archive_partner('${GRP57}','probe') as rows`), "ERR P0001"],
+
+    ["…and succeeds once nothing is running",
+      () => cascade(OWN57, seed57,
+        `select public.cancel_partner_service('${S1}', current_date, 'probe');
+         select public.cancel_partner_service('${S2}', current_date, 'probe');
+         select ((public.archive_partner('${GRP57}','probe')->>'partner') is not null)::text as rows`), "true"],
+
+    ["…which suspends portal access rather than deleting anybody",
+      () => cascade(OWN57, seed57,
+        `select public.cancel_partner_service('${S1}', current_date, 'probe');
+         select public.cancel_partner_service('${S2}', current_date, 'probe');
+         select public.archive_partner('${GRP57}','probe');
+         select count(*)::int as rows from public.partner_contacts where group_id='${GRP57}' and status='active'`), 0],
+
+    ["…and deletes no client record",
+      () => cascade(OWN57, seed57,
+        `select public.cancel_partner_service('${S1}', current_date, 'probe');
+         select public.cancel_partner_service('${S2}', current_date, 'probe');
+         select public.archive_partner('${GRP57}','probe');
+         select count(*)::int as rows from public.fulfillment_clients where outsourcing_group_id='${GRP57}'`),
+      q(`select count(*)::int as rows from public.fulfillment_clients where outsourcing_group_id='${GRP57}'`)[0].rows],
+
+    ["a suspended partner's contacts resolve to no partner at all",
+      () => q(`select (position('lifecycle not in' in pg_get_functiondef(p.oid)) > 0)::text as rows from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='partner_group_of_user'`)[0].rows, "true"],
+  ] : [["(no partner to probe)", () => "skip", "skip"]];
+  runPhase("phase 57", P57, { strict: true });
 }
 
 endPhase();
