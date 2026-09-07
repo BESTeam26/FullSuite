@@ -34,6 +34,7 @@ import {
 } from "@/lib/agency/team-views";
 import { AgencyTaskDrawer } from "@/components/agency/AgencyTaskDrawer";
 import { NewAgencyTaskDialog } from "@/components/agency/NewAgencyTaskDialog";
+import { ListManager } from "@/components/agency/ListManager";
 
 const ALL = "__all__";
 
@@ -182,6 +183,7 @@ export const AgencyTeamWorkspace = () => {
           <TabsTrigger value="mine">My Work</TabsTrigger>
           <TabsTrigger value="team">Team Work</TabsTrigger>
           {isManager && <TabsTrigger value="manager">Manager</TabsTrigger>}
+          {isManager && <TabsTrigger value="lists">Lists</TabsTrigger>}
         </TabsList>
 
         {/* ── Mine ─────────────────────────────────────────────────── */}
@@ -298,6 +300,23 @@ export const AgencyTeamWorkspace = () => {
         )}
       </Tabs>
 
+        {isManager && (
+          <TabsContent value="lists" className="mt-4 space-y-4">
+            {(workspaces.data ?? []).length === 0 ? (
+              <ContentCard title="No workspace yet">
+                <p className="py-4 text-center text-sm text-muted-foreground">
+                  Creating your first task makes a BES Team workspace with a list in it.
+                </p>
+              </ContentCard>
+            ) : (
+              (workspaces.data ?? []).map((w) => (
+                <ContentCard key={w.id} title={w.name}>
+                  <ListManager workspace={w} />
+                </ContentCard>
+              ))
+            )}
+          </TabsContent>
+        )}
       {openId && <AgencyTaskDrawer itemId={openId} onClose={() => setOpen(null)} allItems={items} />}
       {creating && (
         <NewAgencyTaskDialog
