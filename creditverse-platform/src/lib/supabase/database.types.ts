@@ -132,6 +132,72 @@ export type Database = {
         }
         Relationships: []
       }
+      agency_calendar_events: {
+        Row: {
+          agency_id: string
+          created_at: string
+          created_by: string | null
+          event_date: string
+          id: string
+          kind: Database["public"]["Enums"]["agency_event_kind"]
+          name: string
+          non_working: boolean
+          notes: string | null
+          observed_date: string
+          rule_version: string | null
+          source_key: string | null
+          system_managed: boolean
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          created_by?: string | null
+          event_date: string
+          id?: string
+          kind: Database["public"]["Enums"]["agency_event_kind"]
+          name: string
+          non_working?: boolean
+          notes?: string | null
+          observed_date: string
+          rule_version?: string | null
+          source_key?: string | null
+          system_managed?: boolean
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          created_by?: string | null
+          event_date?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["agency_event_kind"]
+          name?: string
+          non_working?: boolean
+          notes?: string | null
+          observed_date?: string
+          rule_version?: string | null
+          source_key?: string | null
+          system_managed?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_calendar_events_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_calendar_events_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agency_memberships: {
         Row: {
           agency_id: string
@@ -587,48 +653,70 @@ export type Database = {
       }
       announcements: {
         Row: {
+          agency_id: string | null
           archived_at: string | null
           audience: Database["public"]["Enums"]["announcement_audience"]
           body: string
           created_at: string
           created_by: string | null
+          department_id: string | null
           id: string
+          managers_only: boolean
           organization_id: string | null
           pinned: boolean
           published_at: string | null
+          source_key: string | null
           tag: string | null
+          team_id: string | null
           title: string
           updated_at: string
         }
         Insert: {
+          agency_id?: string | null
           archived_at?: string | null
           audience?: Database["public"]["Enums"]["announcement_audience"]
           body: string
           created_at?: string
           created_by?: string | null
+          department_id?: string | null
           id?: string
+          managers_only?: boolean
           organization_id?: string | null
           pinned?: boolean
           published_at?: string | null
+          source_key?: string | null
           tag?: string | null
+          team_id?: string | null
           title: string
           updated_at?: string
         }
         Update: {
+          agency_id?: string | null
           archived_at?: string | null
           audience?: Database["public"]["Enums"]["announcement_audience"]
           body?: string
           created_at?: string
           created_by?: string | null
+          department_id?: string | null
           id?: string
+          managers_only?: boolean
           organization_id?: string | null
           pinned?: boolean
           published_at?: string | null
+          source_key?: string | null
           tag?: string | null
+          team_id?: string | null
           title?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "announcements_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "announcements_created_by_fkey"
             columns: ["created_by"]
@@ -637,10 +725,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "announcements_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "announcements_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "announcements_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
             referencedColumns: ["id"]
           },
         ]
@@ -9815,6 +9917,11 @@ export type Database = {
         | "organization_internal"
         | "shared_with_partner"
         | "client_visible"
+      agency_event_kind:
+        | "us_federal_holiday"
+        | "custom_holiday"
+        | "company_event"
+        | "special_workday"
       agency_role:
         | "agency_owner"
         | "agency_admin"
@@ -10434,6 +10541,12 @@ export const Constants = {
         "organization_internal",
         "shared_with_partner",
         "client_visible",
+      ],
+      agency_event_kind: [
+        "us_federal_holiday",
+        "custom_holiday",
+        "company_event",
+        "special_workday",
       ],
       agency_role: [
         "agency_owner",

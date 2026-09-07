@@ -47,6 +47,7 @@ import { useMyWork, useAttention } from "@/lib/data/use-work";
 import { useUnreadNotificationCount } from "@/lib/data/use-notifications";
 import { useAuth } from "@/lib/auth/auth-context";
 import { usePermissions, type PermissionKeyName } from "@/lib/auth/use-permission";
+import { accessTo, routeFor, type AccessContext, type AgencyRole } from "@/lib/agency/navigation";
 import { useHubNavigation } from "@/lib/data/use-hub";
 import { HUB_MODULE_ICONS } from "@/lib/hub/hub-icons";
 import { useSidebarState } from "@/components/dashboard/sidebar-state";
@@ -76,7 +77,7 @@ const SIDEBAR_MAX = 420;
 export const Sidebar = () => {
   const { pathname, search } = useLocation();
   const agencyContext = useAgency();
-  const { signOut, mode, displayName, user } = useAuth();
+  const { signOut, mode, displayName, user, agencyMembership } = useAuth();
   const { collapsed, toggleCollapsed, mobileOpen, setMobileOpen } =
     useSidebarState();
   const panel = usePanelWidth({
@@ -93,6 +94,10 @@ export const Sidebar = () => {
 
   const viewMode = agencyContext?.viewMode || "agency";
   const permissions = usePermissions();
+  const navContext: AccessContext = {
+    role: (agencyMembership?.role as AgencyRole) ?? null,
+    can: (key) => permissions.can(key as PermissionKeyName),
+  };
   /* The company side of the sidebar is composed from the organization's hub:
      entitled, switched on, and permitted (rule 18). Home and My Work already
      sit at the top, so they are not repeated here. */
@@ -442,7 +447,22 @@ export const Sidebar = () => {
         <nav className={cn("flex-1 overflow-y-auto py-3", rail ? "px-2" : "px-3")}>
           {navGroups.map((group, index) => {
             if (group.show === false) return null;
-            const visibleItems = group.items.filter((n) => n.show !== false && (!n.permission || permissions.can(n.permission)));
+            const visibleItems = group.items.filter((n) => {
+              if (n.show === false) return false;
+              if (n.permission && !permissions.can(n.permission)) return false;
+              /* Agency HQ items answer to the canonical navigation authority,
+                 which the route guard also reads — so what the menu shows and
+                 what the door opens cannot drift apart (rule 3). Anything it
+                 does not define is left to the checks above. */
+              if (viewMode === "agency") {
+                const spec = routeFor(n.href);
+                if (spec) {
+                  const access = accessTo(spec, navContext);
+                  return access === "allow" || access === "locked";
+                }
+              }
+              return true;
+            });
             if (visibleItems.length === 0) return null;
             /* Keyed by position: the first group is titled with the
                organization's name, which is "Organization" until it loads and

@@ -16,6 +16,7 @@ import { AuthProvider } from "@/lib/auth/auth-context";
 import { RequirePortalClient } from "@/components/auth/RequirePortalClient";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { RequireAgencyStaff } from "@/components/auth/RequireAgencyStaff";
+import { RequireAgencyRoute } from "@/components/auth/RequireAgencyRoute";
 import { RequireEntitlement } from "./components/auth/RequireEntitlement";
 import { RequirePermission } from "./components/auth/RequirePermission";
 import { RequireHubModule } from "./components/auth/RequireHubModule";
@@ -270,7 +271,16 @@ const App = () => (
                                 path="/app"
                                 element={
                                   <RequireAuth>
-                                    <DashboardLayout />
+                                    {/* Every Agency HQ route passes through the
+                                        same authority the menu uses, so a typed
+                                        URL is refused exactly where a hidden
+                                        link would have been. Wrapped once here
+                                        rather than per route — a guard you have
+                                        to remember to add is a guard somebody
+                                        will forget. */}
+                                    <RequireAgencyRoute>
+                                      <DashboardLayout />
+                                    </RequireAgencyRoute>
                                   </RequireAuth>
                                 }
                               >
