@@ -198,6 +198,55 @@ export type Database = {
           },
         ]
       }
+      agency_member_permissions: {
+        Row: {
+          allowed: boolean
+          key: string
+          membership_id: string
+          reason: string | null
+          set_at: string
+          set_by: string | null
+        }
+        Insert: {
+          allowed: boolean
+          key: string
+          membership_id: string
+          reason?: string | null
+          set_at?: string
+          set_by?: string | null
+        }
+        Update: {
+          allowed?: boolean
+          key?: string
+          membership_id?: string
+          reason?: string | null
+          set_at?: string
+          set_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_member_permissions_key_fkey"
+            columns: ["key"]
+            isOneToOne: false
+            referencedRelation: "permission_keys"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "agency_member_permissions_membership_id_fkey"
+            columns: ["membership_id"]
+            isOneToOne: false
+            referencedRelation: "agency_memberships"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_member_permissions_set_by_fkey"
+            columns: ["set_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agency_memberships: {
         Row: {
           agency_id: string
@@ -256,6 +305,42 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      agency_role_permissions: {
+        Row: {
+          agency_id: string | null
+          allowed: boolean
+          key: string
+          role: Database["public"]["Enums"]["agency_role"]
+        }
+        Insert: {
+          agency_id?: string | null
+          allowed: boolean
+          key: string
+          role: Database["public"]["Enums"]["agency_role"]
+        }
+        Update: {
+          agency_id?: string | null
+          allowed?: boolean
+          key?: string
+          role?: Database["public"]["Enums"]["agency_role"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_role_permissions_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_role_permissions_key_fkey"
+            columns: ["key"]
+            isOneToOne: false
+            referencedRelation: "permission_keys"
+            referencedColumns: ["key"]
           },
         ]
       }
@@ -5927,6 +6012,7 @@ export type Database = {
           is_primary: boolean
           phone: string | null
           status: string
+          title: string | null
           updated_at: string
           user_id: string | null
         }
@@ -5943,6 +6029,7 @@ export type Database = {
           is_primary?: boolean
           phone?: string | null
           status?: string
+          title?: string | null
           updated_at?: string
           user_id?: string | null
         }
@@ -5959,6 +6046,7 @@ export type Database = {
           is_primary?: boolean
           phone?: string | null
           status?: string
+          title?: string | null
           updated_at?: string
           user_id?: string | null
         }
@@ -5989,6 +6077,349 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_operations: {
+        Row: {
+          account_manager_id: string | null
+          agency_id: string
+          comm_channel: string | null
+          comm_url: string | null
+          crm_name: string | null
+          crm_url: string | null
+          ghl_location: string | null
+          ghl_url: string | null
+          group_id: string
+          mailing_system: string | null
+          mailing_url: string | null
+          notes: string | null
+          operations_manager_id: string | null
+          sop_url: string | null
+          team_id: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          account_manager_id?: string | null
+          agency_id: string
+          comm_channel?: string | null
+          comm_url?: string | null
+          crm_name?: string | null
+          crm_url?: string | null
+          ghl_location?: string | null
+          ghl_url?: string | null
+          group_id: string
+          mailing_system?: string | null
+          mailing_url?: string | null
+          notes?: string | null
+          operations_manager_id?: string | null
+          sop_url?: string | null
+          team_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          account_manager_id?: string | null
+          agency_id?: string
+          comm_channel?: string | null
+          comm_url?: string | null
+          crm_name?: string | null
+          crm_url?: string | null
+          ghl_location?: string | null
+          ghl_url?: string | null
+          group_id?: string
+          mailing_system?: string | null
+          mailing_url?: string | null
+          notes?: string | null
+          operations_manager_id?: string | null
+          sop_url?: string | null
+          team_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_operations_account_manager_id_fkey"
+            columns: ["account_manager_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_operations_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_operations_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: true
+            referencedRelation: "outsourcing_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_operations_operations_manager_id_fkey"
+            columns: ["operations_manager_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_operations_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_operations_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_revenue_entries: {
+        Row: {
+          actual_cents: number | null
+          agency_id: string
+          created_at: string
+          currency: string
+          expected_cents: number | null
+          group_id: string
+          id: string
+          month: number
+          notes: string | null
+          payment_channel: string | null
+          recorded_by: string | null
+          service_id: string | null
+          source: string
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          actual_cents?: number | null
+          agency_id: string
+          created_at?: string
+          currency?: string
+          expected_cents?: number | null
+          group_id: string
+          id?: string
+          month: number
+          notes?: string | null
+          payment_channel?: string | null
+          recorded_by?: string | null
+          service_id?: string | null
+          source?: string
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          actual_cents?: number | null
+          agency_id?: string
+          created_at?: string
+          currency?: string
+          expected_cents?: number | null
+          group_id?: string
+          id?: string
+          month?: number
+          notes?: string | null
+          payment_channel?: string | null
+          recorded_by?: string | null
+          service_id?: string | null
+          source?: string
+          updated_at?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_revenue_entries_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_revenue_entries_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "outsourcing_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_revenue_entries_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_revenue_entries_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "partner_services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_service_billing: {
+        Row: {
+          agency_id: string
+          currency: string
+          expected_monthly_cents: number | null
+          invoice_day: string | null
+          payment_channel: string | null
+          payment_frequency: string | null
+          pricing_notes: string | null
+          rate_cents: number | null
+          service_id: string
+          transaction_type: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          agency_id: string
+          currency?: string
+          expected_monthly_cents?: number | null
+          invoice_day?: string | null
+          payment_channel?: string | null
+          payment_frequency?: string | null
+          pricing_notes?: string | null
+          rate_cents?: number | null
+          service_id: string
+          transaction_type?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          agency_id?: string
+          currency?: string
+          expected_monthly_cents?: number | null
+          invoice_day?: string | null
+          payment_channel?: string | null
+          payment_frequency?: string | null
+          pricing_notes?: string | null
+          rate_cents?: number | null
+          service_id?: string
+          transaction_type?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_service_billing_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_service_billing_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: true
+            referencedRelation: "partner_services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_service_billing_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_services: {
+        Row: {
+          agency_id: string
+          created_at: string
+          created_by: string | null
+          ended_on: string | null
+          group_id: string
+          id: string
+          name: string
+          notes: string | null
+          processor_id: string | null
+          quantity: number | null
+          quantity_unit: string | null
+          started_on: string | null
+          status: Database["public"]["Enums"]["partner_service_status"]
+          team_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          created_by?: string | null
+          ended_on?: string | null
+          group_id: string
+          id?: string
+          name: string
+          notes?: string | null
+          processor_id?: string | null
+          quantity?: number | null
+          quantity_unit?: string | null
+          started_on?: string | null
+          status?: Database["public"]["Enums"]["partner_service_status"]
+          team_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          created_by?: string | null
+          ended_on?: string | null
+          group_id?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          processor_id?: string | null
+          quantity?: number | null
+          quantity_unit?: string | null
+          started_on?: string | null
+          status?: Database["public"]["Enums"]["partner_service_status"]
+          team_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_services_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_services_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_services_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "outsourcing_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_services_processor_id_fkey"
+            columns: ["processor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_services_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
             referencedColumns: ["id"]
           },
         ]
@@ -8835,6 +9266,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      agency_can: { Args: { p_key: string }; Returns: boolean }
       agency_of_org: { Args: { p_org: string }; Returns: string }
       ai_available_credits: { Args: { p_org: string }; Returns: number }
       ai_can_use: {
@@ -9038,6 +9470,10 @@ export type Database = {
         }
         Returns: string
       }
+      clear_agency_permission: {
+        Args: { p_key: string; p_membership: string }
+        Returns: undefined
+      }
       client_birthdays: {
         Args: { p_org: string; p_within_days?: number }
         Returns: {
@@ -9240,6 +9676,10 @@ export type Database = {
           departments: string[]
           views: string[]
         }[]
+      }
+      default_scope_for_role: {
+        Args: { p_role: Database["public"]["Enums"]["agency_role"] }
+        Returns: Database["public"]["Enums"]["access_scope"]
       }
       delete_client_document: { Args: { p_id: string }; Returns: string }
       delete_company_document: { Args: { p_id: string }; Returns: string }
@@ -9836,6 +10276,15 @@ export type Database = {
         }
         Returns: string
       }
+      set_agency_permission: {
+        Args: {
+          p_allowed: boolean
+          p_key: string
+          p_membership: string
+          p_reason?: string
+        }
+        Returns: undefined
+      }
       set_client_department_status: {
         Args: {
           p_assignee?: string
@@ -10381,6 +10830,7 @@ export type Database = {
         | "Onboarding"
         | "Suspended"
         | "Archived"
+      partner_service_status: "onboarding" | "active" | "paused" | "ended"
       payment_status:
         | "approved"
         | "declined"
@@ -11043,6 +11493,7 @@ export const Constants = {
         "Suspended",
         "Archived",
       ],
+      partner_service_status: ["onboarding", "active", "paused", "ended"],
       payment_status: [
         "approved",
         "declined",

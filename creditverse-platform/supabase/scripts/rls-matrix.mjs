@@ -3184,6 +3184,113 @@ if (runs(55)) {
   runPhase("phase 55", P55, { strict: true });
 }
 
+if (runs(56)) {
+  startPhase("phase 56");
+  /* Agency access control. Two things are proved here:
+       • an Agency Admin is agency-wide because of their ROLE, even when the
+         scope column disagrees — the defect Dee hit in production;
+       • a manager runs operations without receiving the money, and an owner
+         can change that for one manager without changing it for another. */
+  const p56 = (uid, sql, seed = "") => {
+    try {
+      return q(`begin; ${seed} set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows;
+    } catch (e) {
+      const m = (String(e.message) + String(e.stdout ?? "")).match(/ERROR:\s*(\w+):/);
+      return "ERR " + (m ? m[1] : "unknown");
+    }
+  };
+  const OWN56 = U["bes.owner@bes.test"], ADM56 = U["bes.admin@bes.test"];
+  const MGR56 = U["bes.manager@bes.test"], LEAD56 = U["bes.lead@bes.test"], AGT56 = U["bes.credit@bes.test"];
+  const AG56 = q(`select id::text as rows from public.agencies limit 1`)[0].rows;
+  const GRP56 = q(`select coalesce((select id::text from public.outsourcing_groups limit 1),'') as rows`)[0].rows;
+  const MGRM = q(`select m.id::text as rows from public.agency_memberships m join public.profiles p on p.id=m.user_id where p.email='bes.manager@bes.test'`)[0].rows;
+  const SVC = "11111111-0000-4000-8000-0000000000aa";
+
+  /* A service with a price on it, seeded inside each probe's own rolled-back
+     transaction so nothing is left behind. */
+  const seed56 = GRP56 ? `
+    insert into public.partner_services (id, group_id, agency_id, name, quantity, quantity_unit)
+      values ('${SVC}','${GRP56}','${AG56}','Probe Service', 75, 'clients');
+    insert into public.partner_service_billing (service_id, agency_id, rate_cents, currency, expected_monthly_cents)
+      values ('${SVC}','${AG56}', 21500, 'USD', 86000);
+  ` : "";
+  const seeService = `select count(*)::int as rows from public.partner_services where id='${SVC}'`;
+  const seeBilling = `select count(*)::int as rows from public.partner_service_billing where service_id='${SVC}'`;
+  const grant = (k) => `insert into public.agency_member_permissions (membership_id, key, allowed) values ('${MGRM}','${k}', true);`;
+  const deny  = (k) => `insert into public.agency_member_permissions (membership_id, key, allowed) values ('${MGRM}','${k}', false);`;
+  const breakAdminScope = `update public.agency_memberships set scope='assigned' where user_id='${ADM56}';`;
+
+  const P56 = GRP56 ? [
+    /* ── THE DEFECT DEE REPORTED ─────────────────────────────────── */
+    ["an admin whose scope column says 'assigned' still reaches agency work",
+      () => p56(ADM56, `select count(*)::int as rows from public.work_items where scope='AGENCY'`, breakAdminScope),
+      q(`select count(*)::int as rows from public.work_items where scope='AGENCY'`)[0].rows],
+
+    ["…and still reaches every partner",
+      () => p56(ADM56, `select count(*)::int as rows from public.outsourcing_groups`, breakAdminScope),
+      q(`select count(*)::int as rows from public.outsourcing_groups`)[0].rows],
+
+    ["an agent is NOT widened by the same change",
+      () => p56(AGT56, `select count(*)::int as rows from public.work_items where scope='AGENCY'`), 0],
+
+    ["joining by invitation now sets a scope that matches the role",
+      () => q(`select (position('default_scope_for_role' in pg_get_functiondef(p.oid)) > 0)::text as rows from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='accept_agency_invitation'`)[0].rows, "true"],
+
+    ["no owner or admin is left on a narrower scope",
+      () => q(`select count(*)::int as rows from public.agency_memberships where role in ('agency_owner','agency_admin') and scope is distinct from 'agency'`)[0].rows, 0],
+
+    /* ── Operations without the money ────────────────────────────── */
+    ["a manager sees the service", () => p56(MGR56, seeService, seed56), 1],
+    ["…and does NOT receive its price", () => p56(MGR56, seeBilling, seed56), 0],
+    ["a team lead sees the service but not the price",
+      () => p56(LEAD56, seeService, seed56) === 1 && p56(LEAD56, seeBilling, seed56) === 0 ? "correct" : "wrong", "correct"],
+    ["an agent sees neither",
+      () => p56(AGT56, seeService, seed56) === 0 && p56(AGT56, seeBilling, seed56) === 0 ? "correct" : "wrong", "correct"],
+    ["the owner sees both", () => p56(OWN56, seeBilling, seed56), 1],
+    ["the admin sees both", () => p56(ADM56, seeBilling, seed56), 1],
+
+    /* ── Precedence, in both directions ──────────────────────────── */
+    ["an explicit GRANT beats the role default",
+      () => p56(MGR56, seeBilling, seed56 + grant("partners.financials.view")), 1],
+
+    ["an explicit DENY beats the role default",
+      () => p56(MGR56, seeService, seed56 + deny("partners.view")), 0],
+
+    ["…and the grant applies to that manager ALONE",
+      () => p56(LEAD56, seeBilling, seed56 + grant("partners.financials.view")), 0],
+
+    ["revoking it takes the data away again",
+      () => p56(MGR56, seeBilling, seed56 + grant("partners.financials.view") + `update public.agency_member_permissions set allowed=false where membership_id='${MGRM}' and key='partners.financials.view';`), 0],
+
+    /* ── Who may change access ───────────────────────────────────── */
+    ["a manager cannot grant themselves financial access",
+      () => p56(MGR56, `select public.set_agency_permission('${MGRM}','partners.financials.view',true) as rows`), "ERR 42501"],
+
+    ["an admin can",
+      () => p56(ADM56, `select coalesce(public.set_agency_permission('${MGRM}','partners.financials.view',true)::text,'ok') as rows`), "ok"],
+
+    /* An override on an owner or admin would be a switch that does nothing,
+       because agency_can answers by role before it reads a row. */
+    ["an override cannot be written against an owner or admin",
+      () => { const am = q(`select m.id::text as rows from public.agency_memberships m join public.profiles p on p.id=m.user_id where p.email='bes.admin@bes.test'`)[0].rows;
+              return p56(OWN56, `select public.set_agency_permission('${am}','partners.financials.view',false) as rows`); }, "ERR 22023"],
+
+    ["a permission change is audited",
+      () => p56(ADM56, `select public.set_agency_permission('${MGRM}','partners.financials.view',true); select count(*)::int as rows from public.audit_log where action='agency_permission.set'`), 1],
+
+    /* ── A partner never sees the money ──────────────────────────── */
+    ["the billing policy has no partner branch at all",
+      () => q(`select (position('partner_contact' in pg_get_expr(polqual, polrelid)) = 0)::text as rows from pg_policy where polname='partner_billing_select'`)[0].rows, "true"],
+
+    ["…and revenue is behind the same capability",
+      () => q(`select (position('partners.financials.view' in pg_get_expr(polqual, polrelid)) > 0)::text as rows from pg_policy where polname='partner_revenue_select'`)[0].rows, "true"],
+
+    ["anon reaches no partner billing",
+      () => { try { q(`begin; set local role anon; select 1 from public.partner_service_billing limit 1; rollback;`); return "readable"; } catch { return "refused"; } }, "refused"],
+  ] : [["(no partner to probe)", () => "skip", "skip"]];
+  runPhase("phase 56", P56, { strict: true });
+}
+
 endPhase();
 
 /* ------------------------------------------------------------------ *
