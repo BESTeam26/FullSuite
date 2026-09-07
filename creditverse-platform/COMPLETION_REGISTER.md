@@ -128,7 +128,7 @@ approved business workflow be completed?*
 | Build Credit | **DONE** | Invented figures removed |
 | Comparison grid + letter batching | **DONE** | |
 | **Metro 2 Section A** (identity) | **DONE** | 8 rules, 28 tests, and wired into the canonical findings flow 2026-09-07 |
-| **Metro 2 Sections B–P** | **SOURCE NOT YET RECONCILED** | The "~293 defects" figure was a **generated register estimate**, not a traced source — it appears once in this repository and nowhere in its history, `CLAUDE.md`, `BUILD_STATUS.md`, any commit message, migration or archive. **Withdrawn 2026-09-07 on Dee's instruction.** The real source is a defect catalogue **uploaded in an earlier chat session and never committed** — proven by commit `258b086` ("Appendix 1 of the uploaded defect catalogue"), by `metro2-status-rules.ts:17` ("Section Q of the catalogue"), and by Section A's transcribed ids A1/A2/A4/A6/A12/A14/A16/A20, whose gaps could not be generated. **Blocked on Dee re-supplying that document.** Full trace and the engine inventory it must be reconciled against: `src/lib/dispute/ENGINE_INVENTORY.md` |
+| **Metro 2 Sections B–P** | **SOURCE NOT YET RECONCILED** | The "~293 defects" figure was a **generated register estimate**, not a traced source — it appears once in this repository and nowhere in its history, `CLAUDE.md`, `BUILD_STATUS.md`, any commit message, migration or archive. **Withdrawn 2026-09-07 on Dee's instruction.** The real source is a defect catalogue **uploaded in an earlier chat session and never committed** — proven by commit `258b086` ("Appendix 1 of the uploaded defect catalogue"), by `metro2-status-rules.ts:17` ("Section Q of the catalogue"), and by Section A's transcribed ids A1/A2/A4/A6/A12/A14/A16/A20, whose gaps could not be generated. **Blocked on Dee re-supplying that document.** Full trace and the engine inventory it must be reconciled against: `src/lib/dispute/ENGINE_INVENTORY.md`. **Superseded as the product's organising idea 2026-09-07** — the canonical capability is now the BES Credit Reporting Intelligence & Compliance Engine (see the workstream below). This row stays open because the legacy catalogue is still missing, not because the product is waiting on it |
 | Metro 2 rules wired into the detector | **DONE** | 2026-09-07. `metro2/to-integrity-finding.ts` maps a Section A finding onto the `IntegrityFinding` the rest of CreditOps speaks, and `useReportIntegrityFindings` folds it into the same list the integrity engine produces — one queue, one review gate, one table. UNKNOWN and NOT_AN_ERROR never cross; `remedy` is never derived as `delete` or `block`; every finding lands with `human_review_required: true` and a null disposition, so a **person** still decides before anything is disputed. No extra request: the identity row is fetched under the key `Metro2IdentitySection` already uses, in parallel with the items query. 20 tests |
 | `metro2-guardrails.ts` test coverage | **DONE** | 2026-09-07. Was untested — four compliance decision functions including the § 1681b permissible-purpose tree. 38 tests, written to prove the refusals: UNKNOWN never becomes a violation, a permissible purpose always wins, nothing is ever classified `established-violation`, and the identity-theft pathway needs all three facts (asserted exhaustively). **No guardrail behaviour changed**; two judgment calls documented in `ENGINE_INVENTORY.md` §4 for Dee |
 | Missing DOFD, where it is relevant | **DONE** | 2026-09-07. `dofd` deliberately NOT added to `EXPECTED_FIELDS` — an account that was never late has no delinquency to date. Relevance comes from the account's own reporting (collection, derogatory wording, or any late mark in the grid). Raised as **apparent**, never confirmed: "the bureau omits it" and "our import missed it" look identical from here, so it is a review task, not a violation. No obsolescence rule added — that needs the report's pull date and an approved rule. 7 tests |
@@ -279,6 +279,50 @@ approved business workflow be completed?*
 **These do not stop other work.** Each is recorded against its item above.
 
 ---
+
+## BES Credit Reporting Intelligence & Compliance Engine (workstream opened 2026-09-07)
+
+Dee's Metro 2 / FCRA research of 2026-09-07 is the **authoritative legal and
+product doctrine for CreditOps**. The product is no longer conceptually a
+"Metro 2 Violation Detector".
+
+Documentation milestone **DONE**; implementation not started, awaiting review.
+
+| Document | What it settles |
+|---|---|
+| `docs/creditops/CREDIT_REPORTING_INTELLIGENCE_RULEBOOK.md` | 20 locked truths, authority hierarchy, CDIA boundary, 8-level finding taxonomy, 6-level evidence model + 6 confidence axes, rule schema with stable `BES-CRA-*` ids, party/duty routing, `DISPUTE_ORIGIN`, cross-bureau and chronology models, remedy engine, inquiry rewrite, FCBA gate, identity-theft truth gate, letter truth gate, e-OSCAR doctrine, forensic review, QA checklist, testing doctrine, V1/V2 product boundary |
+| `docs/creditops/CREDIT_REPORTING_SOURCE_REGISTER.md` | Every citation with authority level and verification state. **Every row is `IN_USE_UNVERIFIED` or weaker** — no primary-source pass has run |
+| `docs/creditops/CREDIT_REPORTING_LEGACY_CROSSWALK.md` | 25 legacy items audited: 4 REJECT, 2 SUPERSEDED, 3 REWRITE, 5 KEEP_WITH_QUALIFICATION, 10 KEEP, 1 SOURCE_UNVERIFIED |
+| `docs/creditops/CREDIT_REPORTING_GAP_MAP.md` | 12 capability gaps; what is fixable without schema, what needs schema (S-1…S-8), what needs CDIA access, what needs counsel |
+| `ARCHITECTURE_PROPOSAL_PER_BUREAU_OBSERVATIONS.md` | Proposal — the prerequisite for cross-bureau intelligence |
+| `ARCHITECTURE_PROPOSAL_CHRONOLOGY.md` | Proposal — cure reconstruction, snapshot coverage, timeline events |
+
+**Highest-severity finding — live in the product today.** `TRAP_CHANNELS.FTC`
+(`letters-and-channels.ts:19`) tells staff an IdentityTheft.gov report is
+*"Required for third-party collections"*, reachable through
+`ClientDetail → LettersTab → TrapStrategyPanel`. A collection is not evidence of
+identity theft, and the FTC warns specifically against false identity-theft
+reports as a credit-repair tactic. **Fix this before any architectural delta.**
+
+**Two round engines are live with opposite doctrine.** `rounds-and-layers.ts`
+(7-layer pressure ladder, TRAP round 1, direct disputes wrongly citing
+§ 1681s-2(b), MOV over-claim, ClickUp/LetterStream statuses) versus
+`escalation-ladder.ts` (12 rounds earned by the record, willfulness gated).
+The second is correct; the first is retired, not reconciled.
+
+| # | Item | Status |
+|---|---|---|
+| CR-1 | Rulebook, Source Register, Legacy Crosswalk, Gap Map | **DONE 2026-09-07** |
+| CR-2 | Per-bureau observations | **PROPOSAL** — approval required |
+| CR-3 | Chronology layer | **PROPOSAL** — approval required |
+| CR-4 | Remove L-01/L-02/L-03/L-05; retire `rounds-and-layers.ts`; renames | **READY — no schema needed** |
+| CR-5 | Finding taxonomy, evidence strength, confidence axes as domain types | **READY — no schema needed** |
+| CR-6 | Truth gate, party routing, `DISPUTE_ORIGIN` threading | **READY — no schema needed** |
+| CR-7 | Section A reconciliation against the new taxonomy | Pending CR-5 |
+| CR-8 | Inquiry rewrite · DOFD/re-aging · reinsertion · forensic review | Pending CR-2/CR-3 |
+| CR-9 | `BES-CRA-*` catalogue expansion | **Last.** Not gated on the missing legacy catalogue |
+| CR-10 | Primary-source verification pass | **Counsel** — §1681s-2(a)(8)/Reg V §1022.43 first |
+| CR-11 | CDIA/CRRG licence review | **External** — gates `metro2-status-rules` extension and all of V2 |
 
 ## Competitor research (Dee, 2026-09-07) — reconciled, deltas awaiting approval
 
