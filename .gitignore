@@ -15,3 +15,5 @@ node_modules
 # Ignored so a stray one is never committed again. If this path reappears,
 # delete it and re-run the command from creditverse-platform/.
 /supabase/
+.vercel
+.env*

@@ -246,6 +246,43 @@ export async function setItemFieldValue(itemId: string, fieldId: string, value: 
 
 export interface WorkspaceInput { name: string; description?: string | null; icon?: string | null; colour?: string | null }
 
+/**
+ * A workspace needs at least one status before anything can live in it.
+ *
+ * `work_items_workspace_consistency` derives an item's canonical stage from
+ * its status and refuses the item when there is none — so a workspace with no
+ * statuses silently rejects every task, with a message ("status belongs to
+ * another workspace") that describes the symptom and hides the cause. Nothing
+ * seeded them: the workspaces that work got theirs from a migration's own seed
+ * data, and every one created through the application since was born unusable.
+ *
+ * Seeded here rather than by a database trigger on purpose. A trigger changes
+ * the contract for every existing writer — an admin who creates a workspace
+ * and then adds their own status keyed 'done' collides with the one the
+ * trigger just made. These are DEFAULTS, so they belong where the default is
+ * being chosen.
+ */
+export const DEFAULT_STATUSES: StatusInput[] = [
+  { key: "todo", label: "To do", colour: "slate", position: 0, canonicalStage: "Queued" },
+  { key: "in_progress", label: "In progress", colour: "blue", position: 1, canonicalStage: "In Processing" },
+  { key: "blocked", label: "Blocked", colour: "amber", position: 2, canonicalStage: "Blocked" },
+  { key: "done", label: "Done", colour: "emerald", position: 3, canonicalStage: "Completed" },
+];
+
+export async function seedWorkspaceDefaults(workspaceId: string): Promise<void> {
+  const { error } = await supabase.from("workspace_statuses").insert(
+    DEFAULT_STATUSES.map((s) => ({
+      workspace_id: workspaceId, key: s.key, label: s.label, colour: s.colour,
+      position: s.position, canonical_stage: s.canonicalStage,
+      /* Derived from the stage, exactly as `createStatus` does — one rule for
+         what "terminal" means, not two that can disagree. */
+      is_terminal: s.canonicalStage === "Completed",
+    })) as never,
+  );
+  if (error) throw new Error(error.message);
+  await createBoard(workspaceId, "Tasks", 0);
+}
+
 export async function createWorkspace(organizationId: string, input: WorkspaceInput): Promise<string> {
   const { data, error } = await supabase
     .from("workspaces")
@@ -253,6 +290,7 @@ export async function createWorkspace(organizationId: string, input: WorkspaceIn
     .select("id")
     .single();
   if (error) throw new Error(error.message);
+  await seedWorkspaceDefaults(data.id);
   return data.id;
 }
 

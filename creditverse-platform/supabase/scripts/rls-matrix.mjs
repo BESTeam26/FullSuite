@@ -3030,7 +3030,11 @@ if (runs(55)) {
      `with w as (insert …)` form fails with a check violation that looks like
      a policy problem and is not. Learned in migration 0135; the same shape
      bites here. */
-  const mkWs = `insert into public.workspaces (agency_id, organization_id, name) values ('${AG}', null, 'BES Team Probe');`;
+  /* Creates the workspace AND its default status, because that is what the
+     application does. A workspace with no status silently refuses every item
+     — the consistency trigger derives an item's stage from its status — so a
+     probe that skipped the status would be testing an impossible state. */
+  const mkWs = `insert into public.workspaces (agency_id, organization_id, name) values ('${AG}', null, 'BES Team Probe'); insert into public.workspace_statuses (workspace_id, key, label, position, canonical_stage, is_terminal) values ((select id from public.workspaces where agency_id='${AG}' and name='BES Team Probe' order by created_at desc limit 1), 'todo', 'To do', 0, 'Queued', false);`;
   const wsId = `(select id from public.workspaces where agency_id='${AG}' and name='BES Team Probe' order by created_at desc limit 1)`;
   const mkTask = (title) => `${mkWs} insert into public.work_items (agency_id, scope, related_type, title, workspace_id) values ('${AG}', 'AGENCY', 'project', '${title}', ${wsId});`;
   const taskId = (title) => `(select id from public.work_items where title='${title}' order by created_at desc limit 1)`;

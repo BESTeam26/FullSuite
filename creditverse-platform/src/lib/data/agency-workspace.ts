@@ -11,7 +11,7 @@
  * organization. An internal task stands on its own.
  */
 import { requireSupabase } from "@/lib/supabase/client";
-import { mapWorkspace, type OrgMember, type OrgTeam, type WorkspaceInput } from "@/lib/data/workspaces";
+import { mapWorkspace, seedWorkspaceDefaults, type OrgMember, type OrgTeam, type WorkspaceInput } from "@/lib/data/workspaces";
 import type { Workspace } from "@/lib/workspaces/workspace-domain";
 
 export async function fetchAgencyWorkspaces(agencyId: string): Promise<Workspace[]> {
@@ -34,6 +34,10 @@ export async function createAgencyWorkspace(agencyId: string, input: WorkspaceIn
     })
     .select("id").single();
   if (error) throw error;
+  /* Same defaults as a customer workspace: without a status set nothing can
+     be filed in it, and the failure looks like a bug in the task rather than
+     an empty workspace. */
+  await seedWorkspaceDefaults(data.id as string);
   return data.id;
 }
 
