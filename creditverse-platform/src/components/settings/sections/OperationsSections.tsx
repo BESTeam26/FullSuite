@@ -237,7 +237,7 @@ export const TemplatesSection = () => (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {[
         "Round 1 Dispute Template",
-        "MOV Escalation Template",
+        "Reinvestigation Procedure Request Template",
         "Furnisher Direct Dispute",
         "Identity Theft Block (§1681c-2)",
         "CFPB Complaint Template",

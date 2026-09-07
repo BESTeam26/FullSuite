@@ -92,7 +92,7 @@ export const fcraSections: FCRASection[] = [
     keyPoints: [
       "Furnisher must report the outcome to all CRAs it originally furnished the information to",
       "Failure to conduct a reasonable investigation here is a frequent basis for furnisher liability claims",
-      "'Verified' responses without documented investigation steps are a common point for a Method of Verification request",
+      "'Verified' responses without documented investigation steps are a common point for a reinvestigation procedure request",
     ],
   },
   {

@@ -262,7 +262,7 @@ complete end to end.
 | `decision-engine.ts` | `decideDisputePath`, `buildFactualDisputeRecord` | Fact → duty → responsible party → channel | `decision-engine.test.ts` |
 | `legal-paths.ts` | `DISPUTE_STATES`, `LEGAL_PATHWAYS`, `CONFIDENCE_STATES` | The states a dispute can be in and the pathways available | — (data) |
 | `escalation-ladder.ts` | `roundAvailability`, `availableRound` | Whether a round has been **earned by the record**, per entry requirement | `escalation-ladder.test.ts` |
-| `rounds-and-layers.ts` | `getRoundDefinition`, `buildLayerStates` | The seven compliance layers per round | `rounds-and-layers.test.ts` |
+| ~~`rounds-and-layers.ts`~~ | — | **DELETED 2026-09-07 (CR-4b).** The 7-layer pressure ladder and TRAP round 1. Its three callers moved to `escalation-ladder.ts`; no third engine was built | — |
 | `dispute-queues.ts` | `disputeQueueMembers`, `disputeQueueCounts` | The 12 dashboard queues | `dispute-queues.test.ts` |
 | `letter-batching.ts` / `letter-merge.ts` | — | Batching letters by recipient; merging duplicates | both tested |
 | `cra-addresses-and-workflows.ts` | — | Where each letter goes | tested |

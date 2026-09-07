@@ -48,7 +48,7 @@ const PRESET_REASONS = [
 const PRESET_INSTRUCTIONS = [
   "Please reinvestigate under FCRA §1681i and delete if unverifiable.",
   "Audit Metro 2 Base Segment fields and correct balance to $0.00.",
-  "Provide Method of Verification (MOV) including furnisher contact details.",
+  "Describe the procedure used to reinvestigate, and provide the furnisher's business name, address and telephone number.",
   "Remove unauthorized inquiry immediately per FCRA §1681b.",
 ];
 

@@ -218,7 +218,7 @@ export const DisputeDashboard = () => {
           className={showInspector ? "bg-gradient-emerald text-white" : ""}
         >
           <ScanSearch className="h-4 w-4" />
-          {showInspector ? "Hide Inspector" : "Open Accuracy Inspector"}
+          {showInspector ? "Hide analysis" : "Credit Report Accuracy & Data Integrity Analysis"}
         </Button>
       </div>
 

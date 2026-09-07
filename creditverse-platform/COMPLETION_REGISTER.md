@@ -314,11 +314,13 @@ approvals). **Evidence upload is optional by default**; evidence legitimately
 lives outside BES. The L-01 fix is therefore neutral education plus four
 recorded operator states, not a stricter gate.
 
-**Two round engines are live with opposite doctrine.** `rounds-and-layers.ts`
-(7-layer pressure ladder, TRAP round 1, direct disputes wrongly citing
-§ 1681s-2(b), MOV over-claim, ClickUp/LetterStream statuses) versus
-`escalation-ladder.ts` (12 rounds earned by the record, willfulness gated).
-The second is correct; the first is retired, not reconciled.
+**Two round engines were live with opposite doctrine — RESOLVED 2026-09-07
+(CR-4b).** `rounds-and-layers.ts` (7-layer pressure ladder, TRAP round 1,
+direct disputes wrongly citing § 1681s-2(b), MOV over-claim,
+ClickUp/LetterStream statuses) is **deleted**; its callers moved to
+`escalation-ladder.ts`. No third engine was built. Correcting it also exposed
+that the surviving engine carried the § 1681s-2(b) error on two of its own
+rounds.
 
 | # | Item | Status |
 |---|---|---|
@@ -326,7 +328,7 @@ The second is correct; the first is retired, not reconciled.
 | CR-2 | Per-bureau observations | **PROPOSAL** — approval required |
 | CR-3 | Chronology layer | **PROPOSAL** — approval required |
 | CR-4a | **L-01 only** — the "Required" claim removed, four operator states added, `evaluateTruthGate`'s conflation of "does not recognize" with an identity-theft claim fixed, and the enclosure invariant enforced | **DONE 2026-09-07.** `requiresFTC()` deleted rather than renamed so no code can answer that question from an account; the identity-theft route is reached only from a recorded consumer statement, named `consumer_reports_identity_theft` so it never reads as verified. No BES rule blocks for a missing document. 27 new tests; 827 passing; no schema, no migration, no matrix |
-| CR-4b | L-02/L-03/L-05; retire `rounds-and-layers.ts`; renames | **READY — no schema needed.** Deliberately not bundled with CR-4a |
+| CR-4b | L-02/L-03/L-04/L-05; `rounds-and-layers.ts` retired; composer wording; V1 renames | **DONE 2026-09-07.** TRAP retired — `DISPUTE_CHANNELS` are context, a round may be just *fact → recipient → dispute → result*, and `TrapStrategyPanel` became `DisputeChannelsPanel`. All 18 § 1681s-2(b) references classified rather than swept: 8 kept as legitimate CRA-forwarded usage (including 5 that warn against the very misuse), 7 deleted with the engine, and **2 removed from `escalation-ladder.ts` itself — rounds 3 and 8 carried the same error the "correct" engine was supposed to be free of**. No replacement statutory promise added. MOV renamed to "Reinvestigation procedure request" everywhere, and `knowledge/qa-entries.ts` had cited **FCRA § 609** for it — corrected to § 611(a)(7). `rounds-and-layers.ts` and its test deleted after proving no product caller remained; `RoundEscalationPanel` rewritten to show what a round rests on instead of "Layer 4 active", with every round still selectable. Composer opening fixed. 837 tests (18 new), no schema, no matrix |
 | CR-12 | `organization_dispute_sop` — per-organization requirements, all defaulting off (gap G-13, schema S-9) | **PROPOSAL** — nothing depends on it; CR-4a ships without it |
 | CR-5 | Finding taxonomy, evidence strength, confidence axes as domain types | **READY — no schema needed** |
 | CR-6 | Truth gate, party routing, `DISPUTE_ORIGIN` threading | **READY — no schema needed** |

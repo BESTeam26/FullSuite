@@ -90,12 +90,13 @@ export function Metro2IdentityPanel({
     <div className="space-y-3 rounded-2xl border border-border bg-card p-4">
       <div>
         <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
-          <ShieldCheck className="h-4 w-4 text-primary" /> Identity reporting (Metro 2 Section A)
+          <ShieldCheck className="h-4 w-4 text-primary" /> Personal information accuracy
         </h3>
         <p className="mt-0.5 text-xs text-muted-foreground">
-          Compares what the bureau prints against what this client's own record says. Metro 2 is a
-          reporting FORMAT, not a law — a defect here is an inaccuracy to dispute, not a violation to
-          allege.
+          Part of Credit Report Accuracy &amp; Data Integrity Analysis. Compares what the bureau
+          prints against what this client&rsquo;s own record says. This reads the consumer-facing
+          report, not the furnisher&rsquo;s transmitted record — so a finding here is an inaccuracy
+          to dispute, never a verified Metro 2 field result and never a violation to allege.
         </p>
       </div>
 
@@ -156,9 +157,8 @@ export function Metro2IdentityPanel({
 
       <p className="text-[10px] text-muted-foreground">
         Confirmed and apparent findings here also appear in Report Integrity, where they are saved to
-        the client record and reviewed. Nothing on this panel disputes anything by itself. Identity
-        only — not balances, dates, statuses or payment history; those sections are not built, and the
-        source catalogue they come from has not yet been reconciled.
+        the client record and reviewed. Nothing on this panel disputes anything by itself. Personal
+        information only — not balances, dates, statuses or payment history.
       </p>
     </div>
   );

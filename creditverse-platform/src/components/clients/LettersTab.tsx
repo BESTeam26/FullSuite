@@ -23,7 +23,7 @@ import {
   generateDisputeDraft,
 } from "@/lib/dispute/package-builder";
 import { RoundEscalationPanel } from "./dispute-flow/RoundEscalationPanel";
-import { TrapStrategyPanel } from "./dispute-flow/TrapStrategyPanel";
+import { DisputeChannelsPanel } from "./dispute-flow/DisputeChannelsPanel";
 import { ComplianceGuardrailPanel } from "./dispute-flow/ComplianceGuardrailPanel";
 import { LegalPathPanel } from "./dispute-flow/LegalPathPanel";
 import {
@@ -124,7 +124,7 @@ const LettersTab = ({ liveClientId = null, liveClientName = null }: LettersTabPr
 
       {/* Round escalation + TRAP */}
       <RoundEscalationPanel round={round} onRoundChange={setRound} />
-      <TrapStrategyPanel pkg={pkg} />
+      <DisputeChannelsPanel pkg={pkg} />
 
       {/* Builder selector — choose Factual / Metro2 / Freeze / Hybrid */}
       <BuilderSelectorPanel pkg={pkg} onGenerateMode={handleGenerateMode} />

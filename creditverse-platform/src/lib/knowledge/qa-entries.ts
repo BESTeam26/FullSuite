@@ -64,7 +64,7 @@ export const qaEntries: QAEntry[] = [
     question:
       "The bureau said an item was 'verified.' What's the next lawful step?",
     answer:
-      "A bare 'verified' response with no description of what was reviewed can support a Method of Verification (MOV) request under FCRA § 609 — asking the CRA/furnisher to describe the specific records and process used. This is not itself proof of a violation; it is a documentation step. If the furnisher cannot produce any investigation record after a proper MOV request, that pattern becomes relevant evidence for counsel to evaluate under §§ 611/623(b)/616-617.",
+      "A bare 'verified' response with no description of what was done can support a request for a description of the reinvestigation PROCEDURE under FCRA § 611(a)(7) (15 U.S.C. § 1681i(a)(7)), together with the furnisher's business name, address and telephone number where reasonably available. Two corrections to how this used to be taught: the provision is § 611(a)(7), not § 609, and it does NOT entitle a consumer to the signed contract, the payment ledger or the investigation file. It is a documentation step and never proof of a violation. Where a pattern of unexplained 'verified' responses builds up, that pattern is evidence for counsel to evaluate — counsel, not the platform.",
     citations: ["FCRA § 609", "FCRA § 611(a)(7)"],
   },
   {

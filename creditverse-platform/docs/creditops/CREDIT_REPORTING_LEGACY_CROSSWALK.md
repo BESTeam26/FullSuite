@@ -46,17 +46,20 @@ separately as CR-4a, ahead of every architectural delta, as planned.
 
 ---
 
-## 1. The two round engines
+## 1. The two round engines — RESOLVED 2026-09-07 (CR-4b)
 
-BES has **two** dispute-round engines, both wired, encoding opposite doctrine.
-That is a rule 2 and rule 6 violation on its own, before the legal question.
+`rounds-and-layers.ts` and its test are **deleted**. Its three callers moved to
+`escalation-ladder.ts`; the grep proving no product caller remained is in the
+CR-4b commit. There is now one engine, not three — no replacement was built.
+
+What follows is the record of what was wrong.
 
 | | `rounds-and-layers.ts` | `escalation-ladder.ts` |
 |---|---|---|
 | Model | 7-layer pressure ladder, TRAP round 1 | 12 rounds, each **earned by the record** |
 | Framing | *"convert a simple dispute into a documented compliance failure case"* | Entry requirements per round; willfulness gated behind evidence |
 | Reached by | `NextStepsTab`, `RoundEscalationPanel`, `package-builder` — all live via `ClientDetail` | `letter-composer` |
-| Verdict | **SUPERSEDED / REJECT in part** | **KEEP** |
+| Verdict | **DELETED 2026-09-07** | **KEEP — and corrected, see L-03** |
 
 `escalation-ladder.ts` is the correct engine and already carries the right
 comment at line 118: *"§1681i(a)(7) gets a DESCRIPTION of the procedure. It
@@ -144,10 +147,11 @@ change.
 **Scope:** L-01 and this conflation only. Per instruction, not broadened into
 the other legacy fixes. Both shipped together in CR-4a.
 
-**Noticed and deliberately not fixed** (CR-4b or later): the composer's opening
-paragraph reads *"I am asking you to correction of the exact field that is
-wrong"* — a grammatical break in text that goes to a bureau. Out of CR-4a's
-scope; recorded so it is not lost.
+**Noticed in CR-4a, fixed in CR-4b:** the composer's opening read *"I am asking
+you to correction of the exact field that is wrong"*. `asksFor` entries are
+noun phrases, so the frame was wrong, not the content. Now *"What I am asking
+for is correction of the exact field that is wrong…, under 15 U.S.C.
+§ 1681i(a)."* Legal meaning untouched; four tests hold it.
 
 ### L-02 — "TRAP" multi-channel pressure from Round 1
 
@@ -161,10 +165,24 @@ scope; recorded so it is not lost.
   intake for inaccurate-reporting complaints has prerequisites (a prior CRA
   dispute, and an attestation tied to it no longer being pending or the stated
   period having run), so a category-driven Round 1 complaint is premature.
-- **Verdict: `REJECT`.** Channels become available actions after the
-  circumstances are reviewed. Dee's earlier screenshot correction said the same
-  thing.
-- **Live:** yes.
+- **Verdict: `REJECT`. FIXED 2026-09-07 (CR-4b).**
+  - `TRAP_CHANNELS` → `DISPUTE_CHANNELS` (old name kept as a deprecated alias).
+    Header rewritten: a round may be just *fact → recipient → dispute →
+    result*.
+  - CFPB description now names its **prerequisites** — a prior dispute with the
+    bureau and an attestation about it — and says the consumer files it, not
+    BES. "By category. Separate complaint per negative category." is gone.
+  - `LetterCategory.requiresCFPB` → `cfpbResourceRelevant`, matching
+    `ftcResourceRelevant` from CR-4a. Relevance decides what to *explain*.
+  - `package-builder`: `trapChannels` and `layersActivated` removed;
+    `cfpbComplaints` → `cfpbRelevantCategories`, counted as context.
+  - `TrapStrategyPanel` → **`DisputeChannelsPanel`**. It read "TRAP Strategy /
+    CRA + FTC + CFPB / Multi-channel pressure from Round 1. Every channel fires
+    simultaneously to establish the compliance record." It now reads "Channels
+    for this round / Context, not a checklist", and closes with the line that
+    matters: your organization's own SOP decides which it uses.
+  - 12 tests in `letters-and-channels.test.ts` assert the words: no
+    "required", no "must file", no "fires simultaneously", no "pressure".
 
 ### L-03 — Direct furnisher dispute "activates § 1681s-2(b)"
 
@@ -177,10 +195,32 @@ scope; recorded so it is not lost.
   § 1681s-2(a)(8) and Reg V § 1022.43 — which **excludes** disputes prepared by
   a credit repair organization. Since BES prepares them, the promise is doubly
   wrong.
-- **Verdict: `REJECT`.** Route by `DISPUTE_ORIGIN`; never promise the trigger.
-- **Corroborating gap:** § 1681s-2(a)(8) appears **nowhere** in `src/`, while
-  § 1681s-2(b) appears 18 times. The correct citation is entirely absent.
-- **Live:** yes.
+- **Verdict: `REJECT`. FIXED 2026-09-07 (CR-4b).**
+
+  All 18 references were read and classified rather than swept:
+
+  | Kept — legitimate CRA-forwarded usage | Why |
+  |---|---|
+  | `reporting-integrity-rules.ts:163` | The `furnisher_via_cra` route, with the caution "Triggered by the CRA's notice under § 1681i(a)(2), not by a direct letter" — already exactly right |
+  | `metro2-engine.ts` ×5 | Every one is a warning *against* the misuse, including "Do not claim a direct certified-mail dispute 'activates §1681s-2(b)'" |
+  | `knowledge/fcra-sections.ts:89` | Reference material on § 623(b) |
+  | `metro2-engine.test.ts:204` | Tests the above |
+
+  | Removed — incorrect direct-furnisher usage | |
+  |---|---|
+  | `rounds-and-layers.ts` ×7 | Deleted with the engine |
+  | `rounds-and-layers.test.ts:44` | Deleted with the engine |
+  | **`escalation-ladder.ts:138` (round 3, direct dispute)** | **Found during CR-4b — the correct engine had the error too.** § 1681s-2(b) removed; Reg V § 1022.43 retained as what a direct dispute must comply with, with a comment that whether it governs depends on `DISPUTE_ORIGIN` and awaits primary-source verification |
+  | **`escalation-ladder.ts:213` (round 8, executive office)** | Also found in CR-4b. § 1681s-2(b) removed; § 1022.42 retained as the provision that round actually speaks to |
+
+  **No replacement categorical promise was added**, per instruction. Round 3
+  keeps its neutral name, "Direct dispute to the furnisher", and now claims no
+  statutory trigger at all.
+
+- **Corroborating gap, unchanged:** § 1681s-2(a)(8) still appears **nowhere**
+  in `src/`. Adding it is a legal-routing decision that waits on counsel
+  (Source Register §9 item 1), not a find-and-replace.
+- A test asserts **no round in the ladder cites § 1681s-2(b)**.
 
 ### L-04 — Method of Verification over-claim
 
@@ -192,13 +232,25 @@ scope; recorded so it is not lost.
 - **Why wrong:** Rulebook §11. § 1681i(a)(7) concerns a **description of the
   procedure**, plus furnisher business name, address and telephone where
   reasonably available. It is not a production right.
-- **Verdict: `REWRITE`.** `escalation-ladder.ts:110` already models this
-  correctly as "Method of verification" with the right constraint in a comment;
-  rename the product term to **"Reinvestigation Procedure Request"**, which
-  `legal-paths.ts:69` already uses.
-- **Note:** `ItemDetailPanel.tsx:46` asking for furnisher contact details is
-  **within** the statute. Only the label and the "force production" framing are
-  wrong.
+- **Verdict: `REWRITE`. FIXED 2026-09-07 (CR-4b).**
+  - `escalation-ladder` round 2: "Method of verification" →
+    **"Reinvestigation procedure request"**; `REQUIREMENT_LABELS.mov_requested`
+    → "a description-of-procedure request already sent".
+  - `ItemDetailPanel` preset instruction → "Describe the procedure used to
+    reinvestigate, and provide the furnisher's business name, address and
+    telephone number." Substance was already within the statute; only the label
+    and framing were wrong.
+  - `OperationsSections` template name → "Reinvestigation Procedure Request
+    Template".
+  - `knowledge/qa-entries.ts` carried a **wrong citation** — it attributed the
+    procedure request to **FCRA § 609**. Corrected to § 611(a)(7)
+    (15 U.S.C. § 1681i(a)(7)), and the entry now states plainly that it does
+    not entitle a consumer to the contract, the ledger or the investigation
+    file. Found during CR-4b; not previously recorded.
+  - `knowledge/fcra-sections.ts` and `knowledge/violations.ts` reworded.
+  - The `mov` letter-kind enum value is unchanged — an internal identifier.
+- A test asserts no round's `asksFor` mentions a signed contract, a payment
+  ledger, an investigation file, or "full verification documentation".
 
 ### L-05 — Round 3 demands the contract and ledger
 
@@ -208,8 +260,7 @@ scope; recorded so it is not lost.
   documentation"*
 - **Why wrong:** Rulebook §11. No provision entitles a consumer to the contract,
   the ledger or the investigation file as of right.
-- **Verdict: `REJECT`.**
-- **Live:** yes.
+- **Verdict: `REJECT`. FIXED 2026-09-07 (CR-4b)** — deleted with the engine.
 
 ### L-06 — The pressure ladder, rounds 4–7
 
@@ -220,9 +271,13 @@ scope; recorded so it is not lost.
 - **Why wrong:** Rulebook §0. Escalation is earned by the record, not scheduled
   by round number. Naming the objective as building a compliance-failure case
   inverts truth-first.
-- **Verdict: `SUPERSEDED`** by `escalation-ladder.ts`, which requires
-  `willfulness_record`, `consumer_authorised_legal` and
-  `human_review_complete` before any § 1681n round.
+- **Verdict: `SUPERSEDED`. DELETED 2026-09-07 (CR-4b)** in favour of
+  `escalation-ladder.ts`, which requires `willfulness_record`,
+  `consumer_authorised_legal` and `human_review_complete` before any § 1681n
+  round. `RoundEscalationPanel` was rewritten against it: instead of "Layer 4
+  active" it now shows who the round is addressed to, what it asks for, and
+  **what must already be true** before it is worth sending. Every round stays
+  selectable — the ladder shows availability, it does not enforce a sequence.
 
 ### L-07 — External system statuses baked into the round model
 
@@ -230,7 +285,8 @@ scope; recorded so it is not lost.
   Round 1 *"Mail all Round 1 letters via LetterStream"*
 - **Why wrong:** ClickUp and Google Sheets are not part of the product; the
   mailing provider is **Lob** (rule 19).
-- **Verdict: `SUPERSEDED`.**
+- **Verdict: `SUPERSEDED`. DELETED 2026-09-07 (CR-4b)** with the engine that
+  held them.
 
 ### L-08 — "delete if unverifiable" as the standing request
 
@@ -402,9 +458,20 @@ scope; recorded so it is not lost.
 - **Why wrong:** Rulebook §3 and §22. BES analyses consumer-facing displays.
   Naming the module "Metro 2" claims a validation capability BES does not have
   (that is V2).
-- **Verdict: `REWRITE`.** Customer-facing name becomes **Credit Report Accuracy
-  & Data Integrity Analysis**. Internal module names may keep their filenames;
-  the *labels a customer reads* must change.
+- **Verdict: `REWRITE`. FIXED 2026-09-07 (CR-4b).** Customer-facing labels only;
+  internal filenames and identifiers unchanged, per instruction.
+  - "Open Accuracy Inspector" → **"Credit Report Accuracy & Data Integrity
+    Analysis"** (`DisputeDashboard`)
+  - "Identity reporting (Metro 2 Section A)" → **"Personal information
+    accuracy"**, with a subtitle stating it reads the consumer-facing report,
+    not the furnisher's transmitted record, so a finding is never a verified
+    Metro 2 field result
+  - Copilot tab "Metro 2" → **"Metro 2 reference"** — it renders the field
+    reference, which is education about the format and stays
+  - `Metro2IntelligencePanel` header comment records why the rename happened
+  - **Not renamed:** `Education.tsx`'s "Metro 2 Field Reference Guide". It
+    teaches the format honestly and `knowledge/metro2-fields.ts` already
+    carries the CDIA caveat.
 
 ### L-24 — § 1692e(8) citations
 
@@ -428,17 +495,27 @@ scope; recorded so it is not lost.
 
 | Verdict | Count | Items |
 |---|---|---|
-| `REJECT` | 4 | **L-01 — FIXED 2026-09-07 (CR-4a)**, L-02, L-03, L-05 |
-| `SUPERSEDED` | 2 | L-06, L-07 |
-| `REWRITE` | 3 | L-04, L-14 (minor), L-23 |
+| `REJECT` | 4 | **all FIXED 2026-09-07** — L-01 (CR-4a), L-02, L-03, L-05 (CR-4b) |
+| `SUPERSEDED` | 2 | **both DELETED 2026-09-07 (CR-4b)** — L-06, L-07 |
+| `REWRITE` | 3 | **L-04, L-23 FIXED (CR-4b)**; L-14 (minor) outstanding |
 | `KEEP_WITH_QUALIFICATION` | 5 | L-08, L-17, L-18, L-24, plus L-12's extension |
 | `KEEP` | 10 | L-09, L-10, L-11, L-12, L-13, L-15, L-16, L-19, L-20, L-21, L-25 |
 | `SOURCE_UNVERIFIED` + `LICENSE_REVIEW_REQUIRED` | 1 | L-22 |
 
-**Nine items need correction; sixteen are already right.** Everything in the
-`REJECT` and `SUPERSEDED` columns is concentrated in two files —
-`rounds-and-layers.ts` and the TRAP section of `letters-and-channels.ts` —
-which is the good news: the legacy doctrine is contained, not diffuse.
+**Eight of the nine are corrected as of 2026-09-07** (CR-4a and CR-4b). One
+remains: **L-14**, widening `analyzeInquiry`'s § 1681b context list with "other
+applicable statutory purpose" — minor, and it waits on the primary-source pass.
+
+Two things the fix work found that the audit had not:
+
+1. **`escalation-ladder.ts` carried the L-03 error too**, on rounds 3 and 8.
+   The "correct" engine was not clean; only its comments were.
+2. **`knowledge/qa-entries.ts` cited FCRA § 609** for the reinvestigation
+   procedure request. The provision is § 611(a)(7).
+
+The legacy doctrine was contained rather than diffuse, as hoped — but it had
+leaked one citation into the good engine and one wrong section number into the
+knowledge base.
 
 The newer engines (`escalation-ladder`, `decision-engine`, `legal-paths`,
 `metro2-guardrails`, `letter-merge`, `letter-voice`, `metro2/`) already

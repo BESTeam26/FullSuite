@@ -100,7 +100,7 @@ export const CategoryLettersPanel = ({
                         <ShieldAlert className="h-3 w-3" /> FTC
                       </span>
                     )}
-                    {cat.requiresCFPB && (
+                    {cat.cfpbResourceRelevant && (
                       <span className="flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600">
                         <Scale className="h-3 w-3" /> CFPB
                       </span>

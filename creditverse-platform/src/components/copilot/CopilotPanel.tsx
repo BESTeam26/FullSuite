@@ -95,7 +95,7 @@ export const CopilotPanel = () => {
     () => [
       { key: "chat" as Mode, label: "Ask AI", icon: Sparkles },
       { key: "fcra" as Mode, label: "FCRA Guide", icon: Scale },
-      { key: "metro2" as Mode, label: "Metro 2", icon: Database },
+      { key: "metro2" as Mode, label: "Metro 2 reference", icon: Database },
       { key: "violations" as Mode, label: "Violations", icon: FileWarning },
     ],
     [],

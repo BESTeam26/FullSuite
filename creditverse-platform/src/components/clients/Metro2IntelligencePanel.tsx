@@ -1,4 +1,11 @@
-// Metro 2 Intelligence Panel — renders the corrected data-integrity analysis.
+// Credit Report Accuracy & Data Integrity Analysis — the panel.
+//
+// Renamed in CR-4b: "Metro 2 Intelligence" claimed a validation capability BES
+// does not have. This reads consumer-facing report displays, not a furnisher's
+// transmitted record, so it cannot validate a Metro 2 field or code. That is
+// the V2 Metro 2 Validation Layer, which needs authorized source data and a
+// current licensed rule basis. The internal filename and identifiers are
+// unchanged on purpose — only what a customer reads.
 // Shows the graduated classification (never "Metro 2 Violation"), evidence
 // strength, field verdict, the Truth Gate, and recipient-aware statute routing.
 
@@ -330,8 +337,8 @@ export const ClassificationLegend = () => {
         <h3 className="font-semibold">Classification Scale</h3>
       </div>
       <p className="mt-1 text-xs text-muted-foreground">
-        Replaces the dangerous "Metro 2 Violation" label with a graduated scale.
-        The AI never produces "Established Violation" automatically.
+        A graduated scale, never a "violation" label. The AI never produces
+        "Established Violation" automatically, and no automated analysis can.
       </p>
       <div className="mt-3 space-y-2">
         {items.map((c) => {

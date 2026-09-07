@@ -26,7 +26,8 @@
  *   1. WHO is being written to — the bureau, then the furnisher, then that
  *      furnisher's compliance function, then its executive office, then a
  *      regulator, then counsel.
- *   2. WHAT IS BEING ASKED FOR — correction, then the method of verification,
+ *   2. WHAT IS BEING ASKED FOR — correction, then a description of the
+ *      reinvestigation procedure,
  *      then the furnisher's own records, then an explanation of a procedural
  *      failure, then a remedy.
  *   3. WHAT THE RECORD PROVES — every round inherits the last one's unanswered
@@ -34,6 +35,18 @@
  *   4. WHICH STATUTE IS IN PLAY — and only when the facts reach it. §1681n
  *      willfulness is not a round number; it is a finding, and it needs a
  *      record and a human.
+ *
+ * ── THIS LADDER IS GUIDANCE, NOT A MANDATORY BES STRATEGY (CR-4b) ──────────
+ *
+ * `roundAvailability()` and `availableRound()` say what the record has EARNED.
+ * They do not say what an organization must do. A company may run its own
+ * legitimate dispute SOP — fewer rounds, different recipients, its own
+ * sequence — and BES's job is to show what is available and what each step
+ * rests on, not to withhold the workflow until its own ladder is satisfied.
+ *
+ * The one thing the ladder does hold firm on is the two rounds that need the
+ * CONSUMER's own decision, below. Those are not BES imposing a process; they
+ * are a person's choice that nobody else may make for them.
  *
  * Two rounds are gated on the CONSUMER's authorization, not ours: a regulatory
  * complaint and anything pre-litigation. The specification forbids threatening
@@ -107,7 +120,7 @@ export const ESCALATION_LADDER: RoundDefinition[] = [
   },
   {
     number: 2,
-    name: "Method of verification",
+    name: "Reinvestigation procedure request",
     focus: "The bureau said verified. Ask how.",
     recipients: ["cra"],
     requires: ["prior_cra_result", "still_reported_after_result"],
@@ -132,10 +145,19 @@ export const ESCALATION_LADDER: RoundDefinition[] = [
       "The furnisher's own investigation of the specific field",
       "Correction at source, reported to every bureau it furnishes to",
     ],
-    /* Reg V sets what a direct dispute must contain and where it must go. A
-       direct dispute that misses those requirements can be dismissed without
-       an investigation, which wastes the round. */
-    legalBasis: ["15 U.S.C. § 1681s-2(b)", "12 C.F.R. § 1022.43"],
+    /* CR-4b: § 1681s-2(b) REMOVED from this round. That duty attaches when a
+       CRA forwards a dispute under § 1681i(a)(2) — not when a consumer writes
+       to a furnisher directly. Citing it here promised a trigger this round
+       does not pull.
+
+       Reg V § 1022.43 sets what a direct dispute must contain and where it
+       must go, and is retained as the operating requirement — but it also
+       excludes disputes prepared by a credit repair organization, which is
+       exactly what BES prepares. Whether it governs a given dispute therefore
+       depends on `DISPUTE_ORIGIN`, and that determination waits on the
+       primary-source verification pass (Source Register §9 item 1). Until
+       then this round claims no statutory trigger. */
+    legalBasis: ["12 C.F.R. § 1022.43"],
     humanReview: false,
     consumerAuthorisation: false,
   },
@@ -210,7 +232,11 @@ export const ESCALATION_LADDER: RoundDefinition[] = [
       "An owner for the correction, by name",
       "A date by which the record will be accurate",
     ],
-    legalBasis: ["15 U.S.C. § 1681s-2(b)", "12 C.F.R. § 1022.42"],
+    /* CR-4b: § 1681s-2(b) REMOVED — same reason as round 3. An escalation
+       inside the furnisher is not a CRA-forwarded dispute. § 1022.42, the
+       furnisher's own accuracy-and-integrity policies, is the provision this
+       round actually speaks to. */
+    legalBasis: ["12 C.F.R. § 1022.42"],
     humanReview: true,
     consumerAuthorisation: false,
   },
@@ -322,7 +348,7 @@ export const REQUIREMENT_LABELS: Record<EntryRequirement, string> = {
   confirmed_finding: "at least one confirmed error in the report",
   prior_cra_result: "a reinvestigation result actually received from the bureau",
   still_reported_after_result: "the item still on the report after that result",
-  mov_requested: "a method-of-verification request already sent",
+  mov_requested: "a description-of-procedure request already sent",
   mov_not_produced: "no description of the procedure received",
   direct_dispute_sent: "a direct dispute already sent to the furnisher",
   furnisher_window_elapsed: "the furnisher's investigation window elapsed",

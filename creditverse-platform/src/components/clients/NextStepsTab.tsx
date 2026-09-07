@@ -18,15 +18,15 @@ import { formatDate } from "@/lib/format-date";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useClientWorkspace } from "@/lib/client-workspace-context";
-import { getRoundDefinition } from "@/lib/dispute/rounds-and-layers";
+import { getRound } from "@/lib/dispute/escalation-ladder";
 import { UspsTrackingPanel } from "./UspsTrackingPanel";
 
 const NextStepsTab = () => {
   const { round, setRound, setTab, roundCycleDays, activeLetters } =
     useClientWorkspace();
-  const roundDef = getRoundDefinition(round);
+  const roundDef = getRound(round);
   const nextRound = Math.min(round + 1, 7);
-  const nextRoundDef = getRoundDefinition(nextRound);
+  const nextRoundDef = getRound(nextRound);
 
   const steps = [
     {
@@ -140,21 +140,23 @@ const NextStepsTab = () => {
               <div className="flex items-center gap-2">
                 <Badge className="bg-emerald-600 text-white">Current</Badge>
                 <span className="text-sm font-semibold">
-                  Round {round}: {roundDef.name}
+                  Round {round}: {roundDef?.name ?? "in progress"}
                 </span>
               </div>
               <span className="text-xs text-status-success">In progress</span>
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
-              {roundDef.focus}
+              {roundDef?.focus ?? "Record what was sent and to whom."}
             </p>
+            {/* CR-4b: the 7 "layers" were a pressure ladder scheduled by round
+                number. What a round is addressed to is the honest equivalent. */}
             <div className="mt-2 flex flex-wrap gap-1.5">
-              {roundDef.layersActivated.map((l) => (
+              {(roundDef?.recipients ?? []).map((r) => (
                 <span
-                  key={l}
-                  className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-status-success"
+                  key={r}
+                  className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
                 >
-                  Layer {l}
+                  {r.replace(/_/g, " ")}
                 </span>
               ))}
             </div>
@@ -168,7 +170,7 @@ const NextStepsTab = () => {
                   Next
                 </Badge>
                 <span className="text-sm font-semibold">
-                  Round {nextRound}: {nextRoundDef.name}
+                  Round {nextRound}: {nextRoundDef?.name ?? "not yet defined"}
                 </span>
               </div>
               <Button
@@ -183,7 +185,10 @@ const NextStepsTab = () => {
               </Button>
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
-              {nextRoundDef.focus}
+              {/* Guarded: the ladder defines twelve rounds, and `strict` is off
+                  in this project's tsconfig, so a missing round would crash at
+                  runtime rather than fail the build. */}
+              {nextRoundDef?.focus ?? "Beyond the twelve rounds the ladder describes."}
             </p>
           </div>
         </div>

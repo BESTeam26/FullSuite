@@ -195,3 +195,36 @@ describe("enclosures a letter claims must actually be enclosed", () => {
     expect(out.unresolved.filter((u) => u.includes("not enclosed"))).toHaveLength(2);
   });
 });
+
+/**
+ * CR-4b. `asksFor` entries are noun phrases, and the opening used the frame
+ * "I am asking you to <noun phrase>" — which produced "I am asking you to
+ * correction of the exact field that is wrong" in a letter to a bureau.
+ */
+describe("the opening reads like English", () => {
+  const opening = () =>
+    composeLetter(input()).blocks.find((b) => b.startsWith("I am writing about")) ?? "";
+
+  it("does not produce 'asking you to <noun phrase>'", () => {
+    expect(opening()).not.toMatch(/asking you to correction/i);
+    expect(opening()).not.toMatch(/asking you to the /i);
+  });
+
+  it("states what is being asked for, and cites the round's statute once", () => {
+    expect(opening()).toMatch(/What I am asking for is /);
+    expect(opening()).toMatch(/, under 15 U\.S\.C\. § 1681i\(a\)\./);
+  });
+
+  it("keeps the legal meaning: correction of the field, deletion only where unsupported", () => {
+    expect(opening()).toMatch(/correction of the exact field that is wrong/i);
+    expect(opening()).toMatch(/deletion only where/i);
+  });
+
+  it("does not collide with the line that introduces the item table", () => {
+    const body = composeLetter(input()).blocks.join("\n");
+    /* Both sentences survive, and neither is a duplicate of the other: the
+       opening states the remedy sought, the second introduces the table. */
+    expect(body.match(/I am asking for the following:/g)?.length).toBe(1);
+    expect(opening()).not.toContain("the following:");
+  });
+});

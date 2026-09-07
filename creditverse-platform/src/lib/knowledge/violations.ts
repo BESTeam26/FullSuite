@@ -92,7 +92,7 @@ export const violationLibrary: ViolationEntry[] = [
     title: "Verified without documented investigation (MOV concern)",
     citation: "FCRA § 611(a)(7), § 623(b)",
     summary:
-      "A dispute came back 'verified' but the furnisher or CRA cannot articulate what records were reviewed — a basis to request Method of Verification, not an automatic violation.",
+      "A dispute came back 'verified' but the furnisher or CRA cannot articulate what was done — a basis to request a description of the reinvestigation procedure, not an automatic violation.",
     redFlags: [
       "Generic 'verified as accurate' response with no described process",
       "Same exact response language across unrelated disputes",

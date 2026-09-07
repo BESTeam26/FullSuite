@@ -6,15 +6,26 @@ import { identityTheftRouteAvailable, type AccountRecognition } from "./account-
 
 // ─── Channels ─────────────────────────────────────────────────────────────────
 //
-// CORRECTED 2026-09-07 (CR-4a). The FTC channel used to read "Required for
-// third-party collections". An account type is not evidence of identity theft;
-// the FTC warns specifically against false identity-theft reports used as a
-// credit-repair tactic, and filing one is a false statement to a federal
-// agency. Nothing here is required of an operator by BES, and the identity
-// theft route is reached only from a recorded consumer statement — see
-// `account-recognition.ts`.
+// CORRECTED 2026-09-07. Two rounds of the same mistake came out of here.
+//
+// CR-4a: the FTC channel read "Required for third-party collections". An
+// account type is not evidence of identity theft; the FTC warns specifically
+// against false identity-theft reports used as a credit-repair tactic, and
+// filing one is a false statement to a federal agency.
+//
+// CR-4b: these were "TRAP_CHANNELS" — CRA + FTC + CFPB, described as
+// "multi-channel pressure from Round 1", with every channel firing on account
+// category alone. A dispute round is allowed to be just:
+//
+//     fact → recipient → dispute → result
+//
+// So they are CONTEXT now, not steps. Nothing here is required of an operator
+// by BES, the identity-theft route is reached only from a recorded consumer
+// statement (`account-recognition.ts`), and a regulator complaint is the
+// consumer's own decision, recommended and explained but never filed by the
+// platform.
 
-export const TRAP_CHANNELS = {
+export const DISPUTE_CHANNELS = {
   CRA: {
     label: "CRA Dispute",
     description:
@@ -28,12 +39,18 @@ export const TRAP_CHANNELS = {
     icon: "ShieldAlert",
   },
   CFPB: {
-    label: "CFPB Complaint",
+    label: "CFPB complaint",
     description:
-      "Consumer Financial Protection Bureau complaint filed by category. Separate complaint per negative category.",
+      "A consumer may complain to the Consumer Financial Protection Bureau. Its intake for inaccurate-reporting complaints has prerequisites — a prior dispute with the bureau, and an attestation about that dispute — so it is not a step every round takes. The consumer files it, not BES.",
     icon: "Scale",
   },
 } as const;
+
+/**
+ * Kept as an alias so nothing breaks mid-migration.
+ * @deprecated Use `DISPUTE_CHANNELS`. "TRAP" named a strategy BES no longer has.
+ */
+export const TRAP_CHANNELS = DISPUTE_CHANNELS;
 
 // ─── Secondary Bureaus & Freeze Registry ────────────────────────────────────
 
@@ -148,7 +165,9 @@ export interface LetterCategory {
    *  whether one is required. Gated at the point of use on a recorded consumer
    *  statement (`account-recognition.ts`), never on the category alone. */
   ftcResourceRelevant: boolean;
-  requiresCFPB: boolean;
+  /** Whether a CFPB complaint is RELEVANT context for this category — never
+   *  whether one is required, and never a per-category complaint count. */
+  cfpbResourceRelevant: boolean;
   icon: string;
   tone: string;
 }
@@ -161,7 +180,7 @@ export const LETTER_CATEGORIES: LetterCategory[] = [
       "Third-party collection account dispute. Validates collector's authority, account ownership, balance accuracy, and DOFD.",
     recipient: "Collection Agency",
     ftcResourceRelevant: true,
-    requiresCFPB: true,
+    cfpbResourceRelevant: true,
     icon: "Building2",
     tone: "text-red-600",
   },
@@ -172,7 +191,7 @@ export const LETTER_CATEGORIES: LetterCategory[] = [
       "Charge-off account dispute. Verifies balance, DOFD, and whether the account was later settled or sold.",
     recipient: "Furnisher",
     ftcResourceRelevant: false,
-    requiresCFPB: true,
+    cfpbResourceRelevant: true,
     icon: "AlertTriangle",
     tone: "text-red-600",
   },
@@ -183,7 +202,7 @@ export const LETTER_CATEGORIES: LetterCategory[] = [
       "Late payment removal dispute. Verifies payment history against bank statements for the disputed month.",
     recipient: "Furnisher",
     ftcResourceRelevant: false,
-    requiresCFPB: true,
+    cfpbResourceRelevant: true,
     icon: "Clock",
     tone: "text-amber-600",
   },
@@ -194,7 +213,7 @@ export const LETTER_CATEGORIES: LetterCategory[] = [
       "Unauthorized/unsolicited inquiry dispute. An inquiry linked to an open account is never treated as fraud.",
     recipient: "CRA",
     ftcResourceRelevant: true,
-    requiresCFPB: true,
+    cfpbResourceRelevant: true,
     icon: "FileSearch",
     tone: "text-amber-600",
   },
@@ -205,7 +224,7 @@ export const LETTER_CATEGORIES: LetterCategory[] = [
       "Personal information dispute — incorrect addresses, employers, names, or other identity data.",
     recipient: "CRA",
     ftcResourceRelevant: false,
-    requiresCFPB: true,
+    cfpbResourceRelevant: true,
     icon: "UserRound",
     tone: "text-blue-600",
   },
@@ -216,7 +235,7 @@ export const LETTER_CATEGORIES: LetterCategory[] = [
       "Student loan dispute. Verifies servicer, rehabilitation status, and DOFD. Federal loans have specific options.",
     recipient: "Furnisher",
     ftcResourceRelevant: false,
-    requiresCFPB: true,
+    cfpbResourceRelevant: true,
     icon: "GraduationCap",
     tone: "text-amber-600",
   },
@@ -227,7 +246,7 @@ export const LETTER_CATEGORIES: LetterCategory[] = [
       "Public record dispute (bankruptcy, lien, judgment). Verifies accuracy, disposition, and reporting window.",
     recipient: "CRA",
     ftcResourceRelevant: false,
-    requiresCFPB: true,
+    cfpbResourceRelevant: true,
     icon: "Scale",
     tone: "text-red-600",
   },

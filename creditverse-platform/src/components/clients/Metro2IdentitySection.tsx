@@ -25,7 +25,7 @@ export function Metro2IdentitySection({ clientId }: { clientId: string }) {
   if (!reports.latest) {
     return (
       <div className="rounded-2xl border border-border bg-card p-4">
-        <h3 className="text-sm font-bold text-foreground">Identity reporting (Metro 2 Section A)</h3>
+        <h3 className="text-sm font-bold text-foreground">Personal information accuracy</h3>
         <p className="mt-1 text-xs text-muted-foreground">
           Nothing to check yet — import a credit report first. Nothing on this panel is estimated.
         </p>

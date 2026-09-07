@@ -154,11 +154,17 @@ export function composeLetter(input: ComposeInput): ComposedLetter {
   blocks.push(subject);
   blocks.push("To Whom It May Concern:");
 
-  /* ---- Opening. One statute, the strongest that fits this round. ---- */
+  /* ---- Opening. One statute, the strongest that fits this round. ----
+     `asksFor` entries are NOUN PHRASES ("correction of the exact field that is
+     wrong…", "the furnisher's own investigation of the specific field"), so
+     the old frame "I am asking you to <noun phrase>" produced "I am asking you
+     to correction of the exact field" in a letter to a bureau. Fixed in CR-4b;
+     the legal meaning is untouched, and the frame no longer collides with the
+     "I am asking for the following:" line that introduces the item table. */
   const cite = input.round.legalBasis[0];
   blocks.push(
     `I am writing about information on my ${input.reportName} credit report dated ${input.reportDate}. ` +
-    `I am asking you to ${input.round.asksFor[0].toLowerCase()}${cite ? ` under ${cite}` : ""}.`,
+    `What I am asking for is ${input.round.asksFor[0].toLowerCase()}${cite ? `, under ${cite}` : ""}.`,
   );
 
   /* ---- The items. Only CONFIRMED findings are stated as fact. ---- */

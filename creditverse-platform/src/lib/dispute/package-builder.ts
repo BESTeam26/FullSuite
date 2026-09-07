@@ -2,7 +2,7 @@
 // All logic is HARDCODED (not AI) to avoid compliance issues.
 
 import type { ClassifiedItem } from "@/lib/credit-classification";
-import { getRoundDefinition } from "./rounds-and-layers";
+import { getRound } from "./escalation-ladder";
 import {
   LETTER_CATEGORIES,
   MAILING_ORDER,
@@ -80,11 +80,12 @@ export interface DisputePackage {
   byCategory: Record<string, DisputePackageItem[]>;
   totalItems: number;
   totalLetters: number;
+  /** Items where an operator recorded that the consumer reports identity theft. */
   ftcFilings: number;
-  cfpbComplaints: number;
+  /** Categories for which a CFPB complaint is relevant CONTEXT — not a count of
+   *  complaints to file. The consumer decides whether to complain at all. */
+  cfpbRelevantCategories: number;
   mailPieces: number;
-  trapChannels: string[];
-  layersActivated: number[];
   mailingInstructions: string[];
 }
 
@@ -92,7 +93,10 @@ export function buildDisputePackage(
   items: ClassifiedItem[],
   round: number,
 ): DisputePackage {
-  const roundDef = getRoundDefinition(round);
+  /* CR-4b: the canonical ladder, not the retired 7-layer engine. A round the
+     ladder does not define is still a round the operator may work — the
+     package names it plainly rather than refusing. */
+  const roundDef = getRound(round);
   const disputeItems = items.filter((i) => i.disposition === "dispute");
 
   const packageItems: DisputePackageItem[] = disputeItems.map((item) => {
@@ -121,7 +125,9 @@ export function buildDisputePackage(
   const ftcFilings = packageItems.filter(
     (p) => p.ftcRequired && !p.ftcBlocked,
   ).length;
-  const cfpbComplaints = new Set(
+  /* Counted as context, never as work to be done. A complaint is the
+     consumer's decision and the platform never files one. */
+  const cfpbRelevantCategories = new Set(
     packageItems.filter((p) => p.cfpbCategory).map((p) => p.cfpbCategory),
   ).size;
   /* Every dispute item produces a mail piece. How a letter actually reaches a
@@ -131,18 +137,14 @@ export function buildDisputePackage(
 
   return {
     round,
-    roundName: roundDef.name,
+    roundName: roundDef?.name ?? `Round ${round}`,
     items: packageItems,
     byCategory,
     totalItems: packageItems.length,
     totalLetters: Object.keys(byCategory).length,
     ftcFilings,
-    cfpbComplaints,
+    cfpbRelevantCategories,
     mailPieces,
-    trapChannels: ["CRA", ftcFilings > 0 ? "FTC" : null, "CFPB"].filter(
-      Boolean,
-    ) as string[],
-    layersActivated: roundDef.layersActivated,
     mailingInstructions: MAILING_ORDER,
   };
 }

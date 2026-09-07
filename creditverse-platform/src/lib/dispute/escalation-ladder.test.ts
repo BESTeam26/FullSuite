@@ -5,7 +5,12 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  ESCALATION_LADDER, availableRound, getRound, roundAvailability, type CaseRecord,
+  ESCALATION_LADDER,
+  REQUIREMENT_LABELS,
+  availableRound,
+  getRound,
+  roundAvailability,
+  type CaseRecord,
 } from "./escalation-ladder";
 
 describe("the ladder itself", () => {
@@ -104,5 +109,66 @@ describe("what the record has earned", () => {
   it("holds pre-litigation back on all three of its gates", () => {
     const r11 = roundAvailability({ confirmed_finding: true }).find((r) => r.round.number === 11)!;
     expect(r11.missing).toEqual(["willfulness_record", "consumer_authorised_legal", "human_review_complete"]);
+  });
+});
+
+/**
+ * CR-4b. § 1681s-2(b) is a furnisher duty triggered by the CRA's notice under
+ * § 1681i(a)(2). It is not triggered by a consumer writing to a furnisher
+ * directly, and the ladder used to cite it on exactly the two rounds that do
+ * that — round 3 (direct dispute) and round 8 (the furnisher's executive
+ * office).
+ */
+describe("no round promises a statutory trigger it does not pull", () => {
+  it("cites § 1681s-2(b) on no round at all", () => {
+    const offenders = ESCALATION_LADDER.filter((r) =>
+      r.legalBasis.some((c) => c.includes("1681s-2(b)")),
+    );
+    expect(offenders.map((r) => `${r.number} ${r.name}`)).toEqual([]);
+  });
+
+  /* Reg V survives on the direct-dispute round, because it is what a direct
+     dispute must actually comply with — but it carries no promise of a
+     § 1681s-2(b) investigation. */
+  it("keeps Reg V § 1022.43 on the direct-furnisher round", () => {
+    const direct = ESCALATION_LADDER.find((r) => r.recipients.includes("furnisher"))!;
+    expect(direct.legalBasis).toContain("12 C.F.R. § 1022.43");
+    expect(direct.legalBasis.join(" ")).not.toContain("1681s-2(b)");
+  });
+
+  it("still reaches willfulness on exactly one round, and only with the record for it", () => {
+    const willful = ESCALATION_LADDER.filter((r) => r.legalBasis.some((c) => c.includes("1681n")));
+    expect(willful).toHaveLength(1);
+    expect(willful[0].requires).toContain("willfulness_record");
+  });
+});
+
+/**
+ * CR-4b. § 1681i(a)(7) concerns a DESCRIPTION of the reinvestigation
+ * procedure. It is not a production right, and the round is named for what it
+ * actually asks.
+ */
+describe("the procedure-request round does not overclaim", () => {
+  const round = () => ESCALATION_LADDER.find((r) => r.requires.includes("prior_cra_result"))!;
+
+  it("is named for a procedure description, not a verification demand", () => {
+    const named = ESCALATION_LADDER.find((r) => r.legalBasis.some((c) => c.includes("1681i(a)(7)")))!;
+    expect(named.name).toMatch(/procedure/i);
+    expect(named.name).not.toMatch(/method of verification/i);
+  });
+
+  it("asks for nothing the statute does not offer", () => {
+    const text = ESCALATION_LADDER.flatMap((r) => r.asksFor).join(" ").toLowerCase();
+    expect(text).not.toMatch(/signed contract/);
+    expect(text).not.toMatch(/payment ledger/);
+    expect(text).not.toMatch(/complete ledger/);
+    expect(text).not.toMatch(/investigation file/);
+    expect(text).not.toMatch(/full verification documentation/);
+    expect(round()).toBeDefined();
+  });
+
+  it("labels the entry requirement as a description request", () => {
+    expect(REQUIREMENT_LABELS.mov_requested).toMatch(/description-of-procedure/i);
+    expect(REQUIREMENT_LABELS.mov_requested).not.toMatch(/method-of-verification/i);
   });
 });
