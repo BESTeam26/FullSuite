@@ -40,7 +40,12 @@ export interface OutsourcingGroup {
   contactEmail: string;
   contractRef?: string;
   clientCount: number;
-  status: "Active" | "Paused" | "Onboarding";
+  /**
+   * Lifecycle. `Suspended` stops portal access without touching a record;
+   * `Archived` drops the partner out of active views and keeps every trace of
+   * them. Neither is a delete — a partner with history is never destroyed.
+   */
+  status: "Active" | "Paused" | "Onboarding" | "Suspended" | "Archived";
   createdAt: string;
 }
 
@@ -64,7 +69,12 @@ export interface OpsPartner {
   contactEmail?: string;
   /** Contract reference for outsourcing partners. */
   contractRef?: string;
-  status: "Active" | "Paused" | "Onboarding";
+  /**
+   * Lifecycle. `Suspended` stops portal access without touching a record;
+   * `Archived` drops the partner out of active views and keeps every trace of
+   * them. Neither is a delete — a partner with history is never destroyed.
+   */
+  status: "Active" | "Paused" | "Onboarding" | "Suspended" | "Archived";
 }
 
 /* ------------------------------------------------------------------ */

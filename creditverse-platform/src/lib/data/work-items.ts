@@ -63,6 +63,10 @@ export function mapWorkItem(row: WorkItemRow): WorkItem {
     subjectOrganizationId: row.subject_organization_id ?? undefined,
     description: row.description ?? undefined,
     dueAt: row.due_at ?? undefined,
+    teamId: row.team_id ?? undefined,
+    priority: (row.priority as WorkItem["priority"]) ?? undefined,
+    completedAt: row.completed_at ?? undefined,
+    createdBy: row.created_by ?? undefined,
   };
 }
 

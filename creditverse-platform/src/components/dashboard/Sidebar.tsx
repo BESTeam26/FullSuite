@@ -1,3 +1,5 @@
+import { PanelResizer } from "@/components/dashboard/PanelResizer";
+import { usePanelWidth } from "@/lib/agency/use-panel-width";
 import { useAgency } from "@/lib/agency-context";
 import { Link, useLocation } from "react-router-dom";
 import {
@@ -67,12 +69,27 @@ type NavGroup = {
   show?: boolean;
 };
 
+const SIDEBAR_DEFAULT = 256;   /* 16rem, the width it has always been */
+const SIDEBAR_MIN = 200;       /* below this the labels start truncating */
+const SIDEBAR_MAX = 420;
+
 export const Sidebar = () => {
   const { pathname, search } = useLocation();
   const agencyContext = useAgency();
-  const { signOut, mode, displayName } = useAuth();
+  const { signOut, mode, displayName, user } = useAuth();
   const { collapsed, toggleCollapsed, mobileOpen, setMobileOpen } =
     useSidebarState();
+  const panel = usePanelWidth({
+    id: "sidebar",
+    userId: user?.id ?? null,
+    defaultWidth: SIDEBAR_DEFAULT,
+    min: SIDEBAR_MIN,
+    max: SIDEBAR_MAX,
+  });
+  const sidebarWidth = {
+    ...panel,
+    nudge: (d: number) => panel.setWidth(panel.width + d),
+  };
 
   const viewMode = agencyContext?.viewMode || "agency";
   const permissions = usePermissions();
@@ -385,14 +402,29 @@ export const Sidebar = () => {
       <aside
         data-bes-chrome="dark"
         aria-label="Main menu"
+        /* The dragged width applies only to the expanded desktop sidebar. A
+           rail has one correct width, and the small-screen drawer is a drawer
+           — dragging it would fight the gesture that opens it. */
+        style={rail || mobileOpen ? undefined : { width: sidebarWidth.width }}
         className={cn(
-          "shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-200",
+          "relative shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground",
+          /* No width transition while dragging, or the panel lags the pointer. */
+          sidebarWidth.dragging ? "" : "transition-[width] duration-200",
           mobileOpen
             ? "fixed inset-y-0 left-0 z-50 flex w-64 shadow-xl lg:static lg:z-auto lg:shadow-none"
             : "hidden lg:flex",
-          rail ? "lg:w-16" : "lg:w-64",
+          rail ? "lg:w-16" : "",
         )}
       >
+        {!rail && !mobileOpen && (
+          <PanelResizer
+            label="Resize menu"
+            dragging={sidebarWidth.dragging}
+            onPointerDown={sidebarWidth.onPointerDown}
+            onNudge={sidebarWidth.nudge}
+            onReset={sidebarWidth.reset}
+          />
+        )}
         {mobileOpen && (
           <div className="flex items-center justify-end px-3 pt-3 lg:hidden">
             <button

@@ -88,6 +88,8 @@ export type WorkStage =
   | "Blocked"
   | "Attention";
 
+export type WorkPriority = "Normal" | "High" | "Urgent";
+
 export interface WorkItem {
   id: string;
   scope: WorkScope;
@@ -109,6 +111,12 @@ export interface WorkItem {
   subjectOrganizationId?: string;
   description?: string;
   dueAt?: string;
+  /** Team that owns the item, where one is set. */
+  teamId?: string;
+  priority?: WorkPriority;
+  /** Set when the item is Completed; cleared if it is reopened. */
+  completedAt?: string;
+  createdBy?: string;
 }
 
 /* ------------------------------------------------------------------ */

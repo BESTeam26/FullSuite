@@ -100,6 +100,9 @@ export type Database = {
         Row: {
           branding: Json
           created_at: string
+          eod_auto_submit: boolean
+          eod_cutoff_local: string | null
+          eod_timezone: string
           id: string
           name: string
           slug: string
@@ -108,6 +111,9 @@ export type Database = {
         Insert: {
           branding?: Json
           created_at?: string
+          eod_auto_submit?: boolean
+          eod_cutoff_local?: string | null
+          eod_timezone?: string
           id?: string
           name: string
           slug: string
@@ -116,6 +122,9 @@ export type Database = {
         Update: {
           branding?: Json
           created_at?: string
+          eod_auto_submit?: boolean
+          eod_cutoff_local?: string | null
+          eod_timezone?: string
           id?: string
           name?: string
           slug?: string
@@ -2523,10 +2532,53 @@ export type Database = {
           },
         ]
       }
+      eod_revisions: {
+        Row: {
+          eod_id: string
+          id: string
+          previous: Json
+          reason: string | null
+          revised_at: string
+          revised_by: string | null
+        }
+        Insert: {
+          eod_id: string
+          id?: string
+          previous: Json
+          reason?: string | null
+          revised_at?: string
+          revised_by?: string | null
+        }
+        Update: {
+          eod_id?: string
+          id?: string
+          previous?: Json
+          reason?: string | null
+          revised_at?: string
+          revised_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eod_revisions_eod_id_fkey"
+            columns: ["eod_id"]
+            isOneToOne: false
+            referencedRelation: "eod_submissions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eod_revisions_revised_by_fkey"
+            columns: ["revised_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       eod_submissions: {
         Row: {
           additional_notes: string | null
           agency_id: string
+          auto_submitted: boolean
           blockers: string | null
           created_at: string
           employee_id: string
@@ -2536,8 +2588,10 @@ export type Database = {
           review_note: string | null
           reviewed_at: string | null
           reviewed_by: string | null
+          snapshot: Json | null
           state: Database["public"]["Enums"]["eod_state"]
           submitted_at: string | null
+          submitted_by: string | null
           unfinished_work: string | null
           updated_at: string
           work_date: string
@@ -2545,6 +2599,7 @@ export type Database = {
         Insert: {
           additional_notes?: string | null
           agency_id: string
+          auto_submitted?: boolean
           blockers?: string | null
           created_at?: string
           employee_id: string
@@ -2554,8 +2609,10 @@ export type Database = {
           review_note?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          snapshot?: Json | null
           state?: Database["public"]["Enums"]["eod_state"]
           submitted_at?: string | null
+          submitted_by?: string | null
           unfinished_work?: string | null
           updated_at?: string
           work_date: string
@@ -2563,6 +2620,7 @@ export type Database = {
         Update: {
           additional_notes?: string | null
           agency_id?: string
+          auto_submitted?: boolean
           blockers?: string | null
           created_at?: string
           employee_id?: string
@@ -2572,8 +2630,10 @@ export type Database = {
           review_note?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          snapshot?: Json | null
           state?: Database["public"]["Enums"]["eod_state"]
           submitted_at?: string | null
+          submitted_by?: string | null
           unfinished_work?: string | null
           updated_at?: string
           work_date?: string
@@ -2596,6 +2656,13 @@ export type Database = {
           {
             foreignKeyName: "eod_submissions_reviewed_by_fkey"
             columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eod_submissions_submitted_by_fkey"
+            columns: ["submitted_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -2654,6 +2721,9 @@ export type Database = {
           organization_id: string | null
           path: string
           sha256: string | null
+          shared_at: string | null
+          shared_by: string | null
+          shared_with_partner: boolean
           size_bytes: number | null
           uploaded_by: string | null
         }
@@ -2669,6 +2739,9 @@ export type Database = {
           organization_id?: string | null
           path: string
           sha256?: string | null
+          shared_at?: string | null
+          shared_by?: string | null
+          shared_with_partner?: boolean
           size_bytes?: number | null
           uploaded_by?: string | null
         }
@@ -2684,6 +2757,9 @@ export type Database = {
           organization_id?: string | null
           path?: string
           sha256?: string | null
+          shared_at?: string | null
+          shared_by?: string | null
+          shared_with_partner?: boolean
           size_bytes?: number | null
           uploaded_by?: string | null
         }
@@ -2700,6 +2776,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "files_shared_by_fkey"
+            columns: ["shared_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -3914,6 +3997,8 @@ export type Database = {
           kind: Database["public"]["Enums"]["membership_kind"]
           org_role: Database["public"]["Enums"]["org_role"] | null
           organization_id: string | null
+          partner_contact_id: string | null
+          partner_group_id: string | null
           token: string
         }
         Insert: {
@@ -3929,6 +4014,8 @@ export type Database = {
           kind: Database["public"]["Enums"]["membership_kind"]
           org_role?: Database["public"]["Enums"]["org_role"] | null
           organization_id?: string | null
+          partner_contact_id?: string | null
+          partner_group_id?: string | null
           token?: string
         }
         Update: {
@@ -3944,6 +4031,8 @@ export type Database = {
           kind?: Database["public"]["Enums"]["membership_kind"]
           org_role?: Database["public"]["Enums"]["org_role"] | null
           organization_id?: string | null
+          partner_contact_id?: string | null
+          partner_group_id?: string | null
           token?: string
         }
         Relationships: [
@@ -3966,6 +4055,20 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invitations_partner_contact_id_fkey"
+            columns: ["partner_contact_id"]
+            isOneToOne: false
+            referencedRelation: "partner_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invitations_partner_group_id_fkey"
+            columns: ["partner_group_id"]
+            isOneToOne: false
+            referencedRelation: "outsourcing_groups"
             referencedColumns: ["id"]
           },
         ]
@@ -5638,35 +5741,56 @@ export type Database = {
       }
       outsourcing_groups: {
         Row: {
+          address: string | null
           agency_id: string
+          archived_at: string | null
           contact_email: string
           contract_ref: string | null
           created_at: string
+          created_by: string | null
           id: string
           name: string
-          partner_name: string
+          notes: string | null
+          partner_name: string | null
+          phone: string | null
+          primary_contact: string | null
+          service: string | null
           status: Database["public"]["Enums"]["outsourcing_group_status"]
           updated_at: string
         }
         Insert: {
+          address?: string | null
           agency_id: string
+          archived_at?: string | null
           contact_email: string
           contract_ref?: string | null
           created_at?: string
+          created_by?: string | null
           id?: string
           name: string
-          partner_name: string
+          notes?: string | null
+          partner_name?: string | null
+          phone?: string | null
+          primary_contact?: string | null
+          service?: string | null
           status?: Database["public"]["Enums"]["outsourcing_group_status"]
           updated_at?: string
         }
         Update: {
+          address?: string | null
           agency_id?: string
+          archived_at?: string | null
           contact_email?: string
           contract_ref?: string | null
           created_at?: string
+          created_by?: string | null
           id?: string
           name?: string
-          partner_name?: string
+          notes?: string | null
+          partner_name?: string | null
+          phone?: string | null
+          primary_contact?: string | null
+          service?: string | null
           status?: Database["public"]["Enums"]["outsourcing_group_status"]
           updated_at?: string
         }
@@ -5676,6 +5800,93 @@ export type Database = {
             columns: ["agency_id"]
             isOneToOne: false
             referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outsourcing_groups_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_contacts: {
+        Row: {
+          activated_at: string | null
+          agency_id: string
+          created_at: string
+          created_by: string | null
+          email: string
+          full_name: string
+          group_id: string
+          id: string
+          invited_at: string | null
+          is_primary: boolean
+          phone: string | null
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          activated_at?: string | null
+          agency_id: string
+          created_at?: string
+          created_by?: string | null
+          email: string
+          full_name: string
+          group_id: string
+          id?: string
+          invited_at?: string | null
+          is_primary?: boolean
+          phone?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          activated_at?: string | null
+          agency_id?: string
+          created_at?: string
+          created_by?: string | null
+          email?: string
+          full_name?: string
+          group_id?: string
+          id?: string
+          invited_at?: string | null
+          is_primary?: boolean
+          phone?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_contacts_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_contacts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_contacts_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "outsourcing_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_contacts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -7640,6 +7851,140 @@ export type Database = {
           },
         ]
       }
+      work_checklist_items: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          done: boolean
+          done_at: string | null
+          done_by: string | null
+          id: string
+          label: string
+          position: number
+          updated_at: string
+          work_item_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          done?: boolean
+          done_at?: string | null
+          done_by?: string | null
+          id?: string
+          label: string
+          position?: number
+          updated_at?: string
+          work_item_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          done?: boolean
+          done_at?: string | null
+          done_by?: string | null
+          id?: string
+          label?: string
+          position?: number
+          updated_at?: string
+          work_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_checklist_items_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_checklist_items_done_by_fkey"
+            columns: ["done_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_checklist_items_work_item_id_fkey"
+            columns: ["work_item_id"]
+            isOneToOne: false
+            referencedRelation: "work_attention"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_checklist_items_work_item_id_fkey"
+            columns: ["work_item_id"]
+            isOneToOne: false
+            referencedRelation: "work_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      work_item_blockers: {
+        Row: {
+          blocked_by_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          note: string | null
+          resolved_at: string | null
+          work_item_id: string
+        }
+        Insert: {
+          blocked_by_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string | null
+          resolved_at?: string | null
+          work_item_id: string
+        }
+        Update: {
+          blocked_by_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string | null
+          resolved_at?: string | null
+          work_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_item_blockers_blocked_by_id_fkey"
+            columns: ["blocked_by_id"]
+            isOneToOne: false
+            referencedRelation: "work_attention"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_item_blockers_blocked_by_id_fkey"
+            columns: ["blocked_by_id"]
+            isOneToOne: false
+            referencedRelation: "work_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_item_blockers_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_item_blockers_work_item_id_fkey"
+            columns: ["work_item_id"]
+            isOneToOne: false
+            referencedRelation: "work_attention"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_item_blockers_work_item_id_fkey"
+            columns: ["work_item_id"]
+            isOneToOne: false
+            referencedRelation: "work_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       work_item_field_values: {
         Row: {
           field_id: string
@@ -8051,6 +8396,7 @@ export type Database = {
       }
       workspaces: {
         Row: {
+          agency_id: string | null
           archived_at: string | null
           colour: string | null
           created_at: string
@@ -8059,10 +8405,11 @@ export type Database = {
           icon: string | null
           id: string
           name: string
-          organization_id: string
+          organization_id: string | null
           updated_at: string
         }
         Insert: {
+          agency_id?: string | null
           archived_at?: string | null
           colour?: string | null
           created_at?: string
@@ -8071,10 +8418,11 @@ export type Database = {
           icon?: string | null
           id?: string
           name: string
-          organization_id: string
+          organization_id?: string | null
           updated_at?: string
         }
         Update: {
+          agency_id?: string | null
           archived_at?: string | null
           colour?: string | null
           created_at?: string
@@ -8083,10 +8431,17 @@ export type Database = {
           icon?: string | null
           id?: string
           name?: string
-          organization_id?: string
+          organization_id?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "workspaces_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "workspaces_created_by_fkey"
             columns: ["created_by"]
@@ -8517,6 +8872,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      can_write_work_item: { Args: { p_item: string }; Returns: boolean }
       cancel_agency_invitation: { Args: { p_id: string }; Returns: undefined }
       cancel_subscription: {
         Args: { p_immediately?: boolean; p_org: string }
@@ -8797,6 +9153,11 @@ export type Database = {
         Args: { p_entity_id: string; p_entity_type: string }
         Returns: boolean
       }
+      eod_day_activity: {
+        Args: { p_date: string; p_employee: string }
+        Returns: Json
+      }
+      eod_run_cutoff: { Args: { p_agency: string }; Returns: number }
       file_bes_in_scope: { Args: { p_file: string }; Returns: boolean }
       file_org_admin: { Args: { p_file: string }; Returns: boolean }
       file_reviewer: { Args: { p_file: string }; Returns: boolean }
@@ -8909,6 +9270,7 @@ export type Database = {
       is_org_admin: { Args: { p_org: string }; Returns: boolean }
       is_org_member: { Args: { p_org: string }; Returns: boolean }
       is_org_owner_admin: { Args: { p_org: string }; Returns: boolean }
+      is_partner_contact_of: { Args: { p_group: string }; Returns: boolean }
       is_portal_client: { Args: never; Returns: boolean }
       is_staff_of: { Args: { p_agency: string }; Returns: boolean }
       is_team_lead_of: { Args: { p_team: string }; Returns: boolean }
@@ -9116,6 +9478,7 @@ export type Database = {
         }[]
       }
       organization_seat_usage: { Args: { p_org: string }; Returns: number }
+      partner_group_of_user: { Args: never; Returns: string }
       record_document_disposition: {
         Args: {
           p_disposition: Database["public"]["Enums"]["document_disposition"]
@@ -9843,7 +10206,12 @@ export type Database = {
         | "consumer_provided_result"
         | "other"
         | "legacy_manual_entry"
-      outsourcing_group_status: "Active" | "Paused" | "Onboarding"
+      outsourcing_group_status:
+        | "Active"
+        | "Paused"
+        | "Onboarding"
+        | "Suspended"
+        | "Archived"
       payment_status:
         | "approved"
         | "declined"
@@ -10493,7 +10861,13 @@ export const Constants = {
         "other",
         "legacy_manual_entry",
       ],
-      outsourcing_group_status: ["Active", "Paused", "Onboarding"],
+      outsourcing_group_status: [
+        "Active",
+        "Paused",
+        "Onboarding",
+        "Suspended",
+        "Archived",
+      ],
       payment_status: [
         "approved",
         "declined",
