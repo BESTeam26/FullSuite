@@ -2447,6 +2447,52 @@ if (runs(49)) {
   runPhase("phase 49", P49);
 }
 
+/* ------------------------------------------------------------------ *
+ * Phase 50 — deal correspondence (0131).
+ *
+ * A log of contact with a THIRD PARTY. The question that matters is who can
+ * read it: not the lender it is about, and not another organization.
+ * ------------------------------------------------------------------ */
+if (runs(50)) {
+  startPhase("phase 50");
+  const w50 = (uid, sql, seed = "") => { try { return q(`begin; ${seed} set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
+  const OWNER = U["org.owner@bes.test"], OTHER = U["org2.owner@bes.test"], AGENT = U["org.agent@bes.test"];
+  const FF50 = q(`select coalesce((select ff.id::text from public.funding_files ff join public.funding_clients fc on fc.id=ff.client_id where fc.organization_id='${lakesideOrg}' limit 1), '') as rows`)[0].rows;
+  const FC50 = FF50 ? q(`select client_id::text as rows from public.funding_files where id='${FF50}'`)[0].rows : "";
+  const D50 = "99999999-0000-4000-8000-0000000050d1";
+  const seedDeal = FF50 ? `insert into public.funding_deals (id, file_id, client_id, lender, amount, status, submitted_at, stips_outstanding)
+      values ('${D50}','${FF50}','${FC50}','Apex',50000,'Submitted', now(), 0);` : "";
+  const withComm = `${seedDeal}
+    insert into public.deal_communications (deal_id, direction, channel, counterparty, subject, body, recorded_by)
+      values ('${D50}','outbound','email','Jane at Apex','Chasing','Asked for a decision by Friday.','${OWNER}');`;
+
+  const P50 = FF50 ? [
+    ["a reviewer records contact",
+      () => w50(OWNER, `insert into public.deal_communications (deal_id, direction, channel, body, recorded_by) values ('${D50}','outbound','phone','Called, underwriter out until Monday.', auth.uid()); select count(*)::int as rows from public.deal_communications where deal_id='${D50}'`, seedDeal), 1],
+    ["an empty note is refused — a log entry with nothing in it is not a record",
+      () => w50(OWNER, `insert into public.deal_communications (deal_id, direction, channel, body, recorded_by) values ('${D50}','outbound','phone','   ', auth.uid()); select 1 as rows`, seedDeal), "ERR 23514"],
+    ["a note cannot be filed under somebody else's name",
+      () => w50(OWNER, `insert into public.deal_communications (deal_id, direction, channel, body, recorded_by) values ('${D50}','outbound','phone','x', '${OTHER}'); select 1 as rows`, seedDeal), "ERR 42501"],
+    ["the organization reads its own log",
+      () => w50(OWNER, `select count(*)::int as rows from public.deal_communications where deal_id='${D50}'`, withComm), 1],
+    ["another organization reads none of it",
+      () => w50(OTHER, `select count(*)::int as rows from public.deal_communications where deal_id='${D50}'`, withComm), 0],
+    ["…and cannot add to it",
+      () => w50(OTHER, `insert into public.deal_communications (deal_id, direction, channel, body, recorded_by) values ('${D50}','outbound','phone','x', auth.uid()); select 1 as rows`, withComm), "ERR 42501"],
+    ["an entry cannot be edited — a correction is another entry",
+      () => w50(OWNER, `update public.deal_communications set body='rewritten' where deal_id='${D50}'; select 1 as rows`, withComm), "ERR 42501"],
+    ["…nor deleted",
+      () => w50(OWNER, `delete from public.deal_communications where deal_id='${D50}'; select 1 as rows`, withComm), "ERR 42501"],
+    ["a lender user with a share on the file still cannot read the notes about chasing them",
+      /* No lender fixture is attached here, so the assertion is the shape of
+         the policy: it names only agency staff and organization members. */
+      () => q(`select (position('lender' in pg_get_expr(pol.polqual, pol.polrelid)) = 0)::text as rows
+                 from pg_policy pol join pg_class c on c.oid = pol.polrelid
+                where c.relname = 'deal_communications' and pol.polname = 'deal_communications_select'`)[0].rows, "true"],
+  ] : [["(no Lakeside funding file to probe)", () => "skip", "skip"]];
+  runPhase("phase 50", P50);
+}
+
 endPhase();
 
 /* ------------------------------------------------------------------ *

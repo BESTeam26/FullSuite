@@ -25,6 +25,8 @@ import { usePermission } from "@/lib/auth/use-permission";
 import { PROGRAM_FIT_LABEL } from "@/lib/funding/readiness-engine";
 import { isOutstanding } from "@/lib/funding/stipulation-lifecycle";
 import { DealStipulationsPanel } from "@/components/dashboard/fulfillment/funding-domain/DealStipulationsPanel";
+import { DealDocumentsPanel } from "@/components/dashboard/fulfillment/funding-domain/DealDocumentsPanel";
+import { DealCommunicationsPanel } from "@/components/dashboard/fulfillment/funding-domain/DealCommunicationsPanel";
 import { FileActivityTab } from "@/components/dashboard/fulfillment/funding-domain/FileActivityTab";
 
 const STATUS_TONE: Record<string, string> = {
@@ -117,12 +119,14 @@ export default function FundingDealDetail() {
           <TabsTrigger value="overview" className="text-[11px]">Overview</TabsTrigger>
           <TabsTrigger value="lender" className="text-[11px]">Lender &amp; Program</TabsTrigger>
           <TabsTrigger value="submission" className="text-[11px]">Submission</TabsTrigger>
+          <TabsTrigger value="documents" className="text-[11px]">Documents</TabsTrigger>
           <TabsTrigger value="stips" className="text-[11px]">
             Stipulations{outstanding > 0 && <span className="ml-1 rounded-full bg-amber-500/20 px-1.5 text-[10px] font-bold text-amber-800">{outstanding}</span>}
           </TabsTrigger>
           <TabsTrigger value="offers" className="text-[11px]">
             Offers{d.offers.length > 0 && <span className="ml-1 rounded-full bg-muted px-1.5 text-[10px] font-bold text-foreground">{d.offers.length}</span>}
           </TabsTrigger>
+          <TabsTrigger value="comms" className="text-[11px]">Communications</TabsTrigger>
           <TabsTrigger value="outcome" className="text-[11px]">Outcome</TabsTrigger>
           <TabsTrigger value="activity" className="text-[11px]">Activity</TabsTrigger>
         </TabsList>
@@ -205,6 +209,14 @@ export default function FundingDealDetail() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="documents" className="mt-3">
+          <DealDocumentsPanel dealId={d.id} fileId={d.fileId} />
+        </TabsContent>
+
+        <TabsContent value="comms" className="mt-3">
+          <DealCommunicationsPanel dealId={d.id} canEdit={canReview} />
+        </TabsContent>
+
         <TabsContent value="stips" className="mt-3">
           <DealStipulationsPanel deal={d} canEdit={canReview} />
         </TabsContent>
@@ -260,10 +272,6 @@ export default function FundingDealDetail() {
         </TabsContent>
       </Tabs>
 
-      <p className="text-[10px] text-muted-foreground">
-        Communications with this lender are not shown here: messages live in Channels and are not
-        scoped to a deal. Wiring them to a deal is a design decision that has not been made.
-      </p>
     </div>
   );
 }

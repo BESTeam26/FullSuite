@@ -166,7 +166,9 @@ approved business workflow be completed?*
 | Deal as its own route with §13 tabs | **DONE** | `/app/funding-deals/:dealId` (B) |
 | "Select lender" creating a Draft deal | **DONE** | Select → Draft; Submit → Submitted with its own timestamp (B) |
 | Deal-level stipulations + §17 lifecycle | **DONE** | 0112/0113, matrix phase 43 (C) |
-| Deal Communications tab | **PENDING** | No deal-scoped message table; Channels are not deal-scoped. Design decision not made |
+| Deal Communications | **DONE** | 0131 + phase 50. An append-only log of contact with a third party — not a messaging system and not a sender |
+| Deal Documents | **DONE** | Stipulation answers plus documents explicitly marked shareable — nothing else on the file |
+| FundingOps record surfaces in navigation | **DONE** | Submissions · Offers · Funded Deals · Commissions · Renewals, view in the URL, one page |
 | Lender submission by email package | **PENDING** | **BLOCKED** on A2 |
 
 ## 8. DIY Credit

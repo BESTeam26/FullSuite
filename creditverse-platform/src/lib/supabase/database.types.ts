@@ -1573,6 +1573,70 @@ export type Database = {
           },
         ]
       }
+      deal_communications: {
+        Row: {
+          body: string
+          channel: Database["public"]["Enums"]["deal_comm_channel"]
+          contact_id: string | null
+          counterparty: string | null
+          created_at: string
+          deal_id: string
+          direction: Database["public"]["Enums"]["deal_comm_direction"]
+          id: string
+          occurred_at: string
+          recorded_by: string | null
+          subject: string | null
+        }
+        Insert: {
+          body: string
+          channel: Database["public"]["Enums"]["deal_comm_channel"]
+          contact_id?: string | null
+          counterparty?: string | null
+          created_at?: string
+          deal_id: string
+          direction: Database["public"]["Enums"]["deal_comm_direction"]
+          id?: string
+          occurred_at?: string
+          recorded_by?: string | null
+          subject?: string | null
+        }
+        Update: {
+          body?: string
+          channel?: Database["public"]["Enums"]["deal_comm_channel"]
+          contact_id?: string | null
+          counterparty?: string | null
+          created_at?: string
+          deal_id?: string
+          direction?: Database["public"]["Enums"]["deal_comm_direction"]
+          id?: string
+          occurred_at?: string
+          recorded_by?: string | null
+          subject?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_communications_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "lender_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_communications_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "funding_deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_communications_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       departments: {
         Row: {
           agency_id: string
@@ -8917,6 +8981,8 @@ export type Database = {
         | "funded"
         | "cancelled"
       consumer_report_authorization: "authorized" | "pending" | "refused"
+      deal_comm_channel: "email" | "phone" | "portal" | "meeting" | "note"
+      deal_comm_direction: "outbound" | "inbound"
       decline_reason_category:
         | "personal_credit"
         | "revenue"
@@ -9504,6 +9570,8 @@ export const Constants = {
         "cancelled",
       ],
       consumer_report_authorization: ["authorized", "pending", "refused"],
+      deal_comm_channel: ["email", "phone", "portal", "meeting", "note"],
+      deal_comm_direction: ["outbound", "inbound"],
       decline_reason_category: [
         "personal_credit",
         "revenue",

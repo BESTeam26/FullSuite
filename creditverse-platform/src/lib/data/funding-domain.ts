@@ -803,3 +803,125 @@ export async function moveDocumentRequest(
   });
   if (error) throw error;
 }
+
+
+/* ------------------------------------------------------------------ */
+/* One deal's documents and its correspondence                         */
+/* ------------------------------------------------------------------ */
+
+export interface DealDocument {
+  id: string;
+  name: string;
+  documentType: string;
+  period: string | null;
+  disposition: string;
+  shareableWithLender: boolean;
+  sizeBytes: number | null;
+  createdAt: string;
+  /** Which stipulation it answers, when it answers one. */
+  requestId: string | null;
+}
+
+/**
+ * The documents that belong to THIS deal.
+ *
+ * Two kinds, deliberately in one list because a lender does not care which is
+ * which: the uploads that answer this deal's own stipulations, and the file's
+ * documents that were marked shareable with a lender. What is excluded is
+ * everything else on the file — an internal note or a document nobody cleared
+ * for sharing does not become a lender's business by being on the same file.
+ */
+export async function fetchDealDocuments(dealId: string, fileId: string): Promise<DealDocument[]> {
+  const sb = requireSupabase();
+  const { data, error } = await sb
+    .from("document_instances")
+    .select("id, request_id, classified_type, classified_period, disposition, shareable_with_lender, size_bytes, created_at, files(name), document_requests(deal_id, document_type, period)")
+    .eq("file_id", fileId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  type Row = {
+    id: string; request_id: string | null; classified_type: string | null; classified_period: string | null;
+    disposition: string; shareable_with_lender: boolean; size_bytes: number | null; created_at: string;
+    files: { name: string } | null;
+    document_requests: { deal_id: string | null; document_type: string; period: string | null } | null;
+  };
+  return ((data ?? []) as unknown as Row[])
+    .filter((r) => r.document_requests?.deal_id === dealId || r.shareable_with_lender)
+    .map((r) => ({
+      id: r.id,
+      name: r.files?.name ?? r.document_requests?.document_type ?? "Document",
+      documentType: r.document_requests?.document_type ?? r.classified_type ?? "unclassified",
+      period: r.document_requests?.period ?? r.classified_period,
+      disposition: r.disposition,
+      shareableWithLender: r.shareable_with_lender,
+      sizeBytes: r.size_bytes,
+      createdAt: r.created_at,
+      requestId: r.request_id,
+    }));
+}
+
+export type DealCommDirection = "outbound" | "inbound";
+export type DealCommChannel = "email" | "phone" | "portal" | "meeting" | "note";
+
+export interface DealCommunication {
+  id: string;
+  direction: DealCommDirection;
+  channel: DealCommChannel;
+  counterparty: string | null;
+  subject: string | null;
+  body: string;
+  occurredAt: string;
+  recordedByName: string | null;
+}
+
+export async function fetchDealCommunications(dealId: string): Promise<DealCommunication[]> {
+  const sb = requireSupabase();
+  const { data, error } = await sb
+    .from("deal_communications")
+    .select("id, direction, channel, counterparty, subject, body, occurred_at, profiles:recorded_by(full_name, email)")
+    .eq("deal_id", dealId)
+    .order("occurred_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((r) => {
+    const p = r.profiles as { full_name: string | null; email: string } | null;
+    return {
+      id: r.id,
+      direction: r.direction as DealCommDirection,
+      channel: r.channel as DealCommChannel,
+      counterparty: r.counterparty,
+      subject: r.subject,
+      body: r.body,
+      occurredAt: r.occurred_at,
+      recordedByName: p?.full_name?.trim() || p?.email || null,
+    };
+  });
+}
+
+/**
+ * Record that contact happened. This sends nothing — an email to a lender goes
+ * through the mail provider and is a separate act. `recorded_by` is the caller
+ * because the policy requires it: a note cannot be filed under another name.
+ */
+export async function recordDealCommunication(input: {
+  dealId: string;
+  direction: DealCommDirection;
+  channel: DealCommChannel;
+  counterparty?: string | null;
+  subject?: string | null;
+  body: string;
+  occurredAt?: string;
+  actorId: string;
+}): Promise<void> {
+  const sb = requireSupabase();
+  const { error } = await sb.from("deal_communications").insert({
+    deal_id: input.dealId,
+    direction: input.direction,
+    channel: input.channel,
+    counterparty: input.counterparty ?? null,
+    subject: input.subject ?? null,
+    body: input.body,
+    occurred_at: input.occurredAt ?? new Date().toISOString(),
+    recorded_by: input.actorId,
+  });
+  if (error) throw error;
+}

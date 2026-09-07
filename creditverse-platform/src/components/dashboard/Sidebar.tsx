@@ -16,6 +16,10 @@ import {
   Users,
   Network,
   Handshake,
+  Send,
+  BadgeDollarSign,
+  CircleDollarSign,
+  RefreshCw,
   Briefcase,
   BarChart3,
   HandCoins,
@@ -63,7 +67,7 @@ type NavGroup = {
 };
 
 export const Sidebar = () => {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const agencyContext = useAgency();
   const { signOut, mode, displayName } = useAuth();
   const { collapsed, toggleCollapsed, mobileOpen, setMobileOpen } =
@@ -104,8 +108,22 @@ export const Sidebar = () => {
     if (href === "/app") return pathname === "/app";
     /* An organization's Home is its ID route; nothing nests under it. */
     if (href.startsWith("/app/org/")) return pathname === href;
-    return pathname === href || pathname.startsWith(href + "/");
+    /*
+     * Some entries differ only by a query string — the FundingOps record
+     * surfaces are one page with the view in the URL. Comparing the path alone
+     * would light all of them at once, and comparing nothing would light none:
+     * either way the selected item stops being obvious, which rule 15 does not
+     * allow.
+     */
+    const [hrefPath, hrefQuery] = href.split("?");
+    if (hrefQuery) return pathname === hrefPath && search === `?${hrefQuery}`;
+    if (pathname === hrefPath) return !search || !SEARCH_SCOPED.has(hrefPath);
+    return pathname.startsWith(hrefPath + "/");
   };
+
+  /* Paths whose sidebar entries are distinguished by their query string. The
+     bare entry is active only when no view is selected. */
+  const SEARCH_SCOPED = new Set(["/app/funding-deals"]);
 
   /* Agency HQ navigation — BES employees only */
   const agencyNavGroups: NavGroup[] = [
@@ -270,10 +288,17 @@ export const Sidebar = () => {
            right — a catalogue with provenance, searched and matched against.
            It is not a task board and not a tab on one client. */
         { label: "Lender Intelligence", icon: Landmark, href: "/app/lenders", permission: "fundingops.files.view" },
-        /* Deals are the cross-file record surface: submissions, offers,
-           funded, commissions, renewals. A deal belongs to a funding file;
-           this is the view across all of them. */
+        /* The cross-file record surfaces. Each is a thing a funding team goes
+           looking for by name — "where are my offers?" — rather than a tab
+           they should have to reach through Deals. They are one page with the
+           view in the URL, not five pages: the records are one query each over
+           the same canonical tables. */
         { label: "Deals", icon: Briefcase, href: "/app/funding-deals", permission: "fundingops.files.view" },
+        { label: "Submissions", icon: Send, href: "/app/funding-deals?view=submissions", permission: "fundingops.files.view" },
+        { label: "Offers", icon: BadgeDollarSign, href: "/app/funding-deals?view=offers", permission: "fundingops.files.view" },
+        { label: "Funded Deals", icon: CircleDollarSign, href: "/app/funding-deals?view=funded", permission: "fundingops.files.view" },
+        { label: "Commissions", icon: HandCoins, href: "/app/commissions", permission: "fundingops.commissions.view" },
+        { label: "Renewals", icon: RefreshCw, href: "/app/funding-deals?view=renewals", permission: "fundingops.files.view" },
         /* The Workspace runs the PEOPLE doing the funding work — queues,
            assignments, hand-offs, SLA. Distinct from the domain screens
            above, which are the work itself. */

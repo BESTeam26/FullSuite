@@ -5,6 +5,7 @@
  * records (one row per truth); the Workspace's queue views read the same rows.
  */
 import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Briefcase, Search } from "lucide-react";
 import { CommissionsRecords } from "@/components/dashboard/fulfillment/funding-domain/records/CommissionsRecords";
 import { FundedDealsRecords } from "@/components/dashboard/fulfillment/funding-domain/records/FundedDealsRecords";
@@ -29,7 +30,14 @@ export default function FundingDeals() {
   const auth = useAuth();
   const { activeOrganization } = useAgency();
   const live = auth.mode === "live";
-  const [tab, setTab] = useState<FundingRecordKind>("submissions");
+  /* The tab is in the URL so the sidebar can link straight to a record
+     surface. Submissions, Offers, Funded and Renewals are each a thing a
+     funding team goes looking for by name, not a sub-view they should have to
+     find by clicking Deals first. */
+  const [params, setParams] = useSearchParams();
+  const requested = params.get("view") as FundingRecordKind | null;
+  const tab: FundingRecordKind = TABS.some((t) => t.key === requested) ? (requested as FundingRecordKind) : "submissions";
+  const setTab = (next: FundingRecordKind) => setParams(next === "submissions" ? {} : { view: next }, { replace: true });
   const [query, setQuery] = useState("");
   const { members } = useOrgMembers(tab === "commissions" ? activeOrganization?.id ?? null : null);
   const memberNames = useMemo(() => Object.fromEntries(members.map((m) => [m.id, m.name])), [members]);
