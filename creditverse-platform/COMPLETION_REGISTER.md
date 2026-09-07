@@ -217,7 +217,10 @@ approved business workflow be completed?*
 
 | Item | Status | Notes |
 |---|---|---|
-| RLS matrix — 46 phases | **DONE** | Green 2026-09-06 |
+| RLS matrix — 47 phases, 714 checks | **DONE** | Green 2026-09-07, **10m 43s** (was hours) |
+| Matrix harness performance | **DONE** | Transport 5.65s → 780ms per call; collect/flush/replay batching proven byte-identical to serial; per-phase timing printed every run |
+| Targeted verification (`--phases`, `--from`, `--serial`) | **DONE** | One phase ≈ 34s, so a small fix no longer costs a full gate |
+| DEFINER/INVOKER structural invariant | **DONE** | Phase 47 asserts no DEFINER function calls an RLS-dependent helper |
 | Integration health check | **DONE** | Settings › Integrations tests all four providers read-only |
 | Unit tests — 690 | **DONE** | |
 | TypeScript + build | **DONE** | |
@@ -244,6 +247,15 @@ approved business workflow be completed?*
 **These do not stop other work.** Each is recorded against its item above.
 
 ---
+
+## Verification strategy (2026-09-07)
+
+**During development:** targeted unit tests → the affected matrix phases
+(`node supabase/scripts/rls-matrix.mjs --phases=45,46,47`) → tsc/lint/build.
+
+**At a milestone:** one full gate (`--phase=47`), ~11 minutes.
+
+`--serial` disables batching and is how the batched path is proven equivalent.
 
 ## Working order (priority: security → data integrity → authorization → business logic → approved requirements → performance → maintainability → UX)
 
