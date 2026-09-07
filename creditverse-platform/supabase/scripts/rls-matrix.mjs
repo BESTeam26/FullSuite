@@ -2686,6 +2686,25 @@ if (runs(52)) {
     ["…and are append-only, like every other column",
       () => probe52(OWNER52, `select public.create_credit_report('${lakesideOrg}', null, '${T.lakeside_client}', null, array['EQ'], current_date, 'manual_upload', null, 'probe-137', '[{"kind":"Account","name":"Six Fields","status":"Open","bureaus":["EQ"],"account_ref":"six fields","bureau_values":[{"bureau":"EQ","last_verified":"03/2026"}]}]'::jsonb, null); update public.report_item_bureau_values set last_verified='01/1900'; select 0 as rows`), "ERR 42501"],
 
+    /* 0139 — public-record and inquiry fields. Additive columns on the CR-2
+       table, so the point of probing them is that they inherited its
+       authorization and append-only behaviour unchanged. */
+    ["a public record and an inquiry are written as ITEMS, with their own fields",
+      () => probe52(OWNER52, `select public.create_credit_report('${lakesideOrg}', null, '${T.lakeside_client}', null, array['EQ'], current_date, 'manual_upload', null, 'probe-139', '[{"kind":"Public Record","name":"Chapter 7 Bankruptcy","status":"Discharged","bureaus":["EQ"],"account_ref":"pr probe","bureau_values":[{"bureau":"EQ","account_type":"Chapter 7 Bankruptcy","status":"Discharged","filed_on":"04/2019","reference_number":"19-40771","court":"US BKPT CT","liability_cents":4120000,"asset_cents":200000,"exempt_cents":200000}]},{"kind":"Inquiry","name":"Calder Mutual","status":"Inquiry","bureaus":["EQ"],"account_ref":"inq probe","bureau_values":[{"bureau":"EQ","inquiry_date":"11/04/2025"}]}]'::jsonb, null); select (select count(*) from public.report_items i join public.credit_reports r on r.id=i.report_id where r.parser_version='probe-139' and i.kind='Public Record')::text || ':' || (select count(*) from public.report_items i join public.credit_reports r on r.id=i.report_id where r.parser_version='probe-139' and i.kind='Inquiry')::text || ':' || (select v.filed_on || '|' || v.court || '|' || v.liability_cents::text from public.report_item_bureau_values v join public.report_items i on i.id=v.report_item_id where i.account_ref='pr probe') as rows`),
+      "1:1:04/2019|US BKPT CT|4120000"],
+
+    ["an inquiry with no stated type stores none — UNKNOWN, not inferred",
+      () => probe52(OWNER52, `select public.create_credit_report('${lakesideOrg}', null, '${T.lakeside_client}', null, array['EQ'], current_date, 'manual_upload', null, 'probe-139', '[{"kind":"Inquiry","name":"Calder Mutual","status":"Inquiry","bureaus":["EQ"],"account_ref":"inq probe","bureau_values":[{"bureau":"EQ","inquiry_date":"11/04/2025"}]}]'::jsonb, null); select (v.inquiry_type is null)::text as rows from public.report_item_bureau_values v join public.report_items i on i.id=v.report_item_id where i.account_ref='inq probe'`), "true"],
+
+    ["a public record's filing date never lands in open_date",
+      () => probe52(OWNER52, `select public.create_credit_report('${lakesideOrg}', null, '${T.lakeside_client}', null, array['EQ'], current_date, 'manual_upload', null, 'probe-139', '[{"kind":"Public Record","name":"Chapter 7 Bankruptcy","status":"Discharged","bureaus":["EQ"],"account_ref":"pr probe","bureau_values":[{"bureau":"EQ","filed_on":"04/2019"}]}]'::jsonb, null); select (v.open_date is null and v.filed_on = '04/2019')::text as rows from public.report_item_bureau_values v join public.report_items i on i.id=v.report_item_id where i.account_ref='pr probe'`), "true"],
+
+    ["the new fields are invisible to an unrelated organization, like every other column",
+      () => probe52(OWNER52, `select public.create_credit_report('${lakesideOrg}', null, '${T.lakeside_client}', null, array['EQ'], current_date, 'manual_upload', null, 'probe-139', '[{"kind":"Public Record","name":"PR","status":"Discharged","bureaus":["EQ"],"account_ref":"pr probe","bureau_values":[{"bureau":"EQ","court":"US BKPT CT"}]}]'::jsonb, null); set local request.jwt.claims = '{"sub":"${OTHER52}","role":"authenticated"}'; select count(*)::int as rows from public.report_item_bureau_values where court is not null`), 0],
+
+    ["…and append-only, like every other column",
+      () => probe52(OWNER52, `select public.create_credit_report('${lakesideOrg}', null, '${T.lakeside_client}', null, array['EQ'], current_date, 'manual_upload', null, 'probe-139', '[{"kind":"Public Record","name":"PR","status":"Discharged","bureaus":["EQ"],"account_ref":"pr probe","bureau_values":[{"bureau":"EQ","inquiry_type":"Hard"}]}]'::jsonb, null); update public.report_item_bureau_values set inquiry_type='Soft'; select 0 as rows`), "ERR 42501"],
+
     ["a bureau value with no per-bureau fields writes no row at all",
       () => probe52(OWNER52, `select public.create_credit_report('${lakesideOrg}', null, '${T.lakeside_client}', null, array['EQ'], current_date, 'manual_upload', null, 'probe-137', '[{"kind":"Account","name":"Bare","status":"Open","bureaus":["EQ"],"account_ref":"bare","bureau_values":[]}]'::jsonb, null); select count(*)::int as rows from public.report_item_bureau_values v join public.report_items i on i.id=v.report_item_id where i.account_ref='bare'`), 0],
   ] : [["(no Lakeside client to probe)", () => "skip", "skip"]];

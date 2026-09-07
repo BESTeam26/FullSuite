@@ -27,10 +27,17 @@ const fixture = readFileSync(
 );
 const parsed = parseSmartCreditHtml(fixture);
 const byName = (n: string) => parsed.items.find((i) => i.name.includes(n))!;
+const accounts = () => parsed.items.filter((i) => i.kind === "Account");
 
 describe("one tradeline is one item", () => {
   it("returns one item per account block, not one per field label", () => {
-    expect(parsed.items).toHaveLength(5);
+    expect(accounts()).toHaveLength(5);
+  });
+
+  it("keeps records and enquiries out of the account count", () => {
+    expect(parsed.items.filter((i) => i.kind === "Public Record")).toHaveLength(1);
+    expect(parsed.items.filter((i) => i.kind === "Inquiry")).toHaveLength(2);
+    expect(parsed.items).toHaveLength(8);
   });
 
   /* The bug this whole milestone exists to prevent: an import preview of
@@ -42,8 +49,8 @@ describe("one tradeline is one item", () => {
     }
   });
 
-  it("names each item after its creditor", () => {
-    expect(parsed.items.map((i) => i.name)).toEqual([
+  it("names each account after its creditor", () => {
+    expect(accounts().map((i) => i.name)).toEqual([
       "NORTHWIND BANK", "MERIDIAN CARD SERVICES", "HALCYON RECOVERY LLC",
       "CALDER MUTUAL AUTO", "FERNDALE CREDIT UNION",
     ]);
@@ -269,7 +276,7 @@ describe("the document is treated as inert data", () => {
     const hostile = fixture.replace("<section id=\"summary\">",
       "<script>window.__pwned = true;</script><section id=\"summary\">");
     const out = parseSmartCreditHtml(hostile);
-    expect(out.items).toHaveLength(5);
+    expect(out.items.filter((i) => i.kind === "Account")).toHaveLength(5);
     expect((globalThis as Record<string, unknown>).__pwned).toBeUndefined();
     expect(JSON.stringify(out)).not.toMatch(/__pwned/);
   });
@@ -318,5 +325,187 @@ describe("what the format does not expose", () => {
     const oneBureau = parseSmartCreditHtml(fixture.replace(/bg-equifax/g, "bg-experian"));
     const eq = completenessFacts(oneBureau).find((f) => f.bureau === "EQ" && f.fieldKey === "tradelines");
     expect(eq?.state).toBe("bureau_not_present");
+  });
+});
+
+/**
+ * S-15 and S-16. One record is one item; one enquiry is one item. Not
+ * tradelines, and not one item per field label — the failure mode that turned
+ * an import preview into hundreds of rows named "Last Verified".
+ */
+describe("public records", () => {
+  const record = () => parsed.items.find((i) => i.kind === "Public Record")!;
+
+  it("produces ONE item for the whole section", () => {
+    expect(parsed.items.filter((i) => i.kind === "Public Record")).toHaveLength(1);
+    expect(record().kind).toBe("Public Record");
+  });
+
+  it("never emits a field label as an item", () => {
+    const names = parsed.items.map((i) => i.name.toLowerCase());
+    for (const label of ["type", "status", "court", "liability", "asset amount", "exempt amount", "reference#", "closing date"]) {
+      expect(names).not.toContain(label);
+    }
+  });
+
+  it("takes the bureau from the section's declared header, not a position", () => {
+    expect(record().bureaus.sort()).toEqual(["EX", "TU"]);
+    expect(record().bureauValues!.map((v) => v.bureau).sort()).toEqual(["EX", "TU"]);
+  });
+
+  it("maps every field the source states, verbatim", () => {
+    const tu = record().bureauValues!.find((v) => v.bureau === "TU")!;
+    expect(tu).toMatchObject({
+      account_type: "Chapter 7 Bankruptcy",
+      status: "Discharged",
+      filed_on: "04/2019",
+      reference_number: "19-40771",
+      date_closed: "09/2019",
+      court: "US BKPT CT OH FERNDALE",
+      liability_cents: 4120000,
+      asset_cents: 200000,
+      exempt_cents: 200000,
+    });
+  });
+
+  /* Two bureaus naming the same court differently is a fact worth keeping. */
+  it("keeps each bureau's own wording rather than normalising it", () => {
+    const ex = record().bureauValues!.find((v) => v.bureau === "EX")!;
+    const tu = record().bureauValues!.find((v) => v.bureau === "TU")!;
+    expect(ex.court).toBe("U.S. Bankruptcy Court");
+    expect(tu.court).toBe("US BKPT CT OH FERNDALE");
+  });
+
+  /* The filing date is what § 1681c(a)(1)'s ten years runs from. It must never
+     be stored where an account's opening date lives. */
+  it("keeps the filing date out of open_date", () => {
+    const tu = record().bureauValues!.find((v) => v.bureau === "TU")!;
+    expect(tu.filed_on).toBe("04/2019");
+    expect(tu.open_date).toBeUndefined();
+    expect(record().openDate).toBeUndefined();
+  });
+
+  it("is not treated as a tradeline: no balance, no limit, no delinquency date", () => {
+    expect(record().balanceCents).toBeNull();
+    expect(record().creditLimitCents).toBeNull();
+    expect(record().dofd).toBeUndefined();
+  });
+
+  /* Stored as the two strings the source printed. Nothing about what the
+     discharge covered, or which tradelines it should have touched. */
+  it("reads no meaning into the record beyond what the source says", () => {
+    const text = JSON.stringify(record()).toLowerCase();
+    for (const word of ["reaffirm", "should have", "included in", "violation", "dischargeable"]) {
+      expect(text).not.toContain(word);
+    }
+  });
+
+  it("preserves unattributed columns rather than guessing a bureau", () => {
+    const noHeader = fixture.replace(
+      /<section id="public-information">[\s\S]*?<dt class="bg-transunion col-start-2">transunion<sup>&reg;<\/sup><\/dt>\s*<dt class="bg-experian col-start-3">experian<sup>&reg;<\/sup><\/dt>\s*<dt class="bg-equifax col-start-4">equifax<sup>&reg;<\/sup><\/dt>/,
+      '<section id="public-information">',
+    );
+    const out = parseSmartCreditHtml(noHeader);
+    const pr = out.items.find((i) => i.kind === "Public Record");
+    if (pr) {
+      expect(pr.bureauValues).toBeUndefined();
+      expect(Object.keys(pr.sourceColumns ?? {}).length).toBeGreaterThan(0);
+    }
+    expect(out.warnings.join(" ")).toMatch(/public records section declares no bureau header/i);
+  });
+});
+
+describe("inquiries", () => {
+  const inquiries = () => parsed.items.filter((i) => i.kind === "Inquiry");
+
+  it("produces ONE item per enquiry", () => {
+    expect(inquiries()).toHaveLength(2);
+    expect(inquiries().map((i) => i.name)).toEqual(["CALDER MUTUAL AUTO", "NORTHWIND BANK"]);
+  });
+
+  it("never emits a field label as an item", () => {
+    const names = parsed.items.map((i) => i.name.toLowerCase());
+    for (const label of ["creditor name", "date of inquiry", "credit bureau"]) {
+      expect(names).not.toContain(label);
+    }
+  });
+
+  /* The bureau is stated per enquiry here, so attribution is direct. */
+  it("takes the bureau from the enquiry's own statement", () => {
+    expect(inquiries()[0].bureaus).toEqual(["TU"]);
+    expect(inquiries()[1].bureaus).toEqual(["EQ"]);
+  });
+
+  it("keeps the enquiry date, on the bureau observation", () => {
+    expect(inquiries()[0].bureauValues![0].inquiry_date).toBe("11/04/2025");
+    expect(inquiries()[1].bureauValues![0].inquiry_date).toBe("07/22/2025");
+  });
+
+  /* THE REFUSAL. SmartCredit does not state hard/soft/promotional/review, so
+     the type stays absent — which reads as UNKNOWN. Guessing it from the
+     subscriber's name would put a whole healthy file's enquiries into a
+     retention rule written for hard ones. */
+  it("leaves the inquiry type UNKNOWN, never inferred", () => {
+    for (const inquiry of inquiries()) {
+      for (const v of inquiry.bureauValues ?? []) {
+        expect(v.inquiry_type).toBeUndefined();
+      }
+    }
+  });
+
+  it("records the type as not exposed by this provider", () => {
+    const fact = completenessFacts(parsed).find((f) => f.fieldKey === "inquiry_type")!;
+    expect(fact.state).toBe("not_exposed_by_provider");
+    expect(fact.reason).toMatch(/says nothing about whether a bureau reports it/i);
+  });
+
+  it("is not treated as a tradeline", () => {
+    for (const inquiry of inquiries()) {
+      expect(inquiry.balanceCents).toBeNull();
+      expect(inquiry.dofd).toBeUndefined();
+    }
+  });
+
+  it("skips an enquiry that names no bureau rather than guessing one", () => {
+    const noBureau = fixture.replace(/<p class="fw-bold">Credit Bureau<\/p><p>TransUnion<\/p>/, "");
+    expect(parseSmartCreditHtml(noBureau).items.filter((i) => i.kind === "Inquiry")).toHaveLength(1);
+  });
+});
+
+describe("records and enquiries reconcile", () => {
+  it("counts the public record against the source's own figure", () => {
+    const checks = reconcile(parsed);
+    const pr = checks.filter((c) => c.checkKey === "public_records");
+    expect(pr.every((c) => c.ok)).toBe(true);
+    expect(pr.find((c) => c.bureau === "TU")).toMatchObject({ stated: 1, parsed: 1 });
+    expect(pr.find((c) => c.bureau === "EQ")).toMatchObject({ stated: 0, parsed: 0 });
+  });
+
+  it("counts the enquiries against the source's own figure", () => {
+    const checks = reconcile(parsed);
+    const inq = checks.filter((c) => c.checkKey === "inquiries");
+    expect(inq.every((c) => c.ok)).toBe(true);
+    expect(inq.find((c) => c.bureau === "TU")).toMatchObject({ stated: 1, parsed: 1 });
+    expect(inq.find((c) => c.bureau === "EX")).toMatchObject({ stated: 0, parsed: 0 });
+  });
+
+  it("goes partial when an enquiry is not read — never 'deleted'", () => {
+    const dropped = fixture.replace(/<div class="inquiry">\s*<p class="fw-bold">Creditor Name<\/p><p>CALDER MUTUAL AUTO<\/p>[\s\S]*?<\/div>/, "");
+    const checks = reconcile(parseSmartCreditHtml(dropped));
+    expect(deriveQuality(checks)).toBe("partial");
+    const failed = checks.find((c) => c.checkKey === "inquiries" && !c.ok)!;
+    expect(failed.stated).toBeGreaterThan(failed.parsed);
+  });
+
+  it("goes partial when the public record is not read", () => {
+    const dropped = fixture.replace('id="public-information"', 'id="pr-gone"');
+    const checks = reconcile(parseSmartCreditHtml(dropped));
+    /* A missing SECTION is worse than a short count. */
+    expect(deriveQuality(checks)).toBe("review_required");
+  });
+
+  it("still reconciles the account counts, unaffected by the new kinds", () => {
+    const accountChecks = reconcile(parsed).filter((c) => c.checkKey === "accounts");
+    expect(accountChecks.every((c) => c.ok)).toBe(true);
   });
 });

@@ -324,10 +324,34 @@ Eight counts per bureau: `Open Accounts` · `Closed Accounts` · `Delinquent` ·
 `Type` · `Status` · `Date Filed/Reported` · `Reference#` · `Closing Date` ·
 `Court` · `Liability` · `Asset Amount` · `Exempt Amount`.
 
-Destination: `report_items` with `kind = 'Public Record'`. **No canonical
-columns exist for filed date, court, liability, asset or exempt amount** — the
-same gap `ENGINE_INVENTORY` §1.10 records, and the reason the § 1681c(a)(1)
-ten-year bankruptcy rule cannot run. Raw-only until CR-3.
+**MAPPED 2026-09-07 (S-15, migration 0139).** One record is ONE
+`report_items` row with `kind = 'Public Record'`, and its per-bureau facts live
+on `report_item_bureau_values`:
+
+| Source | Column |
+|---|---|
+| Type | `account_type` |
+| Status | `status` |
+| Date Filed/Reported | **`filed_on`** |
+| Closing Date | `date_closed` |
+| Reference# | **`reference_number`** |
+| Court | **`court`** |
+| Liability | **`liability_cents`** |
+| Asset Amount | **`asset_cents`** |
+| Exempt Amount | **`exempt_cents`** |
+
+`filed_on` is deliberately **not** `open_date`: § 1681c(a)(1)'s ten years runs
+from the FILING date, and one column doing both would make an obsolescence rule
+read the wrong number. A probe asserts a filing date never lands in
+`open_date`.
+
+Each bureau's own wording is kept — two bureaus naming the same court
+differently is a fact, and the comparison grid marks it as a difference rather
+than picking one. Nothing infers what a discharge covered, whether anything was
+reaffirmed, or which tradelines it should have touched.
+
+**Still not activated:** the § 1681c(a)(1) ten-year rule. The data is now
+there; turning the rule on is a separate, reviewed decision.
 
 ### 4.6 Inquiries
 
@@ -336,10 +360,22 @@ ten-year bankruptcy rule cannot run. Raw-only until CR-3.
 Destination: `report_items` with `kind = 'Inquiry'`; the bureau is stated
 per inquiry rather than as three columns, so attribution is direct.
 
-**Not exposed:** inquiry type (hard / soft), and permissible purpose. Both
-`NOT_EXPOSED_BY_PROVIDER`. This matters — `metro2/section-j`'s retention rule
-is written for hard inquiries only, so from this source it must return UNKNOWN
-rather than assume every inquiry is hard.
+**MAPPED 2026-09-07 (S-16, migration 0139).** One enquiry is ONE
+`report_items` row with `kind = 'Inquiry'`; `inquiry_date` sits on the bureau
+observation. The bureau is stated **per enquiry** here rather than as three
+columns, so attribution is direct and needs no header rule — and an enquiry
+naming no bureau is skipped rather than assigned one.
+
+**`inquiry_type` stays NULL, which reads as UNKNOWN.** SmartCredit does not
+state whether an enquiry is hard, soft, promotional or an account review, and
+it is never inferred from the subscriber's name, the section, or how recent it
+is. This matters concretely: `metro2/section-j`'s twenty-four-month retention
+rule is written for HARD enquiries, so from this source it must return UNKNOWN
+rather than put a whole healthy file's enquiries into a dispute. A probe and a
+component test both hold it, and the grid shows a dash.
+
+Permissible purpose remains `NOT_EXPOSED_BY_PROVIDER` — it is a consumer
+question, answered by `analyzeInquiry`, not a field on a report.
 
 ### 4.7 Creditor contacts
 

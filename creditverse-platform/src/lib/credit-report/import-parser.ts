@@ -51,6 +51,18 @@ export interface BureauValueInput {
   creditor_type?: string;
   payment_frequency?: string;
   last_verified?: string;
+  /* Public records (0139). `filed_on` is never open_date: § 1681c(a)(1)'s ten
+     years runs from the FILING date. */
+  filed_on?: string;
+  reference_number?: string;
+  court?: string;
+  liability_cents?: number;
+  asset_cents?: number;
+  exempt_cents?: number;
+  /* Inquiries (0139). `inquiry_type` stays absent unless the source states it —
+     never inferred from a creditor name, a section, or recency. */
+  inquiry_date?: string;
+  inquiry_type?: string;
   /** Where in the source this came from, so a finding can be checked by hand. */
   source_locator?: Record<string, unknown>;
   reporting_period?: string;

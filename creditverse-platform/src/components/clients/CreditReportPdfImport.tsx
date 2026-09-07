@@ -53,6 +53,16 @@ type ReviewRow = PdfCandidate & { include: boolean };
 type Reader = "text" | "ocr";
 
 const KINDS: ItemKind[] = ["Account", "Inquiry", "Personal", "Public Record"];
+/* Sections, in the order a reviewer reads a report (S-15, S-16). One row per
+   ITEM inside each — never one row per field. */
+const SECTION_ORDER = ["Account", "Public Record", "Inquiry", "Personal"] as const;
+const SECTION_LABEL: Record<string, string> = {
+  Account: "Accounts",
+  "Public Record": "Public records",
+  Inquiry: "Inquiries",
+  Personal: "Personal information",
+};
+
 const cell = "w-full rounded border border-border bg-background px-1.5 py-1 text-xs text-foreground";
 
 export function CreditReportPdfImport({ fulfillmentClientId, organizationId, outsourcingGroupId, onImported }: Props) {
@@ -321,7 +331,16 @@ export function CreditReportPdfImport({ fulfillmentClientId, organizationId, out
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r) => {
+                {SECTION_ORDER.flatMap((section) => {
+                  const inSection = rows.filter((r) => (r.kind ?? "Account") === section);
+                  if (inSection.length === 0) return [];
+                  return [
+                    <tr key={`section-${section}`} className="bg-muted/50">
+                      <td colSpan={8} className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        {SECTION_LABEL[section]} ({inSection.length})
+                      </td>
+                    </tr>,
+                    ...inSection.map((r) => {
                   const bad = r.include && blocking.includes(r);
                   return (
                     <tr key={r.id} className={cn("border-t border-border/60 align-top", !r.include && "opacity-50", bad && "bg-red-500/5")} title={r.evidence.join("\n")}>
@@ -384,8 +403,10 @@ export function CreditReportPdfImport({ fulfillmentClientId, organizationId, out
                           {r.confidence === "high" ? "Clear" : "Review"}
                         </span>
                       </td>
-                    </tr>
-                  );
+                      </tr>
+                      );
+                    }),
+                  ];
                 })}
                 {rows.map((r) =>
                   expanded === r.id && r.bureauValues && r.bureauValues.length > 0 ? (
@@ -394,7 +415,7 @@ export function CreditReportPdfImport({ fulfillmentClientId, organizationId, out
                         <p className="mb-2 text-xs font-bold text-foreground">
                           {accountHeading(r.name, r.bureauValues.map((v) => ({ bureau: v.bureau as Bureau, masked: v.account_number_masked })))}
                         </p>
-                        <BureauComparisonGrid values={r.bureauValues} sourceColumns={r.sourceColumns} />
+                        <BureauComparisonGrid values={r.bureauValues} sourceColumns={r.sourceColumns} kind={r.kind ?? "Account"} />
                       </td>
                     </tr>
                   ) : null,

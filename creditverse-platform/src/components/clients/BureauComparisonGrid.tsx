@@ -55,6 +55,38 @@ const ROWS: Row[] = [
   { label: "Remarks", read: (v) => v.remarks },
 ];
 
+/**
+ * A PUBLIC RECORD's rows. Not a tradeline's — a record has no balance, no
+ * limit and no payment history, and showing those rows empty would suggest it
+ * ought to have them.
+ */
+const RECORD_ROWS: Row[] = [
+  { label: "Type", read: (v) => v.account_type },
+  { label: "Status", read: (v) => v.status },
+  { label: "Date Filed / Reported", read: (v) => v.filed_on },
+  { label: "Closing Date", read: (v) => v.date_closed },
+  { label: "Reference #", read: (v) => v.reference_number },
+  { label: "Court", read: (v) => v.court },
+  { label: "Liability", read: (v) => money(v.liability_cents) },
+  { label: "Asset Amount", read: (v) => money(v.asset_cents) },
+  { label: "Exempt Amount", read: (v) => money(v.exempt_cents) },
+  { label: "Remarks", read: (v) => v.remarks },
+];
+
+/** An ENQUIRY's rows. The type is blank unless the source stated it. */
+const INQUIRY_ROWS: Row[] = [
+  { label: "Date of Inquiry", read: (v) => v.inquiry_date },
+  /* Absent means UNKNOWN, and the dash says so. Never inferred from the
+     subscriber's name or from how recent the enquiry is. */
+  { label: "Inquiry Type", read: (v) => v.inquiry_type },
+];
+
+const ROWS_FOR: Record<string, Row[]> = {
+  Account: ROWS,
+  "Public Record": RECORD_ROWS,
+  Inquiry: INQUIRY_ROWS,
+};
+
 const MONTH = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 /** "2026-02:30" → { label: "Feb '26", status: "30" }. Dates travel with the mark. */
@@ -76,17 +108,23 @@ const toneFor = (status: string) =>
 export function BureauComparisonGrid({
   values,
   sourceColumns,
+  kind = "Account",
 }: {
   values: BureauValueInput[];
   /** Multi-column values the source did not attribute. Shown, never assigned. */
   sourceColumns?: Record<string, string[]>;
+  /** Chooses the field list. A record is not a tradeline (S-15, S-16). */
+  kind?: string;
 }) {
+  const rows = ROWS_FOR[kind] ?? ROWS;
   const [showHistory, setShowHistory] = useState(true);
   const present = BUREAU_ORDER.filter((b) => values.some((v) => v.bureau === b));
   const columns = present.length > 0 ? present : BUREAU_ORDER;
   const valueFor = (b: Bureau) => values.find((v) => v.bureau === b);
 
-  const hasHistory = values.some((v) => (v.payment_history?.length ?? 0) > 0);
+  /* Only a tradeline has payment history. A record or an enquiry showing an
+     empty history block would imply it should have one. */
+  const hasHistory = kind === "Account" && values.some((v) => (v.payment_history?.length ?? 0) > 0);
 
   return (
     <div className="space-y-3">
@@ -103,7 +141,7 @@ export function BureauComparisonGrid({
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {ROWS.map((row) => {
+            {rows.map((row) => {
               const cells = columns.map((b) => {
                 const v = valueFor(b);
                 return v ? row.read(v) : undefined;

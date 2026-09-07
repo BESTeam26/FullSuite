@@ -6655,8 +6655,10 @@ export type Database = {
           account_number_masked: string | null
           account_rating: string | null
           account_type: string | null
+          asset_cents: number | null
           balance_cents: number | null
           bureau: string
+          court: string | null
           created_at: string
           credit_limit_cents: number | null
           creditor_type: string | null
@@ -6665,9 +6667,14 @@ export type Database = {
           date_last_payment: string | null
           dispute_status: string | null
           dofd: string | null
+          exempt_cents: number | null
+          filed_on: string | null
           high_balance_cents: number | null
           id: string
+          inquiry_date: string | null
+          inquiry_type: string | null
           last_verified: string | null
+          liability_cents: number | null
           monthly_payment_cents: number | null
           open_date: string | null
           parser_version: string
@@ -6676,6 +6683,7 @@ export type Database = {
           payment_history: string[] | null
           payment_status: string | null
           raw_metro2_verified: boolean
+          reference_number: string | null
           remarks: string | null
           report_item_id: string
           reporting_period: string | null
@@ -6690,8 +6698,10 @@ export type Database = {
           account_number_masked?: string | null
           account_rating?: string | null
           account_type?: string | null
+          asset_cents?: number | null
           balance_cents?: number | null
           bureau: string
+          court?: string | null
           created_at?: string
           credit_limit_cents?: number | null
           creditor_type?: string | null
@@ -6700,9 +6710,14 @@ export type Database = {
           date_last_payment?: string | null
           dispute_status?: string | null
           dofd?: string | null
+          exempt_cents?: number | null
+          filed_on?: string | null
           high_balance_cents?: number | null
           id?: string
+          inquiry_date?: string | null
+          inquiry_type?: string | null
           last_verified?: string | null
+          liability_cents?: number | null
           monthly_payment_cents?: number | null
           open_date?: string | null
           parser_version: string
@@ -6711,6 +6726,7 @@ export type Database = {
           payment_history?: string[] | null
           payment_status?: string | null
           raw_metro2_verified?: boolean
+          reference_number?: string | null
           remarks?: string | null
           report_item_id: string
           reporting_period?: string | null
@@ -6725,8 +6741,10 @@ export type Database = {
           account_number_masked?: string | null
           account_rating?: string | null
           account_type?: string | null
+          asset_cents?: number | null
           balance_cents?: number | null
           bureau?: string
+          court?: string | null
           created_at?: string
           credit_limit_cents?: number | null
           creditor_type?: string | null
@@ -6735,9 +6753,14 @@ export type Database = {
           date_last_payment?: string | null
           dispute_status?: string | null
           dofd?: string | null
+          exempt_cents?: number | null
+          filed_on?: string | null
           high_balance_cents?: number | null
           id?: string
+          inquiry_date?: string | null
+          inquiry_type?: string | null
           last_verified?: string | null
+          liability_cents?: number | null
           monthly_payment_cents?: number | null
           open_date?: string | null
           parser_version?: string
@@ -6746,6 +6769,7 @@ export type Database = {
           payment_history?: string[] | null
           payment_status?: string | null
           raw_metro2_verified?: boolean
+          reference_number?: string | null
           remarks?: string | null
           report_item_id?: string
           reporting_period?: string | null

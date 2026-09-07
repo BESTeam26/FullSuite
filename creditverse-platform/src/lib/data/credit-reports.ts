@@ -186,7 +186,7 @@ export async function fetchBureauValues(reportId: string): Promise<Record<string
   const { data, error } = await sb
     .from("report_item_bureau_values")
     .select(
-      "bureau, status, payment_status, account_type, account_number_masked, balance_cents, high_balance_cents, credit_limit_cents, past_due_cents, monthly_payment_cents, term_months, open_date, date_closed, date_last_payment, date_last_active, dofd, payment_history, remarks, responsibility_raw, dispute_status, account_rating, creditor_type, payment_frequency, last_verified, account_information_date, report_items!inner(id, account_ref, report_id)",
+      "bureau, status, payment_status, account_type, account_number_masked, balance_cents, high_balance_cents, credit_limit_cents, past_due_cents, monthly_payment_cents, term_months, open_date, date_closed, date_last_payment, date_last_active, dofd, payment_history, remarks, responsibility_raw, dispute_status, account_rating, creditor_type, payment_frequency, last_verified, account_information_date, filed_on, reference_number, court, liability_cents, asset_cents, exempt_cents, inquiry_date, inquiry_type, report_items!inner(id, account_ref, report_id)",
     )
     .eq("report_items.report_id", reportId)
     .limit(1000);
@@ -222,6 +222,15 @@ export async function fetchBureauValues(reportId: string): Promise<Record<string
       creditorType: row.creditor_type ?? undefined,
       paymentFrequency: row.payment_frequency ?? undefined,
       lastVerified: row.last_verified ?? undefined,
+      filedOn: row.filed_on ?? undefined,
+      referenceNumber: row.reference_number ?? undefined,
+      court: row.court ?? undefined,
+      liability: cents(row.liability_cents),
+      assetAmount: cents(row.asset_cents),
+      exemptAmount: cents(row.exempt_cents),
+      inquiryDate: row.inquiry_date ?? undefined,
+      /* Only where the source stated it. Absent stays UNKNOWN. */
+      inquiryType: row.inquiry_type ?? undefined,
       accountInformationDate: row.account_information_date ?? undefined,
     });
   }
@@ -243,7 +252,7 @@ export async function fetchBureauValuesForReports(
   const { data, error } = await sb
     .from("report_item_bureau_values")
     .select(
-      "bureau, status, payment_status, account_type, account_number_masked, balance_cents, high_balance_cents, credit_limit_cents, past_due_cents, monthly_payment_cents, term_months, open_date, date_closed, date_last_payment, date_last_active, dofd, payment_history, remarks, responsibility_raw, dispute_status, account_rating, creditor_type, payment_frequency, last_verified, account_information_date, reporting_period, report_items!inner(account_ref, report_id)",
+      "bureau, status, payment_status, account_type, account_number_masked, balance_cents, high_balance_cents, credit_limit_cents, past_due_cents, monthly_payment_cents, term_months, open_date, date_closed, date_last_payment, date_last_active, dofd, payment_history, remarks, responsibility_raw, dispute_status, account_rating, creditor_type, payment_frequency, last_verified, account_information_date, reporting_period, filed_on, reference_number, court, liability_cents, asset_cents, exempt_cents, inquiry_date, inquiry_type, report_items!inner(account_ref, report_id)",
     )
     .in("report_items.report_id", reportIds)
     .limit(5000);
@@ -279,6 +288,15 @@ export async function fetchBureauValuesForReports(
       creditorType: row.creditor_type ?? undefined,
       paymentFrequency: row.payment_frequency ?? undefined,
       lastVerified: row.last_verified ?? undefined,
+      filedOn: row.filed_on ?? undefined,
+      referenceNumber: row.reference_number ?? undefined,
+      court: row.court ?? undefined,
+      liability: cents(row.liability_cents),
+      assetAmount: cents(row.asset_cents),
+      exemptAmount: cents(row.exempt_cents),
+      inquiryDate: row.inquiry_date ?? undefined,
+      /* Only where the source stated it. Absent stays UNKNOWN. */
+      inquiryType: row.inquiry_type ?? undefined,
       accountInformationDate: row.account_information_date ?? undefined,
     });
   }

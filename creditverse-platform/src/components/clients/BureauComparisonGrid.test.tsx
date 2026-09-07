@@ -113,3 +113,84 @@ describe("BureauComparisonGrid", () => {
     expect(screen.getByText("Account Number")).toBeInTheDocument();
   });
 });
+
+/**
+ * S-15 and S-16. A public record is not a tradeline and an enquiry is not
+ * either — so neither shows a tradeline's field list, and neither shows a
+ * payment-history block that would imply it ought to have one.
+ */
+describe("BureauComparisonGrid — public records", () => {
+  const record: BureauValueInput[] = [
+    {
+      bureau: "TU", account_type: "Chapter 7 Bankruptcy", status: "Discharged",
+      filed_on: "04/2019", date_closed: "09/2019", reference_number: "19-40771",
+      court: "US BKPT CT OH FERNDALE", liability_cents: 4120000,
+      asset_cents: 200000, exempt_cents: 200000,
+    },
+    { bureau: "EX", account_type: "Chapter 7 Bankruptcy", status: "Discharged", court: "U.S. Bankruptcy Court" },
+  ];
+
+  it("shows a record's own fields", () => {
+    render(<BureauComparisonGrid values={record} kind="Public Record" />);
+    for (const label of ["Type", "Status", "Date Filed / Reported", "Closing Date", "Reference #", "Court", "Liability", "Asset Amount", "Exempt Amount"]) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+  });
+
+  it("shows none of a tradeline's fields", () => {
+    render(<BureauComparisonGrid values={record} kind="Public Record" />);
+    for (const label of ["Balance", "Credit Limit", "Past Due", "Monthly Payment", "Account Number", "Payment Status"]) {
+      expect(screen.queryByText(label)).not.toBeInTheDocument();
+    }
+  });
+
+  it("shows no payment-history block", () => {
+    render(<BureauComparisonGrid values={record} kind="Public Record" />);
+    expect(screen.queryByText("Payment history")).not.toBeInTheDocument();
+  });
+
+  /* Two bureaus wording the same court differently is a fact, and the grid
+     marks it as a difference rather than picking one. */
+  it("marks each bureau's own wording as a difference, not a merge", () => {
+    render(<BureauComparisonGrid values={record} kind="Public Record" />);
+    const courtRow = screen.getByText("Court").closest("tr")!;
+    expect(courtRow.textContent).toContain("US BKPT CT OH FERNDALE");
+    expect(courtRow.textContent).toContain("U.S. Bankruptcy Court");
+    expect(courtRow.className).toMatch(/amber/);
+  });
+
+  it("shows a dash where a bureau stated no figure — never a zero", () => {
+    render(<BureauComparisonGrid values={record} kind="Public Record" />);
+    expect(screen.getByText("Liability").closest("tr")!.textContent).toContain("—");
+  });
+});
+
+describe("BureauComparisonGrid — inquiries", () => {
+  const inquiry: BureauValueInput[] = [{ bureau: "TU", inquiry_date: "11/04/2025" }];
+
+  it("shows the enquiry's date", () => {
+    render(<BureauComparisonGrid values={inquiry} kind="Inquiry" />);
+    expect(screen.getByText("Date of Inquiry").closest("tr")!.textContent).toContain("11/04/2025");
+  });
+
+  /* THE REFUSAL, on screen. The source does not state the type, so the cell is
+     a dash — never "Hard" inferred from the subscriber or the date. */
+  it("shows the inquiry type as unknown, never inferred", () => {
+    render(<BureauComparisonGrid values={inquiry} kind="Inquiry" />);
+    const row = screen.getByText("Inquiry Type").closest("tr")!;
+    expect(row.textContent).toContain("—");
+    expect(row.textContent).not.toMatch(/hard|soft|promotional|review/i);
+  });
+
+  it("shows the type when the source does state it", () => {
+    render(<BureauComparisonGrid values={[{ bureau: "TU", inquiry_type: "Hard" }]} kind="Inquiry" />);
+    expect(screen.getByText("Inquiry Type").closest("tr")!.textContent).toContain("Hard");
+  });
+
+  it("shows none of a tradeline's fields", () => {
+    render(<BureauComparisonGrid values={inquiry} kind="Inquiry" />);
+    for (const label of ["Balance", "Account Status", "Payment history"]) {
+      expect(screen.queryByText(label)).not.toBeInTheDocument();
+    }
+  });
+});

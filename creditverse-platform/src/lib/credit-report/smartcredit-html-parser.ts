@@ -43,7 +43,7 @@
  */
 import type { Bureau } from "@/lib/credit-classification";
 import { normalizeAccountRef, parseBalanceCents, type BureauValueInput, type ParsedReportItem } from "./import-parser";
-import { normalizeStatus } from "./pdf-report-parser";
+import { bureausInOrder, normalizeStatus } from "./pdf-report-parser";
 import { reasonFor, type CompletenessFact, type ReconciliationCheck } from "./completeness";
 
 export const SMARTCREDIT_PARSER_VERSION = "smartcredit-html-1";
@@ -90,19 +90,16 @@ export interface HistoryEntry {
   status: string;
 }
 
-export interface SectionRow {
-  bureaus: Bureau[];
-}
-
 export interface SmartCreditParseResult {
   items: ParsedReportItem[];
   /** The report's own counts, per bureau, for reconciliation. */
   summary: Record<Bureau, Record<string, string>>;
   /** Bureaus the document names at all. */
   bureaus: Bureau[];
-  /** Public records and inquiries, counted rather than fully mapped (CR-14). */
-  publicRecords: SectionRow[];
-  inquiries: SectionRow[];
+  /** Public records and inquiries, as canonical items (S-15, S-16). They are
+   *  also in `items`; these are the same objects, kept for reconciliation. */
+  publicRecords: ParsedReportItem[];
+  inquiries: ParsedReportItem[];
   /** Which bureaus the document shows a score for. */
   scores: { bureau: Bureau }[];
   /** Which required sections were found. A missing one is review_required. */
@@ -110,6 +107,10 @@ export interface SmartCreditParseResult {
   /** Anything a reviewer must be told. Never silently swallowed. */
   warnings: string[];
 }
+
+/** Money as the source prints it, so a stated figure is read and a blank is not. */
+const AMOUNT_RE = /-?\$\s?\d[\d,]*(\.\d{2})?/;
+const norm = (s: string) => s.trim().replace(/\s+/g, " ");
 
 const strip = (html: string) => html.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").trim();
 const lower = (s: string) => s.trim().toLowerCase().replace(/:$/, "");
@@ -330,6 +331,157 @@ export function accountNumberSuffixes(values: BureauValueInput[]): string[] {
   return [...seen];
 }
 
+/** Source label → canonical field, for a PUBLIC RECORD's three columns. */
+const PUBLIC_RECORD_MAP: Record<string, keyof BureauValueInput> = {
+  type: "account_type",
+  status: "status",
+  "date filed/reported": "filed_on",
+  "date filed": "filed_on",
+  "reference#": "reference_number",
+  "reference #": "reference_number",
+  "closing date": "date_closed",
+  court: "court",
+  liability: "liability_cents",
+  "asset amount": "asset_cents",
+  "exempt amount": "exempt_cents",
+};
+
+const RECORD_MONEY = new Set<keyof BureauValueInput>(["liability_cents", "asset_cents", "exempt_cents"]);
+
+/**
+ * Public records: ONE record is ONE item, with per-bureau values where the
+ * source's own header proves which column belongs to which bureau.
+ *
+ * Not a tradeline, and nothing here reads meaning into it. A record whose Type
+ * says "Chapter 7 Bankruptcy" and whose Status says "Discharged" is stored as
+ * those two strings — what the discharge covered, whether anything was
+ * reaffirmed, and which tradelines it should have touched are legal readings,
+ * and this parser makes none of them.
+ */
+function parsePublicRecords(doc: string, warnings: string[]): ParsedReportItem[] {
+  const at = doc.indexOf('id="public-information"');
+  if (at < 0) return [];
+  const end = doc.indexOf('id="inquiries"');
+  const region = doc.slice(at, end > at ? end : doc.length);
+
+  const columns = declaredBureauColumns(region);
+  const cells = gridCells(region);
+  const rows = labelRows(cells);
+  if (rows.length === 0) return [];
+
+  const byBureau = new Map<Bureau, BureauValueInput>();
+  const unattributed: Record<string, string[]> = {};
+
+  for (const { row, label } of rows) {
+    const field = PUBLIC_RECORD_MAP[label];
+    const values = ["2", "3", "4"]
+      .map((col) => ({ col, value: cells.get(`${row}:${col}`) }))
+      .filter((v): v is { col: string; value: string } => v.value !== undefined);
+    if (values.length === 0) continue;
+
+    if (columns.size === 0) {
+      const raw = values.map((v) => v.value);
+      if (raw.some(Boolean)) unattributed[field ?? label] = raw;
+      continue;
+    }
+    if (!field) continue;
+
+    for (const { col, value } of values) {
+      const bureau = columns.get(col);
+      if (!bureau || !value.trim()) continue;
+      const target = byBureau.get(bureau) ?? { bureau };
+      if (RECORD_MONEY.has(field)) {
+        const cents = parseBalanceCents(value.match(AMOUNT_RE)?.[0] ?? value);
+        if (!Number.isNaN(cents)) (target[field] as number) = cents;
+      } else {
+        (target[field] as string) = norm(value);
+      }
+      byBureau.set(bureau, target);
+    }
+  }
+
+  if (columns.size === 0) {
+    warnings.push("The public records section declares no bureau header — its values are preserved unattributed.");
+  }
+
+  const values = [...byBureau.values()].filter((v) => Object.keys(v).length > 1);
+  if (values.length === 0 && Object.keys(unattributed).length === 0) return [];
+
+  const first = values[0];
+  /* Named for what the source says it is. Nothing is inferred about it. */
+  const name = first?.account_type ?? "Public record";
+  const reference = values.map((v) => v.reference_number).find(Boolean);
+
+  return [{
+    id: "sc-pr-1",
+    name,
+    kind: "Public Record",
+    subtype: first?.account_type,
+    status: first?.status ?? "Unknown",
+    bureaus: values.length > 0 ? values.map((v) => v.bureau as Bureau) : (["EQ", "EX", "TU"] as Bureau[]),
+    balance: undefined,
+    balanceCents: null,
+    creditLimit: undefined,
+    creditLimitCents: null,
+    dofd: undefined,
+    openDate: undefined,
+    remarks: undefined,
+    accountRef: `public record ${normalizeAccountRef(name)}${reference ? ` ${reference}` : ""}`,
+    bureauValues: values.length > 0 ? values : undefined,
+    sourceColumns: Object.keys(unattributed).length > 0 ? unattributed : undefined,
+  }];
+}
+
+/**
+ * Inquiries: ONE enquiry is ONE item.
+ *
+ * The bureau is stated PER ENQUIRY here rather than as three columns, so
+ * attribution is direct and needs no header rule.
+ *
+ * `inquiry_type` is deliberately never set. SmartCredit does not state whether
+ * an enquiry is hard, soft, promotional or an account review, so it stays
+ * absent — which reads as UNKNOWN. Guessing it from the subscriber's name or
+ * from how recent it is would put a whole healthy file's enquiries into a
+ * retention rule written for hard ones.
+ */
+function parseInquiries(doc: string): ParsedReportItem[] {
+  const at = doc.indexOf('id="inquiries"');
+  if (at < 0) return [];
+  const end = doc.indexOf('id="creditor-contacts"');
+  const region = doc.slice(at, end > at ? end : doc.length);
+
+  const items: ParsedReportItem[] = [];
+  for (const [index, block] of region.split(/<div[^>]*class="inquiry"/).slice(1).entries()) {
+    const fields = [...block.matchAll(/<p[^>]*class="[^"]*fw-bold[^"]*"[^>]*>([\s\S]*?)<\/p>\s*<p[^>]*>([\s\S]*?)<\/p>/g)]
+      .map(([, label, value]) => [lower(strip(label)), strip(value)] as const);
+    const read = (key: string) => fields.find(([l]) => l === key)?.[1];
+
+    const subscriber = read("creditor name") ?? read("subscriber");
+    const date = read("date of inquiry") ?? read("inquiry date");
+    const bureauText = read("credit bureau") ?? "";
+    const bureaus = bureausInOrder(bureauText).map((b) => b);
+    if (!subscriber || bureaus.length === 0) continue;
+
+    items.push({
+      id: `sc-inq-${index + 1}`,
+      name: subscriber,
+      kind: "Inquiry",
+      status: "Inquiry",
+      bureaus,
+      balanceCents: null,
+      creditLimitCents: null,
+      openDate: date,
+      accountRef: `inquiry ${normalizeAccountRef(subscriber)}${date ? ` ${date}` : ""}`,
+      bureauValues: bureaus.map((bureau) => ({
+        bureau,
+        inquiry_date: date,
+        /* inquiry_type is NOT set. The source does not state it. */
+      })),
+    });
+  }
+  return items;
+}
+
 export function parseSmartCreditHtml(html: string): SmartCreditParseResult {
   const doc = inert(html);
   const warnings: string[] = [];
@@ -387,30 +539,12 @@ export function parseSmartCreditHtml(html: string): SmartCreditParseResult {
     inquiries: doc.includes('id="inquiries"'),
   };
 
-  const publicRecords: SectionRow[] = [];
-  if (sections.public_information) {
-    const region = doc.slice(doc.indexOf('id="public-information"'), doc.indexOf('id="inquiries"') > 0 ? doc.indexOf('id="inquiries"') : doc.length);
-    const columns = declaredBureauColumns(region);
-    const cells = gridCells(region);
-    /* One record per bureau that printed a Type. A blank column is a bureau
-       not reporting it, never a record nobody has. */
-    const reporting = [...columns.entries()]
-      .filter(([col]) => [...cells.entries()].some(([k, v]) => k.endsWith(`:${col}`) && v))
-      .map(([, bureau]) => bureau);
-    if (reporting.length > 0) publicRecords.push({ bureaus: reporting });
-  }
-
-  const inquiries: SectionRow[] = [];
-  if (sections.inquiries) {
-    const region = doc.slice(doc.indexOf('id="inquiries"'));
-    for (const block of region.split(/<div[^>]*class="inquiry"/).slice(1)) {
-      const text = strip(block);
-      const bureaus = (["EQ", "EX", "TU"] as Bureau[]).filter((b) =>
-        new RegExp(b === "EQ" ? "equifax" : b === "EX" ? "experian" : "trans ?union", "i").test(text),
-      );
-      if (bureaus.length > 0) inquiries.push({ bureaus });
-    }
-  }
+  /* S-15 and S-16: real items, not counts. One record is one item; one
+     enquiry is one item. They join `items` so the writer stores them like any
+     other, and `report_items.kind` keeps them apart. */
+  const publicRecords = parsePublicRecords(doc, warnings);
+  const inquiries = parseInquiries(doc);
+  items.push(...publicRecords, ...inquiries);
 
   const scores: { bureau: Bureau }[] = [];
   const scoreRegion = doc.indexOf('id="scores"') >= 0
@@ -463,7 +597,9 @@ export function reconcile(result: SmartCreditParseResult): ReconciliationCheck[]
 
   for (const bureau of result.bureaus) {
     const stated = result.summary[bureau] ?? {};
-    const reported = result.items.filter((i) => i.bureaus.includes(bureau));
+    /* Accounts only. A public record or an enquiry is neither open nor closed
+       and must never land in an account count. */
+    const reported = result.items.filter((i) => i.kind === "Account" && i.bureaus.includes(bureau));
     const valueFor = (i: ParsedReportItem) => i.bureauValues?.find((v) => v.bureau === bureau);
 
     /* Accounts: the source states open and closed separately, so the total it

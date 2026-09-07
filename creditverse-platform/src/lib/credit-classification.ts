@@ -88,6 +88,16 @@ export interface BureauValues {
   paymentFrequency?: string;
   lastVerified?: string;
   accountInformationDate?: string;
+  /* Public records and inquiries (0139). */
+  filedOn?: string;
+  referenceNumber?: string;
+  court?: string;
+  liability?: number;
+  assetAmount?: number;
+  exemptAmount?: number;
+  inquiryDate?: string;
+  /** Only where the SOURCE states it. Absent is UNKNOWN, never inferred. */
+  inquiryType?: string;
 }
 
 export interface ClassifiedItem extends RawReportItem {
