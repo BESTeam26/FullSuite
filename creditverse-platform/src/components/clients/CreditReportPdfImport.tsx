@@ -23,6 +23,8 @@ import { extractPdfLines } from "@/lib/credit-report/pdf-text";
 import { PDF_PARSER_VERSION, parseCreditReportPdfText, type PdfCandidate } from "@/lib/credit-report/pdf-report-parser";
 import { accountHeading, describeAccountNumber } from "@/lib/credit-report/account-heading";
 import { SMARTCREDIT_PARSER_VERSION, completenessFacts, parseSmartCreditHtml, reconcile } from "@/lib/credit-report/smartcredit-html-parser";
+import { SmartCreditPdfAdapter } from "@/lib/credit-report/smartcredit";
+import { extractPdfGeometry } from "@/lib/credit-report/smartcredit/pdf-geometry";
 import type { CompletenessFact, ReconciliationCheck } from "@/lib/credit-report/completeness";
 import { ImportQualityPanel } from "@/components/clients/ImportQualityPanel";
 import { BureauComparisonGrid } from "@/components/clients/BureauComparisonGrid";
@@ -129,6 +131,32 @@ export function CreditReportPdfImport({ fulfillmentClientId, organizationId, out
         setProblem(`${images.map((f) => f.name).join(", ")} ${images.length === 1 ? "is a photo" : "are photos"}, so there is no text to read directly. Have ${images.length === 1 ? "it" : "them"} read below, or import a PDF saved from the monitoring service.`);
         return;
       }
+      /* A SmartCredit PDF is a printed copy of the same page its HTML export
+         saves, so it can be read as the grid it is — three columns attributed
+         by the bureau headers the document prints — rather than flattened
+         into lines and pattern-matched. That also gives the PDF the same
+         self-check the HTML has: the report's own summary counts against what
+         was parsed (CR-14).
+
+         Tried first, and only for a single PDF: reconciling one report's
+         stated totals against a parse of several merged files would compare
+         two different things. Anything it does not recognise falls through to
+         the line reader below, which handles every other provider. */
+      if (pdfs.length === 1 && images.length === 0) {
+        const geometry = await extractPdfGeometry(pdfs[0]);
+        if (geometry.hasTextLayer) {
+          const structured = SmartCreditPdfAdapter.parse(geometry);
+          if (structured.items.length > 0) {
+            setReader("text");
+            setRows(structured.items.map((c) => ({ ...c, include: true, confidence: "high", evidence: [] })));
+            setChecks(structured.reconciliation);
+            setFacts(structured.facts);
+            if (structured.warnings.length > 0) setScanNotes(structured.warnings);
+            return;
+          }
+        }
+      }
+
       const results = await Promise.all(pdfs.map((f) => extractPdfLines(f)));
       const noText = [...pdfs.filter((_, i) => !results[i].hasTextLayer), ...images];
       if (noText.length > 0) {

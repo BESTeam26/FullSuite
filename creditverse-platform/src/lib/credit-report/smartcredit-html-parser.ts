@@ -45,6 +45,7 @@ import type { Bureau } from "@/lib/credit-classification";
 import { normalizeAccountRef, parseBalanceCents, type BureauValueInput, type ParsedReportItem } from "./import-parser";
 import { bureausInOrder, normalizeStatus } from "./pdf-report-parser";
 import { reasonFor, type CompletenessFact, type ReconciliationCheck } from "./completeness";
+import { BADGE_TO_CODE, classifyCell } from "./smartcredit/source-fields";
 
 export const SMARTCREDIT_PARSER_VERSION = "smartcredit-html-1";
 
@@ -82,6 +83,13 @@ const MONEY = new Set<keyof BureauValueInput>([
 const BUREAU_CLASS: Record<string, Bureau> = { transunion: "TU", experian: "EX", equifax: "EQ" };
 
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+
+/**
+ * A year label: digits behind an apostrophe of any shape, or none. Which
+ * glyph the export uses depends on the font it rendered with, so all the
+ * usual forms are accepted rather than the one seen first.
+ */
+const YEAR_LABEL = /^['\u2018\u2019\u00b4\u02bc]?\d{2,4}$/;
 
 /** One dated month of payment history. Chronology travels WITH the status. */
 export interface HistoryEntry {
@@ -169,7 +177,12 @@ function labelRows(cells: Map<string, string>): { row: string; label: string }[]
 
 function assign(row: BureauValueInput, field: keyof BureauValueInput, raw: string): void {
   const value = raw.trim();
-  if (!value) return;
+  /* A dash and a "NONE REPORTED" are the source saying this bureau reported
+     nothing for the field. Storing the glyph made an em-dash look like a
+     value — and an account every bureau left blank then read as an account
+     every bureau reports. `classifyCell` is shared with the PDF adapter so
+     the two formats cannot drift on what an empty cell means. */
+  if (classifyCell(value) !== "value") return;
   if (MONEY.has(field)) {
     const cents = parseBalanceCents(value);
     if (!Number.isNaN(cents)) (row[field] as number) = cents;
@@ -193,17 +206,36 @@ function assign(row: BureauValueInput, field: keyof BureauValueInput, raw: strin
  */
 export function parseHistory(blockHtml: string, column: string): HistoryEntry[] {
   const out: HistoryEntry[] = [];
-  const grids = blockHtml.match(new RegExp(`<div[^>]*class="history"[^>]*data-bureau-col="${column}"[^>]*>[\\s\\S]*?<\\/div>\\s*<\\/div>`, "i"))
-    ?? blockHtml.match(/<div[^>]*class="history"[^>]*>[\s\S]*?<\/div>\s*<\/div>/i);
-  const region = grids?.[0] ?? "";
-  const cellRe = /<div[^>]*class="[^"]*status-[^"]*"[^>]*>([\s\S]*?)<\/div>/g;
+  /* The grid for THIS column, or nothing.
+     There used to be a fallback to the first history grid in the block. It
+     had to go: when a bureau reports no history the block has no grid for
+     its column, and the fallback handed it the FIRST bureau's twenty-four
+     months — publishing one bureau's payment record under another's name.
+     A missing grid is a missing grid. */
+  const grid = blockHtml.match(
+    new RegExp(`<div[^>]*class="[^"]*\\bhistory\\b[^"]*"[^>]*data-bureau-col="${column}"[^>]*>[\\s\\S]*?<\\/div>\\s*<\\/div>`, "i"),
+  );
+  const region = grid?.[0] ?? "";
+  /* The status comes from the CLASS, not the badge glyph.
+     Two reasons, both learned from the real export. The provider's own
+     legend declares `status-U` with an EMPTY badge, meaning the bureau
+     reported nothing that month — real information, and reading the glyph
+     drops the month entirely rather than recording the silence. And the code
+     is the provider's own vocabulary, so a restyled glyph cannot change what
+     a month means. The badge is kept as a fallback for a format that prints
+     the glyph without the class. */
+  const cellRe = /<div[^>]*class="([^"]*status-([A-Za-z0-9]*)[^"]*)"[^>]*>([\s\S]*?)<\/div>/g;
   for (let m = cellRe.exec(region); m; m = cellRe.exec(region)) {
-    const badge = /class="month-badge"[^>]*>([\s\S]*?)</.exec(m[1]);
-    const labels = [...m[1].matchAll(/class="month-label"[^>]*>([\s\S]*?)</g)].map((x) => strip(x[1]));
-    if (!badge) continue;
-    const status = strip(badge[1]);
+    const code = m[2];
+    const body = m[3];
+    const badge = /class="month-badge"[^>]*>([\s\S]*?)</.exec(body);
+    /* `month-label` is a class TOKEN: the real export writes
+       `class="month-label text-center"` on 696 of its 706 cells, and an
+       exact-string match reads none of them. */
+    const labels = [...body.matchAll(/class="[^"]*\bmonth-label\b[^"]*"[^>]*>([\s\S]*?)</g)].map((x) => strip(x[1]));
+    const status = code || (badge ? BADGE_TO_CODE[strip(badge[1]).toLowerCase()] ?? strip(badge[1]) : "");
     const monthLabel = labels.find((l) => MONTHS.includes(l.slice(0, 3).toLowerCase()));
-    const yearLabel = labels.find((l) => /^'?\d{2,4}$/.test(l));
+    const yearLabel = labels.find((l) => YEAR_LABEL.test(l));
     if (!status || !monthLabel || !yearLabel) continue;
     const month = MONTHS.indexOf(monthLabel.slice(0, 3).toLowerCase()) + 1;
     const digits = yearLabel.replace(/\D/g, "");

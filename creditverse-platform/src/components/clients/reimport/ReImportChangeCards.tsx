@@ -44,7 +44,13 @@ interface ChangeSummary {
   newItemsAdded: number;
 }
 
-const defaultChanges: ChangeSummary = {
+/**
+ * Illustration only — labelled as such in the interface below, because a
+ * figure a client might read must never be sample data presented as theirs
+ * (rule 12). Real counts come from `ReportChangesPanel`, which reads the
+ * comparison and the reviewed outcomes.
+ */
+const sampleChanges: ChangeSummary = {
   deleted: 5,
   onGoing: 32,
   undisputedNegative: 19,
@@ -53,16 +59,21 @@ const defaultChanges: ChangeSummary = {
 };
 
 export function ChangeSummarySection() {
-  const c = defaultChanges;
+  const c = sampleChanges;
 
   return (
     <div>
-      <p className="mb-3 text-sm font-semibold">
-        Changes Since Your Last Credit Import
-      </p>
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <p className="text-sm font-semibold">
+          Changes Since Your Last Credit Import
+        </p>
+        <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700">
+          Sample data
+        </span>
+      </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <ChangeCard
-          label="Disputes Deleted"
+          label="No Longer Observed"
           thisRound={c.deleted}
           lastRound={1}
           grandTotal={c.deleted + 1}
@@ -83,7 +94,7 @@ export function ChangeSummarySection() {
           tone="text-status-danger"
         />
         <ChangeCard
-          label="Updated To Positive"
+          label="Now Reporting Positive"
           thisRound={c.updatedToPositive}
           lastRound={0}
           grandTotal={c.updatedToPositive}

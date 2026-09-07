@@ -180,14 +180,19 @@ describe("attribution comes from the declared header, never the column index", (
   });
 });
 
+/* The status stored is the PROVIDER'S CODE — `C`, `1`, `U` — not the glyph it
+   prints beside it. The code is the provider's own vocabulary from its own
+   legend, it survives a restyle, and it keeps `U` ("the bureau reported
+   nothing this month", which the provider declares with a BLANK badge)
+   distinguishable from a cell that carries nothing at all. */
 describe("payment history carries its own dates", () => {
   it("pairs each status with the month and year the grid labels it", () => {
     const region = fixture.slice(fixture.indexOf("NORTHWIND"), fixture.indexOf("MERIDIAN"));
     expect(parseHistory(region, "2")).toEqual([
-      { year: 2026, month: 3, status: "OK" },
-      { year: 2026, month: 2, status: "OK" },
-      { year: 2026, month: 1, status: "OK" },
-      { year: 2025, month: 12, status: "OK" },
+      { year: 2026, month: 3, status: "C" },
+      { year: 2026, month: 2, status: "C" },
+      { year: 2026, month: 1, status: "C" },
+      { year: 2025, month: 12, status: "C" },
     ]);
   });
 
@@ -197,9 +202,9 @@ describe("payment history carries its own dates", () => {
     const region = fixture.slice(fixture.indexOf("MERIDIAN"), fixture.indexOf("HALCYON"));
     const history = parseHistory(region, "2");
     expect(history).toEqual([
-      { year: 2026, month: 3, status: "OK" },
-      { year: 2026, month: 2, status: "30" },
-      { year: 2025, month: 12, status: "OK" },
+      { year: 2026, month: 3, status: "C" },
+      { year: 2026, month: 2, status: "1" },
+      { year: 2025, month: 12, status: "C" },
     ]);
     expect(history.find((h) => h.month === 1)).toBeUndefined();
   });
@@ -223,7 +228,7 @@ describe("the seven-year late counts stay separate", () => {
     /* The grid shows ONE 30-day mark in two years; the tally says two in
        seven. Both are true, and neither can produce the other. */
     const region = fixture.slice(fixture.indexOf("MERIDIAN"), fixture.indexOf("HALCYON"));
-    expect(parseHistory(region, "2").filter((h) => h.status === "30")).toHaveLength(1);
+    expect(parseHistory(region, "2").filter((h) => h.status === "1")).toHaveLength(1);
     expect(parseLateCounts(region, "2")!["30"]).toBe(2);
   });
 });

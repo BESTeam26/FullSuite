@@ -1366,10 +1366,46 @@ if (runs(30)) {
   const A = `'[{"kind":"Account","name":"Probe Card","status":"Open","bureaus":["EQ"],"balance_text":"$100","balance_cents":10000,"account_ref":"probe card"},{"kind":"Account","name":"Probe Loan","status":"Open","bureaus":["EQ"],"balance_text":"$500","balance_cents":50000,"account_ref":"probe loan"}]'::jsonb`;
   const B = `'[{"kind":"Account","name":"Probe Card","status":"Paid","bureaus":["EQ"],"balance_text":"$0","balance_cents":0,"account_ref":"probe card"}]'::jsonb`;
   const TWO = `select public.create_credit_report('${lakesideOrg}', null, '${LC30}', null, array['EQ'], '2031-02-01', 'manual_upload', null, 'probe-a', ${A}, null); select public.create_credit_report('${lakesideOrg}', null, '${LC30}', null, array['EQ'], '2031-03-01', 'manual_upload', null, 'probe-b', ${B}, null);`;
+  /* R5 rewrote the vocabulary these probes assert. `deleted` is gone: an item
+     absent from a later import is `no_longer_observed`, and ONLY where that
+     import was graded complete. These two imports are ungraded — as every
+     report imported before CR-14 is — so the honest answer is that they
+     cannot be compared. That is not a regression; it is the platform no
+     longer claiming a bureau deleted something it never measured. */
+  const PASS30 = `'[{"bureau":"EQ","check_key":"accounts","stated":1,"parsed":1,"ok":true}]'::jsonb`;
+  const PASS30_TWO = `'[{"bureau":"EQ","check_key":"accounts","stated":2,"parsed":2,"ok":true}]'::jsonb`;
+  const graded = (date, version, items, recon) =>
+    `select public.create_credit_report('${lakesideOrg}', null, '${LC30}', null, array['EQ'], '${date}', 'manual_upload', null, '${version}', ${items}, null, '[]'::jsonb, ${recon});`;
+  const TWO_GRADED = graded("2031-02-01", "probe-a", A, PASS30_TWO) + graded("2031-03-01", "probe-b", B, PASS30);
+  const changesOn = (date, change) =>
+    `(select count(*) from public.report_item_changes where client_id='${LC30}' and observed_on='${date}' and change='${change}')`;
+
   const P30 = LC30 ? [
-    ["two imports → one deletion and one update observed on the later import", () => w30(U["org.owner@bes.test"], `${TWO} select (select count(*) from public.report_item_changes where client_id='${LC30}' and observed_on='2031-03-01' and change='deleted')::text || ':' || (select count(*) from public.report_item_changes where client_id='${LC30}' and observed_on='2031-03-01' and change='updated')::text as rows`), "1:1"],
-    ["the facts carry provenance engine (report_outcome), apart from manual",  () => w30(U["org.owner@bes.test"], `${TWO} select count(*)::int as rows from public.report_facts where source='report_outcome' and client_id='${LC30}' and fact_date='2031-03-01' and outcome in ('deleted','updated')`), 2],
-    ["the deletions KPI equals the direct count",                              () => w30(U["org.owner@bes.test"], `${TWO} select ((select coalesce(sum((r->>'outcomes.deleted_engine')::int), 0) from public.report_pivot('client', array['outcomes.deleted_engine'], '{}'::jsonb, '2031-01-01', '2031-12-31') r) = (select count(*) from public.report_item_changes where change='deleted' and observed_on between '2031-01-01' and '2031-12-31'))::text as rows`), "true"],
+    /* THE PROBE R5 EXISTS FOR: the absent account is not called a deletion.
+       Note the scope. Only the ABSENCE is withheld — the account present in
+       both imports still reports its change, because both values were
+       actually read. Completeness decides what an absence means, not whether
+       a difference between two read values happened. */
+    ["an ungraded pair withholds the absence and claims no deletion",
+      () => w30(U["org.owner@bes.test"], `${TWO} select ${changesOn("2031-03-01", "unable_to_compare")}::text || ':' || ${changesOn("2031-03-01", "no_longer_observed")}::text as rows`), "1:0"],
+
+    ["…while the account read in both still reports its change",
+      () => w30(U["org.owner@bes.test"], `${TWO} select ${changesOn("2031-03-01", "updated")}::int as rows`), 1],
+
+    ["a COMPLETE later import turns the absence into no_longer_observed, and the change into updated",
+      () => w30(U["org.owner@bes.test"], `${TWO_GRADED} select ${changesOn("2031-03-01", "no_longer_observed")}::text || ':' || ${changesOn("2031-03-01", "updated")}::text as rows`), "1:1"],
+
+    ["…and never into a bureau-confirmed deletion, which no comparison can produce",
+      () => w30(U["org.owner@bes.test"], `${TWO_GRADED} select count(*)::int as rows from public.report_item_changes where client_id='${LC30}' and change='bureau_confirmed_deletion'`), 0],
+
+    ["an item present only in the later import is newly_reported",
+      () => w30(U["org.owner@bes.test"], `${graded("2031-02-01", "probe-a", B, PASS30)}${graded("2031-03-01", "probe-b", A, PASS30_TWO)} select ${changesOn("2031-03-01", "newly_reported")}::int as rows`), 1],
+
+    ["the facts carry provenance engine (report_outcome), apart from manual",
+      () => w30(U["org.owner@bes.test"], `${TWO_GRADED} select count(*)::int as rows from public.report_facts where source='report_outcome' and client_id='${LC30}' and fact_date='2031-03-01' and outcome in ('no_longer_observed','updated')`), 2],
+
+    ["the observed-absence KPI equals the direct count of observed absences",
+      () => w30(U["org.owner@bes.test"], `${TWO_GRADED} select ((select coalesce(sum((r->>'outcomes.no_longer_observed')::int), 0) from public.report_pivot('client', array['outcomes.no_longer_observed'], '{}'::jsonb, '2031-01-01', '2031-12-31') r) = (select count(*) from public.report_item_changes where change='no_longer_observed' and observed_on between '2031-01-01' and '2031-12-31'))::text as rows`), "true"],
     ["another organization's owner sees no changes for a Lakeside client",     () => w30(U["org2.owner@bes.test"], `select count(*)::int as rows from public.report_item_changes where client_id='${LC30}'`), 0],
     ["a client role (borrower fixture) sees no report changes at all",         () => { const P = q(`select coalesce((select id::text from public.profiles where email='client.portal@bes.test'), '') as rows`)[0].rows; return P ? w30(P, `select count(*)::int as rows from public.report_item_changes`) : "skip"; }, q(`select coalesce((select id::text from public.profiles where email='client.portal@bes.test'), '') as rows`)[0].rows ? 0 : "skip"],
   ] : [["(no Lakeside client to probe)", () => "skip", "skip"]];
@@ -2839,6 +2875,102 @@ if (runs(53)) {
       () => probe53(OWNER53, `${imp(PASS53)}; ${imp(PASS53)}; select count(distinct r.id)::int as rows from public.credit_reports r where r.fulfillment_client_id='${T.lakeside_client}' and r.parser_version='probe-138'`), 2],
   ] : [["(no Lakeside client to probe)", () => "skip", "skip"]];
   runPhase("phase 53", P53, { strict: true });
+}
+
+if (runs(54)) {
+  startPhase("phase 54");
+  /* R5 — the outcome vocabulary. Two things are proved here and nowhere else:
+     that `dispute_item_outcomes` is scoped by the same client chain as every
+     other credit record, and that the DATABASE refuses the two claims the
+     platform must never make casually — a bureau-confirmed deletion inferred
+     from a reimport, and a correction recorded without review. The domain
+     module refuses them too, but it is not the only writer. */
+  const probe54 = (uid, sql, seed = "") => {
+    try {
+      return q(`begin; ${seed} set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows;
+    } catch (e) {
+      const text = String(e.message) + "\n" + String(e.stdout ?? "");
+      const m = text.match(/ERROR:\s*(\w+):/);
+      return "ERR " + (m ? m[1] : "unknown");
+    }
+  };
+  const OWNER54 = U["org.owner@bes.test"];
+  const OTHER54 = U["org2.owner@bes.test"];
+  const ownerSees54 = probe54(OWNER54, `select count(*)::int as rows from public.fulfillment_clients where id='${T.lakeside_client}'`) === 1;
+
+  const NOTE54 = "Equifax result notice dated 1 Sep 2026 states the item was deleted.";
+  const ins54 = (uid, outcome, source, note = "") =>
+    `insert into public.dispute_item_outcomes (client_id, account_ref, bureau, outcome, result_source, created_by${note ? ", note" : ""}) values ('${T.lakeside_client}', 'probe-acct', 'EQ', '${outcome}', '${source}', '${uid}'${note ? `, '${note}'` : ""})`;
+  const COUNT54 = `select count(*)::int as rows from public.dispute_item_outcomes where client_id='${T.lakeside_client}'`;
+  const viewdef = `pg_get_viewdef('public.report_item_changes'::regclass)`;
+
+  const P54 = ownerSees54 ? [
+    ["an owner may record a reviewed outcome for their own client",
+      () => probe54(OWNER54, `${ins54(OWNER54, "no_longer_observed", "reimport_comparison")}; ${COUNT54}`), 1],
+
+    /* THE PROBE THIS PHASE EXISTS FOR. */
+    ["a reimport comparison cannot record a bureau-confirmed deletion",
+      () => probe54(OWNER54, `${ins54(OWNER54, "bureau_confirmed_deletion", "reimport_comparison", NOTE54)}; ${COUNT54}`), "ERR 23514"],
+
+    ["…and a bureau result notice can, with a note saying where it came from",
+      () => probe54(OWNER54, `${ins54(OWNER54, "bureau_confirmed_deletion", "cra_result_notice", NOTE54)}; ${COUNT54}`), 1],
+
+    ["a confirmed deletion with no note is refused",
+      () => probe54(OWNER54, `${ins54(OWNER54, "bureau_confirmed_deletion", "cra_result_notice")}; ${COUNT54}`), "ERR 23514"],
+
+    ["a correction cannot be recorded from a diff",
+      () => probe54(OWNER54, `${ins54(OWNER54, "corrected", "reimport_comparison", NOTE54)}; ${COUNT54}`), "ERR 23514"],
+
+    ["…nor without a reviewer's note",
+      () => probe54(OWNER54, `${ins54(OWNER54, "corrected", "operator_review")}; ${COUNT54}`), "ERR 23514"],
+
+    ["an unrelated organization cannot record an outcome against this client",
+      () => probe54(OTHER54, `${ins54(OTHER54, "no_longer_observed", "reimport_comparison")}; select 0 as rows`), "ERR 42501"],
+
+    ["an outcome cannot be attributed to somebody else",
+      () => probe54(OWNER54, `${ins54(OTHER54, "no_longer_observed", "reimport_comparison")}; select 0 as rows`), "ERR 42501"],
+
+    ["an unrelated organization cannot read this client's outcomes",
+      () => probe54(OWNER54, `${ins54(OWNER54, "no_longer_observed", "reimport_comparison")}; set local request.jwt.claims = '{"sub":"${OTHER54}","role":"authenticated"}'; ${COUNT54}`), 0],
+
+    /* Append-only: a reviewer who changes their mind adds a row, and the
+       earlier conclusion stays readable. That is why the table carries no
+       unique constraint. */
+    ["a recorded outcome cannot be edited",
+      () => probe54(OWNER54, `${ins54(OWNER54, "no_longer_observed", "reimport_comparison")}; update public.dispute_item_outcomes set outcome='bureau_confirmed_deletion' where client_id='${T.lakeside_client}'; select 0 as rows`), "ERR 42501"],
+
+    ["a recorded outcome cannot be deleted",
+      () => probe54(OWNER54, `${ins54(OWNER54, "no_longer_observed", "reimport_comparison")}; delete from public.dispute_item_outcomes where client_id='${T.lakeside_client}'; select 0 as rows`), "ERR 42501"],
+
+    ["…and a second review of the same item sits beside the first",
+      () => probe54(OWNER54, `${ins54(OWNER54, "no_longer_observed", "reimport_comparison")}; ${ins54(OWNER54, "bureau_confirmed_deletion", "cra_result_notice", NOTE54)}; ${COUNT54}`), 2],
+
+    /* Not "0 rows": the grant itself is revoked, so anon is refused before
+       any policy is consulted. A filtered empty read would be weaker. */
+    ["anon is refused before RLS is even reached",
+      () => { try { q(`begin; set local role anon; ${COUNT54}; rollback;`); return "no error"; } catch (e) { const m = (String(e.message) + String(e.stdout ?? "")).match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } }, "ERR 42501"],
+
+    /* The view is what used to say "deleted". These prove the word is gone
+       and that the coverage gate is real, read off the LIVE definition. */
+    ["the comparison view no longer labels an absence a deletion",
+      () => q(`select (position('deleted' in ${viewdef}) = 0)::text as rows`)[0].rows, "true"],
+
+    ["…and it consults import_quality before calling anything absent",
+      () => q(`select (position('import_quality' in ${viewdef}) > 0)::text as rows`)[0].rows, "true"],
+
+    ["…and it names no_longer_observed instead",
+      () => q(`select (position('no_longer_observed' in ${viewdef}) > 0)::text as rows`)[0].rows, "true"],
+
+    ["the view is still SECURITY INVOKER",
+      () => q(`select (position('security_invoker=true' in array_to_string(c.reloptions, ',')) > 0)::text as rows from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname='report_item_changes'`)[0].rows, "true"],
+
+    ["no legacy row was rewritten into a stronger conclusion",
+      () => q(`select (not exists (select 1 from public.dispute_item_outcomes where result_source='legacy_manual_entry' and outcome::text not like 'legacy\\_%'))::text as rows`)[0].rows, "true"],
+
+    ["the KPI catalogue keeps confirmed deletions and observed absences apart",
+      () => q(`select count(distinct key)::int as rows from public.kpi_definitions where key in ('outcomes.bureau_confirmed_deletion','outcomes.no_longer_observed')`)[0].rows, 2],
+  ] : [["(no Lakeside client to probe)", () => "skip", "skip"]];
+  runPhase("phase 54", P54, { strict: true });
 }
 
 endPhase();

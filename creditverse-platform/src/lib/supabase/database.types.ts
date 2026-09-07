@@ -1445,13 +1445,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "consumer_report_requests_report_id_fkey"
-            columns: ["report_id"]
-            isOneToOne: false
-            referencedRelation: "report_item_changes"
-            referencedColumns: ["report_id"]
-          },
-          {
             foreignKeyName: "consumer_report_requests_requested_by_fkey"
             columns: ["requested_by"]
             isOneToOne: false
@@ -1695,6 +1688,102 @@ export type Database = {
             columns: ["letter_id"]
             isOneToOne: true
             referencedRelation: "dispute_letters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dispute_item_outcomes: {
+        Row: {
+          account_ref: string
+          bureau: string
+          client_id: string
+          created_at: string
+          created_by: string | null
+          current_value: string | null
+          field: string | null
+          id: string
+          note: string | null
+          outcome: Database["public"]["Enums"]["dispute_outcome"]
+          prev_report_id: string | null
+          previous_value: string | null
+          report_id: string | null
+          result_source: Database["public"]["Enums"]["outcome_source"]
+          reviewed_at: string | null
+          reviewed_by: string | null
+          round_number: number | null
+        }
+        Insert: {
+          account_ref: string
+          bureau: string
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          current_value?: string | null
+          field?: string | null
+          id?: string
+          note?: string | null
+          outcome: Database["public"]["Enums"]["dispute_outcome"]
+          prev_report_id?: string | null
+          previous_value?: string | null
+          report_id?: string | null
+          result_source: Database["public"]["Enums"]["outcome_source"]
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          round_number?: number | null
+        }
+        Update: {
+          account_ref?: string
+          bureau?: string
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          current_value?: string | null
+          field?: string | null
+          id?: string
+          note?: string | null
+          outcome?: Database["public"]["Enums"]["dispute_outcome"]
+          prev_report_id?: string | null
+          previous_value?: string | null
+          report_id?: string | null
+          result_source?: Database["public"]["Enums"]["outcome_source"]
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          round_number?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dispute_item_outcomes_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "fulfillment_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispute_item_outcomes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispute_item_outcomes_prev_report_id_fkey"
+            columns: ["prev_report_id"]
+            isOneToOne: false
+            referencedRelation: "credit_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispute_item_outcomes_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "credit_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispute_item_outcomes_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -6517,13 +6606,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "report_completeness_report_id_fkey"
-            columns: ["report_id"]
-            isOneToOne: false
-            referencedRelation: "report_item_changes"
-            referencedColumns: ["report_id"]
-          },
-          {
             foreignKeyName: "report_completeness_report_item_id_fkey"
             columns: ["report_item_id"]
             isOneToOne: false
@@ -6632,13 +6714,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "credit_reports"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "report_findings_report_id_fkey"
-            columns: ["report_id"]
-            isOneToOne: false
-            referencedRelation: "report_item_changes"
-            referencedColumns: ["report_id"]
           },
           {
             foreignKeyName: "report_findings_reviewer_fkey"
@@ -6861,13 +6936,6 @@ export type Database = {
             referencedRelation: "credit_reports"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "report_items_report_id_fkey"
-            columns: ["report_id"]
-            isOneToOne: false
-            referencedRelation: "report_item_changes"
-            referencedColumns: ["report_id"]
-          },
         ]
       }
       report_partial_acceptances: {
@@ -6906,13 +6974,6 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "credit_reports"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "report_partial_acceptances_report_id_fkey"
-            columns: ["report_id"]
-            isOneToOne: true
-            referencedRelation: "report_item_changes"
-            referencedColumns: ["report_id"]
           },
         ]
       }
@@ -6958,13 +7019,6 @@ export type Database = {
             referencedRelation: "credit_reports"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "report_reconciliation_report_id_fkey"
-            columns: ["report_id"]
-            isOneToOne: false
-            referencedRelation: "report_item_changes"
-            referencedColumns: ["report_id"]
-          },
         ]
       }
       report_scores: {
@@ -6993,13 +7047,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "credit_reports"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "report_scores_report_id_fkey"
-            columns: ["report_id"]
-            isOneToOne: false
-            referencedRelation: "report_item_changes"
-            referencedColumns: ["report_id"]
           },
         ]
       }
@@ -8116,15 +8163,7 @@ export type Database = {
           previous_status: string | null
           report_id: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "credit_reports_fulfillment_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "fulfillment_clients"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       work_attention: {
         Row: {
@@ -9479,6 +9518,20 @@ export type Database = {
         | "attorney_assisted"
         | "cro_prepared"
         | "cra_forwarded"
+      dispute_outcome:
+        | "bureau_confirmed_deletion"
+        | "no_longer_observed"
+        | "corrected"
+        | "updated"
+        | "unchanged"
+        | "newly_reported"
+        | "reappeared"
+        | "unable_to_compare"
+        | "ambiguous_match"
+        | "result_not_available"
+        | "legacy_reported_deleted"
+        | "legacy_reported_updated"
+        | "legacy_reported_verified"
       dispute_strategy:
         | "factual"
         | "integrity"
@@ -9771,6 +9824,13 @@ export type Database = {
         | "funding_sales"
         | "funding_support"
       org_status: "Active" | "Pending Onboarding" | "At Risk" | "Paused"
+      outcome_source:
+        | "cra_result_notice"
+        | "reimport_comparison"
+        | "operator_review"
+        | "consumer_provided_result"
+        | "other"
+        | "legacy_manual_entry"
       outsourcing_group_status: "Active" | "Paused" | "Onboarding"
       payment_status:
         | "approved"
@@ -10083,6 +10143,21 @@ export const Constants = {
         "attorney_assisted",
         "cro_prepared",
         "cra_forwarded",
+      ],
+      dispute_outcome: [
+        "bureau_confirmed_deletion",
+        "no_longer_observed",
+        "corrected",
+        "updated",
+        "unchanged",
+        "newly_reported",
+        "reappeared",
+        "unable_to_compare",
+        "ambiguous_match",
+        "result_not_available",
+        "legacy_reported_deleted",
+        "legacy_reported_updated",
+        "legacy_reported_verified",
       ],
       dispute_strategy: [
         "factual",
@@ -10398,6 +10473,14 @@ export const Constants = {
         "funding_support",
       ],
       org_status: ["Active", "Pending Onboarding", "At Risk", "Paused"],
+      outcome_source: [
+        "cra_result_notice",
+        "reimport_comparison",
+        "operator_review",
+        "consumer_provided_result",
+        "other",
+        "legacy_manual_entry",
+      ],
       outsourcing_group_status: ["Active", "Paused", "Onboarding"],
       payment_status: [
         "approved",

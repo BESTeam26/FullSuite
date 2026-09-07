@@ -21,14 +21,14 @@ describe("generateProgressUpdate (sample report)", () => {
     ]);
   });
 
-  it("lists only Deleted and Positive rows as confirmed deletions", () => {
+  it("lists only rows that came off or turned positive, as observations", () => {
     const lines = s.deletionsConfirmed.split("\n");
     expect(lines).toHaveLength(9); // 4 EQ positive + 2 EX deleted + 3 TU deleted
     expect(lines).toContain(
-      "• Capital One — Equifax: Updated to positive standing",
+      "• Capital One — Equifax: Now reported in positive standing",
     );
     expect(lines).toContain(
-      "• Employers — AC Kelly Production — Experian: Removed from report",
+      "• Employers — AC Kelly Production — Experian: No longer observed in this report",
     );
     expect(s.deletionsConfirmed).not.toContain("FB&T/Mercury");
   });
@@ -56,7 +56,7 @@ describe("generateProgressUpdate (sample report)", () => {
   });
 
   it("writes an upbeat summary when every bureau rose", () => {
-    expect(s.overallSummary).toContain("5 items came off or were corrected");
+    expect(s.overallSummary).toContain("5 items are no longer observed or now report differently");
     expect(s.overallSummary).toContain("32 disputes remain open");
     expect(s.overallSummary).not.toContain(
       "not every bureau moved the same amount",
@@ -71,7 +71,7 @@ describe("generateProgressUpdate (sample report)", () => {
 
   it("computes grand totals for the affiliate summary", () => {
     expect(s.affiliateSummary).toContain(
-      "Deleted/updated this round: 5 (grand total 6)",
+      "No longer observed / changed this round: 5 (grand total 6)",
     );
     expect(s.affiliateSummary).toContain(
       "Disputes on-going: 32 (grand total 56)",
@@ -82,7 +82,7 @@ describe("generateProgressUpdate (sample report)", () => {
   it("builds the SMS and assembles the full text in section order", () => {
     expect(s.clientSms).toContain("Hi Kevin!");
     expect(s.clientSms).toContain("August 2026");
-    expect(s.clientSms).toContain("5 items resolved");
+    expect(s.clientSms).toContain("5 items no longer showing");
     expect(s.heading).toBe("📊 Credit Progress Update – August 2026");
     expect(s.signOff).toBe("Client Success Team");
 
@@ -113,7 +113,7 @@ describe("generateProgressUpdate (edge cases)", () => {
     d.bureaus[1].score = 660; // Experian falls from 672
     const s = generateProgressUpdate(d).sections;
     expect(s.scoreMovement).toContain("Experian: 672 → 660 (-12)");
-    expect(s.overallSummary).toContain("1 item came off");
+    expect(s.overallSummary).toContain("1 item is no longer observed");
     expect(s.overallSummary).toContain("1 new item appeared");
     expect(s.overallSummary).toContain(
       "not every bureau moved the same amount",
@@ -121,7 +121,7 @@ describe("generateProgressUpdate (edge cases)", () => {
     expect(s.clientFacingSummary).toContain(
       "Solid, steady progress this round.",
     );
-    expect(s.clientSms).toContain("1 item resolved");
+    expect(s.clientSms).toContain("1 item no longer showing");
   });
 
   it("falls back to explicit 'none' sentences when there are no deletions or new items", () => {
@@ -132,7 +132,7 @@ describe("generateProgressUpdate (edge cases)", () => {
     });
     const s = generateProgressUpdate(d).sections;
     expect(s.deletionsConfirmed).toBe(
-      "No confirmed deletions were recorded this round.",
+      "No items came off the report this round.",
     );
     expect(s.newlyAdded).toBe(
       "No new negative items appeared on this round's report.",

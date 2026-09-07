@@ -1,0 +1,817 @@
+%PDF-1.4
+% SYNTHETIC SmartCredit-shaped fixture  PDF. STRUCTURE ONLY.
+% 
+%   Generated from synthetic-report.mjs, which is the single definition of this
+%   report. The HTML and PDF fixtures are two renderings of the SAME data, which
+%   is what makes "either format normalises to the same canonical record" a
+%   claim a test can check rather than an assertion.
+% 
+%   Every person, creditor, account number, balance, date and payment mark is
+%   INVENTED. No real consumer report is in this repository. Do not replace any
+%   value here with one from a real report  regenerate instead.
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [4 0 R 6 0 R 8 0 R] /Count 3 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+4 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 5 0 R >>
+endobj
+5 0 obj
+<< /Length 14501 >>
+stream
+BT /F1 11 Tf 1 0 0 1 47.20 732.00 Tm (Credit Scores) Tj ET
+BT /F1 8 Tf 1 0 0 1 219.40 713.00 Tm (TransUnion) Tj ET
+BT /F1 8 Tf 1 0 0 1 355.70 713.00 Tm (Experian) Tj ET
+BT /F1 8 Tf 1 0 0 1 489.40 713.00 Tm (Equifax) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 691.00 Tm (611) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 691.00 Tm (624) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 691.00 Tm (608) Tj ET
+BT /F1 11 Tf 1 0 0 1 47.20 665.00 Tm (Personal Information) Tj ET
+BT /F1 8 Tf 1 0 0 1 219.40 641.00 Tm (TransUnion) Tj ET
+BT /F1 8 Tf 1 0 0 1 355.70 641.00 Tm (Experian) Tj ET
+BT /F1 8 Tf 1 0 0 1 489.40 641.00 Tm (Equifax) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 621.00 Tm (Name) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 620.00 Tm (JORDAN SAMPLE) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 620.00 Tm (JORDAN SAMPLE) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 620.00 Tm (JORDAN SAMPLE) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 610.00 Tm (Date of Birth) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 609.00 Tm (1980) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 609.00 Tm (1980) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 609.00 Tm (1980) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 599.00 Tm (Current Address) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 598.00 Tm (1 EXAMPLE WAY) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 598.00 Tm (1 EXAMPLE WAY) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 598.00 Tm (1 EXAMPLE WAY) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 588.00 Tm (Previous Address) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 587.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 587.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 587.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 577.00 Tm (Credit Report Date) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 576.00 Tm (09/05/2026) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 576.00 Tm (09/05/2026) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 576.00 Tm (09/06/2026) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 566.00 Tm (Consumer Statement) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 565.00 Tm (NONE REPORTED) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 565.00 Tm (NONE REPORTED) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 565.00 Tm (NONE REPORTED) Tj ET
+BT /F1 11 Tf 1 0 0 1 47.20 541.00 Tm (Summary) Tj ET
+BT /F1 8 Tf 1 0 0 1 219.40 513.00 Tm (TransUnion) Tj ET
+BT /F1 8 Tf 1 0 0 1 355.70 513.00 Tm (Experian) Tj ET
+BT /F1 8 Tf 1 0 0 1 489.40 513.00 Tm (Equifax) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 492.00 Tm (Total Accounts) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 491.00 Tm (3) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 491.00 Tm (4) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 491.00 Tm (3) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 481.00 Tm (Open Accounts) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 480.00 Tm (3) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 480.00 Tm (4) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 480.00 Tm (3) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 470.00 Tm (Closed Accounts) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 469.00 Tm (0) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 469.00 Tm (0) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 469.00 Tm (0) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 459.00 Tm (Delinquent) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 458.00 Tm (0) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 458.00 Tm (0) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 458.00 Tm (0) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 448.00 Tm (Derogatory) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 447.00 Tm (1) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 447.00 Tm (1) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 447.00 Tm (1) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 437.00 Tm (Public Records) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 436.00 Tm (0) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 436.00 Tm (0) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 436.00 Tm (0) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 426.00 Tm (Inquiries) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 425.00 Tm (0) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 425.00 Tm (0) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 425.00 Tm (0) Tj ET
+BT /F1 11 Tf 1 0 0 1 47.20 395.00 Tm (Account History) Tj ET
+BT /F1 9 Tf 1 0 0 1 47.20 373.00 Tm (NORTHSTAR CARD) Tj ET
+BT /F1 8 Tf 1 0 0 1 219.40 368.00 Tm (TransUnion) Tj ET
+BT /F1 8 Tf 1 0 0 1 355.70 368.00 Tm (Experian) Tj ET
+BT /F1 8 Tf 1 0 0 1 489.40 368.00 Tm (Equifax) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 348.00 Tm (Account Number) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 347.00 Tm (441700****) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 347.00 Tm (441700****) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 347.00 Tm (441700****) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 337.00 Tm (High Balance) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 336.00 Tm ($1,240) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 336.00 Tm ($1,240) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 336.00 Tm ($1,240) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 326.00 Tm (Last Verified) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 325.00 Tm (08/26/2026) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 325.00 Tm (08/26/2026) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 325.00 Tm (08/26/2026) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 315.00 Tm (Date of Last Activity) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 314.00 Tm (12/10/2025) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 314.00 Tm (12/10/2025) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 314.00 Tm (12/10/2025) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 304.00 Tm (Date Reported) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 303.00 Tm (08/26/2026) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 303.00 Tm (08/26/2026) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 303.00 Tm (08/26/2026) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 293.00 Tm (Date Opened) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 292.00 Tm (10/03/2022) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 292.00 Tm (10/03/2022) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 292.00 Tm (10/03/2022) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 282.00 Tm (Balance Owed) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 281.00 Tm ($0) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 281.00 Tm ($0) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 281.00 Tm ($0) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 271.00 Tm (Closed Date) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 270.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 270.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 270.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 260.00 Tm (Account Rating) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 259.00 Tm (Open) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 259.00 Tm (Open) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 259.00 Tm (Open) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 249.00 Tm (Account Description) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 248.00 Tm (Individual) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 248.00 Tm (Individual) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 248.00 Tm (Individual) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 238.00 Tm (Dispute Status) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 237.00 Tm (Account not disputed) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 237.00 Tm (Account not disputed) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 237.00 Tm (Account not disputed) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 227.00 Tm (Creditor Type) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 226.00 Tm (Bank Credit Cards) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 226.00 Tm (Bank Credit Cards) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 226.00 Tm (Bank Credit Cards) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 216.00 Tm (Account Status) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 215.00 Tm (Open) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 215.00 Tm (Open) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 215.00 Tm (Open) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 205.00 Tm (Payment Status) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 204.00 Tm (Current) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 204.00 Tm (Current) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 204.00 Tm (Current) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 194.00 Tm (Creditor Remarks) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 193.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 193.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 193.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 183.00 Tm (Payment Amount) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 182.00 Tm ($35) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 182.00 Tm ($35) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 182.00 Tm ($35) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 172.00 Tm (Last Payment) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 171.00 Tm (12/10/2025) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 171.00 Tm (12/10/2025) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 171.00 Tm (12/10/2025) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 161.00 Tm (Term Length) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 160.00 Tm (0) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 160.00 Tm (0) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 160.00 Tm (0) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 150.00 Tm (Past Due Amount) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 149.00 Tm ($0) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 149.00 Tm ($0) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 149.00 Tm ($0) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 139.00 Tm (Account Type) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 138.00 Tm (Credit Card) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 138.00 Tm (Credit Card) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 138.00 Tm (Credit Card) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 128.00 Tm (Payment Frequency) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 127.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 127.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 127.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 117.00 Tm (Credit Limit) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 116.00 Tm ($1,500) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 116.00 Tm ($1,500) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 116.00 Tm ($1,500) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 100.00 Tm (Payment History - Last 2 Years) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 84.00 Tm (TransUnion) Tj ET
+0.086 0.639 0.361 rg 100.00 65.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 101.00 69.00 Tm (Aug) Tj ET
+0.086 0.639 0.361 rg 115.20 65.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 116.20 69.00 Tm (Sep) Tj ET
+0.086 0.639 0.361 rg 130.40 65.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 131.40 69.00 Tm (Oct) Tj ET
+0.086 0.639 0.361 rg 145.60 65.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 146.60 69.00 Tm (Nov) Tj ET
+0.086 0.639 0.361 rg 160.80 65.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 161.80 69.00 Tm (Dec) Tj ET
+0.937 0.937 0.937 rg 176.00 65.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 177.00 69.00 Tm ('25) Tj ET
+0.086 0.639 0.361 rg 191.20 65.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 192.20 69.00 Tm (Feb) Tj ET
+0.086 0.639 0.361 rg 206.40 65.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 207.40 69.00 Tm (Mar) Tj ET
+0.086 0.639 0.361 rg 221.60 65.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 222.60 69.00 Tm (Apr) Tj ET
+0.086 0.639 0.361 rg 236.80 65.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 237.80 69.00 Tm (May) Tj ET
+0.086 0.639 0.361 rg 252.00 65.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 253.00 69.00 Tm (Jun) Tj ET
+0.086 0.639 0.361 rg 267.20 65.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 268.20 69.00 Tm (Jul) Tj ET
+0.086 0.639 0.361 rg 282.40 65.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 283.40 69.00 Tm (Aug) Tj ET
+0.086 0.639 0.361 rg 297.60 65.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 298.60 69.00 Tm (Sep) Tj ET
+0.086 0.639 0.361 rg 312.80 65.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 313.80 69.00 Tm (Oct) Tj ET
+0.086 0.639 0.361 rg 328.00 65.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 329.00 69.00 Tm (Nov) Tj ET
+0.086 0.639 0.361 rg 343.20 65.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 344.20 69.00 Tm (Dec) Tj ET
+0.937 0.937 0.937 rg 358.40 65.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 359.40 69.00 Tm ('26) Tj ET
+0.086 0.639 0.361 rg 373.60 65.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 374.60 69.00 Tm (Feb) Tj ET
+0.086 0.639 0.361 rg 388.80 65.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 389.80 69.00 Tm (Mar) Tj ET
+0.086 0.639 0.361 rg 404.00 65.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 405.00 69.00 Tm (Apr) Tj ET
+0.086 0.639 0.361 rg 419.20 65.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 420.20 69.00 Tm (May) Tj ET
+0.086 0.639 0.361 rg 434.40 65.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 435.40 69.00 Tm (Jun) Tj ET
+0.086 0.639 0.361 rg 449.60 65.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 450.60 69.00 Tm (Jul) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 51.00 Tm (Experian) Tj ET
+0.086 0.639 0.361 rg 100.00 32.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 101.00 36.00 Tm (Sep) Tj ET
+0.086 0.639 0.361 rg 115.20 32.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 116.20 36.00 Tm (Oct) Tj ET
+0.086 0.639 0.361 rg 130.40 32.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 131.40 36.00 Tm (Nov) Tj ET
+0.086 0.639 0.361 rg 145.60 32.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 146.60 36.00 Tm (Dec) Tj ET
+0.937 0.937 0.937 rg 160.80 32.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 161.80 36.00 Tm ('25) Tj ET
+0.086 0.639 0.361 rg 176.00 32.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 177.00 36.00 Tm (Feb) Tj ET
+0.086 0.639 0.361 rg 191.20 32.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 192.20 36.00 Tm (Mar) Tj ET
+0.086 0.639 0.361 rg 206.40 32.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 207.40 36.00 Tm (Apr) Tj ET
+0.086 0.639 0.361 rg 221.60 32.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 222.60 36.00 Tm (May) Tj ET
+0.086 0.639 0.361 rg 236.80 32.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 237.80 36.00 Tm (Jun) Tj ET
+0.086 0.639 0.361 rg 252.00 32.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 253.00 36.00 Tm (Jul) Tj ET
+0.086 0.639 0.361 rg 267.20 32.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 268.20 36.00 Tm (Aug) Tj ET
+0.086 0.639 0.361 rg 282.40 32.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 283.40 36.00 Tm (Sep) Tj ET
+0.086 0.639 0.361 rg 297.60 32.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 298.60 36.00 Tm (Oct) Tj ET
+0.086 0.639 0.361 rg 312.80 32.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 313.80 36.00 Tm (Nov) Tj ET
+0.086 0.639 0.361 rg 328.00 32.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 329.00 36.00 Tm (Dec) Tj ET
+0.937 0.937 0.937 rg 343.20 32.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 344.20 36.00 Tm ('26) Tj ET
+0.086 0.639 0.361 rg 358.40 32.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 359.40 36.00 Tm (Feb) Tj ET
+0.086 0.639 0.361 rg 373.60 32.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 374.60 36.00 Tm (Mar) Tj ET
+0.086 0.639 0.361 rg 388.80 32.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 389.80 36.00 Tm (Apr) Tj ET
+0.086 0.639 0.361 rg 404.00 32.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 405.00 36.00 Tm (May) Tj ET
+0.086 0.639 0.361 rg 419.20 32.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 420.20 36.00 Tm (Jun) Tj ET
+0.086 0.639 0.361 rg 434.40 32.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 435.40 36.00 Tm (Jul) Tj ET
+0.086 0.639 0.361 rg 449.60 32.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 450.60 36.00 Tm (Aug) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 18.00 Tm (Equifax) Tj ET
+BT /F1 8 Tf 1 0 0 1 99.70 18.00 Tm (NONE REPORTED) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 -2.00 Tm (Days Late - Last 7 Years) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 -18.00 Tm (TransUnion) Tj ET
+BT /F1 8 Tf 1 0 0 1 226.00 -18.00 Tm (Experian) Tj ET
+BT /F1 8 Tf 1 0 0 1 51.70 -37.00 Tm (30:) Tj ET
+BT /F1 8 Tf 1 0 0 1 71.30 -37.00 Tm (0) Tj ET
+BT /F1 8 Tf 1 0 0 1 112.80 -37.00 Tm (60:) Tj ET
+BT /F1 8 Tf 1 0 0 1 132.30 -37.00 Tm (0) Tj ET
+BT /F1 8 Tf 1 0 0 1 173.80 -37.00 Tm (90:) Tj ET
+BT /F1 8 Tf 1 0 0 1 193.40 -37.00 Tm (0) Tj ET
+BT /F1 8 Tf 1 0 0 1 230.50 -37.00 Tm (30:) Tj ET
+BT /F1 8 Tf 1 0 0 1 251.40 -37.00 Tm (0) Tj ET
+BT /F1 8 Tf 1 0 0 1 291.50 -37.00 Tm (60:) Tj ET
+BT /F1 8 Tf 1 0 0 1 312.50 -37.00 Tm (0) Tj ET
+BT /F1 8 Tf 1 0 0 1 352.60 -37.00 Tm (90:) Tj ET
+BT /F1 8 Tf 1 0 0 1 372.60 -37.00 Tm (0) Tj ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 7 0 R >>
+endobj
+7 0 obj
+<< /Length 10234 >>
+stream
+BT /F1 9 Tf 1 0 0 1 47.20 732.00 Tm (HARBOR AUTO) Tj ET
+BT /F1 8 Tf 1 0 0 1 219.40 727.00 Tm (TransUnion) Tj ET
+BT /F1 8 Tf 1 0 0 1 355.70 727.00 Tm (Experian) Tj ET
+BT /F1 8 Tf 1 0 0 1 489.40 727.00 Tm (Equifax) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 707.00 Tm (Account Number) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 706.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 706.00 Tm (882300****) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 706.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 696.00 Tm (High Balance) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 695.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 695.00 Tm ($1,240) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 695.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 685.00 Tm (Last Verified) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 684.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 684.00 Tm (08/26/2026) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 684.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 674.00 Tm (Date of Last Activity) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 673.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 673.00 Tm (12/10/2025) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 673.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 663.00 Tm (Date Reported) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 662.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 662.00 Tm (08/26/2026) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 662.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 652.00 Tm (Date Opened) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 651.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 651.00 Tm (10/03/2022) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 651.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 641.00 Tm (Balance Owed) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 640.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 640.00 Tm ($0) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 640.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 630.00 Tm (Closed Date) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 629.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 629.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 629.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 619.00 Tm (Account Rating) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 618.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 618.00 Tm (Open) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 618.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 608.00 Tm (Account Description) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 607.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 607.00 Tm (Individual) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 607.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 597.00 Tm (Dispute Status) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 596.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 596.00 Tm (Account not disputed) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 596.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 586.00 Tm (Creditor Type) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 585.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 585.00 Tm (Bank Credit Cards) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 585.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 575.00 Tm (Account Status) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 574.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 574.00 Tm (Open) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 574.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 564.00 Tm (Payment Status) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 563.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 563.00 Tm (Current) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 563.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 553.00 Tm (Creditor Remarks) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 552.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 552.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 552.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 542.00 Tm (Payment Amount) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 541.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 541.00 Tm ($35) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 541.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 531.00 Tm (Last Payment) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 530.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 530.00 Tm (12/10/2025) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 530.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 520.00 Tm (Term Length) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 519.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 519.00 Tm (0) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 519.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 509.00 Tm (Past Due Amount) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 508.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 508.00 Tm ($0) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 508.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 498.00 Tm (Account Type) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 497.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 497.00 Tm (Credit Card) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 497.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 487.00 Tm (Payment Frequency) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 486.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 486.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 486.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 476.00 Tm (Credit Limit) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 475.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 475.00 Tm ($1,500) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 475.00 Tm (\227\227) Tj ET
+BT /F1 9 Tf 1 0 0 1 47.20 459.00 Tm (MERIDIAN LOAN) Tj ET
+BT /F1 8 Tf 1 0 0 1 219.40 454.00 Tm (TransUnion) Tj ET
+BT /F1 8 Tf 1 0 0 1 355.70 454.00 Tm (Experian) Tj ET
+BT /F1 8 Tf 1 0 0 1 489.40 454.00 Tm (Equifax) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 434.00 Tm (Account Number) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 433.00 Tm (550100****) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 433.00 Tm (550100****) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 433.00 Tm (550100****) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 423.00 Tm (High Balance) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 422.00 Tm ($1,240) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 422.00 Tm ($1,240) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 422.00 Tm ($1,240) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 412.00 Tm (Last Verified) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 411.00 Tm (08/26/2026) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 411.00 Tm (08/26/2026) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 411.00 Tm (08/26/2026) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 401.00 Tm (Date of Last Activity) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 400.00 Tm (12/10/2025) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 400.00 Tm (12/10/2025) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 400.00 Tm (12/10/2025) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 390.00 Tm (Date Reported) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 389.00 Tm (08/26/2026) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 389.00 Tm (08/26/2026) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 389.00 Tm (08/26/2026) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 379.00 Tm (Date Opened) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 378.00 Tm (10/03/2022) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 378.00 Tm (10/03/2022) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 378.00 Tm (10/03/2022) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 368.00 Tm (Balance Owed) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 367.00 Tm ($0) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 367.00 Tm ($0) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 367.00 Tm ($0) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 357.00 Tm (Closed Date) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 356.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 356.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 356.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 346.00 Tm (Account Rating) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 345.00 Tm (Open) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 345.00 Tm (Open) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 345.00 Tm (Open) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 335.00 Tm (Account Description) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 334.00 Tm (Individual) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 334.00 Tm (Individual) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 334.00 Tm (Individual) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 324.00 Tm (Dispute Status) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 323.00 Tm (Account not disputed) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 323.00 Tm (Account not disputed) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 323.00 Tm (Account not disputed) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 313.00 Tm (Creditor Type) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 312.00 Tm (Bank Credit Cards) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 312.00 Tm (Bank Credit Cards) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 312.00 Tm (Bank Credit Cards) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 302.00 Tm (Account Status) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 301.00 Tm (Open) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 301.00 Tm (Open) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 301.00 Tm (Open) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 291.00 Tm (Payment Status) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 290.00 Tm (Current) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 290.00 Tm (Current) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 290.00 Tm (Current) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 280.00 Tm (Creditor Remarks) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 279.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 279.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 279.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 269.00 Tm (Payment Amount) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 268.00 Tm ($35) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 268.00 Tm ($35) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 268.00 Tm ($35) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 258.00 Tm (Last Payment) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 257.00 Tm (12/10/2025) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 257.00 Tm (12/10/2025) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 257.00 Tm (12/10/2025) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 247.00 Tm (Term Length) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 246.00 Tm (0) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 246.00 Tm (0) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 246.00 Tm (0) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 236.00 Tm (Past Due Amount) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 235.00 Tm ($0) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 235.00 Tm ($0) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 235.00 Tm ($0) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 225.00 Tm (Account Type) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 224.00 Tm (Credit Card) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 224.00 Tm (Credit Card) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 224.00 Tm (Credit Card) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 214.00 Tm (Payment Frequency) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 213.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 213.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 213.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 203.00 Tm (Credit Limit) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 202.00 Tm ($1,500) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 202.00 Tm ($1,500) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 202.00 Tm ($1,500) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 186.00 Tm (Payment History - Last 2 Years) Tj ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 9 0 R >>
+endobj
+9 0 obj
+<< /Length 15766 >>
+stream
+BT /F1 8 Tf 1 0 0 1 47.20 732.00 Tm (Payment History - Last 2 Years) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 716.00 Tm (TransUnion) Tj ET
+0.086 0.639 0.361 rg 100.00 697.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 101.00 701.00 Tm (Aug) Tj ET
+0.086 0.639 0.361 rg 115.20 697.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 116.20 701.00 Tm (Sep) Tj ET
+0.086 0.639 0.361 rg 130.40 697.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 131.40 701.00 Tm (Oct) Tj ET
+0.086 0.639 0.361 rg 145.60 697.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 146.60 701.00 Tm (Nov) Tj ET
+0.086 0.639 0.361 rg 160.80 697.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 161.80 701.00 Tm (Dec) Tj ET
+0.937 0.937 0.937 rg 176.00 697.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 177.00 701.00 Tm ('25) Tj ET
+0.086 0.639 0.361 rg 191.20 697.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 192.20 701.00 Tm (Feb) Tj ET
+0.086 0.639 0.361 rg 206.40 697.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 207.40 701.00 Tm (Mar) Tj ET
+0.086 0.639 0.361 rg 221.60 697.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 222.60 701.00 Tm (Apr) Tj ET
+0.086 0.639 0.361 rg 236.80 697.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 237.80 701.00 Tm (May) Tj ET
+0.086 0.639 0.361 rg 252.00 697.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 253.00 701.00 Tm (Jun) Tj ET
+0.086 0.639 0.361 rg 267.20 697.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 268.20 701.00 Tm (Jul) Tj ET
+0.086 0.639 0.361 rg 282.40 697.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 283.40 701.00 Tm (Aug) Tj ET
+0.086 0.639 0.361 rg 297.60 697.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 298.60 701.00 Tm (Sep) Tj ET
+0.086 0.639 0.361 rg 312.80 697.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 313.80 701.00 Tm (Oct) Tj ET
+0.086 0.639 0.361 rg 328.00 697.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 329.00 701.00 Tm (Nov) Tj ET
+0.086 0.639 0.361 rg 343.20 697.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 344.20 701.00 Tm (Dec) Tj ET
+0.937 0.937 0.937 rg 358.40 697.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 359.40 701.00 Tm ('26) Tj ET
+0.086 0.639 0.361 rg 373.60 697.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 374.60 701.00 Tm (Feb) Tj ET
+0.086 0.639 0.361 rg 388.80 697.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 389.80 701.00 Tm (Mar) Tj ET
+0.086 0.639 0.361 rg 404.00 697.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 405.00 701.00 Tm (Apr) Tj ET
+0.086 0.639 0.361 rg 419.20 697.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 420.20 701.00 Tm (May) Tj ET
+0.086 0.639 0.361 rg 434.40 697.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 435.40 701.00 Tm (Jun) Tj ET
+0.086 0.639 0.361 rg 449.60 697.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 450.60 701.00 Tm (Jul) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 683.00 Tm (Experian) Tj ET
+0.086 0.639 0.361 rg 100.00 664.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 101.00 668.00 Tm (Sep) Tj ET
+0.086 0.639 0.361 rg 115.20 664.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 116.20 668.00 Tm (Oct) Tj ET
+0.086 0.639 0.361 rg 130.40 664.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 131.40 668.00 Tm (Nov) Tj ET
+0.086 0.639 0.361 rg 145.60 664.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 146.60 668.00 Tm (Dec) Tj ET
+0.937 0.937 0.937 rg 160.80 664.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 161.80 668.00 Tm ('25) Tj ET
+0.086 0.639 0.361 rg 176.00 664.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 177.00 668.00 Tm (Feb) Tj ET
+0.086 0.639 0.361 rg 191.20 664.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 192.20 668.00 Tm (Mar) Tj ET
+0.086 0.639 0.361 rg 206.40 664.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 207.40 668.00 Tm (Apr) Tj ET
+0.086 0.639 0.361 rg 221.60 664.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 222.60 668.00 Tm (May) Tj ET
+0.086 0.639 0.361 rg 236.80 664.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 237.80 668.00 Tm (Jun) Tj ET
+0.086 0.639 0.361 rg 252.00 664.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 253.00 668.00 Tm (Jul) Tj ET
+0.086 0.639 0.361 rg 267.20 664.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 268.20 668.00 Tm (Aug) Tj ET
+0.086 0.639 0.361 rg 282.40 664.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 283.40 668.00 Tm (Sep) Tj ET
+0.086 0.639 0.361 rg 297.60 664.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 298.60 668.00 Tm (Oct) Tj ET
+0.086 0.639 0.361 rg 312.80 664.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 313.80 668.00 Tm (Nov) Tj ET
+0.086 0.639 0.361 rg 328.00 664.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 329.00 668.00 Tm (Dec) Tj ET
+0.937 0.937 0.937 rg 343.20 664.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 344.20 668.00 Tm ('26) Tj ET
+0.086 0.639 0.361 rg 358.40 664.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 359.40 668.00 Tm (Feb) Tj ET
+0.086 0.639 0.361 rg 373.60 664.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 374.60 668.00 Tm (Mar) Tj ET
+0.086 0.639 0.361 rg 388.80 664.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 389.80 668.00 Tm (Apr) Tj ET
+0.086 0.639 0.361 rg 404.00 664.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 405.00 668.00 Tm (May) Tj ET
+0.086 0.639 0.361 rg 419.20 664.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 420.20 668.00 Tm (Jun) Tj ET
+0.086 0.639 0.361 rg 434.40 664.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 435.40 668.00 Tm (Jul) Tj ET
+0.086 0.639 0.361 rg 449.60 664.00 13.00 12.00 re f
+BT /F1 6 Tf 1 0 0 1 450.60 668.00 Tm (Aug) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 650.00 Tm (Days Late - Last 7 Years) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 634.00 Tm (TransUnion) Tj ET
+BT /F1 8 Tf 1 0 0 1 226.00 634.00 Tm (Experian) Tj ET
+BT /F1 8 Tf 1 0 0 1 51.70 615.00 Tm (30:) Tj ET
+BT /F1 8 Tf 1 0 0 1 71.30 615.00 Tm (0) Tj ET
+BT /F1 8 Tf 1 0 0 1 112.80 615.00 Tm (60:) Tj ET
+BT /F1 8 Tf 1 0 0 1 132.30 615.00 Tm (0) Tj ET
+BT /F1 8 Tf 1 0 0 1 173.80 615.00 Tm (90:) Tj ET
+BT /F1 8 Tf 1 0 0 1 193.40 615.00 Tm (0) Tj ET
+BT /F1 8 Tf 1 0 0 1 230.50 615.00 Tm (30:) Tj ET
+BT /F1 8 Tf 1 0 0 1 251.40 615.00 Tm (0) Tj ET
+BT /F1 8 Tf 1 0 0 1 291.50 615.00 Tm (60:) Tj ET
+BT /F1 8 Tf 1 0 0 1 312.50 615.00 Tm (0) Tj ET
+BT /F1 8 Tf 1 0 0 1 352.60 615.00 Tm (90:) Tj ET
+BT /F1 8 Tf 1 0 0 1 372.60 615.00 Tm (0) Tj ET
+BT /F1 9 Tf 1 0 0 1 47.20 593.00 Tm (ATLAS RECOVERY) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 568.00 Tm (Account Number) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 567.00 Tm (991000****) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 567.00 Tm (991000****) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 567.00 Tm (991000****) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 557.00 Tm (High Balance) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 556.00 Tm ($1,240) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 556.00 Tm ($1,240) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 556.00 Tm ($1,240) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 546.00 Tm (Last Verified) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 545.00 Tm (08/26/2026) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 545.00 Tm (08/26/2026) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 545.00 Tm (08/26/2026) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 535.00 Tm (Date of Last Activity) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 534.00 Tm (12/10/2025) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 534.00 Tm (12/10/2025) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 534.00 Tm (12/10/2025) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 524.00 Tm (Date Reported) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 523.00 Tm (08/26/2026) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 523.00 Tm (08/26/2026) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 523.00 Tm (08/26/2026) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 513.00 Tm (Date Opened) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 512.00 Tm (10/03/2022) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 512.00 Tm (10/03/2022) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 512.00 Tm (10/03/2022) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 502.00 Tm (Balance Owed) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 501.00 Tm ($0) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 501.00 Tm ($0) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 501.00 Tm ($0) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 491.00 Tm (Closed Date) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 490.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 490.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 490.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 480.00 Tm (Account Rating) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 479.00 Tm (Open) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 479.00 Tm (Open) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 479.00 Tm (Open) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 469.00 Tm (Account Description) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 468.00 Tm (Individual) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 468.00 Tm (Individual) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 468.00 Tm (Individual) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 458.00 Tm (Dispute Status) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 457.00 Tm (Account not disputed) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 457.00 Tm (Account not disputed) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 457.00 Tm (Account not disputed) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 447.00 Tm (Creditor Type) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 446.00 Tm (Bank Credit Cards) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 446.00 Tm (Bank Credit Cards) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 446.00 Tm (Bank Credit Cards) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 436.00 Tm (Account Status) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 435.00 Tm (Open) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 435.00 Tm (Open) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 435.00 Tm (Open) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 425.00 Tm (Payment Status) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 424.00 Tm (Current) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 424.00 Tm (Current) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 424.00 Tm (Current) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 414.00 Tm (Creditor Remarks) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 413.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 413.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 413.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 403.00 Tm (Payment Amount) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 402.00 Tm ($35) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 402.00 Tm ($35) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 402.00 Tm ($35) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 392.00 Tm (Last Payment) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 391.00 Tm (12/10/2025) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 391.00 Tm (12/10/2025) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 391.00 Tm (12/10/2025) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 381.00 Tm (Term Length) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 380.00 Tm (0) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 380.00 Tm (0) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 380.00 Tm (0) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 370.00 Tm (Past Due Amount) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 369.00 Tm ($0) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 369.00 Tm ($0) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 369.00 Tm ($0) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 359.00 Tm (Account Type) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 358.00 Tm (Credit Card) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 358.00 Tm (Credit Card) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 358.00 Tm (Credit Card) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 348.00 Tm (Payment Frequency) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 347.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 347.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 347.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 337.00 Tm (Credit Limit) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 336.00 Tm ($1,500) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 336.00 Tm ($1,500) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 336.00 Tm ($1,500) Tj ET
+BT /F1 9 Tf 1 0 0 1 47.20 320.00 Tm (SUMMIT BANK) Tj ET
+BT /F1 8 Tf 1 0 0 1 489.40 315.00 Tm (TransUnion) Tj ET
+BT /F1 8 Tf 1 0 0 1 355.70 315.00 Tm (Experian) Tj ET
+BT /F1 8 Tf 1 0 0 1 219.40 315.00 Tm (Equifax) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 295.00 Tm (Account Number) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 294.00 Tm (307200****) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 294.00 Tm (307200****) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 294.00 Tm (307200****) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 284.00 Tm (High Balance) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 283.00 Tm ($1,240) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 283.00 Tm ($1,240) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 283.00 Tm ($1,240) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 273.00 Tm (Last Verified) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 272.00 Tm (08/26/2026) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 272.00 Tm (08/26/2026) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 272.00 Tm (08/26/2026) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 262.00 Tm (Date of Last Activity) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 261.00 Tm (12/10/2025) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 261.00 Tm (12/10/2025) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 261.00 Tm (12/10/2025) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 251.00 Tm (Date Reported) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 250.00 Tm (08/26/2026) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 250.00 Tm (08/26/2026) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 250.00 Tm (08/26/2026) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 240.00 Tm (Date Opened) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 239.00 Tm (10/03/2022) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 239.00 Tm (10/03/2022) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 239.00 Tm (10/03/2022) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 229.00 Tm (Balance Owed) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 228.00 Tm ($0) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 228.00 Tm ($0) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 228.00 Tm ($0) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 218.00 Tm (Closed Date) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 217.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 217.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 217.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 207.00 Tm (Account Rating) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 206.00 Tm (Open) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 206.00 Tm (Open) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 206.00 Tm (Open) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 196.00 Tm (Account Description) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 195.00 Tm (Individual) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 195.00 Tm (Individual) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 195.00 Tm (Individual) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 185.00 Tm (Dispute Status) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 184.00 Tm (Account not disputed) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 184.00 Tm (Account not disputed) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 184.00 Tm (Account not disputed) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 174.00 Tm (Creditor Type) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 173.00 Tm (Bank Credit Cards) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 173.00 Tm (Bank Credit Cards) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 173.00 Tm (Bank Credit Cards) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 163.00 Tm (Account Status) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 162.00 Tm (Open) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 162.00 Tm (Open) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 162.00 Tm (Open) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 152.00 Tm (Payment Status) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 151.00 Tm (Current) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 151.00 Tm (Current) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 151.00 Tm (Current) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 141.00 Tm (Creditor Remarks) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 140.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 140.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 140.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 130.00 Tm (Payment Amount) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 129.00 Tm ($35) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 129.00 Tm ($35) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 129.00 Tm ($35) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 119.00 Tm (Last Payment) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 118.00 Tm (12/10/2025) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 118.00 Tm (12/10/2025) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 118.00 Tm (12/10/2025) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 108.00 Tm (Term Length) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 107.00 Tm (0) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 107.00 Tm (0) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 107.00 Tm (0) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 97.00 Tm (Past Due Amount) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 96.00 Tm ($0) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 96.00 Tm ($0) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 96.00 Tm ($0) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 86.00 Tm (Account Type) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 85.00 Tm (Credit Card) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 85.00 Tm (Credit Card) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 85.00 Tm (Credit Card) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 75.00 Tm (Payment Frequency) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 74.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 74.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 74.00 Tm (\227\227) Tj ET
+BT /F1 8 Tf 1 0 0 1 47.20 64.00 Tm (Credit Limit) Tj ET
+BT /F1 8 Tf 1 0 0 1 184.10 63.00 Tm ($1,500) Tj ET
+BT /F1 8 Tf 1 0 0 1 313.50 63.00 Tm ($1,500) Tj ET
+BT /F1 8 Tf 1 0 0 1 442.90 63.00 Tm ($1,500) Tj ET
+endstream
+endobj
+xref
+0 10
+0000000000 65535 f 
+0000000590 00000 n 
+0000000639 00000 n 
+0000000708 00000 n 
+0000000805 00000 n 
+0000000931 00000 n 
+0000015485 00000 n 
+0000015611 00000 n 
+0000025898 00000 n 
+0000026024 00000 n 
+trailer
+<< /Size 10 /Root 1 0 R >>
+startxref
+41843
+%%EOF

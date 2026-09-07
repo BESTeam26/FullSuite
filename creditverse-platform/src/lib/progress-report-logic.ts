@@ -16,7 +16,13 @@ export interface DeletionRow {
   accountNumber?: string;
   highBalance: string;
   category: string; // "ACCOUNTS" | "INQUIRY" | "PERSONAL Information"
-  status: "Positive" | "Negative" | "Deleted";
+  /**
+   * What the newest report shows for the item. `NoLongerObserved` is our
+   * reading of a complete report — never a claim that a bureau deleted it.
+   * A bureau-confirmed deletion is a reviewed outcome and lives in
+   * `dispute_item_outcomes`, not here (see `dispute/outcome-vocabulary`).
+   */
+  status: "Positive" | "Negative" | "NoLongerObserved";
 }
 
 export interface BureauUsage {
@@ -257,13 +263,13 @@ export const sampleProgressReport: ProgressReportData = {
           name: "Employers — AC Kelly Production",
           highBalance: "—",
           category: "PERSONAL Information",
-          status: "Deleted",
+          status: "NoLongerObserved",
         },
         {
           name: "Previous Address — 1274 Lawrenceville Hwy, Lawrenceville GA",
           highBalance: "—",
           category: "PERSONAL Information",
-          status: "Deleted",
+          status: "NoLongerObserved",
         },
       ],
       newDisputeRows: [
@@ -354,19 +360,19 @@ export const sampleProgressReport: ProgressReportData = {
           name: "Employers — MV Transportation",
           highBalance: "—",
           category: "PERSONAL Information",
-          status: "Deleted",
+          status: "NoLongerObserved",
         },
         {
           name: "Employers — Cooper Global",
           highBalance: "—",
           category: "PERSONAL Information",
-          status: "Deleted",
+          status: "NoLongerObserved",
         },
         {
           name: "Previous Address — 628 Glenwood Av, Atlanta GA",
           highBalance: "—",
           category: "PERSONAL Information",
-          status: "Deleted",
+          status: "NoLongerObserved",
         },
         {
           name: "Previous Address — 5235 Louis Ln, Atlanta GA",
@@ -443,19 +449,19 @@ export function generateProgressUpdate(
     )
     .join("\n");
 
-  // Deletions Confirmed
+  // What the newest report shows — observations, not bureau statements.
   const deletionEntries = data.bureaus.flatMap((b) =>
     b.deletionRows
-      .filter((r) => r.status === "Deleted" || r.status === "Positive")
+      .filter((r) => r.status === "NoLongerObserved" || r.status === "Positive")
       .map(
         (r) =>
-          `${r.name} — ${b.label}: ${r.status === "Deleted" ? "Removed from report" : "Updated to positive standing"}`,
+          `${r.name} — ${b.label}: ${r.status === "NoLongerObserved" ? "No longer observed in this report" : "Now reported in positive standing"}`,
       ),
   );
   const deletionsConfirmed =
     deletionEntries.length > 0
       ? deletionEntries.map((l) => `• ${l}`).join("\n")
-      : "No confirmed deletions were recorded this round.";
+      : "No items came off the report this round.";
 
   // Newly Added Items
   const newEntries = data.bureaus.flatMap((b) =>
@@ -484,19 +490,19 @@ export function generateProgressUpdate(
   const scoreDeltas = data.bureaus.map((b) => b.score - b.prevScore);
   const allUp = scoreDeltas.every((d) => d > 0);
   const anyDown = scoreDeltas.some((d) => d < 0);
-  const overallSummary = `${data.clientName} showed movement across all three bureaus this round (${scoreMovementLines.replace(/\n/g, ", ")}). ${data.totals.deletedThisRound} item${data.totals.deletedThisRound === 1 ? "" : "s"} came off or were corrected, while ${data.totals.newItemsAddedThisRound} new item${data.totals.newItemsAddedThisRound === 1 ? "" : "s"} appeared and will be reviewed for the next round. ${data.totals.onGoingThisRound} disputes remain open with the bureaus.${anyDown ? " Note that not every bureau moved the same amount, which is normal during an active dispute cycle." : ""}`;
+  const overallSummary = `${data.clientName} showed movement across all three bureaus this round (${scoreMovementLines.replace(/\n/g, ", ")}). ${data.totals.deletedThisRound} item${data.totals.deletedThisRound === 1 ? " is" : "s are"} no longer observed or now report${data.totals.deletedThisRound === 1 ? "s" : ""} differently, while ${data.totals.newItemsAddedThisRound} new item${data.totals.newItemsAddedThisRound === 1 ? "" : "s"} appeared and will be reviewed for the next round. ${data.totals.onGoingThisRound} disputes remain open with the bureaus.${anyDown ? " Note that not every bureau moved the same amount, which is normal during an active dispute cycle." : ""}`;
 
   // Client-Facing Summary
   const clientTone = allUp
     ? "Great progress this round."
     : "Solid, steady progress this round.";
-  const clientFacingSummary = `Hi ${firstName}, here is where things stand as of ${data.reportDate}.\n\n${clientTone} Your scores moved to Equifax ${data.bureaus[0].score}, Experian ${data.bureaus[1].score}, and TransUnion ${data.bureaus[2].score}. ${data.totals.deletedThisRound} item${data.totals.deletedThisRound === 1 ? "" : "s"} were deleted or updated to a positive status this round, and ${data.totals.onGoingThisRound} disputes are still actively being worked with the bureaus.\n\nA few new items showed up on your report (${data.totals.newItemsAddedThisRound} this round) and we're already reviewing them for the next round. Keeping your card balances low, ideally under 10% of your limit, will keep helping your scores climb.\n\nWe'll keep you posted every step of the way. Full details are in your emailed report and your client portal.`;
+  const clientFacingSummary = `Hi ${firstName}, here is where things stand as of ${data.reportDate}.\n\n${clientTone} Your scores moved to Equifax ${data.bureaus[0].score}, Experian ${data.bureaus[1].score}, and TransUnion ${data.bureaus[2].score}. ${data.totals.deletedThisRound} item${data.totals.deletedThisRound === 1 ? "" : "s"} are no longer showing on your report or now report in positive standing, and ${data.totals.onGoingThisRound} disputes are still actively being worked with the bureaus.\n\nA few new items showed up on your report (${data.totals.newItemsAddedThisRound} this round) and we're already reviewing them for the next round. Keeping your card balances low, ideally under 10% of your limit, will keep helping your scores climb.\n\nWe'll keep you posted every step of the way. Full details are in your emailed report and your client portal.`;
 
   // Affiliate Summary
-  const affiliateSummary = `Client: ${data.clientName}\nRound summary (${data.previousReportDate} → ${data.reportDate}):\n- Scores: EQ ${data.bureaus[0].prevScore}→${data.bureaus[0].score}, EX ${data.bureaus[1].prevScore}→${data.bureaus[1].score}, TU ${data.bureaus[2].prevScore}→${data.bureaus[2].score}\n- Deleted/updated this round: ${data.totals.deletedThisRound} (grand total ${grandTotal(data.totals.deletedThisRound, data.totals.deletedLastRound)})\n- Disputes on-going: ${data.totals.onGoingThisRound} (grand total ${grandTotal(data.totals.onGoingThisRound, data.totals.onGoingLastRound)})\n- Un-disputed negative remaining: ${data.totals.undisputedNegativeThisRound}\n- New items added this round: ${data.totals.newItemsAddedThisRound} — flagged for review before next round\n- Avg. revolving utilization: ${data.overallUsage.avgPct}%\nNo compliance flags on this round. Next round scheduled after new item review.`;
+  const affiliateSummary = `Client: ${data.clientName}\nRound summary (${data.previousReportDate} → ${data.reportDate}):\n- Scores: EQ ${data.bureaus[0].prevScore}→${data.bureaus[0].score}, EX ${data.bureaus[1].prevScore}→${data.bureaus[1].score}, TU ${data.bureaus[2].prevScore}→${data.bureaus[2].score}\n- No longer observed / changed this round: ${data.totals.deletedThisRound} (grand total ${grandTotal(data.totals.deletedThisRound, data.totals.deletedLastRound)})\n- Disputes on-going: ${data.totals.onGoingThisRound} (grand total ${grandTotal(data.totals.onGoingThisRound, data.totals.onGoingLastRound)})\n- Un-disputed negative remaining: ${data.totals.undisputedNegativeThisRound}\n- New items added this round: ${data.totals.newItemsAddedThisRound} — flagged for review before next round\n- Avg. revolving utilization: ${data.overallUsage.avgPct}%\nNo compliance flags on this round. Next round scheduled after new item review.`;
 
   // Client SMS
-  const clientSms = `📊 Hi ${firstName}! Your ${data.monthYear} credit update is ready — scores are moving (EQ ${data.bureaus[0].score}, EX ${data.bureaus[1].score}, TU ${data.bureaus[2].score}) with ${data.totals.deletedThisRound} item${data.totals.deletedThisRound === 1 ? "" : "s"} resolved this round. Your detailed report has been emailed to you, and you can review everything anytime in your Client Portal. 💪`;
+  const clientSms = `📊 Hi ${firstName}! Your ${data.monthYear} credit update is ready — scores are moving (EQ ${data.bureaus[0].score}, EX ${data.bureaus[1].score}, TU ${data.bureaus[2].score}) and ${data.totals.deletedThisRound} item${data.totals.deletedThisRound === 1 ? "" : "s"} no longer showing this round. Your detailed report has been emailed to you, and you can review everything anytime in your Client Portal. 💪`;
 
   const heading = `📊 Credit Progress Update – ${data.monthYear}`;
   const signOff = "Client Success Team";

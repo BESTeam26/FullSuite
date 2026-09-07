@@ -600,3 +600,34 @@ because a spec that hides its own uncertainty is worse than a shorter one.
 **This is blocker A6.** Three to five real reports per provider, and the
 uncertainties above close. Until then the fixture encodes what is confirmed and
 leaves the rest for a parser to declare `PARSE_FAILED` on, honestly.
+
+---
+
+## Update, 2026-09-07 — the PDF export, and what it does not carry
+
+A SmartCredit **PDF** export has since been examined (a real 36-page print,
+kept out of the repository). It is a browser print of the same page this
+mapping was written against, so the field mapping above holds unchanged — with
+two wording differences the shared vocabulary now absorbs:
+
+- the PDF prints `Account Number`, the HTML prints `Account #`
+- the HTML puts a trailing colon on most labels; the PDF does not
+
+Both spellings are in `smartcredit/source-fields.ts`, which both adapters
+read, so the two formats cannot drift apart one label at a time.
+
+The PDF additionally prints **Utilization**, which is arithmetic on balance and
+limit rather than a furnished value. It is deliberately not stored: it would
+make a derived number look reported, and a later balance correction would leave
+a stale percentage beside it.
+
+**What the print drops:** the payment-history marks and the legend that decodes
+them. The months and their year markers survive, so the chronology is intact;
+the status of each month does not. The cells remain as coloured rectangles
+whose key is in an external stylesheet the export does not include, so each
+status is recorded as `not_exposed_by_provider` with the observed colour
+attached rather than decoded. See `SMARTCREDIT_ADAPTERS.md`.
+
+This is the same principle §9 already states: capture what the source exposes,
+attribute only what it proves, record what it does not carry. A format that
+omits a field is not a bureau that omitted it.

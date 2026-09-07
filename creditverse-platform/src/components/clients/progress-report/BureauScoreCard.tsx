@@ -6,7 +6,7 @@ import {
   Plus,
   GitPullRequest,
 } from "lucide-react";
-import type { BureauProgress } from "@/lib/progress-report-logic";
+import type { BureauProgress, DeletionRow } from "@/lib/progress-report-logic";
 import { fmtMoney } from "@/lib/progress-report-logic";
 
 function StatChip({
@@ -28,6 +28,17 @@ function StatChip({
     </div>
   );
 }
+
+/**
+ * What a row's status is called in front of a client. "No longer observed"
+ * rather than "Deleted": the report stopped showing the item, which is not the
+ * same as a bureau saying it removed it (see `dispute/outcome-vocabulary`).
+ */
+const ROW_STATUS_LABELS: Record<DeletionRow["status"], string> = {
+  NoLongerObserved: "No longer observed",
+  Positive: "Positive",
+  Negative: "Negative",
+};
 
 export function BureauScoreCard({ bureau }: { bureau: BureauProgress }) {
   const change = bureau.score - bureau.prevScore;
@@ -171,14 +182,13 @@ export function BureauScoreCard({ bureau }: { bureau: BureauProgress }) {
                       <td className="px-2.5 py-1.5 text-right">
                         <span
                           className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                            r.status === "Deleted"
+                            r.status === "NoLongerObserved" ||
+                            r.status === "Positive"
                               ? "bg-emerald-500/10 text-status-success"
-                              : r.status === "Positive"
-                                ? "bg-emerald-500/10 text-status-success"
-                                : "bg-red-500/10 text-status-danger"
+                              : "bg-red-500/10 text-status-danger"
                           }`}
                         >
-                          {r.status}
+                          {ROW_STATUS_LABELS[r.status]}
                         </span>
                       </td>
                     </tr>
