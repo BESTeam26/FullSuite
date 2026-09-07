@@ -11,7 +11,9 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { deriveQuality } from "./completeness";
 import {
+  completenessFacts,
   declaredBureauColumns,
   parseHistory,
   parseLateCounts,
@@ -226,20 +228,39 @@ describe("reconciliation against the source's own summary", () => {
     expect(parsed.summary.TU["closed accounts"]).toBe("2");
   });
 
-  it("agrees with the fixture, which is derived from its own accounts", () => {
-    const r = reconcile(parsed);
-    const failed = r.checks.filter((c) => c.stated !== c.parsed);
+  it("agrees with the fixture on every check the source makes possible", () => {
+    const checks = reconcile(parsed);
+    const failed = checks.filter((c) => !c.ok);
     expect(failed).toEqual([]);
-    expect(r.ok).toBe(true);
+    expect(deriveQuality(checks)).toBe("complete");
+  });
+
+  it("reports the passing checks too, not only the failures", () => {
+    const checks = reconcile(parsed);
+    expect(checks.filter((c) => c.checkKey === "accounts")).toHaveLength(3);
+    expect(checks.some((c) => c.checkKey === "public_records")).toBe(true);
+    expect(checks.some((c) => c.checkKey === "inquiries")).toBe(true);
+    expect(checks.some((c) => c.checkKey === "scores")).toBe(true);
+    expect(checks.some((c) => c.checkKey.startsWith("section:"))).toBe(true);
   });
 
   /* Format drift: a parser silently returning fewer accounts is the dangerous
      failure, because a missing tradeline looks like an account the consumer
      does not have. */
-  it("fails when an account goes missing", () => {
+  it("goes PARTIAL when an account goes missing, and names the shortfall", () => {
     const dropped = fixture.replace(/<div class="account" data-fixture-case="differ"[\s\S]*?<!-- ─── ACCOUNT 3/, "<!-- ─── ACCOUNT 3");
-    const r = reconcile(parseSmartCreditHtml(dropped));
-    expect(r.ok).toBe(false);
+    const checks = reconcile(parseSmartCreditHtml(dropped));
+    expect(deriveQuality(checks)).toBe("partial");
+    const short = checks.find((c) => c.checkKey === "accounts" && !c.ok)!;
+    expect(short.stated).toBeGreaterThan(short.parsed);
+  });
+
+  /* A missing SECTION is worse than a short count: the comparison could not
+     be made at all. */
+  it("goes REVIEW REQUIRED when a required section is missing", () => {
+    const noSummary = fixture.replace('id="summary"', 'id="gone"');
+    const checks = reconcile(parseSmartCreditHtml(noSummary));
+    expect(deriveQuality(checks)).toBe("review_required");
   });
 });
 
@@ -257,5 +278,45 @@ describe("the document is treated as inert data", () => {
     const out = parseSmartCreditHtml("<html><body><p>Not a credit report.</p></body></html>");
     expect(out.items).toEqual([]);
     expect(out.warnings.join(" ")).toMatch(/no account blocks/i);
+  });
+});
+
+
+describe("what the format does not expose", () => {
+  const facts = completenessFacts(parsed);
+  const fact = (k: string) => facts.find((f) => f.fieldKey === k);
+
+  /* The correction that matters most: SmartCredit exposing no DOFD is a fact
+     about SmartCredit. It is never evidence that a bureau omitted the field. */
+  it("records DOFD as not exposed by the provider, never as a bureau omission", () => {
+    const dofd = fact("dofd")!;
+    expect(dofd.state).toBe("not_exposed_by_provider");
+    expect(dofd.bureau).toBeUndefined();
+    expect(dofd.reason).toMatch(/says nothing about whether a bureau reports it/i);
+  });
+
+  it("records the score model, inquiry type and type detail the same way", () => {
+    for (const k of ["score_model", "inquiry_type", "account_type_detail"]) {
+      expect(fact(k)!.state).toBe("not_exposed_by_provider");
+    }
+  });
+
+  it("records unattributed columns as ambiguous, not as blank or failed", () => {
+    const amb = facts.filter((f) => f.state === "ambiguous");
+    expect(amb.length).toBeGreaterThan(0);
+    for (const f of amb) expect(f.reason).toMatch(/did not say which bureau/i);
+  });
+
+  it("gives every non-present fact a reason a reviewer can act on", () => {
+    for (const f of facts) {
+      expect(f.state).not.toBe("present");
+      expect(f.reason && f.reason.length > 10).toBe(true);
+    }
+  });
+
+  it("records a bureau the document never names as not present, not as blank", () => {
+    const oneBureau = parseSmartCreditHtml(fixture.replace(/bg-equifax/g, "bg-experian"));
+    const eq = completenessFacts(oneBureau).find((f) => f.bureau === "EQ" && f.fieldKey === "tradelines");
+    expect(eq?.state).toBe("bureau_not_present");
   });
 });

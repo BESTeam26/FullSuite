@@ -22,6 +22,9 @@ import { useImportCreditReport } from "@/lib/data/use-credit-reports";
 import { extractPdfLines } from "@/lib/credit-report/pdf-text";
 import { PDF_PARSER_VERSION, parseCreditReportPdfText, type PdfCandidate } from "@/lib/credit-report/pdf-report-parser";
 import { accountHeading, describeAccountNumber } from "@/lib/credit-report/account-heading";
+import { SMARTCREDIT_PARSER_VERSION, completenessFacts, parseSmartCreditHtml, reconcile } from "@/lib/credit-report/smartcredit-html-parser";
+import type { CompletenessFact, ReconciliationCheck } from "@/lib/credit-report/completeness";
+import { ImportQualityPanel } from "@/components/clients/ImportQualityPanel";
 import { BureauComparisonGrid } from "@/components/clients/BureauComparisonGrid";
 import {
   MAX_OCR_BYTES,
@@ -71,6 +74,10 @@ export function CreditReportPdfImport({ fulfillmentClientId, organizationId, out
   const [readingScan, setReadingScan] = useState(false);
   const [scanNotes, setScanNotes] = useState<string[]>([]);
   const [charge, setCharge] = useState<{ credits: number | null; balance: number | null } | null>(null);
+  /* CR-14. Empty for a source that states no counts of its own — which reads
+     as UNKNOWN completeness, not as complete. */
+  const [checks, setChecks] = useState<ReconciliationCheck[]>([]);
+  const [facts, setFacts] = useState<CompletenessFact[]>([]);
   const importMutation = useImportCreditReport(fulfillmentClientId);
 
   const onFiles = async (files: File[]) => {
@@ -79,9 +86,30 @@ export function CreditReportPdfImport({ fulfillmentClientId, organizationId, out
     setScanned([]);
     setScanNotes([]);
     setCharge(null);
+    setChecks([]);
+    setFacts([]);
     setReading(true);
     setFileNames(files.map((f) => f.name));
     try {
+      /* An HTML report is already text, and a SmartCredit export states its
+         own counts — so it is the one source that can check the parse against
+         itself (CR-14). Read as inert text: no script runs, no URL is
+         fetched, no DOM is built from it. */
+      const htmls = files.filter((f) => /\.html?$/i.test(f.name) || f.type === "text/html");
+      if (htmls.length > 0) {
+        const parsedHtml = parseSmartCreditHtml((await Promise.all(htmls.map((f) => f.text()))).join("\n"));
+        if (parsedHtml.items.length === 0) {
+          setProblem(parsedHtml.warnings.join(" ") || "No accounts were recognised in that HTML report.");
+          return;
+        }
+        setReader("text");
+        setRows(parsedHtml.items.map((c) => ({ ...c, include: true, confidence: "high", evidence: [] })));
+        setChecks(reconcile(parsedHtml));
+        setFacts(completenessFacts(parsedHtml));
+        if (parsedHtml.warnings.length > 0) setScanNotes(parsedHtml.warnings);
+        return;
+      }
+
       /* A photo has no text layer to look for; only PDFs go through the
          reader. Images go straight to the assistant path below. */
       const pdfs = files.filter((f) => f.type === "application/pdf");
@@ -196,9 +224,12 @@ export function CreditReportPdfImport({ fulfillmentClientId, organizationId, out
         pulledAt,
         source: "manual_upload",
         fileId: null,
-        parserVersion: reader === "ocr" ? OCR_PARSER_VERSION : PDF_PARSER_VERSION,
+        parserVersion: checks.length > 0 ? SMARTCREDIT_PARSER_VERSION : reader === "ocr" ? OCR_PARSER_VERSION : PDF_PARSER_VERSION,
         items: included.map((r) => ({ ...r, balanceCents: parseBalanceCents(r.balance) })),
         scores: buildScoreRows(scores, model),
+        /* The verdict is derived in SQL from these; the client never sends it. */
+        completeness: facts,
+        reconciliation: checks,
       },
       {
         onSuccess: (id) => { setRows(null); setFileNames([]); onImported?.(id); },
@@ -207,7 +238,7 @@ export function CreditReportPdfImport({ fulfillmentClientId, organizationId, out
     );
   };
 
-  const reset = () => { setExpanded(null); setRows(null); setFileNames([]); setProblem(null); setReadSummary(null); setScanned([]); setScanNotes([]); setCharge(null); };
+  const reset = () => { setExpanded(null); setChecks([]); setFacts([]); setRows(null); setFileNames([]); setProblem(null); setReadSummary(null); setScanned([]); setScanNotes([]); setCharge(null); };
 
   return (
     <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
@@ -218,17 +249,17 @@ export function CreditReportPdfImport({ fulfillmentClientId, organizationId, out
         <input
           ref={fileRef}
           type="file"
-          accept="application/pdf,.pdf,image/png,image/jpeg,image/webp"
+          accept="application/pdf,.pdf,text/html,.html,.htm,image/png,image/jpeg,image/webp"
           multiple
           className="hidden"
           onChange={(e) => { const files = Array.from(e.target.files ?? []).slice(0, 3); if (files.length) void onFiles(files); e.target.value = ""; }}
         />
         <Button type="button" size="sm" variant="outline" onClick={() => fileRef.current?.click()} disabled={reading}>
-          {reading ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <FileText className="mr-1 h-3.5 w-3.5" />} {reading ? "Reading…" : "Choose PDF files"}
+          {reading ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <FileText className="mr-1 h-3.5 w-3.5" />} {reading ? "Reading…" : "Choose files"}
         </Button>
       </div>
       <p className="mt-1 text-xs text-muted-foreground">
-        Up to three files: PDFs saved from the monitoring service, or photos and scans. A PDF with real text is read here in your browser; a scan is read by the assistant if you ask. Either way, every item is shown for review before anything is saved.
+        Up to three files: PDFs or HTML reports saved from the monitoring service, or photos and scans. Anything with real text is read here in your browser; a scan is read by the assistant if you ask. An HTML report states its own counts, so the parse is checked against them. Either way, every account is shown for review before anything is saved.
       </p>
 
       {fileNames.length > 0 && <p className="mt-2 text-xs text-foreground">Files: <span className="font-mono">{fileNames.join(", ")}</span></p>}
@@ -376,6 +407,10 @@ export function CreditReportPdfImport({ fulfillmentClientId, organizationId, out
             {reviewCount > 0 && <> <span className="font-semibold text-foreground">{reviewCount} account{reviewCount === 1 ? "" : "s"} need a look</span> before import.</>}
             {" "}Rows shaded red are missing a name, a status, a bureau, or have a balance that is not an amount.
           </p>
+
+          {(checks.length > 0 || facts.length > 0) && (
+            <ImportQualityPanel quality={null} checks={checks} facts={facts} />
+          )}
 
           <ReportMetaFields pulledAt={pulledAt} onPulledAt={setPulledAt} scores={scores} onScores={setScores} model={model} onModel={setModel} />
 

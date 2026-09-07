@@ -44,6 +44,7 @@
 import type { Bureau } from "@/lib/credit-classification";
 import { normalizeAccountRef, parseBalanceCents, type BureauValueInput, type ParsedReportItem } from "./import-parser";
 import { normalizeStatus } from "./pdf-report-parser";
+import { reasonFor, type CompletenessFact, type ReconciliationCheck } from "./completeness";
 
 export const SMARTCREDIT_PARSER_VERSION = "smartcredit-html-1";
 
@@ -89,12 +90,23 @@ export interface HistoryEntry {
   status: string;
 }
 
+export interface SectionRow {
+  bureaus: Bureau[];
+}
+
 export interface SmartCreditParseResult {
   items: ParsedReportItem[];
   /** The report's own counts, per bureau, for reconciliation. */
   summary: Record<Bureau, Record<string, string>>;
   /** Bureaus the document names at all. */
   bureaus: Bureau[];
+  /** Public records and inquiries, counted rather than fully mapped (CR-14). */
+  publicRecords: SectionRow[];
+  inquiries: SectionRow[];
+  /** Which bureaus the document shows a score for. */
+  scores: { bureau: Bureau }[];
+  /** Which required sections were found. A missing one is review_required. */
+  sections: Record<string, boolean>;
   /** Anything a reviewer must be told. Never silently swallowed. */
   warnings: string[];
 }
@@ -215,7 +227,13 @@ export function parseLateCounts(blockHtml: string, column: string): Record<strin
 }
 
 /** One account block → one item, with its per-bureau values. */
-function parseAccount(blockHtml: string, index: number, warnings: string[]): ParsedReportItem | null {
+function parseAccount(
+  blockHtml: string,
+  index: number,
+  warnings: string[],
+  /** The bureaus the DOCUMENT names, for a block that declares no header. */
+  documentBureaus: Bureau[],
+): ParsedReportItem | null {
   const name = strip(/<p[^>]*class="[^"]*fw-bold[^"]*"[^>]*>([\s\S]*?)<\/p>/.exec(blockHtml)?.[1] ?? "");
   if (!name) return null;
 
@@ -280,7 +298,13 @@ function parseAccount(blockHtml: string, index: number, warnings: string[]): Par
     kind: "Account",
     subtype: first?.account_type,
     status: normalizeStatus(rawStatus) ?? (rawStatus || "Unknown"),
-    bureaus: reporting.length > 0 ? reporting : (["EQ", "EX", "TU"] as Bureau[]),
+    /* Where attribution failed, the item still needs a non-empty bureau list —
+       `report_items.bureaus` is NOT NULL. The DOCUMENT's own bureau set is the
+       honest answer to "who reports this account", which is a different
+       question from "which column is whose". Hardcoding all three would infer
+       that all three report it, and a completeness fact records the ambiguity
+       either way. */
+    bureaus: reporting.length > 0 ? reporting : documentBureaus,
     balance: first?.balance_cents === undefined ? undefined : `$${(first.balance_cents / 100).toLocaleString("en-US")}`,
     balanceCents: first?.balance_cents ?? null,
     creditLimit: undefined,
@@ -315,9 +339,22 @@ export function parseSmartCreditHtml(html: string): SmartCreditParseResult {
     Math.max(0, doc.indexOf('id="account-history"')),
     doc.indexOf('id="public-information"') > 0 ? doc.indexOf('id="public-information"') : doc.length,
   );
+  /* The document's own bureau set, read from the sections that DO declare a
+     header. Resolved before any account block, so a block with no header has
+     something honest to fall back on. */
+  const documentBureaus: Bureau[] = [];
+  for (const id of ["personal-information", "summary", "scores"]) {
+    const at = doc.indexOf(`id="${id}"`);
+    if (at < 0) continue;
+    for (const bureau of declaredBureauColumns(doc.slice(at, at + 4000)).values()) {
+      if (!documentBureaus.includes(bureau)) documentBureaus.push(bureau);
+    }
+    if (documentBureaus.length > 0) break;
+  }
+
   const blocks = accountRegion.split(/<div[^>]*class="account"/).slice(1);
   blocks.forEach((block, i) => {
-    const item = parseAccount(block, i, warnings);
+    const item = parseAccount(block, i, warnings, documentBureaus);
     if (item) items.push(item);
     else warnings.push(`Account block ${i + 1} has no readable name and was not imported.`);
   });
@@ -340,45 +377,211 @@ export function parseSmartCreditHtml(html: string): SmartCreditParseResult {
   const named = new Set<Bureau>();
   for (const item of items) for (const b of item.bureaus) named.add(b);
 
+  /* Sections, records, inquiries and scores — counted for reconciliation.
+     CR-14 needs the counts; mapping their fields is a later step. */
+  const sections: Record<string, boolean> = {
+    personal_information: doc.includes('id="personal-information"'),
+    summary: doc.includes('id="summary"'),
+    account_history: doc.includes('id="account-history"'),
+    public_information: doc.includes('id="public-information"'),
+    inquiries: doc.includes('id="inquiries"'),
+  };
+
+  const publicRecords: SectionRow[] = [];
+  if (sections.public_information) {
+    const region = doc.slice(doc.indexOf('id="public-information"'), doc.indexOf('id="inquiries"') > 0 ? doc.indexOf('id="inquiries"') : doc.length);
+    const columns = declaredBureauColumns(region);
+    const cells = gridCells(region);
+    /* One record per bureau that printed a Type. A blank column is a bureau
+       not reporting it, never a record nobody has. */
+    const reporting = [...columns.entries()]
+      .filter(([col]) => [...cells.entries()].some(([k, v]) => k.endsWith(`:${col}`) && v))
+      .map(([, bureau]) => bureau);
+    if (reporting.length > 0) publicRecords.push({ bureaus: reporting });
+  }
+
+  const inquiries: SectionRow[] = [];
+  if (sections.inquiries) {
+    const region = doc.slice(doc.indexOf('id="inquiries"'));
+    for (const block of region.split(/<div[^>]*class="inquiry"/).slice(1)) {
+      const text = strip(block);
+      const bureaus = (["EQ", "EX", "TU"] as Bureau[]).filter((b) =>
+        new RegExp(b === "EQ" ? "equifax" : b === "EX" ? "experian" : "trans ?union", "i").test(text),
+      );
+      if (bureaus.length > 0) inquiries.push({ bureaus });
+    }
+  }
+
+  const scores: { bureau: Bureau }[] = [];
+  const scoreRegion = doc.indexOf('id="scores"') >= 0
+    ? doc.slice(doc.indexOf('id="scores"'), doc.indexOf('id="summary"') > doc.indexOf('id="scores"') ? doc.indexOf('id="summary"') : undefined)
+    : "";
+  for (const [col, bureau] of declaredBureauColumns(scoreRegion)) {
+    if (new RegExp(`col-start-${col}"[^>]*>\\s*<h5[^>]*>\\s*\\d`, "i").test(scoreRegion)
+        || new RegExp(`col-start-${col}"[^>]*>[\\s\\S]{0,120}?\\d{3}`, "i").test(scoreRegion)) {
+      scores.push({ bureau });
+    }
+  }
+
   if (items.length === 0) warnings.push("No account blocks were found. The layout may have changed.");
-  return { items, summary, bureaus: [...named], warnings };
+  return { items, summary, bureaus: [...named], publicRecords, inquiries, scores, sections, warnings };
 }
 
 /**
  * Reconcile the parse against the source's own summary counts.
  *
- * A mismatch means REVIEW_REQUIRED, not a warning beside published data. The
- * failure this catches is format drift: a parser that silently returns 24 of
- * 30 tradelines is far more dangerous than one that fails, because a missing
- * tradeline is invisible downstream — it looks like an account the consumer
- * does not have.
+ * A mismatch means the snapshot is PARTIAL. It never means the rows we failed
+ * to read are deleted, absent, or non-reporting — six unparsed accounts look
+ * exactly like six accounts the consumer does not have, and that confusion is
+ * the whole reason this function exists.
+ *
+ * Every check the source makes possible is produced, including the ones that
+ * pass: an operator seeing "27 expected / 27 parsed" learns something an
+ * absent row does not tell them.
  */
-export interface Reconciliation {
-  ok: boolean;
-  checks: { bureau: Bureau; label: string; stated: number; parsed: number }[];
-}
-
-export function reconcile(result: SmartCreditParseResult): Reconciliation {
-  const checks: Reconciliation["checks"] = [];
-  const num = (s: string | undefined) => (s === undefined ? NaN : Number(s.replace(/[^0-9]/g, "")));
+export function reconcile(result: SmartCreditParseResult): ReconciliationCheck[] {
+  const checks: ReconciliationCheck[] = [];
+  const num = (s: string | undefined) => {
+    if (s === undefined) return undefined;
+    const digits = s.replace(/[^0-9]/g, "");
+    return digits === "" ? undefined : Number(digits);
+  };
+  const push = (bureau: Bureau | undefined, checkKey: string, stated: number | undefined, parsed: number) => {
+    checks.push({
+      bureau,
+      checkKey,
+      stated,
+      parsed,
+      /* A check with no stated count has NOT passed — it could not be made.
+         `deriveQuality` reads that as review_required rather than partial,
+         because "we could not verify" is a worse position than "we are six
+         short". */
+      ok: stated !== undefined && stated === parsed,
+      reason: stated === undefined ? "The source states no count for this." : undefined,
+    });
+  };
 
   for (const bureau of result.bureaus) {
-    const stated = result.summary[bureau];
+    const stated = result.summary[bureau] ?? {};
     const reported = result.items.filter((i) => i.bureaus.includes(bureau));
     const valueFor = (i: ParsedReportItem) => i.bureauValues?.find((v) => v.bureau === bureau);
 
+    /* Accounts: the source states open and closed separately, so the total it
+       vouches for is their sum. */
     const open = num(stated["open accounts"]);
-    if (!Number.isNaN(open)) {
-      checks.push({ bureau, label: "Open accounts", stated: open, parsed: reported.filter((i) => /^open$/i.test(valueFor(i)?.status ?? "")).length });
-    }
     const closed = num(stated["closed accounts"]);
-    if (!Number.isNaN(closed)) {
-      checks.push({ bureau, label: "Closed accounts", stated: closed, parsed: reported.filter((i) => /^(closed|paid)$/i.test(valueFor(i)?.status ?? "")).length });
-    }
-    const derog = num(stated["derogatory"]);
-    if (!Number.isNaN(derog)) {
-      checks.push({ bureau, label: "Derogatory", stated: derog, parsed: reported.filter((i) => /collection/i.test(valueFor(i)?.account_type ?? "")).length });
+    const statedAccounts = open === undefined && closed === undefined ? undefined : (open ?? 0) + (closed ?? 0);
+    push(bureau, "accounts", statedAccounts, reported.filter((i) => {
+      const status = valueFor(i)?.status ?? "";
+      return /^(open|closed|paid)$/i.test(status);
+    }).length);
+
+    push(bureau, "derogatory", num(stated["derogatory"]),
+      reported.filter((i) => /collection/i.test(valueFor(i)?.account_type ?? "")).length);
+
+    push(bureau, "public_records", num(stated["public records"]),
+      result.publicRecords.filter((r) => r.bureaus.includes(bureau)).length);
+
+    push(bureau, "inquiries", num(stated["inquiries (2 years)"]),
+      result.inquiries.filter((r) => r.bureaus.includes(bureau)).length);
+
+    /* Score PRESENCE, not value or count.
+       The expectation of 1 comes from the report's own structure — it named
+       this bureau in its headers — not from a count the source printed. Said
+       out loud in the reason, because "1 expected" with no explanation would
+       be exactly the invented figure this module refuses elsewhere. */
+    const hasScore = result.scores.some((s) => s.bureau === bureau);
+    checks.push({
+      bureau,
+      checkKey: "scores",
+      stated: 1,
+      parsed: hasScore ? 1 : 0,
+      ok: hasScore,
+      reason: hasScore
+        ? undefined
+        : "The report names this bureau but shows no score for it. The expectation of one comes from the report's own structure, not from a figure it printed.",
+    });
+  }
+
+  /* Required sections. A missing section is `review_required`, not partial:
+     the comparison could not be made at all. */
+  for (const [name, present] of Object.entries(result.sections)) {
+    checks.push({
+      checkKey: `section:${name}`,
+      stated: 1,
+      parsed: present ? 1 : 0,
+      ok: present,
+      reason: present ? undefined : `The ${name.replace(/_/g, " ")} section was not found. The layout may have changed.`,
+    });
+  }
+
+  return checks;
+}
+
+/**
+ * What the format does not expose, stated once per report.
+ *
+ * These are facts about SMARTCREDIT, asserted from its field inventory — not
+ * inferred from one report having no value. Recorded so a rule that needs one
+ * of these fields can say "this provider does not report it" instead of the
+ * vaguer "not reported", and so nobody ever reads the absence as a bureau's
+ * omission.
+ */
+export const SMARTCREDIT_NOT_EXPOSED: readonly string[] = [
+  "dofd",
+  "score_model",
+  "inquiry_type",
+  "account_type_detail",
+];
+
+export function completenessFacts(result: SmartCreditParseResult): CompletenessFact[] {
+  const facts: CompletenessFact[] = SMARTCREDIT_NOT_EXPOSED.map((fieldKey) => ({
+    fieldKey,
+    state: "not_exposed_by_provider" as const,
+    reason: reasonFor("not_exposed_by_provider", fieldKey, "SmartCredit"),
+  }));
+
+  /* A bureau the document never names reported nothing here — which is
+     different from the provider not exposing the field. */
+  for (const bureau of ["EQ", "EX", "TU"] as Bureau[]) {
+    if (!result.bureaus.includes(bureau)) {
+      facts.push({
+        bureau,
+        fieldKey: "tradelines",
+        state: "bureau_not_present",
+        reason: reasonFor("bureau_not_present", "tradelines", "SmartCredit"),
+      });
     }
   }
-  return { ok: checks.every((c) => c.stated === c.parsed), checks };
+
+  /* Values the source printed in columns it did not attribute. Read, kept,
+     and assigned to nobody. */
+  const ambiguous = new Set<string>();
+  for (const item of result.items) {
+    for (const field of Object.keys(item.sourceColumns ?? {})) ambiguous.add(field);
+    /* An item with no attributed values has a bureau list that came from the
+       DOCUMENT, not from its own header. Say so rather than let it read as
+       three bureaus confirming the account. */
+    if (!item.bureauValues || item.bureauValues.length === 0) ambiguous.add("tradeline_bureaus");
+  }
+  for (const fieldKey of ambiguous) {
+    facts.push({
+      fieldKey,
+      state: "ambiguous",
+      reason: reasonFor("ambiguous", fieldKey, "SmartCredit"),
+    });
+  }
+
+  /* An account block we could not name is our failure, and it is recorded as
+     ours rather than as anybody's silence. */
+  const unread = result.warnings.filter((w) => /not imported|no readable name/i.test(w));
+  for (const [i, warning] of unread.entries()) {
+    facts.push({
+      fieldKey: `tradeline_block_${i + 1}`,
+      state: "parse_failed",
+      reason: warning,
+    });
+  }
+
+  return facts;
 }

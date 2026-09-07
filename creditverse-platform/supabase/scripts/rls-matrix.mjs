@@ -2692,6 +2692,126 @@ if (runs(52)) {
   runPhase("phase 52", P52, { strict: true });
 }
 
+/* Phase 53 — report completeness, reconciliation and partial acceptance
+   (0138, CR-14). Three new tables holding facts about a credit report, none of
+   them carrying a tenancy column: authorization must resolve entirely through
+   credit_reports → credit_report_visible().
+
+   The probes that matter most are not the reads. They are:
+     • the VERDICT is derived in SQL, so a client cannot claim a complete
+       import over a partial parse;
+     • acceptance needs WRITE permission on the case, not merely having done
+       the import — the uploader is often not the person authorised to decide;
+     • acceptance changes NO fact: import_quality stays partial and
+       report_analysis_complete() stays false. */
+if (runs(53)) {
+  startPhase("phase 53");
+  const probe53 = (uid, sql, seed = "") => {
+    try {
+      return q(`begin; ${seed} set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows;
+    } catch (e) {
+      const text = String(e.message) + "\n" + String(e.stdout ?? "");
+      const m = text.match(/ERROR:\s*(\w+):/);
+      return "ERR " + (m ? m[1] : "unknown");
+    }
+  };
+  const OWNER53 = U["org.owner@bes.test"];
+  const OTHER53 = U["org2.owner@bes.test"];
+  const AGENT53 = U["org.agent@bes.test"];
+  const ownerSees53 = probe53(OWNER53, `select count(*)::int as rows from public.fulfillment_clients where id='${T.lakeside_client}'`) === 1;
+
+  const ITEM53 = `[{"kind":"Account","name":"Quality Probe","status":"Open","bureaus":["EQ"],"account_ref":"quality probe"}]`;
+  const FACTS53 = `[{"field_key":"dofd","state":"not_exposed_by_provider","reason":"This provider does not expose a delinquency date."}]`;
+  const PASS53 = `[{"bureau":"EQ","check_key":"accounts","stated":1,"parsed":1,"ok":true}]`;
+  const SHORT53 = `[{"bureau":"EQ","check_key":"accounts","stated":30,"parsed":24,"ok":false,"reason":"6 not read."}]`;
+  const NOSECTION53 = `[{"check_key":"section:summary","stated":1,"parsed":0,"ok":false,"reason":"missing"}]`;
+  const imp = (recon, facts = FACTS53) =>
+    `select public.create_credit_report('${lakesideOrg}', null, '${T.lakeside_client}', null, array['EQ'], current_date, 'manual_upload', null, 'probe-138', '${ITEM53}'::jsonb, null, '${facts}'::jsonb, '${recon}'::jsonb)`;
+  const QUALITY = `select import_quality::text as rows from public.credit_reports where fulfillment_client_id='${T.lakeside_client}' order by created_at desc limit 1`;
+
+  const P53 = ownerSees53 ? [
+    ["a reconciled import is graded complete, by the database",
+      () => probe53(OWNER53, `${imp(PASS53)}; ${QUALITY}`), "complete"],
+
+    /* THE PROBE THIS PHASE EXISTS FOR. The client sends checks, never a
+       verdict — so a parse that read 24 of 30 cannot be called complete. */
+    ["a short parse is graded partial no matter what the client wanted",
+      () => probe53(OWNER53, `${imp(SHORT53)}; ${QUALITY}`), "partial"],
+
+    ["a missing section is graded review_required, not partial",
+      () => probe53(OWNER53, `${imp(NOSECTION53)}; ${QUALITY}`), "review_required"],
+
+    ["an import with no reconciliation is graded nothing — unknown, not complete",
+      () => probe53(OWNER53, `${imp(PASS53).replace(`'${PASS53}'::jsonb`, "null")}; select coalesce(import_quality::text, 'null') as rows from public.credit_reports where fulfillment_client_id='${T.lakeside_client}' order by created_at desc limit 1`), "null"],
+
+    ["completeness-dependent analysis is off for a partial snapshot",
+      () => probe53(OWNER53, `${imp(SHORT53)}; select public.report_analysis_complete((select id from public.credit_reports where fulfillment_client_id='${T.lakeside_client}' order by created_at desc limit 1))::text as rows`), "false"],
+
+    ["…and on for a complete one",
+      () => probe53(OWNER53, `${imp(PASS53)}; select public.report_analysis_complete((select id from public.credit_reports where fulfillment_client_id='${T.lakeside_client}' order by created_at desc limit 1))::text as rows`), "true"],
+
+    ["…and off for a report imported before the manifest existed",
+      () => probe53(OWNER53, `select public.report_analysis_complete('00000000-0000-4000-8000-000000000000')::text as rows`), "false"],
+
+    ["the facts and checks are readable by the client's organization",
+      () => probe53(OWNER53, `${imp(SHORT53)}; select ((select count(*) from public.report_completeness) > 0 and (select count(*) from public.report_reconciliation) > 0)::text as rows`), "true"],
+
+    ["an unrelated organization reads none of it",
+      () => probe53(OWNER53, `${imp(SHORT53)}; set local request.jwt.claims = '{"sub":"${OTHER53}","role":"authenticated"}'; select ((select count(*) from public.report_completeness) + (select count(*) from public.report_reconciliation))::int as rows`), 0],
+
+    ["…and cannot write a completeness fact against another organization's report",
+      () => probe53(OWNER53, `${imp(SHORT53)}; set local request.jwt.claims = '{"sub":"${OTHER53}","role":"authenticated"}'; insert into public.report_completeness (report_id, field_key, state, reason) select id, 'x', 'present', null from public.credit_reports limit 1; select 0 as rows`), "ERR 42501"],
+
+    ["a non-present state must say why",
+      () => probe53(OWNER53, `${imp(SHORT53)}; insert into public.report_completeness (report_id, field_key, state) select id, 'y', 'parse_failed' from public.credit_reports where fulfillment_client_id='${T.lakeside_client}' order by created_at desc limit 1; select 0 as rows`), "ERR 23514"],
+
+    ["the facts are append-only: no update grant",
+      () => probe53(OWNER53, `${imp(SHORT53)}; update public.report_completeness set state='present'; select 0 as rows`), "ERR 42501"],
+
+    ["…and no delete grant",
+      () => probe53(OWNER53, `${imp(SHORT53)}; delete from public.report_reconciliation; select 0 as rows`), "ERR 42501"],
+
+    /* Acceptance is a decision about the CASE, so it needs write permission on
+       the case — not merely having done the import. */
+    ["an authorised person may accept a partial snapshot, with a reason",
+      () => probe53(OWNER53, `${imp(SHORT53)}; insert into public.report_partial_acceptances (report_id, accepted_by, reason) select id, '${OWNER53}', 'Client needs the round out today; the missing accounts are positive.' from public.credit_reports where fulfillment_client_id='${T.lakeside_client}' order by created_at desc limit 1; select count(*)::int as rows from public.report_partial_acceptances`), 1],
+
+    /* The report id is carried across the role switch in a TEMP table, which
+       has no RLS. Selecting it from credit_reports as the other organization
+       would return no rows, the insert would touch nothing, and a refusal-shaped
+       probe would pass without ever reaching the policy — the "0 rows touched
+       is not an error" trap this suite has been caught by before. */
+    ["…and an unrelated organization may not, even knowing the report id",
+      () => probe53(OWNER53, `${imp(SHORT53)}; create temp table probe53_target as select id from public.credit_reports where fulfillment_client_id='${T.lakeside_client}' order by created_at desc limit 1; set local request.jwt.claims = '{"sub":"${OTHER53}","role":"authenticated"}'; insert into public.report_partial_acceptances (report_id, accepted_by, reason) select id, '${OTHER53}', 'Not my client but I would like to proceed.' from probe53_target; select 0 as rows`), "ERR 42501"],
+
+    ["…and the probe above really did have an id to try",
+      () => probe53(OWNER53, `${imp(SHORT53)}; create temp table probe53_check as select id from public.credit_reports where fulfillment_client_id='${T.lakeside_client}' order by created_at desc limit 1; select count(*)::int as rows from probe53_check`), 1],
+
+    ["…and nobody may accept in somebody else's name",
+      () => probe53(OWNER53, `${imp(SHORT53)}; insert into public.report_partial_acceptances (report_id, accepted_by, reason) select id, '${AGENT53}', 'Recorded against a colleague who did not decide this.' from public.credit_reports where fulfillment_client_id='${T.lakeside_client}' order by created_at desc limit 1; select 0 as rows`), "ERR 42501"],
+
+    ["…and an acceptance with no real reason is refused",
+      () => probe53(OWNER53, `${imp(SHORT53)}; insert into public.report_partial_acceptances (report_id, accepted_by, reason) select id, '${OWNER53}', 'ok' from public.credit_reports where fulfillment_client_id='${T.lakeside_client}' order by created_at desc limit 1; select 0 as rows`), "ERR 23514"],
+
+    /* ACCEPTANCE CHANGES A DECISION, NOT A FACT. */
+    ["accepting a partial snapshot leaves it partial and leaves analysis off",
+      () => probe53(OWNER53, `${imp(SHORT53)}; insert into public.report_partial_acceptances (report_id, accepted_by, reason) select id, '${OWNER53}', 'Proceeding knowingly on a partial source for this round.' from public.credit_reports where fulfillment_client_id='${T.lakeside_client}' order by created_at desc limit 1; select (select import_quality::text from public.credit_reports where fulfillment_client_id='${T.lakeside_client}' order by created_at desc limit 1) || ':' || public.report_analysis_complete((select id from public.credit_reports where fulfillment_client_id='${T.lakeside_client}' order by created_at desc limit 1))::text as rows`), "partial:false"],
+
+    ["…and the failed checks stay failed",
+      () => probe53(OWNER53, `${imp(SHORT53)}; insert into public.report_partial_acceptances (report_id, accepted_by, reason) select id, '${OWNER53}', 'Proceeding knowingly on a partial source for this round.' from public.credit_reports where fulfillment_client_id='${T.lakeside_client}' order by created_at desc limit 1; select count(*)::int as rows from public.report_reconciliation where not ok`), 1],
+
+    ["a report's verdict cannot be edited after the fact",
+      () => probe53(OWNER53, `${imp(SHORT53)}; update public.credit_reports set import_quality='complete' where fulfillment_client_id='${T.lakeside_client}'; select 0 as rows`), "ERR 42501"],
+
+    ["the writer is still SECURITY INVOKER after 0138",
+      () => q(`select (not prosecdef)::text as rows from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='create_credit_report'`)[0].rows, "true"],
+
+    ["nothing was backfilled: no historical report was graded",
+      () => q(`select ((select count(*) from public.report_completeness) = 0 and (select count(*) from public.report_reconciliation) = 0 and (select count(*) from public.credit_reports where import_quality is not null) = 0)::text as rows`)[0].rows, "true"],
+  ] : [["(no Lakeside client to probe)", () => "skip", "skip"]];
+  runPhase("phase 53", P53, { strict: true });
+}
+
 endPhase();
 
 /* ------------------------------------------------------------------ *

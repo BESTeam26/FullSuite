@@ -8,6 +8,7 @@ import { requireSupabase } from "@/lib/supabase/client";
 import type { Json } from "@/lib/supabase/database.types";
 import type { Bureau, BureauValues, RawReportItem } from "@/lib/credit-classification";
 import type { ParsedReportItem } from "@/lib/credit-report/import-parser";
+import type { CompletenessFact, CompletenessState, ImportQuality, ReconciliationCheck } from "@/lib/credit-report/completeness";
 
 export interface CreditReportSummary {
   id: string;
@@ -104,6 +105,11 @@ export interface CreateCreditReportInput {
   parserVersion: string;
   items: ParsedReportItem[];
   scores: { bureau: Bureau; model: string; score: number }[];
+  /** CR-14. Optional: a source that supports no reconciliation sends none, and
+   *  the report's `import_quality` is then null — which reads as UNKNOWN, not
+   *  complete. */
+  completeness?: CompletenessFact[];
+  reconciliation?: ReconciliationCheck[];
 }
 
 export async function createCreditReport(input: CreateCreditReportInput): Promise<string> {
@@ -144,6 +150,16 @@ export async function createCreditReport(input: CreateCreditReportInput): Promis
       source_columns: i.sourceColumns ?? null,
     })) as unknown as Json,
     p_scores: input.scores as unknown as Json,
+    /* The verdict is NOT sent. `create_credit_report` derives
+       `import_quality` from these checks in SQL, so a client that parsed 24 of
+       30 accounts cannot claim a complete import. */
+    p_completeness: (input.completeness ?? []).map((c) => ({
+      bureau: c.bureau ?? null, field_key: c.fieldKey, state: c.state, reason: c.reason ?? null,
+    })) as unknown as Json,
+    p_reconciliation: (input.reconciliation ?? []).map((c) => ({
+      bureau: c.bureau ?? null, check_key: c.checkKey,
+      stated: c.stated ?? null, parsed: c.parsed, ok: c.ok, reason: c.reason ?? null,
+    })) as unknown as Json,
   });
   if (error) throw error;
   return data as string;
@@ -207,6 +223,72 @@ export async function fetchBureauValues(reportId: string): Promise<Record<string
     });
   }
   return out;
+}
+
+/**
+ * The completeness record of one report (CR-14).
+ *
+ * Read for display, and for the one decision that matters: whether
+ * completeness-dependent analysis may run. The verdict comes from the
+ * database, which derived it — never recomputed here from the checks, because
+ * then a UI bug could disagree with the record.
+ */
+export interface ReportQualityRecord {
+  quality: ImportQuality | null;
+  checks: ReconciliationCheck[];
+  facts: CompletenessFact[];
+  acceptance: { acceptedBy: string; reason: string; acceptedAt: string } | null;
+}
+
+export async function fetchReportQuality(reportId: string): Promise<ReportQualityRecord> {
+  const sb = requireSupabase();
+  /* Four bounded reads in parallel, never one per row. */
+  const [report, checks, facts, acceptance] = await Promise.all([
+    sb.from("credit_reports").select("import_quality").eq("id", reportId).maybeSingle(),
+    sb.from("report_reconciliation").select("bureau, check_key, stated, parsed, ok, reason").eq("report_id", reportId).limit(200),
+    sb.from("report_completeness").select("bureau, field_key, state, reason").eq("report_id", reportId).limit(500),
+    sb.from("report_partial_acceptances").select("accepted_by, reason, accepted_at").eq("report_id", reportId).maybeSingle(),
+  ]);
+  for (const r of [report, checks, facts, acceptance]) if (r.error) throw r.error;
+
+  return {
+    quality: (report.data?.import_quality as ImportQuality | null) ?? null,
+    checks: (checks.data ?? []).map((c) => ({
+      bureau: (c.bureau as Bureau | null) ?? undefined,
+      checkKey: c.check_key,
+      stated: c.stated ?? undefined,
+      parsed: c.parsed,
+      ok: c.ok,
+      reason: c.reason ?? undefined,
+    })),
+    facts: (facts.data ?? []).map((f) => ({
+      bureau: (f.bureau as Bureau | null) ?? undefined,
+      fieldKey: f.field_key,
+      state: f.state as CompletenessState,
+      reason: f.reason ?? undefined,
+    })),
+    acceptance: acceptance.data
+      ? { acceptedBy: acceptance.data.accepted_by, reason: acceptance.data.reason, acceptedAt: acceptance.data.accepted_at }
+      : null,
+  };
+}
+
+/**
+ * Record that an authorised person chose to work a partial snapshot.
+ *
+ * This changes NO completeness fact. `import_quality` stays partial, every
+ * failed check stays failed, and `report_analysis_complete()` still returns
+ * false — so the analyses that need a complete snapshot stay off. All it adds
+ * is who decided, when, and why.
+ */
+export async function acceptPartialReport(reportId: string, actorId: string, reason: string): Promise<void> {
+  const sb = requireSupabase();
+  const { data, error } = await sb
+    .from("report_partial_acceptances")
+    .insert({ report_id: reportId, accepted_by: actorId, reason })
+    .select("id");
+  if (error) throw error;
+  if (!data?.length) throw new Error("Nothing was recorded — you may not accept a partial import for this client.");
 }
 
 /** How many reports this organization has imported — a head count, no rows (Home guide). */

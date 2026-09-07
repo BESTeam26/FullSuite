@@ -1,10 +1,14 @@
 # SmartCredit — source mapping and completeness contract
 
-**Mapper BUILT 2026-09-07.** `src/lib/credit-report/smartcredit-html-parser.ts`,
-against the synthetic fixture beside this file. The six missing tradeline
-fields exist as columns (migrations 0136 and 0137). The completeness manifest
-and reconciliation persistence (§5, §6) are still specification — the parser
-computes reconciliation and returns it; nothing stores it yet.
+**Mapper BUILT 2026-09-07** (`smartcredit-html-parser.ts`), the six tradeline
+columns exist (migrations 0136, 0137), and the **completeness manifest and
+reconciliation are persisted** (migration 0138, CR-14). §5 and §6 below are no
+longer specification.
+
+The one thing 0138 added that this spec did not anticipate: the **verdict is
+derived in SQL**, not sent by the client. A parser that read 24 of 30 accounts
+cannot claim a complete import, because it never gets to say so — it supplies
+the checks and the database draws the conclusion.
 Written 2026-09-07 from one sample supplied privately by Dee.
 
 > **The sample is not in this repository and never will be.** It is a real
@@ -362,7 +366,32 @@ MyFreeScoreNow and a direct bureau report.
 | `AMBIGUOUS` | Read, but attribution or meaning is unproven | Multi-column values with no declared header |
 | `UNKNOWN` | No determination made | Default; never a conclusion |
 
-### 5.1 The rules that make it worth having
+### 5.1 As built (0138)
+
+| Table | Holds |
+|---|---|
+| `report_completeness` | report × bureau × item × field × state × reason. A non-present state without a reason is refused by a CHECK constraint |
+| `report_reconciliation` | report × bureau × check_key × stated × parsed × ok × reason |
+| `credit_reports.import_quality` | `complete` · `partial` · `review_required`, **derived by the writer**, and null on any report imported before 0138 — which reads as UNKNOWN, never as complete |
+| `report_partial_acceptances` | who chose to work a partial snapshot, when, and why. Unique per report; a reason under 10 characters is refused |
+| `report_analysis_complete(report)` | false unless the verdict is `complete`. **An acceptance does not make it true** |
+
+All three tables are append-only (`select, insert` only — no update or delete
+grant), carry no tenancy column, and authorize entirely through
+`credit_reports → credit_report_visible()`. 23 probes in matrix phase 53.
+
+**One known limitation, recorded rather than hidden.**
+`report_completeness`'s unique key includes two nullable columns, and Postgres
+treats NULLs as distinct in a unique index — so it catches a duplicate
+*item-level* fact but not a duplicate *report-level* one. The writer's
+`on conflict do nothing` therefore dedupes item-level facts only. Left as it
+is deliberately: a duplicate fact is noise rather than a false claim, and
+`NULLS NOT DISTINCT` would raise this project's minimum server version. If
+report-level duplicates ever become visible noise, a partial unique index on
+`(report_id, field_key) where bureau is null and report_item_id is null` is the
+one-line fix.
+
+### 5.2 The rules that make it worth having
 
 1. **A state is never upgraded by absence.** `PARSE_FAILED` does not become
    `BLANK_IN_SOURCE` because nothing was found, and neither becomes
@@ -398,8 +427,23 @@ bureau:
 | Balances | Sum of parsed balances |
 | Payments | Sum of parsed monthly payments |
 
-**Any mismatch produces `REVIEW_REQUIRED` and the report is not published for
-analysis.** Not a warning beside published data — a hold.
+**Any mismatch means the snapshot is not complete, and
+`report_analysis_complete()` returns false.** As built, the distinction is
+finer than this section first proposed:
+
+| Verdict | When |
+|---|---|
+| `complete` | Every check passed |
+| `partial` | A check was made and the counts disagree — the shortfall is known and bounded |
+| `review_required` | A check could not be made at all (the source states no count), or a required section is missing |
+
+**This is a data-integrity guardrail, not an operator gate.** A partial
+snapshot is workable: the operator inspects and works the accounts that did
+parse, and the ones that did not are **never** treated as deleted, absent or
+non-reporting. What a partial snapshot switches off is
+completeness-dependent analysis — an item "no longer observed", a bureau "not
+reporting" — because six unparsed accounts look exactly like six accounts the
+consumer does not have.
 
 This is the check that catches format drift, which is the failure mode Dee
 named: SmartCredit's markup will change, and when it does, a parser that

@@ -1469,6 +1469,7 @@ export type Database = {
           file_id: string | null
           fulfillment_client_id: string | null
           id: string
+          import_quality: Database["public"]["Enums"]["import_quality"] | null
           imported_by: string
           organization_id: string | null
           outsourcing_group_id: string | null
@@ -1484,6 +1485,7 @@ export type Database = {
           file_id?: string | null
           fulfillment_client_id?: string | null
           id?: string
+          import_quality?: Database["public"]["Enums"]["import_quality"] | null
           imported_by: string
           organization_id?: string | null
           outsourcing_group_id?: string | null
@@ -1499,6 +1501,7 @@ export type Database = {
           file_id?: string | null
           fulfillment_client_id?: string | null
           id?: string
+          import_quality?: Database["public"]["Enums"]["import_quality"] | null
           imported_by?: string
           organization_id?: string | null
           outsourcing_group_id?: string | null
@@ -6474,6 +6477,61 @@ export type Database = {
           },
         ]
       }
+      report_completeness: {
+        Row: {
+          bureau: string | null
+          created_at: string
+          field_key: string
+          id: string
+          reason: string | null
+          report_id: string
+          report_item_id: string | null
+          state: Database["public"]["Enums"]["completeness_state"]
+        }
+        Insert: {
+          bureau?: string | null
+          created_at?: string
+          field_key: string
+          id?: string
+          reason?: string | null
+          report_id: string
+          report_item_id?: string | null
+          state: Database["public"]["Enums"]["completeness_state"]
+        }
+        Update: {
+          bureau?: string | null
+          created_at?: string
+          field_key?: string
+          id?: string
+          reason?: string | null
+          report_id?: string
+          report_item_id?: string | null
+          state?: Database["public"]["Enums"]["completeness_state"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_completeness_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "credit_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_completeness_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "report_item_changes"
+            referencedColumns: ["report_id"]
+          },
+          {
+            foreignKeyName: "report_completeness_report_item_id_fkey"
+            columns: ["report_item_id"]
+            isOneToOne: false
+            referencedRelation: "report_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       report_findings: {
         Row: {
           account_ref: string
@@ -6781,6 +6839,103 @@ export type Database = {
           },
           {
             foreignKeyName: "report_items_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "report_item_changes"
+            referencedColumns: ["report_id"]
+          },
+        ]
+      }
+      report_partial_acceptances: {
+        Row: {
+          accepted_at: string
+          accepted_by: string
+          id: string
+          reason: string
+          report_id: string
+        }
+        Insert: {
+          accepted_at?: string
+          accepted_by: string
+          id?: string
+          reason: string
+          report_id: string
+        }
+        Update: {
+          accepted_at?: string
+          accepted_by?: string
+          id?: string
+          reason?: string
+          report_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_partial_acceptances_accepted_by_fkey"
+            columns: ["accepted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_partial_acceptances_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: true
+            referencedRelation: "credit_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_partial_acceptances_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: true
+            referencedRelation: "report_item_changes"
+            referencedColumns: ["report_id"]
+          },
+        ]
+      }
+      report_reconciliation: {
+        Row: {
+          bureau: string | null
+          check_key: string
+          created_at: string
+          id: string
+          ok: boolean
+          parsed: number
+          reason: string | null
+          report_id: string
+          stated: number | null
+        }
+        Insert: {
+          bureau?: string | null
+          check_key: string
+          created_at?: string
+          id?: string
+          ok: boolean
+          parsed: number
+          reason?: string | null
+          report_id: string
+          stated?: number | null
+        }
+        Update: {
+          bureau?: string | null
+          check_key?: string
+          created_at?: string
+          id?: string
+          ok?: boolean
+          parsed?: number
+          reason?: string | null
+          report_id?: string
+          stated?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_reconciliation_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "credit_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_reconciliation_report_id_fkey"
             columns: ["report_id"]
             isOneToOne: false
             referencedRelation: "report_item_changes"
@@ -8451,6 +8606,7 @@ export type Database = {
         Args: {
           p_bureaus: string[]
           p_client: string
+          p_completeness?: Json
           p_consumer: string
           p_file: string
           p_group: string
@@ -8458,6 +8614,7 @@ export type Database = {
           p_org: string
           p_parser_version: string
           p_pulled_at: string
+          p_reconciliation?: Json
           p_scores: Json
           p_source: string
         }
@@ -8977,6 +9134,7 @@ export type Database = {
           subscribed: boolean
         }[]
       }
+      report_analysis_complete: { Args: { p_report: string }; Returns: boolean }
       report_pivot: {
         Args: {
           p_filters?: Json
@@ -9262,6 +9420,15 @@ export type Database = {
         | "funding_pending"
         | "funded"
         | "cancelled"
+      completeness_state:
+        | "present"
+        | "explicit_not_reported"
+        | "blank_in_source"
+        | "bureau_not_present"
+        | "not_exposed_by_provider"
+        | "parse_failed"
+        | "ambiguous"
+        | "unknown"
       consumer_report_authorization: "authorized" | "pending" | "refused"
       deal_comm_channel: "email" | "phone" | "portal" | "meeting" | "note"
       deal_comm_direction: "outbound" | "inbound"
@@ -9520,6 +9687,7 @@ export type Database = {
         | "phone"
         | "business_name"
         | "ein"
+      import_quality: "complete" | "partial" | "review_required"
       knowledge_audience: "organization" | "consumer" | "both" | "bes_internal"
       lender_decision_kind:
         | "pending"
@@ -9853,6 +10021,16 @@ export const Constants = {
         "funded",
         "cancelled",
       ],
+      completeness_state: [
+        "present",
+        "explicit_not_reported",
+        "blank_in_source",
+        "bureau_not_present",
+        "not_exposed_by_provider",
+        "parse_failed",
+        "ambiguous",
+        "unknown",
+      ],
       consumer_report_authorization: ["authorized", "pending", "refused"],
       deal_comm_channel: ["email", "phone", "portal", "meeting", "note"],
       deal_comm_direction: ["outbound", "inbound"],
@@ -10130,6 +10308,7 @@ export const Constants = {
       ghl_connection_status: ["connected", "paused", "error"],
       hub_module_status: ["available", "planned"],
       identity_kind: ["email", "email_domain", "phone", "business_name", "ein"],
+      import_quality: ["complete", "partial", "review_required"],
       knowledge_audience: ["organization", "consumer", "both", "bes_internal"],
       lender_decision_kind: [
         "pending",
