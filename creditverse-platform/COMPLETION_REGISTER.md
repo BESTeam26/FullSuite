@@ -27,7 +27,7 @@ obsolete milestone numbers.
 | C10 | Duplicate-client resolution by the importer | DONE |
 | AP / pricing work | Plans, trials, subscriptions, Authorize.Net | DONE (needs the browser client key) |
 | §24 | Seats and membership lifecycle | DONE |
-| **Metro 2 Sections A–P** | **CreditOps dispute defect catalogue** — a credit-REPORTING format. Not FundingOps lender matching; the two are unrelated systems | Section A done; B–P pending |
+| **Metro 2 Sections A–P** | **CreditOps dispute defect catalogue** — a credit-REPORTING format. Not FundingOps lender matching; the two are unrelated systems | Section A done (8 rules, transcribed ids); **B–P: SOURCE NOT YET RECONCILED** |
 | FundingOps A/B/C | FundingOps navigation, funding file, deal, stipulations | DONE |
 
 ## How to read this
@@ -128,7 +128,7 @@ approved business workflow be completed?*
 | Build Credit | **DONE** | Invented figures removed |
 | Comparison grid + letter batching | **DONE** | |
 | **Metro 2 Section A** (identity) | **DONE** | Pure rules + tests, unwired |
-| **Metro 2 Sections B–P** | **PENDING** | ~293 defects. Largest single remaining CreditOps item |
+| **Metro 2 Sections B–P** | **SOURCE NOT YET RECONCILED** | The "~293 defects" figure was a **generated register estimate**, not a traced source — it appears once in this repository and nowhere in its history, `CLAUDE.md`, `BUILD_STATUS.md`, any commit message, migration or archive. **Withdrawn 2026-09-07 on Dee's instruction.** The real source is a defect catalogue **uploaded in an earlier chat session and never committed** — proven by commit `258b086` ("Appendix 1 of the uploaded defect catalogue"), by `metro2-status-rules.ts:17` ("Section Q of the catalogue"), and by Section A's transcribed ids A1/A2/A4/A6/A12/A14/A16/A20, whose gaps could not be generated. **Blocked on Dee re-supplying that document.** Full trace and the engine inventory it must be reconciled against: `src/lib/dispute/ENGINE_INVENTORY.md` |
 | Metro 2 rules wired into the detector | **PENDING** | Section A exists but nothing calls it yet |
 | Experian upload-only rule | **SUPERSEDED** | Removed 2026-09-06 — internal operating rule, not domain |
 | Letters actually posted (Lob) | **DONE** | 0116 + `post-letter` + `lob-webhook`. Reserve-then-reconcile: the letter is only marked mailed when Lob accepted it, and a TEST key deliberately does not start the statutory clocks |
@@ -288,7 +288,7 @@ approved business workflow be completed?*
 1. ~~FundingOps A / B / C~~ — **done 2026-09-06**
 2. **Seat doctrine** (§24) — authorization-adjacent, currently unencoded
 5. ~~Client-level documents~~ — **done 2026-09-07**
-6. **Metro 2 Sections B–P** + wiring Section A into the detector
+6. **Metro 2 Sections B–P** — **BLOCKED, SOURCE NOT YET RECONCILED.** No rules to be written until Dee supplies the catalogue document (see the row in §5 and `src/lib/dispute/ENGINE_INVENTORY.md`). Wiring Section A into the detector is *not* blocked and can proceed separately
 7. **Lender portal** (tenancy change — proposal first)
 8. ~~DIY Referrals~~ — **done 2026-09-07**
 9. **Authorize.Net** (build against sandbox; go-live blocked on A3)
