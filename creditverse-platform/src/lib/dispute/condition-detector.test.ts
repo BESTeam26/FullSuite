@@ -202,3 +202,89 @@ describe("our own procedural history", () => {
     expect(r.conditions).not.toContain("prior_dispute_unanswered");
   });
 });
+
+/**
+ * The delinquency date is the field that decides when an account must stop
+ * being reported, so its absence matters more than any other blank — but only
+ * on an account that is actually reported as having gone bad. Making it
+ * universally mandatory would flag every healthy tradeline on the file.
+ */
+describe("the delinquency date, expected only where it is relevant", () => {
+  const dofdFindings = (r: ReturnType<typeof detectConditions>) =>
+    r.findings.filter((f) => f.observation.toLowerCase().includes("date of first delinquency"));
+
+  it("asks for it on a derogatory account that reports none", () => {
+    const r = detectConditions({
+      item: item({ category: "Charge-Off" }),
+      records: [rec({ bureau: "EQ", status: "Charge-Off", balance: 1400 })],
+    });
+    const found = dofdFindings(r);
+    expect(found).toHaveLength(1);
+    /* APPARENT, never confirmed: "the bureau omits it" and "our import missed
+       it" look identical from here, and only one of them is the bureau's
+       fault. Missing source data is a review task, not a violation. */
+    expect(found[0].confidence).toBe("apparent");
+    expect(found[0].needs).toMatch(/import did not capture it/i);
+    expect(r.questions.some((f) => f === found[0])).toBe(true);
+  });
+
+  it("does not raise it once a bureau reports one", () => {
+    const r = detectConditions({
+      item: item({ category: "Charge-Off" }),
+      records: [rec({ bureau: "EQ", status: "Charge-Off", dofd: "2021-03-01" })],
+    });
+    expect(dofdFindings(r)).toHaveLength(0);
+  });
+
+  it("accepts a delinquency date from any one bureau, not from all of them", () => {
+    const r = detectConditions({
+      item: item({ category: "Charge-Off" }),
+      records: [
+        rec({ bureau: "EQ", status: "Charge-Off" }),
+        rec({ bureau: "TU", status: "Charge-Off", dofd: "2021-03-01" }),
+      ],
+    });
+    expect(dofdFindings(r)).toHaveLength(0);
+  });
+
+  it("expects none on an account with nothing delinquent about it, and says so", () => {
+    const r = detectConditions({
+      item: item({ status: "Open", category: "Open Positive Account", isNegative: false, isDerogatory: false }),
+      records: [rec({ bureau: "EQ", status: "Open", paymentStatus: "Current", balance: 400 })],
+    });
+    const found = dofdFindings(r);
+    expect(found).toHaveLength(1);
+    expect(found[0].confidence).toBe("not_an_error");
+    /* Ruled out, not silently skipped — a reviewer can see it was considered. */
+    expect(r.ruledOut).toContain(found[0]);
+  });
+
+  it("becomes relevant on a collection even when the status says little", () => {
+    const r = detectConditions({
+      item: item({ category: "3rd-Party Collection", status: "Open" }),
+      records: [rec({ bureau: "EQ", status: "Open" })],
+    });
+    expect(dofdFindings(r)[0].confidence).toBe("apparent");
+  });
+
+  it("becomes relevant from the payment grid alone, with no derogatory wording", () => {
+    const r = detectConditions({
+      item: item({ status: "Open", category: "Open Positive Account", isDerogatory: false }),
+      records: [rec({ bureau: "EQ", status: "Open", paymentStatus: "Current", paymentHistory: ["OK", "OK", "60", "OK"] })],
+    });
+    expect(dofdFindings(r)[0].confidence).toBe("apparent");
+  });
+
+  it("never turns the missing date into an assertable condition", () => {
+    const r = detectConditions({
+      item: item({ category: "Charge-Off" }),
+      records: [rec({ bureau: "EQ", status: "Charge-Off" })],
+    });
+    /* `data_missing_or_deficient` can be confirmed for other blanks on the
+       same account; what must never happen is this finding being the reason
+       it is. It lives in `questions`, and a reason built on a confirmed
+       condition cannot reach it. */
+    expect(r.conditions.filter((c) => c === "data_missing_or_deficient").length).toBeLessThanOrEqual(1);
+    expect(dofdFindings(r).every((f) => f.confidence !== "confirmed")).toBe(true);
+  });
+});

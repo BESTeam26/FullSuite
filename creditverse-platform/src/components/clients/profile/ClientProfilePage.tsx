@@ -61,9 +61,12 @@ export function ClientProfilePage() {
   const history = useClientHistory(client, NEED[tab] ?? "none");
 
   /* Either engine's edit key writes the person — the same rule the database
-     applies in `client_writable`, mirrored here only to decide what to offer. */
-  const canWriteClient =
-    usePermission("creditops.clients.edit").allowed || usePermission("fundingops.files.edit").allowed;
+     applies in `client_writable`, mirrored here only to decide what to offer.
+     Both hooks are called unconditionally: `||` would short-circuit the second
+     the moment the first allowed, changing the hook order between renders. */
+  const canEditCreditClient = usePermission("creditops.clients.edit").allowed;
+  const canEditFundingFile = usePermission("fundingops.files.edit").allowed;
+  const canWriteClient = canEditCreditClient || canEditFundingFile;
 
   const services = useMemo(() => (client ? enrolledServices(client) : []), [client]);
   const initials =

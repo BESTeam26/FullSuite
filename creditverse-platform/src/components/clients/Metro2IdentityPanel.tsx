@@ -155,8 +155,10 @@ export function Metro2IdentityPanel({
       </div>
 
       <p className="text-[10px] text-muted-foreground">
-        Section A of the catalogue is complete. Sections B–P are not built yet, so this covers identity
-        only — not balances, dates, statuses or payment history.
+        Confirmed and apparent findings here also appear in Report Integrity, where they are saved to
+        the client record and reviewed. Nothing on this panel disputes anything by itself. Identity
+        only — not balances, dates, statuses or payment history; those sections are not built, and the
+        source catalogue they come from has not yet been reconciled.
       </p>
     </div>
   );

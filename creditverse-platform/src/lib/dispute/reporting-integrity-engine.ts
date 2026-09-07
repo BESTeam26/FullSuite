@@ -152,4 +152,17 @@ export function evaluateReports(snapshots: ReportSnapshot[]): IntegrityFinding[]
   return [...latest.items.flatMap(evaluateItem), ...evaluateChronology(snapshots)].map((f) => ({ ...f, reportId: latest.reportId }));
 }
 
-export const RULES_IN_USE = INTEGRITY_RULES.map((r) => `${r.id}@v${r.version}`);
+/**
+ * The rules this engine actually runs — blocked ones excluded on purpose.
+ *
+ * This string travels onto compliance output as the statement of what was
+ * applied, so it must not advertise a rule the engine never reaches.
+ */
+export const RULES_IN_USE = INTEGRITY_RULES.filter((r) => !r.blockedBy).map((r) => `${r.id}@v${r.version}`);
+
+/** Catalogued, authorities and all, and not yet evaluable. With the reason. */
+export const RULES_NOT_YET_EVALUABLE = INTEGRITY_RULES.filter((r) => r.blockedBy).map((r) => ({
+  id: r.id,
+  title: r.title,
+  blockedBy: r.blockedBy!,
+}));

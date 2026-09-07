@@ -34,6 +34,13 @@ export interface Metro2Finding {
   missing?: string[];
   claim: PermittedClaim;
   guardrails: string[];
+  /**
+   * The input fields the rule declared it needed. Carried so a persisted
+   * finding says which fields it was read from — the same job
+   * `IntegrityFinding.fields` does, and the reason a Section A finding can
+   * travel into the canonical findings table without losing its trail.
+   */
+  fields: string[];
 }
 
 export interface Metro2SectionResult {
@@ -76,6 +83,7 @@ export function runSection<T extends object>(rules: Metro2Rule<T>[], input: T): 
       missing: outcome.missing,
       claim: rule.claim,
       guardrails: rule.guardrails,
+      fields: rule.requires as string[],
     };
     if (outcome.evaluability === "unknown") result.unknown.push(finding);
     else if (outcome.confidence === "confirmed") result.confirmed.push(finding);

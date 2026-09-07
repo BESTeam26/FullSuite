@@ -3,6 +3,11 @@
 Written 2026-09-07, by inspection of the code, not from the register and not
 from memory. Every row below was read out of the file named in it.
 
+**Updated the same day**, after the five catalogue-independent corrections in
+§2 were made. Sections 1.x describe the engine as it stands now; §2 records
+what each correction was and §5 documents the one gap that could not be closed
+without a canonical-model change.
+
 **Why this document exists.** The Master Completion Register carries a row
 reading *"Metro 2 Sections B–P — PENDING — ~293 defects"*. Dee's instruction of
 2026-09-07: do not write rules against that number until its source is traced.
@@ -24,9 +29,21 @@ and produce four different outputs.
 | **Metro 2 field registry** | `metro2/` | Which FIELD carries a defect, with the permitted claim and recipient? | `Metro2Finding[]` for the disputed-field table |
 | **Metro 2 intelligence** | `metro2-engine.ts`, `metro2-taxonomy.ts`, `metro2-guardrails.ts`, `metro2-status-rules.ts`, `metro2-field-codes.ts` | Field-level anomaly classification, status-code arithmetic, the comparison grid, and the guardrails that stop a wrong letter | Various, per function |
 
-Only two of them are wired into a screen today: the condition detector (through
-`letter-composer`) and Section A of the Metro 2 field registry (through
-`Metro2IdentityPanel`). That is recorded honestly in the register already.
+**What is actually wired, corrected 2026-09-07.** The reporting-integrity
+engine is the canonical flow: `report_items → evaluateReports() →
+IntegrityFinding[] → saveFindings() → report_findings → human_disposition →
+dispute`. **Section A now feeds that same flow** through
+`metro2/to-integrity-finding.ts`, so an identity defect is saved to the client
+record and dispositioned by a person like every other finding — it is no longer
+rendered and discarded.
+
+**The condition detector has no product caller at all.** `detectConditions` is
+invoked only by its own tests. `letter-composer` imports its *types* and never
+runs it. The cause is the same model gap as §5: the detector's input is
+`BureauRecord[]`, one record per bureau, and nothing in the application can
+build one. Thirty-one conditions and a reason-selection engine sit behind that
+one missing input. This is the single largest piece of unreachable CreditOps
+logic and it is not a rules problem.
 
 ---
 
@@ -90,12 +107,13 @@ scheduled monthly payment on a closed or charged-off account.
 | `STATUS.CURRENT_WITH_HISTORY` | `status`, `remarks` | current/paid today with past-late **remarks** | classified as different time dimensions, not a contradiction | authorities on the rule | `reporting-integrity-engine.test.ts` |
 | `paid_status_but_late_marks` | `status`/`paymentStatus`, `paymentHistory` | paid/current wording with ≥1 late mark in the grid | **`not_an_error`** by default; `apparent` **only** when the consumer has attested "never late" | — | `condition-detector.test.ts` |
 | `resolveStatusCode` | `displayedCode`, `statusLabel` | Maps a printed label back to a code and records whether it was **displayed or inferred** | `CodeResolution` — the gate that stops an inferred code producing a confirmed defect | catalogue Appendix 1 | `metro2-status-rules.test.ts` |
-| `current_but_late_mark` | — | **DECLARED BUT NEVER EMITTED** | — | — | none |
-
-**Defect found in this inventory:** `current_but_late_mark` exists in the
-`ReasonCondition` union in `reason-catalogue.ts:73` and **no code path produces
-it**. It is a reason that can never fire. Either the detector is missing a rule
-or the condition is dead; it needs a decision, not a guess.
+**Resolved 2026-09-07:** `current_but_late_mark` was declared in the
+`ReasonCondition` union and produced by no code path. It named exactly what
+`paid_status_but_late_marks` already detects — that rule matches "current" and
+"pays as agreed" as well as "paid" — so it was a duplicate reason semantic as
+well as a dead one. **Removed**, with a comment left at the site so nobody
+re-adds it. Nothing else referenced it: no catalogue reason required it, no
+database enum or check constraint carried it.
 
 ### 1.5 Payment history
 
@@ -120,12 +138,19 @@ without a charge-off status, or gaps inside the reported range.
 | `DOFD.ON_CURRENT_ZERO_BALANCE` | `dofd`, `status`, `balance`, `remarks` | current/paid, zero balance, no derogatory remark, yet a DOFD populated | `potential_anomaly` / `suspicious` | CFPB advisory opinion; **12 C.F.R. Part 1022, App. E** | same |
 | `DOFD.MOVED_LATER` | `dofd` across ≥2 stored snapshots, `remarks` | earliest DOFD ≠ current DOFD, later, with no new delinquency in the remarks | `potential_legal_issue` | authorities on the rule | same |
 
-**Not detected today:** a closing date before the opening date; a payment dated
+| **Missing DOFD, where relevant** *(added 2026-09-07)* | `status`, `subtype`, per-bureau `status`/`paymentStatus`/`remarks`/`paymentHistory`, `dofd` | Account is a collection, OR reports derogatory wording, OR carries any late mark in the grid — **and** no bureau reports a DOFD | **`apparent`** with `needs`: "whether the bureau omits the date or the import did not capture it". On an account with nothing delinquent: `not_an_error`, recorded so the check is visibly considered | — (condition `data_missing_or_deficient`) | `condition-detector.test.ts` (7 new tests) |
+
+`dofd` is deliberately **not** added to `EXPECTED_FIELDS`: on an account that
+has never been late there is no delinquency to date, and making it universally
+mandatory would flag every healthy tradeline. It is raised as APPARENT rather
+than confirmed because "the bureau omits it" and "our import did not capture
+it" look identical from here — missing source data is a review task, never a
+reporting violation on its own.
+
+**Still not detected:** a closing date before the opening date; a payment dated
 before the account opened; any date later than the day the report was pulled; a
-closing date on an account still reported open; obsolescence — nothing anywhere
-computes the seven-year period from the DOFD, and `dofd` is **not** in
-`EXPECTED_FIELDS`, so a derogatory account with no DOFD at all is not even
-flagged as missing data.
+closing date on an account still reported open; obsolescence — nothing computes
+the seven-year period from the DOFD.
 
 ### 1.7 Ownership / ECOA
 
@@ -158,17 +183,17 @@ creditor and the collector.
 
 | Rule ID | Input fields required | Deterministic condition | Output / finding | Provenance captured | Tests |
 |---|---|---|---|---|---|
-| `analyzeInquiry` | `consumerRecognizesInquiry`, plus `hadCreditApplication`, `existingAccount`, `accountReview`, `collectionActivity`, `insurance`, `employment`, `writtenInstructions` | Decision tree over the **permissible purposes** in § 1681b | `PermissiblePurposeFinding` + classification + recommended route; returns "do not dispute" when a purpose is established | **15 U.S.C. § 1681b** | **NONE — `metro2-guardrails.ts` has no test file** |
+| `analyzeInquiry` | `consumerRecognizesInquiry`, plus `hadCreditApplication`, `existingAccount`, `accountReview`, `collectionActivity`, `insurance`, `employment`, `writtenInstructions` | Decision tree over the **permissible purposes** in § 1681b | `PermissiblePurposeFinding` + classification + recommended route; returns "do not dispute" when a purpose is established | **15 U.S.C. § 1681b** | `metro2-guardrails.test.ts` (38 tests, added 2026-09-07) |
 | Inquiry protection | `linkedCreditor` | An inquiry tied to an open account is protected from auto-selection | `linkedOpenAccount` on the classified item | — | classification tests |
 
 **Not detected today:** inquiry age. Nothing computes whether an inquiry is
 past the bureaus' twenty-four-month retention, and nothing checks an inquiry
 dated after the report was pulled.
 
-**Test gap:** `metro2-guardrails.ts` contains four decision functions —
-`analyzeInquiry`, `checkFcbaEligibility`, `evaluateTruthGate`,
-`evaluateBreachGuardrail` — and has **no test file at all**. Those are
-compliance guardrails; they are the last code that should be untested.
+**Test gap closed 2026-09-07.** All four decision functions now have tests —
+38 of them, written to prove the REFUSALS. No guardrail behaviour was changed.
+Two behaviours are documented in the tests rather than altered, and are listed
+in §4 below for a decision.
 
 ### 1.10 Public records
 
@@ -195,17 +220,21 @@ source-data gap as well as a missing-rule gap.
 | `single_bureau_only` | `records.length === 1` | one bureau reporting | **`apparent`** — single-bureau reporting is permitted and common | — | same |
 | `deleted_from_other_bureaus` | `deletedFromBureaus` | ≥1 bureau deleted it, others still report | **`apparent`** — one bureau's deletion does not bind another | — | same |
 | `BUREAU.MISSING_ON_ONE` | `item.bureaus` | fewer than three bureaus report it | `observed_difference`; explicitly *not* proof of unverifiability | authorities on the rule | `reporting-integrity-engine.test.ts` |
-| `BUREAU.VALUE_DIFFERS` | — | **CATALOGUED BUT NEVER EVALUATED** | — | authorities present, no detector | none |
+| `BUREAU.VALUE_DIFFERS` | — | **CATALOGUED, DECLARED UNREACHABLE** — see §5 | none produced | authorities present; `blockedBy` states why | `reporting-integrity-engine.test.ts` (6 structural tests) |
 | `detectAnomaly` | `field`, `values[]` per bureau, `hasSourceDocument`, `sourceDocumentContradictsReport`, `sameReportingPeriodConfirmed`, `consumerAssertedValue`, `isDebtCollector`, `consumerDisputedDebt`, `reportCommunicatesDispute` | Field-level: cross-bureau difference → potential Reg V issue; source document contradicting the report → evidence-supported inaccuracy; consumer assertion without a document → needs source document | `AnomalyResult` with classification + field verdict + evidence strength | Metro 2 field context from `METRO2_FIELD_ANALYSES` (14 fields) | `metro2-engine.test.ts` (16) |
 
-**Defect found in this inventory:** `BUREAU.VALUE_DIFFERS` sits in
-`INTEGRITY_RULES` with its authorities and route, and `reporting-integrity-
-engine.ts` never calls `ruleById("BUREAU.VALUE_DIFFERS")`. It cannot: that
-engine reads `RawReportItem`, which carries **one** value per field plus a list
-of bureau names — it has no per-bureau values to compare. The rule is
-catalogued and unreachable. This is *not* the same as the detector's
-`balance_inconsistent`, which does compare per-bureau values but produces a
-reason rather than an integrity finding with a route.
+**Handled 2026-09-07, not faked.** The rule keeps its authorities and now
+carries `blockedBy` saying exactly what is missing. `RULES_IN_USE` — the string
+that travels onto compliance output as the statement of what was applied — no
+longer advertises it; `RULES_NOT_YET_EVALUABLE` lists it with the reason. A
+structural test asserts that **every unblocked rule is actually reached by
+running code**, so a rule can never again sit in the catalogue reading as
+coverage. Verified by planting the regression: unblocking it makes the suite
+fail.
+
+The underlying cause is §5, and it is *not* the same as the detector's
+`balance_inconsistent` — that one does compare per-bureau values, but its input
+has no producer either.
 
 ### 1.12 Round-to-round comparison
 
@@ -244,20 +273,124 @@ complete end to end.
 
 ---
 
-## 2. What this inventory found, beyond the counting
+## 2. What the inventory found, and what was done about it
 
-Four things worth a decision, none of which needs the missing catalogue:
+Five corrections, all made 2026-09-07, none of which needed the missing
+catalogue.
 
-1. **`BUREAU.VALUE_DIFFERS` is catalogued and unreachable.** It has
-   authorities, a route and a remedy, and no engine can evaluate it, because
-   the engine that owns it reads a model with no per-bureau values.
-2. **`current_but_late_mark` is a dead reason.** Declared in the union, never
-   produced.
-3. **`metro2-guardrails.ts` has no tests.** Four compliance decision functions,
-   including the § 1681b permissible-purpose analysis, entirely uncovered.
-4. **`dofd` is not in `EXPECTED_FIELDS`.** A derogatory account reporting no
-   delinquency date at all is not flagged as missing data — and the DOFD is the
-   single field that decides when the account must stop being reported.
+### 2.1 Section A now feeds the canonical flow — DONE
+
+Section A's rules ran inside `Metro2IdentityPanel` and their output was
+rendered and thrown away. Nothing could be saved to the client record, nothing
+could be dispositioned, and nothing downstream could act on an identity defect.
+
+`metro2/to-integrity-finding.ts` maps a `Metro2Finding` onto the
+`IntegrityFinding` the rest of CreditOps already speaks, and
+`useReportIntegrityFindings` folds Section A into the same list the integrity
+engine produces. One queue, one review gate, one table.
+
+The chain is preserved exactly, and nothing on it is automatic:
+
+```
+report + verified identity → Section A rules → finding
+  → saved to report_findings (human_review_required: true, disposition null)
+    → A PERSON DISPOSITIONS IT in SavedFindingsList
+      → only then a dispute round, a letter, a mailing
+```
+
+What deliberately does **not** cross into the pipeline:
+
+- **UNKNOWN.** "The facts needed were not reported" is not a finding about the
+  report. It stays visible in the panel, where a reviewer can go and find the
+  fact; it is never persisted as an allegation.
+- **NOT_AN_ERROR.** Recorded so nobody disputes correct reporting; not
+  something to save to a client's record.
+
+And what the adapter refuses to derive: `remedy` is never `delete` or `block`.
+Deletion is a remedy a person chooses on the evidence — deriving it from a
+rule's confidence is how "the name is wrong" becomes "delete the account".
+A `recipient` of "either" routes to the bureau, not to a direct furnisher
+letter, because the CRA route triggers the reinvestigation duty and reaches the
+furnisher anyway.
+
+No extra network round trip: the identity row is fetched under the query key
+`Metro2IdentitySection` already uses, so the two screens share one request, and
+it runs in parallel with the items query rather than after it.
+
+*20 tests in `metro2/to-integrity-finding.test.ts`.*
+
+### 2.2 Guardrail test coverage — DONE
+
+`metro2-guardrails.ts` had no test file. It now has 38 tests, written to prove
+the refusals rather than the permissions, covering every path of all four
+functions: positive, negative, unknown, missing evidence, consumer attestation,
+and each legitimate permissible purpose.
+
+The invariants asserted repeatedly:
+
+- **UNKNOWN never becomes a violation.** "The consumer does not recall this
+  inquiry" produces `needs-investigation` with classification
+  `observed-difference` — never `potential-fcra-reg-v-issue`.
+- **A permissible purpose always wins**, including over uncertainty: an unsure
+  consumer plus an insurance purpose is still "do not dispute".
+- **Nothing is ever classified `established-violation`**, on any path of any
+  function.
+- **The identity-theft pathway needs all three facts** — not recognised,
+  confirmed unauthorised, report filed — asserted exhaustively over every
+  combination of its four inputs.
+
+**No guardrail behaviour was changed.** Two behaviours are documented in the
+tests rather than altered; both are listed in §4 for a decision.
+
+### 2.3 Missing DOFD, where it is relevant — DONE
+
+`dofd` was absent from the expected-field analysis. It is now checked, and
+deliberately **not** by adding it to `EXPECTED_FIELDS`: an account that has
+never been late has no delinquency to date, and universal enforcement would
+flag every healthy tradeline.
+
+Relevance is decided by the account's own reporting — a collection, or
+derogatory wording in the status, subtype, payment status or remarks, or any
+late mark in the payment grid. Where it is relevant and no bureau reports one,
+the finding is **APPARENT**, not confirmed, with the reason stated plainly:
+"the bureau omits it" and "our import did not capture it" look identical from
+here. Missing source data is a review task, never a reporting violation.
+
+Where it is not relevant, a `not_an_error` is recorded, so a reviewer can see
+the check was considered rather than skipped.
+
+**No obsolescence rule was added.** Computing the seven-year period needs the
+report's own pull date carried alongside the item, which the detector's input
+does not have, and it needs a rule the catalogue has not yet supplied.
+
+*7 tests in `condition-detector.test.ts`.*
+
+### 2.4 `current_but_late_mark` — REMOVED as a duplicate
+
+Declared in the `ReasonCondition` union, produced by no code path. It named
+exactly what `paid_status_but_late_marks` already detects — that rule matches
+"current" and "pays as agreed" as well as "paid" — so it was a duplicate reason
+semantic as well as a dead one.
+
+Checked before removing: no catalogue reason required it, no reason-selector
+path read it, no database enum or check constraint carried it, no test named
+it. A comment is left at the site so it is not re-added without reading why.
+
+### 2.5 `BUREAU.VALUE_DIFFERS` — DECLARED UNREACHABLE, not faked
+
+See §5 for the model gap and the change that would close it. What was done
+here is to stop the catalogue reading as coverage:
+
+- the rule keeps its authorities and gains `blockedBy`, stating exactly what is
+  missing;
+- `RULES_IN_USE` — the string that travels onto compliance output as the
+  statement of what was applied — excludes blocked rules;
+- `RULES_NOT_YET_EVALUABLE` lists them with the reason;
+- **a structural test asserts that every unblocked rule is reached by running
+  code**, so this cannot recur silently.
+
+The regression was planted to prove the test works: removing `blockedBy` makes
+the suite fail.
 
 ---
 
@@ -334,11 +467,107 @@ is not being reported as complete.
 
 ---
 
-## 4. What is needed to close this
+## 4. Two guardrail behaviours documented rather than changed
+
+Both are asserted in `metro2-guardrails.test.ts` so they cannot drift, and
+neither was altered — the instruction was not to change guardrail behaviour to
+make a test pass unless a real bug is demonstrated. Neither is a bug; both are
+judgment calls that belong to Dee.
+
+**A payment confirmation outranks the consumer's own admission of lateness.**
+`checkFcbaEligibility` guards with `consumerWasActuallyLate &&
+!hasPaymentConfirmation`, so a consumer who says they were late but holds proof
+of a payment that was not credited still reaches `eligible: true`. That is
+defensible — a real mis-credited payment in one month does not stop being one
+because the consumer was late in another — and it is clearly deliberate, given
+the function's stated purpose is to refuse "I was late but want it removed".
+Left as it is.
+
+**One breach-guardrail message is unhelpful, though the gate is right.** With
+the unauthorised transaction confirmed but no identity theft report on file,
+`evaluateBreachGuardrail` correctly returns `canUseIdentityTheftPathway:
+false` — and says "No identity-theft pathway trigger detected" rather than
+naming the missing report. The safety-critical output is correct; the wording
+could send an operator away from a pathway that one document would open. A
+one-line message change would fix it, and it is a change to guardrail
+behaviour, so it waits for a decision.
+
+## 5. The model gap: per-bureau values (BUREAU.VALUE_DIFFERS and more)
+
+**Classification: SOURCE-DATA / MODEL GAP.** Confirmed by inspection, not
+assumed.
+
+### 5.1 What is actually missing
+
+| Layer | What it holds | Per-bureau? |
+|---|---|---|
+| PDF parser, `firstColumn()` | Splits tri-merge columns, **keeps `columns[0]`**, returns a `differs` flag | **Reads them, then discards them** |
+| `report_items` table | One `status`, one `balance_cents`, one `dofd`, one `open_date`, plus `bureaus text[]` and a `raw jsonb` that `createCreditReport` writes as `null` | No |
+| `RawReportItem` | The same one-value shape, plus `bureaus: Bureau[]` | No |
+| `BureauRecord` (`condition-detector`) | Exactly the per-bureau shape both engines want | **Constructed only in tests** |
+
+So the values exist for a moment during parsing and are thrown away before
+storage. The parser even *knows* the columns differ — `differs` lowers parse
+confidence to `review` and adds the remark "Bureau columns differ — check each
+bureau's figure." What is lost is **which bureau said what**, and that is
+precisely what the rule needs to state a finding.
+
+### 5.2 What the gap actually costs
+
+Not one rule. Three things, all the same cause:
+
+1. `BUREAU.VALUE_DIFFERS` — catalogued with authorities, unreachable.
+2. Six of the condition detector's cross-bureau conditions —
+   `balance_inconsistent`, `status_inconsistent`, `dates_inconsistent`,
+   `payment_history_inconsistent`, `single_bureau_only`,
+   `deleted_from_other_bureaus`.
+3. **`detectConditions` has no product caller at all** — 31 conditions and the
+   whole reason-selection path behind one input nothing can build.
+
+### 5.3 The smallest change that would close it
+
+Three steps, each shippable on its own, in this order. **This is a change to
+the canonical report model and is written down as a proposal, not started.**
+
+**Step 1 — stop discarding what the parser already reads.** `firstColumn()`
+returns `{ value, differs }`; it would return the columns too. The block
+already knows which bureaus it names (`bureausIn`), so columns can be paired
+with bureaus **only when the header names exactly as many bureaus as there are
+columns**. Otherwise the columns are kept unattributed.
+
+  > This is the constraint that decides the whole design. Pairing a column to a
+  > bureau by position, without a header that says so, is inferring identity
+  > from layout — the same mistake as inferring ownership from a display name
+  > (project rule 4). An unattributed set of columns still supports "the
+  > bureaus report different values", which the parser already says. It does
+  > **not** support "Equifax says $1,400 and TransUnion says $0", and that
+  > sentence must not be produced until the pairing is certain.
+
+**Step 2 — one child table.** `report_item_bureau_values`: one row per item per
+bureau, the columns of `BureauRecord`, `unique (report_item_id, bureau)`,
+`on delete cascade`, RLS inherited from `report_items` through the existing
+`credit_report_visible` chain, append-only like its parent. No new permission
+system, no new tenancy column — the parent already carries both.
+
+**Step 3 — let the engines read it.** `RawReportItem` gains an optional
+`records?: BureauRecord[]`; `evaluateItem` evaluates `BUREAU.VALUE_DIFFERS`
+when it is present and skips it when it is not; `detectConditions` finally has
+a producer, and its 31 conditions become reachable.
+
+**What must not be done meanwhile:** generate a cross-bureau finding from one
+value plus a list of bureau names. Three bureau names on an item say who
+reports it, not what each of them reports. A test asserts this.
+
+## 6. What is needed to close the catalogue work
 
 **From Dee:** the BES Metro 2 defect catalogue file itself — the document with
 Appendix 1 and sections through Q. Re-uploading it to this session is enough;
 it should then be committed so this cannot recur.
+
+Draft rule sections written before that instruction arrived are parked on the
+local branch `metro2-drafts-unreconciled`, unmerged and imported by nothing.
+They are candidate material to check against the catalogue, never to merge on
+the strength of already existing.
 
 **Then, before any rule is written:** each catalogue item is classified against
 sections 1.1–1.13 above as ALREADY IMPLEMENTED + VERIFIED / IMPLEMENTED BUT

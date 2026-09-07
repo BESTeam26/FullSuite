@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evaluateChronology, evaluateItem, evaluateReports, toDollars, toYearMonth, type SnapshotItem } from "./reporting-integrity-engine";
+import { RULES_IN_USE, RULES_NOT_YET_EVALUABLE, evaluateChronology, evaluateItem, evaluateReports, toDollars, toYearMonth, type SnapshotItem } from "./reporting-integrity-engine";
 import { INTEGRITY_RULES } from "./reporting-integrity-rules";
 
 const item = (over: Partial<SnapshotItem>): SnapshotItem => ({
@@ -95,5 +95,68 @@ describe("evaluateReports report id", () => {
     ]);
     expect(out.length).toBeGreaterThan(0);
     expect(out.every((f) => f.reportId === "r-new")).toBe(true);
+  });
+});
+
+/**
+ * The catalogue must not advertise coverage the engine does not have.
+ *
+ * `BUREAU.VALUE_DIFFERS` sat here for two days with its authorities, its route
+ * and its remedy filled in, and no code path could ever reach it — the stored
+ * report holds one value per field, so there was nothing per-bureau to
+ * compare. It read as coverage. This suite makes that impossible to repeat:
+ * a rule is either reachable, or it says why it is not.
+ */
+describe("every catalogued rule is either reachable or declared unreachable", () => {
+  /* Inputs chosen so that between them they trigger every rule the engine
+     runs. If a rule is added and nothing here reaches it, the test fails and
+     the author has to either exercise it or mark it blocked. */
+  const reachable = new Set(
+    [
+      ...evaluateItem(item({ status: "Paid in full", balance: "$500" })),
+      ...evaluateItem(item({ status: "Charge-Off", balance: "$1,200", dofd: "03/2021", openDate: "06/2022" })),
+      ...evaluateItem(item({ status: "Current", balance: "$0", dofd: "01/2023" })),
+      ...evaluateItem(item({ status: "Current", balance: "$0", remarks: "30 days late 03/2024" })),
+      ...evaluateItem(item({ status: "Open", bureaus: ["EQ"] })),
+      ...evaluateChronology([
+        { reportId: "r1", pulledAt: "2025-01-01", items: [item({ dofd: "01/2020" })] },
+        { reportId: "r2", pulledAt: "2025-06-01", items: [] },
+        { reportId: "r3", pulledAt: "2026-01-01", items: [item({ dofd: "01/2023" })] },
+      ]),
+    ].map((f) => f.ruleId),
+  );
+
+  it("reaches every rule that RULES_IN_USE claims is applied", () => {
+    const claimed = RULES_IN_USE.map((s) => s.split("@")[0]);
+    const unreached = claimed.filter((id) => !reachable.has(id));
+    expect(unreached).toEqual([]);
+  });
+
+  it("excludes blocked rules from what it claims to apply", () => {
+    const claimed = RULES_IN_USE.map((s) => s.split("@")[0]);
+    for (const r of RULES_NOT_YET_EVALUABLE) expect(claimed).not.toContain(r.id);
+  });
+
+  it("makes every blocked rule say why, in words a reader can act on", () => {
+    for (const r of RULES_NOT_YET_EVALUABLE) {
+      expect(r.blockedBy.length).toBeGreaterThan(20);
+    }
+  });
+
+  it("accounts for every rule in the catalogue exactly once", () => {
+    const claimed = RULES_IN_USE.map((s) => s.split("@")[0]);
+    const blocked = RULES_NOT_YET_EVALUABLE.map((r) => r.id);
+    expect([...claimed, ...blocked].sort()).toEqual(INTEGRITY_RULES.map((r) => r.id).sort());
+  });
+
+  it("still records BUREAU.VALUE_DIFFERS as blocked rather than quietly dropping it", () => {
+    /* Deleting the rule would lose its authorities and the fact that we know
+       the gap exists. It stays catalogued, and stays honest. */
+    expect(RULES_NOT_YET_EVALUABLE.map((r) => r.id)).toContain("BUREAU.VALUE_DIFFERS");
+  });
+
+  it("never fabricates a cross-bureau finding from one value and a list of bureau names", () => {
+    const out = evaluateItem(item({ status: "Charge-Off", balance: "$900", bureaus: ["EQ", "EX", "TU"] }));
+    expect(out.some((f) => f.ruleId === "BUREAU.VALUE_DIFFERS")).toBe(false);
   });
 });

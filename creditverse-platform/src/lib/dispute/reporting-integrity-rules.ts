@@ -42,6 +42,16 @@ export interface IntegrityRule {
   authorities: Authority[];
   /** Which fields of the report item the rule reads. */
   fields: string[];
+  /**
+   * Set when the rule is CATALOGUED but the engine cannot evaluate it yet, and
+   * why — never as an excuse, always as a pointer to what is missing.
+   *
+   * A catalogue that lists rules nobody runs is worse than a shorter one: it
+   * reads as coverage. `RULES_IN_USE` therefore excludes anything blocked, and
+   * a structural test in the engine's suite asserts that every UNBLOCKED rule
+   * is actually reached by code.
+   */
+  blockedBy?: string;
 }
 
 export const RULES_CATALOGUE_VERSION = "2026.09.05";
@@ -108,6 +118,16 @@ export const INTEGRITY_RULES: readonly IntegrityRule[] = [
     classification: "observed_difference", verdict: "needs_source_document", humanReviewRequired: false, route: "none", remedy: "investigate_first",
     fields: ["balance", "status", "dofd", "open_date"],
     authorities: [{ level: "agency_guidance", citation: "CFPB consumer guidance", note: "the three nationwide CRAs may hold different information; a difference is a question, not proof of inaccuracy" }],
+    /* The canonical stored report holds ONE value per field plus a list of
+       bureau names (`report_items.bureaus`), so there is nothing per-bureau to
+       compare. The PDF parser does read the tri-merge columns and knows they
+       differ — `firstColumn()` returns a `differs` flag, which lowers parse
+       confidence and adds a remark — but it keeps only the first column, so
+       which bureau said what is lost before storage. Closing this needs the
+       parser to keep the columns, a child table to store them, and the engine
+       to read them: written up in ENGINE_INVENTORY.md §5. Deliberately NOT
+       faked from one value plus a list of bureau names. */
+    blockedBy: "report_items stores one value per field; per-bureau values are discarded by the parser before storage",
   },
   {
     id: "BUREAU.MISSING_ON_ONE", version: 1, effectiveFrom: "2026-09-05",

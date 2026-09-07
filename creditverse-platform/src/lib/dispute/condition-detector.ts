@@ -310,6 +310,35 @@ export function detectConditions(input: DetectionInput): DetectionResult {
       `Blank on this collection, as expected: ${expectedBlanks.map((f) => FIELD_LABELS[f]).join(", ")}.`);
   }
 
+  /* ---- The delinquency date, which is expected only sometimes. ----
+     DOFD is deliberately NOT in EXPECTED_FIELDS. On an account that has never
+     been late there is no delinquency to date, and demanding one everywhere
+     would flag every healthy tradeline on the file.
+
+     Where the account's OWN reporting says it went bad, the absence matters
+     more than any other blank: § 1681c(a)(4) runs the reporting period from
+     that date, so without it nothing determines when the account must come
+     off. It is raised as APPARENT rather than confirmed, because "the bureau
+     does not report it" and "our import did not capture it" are different
+     problems with the same appearance, and only a person looking at the report
+     can tell them apart. Missing source data is a review task, never a
+     reporting violation on its own. */
+  const derogatoryText = `${norm(item.status)} ${norm(item.subtype)} ${records.map((r) => `${norm(r.status)} ${norm(r.paymentStatus)} ${norm(r.remarks)}`).join(" ")}`;
+  const derogatoryNow = /charge|collection|repossess|foreclos|default|delinq|past due|write[- ]?off|settled/.test(derogatoryText);
+  const everLate = records.some((r) => (r.paymentHistory ?? []).some((m) => m && LATE_CODES.has(m)));
+  const dofdIsRelevant = isCollection || derogatoryNow || everLate;
+  const dofdReported = records.some((r) => r.dofd !== undefined && r.dofd !== null && r.dofd !== "");
+
+  if (dofdIsRelevant && !dofdReported) {
+    add("data_missing_or_deficient", "apparent",
+      "No date of first delinquency is reported by any bureau on an account reported as delinquent. That date is what determines when the account must stop being reported.",
+      "Whether the bureau omits the date or the import did not capture it — read it off the report before anything is disputed.");
+  }
+  if (!dofdIsRelevant) {
+    add("data_missing_or_deficient", "not_an_error",
+      "No date of first delinquency, and none is expected — nothing on this account is reported as delinquent.");
+  }
+
   /* ---- Account shape. Facts, not findings. ---- */
   const sub = norm(item.subtype);
   if (sub.includes("auto")) add("auto_loan", "confirmed", "Auto loan.");

@@ -70,8 +70,12 @@ export type ReasonCondition =
   | "charge_off_with_balance"
   | "collection_with_past_due"
   | "discharged_with_balance"
-  | "current_but_late_mark"
   | "severe_late_without_prior_30"
+  /* `current_but_late_mark` was removed 2026-09-07. It named exactly what
+     `paid_status_but_late_marks` already detects — that detector matches
+     "current" and "pays as agreed" as well as "paid" — and no code path ever
+     produced it, so it was a reason that could never fire. Two names for one
+     condition is how a letter ends up citing the same fact twice. */
   | "dola_before_open_date"
   | "data_missing_or_deficient"
   | "balance_above_high_credit"
