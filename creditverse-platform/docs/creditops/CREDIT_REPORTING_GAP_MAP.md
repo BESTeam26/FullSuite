@@ -96,6 +96,27 @@ already better than most. Missing: `cra_furnisher_notice_at`,
 `procedure_request_at`, `reinsertion_detected_at`, `extension_basis`, and a
 recorded triggering *evidence* reference per timer.
 
+### G-13 Organization dispute SOP configuration — **new, 2026-09-07**
+Rulebook §0.5 splits every rule into a BES platform safety rule (hard, global)
+and an Organization SOP rule (configurable, per-organization). **Nothing
+configurable exists.** Today a requirement is either hardcoded for everyone or
+absent for everyone.
+
+The pattern already exists to copy: `organization_automations`,
+`organization_hub_modules`, `organization_role_access` and
+`organization_kpi_settings` are all per-organization configuration rows with a
+writer that audits the change. A `organization_dispute_sop` table in the same
+shape would carry, per Organization: evidence required (per letter kind or
+claim type), attestation required, second reviewer required, prior-result
+review required before a repeat dispute, and which claim types route to legal
+review.
+
+**Default for every flag: off.** An Organization that configures nothing gets
+guidance and no gates, which is the doctrine.
+
+*Needs schema (S-9). Nothing depends on it — the L-01 fix ships without it,
+because removing a false instruction needs no configuration.*
+
 ### G-12 Evidence manifest
 A dispute package cannot say which document supported which assertion. Needs
 document hashes and revisions — which is also reconciliation delta R3.
@@ -122,8 +143,12 @@ Ordered by value.
 8. **G-06 — thread `dispute_origin` into the domain layer.**
 9. **G-03 (findings half) — carry `source_type` on a finding**; `evidence` is
    already `jsonb`.
-10. **Testing doctrine (§21)** — the eleven permanent invariant tests. Four
-    exist; seven can be written today against current behaviour.
+10. **Testing doctrine (§21)** — the sixteen permanent invariant tests. Four
+    exist; the rest can be written today against current behaviour.
+11. **L-01 and the `evaluateTruthGate` conflation** — remove the "Required"
+    claim, add the four operator states, and stop treating "does not recognize
+    the account" as an identity-theft claim. Text and TypeScript only; no
+    configuration and no schema needed.
 
 ## 4. What requires schema
 
@@ -137,6 +162,7 @@ Ordered by value.
 | S-6 | Timeline events beyond `dispute_timers` | G-11 |
 | S-7 | Outcome source + `not_observed` on `client_round_outcomes` | G-08 |
 | S-8 | Document checksum / revision (reconciliation R3) | G-12 |
+| S-9 | `organization_dispute_sop` — per-organization requirements, all defaulting off | G-13 |
 
 **Sequence:** S-1 → S-2 → S-4 → S-3 → S-5/S-6/S-7/S-8. S-1 first because every
 later one is more useful once a fact has a bureau attached to it.

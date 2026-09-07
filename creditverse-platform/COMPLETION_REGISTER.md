@@ -304,6 +304,15 @@ Documentation milestone **DONE**; implementation not started, awaiting review.
 identity theft, and the FTC warns specifically against false identity-theft
 reports as a credit-repair tactic. **Fix this before any architectural delta.**
 
+**Doctrine revised 2026-09-07 (Dee).** BES guides; the Organization decides its
+SOP; the operator remains responsible for the facts. Rulebook §0.5 now splits
+every rule into a **platform safety rule** (hard and global — BES never
+fabricates a fact or asserts a conclusion nobody established) and an
+**Organization SOP rule** (configurable, default off — evidence, attestations,
+approvals). **Evidence upload is optional by default**; evidence legitimately
+lives outside BES. The L-01 fix is therefore neutral education plus four
+recorded operator states, not a stricter gate.
+
 **Two round engines are live with opposite doctrine.** `rounds-and-layers.ts`
 (7-layer pressure ladder, TRAP round 1, direct disputes wrongly citing
 § 1681s-2(b), MOV over-claim, ClickUp/LetterStream statuses) versus
@@ -315,7 +324,9 @@ The second is correct; the first is retired, not reconciled.
 | CR-1 | Rulebook, Source Register, Legacy Crosswalk, Gap Map | **DONE 2026-09-07** |
 | CR-2 | Per-bureau observations | **PROPOSAL** — approval required |
 | CR-3 | Chronology layer | **PROPOSAL** — approval required |
-| CR-4 | Remove L-01/L-02/L-03/L-05; retire `rounds-and-layers.ts`; renames | **READY — no schema needed** |
+| CR-4a | **L-01 only** — remove the "Required" claim, add the four operator states, fix the `evaluateTruthGate` conflation of "does not recognize" with an identity-theft claim | **READY — approach approved 2026-09-07, no schema needed** |
+| CR-4b | L-02/L-03/L-05; retire `rounds-and-layers.ts`; renames | **READY — no schema needed.** Deliberately not bundled with CR-4a |
+| CR-12 | `organization_dispute_sop` — per-organization requirements, all defaulting off (gap G-13, schema S-9) | **PROPOSAL** — nothing depends on it; CR-4a ships without it |
 | CR-5 | Finding taxonomy, evidence strength, confidence axes as domain types | **READY — no schema needed** |
 | CR-6 | Truth gate, party routing, `DISPUTE_ORIGIN` threading | **READY — no schema needed** |
 | CR-7 | Section A reconciliation against the new taxonomy | Pending CR-5 |

@@ -62,6 +62,75 @@ consumer."
 
 ---
 
+## 0.5 Two kinds of rule, and they are not interchangeable
+
+**Revised 2026-09-07 on Dee's correction.** The first draft of this Rulebook
+read as an evidence-gating system. That was wrong, and it would have made BES
+dictate how every credit repair company operates.
+
+> **BES guides. The Organization decides its SOP. The operator remains
+> responsible for the facts.**
+
+| | **Platform safety rule** | **Organization SOP rule** |
+|---|---|---|
+| Constrains | **What BES itself says and claims** | **What a company requires of its own staff** |
+| Set by | This Rulebook. Not configurable | Each Organization, in its own settings |
+| Enforced | Hard, in the database and the domain | Per-organization, and only where that Organization turns it on |
+| Example | BES never asserts identity theft nobody confirmed | *This* company requires an uploaded FTC report before an identity-theft letter |
+| If violated | A bug, and a serious one | A company's own process question |
+
+### Evidence lives outside BES, and that is normal
+
+A phone call, a client confirming something on a Zoom, a document in the
+company's own drive, a note from a previous round, a paralegal's read of a
+statement — all of these are real evidence that BES will never see. **Evidence
+upload is optional by default.** An operator may proceed on the consumer's
+confirmation or on their company's process.
+
+What BES does instead of blocking:
+
+- **Educate.** Say what the account type does and does not establish.
+- **Warn.** Say what a claim will rest on if it is made now.
+- **Suggest.** *"Consider verifying…"*, *"Your organization's SOP may
+  require…"*
+- **Record what the operator selected or confirmed**, wherever that is
+  practical, without demanding a file.
+
+### What is still hard, and always will be
+
+The hard guardrails are around **the software fabricating facts**, never around
+a human following a legitimate process:
+
+1. BES never asserts identity theft, fraud, a legal violation, willfulness, or
+   any other factual conclusion that nobody established.
+2. BES never infers a consumer's factual position from the report.
+3. BES never puts a claim in the consumer's voice that the consumer did not
+   make.
+4. BES never records a fact with a stronger provenance than it actually has.
+
+An operator saying *"the consumer confirms this account is not theirs"* is
+**not** BES fabricating a fact. It is BES recording a fact the operator
+established, attributed to the operator, and it is a legitimate basis to
+proceed.
+
+### Whose voice a claim is in
+
+This is the distinction that makes the rest of the Rulebook work.
+
+| The record says | The letter may say | Needs a document? |
+|---|---|---|
+| Nothing | Nothing | — |
+| BES observed a difference | *"Your records differ from…"* | No |
+| The consumer stated a fact | *"I did not open this account"* — **the consumer's own statement** | **No** |
+| A document establishes a fact | *"The enclosed statement shows a zero balance on 3 March"* | Yes, because the letter says there is one |
+
+A consumer's statement **is** an established fact — the consumer established it
+by making it. What must never happen is BES turning that statement into
+*"this account is fraudulent"* in its own voice, or claiming an enclosure that
+does not exist.
+
+---
+
 ## 1. Locked truths
 
 Each is binding on every rule, template, screen and letter. None may be
@@ -102,6 +171,13 @@ otherwise produce a stronger-sounding letter.
     the investigation file.** It concerns a description of the procedure.
 19. **§ 1666 is not a universal late-payment removal statute.**
 20. **Whole-account deletion is not the universal statutory remedy.**
+21. **BES does not require evidence uploads to let work proceed.** Evidence
+    lives outside BES as often as inside it. Only an Organization's own
+    configured SOP may make a document mandatory, and only for that
+    Organization. *(Added 2026-09-07 — §0.5.)*
+22. **A consumer's recorded statement is a legitimate basis for a dispute.**
+    BES carries it in the consumer's voice, attributed and dated, and never
+    upgrades it into BES's own factual conclusion.
 
 ---
 
@@ -163,12 +239,18 @@ reconciliation all proceed.
 
 Replaces all loose "violation detected" language.
 
-| Level | Meaning | May a letter assert it? |
+**These levels govern what BES CLAIMS, not what an operator may do.** A finding
+at `NEEDS_SOURCE_EVIDENCE` does not block the workflow; it means BES will not
+state that fact as established in its own voice. The operator may still record
+the consumer's confirmation and proceed under their organization's SOP — the
+letter then carries the claim as *the consumer's statement*, which it is.
+
+| Level | Meaning | May BES state it as established? |
 |---|---|---|
 | `OBSERVED_REPORTING_DIFFERENCE` | Two sources differ; comparability unestablished | No — investigation only |
 | `POTENTIAL_DATA_INTEGRITY_ANOMALY` | Values are internally implausible together | No — question only |
-| `NEEDS_SOURCE_EVIDENCE` | The fact cannot be settled without a document | No |
-| `CONSUMER_ATTESTED_DISCREPANCY` | The consumer has signed a specific factual statement | Yes, **as the consumer's statement**, never as proven fact |
+| `NEEDS_SOURCE_EVIDENCE` | BES cannot settle the fact from the report alone | No — but the operator may settle it outside BES and record what they confirmed |
+| `CONSUMER_ATTESTED_DISCREPANCY` | The consumer has stated a specific fact | Yes, **as the consumer's statement**, never as independently proven. This is a complete and legitimate basis for a dispute |
 | `DOCUMENT_SUPPORTED_INACCURACY` | A document contradicts the reported value for a comparable period | Yes |
 | `POTENTIAL_LEGAL_COMPLIANCE_ISSUE` | Facts may engage a duty; route and party identified | As a request to investigate — never as an accusation |
 | `LEGAL_REVIEW_REQUIRED` | Complex or jurisdictional legal question | No — routes to a human |
@@ -524,42 +606,113 @@ If not, **do not cite FCBA**. It is not a late-payment removal tool.
 
 ---
 
-## 15. Identity-theft truth gate — hard safety rule
+## 15. Identity theft — a platform safety rule about BES's voice
 
-**Never:** breach exposure → negative account → identity theft.
+**The hard rule, and the only hard rule here:** BES never concludes identity
+theft. Not from breach exposure, not from an account type, not from a
+collection, not from a consumer failing to recognise something, and never from
+a model's inference.
 
 ```
-breach exposure
-  → ask the consumer
-    → is the account recognized?
-      → no / unsure
-        → investigate
-          → does the consumer TRUTHFULLY confirm an unauthorized transaction?
-            → collect the required evidence and attestation
-              → evaluate the statutory identity-theft route
+NEVER:  breach exposure → negative account → identity theft
+NEVER:  third-party collection → identity theft
+NEVER:  "consumer does not recognise it" → identity theft
 ```
 
-An identity-theft allegation requires the consumer's factual confirmation and
-the required documentation. **AI may never infer identity theft.**
+**What BES does instead: it asks, it educates, and it records the answer.**
+
+On a third-party collection, BES says:
+
+> This account type alone does not establish identity theft. If the consumer
+> confirms the account resulted from identity theft, follow your
+> organization's identity-theft dispute SOP.
+
+and offers the operator these states:
+
+| Operator state | What BES records | What BES then does |
+|---|---|---|
+| **Consumer confirms identity theft** | The consumer's confirmation, who recorded it, when | Explains the § 1681c-2 route and IdentityTheft.gov as **education**; surfaces the organization's own SOP if one is configured |
+| **Consumer does not recognize account** | Exactly that, and nothing more | Suggests verification steps. **Does not treat this as an identity-theft claim** |
+| **Account is recognized** | Exactly that | Routes to ordinary factual dispute analysis |
+| **Needs further review** | Exactly that | Leaves it in the review queue |
+
+**No file upload is required at any point.** The consumer's confirmation is
+recorded as what it is — a statement by the consumer, attributed and dated.
+
+### Not recognising an account is not an identity-theft claim
+
+These are different answers and BES must never collapse them. A consumer who
+does not recognise a tradeline may be looking at a creditor's trading name, a
+purchased debt, an old account, or a genuine error — and only sometimes at
+fraud. Demanding an identity-theft certification from someone who merely said
+"I don't recognise this" both misstates what they said and pushes them toward a
+claim they did not make.
+
+> **Implementation note.** `metro2-guardrails.ts` `evaluateTruthGate` currently
+> blocks whenever `consumerRecognizesAccount === "no"` and no identity-theft
+> certification is present — conflating the two states above.
+> `evaluateBreachGuardrail` in the same file already separates them correctly.
+> Recorded here; not changed, per the documentation-only instruction.
+
+### Where an organization may add its own requirement
+
+An Organization may configure that **its** staff must attach an FTC report, a
+police report or a signed affidavit before an identity-theft letter is
+approved. That is its SOP, it is configurable, and BES enforces it for that
+organization only. **BES does not impose it globally.**
 
 ---
 
-## 16. Letter truth gate
+## 16. Letter basis — what BES needs, and what it merely asks
 
-Before a factual dispute letter is generated, the record must answer:
+A letter has to say something specific to be worth sending. BES needs enough to
+draft without inventing. It does **not** need a document.
 
-1. Does the consumer recognize the account?
-2. Which specific field or information is disputed?
-3. What does the consumer say is accurate?
-4. Why?
-5. What supporting evidence exists?
-6. What reporting period?
-7. Which bureau or recipient?
-8. What remedy is being requested?
-9. Which legal route actually applies?
+### Required, because a letter cannot be written without them
 
-Sensitive claims require stronger attestation. AI may draft **only** from those
-approved facts. No invented narratives.
+These are not compliance gates. They are the sentence itself — without them
+there is no letter, only a complaint about an account in general, which is the
+kind of dispute that gets dismissed as frivolous.
+
+1. **Which specific field or information is disputed**
+2. **What the consumer says is accurate**
+3. **Why**
+4. **Which bureau or recipient**
+5. **What remedy is being requested**
+6. **Which legal route actually applies**
+
+All six can be satisfied by the operator recording what the consumer told them.
+**None requires an upload.**
+
+### Asked, recorded, and never blocking
+
+- Does the consumer recognize the account?
+- What reporting period?
+- What supporting evidence exists, and **where does it live** — in BES, in the
+  company's own system, or with the consumer?
+
+BES records the answer, including *"held outside BES"*. It does not demand the
+file.
+
+### The one thing a letter may never do
+
+**A letter may not describe an enclosure that is not enclosed.** *"The enclosed
+statement shows…"* is a claim about a document, and BES will not write it
+unless the document is attached. *"I paid this account in full in March"* is
+the consumer speaking and needs nothing attached.
+
+That is the whole of the hard rule: not "prove it before you dispute", but
+"don't say there's a document when there isn't one".
+
+AI may draft **only** from the facts the operator recorded. No invented
+narratives, no facts the consumer did not give.
+
+### Where an organization may add its own requirement
+
+An Organization may require, for its own staff: evidence attached, a manager's
+approval, a signed attestation, a note recorded, or a second reviewer — per
+letter kind, per claim type, or across the board. Configurable, enforced for
+that organization, **never imposed by BES globally**.
 
 ### Letter language model — three layers, in order
 
@@ -580,9 +733,11 @@ FCRA REMEDY
 
 Never: *"Violation detected. Delete permanently."*
 
-### Evidence manifest
+### Evidence manifest — a record, not a requirement
 
-Every dispute package preserves: exact disputed field · reported value ·
+Where a fact came from is recorded whether or not a file exists. "Consumer
+confirmed by phone, 7 September, recorded by J. Rivera" is a complete and valid
+entry. Every dispute package preserves: exact disputed field · reported value ·
 claimed correct value · report/bureau/date · basis · consumer attestation ·
 supporting document IDs · document hashes and revisions · evidence dates ·
 previous dispute · previous result · new evidence · recipient · legal route ·
@@ -650,30 +805,45 @@ integration.
 
 ---
 
-## 20. QA checklist — minimum, every dispute
+## 20. QA checklist
 
-- [ ] Source report exists
-- [ ] Correct consumer
-- [ ] Correct account
-- [ ] Correct bureau
-- [ ] Exact field identified
-- [ ] Reported value verified
-- [ ] Reporting period identified
-- [ ] Source type / provenance known
-- [ ] Raw Metro 2 status accurately represented
-- [ ] Consumer's claimed fact recorded
-- [ ] Evidence actually supports the claimed fact
-- [ ] Format difference not treated as a substantive error
-- [ ] Cross-bureau difference not treated as proof
+Split by §0.5, because the two halves are enforced differently.
+
+### Platform safety — BES checks these itself, and they do not block the operator
+
+Each is a statement about what BES may say. A failure here is a bug in BES, not
+a task for the operator.
+
+- [ ] Raw Metro 2 status accurately represented — a consumer display is never
+      recorded as raw Metro 2
+- [ ] Format difference not presented as a substantive error
+- [ ] Cross-bureau difference not presented as proof
 - [ ] Legal duty assigned to the correct actor
-- [ ] Dispute origin considered
-- [ ] Remedy matches the fact and the law
+- [ ] Remedy follows the finding; `DELETE_ITEM` not defaulted
 - [ ] No automatic willfulness
-- [ ] No fabricated identity theft
+- [ ] No identity theft BES concluded on its own
 - [ ] No unsupported permissible-purpose allegation
-- [ ] No blind repeat dispute
-- [ ] Consumer attested where required
-- [ ] Human or legal review performed where required
+- [ ] No enclosure described that is not attached
+- [ ] Nothing put in the consumer's voice that the consumer did not say
+
+### Draftability — without these there is no specific letter to send
+
+- [ ] Source report exists (or the item was entered manually and labelled so)
+- [ ] Correct consumer, account, bureau
+- [ ] Exact field identified
+- [ ] What the consumer says is accurate, and why
+- [ ] Recipient and requested remedy
+- [ ] Legal route
+
+### Organization SOP — configurable, off unless the Organization turns it on
+
+- [ ] Evidence attached
+- [ ] Reporting period identified
+- [ ] Source type / provenance recorded
+- [ ] Consumer attestation signed
+- [ ] Second reviewer or manager approval
+- [ ] Prior-round result reviewed before a repeat dispute
+- [ ] Legal review for the claim types this Organization routes that way
 
 ---
 
@@ -698,6 +868,15 @@ wrong-recipient/legal-route protection.
 - an inquiry without written authorization is not automatically unlawful
 - delete is not the default remedy
 - willfulness cannot be declared automatically
+- **a third-party collection alone never produces an identity-theft finding,
+  an IdentityTheft.gov instruction, or an identity-theft letter**
+- **"consumer does not recognize the account" is never treated as an
+  identity-theft claim**
+- **no platform rule blocks a workflow for a missing evidence file** — only an
+  Organization's own configured SOP may do that
+- **a letter never describes an enclosure that is not attached**
+- **a consumer's recorded statement is a sufficient basis for a dispute**, and
+  the letter carries it in the consumer's voice
 
 ---
 
@@ -721,6 +900,22 @@ source data and a current licensed rule basis.
 
 Unless that conclusion is genuinely established through the appropriate review
 path.
+
+### How BES talks to an operator
+
+Guidance, never obstruction. BES is a colleague who knows the rules, not a
+gate.
+
+| Say | Not |
+|---|---|
+| "This account type alone does not establish identity theft." | "Identity theft detected." |
+| "Consider verifying the balance against a statement." | "Upload a statement to continue." |
+| "Your organization's SOP may require an attestation here." | "Attestation required." |
+| "If the consumer confirms this, follow your identity-theft SOP." | "File an FTC report." |
+| "Recorded: consumer confirms the account is not theirs." | "Fraud confirmed." |
+
+Every one of those left-hand phrasings leaves the decision with the person who
+actually spoke to the consumer.
 
 ---
 

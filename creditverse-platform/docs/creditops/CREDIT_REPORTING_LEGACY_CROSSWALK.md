@@ -35,6 +35,11 @@ Per instruction, **nothing was changed during this reconciliation.** L-01
 should be the first item fixed when implementation resumes, ahead of every
 architectural delta in this document.
 
+> **Approach revised 2026-09-07 on Dee's correction.** The fix is *not* to
+> replace one instruction with a stricter one. BES is an education, workflow
+> and decision-support platform, not an evidence-gating system. See Rulebook
+> §0.5, and the revised implementation approach under L-01 below.
+
 ---
 
 ## 1. The two round engines
@@ -64,11 +69,60 @@ reconcile the two.
 - **Claim:** *"Identity theft / fraud report filed at identitytheft.gov.
   Required for third-party collections and eligible inquiries."*
 - **Why wrong:** Rulebook §1.15 and §15. A collection is not proof of identity
-  theft. An identity-theft allegation requires the consumer's truthful
-  confirmation and required documentation.
-- **Verdict: `REJECT`.** Replace with the truth gate: ask the consumer, and
-  route to § 1681c-2 only on a truthful confirmation plus evidence.
-- **Live:** yes. **Severity: highest in this document.**
+  theft, and BES must not conclude identity theft on its own.
+- **Verdict: `REJECT` the claim.** **Live: yes. Severity: highest in this
+  document.**
+
+#### Implementation approach — revised 2026-09-07
+
+The first draft of this fix replaced a bad instruction with a gate: ask the
+consumer, then require documentation. Dee's correction: **that is not BES's
+call to make.** Evidence lives outside BES, and each Organization runs its own
+SOP.
+
+**What is removed:** the word *"Required"*, and any automatic path from an
+account type to an identity-theft action.
+
+**What replaces it — neutral education plus recorded operator states.**
+
+On a third-party collection, BES shows:
+
+> This account type alone does not establish identity theft. If the consumer
+> confirms the account resulted from identity theft, follow your
+> organization's identity-theft dispute SOP.
+
+and offers four states, none of which requires an upload:
+
+| State | BES records | BES then |
+|---|---|---|
+| Consumer confirms identity theft | The confirmation, who recorded it, when | Explains the § 1681c-2 route and IdentityTheft.gov **as education**; surfaces this Organization's SOP if configured |
+| Consumer does not recognize account | Exactly that | Suggests verification steps. **Not treated as an identity-theft claim** |
+| Account is recognized | Exactly that | Routes to ordinary factual dispute analysis |
+| Needs further review | Exactly that | Leaves it in the review queue |
+
+**Hard guardrail retained:** BES never concludes identity theft, never
+instructs an FTC filing off an account type, and never puts an identity-theft
+claim in the consumer's voice that the consumer did not make.
+
+**Not a guardrail:** requiring a file before the operator may proceed. An
+Organization may configure that for its own staff later; BES does not impose
+it.
+
+#### Related finding — a conflation to fix with L-01
+
+`metro2-guardrails.ts` `evaluateTruthGate` blocks whenever
+`consumerRecognizesAccount === "no"` and no identity-theft certification is
+present. That treats *"I don't recognise this"* as an identity-theft claim —
+the same conflation as L-01, one layer down. `evaluateBreachGuardrail` in the
+same file already separates the states correctly and is the pattern to follow.
+
+Note also that the same function already handles evidence the right way:
+`supportingDocuments.length === 0` produces a **`requiredForFiling` note, not a
+block**, which is exactly the doctrine in Rulebook §0.5. That half needs no
+change.
+
+**Scope:** L-01 and this conflation only. Per instruction, not broadened into
+the other legacy fixes.
 
 ### L-02 — "TRAP" multi-channel pressure from Round 1
 
@@ -349,7 +403,7 @@ reconcile the two.
 
 | Verdict | Count | Items |
 |---|---|---|
-| `REJECT` | 4 | L-01, L-02, L-03, L-05 |
+| `REJECT` | 4 | L-01 (claim rejected; see its revised approach), L-02, L-03, L-05 |
 | `SUPERSEDED` | 2 | L-06, L-07 |
 | `REWRITE` | 3 | L-04, L-14 (minor), L-23 |
 | `KEEP_WITH_QUALIFICATION` | 5 | L-08, L-17, L-18, L-24, plus L-12's extension |
