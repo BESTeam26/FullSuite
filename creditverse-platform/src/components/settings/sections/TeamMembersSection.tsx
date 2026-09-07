@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { OpsSelect } from "@/components/ui/ops-select";
 import { Switch } from "@/components/ui/switch";
+import { SeatUsageCard } from "@/components/settings/sections/SeatUsageCard";
 import { SectionCard } from "@/components/settings/shared";
 import { useAgency } from "@/lib/agency-context";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -98,6 +99,9 @@ export function TeamMembersSection({ organizationId, organizationName }: Props) 
 
   return (
     <div className="space-y-4">
+      {/* Seats first: an invitation can be refused by the plan, and the reason
+          should be on screen before the button is pressed rather than after. */}
+      <SeatUsageCard organizationId={organizationId} />
       <SectionCard icon={Users} title="Team Members" description={`Add and manage the people of ${organizationName}. Roles decide what each person may do; the assigned-only switch decides what they see.`}
         action={<Button size="sm" onClick={() => setInviteOpen((v) => !v)}><UserPlus className="mr-1 h-4 w-4" /> Invite team member</Button>}>
         {sent && <p role="status" className="mb-3 text-xs text-status-success">{sent}</p>}

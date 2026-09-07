@@ -4893,6 +4893,7 @@ export type Database = {
       }
       org_memberships: {
         Row: {
+          archived_at: string | null
           assigned_only: boolean
           created_at: string
           id: string
@@ -4905,6 +4906,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          archived_at?: string | null
           assigned_only?: boolean
           created_at?: string
           id?: string
@@ -4917,6 +4919,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          archived_at?: string | null
           assigned_only?: boolean
           created_at?: string
           id?: string
@@ -7913,6 +7916,10 @@ export type Database = {
         Returns: undefined
       }
       as_uuid: { Args: { p: string }; Returns: string }
+      assert_seat_available: {
+        Args: { p_for_user?: string; p_ignore_pending?: boolean; p_org: string }
+        Returns: undefined
+      }
       assignable_profiles: {
         Args: {
           p_org?: string
@@ -8541,6 +8548,29 @@ export type Database = {
           status: Database["public"]["Enums"]["hub_module_status"]
         }[]
       }
+      organization_seat_detail: {
+        Args: { p_org: string }
+        Returns: {
+          counts: boolean
+          email: string
+          full_name: string
+          reason: string
+          role: string
+          user_id: string
+        }[]
+      }
+      organization_seat_summary: {
+        Args: { p_org: string }
+        Returns: {
+          over_capacity: boolean
+          pending_invitations: number
+          seats_available: number
+          seats_committed: number
+          seats_included: number
+          seats_used: number
+          source: string
+        }[]
+      }
       organization_seat_usage: { Args: { p_org: string }; Returns: number }
       record_document_disposition: {
         Args: {
@@ -8722,6 +8752,10 @@ export type Database = {
       }
       set_hub_module: {
         Args: { p_enabled: boolean; p_module: string; p_org: string }
+        Returns: undefined
+      }
+      set_member_archived: {
+        Args: { p_archived: boolean; p_membership: string }
         Returns: undefined
       }
       set_member_department: {

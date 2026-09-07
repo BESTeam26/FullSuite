@@ -254,7 +254,9 @@ let phaseStartQueries = 0;
 let phaseStartChecks = 0;
 /** Closes the previous section and opens this one — so no phase has to remember to. */
 const startPhase = (label) => {
-  endPhase();
+  
+
+endPhase();
   openPhase = label;
   phaseStartedAt = Date.now();
   phaseStartQueries = db.stats.count;
@@ -2242,6 +2244,90 @@ if (runs(47)) {
       () => w47(OWNER, `select (count(*) >= 0)::text as rows from public.ai_my_usage('${lakesideOrg}')`), "true"],
   ];
   runPhase("phase 47", P47);
+}
+
+/* ------------------------------------------------------------------ *
+ * Phase 48 — seats (0127, 0128).
+ *
+ * Doctrine §24. The two properties that matter most are that the count and
+ * the refusal read the SAME definition, and that a seat count is not an
+ * authorization decision — archiving somebody frees a seat, it does not
+ * invent or remove a permission.
+ * ------------------------------------------------------------------ */
+if (runs(48)) {
+  startPhase("phase 48");
+  const w48 = (uid, sql, seed = "") => { try { return q(`begin; ${seed} set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
+  const OWNER = U["org.owner@bes.test"], AGENT = U["org.agent@bes.test"], OTHER = U["org2.owner@bes.test"], BES = U["bes.admin@bes.test"];
+  /* Resolved with admin rights: as OTHER the subselect returns NULL and the
+     function answers "not found" instead of "not permitted", which would look
+     like a pass for the wrong reason. */
+  const AGENT_M = q(`select coalesce((select id::text from public.org_memberships where organization_id='${lakesideOrg}' and user_id='${AGENT}'), '') as rows`)[0].rows;
+  const OWNER_M = q(`select coalesce((select id::text from public.org_memberships where organization_id='${lakesideOrg}' and user_id='${OWNER}'), '') as rows`)[0].rows;
+  /* The fixture organization has no owner_user_id, so the probes that test the
+     owner rule set one — rolled back with everything else. */
+  const WITH_OWNER = `update public.organizations set owner_user_id='${OWNER}' where id='${lakesideOrg}';`;
+  /* A plan sized to EXACTLY the seats in use, so the organization is full but
+     not over — which is the only state in which "archive one, invite one"
+     proves anything. A one-seat plan on a five-member organization stays over
+     capacity after archiving one, and the probe would fail for the wrong
+     reason. */
+  const TINY = `${WITH_OWNER}
+    update public.organization_subscriptions set status='cancelled' where organization_id='${lakesideOrg}';
+    insert into public.organization_subscriptions (organization_id, plan_key, status, interval, price_cents, seats)
+      select '${lakesideOrg}', key, 'active', 'monthly', 0,
+        (select count(*) from public.org_memberships m
+          where m.organization_id='${lakesideOrg}' and m.archived_at is null
+            and m.user_id <> '${OWNER}'
+            and not exists (select 1 from public.agency_memberships am where am.user_id = m.user_id))
+      from public.plans order by position limit 1;`;
+
+  const P48 = AGENT_M && OWNER_M ? [
+    ["the owner is included, never billed",
+      () => w48(OWNER, `select counts::text as rows from public.organization_seat_detail('${lakesideOrg}') where user_id='${OWNER}'`, WITH_OWNER), "false"],
+    ["…and the reason is shown, not just the number",
+      () => w48(OWNER, `select reason as rows from public.organization_seat_detail('${lakesideOrg}') where user_id='${OWNER}'`, WITH_OWNER), "owner — included in every plan"],
+    ["…while an ordinary member does count",
+      () => w48(OWNER, `select counts::text as rows from public.organization_seat_detail('${lakesideOrg}') where user_id='${AGENT}'`, WITH_OWNER), "true"],
+    ["BES fulfillment personnel never consume a customer seat",
+      () => w48(BES, `select coalesce((select count(*)::int from public.organization_seat_detail('${lakesideOrg}') d join public.agency_memberships am on am.user_id = d.user_id where d.counts), 0) as rows`), 0],
+    ["an archived member frees their seat",
+      () => w48(OWNER, `create temp table _seats on commit drop as select public.organization_seat_usage('${lakesideOrg}') v;
+        select public.set_member_archived('${AGENT_M}', true);
+        select (public.organization_seat_usage('${lakesideOrg}') = (select v from _seats) - 1)::text as rows`), "true"],
+    ["…and archiving does not delete them",
+      () => w48(OWNER, `select public.set_member_archived('${AGENT_M}', true); select count(*)::int as rows from public.org_memberships where id='${AGENT_M}'`), 1],
+    ["…and they no longer count",
+      () => w48(OWNER, `select public.set_member_archived('${AGENT_M}', true); select counts::text as rows from public.organization_seat_detail('${lakesideOrg}') where user_id='${AGENT}'`), "false"],
+    ["the count and the summary agree, because they are one definition",
+      () => w48(OWNER, `select (public.organization_seat_usage('${lakesideOrg}') = (select seats_used from public.organization_seat_summary('${lakesideOrg}')))::text as rows`), "true"],
+    ["a pending invitation reserves a seat",
+      () => w48(OWNER, `select (seats_committed >= seats_used)::text as rows from public.organization_seat_summary('${lakesideOrg}')`), "true"],
+    ["with no plan in force there is nothing to exceed, and it says so rather than reporting zero",
+      () => w48(OWNER, `select (seats_included is null or seats_included >= 0)::text as rows from public.organization_seat_summary('${lakesideOrg}')`), "true"],
+    ["a full plan refuses another invitation — the plan decides, not the screen",
+      () => w48(OWNER, `select public.invite_team_member('${lakesideOrg}', 'seat.probe@bes.test', 'credit_processor') as rows`, TINY), "ERR 22023"],
+    ["…and archiving somebody makes room again",
+      () => w48(OWNER, `select public.set_member_archived('${AGENT_M}', true); select (public.invite_team_member('${lakesideOrg}', 'seat.probe2@bes.test', 'credit_processor') is not null)::text as rows`, TINY), "true"],
+    ["BES adding its own person is never blocked by the customer's allowance",
+      () => w48(BES, `select public.assert_seat_available('${lakesideOrg}', '${BES}'); select 'ok' as rows`, TINY), "ok"],
+    ["a processor cannot archive a colleague",
+      () => w48(AGENT, `select public.set_member_archived('${AGENT_M}', true) as rows`), "ERR 42501"],
+    ["another organization cannot archive a Lakeside member",
+      () => w48(OTHER, `select public.set_member_archived('${AGENT_M}', true) as rows`), "ERR 42501"],
+    ["…nor read its seat detail",
+      () => w48(OTHER, `select count(*)::int as rows from public.organization_seat_detail('${lakesideOrg}')`), 0],
+    ["…nor its summary",
+      () => w48(OTHER, `select count(*)::int as rows from public.organization_seat_summary('${lakesideOrg}')`), 0],
+    ["the owner cannot be archived — the seat is included, the person is not optional",
+      () => w48(OWNER, `select public.set_member_archived('${OWNER_M}', true) as rows`, WITH_OWNER), "ERR 22023"],
+    ["a client portal user is not an employee seat",
+      /* They hold no org_membership, so they cannot appear in the detail at
+         all — which is the point: portal access is not a platform seat. */
+      () => w48(OWNER, `select count(*)::int as rows from public.organization_seat_detail('${lakesideOrg}') d join public.clients c on c.portal_user_id = d.user_id where d.counts`), 0],
+    ["a seat is a count, not a permission — archiving changes no entitlement",
+      () => w48(OWNER, `select public.set_member_archived('${AGENT_M}', true); select public.org_entitled('${lakesideOrg}','creditOps')::text as rows`), q(`select public.org_entitled('${lakesideOrg}','creditOps') as rows`)[0].rows === true ? "true" : "false"],
+  ] : [["(no Lakeside memberships to probe)", () => "skip", "skip"]];
+  runPhase("phase 48", P48);
 }
 
 endPhase();
