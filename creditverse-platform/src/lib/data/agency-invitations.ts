@@ -90,3 +90,27 @@ export const AGENCY_ROLE_HINTS: Record<AgencyRole, string> = {
   agency_team_lead: "Leads a team and sees its work.",
   agency_agent: "Works what is assigned to them.",
 };
+
+/**
+ * The address a live invitation was sent to, for the activation page.
+ *
+ * Returns null for a token that is unknown, expired or already accepted — the
+ * database deliberately cannot tell those three apart, so neither can this.
+ * Accepting still requires the caller's own authenticated email to match, so
+ * knowing the address gets a stranger no further.
+ */
+export interface InvitationPreview {
+  email: string;
+  kind: string;
+  expiresAt: string;
+}
+
+export async function fetchInvitationPreview(token: string): Promise<InvitationPreview | null> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("invitation_preview", { p_token: token });
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : null;
+  if (!row) return null;
+  const r = row as { email: string; kind: string; expires_at: string };
+  return { email: r.email, kind: r.kind, expiresAt: r.expires_at };
+}

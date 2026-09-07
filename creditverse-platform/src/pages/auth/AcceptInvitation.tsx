@@ -10,9 +10,15 @@
  * are sent, so the trigger that provisions a workspace on email confirmation
  * does not fire. The person joins the team that invited them and nothing else.
  *
- * Nothing about the invitation is shown before sign-in, and nothing here
- * decides whether it may be accepted. The token alone reveals no one: the
- * database requires the caller's own email to match the invitation, so a
+ * The invited ADDRESS is shown and locked, because it is the person's login
+ * from then on and the platform already knows it. Asking them to retype it
+ * turned a typo into an account on the wrong address and an invitation that
+ * silently would not match — a worse failure than the one that secrecy
+ * prevented. `invitation_preview` discloses it only for a token that is real,
+ * unexpired and unused, and cannot tell those three failures apart.
+ *
+ * Nothing here decides whether the invitation may be accepted. The database
+ * still requires the caller's own authenticated email to match, so a
  * forwarded link is useless to anybody else.
  */
 import { useEffect, useState, type FormEvent } from "react";
@@ -22,9 +28,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/auth/auth-context";
+import { cn } from "@/lib/utils";
 import { invitationProblem } from "@/lib/auth/invitation-problem";
 import { acceptInvitation } from "@/lib/data/team-permissions";
-import { acceptAgencyInvitation } from "@/lib/data/agency-invitations";
+import { acceptAgencyInvitation, fetchInvitationPreview, type InvitationPreview } from "@/lib/data/agency-invitations";
 
 type Door = "activate" | "signin";
 
@@ -105,19 +112,49 @@ export default function AcceptInvitation() {
 }
 
 /**
- * The signed-out half. Two doors, one invitation. The email address is typed
- * rather than shown, because the invitation cannot be read before sign-in —
- * which is the point: the link identifies nobody on its own.
+ * The signed-out half. Two doors, one invitation.
+ *
+ * The address comes from the invitation and cannot be edited: it is the login
+ * this person will use, and the invitation works for it alone.
  */
 function ActivationForms({ token }: { token: string }) {
   const auth = useAuth();
   const [door, setDoor] = useState<Door>("activate");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
+  const [preview, setPreview] = useState<InvitationPreview | null | "loading" | "gone">("loading");
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchInvitationPreview(token)
+      .then((p) => { if (!cancelled) { setPreview(p ?? "gone"); if (p) setEmail(p.email); } })
+      /* A lookup failure is not a dead end: fall back to letting them type it,
+         rather than blocking activation on a network hiccup. */
+      .catch(() => { if (!cancelled) setPreview(null); });
+    return () => { cancelled = true; };
+  }, [token]);
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  /* Locked only when we actually know the address. A lookup that failed or
+     found nothing leaves the field editable rather than blocking activation. */
+  const locked = typeof preview === "object" && preview !== null;
+
+  if (preview === "gone") {
+    return (
+      <div className="mt-3 space-y-2">
+        <p role="alert" className="text-sm text-status-danger">
+          This invitation is no longer usable.
+        </p>
+        <p className="text-xs text-muted-foreground">
+          It may have expired, or it may already have been used. Invitations last seven days —
+          ask whoever invited you to send a new one.
+        </p>
+      </div>
+    );
+  }
 
   if (auth.mode === "demo") {
     return (
@@ -185,8 +222,33 @@ function ActivationForms({ token }: { token: string }) {
           <Label htmlFor="email">Email</Label>
           <div className="relative">
             <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input id="email" type="email" autoComplete="email" className="pl-9" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <Input
+              id="email"
+              type="email"
+              autoComplete="email"
+              className={cn("pl-9", locked && "cursor-not-allowed bg-muted text-muted-foreground")}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              /* Locked when the invitation told us the address: it is this
+                 person's login from now on, and the invitation works for it
+                 alone. `readOnly` rather than `disabled` so the value is still
+                 submitted and screen readers still announce it. */
+              readOnly={locked}
+              aria-readonly={locked || undefined}
+            />
           </div>
+          {locked ? (
+            <p className="text-xs text-muted-foreground">
+              This is the address your invitation was sent to, and the one you will sign in with.
+            </p>
+          ) : preview === "loading" ? (
+            <p className="text-xs text-muted-foreground">Checking your invitation…</p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Use the address your invitation was sent to — it only works for that address.
+            </p>
+          )}
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="password">{door === "activate" ? "Choose a password" : "Password"}</Label>

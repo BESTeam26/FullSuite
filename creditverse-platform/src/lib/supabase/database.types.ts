@@ -9388,6 +9388,14 @@ export type Database = {
         Returns: boolean
       }
       intranet_may_write: { Args: { p_org: string }; Returns: boolean }
+      invitation_preview: {
+        Args: { p_token: string }
+        Returns: {
+          email: string
+          expires_at: string
+          kind: string
+        }[]
+      }
       invite_agency_member: {
         Args: {
           p_email: string

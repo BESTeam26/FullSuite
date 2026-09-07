@@ -3156,6 +3156,30 @@ if (runs(55)) {
 
     ["eod_day_activity is SECURITY INVOKER, so it cannot widen what a caller sees",
       () => q(`select (not prosecdef)::text as rows from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='eod_day_activity'`)[0].rows, "true"],
+
+    /* ── The activation page shows the invited address (0153) ─────────
+       A deliberate, bounded disclosure: the token is a 122-bit secret in
+       that person's inbox, and retyping their own login was turning a typo
+       into an account on the wrong address. These probes keep the bound. */
+    ["a live invitation discloses its address to an anonymous visitor",
+      () => { const t = q(`select coalesce((select token::text from public.invitations where accepted_at is null and expires_at > now() limit 1),'') as rows`)[0].rows;
+              if (!t) return 1;
+              try { return q(`begin; set local role anon; select count(*)::int as rows from public.invitation_preview('${t}'); rollback;`)[0].rows; } catch { return "ERR"; } }, 1],
+
+    ["a token nobody issued discloses nothing",
+      () => { try { return q(`begin; set local role anon; select count(*)::int as rows from public.invitation_preview('00000000-0000-4000-8000-000000000000'); rollback;`)[0].rows; } catch { return "ERR"; } }, 0],
+
+    /* Expired and accepted must both look exactly like "never existed", so the
+       function cannot be used to enumerate which invitations once existed. */
+    ["the preview excludes accepted and expired invitations",
+      () => q(`select (position('accepted_at is null' in pg_get_functiondef(p.oid)) > 0 and position('expires_at > now()' in pg_get_functiondef(p.oid)) > 0)::text as rows from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='invitation_preview'`)[0].rows, "true"],
+
+    ["…and the invitations table itself stays closed to anon",
+      () => { try { q(`begin; set local role anon; select 1 from public.invitations limit 1; rollback;`); return "readable"; } catch { return "refused"; } }, "refused"],
+
+    /* Knowing the address must still get a stranger nowhere. */
+    ["accepting still requires the caller's own email to match",
+      () => q(`select (position('auth.uid()' in pg_get_functiondef(p.oid)) > 0 or position('email' in pg_get_functiondef(p.oid)) > 0)::text as rows from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='accept_agency_invitation'`)[0].rows, "true"],
   ];
   runPhase("phase 55", P55, { strict: true });
 }
