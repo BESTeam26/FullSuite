@@ -31,7 +31,7 @@ const input = (over: Partial<ComposeInput> = {}): ComposeInput => ({
     requestedAction: "Correct the date of last activity",
     findings: [confirmed],
   }],
-  enclosures: ["Copy of the report page showing the item"],
+  enclosures: ["Copy of the report page showing the item", "Opening statement dated 12 June 2019"],
   ...over,
 });
 
@@ -120,5 +120,78 @@ describe("the item table", () => {
     expect(rows[0]).toEqual([
       "Collection with XYZ ending in 9012", "Balance $412", "Not stated", "None enclosed", "Delete",
     ]);
+  });
+});
+
+/**
+ * CR-4a. BES never requires a document before a dispute may proceed — a
+ * consumer's own statement is a complete basis, and evidence often lives
+ * outside BES entirely. The one thing a letter may never do is claim an
+ * enclosure the envelope does not contain.
+ */
+describe("enclosures a letter claims must actually be enclosed", () => {
+  it("refuses a letter naming evidence that is not in the envelope", () => {
+    const out = composeLetter(input({ enclosures: ["Copy of the report page showing the item"] }));
+    expect(out.ready).toBe(false);
+    expect(out.unresolved.join(" ")).toMatch(/names evidence that is not enclosed/i);
+    expect(out.unresolved.join(" ")).toMatch(/Opening statement dated 12 June 2019/);
+  });
+
+  it("is satisfied once the named document is attached", () => {
+    expect(composeLetter(input()).ready).toBe(true);
+  });
+
+  /* The point of the rule: it constrains what BES SAYS, not whether a consumer
+     may dispute. An item resting on the consumer's own account of events is
+     complete with nothing attached at all. */
+  it("lets a dispute proceed with no evidence and no enclosures whatsoever", () => {
+    const out = composeLetter(input({
+      enclosures: [],
+      items: [{
+        label: "Account with ABC Bank ending in 1234",
+        reportedAs: "Last activity March 2019",
+        recordsShow: "I paid this account in full in March",
+        requestedAction: "Correct the date of last activity",
+        findings: [confirmed],
+      }],
+    }));
+    expect(out.ready).toBe(true);
+    expect(out.unresolved).toEqual([]);
+    expect(out.blocks.join("\n")).toContain("Enclosures: none");
+  });
+
+  it("does not require the consumer's own account of events to be documented", () => {
+    const items = [{
+      label: "Account with ABC Bank ending in 1234",
+      reportedAs: "Reported as mine",
+      recordsShow: "I did not open this account",
+      requestedAction: "Reinvestigate and correct or delete",
+      findings: [confirmed],
+    }];
+    const out = composeLetter(input({ enclosures: [], items }));
+    expect(out.ready).toBe(true);
+    /* The consumer's statement carries the dispute in the item table, and the
+       evidence column says plainly that nothing is enclosed. */
+    const row = itemRows(items)[0];
+    expect(row).toContain("I did not open this account");
+    expect(row).toContain("None enclosed");
+  });
+
+  it("matches the named document regardless of surrounding whitespace or case", () => {
+    const out = composeLetter(input({
+      enclosures: ["  OPENING STATEMENT DATED 12 JUNE 2019  ", "Copy of the report page showing the item"],
+    }));
+    expect(out.ready).toBe(true);
+  });
+
+  it("names every unmatched item, not just the first", () => {
+    const out = composeLetter(input({
+      enclosures: [],
+      items: [
+        { label: "Account A ending 1111", reportedAs: "x", evidence: "Statement A", requestedAction: "Correct", findings: [confirmed] },
+        { label: "Account B ending 2222", reportedAs: "y", evidence: "Statement B", requestedAction: "Correct", findings: [confirmed] },
+      ],
+    }));
+    expect(out.unresolved.filter((u) => u.includes("not enclosed"))).toHaveLength(2);
   });
 });

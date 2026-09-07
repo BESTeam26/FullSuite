@@ -208,6 +208,24 @@ export function composeLetter(input: ComposeInput): ComposedLetter {
 
   if (input.items.length === 0) unresolved.push("The letter disputes nothing. Add at least one item.");
 
+  /* THE ONE HARD RULE ABOUT EVIDENCE (CR-4a).
+     BES never requires a document before a dispute may proceed — a consumer's
+     own statement is a complete basis, and evidence often lives outside BES
+     entirely. What a letter may never do is claim an enclosure that is not in
+     the envelope. "The enclosed statement shows…" is a statement about a
+     document; "I paid this in full in March" is the consumer speaking and
+     needs nothing attached. */
+  const enclosed = new Set(enclosures.map((e) => e.trim().toLowerCase()));
+  for (const item of input.items) {
+    const named = item.evidence?.trim();
+    if (!named) continue;
+    if (!enclosed.has(named.toLowerCase())) {
+      unresolved.push(
+        `"${item.label}" names evidence that is not enclosed: "${named}". Attach it, or remove the reference — a letter cannot describe an enclosure the envelope does not contain.`,
+      );
+    }
+  }
+
   return { subject, blocks, questions, unresolved, ready: unresolved.length === 0 };
 }
 

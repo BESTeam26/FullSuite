@@ -18,9 +18,14 @@ the repository as it stands.
 
 ---
 
-## 0. Read this first — one live item is a safety problem
+## 0. L-01 — FIXED 2026-09-07 (CR-4a)
 
-**L-01 is reachable in the product today**, through
+**Resolved.** What follows is kept as the record of what was wrong and why.
+The fix is described under L-01 below; regression tests are in
+`src/lib/dispute/account-recognition.test.ts` (21) and the enclosure suite in
+`letter-composer.test.ts` (6).
+
+**L-01 was reachable in the product**, through
 `ClientDetail.tsx → LettersTab.tsx → TrapStrategyPanel.tsx`. It instructs staff
 that a federal identity-theft report at IdentityTheft.gov is **"Required for
 third-party collections."**
@@ -31,9 +36,8 @@ tactic, and filing one is a false statement to a federal agency. This is not
 doctrine drift; it is advice to do something potentially unlawful, shown to an
 operator.
 
-Per instruction, **nothing was changed during this reconciliation.** L-01
-should be the first item fixed when implementation resumes, ahead of every
-architectural delta in this document.
+Nothing was changed during the reconciliation itself; the fix landed
+separately as CR-4a, ahead of every architectural delta, as planned.
 
 > **Approach revised 2026-09-07 on Dee's correction.** The fix is *not* to
 > replace one instruction with a stricter one. BES is an education, workflow
@@ -70,8 +74,24 @@ reconcile the two.
   Required for third-party collections and eligible inquiries."*
 - **Why wrong:** Rulebook §1.15 and §15. A collection is not proof of identity
   theft, and BES must not conclude identity theft on its own.
-- **Verdict: `REJECT` the claim.** **Live: yes. Severity: highest in this
-  document.**
+- **Verdict: `REJECT` the claim. FIXED 2026-09-07 (CR-4a).**
+
+#### What shipped
+
+| Change | File |
+|---|---|
+| Four operator states, provenance labels, and neutral guidance per state. Nothing inferred from an item — a person selects one | **new** `src/lib/dispute/account-recognition.ts` |
+| `TRAP_CHANNELS.FTC` reworded; `requiresFTC()` **deleted**, not renamed, so nothing can answer this question from an account; `FTC_RULES` became `FTC_CONSUMER_RESOURCES` with a caution on each; `ftcResourceFor(category, recognition)` requires the recorded statement | `letters-and-channels.ts` |
+| `LetterCategory.requiresFTC` → `ftcResourceRelevant` — the field name was itself the bug | `letters-and-channels.ts` |
+| `ftcRequired` no longer derived from the category; false until a recognition is threaded through | `package-builder.ts` |
+| Four-state selector, guidance, provenance line; the § 1681c-2 "block fraudulent tradeline" instruction moved out of the general preset list and offered only on a reported identity theft; a dead `ftcRule` removed | `ItemDetailPanel.tsx` |
+| FTC card no longer says "filings required" | `TrapStrategyPanel.tsx` |
+| `evaluateTruthGate`: blocks only where the consumer **reports** identity theft and their statement is unrecorded; "does not recognize" produces a note, not a block; **no path blocks for a missing document** | `metro2-guardrails.ts` |
+| A letter naming evidence not in the enclosures is `unresolved` and not `ready` | `letter-composer.ts` |
+
+The existing composer test fixture named an enclosure the envelope did not
+contain — the defect the new rule catches, sitting in the test suite. The
+fixture was corrected, not the rule.
 
 #### Implementation approach — revised 2026-09-07
 
@@ -122,7 +142,12 @@ block**, which is exactly the doctrine in Rulebook §0.5. That half needs no
 change.
 
 **Scope:** L-01 and this conflation only. Per instruction, not broadened into
-the other legacy fixes.
+the other legacy fixes. Both shipped together in CR-4a.
+
+**Noticed and deliberately not fixed** (CR-4b or later): the composer's opening
+paragraph reads *"I am asking you to correction of the exact field that is
+wrong"* — a grammatical break in text that goes to a bureau. Out of CR-4a's
+scope; recorded so it is not lost.
 
 ### L-02 — "TRAP" multi-channel pressure from Round 1
 
@@ -403,7 +428,7 @@ the other legacy fixes.
 
 | Verdict | Count | Items |
 |---|---|---|
-| `REJECT` | 4 | L-01 (claim rejected; see its revised approach), L-02, L-03, L-05 |
+| `REJECT` | 4 | **L-01 — FIXED 2026-09-07 (CR-4a)**, L-02, L-03, L-05 |
 | `SUPERSEDED` | 2 | L-06, L-07 |
 | `REWRITE` | 3 | L-04, L-14 (minor), L-23 |
 | `KEEP_WITH_QUALIFICATION` | 5 | L-08, L-17, L-18, L-24, plus L-12's extension |

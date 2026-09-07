@@ -297,12 +297,13 @@ Documentation milestone **DONE**; implementation not started, awaiting review.
 | `ARCHITECTURE_PROPOSAL_PER_BUREAU_OBSERVATIONS.md` | Proposal — the prerequisite for cross-bureau intelligence |
 | `ARCHITECTURE_PROPOSAL_CHRONOLOGY.md` | Proposal — cure reconstruction, snapshot coverage, timeline events |
 
-**Highest-severity finding — live in the product today.** `TRAP_CHANNELS.FTC`
+**Highest-severity finding — FIXED 2026-09-07 in CR-4a.** `TRAP_CHANNELS.FTC`
 (`letters-and-channels.ts:19`) tells staff an IdentityTheft.gov report is
 *"Required for third-party collections"*, reachable through
 `ClientDetail → LettersTab → TrapStrategyPanel`. A collection is not evidence of
 identity theft, and the FTC warns specifically against false identity-theft
-reports as a credit-repair tactic. **Fix this before any architectural delta.**
+reports as a credit-repair tactic. Fixed ahead of every architectural delta, as
+planned.
 
 **Doctrine revised 2026-09-07 (Dee).** BES guides; the Organization decides its
 SOP; the operator remains responsible for the facts. Rulebook §0.5 now splits
@@ -324,7 +325,7 @@ The second is correct; the first is retired, not reconciled.
 | CR-1 | Rulebook, Source Register, Legacy Crosswalk, Gap Map | **DONE 2026-09-07** |
 | CR-2 | Per-bureau observations | **PROPOSAL** — approval required |
 | CR-3 | Chronology layer | **PROPOSAL** — approval required |
-| CR-4a | **L-01 only** — remove the "Required" claim, add the four operator states, fix the `evaluateTruthGate` conflation of "does not recognize" with an identity-theft claim | **READY — approach approved 2026-09-07, no schema needed** |
+| CR-4a | **L-01 only** — the "Required" claim removed, four operator states added, `evaluateTruthGate`'s conflation of "does not recognize" with an identity-theft claim fixed, and the enclosure invariant enforced | **DONE 2026-09-07.** `requiresFTC()` deleted rather than renamed so no code can answer that question from an account; the identity-theft route is reached only from a recorded consumer statement, named `consumer_reports_identity_theft` so it never reads as verified. No BES rule blocks for a missing document. 27 new tests; 827 passing; no schema, no migration, no matrix |
 | CR-4b | L-02/L-03/L-05; retire `rounds-and-layers.ts`; renames | **READY — no schema needed.** Deliberately not bundled with CR-4a |
 | CR-12 | `organization_dispute_sop` — per-organization requirements, all defaulting off (gap G-13, schema S-9) | **PROPOSAL** — nothing depends on it; CR-4a ships without it |
 | CR-5 | Finding taxonomy, evidence strength, confidence axes as domain types | **READY — no schema needed** |

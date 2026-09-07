@@ -11,13 +11,12 @@ import {
   Eye,
   Send,
   Edit2,
-  Check,
+  Check, MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   getItemLetterCategory,
-  getFTCRule,
 } from "@/lib/dispute/letters-and-channels";
 import { generateDisputeDraft } from "@/lib/dispute/package-builder";
 import {
@@ -27,6 +26,12 @@ import {
 import { getLegalPathwayMeta } from "@/lib/dispute/legal-paths";
 import { CreditReportDetailGrid } from "./CreditReportDetailGrid";
 import type { ClassifiedItem } from "@/lib/credit-classification";
+import {
+  RECOGNITION_LABEL,
+  RECOGNITION_PROVENANCE,
+  guidanceFor,
+  type AccountRecognition,
+} from "@/lib/dispute/account-recognition";
 import { OpsSelect } from "@/components/ui/ops-select";
 import { useClientWorkspace } from "@/lib/client-workspace-context";
 
@@ -45,8 +50,16 @@ const PRESET_INSTRUCTIONS = [
   "Audit Metro 2 Base Segment fields and correct balance to $0.00.",
   "Provide Method of Verification (MOV) including furnisher contact details.",
   "Remove unauthorized inquiry immediately per FCRA §1681b.",
-  "Block fraudulent tradeline within 4 business days under FCRA §1681c-2.",
 ];
+
+/**
+ * Offered ONLY where the operator has recorded that the consumer reports
+ * identity theft (CR-4a). It used to sit in the list above, available on any
+ * account — which let a tradeline nobody had asked the consumer about be
+ * disputed as fraud.
+ */
+const IDENTITY_THEFT_INSTRUCTION =
+  "Block fraudulent tradeline within 4 business days under FCRA §1681c-2.";
 
 export const ItemDetailPanel = ({
   item,
@@ -67,9 +80,15 @@ export const ItemDetailPanel = ({
   );
   const [isEditingReason, setIsEditingReason] = useState(false);
   const [customReasonInput, setCustomReasonInput] = useState("");
+  /* Not defaulted to a recognition: "we have not asked yet" is a real answer,
+     and it must never read as "recognized" (CR-4a). */
+  const [recognition, setRecognition] = useState<AccountRecognition>("needs_further_review");
+  const guidance = guidanceFor(item, recognition);
+  const instructions = guidance.identityTheftRouteAvailable
+    ? [...PRESET_INSTRUCTIONS, IDENTITY_THEFT_INSTRUCTION]
+    : PRESET_INSTRUCTIONS;
 
   const cat = getItemLetterCategory(item);
-  const ftcRule = cat?.requiresFTC ? getFTCRule(item.category) : null;
   const draft = generateDisputeDraft(item, round);
   const hasExperian = item.bureaus.includes("EX");
   const hasNonExperian = item.bureaus.some((b) => b !== "EX");
@@ -139,7 +158,58 @@ export const ItemDetailPanel = ({
         </div>
       </div>
 
-      {/* 2. Dispute Reason & Instructions Control Bar */}
+      {/* 2. What the consumer said about this account.
+             BES records the answer; it never infers one, and it never requires
+             a document before the operator may continue (CR-4a). */}
+      <div className="rounded-lg border border-border bg-muted/30 p-3.5 space-y-2.5">
+        <label className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+          <MessageSquare className="h-3.5 w-3.5 text-status-info" />
+          What does the consumer say about this account?
+        </label>
+        <div className="flex flex-wrap gap-1.5">
+          {(Object.keys(RECOGNITION_LABEL) as AccountRecognition[]).map((key) => {
+            const active = recognition === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setRecognition(key)}
+                aria-pressed={active}
+                className={
+                  active
+                    ? "rounded-full border border-emerald-600 bg-emerald-600 px-3 py-1 text-[11px] font-semibold text-white transition-colors"
+                    : "rounded-full border border-border bg-background px-3 py-1 text-[11px] font-medium text-foreground transition-colors hover:border-emerald-600/60 hover:bg-emerald-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                }
+              >
+                {RECOGNITION_LABEL[key]}
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-[11px] leading-relaxed text-muted-foreground">{guidance.message}</p>
+        {recognition !== "needs_further_review" && (
+          <p className="text-[10px] text-muted-foreground">
+            Recorded as: {RECOGNITION_PROVENANCE[recognition]}
+          </p>
+        )}
+        {guidance.suggestions.length > 0 && (
+          <ul className="space-y-0.5">
+            {guidance.suggestions.map((sgn) => (
+              <li key={sgn} className="text-[11px] text-muted-foreground">
+                · {sgn}
+              </li>
+            ))}
+          </ul>
+        )}
+        {guidance.consumerResourceUrl && (
+          <p className="text-[11px] text-muted-foreground">
+            Resource the consumer may choose to use:{" "}
+            <span className="font-mono">{guidance.consumerResourceUrl}</span>
+          </p>
+        )}
+      </div>
+
+      {/* 3. Dispute Reason & Instructions Control Bar */}
       <div className="rounded-lg border border-border bg-muted/30 p-3.5 space-y-3">
         <div className="grid gap-3 md:grid-cols-2">
           <div>
@@ -201,7 +271,7 @@ export const ItemDetailPanel = ({
             <OpsSelect
               value={selectedInstruction}
               onValueChange={setSelectedInstruction}
-              options={PRESET_INSTRUCTIONS}
+              options={instructions}
               aria-label="Dispute instruction"
               size="field"
               className="rounded-md py-1.5 font-medium"

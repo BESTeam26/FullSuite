@@ -83,19 +83,38 @@ describe("evaluateTruthGate", () => {
     expect(r.requiredForFiling.join(" ")).toMatch(/supporting document/i);
   });
 
-  it("blocks the identity-theft pathway until the consumer certifies it", () => {
+  /* CR-4a. Not recognising an account is a different answer from reporting
+     identity theft, and the gate used to collapse them — demanding a fraud
+     certification from someone who had only said "I don't know this one". */
+  it("does NOT block, and does not mention identity theft, when the consumer merely does not recognize the account", () => {
     const r = evaluateTruthGate(goodAttestation({ consumerRecognizesAccount: "no" }));
-    expect(r.passed).toBe(false);
-    expect(r.blocks.join(" ")).toMatch(/identity theft/i);
+    expect(r.passed).toBe(true);
+    expect(r.blocks).toEqual([]);
+    expect(r.requiredForFiling.join(" ")).not.toMatch(/IdentityTheft\.gov/);
+    expect(r.requiredForFiling.join(" ")).toMatch(/not a claim of identity theft/i);
   });
 
-  it("never infers the identity-theft certification from a blank one", () => {
-    expect(evaluateTruthGate(goodAttestation({ consumerRecognizesAccount: "no", identityTheftCertification: "   " })).passed).toBe(false);
-  });
-
-  it("allows the identity-theft pathway once certified, and lists what filing needs", () => {
+  it("blocks only where the consumer reports identity theft and their own statement is not recorded", () => {
     const r = evaluateTruthGate(goodAttestation({
       consumerRecognizesAccount: "no",
+      consumerReportsIdentityTheft: true,
+    }));
+    expect(r.passed).toBe(false);
+    expect(r.blocks.join(" ")).toMatch(/did not open, authorize, use or receive/i);
+  });
+
+  it("never infers that statement from a blank one", () => {
+    expect(evaluateTruthGate(goodAttestation({
+      consumerRecognizesAccount: "no",
+      consumerReportsIdentityTheft: true,
+      identityTheftCertification: "   ",
+    })).passed).toBe(false);
+  });
+
+  it("allows the identity-theft route once the consumer's statement is recorded, and lists what the route needs", () => {
+    const r = evaluateTruthGate(goodAttestation({
+      consumerRecognizesAccount: "no",
+      consumerReportsIdentityTheft: true,
       identityTheftCertification: "I did not open, authorize or use this account.",
     }));
     expect(r.passed).toBe(true);
@@ -103,10 +122,26 @@ describe("evaluateTruthGate", () => {
     expect(r.requiredForFiling.join(" ")).toMatch(/Proof of identity/);
   });
 
-  it("does not demand an identity-theft certification from someone who is merely unsure", () => {
+  it("does not demand anything identity-theft-related from someone who is merely unsure", () => {
     const r = evaluateTruthGate(goodAttestation({ consumerRecognizesAccount: "unsure" }));
     expect(r.passed).toBe(true);
     expect(r.requiredForFiling.join(" ")).not.toMatch(/IdentityTheft\.gov/);
+  });
+
+  /* The doctrine in one assertion: BES guides, it does not gate on documents. */
+  it("never blocks for a missing document, on any combination of answers", () => {
+    for (const recognizes of ["yes", "no", "unsure"] as const) {
+      for (const reports of [true, false, undefined]) {
+        const r = evaluateTruthGate(goodAttestation({
+          consumerRecognizesAccount: recognizes,
+          consumerReportsIdentityTheft: reports,
+          identityTheftCertification: "I did not open this account.",
+          supportingDocuments: [],
+        }));
+        expect(r.blocks.join(" ")).not.toMatch(/document/i);
+        expect(r.passed).toBe(true);
+      }
+    }
   });
 
   it("reports every block at once rather than one at a time", () => {

@@ -20,10 +20,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  LETTER_CATEGORIES,
-  getFTCRule,
-} from "@/lib/dispute/letters-and-channels";
+import { LETTER_CATEGORIES, ftcResourceFor } from "@/lib/dispute/letters-and-channels";
 import type { DisputePackage } from "@/lib/dispute/package-builder";
 
 const iconMap = {
@@ -68,9 +65,10 @@ export const CategoryLettersPanel = ({
           if (!cat) return null;
           const Icon = iconMap[cat.icon as keyof typeof iconMap] ?? FileText;
           const isOpen = expandedKey === key;
-          const ftcRule = cat.requiresFTC
-            ? getFTCRule(items[0].item.category)
-            : null;
+          /* Archived screen. No consumer statement is recorded here, so the
+             identity-theft resource is never available — which is the point:
+             a category alone never reaches it (CR-4a). */
+          const ftcRule = ftcResourceFor(items[0].item.category, undefined);
 
           return (
             <div
@@ -97,7 +95,7 @@ export const CategoryLettersPanel = ({
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="flex gap-1.5">
-                    {cat.requiresFTC && (
+                    {cat.ftcResourceRelevant && (
                       <span className="flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-medium text-red-600">
                         <ShieldAlert className="h-3 w-3" /> FTC
                       </span>
@@ -129,21 +127,14 @@ export const CategoryLettersPanel = ({
                   </p>
 
                   {ftcRule && (
-                    <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/5 p-4">
-                      <p className="flex items-center gap-2 text-sm font-semibold text-red-600">
-                        <ShieldAlert className="h-4 w-4" /> FTC Filing Required
+                    <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+                      <p className="flex items-center gap-2 text-sm font-semibold text-amber-700">
+                        <ShieldAlert className="h-4 w-4" /> Resource for the consumer
                       </p>
                       <p className="mt-1.5 text-xs text-muted-foreground">
-                        URL: <span className="font-mono">{ftcRule.url}</span>
-                        {ftcRule.requiresCode && (
-                          <span className="ml-2 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600">
-                            Verification code required
-                          </span>
-                        )}
+                        {ftcRule.purpose} <span className="font-mono">{ftcRule.url}</span>
                       </p>
-                      <p className="mt-1.5 text-xs text-muted-foreground">
-                        {ftcRule.notes}
-                      </p>
+                      <p className="mt-1.5 text-xs text-muted-foreground">{ftcRule.caution}</p>
                     </div>
                   )}
 

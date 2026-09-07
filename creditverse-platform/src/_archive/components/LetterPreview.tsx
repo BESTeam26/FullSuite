@@ -14,10 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { generateDisputeDraft } from "@/lib/dispute/package-builder";
-import {
-  getItemLetterCategory,
-  getFTCRule,
-} from "@/lib/dispute/letters-and-channels";
+import { getItemLetterCategory, ftcResourceFor } from "@/lib/dispute/letters-and-channels";
 import type { ClassifiedItem } from "@/lib/credit-classification";
 
 export const LetterPreview = ({
@@ -39,7 +36,8 @@ export const LetterPreview = ({
 
   const rawDraft = generateDisputeDraft(item, round);
   const cat = getItemLetterCategory(item);
-  const ftcRule = cat?.requiresFTC ? getFTCRule(item.category) : null;
+  /* Archived screen — see CategoryLettersPanel. No recorded statement, so no resource. */
+  const ftcRule = ftcResourceFor(item.category, undefined);
   const hasExperian = item.bureaus.includes("EX");
   const hasNonExperian = item.bureaus.some((b) => b !== "EX");
 

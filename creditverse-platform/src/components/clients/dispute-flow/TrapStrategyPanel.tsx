@@ -21,10 +21,14 @@ export const TrapStrategyPanel = ({ pkg }: { pkg: DisputePackage }) => {
       key: "FTC" as const,
       ...TRAP_CHANNELS.FTC,
       count: pkg.ftcFilings,
+      /* CR-4a: BES never counts an FTC filing off an account type. A consumer
+         may create an identity theft report where they have said the account
+         resulted from identity theft; that is their decision, recorded per
+         item, not a package total BES derives. */
       detail:
         pkg.ftcFilings > 0
-          ? `${pkg.ftcFilings} FTC filing${pkg.ftcFilings === 1 ? "" : "s"} required`
-          : "No FTC filings required this round",
+          ? `${pkg.ftcFilings} item${pkg.ftcFilings === 1 ? "" : "s"} where the consumer reported identity theft`
+          : "No item on this round has a recorded identity-theft report",
     },
     {
       key: "CFPB" as const,

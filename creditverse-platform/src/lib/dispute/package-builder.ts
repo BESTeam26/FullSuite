@@ -8,7 +8,6 @@ import {
   MAILING_ORDER,
   getItemLetterCategory,
   getCFPBCategory,
-  requiresFTC,
   isFTCBlocked,
   type LetterCategory,
 } from "./letters-and-channels";
@@ -101,7 +100,12 @@ export function buildDisputePackage(
     return {
       item,
       letterCategory: letterCategory ?? LETTER_CATEGORIES[0],
-      ftcRequired: requiresFTC(item),
+      /* CR-4a: never derived from the category. An identity-theft route is
+         reached only from a consumer statement an operator recorded, which a
+         package has no business inferring. Until a recognition is threaded
+         through, this is false for every item — which is the correct default,
+         because BES requiring an FTC filing was the defect. */
+      ftcRequired: false,
       ftcBlocked: isFTCBlocked(item),
       cfpbCategory: getCFPBCategory(item),
     };

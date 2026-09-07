@@ -12,6 +12,12 @@ export interface TruthGateAttestation {
   specificInfoBelievedInaccurate: string;
   reasonForBelief: string;
   supportingDocuments: string[];
+  /**
+   * Set ONLY where the consumer has actually said the account resulted from
+   * identity theft. Not recognising an account is a different answer and does
+   * not imply this one (CR-4a).
+   */
+  consumerReportsIdentityTheft?: boolean;
   identityTheftCertification?: string;
 }
 
@@ -24,6 +30,25 @@ export interface TruthGateResult {
 /**
  * The Truth Gate runs before any letter is generated. It enforces CROA's
  * prohibition on counseling consumers to make untrue or misleading statements.
+ *
+ * ── WHAT IT GATES, AND WHAT IT DELIBERATELY DOES NOT (CR-4a) ───────────────
+ *
+ * It blocks only where a letter would otherwise SAY SOMETHING NOBODY SAID:
+ * no answer about the account, nothing identified as inaccurate, no reason
+ * given, or an identity-theft claim the consumer never made.
+ *
+ * It does NOT block for a missing document. Evidence lives outside BES as
+ * often as inside it — a phone call, a client's confirmation, a note from a
+ * previous round — and an organization's own SOP decides whether a file is
+ * required of its staff. BES guides; it does not gate.
+ *
+ * It also no longer treats `consumerRecognizesAccount === "no"` as an
+ * identity-theft claim. Not recognising a tradeline is far more often a
+ * trading name, a purchased debt or an old account than it is fraud, and
+ * demanding an identity-theft certification from someone who merely said "I
+ * don't recognise this" both misstates what they said and pushes them toward a
+ * claim they did not make. `evaluateBreachGuardrail` below already separated
+ * these states correctly; this function now matches it.
  */
 export function evaluateTruthGate(
   attestation: TruthGateAttestation,
@@ -47,23 +72,34 @@ export function evaluateTruthGate(
     blocks.push("The reason for the belief must be stated.");
   }
 
+  /* A note, never a block. A dispute can rest entirely on what the consumer
+     told the operator, and often does. */
   if (attestation.supportingDocuments.length === 0) {
     requiredForFiling.push(
       "At least one supporting document strengthens the dispute and avoids a frivolous finding.",
     );
   }
 
-  // Identity theft requires a certification — never inferred
-  if (attestation.consumerRecognizesAccount === "no") {
+  /* The identity-theft branch opens on the consumer SAYING SO, and on nothing
+     else — not on an account type, not on failing to recognise the account.
+     What is blocked is BES writing an identity-theft claim the consumer never
+     made; what is listed is what the route will need, which the operator may
+     hold outside BES. */
+  if (attestation.consumerReportsIdentityTheft) {
     if (!attestation.identityTheftCertification?.trim()) {
       blocks.push(
-        "Identity theft pathway requires a consumer certification that they did not open, authorize, use, or receive goods/services from the transaction.",
+        "An identity theft letter states that the consumer did not open, authorize, use or receive goods or services from the transaction. Record the consumer's own statement to that effect before BES writes it.",
       );
     }
     requiredForFiling.push("FTC identity theft report (IdentityTheft.gov)");
     requiredForFiling.push("Proof of identity");
     requiredForFiling.push(
       "Identification of the allegedly fraudulent information",
+    );
+  } else if (attestation.consumerRecognizesAccount === "no") {
+    /* Recorded and moved past. Not a fraud claim, and not a blocker. */
+    requiredForFiling.push(
+      "The consumer does not recognize this account. That is not a claim of identity theft — consider whether the creditor reports under a different trading name, or whether the debt was sold.",
     );
   }
 

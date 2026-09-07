@@ -1,10 +1,18 @@
-// Dispute Flow — TRAP Channels, Letter Categories, FTC/CFPB Rules
+// Dispute Flow — channels, letter categories, and the resources behind them.
 // All logic is HARDCODED (not AI) to avoid compliance issues.
 
-import type { ClassifiedItem, Category } from "@/lib/credit-classification";
+import type { Category, ClassifiedItem } from "@/lib/credit-classification";
+import { identityTheftRouteAvailable, type AccountRecognition } from "./account-recognition";
 
-// ─── TRAP Strategy ────────────────────────────────────────────────────────────
-// TRAP = CRA + FTC + CFPB — multi-channel pressure from Round 1.
+// ─── Channels ─────────────────────────────────────────────────────────────────
+//
+// CORRECTED 2026-09-07 (CR-4a). The FTC channel used to read "Required for
+// third-party collections". An account type is not evidence of identity theft;
+// the FTC warns specifically against false identity-theft reports used as a
+// credit-repair tactic, and filing one is a false statement to a federal
+// agency. Nothing here is required of an operator by BES, and the identity
+// theft route is reached only from a recorded consumer statement — see
+// `account-recognition.ts`.
 
 export const TRAP_CHANNELS = {
   CRA: {
@@ -14,9 +22,9 @@ export const TRAP_CHANNELS = {
     icon: "Building2",
   },
   FTC: {
-    label: "FTC Filing",
+    label: "FTC report",
     description:
-      "Identity theft / fraud report filed at identitytheft.gov. Required for third-party collections and eligible inquiries.",
+      "A consumer may create an identity theft report at identitytheft.gov. An account type never establishes identity theft — this is available only where the consumer states the account resulted from it.",
     icon: "ShieldAlert",
   },
   CFPB: {
@@ -136,7 +144,10 @@ export interface LetterCategory {
   label: string;
   description: string;
   recipient: "CRA" | "Furnisher" | "Collection Agency" | "FTC" | "CFPB";
-  requiresFTC: boolean;
+  /** Whether an identity-theft resource is RELEVANT to this category — never
+   *  whether one is required. Gated at the point of use on a recorded consumer
+   *  statement (`account-recognition.ts`), never on the category alone. */
+  ftcResourceRelevant: boolean;
   requiresCFPB: boolean;
   icon: string;
   tone: string;
@@ -149,7 +160,7 @@ export const LETTER_CATEGORIES: LetterCategory[] = [
     description:
       "Third-party collection account dispute. Validates collector's authority, account ownership, balance accuracy, and DOFD.",
     recipient: "Collection Agency",
-    requiresFTC: true,
+    ftcResourceRelevant: true,
     requiresCFPB: true,
     icon: "Building2",
     tone: "text-red-600",
@@ -160,7 +171,7 @@ export const LETTER_CATEGORIES: LetterCategory[] = [
     description:
       "Charge-off account dispute. Verifies balance, DOFD, and whether the account was later settled or sold.",
     recipient: "Furnisher",
-    requiresFTC: false,
+    ftcResourceRelevant: false,
     requiresCFPB: true,
     icon: "AlertTriangle",
     tone: "text-red-600",
@@ -171,7 +182,7 @@ export const LETTER_CATEGORIES: LetterCategory[] = [
     description:
       "Late payment removal dispute. Verifies payment history against bank statements for the disputed month.",
     recipient: "Furnisher",
-    requiresFTC: false,
+    ftcResourceRelevant: false,
     requiresCFPB: true,
     icon: "Clock",
     tone: "text-amber-600",
@@ -180,9 +191,9 @@ export const LETTER_CATEGORIES: LetterCategory[] = [
     key: "inquiry",
     label: "Letter for Inquiry",
     description:
-      "Unauthorized/unsolicited inquiry dispute. Never include inquiries linked to open accounts in FTC filings.",
+      "Unauthorized/unsolicited inquiry dispute. An inquiry linked to an open account is never treated as fraud.",
     recipient: "CRA",
-    requiresFTC: true,
+    ftcResourceRelevant: true,
     requiresCFPB: true,
     icon: "FileSearch",
     tone: "text-amber-600",
@@ -193,7 +204,7 @@ export const LETTER_CATEGORIES: LetterCategory[] = [
     description:
       "Personal information dispute — incorrect addresses, employers, names, or other identity data.",
     recipient: "CRA",
-    requiresFTC: false,
+    ftcResourceRelevant: false,
     requiresCFPB: true,
     icon: "UserRound",
     tone: "text-blue-600",
@@ -204,7 +215,7 @@ export const LETTER_CATEGORIES: LetterCategory[] = [
     description:
       "Student loan dispute. Verifies servicer, rehabilitation status, and DOFD. Federal loans have specific options.",
     recipient: "Furnisher",
-    requiresFTC: false,
+    ftcResourceRelevant: false,
     requiresCFPB: true,
     icon: "GraduationCap",
     tone: "text-amber-600",
@@ -215,48 +226,67 @@ export const LETTER_CATEGORIES: LetterCategory[] = [
     description:
       "Public record dispute (bankruptcy, lien, judgment). Verifies accuracy, disposition, and reporting window.",
     recipient: "CRA",
-    requiresFTC: false,
+    ftcResourceRelevant: false,
     requiresCFPB: true,
     icon: "Scale",
     tone: "text-red-600",
   },
 ];
 
-// ─── FTC Filing Rules ─────────────────────────────────────────────────────────
+// ─── Consumer FTC resources ───────────────────────────────────────────────────
+//
+// These are resources a CONSUMER may choose to use once they have said their
+// account resulted from identity theft or fraud. They are not steps BES asks
+// an operator to take, and they are never reached from a category.
+//
+// `requiresFTC(item)` used to live here and returned true for every
+// third-party collection and every unlinked inquiry. It is deleted rather than
+// renamed: nothing should be able to call a function that answers this
+// question from an account. Ask `identityTheftRouteAvailable(recognition)` in
+// `account-recognition.ts` instead, which answers it from what a person
+// recorded.
 
-export interface FTCRule {
-  appliesTo: Category;
+export interface FtcConsumerResource {
+  relevantTo: Category;
   url: string;
-  requiresCode: boolean;
-  notes: string;
+  /** What the consumer is doing there, in the consumer's terms. */
+  purpose: string;
+  /** What an operator should know before mentioning it. */
+  caution: string;
 }
 
-export const FTC_RULES: FTCRule[] = [
+export const FTC_CONSUMER_RESOURCES: FtcConsumerResource[] = [
   {
-    appliesTo: "3rd-Party Collection",
-    url: "https://www.identitytheft.gov/#",
-    requiresCode: true,
-    notes:
-      "If a verification code is required and no phone number is available, attempt SMS to the client and request the code. Document the outreach and outcome.",
+    relevantTo: "3rd-Party Collection",
+    url: "https://www.identitytheft.gov/",
+    purpose:
+      "Where a consumer creates an FTC identity theft report, if they state the account resulted from identity theft.",
+    caution:
+      "A collection account is not evidence of identity theft. Offer this only after the consumer has said so, and never as a step required to dispute the account. A false identity theft report is a false statement to a federal agency.",
   },
   {
-    appliesTo: "Inquiry",
+    relevantTo: "Inquiry",
     url: "https://reportfraud.ftc.gov/assistant",
-    requiresCode: false,
-    notes:
-      "Use the Blue FTC form. No code needed. NEVER include an inquiry linked to an open account — this may place the open account at risk of closure due to fraud claim exposure.",
+    purpose: "Where a consumer reports fraud they say they experienced.",
+    caution:
+      "Not recognising an inquiry is not fraud. An inquiry linked to an account the consumer holds is never reported as fraud — a fraud claim can put that account at risk.",
   },
 ];
 
-export function getFTCRule(category: Category): FTCRule | null {
-  return FTC_RULES.find((r) => r.appliesTo === category) ?? null;
-}
-
-export function requiresFTC(item: ClassifiedItem): boolean {
-  return (
-    item.category === "3rd-Party Collection" ||
-    (item.category === "Inquiry" && !item.linkedOpenAccount)
-  );
+/**
+ * The consumer resource for a category, IF an operator has recorded that the
+ * consumer reports identity theft.
+ *
+ * The recognition argument is required and unforgiving on purpose: there is no
+ * overload that takes only a category, because that overload is the defect
+ * this function replaces.
+ */
+export function ftcResourceFor(
+  category: Category,
+  recognition: AccountRecognition | undefined,
+): FtcConsumerResource | null {
+  if (!identityTheftRouteAvailable(recognition)) return null;
+  return FTC_CONSUMER_RESOURCES.find((r) => r.relevantTo === category) ?? null;
 }
 
 export function isFTCBlocked(item: ClassifiedItem): boolean {
