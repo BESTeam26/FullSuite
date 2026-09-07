@@ -2382,6 +2382,71 @@ if (runs(48)) {
   runPhase("phase 48", P48);
 }
 
+/* ------------------------------------------------------------------ *
+ * Phase 49 — client-level documents (0129).
+ *
+ * The documents that belong to the PERSON rather than to a piece of work.
+ * They were only safe to add once entity_visible defaulted to deny (0118) and
+ * `client` got a real check (0119), so the first probe here is that the
+ * default-deny still holds for a type nobody defined.
+ * ------------------------------------------------------------------ */
+if (runs(49)) {
+  startPhase("phase 49");
+  const w49 = (uid, sql, seed = "") => { try { return q(`begin; ${seed} set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; } catch (e) { const text = String(e.message) + "\n" + String(e.stdout ?? ""); const m = text.match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
+  const OWNER = U["org.owner@bes.test"], AGENT = U["org.agent@bes.test"], OTHER = U["org2.owner@bes.test"];
+  /* Resolved with admin rights so a probe tests authorization, not invisibility. */
+  const CL = q(`select coalesce((select c.id::text from public.clients c where c.organization_id='${lakesideOrg}' limit 1), '') as rows`)[0].rows;
+  const SCOPE = CL ? q(`select coalesce(partner_scope_id::text,'') as rows from public.clients where id='${CL}'`)[0].rows : "";
+  const OTHER_CL = q(`select coalesce((select c.id::text from public.clients c where c.organization_id <> '${lakesideOrg}' limit 1), '') as rows`)[0].rows;
+  const OK_PATH = `${SCOPE}/clients/${CL}/licence.pdf`;
+  const PORTAL = CL ? q(`select coalesce((select portal_user_id::text from public.clients where id='${CL}'), '') as rows`)[0].rows : "";
+  /* Give the client a portal login for the portal probes; rolled back. */
+  const WITH_PORTAL = PORTAL ? "" : `update public.clients set portal_user_id='${U["client.portal@bes.test"] ?? OTHER}' where id='${CL}';`;
+  const PORTAL_USER = PORTAL || (U["client.portal@bes.test"] ?? OTHER);
+
+  const P49 = CL && SCOPE ? [
+    ["a member of the owning organization adds a client document",
+      () => w49(OWNER, `select public.save_client_document('${CL}', '${OK_PATH}', 'Licence.pdf', 'application/pdf', 1000); select count(*)::int as rows from public.files where entity_type='client' and entity_id='${CL}'`), 1],
+    ["…and can read it back",
+      () => w49(OWNER, `select public.save_client_document('${CL}', '${OK_PATH}', 'Licence.pdf', 'application/pdf', 1000); select name as rows from public.files where entity_type='client' and entity_id='${CL}'`), "Licence.pdf"],
+    ["a document must live in that client's own folder",
+      () => w49(OWNER, `select public.save_client_document('${CL}', '${SCOPE}/clients/${OTHER_CL || "00000000-0000-0000-0000-000000000000"}/sneak.pdf', 'X.pdf', 'application/pdf', 10) as rows`), "ERR 42501"],
+    ["…and not in the company folder",
+      () => w49(OWNER, `select public.save_client_document('${CL}', '${SCOPE}/company/sneak.pdf', 'X.pdf', 'application/pdf', 10) as rows`), "ERR 42501"],
+    ["a document needs a name",
+      () => w49(OWNER, `select public.save_client_document('${CL}', '${OK_PATH}', '  ', 'application/pdf', 10) as rows`), "ERR 22023"],
+    ["another organization cannot add one to this client",
+      () => w49(OTHER, `select public.save_client_document('${CL}', '${OK_PATH}', 'X.pdf', 'application/pdf', 10) as rows`), "ERR 42501"],
+    ["…nor read one that exists",
+      () => w49(OTHER, `select count(*)::int as rows from public.files where entity_type='client' and entity_id='${CL}'`,
+        `insert into public.files (organization_id, agency_id, entity_type, entity_id, bucket, path, name, uploaded_by) select organization_id, agency_id, 'client', '${CL}', 'bes-files', '${OK_PATH}', 'Licence.pdf', '${OWNER}' from public.clients where id='${CL}';`), 0],
+    ["…nor insert a row directly, bypassing the writer",
+      /* Counting the rows the INSERT actually wrote, not whether the statement
+         after it ran. As OTHER the sub-select sees no client, so the insert
+         writes nothing — and a trailing `select 1` would have reported that as
+         a pass while proving nothing. */
+      () => w49(OTHER, `with i as (insert into public.files (organization_id, agency_id, entity_type, entity_id, bucket, path, name, uploaded_by) select organization_id, agency_id, 'client', '${CL}', 'bes-files', '${OK_PATH}', 'X', auth.uid() from public.clients where id='${CL}' returning 1) select count(*)::int as rows from i`), 0],
+    ["…and a direct insert naming the client explicitly is refused by the policy",
+      () => w49(OTHER, `with i as (insert into public.files (organization_id, agency_id, entity_type, entity_id, bucket, path, name, uploaded_by) values ('${lakesideOrg}', (select agency_id from public.organizations where id='${lakesideOrg}'), 'client', '${CL}', 'bes-files', '${OK_PATH}', 'X', auth.uid()) returning 1) select count(*)::int as rows from i`), "ERR 42501"],
+    ["a file row cannot claim somebody else uploaded it",
+      () => w49(OWNER, `insert into public.files (organization_id, agency_id, entity_type, entity_id, bucket, path, name, uploaded_by) select organization_id, agency_id, 'client', '${CL}', 'bes-files', '${OK_PATH}', 'X', '${OTHER}' from public.clients where id='${CL}'; select 1 as rows`), "ERR 42501"],
+    ["the client themself may add one through their portal",
+      () => w49(PORTAL_USER, `select public.save_client_document('${CL}', '${OK_PATH}', 'My ID.pdf', 'application/pdf', 10); select count(*)::int as rows from public.files where entity_type='client' and entity_id='${CL}'`, WITH_PORTAL), 1],
+    ["…and cannot remove it once it is on the record",
+      () => w49(PORTAL_USER, `select public.delete_client_document((select id from public.files where entity_type='client' and entity_id='${CL}' limit 1)) as rows`,
+        `${WITH_PORTAL} insert into public.files (organization_id, agency_id, entity_type, entity_id, bucket, path, name, uploaded_by) select organization_id, agency_id, 'client', '${CL}', 'bes-files', '${OK_PATH}', 'My ID.pdf', '${OWNER}' from public.clients where id='${CL}';`), "ERR 42501"],
+    ["staff can remove one, and it returns the storage path so the object goes too",
+      () => w49(OWNER, `select public.delete_client_document((select id from public.files where entity_type='client' and entity_id='${CL}' limit 1)) as rows`,
+        `insert into public.files (organization_id, agency_id, entity_type, entity_id, bucket, path, name, uploaded_by) select organization_id, agency_id, 'client', '${CL}', 'bes-files', '${OK_PATH}', 'Licence.pdf', '${OWNER}' from public.clients where id='${CL}';`), OK_PATH],
+    ["a client document is NOT a company document — the two writers stay apart",
+      () => w49(OWNER, `select public.delete_company_document((select id from public.files where entity_type='client' and entity_id='${CL}' limit 1)) as rows`,
+        `insert into public.files (organization_id, agency_id, entity_type, entity_id, bucket, path, name, uploaded_by) select organization_id, agency_id, 'client', '${CL}', 'bes-files', '${OK_PATH}', 'Licence.pdf', '${OWNER}' from public.clients where id='${CL}';`), "ERR P0002"],
+    ["an entity type nobody defined is still invisible — this is why the type was safe to add",
+      () => w49(OWNER, `select public.entity_visible('client_attachment_v2', '${CL}')::text as rows`), "false"],
+  ] : [["(no Lakeside client to probe)", () => "skip", "skip"]];
+  runPhase("phase 49", P49);
+}
+
 endPhase();
 
 /* ------------------------------------------------------------------ *

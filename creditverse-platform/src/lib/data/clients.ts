@@ -155,6 +155,9 @@ export interface ClientProfile extends ClientDirectoryRow {
   };
   /** Whether this person has a portal login at all — not who it is. */
   hasPortalLogin: boolean;
+  /** The organization, or the outsourcing group for a contract-only client.
+      The storage folder for their documents is derived from it. */
+  partnerScopeId: string | null;
   provenance: string;
   reviewNote: string | null;
   updatedAt: string;
@@ -163,7 +166,7 @@ export interface ClientProfile extends ClientDirectoryRow {
 const PROFILE_SELECT = `${DIRECTORY_SELECT},
   first_name, last_name, preferred_name, date_of_birth,
   address_line1, address_line2, city, state, postal_code,
-  portal_user_id, provenance, review_note`;
+  portal_user_id, provenance, review_note, partner_scope_id`;
 
 export async function fetchClientProfile(clientId: string): Promise<ClientProfile | null> {
   const sb = requireSupabase();
@@ -185,6 +188,7 @@ export async function fetchClientProfile(clientId: string): Promise<ClientProfil
       postalCode: r.postal_code,
     },
     hasPortalLogin: !!r.portal_user_id,
+    partnerScopeId: r.partner_scope_id,
     provenance: r.provenance,
     reviewNote: r.review_note,
     updatedAt: r.updated_at,

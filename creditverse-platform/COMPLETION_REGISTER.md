@@ -101,7 +101,7 @@ approved business workflow be completed?*
 | Client Profile no longer renders CreditOps | **DONE** | Moved to `/app/creditops/cases/:id` |
 | Goals | **PENDING** | No table. Panel says so rather than faking it |
 | Client-level Notes | **PENDING** | Needs a visibility decision first |
-| Client-level document store | **PENDING** | Files are engine-keyed today; `entity_visible()` has no `client` case |
+| Client-level document store | **DONE** | 0129/0130 + phase 49 (16 probes). Same `files` table and bucket — no second document engine |
 | Tags | **PENDING** | No table |
 | Per-client plans/subscriptions | **DEFERRED** | Subscriptions live on the organization; per-client plan is a commercial decision not yet made |
 
@@ -283,7 +283,7 @@ approved business workflow be completed?*
 
 1. ~~FundingOps A / B / C~~ — **done 2026-09-06**
 2. **Seat doctrine** (§24) — authorization-adjacent, currently unencoded
-5. **Client-level documents / `entity_visible()` gap** — a security-shaped hole
+5. ~~Client-level documents~~ — **done 2026-09-07**
 6. **Metro 2 Sections B–P** + wiring Section A into the detector
 7. **Lender portal** (tenancy change — proposal first)
 8. **DIY Referrals**

@@ -8195,6 +8195,7 @@ export type Database = {
           views: string[]
         }[]
       }
+      delete_client_document: { Args: { p_id: string }; Returns: string }
       delete_company_document: { Args: { p_id: string }; Returns: string }
       delete_hub_tool: { Args: { p_id: string }; Returns: undefined }
       dev_seed_user: {
@@ -8674,6 +8675,17 @@ export type Database = {
           p_publish: boolean
           p_tag: string
           p_title: string
+        }
+        Returns: string
+      }
+      save_client_document: {
+        Args: {
+          p_client: string
+          p_kind?: string
+          p_mime: string
+          p_name: string
+          p_path: string
+          p_size: number
         }
         Returns: string
       }

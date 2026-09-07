@@ -14,6 +14,7 @@ import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, AlertTriangle, ExternalLink } from "lucide-react";
 import { useClientHistory, useClientProfile } from "@/lib/data/use-clients";
+import { usePermission } from "@/lib/auth/use-permission";
 import type { HistoryNeed } from "@/lib/data/use-clients";
 import { ServiceBadge } from "@/components/clients/directory/ServiceBadge";
 import { enrolledServices, SERVICE_LABELS } from "@/lib/clients/client-directory-domain";
@@ -58,6 +59,11 @@ export function ClientProfilePage() {
   const [tab, setTab] = useState<Tab>("Overview");
   const client = profile.data ?? undefined;
   const history = useClientHistory(client, NEED[tab] ?? "none");
+
+  /* Either engine's edit key writes the person — the same rule the database
+     applies in `client_writable`, mirrored here only to decide what to offer. */
+  const canWriteClient =
+    usePermission("creditops.clients.edit").allowed || usePermission("fundingops.files.edit").allowed;
 
   const services = useMemo(() => (client ? enrolledServices(client) : []), [client]);
   const initials =
@@ -185,7 +191,15 @@ export function ClientProfilePage() {
         {tab === "Personal Info" && <PersonalInfoPanel client={client} />}
         {tab === "Businesses" && <BusinessesPanel client={client} />}
         {tab === "Services & Plans" && <ServicesPanel client={client} />}
-        {tab === "Documents" && <DocumentsPanel documents={history.documents} hasLinks={history.hasLinks} />}
+        {tab === "Documents" && (
+          <DocumentsPanel
+            clientId={client.id}
+            partnerScopeId={client.partnerScopeId}
+            canEdit={canWriteClient}
+            documents={history.documents}
+            hasLinks={history.hasLinks}
+          />
+        )}
         {tab === "Logins" && <LoginsPanel client={client} />}
         {tab === "Activity" && <ActivityPanel activity={history.activity} hasLinks={history.hasLinks} />}
         {tab === "Goals" && (
