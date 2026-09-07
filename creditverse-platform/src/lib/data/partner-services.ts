@@ -15,14 +15,25 @@
  * is why nothing here treats "no billing rows" as a failure.
  */
 import { requireSupabase } from "@/lib/supabase/client";
+import type { ServiceStatus } from "@/lib/partners/partner-account";
 
-export type PartnerServiceStatus = "onboarding" | "active" | "paused" | "ended";
+export type PartnerServiceStatus = ServiceStatus;
 
-/** What BES does. Visible to anyone who may view partners. */
+/**
+ * One COMMERCIAL service engagement. Visible to anyone who may view partners.
+ *
+ * This is not `fulfillment_engagements`, which sounds identical and is the
+ * opposite thing: that record is an AUTHORIZATION and is what decides whether
+ * BES staff may open a customer's operational data (rule 16). This one is what
+ * BES sells. A GHL build has a commercial line and grants no access at all.
+ */
 export interface PartnerService {
   id: string;
   groupId: string;
   name: string;
+  /** A catalogue code from `partner_service_types`, or null for a bare name. */
+  serviceType: string | null;
+  description: string | null;
   status: PartnerServiceStatus;
   startedOn: string | null;
   endedOn: string | null;
@@ -30,12 +41,18 @@ export interface PartnerService {
   teamId: string | null;
   quantity: number | null;
   quantityUnit: string | null;
+  /** What the spreadsheet said about volume, verbatim: "14 Active Clients". */
+  clientVolumeText: string | null;
   notes: string | null;
+  sourceType: string;
 }
 
 /** What BES charges. Behind a named permission. */
 export interface PartnerBilling {
   serviceId: string;
+  /** A catalogue code from `partner_billing_models`. */
+  billingModel: string | null;
+  billingStatus: string | null;
   paymentChannel: string | null;
   transactionType: string | null;
   paymentFrequency: string | null;
@@ -43,16 +60,27 @@ export interface PartnerBilling {
   rateCents: number | null;
   currency: string;
   expectedMonthlyCents: number | null;
+  mrrCents: number | null;
+  contractedHours: number | null;
+  /** The currency it was agreed in, and the rate used AT THE TIME. Historical
+      amounts are never recomputed at today's rate. */
+  currencyOriginal: string | null;
+  fxRateUsed: number | null;
   pricingNotes: string | null;
 }
 
 const svc = (r: Record<string, unknown>): PartnerService => ({
   id: r.id as string, groupId: r.group_id as string, name: r.name as string,
+  serviceType: (r.service_type as string) ?? null,
+  description: (r.description as string) ?? null,
   status: (r.status as PartnerServiceStatus) ?? "active",
   startedOn: (r.started_on as string) ?? null, endedOn: (r.ended_on as string) ?? null,
   processorId: (r.processor_id as string) ?? null, teamId: (r.team_id as string) ?? null,
   quantity: r.quantity === null || r.quantity === undefined ? null : Number(r.quantity),
-  quantityUnit: (r.quantity_unit as string) ?? null, notes: (r.notes as string) ?? null,
+  quantityUnit: (r.quantity_unit as string) ?? null,
+  clientVolumeText: (r.client_volume_text as string) ?? null,
+  notes: (r.notes as string) ?? null,
+  sourceType: (r.source_type as string) ?? "bes",
 });
 
 export async function fetchPartnerServices(groupId: string): Promise<PartnerService[]> {
@@ -82,6 +110,8 @@ export async function fetchPartnerBilling(serviceIds: string[]): Promise<Record<
     const r = row as Record<string, unknown>;
     out[r.service_id as string] = {
       serviceId: r.service_id as string,
+      billingModel: (r.billing_model as string) ?? null,
+      billingStatus: (r.billing_status as string) ?? null,
       paymentChannel: (r.payment_channel as string) ?? null,
       transactionType: (r.transaction_type as string) ?? null,
       paymentFrequency: (r.payment_frequency as string) ?? null,
@@ -89,6 +119,10 @@ export async function fetchPartnerBilling(serviceIds: string[]): Promise<Record<
       rateCents: r.rate_cents === null ? null : Number(r.rate_cents),
       currency: (r.currency as string) ?? "USD",
       expectedMonthlyCents: r.expected_monthly_cents === null ? null : Number(r.expected_monthly_cents),
+      mrrCents: r.mrr_cents === null || r.mrr_cents === undefined ? null : Number(r.mrr_cents),
+      contractedHours: r.contracted_hours === null || r.contracted_hours === undefined ? null : Number(r.contracted_hours),
+      currencyOriginal: (r.currency_original as string) ?? null,
+      fxRateUsed: r.fx_rate_used === null || r.fx_rate_used === undefined ? null : Number(r.fx_rate_used),
       pricingNotes: (r.pricing_notes as string) ?? null,
     };
   }
@@ -97,17 +131,22 @@ export async function fetchPartnerBilling(serviceIds: string[]): Promise<Record<
 
 export async function savePartnerService(input: {
   id?: string; groupId: string; agencyId: string; name: string;
+  serviceType?: string | null; description?: string | null;
   status?: PartnerServiceStatus; startedOn?: string | null; endedOn?: string | null;
   processorId?: string | null; teamId?: string | null;
-  quantity?: number | null; quantityUnit?: string | null; notes?: string | null;
+  quantity?: number | null; quantityUnit?: string | null;
+  clientVolumeText?: string | null; notes?: string | null;
 }): Promise<string> {
   const sb = requireSupabase();
   const row = {
     group_id: input.groupId, agency_id: input.agencyId, name: input.name.trim(),
+    service_type: input.serviceType || null,
+    description: input.description?.trim() || null,
     status: input.status ?? "active",
     started_on: input.startedOn || null, ended_on: input.endedOn || null,
     processor_id: input.processorId ?? null, team_id: input.teamId ?? null,
     quantity: input.quantity ?? null, quantity_unit: input.quantityUnit?.trim() || null,
+    client_volume_text: input.clientVolumeText?.trim() || null,
     notes: input.notes?.trim() || null,
   };
   const q = input.id
@@ -122,10 +161,16 @@ export async function savePartnerBilling(input: PartnerBilling & { agencyId: str
   const sb = requireSupabase();
   const { error } = await sb.from("partner_service_billing").upsert({
     service_id: input.serviceId, agency_id: input.agencyId,
-    payment_channel: input.paymentChannel, transaction_type: input.transactionType,
+    billing_model: input.billingModel, billing_status: input.billingStatus,
+    payment_channel: input.paymentChannel ?? "UNKNOWN",
+    transaction_type: input.transactionType,
     payment_frequency: input.paymentFrequency, invoice_day: input.invoiceDay,
     rate_cents: input.rateCents, currency: input.currency,
-    expected_monthly_cents: input.expectedMonthlyCents, pricing_notes: input.pricingNotes,
+    expected_monthly_cents: input.expectedMonthlyCents,
+    mrr_cents: input.mrrCents, contracted_hours: input.contractedHours,
+    currency_original: input.currencyOriginal, fx_rate_used: input.fxRateUsed,
+    pricing_notes: input.pricingNotes,
+    updated_by: (await sb.auth.getUser()).data.user?.id ?? null,
   } as never, { onConflict: "service_id" });
   if (error) throw error;
 }
@@ -186,8 +231,10 @@ export interface PartnerOperations {
   ghlLocation: string | null; ghlUrl: string | null;
   sopUrl: string | null;
   commChannel: string | null; commUrl: string | null;
-  accountManagerId: string | null; operationsManagerId: string | null;
-  teamId: string | null; notes: string | null;
+  /** How the work runs. WHO runs the account lives on the partner itself, so
+      the profile header can show it without opening this record. */
+  operationsManagerId: string | null;
+  notes: string | null;
 }
 
 export async function fetchPartnerOperations(groupId: string): Promise<PartnerOperations | null> {
@@ -204,9 +251,8 @@ export async function fetchPartnerOperations(groupId: string): Promise<PartnerOp
     ghlLocation: (r.ghl_location as string) ?? null, ghlUrl: (r.ghl_url as string) ?? null,
     sopUrl: (r.sop_url as string) ?? null,
     commChannel: (r.comm_channel as string) ?? null, commUrl: (r.comm_url as string) ?? null,
-    accountManagerId: (r.account_manager_id as string) ?? null,
     operationsManagerId: (r.operations_manager_id as string) ?? null,
-    teamId: (r.team_id as string) ?? null, notes: (r.notes as string) ?? null,
+    notes: (r.notes as string) ?? null,
   };
 }
 
@@ -220,9 +266,54 @@ export async function savePartnerOperations(groupId: string, agencyId: string, p
     ghl_location: blank(patch.ghlLocation), ghl_url: blank(patch.ghlUrl),
     sop_url: blank(patch.sopUrl),
     comm_channel: blank(patch.commChannel), comm_url: blank(patch.commUrl),
-    account_manager_id: patch.accountManagerId ?? null,
     operations_manager_id: patch.operationsManagerId ?? null,
-    team_id: patch.teamId ?? null, notes: blank(patch.notes),
+    notes: blank(patch.notes),
   } as never, { onConflict: "group_id" });
   if (error) throw error;
+}
+
+/* ── Catalogues ───────────────────────────────────────────────────────── */
+
+/**
+ * What BES sells, how it charges, and where the money arrives.
+ *
+ * Rows in the database, not enums in this file (rule 17: customisation is
+ * data). Adding a service is an insert, not a migration and a deploy.
+ */
+export interface CatalogueEntry {
+  code: string;
+  label: string;
+  sort: number;
+}
+export interface ServiceTypeEntry extends CatalogueEntry {
+  category: string;
+}
+export interface BillingModelEntry extends CatalogueEntry {
+  unit: string | null;
+  recurring: boolean;
+}
+
+export interface PartnerCatalogues {
+  serviceTypes: ServiceTypeEntry[];
+  billingModels: BillingModelEntry[];
+  paymentChannels: CatalogueEntry[];
+}
+
+/** All three in one round trip. They change about once a year; the screens
+    that need them need them together. */
+export async function fetchPartnerCatalogues(): Promise<PartnerCatalogues> {
+  const sb = requireSupabase();
+  const [types, models, channels] = await Promise.all([
+    sb.from("partner_service_types").select("code, label, category, sort").eq("active", true).order("sort"),
+    sb.from("partner_billing_models").select("code, label, unit, recurring, sort").eq("active", true).order("sort"),
+    sb.from("partner_payment_channels").select("code, label, sort").eq("active", true).order("sort"),
+  ]);
+  if (types.error) throw types.error;
+  if (models.error) throw models.error;
+  if (channels.error) throw channels.error;
+  return {
+    serviceTypes: (types.data ?? []) as ServiceTypeEntry[],
+    billingModels: (models.data ?? []) as BillingModelEntry[],
+    paymentChannels: (channels.data ?? []) as CatalogueEntry[],
+  };
 }

@@ -12,7 +12,12 @@
  * refuses is how records fill up with "n/a".
  */
 import { requireSupabase } from "@/lib/supabase/client";
+import type { PartnerHealth, PartnerLifecycle } from "@/lib/partners/partner-account";
 
+/**
+ * LEGACY. `lifecycle` is canonical and a database trigger mirrors it into
+ * `status` so older readers do not go stale. Write lifecycle.
+ */
 export type PartnerStatus = "Active" | "Paused" | "Onboarding" | "Suspended" | "Archived";
 
 export interface AgencyPartner {
@@ -27,6 +32,25 @@ export interface AgencyPartner {
   primaryContact: string | null;
   service: string | null;
   contractRef: string | null;
+  /** The RELATIONSHIP. What they buy lives on their service engagements. */
+  lifecycle: PartnerLifecycle;
+  /** A recorded human judgement, or null when nobody has made one. */
+  health: PartnerHealth | null;
+  healthNote: string | null;
+  healthChangedBy: string | null;
+  healthChangedAt: string | null;
+  startedOn: string | null;
+  endedOn: string | null;
+  /** Their BES SaaS plan, if they also subscribe. Not a service they buy. */
+  saasPlan: string | null;
+  accountManagerId: string | null;
+  teamId: string | null;
+  primaryContactId: string | null;
+  /** What the spreadsheet said, verbatim: "300-400", "60 Average". */
+  legacyClientVolume: string | null;
+  legacyActiveClients: number | null;
+  sourceType: string;
+  credentialMigrationRequired: boolean;
   status: PartnerStatus;
   archivedAt: string | null;
   createdAt: string;
@@ -75,13 +99,31 @@ const mapPartner = (r: Record<string, unknown>): AgencyPartner => ({
   primaryContact: (r.primary_contact as string) ?? null,
   service: (r.service as string) ?? null,
   contractRef: (r.contract_ref as string) ?? null,
+  lifecycle: (r.lifecycle as PartnerLifecycle) ?? "new",
+  health: (r.health as PartnerHealth) ?? null,
+  healthNote: (r.health_note as string) ?? null,
+  healthChangedBy: (r.health_changed_by as string) ?? null,
+  healthChangedAt: (r.health_changed_at as string) ?? null,
+  startedOn: (r.started_on as string) ?? null,
+  endedOn: (r.ended_on as string) ?? null,
+  saasPlan: (r.saas_plan as string) ?? null,
+  accountManagerId: (r.account_manager_id as string) ?? null,
+  teamId: (r.team_id as string) ?? null,
+  primaryContactId: (r.primary_contact_id as string) ?? null,
+  legacyClientVolume: (r.legacy_reported_client_volume as string) ?? null,
+  legacyActiveClients: r.legacy_reported_active_clients === null || r.legacy_reported_active_clients === undefined
+    ? null : Number(r.legacy_reported_active_clients),
+  sourceType: (r.source_type as string) ?? "bes",
+  credentialMigrationRequired: Boolean(r.credential_migration_required),
   status: (r.status as PartnerStatus) ?? "Active",
   archivedAt: (r.archived_at as string) ?? null,
   createdAt: r.created_at as string,
 });
 
-const COLUMNS =
-  "id, name, partner_name, contact_email, phone, address, notes, primary_contact, service, contract_ref, status, archived_at, created_at";
+/* ONE string literal. supabase-js infers the row shape from the literal
+   itself, so a joined array or a concatenation degrades every result. */
+// prettier-ignore
+const COLUMNS = "id, name, partner_name, contact_email, phone, address, notes, primary_contact, service, contract_ref, status, archived_at, created_at, lifecycle, health, health_note, health_changed_by, health_changed_at, started_on, ended_on, saas_plan, account_manager_id, team_id, primary_contact_id, legacy_reported_client_volume, legacy_reported_active_clients, source_type, credential_migration_required";
 
 /** Active partners. Archived ones are excluded here and never deleted. */
 export async function fetchAgencyPartners(includeArchived = false): Promise<AgencyPartner[]> {
@@ -113,6 +155,11 @@ export interface NewPartner {
   primaryContact?: string;
   service?: string;
   contractRef?: string;
+  lifecycle?: PartnerLifecycle;
+  startedOn?: string;
+  saasPlan?: string;
+  accountManagerId?: string | null;
+  teamId?: string | null;
 }
 
 const blankToNull = (v?: string) => {
@@ -138,7 +185,14 @@ export async function createAgencyPartner(agencyId: string, input: NewPartner): 
       primary_contact: blankToNull(input.primaryContact),
       service: blankToNull(input.service),
       contract_ref: blankToNull(input.contractRef),
-      status: "Active",
+      /* Lifecycle is what is written. A trigger mirrors it into the legacy
+         `status` column, so setting both here would be two sources of one
+         truth waiting to disagree. */
+      lifecycle: input.lifecycle ?? "active",
+      started_on: input.startedOn || new Date().toISOString().slice(0, 10),
+      saas_plan: blankToNull(input.saasPlan),
+      account_manager_id: input.accountManagerId ?? null,
+      team_id: input.teamId ?? null,
     })
     .select("id").single();
   if (error) throw error;
@@ -157,6 +211,11 @@ export async function updateAgencyPartner(id: string, patch: Partial<NewPartner>
   if (patch.primaryContact !== undefined) row.primary_contact = blankToNull(patch.primaryContact);
   if (patch.service !== undefined) row.service = blankToNull(patch.service);
   if (patch.contractRef !== undefined) row.contract_ref = blankToNull(patch.contractRef);
+  if (patch.lifecycle !== undefined) row.lifecycle = patch.lifecycle;
+  if (patch.startedOn !== undefined) row.started_on = patch.startedOn || null;
+  if (patch.saasPlan !== undefined) row.saas_plan = blankToNull(patch.saasPlan);
+  if (patch.accountManagerId !== undefined) row.account_manager_id = patch.accountManagerId;
+  if (patch.teamId !== undefined) row.team_id = patch.teamId;
   if (Object.keys(row).length === 0) return;
   const { error } = await sb.from("outsourcing_groups").update(row as never).eq("id", id);
   if (error) throw error;
@@ -167,12 +226,27 @@ export async function updateAgencyPartner(id: string, patch: Partial<NewPartner>
  * record of something that happened, and destroying it destroys the history
  * of every engagement, file and note attached to it (rule 11).
  */
-export async function setPartnerStatus(id: string, status: PartnerStatus): Promise<void> {
+export async function setPartnerLifecycle(id: string, lifecycle: PartnerLifecycle): Promise<void> {
   const sb = requireSupabase();
-  const { error } = await sb
-    .from("outsourcing_groups")
-    .update({ status, archived_at: status === "Archived" ? new Date().toISOString() : null } as never)
-    .eq("id", id);
+  /* `archived_at` and the legacy `status` are set by the database trigger, so
+     there is exactly one place that decides what "archived" means. */
+  const { error } = await sb.from("outsourcing_groups").update({ lifecycle } as never).eq("id", id);
+  if (error) throw error;
+}
+
+/**
+ * Record how the relationship feels, with who said so and when.
+ *
+ * Through an RPC rather than a plain update so the actor and timestamp cannot
+ * be forgotten by a caller — and so a later Attention Center reads one field
+ * written one way. The function is SECURITY INVOKER: the ordinary update
+ * policy still decides who may do this.
+ */
+export async function setPartnerHealth(id: string, health: PartnerHealth, note?: string): Promise<void> {
+  const sb = requireSupabase();
+  const { error } = await sb.rpc("set_partner_health", {
+    p_group: id, p_health: health, p_note: note?.trim() || null,
+  });
   if (error) throw error;
 }
 
@@ -234,4 +308,39 @@ export async function fetchMyPartner(): Promise<AgencyPartner | null> {
   if (error) throw error;
   const id = data as string | null;
   return id ? fetchAgencyPartner(id) : null;
+}
+
+/* ── Derived client counts ────────────────────────────────────────────── */
+
+export interface PartnerClientCount {
+  groupId: string;
+  activeClients: number;
+  totalClients: number;
+}
+
+/**
+ * How many end clients each partner has, for the whole list in ONE call.
+ *
+ * The alternative — counting per partner as each row renders — is the N+1 that
+ * rule 14 forbids, and on a list of twenty-five partners it is twenty-five
+ * round trips to render one column.
+ *
+ * The count is a fact about the relationship, not a client record: the
+ * function returns numbers and nothing else, and every actual client stays
+ * behind `fulfillment_clients`' own policies.
+ */
+export async function fetchPartnerClientCounts(): Promise<Record<string, PartnerClientCount>> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("partner_client_counts");
+  if (error) throw error;
+  const out: Record<string, PartnerClientCount> = {};
+  for (const row of (data ?? []) as Record<string, unknown>[]) {
+    const id = row.group_id as string;
+    out[id] = {
+      groupId: id,
+      activeClients: Number(row.active_clients ?? 0),
+      totalClients: Number(row.total_clients ?? 0),
+    };
+  }
+  return out;
 }

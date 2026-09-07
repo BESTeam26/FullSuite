@@ -5928,6 +5928,7 @@ export type Database = {
       }
       outsourcing_groups: {
         Row: {
+          account_manager_id: string | null
           address: string | null
           agency_id: string
           archived_at: string | null
@@ -5935,17 +5936,37 @@ export type Database = {
           contract_ref: string | null
           created_at: string
           created_by: string | null
+          credential_migration_required: boolean
+          credential_note: string | null
+          ended_on: string | null
+          health: Database["public"]["Enums"]["partner_health"] | null
+          health_changed_at: string | null
+          health_changed_by: string | null
+          health_note: string | null
           id: string
+          import_batch_id: string | null
+          imported_at: string | null
+          legacy_reported_active_clients: number | null
+          legacy_reported_client_volume: string | null
+          lifecycle: Database["public"]["Enums"]["partner_lifecycle"]
           name: string
           notes: string | null
           partner_name: string | null
           phone: string | null
           primary_contact: string | null
+          primary_contact_id: string | null
+          saas_plan: string | null
           service: string | null
+          source_reference: string | null
+          source_row_ref: string | null
+          source_type: string
+          started_on: string | null
           status: Database["public"]["Enums"]["outsourcing_group_status"]
+          team_id: string | null
           updated_at: string
         }
         Insert: {
+          account_manager_id?: string | null
           address?: string | null
           agency_id: string
           archived_at?: string | null
@@ -5953,17 +5974,37 @@ export type Database = {
           contract_ref?: string | null
           created_at?: string
           created_by?: string | null
+          credential_migration_required?: boolean
+          credential_note?: string | null
+          ended_on?: string | null
+          health?: Database["public"]["Enums"]["partner_health"] | null
+          health_changed_at?: string | null
+          health_changed_by?: string | null
+          health_note?: string | null
           id?: string
+          import_batch_id?: string | null
+          imported_at?: string | null
+          legacy_reported_active_clients?: number | null
+          legacy_reported_client_volume?: string | null
+          lifecycle?: Database["public"]["Enums"]["partner_lifecycle"]
           name: string
           notes?: string | null
           partner_name?: string | null
           phone?: string | null
           primary_contact?: string | null
+          primary_contact_id?: string | null
+          saas_plan?: string | null
           service?: string | null
+          source_reference?: string | null
+          source_row_ref?: string | null
+          source_type?: string
+          started_on?: string | null
           status?: Database["public"]["Enums"]["outsourcing_group_status"]
+          team_id?: string | null
           updated_at?: string
         }
         Update: {
+          account_manager_id?: string | null
           address?: string | null
           agency_id?: string
           archived_at?: string | null
@@ -5971,17 +6012,43 @@ export type Database = {
           contract_ref?: string | null
           created_at?: string
           created_by?: string | null
+          credential_migration_required?: boolean
+          credential_note?: string | null
+          ended_on?: string | null
+          health?: Database["public"]["Enums"]["partner_health"] | null
+          health_changed_at?: string | null
+          health_changed_by?: string | null
+          health_note?: string | null
           id?: string
+          import_batch_id?: string | null
+          imported_at?: string | null
+          legacy_reported_active_clients?: number | null
+          legacy_reported_client_volume?: string | null
+          lifecycle?: Database["public"]["Enums"]["partner_lifecycle"]
           name?: string
           notes?: string | null
           partner_name?: string | null
           phone?: string | null
           primary_contact?: string | null
+          primary_contact_id?: string | null
+          saas_plan?: string | null
           service?: string | null
+          source_reference?: string | null
+          source_row_ref?: string | null
+          source_type?: string
+          started_on?: string | null
           status?: Database["public"]["Enums"]["outsourcing_group_status"]
+          team_id?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "outsourcing_groups_account_manager_id_fkey"
+            columns: ["account_manager_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "outsourcing_groups_agency_id_fkey"
             columns: ["agency_id"]
@@ -5994,6 +6061,144 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outsourcing_groups_health_changed_by_fkey"
+            columns: ["health_changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outsourcing_groups_primary_contact_id_fkey"
+            columns: ["primary_contact_id"]
+            isOneToOne: false
+            referencedRelation: "partner_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outsourcing_groups_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_billing_models: {
+        Row: {
+          active: boolean
+          code: string
+          label: string
+          recurring: boolean
+          sort: number
+          unit: string | null
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          label: string
+          recurring?: boolean
+          sort?: number
+          unit?: string | null
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          label?: string
+          recurring?: boolean
+          sort?: number
+          unit?: string | null
+        }
+        Relationships: []
+      }
+      partner_billing_schedule: {
+        Row: {
+          agency_id: string
+          amount_cents: number
+          created_at: string
+          created_by: string | null
+          currency: string
+          due_on: string
+          group_id: string
+          id: string
+          invoice_id: string | null
+          kind: string
+          notes: string | null
+          sequence: number | null
+          service_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          amount_cents: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          due_on: string
+          group_id: string
+          id?: string
+          invoice_id?: string | null
+          kind: string
+          notes?: string | null
+          sequence?: number | null
+          service_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          amount_cents?: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          due_on?: string
+          group_id?: string
+          id?: string
+          invoice_id?: string | null
+          kind?: string
+          notes?: string | null
+          sequence?: number | null
+          service_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_billing_schedule_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_billing_schedule_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_billing_schedule_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "outsourcing_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_billing_schedule_invoice_fk"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "partner_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_billing_schedule_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "partner_services"
             referencedColumns: ["id"]
           },
         ]
@@ -6081,9 +6286,175 @@ export type Database = {
           },
         ]
       }
+      partner_invoice_lines: {
+        Row: {
+          amount_cents: number
+          description: string
+          id: string
+          invoice_id: string
+          quantity: number
+          schedule_id: string | null
+          service_id: string | null
+          sort: number
+          unit_amount_cents: number
+          unit_label: string | null
+        }
+        Insert: {
+          amount_cents?: number
+          description: string
+          id?: string
+          invoice_id: string
+          quantity?: number
+          schedule_id?: string | null
+          service_id?: string | null
+          sort?: number
+          unit_amount_cents?: number
+          unit_label?: string | null
+        }
+        Update: {
+          amount_cents?: number
+          description?: string
+          id?: string
+          invoice_id?: string
+          quantity?: number
+          schedule_id?: string | null
+          service_id?: string | null
+          sort?: number
+          unit_amount_cents?: number
+          unit_label?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_invoice_lines_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "partner_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_invoice_lines_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "partner_billing_schedule"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_invoice_lines_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "partner_services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_invoices: {
+        Row: {
+          agency_id: string
+          amount_paid_cents: number
+          created_at: string
+          created_by: string | null
+          currency: string
+          discount_cents: number
+          due_date: string
+          external_invoice_id: string | null
+          group_id: string
+          id: string
+          invoice_number: string
+          issue_date: string
+          notes: string | null
+          paid_at: string | null
+          payment_provider:
+            | Database["public"]["Enums"]["partner_payment_provider"]
+            | null
+          sent_at: string | null
+          status: Database["public"]["Enums"]["partner_invoice_status"]
+          subtotal_cents: number
+          tax_cents: number
+          total_cents: number
+          updated_at: string
+          void_reason: string | null
+          voided_at: string | null
+        }
+        Insert: {
+          agency_id: string
+          amount_paid_cents?: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          discount_cents?: number
+          due_date: string
+          external_invoice_id?: string | null
+          group_id: string
+          id?: string
+          invoice_number: string
+          issue_date?: string
+          notes?: string | null
+          paid_at?: string | null
+          payment_provider?:
+            | Database["public"]["Enums"]["partner_payment_provider"]
+            | null
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["partner_invoice_status"]
+          subtotal_cents?: number
+          tax_cents?: number
+          total_cents?: number
+          updated_at?: string
+          void_reason?: string | null
+          voided_at?: string | null
+        }
+        Update: {
+          agency_id?: string
+          amount_paid_cents?: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          discount_cents?: number
+          due_date?: string
+          external_invoice_id?: string | null
+          group_id?: string
+          id?: string
+          invoice_number?: string
+          issue_date?: string
+          notes?: string | null
+          paid_at?: string | null
+          payment_provider?:
+            | Database["public"]["Enums"]["partner_payment_provider"]
+            | null
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["partner_invoice_status"]
+          subtotal_cents?: number
+          tax_cents?: number
+          total_cents?: number
+          updated_at?: string
+          void_reason?: string | null
+          voided_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_invoices_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_invoices_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_invoices_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "outsourcing_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       partner_operations: {
         Row: {
-          account_manager_id: string | null
           agency_id: string
           comm_channel: string | null
           comm_url: string | null
@@ -6097,12 +6468,10 @@ export type Database = {
           notes: string | null
           operations_manager_id: string | null
           sop_url: string | null
-          team_id: string | null
           updated_at: string
           updated_by: string | null
         }
         Insert: {
-          account_manager_id?: string | null
           agency_id: string
           comm_channel?: string | null
           comm_url?: string | null
@@ -6116,12 +6485,10 @@ export type Database = {
           notes?: string | null
           operations_manager_id?: string | null
           sop_url?: string | null
-          team_id?: string | null
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
-          account_manager_id?: string | null
           agency_id?: string
           comm_channel?: string | null
           comm_url?: string | null
@@ -6135,18 +6502,10 @@ export type Database = {
           notes?: string | null
           operations_manager_id?: string | null
           sop_url?: string | null
-          team_id?: string | null
           updated_at?: string
           updated_by?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "partner_operations_account_manager_id_fkey"
-            columns: ["account_manager_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "partner_operations_agency_id_fkey"
             columns: ["agency_id"]
@@ -6169,13 +6528,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "partner_operations_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "teams"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "partner_operations_updated_by_fkey"
             columns: ["updated_by"]
             isOneToOne: false
@@ -6184,55 +6536,208 @@ export type Database = {
           },
         ]
       }
+      partner_payment_channels: {
+        Row: {
+          active: boolean
+          code: string
+          label: string
+          sort: number
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          label: string
+          sort?: number
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          label?: string
+          sort?: number
+        }
+        Relationships: []
+      }
+      partner_payments: {
+        Row: {
+          agency_id: string
+          amount_cents: number
+          created_at: string
+          currency: string
+          group_id: string
+          id: string
+          invoice_id: string | null
+          method: string | null
+          notes: string | null
+          paid_on: string
+          provider: Database["public"]["Enums"]["partner_payment_provider"]
+          provider_transaction_id: string | null
+          reconciled_at: string | null
+          reconciliation_state: string
+          recorded_by: string | null
+          refund_amount_cents: number
+          service_id: string | null
+          source: string
+          status: Database["public"]["Enums"]["partner_payment_status"]
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          amount_cents: number
+          created_at?: string
+          currency?: string
+          group_id: string
+          id?: string
+          invoice_id?: string | null
+          method?: string | null
+          notes?: string | null
+          paid_on?: string
+          provider: Database["public"]["Enums"]["partner_payment_provider"]
+          provider_transaction_id?: string | null
+          reconciled_at?: string | null
+          reconciliation_state?: string
+          recorded_by?: string | null
+          refund_amount_cents?: number
+          service_id?: string | null
+          source?: string
+          status?: Database["public"]["Enums"]["partner_payment_status"]
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          amount_cents?: number
+          created_at?: string
+          currency?: string
+          group_id?: string
+          id?: string
+          invoice_id?: string | null
+          method?: string | null
+          notes?: string | null
+          paid_on?: string
+          provider?: Database["public"]["Enums"]["partner_payment_provider"]
+          provider_transaction_id?: string | null
+          reconciled_at?: string | null
+          reconciliation_state?: string
+          recorded_by?: string | null
+          refund_amount_cents?: number
+          service_id?: string | null
+          source?: string
+          status?: Database["public"]["Enums"]["partner_payment_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_payments_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_payments_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "outsourcing_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_payments_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "partner_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_payments_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_payments_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "partner_services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       partner_revenue_entries: {
         Row: {
           actual_cents: number | null
           agency_id: string
+          amount_original_cents: number | null
+          converted_amount_cents: number | null
+          converted_currency: string | null
           created_at: string
           currency: string
+          currency_original: string | null
           expected_cents: number | null
+          fx_rate_used: number | null
           group_id: string
           id: string
+          import_batch_id: string | null
+          imported_at: string | null
           month: number
           notes: string | null
           payment_channel: string | null
           recorded_by: string | null
           service_id: string | null
           source: string
+          source_reference: string | null
+          source_type: string
           updated_at: string
           year: number
         }
         Insert: {
           actual_cents?: number | null
           agency_id: string
+          amount_original_cents?: number | null
+          converted_amount_cents?: number | null
+          converted_currency?: string | null
           created_at?: string
           currency?: string
+          currency_original?: string | null
           expected_cents?: number | null
+          fx_rate_used?: number | null
           group_id: string
           id?: string
+          import_batch_id?: string | null
+          imported_at?: string | null
           month: number
           notes?: string | null
           payment_channel?: string | null
           recorded_by?: string | null
           service_id?: string | null
           source?: string
+          source_reference?: string | null
+          source_type?: string
           updated_at?: string
           year: number
         }
         Update: {
           actual_cents?: number | null
           agency_id?: string
+          amount_original_cents?: number | null
+          converted_amount_cents?: number | null
+          converted_currency?: string | null
           created_at?: string
           currency?: string
+          currency_original?: string | null
           expected_cents?: number | null
+          fx_rate_used?: number | null
           group_id?: string
           id?: string
+          import_batch_id?: string | null
+          imported_at?: string | null
           month?: number
           notes?: string | null
           payment_channel?: string | null
           recorded_by?: string | null
           service_id?: string | null
           source?: string
+          source_reference?: string | null
+          source_type?: string
           updated_at?: string
           year?: number
         }
@@ -6270,42 +6775,87 @@ export type Database = {
       partner_service_billing: {
         Row: {
           agency_id: string
+          autopay: boolean
+          billing_model: string | null
+          billing_status:
+            | Database["public"]["Enums"]["partner_billing_status"]
+            | null
+          contracted_hours: number | null
           currency: string
+          currency_original: string | null
+          effective_from: string
+          effective_to: string | null
           expected_monthly_cents: number | null
+          fx_rate_used: number | null
+          id: string
           invoice_day: string | null
+          mrr_cents: number | null
           payment_channel: string | null
           payment_frequency: string | null
           pricing_notes: string | null
+          quantity: number | null
+          quantity_source: string
           rate_cents: number | null
           service_id: string
+          superseded_by: string | null
           transaction_type: string | null
           updated_at: string
           updated_by: string | null
         }
         Insert: {
           agency_id: string
+          autopay?: boolean
+          billing_model?: string | null
+          billing_status?:
+            | Database["public"]["Enums"]["partner_billing_status"]
+            | null
+          contracted_hours?: number | null
           currency?: string
+          currency_original?: string | null
+          effective_from?: string
+          effective_to?: string | null
           expected_monthly_cents?: number | null
+          fx_rate_used?: number | null
+          id?: string
           invoice_day?: string | null
+          mrr_cents?: number | null
           payment_channel?: string | null
           payment_frequency?: string | null
           pricing_notes?: string | null
+          quantity?: number | null
+          quantity_source?: string
           rate_cents?: number | null
           service_id: string
+          superseded_by?: string | null
           transaction_type?: string | null
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
           agency_id?: string
+          autopay?: boolean
+          billing_model?: string | null
+          billing_status?:
+            | Database["public"]["Enums"]["partner_billing_status"]
+            | null
+          contracted_hours?: number | null
           currency?: string
+          currency_original?: string | null
+          effective_from?: string
+          effective_to?: string | null
           expected_monthly_cents?: number | null
+          fx_rate_used?: number | null
+          id?: string
           invoice_day?: string | null
+          mrr_cents?: number | null
           payment_channel?: string | null
           payment_frequency?: string | null
           pricing_notes?: string | null
+          quantity?: number | null
+          quantity_source?: string
           rate_cents?: number | null
           service_id?: string
+          superseded_by?: string | null
           transaction_type?: string | null
           updated_at?: string
           updated_by?: string | null
@@ -6319,10 +6869,31 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "partner_service_billing_billing_model_fkey"
+            columns: ["billing_model"]
+            isOneToOne: false
+            referencedRelation: "partner_billing_models"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "partner_service_billing_channel_fk"
+            columns: ["payment_channel"]
+            isOneToOne: false
+            referencedRelation: "partner_payment_channels"
+            referencedColumns: ["code"]
+          },
+          {
             foreignKeyName: "partner_service_billing_service_id_fkey"
             columns: ["service_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "partner_services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_service_billing_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "partner_service_billing"
             referencedColumns: ["id"]
           },
           {
@@ -6334,19 +6905,55 @@ export type Database = {
           },
         ]
       }
+      partner_service_types: {
+        Row: {
+          active: boolean
+          category: string
+          code: string
+          label: string
+          sort: number
+        }
+        Insert: {
+          active?: boolean
+          category: string
+          code: string
+          label: string
+          sort?: number
+        }
+        Update: {
+          active?: boolean
+          category?: string
+          code?: string
+          label?: string
+          sort?: number
+        }
+        Relationships: []
+      }
       partner_services: {
         Row: {
           agency_id: string
+          billing_authority: Database["public"]["Enums"]["partner_billing_authority"]
+          cancellation_effective_on: string | null
+          cancellation_reason: string | null
+          client_volume_text: string | null
+          contract_value_cents: number | null
           created_at: string
           created_by: string | null
+          description: string | null
           ended_on: string | null
           group_id: string
           id: string
+          import_batch_id: string | null
+          imported_at: string | null
           name: string
           notes: string | null
           processor_id: string | null
           quantity: number | null
           quantity_unit: string | null
+          service_type: string | null
+          source_reference: string | null
+          source_row_ref: string | null
+          source_type: string
           started_on: string | null
           status: Database["public"]["Enums"]["partner_service_status"]
           team_id: string | null
@@ -6354,16 +6961,28 @@ export type Database = {
         }
         Insert: {
           agency_id: string
+          billing_authority?: Database["public"]["Enums"]["partner_billing_authority"]
+          cancellation_effective_on?: string | null
+          cancellation_reason?: string | null
+          client_volume_text?: string | null
+          contract_value_cents?: number | null
           created_at?: string
           created_by?: string | null
+          description?: string | null
           ended_on?: string | null
           group_id: string
           id?: string
+          import_batch_id?: string | null
+          imported_at?: string | null
           name: string
           notes?: string | null
           processor_id?: string | null
           quantity?: number | null
           quantity_unit?: string | null
+          service_type?: string | null
+          source_reference?: string | null
+          source_row_ref?: string | null
+          source_type?: string
           started_on?: string | null
           status?: Database["public"]["Enums"]["partner_service_status"]
           team_id?: string | null
@@ -6371,16 +6990,28 @@ export type Database = {
         }
         Update: {
           agency_id?: string
+          billing_authority?: Database["public"]["Enums"]["partner_billing_authority"]
+          cancellation_effective_on?: string | null
+          cancellation_reason?: string | null
+          client_volume_text?: string | null
+          contract_value_cents?: number | null
           created_at?: string
           created_by?: string | null
+          description?: string | null
           ended_on?: string | null
           group_id?: string
           id?: string
+          import_batch_id?: string | null
+          imported_at?: string | null
           name?: string
           notes?: string | null
           processor_id?: string | null
           quantity?: number | null
           quantity_unit?: string | null
+          service_type?: string | null
+          source_reference?: string | null
+          source_row_ref?: string | null
+          source_type?: string
           started_on?: string | null
           status?: Database["public"]["Enums"]["partner_service_status"]
           team_id?: string | null
@@ -6414,6 +7045,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_services_service_type_fkey"
+            columns: ["service_type"]
+            isOneToOne: false
+            referencedRelation: "partner_service_types"
+            referencedColumns: ["code"]
           },
           {
             foreignKeyName: "partner_services_team_id_fkey"
@@ -9904,6 +10542,7 @@ export type Database = {
         Args: { p_letter: string; p_mailed_at?: string }
         Returns: undefined
       }
+      mark_overdue_invoices: { Args: never; Returns: number }
       may_notify_mention: {
         Args: {
           p_agency: string
@@ -9963,6 +10602,7 @@ export type Database = {
           key: string
         }[]
       }
+      next_invoice_number: { Args: { p_agency: string }; Returns: string }
       normalize_business_name: { Args: { p: string }; Returns: string }
       normalize_phone: { Args: { p: string }; Returns: string }
       notify_mentions: {
@@ -10073,7 +10713,19 @@ export type Database = {
         }[]
       }
       organization_seat_usage: { Args: { p_org: string }; Returns: number }
+      partner_client_counts: {
+        Args: never
+        Returns: {
+          active_clients: number
+          group_id: string
+          total_clients: number
+        }[]
+      }
       partner_group_of_user: { Args: never; Returns: string }
+      partner_invoice_recompute: {
+        Args: { p_invoice: string }
+        Returns: undefined
+      }
       publish_holiday_announcement: {
         Args: {
           p_agency: string
@@ -10367,6 +11019,14 @@ export type Database = {
           p_views: string[]
         }
         Returns: Json
+      }
+      set_partner_health: {
+        Args: {
+          p_group: string
+          p_health: Database["public"]["Enums"]["partner_health"]
+          p_note?: string
+        }
+        Returns: undefined
       }
       set_referral_code: {
         Args: { p_code: string; p_label?: string; p_org: string }
@@ -10830,7 +11490,54 @@ export type Database = {
         | "Onboarding"
         | "Suspended"
         | "Archived"
-      partner_service_status: "onboarding" | "active" | "paused" | "ended"
+      partner_billing_authority:
+        | "bes"
+        | "authorize_net_arb"
+        | "ghl"
+        | "paypal"
+        | "manual"
+      partner_billing_status:
+        | "active"
+        | "invoice_pending"
+        | "overdue"
+        | "paused"
+        | "cancelled"
+      partner_health: "happy" | "neutral" | "concerned" | "at_risk"
+      partner_invoice_status:
+        | "draft"
+        | "scheduled"
+        | "sent"
+        | "partially_paid"
+        | "paid"
+        | "overdue"
+        | "void"
+        | "cancelled"
+      partner_lifecycle:
+        | "new"
+        | "onboarding"
+        | "active"
+        | "on_hold"
+        | "suspended"
+        | "archived"
+      partner_payment_provider:
+        | "authorize_net"
+        | "paypal"
+        | "paypal_personal"
+        | "stripe"
+        | "wise"
+        | "ghl"
+        | "upwork"
+        | "bank_transfer"
+        | "other"
+      partner_payment_status: "pending" | "succeeded" | "failed" | "refunded"
+      partner_service_status:
+        | "onboarding"
+        | "active"
+        | "paused"
+        | "ended"
+        | "pending"
+        | "completed"
+        | "cancelled"
       payment_status:
         | "approved"
         | "declined"
@@ -11493,7 +12200,60 @@ export const Constants = {
         "Suspended",
         "Archived",
       ],
-      partner_service_status: ["onboarding", "active", "paused", "ended"],
+      partner_billing_authority: [
+        "bes",
+        "authorize_net_arb",
+        "ghl",
+        "paypal",
+        "manual",
+      ],
+      partner_billing_status: [
+        "active",
+        "invoice_pending",
+        "overdue",
+        "paused",
+        "cancelled",
+      ],
+      partner_health: ["happy", "neutral", "concerned", "at_risk"],
+      partner_invoice_status: [
+        "draft",
+        "scheduled",
+        "sent",
+        "partially_paid",
+        "paid",
+        "overdue",
+        "void",
+        "cancelled",
+      ],
+      partner_lifecycle: [
+        "new",
+        "onboarding",
+        "active",
+        "on_hold",
+        "suspended",
+        "archived",
+      ],
+      partner_payment_provider: [
+        "authorize_net",
+        "paypal",
+        "paypal_personal",
+        "stripe",
+        "wise",
+        "ghl",
+        "upwork",
+        "bank_transfer",
+        "other",
+      ],
+      partner_payment_status: ["pending", "succeeded", "failed", "refunded"],
+      partner_service_status: [
+        "onboarding",
+        "active",
+        "paused",
+        "ended",
+        "pending",
+        "completed",
+        "cancelled",
+      ],
       payment_status: [
         "approved",
         "declined",

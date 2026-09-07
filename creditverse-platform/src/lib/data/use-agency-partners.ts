@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth/auth-context";
+import type { PartnerHealth, PartnerLifecycle } from "@/lib/partners/partner-account";
 import {
   createAgencyPartner, createPartnerContact, fetchAgencyPartner, fetchAgencyPartners,
-  fetchMyPartner, fetchPartnerContacts, setContactStatus, setPartnerStatus,
-  updateAgencyPartner, type NewPartner, type PartnerStatus,
+  fetchPartnerClientCounts, fetchMyPartner, fetchPartnerContacts, setContactStatus, setPartnerHealth, setPartnerLifecycle,
+  updateAgencyPartner, type NewPartner,
 } from "@/lib/data/agency-partners";
 
 export const partnersKey = (archived: boolean) => ["agency", "partners", archived] as const;
@@ -55,7 +56,14 @@ export function usePartnerActions() {
   return {
     create: useMutation({ mutationFn: (input: NewPartner) => createAgencyPartner(agencyId!, input), onSuccess: refresh }),
     update: useMutation({ mutationFn: (v: { id: string; patch: Partial<NewPartner> }) => updateAgencyPartner(v.id, v.patch), onSuccess: refresh }),
-    setStatus: useMutation({ mutationFn: (v: { id: string; status: PartnerStatus }) => setPartnerStatus(v.id, v.status), onSuccess: refresh }),
+    setLifecycle: useMutation({
+      mutationFn: (v: { id: string; lifecycle: PartnerLifecycle }) => setPartnerLifecycle(v.id, v.lifecycle),
+      onSuccess: refresh,
+    }),
+    setHealth: useMutation({
+      mutationFn: (v: { id: string; health: PartnerHealth; note?: string }) => setPartnerHealth(v.id, v.health, v.note),
+      onSuccess: refresh,
+    }),
     addContact: useMutation({
       mutationFn: (v: { groupId: string; fullName: string; email: string; phone?: string; isPrimary?: boolean }) =>
         createPartnerContact({ agencyId: agencyId!, ...v }),
@@ -77,5 +85,22 @@ export function useMyPartner() {
     enabled: live,
     staleTime: 300_000,
     retry: false,
+  });
+}
+
+/**
+ * Client counts for every partner at once.
+ *
+ * A separate hook with its OWN key so the two components that want it — the
+ * partner list and a profile header — share one request rather than issuing
+ * two (rule 14, "duplicate calls are collapsed by query key").
+ */
+export function usePartnerClientCounts() {
+  const { live } = useLive();
+  return useQuery({
+    queryKey: ["agency", "partner-client-counts"],
+    queryFn: fetchPartnerClientCounts,
+    enabled: live,
+    staleTime: 60_000,
   });
 }
