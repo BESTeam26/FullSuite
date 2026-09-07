@@ -310,7 +310,13 @@ const T = q(`select
   (select count(*) from public.work_items w where w.organization_id=(select id from public.organizations where name='[TEST] Northgate Credit Co') and w.scope='ORGANIZATION')::int as northgate_org_work,
   (select count(*) from public.work_attention a join public.work_items w on w.id=a.id where w.organization_id=(select id from public.organizations where name='[TEST] Northgate Credit Co') and w.scope='ORGANIZATION')::int as northgate_org_attention,
   (select id from public.fulfillment_clients where name='[TEST] Evan Ellis') as lakeside_client,
-  (select id from public.fulfillment_clients where organization_id=(select id from public.organizations where name='[TEST] Cedar Financial') limit 1) as cedar_client,
+  /* Pinned to the SEEDED record by name, not an unordered LIMIT 1 over the
+     table. Real records Dee creates land in these organizations too, and the
+     probe silently started measuring one of those -- a client assigned to the
+     very team whose lead it asserts CANNOT see it. It then reported a
+     security regression that was really a fixture drifting underneath it.
+     A probe whose subject can change is a probe that tests nothing. */
+  (select id from public.fulfillment_clients where name='[TEST] Cleo Chan') as cedar_client,
   (select id from public.teams where name like 'CreditOps%Team A%' limit 1) as team_a,
   (select id from public.teams where name like 'CreditOps%Team B%' limit 1) as team_b
 `)[0];
@@ -2994,6 +3000,160 @@ if (runs(54)) {
       () => q(`select count(distinct key)::int as rows from public.kpi_definitions where key in ('outcomes.bureau_confirmed_deletion','outcomes.no_longer_observed')`)[0].rows, 2],
   ] : [["(no Lakeside client to probe)", () => "skip", "skip"]];
   runPhase("phase 54", P54, { strict: true });
+}
+
+if (runs(55)) {
+  startPhase("phase 55");
+  /* Agency HQ for the real team. Three boundaries are proved here:
+       • BES-internal work is invisible to every customer organization;
+       • a BES workspace belongs to the agency and holds no tenant's work;
+       • a partner sees their own record and nothing of anyone else's —
+         with no organization involved anywhere in the chain. */
+  const probe55 = (uid, sql, seed = "") => {
+    try {
+      return q(`begin; ${seed} set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows;
+    } catch (e) {
+      const text = String(e.message) + "\n" + String(e.stdout ?? "");
+      const m = text.match(/ERROR:\s*(\w+):/);
+      return "ERR " + (m ? m[1] : "unknown");
+    }
+  };
+  const OWNER55 = U["bes.owner@bes.test"];
+  const AGENT55 = U["bes.credit@bes.test"];
+  const ORG55   = U["org.owner@bes.test"];
+  const OTHERORG = U["org2.owner@bes.test"];
+  const AG = q(`select id::text as rows from public.agencies limit 1`)[0].rows;
+
+  /* Two statements, never a data-modifying CTE. `work_items_workspace_
+     consistency` looks the workspace up in `public.workspaces`, and a row
+     inserted in the SAME statement is not in that trigger's snapshot — so a
+     `with w as (insert …)` form fails with a check violation that looks like
+     a policy problem and is not. Learned in migration 0135; the same shape
+     bites here. */
+  const mkWs = `insert into public.workspaces (agency_id, organization_id, name) values ('${AG}', null, 'BES Team Probe');`;
+  const wsId = `(select id from public.workspaces where agency_id='${AG}' and name='BES Team Probe' order by created_at desc limit 1)`;
+  const mkTask = (title) => `${mkWs} insert into public.work_items (agency_id, scope, related_type, title, workspace_id) values ('${AG}', 'AGENCY', 'project', '${title}', ${wsId});`;
+  const taskId = (title) => `(select id from public.work_items where title='${title}' order by created_at desc limit 1)`;
+
+  const P55 = [
+    ["a BES manager may create an agency workspace with no organization",
+      () => probe55(OWNER55, `${mkWs}; select count(*)::int as rows from public.workspaces where agency_id='${AG}' and organization_id is null`), 1],
+
+    ["an organization owner cannot create one",
+      () => probe55(ORG55, `${mkWs}; select 0 as rows`), "ERR 42501"],
+
+    ["…and cannot see one that exists",
+      () => probe55(OWNER55, `${mkWs}; set local request.jwt.claims = '{"sub":"${ORG55}","role":"authenticated"}'; select count(*)::int as rows from public.workspaces where agency_id='${AG}'`), 0],
+
+    /* THE BOUNDARY THAT MATTERS: internal work is not a customer's. */
+    /* THE BOUNDARY THAT MATTERS: internal work is not a customer's. */
+    ["BES-internal work is invisible to every organization user",
+      () => probe55(OWNER55, `${mkTask("Internal probe")} set local request.jwt.claims = '{"sub":"${ORG55}","role":"authenticated"}'; select count(*)::int as rows from public.work_items where title='Internal probe'`), 0],
+
+    ["…and the BES author does see it",
+      () => probe55(OWNER55, `${mkTask("Internal probe 2")} select count(*)::int as rows from public.work_items where title='Internal probe 2'`), 1],
+
+    ["a workspace cannot hold both an organization and an agency",
+      () => probe55(OWNER55, `insert into public.workspaces (agency_id, organization_id, name) values ('${AG}', '${lakesideOrg}', 'Both'); select 0 as rows`), "ERR 23514"],
+
+    /* RLS refuses this before the CHECK is reached, so the probe asserts the
+       constraint EXISTS rather than which of the two layers spoke first. */
+    ["…nor neither, and the constraint says so",
+      () => q(`select (count(*) = 1)::text as rows from pg_constraint where conname='workspaces_owner_ck'`)[0].rows, "true"],
+
+    ["an organization item cannot be filed in an agency workspace",
+      () => probe55(OWNER55, `${mkWs} insert into public.work_items (agency_id, scope, organization_id, related_type, title, workspace_id) values ('${AG}', 'ORGANIZATION', '${lakesideOrg}', 'project', 'Wrong scope', ${wsId}); select 0 as rows`), "ERR 23514"],
+
+    /* Checklist and blockers inherit the task's authorization exactly. */
+    ["a checklist is invisible to somebody who cannot see its task",
+      () => probe55(OWNER55, `${mkTask("Checklist probe")} insert into public.work_checklist_items (work_item_id, label) values (${taskId("Checklist probe")}, 'Probe step'); set local request.jwt.claims = '{"sub":"${ORG55}","role":"authenticated"}'; select count(*)::int as rows from public.work_checklist_items`), 0],
+
+    ["…and visible to the BES staff member who owns it",
+      () => probe55(OWNER55, `${mkTask("Checklist probe 2")} insert into public.work_checklist_items (work_item_id, label) values (${taskId("Checklist probe 2")}, 'Probe step'); select count(*)::int as rows from public.work_checklist_items where work_item_id = ${taskId("Checklist probe 2")}`), 1],
+
+    ["a blocker needs a reason or another task",
+      () => probe55(OWNER55, `${mkTask("Blocker probe")} insert into public.work_item_blockers (work_item_id, note) values (${taskId("Blocker probe")}, 'x'); select 0 as rows`), "ERR 23514"],
+
+    ["a task cannot block itself",
+      () => probe55(OWNER55, `${mkTask("Self probe")} insert into public.work_item_blockers (work_item_id, blocked_by_id) values (${taskId("Self probe")}, ${taskId("Self probe")}); select 0 as rows`), "ERR 23514"],
+
+    /* Federal holidays are set by statute, not by staff. */
+    ["a U.S. federal holiday cannot be edited",
+      () => probe55(OWNER55, `insert into public.agency_calendar_events (agency_id, kind, source_key, name, event_date, observed_date, system_managed) values ('${AG}','us_federal_holiday','probe:hol','Probe Day','2030-07-04','2030-07-04',true); update public.agency_calendar_events set name='Moved' where source_key='probe:hol'; select 0 as rows`), "ERR 42501"],
+
+    ["…nor deleted",
+      () => probe55(OWNER55, `insert into public.agency_calendar_events (agency_id, kind, source_key, name, event_date, observed_date, system_managed) values ('${AG}','us_federal_holiday','probe:hol2','Probe Day','2030-07-04','2030-07-04',true); delete from public.agency_calendar_events where source_key='probe:hol2'; select 0 as rows`), "ERR 42501"],
+
+    ["generating the same holiday twice inserts it once",
+      () => probe55(OWNER55, `insert into public.agency_calendar_events (agency_id, kind, source_key, name, event_date, observed_date, system_managed) values ('${AG}','us_federal_holiday','probe:hol3','Probe Day','2030-07-04','2030-07-04',true) on conflict (agency_id, source_key) do nothing; insert into public.agency_calendar_events (agency_id, kind, source_key, name, event_date, observed_date, system_managed) values ('${AG}','us_federal_holiday','probe:hol3','Probe Day','2030-07-04','2030-07-04',true) on conflict (agency_id, source_key) do nothing; select count(*)::int as rows from public.agency_calendar_events where source_key='probe:hol3'`), 1],
+
+    ["an ordinary staff member may read the calendar but not add to it",
+      () => probe55(AGENT55, `insert into public.agency_calendar_events (agency_id, kind, name, event_date, observed_date) values ('${AG}','company_event','Probe','2030-07-04','2030-07-04'); select 0 as rows`), "ERR 42501"],
+
+    /* THE BUG THIS PHASE FOUND. `announcements` has no INSERT policy — every
+       write goes through a writer — so a direct upsert would have been
+       refused on every run, silently, and the team would simply never have
+       been told about a holiday. */
+    ["announcements take no direct insert; there is a writer",
+      () => probe55(OWNER55, `insert into public.announcements (organization_id, agency_id, audience, source_key, title, body, published_at) values (null,'${AG}','bes_internal','probe:direct','T','B',now()); select 0 as rows`), "ERR 42501"],
+
+    ["the writer publishes a holiday notice once, however often it runs",
+      () => probe55(OWNER55, `select public.publish_holiday_announcement('${AG}','probe:ann','T','B'); select public.publish_holiday_announcement('${AG}','probe:ann','T','B'); select count(*)::int as rows from public.announcements where source_key='probe:ann'`), 1],
+
+    ["…and says whether it created anything",
+      () => probe55(OWNER55, `select public.publish_holiday_announcement('${AG}','probe:ann2','T','B'); select (public.publish_holiday_announcement('${AG}','probe:ann2','T','B'))::text as rows`), "false"],
+
+    ["somebody who is not BES staff cannot publish one",
+      () => probe55(ORG55, `select public.publish_holiday_announcement('${AG}','probe:ann3','T','B') as rows`), "ERR 42501"],
+
+    ["an internal announcement never reaches an organization user",
+      () => probe55(OWNER55, `select public.publish_holiday_announcement('${AG}','probe:ann4','Internal','B'); set local request.jwt.claims = '{"sub":"${ORG55}","role":"authenticated"}'; select count(*)::int as rows from public.announcements where source_key='probe:ann4'`), 0],
+
+    ["…and does reach BES staff",
+      () => probe55(OWNER55, `select public.publish_holiday_announcement('${AG}','probe:ann5','Internal','B'); set local request.jwt.claims = '{"sub":"${AGENT55}","role":"authenticated"}'; select count(*)::int as rows from public.announcements where source_key='probe:ann5'`), 1],
+
+    /* ── Partners: a boundary with no tenant in it ─────────────────── */
+    ["a partner can be created with only a name and an email",
+      () => probe55(OWNER55, `insert into public.outsourcing_groups (agency_id, name, contact_email) values ('${AG}','Probe Partner','probe@example.test'); select count(*)::int as rows from public.outsourcing_groups where contact_email='probe@example.test'`), 1],
+
+    ["a partner contact is not visible to an organization user",
+      () => probe55(OWNER55, `with g as (insert into public.outsourcing_groups (agency_id, name, contact_email) values ('${AG}','Probe P2','p2@example.test') returning id) insert into public.partner_contacts (group_id, agency_id, full_name, email) select g.id, '${AG}', 'Probe Person', 'person@example.test' from g; set local request.jwt.claims = '{"sub":"${ORG55}","role":"authenticated"}'; select count(*)::int as rows from public.partner_contacts`), 0],
+
+    ["an ordinary BES agent cannot create a partner contact",
+      () => probe55(AGENT55, `with g as (select id from public.outsourcing_groups limit 1) insert into public.partner_contacts (group_id, agency_id, full_name, email) select g.id, '${AG}', 'X', 'x@example.test' from g; select 0 as rows`), "ERR 42501"],
+
+    ["a partner file is not shared merely by being filed against the partner",
+      () => q(`select (position('shared_with_partner' in pg_get_expr(polqual, polrelid)) > 0)::text as rows from pg_policy where polname='files_partner_select'`)[0].rows, "true"],
+
+    ["…and partner activity must be marked shared_with_partner",
+      () => q(`select (position('shared_with_partner' in pg_get_expr(polqual, polrelid)) > 0)::text as rows from pg_policy where polname='activity_partner_select'`)[0].rows, "true"],
+
+    ["a suspended contact resolves to no partner at all",
+      () => q(`select (position('c.status = ''active''' in pg_get_functiondef(p.oid)) > 0)::text as rows from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='partner_group_of_user'`)[0].rows, "true"],
+
+    ["…and so does a suspended or archived partner",
+      () => q(`select (position('g.status <> ''Suspended''' in pg_get_functiondef(p.oid)) > 0 and position('g.archived_at is null' in pg_get_functiondef(p.oid)) > 0)::text as rows from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='partner_group_of_user'`)[0].rows, "true"],
+
+    ["nobody unrelated resolves to a partner",
+      () => probe55(ORG55, `select coalesce(public.partner_group_of_user()::text, 'none') as rows`), "none"],
+
+    ["anon reaches no partner contact",
+      () => { try { q(`begin; set local role anon; select count(*)::int as rows from public.partner_contacts; rollback;`); return "no error"; } catch (e) { const m = (String(e.message)+String(e.stdout ?? "")).match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } }, "ERR 42501"],
+
+    ["anon reaches no agency workspace",
+      () => { try { q(`begin; set local role anon; select count(*)::int as rows from public.agency_calendar_events; rollback;`); return "no error"; } catch (e) { const m = (String(e.message)+String(e.stdout ?? "")).match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } }, "ERR 42501"],
+
+    /* Production doctrine, at the database. */
+    ["a correction to production keeps what it replaced",
+      () => q(`select (count(*) = 1)::text as rows from pg_trigger where tgname='production_log_record_revision'`)[0].rows, "true"],
+
+    ["an EOD correction keeps what it replaced",
+      () => q(`select (count(*) = 1)::text as rows from pg_trigger where tgname='eod_record_revision'`)[0].rows, "true"],
+
+    ["eod_day_activity is SECURITY INVOKER, so it cannot widen what a caller sees",
+      () => q(`select (not prosecdef)::text as rows from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='eod_day_activity'`)[0].rows, "true"],
+  ];
+  runPhase("phase 55", P55, { strict: true });
 }
 
 endPhase();

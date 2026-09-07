@@ -11,8 +11,13 @@
  * because they read the same fact.
  */
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { Handshake, Search, Building2, ExternalLink, AlertTriangle } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Handshake, Search, Building2, ExternalLink, AlertTriangle, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { AddPartnerDialog } from "@/components/agency/AddPartnerDialog";
+import { useAgencyPartners } from "@/lib/data/use-agency-partners";
+import { useAuth } from "@/lib/auth/auth-context";
+import { atLeast, type AgencyRole } from "@/lib/agency/navigation";
 import { Input } from "@/components/ui/input";
 import { OpsSelect } from "@/components/ui/ops-select";
 import { DataSourceBadge } from "@/components/dashboard/DataSourceBadge";
@@ -54,6 +59,11 @@ export default function BesPartners() {
   const rows = useMemo(() => filterPartners(partners, filter, q), [partners, filter, q]);
   const totals = useMemo(() => serviceTotals(partners), [partners]);
   const loading = fulfillment.isLoading || groups.isLoading;
+  const manual = useAgencyPartners();
+  const { agencyMembership } = useAuth();
+  const canManage = atLeast((agencyMembership?.role as AgencyRole) ?? null, "agency_manager");
+  const [adding, setAdding] = useState(false);
+  const navigate = useNavigate();
 
   return (
     <div className="p-6 md:p-8">
@@ -68,8 +78,44 @@ export default function BesPartners() {
             reach their records at all.
           </p>
         </div>
-        <DataSourceBadge source="live" />
+        <div className="flex items-center gap-2">
+          <DataSourceBadge source="live" />
+          {canManage && (
+            <Button size="sm" onClick={() => setAdding(true)}>
+              <Plus className="mr-1.5 h-4 w-4" /> Add partner
+            </Button>
+          )}
+        </div>
       </div>
+
+      {/* Partners added by hand, with no engagement and no SaaS tenant. They
+          are the same records the list above reads — a partner reaches this
+          page because BES recorded them, not because they bought software. */}
+      {(manual.data ?? []).length > 0 && (
+        <div className="mb-4 rounded-2xl border border-border bg-card p-3">
+          <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            All partner records
+          </p>
+          <ul className="divide-y divide-border/50">
+            {(manual.data ?? []).map((m) => (
+              <li key={m.id}>
+                <Link to={`/app/bes-partners/${m.id}`}
+                  className="flex flex-wrap items-center justify-between gap-2 py-2 transition-colors hover:bg-muted/50">
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium text-foreground">{m.name}</span>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {m.companyName ? `${m.companyName} · ` : ""}{m.contactEmail}
+                    </span>
+                  </span>
+                  <span className="shrink-0 rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
+                    {m.status}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {SERVICE_ORDER.map((s) => (
@@ -193,6 +239,13 @@ export default function BesPartners() {
         Showing {rows.length} of {partners.length} partner{partners.length === 1 ? "" : "s"}. Partner
         health, SLA and recent activity are not shown because no canonical measure of them exists yet.
       </p>
+      {adding && (
+        <AddPartnerDialog
+          open={adding}
+          onOpenChange={setAdding}
+          onCreated={(id) => { setAdding(false); navigate(`/app/bes-partners/${id}`); }}
+        />
+      )}
     </div>
   );
 }

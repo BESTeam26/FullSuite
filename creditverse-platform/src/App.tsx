@@ -133,6 +133,9 @@ const MyTimePage = lazy(
   named(() => import("./pages/app/MyTimePage"), "MyTimePage"),
 );
 const EodPage = lazy(named(() => import("./pages/app/EodPage"), "EodPage"));
+const AgencyOrOrgCalendar = lazy(named(() => import("./pages/app/AgencyOrOrgCalendar"), "AgencyOrOrgCalendar"));
+const PartnerProfilePage = lazy(named(() => import("./pages/app/PartnerProfilePage"), "PartnerProfilePage"));
+const PartnerPortal = lazy(named(() => import("./pages/portal/PartnerPortal"), "PartnerPortal"));
 const TeamEodPage = lazy(named(() => import("./pages/app/TeamEodPage"), "TeamEodPage"));
 const AgencyTeamWorkspace = lazy(
   named(() => import("./pages/app/AgencyTeamWorkspace"), "AgencyTeamWorkspace"),
@@ -201,6 +204,14 @@ const App = () => (
                               {/* C3: one client identity, one portal. The guard
                                   decides routing; row-level security decides what
                                   is inside. */}
+                              <Route
+                                path="/partner"
+                                element={
+                                  <RequireAuth>
+                                    <PartnerPortal />
+                                  </RequireAuth>
+                                }
+                              />
                               <Route
                                 path="/portal"
                                 element={
@@ -449,7 +460,11 @@ const App = () => (
                                 />
                                 <Route
                                   path="calendar"
-                                  element={<RequireHubModule module="calendar" label="Calendar"><CalendarPage /></RequireHubModule>}
+                                  /* Agency staff get the BES business
+                                     calendar — U.S. holidays and company
+                                     events. An organization member gets their
+                                     own hub calendar, gated as before. */
+                                  element={<AgencyOrOrgCalendar />}
                                 />
                                 {/* System */}
                                 <Route path="settings" element={<RequirePermission permission={["settings.manage", "team.manage", "team.permissions", "billing.view", "creditops.letters.templates"]} label="Settings"><Settings /></RequirePermission>} />
@@ -506,6 +521,7 @@ const App = () => (
                                 */}
                                 <Route path="diy-referrals" element={<RequireEntitlement product="diyCredit" label="DIY Credit"><DiyReferrals /></RequireEntitlement>} />
                                 <Route path="bes-partners" element={<RequireAgencyStaff label="BES Partners"><BesPartners /></RequireAgencyStaff>} />
+                                <Route path="bes-partners/:id" element={<RequireAgencyStaff label="Partner"><PartnerProfilePage /></RequireAgencyStaff>} />
                                 <Route path="commissions" element={<RequirePermission permission="fundingops.commissions.view" label="Commissions"><Commissions /></RequirePermission>} />
                                 {/*
                                   CLIENTS IS ORGANIZATION-LEVEL.

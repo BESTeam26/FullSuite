@@ -142,22 +142,16 @@ export async function publishDueHolidayAnnouncements(
   }
   if (due.length === 0) return 0;
 
-  const { data, error } = await sb
-    .from("announcements")
-    .upsert(
-      due.map((d) => ({
-        organization_id: null,
-        agency_id: agencyId,
-        audience: "bes_internal" as const,
-        source_key: d.key,
-        title: d.title,
-        body: d.body,
-        tag: "Holiday",
-        published_at: new Date().toISOString(),
-      })) as never,
-      { onConflict: "source_key", ignoreDuplicates: true },
-    )
-    .select("id");
-  if (error) throw error;
-  return (data ?? []).length;
+  /* Through the writer, not a direct insert. `announcements` deliberately has
+     no INSERT policy — authorization lives in the function, and the function
+     is what makes this idempotent. */
+  let created = 0;
+  for (const d of due) {
+    const { data, error } = await sb.rpc("publish_holiday_announcement", {
+      p_agency: agencyId, p_source_key: d.key, p_title: d.title, p_body: d.body,
+    });
+    if (error) throw error;
+    if (data === true) created += 1;
+  }
+  return created;
 }

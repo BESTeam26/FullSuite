@@ -6388,6 +6388,48 @@ export type Database = {
         }
         Relationships: []
       }
+      production_log_revisions: {
+        Row: {
+          id: string
+          log_id: string
+          previous: Json
+          reason: string | null
+          revised_at: string
+          revised_by: string | null
+        }
+        Insert: {
+          id?: string
+          log_id: string
+          previous: Json
+          reason?: string | null
+          revised_at?: string
+          revised_by?: string | null
+        }
+        Update: {
+          id?: string
+          log_id?: string
+          previous?: Json
+          reason?: string | null
+          revised_at?: string
+          revised_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "production_log_revisions_log_id_fkey"
+            columns: ["log_id"]
+            isOneToOne: false
+            referencedRelation: "production_logs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_log_revisions_revised_by_fkey"
+            columns: ["revised_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       production_logs: {
         Row: {
           actions: string[]
@@ -6410,6 +6452,7 @@ export type Database = {
           production_unit_quantity: number
           production_unit_type: string
           request_id: string | null
+          resulting_status: string | null
           service: Database["public"]["Enums"]["fulfillment_service"]
           void_reason: string | null
           voided_at: string | null
@@ -6439,6 +6482,7 @@ export type Database = {
           production_unit_quantity?: number
           production_unit_type: string
           request_id?: string | null
+          resulting_status?: string | null
           service: Database["public"]["Enums"]["fulfillment_service"]
           void_reason?: string | null
           voided_at?: string | null
@@ -6468,6 +6512,7 @@ export type Database = {
           production_unit_quantity?: number
           production_unit_type?: string
           request_id?: string | null
+          resulting_status?: string | null
           service?: Database["public"]["Enums"]["fulfillment_service"]
           void_reason?: string | null
           voided_at?: string | null
@@ -9581,6 +9626,15 @@ export type Database = {
       }
       organization_seat_usage: { Args: { p_org: string }; Returns: number }
       partner_group_of_user: { Args: never; Returns: string }
+      publish_holiday_announcement: {
+        Args: {
+          p_agency: string
+          p_body: string
+          p_source_key: string
+          p_title: string
+        }
+        Returns: boolean
+      }
       record_document_disposition: {
         Args: {
           p_disposition: Database["public"]["Enums"]["document_disposition"]

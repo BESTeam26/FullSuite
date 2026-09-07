@@ -1,6 +1,9 @@
 import { Navigate } from "react-router-dom";
 import { useAgency } from "@/lib/agency-context";
 import { AgencyDashboard } from "@/components/dashboard/AgencyDashboard";
+import { AgencyHome } from "@/pages/app/AgencyHome";
+import { useAuth } from "@/lib/auth/auth-context";
+import { atLeast, type AgencyRole } from "@/lib/agency/navigation";
 import {
   AlertTriangle,
   Clock,
@@ -77,6 +80,8 @@ const scoreData = [
 
 const Dashboard = () => {
   const agencyContext = useAgency();
+  const { agencyMembership } = useAuth();
+  const agencyRole = (agencyMembership?.role as AgencyRole) ?? null;
 
   const viewMode = agencyContext?.viewMode || "agency";
   const activeSubAccount = agencyContext?.activeSubAccount || null;
@@ -85,9 +90,12 @@ const Dashboard = () => {
   const isProductOn = agencyContext?.isProductOn || (() => false);
   const activeOrgWork = agencyContext?.activeOrgWork || [];
 
-  // Render Agency Dashboard if in Agency View (BES HQ scope)
+  /* Agency view. What Home MEANS depends on who is looking (§23): a regular
+     team member's Home is their own day, not a company control plane they
+     cannot act on and are not authorized to read. Admins and the owner keep
+     the agency overview. */
   if (viewMode === "agency") {
-    return <AgencyDashboard />;
+    return atLeast(agencyRole, "agency_admin") ? <AgencyDashboard /> : <AgencyHome />;
   }
   // Organization view: the organization's own dashboard lives at its ID route.
   if (activeOrganization?.publicId) {
