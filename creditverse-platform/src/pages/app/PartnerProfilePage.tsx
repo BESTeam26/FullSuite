@@ -22,12 +22,13 @@
  */
 import { useState } from "react";
 import { ArrowLeft, Handshake, Loader2 } from "lucide-react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { HqPageShell } from "@/pages/app/HqPages";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { OpsSelect } from "@/components/ui/ops-select";
 import { Pill } from "@/components/agency/partner/partner-ui";
+import { OwnerDeleteButton } from "@/components/agency/OwnerDeleteButton";
 import { PartnerOverviewTab } from "@/components/agency/partner/PartnerOverviewTab";
 import { PartnerServicesTab } from "@/components/agency/partner/PartnerServicesTab";
 import { PartnerOperationsTab } from "@/components/agency/partner/PartnerOperationsTab";
@@ -52,6 +53,7 @@ import {
 
 export const PartnerProfilePage = () => {
   const { id = "" } = useParams();
+  const navigate = useNavigate();
   const partner = useAgencyPartner(id);
   const perms = useAgencyPermissions();
   const workforce = useWorkforce();
@@ -127,6 +129,11 @@ export const PartnerProfilePage = () => {
               onValueChange={(v) => actions.setLifecycle.mutate({ id: p.id, lifecycle: v as PartnerLifecycle })}
               options={PARTNER_LIFECYCLES.map((l) => ({ value: l, label: LIFECYCLE_LABEL[l] }))} />
             {actions.setLifecycle.isPending && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+            {/* Owner only. Archiving keeps everything and is what everybody
+                else has; this destroys the record, for the test partners Dee
+                creates while trying the system. */}
+            <OwnerDeleteButton table="outsourcing_groups" id={p.id} name={p.name}
+              onDeleted={() => navigate("/app/bes-partners")} />
           </div>
         )
       }

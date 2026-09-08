@@ -20,15 +20,17 @@
  * request that skipped this screen is refused just the same.
  */
 import { useState } from "react";
-import { Loader2, Search, UserMinus, Undo2 } from "lucide-react";
+import { Loader2, Search, UserMinus, Undo2, X } from "lucide-react";
 import { ContentCard } from "@/components/dashboard/DivisionLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { OpsSelect } from "@/components/ui/ops-select";
 import { Empty, Pill } from "@/components/agency/partner/partner-ui";
-import { useAgencyMembers, useMemberActions } from "@/lib/data/use-agency-teams";
+import { useAgencyMembers, useMemberActions, useTeamActions } from "@/lib/data/use-agency-teams";
+import { useOrganizationTree } from "@/lib/data/use-organization-structure";
 import { useWorkforce } from "@/lib/data/use-workforce";
 import { useAuth } from "@/lib/auth/auth-context";
+import { OwnerDeleteButton } from "@/components/agency/OwnerDeleteButton";
 import { formatDate } from "@/lib/format-date";
 import type { Enums } from "@/lib/supabase/database.types";
 
@@ -48,14 +50,29 @@ export function PeopleManager() {
   const members = useAgencyMembers();
   const wf = useWorkforce();
   const actions = useMemberActions();
+  const teamActions = useTeamActions();
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const teamsOf = new Map<string, string[]>();
-  for (const t of wf.data?.teams ?? []) {
-    if (t.archived) continue;
-    for (const m of t.members) teamsOf.set(m.userId, [...(teamsOf.get(m.userId) ?? []), t.name]);
+  const liveTeams = (wf.data?.teams ?? []).filter((t) => !t.archived);
+  const teamsOf = new Map<string, { id: string; name: string; isLead: boolean }[]>();
+  for (const t of liveTeams) {
+    for (const m of t.members) {
+      teamsOf.set(m.userId, [...(teamsOf.get(m.userId) ?? []), { id: t.id, name: t.name, isLead: m.isLead }]);
+    }
   }
+  /* One person, many teams (Dee, §7). The dropdown ADDS a membership rather
+     than replacing one, because a second team is an addition to where somebody
+     works, not a correction of it. */
+  const tree = useOrganizationTree();
+  const placeOf = (userId: string) => {
+    const onTeams = teamsOf.get(userId) ?? [];
+    const first = onTeams[0];
+    const dept = (tree.data?.departments ?? []).find(
+      (d) => d.id === (tree.data?.teams ?? []).find((t) => t.id === first?.id)?.departmentId);
+    const div = (tree.data?.divisions ?? []).find((v) => v.id === dept?.divisionId);
+    return { division: div?.name ?? null, department: dept?.name ?? null };
+  };
 
   const all = members.data ?? [];
   const needle = search.trim().toLowerCase();
@@ -96,6 +113,7 @@ export function PeopleManager() {
                 <tr className="border-b border-border/60 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                   <th className="py-2 pr-2">Name</th>
                   <th className="py-2 pr-2">Role</th>
+                  <th className="py-2 pr-2">Division · department</th>
                   <th className="py-2 pr-2">Teams</th>
                   <th className="py-2 pr-2">Since</th>
                   <th className="py-2" />
@@ -120,17 +138,64 @@ export function PeopleManager() {
                       )}
                     </td>
                     <td className="py-2 pr-2 text-xs text-muted-foreground">
-                      {(teamsOf.get(m.userId) ?? []).join(", ") || "—"}
+                      {[placeOf(m.userId).division, placeOf(m.userId).department]
+                        .filter(Boolean).join(" · ") || "—"}
+                    </td>
+                    <td className="py-2 pr-2">
+                      <span className="flex flex-wrap items-center gap-1">
+                        {(teamsOf.get(m.userId) ?? []).map((t) => (
+                          <span key={t.id} className="flex items-center gap-0.5">
+                            <Pill tone="border-border bg-muted text-foreground">
+                              {t.name}{t.isLead && " · lead"}
+                            </Pill>
+                            {canManage && (
+                              <button type="button" aria-label={`Take ${m.name} off ${t.name}`}
+                                className="text-muted-foreground transition-colors hover:text-foreground"
+                                onClick={() => change(() => teamActions.removeMember.mutateAsync({
+                                  teamId: t.id, userId: m.userId,
+                                }))}>
+                                <X className="h-3 w-3" />
+                              </button>
+                            )}
+                          </span>
+                        ))}
+                        {(teamsOf.get(m.userId) ?? []).length === 0 && (
+                          <span className="text-xs text-muted-foreground">Not on a team</span>
+                        )}
+                        {canManage && (
+                          <OpsSelect aria-label={`Add ${m.name} to a team`} size="inline"
+                            value="__add__"
+                            onValueChange={(teamId) => {
+                              if (teamId === "__add__") return;
+                              void change(() => teamActions.addMember.mutateAsync({
+                                teamId, userId: m.userId,
+                              }));
+                            }}
+                            options={[
+                              { value: "__add__", label: "+ team" },
+                              ...liveTeams
+                                .filter((t) => !(teamsOf.get(m.userId) ?? []).some((x) => x.id === t.id))
+                                .map((t) => ({ value: t.id, label: t.name })),
+                            ]} />
+                        )}
+                      </span>
                     </td>
                     <td className="py-2 pr-2 text-xs text-muted-foreground">{formatDate(m.since)}</td>
                     <td className="py-2 text-right">
                       {canManage && m.userId !== user?.id && m.role !== "agency_owner" && (
-                        <Button size="sm" variant="ghost" className="h-7 px-2 text-xs"
-                          onClick={() => change(() => actions.setStatus.mutateAsync({
-                            membershipId: m.membershipId, status: "inactive",
-                          }))}>
-                          <UserMinus className="mr-1 h-3.5 w-3.5" /> Deactivate
-                        </Button>
+                        <span className="flex items-center justify-end gap-1">
+                          <Button size="sm" variant="ghost" className="h-7 px-2 text-xs"
+                            onClick={() => change(() => actions.setStatus.mutateAsync({
+                              membershipId: m.membershipId, status: "inactive",
+                            }))}>
+                            <UserMinus className="mr-1 h-3.5 w-3.5" /> Deactivate
+                          </Button>
+                          {/* Owner only, and absent for everybody else — Dee's
+                              rule: no other administrator may delete a people
+                              record. Deactivating is what an admin has. */}
+                          <OwnerDeleteButton table="agency_memberships" id={m.membershipId}
+                            name={m.name} className="h-7 px-2 text-xs" />
+                        </span>
                       )}
                     </td>
                   </tr>

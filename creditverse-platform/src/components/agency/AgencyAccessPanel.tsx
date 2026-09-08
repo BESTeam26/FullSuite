@@ -133,6 +133,14 @@ export function AgencyAccessPanel() {
     <ContentCard
       title={<span className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-muted-foreground" /> Access</span>}
     >
+      {(access.data ?? []).every((p) => p.role === "agency_owner" || p.role === "agency_admin") && (
+        <p className="mb-3 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-xs text-blue-900">
+          Everybody on the roster is an owner or an administrator, and both hold every agency
+          capability through their role — so every switch below is inert and says so. The toggles
+          become live as soon as somebody is a manager, team lead or agent. Change a role on the
+          roster above.
+        </p>
+      )}
       <div className="grid gap-3 lg:grid-cols-[16rem_1fr]">
         <div>
           <div className="relative mb-2">

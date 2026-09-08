@@ -24,6 +24,7 @@ export const AGENCY_PERMISSIONS = [
   "partners.financials.view", "partners.financials.edit", "partners.revenue.record",
   "partners.invoices.view", "partners.invoices.manage", "partners.payments.record",
   "finance.dashboard.view", "expenses.view", "expenses.manage",
+  "org.structure.view", "org.structure.manage",
   "reports.view",
 ] as const;
 

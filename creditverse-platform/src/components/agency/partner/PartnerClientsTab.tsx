@@ -23,6 +23,7 @@ import { Empty } from "@/components/agency/partner/partner-ui";
 import { createPartnerClient, fetchPartnerClients } from "@/lib/data/partner-clients";
 import { useAgencyPermissions } from "@/lib/data/agency-permissions";
 import { useAuth } from "@/lib/auth/auth-context";
+import { OwnerDeleteButton } from "@/components/agency/OwnerDeleteButton";
 import { formatDate } from "@/lib/format-date";
 
 const PAGE = 25;
@@ -129,6 +130,7 @@ export function PartnerClientsTab({ groupId }: { groupId: string }) {
                   <th className="py-1.5 pr-2">Round</th>
                   <th className="py-1.5 pr-2 text-right">Open items</th>
                   <th className="py-1.5">Last activity</th>
+                  <th className="py-1.5" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/50">
@@ -144,6 +146,10 @@ export function PartnerClientsTab({ groupId }: { groupId: string }) {
                     <td className="py-1.5 pr-2 text-muted-foreground">{c.round}</td>
                     <td className="py-1.5 pr-2 text-right tabular-nums text-foreground">{c.openItems}</td>
                     <td className="py-1.5 text-muted-foreground">{formatDate(c.lastActivityAt)}</td>
+                    <td className="py-1.5 text-right">
+                      <OwnerDeleteButton table="fulfillment_clients" id={c.id} name={c.name}
+                        className="h-6 px-1.5 text-[11px]" />
+                    </td>
                   </tr>
                 ))}
               </tbody>

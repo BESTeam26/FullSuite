@@ -143,6 +143,11 @@ const demoAgencyMembership: AgencyMembership = {
   status: "active",
   deactivated_at: null,
   deactivated_by: null,
+  job_title: null,
+  manager_id: null,
+  primary_team_id: null,
+  primary_department_id: null,
+  primary_division_id: null,
   created_at: new Date(0).toISOString(),
 };
 

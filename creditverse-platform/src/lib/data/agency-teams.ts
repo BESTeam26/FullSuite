@@ -77,15 +77,20 @@ export type RemoveTeamOutcome =
  */
 export async function removeTeam(id: string): Promise<RemoveTeamOutcome> {
   const sb = requireSupabase();
-  const [work, clients, partners, services] = await Promise.all([
+  const [work, clients, partners, services, members] = await Promise.all([
     sb.from("work_items").select("id", { count: "exact", head: true }).eq("team_id", id),
     sb.from("fulfillment_clients").select("id", { count: "exact", head: true }).eq("team_id", id),
     sb.from("outsourcing_groups").select("id", { count: "exact", head: true }).eq("team_id", id),
     sb.from("partner_services").select("id", { count: "exact", head: true }).eq("team_id", id),
+    /* People count. A team with somebody on it is not "nothing points at it":
+       deleting it silently changes what those people can see, because team
+       membership IS their scope. */
+    sb.from("team_memberships").select("user_id", { count: "exact", head: true }).eq("team_id", id),
   ]);
-  for (const r of [work, clients, partners, services]) if (r.error) throw r.error;
+  for (const r of [work, clients, partners, services, members]) if (r.error) throw r.error;
 
   const held: string[] = [];
+  if ((members.count ?? 0) > 0) held.push(`${members.count} member${members.count === 1 ? "" : "s"}`);
   if ((work.count ?? 0) > 0) held.push(`${work.count} work item${work.count === 1 ? "" : "s"}`);
   if ((clients.count ?? 0) > 0) held.push(`${clients.count} client${clients.count === 1 ? "" : "s"}`);
   if ((partners.count ?? 0) > 0) held.push(`${partners.count} partner${partners.count === 1 ? "" : "s"}`);

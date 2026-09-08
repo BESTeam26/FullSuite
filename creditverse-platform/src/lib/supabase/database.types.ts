@@ -417,6 +417,11 @@ export type Database = {
           deactivated_at: string | null
           deactivated_by: string | null
           id: string
+          job_title: string | null
+          manager_id: string | null
+          primary_department_id: string | null
+          primary_division_id: string | null
+          primary_team_id: string | null
           role: Database["public"]["Enums"]["agency_role"]
           scope: Database["public"]["Enums"]["access_scope"]
           scope_department_id: string | null
@@ -432,6 +437,11 @@ export type Database = {
           deactivated_at?: string | null
           deactivated_by?: string | null
           id?: string
+          job_title?: string | null
+          manager_id?: string | null
+          primary_department_id?: string | null
+          primary_division_id?: string | null
+          primary_team_id?: string | null
           role?: Database["public"]["Enums"]["agency_role"]
           scope?: Database["public"]["Enums"]["access_scope"]
           scope_department_id?: string | null
@@ -447,6 +457,11 @@ export type Database = {
           deactivated_at?: string | null
           deactivated_by?: string | null
           id?: string
+          job_title?: string | null
+          manager_id?: string | null
+          primary_department_id?: string | null
+          primary_division_id?: string | null
+          primary_team_id?: string | null
           role?: Database["public"]["Enums"]["agency_role"]
           scope?: Database["public"]["Enums"]["access_scope"]
           scope_department_id?: string | null
@@ -469,6 +484,34 @@ export type Database = {
             columns: ["deactivated_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_memberships_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_memberships_primary_department_id_fkey"
+            columns: ["primary_department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_memberships_primary_division_id_fkey"
+            columns: ["primary_division_id"]
+            isOneToOne: false
+            referencedRelation: "divisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_memberships_primary_team_id_fkey"
+            columns: ["primary_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
             referencedColumns: ["id"]
           },
           {
@@ -1996,27 +2039,45 @@ export type Database = {
       departments: {
         Row: {
           agency_id: string
+          archived_at: string | null
           created_at: string
+          description: string | null
           division: Database["public"]["Enums"]["fulfillment_service"]
+          division_id: string | null
           id: string
+          is_fixture: boolean
           key: string
+          manager_id: string | null
           name: string
+          sort: number
         }
         Insert: {
           agency_id: string
+          archived_at?: string | null
           created_at?: string
+          description?: string | null
           division: Database["public"]["Enums"]["fulfillment_service"]
+          division_id?: string | null
           id?: string
+          is_fixture?: boolean
           key: string
+          manager_id?: string | null
           name: string
+          sort?: number
         }
         Update: {
           agency_id?: string
+          archived_at?: string | null
           created_at?: string
+          description?: string | null
           division?: Database["public"]["Enums"]["fulfillment_service"]
+          division_id?: string | null
           id?: string
+          is_fixture?: boolean
           key?: string
+          manager_id?: string | null
           name?: string
+          sort?: number
         }
         Relationships: [
           {
@@ -2024,6 +2085,20 @@ export type Database = {
             columns: ["agency_id"]
             isOneToOne: false
             referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "departments_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "divisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "departments_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -2448,6 +2523,63 @@ export type Database = {
             columns: ["letter_id"]
             isOneToOne: false
             referencedRelation: "dispute_letters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      divisions: {
+        Row: {
+          agency_id: string
+          archived_at: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_fixture: boolean
+          lead_id: string | null
+          name: string
+          service: Database["public"]["Enums"]["fulfillment_service"] | null
+          sort: number
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          archived_at?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_fixture?: boolean
+          lead_id?: string | null
+          name: string
+          service?: Database["public"]["Enums"]["fulfillment_service"] | null
+          sort?: number
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          archived_at?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_fixture?: boolean
+          lead_id?: string | null
+          name?: string
+          service?: Database["public"]["Enums"]["fulfillment_service"] | null
+          sort?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "divisions_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "divisions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -8894,27 +9026,36 @@ export type Database = {
           archived_at: string | null
           created_at: string
           department_id: string | null
+          description: string | null
           id: string
+          is_fixture: boolean
           name: string
           organization_id: string | null
+          sort: number
         }
         Insert: {
           agency_id?: string | null
           archived_at?: string | null
           created_at?: string
           department_id?: string | null
+          description?: string | null
           id?: string
+          is_fixture?: boolean
           name: string
           organization_id?: string | null
+          sort?: number
         }
         Update: {
           agency_id?: string | null
           archived_at?: string | null
           created_at?: string
           department_id?: string | null
+          description?: string | null
           id?: string
+          is_fixture?: boolean
           name?: string
           organization_id?: string | null
+          sort?: number
         }
         Relationships: [
           {
@@ -10769,6 +10910,7 @@ export type Database = {
       is_org_admin: { Args: { p_org: string }; Returns: boolean }
       is_org_member: { Args: { p_org: string }; Returns: boolean }
       is_org_owner_admin: { Args: { p_org: string }; Returns: boolean }
+      is_owner_of: { Args: { p_agency: string }; Returns: boolean }
       is_partner_contact_of: { Args: { p_group: string }; Returns: boolean }
       is_portal_client: { Args: never; Returns: boolean }
       is_staff_of: { Args: { p_agency: string }; Returns: boolean }
@@ -10980,6 +11122,10 @@ export type Database = {
         }[]
       }
       organization_seat_usage: { Args: { p_org: string }; Returns: number }
+      owner_delete_record: {
+        Args: { p_id: string; p_reason?: string; p_table: string }
+        Returns: Json
+      }
       partner_client_counts: {
         Args: never
         Returns: {

@@ -8,6 +8,7 @@ import {
 import { AgencyAccessPanel } from "@/components/agency/AgencyAccessPanel";
 import { PeopleManager } from "@/components/agency/PeopleManager";
 import { TeamsManager } from "@/components/agency/TeamsManager";
+import { OrganizationStructure } from "@/components/agency/OrganizationStructure";
 import { HqPageShell } from "@/pages/app/HqPages";
 import { cn } from "@/lib/utils";
 import { LiveCalendar } from "@/components/dashboard/LiveCalendar";
@@ -62,10 +63,13 @@ export const PeoplePage = () => (
 export const TeamsPage = () => (
   <HqPageShell
     title="Teams"
-    description="Who works together, and who leads them. Assignment, scope and reporting all read this."
+    description="Divisions, departments and teams — the one structure People, Work, EOD, production and partner assignment all read"
     icon={Network}
   >
-    <TeamsManager />
+    <OrganizationStructure />
+    <div className="mt-4">
+      <TeamsManager />
+    </div>
   </HqPageShell>
 );
 

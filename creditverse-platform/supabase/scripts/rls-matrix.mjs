@@ -324,8 +324,12 @@ const T = q(`select
      security regression that was really a fixture drifting underneath it.
      A probe whose subject can change is a probe that tests nothing. */
   (select id from public.fulfillment_clients where name='[TEST] Cleo Chan') as cedar_client,
-  (select id from public.teams where name like 'CreditOps%Team A%' limit 1) as team_a,
-  (select id from public.teams where name like 'CreditOps%Team B%' limit 1) as team_b
+  -- The suite's OWN teams (0170). It used to find these by a product name
+  -- ('CreditOps%Team A%'), which Dee renamed while using the Teams screen -
+  -- exactly what a Teams screen is for - and four team-scope checks quietly
+  -- stopped measuring anything. A fixture a user can rename will be renamed.
+  (select id from public.teams where name = '[TEST] Team A' limit 1) as team_a,
+  (select id from public.teams where name = '[TEST] Team B' limit 1) as team_b
 `)[0];
 const per = (uid, col, table) => q(`select count(*)::int n from public.${table} where ${col}='${uid}'`)[0].n;
 const teamCount = (team, table) => team ? q(`select count(*)::int n from public.${table} where team_id='${team}'`)[0].n : 0;
@@ -3486,6 +3490,100 @@ if (runs(57)) {
       () => q(`select (position('lifecycle not in' in pg_get_functiondef(p.oid)) > 0)::text as rows from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='partner_group_of_user'`)[0].rows, "true"],
   ] : [["(no partner to probe)", () => "skip", "skip"]];
   runPhase("phase 57", P57, { strict: true });
+}
+
+
+if (runs(58)) {
+  startPhase("phase 58");
+  /* Owner-only deletion. Dee asked for a real delete so the test records they
+     create during beta can go rather than be archived into the record forever.
+     What is proved here is that it stayed narrow: the owner alone, one record
+     at a time, audited before the row disappears, and refusing the three
+     things that would break the agency or the security suite itself. */
+  const p58 = (uid, seed, sql) => {
+    try {
+      return q(`begin; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${seed} set local role authenticated; ${sql}; rollback;`)[0].rows;
+    } catch (e) {
+      const m = (String(e.message) + String(e.stdout ?? "")).match(/ERROR:\s*(\w+):/);
+      return "ERR " + (m ? m[1] : "unknown");
+    }
+  };
+  const OWN58 = U["bes.owner@bes.test"], ADM58 = U["bes.admin@bes.test"];
+  const MGR58 = U["bes.manager@bes.test"];
+  const AG58 = q(`select id::text as rows from public.agencies limit 1`)[0].rows;
+  const T58 = "33333333-0000-4000-8000-00000000e001";
+  const FIXTURE_TEAM = q(`select coalesce((select id::text from public.teams where name='[TEST] Team A'),'') as rows`)[0].rows;
+  const ADM_M = q(`select m.id::text as rows from public.agency_memberships m join public.profiles p on p.id=m.user_id where p.email='bes.admin@bes.test'`)[0].rows;
+  const OWN_M = q(`select m.id::text as rows from public.agency_memberships m join public.profiles p on p.id=m.user_id where p.email='bes.owner@bes.test'`)[0].rows;
+  const MGR_M = q(`select m.id::text as rows from public.agency_memberships m join public.profiles p on p.id=m.user_id where p.email='bes.manager@bes.test'`)[0].rows;
+
+  const seed58 = `insert into public.teams (id, agency_id, name) values ('${T58}','${AG58}','Probe Throwaway Team');`;
+  const gone = `select count(*)::int as rows from public.teams where id='${T58}'`;
+
+  const P58 = [
+    ["the owner can delete a record outright",
+      () => p58(OWN58, seed58, `select public.owner_delete_record('teams','${T58}','probe'); ${gone}`), 0],
+
+    ["an ADMIN cannot — everyone but the owner archives",
+      () => p58(ADM58, seed58, `select public.owner_delete_record('teams','${T58}','probe') as rows`), "ERR P0001"],
+
+    ["a manager certainly cannot",
+      () => p58(MGR58, seed58, `select public.owner_delete_record('teams','${T58}','probe') as rows`), "ERR P0001"],
+
+    /* Dee's rule, stated exactly: no other admin deletes a people record. */
+    ["an admin cannot delete a people record",
+      () => p58(ADM58, "", `select public.owner_delete_record('agency_memberships','${ADM_M}','probe') as rows`), "ERR P0001"],
+
+    ["…and an admin's direct delete is refused by the policy too",
+      () => p58(ADM58, "", `delete from public.agency_memberships where id='${ADM_M}'; select count(*)::int as rows from public.agency_memberships where id='${ADM_M}'`), 1],
+
+    ["the owner cannot delete their own membership",
+      () => p58(OWN58, "", `select public.owner_delete_record('agency_memberships','${OWN_M}','probe') as rows`), "ERR P0001"],
+
+    /* The suite must not be able to delete what the suite measures with. */
+    ["a security fixture is refused, even to the owner",
+      () => FIXTURE_TEAM
+        ? p58(OWN58, "", `select public.owner_delete_record('teams','${FIXTURE_TEAM}','probe') as rows`)
+        : "ERR P0001", "ERR P0001"],
+
+    ["a table nobody named is refused",
+      () => p58(OWN58, "", `select public.owner_delete_record('audit_log','${T58}','probe') as rows`), "ERR P0001"],
+
+    ["the deletion is audited BEFORE the row goes, with its name in it",
+      () => p58(OWN58, seed58,
+        `select public.owner_delete_record('teams','${T58}','probe');
+         select (before->>'label' = 'Probe Throwaway Team')::text as rows
+           from public.audit_log where action='owner.record_deleted' and entity_id='${T58}'`), "true"],
+
+    ["is_owner_of is strictly the owner role, not is_admin_of",
+      () => q(`select (position('agency_owner' in pg_get_functiondef(p.oid)) > 0 and position('agency_admin' in pg_get_functiondef(p.oid)) = 0)::text as rows from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='is_owner_of'`)[0].rows, "true"],
+
+    ["…and an inactive owner is not an owner",
+      () => q(`select (pg_get_functiondef(p.oid) like '%status = ''active''%')::text as rows from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='is_owner_of'`)[0].rows, "true"],
+
+    /* Deactivating is what an admin has instead, and it destroys nothing. */
+    /* Somebody ELSE — the function refuses self-deactivation, which is how an
+       agency ends up with nobody active. */
+    ["an admin CAN deactivate somebody, and the role survives it",
+      () => p58(ADM58, "", `select public.set_agency_member_status('${MGR_M}','inactive'); select (status || ':' || role::text) as rows from public.agency_memberships where id='${MGR_M}'`), "inactive:agency_manager"],
+
+    ["nobody can deactivate the owner",
+      () => p58(ADM58, "", `select public.set_agency_member_status('${OWN_M}','inactive') as rows`), "ERR P0001"],
+
+    /* This agency genuinely has TWO active owners — Dee, and the fixture the
+       suite runs as — so demoting one is allowed and the first version of this
+       probe was asserting the wrong thing. The rule is about the LAST one, so
+       the probe makes it the last one first, inside its own rolled-back
+       transaction. */
+    ["a second owner CAN be demoted while another remains",
+      () => p58(ADM58, "", `select public.set_agency_member_role('${OWN_M}','agency_manager'); select role::text as rows from public.agency_memberships where id='${OWN_M}'`), "agency_manager"],
+
+    ["…but the last active owner cannot",
+      () => p58(ADM58,
+        `update public.agency_memberships set status='inactive' where agency_id='${AG58}' and role='agency_owner' and id <> '${OWN_M}';`,
+        `select public.set_agency_member_role('${OWN_M}','agency_manager'); select 'not refused' as rows`), "ERR P0001"],
+  ];
+  runPhase("phase 58", P58, { strict: true });
 }
 
 endPhase();

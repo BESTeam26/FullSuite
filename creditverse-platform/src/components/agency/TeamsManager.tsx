@@ -24,6 +24,7 @@ import { useWorkforce } from "@/lib/data/use-workforce";
 import { useDepartments, useTeamActions } from "@/lib/data/use-agency-teams";
 import { useAuth } from "@/lib/auth/auth-context";
 import type { AgencyTeam } from "@/lib/data/agency-workforce";
+import { OwnerDeleteButton } from "@/components/agency/OwnerDeleteButton";
 import type { RemoveTeamOutcome } from "@/lib/data/agency-teams";
 
 export function TeamsManager() {
@@ -209,6 +210,11 @@ function TeamCard({ team, people, canManage, departments, onRemoved, onError }: 
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setConfirming(false)}>Keep it</Button>
           </div>
+          {/* The owner can destroy it outright instead. Separate control and
+              separate words, because archiving and deleting are different
+              answers to "get rid of this". */}
+          <OwnerDeleteButton table="teams" id={team.id} name={team.name}
+            className="mt-1 h-7 px-2 text-xs" onDeleted={() => setConfirming(false)} />
         </div>
       )}
 
