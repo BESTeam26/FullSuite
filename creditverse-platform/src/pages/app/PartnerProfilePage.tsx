@@ -39,6 +39,7 @@ import { PartnerFilesTab } from "@/components/agency/partner/PartnerFilesTab";
 import { PartnerPortalTab } from "@/components/agency/partner/PartnerPortalTab";
 import { PartnerActivityTab } from "@/components/agency/partner/PartnerActivityTab";
 import { PartnerBillingTab } from "@/components/agency/partner/PartnerBillingTab";
+import { PartnerCredentialsTab } from "@/components/agency/partner/PartnerCredentialsTab";
 import {
   useAgencyPartner, usePartnerActions, usePartnerClientCounts, usePartnerContacts,
 } from "@/lib/data/use-agency-partners";
@@ -114,6 +115,10 @@ export const PartnerProfilePage = () => {
     { key: "contacts", label: "Contacts", show: true },
     { key: "team", label: "Team", show: true },
     { key: "files", label: "Files", show: perms.can("partners.files.view") },
+    /* Seeing that a login EXISTS is part of doing the work, so this is not
+       behind the password capability — that one only governs the password
+       itself, inside the tab (migration 0225). */
+    { key: "logins", label: "Logins", show: true },
     { key: "portal", label: "Portal", show: true },
     { key: "activity", label: "Activity", show: true },
     { key: "billing", label: "Billing & Revenue", show: perms.can("partners.financials.view") },
@@ -236,6 +241,9 @@ export const PartnerProfilePage = () => {
             <PartnerFilesTab groupId={p.id} />
           </TabsContent>
         )}
+        <TabsContent value="logins" className="mt-3">
+          <PartnerCredentialsTab groupId={p.id} />
+        </TabsContent>
         <TabsContent value="portal" className="mt-3">
           <PartnerPortalTab partner={p} />
         </TabsContent>

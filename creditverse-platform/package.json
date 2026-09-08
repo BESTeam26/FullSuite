@@ -12,8 +12,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "verify:live": "node supabase/scripts/verify-live.mjs",
-    "db:push": "supabase db push",
-    "db:types": "supabase gen types typescript --linked --schema public --schema graphql_public > src/lib/supabase/database.types.ts",
+    "db:push": "npx supabase db push",
+    "db:types": "npx supabase gen types typescript --linked --schema public --schema graphql_public > src/lib/supabase/database.types.ts",
     "db:authmap": "node supabase/scripts/authorization-map.mjs"
   },
   "dependencies": {

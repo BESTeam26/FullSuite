@@ -12157,6 +12157,7 @@ export type Database = {
         }[]
       }
       agency_can: { Args: { p_key: string }; Returns: boolean }
+      agency_can_all: { Args: never; Returns: Json }
       agency_can_for_user: {
         Args: { p_key: string; p_user: string }
         Returns: {
@@ -13470,6 +13471,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      resolve_agency_capability: { Args: { p_key: string }; Returns: boolean }
       resolve_client_duplicate: {
         Args: { p_client: string; p_note?: string; p_outcome: string }
         Returns: undefined

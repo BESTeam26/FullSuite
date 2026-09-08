@@ -5228,6 +5228,231 @@ if (runs(65)) {
   runPhase("phase 65", P65, { strict: true });
 }
 
+if (runs(66)) {
+  startPhase("phase 66");
+  /* The partner credential vault (0225).
+  
+     Dee's team keeps every partner login in ClickUp descriptions in plain
+     text. This replaces that. What the probes are FOR is proving the two
+     halves stay apart: the ordinary half — a username, a link, which mailbox
+     the code lands in — is readable by whoever may see the partner, because
+     that is what the work needs twenty times a day; the password half is
+     behind a named capability that is off by default, and every read of it is
+     recorded with a name against it.
+  
+     The important checks are the ones about ABSENCE and about the RECORD: no
+     password column exists in `public`, `authenticated` holds no grant on the
+     vault, a refused reveal writes nothing, and the access record can never
+     be edited — including by the person who caused the entry. */
+  const p66 = (uid, sql) => {
+    try {
+      return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows;
+    } catch (e) {
+      const m = (String(e.message) + String(e.stdout ?? "")).match(/ERROR:\s*(\w+):/);
+      return "ERR " + (m ? m[1] : "unknown");
+    }
+  };
+  /* Seed as postgres and act as somebody else IN ONE TRANSACTION.
+     Seeding in a separate probe is useless: every probe rolls back, so the
+     row is gone by the time the second one runs and the actor is refused for
+     "not found" rather than "not allowed" — which looks like a pass and
+     proves nothing about permission. */
+  const seeded66 = (uid, sql) => {
+    try {
+      return q(`begin; set local role postgres; set local request.jwt.claims = '{"sub":"${U["bes.owner@bes.test"]}","role":"authenticated"}'; ${mk66} set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows;
+    } catch (e) {
+      const m = (String(e.message) + String(e.stdout ?? "")).match(/ERROR:\s*(\w+):/);
+      return "ERR " + (m ? m[1] : "unknown");
+    }
+  };
+  const su66 = (sql) => { try { return q(`begin; ${sql}; rollback;`)[0].rows; } catch (e) {
+    const m = (String(e.message) + String(e.stdout ?? "")).match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } };
+  const OWN66 = U["bes.owner@bes.test"], MGR66 = U["bes.manager@bes.test"];
+  const ORG66 = U["org.owner@bes.test"];
+  /* Resolved once as postgres: the agent cannot see partners, so resolving it
+     as the agent would silently yield an empty string and every probe below
+     would then test nothing. */
+  const GRP66 = q(`select coalesce((select id::text from public.outsourcing_groups where name like '[TEST]%' limit 1),'') as rows`)[0].rows;
+  /* Created and read back inside one transaction, so nothing survives. */
+  const mk66 = `select set_config('probe.cred', public.partner_credential_save('${GRP66}', 'disputefox', '[TEST] DF login', 'ops@dispute-me.com', 'app.disputefox.com', 'hunter2-not-real', 'code goes to ops@dispute-me.com', 'shared by the upload team')::text, true) as id;`;
+  /* Read back from the setting, never re-found by label: a SELECT is filtered
+     by the actor's own policies, so resolving the id AS the actor turns "you
+     may not" into "it does not exist" and the probe then passes without
+     testing permission at all. */
+  const cred66 = `current_setting('probe.cred')::uuid`;
+
+  const P66 = GRP66 ? [
+    /* ── The secret is not in the public schema at all ─────────────────── */
+    ["partner_credentials has no password-shaped column",
+      () => su66(`select count(*)::int as rows from information_schema.columns
+                   where table_schema='public' and table_name='partner_credentials'
+                     and column_name ~* '(password|secret_value|credential_value|token)'`), 0],
+    ["it holds a secret_id pointer instead",
+      () => su66(`select count(*)::int as rows from information_schema.columns
+                   where table_schema='public' and table_name='partner_credentials' and column_name='secret_id'`), 1],
+    ["the stored password is not findable by scanning the row",
+      () => p66(OWN66, `${mk66} set local role postgres; select count(*)::int as rows from public.partner_credentials
+                   where label='[TEST] DF login' and (coalesce(username,'')||coalesce(url,'')||coalesce(notes,'')||coalesce(code_destination,'')) like '%hunter2%'`), 0],
+    ["authenticated holds no grant on the vault",
+      () => su66(`select count(*)::int as rows from information_schema.role_table_grants
+                   where table_schema='vault' and grantee in ('authenticated','anon','public')`), 0],
+
+    /* ── Who sees what ────────────────────────────────────────────────── */
+    ["an owner sees the entry and its username",
+      () => p66(OWN66, `${mk66} select username as rows from public.partner_credentials where label='[TEST] DF login'`), "ops@dispute-me.com"],
+    ["an owner may reveal the password",
+      () => p66(OWN66, `${mk66} select public.partner_credential_reveal(${cred66}) as rows`), "hunter2-not-real"],
+    ["a manager without the capability is refused the password",
+      () => seeded66(MGR66, `select public.partner_credential_reveal(${cred66}) as rows`), "ERR 42501"],
+    ["an organization owner reaches no partner credential at all",
+      () => p66(ORG66, `select count(*)::int as rows from public.partner_credentials`), 0],
+    ["anon is refused the table outright, not merely filtered to nothing",
+      () => { try { q(`begin; set local role anon; select count(*) from public.partner_credentials; rollback;`); return "allowed"; }
+              catch { return "refused"; } }, "refused"],
+
+    /* ── No direct writes: the functions are the only way in ───────────── */
+    ["there is no INSERT grant on partner_credentials",
+      () => su66(`select count(*)::int as rows from information_schema.role_table_grants
+                   where table_schema='public' and table_name='partner_credentials'
+                     and grantee='authenticated' and privilege_type in ('INSERT','UPDATE','DELETE')`), 0],
+
+    /* ── The access record ────────────────────────────────────────────── */
+    ["revealing writes a record naming the person",
+      () => p66(OWN66, `${mk66} select public.partner_credential_reveal(${cred66});
+                        set local role postgres;
+                        select count(*)::int as rows from public.partner_credential_events
+                         where credential_id = ${cred66} and action='revealed' and actor_id = '${OWN66}'`), 1],
+    ["the record never holds the password",
+      () => p66(OWN66, `${mk66} select public.partner_credential_reveal(${cred66});
+                        set local role postgres;
+                        select count(*)::int as rows from public.partner_credential_events
+                         where credential_id = ${cred66} and coalesce(note,'') like '%hunter2%'`), 0],
+    ["a refused reveal records nothing",
+      () => seeded66(MGR66, `do $probe$ begin
+          perform public.partner_credential_reveal(${cred66});
+        exception when others then null; end $probe$;
+        set local role postgres;
+        select count(*)::int as rows from public.partner_credential_events
+         where credential_id = ${cred66} and action = 'revealed'`), 0],
+    ["the access record cannot be edited by the person who caused it",
+      () => p66(OWN66, `${mk66} select public.partner_credential_reveal(${cred66});
+                        delete from public.partner_credential_events where credential_id = ${cred66};
+                        select 1 as rows`), "ERR 42501"],
+
+    /* ── Saving: the three meanings of a password field ───────────────── */
+    ["a null password leaves the stored one alone",
+      () => p66(OWN66, `${mk66}
+        select public.partner_credential_save('${GRP66}','disputefox','[TEST] DF login','ops@dispute-me.com',null,null,null,null,null, ${cred66});
+        select public.partner_credential_reveal(${cred66}) as rows`), "hunter2-not-real"],
+    ["an empty password clears it",
+      () => p66(OWN66, `${mk66}
+        select public.partner_credential_save('${GRP66}','disputefox','[TEST] DF login','ops@dispute-me.com',null,'',null,null,null, ${cred66});
+        set local role postgres;
+        select count(*)::int as rows from public.partner_credentials where id = ${cred66} and secret_id is null`), 1],
+    ["creating an entry WITH a password is a creation, not a rotation",
+      () => p66(OWN66, `${mk66} set local role postgres;
+        select count(*)::int as rows from public.partner_credential_events where credential_id = ${cred66} and action = 'rotated'`), 0],
+    ["…and it is recorded as a creation",
+      () => p66(OWN66, `${mk66} set local role postgres;
+        select count(*)::int as rows from public.partner_credential_events where credential_id = ${cred66} and action = 'created'`), 1],
+    ["replacing an existing password is recorded as a rotation",
+      () => p66(OWN66, `${mk66}
+        select public.partner_credential_save('${GRP66}','disputefox','[TEST] DF login','ops@dispute-me.com',null,'a-different-one',null,null,null, ${cred66});
+        set local role postgres;
+        select count(*)::int as rows from public.partner_credential_events where credential_id = ${cred66} and action='rotated'`), 1],
+
+    /* ── The point of the whole table: no plaintext in a note ─────────── */
+    ["a note that looks like a password is refused",
+      () => p66(OWN66, `select public.partner_credential_save('${GRP66}','disputefox','[TEST] Bad note',null,null,null,null,'password is hunter2') as rows`), "ERR 22023"],
+    ["…and an ordinary note is not",
+      () => p66(OWN66, `select length(public.partner_credential_save('${GRP66}','disputefox','[TEST] Fine note',null,null,null,null,'code goes to ops@dispute-me.com')::text) as rows`), 36],
+
+    /* ── Archiving keeps history rather than deleting it ──────────────── */
+    ["archiving needs a reason",
+      () => p66(OWN66, `${mk66} select public.partner_credential_archive(${cred66}, '') as rows`), "ERR 22023"],
+    ["an archived credential cannot be revealed",
+      () => p66(OWN66, `${mk66} select public.partner_credential_archive(${cred66}, 'partner left');
+                        select public.partner_credential_reveal(${cred66}) as rows`), "ERR P0002"],
+    ["…but the row and its history survive",
+      () => p66(OWN66, `${mk66} select public.partner_credential_archive(${cred66}, 'partner left');
+                        set local role postgres;
+                        select count(*)::int as rows from public.partner_credentials where id = ${cred66} and archived_at is not null`), 1],
+  ] : [];
+  runPhase("phase 66", P66, { strict: true });
+}
+
+
+if (runs(67)) {
+  startPhase("phase 67");
+  /* `agency_can_all` must answer exactly what `agency_can` answers (0226).
+  
+     Two implementations of one authorization rule is how a screen starts
+     showing a control the database refuses — or hiding one it allows. These
+     probes do not spot-check: they walk EVERY key in `permission_keys` for
+     EVERY BES role and compare the two functions key by key. A capability
+     added later is covered the moment its row exists.
+  
+     The map is presentation input, so a disagreement is not a breach. It is
+     worse in a quieter way: the interface and the database would each be
+     correct about a different thing, and nobody would know which. */
+  const parity = (uid) => {
+    try {
+      return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}';
+        select coalesce(string_agg(k.key, ',' order by k.key), '') as rows
+          from public.permission_keys k
+         where coalesce((public.agency_can_all() ->> k.key)::boolean, false) is distinct from public.agency_can(k.key);
+        rollback;`)[0].rows;
+    } catch (e) {
+      const m = (String(e.message) + String(e.stdout ?? "")).match(/ERROR:\s*(\w+):/);
+      return "ERR " + (m ? m[1] : "unknown");
+    }
+  };
+  const count = (uid, sql) => {
+    try {
+      return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows;
+    } catch (e) {
+      const m = (String(e.message) + String(e.stdout ?? "")).match(/ERROR:\s*(\w+):/);
+      return "ERR " + (m ? m[1] : "unknown");
+    }
+  };
+  const ROLES67 = [
+    ["owner",   U["bes.owner@bes.test"]],
+    ["admin",   U["bes.admin@bes.test"]],
+    ["manager", U["bes.manager@bes.test"]],
+    ["lead",    U["bes.lead@bes.test"]],
+    ["agent",   U["bes.credit@bes.test"]],
+  ].filter(([, id]) => id);
+
+  const P67 = [
+    ...ROLES67.map(([role, id]) => [
+      `every capability agrees with agency_can for a BES ${role}`,
+      () => parity(id), "",
+    ]),
+    ["an organization owner, who is not BES staff, gets every capability false",
+      () => count(U["org.owner@bes.test"], `select count(*)::int as rows from public.permission_keys k
+              where coalesce((public.agency_can_all() ->> k.key)::boolean, false)`), 0],
+    ["the map covers every key in the catalogue, not a hand-written subset",
+      () => count(U["bes.owner@bes.test"], `select (select count(*) from jsonb_object_keys(public.agency_can_all()))::int
+              - (select count(*) from public.permission_keys)::int as rows`), 0],
+    ["a manager's map is not simply all-true",
+      () => count(U["bes.manager@bes.test"], `select (count(*) filter (where not coalesce((public.agency_can_all() ->> k.key)::boolean, false)) > 0)::int as rows
+              from public.permission_keys k`), 1],
+    ["the new credential capabilities are off for a manager by default",
+      () => count(U["bes.manager@bes.test"], `select count(*)::int as rows from public.permission_keys k
+              where k.key in ('partners.credentials.view','partners.credentials.manage')
+                and coalesce((public.agency_can_all() ->> k.key)::boolean, false)`), 0],
+    ["…and on for an owner",
+      () => count(U["bes.owner@bes.test"], `select count(*)::int as rows from public.permission_keys k
+              where k.key in ('partners.credentials.view','partners.credentials.manage')
+                and coalesce((public.agency_can_all() ->> k.key)::boolean, false)`), 2],
+    ["anon cannot call it",
+      () => { try { q(`begin; set local role anon; select public.agency_can_all(); rollback;`); return "allowed"; }
+              catch { return "refused"; } }, "refused"],
+  ];
+  runPhase("phase 67", P67, { strict: true });
+}
+
+
 endPhase();
 
 /* ------------------------------------------------------------------ *

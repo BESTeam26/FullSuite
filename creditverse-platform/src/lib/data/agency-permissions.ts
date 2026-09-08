@@ -21,6 +21,7 @@ export const AGENCY_PERMISSIONS = [
   "partners.view", "partners.create", "partners.edit", "partners.archive",
   "partners.contacts", "partners.portal", "partners.clients", "partners.operations",
   "partners.assignments", "partners.files.view", "partners.files.upload",
+  "partners.credentials.view", "partners.credentials.manage",
   "partners.financials.view", "partners.financials.edit", "partners.revenue.record",
   "partners.invoices.view", "partners.invoices.manage", "partners.payments.record",
   "finance.dashboard.view", "expenses.view", "expenses.manage",
@@ -32,20 +33,27 @@ export const AGENCY_PERMISSIONS = [
 export type AgencyPermission = (typeof AGENCY_PERMISSIONS)[number];
 
 /**
- * Resolve every capability in one round trip rather than one call per switch.
- * A permissions screen asks about all of these at once; one request per switch
- * to render one page is the waterfall rule 14 forbids.
+ * Every capability, in ONE round trip.
+ *
+ * This used to call `agency_can` once per key. Parallel, but still one
+ * request per capability before the menu could decide what to render — and
+ * the count grew with every capability added. `agency_can_all` returns the
+ * whole map; it applies the same rule, because both it and `agency_can` call
+ * one shared resolver in the database rather than restating the precedence
+ * (migration 0226, and matrix phase 67 walks every key for every role to
+ * prove the two still agree).
  */
 async function fetchMyAgencyPermissions(): Promise<Record<string, boolean>> {
   const sb = requireSupabase();
-  const results = await Promise.all(
-    AGENCY_PERMISSIONS.map(async (key) => {
-      const { data, error } = await sb.rpc("agency_can", { p_key: key });
-      if (error) throw error;
-      return [key, data === true] as const;
-    }),
+  const { data, error } = await sb.rpc("agency_can_all");
+  if (error) throw error;
+  const map = (data ?? {}) as Record<string, unknown>;
+  /* Read through the known list rather than trusting the shape that came
+     back: a key the catalogue has and this release does not is not a
+     capability this code can honour, and a missing key means NO. */
+  return Object.fromEntries(
+    AGENCY_PERMISSIONS.map((key) => [key, map[key] === true]),
   );
-  return Object.fromEntries(results);
 }
 
 export function useAgencyPermissions() {
