@@ -455,3 +455,29 @@ Not done tonight on purpose. It is housekeeping with no user-visible effect,
 in a context file every screen reads, and it wants the ripple in view rather
 than a late-night edit. Named here so it is a decision rather than a thing
 nobody noticed.
+
+### Deploy verified 2026-09-08, by content rather than by hash
+
+Pushed `a5071dc..9327640` to `BESTeam26/FullSuite` `main`; Vercel built it.
+Vercel's chunk hashes differ from a local build (its own install resolves
+slightly differently), so the check is what the served files CONTAIN:
+
+| Deployed chunk | Expected to be there | Found |
+|---|---|---|
+| `assets/Settings-OZ0IO5zv.js` | `Workflow Rules`, `Borrower portal`, `Not built`, the notification description naming handoffs and direct messages | all four |
+| `assets/DashboardLayout-CRDfZRzx.js` | the `Conversations` search group, `Access preview` | both |
+| `assets/DashboardLayout-CRDfZRzx.js` | **absent:** `There is no notifications model yet`, `/app/fulfillment` | both gone |
+
+Headers, from `vercel.json`: `x-content-type-options: nosniff`,
+`x-frame-options: DENY`, `referrer-policy: strict-origin-when-cross-origin`,
+`permissions-policy: camera=(), microphone=(), geolocation=()`,
+`strict-transport-security: max-age=63072000; includeSubDomains; preload`.
+Assets `public, max-age=31536000, immutable`. `/app`, `/app/notifications`,
+`/portal`, `/partner`, `/login` and an unknown `/app/*` path all serve the SPA
+(200), which is the rewrite working.
+
+**Not verified, and it needs Dee:** anything behind sign-in. The fixture
+accounts are deliberately severed — banned, no password — so they cannot
+authenticate, which is the point. Claude does not type passwords. A signed-in
+pass over Communication, the bell and the credit-status control is the one
+part of this that needs a person.
