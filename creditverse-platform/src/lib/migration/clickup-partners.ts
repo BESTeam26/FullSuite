@@ -26,6 +26,13 @@
  *    load-bearing part of the import.
  *
  * The ClickUp field ids live in this file and must not appear in domain logic.
+ *
+ * NOTHING IN THE APPLICATION IMPORTS THIS, BY DESIGN — it is a one-way
+ * migration tool, not a feature, and it is not in the bundle. It lives under
+ * `src/` only because that is where vitest looks for tests, and it is tested
+ * because the credential guard below is the load-bearing part. Its consumer is
+ * the import run Dee has yet to approve (`PARTNER_DATA_MIGRATION.md` §11).
+ * Do not remove it as dead code.
  */
 
 /* ------------------------------------------------------------------ */
