@@ -126,20 +126,37 @@ language sql stable security invoker set search_path = public as $function$
   ),
   open_u as (select * from u where completed_at is null),
   live as (
-    /* The engine is live when its own activation milestone says so — an
-       explicit event, never inferred from progress (§54). */
+    /* The engine is live when one of ITS activation milestones is complete —
+       "Sales Engine Ready", "Feature Active", "Go-Live". An explicit event,
+       never inferred from progress (§54), which is exactly where the old
+       ClickUp "ACTIVE FEATURE" status belongs (§14). */
     select exists (
       select 1 from public.crm_milestones m
-       where m.project_id = p_project and m.engine_key = p_engine
-         and m.key in ('feature_active', 'go_live') and m.completed_at is not null) as yes
+       where m.project_id = p_project
+         and m.completed_at is not null
+         and ((m.engine_key = p_engine and m.key like '%_ready')
+              or (m.engine_key is null and m.key in ('feature_active', 'go_live')))) as yes
+  ),
+  supported as (
+    select coalesce((select support_end_date >= current_date
+                       from public.crm_projects where id = p_project), false) as yes
   )
   select case
     when (select count(*) from u) = 0 then 'PLANNED'
-    when not exists (select 1 from open_u) then 'COMPLETE'
+    /* LIVE outranks "nothing open" (§21, §27): an engine whose build is
+       finished and which is running for the client is ACTIVE, and it becomes
+       COMPLETE when the contracted obligation closes — Dee §10, "do not
+       confuse Launch with Completed", applied at the engine level. */
+    when (select yes from live) and (select yes from supported) then 'SUPPORT'
     when (select yes from live) then 'ACTIVE'
+    when not exists (select 1 from open_u) then 'COMPLETE'
     when exists (select 1 from open_u where state = 'QA')
          and not exists (select 1 from open_u where state = 'IN PROGRESS') then 'QA'
-    when exists (select 1 from u where state <> 'PLANNED' and state <> 'READY') then 'BUILDING'
+    /* BUILDING means somebody is building. An engine whose only movement is a
+       unit WAITING on the client has not started — the first version said
+       BUILDING there, which would have reported a project as under way while
+       it sat waiting for DNS access (§18, §33). */
+    when exists (select 1 from u where state = 'IN PROGRESS' or state = 'COMPLETED') then 'BUILDING'
     else 'PLANNED'
   end
 $function$;
@@ -147,7 +164,7 @@ revoke execute on function public.crm_engine_state(uuid, text) from public, anon
 grant execute on function public.crm_engine_state(uuid, text) to authenticated;
 
 comment on function public.crm_engine_state(uuid, text) is
-  'PLANNED / BUILDING / QA / ACTIVE / COMPLETE for ONE engine (Dee §21). ACTIVE comes from the engine''s own activation milestone — an explicit event, not a guess from progress (§54) — which is where the old "ACTIVE FEATURE" status belongs.';
+  'PLANNED / BUILDING / QA / ACTIVE / SUPPORT / COMPLETE for ONE engine (Dee §21), so a project can show Website ACTIVE, Sales QA and Fulfillment BUILDING at once (§25). ACTIVE comes from the engine''s own activation milestone — an explicit event, not a guess from progress (§54) — which is where the old "ACTIVE FEATURE" status belongs. BUILDING requires somebody actually building: an engine waiting on the client has not started.';
 
 ----------------------------------------------------------------------
 -- 3. Engine progress — ONE call for a whole project (§38)

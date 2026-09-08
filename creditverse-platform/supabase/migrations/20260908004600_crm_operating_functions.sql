@@ -594,6 +594,53 @@ comment on function public.crm_auto_start_from_checklist() is
   'A ticked action starts a ready CRM work unit (Dee §14). Deterministic only (§54): a tick is an explicit event. Swallows its own errors — a status convenience must never be able to refuse the tick that triggered it.';
 
 ----------------------------------------------------------------------
+-- 6b. `entity_visible` has to know what a CRM project is
+--
+--    THE SAME FAILURE SHAPE AS 0206 AND 0218, CAUGHT BEFORE THE PUSH.
+--
+--    `crm_satisfy_client_requirement` writes an activity row with
+--    `entity_type = 'crm_project'`, and `activity_events_insert` requires
+--    `entity_visible(entity_type, entity_id)`. That function DEFAULT DENIES an
+--    unknown type (0118, deliberately) — so the activity insert was refused,
+--    and because it sits inside the same transaction it took the whole
+--    "requirement satisfied" write down with it. The probe reported it as
+--    "new row violates row-level security policy for table activity_events",
+--    which is true and names the wrong culprit.
+--
+--    Restated in full, because `create or replace` is a rewrite. Copied from
+--    0218 — the newest migration that touches it — with one case added.
+----------------------------------------------------------------------
+create or replace function public.entity_visible(p_entity_type text, p_entity_id text)
+returns boolean language sql stable security invoker set search_path = public as $function$
+  select case p_entity_type
+    when 'fulfillment_client' then exists (select 1 from public.fulfillment_clients c where c.id::text = p_entity_id)
+    when 'funding_client'     then exists (select 1 from public.funding_clients c where c.id::text = p_entity_id)
+    when 'work_item'          then exists (select 1 from public.work_items w where w.id::text = p_entity_id)
+    when 'funding_file'       then exists (select 1 from public.funding_files f where f.id::text = p_entity_id)
+    when 'eod_submission'     then exists (select 1 from public.eod_submissions e where e.id::text = p_entity_id)
+    when 'channel'            then exists (select 1 from public.channels c where c.id::text = p_entity_id)
+    when 'channel_message'    then exists (select 1 from public.messages m where m.id = public.try_bigint(p_entity_id))
+    when 'client'             then exists (select 1 from public.clients c where c.id::text = p_entity_id)
+    when 'announcement'       then exists (select 1 from public.announcements a where a.id::text = p_entity_id)
+    /* Added 0223. Its own policy decides, so a project out of somebody's
+       scope is invisible here exactly as it is everywhere else. */
+    when 'crm_project'        then exists (select 1 from public.crm_projects p where p.id::text = p_entity_id)
+    -- Keyed to the organization that owns it (0059: entity_id IS the org id).
+    when 'company_document'   then exists (select 1 from public.organizations o where o.id::text = p_entity_id)
+    when 'organization'       then exists (select 1 from public.organizations o where o.id::text = p_entity_id)
+    -- An attachment on a note is visible exactly when the note is.
+    when 'activity_event'     then exists (select 1 from public.activity_events ae where ae.id = public.try_bigint(p_entity_id))
+    when 'partner'            then exists (select 1 from public.outsourcing_groups g where g.id::text = p_entity_id)
+    else false
+  end
+$function$;
+revoke all on function public.entity_visible(text, text) from public, anon;
+grant execute on function public.entity_visible(text, text) to authenticated;
+
+comment on function public.entity_visible(text, text) is
+  'Default DENY (0118). An entity type with no case here is not visible to anyone — and an activity row about an unknown type is REFUSED, which aborts whatever wrote it. Add the case, with a real check and never `true`, in the same migration that starts writing the type. `channel_message` 0199, `announcement` 0218, `crm_project` 0223.';
+
+----------------------------------------------------------------------
 -- 7b. Milestones complete themselves (Dee §20)
 --
 --    "Milestones should mostly derive from Work Unit completion. Do not

@@ -2270,6 +2270,768 @@ export type Database = {
           },
         ]
       }
+      crm_client_requirement_blocks: {
+        Row: {
+          requirement_id: string
+          work_item_id: string
+        }
+        Insert: {
+          requirement_id: string
+          work_item_id: string
+        }
+        Update: {
+          requirement_id?: string
+          work_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_client_requirement_blocks_requirement_id_fkey"
+            columns: ["requirement_id"]
+            isOneToOne: false
+            referencedRelation: "crm_client_requirements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_client_requirement_blocks_work_item_id_fkey"
+            columns: ["work_item_id"]
+            isOneToOne: false
+            referencedRelation: "work_attention"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_client_requirement_blocks_work_item_id_fkey"
+            columns: ["work_item_id"]
+            isOneToOne: false
+            referencedRelation: "work_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_client_requirements: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          detail: string | null
+          id: string
+          label: string
+          project_id: string
+          requirement_id: string | null
+          satisfied_at: string | null
+          satisfied_by: string | null
+          satisfied_note: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          detail?: string | null
+          id?: string
+          label: string
+          project_id: string
+          requirement_id?: string | null
+          satisfied_at?: string | null
+          satisfied_by?: string | null
+          satisfied_note?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          detail?: string | null
+          id?: string
+          label?: string
+          project_id?: string
+          requirement_id?: string | null
+          satisfied_at?: string | null
+          satisfied_by?: string | null
+          satisfied_note?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_client_requirements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_client_requirements_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "crm_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_client_requirements_requirement_id_fkey"
+            columns: ["requirement_id"]
+            isOneToOne: false
+            referencedRelation: "crm_requirements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_client_requirements_satisfied_by_fkey"
+            columns: ["satisfied_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_engine_templates: {
+        Row: {
+          agency_id: string
+          created_at: string
+          created_by: string | null
+          engine_key: string
+          id: string
+          notes: string | null
+          provenance: string
+          status: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          created_by?: string | null
+          engine_key: string
+          id?: string
+          notes?: string | null
+          provenance?: string
+          status?: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          created_by?: string | null
+          engine_key?: string
+          id?: string
+          notes?: string | null
+          provenance?: string
+          status?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_engine_templates_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_engine_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_engine_templates_engine_key_fkey"
+            columns: ["engine_key"]
+            isOneToOne: false
+            referencedRelation: "crm_engines"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
+      crm_engines: {
+        Row: {
+          description: string | null
+          key: string
+          label: string
+          sort: number
+        }
+        Insert: {
+          description?: string | null
+          key: string
+          label: string
+          sort?: number
+        }
+        Update: {
+          description?: string | null
+          key?: string
+          label?: string
+          sort?: number
+        }
+        Relationships: []
+      }
+      crm_milestone_templates: {
+        Row: {
+          agency_id: string
+          client_visible: boolean
+          engine_key: string | null
+          id: string
+          key: string
+          label: string
+          sort: number
+          work_unit_title: string | null
+        }
+        Insert: {
+          agency_id: string
+          client_visible?: boolean
+          engine_key?: string | null
+          id?: string
+          key: string
+          label: string
+          sort?: number
+          work_unit_title?: string | null
+        }
+        Update: {
+          agency_id?: string
+          client_visible?: boolean
+          engine_key?: string | null
+          id?: string
+          key?: string
+          label?: string
+          sort?: number
+          work_unit_title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_milestone_templates_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_milestone_templates_engine_key_fkey"
+            columns: ["engine_key"]
+            isOneToOne: false
+            referencedRelation: "crm_engines"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
+      crm_milestones: {
+        Row: {
+          client_visible: boolean
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          engine_key: string | null
+          id: string
+          key: string
+          label: string
+          link_url: string | null
+          notes: string | null
+          project_id: string
+          scheduled_at: string | null
+          sort: number
+          work_item_id: string | null
+        }
+        Insert: {
+          client_visible?: boolean
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          engine_key?: string | null
+          id?: string
+          key: string
+          label: string
+          link_url?: string | null
+          notes?: string | null
+          project_id: string
+          scheduled_at?: string | null
+          sort?: number
+          work_item_id?: string | null
+        }
+        Update: {
+          client_visible?: boolean
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          engine_key?: string | null
+          id?: string
+          key?: string
+          label?: string
+          link_url?: string | null
+          notes?: string | null
+          project_id?: string
+          scheduled_at?: string | null
+          sort?: number
+          work_item_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_milestones_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_milestones_engine_key_fkey"
+            columns: ["engine_key"]
+            isOneToOne: false
+            referencedRelation: "crm_engines"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "crm_milestones_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "crm_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_milestones_work_item_id_fkey"
+            columns: ["work_item_id"]
+            isOneToOne: false
+            referencedRelation: "work_attention"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_milestones_work_item_id_fkey"
+            columns: ["work_item_id"]
+            isOneToOne: false
+            referencedRelation: "work_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_project_engines: {
+        Row: {
+          added_at: string
+          added_by: string | null
+          cancelled_at: string | null
+          cancelled_reason: string | null
+          engine_key: string
+          id: string
+          project_id: string
+          template_id: string
+        }
+        Insert: {
+          added_at?: string
+          added_by?: string | null
+          cancelled_at?: string | null
+          cancelled_reason?: string | null
+          engine_key: string
+          id?: string
+          project_id: string
+          template_id: string
+        }
+        Update: {
+          added_at?: string
+          added_by?: string | null
+          cancelled_at?: string | null
+          cancelled_reason?: string | null
+          engine_key?: string
+          id?: string
+          project_id?: string
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_project_engines_added_by_fkey"
+            columns: ["added_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_project_engines_engine_key_fkey"
+            columns: ["engine_key"]
+            isOneToOne: false
+            referencedRelation: "crm_engines"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "crm_project_engines_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "crm_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_project_engines_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "crm_engine_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_projects: {
+        Row: {
+          agency_id: string
+          archived_at: string | null
+          archived_reason: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          health_override: string | null
+          health_override_at: string | null
+          health_override_by: string | null
+          health_override_reason: string | null
+          id: string
+          journey_override: string | null
+          journey_override_at: string | null
+          journey_override_by: string | null
+          journey_override_reason: string | null
+          lead_id: string | null
+          name: string
+          organization_id: string | null
+          partner_group_id: string | null
+          partner_service_id: string | null
+          preset: string | null
+          started_on: string | null
+          support_end_date: string | null
+          support_start_date: string | null
+          target_go_live: string | null
+          team_id: string | null
+          updated_at: string
+          went_live_at: string | null
+        }
+        Insert: {
+          agency_id: string
+          archived_at?: string | null
+          archived_reason?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          health_override?: string | null
+          health_override_at?: string | null
+          health_override_by?: string | null
+          health_override_reason?: string | null
+          id?: string
+          journey_override?: string | null
+          journey_override_at?: string | null
+          journey_override_by?: string | null
+          journey_override_reason?: string | null
+          lead_id?: string | null
+          name: string
+          organization_id?: string | null
+          partner_group_id?: string | null
+          partner_service_id?: string | null
+          preset?: string | null
+          started_on?: string | null
+          support_end_date?: string | null
+          support_start_date?: string | null
+          target_go_live?: string | null
+          team_id?: string | null
+          updated_at?: string
+          went_live_at?: string | null
+        }
+        Update: {
+          agency_id?: string
+          archived_at?: string | null
+          archived_reason?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          health_override?: string | null
+          health_override_at?: string | null
+          health_override_by?: string | null
+          health_override_reason?: string | null
+          id?: string
+          journey_override?: string | null
+          journey_override_at?: string | null
+          journey_override_by?: string | null
+          journey_override_reason?: string | null
+          lead_id?: string | null
+          name?: string
+          organization_id?: string | null
+          partner_group_id?: string | null
+          partner_service_id?: string | null
+          preset?: string | null
+          started_on?: string | null
+          support_end_date?: string | null
+          support_start_date?: string | null
+          target_go_live?: string | null
+          team_id?: string | null
+          updated_at?: string
+          went_live_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_projects_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_projects_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_projects_health_override_by_fkey"
+            columns: ["health_override_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_projects_journey_override_by_fkey"
+            columns: ["journey_override_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_projects_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_projects_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_projects_partner_group_id_fkey"
+            columns: ["partner_group_id"]
+            isOneToOne: false
+            referencedRelation: "outsourcing_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_projects_partner_service_id_fkey"
+            columns: ["partner_service_id"]
+            isOneToOne: false
+            referencedRelation: "partner_services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_projects_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_requirements: {
+        Row: {
+          agency_id: string
+          classified_at: string | null
+          classified_by: string | null
+          detail: string | null
+          engine_key: string | null
+          id: string
+          import_batch_id: string | null
+          imported_at: string
+          kind: string | null
+          optional: boolean
+          source_reference: string
+          source_row_ref: string
+          source_section: string | null
+          title: string
+          work_unit_template_id: string | null
+        }
+        Insert: {
+          agency_id: string
+          classified_at?: string | null
+          classified_by?: string | null
+          detail?: string | null
+          engine_key?: string | null
+          id?: string
+          import_batch_id?: string | null
+          imported_at?: string
+          kind?: string | null
+          optional?: boolean
+          source_reference?: string
+          source_row_ref: string
+          source_section?: string | null
+          title: string
+          work_unit_template_id?: string | null
+        }
+        Update: {
+          agency_id?: string
+          classified_at?: string | null
+          classified_by?: string | null
+          detail?: string | null
+          engine_key?: string | null
+          id?: string
+          import_batch_id?: string | null
+          imported_at?: string
+          kind?: string | null
+          optional?: boolean
+          source_reference?: string
+          source_row_ref?: string
+          source_section?: string | null
+          title?: string
+          work_unit_template_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_requirements_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_requirements_classified_by_fkey"
+            columns: ["classified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_requirements_engine_key_fkey"
+            columns: ["engine_key"]
+            isOneToOne: false
+            referencedRelation: "crm_engines"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "crm_requirements_work_unit_template_id_fkey"
+            columns: ["work_unit_template_id"]
+            isOneToOne: false
+            referencedRelation: "crm_work_unit_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_work_unit_template_actions: {
+        Row: {
+          created_at: string
+          detail: string | null
+          id: string
+          kind: string
+          label: string
+          requirement_id: string | null
+          sort: number
+          work_unit_template_id: string
+        }
+        Insert: {
+          created_at?: string
+          detail?: string | null
+          id?: string
+          kind: string
+          label: string
+          requirement_id?: string | null
+          sort?: number
+          work_unit_template_id: string
+        }
+        Update: {
+          created_at?: string
+          detail?: string | null
+          id?: string
+          kind?: string
+          label?: string
+          requirement_id?: string | null
+          sort?: number
+          work_unit_template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_work_unit_template_actions_requirement_id_fkey"
+            columns: ["requirement_id"]
+            isOneToOne: false
+            referencedRelation: "crm_requirements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_work_unit_template_actions_work_unit_template_id_fkey"
+            columns: ["work_unit_template_id"]
+            isOneToOne: false
+            referencedRelation: "crm_work_unit_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_work_unit_template_deps: {
+        Row: {
+          depends_on_id: string
+          work_unit_template_id: string
+        }
+        Insert: {
+          depends_on_id: string
+          work_unit_template_id: string
+        }
+        Update: {
+          depends_on_id?: string
+          work_unit_template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_work_unit_template_deps_depends_on_id_fkey"
+            columns: ["depends_on_id"]
+            isOneToOne: false
+            referencedRelation: "crm_work_unit_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_work_unit_template_deps_work_unit_template_id_fkey"
+            columns: ["work_unit_template_id"]
+            isOneToOne: false
+            referencedRelation: "crm_work_unit_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_work_unit_templates: {
+        Row: {
+          created_at: string
+          default_team_id: string | null
+          dependency_mode: string
+          description: string | null
+          id: string
+          phase: number | null
+          requires_qa: boolean
+          sort: number
+          target_days: number | null
+          template_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_team_id?: string | null
+          dependency_mode?: string
+          description?: string | null
+          id?: string
+          phase?: number | null
+          requires_qa?: boolean
+          sort?: number
+          target_days?: number | null
+          template_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_team_id?: string | null
+          dependency_mode?: string
+          description?: string | null
+          id?: string
+          phase?: number | null
+          requires_qa?: boolean
+          sort?: number
+          target_days?: number | null
+          template_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_work_unit_templates_default_team_id_fkey"
+            columns: ["default_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_work_unit_templates_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "crm_engine_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deal_communications: {
         Row: {
           body: string
@@ -10325,7 +11087,9 @@ export type Database = {
           created_by: string | null
           id: string
           note: string | null
+          reason: string | null
           resolved_at: string | null
+          responsible: string | null
           work_item_id: string
         }
         Insert: {
@@ -10334,7 +11098,9 @@ export type Database = {
           created_by?: string | null
           id?: string
           note?: string | null
+          reason?: string | null
           resolved_at?: string | null
+          responsible?: string | null
           work_item_id: string
         }
         Update: {
@@ -10343,7 +11109,9 @@ export type Database = {
           created_by?: string | null
           id?: string
           note?: string | null
+          reason?: string | null
           resolved_at?: string | null
+          responsible?: string | null
           work_item_id?: string
         }
         Relationships: [
@@ -10437,6 +11205,9 @@ export type Database = {
           completed_at: string | null
           created_at: string
           created_by: string | null
+          crm_engine_key: string | null
+          crm_project_id: string | null
+          crm_work_unit_template_id: string | null
           description: string | null
           division: Database["public"]["Enums"]["fulfillment_service"] | null
           due_at: string | null
@@ -10448,6 +11219,10 @@ export type Database = {
           partner_service_id: string | null
           previous_assigned_to: string | null
           priority: Database["public"]["Enums"]["work_priority"]
+          qa_feedback: string | null
+          qa_result: Database["public"]["Enums"]["work_qa_result"] | null
+          qa_reviewed_at: string | null
+          qa_reviewed_by: string | null
           related_ref: string | null
           related_type: Database["public"]["Enums"]["work_related_type"]
           scope: Database["public"]["Enums"]["work_scope"]
@@ -10457,6 +11232,9 @@ export type Database = {
           team_id: string | null
           title: string
           updated_at: string
+          waiting_note: string | null
+          waiting_on: Database["public"]["Enums"]["work_waiting_reason"] | null
+          waiting_since: string | null
           workspace_id: string | null
         }
         Insert: {
@@ -10468,6 +11246,9 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           created_by?: string | null
+          crm_engine_key?: string | null
+          crm_project_id?: string | null
+          crm_work_unit_template_id?: string | null
           description?: string | null
           division?: Database["public"]["Enums"]["fulfillment_service"] | null
           due_at?: string | null
@@ -10479,6 +11260,10 @@ export type Database = {
           partner_service_id?: string | null
           previous_assigned_to?: string | null
           priority?: Database["public"]["Enums"]["work_priority"]
+          qa_feedback?: string | null
+          qa_result?: Database["public"]["Enums"]["work_qa_result"] | null
+          qa_reviewed_at?: string | null
+          qa_reviewed_by?: string | null
           related_ref?: string | null
           related_type: Database["public"]["Enums"]["work_related_type"]
           scope: Database["public"]["Enums"]["work_scope"]
@@ -10488,6 +11273,9 @@ export type Database = {
           team_id?: string | null
           title: string
           updated_at?: string
+          waiting_note?: string | null
+          waiting_on?: Database["public"]["Enums"]["work_waiting_reason"] | null
+          waiting_since?: string | null
           workspace_id?: string | null
         }
         Update: {
@@ -10499,6 +11287,9 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           created_by?: string | null
+          crm_engine_key?: string | null
+          crm_project_id?: string | null
+          crm_work_unit_template_id?: string | null
           description?: string | null
           division?: Database["public"]["Enums"]["fulfillment_service"] | null
           due_at?: string | null
@@ -10510,6 +11301,10 @@ export type Database = {
           partner_service_id?: string | null
           previous_assigned_to?: string | null
           priority?: Database["public"]["Enums"]["work_priority"]
+          qa_feedback?: string | null
+          qa_result?: Database["public"]["Enums"]["work_qa_result"] | null
+          qa_reviewed_at?: string | null
+          qa_reviewed_by?: string | null
           related_ref?: string | null
           related_type?: Database["public"]["Enums"]["work_related_type"]
           scope?: Database["public"]["Enums"]["work_scope"]
@@ -10519,6 +11314,9 @@ export type Database = {
           team_id?: string | null
           title?: string
           updated_at?: string
+          waiting_note?: string | null
+          waiting_on?: Database["public"]["Enums"]["work_waiting_reason"] | null
+          waiting_since?: string | null
           workspace_id?: string | null
         }
         Relationships: [
@@ -10548,6 +11346,27 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_items_crm_engine_key_fkey"
+            columns: ["crm_engine_key"]
+            isOneToOne: false
+            referencedRelation: "crm_engines"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "work_items_crm_project_id_fkey"
+            columns: ["crm_project_id"]
+            isOneToOne: false
+            referencedRelation: "crm_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_items_crm_work_unit_template_id_fkey"
+            columns: ["crm_work_unit_template_id"]
+            isOneToOne: false
+            referencedRelation: "crm_work_unit_templates"
             referencedColumns: ["id"]
           },
           {
@@ -10581,6 +11400,13 @@ export type Database = {
           {
             foreignKeyName: "work_items_previous_assigned_to_fkey"
             columns: ["previous_assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_items_qa_reviewed_by_fkey"
+            columns: ["qa_reviewed_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -11707,6 +12533,139 @@ export type Database = {
         }
         Returns: string[]
       }
+      crm_add_engine: {
+        Args: { p_engine: string; p_project: string }
+        Returns: number
+      }
+      crm_cancel_engine: {
+        Args: { p_engine: string; p_project: string; p_reason: string }
+        Returns: number
+      }
+      crm_complete_milestone: {
+        Args: { p_link?: string; p_milestone: string; p_note?: string }
+        Returns: undefined
+      }
+      crm_complete_work_unit: {
+        Args: {
+          p_actions?: string[]
+          p_handoff_team?: string
+          p_handoff_to?: string
+          p_keep_open?: boolean
+          p_note?: string
+          p_targets?: string[]
+          p_unit: string
+        }
+        Returns: Json
+      }
+      crm_create_project: {
+        Args: {
+          p_engines: string[]
+          p_lead?: string
+          p_name: string
+          p_organization?: string
+          p_partner_group?: string
+          p_partner_service?: string
+          p_preset?: string
+          p_started_on?: string
+          p_target_go_live?: string
+          p_team?: string
+        }
+        Returns: string
+      }
+      crm_engine_state: {
+        Args: { p_engine: string; p_project: string }
+        Returns: string
+      }
+      crm_fail_qa: {
+        Args: { p_feedback: string; p_unit: string }
+        Returns: undefined
+      }
+      crm_instantiate_engine: {
+        Args: { p_engine: string; p_project: string; p_template: string }
+        Returns: number
+      }
+      crm_instantiate_milestones: {
+        Args: { p_engines: string[]; p_project: string }
+        Returns: number
+      }
+      crm_pass_qa: { Args: { p_note?: string; p_unit: string }; Returns: Json }
+      crm_project_board: {
+        Args: never
+        Returns: {
+          blocked: number
+          engines: string[]
+          health: string
+          id: string
+          in_qa: number
+          journey: string
+          lead_name: string
+          name: string
+          next_milestone: string
+          open_units: number
+          organization_id: string
+          overdue: number
+          partner_name: string
+          progress: number
+          target_go_live: string
+          waiting_client: number
+        }[]
+      }
+      crm_project_engine_progress: {
+        Args: { p_project: string }
+        Returns: {
+          blocked: number
+          cancelled: boolean
+          completed: number
+          engine_key: string
+          in_progress: number
+          label: string
+          percent: number
+          planned: number
+          qa: number
+          ready: number
+          state: string
+          units: number
+          waiting: number
+        }[]
+      }
+      crm_project_health: { Args: { p_project: string }; Returns: string }
+      crm_project_journey: { Args: { p_project: string }; Returns: string }
+      crm_project_progress: { Args: { p_project: string }; Returns: number }
+      crm_project_readable: { Args: { p_project: string }; Returns: boolean }
+      crm_project_writable: { Args: { p_project: string }; Returns: boolean }
+      crm_record_go_live: {
+        Args: {
+          p_project: string
+          p_support_end?: string
+          p_support_start?: string
+        }
+        Returns: undefined
+      }
+      crm_requirements_unmapped: {
+        Args: { p_agency: string }
+        Returns: {
+          id: string
+          missing: string
+          source_row_ref: string
+          title: string
+        }[]
+      }
+      crm_satisfy_client_requirement: {
+        Args: { p_note?: string; p_requirement: string }
+        Returns: number
+      }
+      crm_set_waiting: {
+        Args: {
+          p_note?: string
+          p_reason: Database["public"]["Enums"]["work_waiting_reason"]
+          p_unit: string
+        }
+        Returns: undefined
+      }
+      crm_template_readable: { Args: { p_agency: string }; Returns: boolean }
+      crm_template_writable: { Args: { p_agency: string }; Returns: boolean }
+      crm_work_unit_ready: { Args: { p_unit: string }; Returns: boolean }
+      crm_work_unit_state: { Args: { p_unit: string }; Returns: string }
       current_agency_role: {
         Args: never
         Returns: Database["public"]["Enums"]["agency_role"]
@@ -13182,6 +14141,7 @@ export type Database = {
       webhook_delivery_status: "emitted" | "failed" | "skipped"
       webhook_endpoint_type: "ghl" | "disputefox" | "generic"
       work_priority: "Normal" | "High" | "Urgent"
+      work_qa_result: "pending" | "passed" | "needs_fix"
       work_related_type:
         | "credit_case"
         | "funding_deal"
@@ -13198,6 +14158,13 @@ export type Database = {
         | "Completed"
         | "Blocked"
         | "Attention"
+      work_waiting_reason:
+        | "client"
+        | "third_party"
+        | "internal"
+        | "approval"
+        | "external_platform"
+        | "other"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -13938,6 +14905,7 @@ export const Constants = {
       webhook_delivery_status: ["emitted", "failed", "skipped"],
       webhook_endpoint_type: ["ghl", "disputefox", "generic"],
       work_priority: ["Normal", "High", "Urgent"],
+      work_qa_result: ["pending", "passed", "needs_fix"],
       work_related_type: [
         "credit_case",
         "funding_deal",
@@ -13955,6 +14923,14 @@ export const Constants = {
         "Completed",
         "Blocked",
         "Attention",
+      ],
+      work_waiting_reason: [
+        "client",
+        "third_party",
+        "internal",
+        "approval",
+        "external_platform",
+        "other",
       ],
     },
   },

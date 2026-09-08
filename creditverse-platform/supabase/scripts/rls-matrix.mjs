@@ -4944,6 +4944,290 @@ if (runs(64)) {
   runPhase("phase 64", P64, { strict: true });
 }
 
+
+if (runs(65)) {
+  startPhase("phase 65");
+  /* BES CRM — the four layers Dee locked on 2026-09-08.
+  
+     PROJECT JOURNEY · ENGINE PROGRESS · WORK UNIT STATUS · QA RESULT
+     + MILESTONES. The old ClickUp template mixed all of those into one status
+     field; these probes hold them apart.
+  
+     What they mostly prove is ABSENCE: a Website-only project has no Sales
+     work and no Sales milestone, a QA failure does not relabel the project, a
+     unit waiting on the client does not stop its siblings, and a
+     CreditOps-scoped manager reaches none of it. Absence is the requirement —
+     "if Website is not included, Website work simply does not exist in that
+     project" (§11) — and it is the half a screenshot cannot show. */
+  const p65 = (uid, seed, sql) => {
+    try {
+      return q(`begin; ${seed} set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows;
+    } catch (e) {
+      const m = (String(e.message) + String(e.stdout ?? "")).match(/ERROR:\s*(\w+):/);
+      return "ERR " + (m ? m[1] : "unknown");
+    }
+  };
+  const act65 = (uid, stmt, assertion) => p65(uid, "", `${stmt} set local role postgres; ${assertion}`);
+  const OWN65 = U["bes.owner@bes.test"], MGR65 = U["bes.manager@bes.test"];
+  const CO65 = U["bes.credit@bes.test"], ADM65 = U["bes.admin@bes.test"];
+  const LEAD65 = U["bes.lead@bes.test"];
+  const GRP65 = q(`select coalesce((select id::text from public.outsourcing_groups where name like '[TEST]%' limit 1),'') as rows`)[0].rows;
+  const ENGINES65 = q(`select count(*)::int as rows from public.crm_engine_templates where status='published'`)[0].rows;
+  /* Named `[TEST]` so a stray row is recognisable, though every probe rolls back. */
+  const mk65 = (engines) =>
+    `select public.crm_create_project('[TEST] CRM build', array[${engines.map((e) => `'${e}'`).join(",")}], '${GRP65}');`;
+  const proj65 = `(select id from public.crm_projects where name='[TEST] CRM build')`;
+  const unit65 = (title) => `(select w.id from public.work_items w where w.crm_project_id = ${proj65} and w.title = '${title}')`;
+  const withP = (engines, assertion) => act65(OWN65, mk65(engines), assertion);
+
+  const P65 = GRP65 && ENGINES65 >= 5 ? [
+    /* ── §11 / §59 / §60 / §61: only what the partner bought ─────────── */
+    ["a Website-only project creates website, setup and launch work and nothing else",
+      () => withP(["project_setup", "website_funnel", "qa_launch"],
+        `select string_agg(distinct crm_engine_key, ',' order by crm_engine_key) as rows
+           from public.work_items where crm_project_id = ${proj65}`), "project_setup,qa_launch,website_funnel".split(",").sort().join(",")],
+    ["…and no Sales or Fulfillment work at all",
+      () => withP(["project_setup", "website_funnel", "qa_launch"],
+        `select count(*)::int as rows from public.work_items
+          where crm_project_id = ${proj65} and crm_engine_key in ('sales','fulfillment')`), 0],
+    ["a Sales-only project creates sales work only",
+      () => withP(["sales"], `select string_agg(distinct crm_engine_key, ',') as rows
+        from public.work_items where crm_project_id = ${proj65}`), "sales"],
+    ["a Fulfillment-only project creates fulfillment work only",
+      () => withP(["fulfillment"], `select string_agg(distinct crm_engine_key, ',') as rows
+        from public.work_items where crm_project_id = ${proj65}`), "fulfillment"],
+    ["a project with no engine is refused rather than created empty",
+      () => p65(OWN65, "", `select public.crm_create_project('[TEST] none', array[]::text[], '${GRP65}') as rows`), "ERR 22023"],
+    ["an engine whose template is only a draft is refused, not guessed at",
+      () => p65(OWN65, "", `select public.crm_create_project('[TEST] draft', array['billing'], '${GRP65}') as rows`), "ERR 22023"],
+
+    /* ── §8 / §55: no second task engine ─────────────────────────────── */
+    ["every work unit is a canonical work_items row in the bes_crm division",
+      () => withP(["sales"], `select count(*)::int as rows from public.work_items
+        where crm_project_id = ${proj65} and (scope <> 'AGENCY' or division <> 'bes_crm')`), 0],
+    ["no table anywhere holds a second CRM task engine",
+      () => q(`select count(*)::int as rows from information_schema.tables
+                where table_schema='public'
+                  and (table_name like '%build_task%' or table_name like '%work_order%'
+                       or table_name = 'crm_tasks' or table_name = 'crm_work_units')`)[0].rows, 0],
+
+    /* ── §4 / §16 / §23: PLANNED and READY are different facts ───────── */
+    ["a unit whose prerequisite is unfinished is PLANNED",
+      () => withP(["sales"], `select public.crm_work_unit_state(${unit65("Sales Pipeline")}) as rows`), "PLANNED"],
+    ["the first unit of an engine is READY",
+      () => withP(["sales"], `select public.crm_work_unit_state(${unit65("Sales Intake / Offer Map")}) as rows`), "READY"],
+
+    /* ── §17 / §18 / §19 / §62: parallel, and waiting stops nothing ──── */
+    ["completing one unit makes BOTH its dependants ready at once",
+      () => act65(OWN65, mk65(["sales"]) +
+        `update public.work_items set stage='Completed' where crm_project_id = ${proj65}
+           and title in ('Sales Intake / Offer Map','Custom Fields & Tags','Sales Pipeline');`,
+        `select count(*)::int as rows from public.work_items
+          where crm_project_id = ${proj65} and title in ('Lead Routing','Follow-Up Automation')
+            and public.crm_work_unit_ready(id)`), 2],
+    ["…but not a unit whose own prerequisite is still open",
+      () => act65(OWN65, mk65(["sales"]) +
+        `update public.work_items set stage='Completed' where crm_project_id = ${proj65}
+           and title in ('Sales Intake / Offer Map','Custom Fields & Tags','Sales Pipeline');`,
+        `select public.crm_work_unit_ready(${unit65("Speed-to-Lead")})::text as rows`), "false"],
+    ["no template dependency crosses an engine, so a single-engine build waits for nothing",
+      () => q(`select count(*)::int as rows from public.crm_work_unit_template_deps d
+                 join public.crm_work_unit_templates u on u.id = d.work_unit_template_id
+                 join public.crm_work_unit_templates x on x.id = d.depends_on_id
+                where u.template_id <> x.template_id`)[0].rows, 0],
+    ["a unit waiting on the client is WAITING",
+      () => withP(["website_funnel"], `select public.crm_work_unit_state(${unit65("Domain & SSL")}) as rows`), "WAITING"],
+    ["…and satisfying the requirement releases exactly the unit it held",
+      () => p65(OWN65, "", mk65(["website_funnel"]) +
+        `select public.crm_satisfy_client_requirement(
+           (select r.id from public.crm_client_requirements r
+             where r.project_id = ${proj65} and r.label = 'Provide DNS access')) as rows`), 1],
+    ["…leaving it READY, not still waiting",
+      () => act65(OWN65, mk65(["website_funnel"]) +
+        `select public.crm_satisfy_client_requirement(
+           (select r.id from public.crm_client_requirements r
+             where r.project_id = ${proj65} and r.label = 'Provide DNS access'));`,
+        `select public.crm_work_unit_state(${unit65("Domain & SSL")}) as rows`), "READY"],
+    ["waiting carries one of six structured reasons, not a status of its own",
+      () => act65(OWN65, mk65(["sales"]) +
+        `select public.crm_set_waiting(${unit65("Sales Pipeline")}, 'external_platform', 'GHL API limit');`,
+        `select waiting_on::text as rows from public.work_items where id = ${unit65("Sales Pipeline")}`), "external_platform"],
+
+    /* ── §14: a ticked action starts the unit ────────────────────────── */
+    ["ticking the first action starts a ready unit with no status update",
+      () => act65(OWN65, mk65(["project_setup"]) +
+        `update public.work_checklist_items set done = true
+          where id = (select c.id from public.work_checklist_items c
+                       where c.work_item_id = ${unit65("Brand & Business Setup")} limit 1);`,
+        `select public.crm_work_unit_state(${unit65("Brand & Business Setup")}) as rows`), "IN PROGRESS"],
+
+    /* ── §21 / §25 / §14: engines live their own lives ───────────────── */
+    ["an engine whose only movement is waiting has NOT started",
+      () => withP(["project_setup"], `select public.crm_engine_state(${proj65}, 'project_setup') as rows`), "PLANNED"],
+    ["an engine is ACTIVE once its own activation milestone completes",
+      () => act65(OWN65, mk65(["website_funnel", "sales"]) +
+        `update public.crm_milestones set completed_at = now() where project_id = ${proj65} and key='website_ready';`,
+        `select public.crm_engine_state(${proj65}, 'website_funnel') as rows`), "ACTIVE"],
+    ["…and the other engine is untouched by that",
+      () => act65(OWN65, mk65(["website_funnel", "sales"]) +
+        `update public.crm_milestones set completed_at = now() where project_id = ${proj65} and key='website_ready';`,
+        `select public.crm_engine_state(${proj65}, 'sales') as rows`), "PLANNED"],
+    ["every engine's progress comes back in ONE call",
+      () => withP(["project_setup", "sales"],
+        `select count(*)::int as rows from public.crm_project_engine_progress(${proj65})`), 2],
+
+    /* ── §2 / §3 / §4 / §9: the project journey ──────────────────────── */
+    ["a new project reads Info Gathering, never 'Not started'",
+      () => withP(["sales"], `select public.crm_project_journey(${proj65}) as rows`), "info_gathering"],
+    ["a QA failure does NOT relabel the project — there is no 'For Revision'",
+      () => act65(OWN65, mk65(["sales"]) +
+        `update public.work_items set stage='Ready for QA' where id = ${unit65("Sales QA")};` +
+        `set local role authenticated; set local request.jwt.claims = '{"sub":"${OWN65}","role":"authenticated"}';
+         select public.crm_fail_qa(${unit65("Sales QA")}, 'the follow-up fires twice');`,
+        `select public.crm_project_journey(${proj65}) as rows`), "building"],
+    ["go-live inside a contracted window puts the project in SUPPORT",
+      () => act65(OWN65, mk65(["project_setup"]) +
+        `select public.crm_record_go_live(${proj65}, current_date, current_date + 90);`,
+        `select public.crm_project_journey(${proj65}) as rows`), "support"],
+    ["the journey vocabulary is exactly the seven Dee locked",
+      () => q(`select count(*)::int as rows from (values
+                 ('info_gathering'),('planning_designing'),('building'),('testing'),
+                 ('launch'),('support'),('complete')) as v(s)
+               where not exists (select 1 from pg_constraint c
+                 where c.conname = 'crm_projects_journey_override_check'
+                   and pg_get_constraintdef(c.oid) like '%' || v.s || '%')`)[0].rows, 0],
+
+    /* ── §9 / §19 / §30: QA RESULT is its own layer ──────────────────── */
+    ["a failed review records NEEDS FIX on the unit and returns it to IN PROGRESS",
+      () => act65(OWN65, mk65(["sales"]) +
+        `update public.work_items set stage='Ready for QA', previous_assigned_to='${LEAD65}' where id = ${unit65("Sales QA")};` +
+        `set local role authenticated; set local request.jwt.claims = '{"sub":"${OWN65}","role":"authenticated"}';
+         select public.crm_fail_qa(${unit65("Sales QA")}, 'fix the sequence');`,
+        `select w.qa_result::text || '/' || public.crm_work_unit_state(w.id) as rows
+           from public.work_items w where w.id = ${unit65("Sales QA")}`), "needs_fix/IN PROGRESS"],
+    ["…and it goes back to whoever built it, not to a manager",
+      () => act65(OWN65, mk65(["sales"]) +
+        `update public.work_items set stage='Ready for QA', previous_assigned_to='${LEAD65}', assigned_to=null where id = ${unit65("Sales QA")};` +
+        `set local role authenticated; set local request.jwt.claims = '{"sub":"${OWN65}","role":"authenticated"}';
+         select public.crm_fail_qa(${unit65("Sales QA")}, 'fix it');`,
+        `select (assigned_to = '${LEAD65}')::text as rows from public.work_items where id = ${unit65("Sales QA")}`), "true"],
+    ["a review cannot be failed without feedback",
+      () => p65(OWN65, "", mk65(["sales"]) +
+        `update public.work_items set stage='Ready for QA' where id = ${unit65("Sales QA")};
+         select public.crm_fail_qa(${unit65("Sales QA")}, '   ') as rows`), "ERR 22023"],
+
+    /* ── §11 / §12 / §14 / §20: milestones, not statuses ─────────────── */
+    ["a Website-only project gets no Sales Engine Ready milestone",
+      () => withP(["website_funnel"], `select count(*)::int as rows from public.crm_milestones
+        where project_id = ${proj65} and key = 'sales_ready'`), 0],
+    ["…but every project gets Client Presentation, User Training and Go-Live",
+      () => withP(["website_funnel"], `select count(*)::int as rows from public.crm_milestones
+        where project_id = ${proj65} and key in ('client_presentation','user_training','go_live')`), 3],
+    ["Client Presentation and User Training can both be complete at once",
+      () => act65(OWN65, mk65(["website_funnel"]) +
+        `select public.crm_complete_milestone((select id from public.crm_milestones
+           where project_id = ${proj65} and key='client_presentation'), 'done');
+         select public.crm_complete_milestone((select id from public.crm_milestones
+           where project_id = ${proj65} and key='user_training'), 'done');`,
+        `select count(*)::int as rows from public.crm_milestones
+          where project_id = ${proj65} and completed_at is not null`), 2],
+    ["a milestone tied to a work unit completes itself when that unit does",
+      () => act65(OWN65, mk65(["project_setup"]) +
+        `update public.work_items set stage='Completed' where id = ${unit65("Scope Confirmation")};`,
+        `select (completed_at is not null)::text as rows from public.crm_milestones
+          where project_id = ${proj65} and key='intake_complete'`), "true"],
+
+    /* ── §28 / §53: one action, and everything derived from it ───────── */
+    ["completing a unit writes exactly ONE production row",
+      () => act65(OWN65, mk65(["sales"]) +
+        `select public.crm_complete_work_unit(${unit65("Sales Intake / Offer Map")});`,
+        `select count(*)::int as rows from public.production_logs
+          where work_item_id = ${unit65("Sales Intake / Offer Map")}`), 1],
+    ["…attributed to the PARTNER, so the EOD line names them",
+      () => act65(OWN65, mk65(["sales"]) +
+        `select public.crm_complete_work_unit(${unit65("Sales Intake / Offer Map")});`,
+        `select (outsourcing_group_id is not null)::text as rows from public.production_logs
+          where work_item_id = ${unit65("Sales Intake / Offer Map")}`), "true"],
+    ["…the ticked actions ARE the build actions, not a generic line",
+      () => act65(OWN65, mk65(["project_setup"]) +
+        `select public.crm_complete_work_unit(${unit65("Brand & Business Setup")},
+           (select coalesce(array_agg(c.id), '{}') from public.work_checklist_items c
+             where c.work_item_id = ${unit65("Brand & Business Setup")}));`,
+        `select array_length(actions, 1) as rows from public.production_logs
+          where work_item_id = ${unit65("Brand & Business Setup")}`), 6],
+    ["…and ONE activity event, which is what notifies people",
+      () => act65(OWN65, mk65(["sales"]) +
+        `select public.crm_complete_work_unit(${unit65("Sales Intake / Offer Map")});`,
+        `select count(*)::int as rows from public.activity_events
+          where entity_type='work_item' and entity_id = ${unit65("Sales Intake / Offer Map")}::text
+            and action in ('Work unit completed','Handed off')`), 1],
+    ["§22B — a handoff that keeps the unit open does not complete it",
+      () => act65(OWN65, mk65(["sales"]) +
+        `select public.crm_complete_work_unit(${unit65("Sales Intake / Offer Map")}, '{}'::uuid[], null,
+           array[${unit65("Custom Fields & Tags")}], true, null, '${LEAD65}');`,
+        `select public.crm_work_unit_state(${unit65("Sales Intake / Offer Map")}) as rows`), "IN PROGRESS"],
+    ["…and the target really was assigned by that same call",
+      () => act65(OWN65, mk65(["sales"]) +
+        `select public.crm_complete_work_unit(${unit65("Sales Intake / Offer Map")}, '{}'::uuid[], null,
+           array[${unit65("Custom Fields & Tags")}], true, null, '${LEAD65}');`,
+        `select (assigned_to = '${LEAD65}')::text as rows from public.work_items where id = ${unit65("Custom Fields & Tags")}`), "true"],
+
+    /* ── §49: cancelling one engine leaves the others running ────────── */
+    ["cancelling an engine archives its open work and keeps the rest",
+      () => act65(OWN65, mk65(["website_funnel", "sales"]) +
+        `select public.crm_cancel_engine(${proj65}, 'sales', 'partner dropped it');`,
+        `select count(*)::int as rows from public.work_items
+          where crm_project_id = ${proj65} and crm_engine_key = 'website_funnel' and archived_at is null`), 7],
+    ["…and cancelling needs a reason",
+      () => p65(OWN65, "", mk65(["sales"]) + `select public.crm_cancel_engine(${proj65}, 'sales', '') as rows`), "ERR 22023"],
+
+    /* ── §48: adding an engine mid-project ──────────────────────────── */
+    ["an engine added mid-project brings its work and its milestones",
+      () => act65(OWN65, mk65(["website_funnel"]) + `select public.crm_add_engine(${proj65}, 'sales');`,
+        `select count(*)::int as rows from public.crm_milestones
+          where project_id = ${proj65} and key = 'sales_ready'`), 1],
+    ["…and adding one already in scope is refused rather than duplicated",
+      () => p65(OWN65, "", mk65(["sales"]) + `select public.crm_add_engine(${proj65}, 'sales') as rows`), "ERR 22023"],
+
+    /* ── §50: who reaches BES CRM at all ────────────────────────────── */
+    ["a CreditOps-scoped manager is refused, and told why",
+      () => p65(MGR65, "", `select public.crm_create_project('[TEST] m', array['sales'], '${GRP65}') as rows`), "ERR 42501"],
+    ["an agent without crm.projects.view sees no project the owner created",
+      /* The owner creates it in the SEED, before the role switch, so the
+         agent's own read is the only thing measured. */
+      () => p65(CO65,
+        `set local role authenticated; set local request.jwt.claims = '{"sub":"${OWN65}","role":"authenticated"}'; ${mk65(["sales"])} reset role;`,
+        `select count(*)::int as rows from public.crm_projects where name='[TEST] CRM build'`), 0],
+    ["an admin, who is not division-scoped, may create one",
+      () => p65(ADM65, "", `select (public.crm_create_project('[TEST] a', array['sales'], '${GRP65}') is not null)::text as rows`), "true"],
+    ["anon reaches no CRM table",
+      () => { try { q(`begin; set local role anon; select 1 from public.crm_projects limit 1; rollback;`); return "readable"; } catch { return "refused"; } }, "refused"],
+    /* The three trigger functions are unreachable; `crm_instantiate_engine` IS
+       granted and must be, because `crm_create_project` is SECURITY INVOKER
+       and calls it — the policies decide, so the caller needs the privilege.
+       Asserted as exactly one, and named, rather than as a vague count. */
+    ["the three CRM trigger functions are not callable from the API",
+      () => q(`select count(*)::int as rows from (values
+                 ('crm_derive_milestones()'),('crm_auto_start_from_checklist()'),
+                 ('production_logs_derive_context()')) as f(sig)
+               where has_function_privilege('authenticated', ('public.' || f.sig)::regprocedure, 'execute')`)[0].rows, 0],
+    ["…and crm_instantiate_engine is, deliberately: its caller is INVOKER",
+      () => q(`select has_function_privilege('authenticated',
+                 'public.crm_instantiate_engine(uuid,text,uuid)'::regprocedure, 'execute')::text as rows`)[0].rows, "true"],
+
+    /* ── §12 / §57: the master library ─────────────────────────────── */
+    ["the requirement library ships empty, so nothing is invented",
+      () => q(`select count(*)::int as rows from public.crm_requirements`)[0].rows, 0],
+    ["…and its completeness gate exists to prove every source row is accounted for",
+      () => q(`select count(*)::int as rows from public.crm_requirements_unmapped(
+                 (select id from public.agencies limit 1))`)[0].rows, 0],
+    ["every seeded template says it is provisional, not the BES standard",
+      () => q(`select count(*)::int as rows from public.crm_engine_templates
+                where provenance <> 'provisional_from_brief'`)[0].rows, 0],
+  ] : [["(no partner or no published engine template to probe)", () => "skip", "skip"]];
+  runPhase("phase 65", P65, { strict: true });
+}
+
 endPhase();
 
 /* ------------------------------------------------------------------ *
