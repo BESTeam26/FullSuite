@@ -1,0 +1,12 @@
+Status,Owner,Blocker,Priority
+Not Started,Agency,Yes,Critical
+Waiting on Client,Client,No,High
+Blocked,Agency + Client,Conditional,Medium
+In Progress,Tech Team,,Low
+Internal Review,Automation Team
+Ready for QA,Compliance
+Needs Fix,Billing
+Completed,Sales
+Not Applicable,Support
+,Project Lead
+,Third Party
