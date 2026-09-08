@@ -713,3 +713,22 @@ the content waits. Pinned by `shell-boundaries.test.ts`, which reads both files
 and fails if either moves back out. Verified live: the deployed
 `DashboardLayout` chunk carries "Loading this page", "Checking access" and
 "Access denied".
+
+### Full gate, 2026-09-08 end of session
+
+**1,325 / 1,325 checks across 65 phases, zero failures, 21m 14s** — at
+migration 0224, with BES CRM in it. 1,611 queries at 790ms each.
+
+| | |
+|---|---|
+| Unit tests | **1,382** passing, 129 files |
+| Typecheck · lint · build | clean · **0 errors** (100 pre-existing warnings) · ✓ |
+| Migrations applied | 232 files, numbered to 0224 |
+| Authorization map | regenerated — **174 tables, 423 policies, 404 functions, 51 permission keys**, and **every table has row-level security** |
+
+The generated map still flags exactly one thing, and it is the same known
+item rather than anything new: `borrower_funding_files` is readable by
+`authenticated` without `security_invoker`, so one `WHERE` clause is what
+limits a borrower to their own files. Correct today, load-bearing, and
+recorded as **C16** with a recommendation — not a regression from this
+session's work. All twelve new `crm_*` tables carry RLS.
