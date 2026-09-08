@@ -83,9 +83,14 @@ export interface AgencyMemberAccess {
 export async function fetchAgencyAccess(agencyId: string): Promise<AgencyMemberAccess[]> {
   const sb = requireSupabase();
   const [members, overrides] = await Promise.all([
+    /* `!inner` so the fixture filter reaches the joined profile. The panel
+       used to list the security suite's own @bes.test accounts beside real
+       staff, and All Access was toggled on one of them — which both wrote
+       overrides nobody wanted and broke what phase 56 measures. */
     sb.from("agency_memberships")
-      .select("id, user_id, role, profiles:profiles!agency_memberships_user_id_fkey(id, full_name, email)")
-      .eq("agency_id", agencyId),
+      .select("id, user_id, role, profiles:profiles!agency_memberships_user_id_fkey!inner(id, full_name, email, is_fixture)")
+      .eq("agency_id", agencyId)
+      .eq("profiles.is_fixture", false),
     sb.from("agency_member_permissions").select("membership_id, key, allowed"),
   ]);
   if (members.error) throw members.error;

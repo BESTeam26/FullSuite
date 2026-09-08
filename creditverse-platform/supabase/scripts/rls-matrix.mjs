@@ -3281,7 +3281,10 @@ if (runs(56)) {
       () => p56(MGR56, `select public.set_agency_permission('${MGRM}','partners.financials.view',true) as rows`), "ERR 42501"],
 
     ["an admin can",
-      () => p56(ADM56, `select coalesce(public.set_agency_permission('${MGRM}','partners.financials.view',true)::text,'ok') as rows`), "ok"],
+      /* The function returns void. Casting void to text is not a cast that
+         exists, so this probe used to fail on 42883 rather than on the rule —
+         it reads back the row that was written instead. */
+      () => p56(ADM56, `select public.set_agency_permission('${MGRM}','partners.financials.view',true); select allowed::text as rows from public.agency_member_permissions where membership_id='${MGRM}' and key='partners.financials.view'`), "true"],
 
     /* An override on an owner or admin would be a switch that does nothing,
        because agency_can answers by role before it reads a row. */
@@ -3290,7 +3293,7 @@ if (runs(56)) {
               return p56(OWN56, `select public.set_agency_permission('${am}','partners.financials.view',false) as rows`); }, "ERR 22023"],
 
     ["a permission change is audited",
-      () => p56(ADM56, `select public.set_agency_permission('${MGRM}','partners.financials.view',true); select count(*)::int as rows from public.audit_log where action='agency_permission.set'`), 1],
+      () => p56(ADM56, `select public.set_agency_permission('${MGRM}','partners.financials.view',true); select (count(*) > 0)::text as rows from public.audit_log where action='agency_permission.set'`), "true"],
 
     /* ── A partner never sees the money ──────────────────────────── */
     ["the billing policy has no partner branch at all",
