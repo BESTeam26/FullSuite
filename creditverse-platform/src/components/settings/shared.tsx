@@ -112,11 +112,27 @@ export const ToggleRow = ({
   );
 };
 
-/** Sits above inputs that are not wired to anything yet. */
-export const PlaceholderNote = ({ what = "These fields" }: { what?: string }) => (
+/**
+ * Sits above inputs that are not wired to anything yet.
+ *
+ * `what` names the subject and the standard sentence follows it. Pass `detail`
+ * instead when the honest explanation is not "nothing reads them" — for
+ * example when part of the surface IS real and the note has to say which part.
+ */
+export const PlaceholderNote = ({
+  what = "These fields",
+  detail,
+}: {
+  what?: string;
+  detail?: string;
+}) => (
   <p className="mb-3 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-    {what} are not active yet: nothing reads them and nothing is saved. They show
-    the intended shape of the setting, not a current value.
+    {detail ?? (
+      <>
+        {what} are not active yet: nothing reads them and nothing is saved. They
+        show the intended shape of the setting, not a current value.
+      </>
+    )}
   </p>
 );
 

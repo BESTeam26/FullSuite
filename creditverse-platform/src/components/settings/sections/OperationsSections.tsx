@@ -18,6 +18,7 @@ export const FulfillmentSection = () => (
     title="Fulfillment Settings"
     description="HQ Done-For-You services: service types, eligible Organizations, SLA rules, routing, QA requirements, handoff rules, and escalation thresholds."
   >
+    <PlaceholderNote detail="These service rows are examples of the shape this catalogue will take. SLA, routing and QA are not configurable yet, and no rule reads these values." />
     <div className="space-y-3">
       {[
         {
@@ -234,6 +235,7 @@ export const TemplatesSection = () => (
     title="Templates & Catalogs"
     description="Reusable configuration: project templates, work types, checklists, status sets, SLA templates, email/update templates, QA templates, and service catalogs."
   >
+    <PlaceholderNote detail="These names are examples. The one real, versioned template catalogue today is the dispute letter library — Settings → Letter Library — which reads letter_templates. Checklists, QA and progress-report templates are not configurable yet." />
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {[
         "Round 1 Dispute Template",
@@ -261,22 +263,75 @@ export const TemplatesSection = () => (
 );
 
 /* ---------------- Workflow & Automation Defaults ---------------- */
+/**
+ * The rules that actually run, and where each one lives.
+ *
+ * This was six switches, every one rendered ON with `onChange={() => {}}`.
+ * Four of the six describe something the platform genuinely does; two describe
+ * nothing at all. Shown as switches, all six read as configurable rules
+ * somebody had turned on — so the two that do not exist were the most
+ * convincing of the set.
+ *
+ * The ones that run are not switches either. They are database triggers and a
+ * view: they cannot be turned off from a settings screen, and pretending they
+ * could would be the same mistake in the other direction. `state="enforced"`
+ * says so, and the description names the thing to read.
+ */
+const RULES: { label: string; description: string; state: "enforced" | "unbuilt" }[] = [
+  {
+    label: "Work assigned → notify the assignee",
+    description:
+      "A trigger on activity_events routes the assignment to whoever gained it, and tells whoever lost it (notify_from_activity, rules 1–2).",
+    state: "enforced",
+  },
+  {
+    label: "Work completed → write a production record",
+    description:
+      "A trigger fires when completed_at is first set, so production cannot be skipped by completing work from a different screen.",
+    state: "enforced",
+  },
+  {
+    label: "Handoff → notify the receiving department",
+    description:
+      "The client's agent, the client's team leads, and the leads of the teams attached to the destination department (notify_from_activity, rule 5).",
+    state: "enforced",
+  },
+  {
+    label: "Overdue or blocked → appears in the Attention Center",
+    description:
+      "The work_attention view selects blocked, overdue and within-four-hours work continuously. Nothing has to run for an item to appear, and nothing can forget to.",
+    state: "enforced",
+  },
+  {
+    label: "Hub entitlement granted → Hub Core switched on",
+    description:
+      "A trigger on product_entitlements enables the Hub Core modules that come with the plan. The organization still chooses which of them it uses.",
+    state: "enforced",
+  },
+  {
+    label: "QA correction → return to My Work and Attention",
+    description:
+      "Not built. A QA reviewer moves the item back by hand today; there is no rule that does it.",
+    state: "unbuilt",
+  },
+];
+
 export const AutomationsSection = () => (
   <SectionCard
     icon={Zap}
-    title="Workflow & Automation Defaults"
-    description="Reusable rules: Trigger → Conditions → Actions → Audit. Simple, auditable, and configurable."
+    title="Workflow Rules"
+    description="What the platform does on its own. These are database triggers and views, not settings — they are listed here so the behaviour is visible in one place."
   >
     <div className="space-y-2">
-      {[
-        "Work assigned → Notify assignee",
-        "Work completed → Move to Production",
-        "QA correction → Return to My Work + Attention",
-        "Handoff → Notify target team",
-        "Overdue → Escalate to Attention Center",
-        "Service activated → Provision workspace",
-      ].map((r) => (
-        <ToggleRow key={r} label={r} checked onChange={() => {}} />
+      {RULES.map((r) => (
+        <ToggleRow
+          key={r.label}
+          label={r.label}
+          description={r.description}
+          checked={r.state === "enforced"}
+          onChange={() => {}}
+          state={r.state}
+        />
       ))}
     </div>
   </SectionCard>

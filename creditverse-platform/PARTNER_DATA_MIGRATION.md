@@ -1,8 +1,21 @@
 # Partner data migration — ClickUp and the revenue tracker → BES
 
-**Status: mapping only. Nothing has been imported.** Dee's instruction stands:
-finish the schema, the authorization and the profile, produce a dry-run
-reconciliation, and only then import.
+**Status: mapped, coded and tested. Nothing has been imported.** Dee's
+instruction stands: finish the schema, the authorization and the profile,
+produce a dry-run reconciliation, and only then import.
+
+**2026-09-08 — the adapter exists.** `src/lib/migration/clickup-partners.ts`
+turns a snapshot of the ClickUp list into a PROPOSAL and writes nothing: the
+lifecycle/service split of §2.1, the field mapping of §3, the credential guard
+of §7 and the identity reconciliation of §8, with 22 unit tests. It is pure,
+so it is reviewable without a database.
+
+**What still blocks the import, and it is not code.** The revenue tracker
+(§4) is authoritative for everything commercial, and BES does not have it.
+ClickUp's own `Amount / MRR ($)` field is empty on most rows. A dry run from
+ClickUp alone would therefore propose commercial terms from the losing source,
+which is worse than proposing none. The tracker export is item **B5** in
+`WHAT_I_NEED_FROM_DEE.md`.
 
 Two legacy sources, and they are authoritative for *different truths*.
 
@@ -197,13 +210,29 @@ of fact:
 
 ## 7. Credentials — do not migrate
 
-Some ClickUp task descriptions contain platform configuration, support emails,
-handoff notes **and potentially passwords, security codes or API keys**.
+**Measured 2026-09-08, not hypothetical.** Several task descriptions in the
+live list are access lists holding **passwords in plain text** — DisputeFox,
+LetterStream, Gmail, GoHighLevel, Zapier, Credit Repair Cloud and a phone
+system — including shared BES team logins, so one leak is not one partner.
+Nothing has been copied out of ClickUp: not into the database, not into a
+file, not into a commit, not into a report. Rotating them and moving them into
+a password manager is item **0.1** in `WHAT_I_NEED_FROM_DEE.md`.
+
+ClickUp task descriptions contain platform configuration, support emails,
+handoff notes **and passwords, security codes or API keys**.
 
 **Safe operational information** → `partner_operations` (names, links, notes).
 
 **Credentials, keys, security codes, passwords** → **not copied into any
-field.** The partner record sets
+field.** `scrubCredentials()` removes them line by line rather than dropping
+the whole description — Kenneth Winfield's task is a complete, useful SOP
+(scope of work, communication rules, dispute standards) with three passwords
+in the middle of it, so keeping all of it publishes the passwords and dropping
+all of it throws away the SOP. The detector is deliberately generous: a false
+positive costs one stripped line of a note, a false negative writes a password
+into a column everyone with `partners.view` can read.
+
+The partner record sets
 `outsourcing_groups.credential_migration_required = true` with a
 `credential_note` describing *what kind* of secret exists and *where it lives
 today* — never the secret itself. The Partner Overview shows the flag.
@@ -276,13 +305,24 @@ there is nothing for the interface to hide.
 6. ~~Partner Profile UI~~ — done
 7. ~~Multi-service model~~ — done
 8. ~~Billing and revenue model~~ — done (0160–0161)
-9. **Dry-run reconciliation report** — **not built yet**
+9. **Dry-run reconciliation report** — **the mapping is built and tested
+   (`src/lib/migration/clickup-partners.ts`); the report is waiting on the
+   revenue tracker (B5), without which its financial half would come from the
+   wrong source**
 
 The dry-run must show, per source row: source name, proposed canonical partner,
 match confidence and evidence, services detected, active vs historical,
 financial records, client volume, ClickUp match, conflicts and warnings.
 
 **Dee reviews it before anything is written to production.**
+
+Known reconciliation from the ClickUp side, for when that review happens: BES
+holds three partner rows today, two of them real — `Kevin Hernandez` and
+`Quentin Grays`, both named after the OWNER rather than the company. ClickUp
+calls the same two `Blue Chip Equity - Kevin Hernandez` and `Wavy One
+Solutions`. Company-name matching alone finds neither, which is why
+`matchCandidates` scores the ClickUp OWNER field against the existing record's
+name as well. The other 23 rows propose as new partners.
 
 ---
 

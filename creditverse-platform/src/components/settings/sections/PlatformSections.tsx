@@ -176,23 +176,92 @@ export const IntegrationsSection = () => {
 };
 
 /* ---------------- Portals ---------------- */
+/**
+ * Which outside-facing portals exist, and where each one is.
+ *
+ * This used to be five switches — Client, Referral Partner, Outsourcing,
+ * Lender, DIY — three rendered on, one off, all with `onChange={() => {}}`.
+ * There is no per-portal enable model anywhere in the schema, so the arrangement
+ * was invented: it said the Outsourcing portal was switched ON when that portal
+ * does not exist, and that the Lender portal was switched OFF as though somebody
+ * had turned it off.
+ *
+ * A switch that cannot switch anything is worse than no control, so the
+ * switches are gone. What replaces them is the fact: the route, and whether it
+ * is open. A portal becomes a toggle here on the day there is something for the
+ * toggle to write.
+ */
+const PORTALS: { name: string; route: string; live: boolean; note: string }[] = [
+  {
+    name: "Client portal",
+    route: "/portal",
+    live: true,
+    note: "A credit client signs in and follows their own progress, letters and documents.",
+  },
+  {
+    name: "Borrower portal",
+    route: "/portal/funding",
+    live: true,
+    note: "A funding borrower opens their own file, offers and stipulations.",
+  },
+  {
+    name: "Partner portal",
+    route: "/partner",
+    live: true,
+    note: "A BES Partner contact sees their own partner and nothing else — the row is the boundary.",
+  },
+  {
+    name: "Referral partner portal",
+    route: "/affiliate",
+    live: false,
+    note: "Referrals sent and commission earned. Waiting on referral partners becoming people with logins.",
+  },
+  {
+    name: "Outsourcing partner portal",
+    route: "/outsourcing",
+    live: false,
+    note: "A partner-facing view of the work BES does for them. The work is in the platform; this view is not built.",
+  },
+  {
+    name: "DIY consumer portal",
+    route: "/diy",
+    live: false,
+    note: "Self-serve dispute work for a consumer. Not built.",
+  },
+];
+
 export const PortalsSection = () => (
   <SectionCard
     icon={MonitorSmartphone}
     title="Portals"
-    description="Client, Referral Partner, Outsourcing, Lender, and DIY portals. Control enabled modules, default visibility, branding, and shared fields."
+    description="The outside-facing sign-ins. Each portal's contents are decided by row-level security, not by a setting here."
   >
-    <div className="space-y-2">
-      {[
-        { p: "Client Portal", on: true },
-        { p: "Referral Partner Portal", on: true },
-        { p: "Outsourcing Portal", on: true },
-        { p: "Lender Portal", on: false },
-        { p: "DIY Consumer Portal", on: true },
-      ].map((p) => (
-        <ToggleRow key={p.p} label={p.p} checked={p.on} onChange={() => {}} />
+    <ul className="space-y-2">
+      {PORTALS.map((p) => (
+        <li
+          key={p.route}
+          className="flex items-start justify-between gap-3 rounded-xl border border-border p-4"
+        >
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-foreground">{p.name}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{p.note}</p>
+            <code className="mt-1 inline-block rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
+              {p.route}
+            </code>
+          </div>
+          <Badge
+            variant="outline"
+            className={
+              p.live
+                ? "shrink-0 border-emerald-500/40 bg-emerald-500/10 text-status-success"
+                : "shrink-0 border-border bg-card text-muted-foreground"
+            }
+          >
+            {p.live ? "Open" : "Not built"}
+          </Badge>
+        </li>
       ))}
-    </div>
+    </ul>
   </SectionCard>
 );
 
@@ -221,10 +290,12 @@ export const NotificationsSection = () => (
       className="mb-4 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground"
     >
       <span className="font-semibold text-foreground">
-        Not active yet.
+        In-app only, and not configurable yet.
       </span>{" "}
-      Notification delivery has not been built, so nothing here is saved or
-      sent. These fields show what will be configurable.
+      In-app notifications are delivered — assignments, handoffs, mentions,
+      direct messages, announcements and anything needing attention route to
+      your Notifications page. Email and SMS delivery, digests and per-person
+      recipients are not built, so nothing on this screen is saved or sent.
     </div>
 
     <fieldset disabled className="opacity-60">
