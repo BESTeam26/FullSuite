@@ -791,6 +791,83 @@ role + permission + scope + assignment + entitlement + engagement
 > lose the first; letting every workspace define its own engine would lose the
 > second.
 
+## 17b. BES CRM: the tracker may be detailed, the workspace must be simple (permanent)
+
+Dee's product rule, 2026-09-08, superseding an earlier design that would have
+turned all 140 rows of `BES_GHL_Full_Infrastructure_Build_Tracker.xlsx` into
+live WorkItems:
+
+> **THE MASTER TRACKER MAY BE DETAILED. THE TEAM WORKSPACE MUST BE SIMPLE.
+> AGENTS DO THE WORK. THE SYSTEM DOES THE REPORTING.**
+
+### 140 source requirements ≠ 140 live tasks
+
+The workbook is a **build library** — the detailed operating knowledge that
+sits *underneath* a project. Every source row is preserved and mapped, and
+each becomes one of: a Work Unit, a checklist action, an acceptance criterion,
+a prerequisite, a client requirement, a QA check, an automation rule, a
+reference, or optional scope. **A source row does not become a live task by
+default.** Never assert that a full project equals 140 work items; the count
+depends on the engines the partner bought.
+
+The test for a Work Unit is one question: *does this represent a meaningful
+piece of work somebody can own?* Roughly 5–10 per major engine, and not a
+number to chase.
+
+### Projects are composed of the engines the partner actually purchased
+
+```
+PARTNER → BES CRM SERVICE ENGAGEMENT → CRM PROJECT
+        → SELECTED ENGINES → WORK UNITS → ACTIONS / HANDOFFS
+```
+
+Website-only means website work. Sales-engine-only means sales work. A full
+build combines engines. **Do not instantiate irrelevant work and mark eighty
+units "not applicable"** — if an engine was not bought, its work does not
+exist in that project. Engines are rows, versioned, and a template change
+never rewrites an active project without an explicit Upgrade Blueprint or Add
+Engine action.
+
+### The system reports; the agent does not
+
+One completion event must produce every deterministic consequence — unit
+complete, actions recorded, production written, project and engine progress
+recalculated, activity written, EOD populated, QA opened, handoffs opened,
+people notified — **without the agent updating seven screens**. Never ask
+"what did you complete today?": `eod_day_activity` already reads the canonical
+records. Manual input is for what the system cannot know — why something
+stalled, what tomorrow needs.
+
+**But automate only what is deterministic.** Never infer completion, client
+approval, a QA pass or a credential received from vague activity. Require the
+explicit event; then derive everything from it.
+
+### Parallel by default
+
+Multiple next steps may open at once, like a CreditOps handoff. Readiness comes
+from per-unit dependencies (`none` / `all_required` / `any_required` /
+specific prerequisite), **never from a phase counter** — phase is planning
+metadata. One WAITING unit must never freeze a project: independent engines
+keep running. WAITING is a *reason* (client / third party / internal) carried
+beside the stage, not three task engines and not a new status enum.
+
+### No second task engine
+
+BES CRM organises **projects, engines and work units around** the canonical
+systems. It does not replace them: `work_items`, `work_checklist_items`,
+`work_item_blockers`, assignment, `production_logs`, `eod_day_activity`,
+`files`, `activity_events`, notifications and Communication all stay canonical.
+Never create a `crm_build_task` table beside `work_items`, and never revive the
+retired `FulfillmentWorkOrder` shape (see rule 16b).
+
+> Full design: `ARCHITECTURE_PROPOSAL_BES_CRM_BUILD_OS.md`. It records that
+> most of this brief was already built — the checklist engine, the completion
+> trigger, the division-agnostic EOD derivation, the multi-destination handoff
+> pattern and the customer-visible branch of `work_items_select` — which is why
+> the CRM layer on top is thin.
+
+---
+
 ## 18. Organization Hub product doctrine — three layers of control
 
 Dee's decision, 2026-09-05. The platform is not only CreditOps and FundingOps.

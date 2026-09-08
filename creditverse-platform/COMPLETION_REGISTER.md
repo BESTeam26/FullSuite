@@ -585,8 +585,21 @@ they are not re-opened as findings by a later pass:
 > `work_items` foundation, not revive the old `FulfillmentWorkOrder`
 > concept."*
 
-**Already satisfied by the shape BES CRM uses today** — this is continuity, not
-a new mechanism to design:
+> **SUPERSEDED 2026-09-08 by Dee's streamlined BES CRM brief.** The sentence
+> below that reads "each task becomes a canonical `work_items` row" was the
+> **140-live-task assumption**, and it is exactly what Dee removed: *"DO NOT
+> build a system where the CRM Team has to manually manage 140 individual
+> tracker rows."* The workbook is a **build library**, not a task list.
+>
+> **NEW RULE: 140 source requirements ≠ 140 live tasks.** They become
+> streamlined Engine Work Units, with actions, acceptance criteria and QA
+> checks underneath. See `ARCHITECTURE_PROPOSAL_BES_CRM_BUILD_OS.md` and
+> CLAUDE.md rule 17b. The table below remains true about the *canonical
+> engine* — work units are still `work_items` rows — and false about the
+> *granularity*.
+
+**The canonical engine is right; the granularity was not.** Work units are
+`work_items` rows, and that part needs no design:
 
 | Requirement | What exists |
 |---|---|
@@ -602,7 +615,8 @@ must NOT happen: a `crm_build_task` table beside `work_items`, or anything
 resembling the retired `FulfillmentWorkOrder` adapter — a flattened copy with
 its own status vocabulary.
 
-**Waiting on Dee:** the 140-task list itself. It is not in this repository and
-was not designed in the session that produced this entry — see **B8** in
-`WHAT_I_NEED_FROM_DEE.md`. When it arrives it goes into the repo verbatim
-before any of it is turned into rows.
+**Waiting on Dee:** `BES_GHL_Full_Infrastructure_Build_Tracker.xlsx` itself. It
+is not in this repository — see **B8** in `WHAT_I_NEED_FROM_DEE.md`. When it
+arrives it goes into the repo verbatim, then into `crm_requirements` as a
+master library, classified per engine and Work Unit. Every source row must be
+accounted for; **no source row becomes a live task by default.**
