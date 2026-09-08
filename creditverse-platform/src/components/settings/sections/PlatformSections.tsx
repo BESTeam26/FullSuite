@@ -316,7 +316,7 @@ export const NotificationsSection = () => (
       <div className="mt-4 space-y-2">
         <ToggleRow
           label="In-app notifications"
-          description="Delivered today: assignments, notes and status changes route to your Notifications page. A per-user opt-out is not built."
+          description="Delivered today: assignments, handoffs, mentions, direct messages, announcements, notes and anything moved into Attention route to your Notifications page. A per-user opt-out is not built."
           checked
           onChange={() => {}}
           state="enforced"
