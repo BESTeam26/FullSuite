@@ -5,6 +5,26 @@
 **Audit scope:** inspection only. No redesign, no refactor, no production services connected, no files deleted.
 **Verdict in one line:** this is a large, well-organized, *frontend-only demo*. Every screen renders from in-memory seed data. There is no backend, no auth, no database, no persistence, and no real integration.
 
+> ## Read this first
+>
+> **The verdict above describes 2026-09-02, the day the GHL export was
+> audited. It has not been true for a long time.** This file is the
+> chronological build log, and its narrative entries stop at migration 0107.
+>
+> For the CURRENT state read, in this order:
+>
+> | Question | File |
+> |---|---|
+> | What is done, what is not, and why | `COMPLETION_REGISTER.md` |
+> | What only Dee can supply or decide | `WHAT_I_NEED_FROM_DEE.md` |
+> | Who may reach what, and which function decides | `AUTHORIZATION_MAP.md` |
+> | What each deterministic engine computes, and its tests | `src/lib/dispute/ENGINE_INVENTORY.md` |
+>
+> As of **2026-09-08**: 227 migration files applied (numbered to 0219), a
+> live Supabase backend with
+> row-level security on every table, 1,341 unit tests, and a full RLS matrix
+> across 64 phases. The current numbers are in the register.
+
 ---
 
 ## Progress log
