@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { PanelResizer } from "@/components/dashboard/PanelResizer";
 import { usePanelWidth } from "@/lib/agency/use-panel-width";
 import { useAgency } from "@/lib/agency-context";
@@ -414,6 +415,15 @@ export const Sidebar = () => {
      full width, so a collapsed preference never produces an icon-only drawer. */
   const rail = collapsed && !mobileOpen;
 
+  /* Escape closes the small-screen drawer. A drawer that covers the page
+     needs a keyboard way out, and the backdrop is deliberately not one. */
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setMobileOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [mobileOpen, setMobileOpen]);
+
   const itemClass = (active: boolean) =>
     cn(
       "relative flex items-center gap-3 rounded-lg py-2.5 text-sm font-medium transition-colors",
@@ -435,9 +445,14 @@ export const Sidebar = () => {
   return (
     <>
       {mobileOpen && (
-        <button
-          type="button"
-          aria-label="Close menu"
+        /* The dim behind the drawer. NOT a button: as a full-screen
+           `<button aria-label="Close menu">` it was a tab stop that painted
+           the global focus outline around the whole viewport with nothing to
+           point at, and it made "Close menu" the accessible name of two
+           different controls. Escape and the × inside the drawer are the
+           keyboard paths. */
+        <div
+          aria-hidden="true"
           onClick={() => setMobileOpen(false)}
           className="fixed inset-0 z-40 bg-black/40 lg:hidden"
         />

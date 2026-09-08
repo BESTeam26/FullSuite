@@ -266,8 +266,13 @@ function ModuleDrawer({
 
   return (
     <div className="fixed inset-0 z-50 flex">
-      <button type="button" aria-label="Close navigation" onClick={onClose}
-        className="absolute inset-0 bg-black/40" />
+      {/* The dim behind the drawer. NOT a button: as a full-screen `<button
+          aria-label="Close navigation">` it was an invisible tab stop that a
+          keyboard user landed on with no focus ring to show it, and it made
+          "Close navigation" the accessible name of two different controls.
+          The keyboard paths are Escape and the × below, which already has
+          focus when the drawer opens. */}
+      <div aria-hidden="true" onClick={onClose} className="absolute inset-0 bg-black/40" />
       <div role="dialog" aria-label={`${title} navigation`}
         className="relative flex h-full w-72 max-w-[85vw] flex-col overflow-y-auto border-r border-border bg-card p-4">
         <div className="mb-3 flex items-center justify-between border-b border-border pb-3">
