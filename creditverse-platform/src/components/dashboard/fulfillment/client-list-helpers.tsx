@@ -5,8 +5,7 @@
  * division's status vocabulary and its dispute-round / open-items columns.
  */
 
-import { Constants } from "@/lib/supabase/database.types";
-import { creditStatuses } from "@/lib/fulfillment/department-domain";
+import { CREDIT_STATUSES } from "@/lib/fulfillment/department-domain";
 import {
   AGENT_COL,
   Avatar,
@@ -68,8 +67,7 @@ export const FulfillmentStatusPill = ({ status }: { status: string }) => (
  * department's states (Support, Bureau Calling, QA) and was never the credit
  * vocabulary.
  */
-export const ALL_STATUS_OPTIONS: string[] =
-  creditStatuses(Constants.public.Enums.fulfillment_client_status);
+export const ALL_STATUS_OPTIONS: string[] = [...CREDIT_STATUSES];
 
 export const STATUS_OPTIONS = ["All Statuses", ...ALL_STATUS_OPTIONS];
 

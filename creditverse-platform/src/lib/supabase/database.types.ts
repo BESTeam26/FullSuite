@@ -12739,6 +12739,13 @@ export type Database = {
         | "Round Sent - Awaiting Results"
         | "Ready for Reimport / Review"
         | "Waiting for Partner Approval"
+        | "New Client"
+        | "Incomplete Onboarding"
+        | "Prio Processing"
+        | "For Complaints"
+        | "Ready For Reimport/ Credit Update"
+        | "On Hold (Non Workable)"
+        | "For Partner Confirmation"
       fulfillment_department:
         | "Onboarding"
         | "Dispute"
@@ -13459,6 +13466,13 @@ export const Constants = {
         "Round Sent - Awaiting Results",
         "Ready for Reimport / Review",
         "Waiting for Partner Approval",
+        "New Client",
+        "Incomplete Onboarding",
+        "Prio Processing",
+        "For Complaints",
+        "Ready For Reimport/ Credit Update",
+        "On Hold (Non Workable)",
+        "For Partner Confirmation",
       ],
       fulfillment_department: [
         "Onboarding",

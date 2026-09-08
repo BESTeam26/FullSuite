@@ -184,59 +184,58 @@ export function describeHandoff(from: CreditOpsDepartment | null, plan: HandoffP
 
 
 /**
- * The CREDIT STATUS list — the client's general dispute status, and nothing
- * else.
+ * THE CREDIT STATUS LIST. Dee's, verbatim, in Dee's order.
  *
- * ── DEE'S LIST, NOT A DERIVED SUPERSET ─────────────────────────────────────
+ * ── WHY THIS IS A LITERAL LIST AND NOT DERIVED ─────────────────────────────
  *
- * Dee: "I have a very simple Status list I have reiterated to you before.
- * This is not the long list. Credit Status only is for the general Dispute
- * Status of the client. Support and Bureau Calling and QA are not part of
- * these."
+ * I tried deriving it twice and got it wrong twice. First from the whole
+ * `fulfillment_client_status` enum — which is a union of every department's
+ * states plus legacy values, so the dropdown offered Ready for QA, Monitoring
+ * Issue, Graduated and Archived. Then from the Status Guide's `dispute`
+ * category, which was closer and still not it.
  *
- * It was already written down — the Status Guide's `dispute` category IS that
- * list. I had derived a long one from the whole `fulfillment_client_status`
- * enum instead, which swept in Ready for QA, Monitoring Issue, Attention,
- * Graduated and Archived. The enum is a UNION of every department's states
- * plus some legacy values; it was never the credit vocabulary.
+ * It is not derivable, because it is a product decision. Dee gave it
+ * explicitly:
  *
- * So this reads the guide, which is Dee's own vocabulary, and maps each code
- * to the enum label the database actually stores — the guide writes
- * "READY FOR ROUND 1" and the column holds "Ready for Round 1". Matching on
- * case would silently drop half the list, which is exactly the kind of quiet
- * loss that started this.
+ *   "I need the correct status I have before. This is incorrect."
  *
- * `ARCHIVED / INACTIVE` is excluded on purpose: archiving a client is the
- * Lifecycle control's job, and offering it here would be a second way to do
- * one thing.
+ * So it is written down here, once, exactly as Dee wrote it — capital F in
+ * "Ready For", the unspaced slash in "Reimport/ Credit Update", the
+ * parenthesis in "On Hold (Non Workable)". Migration 0214 added the seven
+ * that did not exist, with the same spelling, so the value stored IS the
+ * value shown and there is no label layer for the two to drift across.
+ *
+ * `credit-statuses.test.ts` asserts every entry is a real enum value, so a
+ * typo here fails a test rather than producing a dropdown option the database
+ * refuses.
+ *
+ * This is the CLIENT's general dispute status and nothing else. Support,
+ * Bureau Calling, Complaints and QA are DEPARTMENTS with their own statuses —
+ * `departmentStatuses()` above — and they do not belong in this list.
  */
-export function creditStatuses(enumLabels: readonly string[]): string[] {
-  const guideCodes = CREDIT_OPS_STATUS_GUIDE
-    .filter((i) => i.category === "dispute")
-    .map((i) => i.code)
-    .filter((code) => code !== "ARCHIVED / INACTIVE");
-
-  /* The guide's order is the workflow's order — onboarding, processing,
-     rounds, approval, done. Kept, because a familiar list in an unfamiliar
-     order is its own small tax on somebody working quickly. */
-  return guideCodes.flatMap((code) => {
-    const match = enumLabels.find((label) => label.toLowerCase() === code.toLowerCase());
-    return match ? [match] : [];
-  });
-}
+export const CREDIT_STATUSES: readonly string[] = [
+  "New Client",
+  "Incomplete Onboarding",
+  "Ready for Round 1",
+  "Ready for Processing",
+  "Prio Processing",
+  "For Complaints",
+  "Round Sent - Awaiting Results",
+  "Ready For Reimport/ Credit Update",
+  "On Hold (Non Workable)",
+  "For Partner Confirmation",
+] as const;
 
 /**
- * The list to OFFER for a given client: Dee's credit statuses, plus whatever
- * the record currently holds if that is not one of them.
+ * The list to OFFER for a given client: Dee's ten, plus whatever the record
+ * currently holds if that is not one of them.
  *
- * Older clients carry values from before this vocabulary settled — "Onboarding",
- * "In Dispute". A dropdown that does not contain what the record says is a
- * dropdown that appears to have already changed it.
+ * Older clients carry values from before this list settled — "Onboarding",
+ * "In Dispute", "NEW ONBOARDING". A dropdown that does not contain what the
+ * record says is a dropdown that appears to have already changed it.
  */
-export function creditStatusOptionsFor(
-  current: string | null | undefined,
-  enumLabels: readonly string[],
-): string[] {
-  const list = creditStatuses(enumLabels);
-  return current && !list.includes(current) ? [current, ...list] : list;
+export function creditStatusOptionsFor(current: string | null | undefined): string[] {
+  return current && !CREDIT_STATUSES.includes(current)
+    ? [current, ...CREDIT_STATUSES]
+    : [...CREDIT_STATUSES];
 }

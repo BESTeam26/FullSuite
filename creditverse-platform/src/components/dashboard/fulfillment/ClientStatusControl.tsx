@@ -44,14 +44,12 @@ import { Button } from "@/components/ui/button";
 import { OpsSelect } from "@/components/ui/ops-select";
 import { errorMessage } from "@/lib/data/error-message";
 import { updateClientStatus } from "@/lib/data/fulfillment-clients";
-import { Constants } from "@/lib/supabase/database.types";
-import { creditStatuses, creditStatusOptionsFor } from "@/lib/fulfillment/department-domain";
+import { CREDIT_STATUSES, creditStatusOptionsFor } from "@/lib/fulfillment/department-domain";
 import { isStatusAutoSynced } from "@/lib/fulfillment/ops-client-domain";
 import type { FulfillmentClient, FulfillmentClientStatus } from "@/lib/fulfillment/fulfillment-client-domain";
 
-/** Dee's credit-status list, read from the Status Guide's dispute category. */
-export const CLIENT_STATUS_OPTIONS: readonly string[] =
-  creditStatuses(Constants.public.Enums.fulfillment_client_status);
+/** Dee's credit-status list. Defined once, in the domain layer. */
+export const CLIENT_STATUS_OPTIONS = CREDIT_STATUSES;
 
 export function ClientStatusControl({
   client, canEdit = true,
@@ -63,8 +61,7 @@ export function ClientStatusControl({
 
   const dirty = next !== client.status;
   /* Dee's list, plus this record's own value if it predates the list. */
-  const options = creditStatusOptionsFor(
-    client.status, Constants.public.Enums.fulfillment_client_status);
+  const options = creditStatusOptionsFor(client.status);
 
   const apply = async () => {
     if (!dirty) return;

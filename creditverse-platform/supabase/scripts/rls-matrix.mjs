@@ -4550,11 +4550,18 @@ if (runs(62)) {
     ["…and not by somebody with no route to the client at all",
       () => p62(LEAD62, world62({ assign: false, team: "other" }), `update public.fulfillment_clients set next_action='x' where id='${CL62}'; select count(*)::int as rows from public.fulfillment_clients where id='${CL62}' and next_action='x'`), 0],
 
-    /* Dee's approved vocabulary (0188) must remain in the enum: the dropdown
-       is DERIVED from it now, so losing a value here removes it from the UI. */
-    ["Dee's round vocabulary is still in the status enum",
-      () => q(`select count(*)::int as rows from unnest(array['Ready for Round 1','Round Sent - Awaiting Results','Ready for Reimport / Review','Waiting for Partner Approval']) v
+    /* Dee's TEN credit statuses, given explicitly and added verbatim in 0214.
+       The dropdown is a literal list in the domain layer; this asserts the
+       database still accepts every one of them, so a value cannot be offered
+       and then refused when somebody picks it. */
+    ["all ten of Dee's credit statuses exist in the enum",
+      () => q(`select count(*)::int as rows from unnest(array[
+                 'New Client','Incomplete Onboarding','Ready for Round 1','Ready for Processing',
+                 'Prio Processing','For Complaints','Round Sent - Awaiting Results',
+                 'Ready For Reimport/ Credit Update','On Hold (Non Workable)','For Partner Confirmation']) v
                 where v not in (select enumlabel from pg_enum e join pg_type t on t.oid=e.enumtypid where t.typname='fulfillment_client_status')`)[0].rows, 0],
+    ["…and a client can actually be moved to one of them",
+      () => p62(LEAD62, world62(), `update public.fulfillment_clients set status='Prio Processing' where id='${CL62}'; select status::text as rows from public.fulfillment_clients where id='${CL62}'`), "Prio Processing"],
 
     ["anon reaches no department status",
       () => { try { q(`begin; set local role anon; select 1 from public.client_department_statuses limit 1; rollback;`); return "readable"; } catch { return "refused"; } }, "refused"],
