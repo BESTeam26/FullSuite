@@ -29,8 +29,10 @@ export interface Division {
   id: string;
   name: string;
   description: string | null;
-  /** The authorization identity. NULL = a grouping that grants nothing. */
-  service: string | null;
+  /** The authorization identity. `corporate` is the one that grants nothing —
+      every division has a service, because a division without one could hold
+      no departments (0182/0183). */
+  service: string;
   leadId: string | null;
   sort: number;
   archived: boolean;
@@ -123,7 +125,7 @@ export async function saveDivision(input: {
     /* Only set on create, and only deliberately: the service IS the
        authorization identity, so changing it moves what a whole division may
        reach. The interface does not offer it as an edit. */
-    ...(input.id ? {} : { service: input.service || null }),
+    ...(input.id ? {} : { service: input.service || "corporate" }),
     lead_id: input.leadId ?? null,
     ...(input.sort === undefined ? {} : { sort: input.sort }),
   };

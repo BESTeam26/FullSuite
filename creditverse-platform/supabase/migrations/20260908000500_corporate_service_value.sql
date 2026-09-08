@@ -1,0 +1,21 @@
+-- 0182 — a division with no service could hold no departments.
+--
+-- Dee's report: "null value in column division of relation departments
+-- violates not-null constraint", with the instruction NOT to make the column
+-- nullable and to have the parent supply it correctly.
+--
+-- Reproduced exactly: it is not every department, only one under CORPORATE
+-- OPERATIONS. That division was created with `service = null` — deliberately,
+-- because it is an organizational grouping and not a BES service — and the
+-- sync trigger faithfully copied that null into a NOT NULL column.
+--
+-- So the parent must always have something to give. `corporate` is added to
+-- `fulfillment_service` as a value that GRANTS NOTHING: no engagement is ever
+-- created for it, `bes_may_fulfil` is never called with it, and `in_scope` is
+-- only ever called with the four operational services. It is a label the
+-- structure can carry, not a permission — which is exactly what Corporate
+-- Operations is.
+--
+-- Alone in its own migration: `alter type ... add value` and any statement
+-- that uses the new value cannot share a transaction.
+alter type public.fulfillment_service add value if not exists 'corporate';

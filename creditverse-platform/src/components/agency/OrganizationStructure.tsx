@@ -36,16 +36,20 @@ import { useAgencyPermissions } from "@/lib/data/agency-permissions";
 import type { Department, Division, OrgTeam, StructureImpact } from "@/lib/data/organization-structure";
 import { cn } from "@/lib/utils";
 
+/* Every division carries one. `corporate` is the value for a division that
+   grants nothing — leadership, finance, admin — and no engagement is ever
+   created for it, so being inside it confers no access at all. A division
+   with NO service could hold no departments, which is the defect Dee hit. */
 const SERVICES = [
-  { value: "__none__", label: "No service — an organizational grouping" },
-  { value: "creditops", label: "CreditOps" },
-  { value: "fundingops", label: "FundingOps" },
-  { value: "bes_crm", label: "BES CRM" },
-  { value: "talentops", label: "TalentOps" },
+  { value: "creditops", label: "CreditOps — operational" },
+  { value: "talentops", label: "TalentOps — operational" },
+  { value: "bes_crm", label: "BES CRM — operational" },
+  { value: "fundingops", label: "FundingOps — operational" },
+  { value: "corporate", label: "Corporate — grants no access to customer work" },
 ];
 const SERVICE_LABEL: Record<string, string> = {
   creditops: "CreditOps", fundingops: "FundingOps",
-  bes_crm: "BES CRM", talentops: "TalentOps",
+  bes_crm: "BES CRM", talentops: "TalentOps", corporate: "Corporate",
 };
 
 export function OrganizationStructure() {
@@ -191,9 +195,12 @@ function DivisionRow({ division, leadName, people, isOpen, canManage, department
           <span className="min-w-0">
             <span className="flex flex-wrap items-center gap-1.5 text-sm font-bold text-foreground">
               {division.name}
-              {division.service
-                ? <Pill tone="border-blue-500/30 bg-blue-500/10 text-blue-700">{SERVICE_LABEL[division.service] ?? division.service}</Pill>
-                : <Pill tone="border-border bg-muted text-muted-foreground">grants nothing</Pill>}
+              <Pill tone={division.service === "corporate"
+                ? "border-border bg-muted text-muted-foreground"
+                : "border-blue-500/30 bg-blue-500/10 text-blue-700"}>
+                {SERVICE_LABEL[division.service] ?? division.service}
+                {division.service === "corporate" && " · grants nothing"}
+              </Pill>
               {division.archived && <Pill tone="border-border bg-muted text-muted-foreground">archived</Pill>}
             </span>
             <span className="block text-[11px] text-muted-foreground">
@@ -364,7 +371,7 @@ function DivisionForm({ current, people, saving, onSave, onCancel }: {
 }) {
   const [name, setName] = useState(current?.name ?? "");
   const [description, setDescription] = useState(current?.description ?? "");
-  const [service, setService] = useState(current?.service ?? "__none__");
+  const [service, setService] = useState(current?.service ?? "corporate");
   const [leadId, setLeadId] = useState(current?.leadId ?? "__none__");
 
   return (
@@ -401,7 +408,7 @@ function DivisionForm({ current, people, saving, onSave, onCancel }: {
         <Button size="sm" disabled={saving || !name.trim()}
           onClick={() => onSave({
             name, description,
-            service: service === "__none__" ? null : service,
+            service,
             leadId: leadId === "__none__" ? null : leadId,
           })}>
           {saving && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />} Save division

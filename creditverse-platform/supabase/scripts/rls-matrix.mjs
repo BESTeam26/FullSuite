@@ -291,6 +291,33 @@ const asUser = (uid, selectList) =>
   q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; select ${selectList}; rollback;`)[0];
 
 /* ---------------- truth (admin role, bypasses RLS) ---------------- */
+/* ------------------------------------------------------------------ *
+ * BEFORE ANYTHING ELSE: the fixtures must not be able to log in.
+ *
+ * These identities exist so this suite can assert as an owner, an admin, a
+ * manager, a lead and an agent. They have never needed to AUTHENTICATE — every
+ * probe sets `request.jwt.claims` directly on a superuser connection.
+ *
+ * They used to be able to anyway: real password hashes, confirmed addresses,
+ * no ban, live sessions, and `bes.owner@bes.test` holding an active
+ * agency_owner membership in the production agency. A hidden owner with
+ * production privileges is still a production owner (0178).
+ *
+ * So the run begins by re-asserting the severed state and refusing to continue
+ * if any of it drifted back. A security suite whose own fixtures are a
+ * backdoor is not measuring security.
+ * ------------------------------------------------------------------ */
+const fixtureLogins = q(`select public.assert_fixture_logins_disabled() as rows`)[0].rows;
+if (fixtureLogins.drift_found) {
+  console.log(`\n  fixture logins had drifted and were re-severed: ${JSON.stringify(fixtureLogins)}`);
+}
+const loginState = q(`select fixture_identities, with_password, not_banned from public.fixture_login_state`)[0];
+if (loginState.with_password > 0 || loginState.not_banned > 0) {
+  console.error(`\nREFUSING TO RUN: ${loginState.with_password} fixture identities hold a password and ${loginState.not_banned} are not banned.`);
+  console.error("A test fixture that can authenticate into production is a backdoor. Fix that first.");
+  process.exit(1);
+}
+
 const users = Object.fromEntries(q(`select email, id from public.profiles where email like '%@bes.test'`).map((r) => [r.email, r.id]));
 const T = q(`select
   -- Agency scope is not admin bypass: engagement still gates. The oracle mirrors that,
