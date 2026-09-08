@@ -4894,6 +4894,17 @@ if (runs(64)) {
       () => act64(ORG64, `select public.save_announcement(null, (select organization_id from public.fulfillment_clients where id='${EVAN64}'), 'organization', '[TEST] Org', '[TEST] Body', null, false, true);`,
         nCount(`kind='announcement' and exists (select 1 from public.agency_memberships am where am.user_id = notifications.recipient_id)`)), 0],
 
+    ["BES to every customer reaches every member of every organization of this agency",
+      () => act64(OWN64, `select public.save_announcement(null, null, 'all_organizations', '[TEST] All', '[TEST] Body', null, false, true);`,
+        nCount(`kind='announcement'`)),
+      q(`select count(*)::int as rows from public.org_memberships om join public.organizations o on o.id=om.organization_id where o.agency_id='${AG64}' and om.user_id <> '${OWN64}'`)[0].rows],
+    ["…and reaches no BES staff member, who is not a customer of BES",
+      () => act64(OWN64, `select public.save_announcement(null, null, 'all_organizations', '[TEST] All', '[TEST] Body', null, false, true);`,
+        nCount(`kind='announcement' and recipient_id='${CO64}' and not exists (select 1 from public.org_memberships om where om.user_id='${CO64}')`)), 0],
+    ["…and a customer's own member can READ theirs",
+      () => p64(OWN64, "", `select public.save_announcement(null, null, 'all_organizations', '[TEST] All', '[TEST] Body', null, false, true);
+        set local request.jwt.claims = '{"sub":"${ORG64}","role":"authenticated"}'; ${nCount(`kind='announcement'`)}`), 1],
+
     /* ── announcement targeting (0128: managers_only / department / team)
          Written as the superuser on purpose: these probes are about WHO THE
          NOTIFIER TELLS, and `save_announcement` sets none of the targeting

@@ -414,3 +414,21 @@ anti-spam warning — does not apply, and is redirected to Resend as blocker A10
 | N-6 | **Conversations in the global search** | **DONE.** The field claimed to cover "everything the organization holds" and searched no messages. Messages go through `search_messages` (INVOKER, narrowed to `channel_visible`), unfiltered on the client because there is nothing to filter, debounced through `useDebounced` so a run of keystrokes is one request. |
 | N-7 | **Role persona invariants** (§21/§82) | **DONE.** `navigation.test.ts` gained seven tests that walk `AGENCY_ROUTES` × every role instead of hand-written lists, so a route added later is covered the moment it exists: the menu opens what it shows, refuses what it does not, never opens an unfinished page even for the owner, gives a signed-out person nothing, is monotonic in rank, still withholds a permission-gated route from an owner lacking the permission, and holds no route nobody can reach. |
 | N-8 | **Route + dead-action audit** (§20/§78–§79) | **DONE.** 80 distinct internal destinations, 0 dead (`/auth/callback${search}${hash}` is a normaliser artefact, and that route exists). 75 routes, 53 sidebar links, none orphaned, no route element unimported. No `href="#"`, no TODO/FIXME, and the only remaining `onChange={() => {}}` are honest ones: a checkbox inside a label that handles the click, and toggles marked `unbuilt` / `enforced`. |
+
+### Considered and deliberately not done, 2026-09-08
+
+**A money strip on the Owner Home.** §68–§75 asks for "Owner Home / Attention
+Centre / simple Finance". Finance itself is complete (`/app/finance`: fixed
+MRR, variable recurring, expected, invoiced, collected, outstanding, overdue,
+expenses, net cash, per month, behind `finance.dashboard.view`), and the money
+that needs *action* — overdue invoices — is already on the Owner Home through
+the Attention Centre, permission-gated the same way.
+
+Adding a second figure there would mean calling `useFinancialInputs` (four
+parallel queries) on the busiest page in the product, beside the
+`useOverdueInvoices` call the Attention Centre already makes — two overlapping
+fetches of the same invoices, which is the exact duplicate-request shape rule
+14 forbids. Collapsing both onto one hook is the correct version of the change
+and is a refactor of a live surface for a cosmetic gain. Recorded as a
+decision rather than left looking like an oversight; say the word and it gets
+the one-hook treatment.

@@ -1,6 +1,21 @@
 # Notifications, badges and task-count integrity — diagnostic
 
-**Diagnosis only. Nothing was changed.** Measured against the live database and
+> **HISTORICAL. Read for the reasoning, not for the current state.**
+> Written 2026-09-04, when there was no notification system at all. There is
+> one now: `notifications` (migration 0005), recipient rules by trigger on
+> `activity_events` (0005/0006), and mention, direct message, handoff,
+> announcement and attention added in 0218. The badge and the list are the
+> same table under the reader's own row-level security. Migration 0218's own
+> header records what was still missing on 2026-09-08 and what a live probe
+> found; the register's N-2 row records the outcome.
+>
+> One thing this diagnostic could not have predicted, kept here because it is
+> the same lesson: the page stayed unreachable for days AFTER the engine
+> shipped, because `/app/notifications` was still flagged
+> `locked_not_ready` — so the route guard refused the URL the Topbar bell
+> pointed at. A surface can be real and still be unreachable.
+
+**Diagnosis only. Nothing was changed at the time.** Measured against the live database and
 the running app, with per-user checks run by impersonating each test user's JWT
 inside a rolled-back transaction so Postgres evaluated the real policies.
 
