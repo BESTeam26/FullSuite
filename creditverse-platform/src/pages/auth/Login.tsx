@@ -25,6 +25,8 @@ const Login = () => {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  /* Above the early return below: every hook must run on every path. */
+  const [logoOk, setLogoOk] = useState(true);
 
   useSeo({
     title: "Sign in — BES",
@@ -69,7 +71,6 @@ const Login = () => {
   };
 
   const demo = auth.mode === "demo";
-  const [logoOk, setLogoOk] = useState(true);
 
   return (
     <div className="flex min-h-screen bg-gradient-charcoal text-white">

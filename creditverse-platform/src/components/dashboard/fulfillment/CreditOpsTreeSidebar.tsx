@@ -24,8 +24,8 @@
  * Counts show ACTIVE clients only (excludes Completed / Archived / Graduated).
  */
 
-import { useCallback, useState, useEffect } from "react";
-import { Building2, LayoutDashboard, BarChart3, Webhook } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
+import { Building2, FileText, LayoutDashboard, BarChart3, Webhook } from "lucide-react";
 import {
   CREDIT_OPS_PARTNERS,
   type CreditOpsPartner,
@@ -37,9 +37,9 @@ import { useCreditOpsStore } from "@/lib/fulfillment/creditops-client-store";
 import type { OpsPartner } from "@/lib/fulfillment/ops-client-domain";
 import {
   OpsTreeFolder,
-  OpsTreeHeader,
   OpsTreeManagementSection,
 } from "./OpsTreeSidebarParts";
+import { ModuleRail, type ModuleRailItem } from "@/components/dashboard/module-rail/ModuleRail";
 
 export type CreditOpsSelection =
   { kind: "management"; view: string } | { kind: "partner"; partnerId: string };
@@ -128,27 +128,21 @@ export function CreditOpsTreeSidebar({
     (p) => p.group === "creditops_users",
   );
 
-  /* Remembered per browser, like the main menu. Not a per-user setting in the
-     database: it is a preference about this screen on this machine. */
-  const [spaceCollapsed, setSpaceCollapsed] = useState<boolean>(() => {
-    try { return localStorage.getItem("creditops-space-collapsed") === "1"; }
-    catch { return false; }
-  });
-  useEffect(() => {
-    try { localStorage.setItem("creditops-space-collapsed", spaceCollapsed ? "1" : "0"); }
-    catch { /* a private window refusing storage is not worth an error */ }
-  }, [spaceCollapsed]);
-
   const totalActive = partners.reduce(
     (sum, p) => sum + countFor(p.scopeId),
     0,
   );
 
-  const isMgmtViewActive = (viewId: string) =>
-    selected.kind === "management" && selected.view === viewId;
-
-  const isPartnerActive = (partnerId: string) =>
-    selected.kind === "partner" && selected.partnerId === partnerId;
+  /* useCallback so the rail's nav model can depend on them by name rather
+     than on `selected` and a lint suppression. */
+  const isMgmtViewActive = useCallback(
+    (viewId: string) => selected.kind === "management" && selected.view === viewId,
+    [selected],
+  );
+  const isPartnerActive = useCallback(
+    (partnerId: string) => selected.kind === "partner" && selected.partnerId === partnerId,
+    [selected],
+  );
 
   const renderPartner = (partner: OpsPartner) => {
     const count = countFor(partner.scopeId);
@@ -205,24 +199,44 @@ export function CreditOpsTreeSidebar({
     </OpsTreeFolder>
   );
 
-  return (
-    <div className={cn(
-      "hidden shrink-0 space-y-4 border-r border-border bg-card p-4 transition-[width] md:block",
-      /* Collapsed keeps the header — so the way back is where the way out
-         was — and drops the tree. The choice is remembered, like the main
-         menu's, because re-collapsing it every visit is the annoyance. */
-      spaceCollapsed ? "w-14 px-2" : "w-64",
-    )}>
-      <OpsTreeHeader
-        label={spaceCollapsed ? "" : "CREDITOPS SPACE"}
-        totalActive={totalActive}
-        collapsed={spaceCollapsed}
-        onToggleCollapsed={() => setSpaceCollapsed((v) => !v)}
-      />
+  /* ── ONE nav model, two presentations (Dee, §28) ─────────────────────
+     The collapsed icon rail is built from the SAME authorized arrays the
+     expanded tree renders below. Two lists would drift, and the way they
+     drift is a destination somebody is no longer authorized for surviving in
+     the collapsed rail after being removed from the expanded one. */
+  const railItems = useMemo<ModuleRailItem[]>(() => {
+    const views: ModuleRailItem[] = canAccessManagement
+      ? MANAGEMENT_VIEWS.map((v) => ({
+          id: v.id,
+          label: v.label,
+          icon: v.icon,
+          active: isMgmtViewActive(v.id),
+          onSelect: () => onSelect({ kind: "management", view: v.id }),
+        }))
+      : [];
+    const partnerItems: ModuleRailItem[] = partners.map((p) => ({
+      id: p.id,
+      label: p.name,
+      icon: Building2,
+      badge: countFor(p.scopeId),
+      badgeLabel: { one: "active client", many: "active clients" },
+      active: isPartnerActive(p.id),
+      onSelect: () => onSelect({ kind: "partner", partnerId: p.id }),
+    }));
+    return [...views, ...partnerItems];
+  }, [canAccessManagement, partners, countFor, isMgmtViewActive, isPartnerActive, onSelect]);
 
-      <div className={cn("space-y-2 text-xs", spaceCollapsed && "hidden")}>
-        {/* Management layer — management role only. Agents are scoped to
-            their Partner workspace and never see cross-partner aggregate views. */}
+  return (
+    <ModuleRail
+      module="creditops"
+      title="CreditOps Space"
+      icon={FileText}
+      badge={{ value: totalActive, label: "active" }}
+      items={railItems}
+    >
+      {/* Management layer — management role only. Agents are scoped to their
+          Partner workspace and never see cross-partner aggregate views. */}
+      <div className="space-y-2 text-xs">
         {canAccessManagement && (
           <OpsTreeManagementSection
             views={MANAGEMENT_VIEWS}
@@ -235,35 +249,18 @@ export function CreditOpsTreeSidebar({
         )}
 
         <div className="pt-1">
-          {renderGroup(
-            "managed",
-            "MANAGED OPS",
-            managedPartners,
-            "text-status-warning",
-          )}
+          {renderGroup("managed", "MANAGED OPS", managedPartners, "text-status-warning")}
         </div>
         <div className="pt-1">
-          {renderGroup(
-            "outsourcing",
-            "OUTSOURCING",
-            outsourcingPartners,
-            "text-purple-500",
-          )}
+          {renderGroup("outsourcing", "OUTSOURCING", outsourcingPartners, "text-purple-500")}
         </div>
         <div className="pt-1">
-          {renderGroup(
-            "creditops_users",
-            "CREDITOPS USERS",
-            creditopsUserPartners,
-            "text-status-success",
-          )}
+          {renderGroup("creditops_users", "CREDITOPS USERS", creditopsUserPartners, "text-status-success")}
         </div>
       </div>
-
-      <p className="pt-2 text-[10px] leading-relaxed text-muted-foreground">
-        Management views aggregate all Partners. Partner workspaces scope to one
-        Partner. One client record, many operational views.
-      </p>
-    </div>
+      {/* What used to be a paragraph of explanation living in the rail is now
+          in the page header, where there is room to read it. A navigation rail
+          is for navigation (Dee, §8). */}
+    </ModuleRail>
   );
 }

@@ -5,7 +5,7 @@
  * + the person's CreditOps role (a demo-only switcher when no membership exists).
  */
 
-import { FileText, HelpCircle, Shield } from "lucide-react";
+import { FileText, HelpCircle, Info, Shield } from "lucide-react";
 import {
   useCreditOpsAccess,
   CREDITOPS_ROLE_LIST,
@@ -43,6 +43,20 @@ export function CreditOpsHeader({
       </div>
 
       <div className="flex items-center gap-2">
+        {/* Moved out of the navigation rail, which had been rendering it as a
+            paragraph one character wide when collapsed. A rail is for
+            navigation; this is an explanation, so it lives behind an info
+            control in the header (Dee, 2026-09-07 §8). */}
+        <span
+          tabIndex={0}
+          role="note"
+          title="Management views aggregate all Partners. Partner workspaces scope to one Partner. One client record, many operational views."
+          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        >
+          <Info className="h-3.5 w-3.5 text-primary" />
+          <span className="hidden lg:inline">How this space is scoped</span>
+        </span>
+
         {/* The role is read from the person's membership. Only demo mode,
             where no membership exists, offers a switcher to preview roles. */}
         <div

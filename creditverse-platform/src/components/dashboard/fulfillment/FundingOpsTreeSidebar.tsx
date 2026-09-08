@@ -23,7 +23,7 @@
  * Documents | Activity). Selecting a Deal opens the Deal Workspace.
  */
 
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ChevronRight,
   ChevronDown,
@@ -56,9 +56,9 @@ import {
   clientGroupKey,
 } from "@/lib/fulfillment/fundingops-domain";
 import { cn } from "@/lib/utils";
+import { ModuleRail, type ModuleRailItem } from "@/components/dashboard/module-rail/ModuleRail";
 import {
   OpsTreeFolder,
-  OpsTreeHeader,
   OpsTreeManagementSection,
 } from "./OpsTreeSidebarParts";
 
@@ -116,20 +116,29 @@ export function FundingOpsTreeSidebar({ selected, onSelect }: Props) {
     (p) => p.group === "fundingops_users",
   );
 
-  const countActiveForPartner = (scopeId: string) =>
-    store.clients.filter(
-      (c) => clientGroupKey(c) === scopeId && isActiveFunding(c.status),
-    ).length;
+  const countActiveForPartner = useCallback(
+    (scopeId: string) =>
+      store.clients.filter(
+        (c) => clientGroupKey(c) === scopeId && isActiveFunding(c.status),
+      ).length,
+    [store.clients],
+  );
 
   const totalActive = partners.reduce(
     (sum, p) => sum + countActiveForPartner(p.scopeId),
     0,
   );
 
-  const isMgmtViewActive = (viewId: string) =>
-    selected.kind === "management" && selected.view === viewId;
-  const isPartnerActive = (partnerId: string) =>
-    selected.kind === "partner" && selected.partnerId === partnerId;
+  /* useCallback so the rail's nav model depends on them by name rather than
+     on `selected` plus a lint suppression. */
+  const isMgmtViewActive = useCallback(
+    (viewId: string) => selected.kind === "management" && selected.view === viewId,
+    [selected],
+  );
+  const isPartnerActive = useCallback(
+    (partnerId: string) => selected.kind === "partner" && selected.partnerId === partnerId,
+    [selected],
+  );
   const isClientActive = (clientId: string) =>
     selected.kind === "client" && selected.clientId === clientId;
   const isDealActive = (dealId: string) =>
@@ -298,10 +307,36 @@ export function FundingOpsTreeSidebar({ selected, onSelect }: Props) {
     </OpsTreeFolder>
   );
 
-  return (
-    <div className="w-64 shrink-0 space-y-4 overflow-y-auto border-r border-border bg-card p-4 hidden md:block">
-      <OpsTreeHeader label="FUNDINGOPS SPACE" totalActive={totalActive} />
+  /* ONE nav model, two presentations (Dee, §28): the collapsed icon rail is
+     built from the SAME authorized arrays the expanded tree renders. The tree
+     itself drills Partner → Client → Deal and stays FundingOps's own — only
+     the shell and its collapse behaviour are shared (rule 13). */
+  const railItems = useMemo<ModuleRailItem[]>(() => {
+    const views: ModuleRailItem[] = canAccessManagement
+      ? MANAGEMENT_VIEWS.map((v) => ({
+          id: v.id, label: v.label, icon: v.icon,
+          active: isMgmtViewActive(v.id),
+          onSelect: () => onSelect({ kind: "management", view: v.id }),
+        }))
+      : [];
+    const partnerItems: ModuleRailItem[] = partners.map((p) => ({
+      id: p.id, label: p.name, icon: Building2,
+      badge: countActiveForPartner(p.scopeId),
+      badgeLabel: { one: "active file", many: "active files" },
+      active: isPartnerActive(p.id),
+      onSelect: () => onSelect({ kind: "partner", partnerId: p.id }),
+    }));
+    return [...views, ...partnerItems];
+  }, [canAccessManagement, partners, countActiveForPartner, isMgmtViewActive, isPartnerActive, onSelect]);
 
+  return (
+    <ModuleRail
+      module="fundingops"
+      title="FundingOps Space"
+      icon={Layers}
+      badge={{ value: totalActive, label: "active" }}
+      items={railItems}
+    >
       <div className="space-y-2 text-xs">
         {canAccessManagement && (
           <OpsTreeManagementSection
@@ -315,28 +350,15 @@ export function FundingOpsTreeSidebar({ selected, onSelect }: Props) {
         )}
 
         <div className="pt-1">
-          {renderGroup(
-            "outsourcing",
-            "OUTSOURCING",
-            outsourcingPartners,
-            "text-purple-500",
-          )}
+          {renderGroup("outsourcing", "OUTSOURCING", outsourcingPartners, "text-purple-500")}
         </div>
         <div className="pt-1">
-          {renderGroup(
-            "fundingops_users",
-            "FUNDINGOPS USERS",
-            fundingopsUserPartners,
-            "text-status-success",
-          )}
+          {renderGroup("fundingops_users", "FUNDINGOPS USERS", fundingopsUserPartners, "text-status-success")}
         </div>
       </div>
-
-      <p className="pt-2 text-[10px] leading-relaxed text-muted-foreground">
-        The tree is the client navigation. Management views aggregate all
-        Partners. Select a Client to open its workspace, or expand a Client to
-        open a specific Deal.
-      </p>
-    </div>
+      {/* The paragraph that used to sit here — "The tree is the client
+          navigation…" — moved to the page header. A rail is for navigation
+          (Dee, §8). */}
+    </ModuleRail>
   );
 }

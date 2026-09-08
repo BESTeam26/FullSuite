@@ -151,7 +151,7 @@ function CreditOpsWorkspace() {
           onOpenStatusGuide={() => setIsStatusGuideOpen(true)}
         />
 
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 flex-col overflow-hidden md:flex-row">
           <CreditOpsTreeSidebar
             selected={selection}
             onSelect={(sel) => {

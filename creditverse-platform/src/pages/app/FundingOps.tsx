@@ -140,7 +140,7 @@ function FundingOpsWorkspace() {
     <div className="flex min-h-screen flex-col bg-muted/20">
       <FundingOpsHeader partnerName={headerName} clientCount={headerCount} />
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 flex-col overflow-hidden md:flex-row">
         <FundingOpsTreeSidebar
           selected={selection}
           onSelect={(sel) => {

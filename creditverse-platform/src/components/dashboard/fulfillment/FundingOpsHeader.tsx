@@ -5,7 +5,7 @@
  * FundingOps role (a demo-only switcher when no membership exists).
  */
 
-import { Landmark, Shield } from "lucide-react";
+import { Info, Landmark, Shield } from "lucide-react";
 import { OpsSelect } from "@/components/ui/ops-select";
 import {
   useFundingOpsAccess,
@@ -37,6 +37,19 @@ export function FundingOpsHeader({ partnerName, clientCount }: Props) {
         </div>
       </div>
 
+      <div className="flex items-center gap-2">
+        {/* Was a paragraph inside the navigation rail. Explanations belong in
+            the header, where there is room to read them (Dee, §8). */}
+        <span
+          tabIndex={0}
+          role="note"
+          title="The tree is the client navigation. Management views aggregate all Partners. Select a Client to open its workspace, or expand a Client to open a specific Deal."
+          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        >
+          <Info className="h-3.5 w-3.5 text-primary" />
+          <span className="hidden lg:inline">How this space is scoped</span>
+        </span>
+
       <div
         className="flex items-center gap-1.5 rounded-lg border border-border bg-muted/30 px-2 py-1"
         title={access.roleDef.description}
@@ -58,6 +71,7 @@ export function FundingOpsHeader({ partnerName, clientCount }: Props) {
             {access.roleDef.shortLabel}
           </span>
         )}
+      </div>
       </div>
     </div>
   );
