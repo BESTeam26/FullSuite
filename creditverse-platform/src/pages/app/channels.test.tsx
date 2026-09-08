@@ -27,6 +27,7 @@ import type { RichMessage } from "@/lib/data/messages";
 let channels: Channel[];
 let messages: RichMessage[];
 let hits: MessageHit[];
+let mentionable: { userId: string; name: string; email?: string | null; hint?: string | null }[];
 const sendMutate = vi.fn().mockResolvedValue({ id: 1 });
 const reactMutate = vi.fn();
 const deleteMutate = vi.fn();
@@ -38,11 +39,11 @@ vi.mock("@/lib/agency-context", () => ({
 vi.mock("@/lib/auth/auth-context", () => ({
   useAuth: () => ({ user: { id: "u1" }, agencyId: "a1" }),
 }));
-vi.mock("@/lib/data/use-workforce", () => ({
-  useWorkforce: () => ({ data: { people: [{ userId: "u2", name: "Rowell" }], teams: [] } }),
-}));
 vi.mock("@/lib/data/agency-permissions", () => ({
   useAgencyPermissions: () => ({ can: () => true, loading: false }),
+}));
+vi.mock("@/lib/data/use-workforce", () => ({
+  useWorkforce: () => ({ data: { people: [{ userId: "u2", name: "Rowell" }], teams: [] } }),
 }));
 vi.mock("@/lib/data/use-messages", () => ({
   useRichMessages: () => ({ data: messages, isLoading: false, refetch: vi.fn() }),
@@ -73,6 +74,7 @@ vi.mock("@/lib/data/use-channels", () => ({
   }),
   useChannelMembers: () => ({ data: [] }),
   useChannelTeams: () => ({ data: [] }),
+  useChannelMentionable: () => ({ data: mentionable }),
 }));
 
 const render = (path = "/app/channels") =>
@@ -90,6 +92,7 @@ beforeEach(() => {
   channels = [channel()];
   messages = [];
   hits = [];
+  mentionable = [{ userId: "u2", name: "Rowell Cruz", email: "rowell@bes.test", hint: "Agent" }];
   sendMutate.mockClear();
   reactMutate.mockClear();
   deleteMutate.mockClear();
@@ -198,6 +201,7 @@ describe("search shows what came back, and does no filtering of its own (§24)",
 
   it("says plainly when there is nothing, rather than implying nothing exists", () => {
     hits = [];
+  mentionable = [{ userId: "u2", name: "Rowell Cruz", email: "rowell@bes.test", hint: "Agent" }];
     render();
     fireEvent.change(screen.getByLabelText("Search messages"), { target: { value: "zebra" } });
     expect(screen.getByText("Nothing in the conversations you can see.")).toBeInTheDocument();
@@ -331,6 +335,7 @@ function richMessage(over: Partial<RichMessage> = {}): RichMessage {
     announcementBody: null, announcementPublishedAt: null,
     parentMessageId: null, replyToId: null, replyToText: null, replyToAuthor: null,
     replyCount: 0, lastReplyAt: null, pinned: false, reactions: [], attachments: [],
+    mentions: [],
     ...over,
   };
 }

@@ -21,6 +21,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Hash, Loader2, Pin, Undo2, X } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useMessageActions, useRichMessages, useSendMessage, useThread } from "@/lib/data/use-messages";
+import { useChannelMentionable } from "@/lib/data/use-channels";
+import type { MentionAttrs } from "@/lib/activity/mentions";
 import { attachToMessage, type RichMessage } from "@/lib/data/messages";
 import { MessageRow } from "./MessageRow";
 import { MeetingPanel } from "./MeetingButton";
@@ -58,8 +60,12 @@ export function ConversationPane({
   const [showPinned, setShowPinned] = useState(false);
   const [showMeeting, setShowMeeting] = useState(false);
   const pendingFiles = useRef<Map<string, File[]>>(new Map());
+  const retryMentions = useRef<Map<string, MentionAttrs[]>>(new Map());
 
   const sender = useSendMessage(channelId);
+  /* Who may be mentioned here — the set form of the predicate the notifier
+     asks, so the picker cannot offer somebody the ping will skip (§27). */
+  const mentionable = useChannelMentionable(channelId);
 
   /* A conversation opened is a conversation whose reply box should be usable
      without hunting for it, and whose newest message should be on screen. */
@@ -74,15 +80,16 @@ export function ConversationPane({
 
   const pinned = useMemo(() => rows.filter((m) => m.pinned && !m.deleted), [rows]);
 
-  const send = async (text: string, files: File[]): Promise<boolean> => {
+  const send = async (text: string, files: File[], mentions: MentionAttrs[]): Promise<boolean> => {
     setSendError(null);
     const clientMessageId = crypto.randomUUID();
     if (files.length > 0) pendingFiles.current.set(clientMessageId, files);
+    if (mentions.length > 0) retryMentions.current.set(clientMessageId, mentions);
     setAtBottom(true);
     try {
       const result = await sender.send.mutateAsync({
         clientMessageId, bodyText: text || "(attachment)",
-        parentMessageId: null, replyToId: replyTo?.id ?? null,
+        parentMessageId: null, replyToId: replyTo?.id ?? null, mentions,
       });
       setReplyTo(null);
       const queued = pendingFiles.current.get(clientMessageId);
@@ -96,6 +103,7 @@ export function ConversationPane({
         pendingFiles.current.delete(clientMessageId);
         void messages.refetch();
       }
+      retryMentions.current.delete(clientMessageId);
       return true;
     } catch (e) {
       /* The guard's refusal, or anything else. Returning false puts the draft
@@ -156,6 +164,7 @@ export function ConversationPane({
           rows.map((m) => (
             <MessageRow key={m.clientMessageId ?? m.id} message={m}
               isMine={m.authorId === auth.user?.id}
+              meUserId={auth.user?.id ?? null}
               canPin={canPin}
               onReact={(emoji, mine) => actions.react.mutate({ messageId: m.id, emoji, mine })}
               onReply={() => setReplyTo(m)}
@@ -164,9 +173,12 @@ export function ConversationPane({
               onDelete={() => actions.remove.mutate(m.id)}
               onRetry={() => {
                 if (!m.clientMessageId) return;
+                /* Same idempotency key AND the same people, so a retry is
+                   the same message rather than a similar one (§45). */
                 void sender.send.mutateAsync({
                   clientMessageId: m.clientMessageId, bodyText: m.bodyText ?? "",
                   parentMessageId: null, replyToId: m.replyToId,
+                  mentions: retryMentions.current.get(m.clientMessageId),
                 }).catch(() => undefined);
               }}
               onDismissFailed={() => m.clientMessageId && sender.dismissFailed(m.clientMessageId)}
@@ -207,6 +219,7 @@ export function ConversationPane({
           replyingTo={replyTo ? { id: replyTo.id, author: replyTo.authorName, text: replyTo.bodyText ?? "" } : null}
           onCancelReply={() => setReplyTo(null)}
           onSend={send}
+          mentionable={mentionable.data ?? []}
           onMeeting={onMeeting ?? (() => setShowMeeting((v) => !v))} />
       )}
 
@@ -237,6 +250,8 @@ function ThreadPanel({
   const replies = useThread(rootId);
   const actions = useMessageActions(channelId);
   const sender = useSendMessage(channelId);
+  /* Same channel, same list — a thread has no membership of its own (§22). */
+  const mentionable = useChannelMentionable(channelId);
   const [error, setError] = useState<string | null>(null);
 
   return (
@@ -254,7 +269,7 @@ function ThreadPanel({
         {root && (
           <div className="mb-2 border-b border-border pb-2">
             <MessageRow message={root} isMine={root.authorId === auth.user?.id}
-              canPin={canPin} compact
+              meUserId={auth.user?.id ?? null} canPin={canPin} compact
               onReact={(emoji, mine) => actions.react.mutate({ messageId: root.id, emoji, mine })}
               onReply={() => undefined} onOpenThread={() => undefined}
               onPin={() => actions.pin.mutate({ messageId: root.id, pinned: root.pinned })}
@@ -268,7 +283,7 @@ function ThreadPanel({
         ) : (
           (replies.data ?? []).map((m) => (
             <MessageRow key={m.id} message={m} isMine={m.authorId === auth.user?.id}
-              canPin={false} compact
+              meUserId={auth.user?.id ?? null} canPin={false} compact
               onReact={(emoji, mine) => actions.react.mutate({ messageId: m.id, emoji, mine })}
               onReply={() => undefined} onOpenThread={() => undefined}
               onPin={() => undefined}
@@ -278,12 +293,13 @@ function ThreadPanel({
       </div>
 
       <Composer name="this thread" sending={sender.send.isPending} error={error}
-        onSend={async (text) => {
+        mentionable={mentionable.data ?? []}
+        onSend={async (text, _files, mentions) => {
           setError(null);
           try {
             await sender.send.mutateAsync({
               clientMessageId: crypto.randomUUID(), bodyText: text,
-              parentMessageId: rootId, replyToId: null,
+              parentMessageId: rootId, replyToId: null, mentions,
             });
             return true;
           } catch (e) {

@@ -16,7 +16,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   addChannelMember, addChannelTeam, archiveChannel, createChannel,
-  fetchChannelMembers, fetchChannels, fetchChannelTeams, fetchMessages,
+  fetchChannelMembers, fetchChannelMentionable, fetchChannels, fetchChannelTeams,
+  fetchMessages,
   markChannelRead, openDirectChannel, openPartnerConversation, postMessage,
   removeChannelMember, removeChannelTeam, restoreChannel, searchMessages,
 } from "@/lib/data/channels";
@@ -169,5 +170,20 @@ export function useOpenPartnerConversation() {
     mutationFn: (v: { partnerGroupId: string; partnerName: string }) =>
       openPartnerConversation({ ...v, createdBy: auth.user?.id ?? "" }),
     onSuccess: () => { void qc.invalidateQueries({ queryKey: channelsKey }); },
+  });
+}
+
+/**
+ * The people this person may mention here.
+ *
+ * Cached per channel for a few minutes: a roster does not change while
+ * somebody is typing, and the alternative is a request per keystroke.
+ */
+export function useChannelMentionable(channelId: string | null) {
+  return useQuery({
+    queryKey: ["channel-mentionable", channelId ?? ""],
+    queryFn: () => fetchChannelMentionable(channelId!),
+    enabled: !!channelId,
+    staleTime: 300_000,
   });
 }

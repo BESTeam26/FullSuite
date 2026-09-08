@@ -18,7 +18,8 @@
  * another's message.
  */
 import { requireSupabase } from "@/lib/supabase/client";
-import type { Json } from "@/lib/supabase/database.types";
+import { buildMessageBody } from "@/lib/communication/message-body";
+import type { MentionAttrs } from "@/lib/activity/mentions";
 
 export interface Reaction {
   emoji: string;
@@ -62,6 +63,11 @@ export interface RichMessage {
   pinned: boolean;
   reactions: Reaction[];
   attachments: Attachment[];
+  /**
+   * Who the message named, with the labels the author saw. From the document
+   * rather than from `profiles`, so a message reads as it was written (0208).
+   */
+  mentions: MentionAttrs[];
   /** Only on an optimistic row, until the server's own row replaces it. */
   pending?: boolean;
   failed?: boolean;
@@ -85,6 +91,16 @@ const toAttachments = (v: unknown): Attachment[] =>
           mime: (x.mime as string) ?? null,
           size: x.size === null || x.size === undefined ? null : Number(x.size),
         };
+      })
+    : [];
+
+const toMentions = (v: unknown): MentionAttrs[] =>
+  Array.isArray(v)
+    ? v.flatMap((m) => {
+        const x = m as Record<string, unknown>;
+        const userId = String(x.userId ?? "");
+        const label = String(x.label ?? "").trim();
+        return userId && label ? [{ userId, label }] : [];
       })
     : [];
 
@@ -115,6 +131,7 @@ function toRich(row: Record<string, unknown>): RichMessage {
     pinned: !!row.pinned,
     reactions: toReactions(row.reactions),
     attachments: toAttachments(row.attachments),
+    mentions: toMentions(row.mentions),
   };
 }
 
@@ -142,6 +159,12 @@ export interface SendInput {
   clientMessageId: string;
   parentMessageId?: number | null;
   replyToId?: number | null;
+  /**
+   * Who the author picked from the "@" list. `buildMessageBody` decides which
+   * of them are actually still named in the text — somebody whose label was
+   * typed and then deleted is not mentioned (0207).
+   */
+  mentions?: readonly MentionAttrs[];
 }
 
 /**
@@ -154,11 +177,15 @@ export interface SendInput {
  */
 export async function sendMessage(input: SendInput): Promise<RichMessage | null> {
   const sb = requireSupabase();
+  /* The document carries mention NODES; `body_text` keeps "@Label" verbatim,
+     which is what search and notification detail read. Neither is derived
+     from the other at read time, so they cannot drift (0207). */
+  const { body, bodyText } = buildMessageBody(input.bodyText, input.mentions ?? []);
   const { data, error } = await sb.from("messages").insert({
     channel_id: input.channelId,
     author_id: input.authorId,
-    body: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: input.bodyText }] }] } as Json,
-    body_text: input.bodyText,
+    body,
+    body_text: bodyText,
     client_message_id: input.clientMessageId,
     parent_message_id: input.parentMessageId ?? null,
     reply_to_id: input.replyToId ?? null,
@@ -207,11 +234,14 @@ export async function deleteOwnMessage(messageId: number): Promise<void> {
   if (error) throw error;
 }
 
-export async function editOwnMessage(messageId: number, bodyText: string): Promise<void> {
+export async function editOwnMessage(
+  messageId: number, bodyText: string, mentions: readonly MentionAttrs[] = [],
+): Promise<void> {
   const sb = requireSupabase();
+  const { body, bodyText: text } = buildMessageBody(bodyText, mentions);
   const { error } = await sb.from("messages").update({
-    body_text: bodyText,
-    body: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: bodyText }] }] } as Json,
+    body_text: text,
+    body,
     edited_at: new Date().toISOString(),
   } as never).eq("id", messageId);
   if (error) throw error;

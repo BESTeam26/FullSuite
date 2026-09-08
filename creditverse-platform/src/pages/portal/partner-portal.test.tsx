@@ -28,6 +28,9 @@ vi.mock("@/lib/data/use-agency-partners", () => ({
 }));
 vi.mock("@/lib/data/use-channels", () => ({
   useChannels: () => ({ data: channels, isLoading: false }),
+  /* A partner contact gets nobody to mention until BES adds them, which the
+     database decides — the portal simply renders what comes back. */
+  useChannelMentionable: () => ({ data: [] }),
 }));
 vi.mock("@/lib/data/use-messages", () => ({
   useRichMessages: () => ({ data: messages, isLoading: false, refetch: vi.fn() }),
@@ -94,7 +97,7 @@ describe("the partner portal conversation", () => {
       messageType: "message", announcementId: null, announcementTitle: null,
       announcementBody: null, announcementPublishedAt: null, parentMessageId: null,
       replyToId: null, replyToText: null, replyToAuthor: null, replyCount: 0,
-      lastReplyAt: null, pinned: false, reactions: [], attachments: [],
+      lastReplyAt: null, pinned: false, reactions: [], attachments: [], mentions: [],
     }];
     render(<PartnerPortal />);
     expect(screen.getByText("BES team")).toBeInTheDocument();

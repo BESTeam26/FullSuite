@@ -13,6 +13,7 @@
  */
 import { requireSupabase } from "@/lib/supabase/client";
 import type { Json } from "@/lib/supabase/database.types";
+import type { MentionCandidate } from "@/components/composer/MentionPicker";
 
 export interface Channel {
   id: string;
@@ -444,4 +445,29 @@ export async function restoreChannel(channelId: string): Promise<void> {
   const { error } = await sb.from("channels")
     .update({ archived_at: null } as never).eq("id", channelId);
   if (error) throw error;
+}
+
+
+/**
+ * Who the "@" picker may offer in this conversation.
+ *
+ * `channel_mentionable()` is the set form of the same predicate the notifier
+ * asks, so the picker cannot offer somebody the notification will skip — type
+ * a name, nothing happens, and people stop trusting mentions. It returns
+ * nothing at all to a caller who cannot see the channel, so there is no
+ * filtering to do here and nothing to get wrong (0207, §27).
+ */
+export async function fetchChannelMentionable(channelId: string): Promise<MentionCandidate[]> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("channel_mentionable", { p_channel: channelId });
+  if (error) throw error;
+  return (data ?? []).map((r) => {
+    const c = r as Record<string, unknown>;
+    return {
+      userId: c.user_id as string,
+      name: (c.name as string) ?? "Someone",
+      email: (c.email as string) ?? null,
+      hint: (c.hint as string) ?? null,
+    };
+  });
 }

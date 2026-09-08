@@ -10,9 +10,12 @@
  * STAYS. "Do not erase what they typed" — losing somebody's paragraph because
  * one word in it was blocked would teach them to write it somewhere else.
  */
-import { useRef, useState, type ChangeEvent } from "react";
-import { CornerUpLeft, Loader2, Paperclip, Send, Smile, Video, X } from "lucide-react";
+import { useMemo, useRef, useState, type ChangeEvent } from "react";
+import { AtSign, CornerUpLeft, Loader2, Paperclip, Send, Smile, Video, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { MentionPicker, type MentionCandidate } from "@/components/composer/MentionPicker";
+import { mentionQueryAt, mentionText, type MentionAttrs } from "@/lib/activity/mentions";
+import { effectiveMentions } from "@/lib/communication/message-body";
 import { EMOJI_GROUPS } from "@/lib/communication/emoji";
 import { cn } from "@/lib/utils";
 
@@ -30,7 +33,13 @@ export interface ComposerProps {
    * erase what they typed." Clearing optimistically and restoring on refusal
    * keeps the common case instant without costing anybody their paragraph.
    */
-  onSend: (text: string, files: File[]) => Promise<boolean>;
+  onSend: (text: string, files: File[], mentions: MentionAttrs[]) => Promise<boolean>;
+  /**
+   * Who may be mentioned here. Comes from `channel_mentionable()`, which is
+   * the set form of the predicate the notifier asks — so the picker cannot
+   * offer somebody the notification will skip (§27).
+   */
+  mentionable?: readonly MentionCandidate[];
   /** Shown when a meeting provider exists to talk to (§66). */
   onMeeting?: () => void;
   error?: string | null;
@@ -38,12 +47,47 @@ export interface ComposerProps {
 
 export function Composer({
   name, disabled, sending, replyingTo, onCancelReply, onSend, onMeeting, error,
+  mentionable = [],
 }: ComposerProps) {
   const [draft, setDraft] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [emojiOpen, setEmojiOpen] = useState(false);
+  /* Everybody picked from the "@" list so far. Whether each is ACTUALLY
+     mentioned is decided from the text at send time, so deleting the label
+     un-mentions the person without any bookkeeping here. */
+  const [picked, setPicked] = useState<MentionAttrs[]>([]);
+  const [mentionQuery, setMentionQuery] = useState<{ query: string; from: number } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const boxRef = useRef<HTMLTextAreaElement>(null);
+
+  /* Shown under the box, so the author can see who will be told before they
+     press Enter rather than after. */
+  const willNotify = useMemo(() => effectiveMentions(draft, picked), [draft, picked]);
+
+  const readDraft = (value: string, caret: number) => {
+    setDraft(value);
+    setMentionQuery(mentionable.length > 0 ? mentionQueryAt(value, caret) : null);
+  };
+
+  /* Replaces the "@partial" the caret is in with "@Full Name ", which is the
+     exact string `buildMessageBody` looks for on the way out. */
+  const pick = (person: MentionCandidate) => {
+    if (!mentionQuery) return;
+    const label = person.name;
+    const before = draft.slice(0, mentionQuery.from);
+    const after = draft.slice(mentionQuery.from + 1 + mentionQuery.query.length);
+    const inserted = `${mentionText(label)} `;
+    const next = `${before}${inserted}${after}`;
+    setDraft(next);
+    setPicked((prev) =>
+      prev.some((m) => m.userId === person.userId) ? prev : [...prev, { userId: person.userId, label }]);
+    setMentionQuery(null);
+    const caret = before.length + inserted.length;
+    requestAnimationFrame(() => {
+      boxRef.current?.focus();
+      boxRef.current?.setSelectionRange?.(caret, caret);
+    });
+  };
 
   const send = () => {
     const text = draft.trim();
@@ -54,8 +98,12 @@ export function Composer({
        refused — by the guard, or by anything else. */
     setDraft("");
     setFiles([]);
-    void onSend(text, keptFiles).then((accepted) => {
-      if (!accepted) { setDraft(keptDraft); setFiles(keptFiles); }
+    const keptPicked = picked;
+    const mentions = effectiveMentions(keptDraft, picked);
+    setPicked([]);
+    setMentionQuery(null);
+    void onSend(text, keptFiles, mentions).then((accepted) => {
+      if (!accepted) { setDraft(keptDraft); setFiles(keptFiles); setPicked(keptPicked); }
     });
   };
 
@@ -96,12 +144,33 @@ export function Composer({
         </ul>
       )}
 
-      <div className="flex items-end gap-1.5">
+      <div className="relative flex items-end gap-1.5">
+        {mentionQuery && (
+          <MentionPicker
+            query={mentionQuery.query}
+            people={mentionable.map((p) => ({ ...p }))}
+            onPick={pick}
+            onDismiss={() => setMentionQuery(null)}
+          />
+        )}
         <div className="flex shrink-0 items-center gap-0.5">
           <button type="button" aria-label="Emoji" aria-expanded={emojiOpen} disabled={disabled}
             onClick={() => setEmojiOpen((v) => !v)}
             className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50">
             <Smile className="h-4 w-4" />
+          </button>
+          <button type="button" aria-label="Mention someone" disabled={disabled || mentionable.length === 0}
+            onClick={() => {
+              /* The same thing typing "@" does, for anybody who would rather
+                 press a button — and it has to insert the character so the
+                 caret is inside a mention word. */
+              const next = draft.length === 0 || /\s$/.test(draft) ? `${draft}@` : `${draft} @`;
+              setDraft(next);
+              setMentionQuery(mentionQueryAt(next, next.length));
+              requestAnimationFrame(() => boxRef.current?.focus());
+            }}
+            className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50">
+            <AtSign className="h-4 w-4" />
           </button>
           <button type="button" aria-label="Attach a file" disabled={disabled}
             onClick={() => fileRef.current?.click()}
@@ -123,8 +192,25 @@ export function Composer({
           ref={boxRef}
           value={draft}
           disabled={disabled}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+          onChange={(e) => readDraft(e.target.value, e.target.selectionStart ?? e.target.value.length)}
+          onClick={(e) => readDraft(draft, (e.target as HTMLTextAreaElement).selectionStart ?? draft.length)}
+          onKeyUp={(e) => {
+            /* The caret moves without the value changing — arrow keys, Home.
+               Re-reading it here is what closes the picker when somebody
+               navigates out of the "@" word. */
+            const el = e.target as HTMLTextAreaElement;
+            if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) {
+              setMentionQuery(mentionable.length > 0
+                ? mentionQueryAt(el.value, el.selectionStart ?? el.value.length) : null);
+            }
+          }}
+          onKeyDown={(e) => {
+            /* While the picker is open it owns Enter, Tab, the arrows and
+               Escape — otherwise Enter would send "@Row" as a message
+               instead of choosing Rowell. */
+            if (mentionQuery && ["Enter", "Tab", "ArrowDown", "ArrowUp", "Escape"].includes(e.key)) return;
+            if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+          }}
           rows={2}
           placeholder={`Message ${name}`}
           aria-label={`Message ${name}`}
@@ -135,6 +221,13 @@ export function Composer({
           <span className="sr-only">Send</span>
         </Button>
       </div>
+
+      {willNotify.length > 0 && (
+        /* Said before Enter, not after: who is about to be pinged. */
+        <p className="mt-1 px-1 text-[11px] text-muted-foreground">
+          Will notify {willNotify.map((m) => m.label).join(", ")}
+        </p>
+      )}
 
       {emojiOpen && (
         <div className="mt-1.5 max-h-40 overflow-y-auto rounded-lg border border-border bg-card p-2">

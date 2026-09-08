@@ -3524,7 +3524,7 @@ export type Database = {
           uploaded_by: string | null
         }
         Insert: {
-          agency_id: string
+          agency_id?: string
           bucket?: string
           created_at?: string
           entity_id?: string | null
@@ -11119,6 +11119,15 @@ export type Database = {
       channel_auditable: { Args: { p_channel: string }; Returns: boolean }
       channel_manager: { Args: { p_channel: string }; Returns: boolean }
       channel_member_of: { Args: { p_channel: string }; Returns: boolean }
+      channel_mentionable: {
+        Args: { p_channel: string }
+        Returns: {
+          email: string
+          hint: string
+          name: string
+          user_id: string
+        }[]
+      }
       channel_messages: {
         Args: { p_channel: string; p_limit?: number }
         Returns: {
@@ -11137,6 +11146,7 @@ export type Database = {
           edited_at: string
           id: number
           last_reply_at: string
+          mentions: Json
           message_type: string
           parent_message_id: number
           pinned: boolean
@@ -11146,6 +11156,10 @@ export type Database = {
           reply_to_id: number
           reply_to_text: string
         }[]
+      }
+      channel_notifiable: {
+        Args: { p_channel: string; p_user: string }
+        Returns: boolean
       }
       channel_service_ok: { Args: { p_channel: string }; Returns: boolean }
       channel_shared_with_bes: { Args: { p_channel: string }; Returns: boolean }
@@ -11657,6 +11671,7 @@ export type Database = {
         Args: { p_agency: string; p_text: string }
         Returns: string
       }
+      message_mentions: { Args: { p_body: Json }; Returns: Json }
       move_document_request: {
         Args: {
           p_note?: string
@@ -12156,6 +12171,7 @@ export type Database = {
         Args: { p_note?: string; p_offer: string }
         Returns: string
       }
+      storage_channel_of: { Args: { p_name: string }; Returns: string }
       team_birthdays: {
         Args: { p_org: string; p_within_days?: number }
         Returns: {
@@ -12179,6 +12195,7 @@ export type Database = {
           deleted: boolean
           edited_at: string
           id: number
+          mentions: Json
           reactions: Json
         }[]
       }

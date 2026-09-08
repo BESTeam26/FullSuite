@@ -31,6 +31,7 @@ import {
   type RichMessage,
 } from "@/lib/data/messages";
 import { useAuth } from "@/lib/auth/auth-context";
+import type { MentionAttrs } from "@/lib/activity/mentions";
 
 export const richMessagesKey = (channelId: string | null) =>
   ["messages", channelId ?? ""] as const;
@@ -66,6 +67,7 @@ export function usePins(channelId: string | null) {
 const optimistic = (input: {
   clientMessageId: string; channelId: string; authorId: string;
   authorName: string; bodyText: string; parentMessageId: number | null; replyToId: number | null;
+  mentions: readonly MentionAttrs[];
 }): RichMessage => ({
   /* Negative, so it cannot collide with a real bigint id and is obvious in a
      debugger as "not yet real". */
@@ -85,7 +87,7 @@ const optimistic = (input: {
   replyToId: input.replyToId,
   replyToText: null, replyToAuthor: null,
   replyCount: 0, lastReplyAt: null, pinned: false,
-  reactions: [], attachments: [],
+  reactions: [], attachments: [], mentions: [...input.mentions],
   pending: true,
   clientMessageId: input.clientMessageId,
 });
@@ -95,6 +97,8 @@ export interface PendingSend {
   bodyText: string;
   parentMessageId: number | null;
   replyToId: number | null;
+  /** Carried on the retry too, so a re-send names the same people. */
+  mentions?: readonly MentionAttrs[];
 }
 
 /**
@@ -124,6 +128,7 @@ export function useSendMessage(channelId: string | null, opts?: { onSent?: () =>
         clientMessageId: v.clientMessageId,
         parentMessageId: v.parentMessageId,
         replyToId: v.replyToId,
+        mentions: v.mentions,
       });
       return { v, id: row?.id ?? null };
     },
@@ -137,6 +142,7 @@ export function useSendMessage(channelId: string | null, opts?: { onSent?: () =>
           channelId: channelId!,
           authorId: auth.user?.id ?? "",
           authorName: auth.displayName ?? "You",
+          mentions: v.mentions ?? [],
         }),
       ]);
     },

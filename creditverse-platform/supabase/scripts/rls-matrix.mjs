@@ -4073,6 +4073,14 @@ if (runs(61)) {
   const CH61 = "44444444-0000-4000-8000-0000000061c1";
   const TEAM_A61 = q(`select coalesce((select id::text from public.teams where name='[TEST] Team A'),'') as rows`)[0].rows;
   const M_OWNER = 900000001, M_LEAD = 900000002;
+  const GHL60_61 = U["bes.funding@bes.test"];
+  /* A REAL colleague. Every @bes.test account is a fixture, and
+     `channel_mentionable` excludes fixtures on purpose — so a probe that
+     asks for one to be offered is asking the function to do the thing the
+     next probe asserts it must not. */
+  const REAL61 = q(`select coalesce((select p.id::text from public.profiles p join public.agency_memberships m on m.user_id = p.id where p.is_fixture = false and m.status = 'active' and m.role <> 'agency_owner' limit 1),'') as rows`)[0].rows;
+  /* A real mention document, shaped the way `mentioned_user_ids` reads it. */
+  const MENTION61 = (uid, text) => `insert into public.messages (channel_id, author_id, body, body_text) values ('${CH61}','${OWN61}', jsonb_build_object('type','doc','content', jsonb_build_array(jsonb_build_object('type','paragraph','content', jsonb_build_array(jsonb_build_object('type','mention','attrs', jsonb_build_object('userId','${uid}','label','Someone')))))), '${text}');`;
 
   /* An all-hands BES channel with one message from the owner and one from the
      lead, so "your own" and "somebody else's" are both on the table. */
@@ -4241,10 +4249,46 @@ if (runs(61)) {
         `select coalesce((select announcement_title from public.channel_messages((select id from public.channels where system_key='announcements_updates')) where announcement_title = '[TEST] Leadership only'), 'HIDDEN') as rows`), "HIDDEN"],
 
     /* ── §27 — mentions notify, and never admit ──────────────────── */
+    /* `attrs.userId`, not `attrs.id`. The first version of this probe used
+       `id`, so `mentioned_user_ids` parsed an empty array, the notifier loop
+       never ran, and the probe passed without exercising a single line of the
+       thing it was written to test. */
     ["mentioning somebody in a BES channel does not refuse the MESSAGE",
-      () => p61(OWN61, world61,
-        `insert into public.messages (channel_id, author_id, body, body_text) values ('${CH61}','${OWN61}', jsonb_build_object('type','doc','content', jsonb_build_array(jsonb_build_object('type','paragraph','content', jsonb_build_array(jsonb_build_object('type','mention','attrs', jsonb_build_object('id','${LEAD61}')))))), 'hey @lead');
+      () => p61(OWN61, world61, `${MENTION61(LEAD61, 'hey @lead')}
          select count(*)::int as rows from public.messages where channel_id='${CH61}' and body_text='hey @lead'`), 1],
+    ["…and actually notifies them",
+      () => p61(OWN61, world61 + `insert into public.channel_members (channel_id, user_id) values ('${CH61}','${LEAD61}');`,
+        `${MENTION61(LEAD61, 'hey @lead')} set local role postgres;
+         select count(*)::int as rows from public.notifications where recipient_id='${LEAD61}' and kind='mention' and entity_id='${CH61}'`), 1],
+    ["…and notifies NOBODY who cannot reach the conversation (§27)",
+      () => p61(OWN61, `insert into public.channels (id, agency_id, kind, name, created_by, open_to_scope) values ('${CH61}','${AG61}','topic','closed','${OWN61}', false);
+        insert into public.channel_members (channel_id, user_id, is_manager) values ('${CH61}','${OWN61}',true);`,
+        `${MENTION61(CO61, 'hey @agent')} set local role postgres;
+         select count(*)::int as rows from public.notifications where recipient_id='${CO61}' and kind='mention' and entity_id='${CH61}'`), 0],
+    ["…and the message still sends, rather than failing because of the ping",
+      () => p61(OWN61, `insert into public.channels (id, agency_id, kind, name, created_by, open_to_scope) values ('${CH61}','${AG61}','topic','closed','${OWN61}', false);
+        insert into public.channel_members (channel_id, user_id, is_manager) values ('${CH61}','${OWN61}',true);`,
+        `${MENTION61(CO61, 'hey @agent')}
+         select count(*)::int as rows from public.messages where channel_id='${CH61}'`), 1],
+
+    /* ── §27 — the picker offers exactly whom the notifier will tell ─── */
+    ["the picker offers a colleague in an all-hands channel",
+      () => p61(OWN61, world61, `select count(*)::int as rows from public.channel_mentionable('${CH61}') where user_id='${REAL61}'`), 1],
+    ["…and offers nobody in a members-only channel they are not in",
+      () => p61(OWN61, `insert into public.channels (id, agency_id, kind, name, created_by, open_to_scope) values ('${CH61}','${AG61}','topic','closed','${OWN61}', false);
+        insert into public.channel_members (channel_id, user_id, is_manager) values ('${CH61}','${OWN61}',true);`,
+        `select count(*)::int as rows from public.channel_mentionable('${CH61}') where user_id='${REAL61}'`), 0],
+    ["…never offers you yourself",
+      () => p61(OWN61, world61, `select count(*)::int as rows from public.channel_mentionable('${CH61}') where user_id='${OWN61}'`), 0],
+    ["…never offers a fixture account to a real person",
+      () => p61(OWN61, world61, `select count(*)::int as rows from public.channel_mentionable('${CH61}') p join public.profiles pr on pr.id=p.user_id where pr.is_fixture`), 0],
+    ["…and hands a roster to NOBODY who cannot see the conversation (rule 1)",
+      () => p61(GHL60_61, `insert into public.channels (id, agency_id, kind, name, created_by, open_to_scope) values ('${CH61}','${AG61}','topic','closed','${OWN61}', false);`,
+        `select count(*)::int as rows from public.channel_mentionable('${CH61}')`), 0],
+    ["the picker and the notifier agree, person for person",
+      () => p61(OWN61, world61,
+        `select count(*)::int as rows from public.channel_mentionable('${CH61}') m
+          where not public.channel_notifiable('${CH61}', m.user_id)`), 0],
     ["…a member of it IS notifiable",
       () => p61(OWN61, world61, `select public.channel_notifiable('${CH61}','${OWN61}')::text as rows`), "true"],
     ["…an all-hands channel reaches active staff who were never added",

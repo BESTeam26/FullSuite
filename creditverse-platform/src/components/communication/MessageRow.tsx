@@ -20,11 +20,14 @@ import {
 import { formatDate } from "@/lib/format-date";
 import { signedAttachmentUrl, type Attachment, type RichMessage } from "@/lib/data/messages";
 import { QUICK_REACTIONS } from "@/lib/communication/emoji";
+import { splitBody } from "@/lib/communication/message-body";
 import { cn } from "@/lib/utils";
 
 export interface MessageRowProps {
   message: RichMessage;
   isMine: boolean;
+  /** So a mention of the reader can look different from a mention of anybody. */
+  meUserId?: string | null;
   canPin: boolean;
   onReact: (emoji: string, mine: boolean) => void;
   onReply: () => void;
@@ -38,7 +41,7 @@ export interface MessageRowProps {
 }
 
 export function MessageRow({
-  message: m, isMine, canPin, onReact, onReply, onOpenThread, onPin, onDelete,
+  message: m, isMine, meUserId, canPin, onReact, onReply, onOpenThread, onPin, onDelete,
   onRetry, onDismissFailed, compact = false,
 }: MessageRowProps) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -48,9 +51,14 @@ export function MessageRow({
     return <AnnouncementCard message={m} />;
   }
 
+  /* A message that names YOU is marked on the row, not only inside the text:
+     the point of a mention is being able to find it while scrolling. */
+  const namesMe = !!meUserId && m.mentions.some((x) => x.userId === meUserId);
+
   return (
     <article className={cn("group relative rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-muted/40",
-                            m.pinned && "bg-amber-500/5")}>
+                            m.pinned && "bg-amber-500/5",
+                            namesMe && "border-l-2 border-primary bg-primary/5 pl-2.5")}>
       {m.replyToId && m.replyToText && (
         /* §23 — the quote is context, not a second copy of the record. */
         <p className="mb-0.5 flex items-center gap-1.5 truncate border-l-2 border-border pl-2 text-[11px] text-muted-foreground">
@@ -77,7 +85,21 @@ export function MessageRow({
         /* §32 — the row survives so the thread keeps its shape. */
         <p className="italic text-muted-foreground">Message removed</p>
       ) : (
-        <p className="whitespace-pre-wrap break-words text-foreground">{m.bodyText}</p>
+        <p className="whitespace-pre-wrap break-words text-foreground">
+          {splitBody(m.bodyText ?? "", m.mentions, meUserId).map((part, i) =>
+            part.kind === "mention" ? (
+              <span key={i}
+                className={cn(
+                  "rounded px-1 font-semibold",
+                  part.isMe ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary",
+                )}>
+                {part.text}
+              </span>
+            ) : (
+              <span key={i}>{part.text}</span>
+            ),
+          )}
+        </p>
       )}
 
       {m.attachments.length > 0 && (
