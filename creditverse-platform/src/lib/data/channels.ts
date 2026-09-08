@@ -70,9 +70,14 @@ export interface ChannelMessage {
  * This is why the query does not filter by owner at all in the agency case:
  * `channel_visible` already decides, and asking for less would mean deciding
  * a second time, differently.
+ *
+ * The partner case is the same row from the other side. A partner contact asks
+ * for their own group's conversations and gets the SAME channel BES sees —
+ * `is_partner_contact_of` is the other branch of `channel_visible`, not a
+ * second table.
  */
 export async function fetchChannels(
-  owner: { organizationId: string } | { agencyId: string },
+  owner: { organizationId: string } | { agencyId: string } | { partnerGroupId: string },
 ): Promise<Channel[]> {
   const sb = requireSupabase();
   let q = sb
@@ -81,6 +86,8 @@ export async function fetchChannels(
 
   if ("organizationId" in owner) {
     q = q.eq("organization_id", owner.organizationId);
+  } else if ("partnerGroupId" in owner) {
+    q = q.eq("partner_group_id", owner.partnerGroupId);
   }
   /* No filter in the agency case. RLS returns BES's own channels, every
      organization channel shared with BES, and every partner conversation the
@@ -256,4 +263,41 @@ export async function removeChannelMember(channelId: string, userId: string): Pr
   const { error } = await sb.from("channel_members")
     .delete().eq("channel_id", channelId).eq("user_id", userId);
   if (error) throw error;
+}
+
+/**
+ * Open — or reopen — the conversation with one partner.
+ *
+ * A partner has ONE canonical conversation, so this looks before it creates.
+ * Two agents clicking "Conversation" on the same partner an hour apart must
+ * land in the same channel, otherwise the promise that a partner's portal and
+ * the BES view are two doors onto one row quietly becomes untrue.
+ *
+ * Called on click, never on page load: the partner profile does not need the
+ * channel list to render, and asking for it there would be a request nobody
+ * asked for (rule 14).
+ */
+export async function openPartnerConversation(input: {
+  partnerGroupId: string;
+  partnerName: string;
+  createdBy: string;
+}): Promise<string> {
+  const sb = requireSupabase();
+  const { data, error } = await sb
+    .from("channels")
+    .select("id")
+    .eq("partner_group_id", input.partnerGroupId)
+    .is("archived_at", null)
+    .order("created_at")
+    .limit(1);
+  if (error) throw error;
+  if (data && data.length > 0) return (data[0] as { id: string }).id;
+
+  return createChannel({
+    name: "General",
+    kind: "general",
+    purpose: `BES and ${input.partnerName}`,
+    createdBy: input.createdBy,
+    partnerGroupId: input.partnerGroupId,
+  });
 }

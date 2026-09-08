@@ -3713,6 +3713,133 @@ if (runs(59)) {
   runPhase("phase 59", P59, { strict: true });
 }
 
+
+if (runs(60)) {
+  startPhase("phase 60");
+  /* The partner conversation — ONE row, two audiences.
+     Dee: "one record only per channel, even DM's. And portal message."
+
+     That claim is only true if BOTH doors are real and NEITHER opens onto
+     somebody else's conversation. A partner conversation is the first channel
+     whose reader may be an outsider with no organization and no tenant — the
+     `partner_contacts` row is their entire boundary — so what is proved here
+     is that the row reaches exactly two kinds of person and no third:
+
+       the partner's own ACTIVE contacts, and
+       BES staff who may see that partner at all (phase 59's rule, inherited).
+
+     And the asymmetry that keeps it BES's conversation to run: a partner
+     contact reads and replies; they do not open one, rename one, archive one
+     or decide who is in it. */
+  const p60 = (uid, seed, sql) => {
+    try {
+      return q(`begin; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${seed} set local role authenticated; ${sql}; rollback;`)[0].rows;
+    } catch (e) {
+      const m = (String(e.message) + String(e.stdout ?? "")).match(/ERROR:\s*(\w+):/);
+      return "ERR " + (m ? m[1] : "unknown");
+    }
+  };
+  const OWN60 = U["bes.owner@bes.test"], AGT60 = U["bes.credit@bes.test"];
+  const CONTACT60 = U["client.portal@bes.test"], ORGUSER60 = U["org.owner@bes.test"];
+  const AG60 = q(`select id::text as rows from public.agencies limit 1`)[0].rows;
+  const GRP60 = q(`select coalesce((select id::text from public.outsourcing_groups where archived_at is null and status <> 'Suspended' limit 1),'') as rows`)[0].rows;
+  const TEAM60 = q(`select coalesce((select id::text from public.teams where name='[TEST] Team A'),'') as rows`)[0].rows;
+
+  /* Two partners and a channel each, so "sees their own" and "does not see the
+     other" are the same probe asked twice rather than one probe and a hope. */
+  const A60 = "44444444-0000-4000-8000-0000000060a1";
+  const B60 = "44444444-0000-4000-8000-0000000060b1";
+  const CH_A = "44444444-0000-4000-8000-0000000060c1";
+  const CH_B = "44444444-0000-4000-8000-0000000060c2";
+  /* `lifecycle` and not `status`: since 0159 the legacy `status` column is a
+     MIRROR written by a trigger from lifecycle, so seeding it sets nothing.
+     The first run of this phase failed here, which is the probe doing its job
+     — on the harness rather than on the product, but the lesson is the same:
+     write the canonical column. */
+  const seed60 = (contactStatus = "active", groupLifecycle = "active") => `
+    insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle)
+      values ('${A60}','${AG60}','[TEST] Conversation A','conv-a@example.test','${groupLifecycle}'),
+             ('${B60}','${AG60}','[TEST] Conversation B','conv-b@example.test','active');
+    insert into public.partner_contacts (group_id, agency_id, full_name, email, user_id, status)
+      values ('${A60}','${AG60}','[TEST] Contact','conv-contact@example.test','${CONTACT60}','${contactStatus}');
+    insert into public.channels (id, agency_id, organization_id, partner_group_id, kind, name, created_by)
+      values ('${CH_A}', null, null, '${A60}', 'general', 'General', '${OWN60}'),
+             ('${CH_B}', null, null, '${B60}', 'general', 'General', '${OWN60}');
+    insert into public.messages (channel_id, author_id, body, body_text)
+      values ('${CH_A}','${OWN60}','{}'::jsonb,'hello A'),
+             ('${CH_B}','${OWN60}','{}'::jsonb,'hello B');`;
+
+  const seeChannels = `select count(*)::int as rows from public.channels where partner_group_id in ('${A60}','${B60}')`;
+  const seeOwn = `select count(*)::int as rows from public.channels where partner_group_id = '${A60}'`;
+  const seeOther = `select count(*)::int as rows from public.channels where partner_group_id = '${B60}'`;
+  const readOther = `select count(*)::int as rows from public.messages where channel_id = '${CH_B}'`;
+  const writeTo = (ch) => `insert into public.messages (channel_id, author_id, body, body_text) values ('${ch}','${CONTACT60}','{}'::jsonb,'reply'); select count(*)::int as rows from public.messages where channel_id='${ch}'`;
+  const assign60 = `insert into public.partner_assignments (agency_id, group_id, team_id) values ('${AG60}','${A60}','${TEAM60}');`;
+
+  const P60 = AG60 && GRP60 && TEAM60 ? [
+    /* ── The partner's door ──────────────────────────────────────── */
+    ["a partner contact sees their own conversation",
+      () => p60(CONTACT60, seed60(), seeOwn), 1],
+    ["…and NOT another partner's, which is the whole risk of one shared table",
+      () => p60(CONTACT60, seed60(), seeOther), 0],
+    ["…and cannot read the other partner's messages either",
+      () => p60(CONTACT60, seed60(), readOther), 0],
+    ["a partner contact can reply in their own conversation",
+      () => p60(CONTACT60, seed60(), writeTo(CH_A)), 2],
+    ["…and cannot write into another partner's",
+      () => p60(CONTACT60, seed60(), writeTo(CH_B)), "ERR 42501"],
+
+    /* ── Access ends where the contact record ends ───────────────── */
+    ["a SUSPENDED contact sees nothing — one row ends it everywhere",
+      () => p60(CONTACT60, seed60("suspended"), seeChannels), 0],
+    ["…and so does suspending the PARTNER",
+      () => p60(CONTACT60, seed60("active", "suspended"), seeChannels), 0],
+    ["…and the LEGACY status column cannot buy it back",
+      () => p60(CONTACT60, seed60("active", "suspended") +
+        `update public.outsourcing_groups set status='Active' where id='${A60}';`, seeChannels), 0],
+    ["…archiving the partner ends it too",
+      () => p60(CONTACT60, seed60("active", "archived"), seeChannels), 0],
+
+    /* ── BES's door is phase 59's rule, inherited ────────────────── */
+    ["the owner sees the conversation, being agency-wide",
+      () => p60(OWN60, seed60(), seeOwn), 1],
+    ["an unassigned agent sees NO partner conversation",
+      () => p60(AGT60, seed60(), seeChannels), 0],
+    ["…assigning their team gives them that one, and only that one",
+      () => p60(AGT60, seed60() + assign60, seeOwn), 1],
+    ["…the other partner's stays out of reach",
+      () => p60(AGT60, seed60() + assign60, seeOther), 0],
+
+    /* ── Nobody else, in either direction ────────────────────────── */
+    ["an organization owner reaches no partner conversation at all",
+      () => p60(ORGUSER60, seed60(), seeChannels), 0],
+    ["anon reaches no channel",
+      () => { try { q(`begin; set local role anon; select 1 from public.channels limit 1; rollback;`); return "readable"; } catch { return "refused"; } }, "refused"],
+
+    /* ── It stays BES's conversation to run ──────────────────────── */
+    ["a partner contact cannot OPEN a conversation — BES starts it",
+      () => p60(CONTACT60, seed60(),
+        `insert into public.channels (agency_id, organization_id, partner_group_id, kind, name, created_by) values (null, null, '${A60}', 'topic', 'Mine', '${CONTACT60}'); select 1 as rows`), "ERR 42501"],
+    ["…nor rename or archive one",
+      () => p60(CONTACT60, seed60(),
+        `update public.channels set name='Renamed' where id='${CH_A}'; select name as rows from public.channels where id='${CH_A}'`), "General"],
+    ["…nor add themselves as its manager",
+      () => p60(CONTACT60, seed60(),
+        `insert into public.channel_members (channel_id, user_id, is_manager) values ('${CH_A}','${CONTACT60}',true); select 1 as rows`), "ERR 42501"],
+
+    /* ── The shape that makes all of the above possible ──────────── */
+    ["a channel still belongs to exactly one owner",
+      () => q(`select count(*)::int as rows from public.channels where (case when organization_id is not null then 1 else 0 end) + (case when agency_id is not null then 1 else 0 end) + (case when partner_group_id is not null then 1 else 0 end) <> 1`)[0].rows, 0],
+    ["…and the select policy asks channel_visible, not a role name",
+      () => q(`select (position('channel_visible' in pg_get_expr(polqual, polrelid)) > 0)::text as rows from pg_policy where polname='channels_select'`)[0].rows, "true"],
+    ["no policy on channels is FOR ALL",
+      () => q(`select count(*)::int as rows from pg_policy where polrelid='public.channels'::regclass and polcmd='*'`)[0].rows, 0],
+    ["there is no delete policy on messages — history is not deleted",
+      () => q(`select count(*)::int as rows from pg_policy where polrelid='public.messages'::regclass and polcmd='d'`)[0].rows, 0],
+  ] : [["(no agency, partner or fixture team to probe)", () => "skip", "skip"]];
+  runPhase("phase 60", P60, { strict: true });
+}
+
 endPhase();
 
 /* ------------------------------------------------------------------ *

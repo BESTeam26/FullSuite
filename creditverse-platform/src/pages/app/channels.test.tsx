@@ -5,9 +5,15 @@
  * that came from BES so "who am I talking to" is never a guess.
  */
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render as rtlRender, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import Channels from "@/pages/app/Channels";
 import type { Channel, ChannelMessage } from "@/lib/data/channels";
+
+/* The page reads `?channel=` — how a partner record opens its own
+   conversation — so every render needs a router around it. */
+const render = (path = "/app/channels") =>
+  rtlRender(<MemoryRouter initialEntries={[path]}><Channels /></MemoryRouter>);
 
 let channels: Channel[];
 let messages: ChannelMessage[];
@@ -46,14 +52,14 @@ beforeEach(() => {
 
 describe("the boundary is visible before you type", () => {
   it("says nothing about BES on a private channel", () => {
-    render(<Channels />);
+    render();
     expect(screen.queryByText(/Shared with the BES team/)).not.toBeInTheDocument();
     expect(screen.queryByText("BES")).not.toBeInTheDocument();
   });
 
   it("warns above the conversation when BES can read it", () => {
     channels = [channel({ sharedWithBes: true })];
-    render(<Channels />);
+    render();
     expect(screen.getByText(/Shared with the BES team while your service is active/)).toBeInTheDocument();
     expect(screen.getByText(/They can read and reply here/)).toBeInTheDocument();
   });
@@ -61,7 +67,7 @@ describe("the boundary is visible before you type", () => {
   it("marks a shared channel in the list too, before it is opened", () => {
     channels = [channel({ id: "c1", name: "Private", sharedWithBes: false }),
                 channel({ id: "c2", name: "Shared", kind: "topic", sharedWithBes: true })];
-    render(<Channels />);
+    render();
     expect(screen.getByText("BES")).toBeInTheDocument();
   });
 });
@@ -72,7 +78,7 @@ describe("who said it", () => {
       { id: 1, channelId: "c1", authorId: "u2", authorName: "Piper Manager", body: {}, bodyText: "ours", createdAt: "2026-09-01T09:00:00Z", editedAt: null, fromBes: false },
       { id: 2, channelId: "c1", authorId: "b1", authorName: "Ada Manager", body: {}, bodyText: "theirs", createdAt: "2026-09-01T10:00:00Z", editedAt: null, fromBes: true },
     ];
-    render(<Channels />);
+    render();
     expect(screen.getByText("BES team")).toBeInTheDocument();
     expect(screen.getByText("theirs")).toBeInTheDocument();
     expect(screen.getByText("ours")).toBeInTheDocument();
@@ -82,7 +88,7 @@ describe("who said it", () => {
 describe("being in no channel", () => {
   it("says so plainly rather than showing an empty frame", () => {
     channels = [];
-    render(<Channels />);
+    render();
     expect(screen.getByText("You are not in any channel yet.")).toBeInTheDocument();
     expect(screen.getByText("Pick a channel.")).toBeInTheDocument();
   });
@@ -90,7 +96,7 @@ describe("being in no channel", () => {
 
 describe("sending", () => {
   it("sends on Enter and not on Shift+Enter", () => {
-    render(<Channels />);
+    render();
     const box = screen.getByLabelText("Message General Chat");
     fireEvent.change(box, { target: { value: "hello" } });
     fireEvent.keyDown(box, { key: "Enter", shiftKey: true });
@@ -101,18 +107,55 @@ describe("sending", () => {
   });
 
   it("will not send whitespace", () => {
-    render(<Channels />);
+    render();
     fireEvent.change(screen.getByLabelText("Message General Chat"), { target: { value: "   " } });
     fireEvent.keyDown(screen.getByLabelText("Message General Chat"), { key: "Enter" });
     expect(postMutate).not.toHaveBeenCalled();
   });
 
   it("sends the same rich-text shape activity notes use, so mentions work", () => {
-    render(<Channels />);
+    render();
     fireEvent.change(screen.getByLabelText("Message General Chat"), { target: { value: "hi" } });
     fireEvent.keyDown(screen.getByLabelText("Message General Chat"), { key: "Enter" });
     expect(postMutate.mock.calls[0][0].body).toEqual({
       type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "hi" }] }],
     });
+  });
+});
+
+/**
+ * The link out of a partner record. Without this the "Conversation" button
+ * would land on Communication and then quietly show General instead of the
+ * conversation it was asked for — the failure that looks like nothing
+ * happened.
+ */
+describe("arriving from somewhere else", () => {
+  it("opens the channel the URL asked for, not the default one", () => {
+    channels = [
+      channel({ id: "c1", name: "General Chat" }),
+      channel({ id: "c2", kind: "topic", name: "Acme Fulfilment", purpose: "BES and Acme" }),
+    ];
+    render("/app/channels?channel=c2");
+    expect(screen.getByRole("heading", { name: /Acme Fulfilment/ })).toBeInTheDocument();
+    expect(screen.getByText("BES and Acme")).toBeInTheDocument();
+  });
+
+  it("still defaults to General when the URL asks for nothing", () => {
+    channels = [
+      channel({ id: "c1", name: "General Chat" }),
+      channel({ id: "c2", kind: "topic", name: "Acme Fulfilment" }),
+    ];
+    render();
+    expect(screen.getByRole("heading", { name: /General Chat/ })).toBeInTheDocument();
+  });
+
+  it("lets the sidebar win afterwards — the URL does not pin the page", () => {
+    channels = [
+      channel({ id: "c1", name: "General Chat" }),
+      channel({ id: "c2", kind: "topic", name: "Acme Fulfilment" }),
+    ];
+    render("/app/channels?channel=c2");
+    fireEvent.click(screen.getByRole("button", { name: /General Chat/ }));
+    expect(screen.getByRole("heading", { name: /General Chat/ })).toBeInTheDocument();
   });
 });

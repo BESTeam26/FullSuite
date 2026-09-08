@@ -21,7 +21,7 @@
  * component rather than by remembering.
  */
 import { useState } from "react";
-import { ArrowLeft, Handshake, Loader2 } from "lucide-react";
+import { ArrowLeft, Handshake, Loader2, MessagesSquare } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { HqPageShell } from "@/pages/app/HqPages";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -44,6 +44,8 @@ import {
 } from "@/lib/data/use-agency-partners";
 import { usePartnerCatalogues, usePartnerServices } from "@/lib/data/use-partner-services";
 import { useAgencyPermissions } from "@/lib/data/agency-permissions";
+import { useOpenPartnerConversation } from "@/lib/data/use-channels";
+import { useAuth } from "@/lib/auth/auth-context";
 import { useWorkforce } from "@/lib/data/use-workforce";
 import {
   HEALTH_LABEL, HEALTH_TONE, LIFECYCLE_LABEL, LIFECYCLE_TONE, PARTNER_LIFECYCLES,
@@ -62,6 +64,8 @@ export const PartnerProfilePage = () => {
   const counts = usePartnerClientCounts();
   const contacts = usePartnerContacts(id);
   const actions = usePartnerActions();
+  const auth = useAuth();
+  const conversation = useOpenPartnerConversation(auth.agencyId ?? null);
   const [tab, setTab] = useState("overview");
 
   if (partner.isLoading || perms.loading) {
@@ -123,8 +127,27 @@ export const PartnerProfilePage = () => {
       description={p.companyName ?? "BES Partner"}
       icon={Handshake}
       actions={
-        perms.can("partners.edit") && (
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Outside the edit gate on purpose: answering a partner is ordinary
+              account work, and RLS agrees — `channels_insert` asks only
+              `can_see_partner`, which anybody reading this page already
+              passed. Find-or-create, so two agents clicking this a week apart
+              land in the SAME conversation rather than starting a second one. */}
+          <Button size="sm" variant="outline"
+            disabled={conversation.isPending}
+            onClick={() =>
+              conversation.mutate(
+                { partnerGroupId: p.id, partnerName: p.name },
+                { onSuccess: (channelId) => navigate(`/app/channels?channel=${channelId}`) },
+              )
+            }>
+            {conversation.isPending
+              ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              : <MessagesSquare className="mr-1.5 h-4 w-4" />}
+            Conversation
+          </Button>
+          {perms.can("partners.edit") && (
+            <>
             <OpsSelect aria-label="Partner lifecycle" size="sm" value={p.lifecycle}
               onValueChange={(v) => actions.setLifecycle.mutate({ id: p.id, lifecycle: v as PartnerLifecycle })}
               options={PARTNER_LIFECYCLES.map((l) => ({ value: l, label: LIFECYCLE_LABEL[l] }))} />
@@ -134,8 +157,9 @@ export const PartnerProfilePage = () => {
                 creates while trying the system. */}
             <OwnerDeleteButton table="outsourcing_groups" id={p.id} name={p.name}
               onDeleted={() => navigate("/app/bes-partners")} />
-          </div>
-        )
+            </>
+          )}
+        </div>
       }
     >
       <Link to="/app/bes-partners" className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
@@ -155,6 +179,12 @@ export const PartnerProfilePage = () => {
         <Fact label="Portal" value={activePortal === 0 ? "Nobody active" : `${activePortal} active`} />
         {days !== null && <Fact label="With BES" value={formatDaysActive(days)} />}
       </div>
+
+      {conversation.isError && (
+        <p role="alert" className="mb-3 rounded-xl border border-status-danger/30 bg-status-danger/10 px-4 py-2.5 text-sm text-status-danger">
+          Could not open the conversation: {(conversation.error as Error).message}
+        </p>
+      )}
 
       {p.lifecycle === "archived" && (
         <div className="mb-3 rounded-xl border border-border bg-muted px-4 py-3 text-sm text-muted-foreground">

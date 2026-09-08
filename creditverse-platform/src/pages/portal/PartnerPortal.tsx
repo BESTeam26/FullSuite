@@ -11,9 +11,16 @@
  * workforce, no financials, no other partner, no organization. Files appear
  * only when somebody at BES marked them shared — filing a document against a
  * partner does not publish it.
+ *
+ * Messages are the exception that proves the rule: the conversation shown here
+ * is not a portal inbox that BES mirrors into. It is the SAME `channels` row
+ * an agent opens from the partner's record, which is why a reply typed here
+ * needs nothing to carry it across (0191).
  */
-import { Loader2, Building2, Mail, Phone, ShieldCheck, FileText } from "lucide-react";
+import { Loader2, Building2, Mail, Phone, ShieldCheck, FileText, MessagesSquare } from "lucide-react";
 import { useMyPartner } from "@/lib/data/use-agency-partners";
+import { usePartnerChannels } from "@/lib/data/use-channels";
+import { ConversationPane } from "@/components/communication/ConversationPane";
 import { useAuth } from "@/lib/auth/auth-context";
 import { formatDate } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
@@ -101,6 +108,8 @@ export const PartnerPortal = () => {
           </p>
         </section>
 
+        <PortalConversation partnerGroupId={p.id} />
+
         <section className="rounded-xl border border-border bg-card p-4">
           <h2 className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
             <FileText className="h-3.5 w-3.5" /> Shared with you
@@ -113,6 +122,43 @@ export const PartnerPortal = () => {
     </div>
   );
 };
+
+/**
+ * The partner's half of the conversation with BES.
+ *
+ * BES opens it — `channels_insert` asks `can_see_partner`, which is staff
+ * only. A partner contact reads and replies; they do not start conversations
+ * or decide who is in one, the same way portal access itself is BES's to
+ * grant. When none has been started the section says so rather than showing
+ * an empty composer that looks broken.
+ */
+function PortalConversation({ partnerGroupId }: { partnerGroupId: string }) {
+  const channels = usePartnerChannels(partnerGroupId);
+  const conversation = (channels.data ?? [])[0] ?? null;
+
+  return (
+    <section className="flex max-h-[32rem] min-h-[16rem] flex-col overflow-hidden rounded-xl border border-border bg-card">
+      <p className="flex items-center gap-2 border-b border-border px-4 pb-2 pt-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+        <MessagesSquare className="h-3.5 w-3.5" /> Messages
+      </p>
+      {channels.isLoading ? (
+        <p className="p-4"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></p>
+      ) : !conversation ? (
+        <p className="p-4 text-sm text-muted-foreground">
+          No conversation has been started yet. Your BES contact will open one, and it will
+          appear here.
+        </p>
+      ) : (
+        <ConversationPane
+          channelId={conversation.id}
+          name={conversation.name}
+          purpose={conversation.purpose}
+          emptyLabel="No messages yet. Write to your BES team here."
+        />
+      )}
+    </section>
+  );
+}
 
 function Row({ label, value, icon: Icon }: { label: string; value: string | null; icon?: typeof Mail }) {
   return (

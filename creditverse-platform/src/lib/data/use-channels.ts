@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   addChannelMember, archiveChannel, createChannel, fetchChannelMembers,
-  fetchChannels, fetchMessages, postMessage, removeChannelMember,
+  fetchChannels, fetchMessages, openPartnerConversation, postMessage,
+  removeChannelMember,
 } from "@/lib/data/channels";
 import { useAuth } from "@/lib/auth/auth-context";
 import type { Json } from "@/lib/supabase/database.types";
@@ -101,6 +102,43 @@ export function useChannelMembers(channelId: string | null) {
     queryKey: ["channel-members", channelId ?? ""],
     queryFn: () => fetchChannelMembers(channelId!),
     enabled: !!channelId,
+    staleTime: 60_000,
+  });
+}
+
+/**
+ * The partner record's way into the conversation.
+ *
+ * Find-or-create on click. Nothing is fetched while the partner profile sits
+ * there unopened — the button needs no data to render, so it asks for none
+ * (rule 14). The agency channel list is invalidated afterwards because a
+ * brand-new conversation belongs in it.
+ */
+export function useOpenPartnerConversation(agencyId: string | null) {
+  const qc = useQueryClient();
+  const auth = useAuth();
+  return useMutation({
+    mutationFn: (v: { partnerGroupId: string; partnerName: string }) =>
+      openPartnerConversation({ ...v, createdBy: auth.user?.id ?? "" }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: channelsKey(agencyId ? `agency:${agencyId}` : null) });
+    },
+  });
+}
+
+/**
+ * The partner portal's side of the conversation.
+ *
+ * Its own cache key — a partner contact and a BES agent are looking at the
+ * same channel row, but they are different sessions asking different
+ * questions, and sharing a key between them would mean one person's list
+ * answering the other's.
+ */
+export function usePartnerChannels(partnerGroupId: string | null) {
+  return useQuery({
+    queryKey: ["channels", partnerGroupId ? `partner:${partnerGroupId}` : null],
+    queryFn: () => fetchChannels({ partnerGroupId: partnerGroupId! }),
+    enabled: !!partnerGroupId,
     staleTime: 60_000,
   });
 }
