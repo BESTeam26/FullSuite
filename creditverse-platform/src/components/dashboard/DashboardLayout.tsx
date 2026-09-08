@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { Suspense, useLayoutEffect, useRef } from "react";
 import { Outlet } from "react-router-dom";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { SidebarStateProvider } from "@/components/dashboard/sidebar-state";
@@ -10,6 +10,7 @@ import { ViewAsProvider } from "@/lib/agency/view-as-context";
 import { useOwnAccessContext } from "@/lib/agency/use-access-context";
 import { ViewAsBanner } from "@/components/agency/view-as/ViewAsBanner";
 import { RequireAgencyRoute } from "@/components/auth/RequireAgencyRoute";
+import { useShownLocation } from "@/lib/nav/use-route-transition";
 
 export const DashboardLayout = () => {
   useSeo({
@@ -27,6 +28,28 @@ export const DashboardLayout = () => {
 };
 
 /**
+ * Send the work area back to the top when a new screen arrives.
+ *
+ * The work area is a scroll container that outlives the screen inside it, and
+ * the screen is now swapped in place rather than being replaced by a
+ * placeholder first — so without this you arrive at a new page already
+ * scrolled to wherever you had left the last one.
+ *
+ * Keyed to the location that is ON SCREEN, not the one in the address bar: the
+ * address bar changes at the click, and resetting then would jerk the page you
+ * are still reading before it goes away. A query-string change is left alone —
+ * that is a filter on the same screen, not a new one.
+ */
+const useWorkAreaScrollReset = () => {
+  const area = useRef<HTMLElement>(null);
+  const { pathname } = useShownLocation();
+  useLayoutEffect(() => {
+    area.current?.scrollTo({ top: 0 });
+  }, [pathname]);
+  return area;
+};
+
+/**
  * The shell, inside the View As provider.
  *
  * Its own component because the provider needs the person's OWN role and
@@ -38,6 +61,7 @@ export const DashboardLayout = () => {
  */
 const AgencyShell = () => {
   const own = useOwnAccessContext();
+  const work = useWorkAreaScrollReset();
   return (
     <ViewAsProvider ownRole={own.role} ownCan={own.can}>
       <SidebarStateProvider>
@@ -47,7 +71,7 @@ const AgencyShell = () => {
             <Sidebar />
             <div className="flex flex-1 flex-col overflow-hidden">
               <Topbar />
-              <main className="flex-1 overflow-y-auto">
+              <main ref={work} className="flex-1 overflow-y-auto">
                 {/* ── WHY THE BOUNDARIES ARE HERE AND NOT AROUND THE SHELL ──
                     Both of these used to sit above `DashboardLayout`: one
                     Suspense wrapping the whole route tree in App.tsx, and

@@ -95,10 +95,19 @@ export default {
             height: "0",
           },
         },
+        /* The navigation bar creeps toward the right edge without ever
+           arriving: it reports that work is happening, and cannot promise a
+           completion time it does not know. */
+        "route-progress": {
+          "0%": { transform: "scaleX(0.02)" },
+          "50%": { transform: "scaleX(0.55)" },
+          "100%": { transform: "scaleX(0.92)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "route-progress": "route-progress 2.4s cubic-bezier(0.16, 1, 0.3, 1) forwards",
       },
     },
   },

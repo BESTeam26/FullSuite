@@ -4,8 +4,28 @@
     {
       "name": "creditverse-dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "creditverse-platform", "run", "dev"],
+      "runtimeArgs": [
+        "--prefix",
+        "creditverse-platform",
+        "run",
+        "dev"
+      ],
       "port": 8080
+    },
+    {
+      "name": "creditverse-preview",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "creditverse-platform",
+        "run",
+        "preview",
+        "--",
+        "--port",
+        "8081",
+        "--strictPort"
+      ],
+      "port": 8081
     }
   ]
 }

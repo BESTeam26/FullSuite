@@ -1,8 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { PanelResizer } from "@/components/dashboard/PanelResizer";
 import { usePanelWidth } from "@/lib/agency/use-panel-width";
 import { useAgency } from "@/lib/agency-context";
 import { Link, useLocation } from "react-router-dom";
+import { PrefetchLink } from "@/components/nav/PrefetchLink";
+import { prefetchVisibleRoutes } from "@/lib/nav/prefetch-visible";
 import {
   LayoutDashboard,
   Building2,
@@ -411,6 +413,56 @@ export const Sidebar = () => {
   const navGroups: NavGroup[] =
     viewMode === "agency" ? agencyNavGroups : subAccountNavGroups;
 
+  /* The menu as this person may actually see it, computed once.
+     `visibleItems` is what gets rendered AND what gets warmed in the
+     background — one list, so a screen can never be prefetched that the menu
+     would not offer. Visibility here is presentation only; the route guard and
+     row level security still decide what a screen serves (rule 1). */
+  const visibleGroups = useMemo(
+    () =>
+      navGroups
+        .map((group, index) => ({
+          group,
+          index,
+          visibleItems:
+            group.show === false
+              ? []
+              : group.items.filter((n) => {
+                  if (n.show === false) return false;
+                  if (n.permission && !permissions.can(n.permission)) return false;
+                  /* Agency HQ items answer to the canonical navigation
+                     authority, which the route guard also reads — so what the
+                     menu shows and what the door opens cannot drift apart
+                     (rule 3). Anything it does not define is left to the checks
+                     above. */
+                  if (viewMode === "agency") {
+                    const spec = routeFor(n.href);
+                    if (spec) {
+                      const access = accessTo(spec, navContext);
+                      return access === "allow" || access === "locked";
+                    }
+                  }
+                  return true;
+                }),
+        }))
+        .filter((g) => g.visibleItems.length > 0),
+    [navGroups, permissions, viewMode, navContext],
+  );
+
+  /* Keyed by the menu's CONTENT, not by the array's identity: the permission
+     helper is rebuilt on most renders, and scheduling a fresh idle pass every
+     render would keep the browser busy doing nothing. */
+  const visibleHrefs = visibleGroups
+    .flatMap((g) => g.visibleItems.map((n) => n.href))
+    .join("|");
+
+  /* Warm those screens' code while the browser is idle, so the first click on
+     each menu tab has nothing left to download. */
+  useEffect(
+    () => prefetchVisibleRoutes(visibleHrefs ? visibleHrefs.split("|") : []),
+    [visibleHrefs],
+  );
+
   /* Rail = collapsed on a large screen. The small-screen drawer is always
      full width, so a collapsed preference never produces an icon-only drawer. */
   const rail = collapsed && !mobileOpen;
@@ -498,25 +550,7 @@ export const Sidebar = () => {
         {!rail && <SubAccountSwitcher />}
 
         <nav className={cn("flex-1 overflow-y-auto py-3", rail ? "px-2" : "px-3")}>
-          {navGroups.map((group, index) => {
-            if (group.show === false) return null;
-            const visibleItems = group.items.filter((n) => {
-              if (n.show === false) return false;
-              if (n.permission && !permissions.can(n.permission)) return false;
-              /* Agency HQ items answer to the canonical navigation authority,
-                 which the route guard also reads — so what the menu shows and
-                 what the door opens cannot drift apart (rule 3). Anything it
-                 does not define is left to the checks above. */
-              if (viewMode === "agency") {
-                const spec = routeFor(n.href);
-                if (spec) {
-                  const access = accessTo(spec, navContext);
-                  return access === "allow" || access === "locked";
-                }
-              }
-              return true;
-            });
-            if (visibleItems.length === 0) return null;
+          {visibleGroups.map(({ group, index, visibleItems }) => {
             /* Keyed by position: the first group is titled with the
                organization's name, which is "Organization" until it loads and
                would then collide with the real "Organization" group. */
@@ -526,7 +560,7 @@ export const Sidebar = () => {
                 {visibleItems.map((n) => {
                   const active = isActive(n.href);
                   return (
-                    <Link
+                    <PrefetchLink
                       key={n.href + n.label}
                       to={n.href}
                       title={rail ? n.label : undefined}
@@ -555,7 +589,7 @@ export const Sidebar = () => {
                           {n.badge}
                         </span>
                       )}
-                    </Link>
+                    </PrefetchLink>
                   );
                 })}
               </div>

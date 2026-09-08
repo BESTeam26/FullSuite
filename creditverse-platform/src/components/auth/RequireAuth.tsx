@@ -11,6 +11,7 @@ import type { ReactNode } from "react";
 import { ShieldAlert, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth/auth-context";
+import { WorkspaceSkeleton } from "@/components/dashboard/WorkspaceSkeleton";
 
 export const FullScreenSpinner = () => (
   <div className="flex min-h-screen items-center justify-center bg-background">
@@ -51,7 +52,17 @@ export const RequireAuth = ({ children }: { children: ReactNode }) => {
   const { status, hasAnyAccess, mode, agencyMembership, orgMemberships, externalMemberships } = useAuth();
   const location = useLocation();
 
-  if (status === "loading") return <FullScreenSpinner />;
+  /* Resolving the session is the longest part of a cold load. On a workspace
+     URL it holds the frame the boot HTML already painted, so the interface
+     does not vanish and then reappear all at once; elsewhere — a portal, an
+     invitation — that frame would be the wrong shape, so a spinner it is. */
+  if (status === "loading") {
+    return location.pathname.startsWith("/app") ? (
+      <WorkspaceSkeleton />
+    ) : (
+      <FullScreenSpinner />
+    );
+  }
   if (status === "signed-out") {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }

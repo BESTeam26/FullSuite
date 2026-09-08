@@ -2169,6 +2169,27 @@ export type Database = {
           },
         ]
       }
+      credential_platforms: {
+        Row: {
+          key: string
+          label: string
+          sends_code: boolean
+          sort: number
+        }
+        Insert: {
+          key: string
+          label: string
+          sends_code?: boolean
+          sort?: number
+        }
+        Update: {
+          key?: string
+          label?: string
+          sends_code?: boolean
+          sort?: number
+        }
+        Relationships: []
+      }
       credit_reports: {
         Row: {
           bureaus: string[]
@@ -8032,6 +8053,147 @@ export type Database = {
           },
         ]
       }
+      partner_credential_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          agency_id: string
+          created_at: string
+          credential_id: string
+          id: number
+          note: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          agency_id: string
+          created_at?: string
+          credential_id: string
+          id?: never
+          note?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          agency_id?: string
+          created_at?: string
+          credential_id?: string
+          id?: never
+          note?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_credential_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_credential_events_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_credential_events_credential_id_fkey"
+            columns: ["credential_id"]
+            isOneToOne: false
+            referencedRelation: "partner_credentials"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_credentials: {
+        Row: {
+          agency_id: string
+          archived_at: string | null
+          archived_reason: string | null
+          code_destination: string | null
+          created_at: string
+          created_by: string | null
+          group_id: string
+          id: string
+          label: string
+          last_rotated_at: string | null
+          notes: string | null
+          platform_key: string
+          rotation_due_on: string | null
+          secret_id: string | null
+          updated_at: string
+          url: string | null
+          username: string | null
+        }
+        Insert: {
+          agency_id: string
+          archived_at?: string | null
+          archived_reason?: string | null
+          code_destination?: string | null
+          created_at?: string
+          created_by?: string | null
+          group_id: string
+          id?: string
+          label: string
+          last_rotated_at?: string | null
+          notes?: string | null
+          platform_key: string
+          rotation_due_on?: string | null
+          secret_id?: string | null
+          updated_at?: string
+          url?: string | null
+          username?: string | null
+        }
+        Update: {
+          agency_id?: string
+          archived_at?: string | null
+          archived_reason?: string | null
+          code_destination?: string | null
+          created_at?: string
+          created_by?: string | null
+          group_id?: string
+          id?: string
+          label?: string
+          last_rotated_at?: string | null
+          notes?: string | null
+          platform_key?: string
+          rotation_due_on?: string | null
+          secret_id?: string | null
+          updated_at?: string
+          url?: string | null
+          username?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_credentials_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_credentials_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_credentials_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "outsourcing_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_credentials_platform_key_fkey"
+            columns: ["platform_key"]
+            isOneToOne: false
+            referencedRelation: "credential_platforms"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
       partner_invoice_lines: {
         Row: {
           amount_cents: number
@@ -12940,6 +13102,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      looks_like_a_secret: { Args: { p_text: string }; Returns: boolean }
       manager_of: { Args: { p_user: string }; Returns: string }
       map_ghl_location: {
         Args: { p_location_id: string; p_org: string }
@@ -13147,6 +13310,26 @@ export type Database = {
           group_id: string
           total_clients: number
         }[]
+      }
+      partner_credential_archive: {
+        Args: { p_id: string; p_reason: string }
+        Returns: undefined
+      }
+      partner_credential_reveal: { Args: { p_id: string }; Returns: string }
+      partner_credential_save: {
+        Args: {
+          p_code_destination?: string
+          p_group: string
+          p_id?: string
+          p_label: string
+          p_notes?: string
+          p_platform: string
+          p_rotation_due?: string
+          p_secret?: string
+          p_url?: string
+          p_username?: string
+        }
+        Returns: string
       }
       partner_group_of_user: { Args: never; Returns: string }
       partner_invoice_recompute: {

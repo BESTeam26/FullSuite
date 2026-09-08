@@ -104,9 +104,100 @@
         }
       }
     </script>
+    <!--
+      First paint, before any JavaScript.
+
+      The workspace is a single-page app: until the bundle downloads, parses
+      and resolves the signed-in person, the browser has nothing to draw and
+      shows white. On a cold load that reads as a broken page, and then as a
+      second fault when the whole interface appears at once.
+
+      So the frame is painted here, in the HTML itself — the dark rail, the
+      top bar, and a quiet placeholder where the screen will be. React clears
+      #root on its first commit, so this is replaced the moment the real
+      shell is ready, and the change the person sees is content arriving
+      inside a frame that was already there.
+
+      Colours are the literal values of --sidebar-background, --background,
+      --card and --border in src/index.css. They are duplicated on purpose:
+      this must not wait for a stylesheet. Keep them in step.
+    -->
+    <style>
+      #bes-boot {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        background: hsl(38 27% 93%);
+      }
+      #bes-boot .rail {
+        width: 16rem;
+        flex-shrink: 0;
+        background: hsl(200 8% 5%);
+        border-right: 1px solid hsl(200 8% 16%);
+      }
+      #bes-boot .col { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+      #bes-boot .bar {
+        height: 3.5rem;
+        flex-shrink: 0;
+        background: hsl(0 0% 100%);
+        border-bottom: 1px solid hsl(38 14% 82%);
+      }
+      #bes-boot .body { flex: 1; padding: 1.5rem; }
+      #bes-boot .ghost { background: hsl(38 18% 90%); border-radius: 0.75rem; }
+      #bes-boot .title { height: 1.75rem; width: 14rem; margin-bottom: 1.5rem; }
+      #bes-boot .tiles {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.75rem;
+        margin-bottom: 1.5rem;
+      }
+      #bes-boot .tile {
+        height: 6rem;
+        background: hsl(0 0% 100%);
+        border: 1px solid hsl(38 14% 82%);
+        border-radius: 0.75rem;
+      }
+      #bes-boot .panel {
+        height: 16rem;
+        background: hsl(0 0% 100%);
+        border: 1px solid hsl(38 14% 82%);
+        border-radius: 0.75rem;
+      }
+      /* Nothing pulses. A skeleton that animates before the app has even
+         loaded draws the eye to the wait; a still frame just looks like the
+         app, arriving. */
+      @media (max-width: 1023px) {
+        #bes-boot .rail { display: none; }
+        #bes-boot .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Replaced by React on its first commit; see the note in <head>. -->
+      <div id="bes-boot" aria-hidden="true">
+        <div class="rail"></div>
+        <div class="col">
+          <div class="bar"></div>
+          <div class="body">
+            <div class="ghost title"></div>
+            <div class="tiles">
+              <div class="tile"></div><div class="tile"></div>
+              <div class="tile"></div><div class="tile"></div>
+            </div>
+            <div class="panel"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+      /* The frame above is the WORKSPACE. On a marketing or portal URL it
+         would be a lie, so it is removed before paint on any other path. */
+      if (!location.pathname.startsWith("/app")) {
+        var boot = document.getElementById("bes-boot");
+        if (boot) boot.remove();
+      }
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
