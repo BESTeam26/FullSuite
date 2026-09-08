@@ -36,6 +36,10 @@ export interface Division {
   leadId: string | null;
   sort: number;
   archived: boolean;
+  /** Organizational nesting only: FundingOps sits under CreditOps (0209). */
+  parentDivisionId: string | null;
+  /** `leadership` is above or outside the operating divisions (Dee, §10). */
+  tier: "leadership" | "operating";
 }
 
 export interface Department {
@@ -74,7 +78,8 @@ export interface OrganizationTree {
 export async function fetchOrganizationTree(): Promise<OrganizationTree> {
   const sb = requireSupabase();
   const [divisions, departments, teams] = await Promise.all([
-    sb.from("divisions").select("id, name, description, service, lead_id, sort, archived_at")
+    // prettier-ignore
+    sb.from("divisions").select("id, name, description, service, lead_id, sort, archived_at, parent_division_id, tier")
       .eq("is_fixture", false).order("sort").order("name"),
     sb.from("departments").select("id, division_id, name, description, manager_id, sort, archived_at")
       .eq("is_fixture", false).order("sort").order("name"),
@@ -91,6 +96,8 @@ export async function fetchOrganizationTree(): Promise<OrganizationTree> {
       id: r.id, name: r.name, description: r.description,
       service: r.service, leadId: r.lead_id, sort: r.sort,
       archived: r.archived_at !== null,
+      parentDivisionId: r.parent_division_id ?? null,
+      tier: (r.tier as "leadership" | "operating") ?? "operating",
     })),
     departments: (departments.data ?? []).map((r) => ({
       id: r.id, divisionId: r.division_id, name: r.name, description: r.description,

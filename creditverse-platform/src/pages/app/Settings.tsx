@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { CommunicationSection } from "@/components/settings/sections/CommunicationSection";
+import { PositionsSection } from "@/components/settings/sections/PositionsSection";
+import { OrgChart } from "@/components/agency/OrgChart";
 import { useSearchParams } from "react-router-dom";
 import {
   Building2,
@@ -27,6 +29,7 @@ import {
   Palette,
   UserRound,
   MessagesSquare,
+  BriefcaseBusiness,
 } from "lucide-react";
 import {
   AgencySettingsProvider,
@@ -102,6 +105,8 @@ const groups: SettingsGroup[] = [
       { key: "org-teams", label: "Organization Teams", icon: Users },
       { key: "permissions", label: "Roles & Permissions", icon: ShieldCheck },
       { key: "structure", label: "Divisions / Teams", icon: Network },
+      { key: "positions", label: "Positions", icon: BriefcaseBusiness },
+      { key: "org-chart", label: "Org Chart", icon: Network },
     ],
   },
   {
@@ -238,6 +243,10 @@ const SettingsContent = () => {
         return <AutomationsSection />;
       case "communication":
         return <CommunicationSection />;
+      case "positions":
+        return <PositionsSection />;
+      case "org-chart":
+        return <OrgChart />;
       case "billing":
         /* The real subscription for the organization in view; BillingSection
            is the agency-level rules screen and stays beneath it. */

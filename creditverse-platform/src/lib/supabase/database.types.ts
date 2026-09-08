@@ -2835,8 +2835,10 @@ export type Database = {
           is_fixture: boolean
           lead_id: string | null
           name: string
+          parent_division_id: string | null
           service: Database["public"]["Enums"]["fulfillment_service"]
           sort: number
+          tier: string
           updated_at: string
         }
         Insert: {
@@ -2848,8 +2850,10 @@ export type Database = {
           is_fixture?: boolean
           lead_id?: string | null
           name: string
+          parent_division_id?: string | null
           service: Database["public"]["Enums"]["fulfillment_service"]
           sort?: number
+          tier?: string
           updated_at?: string
         }
         Update: {
@@ -2861,8 +2865,10 @@ export type Database = {
           is_fixture?: boolean
           lead_id?: string | null
           name?: string
+          parent_division_id?: string | null
           service?: Database["public"]["Enums"]["fulfillment_service"]
           sort?: number
+          tier?: string
           updated_at?: string
         }
         Relationships: [
@@ -2878,6 +2884,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "divisions_parent_division_id_fkey"
+            columns: ["parent_division_id"]
+            isOneToOne: false
+            referencedRelation: "divisions"
             referencedColumns: ["id"]
           },
         ]
@@ -8336,6 +8349,190 @@ export type Database = {
           },
         ]
       }
+      position_assignments: {
+        Row: {
+          agency_id: string
+          assignment_type: string
+          created_at: string
+          created_by: string | null
+          effective_from: string
+          effective_until: string | null
+          ended_at: string | null
+          ended_by: string | null
+          id: string
+          note: string | null
+          position_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          agency_id: string
+          assignment_type?: string
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          effective_until?: string | null
+          ended_at?: string | null
+          ended_by?: string | null
+          id?: string
+          note?: string | null
+          position_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          agency_id?: string
+          assignment_type?: string
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          effective_until?: string | null
+          ended_at?: string | null
+          ended_by?: string | null
+          id?: string
+          note?: string | null
+          position_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "position_assignments_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "position_assignments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "position_assignments_ended_by_fkey"
+            columns: ["ended_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "position_assignments_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "positions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "position_assignments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      positions: {
+        Row: {
+          agency_id: string
+          archived_at: string | null
+          created_at: string
+          created_by: string | null
+          department_id: string | null
+          description: string | null
+          division_id: string | null
+          headcount: number
+          id: string
+          is_fixture: boolean
+          reports_to_position_id: string | null
+          sort: number
+          status: string
+          team_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          department_id?: string | null
+          description?: string | null
+          division_id?: string | null
+          headcount?: number
+          id?: string
+          is_fixture?: boolean
+          reports_to_position_id?: string | null
+          sort?: number
+          status?: string
+          team_id?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          department_id?: string | null
+          description?: string | null
+          division_id?: string | null
+          headcount?: number
+          id?: string
+          is_fixture?: boolean
+          reports_to_position_id?: string | null
+          sort?: number
+          status?: string
+          team_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "positions_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "positions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "positions_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "positions_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "divisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "positions_reports_to_position_id_fkey"
+            columns: ["reports_to_position_id"]
+            isOneToOne: false
+            referencedRelation: "positions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "positions_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_entitlements: {
         Row: {
           enabled: boolean
@@ -10916,6 +11113,32 @@ export type Database = {
       }
       agency_can: { Args: { p_key: string }; Returns: boolean }
       agency_of_org: { Args: { p_org: string }; Returns: string }
+      agency_positions: {
+        Args: { p_agency: string }
+        Returns: {
+          archived_at: string
+          coverage: Json
+          department_id: string
+          department_name: string
+          description: string
+          division_id: string
+          division_name: string
+          division_parent_id: string
+          division_tier: string
+          headcount: number
+          holders: Json
+          id: string
+          reports_to_id: string
+          reports_to_person: string
+          reports_to_title: string
+          sort: number
+          state: string
+          status: string
+          team_id: string
+          team_name: string
+          title: string
+        }[]
+      }
       ai_available_credits: { Args: { p_org: string }; Returns: number }
       ai_can_use: {
         Args: { p_feature: string; p_org: string }
@@ -11443,6 +11666,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      end_position_assignment: {
+        Args: { p_id: string; p_on?: string }
+        Returns: undefined
+      }
       engagement_is_live: {
         Args: {
           p_from: string
@@ -11617,6 +11844,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      manager_of: { Args: { p_user: string }; Returns: string }
       map_ghl_location: {
         Args: { p_location_id: string; p_org: string }
         Returns: undefined
