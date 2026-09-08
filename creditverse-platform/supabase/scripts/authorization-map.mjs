@@ -26,10 +26,15 @@
 import { writeFileSync } from "node:fs";
 import { createSyncQuery, readAccessToken, readProjectRef } from "./lib/sync-query.mjs";
 
+/* NO `baseUrl`. It resolves `./query-worker.mjs`, which sits beside
+   sync-query.mjs in `lib/` — passing this file's own URL pointed the Worker at
+   `scripts/query-worker.mjs`, which does not exist. The Worker is `unref`ed
+   with no error listener, so it failed silently and `Atomics.wait` blocked
+   forever: the script hung with no output rather than throwing. Omitting it
+   lets sync-query.mjs resolve the path relative to itself, which is right. */
 const { query: q, close } = createSyncQuery({
   projectRef: readProjectRef(),
   token: readAccessToken(),
-  baseUrl: import.meta.url,
 });
 
 /* ── One query per subject, not one per row (rule 14 applies to tools too) ── */
@@ -72,7 +77,11 @@ const functions = q(`
 const views = q(`
   select c.relname as view,
          coalesce((select 'yes' from pg_options_to_table(c.reloptions) o
-                    where o.option_name = 'security_invoker' and o.option_value = 'true'), 'NO') as security_invoker
+                    where o.option_name = 'security_invoker' and o.option_value = 'true'), 'NO') as security_invoker,
+         coalesce((select string_agg(distinct g.grantee, ', ' order by g.grantee)
+                     from information_schema.role_table_grants g
+                    where g.table_schema = 'public' and g.table_name = c.relname
+                      and g.grantee in ('anon','authenticated')), '—') as api_readable_by
     from pg_class c join pg_namespace n on n.oid = c.relnamespace
    where n.nspname = 'public' and c.relkind = 'v'
    order by c.relname`);
@@ -165,12 +174,26 @@ for (const t of tables) {
 
 w(`## Views`);
 w();
-w(`A view without \`security_invoker\` runs as its owner, so it does NOT apply the`);
-w(`reader's policies to the tables underneath.`);
+w(`A view without \`security_invoker\` runs as its OWNER, so it does not apply the`);
+w(`reader's policies to the tables underneath. That only matters where the API`);
+w(`can read the view, so the column that decides whether a \`NO\` is a finding is`);
+w(`the last one.`);
 w();
-w(`| View | security_invoker |`);
-w(`|---|---|`);
-for (const v of views) w(`| \`${esc(v.view)}\` | ${v.security_invoker === "yes" ? "yes" : "**NO**"} |`);
+const risky = views.filter((v) => v.security_invoker !== "yes" && v.api_readable_by !== "—");
+if (risky.length > 0) {
+  w(`> **${risky.length} view${risky.length === 1 ? "" : "s"} readable through the API WITHOUT \`security_invoker\`.**`);
+  w(`> Everything protecting the rows is then whatever the view's own \`WHERE\``);
+  w(`> clause says — there is no policy underneath to catch an edit that`);
+  w(`> weakens it. Each one is a deliberate decision or a defect; check it.`);
+  w(`>`);
+  for (const v of risky) w(`> - \`${esc(v.view)}\` — readable by ${esc(v.api_readable_by)}`);
+  w();
+}
+w(`| View | security_invoker | Readable through the API by |`);
+w(`|---|---|---|`);
+for (const v of views) {
+  w(`| \`${esc(v.view)}\` | ${v.security_invoker === "yes" ? "yes" : "**NO**"} | ${esc(v.api_readable_by)} |`);
+}
 w();
 
 w(`## Permission keys — the canonical named permissions`);

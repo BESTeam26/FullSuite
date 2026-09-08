@@ -481,3 +481,40 @@ accounts are deliberately severed — banned, no password — so they cannot
 authenticate, which is the point. Claude does not type passwords. A signed-in
 pass over Communication, the bell and the credit-status control is the one
 part of this that needs a person.
+
+### A finding the generated map surfaced on its first run
+
+`borrower_funding_files` is readable by `authenticated` and has **no
+`security_invoker`**, so it runs as its owner and the policies on
+`funding_files` and `funding_clients` do not apply to it. The only thing
+between a borrower and every funding file in the platform is the view's own
+
+    where c.portal_user_id = auth.uid()
+
+That clause is correct today, and the matrix passes because it is correct. But
+it is a single clause with no policy underneath to catch an edit that weakens
+it — and this project has already been bitten by a view losing
+`security_invoker` (`credit_report_visible`, the 0102→0108 incident).
+
+**The missing flag is load-bearing, not an oversight.** Measured:
+`funding_files` HAS a borrower policy (`funding_files_borrower_select` →
+`is_borrower_of_file`), but `funding_clients` has none keyed on
+`portal_user_id` — its two SELECT policies are the credit-portal link
+(`client_id in my_client_ids()`) and the BES/organization branch. So turning
+`security_invoker` on today would break the borrower portal, because the join
+to `funding_clients` would return nothing.
+
+**Not changed, deliberately.** The proper fix is two steps — give
+`funding_clients` a borrower SELECT policy, then turn the flag on — and step
+one WIDENS what a borrower can read from nothing to their whole
+`funding_clients` row, columns the view does not expose today
+(`assigned_agent_id` and the rest). Narrowing that properly means either a
+column-limited `SECURITY DEFINER` function instead of the view, or a policy
+plus a column grant. Both are design changes to a live portal and both are
+Dee's call. Recorded as **C16** in `WHAT_I_NEED_FROM_DEE.md`.
+
+The other view without the flag, `fixture_login_state`, grants `anon` and
+`authenticated` nothing at all — postgres and `service_role` only — so it is
+not reachable and not a finding. That distinction is why the generator now
+prints who can read a view beside the flag: a bare list of views without
+`security_invoker` reads as two problems when it is one.
