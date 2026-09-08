@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   billingStatusFor,
+  clickupNumber,
   credentialNoteFor,
   healthFor,
   matchCandidates,
@@ -30,6 +31,27 @@ const row = (over: Partial<ClickUpPartnerRow> = {}): ClickUpPartnerRow => ({
   startDateMs: null,
   description: null,
   ...over,
+});
+
+describe("ClickUp sends numbers as strings", () => {
+  it("reads the shapes the live list actually returns", () => {
+    expect(clickupNumber("625")).toBe(625);
+    expect(clickupNumber("536")).toBe(536);
+    expect(clickupNumber(625)).toBe(625);
+    expect(clickupNumber("$1,250")).toBe(1250);
+  });
+
+  it("never turns an unrecorded amount into zero — zero is a commercial claim", () => {
+    expect(clickupNumber(undefined)).toBeNull();
+    expect(clickupNumber(null)).toBeNull();
+    expect(clickupNumber("")).toBeNull();
+    expect(clickupNumber("n/a")).toBeNull();
+    expect(clickupNumber(Infinity)).toBeNull();
+  });
+
+  it("keeps a real zero, which is different from absent", () => {
+    expect(clickupNumber("0")).toBe(0);
+  });
 });
 
 describe("lifecycle is not service", () => {

@@ -80,6 +80,13 @@ export interface ClickUpPartnerRow {
   billingStatusIndex: number | null;
   moodIndex: number | null;
   paymentMethodIndex: number | null;
+  /**
+   * ClickUp returns a NUMBER field's value as a STRING ("625", "536"), and a
+   * DROPDOWN's as an order index. Coerce with `clickupNumber` when building
+   * the snapshot — a string that reaches `legacyReportedActiveClients` lands
+   * in an integer column by Postgres coercion and looks identical in the
+   * proposal, which is the kind of wrong that survives review.
+   */
   mrrUsd: number | null;
   activeClients: number | null;
   startDateMs: number | null;
@@ -88,6 +95,20 @@ export interface ClickUpPartnerRow {
    * classified: `proposePartnerImport` never returns it and nothing writes it.
    */
   description: string | null;
+}
+
+/**
+ * A ClickUp number field, as a number.
+ *
+ * The API sends `"625"`, and an empty field is absent rather than null. Only
+ * a finite number survives: `""`, `"n/a"` and a stray `Infinity` all become
+ * null, because a partner with no MRR recorded must read as "not recorded"
+ * and never as zero — zero is a commercial claim.
+ */
+export function clickupNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const n = typeof value === "number" ? value : Number(String(value).replace(/[$,\s]/g, ""));
+  return Number.isFinite(n) ? n : null;
 }
 
 /* ------------------------------------------------------------------ */
