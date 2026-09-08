@@ -19,11 +19,16 @@ import {
 import { ClientWorkActivityTimeline } from "./ClientWorkActivityTimeline";
 import { DepartmentProgressSection } from "./DepartmentProgressSection";
 import { CompleteWorkSection } from "./CompleteWorkSection";
+import {
+  ClientContextBar, ClientHeaderSentinel, useClientContextBar,
+} from "./ClientContextBar";
 import { Link } from "react-router-dom";
 import { FundingReadinessCard } from "./FundingReadinessCard";
 import { ClientLifecycleControl } from "./ClientLifecycleControl";
+import { ClientStatusControl } from "./ClientStatusControl";
 import { useCreditOpsAccess } from "@/lib/fulfillment/creditops-access";
 import { usePartnerOperations } from "@/lib/data/use-partner-services";
+import { updateClientField } from "@/lib/data/fulfillment-clients";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -33,6 +38,11 @@ interface Props {
 
 export function ClientWorkWorkspace({ clientId, onBack }: Props) {
   const store = useCreditOpsStore();
+  /* One ref, one flag. The bar itself decides nothing about scrolling — it
+     sticks to the container CreditOps.tsx already scrolls (§26). */
+  const contextBar = useClientContextBar();
+  /* Which department Complete Work is logging as, for the context bar. */
+  const [activeDepartment, setActiveDepartment] = useState<string | null>(null);
   const client = store.clients.find((c) => c.id === clientId);
   const access = useCreditOpsAccess();
   /* The partner decides, not the client: BES is either the system of record
@@ -53,14 +63,48 @@ export function ClientWorkWorkspace({ clientId, onBack }: Props) {
    * reading this file would believe identity documents were on file and that
    * a round of disputes had been worked.
    *
-   * None of these fields has a database column yet, so none of them persists.
-   * They start empty and each panel says plainly that it is not stored — an
-   * empty box a person can see is not yet saved is honest; a filled one that
-   * silently forgets is not (rule 12: never present sample data as real).
+   * Main Description and Next Action DO persist now (0212). They used to be
+   * local state with a note underneath admitting the text would be lost on
+   * reload — a control that looked like every other field, took a paragraph
+   * of somebody's work and threw it away. Dee, §29: "No pilot UI should
+   * invite input and then intentionally discard it."
+   *
+   * The rest below still has no column, and each panel still says so.
    */
-  const [description, setDescription] = useState("");
   const [isEditingDesc, setIsEditingDesc] = useState(false);
-  const [nextAction, setNextAction] = useState("");
+  const [savingField, setSavingField] = useState<"description" | "nextAction" | null>(null);
+  const [fieldError, setFieldError] = useState<string | null>(null);
+  /* Drafts, seeded from the record and reset when the client changes — §19:
+     switching client must not leave the previous file's text on screen. */
+  const [description, setDescription] = useState(client?.description ?? "");
+  const [nextAction, setNextAction] = useState(client?.nextAction ?? "");
+  useEffect(() => {
+    setDescription(client?.description ?? "");
+    setNextAction(client?.nextAction ?? "");
+    setIsEditingDesc(false);
+    setFieldError(null);
+  }, [clientId, client?.description, client?.nextAction]);
+
+  /* Written on Done / blur, not per keystroke. The activity entry comes from
+     the database trigger, so the timeline records the change only when the
+     record actually changed (§30). */
+  const saveField = async (field: "description" | "nextAction", value: string) => {
+    const current = field === "description" ? client?.description : client?.nextAction;
+    if ((current ?? "") === value.trim()) return;
+    setSavingField(field);
+    setFieldError(null);
+    try {
+      await updateClientField({ clientId, [field]: value } as never);
+      /* No refetch. The draft above already holds what was just written, and
+         the effect re-seeds only when the RECORD changes — so the next time
+         the list refreshes for any reason it lands on the same value rather
+         than reverting somebody's paragraph (rule 14). */
+    } catch (err) {
+      setFieldError(err instanceof Error ? err.message : "Could not save that.");
+    } finally {
+      setSavingField(null);
+    }
+  };
   const [workabilityBlocker, setWorkabilityBlocker] = useState<string | null>(
     null,
   );
@@ -155,8 +199,24 @@ export function ClientWorkWorkspace({ clientId, onBack }: Props) {
 
   return (
     <div className="space-y-4 text-xs">
+      {/* The sentinel sits where the full header starts. While it is on
+          screen the full header is doing its job; the moment it leaves, the
+          compact bar appears (§16). */}
+      <ClientHeaderSentinel innerRef={contextBar.sentinel} />
+      <ClientContextBar
+        client={client}
+        visible={contextBar.outOfView}
+        workingAs={activeDepartment}
+        onBack={onBack}
+      />
       <ClientWorkHeader client={client} onBack={onBack} />
       {client && <ClientLifecycleControl client={client} canEdit={access.canEditDepartmentProgress} />}
+      {/* The dedicated status control. Deliberately its own panel, and
+          deliberately nowhere near Complete Work — that is the doctrine. */}
+      {/* No role gate: the client LIST lets anybody who can see a row edit its
+          status, and a stricter rule here would mean the same person could
+          change it from one screen and not the other. RLS is the real gate. */}
+      {client && <ClientStatusControl client={client} />}
       {/* ── ONLY WHERE BES IS THE SYSTEM OF RECORD ─────────────────────
           The credit report, dispute and letter screens are BES's own CRM.
           Every partner today runs their credit work in their own system, and
@@ -187,15 +247,19 @@ export function ClientWorkWorkspace({ clientId, onBack }: Props) {
                 Main Description
               </h3>
               <button
-                onClick={() => setIsEditingDesc(!isEditingDesc)}
-                className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                onClick={async () => {
+                  if (isEditingDesc) await saveField("description", description);
+                  setIsEditingDesc(!isEditingDesc);
+                }}
+                disabled={savingField === "description"}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline disabled:opacity-60"
               >
                 {isEditingDesc ? (
                   <Check className="h-3.5 w-3.5" />
                 ) : (
                   <Edit2 className="h-3.5 w-3.5" />
                 )}
-                {isEditingDesc ? "Done" : "Edit"}
+                {savingField === "description" ? "Saving…" : isEditingDesc ? "Done" : "Edit"}
               </button>
             </div>
 
@@ -216,9 +280,7 @@ export function ClientWorkWorkspace({ clientId, onBack }: Props) {
               </div>
             )}
             <p className="mt-2 text-[11px] text-muted-foreground">
-              Not saved yet — this panel has no database column, so what is typed
-              here is lost on reload. Notes that must survive belong on the
-              client's activity timeline.
+              Saved on the client record. The activity timeline records each change.
             </p>
           </div>
 
@@ -230,11 +292,22 @@ export function ClientWorkWorkspace({ clientId, onBack }: Props) {
             <input
               value={nextAction}
               onChange={(e) => setNextAction(e.target.value)}
+              onBlur={() => void saveField("nextAction", nextAction)}
+              onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
               placeholder="What needs to happen next?"
+              maxLength={500}
               className="mt-2 w-full rounded-lg border border-border bg-background px-3 py-2 text-xs font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
             />
-            <p className="mt-1 text-[11px] text-muted-foreground">Not saved yet.</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              {savingField === "nextAction" ? "Saving…" : "Saved when you leave the box."}
+            </p>
           </div>
+
+          {fieldError && (
+            <p role="alert" className="rounded-lg border border-status-danger/30 bg-status-danger/10 px-3 py-2 text-xs text-status-danger">
+              {fieldError}
+            </p>
+          )}
 
           {/* Department Progress — access controlled */}
           <DepartmentProgressSection clientId={clientId} />
@@ -332,6 +405,7 @@ export function ClientWorkWorkspace({ clientId, onBack }: Props) {
             clientId={clientId}
             clientName={client?.name ?? "this client"}
             partnerName={client ? clientGroupLabel(client) : "—"}
+            onActiveDepartmentChange={setActiveDepartment}
           />
 
           {/* Attachments */}

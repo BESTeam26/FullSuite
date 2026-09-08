@@ -20,7 +20,7 @@
  *   6. Submit creates ONE Work Completion event → Activity + Production (1 unit).
  */
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2, FileText, Loader2 } from "lucide-react";
 import { errorMessage } from "@/lib/data/error-message";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -39,6 +39,8 @@ interface Props {
   clientId: string;
   clientName?: string;
   partnerName?: string;
+  /** Reported upward for the sticky client context bar (§21). */
+  onActiveDepartmentChange?: (department: string | null) => void;
 }
 
 /**
@@ -65,29 +67,22 @@ interface Props {
  *
  * A processor moves a round along. Only an admin finishes or graduates a file.
  */
-const KEEP = "Keep current status";
-const ADMIN_STATUS_OPTIONS = [
-  KEEP,
-  "Move to Ready for Round 1",
-  "Move to Ready for Processing",
-  "Move to Round Sent - Awaiting Results",
-  "Move to Ready for Reimport / Review",
-  "Move to Waiting for Partner Approval",
-  "Move to Completed",
-  "Move to Graduated",
-];
-const PROCESSOR_STATUS_OPTIONS = [
-  KEEP,
-  "Move to Ready for Processing",
-  "Move to Round Sent - Awaiting Results",
-  "Move to Ready for Reimport / Review",
-  "Move to Waiting for Partner Approval",
-];
+/*
+ * The status options that used to live here are gone with the control.
+ *
+ * Dee's locked doctrine, restated because a helpful person will try to put it
+ * back: COMPLETE WORK RECORDS WORK AND HANDS OFF NEXT STEPS. IT DOES NOT
+ * CHANGE THE CLIENT'S MASTER STATUS. The status vocabulary itself is
+ * untouched — `fulfillment_client_status` and every label are exactly as they
+ * were — and the dedicated Status control still moves the file. This panel
+ * simply is not where that happens.
+ */
 
 export function CompleteWorkSection({
   clientId,
   clientName = "this client",
   partnerName = "—",
+  onActiveDepartmentChange,
 }: Props) {
   const store = useCreditOpsStore();
   const access = useCreditOpsAccess();
@@ -106,9 +101,13 @@ export function CompleteWorkSection({
   const [activeDept, setActiveDept] = useState<CreditOpsDepartment | "">(
     workingDepts[0] ?? "",
   );
+  /* Reported upward so the sticky context bar can say which department the
+     operator is logging as — §21, so nobody records actions under the wrong
+     one. The state stays owned here; only the value travels. */
+  useEffect(() => { onActiveDepartmentChange?.(activeDept || null); },
+    [activeDept, onActiveDepartmentChange]);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [workNotes, setWorkNotes] = useState("");
-  const [statusChange, setStatusChange] = useState(KEEP);
   /* Several at once — bureau calling and complaints run in parallel. */
   const [handoffTo, setHandoffTo] = useState<CreditOpsDepartment[]>([]);
   const [handoffResult, setHandoffResult] = useState<
@@ -135,8 +134,6 @@ export function CompleteWorkSection({
     [activeDept],
   );
 
-  const isAdmin = access.canEditDepartmentProgress && access.canAccessManagement;
-  const statusOptions = isAdmin ? ADMIN_STATUS_OPTIONS : PROCESSOR_STATUS_OPTIONS;
 
   /* Read-only roles (for example QA by default) see the work, never a form
      that the database — and the organization's configuration — would refuse. */
@@ -214,14 +211,11 @@ export function CompleteWorkSection({
         });
       }
 
-      /* Status change stays SEPARATE from the completion actions — but it is
-         a real change now. `updateStatus` writes the record; the activity
-         entry comes from the database trigger, so the timeline says the status
-         moved only when it actually did. */
-      if (statusChange !== KEEP) {
-        /* The label reads "Move to X"; the stored value is X. */
-        await store.updateStatus(clientId, statusChange.replace("Move to ", ""), actor);
-      }
+      /* NOTHING HERE TOUCHES THE MASTER STATUS. Dee's locked doctrine:
+         Complete Work records production, actions and the next-step handoff,
+         and it does NOT change the client's master status. The dedicated
+         Status control elsewhere still does that, deliberately, on its own.
+         A matrix probe asserts the status is unchanged by a handoff. */
 
       /* And the handoffs, which run in parallel with everything above. */
       if (handoffTo.length > 0) {
@@ -241,7 +235,6 @@ export function CompleteWorkSection({
       requestIdRef.current = crypto.randomUUID();
       setSelectedItems([]);
       setWorkNotes("");
-      setStatusChange(KEEP);
       setHandoffTo([]);
     } catch (err) {
       setSubmitError(errorMessage(err, "Could not record this work."));
@@ -337,25 +330,6 @@ export function CompleteWorkSection({
             rows={2}
             className="w-full rounded-lg border border-border bg-background p-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
           />
-
-          {/* Status change is SEPARATE from completion actions */}
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-              After this work
-            </label>
-            <OpsSelect
-              value={statusChange}
-              onValueChange={setStatusChange}
-              options={statusOptions}
-              size="sm"
-              aria-label="Status after this work"
-              className="w-full"
-            />
-            <p className="text-[10px] text-muted-foreground">
-              Moves the file. Separate from handing it to another department below — a round can
-              advance and be handed off at the same time.
-            </p>
-          </div>
 
           {/* Handing off is not a status change and not one department. Bureau
               calling and complaints run at the same time; picking both opens

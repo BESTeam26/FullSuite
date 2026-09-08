@@ -3614,6 +3614,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           date_of_birth: string | null
+          description: string | null
           due_at: string | null
           email: string
           id: string
@@ -3622,6 +3623,7 @@ export type Database = {
           lifecycle: Database["public"]["Enums"]["client_lifecycle"]
           mode: Database["public"]["Enums"]["fulfillment_mode"]
           name: string
+          next_action: string | null
           open_items: number
           organization_id: string | null
           outsourcing_group_id: string | null
@@ -3645,6 +3647,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           date_of_birth?: string | null
+          description?: string | null
           due_at?: string | null
           email: string
           id?: string
@@ -3653,6 +3656,7 @@ export type Database = {
           lifecycle?: Database["public"]["Enums"]["client_lifecycle"]
           mode: Database["public"]["Enums"]["fulfillment_mode"]
           name: string
+          next_action?: string | null
           open_items?: number
           organization_id?: string | null
           outsourcing_group_id?: string | null
@@ -3676,6 +3680,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           date_of_birth?: string | null
+          description?: string | null
           due_at?: string | null
           email?: string
           id?: string
@@ -3684,6 +3689,7 @@ export type Database = {
           lifecycle?: Database["public"]["Enums"]["client_lifecycle"]
           mode?: Database["public"]["Enums"]["fulfillment_mode"]
           name?: string
+          next_action?: string | null
           open_items?: number
           organization_id?: string | null
           outsourcing_group_id?: string | null
@@ -11411,6 +11417,10 @@ export type Database = {
           name: string
         }[]
       }
+      client_department_writable: {
+        Args: { p_client: string }
+        Returns: boolean
+      }
       client_portal_home: {
         Args: never
         Returns: {
@@ -11704,6 +11714,10 @@ export type Database = {
           status: string
         }[]
       }
+      funding_department_writable: {
+        Args: { p_file: string }
+        Returns: boolean
+      }
       funding_event_visibility: {
         Args: { p_agency: string; p_org: string }
         Returns: Database["public"]["Enums"]["activity_visibility"]
@@ -11748,6 +11762,16 @@ export type Database = {
           p_reference?: string
         }
         Returns: string
+      }
+      handoff_client_departments: {
+        Args: {
+          p_client: string
+          p_from: Database["public"]["Enums"]["fulfillment_department"]
+          p_note?: string
+          p_statuses: string[]
+          p_targets: Database["public"]["Enums"]["fulfillment_department"][]
+        }
+        Returns: Json
       }
       handoff_to_creditops: {
         Args: { p_existing_client?: string; p_funding_client: string }

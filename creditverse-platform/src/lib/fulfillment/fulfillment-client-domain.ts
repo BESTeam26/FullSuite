@@ -129,6 +129,9 @@ export interface FulfillmentClient extends OpsClient {
   archivedAt?: string | null;
   /** Number of dispute items currently in work. */
   openItems: number;
+  /** The standing working description, and the one-line next action (0212). */
+  description?: string | null;
+  nextAction?: string | null;
 }
 
 /* ------------------------------------------------------------------ */

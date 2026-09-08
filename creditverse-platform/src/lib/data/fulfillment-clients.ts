@@ -86,6 +86,8 @@ export function mapClientRow(row: ClientRow): FulfillmentClient {
     openItems: row.open_items,
     slaHoursRemaining: hoursUntil(row.due_at),
     processedOn: (row as { processed_on?: string | null }).processed_on ?? null,
+    description: (row as { description?: string | null }).description ?? null,
+    nextAction: (row as { next_action?: string | null }).next_action ?? null,
     dueAt: row.due_at ?? null,
     lastActivity: relativeTime(row.last_activity_at),
     createdAt: row.created_at.slice(0, 10),
@@ -493,6 +495,27 @@ export async function setClientLifecycle(input: { clientId: string; lifecycle: C
  * Returns what actually happened, so the screen can say "opened Bureau
  * Calling; Complaints was already working it" instead of claiming success.
  */
+/**
+ * Hand off to one or more departments, in ONE transaction.
+ *
+ * ── WHY THIS IS AN RPC AND NOT A LOOP ──────────────────────────────────────
+ *
+ * It used to call `setClientDepartmentStatus` once per destination from the
+ * browser. Two things were wrong with that, and only the louder one was the
+ * RLS bug (0211):
+ *
+ *   · it was not atomic. Complaints could open, Bureau Calling be refused,
+ *     and the operator be left with a half-done handoff and no clear account
+ *     of it (Dee, §5);
+ *   · "is this already open" was decided from a snapshot the browser read
+ *     earlier — a check-then-write race with anybody else on the same file.
+ *
+ * `planHandoffs` still decides which status each department is ENTERED at.
+ * That rule is tested and there is exactly one copy of it (§4: no second
+ * handoff engine). The database validates every status it is handed, decides
+ * "already open" inside the transaction, and reports what it actually did —
+ * so the interface can only claim what happened (§30).
+ */
 export async function handOffToDepartments(input: {
   clientId: string;
   from: Enums<"fulfillment_department"> | null;
@@ -507,21 +530,36 @@ export async function handOffToDepartments(input: {
     input.rows as never,
   );
 
-  for (const { department, entryStatus } of plan.opening) {
-    await setClientDepartmentStatus({
-      clientId: input.clientId,
-      department: department as Enums<"fulfillment_department">,
-      status: entryStatus,
-      note: [
-        input.from ? `Handed off from ${input.from}` : "Handed off",
-        input.note?.trim() || null,
-      ].filter(Boolean).join(" — "),
-    });
+  /* Nothing legal to do. Say so rather than calling the database to be told. */
+  if (plan.opening.length === 0) {
+    return {
+      opened: [],
+      alreadyOpen: plan.alreadyOpen.map((o) => o.department),
+      refused: plan.refused.map((r) => r.department),
+    };
   }
 
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("handoff_client_departments", {
+    p_client: input.clientId,
+    p_from: input.from as Enums<"fulfillment_department">,
+    p_targets: plan.opening.map((o) => o.department) as Enums<"fulfillment_department">[],
+    p_statuses: plan.opening.map((o) => o.entryStatus),
+    p_note: [
+      input.from ? `Handed off from ${input.from}` : "Handed off",
+      input.note?.trim() || null,
+    ].filter(Boolean).join(" — "),
+  });
+  if (error) throw error;
+
+  const result = (data ?? {}) as { opened?: string[]; alreadyOpen?: string[] };
   return {
-    opened: plan.opening.map((o) => o.department),
-    alreadyOpen: plan.alreadyOpen.map((o) => o.department),
+    /* What the DATABASE says it opened, not what the plan hoped to open. */
+    opened: result.opened ?? [],
+    alreadyOpen: [
+      ...plan.alreadyOpen.map((o) => o.department),
+      ...(result.alreadyOpen ?? []),
+    ].filter((d, i, all) => all.indexOf(d) === i),
     refused: plan.refused.map((r) => r.department),
   };
 }
@@ -538,10 +576,15 @@ export async function updateClientField(input: {
   round?: Enums<"fulfillment_round">;
   processedOn?: string | null;
   dueAt?: string | null;
+  /** The standing working description and the one-line next action (0212). */
+  description?: string | null;
+  nextAction?: string | null;
 }): Promise<void> {
   const sb = requireSupabase();
   const row: Record<string, unknown> = {};
   if (input.round !== undefined) row.round = input.round;
+  if (input.description !== undefined) row.description = input.description?.trim() || null;
+  if (input.nextAction !== undefined) row.next_action = input.nextAction?.trim() || null;
   if (input.processedOn !== undefined) row.processed_on = input.processedOn;
   /* A date input gives a plain day; `due_at` is a timestamp, so it becomes the
      end of that day rather than midnight — a file due "the 5th" is not overdue

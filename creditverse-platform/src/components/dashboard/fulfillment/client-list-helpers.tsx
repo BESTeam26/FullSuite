@@ -5,6 +5,8 @@
  * division's status vocabulary and its dispute-round / open-items columns.
  */
 
+import { Constants } from "@/lib/supabase/database.types";
+import { creditStatuses } from "@/lib/fulfillment/department-domain";
 import {
   AGENT_COL,
   Avatar,
@@ -50,17 +52,24 @@ export const FulfillmentStatusPill = ({ status }: { status: string }) => (
   <StatusPill status={status} tones={FULFILLMENT_STATUS_TONE} />
 );
 
-export const ALL_STATUS_OPTIONS = [
-  "Onboarding",
-  "Ready for Processing",
-  "In Processing",
-  "Ready for QA",
-  "In Dispute",
-  "Awaiting Response",
-  "Monitoring Issue",
-  "Attention",
-  "Completed",
-];
+/**
+ * Dee's credit-status list — the client's general dispute status.
+ *
+ * This used to be a hand-written list of nine that did NOT contain "Ready for
+ * Round 1", "Round Sent - Awaiting Results", "Ready for Reimport / Review" or
+ * "Waiting for Partner Approval" — the four values migration 0188 added to the
+ * enum precisely because Dee asked for their vocabulary back. The database
+ * accepted them and no dropdown offered them, so a file could not be moved
+ * out of Onboarding from any screen.
+ *
+ * Read from the Status Guide's `dispute` category now, in ONE place, so the
+ * client list and the client file cannot offer different vocabularies — and so
+ * it stays Dee's list rather than the whole enum, which is a union of every
+ * department's states (Support, Bureau Calling, QA) and was never the credit
+ * vocabulary.
+ */
+export const ALL_STATUS_OPTIONS: string[] =
+  creditStatuses(Constants.public.Enums.fulfillment_client_status);
 
 export const STATUS_OPTIONS = ["All Statuses", ...ALL_STATUS_OPTIONS];
 
