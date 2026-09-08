@@ -137,7 +137,13 @@ export function PartnerClientsTab({ groupId }: { groupId: string }) {
                 {rows.map((c) => (
                   <tr key={c.id} className="transition-colors hover:bg-muted/40">
                     <td className="py-1.5 pr-2">
-                      <Link to={`/app/creditops/clients/${c.id}`} className="font-medium text-foreground hover:text-primary hover:underline">
+                      {/* `/app/creditops/clients/:id` is not a route and never
+                          was — this link went nowhere. `?client=` is the one
+                          the workspace already understands: it selects the
+                          client's partner, opens the main list and opens their
+                          file, which is where somebody clicking a client name
+                          from a partner expects to land. */}
+                      <Link to={`/app/creditops?client=${c.id}`} className="font-medium text-foreground hover:text-primary hover:underline">
                         {c.name}
                       </Link>
                       <span className="block text-[11px] text-muted-foreground">{c.email}</span>

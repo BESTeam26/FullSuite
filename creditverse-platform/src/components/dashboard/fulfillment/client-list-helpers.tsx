@@ -120,8 +120,13 @@ export const COLUMN_DEFS: ColDef<ColId>[] = [
 /* Saved view preferences                                              */
 /* ------------------------------------------------------------------ */
 
+/* v3: the saved set is a list of column ids, so columns added later are absent
+   from it and never appear — Dee's board showed no Processed Date, Due Date or
+   Days To Update because their stored preference was written before those
+   existed. Bumping the key hands everybody the new defaults once; anyone who
+   had hidden a column re-hides it. */
 const prefsStore = createViewPrefsStore<ColId>(
-  "creditops-clientlist-prefs-v2",
+  "creditops-clientlist-prefs-v3",
   COLUMN_DEFS,
   "client",
 );

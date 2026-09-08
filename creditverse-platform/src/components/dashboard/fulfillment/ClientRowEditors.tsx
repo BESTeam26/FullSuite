@@ -15,7 +15,7 @@
  * tomorrow — the same reason ClickUp keeps its own "Days Active" as a formula.
  */
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { ChevronDown, Loader2, Pencil } from "lucide-react";
 import { OpsSelect } from "@/components/ui/ops-select";
 import { formatDate } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
@@ -66,12 +66,24 @@ export function EditableDateCell({ value, onSave, label, tone }: {
       onClick={() => setEditing(true)}
       aria-label={`${label} — click to change`}
       className={cn(
-        "w-full rounded px-1 py-0.5 text-left text-[11px] transition-colors hover:bg-muted",
+        "group flex w-full items-center gap-1 rounded border border-transparent px-1 py-0.5",
+        "text-left text-[11px] transition-colors",
+        "hover:border-border hover:bg-muted",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
         tone ?? "text-foreground",
       )}
     >
-      {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : value ? formatDate(value) : <span className="text-muted-foreground">—</span>}
+      {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : (
+        <>
+          <span className="flex-1 truncate">
+            {value ? formatDate(value) : <span className="text-muted-foreground">—</span>}
+          </span>
+          {/* Only on hover: a permanent icon in every cell of every row is
+              noise, and a cell that gives no sign at all is not editable to
+              anybody who has not been told. */}
+          <Pencil className="h-2.5 w-2.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+        </>
+      )}
     </button>
   );
 }
@@ -109,9 +121,14 @@ export function EditableChoiceCell({ value, options, onSave, label }: {
       type="button"
       onClick={() => setEditing(true)}
       aria-label={`${label} — click to change`}
-      className="w-full rounded px-1 py-0.5 text-left text-[11px] font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      className="group flex w-full items-center gap-1 rounded border border-transparent px-1 py-0.5 text-left text-[11px] font-semibold text-foreground transition-colors hover:border-border hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
     >
-      {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : value}
+      {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : (
+        <>
+          <span className="flex-1 truncate">{value}</span>
+          <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+        </>
+      )}
     </button>
   );
 }
