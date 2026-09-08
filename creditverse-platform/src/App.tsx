@@ -16,7 +16,6 @@ import { AuthProvider } from "@/lib/auth/auth-context";
 import { RequirePortalClient } from "@/components/auth/RequirePortalClient";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { RequireAgencyStaff } from "@/components/auth/RequireAgencyStaff";
-import { RequireAgencyRoute } from "@/components/auth/RequireAgencyRoute";
 import { AuthLandingRedirect } from "@/components/auth/AuthLandingRedirect";
 import { RequireEntitlement } from "./components/auth/RequireEntitlement";
 import { RequirePermission } from "./components/auth/RequirePermission";
@@ -282,16 +281,17 @@ const App = () => (
                                 path="/app"
                                 element={
                                   <RequireAuth>
-                                    {/* Every Agency HQ route passes through the
-                                        same authority the menu uses, so a typed
-                                        URL is refused exactly where a hidden
-                                        link would have been. Wrapped once here
-                                        rather than per route — a guard you have
-                                        to remember to add is a guard somebody
-                                        will forget. */}
-                                    <RequireAgencyRoute>
-                                      <DashboardLayout />
-                                    </RequireAgencyRoute>
+                                    {/* The shell, always mounted. Every Agency
+                                        HQ route still passes through the same
+                                        authority the menu uses — the guard now
+                                        lives inside DashboardLayout, around the
+                                        Outlet, so a refusal or a page still
+                                        loading replaces the CONTENT and not the
+                                        navigation. It used to wrap this
+                                        element, which meant the sidebar and
+                                        topbar vanished for as long as a lazy
+                                        page chunk took to arrive. */}
+                                    <DashboardLayout />
                                   </RequireAuth>
                                 }
                               >
@@ -436,10 +436,10 @@ const App = () => (
                                   path="reporting"
                                   element={<RequirePermission permission="reports.view" label="Reports"><Reporting /></RequirePermission>}
                                 />
-                                {/* No guard here: the /app route above wraps
-                                    every Agency HQ page in RequireAgencyRoute,
-                                    which reads the path and refuses on the same
-                                    spec the menu uses. */}
+                                {/* No guard here: DashboardLayout wraps every
+                                    Agency HQ page in the shared route guard,
+                                    which reads the path and refuses on the
+                                    same spec the menu uses. */}
                                 <Route path="finance" element={<AgencyFinance />} />
                                 <Route
                                   path="billing"

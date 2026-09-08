@@ -128,6 +128,9 @@ create table public.crm_work_unit_templates (
   phase            integer,
   /* Working days from project start, for a suggested due date. */
   target_days      integer check (target_days is null or target_days >= 0),
+  /* Which team normally owns this unit. Falls back to the project's team, so
+     a template need not know an agency's team structure to be usable. */
+  default_team_id  uuid references public.teams(id) on delete set null,
   sort             integer not null default 0,
   created_at       timestamptz not null default now(),
   updated_at       timestamptz not null default now()
@@ -234,6 +237,45 @@ alter table public.crm_work_unit_template_actions
   add column requirement_id uuid references public.crm_requirements(id) on delete set null;
 create index crm_work_unit_template_actions_req_idx
   on public.crm_work_unit_template_actions (requirement_id) where requirement_id is not null;
+
+----------------------------------------------------------------------
+-- 6b. The milestone catalogue (Dee §20, §30)
+--
+--    Milestones are "data-driven / project-template-driven" (§30), so they are
+--    a catalogue rather than a hardcoded list. `engine_key` decides whether a
+--    milestone is instantiated at all: a Website-only project gets no
+--    "Sales Engine Ready", because that engine does not exist in it (§11).
+--
+--    `work_unit_title` is what makes §20 true — "milestones should mostly
+--    derive from Work Unit completion". When it matches a unit in the
+--    project, completing that unit completes the milestone, and nobody is
+--    asked to tick the same fact twice.
+----------------------------------------------------------------------
+create table public.crm_milestone_templates (
+  id              uuid primary key default gen_random_uuid(),
+  agency_id       uuid not null references public.agencies(id) on delete cascade,
+  key             text not null check (key ~ '^[a-z][a-z0-9_]{1,38}$'),
+  label           text not null check (length(trim(label)) between 1 and 120),
+  /* NULL = a project milestone, present in every project. Otherwise it is
+     instantiated only when that engine was purchased. */
+  engine_key      text references public.crm_engines(key) on delete cascade,
+  /* The unit whose completion completes it, by title within the project. */
+  work_unit_title text,
+  /* §52: the customer sees what BES publishes, not every internal event. */
+  client_visible  boolean not null default false,
+  sort            integer not null default 0,
+  unique (agency_id, key)
+);
+create index crm_milestone_templates_engine_idx
+  on public.crm_milestone_templates (agency_id, engine_key);
+
+comment on table public.crm_milestone_templates is
+  'Which milestones a project gets. Rows, not code (Dee §30). An engine-scoped milestone is only instantiated when that engine was purchased, and `work_unit_title` is what lets a milestone complete itself when its work does (§20).';
+
+alter table public.crm_milestone_templates enable row level security;
+revoke all on public.crm_milestone_templates from public, anon, authenticated;
+grant select on public.crm_milestone_templates to authenticated;
+grant insert, update, delete on public.crm_milestone_templates to authenticated;
 
 ----------------------------------------------------------------------
 -- 7. The completeness gate (§57)
@@ -357,6 +399,13 @@ create policy crm_work_unit_template_actions_write on public.crm_work_unit_templ
   with check (exists (select 1 from public.crm_work_unit_templates u
                         join public.crm_engine_templates t on t.id = u.template_id
                        where u.id = work_unit_template_id and public.crm_template_writable(t.agency_id)));
+
+create policy crm_milestone_templates_select on public.crm_milestone_templates
+  for select to authenticated using (public.crm_template_readable(agency_id));
+create policy crm_milestone_templates_write on public.crm_milestone_templates
+  for all to authenticated
+  using (public.crm_template_writable(agency_id))
+  with check (public.crm_template_writable(agency_id));
 
 create policy crm_requirements_select on public.crm_requirements
   for select to authenticated using (public.crm_template_readable(agency_id));

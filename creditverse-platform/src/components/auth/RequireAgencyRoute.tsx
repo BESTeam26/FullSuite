@@ -49,9 +49,12 @@ export const RequireAgencyRoute = ({ children }: { children: ReactNode }) => {
   if (!spec) return <>{children}</>;
 
   /* Still resolving. Render nothing rather than flashing a refusal at
-     somebody who is in fact allowed. */
+     somebody who is in fact allowed — and only ever the content area, because
+     this guard now sits inside the shell. It used to wrap the whole layout,
+     so this branch removed the navigation as well, which read as the app
+     breaking on every tab change. */
   if (status === "loading" || permissions.loading || agencyPermissions.loading) {
-    return <div className="min-h-[60vh]" aria-busy="true" />;
+    return <div className="min-h-[60vh]" aria-busy="true" aria-label="Checking access" />;
   }
 
   const access = accessTo(spec, ctx);

@@ -38,7 +38,8 @@
 -- property of work, not of BES CRM. CRM is simply the first consumer.
 -- ===========================================================================
 
-create type public.work_waiting_reason as enum ('client', 'third_party', 'internal');
+create type public.work_waiting_reason as enum (
+  'client', 'third_party', 'internal', 'approval', 'external_platform', 'other');
 
 alter table public.work_items
   add column if not exists waiting_on    public.work_waiting_reason,
@@ -61,6 +62,30 @@ alter table public.work_item_blockers
     check (reason is null or reason in ('client', 'third_party', 'internal',
                                         'technical', 'approval', 'other')),
   add column if not exists responsible text;
+
+/* ── QA RESULT: the fourth layer (Dee §19, §30) ──────────────────────────
+   The old ClickUp template had INITIAL TESTING and FOR REVISION as project
+   statuses, which meant a review outcome and a project stage were the same
+   field. They are not. `QA` is the work unit's STATUS; whether the review
+   passed is its RESULT, and it is what §9 wants recorded when a page needs a
+   fix — without relabelling the project.
+
+   §19: "Use QA plus QA metadata" — not three agent-maintained statuses
+   called Internal Review, Ready for QA and Initial Testing. */
+create type public.work_qa_result as enum ('pending', 'passed', 'needs_fix');
+
+alter table public.work_items
+  add column if not exists qa_result      public.work_qa_result,
+  add column if not exists qa_reviewed_by uuid references public.profiles(id) on delete set null,
+  add column if not exists qa_reviewed_at timestamptz,
+  add column if not exists qa_feedback    text;
+
+comment on column public.work_items.qa_result is
+  'The REVIEW OUTCOME, separate from the work''s status (Dee §30). needs_fix is what the old ClickUp "FOR REVISION" becomes — on one unit, never on the project.';
+
+alter table public.work_items
+  add constraint work_items_qa_feedback_ck
+  check (qa_result is distinct from 'needs_fix' or qa_feedback is not null);
 
 comment on column public.work_item_blockers.reason is
   'Dee §34: manual reporting should focus on exceptions. The system already knows blocked_at, blocked_by and the affected item; it cannot know WHY.';
@@ -94,14 +119,33 @@ create table public.crm_projects (
   lead_id             uuid references public.profiles(id) on delete set null,
   team_id             uuid references public.teams(id) on delete set null,
 
-  /* Derived by default (§16, §35). An override is a deliberate act by a
-     manager and carries its reason and its author — a status somebody set by
+  /* ── THE PROJECT JOURNEY (Dee's locked model, 2026-09-08) ────────────
+     The seven stages Dee already recognises from ClickUp, kept as the
+     OVERALL project experience and nothing else. `NOT STARTED` is gone
+     deliberately (§4): before meaningful work begins, "Info Gathering" says
+     something true, and "not started" says only that nobody has typed
+     anything. `IN PROGRESS` became BUILDING (§7) because several engines and
+     teams are in progress at once and a single label cannot mean all of them.
+     `FOR REVISION` is not here at all (§9): a QA failure is a QA RESULT on
+     one work unit, and one page needing a fix must never relabel the project.
+
+     Derived by `crm_project_journey()`. An override is a deliberate act by a
+     manager and carries its reason and its author — a stage somebody set by
      hand and cannot explain is worse than a derived one. */
-  status_override        text check (status_override is null or status_override in
-                           ('onboarding', 'building', 'waiting_on_client', 'qa', 'support', 'completed')),
-  status_override_reason text,
-  status_override_by     uuid references public.profiles(id) on delete set null,
-  status_override_at     timestamptz,
+  journey_override        text check (journey_override is null or journey_override in
+                            ('info_gathering', 'planning_designing', 'building',
+                             'testing', 'launch', 'support', 'complete')),
+  journey_override_reason text,
+  journey_override_by     uuid references public.profiles(id) on delete set null,
+  journey_override_at     timestamptz,
+
+  /* §13: the contracted support window is what moves a delivered project into
+     SUPPORT, and out of it into COMPLETE. Dates, because that is what a
+     contract says — not a status somebody remembers to change. */
+  support_start_date     date,
+  support_end_date       date,
+  /* §10: Launch is not Completed. Go-live is an event with a time. */
+  went_live_at           timestamptz,
   health_override        text check (health_override is null or health_override in
                            ('on_track', 'at_risk', 'blocked', 'waiting', 'qa', 'support')),
   health_override_reason text,
@@ -117,9 +161,12 @@ create table public.crm_projects (
   constraint crm_projects_owner_ck
     check (partner_group_id is not null or organization_id is not null),
   /* An override must say why, and by whom. */
-  constraint crm_projects_status_override_ck
-    check (status_override is null
-           or (status_override_reason is not null and status_override_by is not null)),
+  constraint crm_projects_journey_override_ck
+    check (journey_override is null
+           or (journey_override_reason is not null and journey_override_by is not null)),
+  constraint crm_projects_support_window_ck
+    check (support_end_date is null or support_start_date is null
+           or support_end_date >= support_start_date),
   constraint crm_projects_health_override_ck
     check (health_override is null
            or (health_override_reason is not null and health_override_by is not null))
@@ -131,7 +178,7 @@ create trigger crm_projects_updated_at before update on public.crm_projects
   for each row execute function public.set_updated_at();
 
 comment on table public.crm_projects is
-  'A BES CRM delivery project: the SUBJECT that work units hang off, mirroring fulfillment_clients in CreditOps. Its status, health and progress are DERIVED from its work (Dee §16/§35/§38) — an agent never maintains them.';
+  'A BES CRM delivery project: the SUBJECT that work units hang off, mirroring fulfillment_clients in CreditOps. Its JOURNEY, health and progress are DERIVED from its work — an agent never maintains them (Dee §3/§26).';
 
 ----------------------------------------------------------------------
 -- 2. The engines this project actually bought (§2, §11)
@@ -216,6 +263,61 @@ comment on table public.crm_client_requirements is
   'What the client owes. Satisfying one clears `waiting_on` from every work unit it blocks, in one transaction (Dee §33) — independent units were never touched.';
 
 ----------------------------------------------------------------------
+-- 4b. Milestones (Dee §11, §12, §14, §20, §30)
+--
+--    THE THING THIS FIXES. Dee's old ClickUp template made
+--    CLIENT PRESENTATION, USER TRAINING and ACTIVE FEATURE into project
+--    STATUSES — so a project could only be one of them at a time, and moving
+--    to Support meant losing the record that training had happened.
+--
+--    They are events. A project can be in SUPPORT with the presentation done,
+--    training done, go-live done and the Sales engine active, all at once
+--    (§11: "The Project may still be in LAUNCH or SUPPORT while Presentation
+--    is completed").
+--
+--    Mostly DERIVED (§20): completing the work unit a milestone is tied to
+--    completes the milestone. `completed_at` may also be set by hand for the
+--    ones no work unit represents — a presentation happened or it did not.
+----------------------------------------------------------------------
+create table public.crm_milestones (
+  id             uuid primary key default gen_random_uuid(),
+  project_id     uuid not null references public.crm_projects(id) on delete cascade,
+  /* A stable key so a report can ask for "go_live" across projects without
+     matching on a label somebody renamed. */
+  key            text not null check (key ~ '^[a-z][a-z0-9_]{1,38}$'),
+  label          text not null check (length(trim(label)) between 1 and 120),
+  /* Which engine it belongs to, when it is an engine milestone (§14: one
+     engine may be ACTIVE while another is still building). NULL = project. */
+  engine_key     text references public.crm_engines(key) on delete set null,
+  /* When set, completing THIS work unit completes the milestone (§20). */
+  work_item_id   uuid references public.work_items(id) on delete set null,
+  /* §11/§12 want the record, not just the tick. */
+  scheduled_at   timestamptz,
+  completed_at   timestamptz,
+  completed_by   uuid references public.profiles(id) on delete set null,
+  notes          text,
+  /* A recording, a deck, a training video. The canonical `files` table holds
+     the file; this is the link when there is one. */
+  link_url       text,
+  /* Whether the customer sees it (§52: publish milestones deliberately). */
+  client_visible boolean not null default false,
+  sort           integer not null default 0,
+  created_at     timestamptz not null default now(),
+  unique (project_id, key)
+);
+create index crm_milestones_project_idx on public.crm_milestones (project_id, sort);
+create index crm_milestones_open_idx on public.crm_milestones (project_id)
+  where completed_at is null;
+create index crm_milestones_work_idx on public.crm_milestones (work_item_id)
+  where work_item_id is not null;
+
+comment on table public.crm_milestones is
+  'Client-facing and internal project events: Client Presentation, User Training, Go-Live, Feature Active, and the engine-ready points. Dee''s locked model puts these HERE rather than in a status field, because they happen independently and often at the same time — a project in SUPPORT still needs to show that training was done (§11, §12, §14).';
+
+comment on column public.crm_milestones.work_item_id is
+  'When set, the milestone completes by itself the moment that work unit completes (Dee §20: "Milestones should mostly derive from Work Unit completion. Do not require duplicate manual updates").';
+
+----------------------------------------------------------------------
 -- 5. Authorization
 --
 --    The same three-branch shape `work_items_select` already uses for BES CRM,
@@ -258,41 +360,72 @@ revoke execute on function public.crm_project_writable(uuid) from public, anon;
 grant execute on function public.crm_project_writable(uuid) to authenticated;
 
 comment on function public.crm_project_writable(uuid) is
-  'BES staff with crm.projects.manage. There is deliberately NO customer branch: a customer cannot change status, assignment, dates or completion, and that is enforced by the absence of a policy rather than by hiding a control (Dee §51).';
+  'For the CHILD tables only — it queries `crm_projects`, so using it as a policy ON `crm_projects` would be self-referential (see the note beside those policies). BES staff with crm.projects.manage. There is deliberately NO customer branch: a customer cannot change status, assignment, dates or completion, and that is enforced by the absence of a policy rather than by hiding a control (Dee §51).';
 
 alter table public.crm_projects                     enable row level security;
 alter table public.crm_project_engines              enable row level security;
+alter table public.crm_milestones                   enable row level security;
 alter table public.crm_client_requirements          enable row level security;
 alter table public.crm_client_requirement_blocks    enable row level security;
 
-revoke all on public.crm_projects, public.crm_project_engines,
+revoke all on public.crm_projects, public.crm_project_engines, public.crm_milestones,
               public.crm_client_requirements, public.crm_client_requirement_blocks
   from public, anon, authenticated;
-grant select on public.crm_projects, public.crm_project_engines,
+grant select on public.crm_projects, public.crm_project_engines, public.crm_milestones,
                 public.crm_client_requirements, public.crm_client_requirement_blocks
   to authenticated;
-grant insert, update on public.crm_projects, public.crm_project_engines,
+grant insert, update on public.crm_projects, public.crm_project_engines, public.crm_milestones,
                         public.crm_client_requirements
   to authenticated;
 grant insert, delete on public.crm_client_requirement_blocks to authenticated;
 /* No DELETE on projects, engines or requirements: a cancelled engine is dated,
    not erased, and a project is archived (rule 11). */
 
+/* ── A POLICY ON A TABLE MUST NOT BE A FUNCTION THAT RE-QUERIES IT ──────
+   These three were first written as `crm_project_readable(id)` and
+   `crm_project_writable(id)`, which is correct for the CHILD tables below —
+   there the helper queries a DIFFERENT relation. On `crm_projects` itself it
+   is self-referential, and the symptom was not a recursion error: it was
+   `INSERT … RETURNING` failing with "new row violates row-level security
+   policy" while the identical insert WITHOUT `RETURNING` succeeded, because
+   RETURNING has to read the new row back through the SELECT policy.
+
+   Every function in `crm_create_project` returns an id, so nothing could be
+   created at all. Found by a probe before this reached the database.
+
+   So the table's own policies are written on the row's OWN COLUMNS. */
 create policy crm_projects_select on public.crm_projects
-  for select to authenticated using (public.crm_project_readable(id));
+  for select to authenticated
+  using (
+    (public.is_staff_of(agency_id)
+     and public.in_scope(agency_id, 'bes_crm'::public.fulfillment_service,
+                         team_id, lead_id, created_by))
+    or (organization_id is not null
+        and public.is_org_admin(organization_id)
+        and public.org_entitled(organization_id, 'crm'))
+  );
 create policy crm_projects_insert on public.crm_projects
   for insert to authenticated
   with check (public.is_staff_of(agency_id) and public.agency_can('crm.projects.manage'));
 create policy crm_projects_update on public.crm_projects
   for update to authenticated
-  using (public.crm_project_writable(id))
-  with check (public.crm_project_writable(id));
+  using (public.is_staff_of(agency_id) and public.agency_can('crm.projects.manage'))
+  with check (public.is_staff_of(agency_id) and public.agency_can('crm.projects.manage'));
 
 create policy crm_project_engines_select on public.crm_project_engines
   for select to authenticated using (public.crm_project_readable(project_id));
 create policy crm_project_engines_insert on public.crm_project_engines
   for insert to authenticated with check (public.crm_project_writable(project_id));
 create policy crm_project_engines_update on public.crm_project_engines
+  for update to authenticated
+  using (public.crm_project_writable(project_id))
+  with check (public.crm_project_writable(project_id));
+
+create policy crm_milestones_select on public.crm_milestones
+  for select to authenticated using (public.crm_project_readable(project_id));
+create policy crm_milestones_insert on public.crm_milestones
+  for insert to authenticated with check (public.crm_project_writable(project_id));
+create policy crm_milestones_update on public.crm_milestones
   for update to authenticated
   using (public.crm_project_writable(project_id))
   with check (public.crm_project_writable(project_id));
@@ -308,16 +441,28 @@ create policy crm_client_requirements_update on public.crm_client_requirements
   using (public.crm_project_writable(project_id))
   with check (public.crm_project_writable(project_id));
 
+/* ── QUALIFY THE COLUMN, ALWAYS ─────────────────────────────────────────
+   These were first written `where r.id = requirement_id`. Both tables have a
+   column of that name — `crm_client_requirements.requirement_id` is the link
+   back to the master library — and the INNERMOST scope wins, so the condition
+   silently became `r.id = r.requirement_id`, which is never true. Every block
+   row was refused, and the error named the right table for the wrong reason.
+
+   Nothing about this is caught by a parse: it is valid SQL that means
+   something else. The table name is spelled out. */
 create policy crm_client_requirement_blocks_select on public.crm_client_requirement_blocks
   for select to authenticated
   using (exists (select 1 from public.crm_client_requirements r
-                  where r.id = requirement_id and public.crm_project_readable(r.project_id)));
+                  where r.id = crm_client_requirement_blocks.requirement_id
+                    and public.crm_project_readable(r.project_id)));
 create policy crm_client_requirement_blocks_write on public.crm_client_requirement_blocks
   for all to authenticated
   using (exists (select 1 from public.crm_client_requirements r
-                  where r.id = requirement_id and public.crm_project_writable(r.project_id)))
+                  where r.id = crm_client_requirement_blocks.requirement_id
+                    and public.crm_project_writable(r.project_id)))
   with check (exists (select 1 from public.crm_client_requirements r
-                       where r.id = requirement_id and public.crm_project_writable(r.project_id)));
+                       where r.id = crm_client_requirement_blocks.requirement_id
+                         and public.crm_project_writable(r.project_id)));
 
 /* Supabase's default privileges keep granting these on every new table. */
 revoke truncate, trigger, references on all tables in schema public from anon, authenticated;
