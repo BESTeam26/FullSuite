@@ -620,3 +620,10 @@ is not in this repository — see **B8** in `WHAT_I_NEED_FROM_DEE.md`. When it
 arrives it goes into the repo verbatim, then into `crm_requirements` as a
 master library, classified per engine and Work Unit. Every source row must be
 accounted for; **no source row becomes a live task by default.**
+
+### Dee's queue, 2026-09-08 (added mid-session)
+
+| # | What | Notes |
+|---|---|---|
+| Q1 | **Typing indicator in Communication** — an avatar with animated dots above the composer while somebody is typing or replying, per Dee's screenshot | No schema. Supabase Realtime **presence** is the right transport: typing is ephemeral and must not be a table — a `messages`-adjacent row per keystroke would be a write per keystroke (rule 14) and an audit record of nothing (rule 10). Presence is per-channel, expires with the socket, and is already RLS-gated by the channel subscription 0217 opened. Debounced, stops on send or on idle. |
+| Q2 | **Calendar view toggle** — the calendar must offer a month grid, not only a list | No schema. `LiveCalendar` already reads real deadlines (work items due, statutory letter clocks, renewal follow-ups) through `useMyWork` / `useOrganizationWork`; this is a second presentation of the same data, with the toggle remembered per viewer in `localStorage`. Rule 15 applies to the grid: today's cell, a selected day and an out-of-month day must all stay readable, and a day with many events must not clip. |
