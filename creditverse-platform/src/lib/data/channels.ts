@@ -16,7 +16,13 @@ import type { Json } from "@/lib/supabase/database.types";
 
 export interface Channel {
   id: string;
-  organizationId: string;
+  /** Exactly one of these three is set (0190, 0191). */
+  organizationId: string | null;
+  agencyId: string | null;
+  partnerGroupId: string | null;
+  /** Whose channel it is, for the label. */
+  organizationName?: string | null;
+  partnerName?: string | null;
   kind: "general" | "department" | "topic" | "direct";
   name: string;
   purpose: string | null;
@@ -40,32 +46,73 @@ export interface ChannelMessage {
   fromBes: boolean;
 }
 
-/** Every channel the caller may see. One request (rule 14). */
-export async function fetchChannels(organizationId: string): Promise<Channel[]> {
+/**
+ * Every channel the caller may see for one owner.
+ *
+ * ── THE AGENCY VIEW IS DELIBERATELY WIDER ──────────────────────────────────
+ *
+ * Dee: "IF a BES agent is supporting fulfillment inside an Organization, that
+ * organization channel will show inside the BES Communication channel as ONE
+ * CANONICAL CHANNEL as well. Not duplicate."
+ *
+ * So the agency view asks for every channel RLS will give it and sorts them
+ * into two kinds:
+ *
+ *   BES's own team channels          agency_id set
+ *   a partner's channel shared with  organization_id set, reachable because a
+ *   BES                              live share says BES may read it
+ *
+ * The second kind is the SAME ROW the organization sees. Not a copy, not a
+ * mirror, not a synced twin — one channel, two doors. An agent answers in the
+ * partner's channel from the BES view and the partner sees the reply in
+ * theirs, because there is only one conversation.
+ *
+ * This is why the query does not filter by owner at all in the agency case:
+ * `channel_visible` already decides, and asking for less would mean deciding
+ * a second time, differently.
+ */
+export async function fetchChannels(
+  owner: { organizationId: string } | { agencyId: string },
+): Promise<Channel[]> {
   const sb = requireSupabase();
-  const { data, error } = await sb
+  let q = sb
     .from("channels")
-    .select("id, organization_id, kind, name, purpose, channel_shares(id, revoked_at)")
-    .eq("organization_id", organizationId)
+    .select("id, organization_id, agency_id, partner_group_id, kind, name, purpose, organizations(name), outsourcing_groups(name), channel_shares(id, revoked_at)");
+
+  if ("organizationId" in owner) {
+    q = q.eq("organization_id", owner.organizationId);
+  }
+  /* No filter in the agency case. RLS returns BES's own channels, every
+     organization channel shared with BES, and every partner conversation the
+     caller may see — which is exactly the set, and needed no query change when
+     partner conversations were added (0191). That is what a single canonical
+     table buys. */
+
+  const { data, error } = await q
     .is("archived_at", null)
     .order("kind")
     .order("name");
   if (error) throw error;
-  return (data ?? []).map((c) => ({
-    id: c.id,
-    organizationId: c.organization_id,
-    kind: c.kind as Channel["kind"],
-    name: c.name,
-    purpose: c.purpose,
-    sharedWithBes: (c.channel_shares ?? []).some((s: { revoked_at: string | null }) => s.revoked_at === null),
-  }));
+  return (data ?? []).map((row) => {
+    const c = row as Record<string, unknown>;
+    const org = (c.organizations ?? null) as { name?: string } | null;
+    const partner = (c.outsourcing_groups ?? null) as { name?: string } | null;
+    return {
+      id: c.id as string,
+      organizationId: (c.organization_id as string) ?? null,
+      agencyId: (c.agency_id as string) ?? null,
+      partnerGroupId: (c.partner_group_id as string) ?? null,
+      organizationName: org?.name ?? null,
+      partnerName: partner?.name ?? null,
+      kind: c.kind as Channel["kind"],
+      name: c.name as string,
+      purpose: (c.purpose as string) ?? null,
+      sharedWithBes: ((c.channel_shares ?? []) as { revoked_at: string | null }[])
+        .some((s) => s.revoked_at === null),
+    };
+  });
 }
 
-/**
- * One channel's messages, newest last so a conversation reads downward.
- * Paged from the end, because a channel open for a year should not send a
- * year of history to a phone.
- */
 export async function fetchMessages(channelId: string, limit = 50): Promise<ChannelMessage[]> {
   const sb = requireSupabase();
   const { data, error } = await sb
@@ -130,5 +177,83 @@ export async function revokeShare(shareId: string, revokedBy: string): Promise<v
     .from("channel_shares")
     .update({ revoked_at: new Date().toISOString(), revoked_by: revokedBy })
     .eq("id", shareId);
+  if (error) throw error;
+}
+
+
+/**
+ * Open a channel.
+ *
+ * The creator joins as its manager in the same breath: a channel nobody can
+ * manage is one nobody can add anybody to, and the person opening it is the
+ * obvious first manager. Two statements rather than one — `channel_members`
+ * has its own policy, and the insert must see the channel row already
+ * committed to satisfy it.
+ */
+export async function createChannel(input: {
+  name: string;
+  kind: string;
+  purpose?: string | null;
+  createdBy: string;
+  organizationId?: string | null;
+  agencyId?: string | null;
+  partnerGroupId?: string | null;
+}): Promise<string> {
+  const sb = requireSupabase();
+  const owners = (input.organizationId ? 1 : 0) + (input.agencyId ? 1 : 0) + (input.partnerGroupId ? 1 : 0);
+  if (owners !== 1) {
+    throw new Error("A conversation belongs to exactly one of: an organization, the agency, or a partner");
+  }
+  const { data, error } = await sb.from("channels").insert({
+    name: input.name.trim(),
+    kind: input.kind,
+    purpose: input.purpose?.trim() || null,
+    created_by: input.createdBy,
+    organization_id: input.organizationId ?? null,
+    agency_id: input.agencyId ?? null,
+    partner_group_id: input.partnerGroupId ?? null,
+  } as never).select("id").single();
+  if (error) throw error;
+
+  const id = (data as { id: string }).id;
+  const { error: memberError } = await sb.from("channel_members")
+    .insert({ channel_id: id, user_id: input.createdBy, is_manager: true } as never);
+  if (memberError) throw memberError;
+  return id;
+}
+
+/** Archive, never delete — a conversation that happened is a record of it. */
+export async function archiveChannel(channelId: string): Promise<void> {
+  const sb = requireSupabase();
+  const { error } = await sb.from("channels")
+    .update({ archived_at: new Date().toISOString() } as never).eq("id", channelId);
+  if (error) throw error;
+}
+
+export interface ChannelMember {
+  userId: string;
+  isManager: boolean;
+}
+
+export async function fetchChannelMembers(channelId: string): Promise<ChannelMember[]> {
+  const sb = requireSupabase();
+  const { data, error } = await sb
+    .from("channel_members").select("user_id, is_manager").eq("channel_id", channelId);
+  if (error) throw error;
+  return (data ?? []).map((m) => ({ userId: m.user_id, isManager: m.is_manager }));
+}
+
+export async function addChannelMember(channelId: string, userId: string, isManager = false): Promise<void> {
+  const sb = requireSupabase();
+  const { error } = await sb.from("channel_members")
+    .upsert({ channel_id: channelId, user_id: userId, is_manager: isManager } as never,
+            { onConflict: "channel_id,user_id" });
+  if (error) throw error;
+}
+
+export async function removeChannelMember(channelId: string, userId: string): Promise<void> {
+  const sb = requireSupabase();
+  const { error } = await sb.from("channel_members")
+    .delete().eq("channel_id", channelId).eq("user_id", userId);
   if (error) throw error;
 }

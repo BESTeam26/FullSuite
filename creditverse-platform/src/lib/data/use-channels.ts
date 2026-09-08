@@ -1,5 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { fetchChannels, fetchMessages, postMessage } from "@/lib/data/channels";
+import {
+  addChannelMember, archiveChannel, createChannel, fetchChannelMembers,
+  fetchChannels, fetchMessages, postMessage, removeChannelMember,
+} from "@/lib/data/channels";
+import { useAuth } from "@/lib/auth/auth-context";
 import type { Json } from "@/lib/supabase/database.types";
 
 /**
@@ -9,11 +13,23 @@ import type { Json } from "@/lib/supabase/database.types";
 export const channelsKey = (orgId: string | null) => ["channels", orgId] as const;
 export const messagesKey = (channelId: string | null) => ["channels", "messages", channelId] as const;
 
-export function useChannels(organizationId: string | null) {
+/**
+ * Channels for one owner — an organization, or BES itself.
+ *
+ * `agencyId` is used when the person is in Agency HQ view: BES's own team
+ * channels, which no organization member reaches (0190). Exactly one owner,
+ * so the key carries whichever it is and the two never share a cache entry.
+ */
+export function useChannels(organizationId: string | null, agencyId?: string | null) {
+  const owner = agencyId
+    ? ({ agencyId } as const)
+    : organizationId
+      ? ({ organizationId } as const)
+      : null;
   return useQuery({
-    queryKey: channelsKey(organizationId),
-    queryFn: () => fetchChannels(organizationId!),
-    enabled: !!organizationId,
+    queryKey: channelsKey(agencyId ? `agency:${agencyId}` : organizationId),
+    queryFn: () => fetchChannels(owner!),
+    enabled: !!owner,
     staleTime: 60_000,
   });
 }
@@ -34,5 +50,57 @@ export function usePostMessage(channelId: string | null, authorId: string | null
     mutationFn: (input: { body: Json; bodyText: string }) =>
       postMessage({ channelId: channelId!, authorId: authorId!, ...input }),
     onSuccess: () => { void qc.invalidateQueries({ queryKey: messagesKey(channelId) }); },
+  });
+}
+
+/**
+ * Creating, archiving and staffing a channel.
+ *
+ * Invalidates by owner rather than everything: the agency's channel list and
+ * an organization's are separate caches and a change to one is not news to
+ * the other.
+ */
+export function useChannelActions(owner: { organizationId: string | null; agencyId: string | null }) {
+  const qc = useQueryClient();
+  const auth = useAuth();
+  const key = channelsKey(owner.agencyId ? `agency:${owner.agencyId}` : owner.organizationId);
+  const refresh = () => {
+    void qc.invalidateQueries({ queryKey: key });
+    void qc.invalidateQueries({ queryKey: ["channel-members"] });
+  };
+  return {
+    create: useMutation({
+      mutationFn: (v: { name: string; kind: string; purpose?: string; partnerGroupId?: string | null }) =>
+        createChannel({
+          ...v,
+          createdBy: auth.user?.id ?? "",
+          /* A conversation WITH a partner is owned by the partner, not by BES
+             — that is what puts the same row in their portal. */
+          organizationId: v.partnerGroupId || owner.agencyId ? null : owner.organizationId,
+          agencyId: v.partnerGroupId ? null : owner.agencyId,
+          partnerGroupId: v.partnerGroupId ?? null,
+        }),
+      onSuccess: refresh,
+    }),
+    archive: useMutation({ mutationFn: (id: string) => archiveChannel(id), onSuccess: refresh }),
+    addMember: useMutation({
+      mutationFn: (v: { channelId: string; userId: string; isManager?: boolean }) =>
+        addChannelMember(v.channelId, v.userId, v.isManager),
+      onSuccess: refresh,
+    }),
+    removeMember: useMutation({
+      mutationFn: (v: { channelId: string; userId: string }) =>
+        removeChannelMember(v.channelId, v.userId),
+      onSuccess: refresh,
+    }),
+  };
+}
+
+export function useChannelMembers(channelId: string | null) {
+  return useQuery({
+    queryKey: ["channel-members", channelId ?? ""],
+    queryFn: () => fetchChannelMembers(channelId!),
+    enabled: !!channelId,
+    staleTime: 60_000,
   });
 }

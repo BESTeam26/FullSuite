@@ -222,6 +222,10 @@ export const Sidebar = () => {
     {
       label: "Management",
       items: [
+        /* One conversation space: BES team channels, partner conversations
+           and the organization channels shared with BES — the same rows their
+           owners see, never copies (0190, 0191). */
+        { label: "Communication", icon: MessagesSquare, href: "/app/channels" },
         { label: "Reports", icon: BarChart3, href: "/app/reporting", permission: "reports.view" },
         /* BES's own money — partner receivables and agency expenses. Distinct
            from "Organization billing", which is SaaS subscription metering for
@@ -373,7 +377,7 @@ export const Sidebar = () => {
            it; the database decides which ones arrive, so no permission key
            gates the entry — an empty list is the honest answer for somebody in
            no channels. */
-        { label: "Channels", icon: MessagesSquare, href: "/app/channels" },
+        { label: "Communication", icon: MessagesSquare, href: "/app/channels" },
         { label: "Commissions", icon: HandCoins, href: "/app/commissions", permission: "fundingops.commissions.view" },
         { label: "Compliance & Billing", icon: Scale, href: "/app/compliance", permission: "billing.view" },
         { label: "Settings", icon: Settings, href: "/app/settings", permission: SETTINGS_KEYS },

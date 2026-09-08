@@ -1277,6 +1277,7 @@ export type Database = {
       }
       channels: {
         Row: {
+          agency_id: string | null
           archived_at: string | null
           created_at: string
           created_by: string | null
@@ -1284,10 +1285,12 @@ export type Database = {
           id: string
           kind: Database["public"]["Enums"]["channel_kind"]
           name: string
-          organization_id: string
+          organization_id: string | null
+          partner_group_id: string | null
           purpose: string | null
         }
         Insert: {
+          agency_id?: string | null
           archived_at?: string | null
           created_at?: string
           created_by?: string | null
@@ -1295,10 +1298,12 @@ export type Database = {
           id?: string
           kind?: Database["public"]["Enums"]["channel_kind"]
           name: string
-          organization_id: string
+          organization_id?: string | null
+          partner_group_id?: string | null
           purpose?: string | null
         }
         Update: {
+          agency_id?: string | null
           archived_at?: string | null
           created_at?: string
           created_by?: string | null
@@ -1306,10 +1311,18 @@ export type Database = {
           id?: string
           kind?: Database["public"]["Enums"]["channel_kind"]
           name?: string
-          organization_id?: string
+          organization_id?: string | null
+          partner_group_id?: string | null
           purpose?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "channels_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "channels_created_by_fkey"
             columns: ["created_by"]
@@ -1329,6 +1342,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channels_partner_group_id_fkey"
+            columns: ["partner_group_id"]
+            isOneToOne: false
+            referencedRelation: "outsourcing_groups"
             referencedColumns: ["id"]
           },
         ]

@@ -13,16 +13,28 @@ let channels: Channel[];
 let messages: ChannelMessage[];
 const postMutate = vi.fn();
 
-vi.mock("@/lib/agency-context", () => ({ useAgency: () => ({ activeOrganization: { id: "org-1" } }) }));
-vi.mock("@/lib/auth/auth-context", () => ({ useAuth: () => ({ user: { id: "u1" } }) }));
+/* An ORGANIZATION view: these tests are about the boundary a customer sees,
+   which is unchanged by the agency conversation space (0190, 0191). */
+vi.mock("@/lib/agency-context", () => ({
+  useAgency: () => ({ activeOrganization: { id: "org-1" }, viewMode: "subaccount" }),
+}));
+vi.mock("@/lib/auth/auth-context", () => ({
+  useAuth: () => ({ user: { id: "u1" }, agencyId: null }),
+}));
 vi.mock("@/lib/data/use-channels", () => ({
   useChannels: () => ({ data: channels, isLoading: false }),
   useMessages: () => ({ data: messages, isLoading: false }),
   usePostMessage: () => ({ mutate: postMutate, isPending: false, isError: false }),
+  useChannelActions: () => ({
+    create: { mutateAsync: vi.fn(), isPending: false },
+    archive: { mutate: vi.fn() },
+    addMember: { mutate: vi.fn() },
+    removeMember: { mutate: vi.fn() },
+  }),
 }));
 
 const channel = (over: Partial<Channel> = {}): Channel => ({
-  id: "c1", organizationId: "org-1", kind: "general", name: "General Chat",
+  id: "c1", organizationId: "org-1", agencyId: null, partnerGroupId: null, kind: "general", name: "General Chat",
   purpose: "Everyone in the company.", sharedWithBes: false, ...over,
 });
 
