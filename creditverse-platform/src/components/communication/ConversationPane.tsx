@@ -20,6 +20,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Hash, Loader2, Pin, Undo2, X } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-context";
+import { useTypingPresence } from "@/lib/data/use-typing-presence";
+import { TypingIndicator } from "./TypingIndicator";
 import { useMessageActions, useRichMessages, useSendMessage, useThread } from "@/lib/data/use-messages";
 import { useChannelMentionable } from "@/lib/data/use-channels";
 import { useMessageRealtime } from "@/lib/data/use-message-realtime";
@@ -55,6 +57,13 @@ export function ConversationPane({
   const auth = useAuth();
   const messages = useRichMessages(channelId);
   const actions = useMessageActions(channelId);
+  /* Ephemeral, on the socket, never in Postgres. The name is one the other
+     participants already see on every message they have from this person, so
+     it discloses nothing new. */
+  const { typing, onInput: onTyping, stop: stopTyping } = useTypingPresence(
+    channelId,
+    auth.user?.id ? { userId: auth.user.id, name: auth.displayName || "Someone" } : null,
+  );
   const [threadRoot, setThreadRoot] = useState<number | null>(null);
   const [replyTo, setReplyTo] = useState<RichMessage | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
@@ -220,12 +229,19 @@ export function ConversationPane({
           {readOnlyReason ?? "You cannot post in this conversation."}
         </p>
       ) : (
-        <Composer name={name} sending={sender.send.isPending} error={sendError}
-          replyingTo={replyTo ? { id: replyTo.id, author: replyTo.authorName, text: replyTo.bodyText ?? "" } : null}
-          onCancelReply={() => setReplyTo(null)}
-          onSend={send}
-          mentionable={mentionable.data ?? []}
-          onMeeting={onMeeting ?? (() => setShowMeeting((v) => !v))} />
+        <>
+          {/* Above the composer, below the messages — where Dee's reference
+              puts it, and where it cannot push the conversation around. */}
+          <TypingIndicator people={typing} className="border-t border-border pt-1" />
+          <Composer name={name} sending={sender.send.isPending} error={sendError}
+            replyingTo={replyTo ? { id: replyTo.id, author: replyTo.authorName, text: replyTo.bodyText ?? "" } : null}
+            onCancelReply={() => setReplyTo(null)}
+            onSend={send}
+            mentionable={mentionable.data ?? []}
+            onTyping={onTyping}
+            onStopTyping={stopTyping}
+            onMeeting={onMeeting ?? (() => setShowMeeting((v) => !v))} />
+        </>
       )}
 
       {threadRoot !== null && (

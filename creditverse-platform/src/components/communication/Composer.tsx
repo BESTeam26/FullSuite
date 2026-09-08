@@ -43,11 +43,19 @@ export interface ComposerProps {
   /** Shown when a meeting provider exists to talk to (§66). */
   onMeeting?: () => void;
   error?: string | null;
+  /**
+   * Told on each keystroke, and told to stop when the message goes. The
+   * composer does not know or care that this is Realtime presence — it only
+   * reports that somebody is typing here (rule 5: UI does not own the
+   * transport).
+   */
+  onTyping?: () => void;
+  onStopTyping?: () => void;
 }
 
 export function Composer({
   name, disabled, sending, replyingTo, onCancelReply, onSend, onMeeting, error,
-  mentionable = [],
+  mentionable = [], onTyping, onStopTyping,
 }: ComposerProps) {
   const [draft, setDraft] = useState("");
   const [files, setFiles] = useState<File[]>([]);
@@ -67,6 +75,9 @@ export function Composer({
   const readDraft = (value: string, caret: number) => {
     setDraft(value);
     setMentionQuery(mentionable.length > 0 ? mentionQueryAt(value, caret) : null);
+    /* Emptying the box is not typing — it is giving up on the sentence. */
+    if (value.trim().length === 0) onStopTyping?.();
+    else onTyping?.();
   };
 
   /* Replaces the "@partial" the caret is in with "@Full Name ", which is the
@@ -102,6 +113,7 @@ export function Composer({
     const mentions = effectiveMentions(keptDraft, picked);
     setPicked([]);
     setMentionQuery(null);
+    onStopTyping?.();
     void onSend(text, keptFiles, mentions).then((accepted) => {
       if (!accepted) { setDraft(keptDraft); setFiles(keptFiles); setPicked(keptPicked); }
     });
