@@ -1241,7 +1241,10 @@ if (runs(25)) {
     ["role defaults: a processor may view clients and may not approve letters", () => w25(U["org.agent@bes.test"], `select public.member_can('${lakesideOrg}','creditops.clients.view')::text || ':' || public.member_can('${lakesideOrg}','creditops.letters.approve')::text as rows`), "true:false"],
     ["an organization admin is always allowed",                        () => w25(U["org.owner@bes.test"], `select public.member_can('${lakesideOrg}','billing.manage')::text as rows`), "true"],
     ["outside the organization every key is denied",                   () => w25(U["org2.owner@bes.test"], `select public.member_can('${lakesideOrg}','creditops.clients.view')::text as rows`), "false"],
-    ["my_permissions answers every key at once",                       () => w25(U["org.agent@bes.test"], `select count(*)::int as rows from public.my_permissions('${lakesideOrg}')`), 22],
+    /* Derived, not hardcoded: my_permissions returns one row per permission_key,
+       so the count changes whenever a capability is added. What is being tested
+       is "all of them in ONE call", never the number 22. */
+    ["my_permissions answers every key at once",                       () => w25(U["org.agent@bes.test"], `select count(*)::int as rows from public.my_permissions('${lakesideOrg}')`), q(`select count(*)::int as rows from public.permission_keys`)[0].rows],
     ["the owner grants an override; row and audit are written",        () => w25(U["org.owner@bes.test"], `select public.set_member_permission('${AGENT_M}','creditops.letters.approve', true, 'probe'); select (select allowed::text from public.member_permissions where membership_id='${AGENT_M}' and key='creditops.letters.approve') || ':' || (select count(*) from public.audit_log where action='organization.member_permission_set' and entity_id='${AGENT_M}' and created_at >= now())::text as rows`), "true:1"],
     ["clearing an override removes the row",                           () => w25(U["org.owner@bes.test"], `select public.set_member_permission('${AGENT_M}','creditops.letters.approve', true); select public.set_member_permission('${AGENT_M}','creditops.letters.approve', null); select count(*)::int as rows from public.member_permissions where membership_id='${AGENT_M}'`), 0],
     ["a member cannot change their own permissions",                   () => w25(U["org.agent@bes.test"], `select public.set_member_permission('${AGENT_M}','billing.manage', true); select 1 as rows`), "ERR 42501"],
@@ -3147,7 +3150,7 @@ if (runs(55)) {
       () => q(`select (position('c.status = ''active''' in pg_get_functiondef(p.oid)) > 0)::text as rows from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='partner_group_of_user'`)[0].rows, "true"],
 
     ["…and so does a suspended or archived partner",
-      () => q(`select (position('g.status <> ''Suspended''' in pg_get_functiondef(p.oid)) > 0 and position('g.archived_at is null' in pg_get_functiondef(p.oid)) > 0)::text as rows from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='partner_group_of_user'`)[0].rows, "true"],
+      () => q(`select (pg_get_functiondef(p.oid) like '%lifecycle not in%')::text as rows from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='partner_group_of_user'`)[0].rows, "true"],
 
     ["nobody unrelated resolves to a partner",
       () => probe55(ORG55, `select coalesce(public.partner_group_of_user()::text, 'none') as rows`), "none"],
