@@ -86,3 +86,98 @@ export function handoffEntryStatus(department: CreditOpsDepartment): string {
   const open = departmentStatuses(department).find((st) => isOpenDepartmentStatus(st));
   return open ?? departmentStatuses(department)[0];
 }
+
+/* ── Handing off to more than one department at once ───────────────────── */
+
+/**
+ * ── WHY `nextDepartment` IS NOT THE WHOLE STORY ────────────────────────────
+ *
+ * `CREDITOPS_DEPARTMENT_ORDER` reads like a pipeline, and the Hand off button
+ * followed it one step at a time — which meant Bureau Calling was "the last
+ * department in the sequence" and a round that needed BOTH Bureau Calling and
+ * Complaints & Mailing could only be sent to one of them.
+ *
+ * That is not how the work runs. Dee: "these parts can be done simultaneously
+ * and next steps on these can be multiple handoffs." After a round goes out,
+ * bureau calls and CFPB complaints proceed in PARALLEL, and Support runs
+ * alongside both throughout.
+ *
+ * So the order stays as a DISPLAY order and a sensible default, and stops
+ * being a constraint. Any department may hand to any other; a file can be open
+ * in several at once, which is what `client_department_statuses` has always
+ * been able to represent — one row per department, each with its own status
+ * and assignee.
+ *
+ * ── TWO RULES THAT MAKE FAN-OUT SAFE ───────────────────────────────────────
+ *
+ * 1. A handoff OPENS the target and does not close the source. Finishing your
+ *    own part is a separate, deliberate status change — otherwise handing a
+ *    file to Complaints would silently declare Dispute finished.
+ *
+ * 2. Handing to a department that is ALREADY OPEN leaves it alone. Re-sending
+ *    a file to Bureau Calling that is mid-call would otherwise knock it back
+ *    to "BC NEEDED" and lose where it had got to.
+ */
+
+/** Every department a file may be handed to from here — all but itself. */
+export function handoffTargets(from: CreditOpsDepartment): CreditOpsDepartment[] {
+  return CREDITOPS_DEPARTMENT_ORDER.filter((d) => d !== from);
+}
+
+export interface HandoffPlan {
+  /** Will be opened, at this entry status. */
+  opening: { department: CreditOpsDepartment; entryStatus: string }[];
+  /** Already has open work — left exactly as it is. */
+  alreadyOpen: { department: CreditOpsDepartment; status: string }[];
+  /** Cannot be handed to, and why. */
+  refused: { department: CreditOpsDepartment; reason: string }[];
+}
+
+/**
+ * What handing this file to these departments would actually do.
+ *
+ * Worked out BEFORE anything is written, so the interface can say "opens
+ * Bureau Calling; Complaints is already working it" rather than reporting it
+ * afterwards — or worse, resetting a department that was mid-way through.
+ */
+export function planHandoffs(
+  from: CreditOpsDepartment | null,
+  targets: readonly CreditOpsDepartment[],
+  rows: readonly DepartmentStatusRow[],
+): HandoffPlan {
+  const plan: HandoffPlan = { opening: [], alreadyOpen: [], refused: [] };
+  const seen = new Set<CreditOpsDepartment>();
+
+  for (const target of targets) {
+    if (seen.has(target)) continue;
+    seen.add(target);
+
+    if (from !== null && target === from) {
+      plan.refused.push({ department: target, reason: "A file cannot be handed to the department it is already with" });
+      continue;
+    }
+
+    const existing = rows.find((r) => r.department === target);
+    if (existing && isOpenDepartmentStatus(existing.status)) {
+      plan.alreadyOpen.push({ department: target, status: existing.status });
+      continue;
+    }
+
+    plan.opening.push({ department: target, entryStatus: handoffEntryStatus(target) });
+  }
+
+  return plan;
+}
+
+/** A sentence for the activity timeline and the confirmation. */
+export function describeHandoff(from: CreditOpsDepartment | null, plan: HandoffPlan): string {
+  const parts: string[] = [];
+  if (plan.opening.length > 0) {
+    parts.push(`opened ${plan.opening.map((o) => o.department).join(", ")}`);
+  }
+  if (plan.alreadyOpen.length > 0) {
+    parts.push(`${plan.alreadyOpen.map((o) => o.department).join(", ")} already working it`);
+  }
+  if (parts.length === 0) return "Nothing to hand off";
+  return `${from ? `From ${from}: ` : ""}${parts.join("; ")}`;
+}

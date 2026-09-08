@@ -300,6 +300,10 @@ export interface PartnerOperations {
   /** How the work runs. WHO runs the account lives on the partner itself, so
       the profile header can show it without opening this record. */
   operationsManagerId: string | null;
+  /** Does this partner run their credit work inside BES's own CreditOps CRM?
+      Default false — the report, dispute and letter screens stay hidden until
+      somebody says yes, because that product is not being sold yet. */
+  usesBesCreditCrm: boolean;
   notes: string | null;
 }
 
@@ -318,6 +322,7 @@ export async function fetchPartnerOperations(groupId: string): Promise<PartnerOp
     sopUrl: (r.sop_url as string) ?? null,
     commChannel: (r.comm_channel as string) ?? null, commUrl: (r.comm_url as string) ?? null,
     operationsManagerId: (r.operations_manager_id as string) ?? null,
+    usesBesCreditCrm: Boolean(r.uses_bes_credit_crm),
     notes: (r.notes as string) ?? null,
   };
 }
@@ -333,6 +338,7 @@ export async function savePartnerOperations(groupId: string, agencyId: string, p
     sop_url: blank(patch.sopUrl),
     comm_channel: blank(patch.commChannel), comm_url: blank(patch.commUrl),
     operations_manager_id: patch.operationsManagerId ?? null,
+    uses_bes_credit_crm: patch.usesBesCreditCrm ?? false,
     notes: blank(patch.notes),
   } as never, { onConflict: "group_id" });
   if (error) throw error;

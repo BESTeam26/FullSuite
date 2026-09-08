@@ -3161,11 +3161,19 @@ if (runs(55)) {
     ["a partner can be created with only a name and an email",
       () => probe55(OWNER55, `insert into public.outsourcing_groups (agency_id, name, contact_email) values ('${AG}','Probe Partner','probe@example.test'); select count(*)::int as rows from public.outsourcing_groups where contact_email='probe@example.test'`), 1],
 
+    /* Two statements, not a data-modifying CTE. The product creates a partner
+       with a plain insert and that works; inside a CTE the same insert fails its
+       WITH CHECK, so the probe was measuring a statement shape nothing uses. */
     ["a partner contact is not visible to an organization user",
-      () => probe55(OWNER55, `with g as (insert into public.outsourcing_groups (agency_id, name, contact_email) values ('${AG}','Probe P2','p2@example.test') returning id) insert into public.partner_contacts (group_id, agency_id, full_name, email) select g.id, '${AG}', 'Probe Person', 'person@example.test' from g; set local request.jwt.claims = '{"sub":"${ORG55}","role":"authenticated"}'; select count(*)::int as rows from public.partner_contacts`), 0],
+      () => probe55(OWNER55, `insert into public.outsourcing_groups (id, agency_id, name, contact_email) values ('44444444-0000-4000-8000-0000000000f1'::uuid,'${AG}','Probe P2','p2@example.test'); insert into public.partner_contacts (group_id, agency_id, full_name, email) values ('44444444-0000-4000-8000-0000000000f1'::uuid, '${AG}', 'Probe Person', 'person@example.test'); set local request.jwt.claims = '{"sub":"${ORG55}","role":"authenticated"}'; select count(*)::int as rows from public.partner_contacts`), 0],
 
+    /* A KNOWN group id, not `select ... limit 1`. Since 0184 an agent sees no
+       partner, so that subquery returned nothing, the insert wrote zero rows,
+       and the probe passed without testing anything. A probe that cannot fail
+       is worse than no probe. */
     ["an ordinary BES agent cannot create a partner contact",
-      () => probe55(AGENT55, `with g as (select id from public.outsourcing_groups limit 1) insert into public.partner_contacts (group_id, agency_id, full_name, email) select g.id, '${AG}', 'X', 'x@example.test' from g; select 0 as rows`), "ERR 42501"],
+      () => { const g = q(`select id::text as rows from public.outsourcing_groups limit 1`)[0].rows;
+              return probe55(AGENT55, `insert into public.partner_contacts (group_id, agency_id, full_name, email) values ('${g}'::uuid, '${AG}', 'X', 'x@example.test'); select 0 as rows`); }, "ERR 42501"],
 
     ["a partner file is not shared merely by being filed against the partner",
       () => q(`select (position('shared_with_partner' in pg_get_expr(polqual, polrelid)) > 0)::text as rows from pg_policy where polname='files_partner_select'`)[0].rows, "true"],

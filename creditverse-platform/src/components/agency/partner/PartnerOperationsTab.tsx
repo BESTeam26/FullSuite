@@ -71,6 +71,11 @@ export function PartnerOperationsTab({ groupId, people }: { groupId: string; peo
             <Detail label="Communication" value={o.commChannel ? <>{o.commChannel} {link("open", o.commUrl)}</> : null} />
             <Detail label="Operations manager"
               value={people.find((p) => p.userId === o.operationsManagerId)?.name ?? null} />
+            <Detail label="Credit work runs in"
+              value={o.usesBesCreditCrm ? "BES CreditOps CRM" : "The partner's own system"}
+              hint={o.usesBesCreditCrm
+                ? "Report, dispute and letter screens are available on their client files"
+                : "Those screens are hidden — BES is not the system of record for this partner's credit work"} />
           </dl>
           {o.notes && (
             <div className="mt-3">
@@ -104,6 +109,7 @@ function OperationsForm({ current, people, saving, onSave, onCancel }: {
     sopUrl: current?.sopUrl ?? "",
     commChannel: current?.commChannel ?? "", commUrl: current?.commUrl ?? "",
     operationsManagerId: current?.operationsManagerId ?? "__none__",
+    usesBesCreditCrm: current?.usesBesCreditCrm ?? false,
     notes: current?.notes ?? "",
   });
   const set = (patch: Partial<typeof v>) => setV((old) => ({ ...old, ...patch }));
@@ -125,6 +131,20 @@ function OperationsForm({ current, people, saving, onSave, onCancel }: {
           options={[{ value: "__none__", label: "No operations manager" },
             ...people.map((p) => ({ value: p.userId, label: p.name }))]} />
       </div>
+      <label className="flex items-start gap-2 rounded-lg border border-border bg-card p-3 text-xs">
+        <input type="checkbox" className="mt-0.5" checked={v.usesBesCreditCrm}
+          onChange={(e) => set({ usesBesCreditCrm: e.target.checked })} />
+        <span>
+          <span className="block font-medium text-foreground">
+            This partner's credit work runs inside BES's own CreditOps CRM
+          </span>
+          <span className="block text-muted-foreground">
+            Off for every partner today. Turning it on shows the credit report, dispute and letter
+            screens on their client files — leave it off while BES is not the system of record for
+            their credit work.
+          </span>
+        </span>
+      </label>
       <Textarea rows={3} value={v.notes} onChange={(e) => set({ notes: e.target.value })}
         placeholder="How the work runs — handover notes, quirks, who to ask" aria-label="Operational notes" />
       <div className="flex gap-2">

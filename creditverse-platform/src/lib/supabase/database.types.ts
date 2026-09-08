@@ -6887,6 +6887,7 @@ export type Database = {
           sop_url: string | null
           updated_at: string
           updated_by: string | null
+          uses_bes_credit_crm: boolean
         }
         Insert: {
           agency_id: string
@@ -6904,6 +6905,7 @@ export type Database = {
           sop_url?: string | null
           updated_at?: string
           updated_by?: string | null
+          uses_bes_credit_crm?: boolean
         }
         Update: {
           agency_id?: string
@@ -6921,6 +6923,7 @@ export type Database = {
           sop_url?: string | null
           updated_at?: string
           updated_by?: string | null
+          uses_bes_credit_crm?: boolean
         }
         Relationships: [
           {

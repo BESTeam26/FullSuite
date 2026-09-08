@@ -475,3 +475,51 @@ export async function setClientLifecycle(input: { clientId: string; lifecycle: C
   const { error } = await sb.rpc("set_client_lifecycle", { p_client: input.clientId, p_lifecycle: input.lifecycle, p_reason: input.reason ?? null });
   if (error) throw error;
 }
+
+/**
+ * Hand a file to several departments at once.
+ *
+ * The plan is worked out first (`planHandoffs`) so a department already
+ * mid-way through is left alone rather than reset — re-sending a file to
+ * Bureau Calling must not knock it back to BC NEEDED and lose where it had
+ * got to.
+ *
+ * Sequential rather than parallel on purpose: each write is its own RPC with
+ * its own activity event, and firing them together would interleave the
+ * timeline entries into an order that does not read as one action.
+ *
+ * Returns what actually happened, so the screen can say "opened Bureau
+ * Calling; Complaints was already working it" instead of claiming success.
+ */
+export async function handOffToDepartments(input: {
+  clientId: string;
+  from: Enums<"fulfillment_department"> | null;
+  targets: Enums<"fulfillment_department">[];
+  rows: readonly { department: string; status: string; updatedAt: string }[];
+  note?: string | null;
+}): Promise<{ opened: string[]; alreadyOpen: string[]; refused: string[] }> {
+  const { planHandoffs } = await import("@/lib/fulfillment/department-domain");
+  const plan = planHandoffs(
+    input.from as never,
+    input.targets as never,
+    input.rows as never,
+  );
+
+  for (const { department, entryStatus } of plan.opening) {
+    await setClientDepartmentStatus({
+      clientId: input.clientId,
+      department: department as Enums<"fulfillment_department">,
+      status: entryStatus,
+      note: [
+        input.from ? `Handed off from ${input.from}` : "Handed off",
+        input.note?.trim() || null,
+      ].filter(Boolean).join(" — "),
+    });
+  }
+
+  return {
+    opened: plan.opening.map((o) => o.department),
+    alreadyOpen: plan.alreadyOpen.map((o) => o.department),
+    refused: plan.refused.map((r) => r.department),
+  };
+}

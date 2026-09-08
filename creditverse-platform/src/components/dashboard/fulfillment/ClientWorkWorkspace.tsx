@@ -23,6 +23,7 @@ import { Link } from "react-router-dom";
 import { FundingReadinessCard } from "./FundingReadinessCard";
 import { ClientLifecycleControl } from "./ClientLifecycleControl";
 import { useCreditOpsAccess } from "@/lib/fulfillment/creditops-access";
+import { usePartnerOperations } from "@/lib/data/use-partner-services";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -34,6 +35,9 @@ export function ClientWorkWorkspace({ clientId, onBack }: Props) {
   const store = useCreditOpsStore();
   const client = store.clients.find((c) => c.id === clientId);
   const access = useCreditOpsAccess();
+  /* The partner decides, not the client: BES is either the system of record
+     for their credit work or it is not. */
+  const operations = usePartnerOperations(client?.outsourcingGroupId ?? null);
 
   /**
    * ── A NEW CLIENT'S FILE IS EMPTY, AND SAYS SO ──────────────────────────
@@ -153,16 +157,25 @@ export function ClientWorkWorkspace({ clientId, onBack }: Props) {
     <div className="space-y-4 text-xs">
       <ClientWorkHeader client={client} onBack={onBack} />
       {client && <ClientLifecycleControl client={client} canEdit={access.canEditDepartmentProgress} />}
-      {/* The Workspace tracks work and production. The credit report, import
-          and analysis live in the client's profile (CreditOps → Clients). */}
-      <div className="flex justify-end">
-        <Link
-          to={`/app/creditops/cases/${clientId}`}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          Open client profile (report, disputes, letters)
-        </Link>
-      </div>
+      {/* ── ONLY WHERE BES IS THE SYSTEM OF RECORD ─────────────────────
+          The credit report, dispute and letter screens are BES's own CRM.
+          Every partner today runs their credit work in their own system, and
+          that product is not being sold yet — so for them this link led to a
+          workspace their data does not live in.
+
+          Absent, not disabled: a greyed control still says the feature is
+          there and you are not allowed it, which is neither true. The partner's
+          Operations tab turns it on when BES really is the system of record. */}
+      {operations.data?.usesBesCreditCrm && (
+        <div className="flex justify-end">
+          <Link
+            to={`/app/creditops/cases/${clientId}`}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Open client profile (report, disputes, letters)
+          </Link>
+        </div>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-12">
         {/* LEFT / MAIN OPERATIONAL PANEL */}
