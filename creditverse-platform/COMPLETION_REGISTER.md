@@ -627,3 +627,89 @@ accounted for; **no source row becomes a live task by default.**
 |---|---|---|
 | Q1 | **Typing indicator in Communication** — an avatar with animated dots above the composer while somebody is typing or replying, per Dee's screenshot | No schema. Supabase Realtime **presence** is the right transport: typing is ephemeral and must not be a table — a `messages`-adjacent row per keystroke would be a write per keystroke (rule 14) and an audit record of nothing (rule 10). Presence is per-channel, expires with the socket, and is already RLS-gated by the channel subscription 0217 opened. Debounced, stops on send or on idle. |
 | Q2 | **Calendar view toggle** — the calendar must offer a month grid, not only a list | No schema. `LiveCalendar` already reads real deadlines (work items due, statutory letter clocks, renewal follow-ups) through `useMyWork` / `useOrganizationWork`; this is a second presentation of the same data, with the toggle remembered per viewer in `localStorage`. Rule 15 applies to the grid: today's cell, a selected day and an out-of-month day must all stay readable, and a day with many events must not clip. |
+
+### BES CRM build OS — 2026-09-08, migrations 0220–0224
+
+Dee's lock: *old ClickUp = project journey and milestones · the 140-row tracker
+= technical build standard · BES Work Units = team execution · automation =
+progress, handoffs, QA, EOD, notifications.*
+
+| Layer | Where it lives | Vocabulary |
+|---|---|---|
+| **Project journey** | `crm_project_journey()`, derived | info_gathering → planning_designing → building → testing → launch → support → complete |
+| **Engine state** | `crm_engine_state()`, derived per engine | PLANNED · BUILDING · QA · ACTIVE · SUPPORT · COMPLETE |
+| **Work unit status** | `crm_work_unit_state()`, derived from `work_stage` + `waiting_on` + the dependency graph | PLANNED · READY · IN PROGRESS · WAITING · BLOCKED · QA · COMPLETED |
+| **QA result** | `work_items.qa_result` | pending · passed · needs_fix |
+| **Milestones** | `crm_milestones`, mostly self-completing | Client Presentation, User Training, Go-Live, Feature Active, engine-ready, support started/completed |
+
+**Where the old ClickUp statuses went.** `NOT STARTED` → gone; Info Gathering
+says something true (§4). `IN PROGRESS` → the project label is BUILDING,
+because several engines are in progress at once (§7). `INITIAL TESTING` →
+project TESTING, unit QA (§8). `FOR REVISION` → a QA RESULT of `needs_fix` on
+one unit — **both `crm_projects_journey_override_check` and
+`crm_project_journey()` make it unreachable as a project stage**, which is §9
+enforced rather than described. `CLIENT PRESENTATION`, `USER TRAINING`,
+`ACTIVE FEATURE` → milestones and engine state, so they can happen at once
+and survive the move to Support (§11, §12, §14).
+
+**No second task engine (§8, §55).** A work unit IS a `work_items` row with
+three added columns. Checklists are `work_checklist_items`; blockers are
+`work_item_blockers`; production is the pre-existing completion trigger; EOD is
+`eod_day_activity`, untouched and already division-agnostic; notifications are
+0218's triggers firing on the ONE activity row `crm_complete_work_unit` writes.
+A matrix check asserts no table named like a second engine exists.
+
+**Four real bugs, every one caught by a probe before the push:**
+
+1. **`crm_projects_select` used a helper that re-queries `crm_projects`.** The
+   symptom was not recursion: `INSERT … RETURNING` failed with *"new row
+   violates row-level security policy"* while the identical insert WITHOUT
+   `RETURNING` succeeded, because RETURNING reads the new row back through the
+   SELECT policy. Every creator returns an id, so nothing could be created at
+   all. **A table's own policy must be written on its own columns**; the helper
+   is correct for the child tables, where it queries a different relation.
+2. **An unqualified column in a policy subquery resolved to the wrong table.**
+   `where r.id = requirement_id` — and `crm_client_requirements` has a
+   `requirement_id` column (the link to the master library), so the innermost
+   scope won and the condition became `r.id = r.requirement_id`, never true.
+   Valid SQL meaning something else; nothing about it fails a parse.
+3. **`production_logs_derive_context` hardcoded the partner to NULL** on the
+   work-item branch, so a BES CRM EOD line could not name the partner. Fixed at
+   the deriver — one place derives production context — rather than by passing
+   a value that gets silently overwritten, which the first version did.
+4. **`entity_visible` default-denies an unknown entity type**, so the activity
+   row for a satisfied client requirement was refused and took the whole write
+   with it. The fourth instance of that shape after 0174, 0196, 0206 and 0218.
+
+Also corrected: a CreditOps-scoped manager was refused BES CRM by the policy
+and told *"violates row-level security policy"* — true and useless. The
+function now says *"Your scope does not include BES CRM"*. The policy is still
+the protection; this is the sentence.
+
+**Verified:** 53 probes in rolled-back transactions before the push, then
+matrix phase 65 at 52/52 against the live database.
+
+**Remaining blocker — the workbook.** `crm_requirements` ships EMPTY;
+`crm_requirements_unmapped()` is the completeness gate. The seeded Website /
+Sales / Fulfillment / setup / launch templates are Dee's OWN worked examples
+from the brief, every row marked `provisional_from_brief`, and the nine engines
+with no worked example are `draft` so `crm_create_project` refuses them loudly
+rather than instantiating invented work. **No live project asserts 140 work
+units, and that requirement is formally removed (§57).**
+
+### Fixed on request, 2026-09-08 — changing tabs blanked the whole app
+
+Dee: *"When I CLICK ONE MENU TAB to another I am seeing this in a couple of
+seconds… it feels a bug."* It was one. `App.tsx` had a single `<Suspense>`
+around the entire route tree and `RequireAgencyRoute` wrapped
+`DashboardLayout`, so the first visit to any tab suspended everything —
+sidebar and topbar included — and painted `RouteFallback` on a bare
+background. A navigation that removes the navigation is indistinguishable from
+a crash.
+
+Both boundaries now sit inside the shell around the `Outlet`: the guard outside
+Suspense so a refused page never loads its chunk, Suspense inside it so only
+the content waits. Pinned by `shell-boundaries.test.ts`, which reads both files
+and fails if either moves back out. Verified live: the deployed
+`DashboardLayout` chunk carries "Loading this page", "Checking access" and
+"Access denied".
