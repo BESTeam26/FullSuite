@@ -181,6 +181,11 @@ export const Sidebar = () => {
           href: "/app/attention",
           badge: attentionCount,
         },
+        /* Directly under Attention Center, at Dee's request: it is opened more
+           than anything else here. One conversation space — BES team channels,
+           partner conversations and the organization channels shared with BES,
+           each the same row its owner sees rather than a copy (0190, 0191). */
+        { label: "Communication", icon: MessagesSquare, href: "/app/channels" },
       ],
     },
     {
@@ -222,10 +227,6 @@ export const Sidebar = () => {
     {
       label: "Management",
       items: [
-        /* One conversation space: BES team channels, partner conversations
-           and the organization channels shared with BES — the same rows their
-           owners see, never copies (0190, 0191). */
-        { label: "Communication", icon: MessagesSquare, href: "/app/channels" },
         { label: "Reports", icon: BarChart3, href: "/app/reporting", permission: "reports.view" },
         /* BES's own money — partner receivables and agency expenses. Distinct
            from "Organization billing", which is SaaS subscription metering for
