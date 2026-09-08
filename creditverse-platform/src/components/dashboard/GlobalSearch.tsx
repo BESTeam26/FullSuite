@@ -11,6 +11,14 @@
  * RLS-scoped; the organization id only narrows client-side. Matching is
  * client-side over those bounded lists — a server-side search function is the
  * next step if an organization outgrows them (rule 14, recorded).
+ *
+ * CONVERSATIONS ARE THE ONE EXCEPTION, and deliberately so. Messages are not
+ * a bounded list a screen already holds, and they must never be filtered on
+ * this side, so they go through `search_messages` — SECURITY INVOKER and
+ * narrowed to `channel_visible`, which means it can only ever return LESS
+ * than the conversation list, never more (Dee, §24). That makes it a server
+ * call, so it is debounced and needs two characters: one request when typing
+ * settles, not one per keystroke (rule 14).
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -20,6 +28,7 @@ import {
   FileText,
   Landmark,
   LayoutGrid,
+  MessageSquare,
   ListTodo,
   Paperclip,
   Search,
@@ -34,7 +43,9 @@ import { fetchAllFundingDeals, fetchFundingClients } from "@/lib/data/funding-cl
 import { fetchOrganizationWork } from "@/lib/data/work-items";
 import { fetchAllWorkspaceItems, fetchAssignableOrgMembers } from "@/lib/data/workspaces";
 import { fetchOrganizationFiles } from "@/lib/data/activity-attachments";
+import { searchMessages } from "@/lib/data/channels";
 import { useWorkspaces } from "@/lib/data/use-workspaces";
+import { useDebounced } from "@/lib/use-debounced";
 import { cn } from "@/lib/utils";
 
 const MAX_PER_GROUP = 6;
@@ -76,6 +87,16 @@ export function GlobalSearch({ className }: { className?: string }) {
   const files = useQuery({ queryKey: ["files", "organization", orgId], queryFn: () => fetchOrganizationFiles(orgId as string), enabled: active && !!orgId, staleTime: 30_000 });
   const { workspaces } = useWorkspaces(active && workspacesOn ? orgId : null);
 
+  /* Conversations: one server call when typing settles. `search_messages`
+     needs two characters and answers under the caller's own policies. */
+  const settled = useDebounced(q, 300);
+  const messages = useQuery({
+    queryKey: ["messages", "search", settled],
+    queryFn: () => searchMessages(settled, MAX_PER_GROUP),
+    enabled: live && settled.length >= 2,
+    staleTime: 15_000,
+  });
+
   const matches = (...fields: (string | number | undefined | null)[]) =>
     fields.some((f) => f !== undefined && f !== null && String(f).toLowerCase().includes(q));
   const inScope = (organizationId: string | undefined | null) => isAgencyView || organizationId === orgId;
@@ -95,11 +116,15 @@ export function GlobalSearch({ className }: { className?: string }) {
   const workspaceHits = q ? workspaces.filter((w) => matches(w.name)).slice(0, MAX_PER_GROUP) : [];
   const memberHits = q ? (members.data ?? []).filter((m) => matches(m.name, m.email, m.role)).slice(0, MAX_PER_GROUP) : [];
   const fileHits = q ? (files.data ?? []).filter((f) => matches(f.name)).slice(0, MAX_PER_GROUP) : [];
+  /* Not filtered here. There is nothing to filter: the function already
+     answered for this person. */
+  const messageHits = q ? (messages.data ?? []) : [];
 
   const total =
     organizations.length + creditClients.length + fundingClients.length + dealHits.length +
-    workHits.length + wsItemHits.length + workspaceHits.length + memberHits.length + fileHits.length;
-  const loading = [credit, funding, deals, work, wsItems, members, files].some((s) => s.isLoading);
+    workHits.length + wsItemHits.length + workspaceHits.length + memberHits.length + fileHits.length +
+    messageHits.length;
+  const loading = [credit, funding, deals, work, wsItems, members, files, messages].some((s) => s.isLoading);
   const open = !dismissed && q.length > 0;
 
   /* Close when the pointer lands outside the field and its results. */
@@ -197,6 +222,19 @@ export function GlobalSearch({ className }: { className?: string }) {
             {memberHits.length > 0 && (
               <CommandGroup heading="Team">
                 {memberHits.map((m) => item(`member-${m.id}`, icon(Users), m.name, m.role, () => go("/app/teams")))}
+              </CommandGroup>
+            )}
+            {messageHits.length > 0 && (
+              <CommandGroup heading="Conversations">
+                {messageHits.map((m) =>
+                  item(
+                    `msg-${m.messageId}`,
+                    icon(MessageSquare),
+                    m.bodyText,
+                    `${m.channelName} · ${m.authorName}`,
+                    () => go(`/app/channels?channel=${m.channelId}`),
+                  ),
+                )}
               </CommandGroup>
             )}
             {fileHits.length > 0 && (

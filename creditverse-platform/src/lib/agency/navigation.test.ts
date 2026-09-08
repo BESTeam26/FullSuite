@@ -153,3 +153,97 @@ describe("role ordering", () => {
     expect(atLeast(null, "agency_agent")).toBe(false);
   });
 });
+
+/* ------------------------------------------------------------------ *
+ * The exhaustive pass.
+ *
+ * Every test above names its routes in a hand-written list, which is how a
+ * list goes stale: a route added later appears in neither STAFF_MENU nor
+ * MANAGEMENT and is silently untested. (That is not hypothetical — a
+ * hand-written list of nine credit statuses omitted the four the database had
+ * just gained, and no screen could move a client out of Onboarding.)
+ *
+ * These walk AGENCY_ROUTES × every role, so a new route is covered the
+ * moment it is added and a new role the moment it exists.
+ * ------------------------------------------------------------------ */
+const ROLES: (AgencyRole | null)[] = [
+  null, "agency_agent", "agency_team_lead", "agency_manager", "agency_admin", "agency_owner",
+];
+/* Permission-gated routes need the permission granted to prove the ROLE rule;
+   granting everything isolates rank from capability. */
+const ALL_PERMISSIONS = AGENCY_ROUTES.map((r) => r.permission).filter((p): p is string => !!p);
+
+describe("the menu and the door can never disagree", () => {
+  it("opens every route it shows, except the ones it marks as not ready", () => {
+    for (const role of ROLES) {
+      const c = ctx(role, ALL_PERMISSIONS);
+      for (const { spec, access } of visibleRoutes(c)) {
+        expect(routeAllows(spec.path, c), `${role} · ${spec.path} (${access})`)
+          .toBe(access === "allow");
+      }
+    }
+  });
+
+  it("refuses every route it does not show", () => {
+    for (const role of ROLES) {
+      const c = ctx(role, ALL_PERMISSIONS);
+      const shown = new Set(visibleRoutes(c).map((r) => r.spec.path));
+      for (const spec of AGENCY_ROUTES) {
+        if (shown.has(spec.path)) continue;
+        expect(routeAllows(spec.path, c), `${role} · ${spec.path}`).toBe(false);
+      }
+    }
+  });
+
+  it("never opens an unfinished page, not even for the owner", () => {
+    for (const spec of AGENCY_ROUTES.filter((r) => r.readiness === "locked_not_ready")) {
+      for (const role of ROLES) {
+        expect(routeAllows(spec.path, ctx(role, ALL_PERMISSIONS)), `${role} · ${spec.path}`).toBe(false);
+      }
+    }
+  });
+
+  it("gives a signed-out person nothing at all", () => {
+    expect(visibleRoutes(ctx(null, ALL_PERMISSIONS))).toEqual([]);
+    for (const spec of AGENCY_ROUTES) expect(routeAllows(spec.path, ctx(null, ALL_PERMISSIONS))).toBe(false);
+  });
+
+  it("is monotonic in rank: a higher role never loses a route a lower one has", () => {
+    const ladder: AgencyRole[] = [
+      "agency_agent", "agency_team_lead", "agency_manager", "agency_admin", "agency_owner",
+    ];
+    for (let i = 1; i < ladder.length; i += 1) {
+      const lower = new Set(
+        visibleRoutes(ctx(ladder[i - 1], ALL_PERMISSIONS))
+          .filter((r) => r.access === "allow").map((r) => r.spec.path),
+      );
+      const higher = new Set(
+        visibleRoutes(ctx(ladder[i], ALL_PERMISSIONS))
+          .filter((r) => r.access === "allow").map((r) => r.spec.path),
+      );
+      for (const path of lower) {
+        expect(higher.has(path), `${ladder[i]} lost ${path} that ${ladder[i - 1]} has`).toBe(true);
+      }
+    }
+  });
+
+  it("withholds a permission-gated route from somebody who holds no permissions", () => {
+    /* Rank alone must not be enough where a permission is required — the
+       Role + Permission half of rule 3. */
+    const gated = AGENCY_ROUTES.filter((r) => r.permission && r.readiness !== "locked_not_ready");
+    expect(gated.length).toBeGreaterThan(0);
+    for (const spec of gated) {
+      expect(routeAllows(spec.path, ctx("agency_owner", [])), spec.path).toBe(false);
+      expect(routeAllows(spec.path, ctx("agency_owner", [spec.permission!])), spec.path).toBe(true);
+    }
+  });
+
+  it("every route in the table is reachable by SOMEBODY, or is marked not ready", () => {
+    /* A route no role can ever open is dead code wearing a menu entry. */
+    for (const spec of AGENCY_ROUTES) {
+      if (spec.readiness === "locked_not_ready") continue;
+      const reachable = ROLES.some((role) => routeAllows(spec.path, ctx(role, ALL_PERMISSIONS)));
+      expect(reachable, `nobody can open ${spec.path}`).toBe(true);
+    }
+  });
+});
