@@ -564,3 +564,45 @@ views, verified in the generated map:
 - BES reads an organization's work only under `bes_engaged_with(organization_id)` and within `in_scope(...)`
 - the organization's own people read the same rows via `org_scope_allows(...)`
 - the organization reads BES-owned `bes_crm` work about itself via `subject_organization_id` + `is_org_admin` + `org_entitled`
+
+#### CLOSED by Dee, 2026-09-08 — do not revisit `/app/fulfillment`
+
+Dee reviewed `6d349cd` and `b038023` and accepted both. Two notes recorded so
+they are not re-opened as findings by a later pass:
+
+- `workItems` stays `useState<WorkItem[]>([])` with no setter rather than
+  becoming a constant. Dee: *"not dangerous… slightly unusual, but the reason
+  is defensible… I would not spend more development time cleaning that up."*
+  It preserves the fallback shape `agencyWork`, `activeOrgWork` and
+  `useAttention` read.
+- The archived screen keeps a local empty `workOrders` state purely so
+  archived code typechecks. It is not in the bundle and does not affect
+  production.
+
+#### Dee's instruction for the BES CRM build tracker
+
+> *"The 140 CRM build tasks should instantiate into the same canonical
+> `work_items` foundation, not revive the old `FulfillmentWorkOrder`
+> concept."*
+
+**Already satisfied by the shape BES CRM uses today** — this is continuity, not
+a new mechanism to design:
+
+| Requirement | What exists |
+|---|---|
+| a CRM project IS canonical work | an AGENCY-scope `work_items` row, `division = 'bes_crm'`, customer in `subject_organization_id` (`BesCrm.tsx`) |
+| read through the canonical engine | `useAgencyWork` → `fetchAgencyWork` → `work_items`, RLS-filtered |
+| the customer sees its own, read-only | `work_items_select` branch: `subject_organization_id IS NOT NULL AND division = 'bes_crm' AND is_org_admin(subject_organization_id) AND org_entitled(subject_organization_id, 'crm')` — and no policy lets it change status, assignment, dates or completion |
+| work feeds Production and EOD | `production.ts` already types `service: "bes_crm" \| "talentops"` against a `workItemId`; `eod.ts` maps `bes_crm → bes-crm` |
+| assignment | `team_id` / `assigned_to` on the same row |
+
+So a tracker of build tasks is **rows in `work_items`** (optionally a parent
+project row plus child tasks), not a new table and not a new work shape. What
+must NOT happen: a `crm_build_task` table beside `work_items`, or anything
+resembling the retired `FulfillmentWorkOrder` adapter — a flattened copy with
+its own status vocabulary.
+
+**Waiting on Dee:** the 140-task list itself. It is not in this repository and
+was not designed in the session that produced this entry — see **B8** in
+`WHAT_I_NEED_FROM_DEE.md`. When it arrives it goes into the repo verbatim
+before any of it is turned into rows.
