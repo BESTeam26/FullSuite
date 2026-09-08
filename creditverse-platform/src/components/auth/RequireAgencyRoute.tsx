@@ -15,7 +15,8 @@ import { Lock, ShieldAlert } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useAgencyPermissions, type AgencyPermission } from "@/lib/data/agency-permissions";
 import { usePermissions, type PermissionKeyName } from "@/lib/auth/use-permission";
-import { accessTo, routeFor, type AccessContext, type AgencyRole } from "@/lib/agency/navigation";
+import { accessTo, routeFor } from "@/lib/agency/navigation";
+import { useAgencyAccessContext } from "@/lib/agency/use-access-context";
 
 function Refusal({ icon: Icon, title, body }: { icon: typeof Lock; title: string; body: string }) {
   return (
@@ -34,6 +35,13 @@ export const RequireAgencyRoute = ({ children }: { children: ReactNode }) => {
   const permissions = usePermissions();
   const agencyPermissions = useAgencyPermissions();
   const { pathname } = useLocation();
+  /* The SAME context the Sidebar renders from, so a visible link cannot lead
+     to a refusal. It also carries the previewed person during a View As, which
+     is what makes a preview's route guard as exact as its menu (§37).
+
+     Read BEFORE the early returns below: a hook that runs only on some renders
+     changes hook order between them, which React forbids. */
+  const { ctx } = useAgencyAccessContext();
 
   const spec = routeFor(pathname);
   /* Not an Agency HQ route: this guard has no opinion, and inventing one
@@ -46,16 +54,6 @@ export const RequireAgencyRoute = ({ children }: { children: ReactNode }) => {
     return <div className="min-h-[60vh]" aria-busy="true" />;
   }
 
-  const ctx: AccessContext = {
-    role: (agencyMembership?.role as AgencyRole) ?? null,
-    /* Two engines answer the same question for different populations: the
-       organization permission context, and `agency_can` for capabilities that
-       exist only inside BES HQ (partner financials, the finance dashboard).
-       Either granting is a grant — a capability is not withheld because the
-       other engine has never heard of it. Both are already resolved once per
-       session, so this asks nothing extra of the network. */
-    can: (key) => agencyPermissions.can(key as AgencyPermission) || permissions.can(key as PermissionKeyName),
-  };
   const access = accessTo(spec, ctx);
   if (access === "allow") return <>{children}</>;
 

@@ -305,3 +305,39 @@ export async function fetchPins(channelId: string): Promise<PinnedMessage[]> {
   if (error) throw error;
   return (data ?? []).map((p) => ({ messageId: Number(p.message_id), pinnedAt: p.pinned_at }));
 }
+
+/**
+ * ONE message, in the same shape the list speaks.
+ *
+ * For a realtime arrival. The payload is the raw row — an author id, no
+ * reactions, no reply count — and refetching the conversation to render one
+ * incoming line is what §43 forbids. One small read instead.
+ */
+export async function fetchMessageById(id: number): Promise<RichMessage | null> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("channel_message_by_id", { p_id: id });
+  if (error) throw error;
+  const row = (data ?? [])[0];
+  return row ? toRich(row as Record<string, unknown>) : null;
+}
+
+export interface MessageRevision {
+  id: number;
+  bodyText: string;
+  editedBy: string | null;
+  editedAt: string;
+}
+
+/** What a message said before each edit. Append-only in the database. */
+export async function fetchMessageRevisions(messageId: number): Promise<MessageRevision[]> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.from("message_revisions")
+    .select("id, body_text, edited_by, edited_at")
+    .eq("message_id", messageId)
+    .order("edited_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((r) => ({
+    id: Number(r.id), bodyText: r.body_text,
+    editedBy: r.edited_by ?? null, editedAt: r.edited_at,
+  }));
+}

@@ -12,13 +12,15 @@
  * refused (§31, §72). This component cannot grant what the policy denies, and
  * the policy does not care what this component draws.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  CornerUpLeft, Download, MessageSquare, Megaphone, MoreHorizontal, Paperclip,
-  Pin, PinOff, SmilePlus, Trash2,
+  Check, CornerUpLeft, Download, History, MessageSquare, Megaphone,
+  MoreHorizontal, Paperclip, Pencil, Pin, PinOff, SmilePlus, Trash2, X,
 } from "lucide-react";
 import { formatDate } from "@/lib/format-date";
-import { signedAttachmentUrl, type Attachment, type RichMessage } from "@/lib/data/messages";
+import {
+  fetchMessageRevisions, signedAttachmentUrl, type Attachment, type RichMessage,
+} from "@/lib/data/messages";
 import { QUICK_REACTIONS } from "@/lib/communication/emoji";
 import { splitBody } from "@/lib/communication/message-body";
 import { cn } from "@/lib/utils";
@@ -34,6 +36,8 @@ export interface MessageRowProps {
   onOpenThread: () => void;
   onPin: () => void;
   onDelete: () => void;
+  /** §56 — your OWN message only. The policy refuses everybody else. */
+  onEdit?: (bodyText: string) => void;
   onRetry?: () => void;
   onDismissFailed?: () => void;
   /** Threads have no threads (§21: one level). */
@@ -42,10 +46,13 @@ export interface MessageRowProps {
 
 export function MessageRow({
   message: m, isMine, meUserId, canPin, onReact, onReply, onOpenThread, onPin, onDelete,
-  onRetry, onDismissFailed, compact = false,
+  onEdit, onRetry, onDismissFailed, compact = false,
 }: MessageRowProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(m.bodyText ?? "");
+  const [showHistory, setShowHistory] = useState(false);
 
   if (m.messageType === "announcement") {
     return <AnnouncementCard message={m} />;
@@ -76,7 +83,13 @@ export function MessageRow({
           </span>
         )}
         <span className="text-[11px] text-muted-foreground">{formatDate(m.createdAt)}</span>
-        {m.editedAt && <span className="text-[10px] text-muted-foreground">edited</span>}
+        {m.editedAt && (
+          <button type="button" onClick={() => setShowHistory((v) => !v)}
+            aria-expanded={showHistory}
+            className="inline-flex items-center gap-0.5 rounded text-[10px] text-muted-foreground underline decoration-dotted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+            <History className="h-2.5 w-2.5" /> edited
+          </button>
+        )}
         {m.pinned && <Pin className="h-3 w-3 text-amber-600" aria-label="Pinned" />}
         {m.pending && <span className="text-[10px] text-muted-foreground">Sending…</span>}
       </p>
@@ -84,6 +97,39 @@ export function MessageRow({
       {m.deleted ? (
         /* §32 — the row survives so the thread keeps its shape. */
         <p className="italic text-muted-foreground">Message removed</p>
+      ) : editing ? (
+        <div className="mt-0.5 space-y-1.5">
+          <textarea
+            value={draft}
+            autoFocus
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") { setEditing(false); setDraft(m.bodyText ?? ""); }
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                if (draft.trim()) { onEdit?.(draft.trim()); setEditing(false); }
+              }
+            }}
+            rows={2}
+            aria-label="Edit your message"
+            className="w-full resize-none rounded-lg border border-border bg-background px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+          <p className="flex items-center gap-2 text-[11px] text-muted-foreground">
+            <button type="button"
+              onClick={() => { if (draft.trim()) { onEdit?.(draft.trim()); setEditing(false); } }}
+              disabled={!draft.trim()}
+              className="inline-flex items-center gap-1 font-bold text-primary hover:underline disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+              <Check className="h-3 w-3" /> Save
+            </button>
+            <button type="button"
+              onClick={() => { setEditing(false); setDraft(m.bodyText ?? ""); }}
+              className="inline-flex items-center gap-1 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+              <X className="h-3 w-3" /> Cancel
+            </button>
+            {/* Said before they save it: an edit is kept, not silent (§56). */}
+            <span>The previous wording is kept in the message's history.</span>
+          </p>
+        </div>
       ) : (
         <p className="whitespace-pre-wrap break-words text-foreground">
           {splitBody(m.bodyText ?? "", m.mentions, meUserId).map((part, i) =>
@@ -190,6 +236,8 @@ export function MessageRow({
         </div>
       )}
 
+      {showHistory && <MessageHistory messageId={m.id} />}
+
       {menuOpen && (
         <div className="absolute right-1 top-8 z-10 min-w-[10rem] rounded-md border border-border bg-card p-1 shadow-md">
           {canPin && (
@@ -197,6 +245,10 @@ export function MessageRow({
               onClick={() => { onPin(); setMenuOpen(false); }} />
           )}
           {/* Only on your own. Not disabled — absent (§71). */}
+          {isMine && onEdit && (
+            <MenuItem icon={Pencil} label="Edit"
+              onClick={() => { setDraft(m.bodyText ?? ""); setEditing(true); setMenuOpen(false); }} />
+          )}
           {isMine && (
             <MenuItem icon={Trash2} label="Delete" tone="danger"
               onClick={() => { onDelete(); setMenuOpen(false); }} />
@@ -285,5 +337,51 @@ function AttachmentRow({ attachment }: { attachment: Attachment }) {
       </button>
       {error && <p role="alert" className="text-[11px] text-status-danger">{error}</p>}
     </>
+  );
+}
+
+
+/**
+ * What a message said before it was edited.
+ *
+ * `message_revisions` is append-only in the database — no update grant, no
+ * delete grant — so this is a record and not a rendering of one. An "edited"
+ * badge that cannot be expanded tells a reader the text moved and nothing
+ * more, which is the silent rewriting §56 asks us to avoid.
+ */
+function MessageHistory({ messageId }: { messageId: number }) {
+  const [rows, setRows] = useState<{ id: number; bodyText: string; editedAt: string }[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchMessageRevisions(messageId)
+      .then((r) => { if (!cancelled) setRows(r); })
+      .catch((e: Error) => { if (!cancelled) setError(e.message); });
+    return () => { cancelled = true; };
+  }, [messageId]);
+
+  return (
+    <div className="mt-1 rounded-lg border border-border bg-muted/30 p-2">
+      <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+        Earlier wording
+      </p>
+      {error ? (
+        <p role="alert" className="text-[11px] text-status-danger">{error}</p>
+      ) : rows === null ? (
+        <p className="text-[11px] text-muted-foreground">Loading…</p>
+      ) : rows.length === 0 ? (
+        <p className="text-[11px] text-muted-foreground">No earlier wording recorded.</p>
+      ) : (
+        <ul className="space-y-1">
+          {rows.map((r) => (
+            <li key={r.id} className="text-[11px] text-muted-foreground">
+              <span className="whitespace-pre-wrap text-foreground">{r.bodyText}</span>
+              <span className="ml-1.5">— until {formatDate(r.editedAt)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

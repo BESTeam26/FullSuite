@@ -32,6 +32,11 @@ vi.mock("@/lib/data/use-channels", () => ({
      database decides — the portal simply renders what comes back. */
   useChannelMentionable: () => ({ data: [] }),
 }));
+vi.mock("@/lib/data/use-message-realtime", () => ({
+  /* Realtime is proved against the live database; the screen tests only need
+     it not to open a socket. */
+  useMessageRealtime: () => undefined,
+}));
 vi.mock("@/lib/data/use-messages", () => ({
   useRichMessages: () => ({ data: messages, isLoading: false, refetch: vi.fn() }),
   useThread: () => ({ data: [], isLoading: false }),

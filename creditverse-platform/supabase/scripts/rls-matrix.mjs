@@ -4248,6 +4248,34 @@ if (runs(61)) {
       () => p61(CO61, `insert into public.announcements (organization_id, audience, title, body, managers_only, published_at, created_by) values (null,'bes_internal','[TEST] Leadership only','x', true, now(), '${OWN61}');`,
         `select coalesce((select announcement_title from public.channel_messages((select id from public.channels where system_key='announcements_updates')) where announcement_title = '[TEST] Leadership only'), 'HIDDEN') as rows`), "HIDDEN"],
 
+    /* ── §55/§56 — realtime, and editing your own words ──────────── */
+    ["messages are published to realtime, and NOTHING else is",
+      () => q(`select count(*)::int as rows from pg_publication_tables
+                where pubname='supabase_realtime' and not (schemaname='public' and tablename='messages')`)[0].rows, 0],
+    ["…and messages IS published",
+      () => q(`select count(*)::int as rows from pg_publication_tables
+                where pubname='supabase_realtime' and schemaname='public' and tablename='messages'`)[0].rows, 1],
+    ["an author edits their OWN message",
+      () => p61(LEAD61, world61, `update public.messages set body_text='corrected' where id=${M_LEAD}; select body_text as rows from public.messages where id=${M_LEAD}`), "corrected"],
+    ["…and the previous wording is kept (§56)",
+      () => p61(LEAD61, world61, `update public.messages set body_text='corrected' where id=${M_LEAD}; set local role postgres; select body_text as rows from public.message_revisions where message_id=${M_LEAD}`), "from the lead"],
+    ["…the OWNER cannot edit it",
+      () => p61(OWN61, world61, `update public.messages set body_text='rewritten' where id=${M_LEAD}; select body_text as rows from public.messages where id=${M_LEAD}`), "from the lead"],
+    ["…nor the ADMIN",
+      () => p61(ADM61, world61, `update public.messages set body_text='rewritten' where id=${M_LEAD}; select body_text as rows from public.messages where id=${M_LEAD}`), "from the lead"],
+    ["revision history cannot be rewritten — no update or delete grant",
+      () => q(`select count(*)::int as rows from information_schema.role_table_grants
+                where table_name='message_revisions' and grantee='authenticated'
+                  and privilege_type in ('UPDATE','DELETE','INSERT')`)[0].rows, 0],
+    ["…and a client cannot fabricate one",
+      () => p61(LEAD61, world61, `insert into public.message_revisions (message_id, body_text) values (${M_LEAD},'never said this'); select 1 as rows`), "ERR 42501"],
+    ["a soft delete is not recorded as an edit",
+      () => p61(LEAD61, world61, `select public.delete_own_message(${M_LEAD}); set local role postgres; select count(*)::int as rows from public.message_revisions where message_id=${M_LEAD}`), 0],
+    ["the single-message reader is RLS-filtered like the list",
+      () => p61(GHL60_61, `insert into public.channels (id, agency_id, kind, name, created_by, open_to_scope) values ('${CH61}','${AG61}','topic','closed','${OWN61}', false);
+        insert into public.messages (id, channel_id, author_id, body, body_text) overriding system value values (${M_OWNER},'${CH61}','${OWN61}','{}'::jsonb,'secret');`,
+        `select count(*)::int as rows from public.channel_message_by_id(${M_OWNER})`), 0],
+
     /* ── §27 — mentions notify, and never admit ──────────────────── */
     /* `attrs.userId`, not `attrs.id`. The first version of this probe used
        `id`, so `mentioned_user_ids` parsed an empty array, the notifier loop
@@ -4567,6 +4595,150 @@ if (runs(62)) {
       () => { try { q(`begin; set local role anon; select 1 from public.client_department_statuses limit 1; rollback;`); return "readable"; } catch { return "refused"; } }, "refused"],
   ] : [["(no agency or fixture team to probe)", () => "skip", "skip"]];
   runPhase("phase 62", P62, { strict: true });
+}
+
+
+if (runs(63)) {
+  startPhase("phase 63");
+  /* VIEW AS USER — a read-only preview that is NOT impersonation.
+  
+     Dee, §35: "Do NOT swap auth tokens, change auth.uid(), login as employee,
+     create employee sessions, perform writes as employee."
+  
+     So the preview is built out of FACTS ABOUT the target, read through
+     functions only a privileged caller may call. `auth.uid()` never changes,
+     which is what the last probes here assert: previewing somebody grants no
+     row, no write and no reach that the previewer did not already have.
+  
+     And the honest part. Answering "what would DANIEL see" needs the same
+     rules with a different subject, and a function that reads `auth.uid()`
+     internally cannot be parameterized — so `*_for_user` variants exist and
+     are a SECOND COPY of rules that already exist. Rule 6 would normally
+     forbid that; the alternative is impersonation. The trade is kept honest
+     the only way it can be: these probes assert that for the CURRENT user,
+     each parameterized function AGREES with the original, on every fixture,
+     in both directions. A drift fails here rather than producing a preview
+     that quietly lies. */
+  const p63 = (uid, seed, sql) => {
+    try {
+      return q(`begin; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${seed} set local role authenticated; ${sql}; rollback;`)[0].rows;
+    } catch (e) {
+      const m = (String(e.message) + String(e.stdout ?? "")).match(/ERROR:\s*(\w+):/);
+      return "ERR " + (m ? m[1] : "unknown");
+    }
+  };
+  const OWN63 = U["bes.owner@bes.test"], ADM63 = U["bes.admin@bes.test"];
+  const MGR63 = U["bes.manager@bes.test"], LEAD63 = U["bes.lead@bes.test"];
+  const CO63 = U["bes.credit@bes.test"], PORTAL63 = U["client.portal@bes.test"];
+  const AG63 = q(`select id::text as rows from public.agencies limit 1`)[0].rows;
+  const ADM_M63 = q(`select coalesce((select m.id::text from public.agency_memberships m join public.profiles p on p.id=m.user_id where p.email='bes.admin@bes.test'),'') as rows`)[0].rows;
+  const EVERYONE63 = [OWN63, ADM63, MGR63, LEAD63, CO63];
+
+  /* Grant/revoke the preview capability on the ADMIN's membership. */
+  const grantPreview = `insert into public.agency_member_permissions (membership_id, key, allowed, set_by) values ('${ADM_M63}','access.preview_as_user',true,'${OWN63}') on conflict (membership_id, key) do update set allowed = true;`;
+
+  const P63 = AG63 && ADM_M63 ? [
+    /* ── §34 who may preview ─────────────────────────────────────────── */
+    ["the owner may preview, by role",
+      () => p63(OWN63, "", `select public.can_preview_as_user()::text as rows`), "true"],
+    ["an admin may NOT until granted the capability",
+      () => p63(ADM63, "", `select public.can_preview_as_user()::text as rows`), "false"],
+    ["…and may once granted — that is 'Super Admin', not a fourth role",
+      () => p63(ADM63, grantPreview, `select public.can_preview_as_user()::text as rows`), "true"],
+    ["a manager may not",
+      () => p63(MGR63, "", `select public.can_preview_as_user()::text as rows`), "false"],
+    ["a team lead may not",
+      () => p63(LEAD63, "", `select public.can_preview_as_user()::text as rows`), "false"],
+    ["an agent may not",
+      () => p63(CO63, "", `select public.can_preview_as_user()::text as rows`), "false"],
+    ["a partner contact may not",
+      () => p63(PORTAL63, "", `select public.can_preview_as_user()::text as rows`), "false"],
+
+    /* ── the preview functions refuse anybody else ───────────────────── */
+    ["an agent cannot profile a colleague",
+      () => p63(CO63, "", `select coalesce(public.access_profile_for_user('${OWN63}')::text,'NULL') as rows`), "NULL"],
+    ["…but may read their OWN profile",
+      () => p63(CO63, "", `(select (public.access_profile_for_user('${CO63}') is not null)::text as rows)`), "true"],
+    ["an agent gets no capability list for a colleague",
+      () => p63(CO63, "", `select count(*)::int as rows from public.access_capabilities_for_user('${OWN63}')`), 0],
+    ["…nor a partner list",
+      () => p63(CO63, "", `select count(*)::int as rows from public.partners_visible_to_user('${OWN63}')`), 0],
+    ["…nor a service list",
+      () => p63(CO63, "", `select count(*)::int as rows from public.services_visible_to_user('${OWN63}')`), 0],
+    ["…nor a conversation list",
+      () => p63(CO63, "", `select count(*)::int as rows from public.channels_visible_to_user('${OWN63}')`), 0],
+    ["a manager cannot profile an agent either",
+      () => p63(MGR63, "", `select coalesce(public.access_profile_for_user('${CO63}')::text,'NULL') as rows`), "NULL"],
+    ["anon reaches none of it",
+      () => { try { q(`begin; set local role anon; select public.can_preview_as_user(); rollback;`); return "readable"; } catch { return "refused"; } }, "refused"],
+
+    /* ── THE AGREEMENT PROBES — the parameterized copies must not drift ─ */
+    ...EVERYONE63.map((uid, i) => [
+      `agency_can_for_user agrees with agency_can for fixture ${i + 1}`,
+      () => p63(uid, "", `select count(*)::int as rows from public.permission_keys k
+                           where (select allowed from public.agency_can_for_user('${uid}', k.key))
+                                 is distinct from public.agency_can(k.key)`),
+      0,
+    ]),
+    ...EVERYONE63.map((uid, i) => [
+      `partners_visible_to_user agrees with can_see_partner for fixture ${i + 1}`,
+      () => p63(uid, "", `select count(*)::int as rows from public.partners_visible_to_user('${uid}') v
+                           where v.allowed is distinct from public.can_see_partner(v.partner_id)`),
+      0,
+    ]),
+    ["…and that agreement is measured against real partners, not an empty set",
+      () => p63(OWN63, "", `select count(*)::int as rows from public.partners_visible_to_user('${OWN63}')`),
+      q(`select count(*)::int as rows from public.outsourcing_groups`)[0].rows],
+
+    /* ── §35 PREVIEWING GRANTS NOTHING ───────────────────────────────── */
+    ["previewing an agent does not shrink what the OWNER can read",
+      () => p63(OWN63, "", `select public.access_profile_for_user('${CO63}'); select count(*)::int as rows from public.outsourcing_groups`),
+      q(`select count(*)::int as rows from public.outsourcing_groups`)[0].rows],
+    ["auth.uid() is unchanged by asking about somebody else",
+      () => p63(OWN63, "", `select public.access_profile_for_user('${CO63}'); select (auth.uid() = '${OWN63}')::text as rows`), "true"],
+    ["previewing the OWNER does not let an admin read as the owner",
+      () => p63(ADM63, grantPreview, `select public.access_profile_for_user('${OWN63}'); select (auth.uid() = '${ADM63}')::text as rows`), "true"],
+    ["no function here writes anything — all are STABLE or IMMUTABLE",
+      () => q(`select count(*)::int as rows from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+                where n.nspname='public' and p.provolatile = 'v'
+                  and p.proname in ('can_preview_as_user','agency_can_for_user','access_capabilities_for_user',
+                                    'access_profile_for_user','partners_visible_to_user',
+                                    'services_visible_to_user','channels_visible_to_user')`)[0].rows, 0],
+    ["a deactivated person's preview reports the deactivation as the reason",
+      () => p63(OWN63, `update public.agency_memberships set status='inactive' where user_id='${CO63}';`,
+        `select (source like '%inactive%')::text as rows from public.agency_can_for_user('${CO63}','partners.view')`), "true"],
+    ["…and everything is denied for them",
+      () => p63(OWN63, `update public.agency_memberships set status='inactive' where user_id='${CO63}';`,
+        `select count(*)::int as rows from public.permission_keys k
+          where (select allowed from public.agency_can_for_user('${CO63}', k.key))`), 0],
+
+    /* ── §38 the reason is the feature ───────────────────────────────── */
+    ["every capability row carries a reason, never a blank",
+      () => p63(OWN63, "", `select count(*)::int as rows from public.access_capabilities_for_user('${CO63}')
+                             where source is null or length(trim(source)) = 0`), 0],
+    ["every partner row carries a reason too",
+      () => p63(OWN63, "", `select count(*)::int as rows from public.partners_visible_to_user('${CO63}')
+                             where reason is null or length(trim(reason)) = 0`), 0],
+    ["an owner's capabilities say they are held by role",
+      () => p63(OWN63, "", `select (source like '%by role%')::text as rows from public.agency_can_for_user('${OWN63}','partners.financials.view')`), "true"],
+    ["a granted capability says it was granted to the person",
+      () => p63(OWN63, grantPreview, `select (source like '%to this person%')::text as rows from public.agency_can_for_user('${ADM63}','access.preview_as_user')`),
+      /* An admin holds everything by role, so the ROLE branch answers first —
+         which is correct and worth pinning rather than asserting the grant
+         wording on somebody it does not apply to. */
+      "false"],
+    ["…and a manager's explicit grant does say so",
+      () => p63(OWN63, `insert into public.agency_member_permissions (membership_id, key, allowed, set_by)
+                          select m.id, 'reports.view', true, '${OWN63}' from public.agency_memberships m
+                           where m.user_id = '${MGR63}' on conflict (membership_id, key) do update set allowed = true;`,
+        `select (source like '%to this person%')::text as rows from public.agency_can_for_user('${MGR63}','reports.view')`), "true"],
+    ["…and an explicit DENY says that instead",
+      () => p63(OWN63, `insert into public.agency_member_permissions (membership_id, key, allowed, set_by)
+                          select m.id, 'reports.view', false, '${OWN63}' from public.agency_memberships m
+                           where m.user_id = '${MGR63}' on conflict (membership_id, key) do update set allowed = false;`,
+        `select (source like '%denied for this person%')::text as rows from public.agency_can_for_user('${MGR63}','reports.view')`), "true"],
+  ] : [["(no agency or admin membership to probe)", () => "skip", "skip"]];
+  runPhase("phase 63", P63, { strict: true });
 }
 
 endPhase();

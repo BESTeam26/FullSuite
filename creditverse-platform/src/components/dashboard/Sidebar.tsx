@@ -50,7 +50,9 @@ import { totalUnread } from "@/lib/communication/channel-groups";
 import { useUnreadNotificationCount } from "@/lib/data/use-notifications";
 import { useAuth } from "@/lib/auth/auth-context";
 import { usePermissions, type PermissionKeyName } from "@/lib/auth/use-permission";
-import { accessTo, routeFor, type AccessContext, type AgencyRole } from "@/lib/agency/navigation";
+import { accessTo, routeFor } from "@/lib/agency/navigation";
+import { Eye } from "lucide-react";
+import { useAgencyAccessContext } from "@/lib/agency/use-access-context";
 import { useAgencyPermissions, type AgencyPermission } from "@/lib/data/agency-permissions";
 import { useHubNavigation } from "@/lib/data/use-hub";
 import { HUB_MODULE_ICONS } from "@/lib/hub/hub-icons";
@@ -99,14 +101,12 @@ export const Sidebar = () => {
   const viewMode = agencyContext?.viewMode || "agency";
   const permissions = usePermissions();
   const agencyPermissions = useAgencyPermissions();
-  /* The SAME context RequireAgencyRoute builds, including the agency
-     capability engine. The menu and the door must not be able to disagree
-     about who may be where — if one consulted an engine the other did not,
-     a link would appear that leads to a refusal, or vice versa. */
-  const navContext: AccessContext = {
-    role: (agencyMembership?.role as AgencyRole) ?? null,
-    can: (key) => agencyPermissions.can(key as AgencyPermission) || permissions.can(key as PermissionKeyName),
-  };
+  /* ONE context, shared with RequireAgencyRoute — the menu and the door
+     cannot disagree about who may be where, because they no longer each build
+     the answer. It is also where View As substitutes the previewed person, so
+     the menu is exact during a preview without this file knowing one exists
+     (§37). */
+  const { ctx: navContext } = useAgencyAccessContext();
   /* The company side of the sidebar is composed from the organization's hub:
      entitled, switched on, and permitted (rule 18). Home and My Work already
      sit at the top, so they are not repeated here. */
@@ -261,6 +261,10 @@ export const Sidebar = () => {
       label: "System",
       items: [
         { label: "Agency Settings", icon: Settings, href: "/app/settings" },
+        /* Hidden from everybody but the owner and an admin holding
+           `access.preview_as_user` — `accessTo` reads the route spec, and
+           RequireAgencyRoute refuses the URL from the same spec. */
+        { label: "Access preview", icon: Eye, href: "/app/access-preview" },
         { label: "Support", icon: LifeBuoy, href: "/app/support" },
       ],
     },

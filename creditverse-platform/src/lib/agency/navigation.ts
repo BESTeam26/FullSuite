@@ -58,6 +58,11 @@ export interface AgencyRouteSpec {
  * need the door.
  */
 export const AGENCY_ROUTES: AgencyRouteSpec[] = [
+  /* Owner, or an admin granted the capability. `accessTo` hides it from
+     everybody else, and RequireAgencyRoute refuses the URL — the door and the
+     menu read the same spec. */
+  { key: "access-preview", path: "/app/access-preview", label: "Access preview",
+    minRole: "agency_admin", permission: "access.preview_as_user", readiness: "ready" },
   /* ── Everyone on the team ─────────────────────────────────────────── */
   { key: "home", label: "Home", path: "/app", readiness: "ready", minRole: "agency_agent" },
   { key: "my_work", label: "My Work", path: "/app/my-work", readiness: "ready", minRole: "agency_agent" },

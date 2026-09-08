@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useSidebarState } from "@/components/dashboard/sidebar-state";
 import { GlobalSearch } from "@/components/dashboard/GlobalSearch";
+import { ViewAsPicker } from "@/components/agency/view-as/ViewAsBanner";
 import { PageHelp } from "@/components/dashboard/PageHelp";
 import { Avatar } from "@/components/common/Avatar";
 import { useAvatarUrls, useOwnProfile } from "@/lib/data/use-account";
@@ -74,6 +75,10 @@ export const Topbar = () => {
             <Layers className="h-3.5 w-3.5 md:mr-1" /> <span className="hidden md:inline">Return to Agency View</span>
           </Button>
         ) : null}
+
+        {/* Only a previewer sees this, and only when not already previewing —
+            the banner owns Exit (§36). */}
+        <ViewAsPicker />
 
         <CopilotLauncher />
 

@@ -22,6 +22,7 @@ import { Hash, Loader2, Pin, Undo2, X } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useMessageActions, useRichMessages, useSendMessage, useThread } from "@/lib/data/use-messages";
 import { useChannelMentionable } from "@/lib/data/use-channels";
+import { useMessageRealtime } from "@/lib/data/use-message-realtime";
 import type { MentionAttrs } from "@/lib/activity/mentions";
 import { attachToMessage, type RichMessage } from "@/lib/data/messages";
 import { MessageRow } from "./MessageRow";
@@ -66,6 +67,9 @@ export function ConversationPane({
   /* Who may be mentioned here — the set form of the predicate the notifier
      asks, so the picker cannot offer somebody the ping will skip (§27). */
   const mentionable = useChannelMentionable(channelId);
+  /* Other people's messages arrive without a refresh, and our own optimistic
+     row is recognised rather than duplicated (§55). */
+  useMessageRealtime(channelId);
 
   /* A conversation opened is a conversation whose reply box should be usable
      without hunting for it, and whose newest message should be on screen. */
@@ -171,6 +175,7 @@ export function ConversationPane({
               onOpenThread={() => setThreadRoot(m.id)}
               onPin={() => actions.pin.mutate({ messageId: m.id, pinned: m.pinned })}
               onDelete={() => actions.remove.mutate(m.id)}
+              onEdit={(bodyText) => actions.edit.mutate({ messageId: m.id, bodyText })}
               onRetry={() => {
                 if (!m.clientMessageId) return;
                 /* Same idempotency key AND the same people, so a retry is
@@ -273,7 +278,8 @@ function ThreadPanel({
               onReact={(emoji, mine) => actions.react.mutate({ messageId: root.id, emoji, mine })}
               onReply={() => undefined} onOpenThread={() => undefined}
               onPin={() => actions.pin.mutate({ messageId: root.id, pinned: root.pinned })}
-              onDelete={() => actions.remove.mutate(root.id)} />
+              onDelete={() => actions.remove.mutate(root.id)}
+              onEdit={(bodyText) => actions.edit.mutate({ messageId: root.id, bodyText })} />
           </div>
         )}
         {replies.isLoading ? (
@@ -287,7 +293,8 @@ function ThreadPanel({
               onReact={(emoji, mine) => actions.react.mutate({ messageId: m.id, emoji, mine })}
               onReply={() => undefined} onOpenThread={() => undefined}
               onPin={() => undefined}
-              onDelete={() => actions.remove.mutate(m.id)} />
+              onDelete={() => actions.remove.mutate(m.id)}
+              onEdit={(bodyText) => actions.edit.mutate({ messageId: m.id, bodyText })} />
           ))
         )}
       </div>

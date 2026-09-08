@@ -45,6 +45,11 @@ vi.mock("@/lib/data/agency-permissions", () => ({
 vi.mock("@/lib/data/use-workforce", () => ({
   useWorkforce: () => ({ data: { people: [{ userId: "u2", name: "Rowell" }], teams: [] } }),
 }));
+vi.mock("@/lib/data/use-message-realtime", () => ({
+  /* Realtime is proved against the live database; the screen tests only need
+     it not to open a socket. */
+  useMessageRealtime: () => undefined,
+}));
 vi.mock("@/lib/data/use-messages", () => ({
   useRichMessages: () => ({ data: messages, isLoading: false, refetch: vi.fn() }),
   useThread: () => ({ data: [], isLoading: false }),

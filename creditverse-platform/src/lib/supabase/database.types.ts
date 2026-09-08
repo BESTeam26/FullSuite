@@ -5849,6 +5849,45 @@ export type Database = {
           },
         ]
       }
+      message_revisions: {
+        Row: {
+          body_text: string
+          edited_at: string
+          edited_by: string | null
+          id: number
+          message_id: number
+        }
+        Insert: {
+          body_text: string
+          edited_at?: string
+          edited_by?: string | null
+          id?: never
+          message_id: number
+        }
+        Update: {
+          body_text?: string
+          edited_at?: string
+          edited_by?: string | null
+          id?: never
+          message_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_revisions_edited_by_fkey"
+            columns: ["edited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_revisions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           announcement_id: string | null
@@ -11080,6 +11119,18 @@ export type Database = {
     Functions: {
       accept_agency_invitation: { Args: { p_token: string }; Returns: string }
       accept_invitation: { Args: { p_token: string }; Returns: string }
+      access_capabilities_for_user: {
+        Args: { p_user: string }
+        Returns: {
+          allowed: boolean
+          key: string
+          label: string
+          module: string
+          security_relevant: boolean
+          source: string
+        }[]
+      }
+      access_profile_for_user: { Args: { p_user: string }; Returns: Json }
       acknowledge_policy_update: {
         Args: { p_update: string }
         Returns: undefined
@@ -11118,6 +11169,13 @@ export type Database = {
         }[]
       }
       agency_can: { Args: { p_key: string }; Returns: boolean }
+      agency_can_for_user: {
+        Args: { p_key: string; p_user: string }
+        Returns: {
+          allowed: boolean
+          source: string
+        }[]
+      }
       agency_of_org: { Args: { p_org: string }; Returns: string }
       agency_positions: {
         Args: { p_agency: string }
@@ -11307,6 +11365,7 @@ export type Database = {
         Args: { p_agency_slug?: string; p_email: string }
         Returns: string
       }
+      can_preview_as_user: { Args: never; Returns: boolean }
       can_see_partner: { Args: { p_group: string }; Returns: boolean }
       can_view_activity: {
         Args: {
@@ -11357,6 +11416,35 @@ export type Database = {
           user_id: string
         }[]
       }
+      channel_message_by_id: {
+        Args: { p_id: number }
+        Returns: {
+          announcement_body: string
+          announcement_id: string
+          announcement_published_at: string
+          announcement_title: string
+          attachments: Json
+          author_id: string
+          author_is_bes: boolean
+          author_name: string
+          body_text: string
+          channel_id: string
+          created_at: string
+          deleted: boolean
+          edited_at: string
+          id: number
+          last_reply_at: string
+          mentions: Json
+          message_type: string
+          parent_message_id: number
+          pinned: boolean
+          reactions: Json
+          reply_count: number
+          reply_to_author: string
+          reply_to_id: number
+          reply_to_text: string
+        }[]
+      }
       channel_messages: {
         Args: { p_channel: string; p_limit?: number }
         Returns: {
@@ -11394,6 +11482,15 @@ export type Database = {
       channel_shared_with_bes: { Args: { p_channel: string }; Returns: boolean }
       channel_visible: { Args: { p_channel: string }; Returns: boolean }
       channel_writable: { Args: { p_channel: string }; Returns: boolean }
+      channels_visible_to_user: {
+        Args: { p_user: string }
+        Returns: {
+          allowed: boolean
+          channel_id: string
+          name: string
+          owner_kind: string
+        }[]
+      }
       choose_subscription_plan: {
         Args: {
           p_interval?: string
@@ -12081,6 +12178,15 @@ export type Database = {
         Args: { p_invoice: string }
         Returns: undefined
       }
+      partners_visible_to_user: {
+        Args: { p_user: string }
+        Returns: {
+          allowed: boolean
+          partner_id: string
+          partner_name: string
+          reason: string
+        }[]
+      }
       publish_holiday_announcement: {
         Args: {
           p_agency: string
@@ -12293,6 +12399,16 @@ export type Database = {
           channel_name: string
           created_at: string
           message_id: number
+        }[]
+      }
+      services_visible_to_user: {
+        Args: { p_user: string }
+        Returns: {
+          allowed: boolean
+          partner_name: string
+          reason: string
+          service_id: string
+          service_name: string
         }[]
       }
       set_agency_member_role: {

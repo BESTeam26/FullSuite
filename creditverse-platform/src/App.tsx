@@ -80,6 +80,9 @@ const DashboardLayout = lazy(
   ),
 );
 const Dashboard = lazy(() => import("./pages/app/Dashboard"));
+const AccessPreviewPage = lazy(
+  named(() => import("@/pages/app/AccessPreviewPage"), "AccessPreviewPage"),
+);
 const Workspaces = lazy(() => import("./pages/app/Workspaces"));
 const OrganizationDashboard = lazy(() => import("./pages/app/OrganizationDashboard"));
 const Clients = lazy(() => import("./pages/app/Clients"));
@@ -474,6 +477,11 @@ const App = () => (
                                   element={<AgencyOrOrgCalendar />}
                                 />
                                 {/* System */}
+                                {/* The Access Inspector. Only meaningful during
+                                    a preview, and it says so when there is
+                                    none — a route that renders nothing is worse
+                                    than one that explains why. */}
+                                <Route path="access-preview" element={<AccessPreviewPage />} />
                                 <Route path="settings" element={<RequirePermission permission={["settings.manage", "team.manage", "team.permissions", "billing.view", "creditops.letters.templates"]} label="Settings"><Settings /></RequirePermission>} />
                                 <Route
                                   path="files"
