@@ -4741,6 +4741,180 @@ if (runs(63)) {
   runPhase("phase 63", P63, { strict: true });
 }
 
+
+if (runs(64)) {
+  startPhase("phase 64");
+  /* OPERATIONAL NOTIFICATIONS (0218) — Dee §14 / §59: mention, direct
+     message, assignment, handoff, announcement, attention.
+
+     THE DEFECT THESE PROBES EXIST FOR. `notify_message_mentions` (0206)
+     wrote every channel mention with `visibility => 'organization_internal'`.
+     For a BES channel `organization_id` is NULL, so
+     `can_view_activity(agency, NULL, 'organization_internal', 'channel')`
+     returns FALSE for staff — the row was inserted and NOBODY could read it.
+     No error, no log line; the only symptom was a bell that never rang. The
+     first three probes hold that shut from both sides.
+
+     Every write runs as `authenticated` with a real JWT claim. A probe that
+     writes as the superuser holds EXECUTE on everything and would miss the
+     whole class of failure 0174, 0196 and 0206 were. */
+  const p64 = (uid, seed, sql) => {
+    try {
+      return q(`begin; ${seed} set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows;
+    } catch (e) {
+      const m = (String(e.message) + String(e.stdout ?? "")).match(/ERROR:\s*(\w+):/);
+      return "ERR " + (m ? m[1] : "unknown");
+    }
+  };
+  /* Act as one person, then read the result as postgres. Two `set local role`
+     switches in one transaction, which is legal because session_user never
+     stops being the login role. */
+  const act64 = (uid, stmt, assertion) =>
+    p64(uid, "", `${stmt} set local role postgres; ${assertion}`);
+
+  const OWN64 = U["bes.owner@bes.test"], CO64 = U["bes.credit@bes.test"];
+  const LEAD64 = U["bes.lead@bes.test"], MGR64 = U["bes.manager@bes.test"];
+  const FUND64 = U["bes.funding@bes.test"], ORG64 = U["org.owner@bes.test"];
+  const AG64 = q(`select id::text as rows from public.agencies limit 1`)[0].rows;
+  /* The agency's all-hands channel, by its PERMANENT system key rather than
+     its name — 0198 exists because a name is a thing Dee renames. */
+  const GEN64 = q(`select coalesce((select id::text from public.channels where system_key='general_discussion' and archived_at is null),'') as rows`)[0].rows;
+  const EVAN64 = q(`select coalesce((select id::text from public.fulfillment_clients where name='[TEST] Evan Ellis'),'') as rows`)[0].rows;
+  const CLEO64 = q(`select coalesce((select id::text from public.fulfillment_clients where name='[TEST] Cleo Chan'),'') as rows`)[0].rows;
+  const WORK64 = q(`select coalesce((select id::text from public.work_items where title='[TEST] Round 2 dispute prep'),'') as rows`)[0].rows;
+  const TEAMA64 = q(`select coalesce((select id::text from public.teams where name='[TEST] Team A'),'') as rows`)[0].rows;
+  const DISPUTE64 = q(`select coalesce((select id::text from public.departments where key='dispute' and division='creditops' limit 1),'') as rows`)[0].rows;
+  const STAFF64 = q(`select count(*)::int as rows from public.agency_memberships where status='active'`)[0].rows;
+
+  /* `author_id` has no default and `messages_insert` checks
+     `author_id = auth.uid()`, so it must be supplied explicitly. */
+  const doc64 = (uid) => uid
+    ? `'{"type":"doc","content":[{"type":"paragraph","content":[{"type":"mention","attrs":{"userId":"${uid}"}},{"type":"text","text":" please look"}]}]}'::jsonb`
+    : `'{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"probe body"}]}]}'::jsonb`;
+  const say64 = (channel, author, mentions) =>
+    `insert into public.messages (channel_id, author_id, body, body_text) values (${channel}, '${author}', ${doc64(mentions)}, 'probe message');`;
+  /* The direct conversation between two people, found rather than captured:
+     `open_direct_channel` returns the id, but `channel_writable` is STABLE
+     and cannot see a channel created by a CTE in the same statement. */
+  const dm64 = (a, b) => `(select c.id from public.channels c where c.kind='direct' and c.archived_at is null
+     and exists (select 1 from public.channel_members m where m.channel_id=c.id and m.user_id='${a}')
+     and exists (select 1 from public.channel_members m where m.channel_id=c.id and m.user_id='${b}') limit 1)`;
+  const ann64 = (cols, vals) =>
+    `insert into public.announcements (audience, title, body, agency_id, created_by${cols}) values ('bes_internal','[TEST] Notify','[TEST] Body','${AG64}','${OWN64}'${vals});`;
+  const nCount = (where) => `select count(*)::int as rows from public.notifications where ${where}`;
+
+  const P64 = AG64 && GEN64 && EVAN64 && CLEO64 && WORK64 ? [
+    /* ── the 0206 defect, from both sides ────────────────────────────── */
+    ["an agent cannot read a channel notification stamped organization_internal (what 0206 wrote)",
+      () => p64(CO64, "", `select public.can_view_activity('${AG64}', null, 'organization_internal', 'channel')::text as rows`), "false"],
+    ["…and can read one stamped bes_internal (what 0218 writes)",
+      () => p64(CO64, "", `select public.can_view_activity('${AG64}', null, 'bes_internal', 'channel')::text as rows`), "true"],
+    ["channel_notice() calls the agency's own channel bes_internal",
+      () => q(`select visibility::text as rows from public.channel_notice('${GEN64}')`)[0].rows, "bes_internal"],
+
+    /* ── mention ─────────────────────────────────────────────────────── */
+    ["a mention in the agency channel is READABLE by the person mentioned",
+      () => p64(OWN64, "", `${say64(`'${GEN64}'`, OWN64, CO64)}
+        set local request.jwt.claims = '{"sub":"${CO64}","role":"authenticated"}';
+        ${nCount(`kind='mention' and entity_id='${GEN64}'`)}`), 1],
+    ["…and it is stored bes_internal, not organization_internal",
+      () => act64(OWN64, say64(`'${GEN64}'`, OWN64, CO64),
+        `select visibility::text as rows from public.notifications where kind='mention' and entity_id='${GEN64}' order by id desc limit 1`), "bes_internal"],
+    ["§27 mentioning an organization user in a BES channel notifies them of nothing",
+      () => act64(OWN64, say64(`'${GEN64}'`, OWN64, ORG64), nCount(`kind='mention' and recipient_id='${ORG64}'`)), 0],
+    ["an author is never notified of their own mention",
+      () => act64(OWN64, say64(`'${GEN64}'`, OWN64, OWN64), nCount(`kind='mention' and recipient_id='${OWN64}'`)), 0],
+
+    /* ── direct message ──────────────────────────────────────────────── */
+    ["a direct message with no @ in it still notifies the other person",
+      () => p64(OWN64, "", `select public.open_direct_channel('${CO64}');
+        ${say64(dm64(OWN64, CO64), OWN64, null)}
+        set local request.jwt.claims = '{"sub":"${CO64}","role":"authenticated"}'; ${nCount(`kind='dm'`)}`), 1],
+    ["a direct message does not notify its own author",
+      () => act64(OWN64, `select public.open_direct_channel('${CO64}'); ${say64(dm64(OWN64, CO64), OWN64, null)}`,
+        nCount(`kind='dm' and recipient_id='${OWN64}'`)), 0],
+    ["somebody mentioned inside a direct message is told ONCE, as a mention",
+      () => act64(OWN64, `select public.open_direct_channel('${CO64}'); ${say64(dm64(OWN64, CO64), OWN64, CO64)}`,
+        nCount(`recipient_id='${CO64}' and kind='dm'`)), 0],
+    ["…and still receives the mention",
+      () => act64(OWN64, `select public.open_direct_channel('${CO64}'); ${say64(dm64(OWN64, CO64), OWN64, CO64)}`,
+        nCount(`recipient_id='${CO64}' and kind='mention'`)), 1],
+    ["a message in a channel that is not direct raises no dm notification",
+      () => act64(OWN64, say64(`'${GEN64}'`, OWN64, null), nCount(`kind='dm'`)), 0],
+
+    /* ── handoff ─────────────────────────────────────────────────────── */
+    ["a handoff tells the client's assigned agent",
+      () => act64(OWN64, `select public.handoff_client_departments('${EVAN64}','Onboarding',array['Dispute']::public.fulfillment_department[],array['Ready for Processing'],'probe');`,
+        nCount(`kind='handoff' and recipient_id='${CO64}' and entity_id='${EVAN64}'`)), 1],
+    ["…and the lead of a team attached to the DESTINATION department, on a client whose own team has no lead",
+      () => act64(OWN64, `select public.handoff_client_departments('${CLEO64}','Onboarding',array['Dispute']::public.fulfillment_department[],array['Ready for Processing'],'probe');`,
+        nCount(`kind='handoff' and recipient_id='${LEAD64}' and entity_id='${CLEO64}'`)), 1],
+    ["a destination department with NO team attached still hands off, and tells the two who own the file",
+      () => act64(OWN64, `select public.handoff_client_departments('${EVAN64}','Onboarding',array['Complaints']::public.fulfillment_department[],array['CM NOT NEEDED'],'probe');`,
+        nCount(`kind='handoff' and entity_id='${EVAN64}'`)), 2],
+    ["nobody is told twice when the client's own team IS the destination department's team",
+      () => act64(OWN64, `select public.handoff_client_departments('${EVAN64}','Onboarding',array['Dispute']::public.fulfillment_department[],array['Ready for Processing'],'probe');`,
+        nCount(`kind='handoff' and recipient_id='${LEAD64}' and entity_id='${EVAN64}'`)), 1],
+    ["the department key is derived from the enum by the same rule that seeded it",
+      () => q(`select (public.fulfillment_department_key('Bureau Calling') = (select key from public.departments where name='Bureau Calling' limit 1))::text as rows`)[0].rows, "true"],
+
+    /* ── attention ───────────────────────────────────────────────────── */
+    ["moving work INTO Attention is reported as 'attention', not as an ordinary status change",
+      () => act64(OWN64, `update public.work_items set stage='Attention' where id='${WORK64}';`,
+        `select kind as rows from public.notifications where recipient_id='${CO64}' and entity_id='${WORK64}' order by id desc limit 1`), "attention"],
+    ["an ordinary move stays 'status'",
+      () => act64(OWN64, `update public.work_items set stage='Ready for QA' where id='${WORK64}';`,
+        `select kind as rows from public.notifications where recipient_id='${CO64}' and entity_id='${WORK64}' order by id desc limit 1`), "status"],
+
+    /* ── announcement ────────────────────────────────────────────────── */
+    ["publishing a BES announcement notifies every other active staff member",
+      () => act64(OWN64, `select public.save_announcement(null, null, 'bes_internal', '[TEST] Notify', '[TEST] Body', null, false, true);`,
+        nCount(`kind='announcement'`)), STAFF64 - 1],
+    ["…and an agent can READ that notification",
+      () => p64(OWN64, "", `select public.save_announcement(null, null, 'bes_internal', '[TEST] Notify', '[TEST] Body', null, false, true);
+        set local request.jwt.claims = '{"sub":"${CO64}","role":"authenticated"}'; ${nCount(`kind='announcement'`)}`), 1],
+    ["a DRAFT announcement notifies nobody",
+      () => act64(OWN64, `select public.save_announcement(null, null, 'bes_internal', '[TEST] Draft', '[TEST] Body', null, false, false);`,
+        nCount(`kind='announcement'`)), 0],
+    ["re-touching published_at does not announce it a second time",
+      () => act64(OWN64, `select public.save_announcement(null, null, 'bes_internal', '[TEST] Notify', '[TEST] Body', null, false, true);
+        set local role postgres; update public.announcements set published_at = now() + interval '1 minute' where title='[TEST] Notify';`,
+        nCount(`kind='announcement'`)), STAFF64 - 1],
+    ["an organization's own announcement notifies no BES staff member",
+      () => act64(ORG64, `select public.save_announcement(null, (select organization_id from public.fulfillment_clients where id='${EVAN64}'), 'organization', '[TEST] Org', '[TEST] Body', null, false, true);`,
+        nCount(`kind='announcement' and exists (select 1 from public.agency_memberships am where am.user_id = notifications.recipient_id)`)), 0],
+
+    /* ── announcement targeting (0128: managers_only / department / team)
+         Written as the superuser on purpose: these probes are about WHO THE
+         NOTIFIER TELLS, and `save_announcement` sets none of the targeting
+         columns, so the interface cannot yet produce this row. The write path
+         itself is covered above. */
+    ["a managers-only announcement does not reach an agent",
+      () => q(`begin; ${ann64(", managers_only, published_at", ", true, now()")} ${nCount(`kind='announcement' and recipient_id='${CO64}'`)}; rollback;`)[0].rows, 0],
+    ["…and does reach a manager",
+      () => q(`begin; ${ann64(", managers_only, published_at", ", true, now()")} ${nCount(`kind='announcement' and recipient_id='${MGR64}'`)}; rollback;`)[0].rows, 1],
+    ["a team-targeted announcement reaches that team's member",
+      () => q(`begin; ${ann64(", team_id, published_at", `, '${TEAMA64}', now()`)} ${nCount(`kind='announcement' and recipient_id='${CO64}'`)}; rollback;`)[0].rows, 1],
+    ["…and not an agent outside it",
+      () => q(`begin; ${ann64(", team_id, published_at", `, '${TEAMA64}', now()`)} ${nCount(`kind='announcement' and recipient_id='${FUND64}'`)}; rollback;`)[0].rows, 0],
+    ["a department-targeted announcement reaches nobody who is not scoped to that department",
+      () => q(`begin; ${ann64(", department_id, published_at", `, '${DISPUTE64}', now()`)}
+        ${nCount(`kind='announcement' and not exists (select 1 from public.agency_memberships am where am.user_id = notifications.recipient_id and am.scope_department_id = '${DISPUTE64}')`)}; rollback;`)[0].rows, 0],
+
+    /* ── grants ──────────────────────────────────────────────────────── */
+    ["anon reaches no notification",
+      () => { try { q(`begin; set local role anon; select 1 from public.notifications limit 1; rollback;`); return "readable"; } catch { return "refused"; } }, "refused"],
+    ["the internal helpers are not callable from the API",
+      () => q(`select count(*)::int as rows from (values ('channel_notice(uuid)'),('department_leads(uuid,text[])'),('fulfillment_department_key(text)'),('notify_announcement()'),('notify_message_recipients()')) as f(sig)
+               where has_function_privilege('authenticated', ('public.' || f.sig)::regprocedure, 'execute')`)[0].rows, 0],
+    ["the retired 0206 notifier is gone rather than left beside its replacement",
+      () => q(`select count(*)::int as rows from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='notify_message_mentions'`)[0].rows, 0],
+    ["one trigger on messages notifies, not two",
+      () => q(`select count(*)::int as rows from pg_trigger t join pg_class c on c.oid=t.tgrelid where c.relname='messages' and not t.tgisinternal and t.tgname like '%notif%'`)[0].rows, 1],
+  ] : [["(no agency, channel or fixture client to probe)", () => "skip", "skip"]];
+  runPhase("phase 64", P64, { strict: true });
+}
+
 endPhase();
 
 /* ------------------------------------------------------------------ *

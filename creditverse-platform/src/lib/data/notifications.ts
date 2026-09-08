@@ -11,7 +11,20 @@ import type { Database } from "@/lib/supabase/database.types";
 export type NotificationRow =
   Database["public"]["Tables"]["notifications"]["Row"];
 
-export type NotificationKind = "assigned" | "unassigned" | "note" | "status" | "mention";
+export type NotificationKind =
+  | "assigned"
+  | "unassigned"
+  | "note"
+  | "status"
+  /* Written by triggers on `messages` (0218): a mention in any conversation,
+     and a direct message that carried no mention. */
+  | "mention"
+  | "dm"
+  /* A client handed to another department, and a record moved INTO Attention —
+     the one status change whose meaning is "somebody has to act". */
+  | "handoff"
+  | "attention"
+  | "announcement";
 
 export interface Notification {
   id: number;
@@ -97,6 +110,13 @@ export function hrefForEntity(
       return `/app/creditops?client=${id}`;
     case "funding_client":
       return `/app/fundingops?client=${id}`;
+    /* A mention or a direct message opens the conversation it happened in —
+       the same `?channel=` a partner record uses. */
+    case "channel":
+      return `/app/channels?channel=${id}`;
+    /* The board highlights the one that was announced. */
+    case "announcement":
+      return `/app/announcements?announcement=${id}`;
     default:
       return null;
   }

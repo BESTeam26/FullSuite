@@ -35,6 +35,9 @@ import {
   UserPlus,
   UserMinus,
   ArrowRightLeft,
+  Send,
+  Share2,
+  Megaphone,
   PlayCircle,
   PauseCircle,
   ShieldAlert,
@@ -356,12 +359,18 @@ const KIND_ICON: Record<Notification["kind"], ElementType> = {
   note: MessageSquare,
   status: ArrowRightLeft,
   mention: AtSign,
+  dm: Send,
+  handoff: Share2,
+  attention: AlertTriangle,
+  announcement: Megaphone,
 };
 
 const ENTITY_LABEL: Record<string, string> = {
   work_item: "Work item",
   fulfillment_client: "CreditOps client",
   funding_client: "FundingOps client",
+  channel: "Conversation",
+  announcement: "Announcement",
 };
 
 const formatWhen = (iso: string) => {
@@ -483,7 +492,7 @@ export const NotificationsPage = () => {
   return (
     <HqPageShell
       title="Notifications"
-      description="Assignments, notes and status changes routed to you"
+      description="Assignments, handoffs, mentions, messages, announcements and anything needing attention — routed to you"
       icon={Bell}
     >
       <div className="mb-4 flex items-center justify-between gap-2">

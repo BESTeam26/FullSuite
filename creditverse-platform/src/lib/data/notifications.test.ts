@@ -12,6 +12,13 @@ describe("hrefForEntity", () => {
     );
   });
 
+  it("opens a conversation and an announcement (0218)", () => {
+    expect(hrefForEntity("channel", "c1")).toBe("/app/channels?channel=c1");
+    expect(hrefForEntity("announcement", "a1")).toBe(
+      "/app/announcements?announcement=a1",
+    );
+  });
+
   it("returns null for entities no surface can open by URL", () => {
     expect(hrefForEntity("eod_submission", "x")).toBeNull();
     expect(hrefForEntity("funding_file", "x")).toBeNull();

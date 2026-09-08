@@ -11314,6 +11314,10 @@ export type Database = {
       }
       ai_reserved_credits: { Args: { p_org: string }; Returns: number }
       ai_spend_today: { Args: { p_org: string }; Returns: number }
+      announcement_notifiable: {
+        Args: { p_announcement: string; p_user: string }
+        Returns: boolean
+      }
       approve_dispute_letter: { Args: { p_letter: string }; Returns: undefined }
       archive_announcement: { Args: { p_id: string }; Returns: undefined }
       archive_knowledge_article: { Args: { p_id: string }; Returns: undefined }
@@ -11473,6 +11477,10 @@ export type Database = {
           reply_to_id: number
           reply_to_text: string
         }[]
+      }
+      channel_notice: {
+        Args: { p_channel: string }
+        Returns: Record<string, unknown>
       }
       channel_notifiable: {
         Args: { p_channel: string; p_user: string }
@@ -11730,6 +11738,10 @@ export type Database = {
       delete_company_document: { Args: { p_id: string }; Returns: string }
       delete_hub_tool: { Args: { p_id: string }; Returns: undefined }
       delete_own_message: { Args: { p_id: number }; Returns: undefined }
+      department_leads: {
+        Args: { p_agency: string; p_departments: string[] }
+        Returns: string[]
+      }
       dev_seed_user: {
         Args: { p_email: string; p_full_name: string; p_password: string }
         Returns: string
@@ -11810,6 +11822,10 @@ export type Database = {
           division: string
           status: string
         }[]
+      }
+      fulfillment_department_key: {
+        Args: { p_department: string }
+        Returns: string
       }
       funding_department_writable: {
         Args: { p_file: string }

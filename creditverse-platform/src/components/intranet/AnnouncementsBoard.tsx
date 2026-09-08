@@ -4,8 +4,9 @@
  * composer and an archive control. Drafts are visible only to writers and are
  * labelled as drafts. Writes are database functions with their own checks.
  */
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Archive, Loader2, Megaphone, Pin, Plus } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/format-date";
 import { errorMessage } from "@/lib/data/error-message";
@@ -35,6 +36,15 @@ export function AnnouncementsBoard({ organizationId, canWrite, audienceChoices }
   const [composing, setComposing] = useState(false);
   const [editing, setEditing] = useState<Announcement | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /* `?announcement=` is where a notification about one lands. Read once and
+     used only to mark and reveal it — the board still shows everything the
+     reader may see, so a stale or unauthorized id simply highlights nothing. */
+  const [params] = useSearchParams();
+  const announced = params.get("announcement");
+  const announcedRef = useRef<HTMLLIElement | null>(null);
+  useEffect(() => {
+    announcedRef.current?.scrollIntoView?.({ block: "center" });
+  }, [announced, board.isLoading]);
 
   const startEdit = (a: Announcement) => { setEditing(a); setComposing(true); };
   const close = () => { setComposing(false); setEditing(null); setError(null); };
@@ -81,7 +91,18 @@ export function AnnouncementsBoard({ organizationId, canWrite, audienceChoices }
       ) : (
         <ul className="space-y-3">
           {board.announcements.map((a) => (
-            <li key={a.id} className={cn("rounded-xl border bg-card p-4 shadow-sm", a.pinned ? "border-primary/40" : "border-border")}>
+            <li
+              key={a.id}
+              ref={a.id === announced ? announcedRef : undefined}
+              className={cn(
+                "rounded-xl border bg-card p-4 shadow-sm",
+                a.id === announced
+                  ? "border-primary ring-2 ring-primary/30"
+                  : a.pinned
+                    ? "border-primary/40"
+                    : "border-border",
+              )}
+            >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="flex flex-wrap items-center gap-2 text-sm font-bold text-foreground">
