@@ -1,41 +1,42 @@
+/**
+ * The central Communication inbox, as hooks.
+ *
+ * ── ONE LIST, ONE KEY ──────────────────────────────────────────────────────
+ *
+ * Dee, §20: "Do not build five separate inboxes." So there is one query key —
+ * `["channels"]` — shared by the page, the sidebar badge and the partner
+ * portal. Three components asking the same question get one request (rule 14),
+ * and they cannot disagree about the answer.
+ *
+ * There used to be a key per owner (`channels:agency:…`, `channels:org…`),
+ * which was a way of asking the database a narrower question than it was
+ * already answering. `visible_channels()` returns exactly what the caller may
+ * see; asking for a subset of it is deciding visibility twice.
+ */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  addChannelMember, archiveChannel, createChannel, fetchChannelMembers,
-  fetchChannels, fetchMessages, openPartnerConversation, postMessage,
-  removeChannelMember,
+  addChannelMember, addChannelTeam, archiveChannel, createChannel,
+  fetchChannelMembers, fetchChannels, fetchChannelTeams, fetchMessages,
+  markChannelRead, openDirectChannel, openPartnerConversation, postMessage,
+  removeChannelMember, removeChannelTeam, restoreChannel, searchMessages,
 } from "@/lib/data/channels";
 import { useAuth } from "@/lib/auth/auth-context";
 import type { Json } from "@/lib/supabase/database.types";
 
-/**
- * The channel list is shared by the sidebar and the page, under one key, so
- * both render from a single request (rule 14).
- */
-export const channelsKey = (orgId: string | null) => ["channels", orgId] as const;
+export const channelsKey = ["channels"] as const;
 export const messagesKey = (channelId: string | null) => ["channels", "messages", channelId] as const;
 
-/**
- * Channels for one owner — an organization, or BES itself.
- *
- * `agencyId` is used when the person is in Agency HQ view: BES's own team
- * channels, which no organization member reaches (0190). Exactly one owner,
- * so the key carries whichever it is and the two never share a cache entry.
- */
-export function useChannels(organizationId: string | null, agencyId?: string | null) {
-  const owner = agencyId
-    ? ({ agencyId } as const)
-    : organizationId
-      ? ({ organizationId } as const)
-      : null;
+/** Every conversation this person may reach, with unread counts, in one call. */
+export function useChannels(enabled = true) {
   return useQuery({
-    queryKey: channelsKey(agencyId ? `agency:${agencyId}` : organizationId),
-    queryFn: () => fetchChannels(owner!),
-    enabled: !!owner,
-    staleTime: 60_000,
+    queryKey: channelsKey,
+    queryFn: fetchChannels,
+    enabled,
+    staleTime: 30_000,
   });
 }
 
-/** Only the open channel's messages are ever fetched. */
+/** Only the open conversation's messages are ever fetched. */
 export function useMessages(channelId: string | null) {
   return useQuery({
     queryKey: messagesKey(channelId),
@@ -50,40 +51,65 @@ export function usePostMessage(channelId: string | null, authorId: string | null
   return useMutation({
     mutationFn: (input: { body: Json; bodyText: string }) =>
       postMessage({ channelId: channelId!, authorId: authorId!, ...input }),
-    onSuccess: () => { void qc.invalidateQueries({ queryKey: messagesKey(channelId) }); },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: messagesKey(channelId) });
+      /* The list carries unread and last-message time, so it is stale the
+         moment anybody says anything. */
+      void qc.invalidateQueries({ queryKey: channelsKey });
+    },
   });
 }
 
 /**
- * Creating, archiving and staffing a channel.
+ * Marking a conversation read.
  *
- * Invalidates by owner rather than everything: the agency's channel list and
- * an organization's are separate caches and a change to one is not news to
- * the other.
+ * Fire-and-forget on purpose: a failed read marker is not worth an error in
+ * front of somebody who is reading. It corrects itself the next time they open
+ * the conversation.
  */
-export function useChannelActions(owner: { organizationId: string | null; agencyId: string | null }) {
+export function useMarkRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (channelId: string) => markChannelRead(channelId),
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: channelsKey }); },
+  });
+}
+
+/**
+ * Search. Two characters minimum, and debouncing is the caller's business —
+ * this hook simply does not run on a query too short to mean anything.
+ */
+export function useMessageSearch(query: string) {
+  const trimmed = query.trim();
+  return useQuery({
+    queryKey: ["channels", "search", trimmed],
+    queryFn: () => searchMessages(trimmed),
+    enabled: trimmed.length >= 2,
+    staleTime: 15_000,
+  });
+}
+
+/** Creating, archiving, and staffing a conversation with people AND teams. */
+export function useChannelActions() {
   const qc = useQueryClient();
   const auth = useAuth();
-  const key = channelsKey(owner.agencyId ? `agency:${owner.agencyId}` : owner.organizationId);
   const refresh = () => {
-    void qc.invalidateQueries({ queryKey: key });
+    void qc.invalidateQueries({ queryKey: channelsKey });
     void qc.invalidateQueries({ queryKey: ["channel-members"] });
+    void qc.invalidateQueries({ queryKey: ["channel-teams"] });
   };
   return {
     create: useMutation({
-      mutationFn: (v: { name: string; kind: string; purpose?: string; partnerGroupId?: string | null }) =>
-        createChannel({
-          ...v,
-          createdBy: auth.user?.id ?? "",
-          /* A conversation WITH a partner is owned by the partner, not by BES
-             — that is what puts the same row in their portal. */
-          organizationId: v.partnerGroupId || owner.agencyId ? null : owner.organizationId,
-          agencyId: v.partnerGroupId ? null : owner.agencyId,
-          partnerGroupId: v.partnerGroupId ?? null,
-        }),
+      mutationFn: (v: {
+        name: string; kind: string; purpose?: string;
+        organizationId?: string | null; agencyId?: string | null;
+        partnerGroupId?: string | null; partnerServiceId?: string | null;
+        openToScope?: boolean; teamIds?: string[];
+      }) => createChannel({ ...v, createdBy: auth.user?.id ?? "" }),
       onSuccess: refresh,
     }),
     archive: useMutation({ mutationFn: (id: string) => archiveChannel(id), onSuccess: refresh }),
+    restore: useMutation({ mutationFn: (id: string) => restoreChannel(id), onSuccess: refresh }),
     addMember: useMutation({
       mutationFn: (v: { channelId: string; userId: string; isManager?: boolean }) =>
         addChannelMember(v.channelId, v.userId, v.isManager),
@@ -92,6 +118,20 @@ export function useChannelActions(owner: { organizationId: string | null; agency
     removeMember: useMutation({
       mutationFn: (v: { channelId: string; userId: string }) =>
         removeChannelMember(v.channelId, v.userId),
+      onSuccess: refresh,
+    }),
+    addTeam: useMutation({
+      mutationFn: (v: { channelId: string; teamId: string }) =>
+        addChannelTeam(v.channelId, v.teamId),
+      onSuccess: refresh,
+    }),
+    removeTeam: useMutation({
+      mutationFn: (v: { channelId: string; teamId: string }) =>
+        removeChannelTeam(v.channelId, v.teamId),
+      onSuccess: refresh,
+    }),
+    openDirect: useMutation({
+      mutationFn: (otherUserId: string) => openDirectChannel(otherUserId),
       onSuccess: refresh,
     }),
   };
@@ -106,39 +146,28 @@ export function useChannelMembers(channelId: string | null) {
   });
 }
 
+export function useChannelTeams(channelId: string | null) {
+  return useQuery({
+    queryKey: ["channel-teams", channelId ?? ""],
+    queryFn: () => fetchChannelTeams(channelId!),
+    enabled: !!channelId,
+    staleTime: 60_000,
+  });
+}
+
 /**
  * The partner record's way into the conversation.
  *
  * Find-or-create on click. Nothing is fetched while the partner profile sits
  * there unopened — the button needs no data to render, so it asks for none
- * (rule 14). The agency channel list is invalidated afterwards because a
- * brand-new conversation belongs in it.
+ * (rule 14).
  */
-export function useOpenPartnerConversation(agencyId: string | null) {
+export function useOpenPartnerConversation() {
   const qc = useQueryClient();
   const auth = useAuth();
   return useMutation({
     mutationFn: (v: { partnerGroupId: string; partnerName: string }) =>
       openPartnerConversation({ ...v, createdBy: auth.user?.id ?? "" }),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: channelsKey(agencyId ? `agency:${agencyId}` : null) });
-    },
-  });
-}
-
-/**
- * The partner portal's side of the conversation.
- *
- * Its own cache key — a partner contact and a BES agent are looking at the
- * same channel row, but they are different sessions asking different
- * questions, and sharing a key between them would mean one person's list
- * answering the other's.
- */
-export function usePartnerChannels(partnerGroupId: string | null) {
-  return useQuery({
-    queryKey: ["channels", partnerGroupId ? `partner:${partnerGroupId}` : null],
-    queryFn: () => fetchChannels({ partnerGroupId: partnerGroupId! }),
-    enabled: !!partnerGroupId,
-    staleTime: 60_000,
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: channelsKey }); },
   });
 }

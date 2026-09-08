@@ -12,12 +12,13 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { PartnerPortal } from "@/pages/portal/PartnerPortal";
 import type { AgencyPartner } from "@/lib/data/agency-partners";
-import type { Channel, ChannelMessage } from "@/lib/data/channels";
+import type { Channel } from "@/lib/data/channels";
+import type { RichMessage } from "@/lib/data/messages";
 
 let partner: AgencyPartner | null;
 let channels: Channel[];
-let messages: ChannelMessage[];
-const postMutate = vi.fn();
+let messages: RichMessage[];
+const sendMutate = vi.fn().mockResolvedValue({ id: 1 });
 
 vi.mock("@/lib/auth/auth-context", () => ({
   useAuth: () => ({ user: { id: "contact-1" }, displayName: "Rae Ortiz", signOut: vi.fn() }),
@@ -26,9 +27,21 @@ vi.mock("@/lib/data/use-agency-partners", () => ({
   useMyPartner: () => ({ data: partner, isLoading: false }),
 }));
 vi.mock("@/lib/data/use-channels", () => ({
-  usePartnerChannels: () => ({ data: channels, isLoading: false }),
-  useMessages: () => ({ data: messages, isLoading: false }),
-  usePostMessage: () => ({ mutate: postMutate, isPending: false, isError: false }),
+  useChannels: () => ({ data: channels, isLoading: false }),
+}));
+vi.mock("@/lib/data/use-messages", () => ({
+  useRichMessages: () => ({ data: messages, isLoading: false, refetch: vi.fn() }),
+  useThread: () => ({ data: [], isLoading: false }),
+  usePins: () => ({ data: [] }),
+  useSendMessage: () => ({
+    send: { mutateAsync: sendMutate, isPending: false },
+    undo: { mutate: vi.fn() }, failed: [], canUndo: null, undoWindowMs: 12000,
+    dismissFailed: vi.fn(), clearUndo: vi.fn(),
+  }),
+  useMessageActions: () => ({
+    react: { mutate: vi.fn() }, pin: { mutate: vi.fn() }, remove: { mutate: vi.fn() },
+    edit: { mutate: vi.fn() }, attach: { mutate: vi.fn() },
+  }),
 }));
 
 const PARTNER: AgencyPartner = {
@@ -45,15 +58,17 @@ const PARTNER: AgencyPartner = {
 
 const CHANNEL: Channel = {
   id: "c1", organizationId: null, agencyId: null, partnerGroupId: "g1",
-  kind: "general", name: "General", purpose: "BES and Acme Fulfilment",
-  sharedWithBes: false,
+  partnerServiceId: null, kind: "general", name: "General",
+  displayName: "General", purpose: "BES and Acme Fulfilment",
+  openToScope: true, archivedAt: null, sharedWithBes: false,
+  auditOnly: false, isManager: false, unread: 0, lastMessageAt: null,
 };
 
 beforeEach(() => {
   partner = PARTNER;
   channels = [CHANNEL];
   messages = [];
-  postMutate.mockClear();
+  sendMutate.mockClear();
 });
 
 describe("the partner portal conversation", () => {
@@ -73,9 +88,13 @@ describe("the partner portal conversation", () => {
 
   it("labels a message from BES, so who is talking is never a guess", () => {
     messages = [{
-      id: 1, channelId: "c1", authorId: "bes-1", authorName: "Dana Lee",
-      body: {}, bodyText: "Your round 2 letters went out today.",
-      createdAt: "2026-09-06T10:00:00Z", editedAt: null, fromBes: true,
+      id: 1, channelId: "c1", authorId: "bes-1", authorName: "Dana Lee", fromBes: true,
+      bodyText: "Your round 2 letters went out today.",
+      createdAt: "2026-09-06T10:00:00Z", editedAt: null, deleted: false,
+      messageType: "message", announcementId: null, announcementTitle: null,
+      announcementBody: null, announcementPublishedAt: null, parentMessageId: null,
+      replyToId: null, replyToText: null, replyToAuthor: null, replyCount: 0,
+      lastReplyAt: null, pinned: false, reactions: [], attachments: [],
     }];
     render(<PartnerPortal />);
     expect(screen.getByText("BES team")).toBeInTheDocument();
@@ -87,8 +106,8 @@ describe("the partner portal conversation", () => {
     const box = screen.getByRole("textbox", { name: /Message General/ });
     fireEvent.change(box, { target: { value: "Thanks — any word on the third one?" } });
     fireEvent.keyDown(box, { key: "Enter" });
-    expect(postMutate).toHaveBeenCalledTimes(1);
-    expect(postMutate.mock.calls[0][0].bodyText).toBe("Thanks — any word on the third one?");
+    expect(sendMutate).toHaveBeenCalledTimes(1);
+    expect(sendMutate.mock.calls[0][0].bodyText).toBe("Thanks — any word on the third one?");
   });
 
   it("shows no conversation at all to somebody with no partner", () => {
@@ -96,5 +115,20 @@ describe("the partner portal conversation", () => {
     render(<PartnerPortal />);
     expect(screen.getByText("No portal access")).toBeInTheDocument();
     expect(screen.queryByText("Messages")).not.toBeInTheDocument();
+  });
+});
+
+describe("the portal shows one partner's conversations and no others", () => {
+  it("ignores a conversation belonging to a different partner", () => {
+    channels = [{ ...CHANNEL, id: "other", partnerGroupId: "g2", displayName: "Someone else" }];
+    render(<PartnerPortal />);
+    expect(screen.getByText(/No conversation has been started yet/)).toBeInTheDocument();
+    expect(screen.queryByText("Someone else")).not.toBeInTheDocument();
+  });
+
+  it("ignores an archived one — history is kept, not offered as live", () => {
+    channels = [{ ...CHANNEL, archivedAt: "2026-09-01T00:00:00Z" }];
+    render(<PartnerPortal />);
+    expect(screen.getByText(/No conversation has been started yet/)).toBeInTheDocument();
   });
 });

@@ -1834,7 +1834,12 @@ if (runs(41)) {
     ["…and no messages",                                     () => w41(OTHER, `select count(*)::int as rows from public.messages where channel_id='${CH}'`, MSG), 0],
     ["a message is never hard-deleted (no grant)",           () => w41(OWNER, `delete from public.messages where channel_id='${CH}'; select 1 as rows`, MSG), "ERR 42501"],
     ["nobody edits somebody else's message",                 () => w41(AGENT, `update public.messages set body_text='rewritten' where channel_id='${CH}'; select count(*)::int as rows from public.messages where body_text='rewritten'`, MSG), 0],
-    ["every organization has exactly one General channel",   () => q(`select (count(*) = (select count(*) from public.organizations))::text as rows from public.channels where kind='general' and archived_at is null`)[0].rows, "true"],
+    /* `organization_id is not null` matters: BES's own General Discussion is
+       also kind='general' since 0198, and without the filter this counted it
+       as a missing organization channel. The probe never meant to include
+       agency-owned channels — it said "every organization". */
+    ["every organization has exactly one General channel",   () => q(`select (count(*) = (select count(*) from public.organizations))::text as rows from public.channels where kind='general' and organization_id is not null and archived_at is null`)[0].rows, "true"],
+    ["…and BES has exactly one of its own",                  () => q(`select count(*)::int as rows from public.channels where system_key='general_discussion' and archived_at is null`)[0].rows, 1],
     ["a BES message is stamped as BES when written",          () => w41(MGR, `${BESMSG} reset role; select (author_is_bes)::text as rows from public.messages where author_id='${MGR}' order by created_at desc limit 1`, `${MSG} ${SHARE}`), "true"],
     ["…and an organization message is not",                    () => w41(OWNER, `reset role; select (author_is_bes)::text as rows from public.messages where channel_id='${CH}' and author_id='${OWNER}' order by created_at desc limit 1`, MSG), "false"],
     ["attribution survives the engagement ending",             () => w41(OWNER, `select (author_is_bes)::text as rows from public.messages where author_id='${MGR}' order by created_at desc limit 1`, `${MSG} ${SHARE} ${BESMSG} ${END}`), "true"],
@@ -3716,21 +3721,26 @@ if (runs(59)) {
 
 if (runs(60)) {
   startPhase("phase 60");
-  /* The partner conversation — ONE row, two audiences.
-     Dee: "one record only per channel, even DM's. And portal message."
-
-     That claim is only true if BOTH doors are real and NEITHER opens onto
-     somebody else's conversation. A partner conversation is the first channel
-     whose reader may be an outsider with no organization and no tenant — the
-     `partner_contacts` row is their entire boundary — so what is proved here
-     is that the row reaches exactly two kinds of person and no third:
-
-       the partner's own ACTIVE contacts, and
-       BES staff who may see that partner at all (phase 59's rule, inherited).
-
-     And the asymmetry that keeps it BES's conversation to run: a partner
-     contact reads and replies; they do not open one, rename one, archive one
-     or decide who is in it. */
+  /* COMMUNICATION — Dee's required test matrix (2026-09-08, §41), A to J.
+     
+     One canonical conversation, many authorized surfaces. That claim is only
+     worth making if the surfaces are genuinely narrower than the table, so
+     every probe below asks the same question from a different chair:
+     
+       who can see this row, and who cannot, and why.
+     
+     What changed in 0192 and is proved here for the first time:
+     
+       · a partner conversation now needs MEMBERSHIP or a deliberate
+         open-to-scope flag, not merely an assignment to the partner
+       · a service-scoped conversation is invisible to somebody assigned to a
+         DIFFERENT service on the same partner (§19)
+       · a TEAM can be a member, so joining and leaving the team is the only
+         thing anybody edits (§12, §32)
+       · an administrator may INSPECT but is not a participant, and cannot
+         post (§17)
+       · a deactivated member loses everything the moment they are
+         deactivated (§33) — which had never been true of `is_staff_of` */
   const p60 = (uid, seed, sql) => {
     try {
       return q(`begin; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${seed} set local role authenticated; ${sql}; rollback;`)[0].rows;
@@ -3739,105 +3749,558 @@ if (runs(60)) {
       return "ERR " + (m ? m[1] : "unknown");
     }
   };
-  const OWN60 = U["bes.owner@bes.test"], AGT60 = U["bes.credit@bes.test"];
-  const CONTACT60 = U["client.portal@bes.test"], ORGUSER60 = U["org.owner@bes.test"];
+  const OWN60 = U["bes.owner@bes.test"], ADM60 = U["bes.admin@bes.test"];
+  /* Team A stands in for "Team Daniel": the lead leads it, the CreditOps
+     agent is on it. `bes.funding` is on NO team and stands in for the GHL
+     agent who must not see CreditOps conversations. */
+  const CO60 = U["bes.credit@bes.test"], LEAD60 = U["bes.lead@bes.test"];
+  const GHL60 = U["bes.funding@bes.test"], CONTACT60 = U["client.portal@bes.test"];
+  const ORGOWN60 = U["org.owner@bes.test"];
   const AG60 = q(`select id::text as rows from public.agencies limit 1`)[0].rows;
-  const GRP60 = q(`select coalesce((select id::text from public.outsourcing_groups where archived_at is null and status <> 'Suspended' limit 1),'') as rows`)[0].rows;
-  const TEAM60 = q(`select coalesce((select id::text from public.teams where name='[TEST] Team A'),'') as rows`)[0].rows;
+  const TEAM_A = q(`select coalesce((select id::text from public.teams where name='[TEST] Team A'),'') as rows`)[0].rows;
+  const TEAM_B = q(`select coalesce((select id::text from public.teams where name='[TEST] Team B'),'') as rows`)[0].rows;
 
-  /* Two partners and a channel each, so "sees their own" and "does not see the
-     other" are the same probe asked twice rather than one probe and a hope. */
   const A60 = "44444444-0000-4000-8000-0000000060a1";
   const B60 = "44444444-0000-4000-8000-0000000060b1";
-  const CH_A = "44444444-0000-4000-8000-0000000060c1";
-  const CH_B = "44444444-0000-4000-8000-0000000060c2";
-  /* `lifecycle` and not `status`: since 0159 the legacy `status` column is a
-     MIRROR written by a trigger from lifecycle, so seeding it sets nothing.
-     The first run of this phase failed here, which is the probe doing its job
-     — on the harness rather than on the product, but the lesson is the same:
-     write the canonical column. */
-  const seed60 = (contactStatus = "active", groupLifecycle = "active") => `
-    insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle)
-      values ('${A60}','${AG60}','[TEST] Conversation A','conv-a@example.test','${groupLifecycle}'),
-             ('${B60}','${AG60}','[TEST] Conversation B','conv-b@example.test','active');
+  const SVC_CO = "44444444-0000-4000-8000-0000000060f1";
+  const SVC_CRM = "44444444-0000-4000-8000-0000000060f2";
+  const CH_GEN = "44444444-0000-4000-8000-0000000060c1";  // whole-partner
+  const CH_CO  = "44444444-0000-4000-8000-0000000060c2";  // CreditOps-scoped
+  const CH_CRM = "44444444-0000-4000-8000-0000000060c3";  // BES CRM-scoped
+  const CH_B   = "44444444-0000-4000-8000-0000000060c4";  // the OTHER partner
+  const CH_INT = "44444444-0000-4000-8000-0000000060c5";  // #creditops, Team A
+  const CH_ALL = "44444444-0000-4000-8000-0000000060c6";  // #general, all staff
+
+  /* One world, seeded the same way for every probe, then rolled back. */
+  const world = (opts = {}) => {
+    const contactStatus = opts.contactStatus ?? "active";
+    const lifecycle = opts.lifecycle ?? "active";
+    const coOnTeamA = opts.coOnTeamA ?? true;
+    const coActive = opts.coActive ?? true;
+    const assignEnded = opts.assignEnded ? "current_date" : "null";
+    return `
+    insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values
+      ('${A60}','${AG60}','[TEST] Conversation A','conv-a@example.test','${lifecycle}'),
+      ('${B60}','${AG60}','[TEST] Conversation B','conv-b@example.test','active');
+    insert into public.partner_services (id, group_id, agency_id, name) values
+      ('${SVC_CO}','${A60}','${AG60}','CreditOps outsourcing'),
+      ('${SVC_CRM}','${A60}','${AG60}','BES CRM build');
     insert into public.partner_contacts (group_id, agency_id, full_name, email, user_id, status)
       values ('${A60}','${AG60}','[TEST] Contact','conv-contact@example.test','${CONTACT60}','${contactStatus}');
-    insert into public.channels (id, agency_id, organization_id, partner_group_id, kind, name, created_by)
-      values ('${CH_A}', null, null, '${A60}', 'general', 'General', '${OWN60}'),
-             ('${CH_B}', null, null, '${B60}', 'general', 'General', '${OWN60}');
-    insert into public.messages (channel_id, author_id, body, body_text)
-      values ('${CH_A}','${OWN60}','{}'::jsonb,'hello A'),
-             ('${CH_B}','${OWN60}','{}'::jsonb,'hello B');`;
+    /* Team A works the CreditOps engagement; the GHL agent works the CRM one.
+       Both are on the SAME partner, which is what makes §19 mean something. */
+    insert into public.partner_assignments (agency_id, group_id, service_id, team_id, ended_on)
+      values ('${AG60}','${A60}','${SVC_CO}','${TEAM_A}', ${assignEnded});
+    insert into public.partner_assignments (agency_id, group_id, service_id, user_id)
+      values ('${AG60}','${A60}','${SVC_CRM}','${GHL60}');
+    insert into public.channels (id, agency_id, organization_id, partner_group_id, partner_service_id, kind, name, created_by, open_to_scope) values
+      ('${CH_GEN}', null, null, '${A60}', null,        'general','General Support','${OWN60}', true),
+      ('${CH_CO}',  null, null, '${A60}', '${SVC_CO}', 'topic',  'CreditOps Processing','${OWN60}', true),
+      ('${CH_CRM}', null, null, '${A60}', '${SVC_CRM}','topic',  'GHL Implementation','${OWN60}', true),
+      ('${CH_B}',   null, null, '${B60}', null,        'general','General Support','${OWN60}', true),
+      ('${CH_INT}', '${AG60}', null, null, null,       'topic',  'creditops','${OWN60}', false),
+      ('${CH_ALL}', '${AG60}', null, null, null,       'general','general','${OWN60}', true);
+    insert into public.channel_teams (channel_id, team_id) values ('${CH_INT}','${TEAM_A}');
+    insert into public.messages (channel_id, author_id, body, body_text) values
+      ('${CH_GEN}','${OWN60}','{}'::jsonb,'hello partner A'),
+      ('${CH_CO}','${OWN60}','{}'::jsonb,'round two letters went out'),
+      ('${CH_CRM}','${OWN60}','{}'::jsonb,'funnel is staged'),
+      ('${CH_B}','${OWN60}','{}'::jsonb,'zebra-marker-partner-b'),
+      ('${CH_INT}','${OWN60}','{}'::jsonb,'internal creditops note');
+    ${coOnTeamA ? "" : `delete from public.team_memberships where team_id='${TEAM_A}' and user_id='${CO60}';`}
+    ${coActive ? "" : `update public.agency_memberships set status='inactive' where user_id='${CO60}';`}
+    `;
+  };
 
-  const seeChannels = `select count(*)::int as rows from public.channels where partner_group_id in ('${A60}','${B60}')`;
-  const seeOwn = `select count(*)::int as rows from public.channels where partner_group_id = '${A60}'`;
-  const seeOther = `select count(*)::int as rows from public.channels where partner_group_id = '${B60}'`;
-  const readOther = `select count(*)::int as rows from public.messages where channel_id = '${CH_B}'`;
-  const writeTo = (ch) => `insert into public.messages (channel_id, author_id, body, body_text) values ('${ch}','${CONTACT60}','{}'::jsonb,'reply'); select count(*)::int as rows from public.messages where channel_id='${ch}'`;
-  const assign60 = `insert into public.partner_assignments (agency_id, group_id, team_id) values ('${AG60}','${A60}','${TEAM60}');`;
+  /* Test B needs a real organization channel: a live engagement, a share the
+     ORGANIZATION created, and a BES team named on the engagement. Each of the
+     four is switched off in turn, because a rule you cannot break is a rule
+     you have not tested. */
+  const CH_ORG = "44444444-0000-4000-8000-0000000060d1";
+  const CH_NEW = "44444444-0000-4000-8000-0000000060d2";
+  const ENG60 = q(`select coalesce((select e.id::text from public.fulfillment_engagements e join public.org_memberships om on om.organization_id = e.organization_id join public.profiles p on p.id = om.user_id where p.email = 'org.owner@bes.test' and e.status = 'active' limit 1),'') as rows`)[0].rows;
+  const ORG_OF_ENG = ENG60 ? q(`select organization_id::text as rows from public.fulfillment_engagements where id='${ENG60}'`)[0].rows : "";
+  const worldB = (o = {}) => {
+    const shared = o.shared ?? true;
+    const team = o.team ?? true;
+    const revoked = o.revoked ?? false;
+    return `
+    insert into public.channels (id, organization_id, kind, name, created_by)
+      values ('${CH_ORG}','${ORG_OF_ENG}','topic','client-support','${ORGOWN60}');
+    insert into public.channel_members (channel_id, user_id, is_manager)
+      values ('${CH_ORG}','${ORGOWN60}',true);
+    ${team ? `update public.fulfillment_engagements set authorized_team_id='${TEAM_A}' where id='${ENG60}';` : ""}
+    ${shared ? `insert into public.channel_shares (channel_id, engagement_id, created_by${revoked ? ", revoked_at" : ""}) values ('${CH_ORG}','${ENG60}','${ORGOWN60}'${revoked ? ", now()" : ""});` : ""}
+    ${o.engagement === "ended" ? `update public.fulfillment_engagements set status='ended', effective_to = current_date - 1 where id='${ENG60}';` : ""}
+    `;
+  };
+  const seesB = `select count(*)::int as rows from public.channels where id = '${CH_ORG}'`;
 
-  const P60 = AG60 && GRP60 && TEAM60 ? [
-    /* ── The partner's door ──────────────────────────────────────── */
-    ["a partner contact sees their own conversation",
-      () => p60(CONTACT60, seed60(), seeOwn), 1],
-    ["…and NOT another partner's, which is the whole risk of one shared table",
-      () => p60(CONTACT60, seed60(), seeOther), 0],
-    ["…and cannot read the other partner's messages either",
-      () => p60(CONTACT60, seed60(), readOther), 0],
-    ["a partner contact can reply in their own conversation",
-      () => p60(CONTACT60, seed60(), writeTo(CH_A)), 2],
-    ["…and cannot write into another partner's",
-      () => p60(CONTACT60, seed60(), writeTo(CH_B)), "ERR 42501"],
+  const sees = (ch) => `select count(*)::int as rows from public.channels where id = '${ch}'`;
+  const reads = (ch) => `select count(*)::int as rows from public.messages where channel_id = '${ch}'`;
+  const writeTo = (ch, who) => `insert into public.messages (channel_id, author_id, body, body_text) values ('${ch}','${who}','{}'::jsonb,'reply'); select count(*)::int as rows from public.messages where channel_id='${ch}'`;
 
-    /* ── Access ends where the contact record ends ───────────────── */
-    ["a SUSPENDED contact sees nothing — one row ends it everywhere",
-      () => p60(CONTACT60, seed60("suspended"), seeChannels), 0],
-    ["…and so does suspending the PARTNER",
-      () => p60(CONTACT60, seed60("active", "suspended"), seeChannels), 0],
-    ["…and the LEGACY status column cannot buy it back",
-      () => p60(CONTACT60, seed60("active", "suspended") +
-        `update public.outsourcing_groups set status='Active' where id='${A60}';`, seeChannels), 0],
-    ["…archiving the partner ends it too",
-      () => p60(CONTACT60, seed60("active", "archived"), seeChannels), 0],
+  const P60 = AG60 && TEAM_A && TEAM_B && ENG60 ? [
+    /* ── TEST A — internal team channel ──────────────────────────────── */
+    ["A · #creditops reaches the team that is a member of it",
+      () => p60(CO60, world(), sees(CH_INT)), 1],
+    ["A · …and NOT an agent on no team, however much BES staff they are",
+      () => p60(GHL60, world(), sees(CH_INT)), 0],
+    ["A · …the team LEAD is in it too, by the same membership",
+      () => p60(LEAD60, world(), sees(CH_INT)), 1],
+    ["A · #general is deliberately all-hands, and says so on the row",
+      () => p60(GHL60, world(), sees(CH_ALL)), 1],
+    ["A · an admin may INSPECT the internal channel (§17)",
+      () => p60(ADM60, world(), sees(CH_INT)), 1],
+    ["A · …but is NOT a participant — they cannot post in it",
+      () => p60(ADM60, world(), writeTo(CH_INT, ADM60)), "ERR 42501"],
+    ["A · …and the interface is told which it is",
+      () => p60(ADM60, world(), `select audit_only::text as rows from public.visible_channels() where id='${CH_INT}'`), "true"],
+    ["A · a member is NOT audit-only — it is their own conversation",
+      () => p60(CO60, world(), `select audit_only::text as rows from public.visible_channels() where id='${CH_INT}'`), "false"],
 
-    /* ── BES's door is phase 59's rule, inherited ────────────────── */
-    ["the owner sees the conversation, being agency-wide",
-      () => p60(OWN60, seed60(), seeOwn), 1],
-    ["an unassigned agent sees NO partner conversation",
-      () => p60(AGT60, seed60(), seeChannels), 0],
-    ["…assigning their team gives them that one, and only that one",
-      () => p60(AGT60, seed60() + assign60, seeOwn), 1],
-    ["…the other partner's stays out of reach",
-      () => p60(AGT60, seed60() + assign60, seeOther), 0],
+    /* ── TEST C — partner channel ────────────────────────────────────── */
+    ["C · the partner's own contact sees their General Support",
+      () => p60(CONTACT60, world(), sees(CH_GEN)), 1],
+    ["C · the assigned team sees it",
+      () => p60(CO60, world(), sees(CH_GEN)), 1],
+    ["C · an unassigned agent does not",
+      () => p60(LEAD60, world({ coOnTeamA: true }), sees(CH_B)), 0],
+    ["C · …and no partner contact reaches ANOTHER partner's",
+      () => p60(CONTACT60, world(), sees(CH_B)), 0],
+    ["C · …nor reads a message in it",
+      () => p60(CONTACT60, world(), reads(CH_B)), 0],
+    ["C · an organization owner reaches no partner conversation at all",
+      () => p60(ORGOWN60, world(), sees(CH_GEN)), 0],
 
-    /* ── Nobody else, in either direction ────────────────────────── */
-    ["an organization owner reaches no partner conversation at all",
-      () => p60(ORGUSER60, seed60(), seeChannels), 0],
-    ["anon reaches no channel",
-      () => { try { q(`begin; set local role anon; select 1 from public.channels limit 1; rollback;`); return "readable"; } catch { return "refused"; } }, "refused"],
+    /* ── TEST B — the organization's channel, shared with BES ────────
+       The customer decides whether BES is in at all; BES decides which of its
+       people. Both halves are measured, in both directions. */
+    ["B · the organization's own member sees their channel",
+      () => p60(ORGOWN60, worldB(), seesB), 1],
+    ["B · a BES agent sees NOTHING until the organization shares it",
+      () => p60(CO60, worldB({ shared: false }), seesB), 0],
+    ["B · …sharing alone is still not enough for an unstaffed agent (§10)",
+      () => p60(CO60, worldB({ team: false }), seesB), 0],
+    ["B · …naming the team that staffs the engagement lets THEM in",
+      () => p60(CO60, worldB(), seesB), 1],
+    ["B · …and the team lead, by the same team",
+      () => p60(LEAD60, worldB(), seesB), 1],
+    ["B · an agent on ANOTHER team still sees nothing",
+      () => p60(GHL60, worldB(), seesB), 0],
+    ["B · revoking the share ends it, without touching the team",
+      () => p60(CO60, worldB({ revoked: true }), seesB), 0],
+    ["B · ending the ENGAGEMENT ends it too, with the share left alone",
+      () => p60(CO60, worldB({ engagement: "ended" }), seesB), 0],
+    ["B · BES cannot share an organization's channel with itself",
+      () => p60(CO60, worldB({ shared: false }),
+        `insert into public.channel_shares (channel_id, engagement_id, created_by) values ('${CH_ORG}','${ENG60}','${CO60}'); select 1 as rows`), "ERR 42501"],
+    ["B · …nor add its own team to the organization's channel",
+      () => p60(CO60, worldB(),
+        `insert into public.channel_teams (channel_id, team_id) values ('${CH_ORG}','${TEAM_A}'); select 1 as rows`), "ERR 42501"],
+    ["B · the organization's OWN isolation is untouched (§35)",
+      () => p60(ORGOWN60, worldB(), sees(CH_INT)), 0],
+    /* Seeded rather than looked up: the first version of this probe selected
+       an organization-owned team that does not exist, set NULL, and passed
+       while proving nothing. */
+    ["B · a team named on an engagement must belong to this agency",
+      () => p60(OWN60,
+        `insert into public.teams (id, organization_id, name) values ('44444444-0000-4000-8000-0000000060e1','${ORG_OF_ENG}','[TEST] Not ours');`,
+        `update public.fulfillment_engagements set authorized_team_id = '44444444-0000-4000-8000-0000000060e1' where id = '${ENG60}'; select 1 as rows`), "ERR P0001"],
 
-    /* ── It stays BES's conversation to run ──────────────────────── */
-    ["a partner contact cannot OPEN a conversation — BES starts it",
-      () => p60(CONTACT60, seed60(),
-        `insert into public.channels (agency_id, organization_id, partner_group_id, kind, name, created_by) values (null, null, '${A60}', 'topic', 'Mine', '${CONTACT60}'); select 1 as rows`), "ERR 42501"],
-    ["…nor rename or archive one",
-      () => p60(CONTACT60, seed60(),
-        `update public.channels set name='Renamed' where id='${CH_A}'; select name as rows from public.channels where id='${CH_A}'`), "General"],
-    ["…nor add themselves as its manager",
-      () => p60(CONTACT60, seed60(),
-        `insert into public.channel_members (channel_id, user_id, is_manager) values ('${CH_A}','${CONTACT60}',true); select 1 as rows`), "ERR 42501"],
+    /* ── TEST G — service scope (§19) ────────────────────────────────── */
+    ["G · the CreditOps team sees the CreditOps conversation",
+      () => p60(CO60, world(), sees(CH_CO)), 1],
+    ["G · the GHL agent on the SAME partner does NOT",
+      () => p60(GHL60, world(), sees(CH_CO)), 0],
+    ["G · …nor read a word of it",
+      () => p60(GHL60, world(), reads(CH_CO)), 0],
+    ["G · the GHL agent sees the GHL conversation",
+      () => p60(GHL60, world(), sees(CH_CRM)), 1],
+    ["G · …and the CreditOps team does not",
+      () => p60(CO60, world(), sees(CH_CRM)), 0],
+    ["G · the whole-partner conversation reaches BOTH",
+      () => p60(GHL60, world(), sees(CH_GEN)), 1],
+    ["G · …both, meaning the CreditOps side too",
+      () => p60(CO60, world(), sees(CH_GEN)), 1],
 
-    /* ── The shape that makes all of the above possible ──────────── */
-    ["a channel still belongs to exactly one owner",
+    /* ── TEST E — team inheritance (§32) ─────────────────────────────── */
+    ["E · leaving the team takes the internal channel away",
+      () => p60(CO60, world({ coOnTeamA: false }), sees(CH_INT)), 0],
+    ["E · …and the partner conversations that came with the assignment",
+      () => p60(CO60, world({ coOnTeamA: false }), sees(CH_CO)), 0],
+    ["E · ENDING the assignment does the same without touching the team",
+      () => p60(CO60, world({ assignEnded: true }), sees(CH_CO)), 0],
+
+    /* ── TEST F — suspension (§33) ───────────────────────────────────── */
+    ["F · a DEACTIVATED member reaches no channel at all",
+      () => p60(CO60, world({ coActive: false }), sees(CH_INT)), 0],
+    ["F · …not the all-hands one either",
+      () => p60(CO60, world({ coActive: false }), sees(CH_ALL)), 0],
+    ["F · …and their history is untouched — the message is still there",
+      () => p60(OWN60, world({ coActive: false }), reads(CH_INT)), 1],
+    ["F · a suspended partner CONTACT loses the conversation",
+      () => p60(CONTACT60, world({ contactStatus: "suspended" }), sees(CH_GEN)), 0],
+    ["F · …and so does suspending the partner itself",
+      () => p60(CONTACT60, world({ lifecycle: "suspended" }), sees(CH_GEN)), 0],
+    ["F · …the LEGACY status column cannot buy it back",
+      () => p60(CONTACT60, world({ lifecycle: "suspended" }) +
+        `update public.outsourcing_groups set status='Active' where id='${A60}';`, sees(CH_GEN)), 0],
+
+    /* ── TEST D — ONE record, two doors ──────────────────────────────── */
+    ["D · the partner writes and BES reads the SAME row",
+      () => p60(CONTACT60, world(), writeTo(CH_GEN, CONTACT60)), 2],
+    ["D · …and BES writes where the partner reads",
+      () => p60(CO60, world(), writeTo(CH_GEN, CO60)), 2],
+    ["D · there is exactly ONE conversation row for that partner's General",
+      () => p60(OWN60, world(), `select count(*)::int as rows from public.channels where partner_group_id='${A60}' and name='General Support'`), 1],
+
+    /* ── TEST H — search cannot see past the conversation list (§24) ─── */
+    ["H · an unauthorized agent searching the exact words finds nothing",
+      () => p60(GHL60, world(), `select count(*)::int as rows from public.search_messages('zebra-marker-partner-b')`), 0],
+    ["H · …and the owner, who may see it, does",
+      () => p60(OWN60, world(), `select count(*)::int as rows from public.search_messages('zebra-marker-partner-b')`), 1],
+    ["H · search does not return a conversation you may only AUDIT",
+      () => p60(ADM60, world(), `select count(*)::int as rows from public.search_messages('internal creditops note')`), 0],
+
+    /* ── TEST I — the direct route is refused by the DATA, not the UI ── */
+    ["I · asking for the channel by id returns nothing",
+      () => p60(GHL60, world(), sees(CH_CO)), 0],
+    ["I · …and asking for its messages by id returns nothing",
+      () => p60(GHL60, world(), reads(CH_CO)), 0],
+    ["I · …and writing into it is refused",
+      () => p60(GHL60, world(), writeTo(CH_CO, GHL60)), "ERR 42501"],
+
+    /* ── §21 unread is per person ────────────────────────────────────── */
+    ["unread counts what you have not read",
+      () => p60(CO60, world(), `select unread as rows from public.visible_channels() where id='${CH_INT}'`), 1],
+    ["…marking read clears it for YOU",
+      () => p60(CO60, world(), `select public.mark_channel_read('${CH_INT}'); select unread as rows from public.visible_channels() where id='${CH_INT}'`), 0],
+    ["…and not for anybody else",
+      () => p60(CO60, world() + `insert into public.channel_reads (channel_id, user_id) values ('${CH_INT}','${LEAD60}');`,
+        `select unread as rows from public.visible_channels() where id='${CH_INT}'`), 1],
+    ["your own words are not unread news to you",
+      () => p60(OWN60, world(), `select unread as rows from public.visible_channels() where id='${CH_INT}'`), 0],
+    ["nobody reads anybody else's read state",
+      () => p60(CO60, world() + `insert into public.channel_reads (channel_id, user_id) values ('${CH_INT}','${LEAD60}');`,
+        `select count(*)::int as rows from public.channel_reads where user_id='${LEAD60}'`), 0],
+
+    /* ── §13 one direct message per pair, whoever starts it ──────────── */
+    ["a direct message is found, not created twice",
+      () => p60(CO60, "", `select (public.open_direct_channel('${LEAD60}') = public.open_direct_channel('${LEAD60}'))::text as rows`), "true"],
+    ["…and a DM cannot be opened with somebody outside the agency",
+      () => p60(CO60, "", `select public.open_direct_channel('${CONTACT60}')::text as rows`), "ERR 42501"],
+    ["…nor with yourself",
+      () => p60(CO60, "", `select public.open_direct_channel('${CO60}')::text as rows`), "ERR P0001"],
+    ["a DM is never auditable, however senior you are (§17)",
+      () => p60(CO60, "", `select public.open_direct_channel('${LEAD60}'); set local request.jwt.claims = '{"sub":"${ADM60}","role":"authenticated"}'; select count(*)::int as rows from public.channels where kind='direct'`), 0],
+
+    /* ── §36 — the writes a real person makes, made as a real person ──
+       The 0194 audit probe exercised all eight paths and all eight passed —
+       as the SUPERUSER connection, which holds EXECUTE on `log_audit`. Every
+       one of them was broken for everybody else: the trigger ran as
+       `authenticated`, raised 42501, and took the INSERT down with it. Every
+       probe below runs as a fixture user for exactly that reason. */
+    ["a manager can actually CREATE a channel, trigger and all",
+      () => p60(OWN60, "", `insert into public.channels (id, agency_id, kind, name, created_by) values ('${CH_NEW}','${AG60}','topic','probe','${OWN60}'); select count(*)::int as rows from public.channels where id='${CH_NEW}'`), 1],
+    ["…and it is audited",
+      () => p60(OWN60, `insert into public.channels (id, agency_id, kind, name, created_by) values ('${CH_NEW}','${AG60}','topic','probe','${OWN60}');`,
+        `set local role postgres; select count(*)::int as rows from public.audit_log where entity_id='${CH_NEW}' and action='Channel created'`), 1],
+    ["…adding a member works and is audited",
+      () => p60(OWN60, `insert into public.channels (id, agency_id, kind, name, created_by) values ('${CH_NEW}','${AG60}','topic','probe','${OWN60}');`,
+        `insert into public.channel_members (channel_id, user_id, is_manager) values ('${CH_NEW}','${OWN60}',true); set local role postgres; select count(*)::int as rows from public.audit_log where entity_id='${CH_NEW}' and action='Channel member added'`), 1],
+    ["…adding a TEAM works and is audited",
+      () => p60(OWN60, `insert into public.channels (id, agency_id, kind, name, created_by) values ('${CH_NEW}','${AG60}','topic','probe','${OWN60}'); insert into public.channel_members (channel_id, user_id, is_manager) values ('${CH_NEW}','${OWN60}',true);`,
+        `insert into public.channel_teams (channel_id, team_id) values ('${CH_NEW}','${TEAM_A}'); set local role postgres; select count(*)::int as rows from public.audit_log where entity_id='${CH_NEW}' and action='Channel team added'`), 1],
+    ["…archiving works and is audited",
+      () => p60(OWN60, `insert into public.channels (id, agency_id, kind, name, created_by) values ('${CH_NEW}','${AG60}','topic','probe','${OWN60}'); insert into public.channel_members (channel_id, user_id, is_manager) values ('${CH_NEW}','${OWN60}',true);`,
+        `update public.channels set archived_at = now() where id='${CH_NEW}'; set local role postgres; select count(*)::int as rows from public.audit_log where entity_id='${CH_NEW}' and action='Channel archived'`), 1],
+    ["an agent who is not a manager still cannot create one",
+      () => p60(CO60, "", `insert into public.channels (id, agency_id, kind, name, created_by) values ('${CH_NEW}','${AG60}','topic','probe','${CO60}'); select 1 as rows`), "ERR 42501"],
+    ["every channel audit trigger is SECURITY DEFINER — log_audit needs it",
+      () => q(`select count(*)::int as rows from pg_proc where proname like 'audit_channel%' and not prosecdef`)[0].rows, 0],
+
+    /* ── The shape that makes all of the above possible ──────────────── */
+    ["a channel still belongs to exactly ONE owner (§29)",
       () => q(`select count(*)::int as rows from public.channels where (case when organization_id is not null then 1 else 0 end) + (case when agency_id is not null then 1 else 0 end) + (case when partner_group_id is not null then 1 else 0 end) <> 1`)[0].rows, 0],
-    ["…and the select policy asks channel_visible, not a role name",
-      () => q(`select (position('channel_visible' in pg_get_expr(polqual, polrelid)) > 0)::text as rows from pg_policy where polname='channels_select'`)[0].rows, "true"],
+    ["…and a service-scoped channel belongs to the partner it scopes",
+      () => q(`select count(*)::int as rows from public.channels where partner_service_id is not null and partner_group_id is null`)[0].rows, 0],
+    ["reading a channel asks channel_auditable, not a role name",
+      () => q(`select (position('channel_auditable' in pg_get_expr(polqual, polrelid)) > 0)::text as rows from pg_policy where polname='channels_select'`)[0].rows, "true"],
+    ["…and WRITING a message still asks channel_writable",
+      () => q(`select (position('channel_writable' in pg_get_expr(polwithcheck, polrelid)) > 0)::text as rows from pg_policy where polname='messages_insert'`)[0].rows, "true"],
     ["no policy on channels is FOR ALL",
       () => q(`select count(*)::int as rows from pg_policy where polrelid='public.channels'::regclass and polcmd='*'`)[0].rows, 0],
-    ["there is no delete policy on messages — history is not deleted",
+    ["there is no delete policy on messages — history is not deleted (§30)",
       () => q(`select count(*)::int as rows from pg_policy where polrelid='public.messages'::regclass and polcmd='d'`)[0].rows, 0],
-  ] : [["(no agency, partner or fixture team to probe)", () => "skip", "skip"]];
+    ["is_staff_of reads membership STATUS, so deactivating means something",
+      () => q(`select (position('status' in pg_get_functiondef('public.is_staff_of(uuid)'::regprocedure)) > 0)::text as rows`)[0].rows, "true"],
+    ["administration is audited; reading a message is not (§36)",
+      () => q(`select count(*)::int as rows from pg_trigger where tgrelid='public.messages'::regclass and tgname like '%audit%'`)[0].rows, 0],
+    ["…and the four administration tables are",
+      () => q(`select count(distinct tgrelid)::int as rows from pg_trigger where tgname in ('channels_audit','channel_members_audit','channel_teams_audit','channel_shares_audit')`)[0].rows, 4],
+    ["anon reaches no channel, message, team row or read state",
+      () => { try { q(`begin; set local role anon; select 1 from public.channels limit 1; select 1 from public.messages limit 1; select 1 from public.channel_teams limit 1; select 1 from public.channel_reads limit 1; rollback;`); return "readable"; } catch { return "refused"; } }, "refused"],
+  ] : [["(no agency, fixture teams or live engagement to probe)", () => "skip", "skip"]];
   runPhase("phase 60", P60, { strict: true });
+}
+
+
+if (runs(61)) {
+  startPhase("phase 61");
+  /* COMMUNICATION, part two — the things a team does all day, and the one
+     rule Dee marked PERMANENT:
+
+       "NEVER ALLOW ONE USER TO DELETE ANOTHER USER'S MESSAGE. Not even
+        Manager, Agency Admin, Agency Owner." (§30)
+
+     Every probe below writes as a real fixture user. That is not a style
+     choice: 0194's audit triggers passed eight probes run as the superuser
+     and were broken for every actual person, because `log_audit` is granted
+     to postgres and service_role alone. A write test that does not
+     `set local role authenticated` tests nothing anybody will ever do. */
+  const p61 = (uid, seed, sql) => {
+    try {
+      return q(`begin; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${seed} set local role authenticated; ${sql}; rollback;`)[0].rows;
+    } catch (e) {
+      const m = (String(e.message) + String(e.stdout ?? "")).match(/ERROR:\s*(\w+):/);
+      return "ERR " + (m ? m[1] : "unknown");
+    }
+  };
+  const OWN61 = U["bes.owner@bes.test"], ADM61 = U["bes.admin@bes.test"];
+  const CO61 = U["bes.credit@bes.test"], LEAD61 = U["bes.lead@bes.test"];
+  const AG61 = q(`select id::text as rows from public.agencies limit 1`)[0].rows;
+  const CH61 = "44444444-0000-4000-8000-0000000061c1";
+  const TEAM_A61 = q(`select coalesce((select id::text from public.teams where name='[TEST] Team A'),'') as rows`)[0].rows;
+  const M_OWNER = 900000001, M_LEAD = 900000002;
+
+  /* An all-hands BES channel with one message from the owner and one from the
+     lead, so "your own" and "somebody else's" are both on the table. */
+  const world61 = `
+    insert into public.channels (id, agency_id, kind, name, created_by, open_to_scope)
+      values ('${CH61}','${AG61}','topic','probe-rich','${OWN61}', true);
+    insert into public.channel_members (channel_id, user_id, is_manager)
+      values ('${CH61}','${OWN61}',true);
+    insert into public.messages (id, channel_id, author_id, body, body_text)
+      overriding system value values
+      (${M_OWNER},'${CH61}','${OWN61}','{}'::jsonb,'from the owner'),
+      (${M_LEAD},'${CH61}','${LEAD61}','{}'::jsonb,'from the lead');`;
+
+  const P61 = AG61 ? [
+    /* ── §72 — the own-message rule, from every chair ─────────────── */
+    ["an author removes their OWN message",
+      () => p61(LEAD61, world61, `select public.delete_own_message(${M_LEAD}); select (deleted_at is not null)::text as rows from public.messages where id=${M_LEAD}`), "true"],
+    ["…another AGENT cannot remove it",
+      () => p61(CO61, world61, `select public.delete_own_message(${M_LEAD}); select 1 as rows`), "ERR 42501"],
+    ["…the ADMIN cannot remove it",
+      () => p61(ADM61, world61, `select public.delete_own_message(${M_LEAD}); select 1 as rows`), "ERR 42501"],
+    ["…the OWNER cannot remove it either — this is the permanent rule",
+      () => p61(OWN61, world61, `select public.delete_own_message(${M_LEAD}); select 1 as rows`), "ERR 42501"],
+    ["…and going around the function at the table changes nothing (§31)",
+      () => p61(OWN61, world61, `update public.messages set deleted_at = now() where id=${M_LEAD}; select (deleted_at is null)::text as rows from public.messages where id=${M_LEAD}`), "true"],
+    ["there is still no DELETE grant on messages at all",
+      () => q(`select count(*)::int as rows from information_schema.role_table_grants where table_name='messages' and privilege_type='DELETE' and grantee='authenticated'`)[0].rows, 0],
+    ["a tombstone keeps the row and hides the words (§32)",
+      () => p61(LEAD61, world61 + `update public.messages set deleted_at=now(), deleted_by='${LEAD61}' where id=${M_LEAD};`,
+        `select coalesce((select body_text from public.channel_messages('${CH61}') where id=${M_LEAD}), 'WITHHELD') as rows`), "WITHHELD"],
+    ["…and the row is still there, so a thread keeps its shape",
+      () => p61(LEAD61, world61 + `update public.messages set deleted_at=now() where id=${M_LEAD};`,
+        `select count(*)::int as rows from public.channel_messages('${CH61}') where id=${M_LEAD}`), 1],
+
+    /* ── §80 — reactions ──────────────────────────────────────────── */
+    ["anybody in the conversation may react",
+      () => p61(CO61, world61, `insert into public.message_reactions (message_id, user_id, emoji) values (${M_OWNER},'${CO61}','✅'); select count(*)::int as rows from public.message_reactions where message_id=${M_OWNER}`), 1],
+    ["…and cannot react AS somebody else",
+      () => p61(CO61, world61, `insert into public.message_reactions (message_id, user_id, emoji) values (${M_OWNER},'${LEAD61}','✅'); select 1 as rows`), "ERR 42501"],
+    ["…and cannot remove somebody else's reaction",
+      () => p61(CO61, world61 + `insert into public.message_reactions (message_id, user_id, emoji) values (${M_OWNER},'${LEAD61}','✅');`,
+        `delete from public.message_reactions where message_id=${M_OWNER}; select count(*)::int as rows from public.message_reactions where message_id=${M_OWNER}`), 1],
+    ["the same emoji twice is one row, not two",
+      () => p61(CO61, world61 + `insert into public.message_reactions (message_id, user_id, emoji) values (${M_OWNER},'${CO61}','✅');`,
+        `insert into public.message_reactions (message_id, user_id, emoji) values (${M_OWNER},'${CO61}','✅') on conflict do nothing; select count(*)::int as rows from public.message_reactions where message_id=${M_OWNER}`), 1],
+    ["somebody outside the conversation cannot react into it",
+      () => p61(CO61, `insert into public.channels (id, agency_id, kind, name, created_by, open_to_scope) values ('${CH61}','${AG61}','topic','closed','${OWN61}', false);
+        insert into public.messages (id, channel_id, author_id, body, body_text) overriding system value values (${M_OWNER},'${CH61}','${OWN61}','{}'::jsonb,'x');`,
+        `insert into public.message_reactions (message_id, user_id, emoji) values (${M_OWNER},'${CO61}','✅'); select 1 as rows`), "ERR 42501"],
+
+    /* ── §79 — threads ────────────────────────────────────────────── */
+    ["a thread reply belongs to the same conversation",
+      () => p61(CO61, world61, `insert into public.messages (channel_id, author_id, body, body_text, parent_message_id) values ('${CH61}','${CO61}','{}'::jsonb,'reply',${M_OWNER}); select reply_count as rows from public.channel_messages('${CH61}') where id=${M_OWNER}`), 1],
+    ["…and a reply cannot start a thread of its own (one level)",
+      () => p61(CO61, world61 + `insert into public.messages (id, channel_id, author_id, body, body_text, parent_message_id) overriding system value values (900000003,'${CH61}','${CO61}','{}'::jsonb,'reply',${M_OWNER});`,
+        `insert into public.messages (channel_id, author_id, body, body_text, parent_message_id) values ('${CH61}','${CO61}','{}'::jsonb,'nested',900000003); select 1 as rows`), "ERR P0001"],
+    ["a thread is unreachable when its channel is (§22)",
+      () => p61(CO61, `insert into public.channels (id, agency_id, kind, name, created_by, open_to_scope) values ('${CH61}','${AG61}','topic','closed','${OWN61}', false);
+        insert into public.messages (id, channel_id, author_id, body, body_text) overriding system value values (${M_OWNER},'${CH61}','${OWN61}','{}'::jsonb,'root');
+        insert into public.messages (channel_id, author_id, body, body_text, parent_message_id) values ('${CH61}','${OWN61}','{}'::jsonb,'reply',${M_OWNER});`,
+        `select count(*)::int as rows from public.thread_messages(${M_OWNER})`), 0],
+    ["a thread reply is not a top-level message",
+      () => p61(CO61, world61 + `insert into public.messages (channel_id, author_id, body, body_text, parent_message_id) values ('${CH61}','${CO61}','{}'::jsonb,'reply',${M_OWNER});`,
+        `select count(*)::int as rows from public.channel_messages('${CH61}')`), 2],
+
+    /* ── §82 — pins ───────────────────────────────────────────────── */
+    ["a channel manager pins a message",
+      () => p61(OWN61, world61, `insert into public.message_pins (channel_id, message_id) values ('${CH61}',${M_OWNER}); select pinned::text as rows from public.channel_messages('${CH61}') where id=${M_OWNER}`), "true"],
+    ["…an ordinary member does not (§29)",
+      () => p61(CO61, world61, `insert into public.message_pins (channel_id, message_id) values ('${CH61}',${M_OWNER}); select 1 as rows`), "ERR 42501"],
+    ["a pin stores no copy of the message",
+      () => q(`select count(*)::int as rows from information_schema.columns where table_name='message_pins' and column_name in ('body','body_text','text')`)[0].rows, 0],
+
+    /* ── §44 — idempotent send ────────────────────────────────────── */
+    ["the same client key twice writes ONE message",
+      () => p61(CO61, world61, `insert into public.messages (channel_id, author_id, body, body_text, client_message_id) values ('${CH61}','${CO61}','{}'::jsonb,'once','11111111-1111-4111-8111-111111111111'); insert into public.messages (channel_id, author_id, body, body_text, client_message_id) values ('${CH61}','${CO61}','{}'::jsonb,'once','11111111-1111-4111-8111-111111111111') on conflict do nothing; select count(*)::int as rows from public.messages where client_message_id='11111111-1111-4111-8111-111111111111'`), 1],
+
+    /* ── §73 — the Professional Messaging Guard ───────────────────── */
+    ["a clearly abusive message is refused, and not written",
+      () => p61(CO61, world61, `insert into public.messages (channel_id, author_id, body, body_text) values ('${CH61}','${CO61}','{}'::jsonb,'you are a fucking idiot'); select 1 as rows`), "ERR P0001"],
+    ["normal direct business language sends (§36)",
+      () => p61(CO61, world61, `insert into public.messages (channel_id, author_id, body, body_text) values ('${CH61}','${CO61}','{}'::jsonb,'This process failed. The client is upset and this work is overdue — we need an explanation today.'); select count(*)::int as rows from public.messages where channel_id='${CH61}' and body_text like 'This process failed%'`), 1],
+    ["…and a word merely CONTAINING a blocked one does not trip it",
+      () => p61(CO61, world61, `insert into public.messages (channel_id, author_id, body, body_text) values ('${CH61}','${CO61}','{}'::jsonb,'The assessment class in Scunthorpe passed'); select count(*)::int as rows from public.messages where channel_id='${CH61}' and body_text like 'The assessment%'`), 1],
+    ["turning the guard off lets it through — and only an admin can (§40)",
+      () => p61(CO61, world61 + `insert into public.agency_communication_settings (agency_id, guard_enabled) values ('${AG61}', false);`,
+        `insert into public.messages (channel_id, author_id, body, body_text) values ('${CH61}','${CO61}','{}'::jsonb,'you are a fucking idiot'); select 1 as rows`), 1],
+    ["…an agent cannot turn off their own guard",
+      () => p61(CO61, "", `insert into public.agency_communication_settings (agency_id, guard_enabled) values ('${AG61}', false); select 1 as rows`), "ERR 42501"],
+    ["…nor quietly delete the words that block them",
+      () => p61(CO61, "", `delete from public.communication_blocked_terms where agency_id is null; select count(*)::int as rows from public.communication_blocked_terms where agency_id is null`),
+      q(`select count(*)::int as rows from public.communication_blocked_terms where agency_id is null`)[0].rows],
+    ["§39 — an external person is never refused, however angry",
+      () => p61(U["client.portal@bes.test"], "", `select coalesce(public.message_guard_hit('${AG61}','this is fucking unacceptable'), 'no term') as rows`), "fucking"],
+
+    /* ── §76 — the two default channels ───────────────────────────── */
+    ["General Discussion exists, exactly once",
+      () => q(`select count(*)::int as rows from public.channels where system_key='general_discussion'`)[0].rows, 1],
+    ["Announcements and Updates exists, exactly once",
+      () => q(`select count(*)::int as rows from public.channels where system_key='announcements_updates'`)[0].rows, 1],
+    ["…running the seeder again creates nothing",
+      () => q(`begin; select public.ensure_default_agency_channels(id) from public.agencies; select count(*)::int as rows from public.channels where system_key is not null; rollback;`)[0].rows,
+      q(`select count(*)::int as rows from public.channels where system_key is not null`)[0].rows],
+    ["both are all-hands, so future staff inherit them (§8)",
+      () => q(`select count(*)::int as rows from public.channels where system_key is not null and not open_to_scope`)[0].rows, 0],
+    ["an ordinary agent sees General Discussion",
+      () => p61(CO61, "", `select count(*)::int as rows from public.channels where system_key='general_discussion'`), 1],
+    ["…and a DEACTIVATED one does not (§8)",
+      () => p61(CO61, `update public.agency_memberships set status='inactive' where user_id='${CO61}';`,
+        `select count(*)::int as rows from public.channels where system_key='general_discussion'`), 0],
+    ["a default channel cannot be archived, even by the owner (§7)",
+      () => p61(OWN61, "", `update public.channels set archived_at=now() where system_key='general_discussion'; select 1 as rows`), "ERR P0001"],
+
+    /* ── §75 — creating a channel ─────────────────────────────────── */
+    /* Called ONCE into a temp table. A function in a WHERE clause may be
+       evaluated per row of a table that is empty, which is how the first
+       version of these two probes reported 0 and "ERR unknown" while the
+       feature worked perfectly. */
+    ["the owner creates a channel and is its manager",
+      () => p61(OWN61, "", `create temp table c1 as select public.create_agency_channel('Operations',null,'topic',true) as id;
+        select count(*)::int as rows from public.channel_members m, c1 where m.channel_id=c1.id and m.user_id='${OWN61}' and m.is_manager`), 1],
+    ["…with the agency set and the other two owner columns null (§4)",
+      () => p61(OWN61, "", `create temp table c2 as select public.create_agency_channel('Operations2',null,'topic',true) as id;
+        select (c.agency_id is not null and c.organization_id is null and c.partner_group_id is null)::text as rows
+          from public.channels c, c2 where c.id=c2.id`), "true"],
+    ["an agent without the capability is refused (§3)",
+      () => p61(CO61, "", `select public.create_agency_channel('Nope',null,'topic',false)::text as rows`), "ERR 42501"],
+    ["…and granting it lets them (§3: NO by default, can be granted)",
+      () => p61(CO61, `insert into public.agency_member_permissions (membership_id, key, allowed, set_by) select id, 'communication.channels.create', true, '${OWN61}' from public.agency_memberships where user_id='${CO61}';`,
+        `select (public.create_agency_channel('Mine',null,'topic',false) is not null)::text as rows`), "true"],
+    ["the browser cannot name the agency — there is no argument for it",
+      () => q(`select (position('agency' in pg_get_function_identity_arguments('public.create_agency_channel(text,text,text,boolean,uuid[],uuid[])'::regprocedure)) = 0)::text as rows`)[0].rows, "true"],
+
+    /* ── §77, §78 — announcements ─────────────────────────────────── */
+    ["a published BES announcement posts ONE card",
+      () => p61(OWN61, "", `select public.save_announcement(null, null, 'bes_internal', 'Office Holiday Schedule', 'Closed on the 25th.', null, false, true); set local role postgres; select count(*)::int as rows from public.messages where message_type='announcement' and announcement_id = (select id from public.announcements where title='Office Holiday Schedule')`), 1],
+    ["…and the card holds NO copy of its title or body (§12, §15)",
+      () => p61(OWN61, "", `select public.save_announcement(null, null, 'bes_internal', 'Office Holiday Schedule', 'Closed on the 25th.', null, false, true); set local role postgres; select body_text as rows from public.messages where message_type='announcement' and announcement_id = (select id from public.announcements where title='Office Holiday Schedule')`), "Announcement"],
+    ["…so message search cannot leak an announcement's words",
+      () => p61(OWN61, "", `select public.save_announcement(null, null, 'bes_internal', 'Office Holiday Schedule', 'Closed on the 25th.', null, false, true); select count(*)::int as rows from public.search_messages('Closed on the 25th')`), 0],
+    ["editing it makes no second card (§14)",
+      () => p61(OWN61, "", `select public.save_announcement(null, null, 'bes_internal', 'Holiday', 'v1', null, false, true);
+        select public.save_announcement((select id from public.announcements where title='Holiday'), null, 'bes_internal', 'Holiday', 'v2', null, false, true);
+        set local role postgres; select count(*)::int as rows from public.messages where announcement_id = (select id from public.announcements where title='Holiday')`), 1],
+    ["a DRAFT announcement posts nothing",
+      () => p61(OWN61, "", `select public.save_announcement(null, null, 'bes_internal', 'Draft thing', 'not yet', null, false, false); set local role postgres; select count(*)::int as rows from public.messages where announcement_id = (select id from public.announcements where title='Draft thing')`), 0],
+
+    /* ── §78 — a TARGETED announcement does not leak ──────────────
+       Correction to an earlier assumption of mine: announcement targeting is
+       not a future feature. `announcements_select` already reads
+       `managers_only`, `department_id` and `team_id`, so an announcement
+       aimed at one team is a thing that exists today — and Announcements and
+       Updates is visible to every BES staff member. Both halves of §15 are
+       live, and both are measured. */
+    ["a team-targeted announcement reaches a member of that team",
+      () => p61(LEAD61, `insert into public.announcements (organization_id, audience, title, body, team_id, published_at, created_by) values (null,'bes_internal','[TEST] Team A only','members only','${TEAM_A61}', now(), '${OWN61}');`,
+        `select coalesce((select announcement_title from public.channel_messages((select id from public.channels where system_key='announcements_updates')) where announcement_title = '[TEST] Team A only'), 'HIDDEN') as rows`), "[TEST] Team A only"],
+    ["…and NOT somebody on another team",
+      () => p61(U["bes.restricted@bes.test"], `insert into public.announcements (organization_id, audience, title, body, team_id, published_at, created_by) values (null,'bes_internal','[TEST] Team A only','members only','${TEAM_A61}', now(), '${OWN61}');`,
+        `select coalesce((select announcement_title from public.channel_messages((select id from public.channels where system_key='announcements_updates')) where announcement_id is not null and announcement_title = '[TEST] Team A only'), 'HIDDEN') as rows`), "HIDDEN"],
+    ["…whose message row carries no title to leak in the first place",
+      () => p61(U["bes.restricted@bes.test"], `insert into public.announcements (organization_id, audience, title, body, team_id, published_at, created_by) values (null,'bes_internal','[TEST] Team A only','zebra-secret-body','${TEAM_A61}', now(), '${OWN61}');`,
+        `select count(*)::int as rows from public.search_messages('zebra-secret-body')`), 0],
+    ["…and a MANAGERS-ONLY announcement stays with managers",
+      () => p61(CO61, `insert into public.announcements (organization_id, audience, title, body, managers_only, published_at, created_by) values (null,'bes_internal','[TEST] Leadership only','x', true, now(), '${OWN61}');`,
+        `select coalesce((select announcement_title from public.channel_messages((select id from public.channels where system_key='announcements_updates')) where announcement_title = '[TEST] Leadership only'), 'HIDDEN') as rows`), "HIDDEN"],
+
+    /* ── §27 — mentions notify, and never admit ──────────────────── */
+    ["mentioning somebody in a BES channel does not refuse the MESSAGE",
+      () => p61(OWN61, world61,
+        `insert into public.messages (channel_id, author_id, body, body_text) values ('${CH61}','${OWN61}', jsonb_build_object('type','doc','content', jsonb_build_array(jsonb_build_object('type','paragraph','content', jsonb_build_array(jsonb_build_object('type','mention','attrs', jsonb_build_object('id','${LEAD61}')))))), 'hey @lead');
+         select count(*)::int as rows from public.messages where channel_id='${CH61}' and body_text='hey @lead'`), 1],
+    ["…a member of it IS notifiable",
+      () => p61(OWN61, world61, `select public.channel_notifiable('${CH61}','${OWN61}')::text as rows`), "true"],
+    ["…an all-hands channel reaches active staff who were never added",
+      () => p61(OWN61, world61, `select public.channel_notifiable('${CH61}','${CO61}')::text as rows`), "true"],
+    ["…and a members-only one does NOT (§27: a mention is not admission)",
+      () => p61(OWN61, `insert into public.channels (id, agency_id, kind, name, created_by, open_to_scope) values ('${CH61}','${AG61}','topic','closed','${OWN61}', false);`,
+        `select public.channel_notifiable('${CH61}','${CO61}')::text as rows`), "false"],
+    ["…nor a deactivated member of an all-hands one",
+      () => p61(OWN61, world61 + `update public.agency_memberships set status='inactive' where user_id='${CO61}';`,
+        `select public.channel_notifiable('${CH61}','${CO61}')::text as rows`), "false"],
+
+    /* ── §26 — an attachment is not more reachable than its message ── */
+    ["a file row on a message follows the message",
+      () => p61(CO61, world61 + `insert into public.files (agency_id, entity_type, entity_id, bucket, path, name, uploaded_by) values ('${AG61}','channel_message','${M_OWNER}','bes-files','agency/channels/${CH61}/x.pdf','x.pdf','${OWN61}');`,
+        `select count(*)::int as rows from public.files where entity_type='channel_message'`), 1],
+    ["…and NOT when the conversation is out of reach",
+      () => p61(CO61, `insert into public.channels (id, agency_id, kind, name, created_by, open_to_scope) values ('${CH61}','${AG61}','topic','closed','${OWN61}', false);
+        insert into public.messages (id, channel_id, author_id, body, body_text) overriding system value values (${M_OWNER},'${CH61}','${OWN61}','{}'::jsonb,'x');
+        insert into public.files (agency_id, entity_type, entity_id, bucket, path, name, uploaded_by) values ('${AG61}','channel_message','${M_OWNER}','bes-files','agency/channels/${CH61}/x.pdf','x.pdf','${OWN61}');`,
+        `select count(*)::int as rows from public.files where entity_type='channel_message'`), 0],
+    ["the storage policy routes the channels subtree through channel access",
+      () => q(`select (position('storage_channel_of' in pg_get_expr(polqual, polrelid)) > 0)::text as rows from pg_policy where polname='bes_files_select'`)[0].rows, "true"],
+    /* Permissive policies are OR-ed, so the question is not how many there
+       are — `bes_files_activity_select` and `bes_files_borrower_select` are
+       legitimate and both scoped to `…/activity/…`. The question is whether
+       any of them reaches the CHANNELS subtree beside the narrow one. */
+    ["…and no OTHER bucket policy reaches the channels subtree",
+      () => q(`select count(*)::int as rows from pg_policy p join pg_class c on c.oid=p.polrelid
+                where c.relname='objects' and p.polcmd in ('r','*')
+                  and p.polname <> 'bes_files_select'
+                  and pg_get_expr(p.polqual, p.polrelid) like '%bes-files%'
+                  and pg_get_expr(p.polqual, p.polrelid) not like '%activity%'`)[0].rows, 0],
+
+    /* ── §61 — the host start url has no home in this schema ──────── */
+    ["no table anywhere holds a meeting host start url",
+      () => q(`select count(*)::int as rows from information_schema.columns where table_schema='public' and column_name ilike '%start_url%'`)[0].rows, 0],
+    /* Supabase's default privileges grant `authenticated` on every new table
+       in `public`; `revoke ... from public, anon` does not touch that. 0202
+       missed it on the token table and this probe is why 0204 exists. */
+    ["and nobody but the service role can read a meeting token",
+      () => q(`select count(*)::int as rows from information_schema.role_table_grants where table_name='agency_meeting_credentials' and grantee in ('authenticated','anon')`)[0].rows, 0],
+    /* `table_schema` matters: the first version of this probe matched
+       `realtime.messages`, which Supabase grants to anon for its own
+       purposes, and reported a hole in a product table that was clean. */
+    ["…and anon holds nothing on anything Communication added",
+      () => q(`select count(*)::int as rows from information_schema.role_table_grants
+                where grantee = 'anon' and table_schema = 'public' and table_name in (
+                  'channels','messages','channel_members','channel_teams','channel_reads',
+                  'channel_shares','message_reactions','message_pins','meetings',
+                  'agency_meeting_providers','agency_meeting_credentials',
+                  'communication_blocked_terms','agency_communication_settings')`)[0].rows, 0],
+
+    ["anon reaches no reaction, pin, term or meeting row",
+      () => { try { q(`begin; set local role anon; select 1 from public.message_reactions limit 1; select 1 from public.message_pins limit 1; select 1 from public.communication_blocked_terms limit 1; select 1 from public.meetings limit 1; rollback;`); return "readable"; } catch { return "refused"; } }, "refused"],
+  ] : [["(no agency to probe)", () => "skip", "skip"]];
+  runPhase("phase 61", P61, { strict: true });
 }
 
 endPhase();

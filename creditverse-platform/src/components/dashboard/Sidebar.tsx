@@ -45,6 +45,8 @@ import {
 import { cn } from "@/lib/utils";
 import { SubAccountSwitcher } from "@/components/dashboard/SubAccountSwitcher";
 import { useMyWork, useAttention } from "@/lib/data/use-work";
+import { useChannels } from "@/lib/data/use-channels";
+import { totalUnread } from "@/lib/communication/channel-groups";
 import { useUnreadNotificationCount } from "@/lib/data/use-notifications";
 import { useAuth } from "@/lib/auth/auth-context";
 import { usePermissions, type PermissionKeyName } from "@/lib/auth/use-permission";
@@ -131,6 +133,11 @@ export const Sidebar = () => {
   const attention = useAttention();
 
   const attentionCount = attention.items.length;
+  /* The same `["channels"]` query the Communication screen uses, so the badge
+     and the page render from ONE request rather than two (rule 14). An
+     administrative row is never counted: being able to inspect a conversation
+     is not a message waiting for you (§17). */
+  const unreadMessages = totalUnread(useChannels().data ?? []);
   const unreadNotifications = useUnreadNotificationCount();
   const myWorkCount = myWork.items.length;
 
@@ -185,7 +192,12 @@ export const Sidebar = () => {
            than anything else here. One conversation space — BES team channels,
            partner conversations and the organization channels shared with BES,
            each the same row its owner sees rather than a copy (0190, 0191). */
-        { label: "Communication", icon: MessagesSquare, href: "/app/channels" },
+        {
+          label: "Communication",
+          icon: MessagesSquare,
+          href: "/app/channels",
+          badge: unreadMessages,
+        },
       ],
     },
     {
@@ -378,7 +390,12 @@ export const Sidebar = () => {
            it; the database decides which ones arrive, so no permission key
            gates the entry — an empty list is the honest answer for somebody in
            no channels. */
-        { label: "Communication", icon: MessagesSquare, href: "/app/channels" },
+        {
+          label: "Communication",
+          icon: MessagesSquare,
+          href: "/app/channels",
+          badge: unreadMessages,
+        },
         { label: "Commissions", icon: HandCoins, href: "/app/commissions", permission: "fundingops.commissions.view" },
         { label: "Compliance & Billing", icon: Scale, href: "/app/compliance", permission: "billing.view" },
         { label: "Settings", icon: Settings, href: "/app/settings", permission: SETTINGS_KEYS },

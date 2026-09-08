@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { CommunicationSection } from "@/components/settings/sections/CommunicationSection";
 import { useSearchParams } from "react-router-dom";
 import {
   Building2,
@@ -25,6 +26,7 @@ import {
   Sparkles,
   Palette,
   UserRound,
+  MessagesSquare,
 } from "lucide-react";
 import {
   AgencySettingsProvider,
@@ -111,6 +113,7 @@ const groups: SettingsGroup[] = [
       { key: "diy", label: "DIY & Referrals", icon: Gift },
       { key: "templates", label: "Templates", icon: FileText },
       { key: "automations", label: "Automations", icon: Zap },
+      { key: "communication", label: "Communication", icon: MessagesSquare },
       { key: "kpi-catalogue", label: "KPI Catalogue", icon: BarChart3 },
     ],
   },
@@ -233,6 +236,8 @@ const SettingsContent = () => {
         return <TemplatesSection />;
       case "automations":
         return <AutomationsSection />;
+      case "communication":
+        return <CommunicationSection />;
       case "billing":
         /* The real subscription for the organization in view; BillingSection
            is the agency-level rules screen and stays beneath it. */

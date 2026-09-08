@@ -19,7 +19,7 @@
  */
 import { Loader2, Building2, Mail, Phone, ShieldCheck, FileText, MessagesSquare } from "lucide-react";
 import { useMyPartner } from "@/lib/data/use-agency-partners";
-import { usePartnerChannels } from "@/lib/data/use-channels";
+import { useChannels } from "@/lib/data/use-channels";
 import { ConversationPane } from "@/components/communication/ConversationPane";
 import { useAuth } from "@/lib/auth/auth-context";
 import { formatDate } from "@/lib/format-date";
@@ -133,8 +133,13 @@ export const PartnerPortal = () => {
  * an empty composer that looks broken.
  */
 function PortalConversation({ partnerGroupId }: { partnerGroupId: string }) {
-  const channels = usePartnerChannels(partnerGroupId);
-  const conversation = (channels.data ?? [])[0] ?? null;
+  /* The same call the agency's Communication screen makes. A partner contact
+     gets back their own partner's conversations and nothing else, because
+     `channel_visible` says so — not because this asked a narrower question
+     (0192, §1). */
+  const channels = useChannels();
+  const conversation = (channels.data ?? [])
+    .find((c) => c.partnerGroupId === partnerGroupId && !c.archivedAt) ?? null;
 
   return (
     <section className="flex max-h-[32rem] min-h-[16rem] flex-col overflow-hidden rounded-xl border border-border bg-card">

@@ -45,7 +45,6 @@ import {
 import { usePartnerCatalogues, usePartnerServices } from "@/lib/data/use-partner-services";
 import { useAgencyPermissions } from "@/lib/data/agency-permissions";
 import { useOpenPartnerConversation } from "@/lib/data/use-channels";
-import { useAuth } from "@/lib/auth/auth-context";
 import { useWorkforce } from "@/lib/data/use-workforce";
 import {
   HEALTH_LABEL, HEALTH_TONE, LIFECYCLE_LABEL, LIFECYCLE_TONE, PARTNER_LIFECYCLES,
@@ -64,8 +63,7 @@ export const PartnerProfilePage = () => {
   const counts = usePartnerClientCounts();
   const contacts = usePartnerContacts(id);
   const actions = usePartnerActions();
-  const auth = useAuth();
-  const conversation = useOpenPartnerConversation(auth.agencyId ?? null);
+  const conversation = useOpenPartnerConversation();
   const [tab, setTab] = useState("overview");
 
   if (partner.isLoading || perms.loading) {

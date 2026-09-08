@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       activity_events: {
@@ -198,6 +223,42 @@ export type Database = {
           },
         ]
       }
+      agency_communication_settings: {
+        Row: {
+          agency_id: string
+          guard_enabled: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          agency_id: string
+          guard_enabled?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          agency_id?: string
+          guard_enabled?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_communication_settings_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: true
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_communication_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agency_expense_templates: {
         Row: {
           active: boolean
@@ -357,6 +418,89 @@ export type Database = {
             columns: ["template_id"]
             isOneToOne: false
             referencedRelation: "agency_expense_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agency_meeting_credentials: {
+        Row: {
+          access_token: string | null
+          agency_id: string
+          expires_at: string | null
+          provider: Database["public"]["Enums"]["meeting_provider"]
+          refresh_token: string | null
+          scope: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_token?: string | null
+          agency_id: string
+          expires_at?: string | null
+          provider: Database["public"]["Enums"]["meeting_provider"]
+          refresh_token?: string | null
+          scope?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string | null
+          agency_id?: string
+          expires_at?: string | null
+          provider?: Database["public"]["Enums"]["meeting_provider"]
+          refresh_token?: string | null
+          scope?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_meeting_credentials_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agency_meeting_providers: {
+        Row: {
+          account_label: string | null
+          agency_id: string
+          connected: boolean
+          connected_at: string | null
+          connected_by: string | null
+          provider: Database["public"]["Enums"]["meeting_provider"]
+          updated_at: string
+        }
+        Insert: {
+          account_label?: string | null
+          agency_id: string
+          connected?: boolean
+          connected_at?: string | null
+          connected_by?: string | null
+          provider: Database["public"]["Enums"]["meeting_provider"]
+          updated_at?: string
+        }
+        Update: {
+          account_label?: string | null
+          agency_id?: string
+          connected?: boolean
+          connected_at?: string | null
+          connected_by?: string | null
+          provider?: Database["public"]["Enums"]["meeting_provider"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_meeting_providers_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_meeting_providers_connected_by_fkey"
+            columns: ["connected_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1182,21 +1326,18 @@ export type Database = {
           channel_id: string
           is_manager: boolean
           joined_at: string
-          last_read_at: string | null
           user_id: string
         }
         Insert: {
           channel_id: string
           is_manager?: boolean
           joined_at?: string
-          last_read_at?: string | null
           user_id: string
         }
         Update: {
           channel_id?: string
           is_manager?: boolean
           joined_at?: string
-          last_read_at?: string | null
           user_id?: string
         }
         Relationships: [
@@ -1209,6 +1350,39 @@ export type Database = {
           },
           {
             foreignKeyName: "channel_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      channel_reads: {
+        Row: {
+          channel_id: string
+          last_read_at: string
+          user_id: string
+        }
+        Insert: {
+          channel_id: string
+          last_read_at?: string
+          user_id: string
+        }
+        Update: {
+          channel_id?: string
+          last_read_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_reads_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channel_reads_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -1275,6 +1449,49 @@ export type Database = {
           },
         ]
       }
+      channel_teams: {
+        Row: {
+          added_at: string
+          added_by: string | null
+          channel_id: string
+          team_id: string
+        }
+        Insert: {
+          added_at?: string
+          added_by?: string | null
+          channel_id: string
+          team_id: string
+        }
+        Update: {
+          added_at?: string
+          added_by?: string | null
+          channel_id?: string
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_teams_added_by_fkey"
+            columns: ["added_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channel_teams_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channel_teams_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       channels: {
         Row: {
           agency_id: string | null
@@ -1285,9 +1502,12 @@ export type Database = {
           id: string
           kind: Database["public"]["Enums"]["channel_kind"]
           name: string
+          open_to_scope: boolean
           organization_id: string | null
           partner_group_id: string | null
+          partner_service_id: string | null
           purpose: string | null
+          system_key: string | null
         }
         Insert: {
           agency_id?: string | null
@@ -1298,9 +1518,12 @@ export type Database = {
           id?: string
           kind?: Database["public"]["Enums"]["channel_kind"]
           name: string
+          open_to_scope?: boolean
           organization_id?: string | null
           partner_group_id?: string | null
+          partner_service_id?: string | null
           purpose?: string | null
+          system_key?: string | null
         }
         Update: {
           agency_id?: string | null
@@ -1311,9 +1534,12 @@ export type Database = {
           id?: string
           kind?: Database["public"]["Enums"]["channel_kind"]
           name?: string
+          open_to_scope?: boolean
           organization_id?: string | null
           partner_group_id?: string | null
+          partner_service_id?: string | null
           purpose?: string | null
+          system_key?: string | null
         }
         Relationships: [
           {
@@ -1349,6 +1575,13 @@ export type Database = {
             columns: ["partner_group_id"]
             isOneToOne: false
             referencedRelation: "outsourcing_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channels_partner_service_id_fkey"
+            columns: ["partner_service_id"]
+            isOneToOne: false
+            referencedRelation: "partner_services"
             referencedColumns: ["id"]
           },
         ]
@@ -1803,6 +2036,51 @@ export type Database = {
             columns: ["referral_event_id"]
             isOneToOne: false
             referencedRelation: "referral_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      communication_blocked_terms: {
+        Row: {
+          agency_id: string | null
+          category: string
+          created_at: string
+          created_by: string | null
+          id: string
+          kind: string
+          term: string
+        }
+        Insert: {
+          agency_id?: string | null
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind?: string
+          term: string
+        }
+        Update: {
+          agency_id?: string | null
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind?: string
+          term?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "communication_blocked_terms_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communication_blocked_terms_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -3462,6 +3740,7 @@ export type Database = {
         Row: {
           agency_id: string
           authorized_team: string | null
+          authorized_team_id: string | null
           created_at: string
           created_by: string | null
           effective_from: string
@@ -3476,6 +3755,7 @@ export type Database = {
         Insert: {
           agency_id: string
           authorized_team?: string | null
+          authorized_team_id?: string | null
           created_at?: string
           created_by?: string | null
           effective_from?: string
@@ -3490,6 +3770,7 @@ export type Database = {
         Update: {
           agency_id?: string
           authorized_team?: string | null
+          authorized_team_id?: string | null
           created_at?: string
           created_by?: string | null
           effective_from?: string
@@ -3507,6 +3788,13 @@ export type Database = {
             columns: ["agency_id"]
             isOneToOne: false
             referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fulfillment_engagements_authorized_team_id_fkey"
+            columns: ["authorized_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
             referencedColumns: ["id"]
           },
           {
@@ -5341,6 +5629,79 @@ export type Database = {
           },
         ]
       }
+      meetings: {
+        Row: {
+          agency_id: string
+          channel_id: string | null
+          created_at: string
+          created_by: string | null
+          duration_minutes: number | null
+          external_event_id: string | null
+          external_meeting_id: string | null
+          id: string
+          join_url: string | null
+          provider: Database["public"]["Enums"]["meeting_provider"]
+          start_at: string | null
+          status: string
+          topic: string
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          channel_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          duration_minutes?: number | null
+          external_event_id?: string | null
+          external_meeting_id?: string | null
+          id?: string
+          join_url?: string | null
+          provider: Database["public"]["Enums"]["meeting_provider"]
+          start_at?: string | null
+          status?: string
+          topic: string
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          channel_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          duration_minutes?: number | null
+          external_event_id?: string | null
+          external_meeting_id?: string | null
+          id?: string
+          join_url?: string | null
+          provider?: Database["public"]["Enums"]["meeting_provider"]
+          start_at?: string | null
+          status?: string
+          topic?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meetings_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meetings_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meetings_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       member_permissions: {
         Row: {
           allowed: boolean
@@ -5390,44 +5751,148 @@ export type Database = {
           },
         ]
       }
+      message_pins: {
+        Row: {
+          channel_id: string
+          message_id: number
+          pinned_at: string
+          pinned_by: string | null
+        }
+        Insert: {
+          channel_id: string
+          message_id: number
+          pinned_at?: string
+          pinned_by?: string | null
+        }
+        Update: {
+          channel_id?: string
+          message_id?: number
+          pinned_at?: string
+          pinned_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_pins_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_pins_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: true
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_pins_pinned_by_fkey"
+            columns: ["pinned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      message_reactions: {
+        Row: {
+          created_at: string
+          emoji: string
+          message_id: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          emoji: string
+          message_id: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          emoji?: string
+          message_id?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_reactions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_reactions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
+          announcement_id: string | null
           author_id: string
           author_is_bes: boolean
           body: Json
           body_text: string
           channel_id: string
+          client_message_id: string | null
           created_at: string
           deleted_at: string | null
+          deleted_by: string | null
           edited_at: string | null
           id: number
+          meeting_id: string | null
+          message_type: string
+          parent_message_id: number | null
           reply_to_id: number | null
         }
         Insert: {
+          announcement_id?: string | null
           author_id: string
           author_is_bes?: boolean
           body: Json
           body_text: string
           channel_id: string
+          client_message_id?: string | null
           created_at?: string
           deleted_at?: string | null
+          deleted_by?: string | null
           edited_at?: string | null
           id?: never
+          meeting_id?: string | null
+          message_type?: string
+          parent_message_id?: number | null
           reply_to_id?: number | null
         }
         Update: {
+          announcement_id?: string | null
           author_id?: string
           author_is_bes?: boolean
           body?: Json
           body_text?: string
           channel_id?: string
+          client_message_id?: string | null
           created_at?: string
           deleted_at?: string | null
+          deleted_by?: string | null
           edited_at?: string | null
           id?: never
+          meeting_id?: string | null
+          message_type?: string
+          parent_message_id?: number | null
           reply_to_id?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "messages_announcement_id_fkey"
+            columns: ["announcement_id"]
+            isOneToOne: false
+            referencedRelation: "announcements"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "messages_author_id_fkey"
             columns: ["author_id"]
@@ -5440,6 +5905,27 @@ export type Database = {
             columns: ["channel_id"]
             isOneToOne: false
             referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "meetings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_parent_message_id_fkey"
+            columns: ["parent_message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
             referencedColumns: ["id"]
           },
           {
@@ -10630,7 +11116,38 @@ export type Database = {
         Args: { p_immediately?: boolean; p_org: string }
         Returns: undefined
       }
+      channel_auditable: { Args: { p_channel: string }; Returns: boolean }
       channel_manager: { Args: { p_channel: string }; Returns: boolean }
+      channel_member_of: { Args: { p_channel: string }; Returns: boolean }
+      channel_messages: {
+        Args: { p_channel: string; p_limit?: number }
+        Returns: {
+          announcement_body: string
+          announcement_id: string
+          announcement_published_at: string
+          announcement_title: string
+          attachments: Json
+          author_id: string
+          author_is_bes: boolean
+          author_name: string
+          body_text: string
+          channel_id: string
+          created_at: string
+          deleted: boolean
+          edited_at: string
+          id: number
+          last_reply_at: string
+          message_type: string
+          parent_message_id: number
+          pinned: boolean
+          reactions: Json
+          reply_count: number
+          reply_to_author: string
+          reply_to_id: number
+          reply_to_text: string
+        }[]
+      }
+      channel_service_ok: { Args: { p_channel: string }; Returns: boolean }
       channel_shared_with_bes: { Args: { p_channel: string }; Returns: boolean }
       channel_visible: { Args: { p_channel: string }; Returns: boolean }
       channel_writable: { Args: { p_channel: string }; Returns: boolean }
@@ -10789,6 +11306,17 @@ export type Database = {
         Args: { p_copy_scope?: boolean; p_from: string; p_to: string }
         Returns: undefined
       }
+      create_agency_channel: {
+        Args: {
+          p_kind?: string
+          p_name: string
+          p_open_to_scope?: boolean
+          p_purpose?: string
+          p_team_ids?: string[]
+          p_user_ids?: string[]
+        }
+        Returns: string
+      }
       create_credit_report: {
         Args: {
           p_bureaus: string[]
@@ -10857,6 +11385,7 @@ export type Database = {
       delete_client_document: { Args: { p_id: string }; Returns: string }
       delete_company_document: { Args: { p_id: string }; Returns: string }
       delete_hub_tool: { Args: { p_id: string }; Returns: undefined }
+      delete_own_message: { Args: { p_id: number }; Returns: undefined }
       dev_seed_user: {
         Args: { p_email: string; p_full_name: string; p_password: string }
         Returns: string
@@ -10907,6 +11436,10 @@ export type Database = {
           p_to: string
         }
         Returns: boolean
+      }
+      ensure_default_agency_channels: {
+        Args: { p_agency: string }
+        Returns: undefined
       }
       ensure_general_channel: { Args: { p_org: string }; Returns: string }
       entity_visible: {
@@ -11074,6 +11607,10 @@ export type Database = {
         Args: { p_location_id: string; p_org: string }
         Returns: undefined
       }
+      mark_channel_read: {
+        Args: { p_at?: string; p_channel: string }
+        Returns: undefined
+      }
       mark_commission_paid: {
         Args: { p_commission: string; p_reference: string }
         Returns: undefined
@@ -11116,6 +11653,10 @@ export type Database = {
         Args: { p_org: string; p_patch: Json }
         Returns: Json
       }
+      message_guard_hit: {
+        Args: { p_agency: string; p_text: string }
+        Returns: string
+      }
       move_document_request: {
         Args: {
           p_note?: string
@@ -11134,6 +11675,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      my_agency_id: { Args: never; Returns: string }
       my_client_ids: { Args: never; Returns: string[] }
       my_org_ids: { Args: never; Returns: string[] }
       my_permissions: {
@@ -11152,6 +11694,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      open_direct_channel: { Args: { p_other: string }; Returns: string }
       open_dispute_round: {
         Args: {
           p_client: string
@@ -11474,6 +12017,17 @@ export type Database = {
         }
         Returns: string
       }
+      search_messages: {
+        Args: { p_limit?: number; p_query: string }
+        Returns: {
+          author_name: string
+          body_text: string
+          channel_id: string
+          channel_name: string
+          created_at: string
+          message_id: number
+        }[]
+      }
       set_agency_member_role: {
         Args: {
           p_membership: string
@@ -11613,11 +12167,50 @@ export type Database = {
           user_id: string
         }[]
       }
+      thread_messages: {
+        Args: { p_root: number }
+        Returns: {
+          attachments: Json
+          author_id: string
+          author_is_bes: boolean
+          author_name: string
+          body_text: string
+          created_at: string
+          deleted: boolean
+          edited_at: string
+          id: number
+          reactions: Json
+        }[]
+      }
       to_service: {
         Args: { p: string }
         Returns: Database["public"]["Enums"]["fulfillment_service"]
       }
       try_bigint: { Args: { t: string }; Returns: number }
+      visible_channels: {
+        Args: never
+        Returns: {
+          agency_id: string
+          archived_at: string
+          audit_only: boolean
+          display_name: string
+          id: string
+          is_manager: boolean
+          kind: string
+          last_message_at: string
+          name: string
+          open_to_scope: boolean
+          organization_id: string
+          organization_name: string
+          partner_group_id: string
+          partner_name: string
+          partner_service_id: string
+          purpose: string
+          service_name: string
+          shared_with_bes: boolean
+          unread: number
+        }[]
+      }
       workspace_reach: {
         Args: {
           p_assignee?: string
@@ -12025,6 +12618,7 @@ export type Database = {
         | "returned"
         | "failed"
         | "cancelled"
+      meeting_provider: "google_meet" | "zoom"
       membership_kind: "agency" | "organization" | "external"
       offer_status:
         | "received"
@@ -12321,6 +12915,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       access_scope: [
@@ -12751,6 +13348,7 @@ export const Constants = {
         "failed",
         "cancelled",
       ],
+      meeting_provider: ["google_meet", "zoom"],
       membership_kind: ["agency", "organization", "external"],
       offer_status: [
         "received",
