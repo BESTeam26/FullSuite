@@ -109,6 +109,7 @@ export async function fetchFulfillmentClients(): Promise<FulfillmentClient[]> {
     .from("fulfillment_clients")
     .select(CLIENT_SELECT)
     .is("archived_at", null)
+    .eq("is_fixture", false)
     .order("name");
   if (error) throw error;
   return ((data ?? []) as unknown as ClientRow[]).map(mapClientRow);

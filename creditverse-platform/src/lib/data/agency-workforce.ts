@@ -18,7 +18,10 @@ export async function fetchWorkforce(now: Date = new Date()): Promise<Workforce>
   const sb = requireSupabase();
   const weekStart = startOfWeekUtc(now);
   const [members, teams, time] = await Promise.all([
-    sb.from("agency_memberships").select("user_id, role, created_at, profiles!user_id(full_name, email)").order("created_at").limit(500),
+    /* `profiles!inner` so the fixture filter can apply to the joined row:
+       the matrix's @bes.test accounts are real memberships, and a beta tester
+       should not find them in the roster or be able to assign work to them. */
+    sb.from("agency_memberships").select("user_id, role, created_at, profiles!user_id!inner(full_name, email, is_fixture)").eq("profiles.is_fixture", false).order("created_at").limit(500),
     sb.from("teams").select("id, name, archived_at, organization_id, departments(name, division), team_memberships(user_id, is_lead)").is("organization_id", null).limit(200),
     sb.from("time_entries").select("employee_id, duration_minutes, ended_at").gte("work_date", weekStart.toISOString().slice(0, 10)).limit(5000),
   ]);

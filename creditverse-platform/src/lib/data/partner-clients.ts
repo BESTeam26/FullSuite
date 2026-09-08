@@ -68,6 +68,7 @@ export async function fetchPartnerClients(
     .from("fulfillment_clients")
     .select(CLIENT_COLUMNS, { count: "exact" })
     .eq("outsourcing_group_id", groupId)
+    .eq("is_fixture", false)
     .order("last_activity_at", { ascending: false })
     .range(offset, offset + limit - 1);
   /* Server-side, so filtering a long list does not mean downloading it. */

@@ -56,6 +56,7 @@ export async function fetchOutsourcingGroups(): Promise<GroupRow[]> {
   const { data, error } = await sb
     .from("outsourcing_groups")
     .select("id,name,partner_name,contact_email,contract_ref,status")
+    .eq("is_fixture", false)
     .order("name");
   if (error) throw error;
   return (data ?? []) as GroupRow[];

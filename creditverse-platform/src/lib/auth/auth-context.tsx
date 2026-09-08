@@ -118,6 +118,7 @@ const demoProfile: Profile = {
   id: DEMO_USER_ID,
   email: "owner@bes.demo",
   full_name: "Platform Administrator (demo)",
+  is_fixture: false,
   preferred_name: null,
   title: null,
   phone: null,
@@ -139,6 +140,9 @@ const demoAgencyMembership: AgencyMembership = {
   scope: "agency",
   scope_division: null,
   scope_department_id: null,
+  status: "active",
+  deactivated_at: null,
+  deactivated_by: null,
   created_at: new Date(0).toISOString(),
 };
 

@@ -6,6 +6,8 @@ import {
   StatusPill,
 } from "@/components/dashboard/DivisionLayout";
 import { AgencyAccessPanel } from "@/components/agency/AgencyAccessPanel";
+import { PeopleManager } from "@/components/agency/PeopleManager";
+import { TeamsManager } from "@/components/agency/TeamsManager";
 import { HqPageShell } from "@/pages/app/HqPages";
 import { cn } from "@/lib/utils";
 import { LiveCalendar } from "@/components/dashboard/LiveCalendar";
@@ -38,66 +40,34 @@ const DIVISION_LABEL: Record<string, string> = { creditops: "CreditOps", funding
 const divisionLabel = (d: string | null) => (d ? DIVISION_LABEL[d] ?? d : null);
 const fmtMinutes = (m: number) => { const h = Math.floor(m / 60), r = Math.round(m % 60); return h > 0 ? `${h}h ${r}m` : `${r}m`; };
 
-export const PeoplePage = () => {
-  const wf = useWorkforce();
-  const people = wf.data?.people ?? [];
-  const time = new Map((wf.data?.time ?? []).map((t) => [t.employeeId, t]));
-  const leadOf = new Map<string, string[]>();
-  for (const t of wf.data?.teams ?? []) for (const m of t.members) leadOf.set(m.userId, [...(leadOf.get(m.userId) ?? []), t.name]);
-  return (
-    <HqPageShell title="People" description="BES agency staff — roles, teams and this week's time, from the live roster" icon={Users}>
-      <ContentCard title={`Agency staff · ${people.length}`}>
-        {wf.isLoading ? <p className="py-6 text-center text-sm text-muted-foreground">Loading the roster…</p> : wf.error ? <p className="py-6 text-center text-sm text-status-danger">Could not load the roster.</p> : people.length === 0 ? <p className="py-6 text-center text-sm text-muted-foreground">No BES staff visible to you.</p> : (
-          <DivisionTable
-            columns={["Name", "Email", "Role", "Teams", "This week"]}
-            rows={people.map((u) => [
-              u.name,
-              u.email,
-              <StatusPill status={AGENCY_ROLE_LABEL[u.role] ?? u.role} />,
-              (leadOf.get(u.userId) ?? []).join(", ") || "—",
-              time.get(u.userId) ? `${fmtMinutes(time.get(u.userId)!.minutes)}${time.get(u.userId)!.running ? " · clocked in" : ""}` : "—",
-            ])}
-          />
-        )}
-      </ContentCard>
-      {/* Owner and administrator only — the panel returns null for everyone
-          else rather than rendering a locked version of itself. */}
-      <div className="mt-4">
-        <AgencyAccessPanel />
-      </div>
-    </HqPageShell>
-  );
-};
+export const PeoplePage = () => (
+  <HqPageShell
+    title="People"
+    description="BES agency staff — who is here, what they may do, and what they may see"
+    icon={Users}
+  >
+    <PeopleManager />
+    {/* Owner and administrator only; the panel renders nothing for anybody
+        else rather than a locked version of itself. */}
+    <div className="mt-4">
+      <AgencyAccessPanel />
+    </div>
+  </HqPageShell>
+);
 
 /* ------------------------------------------------------------------ */
 /* Teams                                                                 */
 /* ------------------------------------------------------------------ */
 
-export const TeamsPage = () => {
-  const wf = useWorkforce();
-  const teams = (wf.data?.teams ?? []).filter((t) => !t.archived);
-  const names = new Map((wf.data?.people ?? []).map((p) => [p.userId, p.name]));
-  return (
-    <HqPageShell title="Teams" description="BES teams by division and department, with their leads and members" icon={Network}>
-      {wf.isLoading ? <p className="py-6 text-center text-sm text-muted-foreground">Loading teams…</p> : teams.length === 0 ? <ContentCard title="Teams"><p className="py-6 text-center text-sm text-muted-foreground">No BES teams yet. Create them in Agency Settings → Divisions / Teams.</p></ContentCard> : (
-        <div className="grid gap-4 md:grid-cols-2">
-          {teams.map((t) => {
-            const leads = t.members.filter((m) => m.isLead).map((m) => names.get(m.userId) ?? "Team member");
-            return (
-              <ContentCard key={t.id} title={t.name}>
-                <p className="text-xs text-muted-foreground">{[divisionLabel(t.division), t.department].filter(Boolean).join(" · ") || "No department"}</p>
-                <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-                  <div><p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Team lead</p><p className="font-medium text-foreground">{leads.join(", ") || "—"}</p></div>
-                  <div><p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Members</p><p className="font-medium text-foreground">{t.members.length}</p></div>
-                </div>
-              </ContentCard>
-            );
-          })}
-        </div>
-      )}
-    </HqPageShell>
-  );
-};
+export const TeamsPage = () => (
+  <HqPageShell
+    title="Teams"
+    description="Who works together, and who leads them. Assignment, scope and reporting all read this."
+    icon={Network}
+  >
+    <TeamsManager />
+  </HqPageShell>
+);
 
 /* ------------------------------------------------------------------ */
 /* Workforce                                                             */

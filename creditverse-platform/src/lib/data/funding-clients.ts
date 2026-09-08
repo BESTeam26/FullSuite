@@ -102,6 +102,7 @@ export async function fetchFundingClients(): Promise<FundingClient[]> {
   const { data, error } = await sb
     .from("funding_clients")
     .select(CLIENT_SELECT)
+    .eq("is_fixture", false)
     .order("name");
   if (error) throw error;
   return ((data ?? []) as unknown as ClientRow[]).map(mapFundingClientRow);

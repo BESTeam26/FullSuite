@@ -169,7 +169,8 @@ export async function fetchUserPreferences(userId: string) {
 export async function fetchOrganizations(userId: string): Promise<Organization[]> {
   const sb = requireSupabase();
   const [{ data, error }, prefs] = await Promise.all([
-    sb.from("organizations").select(ORG_SELECT).order("name"),
+    /* Fixture organizations stay out of the customer list. */
+    sb.from("organizations").select(ORG_SELECT).eq("is_fixture", false).order("name"),
     fetchUserPreferences(userId),
   ]);
   if (error) throw error;

@@ -414,6 +414,8 @@ export type Database = {
         Row: {
           agency_id: string
           created_at: string
+          deactivated_at: string | null
+          deactivated_by: string | null
           id: string
           role: Database["public"]["Enums"]["agency_role"]
           scope: Database["public"]["Enums"]["access_scope"]
@@ -421,11 +423,14 @@ export type Database = {
           scope_division:
             | Database["public"]["Enums"]["fulfillment_service"]
             | null
+          status: string
           user_id: string
         }
         Insert: {
           agency_id: string
           created_at?: string
+          deactivated_at?: string | null
+          deactivated_by?: string | null
           id?: string
           role?: Database["public"]["Enums"]["agency_role"]
           scope?: Database["public"]["Enums"]["access_scope"]
@@ -433,11 +438,14 @@ export type Database = {
           scope_division?:
             | Database["public"]["Enums"]["fulfillment_service"]
             | null
+          status?: string
           user_id: string
         }
         Update: {
           agency_id?: string
           created_at?: string
+          deactivated_at?: string | null
+          deactivated_by?: string | null
           id?: string
           role?: Database["public"]["Enums"]["agency_role"]
           scope?: Database["public"]["Enums"]["access_scope"]
@@ -445,6 +453,7 @@ export type Database = {
           scope_division?:
             | Database["public"]["Enums"]["fulfillment_service"]
             | null
+          status?: string
           user_id?: string
         }
         Relationships: [
@@ -453,6 +462,13 @@ export type Database = {
             columns: ["agency_id"]
             isOneToOne: false
             referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_memberships_deactivated_by_fkey"
+            columns: ["deactivated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -3158,6 +3174,7 @@ export type Database = {
           due_at: string | null
           email: string
           id: string
+          is_fixture: boolean
           last_activity_at: string
           lifecycle: Database["public"]["Enums"]["client_lifecycle"]
           mode: Database["public"]["Enums"]["fulfillment_mode"]
@@ -3187,6 +3204,7 @@ export type Database = {
           due_at?: string | null
           email: string
           id?: string
+          is_fixture?: boolean
           last_activity_at?: string
           lifecycle?: Database["public"]["Enums"]["client_lifecycle"]
           mode: Database["public"]["Enums"]["fulfillment_mode"]
@@ -3216,6 +3234,7 @@ export type Database = {
           due_at?: string | null
           email?: string
           id?: string
+          is_fixture?: boolean
           last_activity_at?: string
           lifecycle?: Database["public"]["Enums"]["client_lifecycle"]
           mode?: Database["public"]["Enums"]["fulfillment_mode"]
@@ -3633,6 +3652,7 @@ export type Database = {
           email: string
           fulfillment_client_id: string | null
           id: string
+          is_fixture: boolean
           last_activity_at: string
           lifecycle: Database["public"]["Enums"]["client_lifecycle"]
           mode: Database["public"]["Enums"]["fulfillment_mode"]
@@ -3661,6 +3681,7 @@ export type Database = {
           email: string
           fulfillment_client_id?: string | null
           id?: string
+          is_fixture?: boolean
           last_activity_at?: string
           lifecycle?: Database["public"]["Enums"]["client_lifecycle"]
           mode: Database["public"]["Enums"]["fulfillment_mode"]
@@ -3689,6 +3710,7 @@ export type Database = {
           email?: string
           fulfillment_client_id?: string | null
           id?: string
+          is_fixture?: boolean
           last_activity_at?: string
           lifecycle?: Database["public"]["Enums"]["client_lifecycle"]
           mode?: Database["public"]["Enums"]["fulfillment_mode"]
@@ -6022,6 +6044,7 @@ export type Database = {
           code: string
           created_at: string
           id: string
+          is_fixture: boolean
           is_fulfillment_subscriber: boolean
           joined_at: string
           name: string
@@ -6041,6 +6064,7 @@ export type Database = {
           code: string
           created_at?: string
           id?: string
+          is_fixture?: boolean
           is_fulfillment_subscriber?: boolean
           joined_at?: string
           name: string
@@ -6060,6 +6084,7 @@ export type Database = {
           code?: string
           created_at?: string
           id?: string
+          is_fixture?: boolean
           is_fulfillment_subscriber?: boolean
           joined_at?: string
           name?: string
@@ -6109,6 +6134,7 @@ export type Database = {
           id: string
           import_batch_id: string | null
           imported_at: string | null
+          is_fixture: boolean
           legacy_reported_active_clients: number | null
           legacy_reported_client_volume: string | null
           lifecycle: Database["public"]["Enums"]["partner_lifecycle"]
@@ -6147,6 +6173,7 @@ export type Database = {
           id?: string
           import_batch_id?: string | null
           imported_at?: string | null
+          is_fixture?: boolean
           legacy_reported_active_clients?: number | null
           legacy_reported_client_volume?: string | null
           lifecycle?: Database["public"]["Enums"]["partner_lifecycle"]
@@ -6185,6 +6212,7 @@ export type Database = {
           id?: string
           import_batch_id?: string | null
           imported_at?: string | null
+          is_fixture?: boolean
           legacy_reported_active_clients?: number | null
           legacy_reported_client_volume?: string | null
           lifecycle?: Database["public"]["Enums"]["partner_lifecycle"]
@@ -7844,6 +7872,7 @@ export type Database = {
           email: string
           full_name: string | null
           id: string
+          is_fixture: boolean
           phone: string | null
           preferred_name: string | null
           title: string | null
@@ -7859,6 +7888,7 @@ export type Database = {
           email: string
           full_name?: string | null
           id: string
+          is_fixture?: boolean
           phone?: string | null
           preferred_name?: string | null
           title?: string | null
@@ -7874,6 +7904,7 @@ export type Database = {
           email?: string
           full_name?: string | null
           id?: string
+          is_fixture?: boolean
           phone?: string | null
           preferred_name?: string | null
           title?: string | null
@@ -9421,6 +9452,7 @@ export type Database = {
           division: Database["public"]["Enums"]["fulfillment_service"] | null
           due_at: string | null
           id: string
+          is_fixture: boolean
           item_type_id: string | null
           organization_id: string | null
           partner_group_id: string | null
@@ -9451,6 +9483,7 @@ export type Database = {
           division?: Database["public"]["Enums"]["fulfillment_service"] | null
           due_at?: string | null
           id?: string
+          is_fixture?: boolean
           item_type_id?: string | null
           organization_id?: string | null
           partner_group_id?: string | null
@@ -9481,6 +9514,7 @@ export type Database = {
           division?: Database["public"]["Enums"]["fulfillment_service"] | null
           due_at?: string | null
           id?: string
+          is_fixture?: boolean
           item_type_id?: string | null
           organization_id?: string | null
           partner_group_id?: string | null
@@ -10273,6 +10307,7 @@ export type Database = {
         Returns: string
       }
       bes_engaged_with: { Args: { p_org: string }; Returns: boolean }
+      bes_holds_partner: { Args: { p_group: string }; Returns: boolean }
       bes_may_fulfil: {
         Args: {
           p_group: string
@@ -11160,6 +11195,17 @@ export type Database = {
           p_sort: number
         }
         Returns: string
+      }
+      set_agency_member_role: {
+        Args: {
+          p_membership: string
+          p_role: Database["public"]["Enums"]["agency_role"]
+        }
+        Returns: undefined
+      }
+      set_agency_member_status: {
+        Args: { p_membership: string; p_status: string }
+        Returns: undefined
       }
       set_agency_permission: {
         Args: {

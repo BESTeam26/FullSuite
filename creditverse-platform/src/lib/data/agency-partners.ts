@@ -128,7 +128,9 @@ const COLUMNS = "id, name, partner_name, contact_email, phone, address, notes, p
 /** Active partners. Archived ones are excluded here and never deleted. */
 export async function fetchAgencyPartners(includeArchived = false): Promise<AgencyPartner[]> {
   const sb = requireSupabase();
-  let q = sb.from("outsourcing_groups").select(COLUMNS).order("name");
+  /* Fixtures are excluded from the LIST, never from a read by id: the
+     matrix measures them and a developer still has to be able to open one. */
+  let q = sb.from("outsourcing_groups").select(COLUMNS).eq("is_fixture", false).order("name");
   if (!includeArchived) q = q.is("archived_at", null);
   const { data, error } = await q;
   if (error) throw error;
