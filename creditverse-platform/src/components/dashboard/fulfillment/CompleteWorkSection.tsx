@@ -32,6 +32,9 @@ import {
 } from "@/lib/fulfillment/creditops-access";
 import { cn } from "@/lib/utils";
 import { OpsSelect } from "@/components/ui/ops-select";
+import { ALL_STATUS_OPTIONS } from "@/components/dashboard/fulfillment/client-list-helpers";
+import { HandoffPicker } from "@/components/dashboard/fulfillment/HandoffPicker";
+import { handOffToDepartments } from "@/lib/data/fulfillment-clients";
 
 interface Props {
   clientId: string;
@@ -39,25 +42,28 @@ interface Props {
   partnerName?: string;
 }
 
-/** Authorized next statuses per role. A processor can advance the file but
- *  cannot graduate it; only an admin can. */
-const ADMIN_STATUSES = [
-  "Keep current status",
-  "Move to Ready for Round 1",
-  "Move to Ready for Processing",
-  "Move to Round Sent - Awaiting Results",
-  "Move to Ready for Reimport / Review",
-  "Move to Waiting for Partner Approval",
-  "Move to Completed",
-  "Move to Graduated",
-];
-const PROCESSOR_STATUSES = [
-  "Keep current status",
-  "Move to Ready for Processing",
-  "Move to Round Sent - Awaiting Results",
-  "Move to Ready for Reimport / Review",
-  "Move to Waiting for Partner Approval",
-];
+/**
+ * ── THE STATUSES THIS CAN ACTUALLY SET ─────────────────────────────────────
+ *
+ * This list used to be invented here: "Move to Ready for Round 1", "Move to
+ * Round Sent - Awaiting Results", "Move to Ready for Reimport / Review",
+ * "Move to Waiting for Partner Approval". Four of the eight are not values of
+ * `fulfillment_client_status` at all and could never have been stored.
+ *
+ * It did not matter, because the selector never wrote a status either — it
+ * logged an activity entry SAYING the status had changed while the record
+ * stayed where it was. Dee found it the obvious way: picked a status, and the
+ * file did not move.
+ *
+ * So the options come from `ALL_STATUS_OPTIONS`, the same vocabulary the
+ * client list uses and the enum accepts, and submitting writes the status.
+ *
+ * A processor may advance a file; only an admin may finish or graduate one.
+ */
+const KEEP = "Keep current status";
+const ADMIN_ONLY_STATUSES = new Set(["Completed", "Graduated"]);
+const PROCESSOR_STATUS_OPTIONS = [KEEP, ...ALL_STATUS_OPTIONS.filter((s) => !ADMIN_ONLY_STATUSES.has(s))];
+const ADMIN_STATUS_OPTIONS = [KEEP, ...ALL_STATUS_OPTIONS, "Graduated"];
 
 export function CompleteWorkSection({
   clientId,
@@ -83,7 +89,13 @@ export function CompleteWorkSection({
   );
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [workNotes, setWorkNotes] = useState("");
-  const [statusChange, setStatusChange] = useState("Keep current status");
+  const [statusChange, setStatusChange] = useState(KEEP);
+  /* Several at once — bureau calling and complaints run in parallel. */
+  const [handoffTo, setHandoffTo] = useState<CreditOpsDepartment[]>([]);
+  const [handoffResult, setHandoffResult] = useState<
+    { opened: string[]; alreadyOpen: string[] } | null
+  >(null);
+  const departmentRows = store.getDepartmentStatuses(clientId);
   const [isSubmitting, setIsSubmitting] = useState(false);
   /* Synchronous guard — see the note in OpsActivityTimeline. `isSubmitting`
      drives the label; this is what actually stops a second production row. */
@@ -105,7 +117,7 @@ export function CompleteWorkSection({
   );
 
   const isAdmin = access.canEditDepartmentProgress && access.canAccessManagement;
-  const statusOptions = isAdmin ? ADMIN_STATUSES : PROCESSOR_STATUSES;
+  const statusOptions = isAdmin ? ADMIN_STATUS_OPTIONS : PROCESSOR_STATUS_OPTIONS;
 
   /* Read-only roles (for example QA by default) see the work, never a form
      that the database — and the organization's configuration — would refuse. */
@@ -183,18 +195,24 @@ export function CompleteWorkSection({
         });
       }
 
-      // Status change stays SEPARATE from completion actions.
-      if (statusChange !== "Keep current status") {
-        const newStatus = statusChange.replace("Move to ", "");
-        await store.addActivity({
+      /* Status change stays SEPARATE from the completion actions — but it is
+         a real change now. `updateStatus` writes the record; the activity
+         entry comes from the database trigger, so the timeline says the status
+         moved only when it actually did. */
+      if (statusChange !== KEEP) {
+        await store.updateStatus(clientId, statusChange, actor);
+      }
+
+      /* And the handoffs, which run in parallel with everything above. */
+      if (handoffTo.length > 0) {
+        const result = await handOffToDepartments({
           clientId,
-          actor,
-          action: "Status change",
-          detail: `${newStatus}`,
-          field: "status",
-          previousValue: "—",
-          newValue: newStatus,
+          from: activeDept as never,
+          targets: handoffTo as never,
+          rows: departmentRows,
+          note: workNotes.trim() || null,
         });
+        setHandoffResult(result);
       }
 
       // Reset the form only once the work is recorded — and mint the next
@@ -203,7 +221,8 @@ export function CompleteWorkSection({
       requestIdRef.current = crypto.randomUUID();
       setSelectedItems([]);
       setWorkNotes("");
-      setStatusChange("Keep current status");
+      setStatusChange(KEEP);
+      setHandoffTo([]);
     } catch (err) {
       setSubmitError(errorMessage(err, "Could not record this work."));
     } finally {
@@ -312,7 +331,29 @@ export function CompleteWorkSection({
               aria-label="Status after this work"
               className="w-full"
             />
+            <p className="text-[10px] text-muted-foreground">
+              Changes the file's status. Only statuses the system can actually hold are offered.
+            </p>
           </div>
+
+          {/* Handing off is not a status change and not one department. Bureau
+              calling and complaints run at the same time; picking both opens
+              both, and neither closes the department you worked as. */}
+          <HandoffPicker
+            from={(activeDept || null) as never}
+            rows={departmentRows as never}
+            selected={handoffTo}
+            onChange={setHandoffTo}
+            disabled={isSubmitting}
+          />
+
+          {handoffResult && (handoffResult.opened.length > 0 || handoffResult.alreadyOpen.length > 0) && (
+            <p className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-[11px] text-emerald-900">
+              {handoffResult.opened.length > 0 && `Opened ${handoffResult.opened.join(", ")}. `}
+              {handoffResult.alreadyOpen.length > 0 &&
+                `${handoffResult.alreadyOpen.join(", ")} was already working it and was left as it is.`}
+            </p>
+          )}
 
           <div className="flex items-center justify-between pt-1">
             <span className="text-[10px] text-muted-foreground">
