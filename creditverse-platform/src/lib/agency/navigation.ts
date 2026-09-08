@@ -99,14 +99,6 @@ export const AGENCY_ROUTES: AgencyRouteSpec[] = [
   { key: "reporting", label: "Reports", path: "/app/reporting", readiness: "ready", minRole: "agency_manager", permission: "reports.view" },
   { key: "partners", label: "BES Partners", path: "/app/bes-partners", readiness: "ready", minRole: "agency_manager" },
   { key: "creditops", label: "CreditOps", path: "/app/creditops", readiness: "ready", minRole: "agency_manager" },
-  /* An older BES-only fulfillment board, still routed and linked from
-     nowhere. It reads AGENCY-scope work, so an organization user typing the
-     URL rendered a BES workspace shell — the rows were refused by row-level
-     security, but the interface layer had no opinion because the path was
-     absent from this table. Same manager floor as CreditOps, the screen that
-     replaced it. It does not appear in the sidebar: the menu is built from its
-     own list and consults this table only for the items that list holds. */
-  { key: "fulfillment_board", label: "Fulfillment", path: "/app/fulfillment", readiness: "ready", minRole: "agency_manager" },
   { key: "fundingops", label: "FundingOps", path: "/app/fundingops", readiness: "ready", minRole: "agency_manager" },
   { key: "bes_crm", label: "BES CRM", path: "/app/bes-crm", readiness: "ready", minRole: "agency_manager" },
   { key: "talentops", label: "TalentOps", path: "/app/talentops", readiness: "ready", minRole: "agency_manager" },

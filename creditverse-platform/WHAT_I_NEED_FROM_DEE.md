@@ -64,6 +64,7 @@ Run every `supabase` command from `creditverse-platform`.
 | B4 | **Your letter templates**, if you want yours instead of the built-in library | The Letter Library ships with defaults; yours replace them. |
 | **B5** | **The March 2026 revenue tracker** (export the Google Sheet, or share it) | **This blocks the financial half of the partner import.** The tracker is authoritative for money — rates, frequency, FX, expected and actual collection. ClickUp holds an MRR field that is mostly empty, so importing from ClickUp alone would write commercial terms from the losing source. The ClickUp half is mapped, tested and ready. |
 | **B6** | **Verified work email addresses** for Daniel, Dan, Julius, Alvaro, Ally, Rowell, Laz and Angelo | **21 seats exist in the org chart; 19 are vacant** and each is tagged `INVITE EMAIL REQUIRED`. I will not invent an address, and I will not send an invitation without you saying so. |
+| **B7** | **The Metro 2 defect catalogue — Sections B through P** (the document you pasted into chat once) | **The largest single remaining CreditOps item: roughly 293 defects.** Section A is built and tested; B–P cannot be written, because the rules ARE the document and inventing them would put a guessed compliance claim into a dispute letter. It was lost once by being read out of chat instead of committed — anything you send now goes into the repository verbatim before I use it. |
 
 ---
 

@@ -119,12 +119,6 @@ const SubAccountsManager = lazy(
     "SubAccountsManager",
   ),
 );
-const FulfillmentWorkspace = lazy(
-  named(
-    () => import("@/components/dashboard/FulfillmentWorkspace"),
-    "FulfillmentWorkspace",
-  ),
-);
 
 // HQ pages (named exports)
 const hq = () => import("./pages/app/HqPages");
@@ -496,10 +490,6 @@ const App = () => (
                                   element={<SupportPage />}
                                 />
                                 {/* Legacy / shared */}
-                                <Route
-                                  path="fulfillment"
-                                  element={<FulfillmentWorkspace />}
-                                />
                                 <Route
                                   path="diy-management"
                                   element={
