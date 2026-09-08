@@ -433,7 +433,7 @@ and is a refactor of a live surface for a cosmetic gain. Recorded as a
 decision rather than left looking like an oversight; say the word and it gets
 the one-hook treatment.
 
-### Left for a deliberate pass: dead members in `agency-context`
+### ~~Left for a deliberate pass~~ — done 2026-09-08 after Dee's architecture clarification
 
 Archiving `/app/fulfillment` left four members of `src/lib/agency-context.tsx`
 with no consumer outside `src/_archive/`:
@@ -518,3 +518,49 @@ The other view without the flag, `fixture_login_state`, grants `anon` and
 not reachable and not a finding. That distinction is why the generator now
 prints who can read a view beside the flag: a bare list of views without
 `security_invoker` reads as two problems when it is one.
+
+#### The classification Dee required, and what it decided
+
+Dee, 2026-09-08: *"CreditOps and FundingOps are PAUSED for development. They
+are NOT being removed."* `/app/fulfillment` was a **legacy UI implementation**,
+not the canonical fulfillment architecture, and its four symbols were a
+**compatibility adapter over `WorkItem`** for that one screen. Classified
+symbol by symbol before anything was removed:
+
+| Symbol | Live consumers | Archived consumers | Domain purpose | Verdict | Removed? |
+|---|---|---|---|---|---|
+| `FulfillmentWorkOrder` | none — every live occurrence was its own declaration in `agency-context` supporting the three below | `FulfillmentWorkspace`, `FulfillmentLiveChatModal` | flattened a `WorkItem` into one named client and a fixed `"Round 1 Processing"` type | **LEGACY** | **yes** — moved into the archive, where its consumers are |
+| `workOrders` | none | `FulfillmentWorkspace` | the adapter's derived list; took the owning organization from `organizations[0]` | **LEGACY** | **yes** |
+| `updateWorkOrderStatus` | none | `FulfillmentWorkspace` | wrote a stage into the in-memory array | **LEGACY** | **yes** |
+| `addWorkOrder` | none | **none** — dead before the screen was archived | invented a `WO-####` id | **LEGACY** | **yes** |
+| `workItems` | `use-work.ts` (`useAttention` demo branch) + `agencyWork` / `activeOrgWork` | none | the local/demo work fallback for the **canonical** `WorkItem` | **CANONICAL concept, demo-only array** | **NO — kept** |
+| `agencyWork` | `use-work.ts` — `useMyWork` and `useAgencyWork` demo branches | none | the not-signed-in fallback for the BES fulfillment desk | **CANONICAL** | **NO — kept** |
+| `activeOrgWork` | `Dashboard.tsx` | none | the active organization's own work, demo path | **CANONICAL** | **NO — kept** |
+| `fetchFulfillmentEngagements` | `agency-context` (live query), `bes-partner-domain` | none | reads `fulfillment_engagements`; mirrors `bes_may_fulfil()` | **CANONICAL** | **NO — kept** |
+| `isEngagementLive` | `agency-context`, `SharePanel`, `bes-partner-domain`, its own tests | none | mirrors `engagement_is_live()` | **CANONICAL** | **NO — kept** |
+| the fulfillment engagement model | `fulfillment_engagements` table, `bes_may_fulfil()`, `bes_engaged_with()`, `engagement_is_live()`, `in_scope()` | — | the authorization that lets BES reach an organization's work at all | **CANONICAL — the foundation** | **NO — untouched** |
+
+Collateral, handled rather than left broken: `WorkStage` was imported into
+`agency-context` only for `updateWorkOrderStatus`'s signature, so the import
+went too. `setWorkItems` had exactly those two writers, so `workItems` is now
+`const [workItems] = useState<WorkItem[]>([])` — still state, still the
+canonical shape, with a comment saying that live work is `work_items` over
+Supabase and that a repopulated local fallback must populate THIS rather than
+introduce a second work shape. `openWorkOrders` on `SubAccount` was **not** in
+the classification list and was left alone under the preservation rule.
+
+The archived screen is self-contained now: it holds its own empty list so the
+file still compiles as reference material, and it carries a note naming what a
+real fulfillment queue must be built on — `work_items` with `scope='AGENCY'`,
+`division`, `team_id`, `assigned_to`, through `useAgencyWork`, authorized by
+`bes_may_fulfil()` + `fulfillment_engagements` + `in_scope()`, with department
+state in `client_department_statuses` and handoffs through
+`handoff_client_departments()`.
+
+**No migration, no policy change, no RLS change.** The
+Organization ↔ Agency bridge is one canonical table with three authorized
+views, verified in the generated map:
+
+- BES reads an organization's work only under `bes_engaged_with(organization_id)` and within `in_scope(...)`
+- the organization's own people read the same rows via `org_scope_allows(...)`
+- the organization reads BES-owned `bes_crm` work about itself via `subject_organization_id` + `is_org_admin` + `org_entitled`

@@ -26,7 +26,6 @@ import { toast } from "sonner";
 import type {
   Organization,
   WorkItem,
-  WorkStage,
   ProductKey,
   AgencyUser,
 } from "@/lib/bes-domain";
@@ -79,27 +78,6 @@ export type SubAccount = {
   openWorkOrders: number;
 };
 
-export type FulfillmentWorkOrder = {
-  id: string;
-  subAccountId: string;
-  subAccountName: string;
-  clientName: string;
-  clientEmail: string;
-  round: string;
-  type:
-    | "Round 1 Processing"
-    | "Round 2 Escalation"
-    | "CFPB Complaint"
-    | "Experian Upload"
-    | "FTC Filing"
-    | "Address Verification";
-  priority: "High" | "Urgent" | "Normal";
-  assignedTo: string;
-  slaHoursRemaining: number;
-  status: "Queued" | "In Processing" | "Ready for QA" | "Completed" | "Blocked";
-  dateSubmitted: string;
-  itemCount: number;
-};
 
 const toSubAccount = (org: Organization): SubAccount => ({
   id: org.id,
@@ -144,7 +122,14 @@ interface AgencyContextType {
   orgsLoading: boolean;
   orgsError: string | null;
   recentSubAccountIds: string[];
-  workOrders: FulfillmentWorkOrder[];
+  /**
+   * The LOCAL/DEMO work fallback. Nothing populates it: signed-in work comes
+   * from `work_items` through `fetchMyWork` / `fetchAgencyWork` /
+   * `fetchOrganizationWork` under row-level security. Kept because
+   * `agencyWork` and `activeOrgWork` below are derived from it and are read by
+   * the not-signed-in branches of `useMyWork`, `useAgencyWork` and
+   * `useAttention`, and by the organization dashboard.
+   */
   workItems: WorkItem[];
   agencyUsers: AgencyUser[];
   switchToAgencyView: () => void;
@@ -158,10 +143,6 @@ interface AgencyContextType {
   updateSubAccountBranding: (
     subAccountId: string,
     branding: Partial<NonNullable<Organization["branding"]>>,
-  ) => void;
-  updateWorkOrderStatus: (workOrderId: string, status: WorkStage) => void;
-  addWorkOrder: (
-    wo: Omit<FulfillmentWorkOrder, "id" | "dateSubmitted">,
   ) => void;
   addSubAccount: (
     acc: Omit<SubAccount, "id" | "publicId" | "joinedDate" | "openWorkOrders">,
@@ -246,7 +227,13 @@ export const AgencyProvider = ({ children }: { children: ReactNode }) => {
   );
 
   /* ---- work items (seed until Phase 2) ---- */
-  const [workItems, setWorkItems] = useState<WorkItem[]>([]);
+  /* The local/demo work fallback. Deliberately empty, and deliberately still
+     state: its only two writers were `updateWorkOrderStatus` and
+     `addWorkOrder`, the /app/fulfillment compatibility adapter, and they went
+     with that screen. LIVE work is `work_items` over Supabase and is not
+     touched by this. If a local fallback is ever repopulated, populate THIS —
+     do not reintroduce a second work shape. */
+  const [workItems] = useState<WorkItem[]>([]);
   const agencyUsers: never[] = [];
 
   const activeOrganization =
@@ -258,29 +245,6 @@ export const AgencyProvider = ({ children }: { children: ReactNode }) => {
   const activeSubAccount =
     subAccounts.find((s) => s.id === activeSubAccountId) || null;
 
-  const workOrders: FulfillmentWorkOrder[] = workItems
-    .filter((w) => w.scope === "AGENCY")
-    .map((w, i) => {
-      const org = organizations[0];
-      return {
-        id: w.id,
-        subAccountId: org?.id ?? "",
-        subAccountName: org?.name ?? "BES Fulfillment",
-        clientName: w.title.split("—")[1]?.trim() ?? "Client",
-        clientEmail: "",
-        round: "",
-        type: "Round 1 Processing",
-        priority: (w.slaHoursRemaining ?? 24) <= 4 ? "Urgent" : "High",
-        assignedTo: w.assignedTo ?? "Unassigned",
-        slaHoursRemaining: w.slaHoursRemaining ?? 24,
-        status:
-          w.stage === "Ready for QA"
-            ? "Ready for QA"
-            : (w.stage as FulfillmentWorkOrder["status"]),
-        dateSubmitted: w.createdAt,
-        itemCount: i + 1,
-      };
-    });
 
   /* Organization users never see BES Agency HQ: their view is their
      organization. Staff may hold a stale session id for an organization RLS
@@ -386,30 +350,6 @@ export const AgencyProvider = ({ children }: { children: ReactNode }) => {
     );
   };
 
-  const updateWorkOrderStatus = (workOrderId: string, status: WorkStage) => {
-    setWorkItems((prev) =>
-      prev.map((w) => (w.id === workOrderId ? { ...w, stage: status } : w)),
-    );
-  };
-
-  const addWorkOrder = (
-    wo: Omit<FulfillmentWorkOrder, "id" | "dateSubmitted">,
-  ) => {
-    const newId = `WO-${Math.floor(9000 + Math.random() * 1000)}`;
-    const newItem: WorkItem = {
-      id: newId,
-      scope: "AGENCY",
-      relatedType: "fulfillment",
-      relatedId: wo.subAccountId,
-      title: `${wo.type} — ${wo.clientName}`,
-      stage: wo.status,
-      assignedTo: wo.assignedTo,
-      slaHoursRemaining: wo.slaHoursRemaining,
-      createdAt: "Just now",
-    };
-    setWorkItems((prev) => [newItem, ...prev]);
-  };
-
   const addSubAccount = (
     acc: Omit<SubAccount, "id" | "publicId" | "joinedDate" | "openWorkOrders">,
   ) => {
@@ -504,7 +444,6 @@ export const AgencyProvider = ({ children }: { children: ReactNode }) => {
         orgsError:
           live && orgQuery.error ? (orgQuery.error as Error).message : null,
         recentSubAccountIds,
-        workOrders,
         workItems,
         agencyUsers,
         switchToAgencyView,
@@ -514,8 +453,6 @@ export const AgencyProvider = ({ children }: { children: ReactNode }) => {
         organizationsLoading: live && orgQuery.isLoading,
         togglePinSubAccount,
         updateSubAccountBranding,
-        updateWorkOrderStatus,
-        addWorkOrder,
         addSubAccount,
         agencyWork,
         activeOrgWork,
@@ -537,7 +474,6 @@ const safeAgency: AgencyContextType = {
   orgsLoading: false,
   orgsError: null,
   recentSubAccountIds: [],
-  workOrders: [],
   workItems: [],
   agencyUsers: [],
   switchToAgencyView: () => {},
@@ -547,8 +483,6 @@ const safeAgency: AgencyContextType = {
   organizationsLoading: false,
   togglePinSubAccount: () => {},
   updateSubAccountBranding: () => {},
-  updateWorkOrderStatus: () => {},
-  addWorkOrder: () => {},
   addSubAccount: () => {},
   agencyWork: [],
   activeOrgWork: [],

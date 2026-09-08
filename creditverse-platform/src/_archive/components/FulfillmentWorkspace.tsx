@@ -1,5 +1,41 @@
 import { useState } from "react";
-import { useAgency, type FulfillmentWorkOrder } from "@/lib/agency-context";
+
+/**
+ * The legacy /app/fulfillment work-order shape.
+ *
+ * It lived in `agency-context` as a COMPATIBILITY ADAPTER over the canonical
+ * `WorkItem`, and it moved here when this screen was archived — because the
+ * adapter was only ever for this screen, not because BES stopped doing
+ * fulfillment. The canonical fulfillment surfaces are live and untouched:
+ * `work_items` with `scope = 'AGENCY'`, `fetchAgencyWork`, `useAgencyWork`,
+ * `fulfillment_engagements` and `bes_may_fulfil()`.
+ *
+ * A future fulfillment queue must be built on those, NOT by restoring this.
+ * It flattened a work item into a single named client and a fixed
+ * `"Round 1 Processing"` type, and it took the owning organization from
+ * `organizations[0]` — the first in the list, whichever that was.
+ */
+export type FulfillmentWorkOrder = {
+  id: string;
+  subAccountId: string;
+  subAccountName: string;
+  clientName: string;
+  clientEmail: string;
+  round: string;
+  type:
+    | "Round 1 Processing"
+    | "Round 2 Escalation"
+    | "CFPB Complaint"
+    | "Experian Upload"
+    | "FTC Filing"
+    | "Address Verification";
+  priority: "High" | "Urgent" | "Normal";
+  assignedTo: string;
+  slaHoursRemaining: number;
+  status: "Queued" | "In Processing" | "Ready for QA" | "Completed" | "Blocked";
+  dateSubmitted: string;
+  itemCount: number;
+};
 import {
   Inbox,
   CheckCircle2,
@@ -36,7 +72,24 @@ import { useToast } from "@/hooks/use-toast";
 import { FulfillmentLiveChatModal } from "./FulfillmentLiveChatModal";
 
 export const FulfillmentWorkspace = () => {
-  const { workOrders, updateWorkOrderStatus } = useAgency();
+  /* This used to read `workOrders` and `updateWorkOrderStatus` from
+     `agency-context`. Those were the compatibility adapter for THIS screen and
+     were removed with it; the state is local now so the file still compiles as
+     reference material. It renders nothing, which is what it did in
+     production too — the array it read was never populated.
+
+     Whoever builds the real BES fulfillment queue: do not restore this. The
+     canonical engine is `work_items` (`scope = 'AGENCY'`, `division`,
+     `team_id`, `assigned_to`), reached through `fetchAgencyWork` /
+     `useAgencyWork`, authorized by `bes_may_fulfil()` +
+     `fulfillment_engagements` + `in_scope()`, with department state in
+     `client_department_statuses` and handoffs in
+     `handoff_client_departments()`. All of that is live. */
+  const [workOrders, setWorkOrders] = useState<FulfillmentWorkOrder[]>([]);
+  const updateWorkOrderStatus = (
+    id: string,
+    status: FulfillmentWorkOrder["status"],
+  ) => setWorkOrders((prev) => prev.map((w) => (w.id === id ? { ...w, status } : w)));
   const { toast } = useToast();
   const [filterStatus, setFilterStatus] = useState<string>("All");
   const [search, setSearch] = useState("");

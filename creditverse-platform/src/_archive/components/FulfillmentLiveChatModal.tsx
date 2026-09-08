@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { SubAccount, FulfillmentWorkOrder } from "@/lib/agency-context";
+import { SubAccount } from "@/lib/agency-context";
+import type { FulfillmentWorkOrder } from "./FulfillmentWorkspace";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
