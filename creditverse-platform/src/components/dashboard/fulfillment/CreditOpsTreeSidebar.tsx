@@ -24,7 +24,7 @@
  * Counts show ACTIVE clients only (excludes Completed / Archived / Graduated).
  */
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { Building2, LayoutDashboard, BarChart3, Webhook } from "lucide-react";
 import {
   CREDIT_OPS_PARTNERS,
@@ -128,6 +128,17 @@ export function CreditOpsTreeSidebar({
     (p) => p.group === "creditops_users",
   );
 
+  /* Remembered per browser, like the main menu. Not a per-user setting in the
+     database: it is a preference about this screen on this machine. */
+  const [spaceCollapsed, setSpaceCollapsed] = useState<boolean>(() => {
+    try { return localStorage.getItem("creditops-space-collapsed") === "1"; }
+    catch { return false; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem("creditops-space-collapsed", spaceCollapsed ? "1" : "0"); }
+    catch { /* a private window refusing storage is not worth an error */ }
+  }, [spaceCollapsed]);
+
   const totalActive = partners.reduce(
     (sum, p) => sum + countFor(p.scopeId),
     0,
@@ -195,10 +206,21 @@ export function CreditOpsTreeSidebar({
   );
 
   return (
-    <div className="w-64 shrink-0 space-y-4 border-r border-border bg-card p-4 hidden md:block">
-      <OpsTreeHeader label="CREDITOPS SPACE" totalActive={totalActive} />
+    <div className={cn(
+      "hidden shrink-0 space-y-4 border-r border-border bg-card p-4 transition-[width] md:block",
+      /* Collapsed keeps the header — so the way back is where the way out
+         was — and drops the tree. The choice is remembered, like the main
+         menu's, because re-collapsing it every visit is the annoyance. */
+      spaceCollapsed ? "w-14 px-2" : "w-64",
+    )}>
+      <OpsTreeHeader
+        label={spaceCollapsed ? "" : "CREDITOPS SPACE"}
+        totalActive={totalActive}
+        collapsed={spaceCollapsed}
+        onToggleCollapsed={() => setSpaceCollapsed((v) => !v)}
+      />
 
-      <div className="space-y-2 text-xs">
+      <div className={cn("space-y-2 text-xs", spaceCollapsed && "hidden")}>
         {/* Management layer — management role only. Agents are scoped to
             their Partner workspace and never see cross-partner aggregate views. */}
         {canAccessManagement && (

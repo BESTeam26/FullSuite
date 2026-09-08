@@ -22,6 +22,19 @@ import {
 import { OpsClientListTable } from "./OpsClientListTable";
 import type { DepartmentStatus } from "@/lib/fulfillment/creditops-store-types";
 import { currentDepartment, openDepartments } from "@/lib/fulfillment/department-domain";
+import {
+  DaysToUpdateCell, EditableChoiceCell, EditableDateCell,
+} from "@/components/dashboard/fulfillment/ClientRowEditors";
+import { updateClientField } from "@/lib/data/fulfillment-clients";
+import { useQueryClient } from "@tanstack/react-query";
+
+/* Dee's board reaches Round 13; "Round 4+" stays for anything recorded under
+   it before the numbered rounds existed (0189). */
+const ROUND_OPTIONS = [
+  "Pre-Round", "Round 1", "Round 2", "Round 3", "Round 4+",
+  "Round 5", "Round 6", "Round 7", "Round 8", "Round 9",
+  "Round 10", "Round 11", "Round 12", "Round 13", "Completed",
+];
 import { useAuth } from "@/lib/auth/auth-context";
 import { useWorkforce } from "@/lib/data/use-workforce";
 
@@ -49,6 +62,11 @@ export function ClientListTable({
   onOpenClient,
   departmentRows,
 }: ClientListTableProps) {
+  const queryClient = useQueryClient();
+  /* One invalidation after an inline edit. The list is a shared query, so
+     refetching it here is what puts the new value in front of everybody
+     looking at the same row rather than only the person who typed it. */
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ["creditops"] });
   /* The real roster, not a list of names in the source. "Unassigned" first so
      the honest choice is the default and nobody has to pick a person to save. */
   const roster = useWorkforce();
@@ -82,12 +100,55 @@ export function ClientListTable({
       }}
       renderExtraCell={(client, colId) => {
         switch (colId) {
+          /* Editable in the row, like the board Dee runs today. Every one of
+             these writes the record and the database trigger writes the
+             activity entry — the screen never logs its own change. */
           case "round":
             return (
-              <span className="font-semibold text-foreground">
-                {client.round}
-              </span>
+              <EditableChoiceCell
+                label="Current round"
+                value={client.round}
+                options={ROUND_OPTIONS}
+                onSave={async (next) => {
+                  await updateClientField({ clientId: client.id, round: next as never });
+                  await refresh();
+                }}
+              />
             );
+          case "processed":
+            return (
+              <EditableDateCell
+                label="Processed date"
+                value={(client as { processedOn?: string | null }).processedOn ?? null}
+                onSave={async (next) => {
+                  await updateClientField({ clientId: client.id, processedOn: next });
+                  await refresh();
+                }}
+              />
+            );
+          case "dueDate":
+            return (
+              <EditableDateCell
+                label="Due date"
+                value={(client as { dueAt?: string | null }).dueAt ?? null}
+                onSave={async (next) => {
+                  await updateClientField({ clientId: client.id, dueAt: next });
+                  await refresh();
+                }}
+              />
+            );
+          case "daysToUpdate":
+            return <DaysToUpdateCell dueAt={(client as { dueAt?: string | null }).dueAt ?? null} />;
+          case "latestComment": {
+            const latest = store.getActivity(client.id)[0];
+            return latest ? (
+              <span className="block truncate text-[11px] text-muted-foreground" title={latest.detail}>
+                {latest.detail || latest.action}
+              </span>
+            ) : (
+              <span className="text-muted-foreground">—</span>
+            );
+          }
           case "openItems":
             return <span className="text-foreground">{client.openItems}</span>;
           case "department": {

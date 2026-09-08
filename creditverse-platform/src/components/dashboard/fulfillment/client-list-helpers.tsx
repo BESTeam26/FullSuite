@@ -81,7 +81,12 @@ export type ColId =
   | "openWork"
   | "openItems"
   | "sla"
-  | "lastActivity";
+  | "lastActivity"
+  /* The columns Dee's live dispute board actually works from. */
+  | "processed"
+  | "dueDate"
+  | "daysToUpdate"
+  | "latestComment";
 
 /* Operational by default (separation step 2): Client · Credit Stage · Credit
    Status · Current Department · Work Status · Assigned To · Open Work · SLA ·
@@ -100,6 +105,15 @@ export const COLUMN_DEFS: ColDef<ColId>[] = [
   { ...countColumn("openItems", "Open Items"), defaultOn: false },
   SLA_COL,
   LAST_ACTIVITY_COL,
+  /* ── The dispute board's own columns ─────────────────────────────────
+     Matched to the board Dee runs today: Current Round (Credit Stage,
+     above), Processed Date, Due date, Days Before Next Update, Latest
+     comment. Days Before Next Update is DERIVED from the due date — storing
+     it would be wrong by tomorrow. */
+  { ...compactColumn("processed", "Processed Date"), defaultWidth: 130, minWidth: 110 },
+  { ...compactColumn("dueDate", "Due Date"), defaultWidth: 130, minWidth: 110 },
+  { ...countColumn("daysToUpdate", "Days To Update"), defaultWidth: 130, minWidth: 110 },
+  { ...compactColumn("latestComment", "Latest Comment"), defaultWidth: 220, minWidth: 140, defaultOn: false },
 ];
 
 /* ------------------------------------------------------------------ */

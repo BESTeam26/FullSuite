@@ -32,7 +32,6 @@ import {
 } from "@/lib/fulfillment/creditops-access";
 import { cn } from "@/lib/utils";
 import { OpsSelect } from "@/components/ui/ops-select";
-import { ALL_STATUS_OPTIONS } from "@/components/dashboard/fulfillment/client-list-helpers";
 import { HandoffPicker } from "@/components/dashboard/fulfillment/HandoffPicker";
 import { handOffToDepartments } from "@/lib/data/fulfillment-clients";
 
@@ -43,27 +42,47 @@ interface Props {
 }
 
 /**
- * ── THE STATUSES THIS CAN ACTUALLY SET ─────────────────────────────────────
+ * ── DEE'S DISPUTE VOCABULARY, RESTORED AND WORKING ─────────────────────────
  *
- * This list used to be invented here: "Move to Ready for Round 1", "Move to
- * Round Sent - Awaiting Results", "Move to Ready for Reimport / Review",
- * "Move to Waiting for Partner Approval". Four of the eight are not values of
- * `fulfillment_client_status` at all and could never have been stored.
+ * This is the round workflow the team actually runs, and it is deliberately
+ * NOT the generic client-status list used elsewhere. "In Dispute" and
+ * "Awaiting Response" describe a file vaguely and overlap each other; "Round
+ * Sent - Awaiting Results" and "Ready for Reimport / Review" describe exactly
+ * where a round has got to.
  *
- * It did not matter, because the selector never wrote a status either — it
- * logged an activity entry SAYING the status had changed while the record
- * stayed where it was. Dee found it the obvious way: picked a status, and the
- * file did not move.
+ * Two things were wrong here, and only one of them was the list:
  *
- * So the options come from `ALL_STATUS_OPTIONS`, the same vocabulary the
- * client list uses and the enum accepts, and submitting writes the status.
+ *   the selector never wrote a status at all — it logged an activity entry
+ *   SAYING the status changed while the record stayed put;
  *
- * A processor may advance a file; only an admin may finish or graduate one.
+ *   four of these values were missing from `fulfillment_client_status`, so
+ *   they could not have been saved even if it had tried.
+ *
+ * I first "fixed" that by swapping in the generic list. Wrong repair: the
+ * vocabulary was never the problem, the database not accepting it was. 0188
+ * added the four values; this is the original list, and submitting now writes
+ * it.
+ *
+ * A processor moves a round along. Only an admin finishes or graduates a file.
  */
 const KEEP = "Keep current status";
-const ADMIN_ONLY_STATUSES = new Set(["Completed", "Graduated"]);
-const PROCESSOR_STATUS_OPTIONS = [KEEP, ...ALL_STATUS_OPTIONS.filter((s) => !ADMIN_ONLY_STATUSES.has(s))];
-const ADMIN_STATUS_OPTIONS = [KEEP, ...ALL_STATUS_OPTIONS, "Graduated"];
+const ADMIN_STATUS_OPTIONS = [
+  KEEP,
+  "Move to Ready for Round 1",
+  "Move to Ready for Processing",
+  "Move to Round Sent - Awaiting Results",
+  "Move to Ready for Reimport / Review",
+  "Move to Waiting for Partner Approval",
+  "Move to Completed",
+  "Move to Graduated",
+];
+const PROCESSOR_STATUS_OPTIONS = [
+  KEEP,
+  "Move to Ready for Processing",
+  "Move to Round Sent - Awaiting Results",
+  "Move to Ready for Reimport / Review",
+  "Move to Waiting for Partner Approval",
+];
 
 export function CompleteWorkSection({
   clientId,
@@ -200,7 +219,8 @@ export function CompleteWorkSection({
          entry comes from the database trigger, so the timeline says the status
          moved only when it actually did. */
       if (statusChange !== KEEP) {
-        await store.updateStatus(clientId, statusChange, actor);
+        /* The label reads "Move to X"; the stored value is X. */
+        await store.updateStatus(clientId, statusChange.replace("Move to ", ""), actor);
       }
 
       /* And the handoffs, which run in parallel with everything above. */
@@ -332,7 +352,8 @@ export function CompleteWorkSection({
               className="w-full"
             />
             <p className="text-[10px] text-muted-foreground">
-              Changes the file's status. Only statuses the system can actually hold are offered.
+              Moves the file. Separate from handing it to another department below — a round can
+              advance and be handed off at the same time.
             </p>
           </div>
 

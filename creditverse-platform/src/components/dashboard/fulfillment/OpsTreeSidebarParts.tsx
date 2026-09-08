@@ -11,7 +11,9 @@
  */
 
 import type { ElementType, ReactNode } from "react";
-import { ChevronDown, ChevronRight, Folder, FolderOpen } from "lucide-react";
+import {
+  ChevronDown, ChevronRight, Folder, FolderOpen, PanelLeftClose, PanelLeftOpen,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /* ------------------------------------------------------------------ */
@@ -21,15 +23,36 @@ import { cn } from "@/lib/utils";
 export const OpsTreeHeader = ({
   label,
   totalActive,
+  collapsed,
+  onToggleCollapsed,
 }: {
   /** e.g. "CREDITOPS SPACE" */
   label: string;
   totalActive: number;
+  /** Omit both to render a header that does not collapse. */
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
 }) => (
   <div className="flex items-center justify-between border-b border-border pb-3">
-    <div className="flex items-center gap-2">
-      <Folder className="h-4 w-4 text-primary" />
-      <span className="text-xs font-bold text-foreground">{label}</span>
+    <div className="flex min-w-0 items-center gap-2">
+      {onToggleCollapsed ? (
+        <button
+          type="button"
+          onClick={onToggleCollapsed}
+          aria-expanded={!collapsed}
+          aria-label={collapsed ? `Expand ${label}` : `Collapse ${label}`}
+          className="flex min-w-0 items-center gap-2 rounded transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        >
+          {collapsed ? <PanelLeftOpen className="h-4 w-4 shrink-0 text-primary" />
+                     : <PanelLeftClose className="h-4 w-4 shrink-0 text-primary" />}
+          <span className="truncate text-xs font-bold text-foreground">{label}</span>
+        </button>
+      ) : (
+        <>
+          <Folder className="h-4 w-4 text-primary" />
+          <span className="text-xs font-bold text-foreground">{label}</span>
+        </>
+      )}
     </div>
     <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
       {totalActive} active

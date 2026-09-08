@@ -116,6 +116,11 @@ export interface OpsClient {
   /** Owning team — stable id, never a name. Set at intake or by a supervisor. */
   teamId?: string;
   slaHoursRemaining?: number;
+  /** When the current round was actually processed. A fact, not a promise. */
+  processedOn?: string | null;
+  /** When the next update is due. `daysToUpdate` is derived from it, never
+      stored — a stored count is wrong by tomorrow. */
+  dueAt?: string | null;
   lastActivity: string;
   createdAt: string;
 }

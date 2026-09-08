@@ -85,6 +85,8 @@ export function mapClientRow(row: ClientRow): FulfillmentClient {
     teamId: row.team_id ?? undefined,
     openItems: row.open_items,
     slaHoursRemaining: hoursUntil(row.due_at),
+    processedOn: (row as { processed_on?: string | null }).processed_on ?? null,
+    dueAt: row.due_at ?? null,
     lastActivity: relativeTime(row.last_activity_at),
     createdAt: row.created_at.slice(0, 10),
   };
@@ -522,4 +524,33 @@ export async function handOffToDepartments(input: {
     alreadyOpen: plan.alreadyOpen.map((o) => o.department),
     refused: plan.refused.map((r) => r.department),
   };
+}
+
+/**
+ * Edit one field of a client from the list, spreadsheet-style.
+ *
+ * The activity entry is written by the database trigger on
+ * `fulfillment_clients`, never here — a screen that logs its own changes is a
+ * screen that can log a change it failed to make.
+ */
+export async function updateClientField(input: {
+  clientId: string;
+  round?: Enums<"fulfillment_round">;
+  processedOn?: string | null;
+  dueAt?: string | null;
+}): Promise<void> {
+  const sb = requireSupabase();
+  const row: Record<string, unknown> = {};
+  if (input.round !== undefined) row.round = input.round;
+  if (input.processedOn !== undefined) row.processed_on = input.processedOn;
+  /* A date input gives a plain day; `due_at` is a timestamp, so it becomes the
+     end of that day rather than midnight — a file due "the 5th" is not overdue
+     at one minute past midnight on the 5th. */
+  if (input.dueAt !== undefined) {
+    row.due_at = input.dueAt ? `${input.dueAt}T23:59:59Z` : null;
+  }
+  if (Object.keys(row).length === 0) return;
+  const { error } = await sb
+    .from("fulfillment_clients").update(withActivityStamp(row) as never).eq("id", input.clientId);
+  if (error) throw error;
 }

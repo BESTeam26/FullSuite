@@ -3317,6 +3317,7 @@ export type Database = {
           partner_scope_id: string | null
           phone: string | null
           preferred_name: string | null
+          processed_on: string | null
           public_id: string
           round: Database["public"]["Enums"]["fulfillment_round"]
           status: Database["public"]["Enums"]["fulfillment_client_status"]
@@ -3347,6 +3348,7 @@ export type Database = {
           partner_scope_id?: string | null
           phone?: string | null
           preferred_name?: string | null
+          processed_on?: string | null
           public_id?: string
           round?: Database["public"]["Enums"]["fulfillment_round"]
           status?: Database["public"]["Enums"]["fulfillment_client_status"]
@@ -3377,6 +3379,7 @@ export type Database = {
           partner_scope_id?: string | null
           phone?: string | null
           preferred_name?: string | null
+          processed_on?: string | null
           public_id?: string
           round?: Database["public"]["Enums"]["fulfillment_round"]
           status?: Database["public"]["Enums"]["fulfillment_client_status"]
@@ -11850,6 +11853,10 @@ export type Database = {
         | "SUPPORT RESOLVED"
         | "Graduated"
         | "Archived"
+        | "Ready for Round 1"
+        | "Round Sent - Awaiting Results"
+        | "Ready for Reimport / Review"
+        | "Waiting for Partner Approval"
       fulfillment_department:
         | "Onboarding"
         | "Dispute"
@@ -11864,6 +11871,15 @@ export type Database = {
         | "Round 3"
         | "Round 4+"
         | "Completed"
+        | "Round 5"
+        | "Round 6"
+        | "Round 7"
+        | "Round 8"
+        | "Round 9"
+        | "Round 10"
+        | "Round 11"
+        | "Round 12"
+        | "Round 13"
       fulfillment_service:
         | "creditops"
         | "fundingops"
@@ -12553,6 +12569,10 @@ export const Constants = {
         "SUPPORT RESOLVED",
         "Graduated",
         "Archived",
+        "Ready for Round 1",
+        "Round Sent - Awaiting Results",
+        "Ready for Reimport / Review",
+        "Waiting for Partner Approval",
       ],
       fulfillment_department: [
         "Onboarding",
@@ -12569,6 +12589,15 @@ export const Constants = {
         "Round 3",
         "Round 4+",
         "Completed",
+        "Round 5",
+        "Round 6",
+        "Round 7",
+        "Round 8",
+        "Round 9",
+        "Round 10",
+        "Round 11",
+        "Round 12",
+        "Round 13",
       ],
       fulfillment_service: [
         "creditops",
