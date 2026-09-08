@@ -6,6 +6,99 @@ names the thing it unblocks.
 
 ---
 
+## How to send me each of these
+
+**Three channels, and which one to use.**
+
+| Channel | Use it for | How |
+|---|---|---|
+| **Paste a Google Drive link in chat** | Spreadsheets, documents, PDFs, exports | Just paste the link. I read it through your Drive connector, so it does **not** need to be shared publicly — the build tracker's link returned "401 unauthorized" to an anonymous fetch and came through the connector fine. Anything you send this way is committed to the repository **verbatim, before I read anything out of it.** |
+| **Type it in chat** | Lists, names, email addresses, yes/no answers, decisions | Plain text is fine. No formatting needed. |
+| **Run one command yourself** | **API keys and secrets only** | I never ask you to paste a key into chat, and I never put one in a file. You run the command; the key goes straight to Supabase and I never see it. |
+
+**Never paste an API key, password or token into this chat.** If you do, treat
+it as compromised and rotate it — a chat transcript is not a secret store.
+
+---
+
+### The exact list
+
+#### Run these yourself in Terminal — one line each
+
+Open Terminal, then:
+
+```bash
+cd /Users/dee_gallardo/BES-Platform/creditverse-platform
+```
+
+**A5 — Google Meet.** Google Cloud Console → APIs & Services → Credentials →
+Create OAuth client ID → Web application. Enable the Google Calendar API. Then:
+
+```bash
+npx supabase secrets set GOOGLE_OAUTH_CLIENT_ID=paste-id-here GOOGLE_OAUTH_CLIENT_SECRET=paste-secret-here
+```
+
+**A6 — Zoom.** Zoom App Marketplace → Develop → Build App → Server-to-Server
+OAuth. Then:
+
+```bash
+npx supabase secrets set ZOOM_ACCOUNT_ID=paste-here ZOOM_CLIENT_ID=paste-here ZOOM_CLIENT_SECRET=paste-here
+```
+
+**A7 — Lob (posted letters).** Lob dashboard → Settings → API Keys → the LIVE
+secret key. Then:
+
+```bash
+npx supabase secrets set LOB_API_KEY=paste-here
+```
+
+Tell me when each is done and I will run a connection test and report what it
+says. Until then each provider reads **NOT CONNECTED** rather than pretending.
+
+#### Paste a Drive link in chat
+
+| # | What | Note |
+|---|---|---|
+| **B5** | **The March 2026 revenue tracker** | The Google Sheet with rates, frequency, FX, expected and actual collection. Same as the build tracker — paste the link, I pull it through the connector. This unblocks the **financial half of the partner import**; the ClickUp half is already mapped and tested. |
+| **B7** | **The Metro 2 defect catalogue, Sections B–P** | Roughly 293 defects. A Drive link, a Doc, or a paste — whichever you have. It goes into the repo verbatim first, because this is the document that was lost once. It unblocks the largest remaining CreditOps item. |
+| B1 | **3–5 real credit report PDFs per monitoring service** | IdentityIQ, SmartCredit, MyScoreIQ, annualcreditreport.com, bureau direct. Test-account reports are ideal; otherwise redact name, SSN and address. **Do not send a real consumer's report.** |
+| B2 | **A scan or phone photo of a report** | To measure the assistant against a real scan rather than a clean render. |
+| B3 | **Your real lender list** | Programs, and the policy you last verified. |
+| B4 | **Your letter templates** | Only if you want yours instead of the built-in library. |
+
+#### Type in chat
+
+**B6 — the eight people.** One per line, in this shape. I need a real work
+address per person; I will not invent one, and I will not send an invitation
+until you say so separately.
+
+```
+Daniel  — daniel@yourdomain.com  — Dispute Manager
+Dan     — dan@yourdomain.com     — Account Manager, Disputes
+Julius  — …
+Alvaro  — …
+Ally    — …
+Rowell  — …
+Laz     — …
+Angelo  — …
+```
+
+**The decisions.** A yes/no or a short answer is enough:
+
+| # | The question | If you say nothing |
+|---|---|---|
+| **C11** | Should the Professional Messaging Guard include slurs, and should it **warn** or **refuse**? | It refuses, and ships no slurs — a policy call I will not make for you. |
+| **C12** | Confirm **CEO = you** and **CFO vacant, you acting**. | Stays as I created it from your own brief. |
+| **C13** | Approve the partner import once B5 arrives. **23 partners created, 2 reconciled** (`Wavy One Solutions` → your existing `Quentin Grays`, `Blue Chip Equity` → `Kevin Hernandez`). | Nothing is imported. |
+| **C14** | **Pilot invitations** — who receives one, and your go-ahead to send. | No email goes to anybody. |
+| **C15** | A BES announcement to every customer reaches a customer who switched their Announcements module **off**, and the link then says "not switched on". Skip them, or stop gating the page for BES announcements? | Unchanged; recorded, not fixed. |
+| **C16** | **Borrower-portal hardening.** One `WHERE` clause limits a borrower to their own funding files, with no policy underneath it. My recommendation: replace the view with a column-limited function — half a day, nothing is broken now. | Unchanged. |
+| C2 | **DIY Credit** build — approve when you want it. | Not started. |
+| C5 | Do **lenders log in**, or receive submission packages by email? | Email packages assumed. |
+| C7 | **E-signature provider** — Dropbox Sign, DocuSign or SignWell. | None connected. |
+
+---
+
 ## 0. One security item, first
 
 ### 0.1 🔴 Plaintext passwords are sitting in ClickUp
