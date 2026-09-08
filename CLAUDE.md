@@ -613,6 +613,75 @@ agency or a reseller platform.**
 > not a reseller feature**. There is one agency row and there is meant to be
 > one. No work should go toward supporting a second.
 
+## 16b. CreditOps and FundingOps are PAUSED, not removed (permanent)
+
+Dee's clarification, 2026-09-08, after `/app/fulfillment` was archived:
+
+> **CREDITOPS AND FUNDINGOPS ARE PAUSED FOR DEVELOPMENT. THEY ARE NOT BEING
+> REMOVED. BES AGENCY HQ IS BEING FINISHED FIRST SO THE SAME CANONICAL
+> ORGANIZATION ↔ AGENCY FOUNDATION CAN SUPPORT THEM WHEN DEVELOPMENT RESUMES.**
+
+A pause on new feature work is **not** licence to remove the foundation. Never
+read "Agency HQ is the priority" as "delete CreditOps", "delete FundingOps",
+"delete the fulfillment foundation" or "delete the organization service
+architecture". Unfinished module UI may stay hidden from unauthorized agents;
+the model underneath stays.
+
+### The canonical model
+
+```
+ORGANIZATION                     owns and operates its canonical records
+  → SERVICE ENGAGEMENT           what BES was contracted to fulfil
+    → BES AGENCY ASSIGNMENT
+      → TEAM / AGENT
+        → AUTHORIZED WORK
+```
+
+Agency HQ then sees **the same canonical records**, not copies. There is no
+`organization_client` → `agency_client`, no `organization_task` →
+`agency_work_order`, no `organization_message` → `agency_message`. One record,
+authorized views, and **no synchronization between duplicate tables** — because
+two tables holding one truth is how one truth becomes several (rules 2 and 5).
+
+### It is bidirectional
+
+Work an organization creates that BES is responsible for must reach the
+authorized BES team; work BES completes must show the organization the
+resulting canonical state, to the extent its permissions allow.
+
+Today that is one table with three authorized views, in `work_items_select`:
+
+- BES reads an organization's work only under `bes_engaged_with(organization_id)`, narrowed by `in_scope(...)`
+- the organization's own people read the same rows through `org_scope_allows(...)`
+- an organization reads BES-owned `bes_crm` work about itself through `subject_organization_id` + `is_org_admin` + `org_entitled`
+
+### Before removing anything fulfillment-shaped
+
+Classify each symbol — live consumers, archived consumers, domain purpose,
+legacy or canonical — and **keep it if there is any doubt**. A small amount of
+harmless legacy code is cheaper than deleting a foundation the organization
+ecosystem needs. Never remove `fulfillment_engagements`, `bes_may_fulfil()`,
+`bes_engaged_with()`, `engagement_is_live()`, `in_scope()`, the canonical
+`work_items` engine, or the department/handoff/production/EOD chain.
+
+> **Worked example, 2026-09-08.** `/app/fulfillment` was a legacy UI whose
+> `FulfillmentWorkOrder` / `workOrders` / `updateWorkOrderStatus` /
+> `addWorkOrder` were a compatibility adapter over `WorkItem` for that screen
+> alone. Those four were removable. `workItems`, `agencyWork`,
+> `activeOrgWork`, `fetchFulfillmentEngagements`, `isEngagementLive` and the
+> engagement model were **not**, and were kept — the classification table is
+> in `COMPLETION_REGISTER.md`. A future fulfillment queue is built on
+> `work_items` (`scope='AGENCY'`, `division`, `team_id`, `assigned_to`)
+> through `useAgencyWork`, never by restoring that adapter.
+
+### The roadmap this must keep supporting
+
+Agency HQ now; then the Organization platform, CreditOps, FundingOps, BES CRM,
+TalentOps, DIY Credit, and the Partner, Client and Lender portals. **Cleanup
+must not make any of those harder.**
+
+---
+
 ## 17. Module doctrine: strict domains, flexible workspaces, BES-owned delivery
 
 ```
