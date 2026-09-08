@@ -1,10 +1,19 @@
 /**
- * Calendar of real deadlines the person may see, next 14 days: work items
- * due, statutory letter clocks (reinvestigation and other timers), renewal
- * follow-ups and potential renewal dates. Grouped by day, sourced from the
- * same signals the dashboards use — no meeting fixtures, no sample rows.
+ * Calendar of real deadlines the person may see: work items due, statutory
+ * letter clocks (reinvestigation and other timers), renewal follow-ups and
+ * potential renewal dates. Sourced from the same signals the dashboards use —
+ * no meeting fixtures, no sample rows.
+ *
+ * TWO VIEWS OF ONE SET OF FACTS. The list answers "what is coming up"; the
+ * month answers "what does this month look like". Neither fetches anything the
+ * other does not: the horizon only FILTERS lists the hooks already hold, so
+ * switching view and paging months costs no request (rule 14).
+ *
+ * The choice is remembered per viewer in `localStorage` — a convenience that
+ * belongs to that browser, and one whose loss costs nothing (the list is the
+ * fallback).
  */
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { CalendarClock, Clock, FileText, Loader2, RefreshCw } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -13,17 +22,41 @@ import { useFundingQueueSignals } from "@/lib/data/use-funding-domain";
 import { useMyWork, useOrganizationWork } from "@/lib/data/use-work";
 import { useAgency } from "@/lib/agency-context";
 import { formatDate } from "@/lib/format-date";
+import { CalendarMonth, type MonthEntry } from "@/components/dashboard/CalendarMonth";
+import { addMonths, dayKey, monthGridEnd } from "@/lib/calendar/month-grid";
 import { cn } from "@/lib/utils";
 
 interface CalendarEntry { id: string; at: string; title: string; kind: "work" | "clock" | "renewal"; href: string; overdue: boolean }
-const KIND: Record<CalendarEntry["kind"], { label: string; icon: LucideIcon; tone: string }> = {
-  work: { label: "Work item due", icon: FileText, tone: "bg-amber-500/10 text-amber-800 border-amber-500/30" },
-  clock: { label: "Statutory clock", icon: Clock, tone: "bg-purple-500/10 text-purple-700 border-purple-500/30" },
-  renewal: { label: "Renewal", icon: RefreshCw, tone: "bg-emerald-500/10 text-emerald-700 border-emerald-500/30" },
+const KIND: Record<CalendarEntry["kind"], { label: string; icon: LucideIcon; tone: string; dot: string }> = {
+  work: { label: "Work item due", icon: FileText, tone: "bg-amber-500/10 text-amber-800 border-amber-500/30", dot: "bg-amber-500" },
+  clock: { label: "Statutory clock", icon: Clock, tone: "bg-purple-500/10 text-purple-700 border-purple-500/30", dot: "bg-purple-500" },
+  renewal: { label: "Renewal", icon: RefreshCw, tone: "bg-emerald-500/10 text-emerald-700 border-emerald-500/30", dot: "bg-emerald-500" },
+};
+
+type CalendarView = "list" | "month";
+const VIEW_KEY = "bes-calendar-view";
+
+/** Reads the remembered view, and copes with a browser that blocks storage. */
+const rememberedView = (): CalendarView => {
+  try {
+    return localStorage.getItem(VIEW_KEY) === "month" ? "month" : "list";
+  } catch {
+    return "list";
+  }
 };
 const TIMER_LABEL: Record<string, string> = { reinvestigation: "30-day reinvestigation ends", furnisher_notice: "Furnisher notice due", results_notice: "Results notice due", reinsertion_watch: "Reinsertion watch ends" };
 
 export function LiveCalendar({ days = 14 }: { days?: number }) {
+  const [view, setView] = useState<CalendarView>(rememberedView);
+  const [cursor, setCursor] = useState(() => {
+    const n = new Date();
+    return { year: n.getFullYear(), month: n.getMonth() };
+  });
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  useEffect(() => {
+    try { localStorage.setItem(VIEW_KEY, view); } catch { /* nothing is lost: the list is the default */ }
+  }, [view]);
+
   const mine = useMyWork();
   const { activeOrganization } = useAgency();
   const orgWork = useOrganizationWork(activeOrganization?.id ?? null);
@@ -31,7 +64,13 @@ export function LiveCalendar({ days = 14 }: { days?: number }) {
   const dispute = useDisputeSignals();
   const funding = useFundingQueueSignals();
   const now = useMemo(() => Date.now(), []);
-  const horizon = now + days * 86_400_000;
+  /* The month view needs everything the visible grid can show, not the next
+     fortnight — otherwise paging forward shows an empty month that is not
+     empty. Widening it costs no request: the hooks above already hold their
+     bounded lists and this only filters them. */
+  const horizon = view === "month"
+    ? monthGridEnd(cursor.year, cursor.month).getTime()
+    : now + days * 86_400_000;
 
   const entries = useMemo(() => {
     const out: CalendarEntry[] = [];
@@ -52,9 +91,76 @@ export function LiveCalendar({ days = 14 }: { days?: number }) {
   }, [entries]);
   const loading = work.isLoading || dispute.isLoading || funding.isLoading;
 
+  /* The same entries, keyed by LOCAL day for the grid — a deadline at 9pm is
+     "the 30th" to the person reading it, not the 1st. */
+  const monthEntries = useMemo<MonthEntry[]>(
+    () => entries.map((e) => ({
+      id: e.id,
+      day: dayKey(e.at),
+      title: e.title,
+      href: e.href,
+      overdue: e.overdue,
+      kindLabel: KIND[e.kind].label,
+      kindTone: KIND[e.kind].tone,
+      kindDot: KIND[e.kind].dot,
+    })),
+    [entries],
+  );
+
+  const goMonth = (delta: number) => {
+    setSelectedDay(null);
+    if (delta === 0) {
+      const n = new Date();
+      setCursor({ year: n.getFullYear(), month: n.getMonth() });
+      return;
+    }
+    setCursor((c) => addMonths(c.year, c.month, delta));
+  };
+
+  const tab = (v: CalendarView, label: string) => (
+    <button
+      type="button"
+      onClick={() => setView(v)}
+      aria-pressed={view === v}
+      className={cn(
+        "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+        /* The unselected tab keeps real contrast: rule 15 forbids a choice
+           whose alternative is too faint to read. */
+        view === v
+          ? "bg-primary text-primary-foreground"
+          : "border border-border bg-card text-foreground hover:bg-muted",
+      )}
+    >
+      {label}
+    </button>
+  );
+
   return (
     <div className="space-y-4">
-      {loading && <p className="inline-flex items-center gap-1 text-xs text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Gathering deadlines…</p>}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5" role="group" aria-label="Calendar view">
+          {tab("list", "List")}
+          {tab("month", "Month")}
+        </div>
+        {loading && (
+          <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" /> Gathering deadlines…
+          </p>
+        )}
+      </div>
+
+      {view === "month" ? (
+        <CalendarMonth
+          year={cursor.year}
+          month={cursor.month}
+          today={dayKey(new Date(now))}
+          selected={selectedDay}
+          entries={monthEntries}
+          onMonth={goMonth}
+          onSelect={setSelectedDay}
+        />
+      ) : (
+        <>
       {!loading && entries.length === 0 && <p className="rounded-2xl border border-border bg-card p-6 text-center text-sm text-muted-foreground">Nothing due in the next {days} days across your work, letter clocks and renewals.</p>}
       {byDay.map(([day, list]) => (
         <section key={day} className="rounded-2xl border border-border bg-card p-4 shadow-sm">
@@ -72,6 +178,8 @@ export function LiveCalendar({ days = 14 }: { days?: number }) {
           </ul>
         </section>
       ))}
+        </>
+      )}
     </div>
   );
 }
