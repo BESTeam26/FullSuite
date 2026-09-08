@@ -17,7 +17,7 @@
 > |---|---|
 > | What is done, what is not, and why | `COMPLETION_REGISTER.md` |
 > | What only Dee can supply or decide | `WHAT_I_NEED_FROM_DEE.md` |
-> | Who may reach what, and which function decides | `AUTHORIZATION_MAP.md` |
+> | Who may reach what, and which function decides | the migrations themselves, and `supabase/scripts/rls-matrix.mjs` — `AUTHORIZATION_MAP.md` is stale at 0021 and says so at the top |
 > | What each deterministic engine computes, and its tests | `src/lib/dispute/ENGINE_INVENTORY.md` |
 >
 > As of **2026-09-08**: 227 migration files applied (numbered to 0219), a

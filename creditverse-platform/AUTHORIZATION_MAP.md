@@ -1,8 +1,34 @@
-# Authorization map — verified at HEAD 9f5140d, updated after migration 0021
+# Authorization map — HISTORICAL, verified at migration 0021
 
-Every line below is classified. **FACT** = read from the live schema, live
-policies, or code. **REQUIREMENT** = BES doctrine (CLAUDE.md). **PROPOSAL** =
-does not exist and needs design. Nothing here is inferred from documentation.
+> ## 🔴 DO NOT AUTHORIZE ANYTHING FROM THIS FILE
+>
+> **Stale as of 2026-09-08. It describes migration 0021; the schema is at
+> 0219.** Its lines are marked **FACT**, which is exactly what makes it
+> dangerous: a reader has no reason to doubt them.
+>
+> Things it states as fact that are no longer true:
+>
+> - *"No `divisions`, `departments`, `teams` or `team_memberships` tables
+>   exist."* All four exist (0100), plus `positions` and dated
+>   `position_assignments` (0209).
+> - *"`agency_memberships` — no scope, no team, no assigned-only."* It carries
+>   `scope_kind`, `scope_department_id`, `scope_team_id`, `status`, and a
+>   per-member permission table (`agency_member_permissions`, 0156).
+> - *"`fulfillment_engagements.authorized_team` is free text."* It is
+>   `authorized_team_id`, a foreign key (0195), and `in_scope()` reads it.
+> - *"`team_scope` is free text and is read by nothing that authorizes."*
+>   Team scope is now a real column read by real policies.
+> - The member counts are from a database with eight agency members.
+>
+> **Until this is rewritten, the authorities are:** the migrations in
+> `supabase/migrations/` (each one states what it changes and why), and
+> `supabase/scripts/rls-matrix.mjs`, which asserts the behaviour per user
+> against the live database — 1,267 checks across 64 phases. A document can
+> go stale; the matrix fails.
+
+Every line below was classified when written. **FACT** = read from the live
+schema, live policies, or code AT THAT TIME. **REQUIREMENT** = BES doctrine
+(CLAUDE.md). **PROPOSAL** = did not exist and needed design.
 
 ## Identity and membership — FACT
 
