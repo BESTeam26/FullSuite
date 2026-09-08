@@ -432,3 +432,26 @@ fetches of the same invoices, which is the exact duplicate-request shape rule
 and is a refactor of a live surface for a cosmetic gain. Recorded as a
 decision rather than left looking like an oversight; say the word and it gets
 the one-hook treatment.
+
+### Left for a deliberate pass: dead members in `agency-context`
+
+Archiving `/app/fulfillment` left four members of `src/lib/agency-context.tsx`
+with no consumer outside `src/_archive/`:
+
+- `workOrders` — derived from `workItems`, which is `useState<WorkItem[]>([])`
+  and is never populated, and whose mapping sets every order's organization to
+  `organizations[0]`
+- `updateWorkOrderStatus`
+- `addWorkOrder`
+- the `FulfillmentWorkOrder` type, imported now only by the two archived files
+
+Removing them also removes the last two writers of `setWorkItems`, which turns
+`workItems` into a constant and makes `agencyWork` / `activeOrgWork`
+provably empty — and those two ARE still consumed, by the not-signed-in demo
+branches of `use-work.ts` and by `Dashboard.tsx`. So the change has a ripple
+into a live code path.
+
+Not done tonight on purpose. It is housekeeping with no user-visible effect,
+in a context file every screen reads, and it wants the ripple in view rather
+than a late-night edit. Named here so it is a decision rather than a thing
+nobody noticed.
