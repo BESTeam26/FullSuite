@@ -28,11 +28,19 @@ import {
   type FulfillmentService,
 } from "@/lib/data/fulfillment-engagements";
 
+/**
+ * The services a partner can BUY.
+ *
+ * `corporate` is in the enum (0182) so a leadership division can hold
+ * departments, and it is deliberately not a purchasable service — no
+ * engagement is ever created for it, so it never appears on a partner.
+ */
 export const SERVICE_LABEL: Record<FulfillmentService, string> = {
   creditops: "CreditOps",
   fundingops: "FundingOps",
   bes_crm: "BES CRM",
   talentops: "TalentOps",
+  corporate: "Corporate",
 };
 
 /** How BES reaches this partner's records. Not a status — a shape. */
@@ -184,6 +192,9 @@ export function serviceTotals(partners: BesPartner[]): Record<FulfillmentService
     fundingops: 0,
     bes_crm: 0,
     talentops: 0,
+    /* Never non-zero in practice: `corporate` is an organizational label, not
+       something a partner buys, so no engagement carries it. */
+    corporate: 0,
   };
   for (const p of partners) for (const s of p.liveServices) totals[s] += 1;
   return totals;

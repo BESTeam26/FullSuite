@@ -3619,6 +3619,92 @@ if (runs(58)) {
   runPhase("phase 58", P58, { strict: true });
 }
 
+
+if (runs(59)) {
+  startPhase("phase 59");
+  /* A partner is seen by the people assigned to it.
+     Until 0184 `outsourcing_groups_select` was `is_staff_of(agency_id)` —
+     every agent could read every partner BES has. With two admins on the
+     roster that was invisible; it matters the moment an agent is invited.
+
+     What is proved here is Dee's §13 exactly, plus the mechanism that makes it
+     maintainable: a TEAM assignment is inherited, so joining and leaving the
+     team is the only thing anybody edits (§20). */
+  const p59 = (uid, seed, sql) => {
+    try {
+      return q(`begin; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${seed} set local role authenticated; ${sql}; rollback;`)[0].rows;
+    } catch (e) {
+      const m = (String(e.message) + String(e.stdout ?? "")).match(/ERROR:\s*(\w+):/);
+      return "ERR " + (m ? m[1] : "unknown");
+    }
+  };
+  const OWN59 = U["bes.owner@bes.test"], ADM59 = U["bes.admin@bes.test"];
+  const MGR59 = U["bes.manager@bes.test"], LEAD59 = U["bes.lead@bes.test"];
+  const AGT59 = U["bes.credit@bes.test"], OTHER59 = U["bes.funding@bes.test"];
+  const AG59 = q(`select id::text as rows from public.agencies limit 1`)[0].rows;
+  const GRP59 = q(`select coalesce((select id::text from public.outsourcing_groups limit 1),'') as rows`)[0].rows;
+  const TEAM59 = q(`select coalesce((select id::text from public.teams where name='[TEST] Team A'),'') as rows`)[0].rows;
+  const ALL59 = q(`select count(*)::int as rows from public.outsourcing_groups`)[0].rows;
+
+  const seeCount = `select count(*)::int as rows from public.outsourcing_groups`;
+  const assignTeam = `insert into public.partner_assignments (agency_id, group_id, team_id) values ('${AG59}','${GRP59}','${TEAM59}');`;
+  const assignUser = (u) => `insert into public.partner_assignments (agency_id, group_id, user_id) values ('${AG59}','${GRP59}','${u}');`;
+  const assignEnded = `insert into public.partner_assignments (agency_id, group_id, team_id, ended_on) values ('${AG59}','${GRP59}','${TEAM59}', current_date);`;
+
+  const P59 = GRP59 && TEAM59 ? [
+    /* ── Owner and admin are agency-wide by ROLE ─────────────────── */
+    ["the owner sees every partner", () => p59(OWN59, "", seeCount), ALL59],
+    ["the admin sees every partner", () => p59(ADM59, "", seeCount), ALL59],
+
+    /* ── Everybody else starts with none ─────────────────────────── */
+    ["a manager sees no partner they are not assigned",
+      () => p59(MGR59, "", seeCount), 0],
+    ["a team lead sees none either", () => p59(LEAD59, "", seeCount), 0],
+    ["an agent sees none", () => p59(AGT59, "", seeCount), 0],
+
+    /* ── A team assignment is inherited (§20) ────────────────────── */
+    ["assigning the agent's TEAM gives the agent the partner",
+      () => p59(AGT59, assignTeam, seeCount), 1],
+    ["…and the lead of that team gets it too",
+      () => p59(LEAD59, assignTeam, seeCount), 1],
+    ["…but somebody on no team does not",
+      () => p59(OTHER59, assignTeam, seeCount), 0],
+
+    /* ── Ending an assignment takes it away ──────────────────────── */
+    ["an ENDED team assignment grants nothing",
+      () => p59(AGT59, assignEnded, seeCount), 0],
+
+    /* ── A direct assignment reaches one person alone (§21) ──────── */
+    ["a direct assignment gives that person the partner",
+      () => p59(AGT59, assignUser(AGT59), seeCount), 1],
+    ["…and nobody else",
+      () => p59(OTHER59, assignUser(AGT59), seeCount), 0],
+
+    /* ── Assignment is operational, never financial (§19) ────────── */
+    ["being assigned does NOT grant financial access",
+      () => p59(AGT59, assignTeam, `select public.agency_can('partners.financials.view')::text as rows`), "false"],
+    ["…nor to a manager who is assigned",
+      () => p59(MGR59, assignUser(MGR59), `select public.agency_can('partners.financials.view')::text as rows`), "false"],
+
+    /* ── The FOR ALL trap, closed and kept closed (0185) ─────────── */
+    ["no policy on partners is FOR ALL any more",
+      () => q(`select count(*)::int as rows from pg_policy where polrelid='public.outsourcing_groups'::regclass and polcmd='*'`)[0].rows, 0],
+    ["…and the select policy asks can_see_partner",
+      () => q(`select (position('can_see_partner' in pg_get_expr(polqual, polrelid)) > 0)::text as rows from pg_policy where polname='outsourcing_groups_select'`)[0].rows, "true"],
+
+    /* ── An assignment is ended, never deleted (rule 11) ─────────── */
+    ["there is no delete policy on assignments",
+      () => q(`select count(*)::int as rows from pg_policy where polrelid='public.partner_assignments'::regclass and polcmd='d'`)[0].rows, 0],
+
+    ["an agent cannot assign themselves a partner",
+      () => p59(AGT59, "", `${assignUser(AGT59).replace(/^insert/, "insert")} select 1 as rows`), "ERR 42501"],
+
+    ["anon reaches no assignment",
+      () => { try { q(`begin; set local role anon; select 1 from public.partner_assignments limit 1; rollback;`); return "readable"; } catch { return "refused"; } }, "refused"],
+  ] : [["(no partner or fixture team to probe)", () => "skip", "skip"]];
+  runPhase("phase 59", P59, { strict: true });
+}
+
 endPhase();
 
 /* ------------------------------------------------------------------ *

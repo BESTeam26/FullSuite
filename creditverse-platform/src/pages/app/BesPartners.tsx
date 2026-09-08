@@ -8,6 +8,18 @@
  * is an hourly TalentOps arrangement, a retainer and a CRM subscription. The
  * canonical partner record is what puts them here.
  *
+ * ── WHAT YOU SEE DEPENDS ON WHAT IS ASSIGNED TO YOU ────────────────────────
+ *
+ * An owner or administrator sees every partner. Everybody else sees the ones
+ * assigned to them, to a live team they are on, or to a team in a department
+ * they manage — decided by `can_see_partner()` in the database, so this list
+ * is short for an agent because the rows never arrive, not because the screen
+ * filtered them.
+ *
+ * "Unassigned" is therefore an owner and admin view by construction: a partner
+ * nobody is assigned to is invisible to everybody else, which is precisely why
+ * it is worth a screen of its own (Dee, §15).
+ *
  * ── THE SECOND TABLE, AND WHY IT IS SEPARATE ───────────────────────────────
  *
  * A SaaS customer who ALSO bought fulfilment (rule 16, model 2) is a partner
@@ -29,6 +41,8 @@ import { Pill } from "@/components/agency/partner/partner-ui";
 import { useAgencyPartners, usePartnerClientCounts } from "@/lib/data/use-agency-partners";
 import { usePartnerCatalogues, usePartnerServiceSummary } from "@/lib/data/use-partner-services";
 import { useWorkforce } from "@/lib/data/use-workforce";
+import { useAllPartnerAssignments } from "@/lib/data/use-partner-assignments";
+import { useAuth } from "@/lib/auth/auth-context";
 import { useAgencyPermissions } from "@/lib/data/agency-permissions";
 import { useAgency } from "@/lib/agency-context";
 import { useFulfillment } from "@/lib/data/use-fulfillment";
@@ -61,20 +75,42 @@ export default function BesPartners() {
   const navigate = useNavigate();
 
   const [q, setQ] = useState("");
+  const [view, setView] = useState<"all" | "mine" | "unassigned">("all");
   const [lifecycle, setLifecycle] = useState<string>("open");
   const [health, setHealth] = useState<string>("any");
   const [serviceType, setServiceType] = useState<string>("any");
   const [adding, setAdding] = useState(false);
 
+  const assignments = useAllPartnerAssignments();
+  const { user, agencyMembership } = useAuth();
+  const isAdmin = agencyMembership?.role === "agency_owner"
+    || agencyMembership?.role === "agency_admin";
+  /* Mine = assigned to me by name, or to a live team I am on. The same two
+     branches the database uses, so the count on screen matches what an agent
+     would actually receive. */
+  const myTeamIds = new Set(
+    (workforce.data?.teams ?? [])
+      .filter((t) => !t.archived && t.members.some((m) => m.userId === user?.id))
+      .map((t) => t.id),
+  );
+  const assignedToMe = (groupId: string) =>
+    (assignments.data?.[groupId] ?? []).some(
+      (a) => a.userId === user?.id || (a.teamId && myTeamIds.has(a.teamId)),
+    );
+  const isUnassigned = (groupId: string) => (assignments.data?.[groupId] ?? []).length === 0;
+
   const typeLabel = useMemo(() => Object.fromEntries(
     (catalogues.data?.serviceTypes ?? []).map((t) => [t.code, t.label]),
   ), [catalogues.data]);
   const people = workforce.data?.people ?? [];
+  const teams = workforce.data?.teams ?? [];
 
   const all = partners.data ?? [];
   const rows = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return all.filter((p) => {
+      if (view === "mine" && !assignedToMe(p.id)) return false;
+      if (view === "unassigned" && !isUnassigned(p.id)) return false;
       if (lifecycle === "open" && (p.lifecycle === "archived" || p.lifecycle === "suspended")) return false;
       if (lifecycle !== "open" && lifecycle !== "any" && p.lifecycle !== lifecycle) return false;
       if (health === "attention" && !healthNeedsAttention(p.health)) return false;
@@ -84,7 +120,7 @@ export default function BesPartners() {
       return [p.name, p.companyName ?? "", p.contactEmail, p.primaryContact ?? "", p.contractRef ?? ""]
         .join(" ").toLowerCase().includes(needle);
     });
-  }, [all, q, lifecycle, health, serviceType, services.data]);
+  }, [all, q, view, lifecycle, health, serviceType, services.data, assignments.data, user?.id]);
 
   const active = all.filter((p) => p.lifecycle === "active").length;
   const onboarding = all.filter((p) => p.lifecycle === "onboarding" || p.lifecycle === "new").length;
@@ -141,6 +177,13 @@ export default function BesPartners() {
             placeholder="Partner, contact, contract reference…"
             className="w-full pl-9 sm:w-72" aria-label="Search partners" />
         </div>
+        <OpsSelect aria-label="Which partners" value={view}
+          onValueChange={(v) => setView(v as "all" | "mine" | "unassigned")}
+          options={[
+            { value: "all", label: isAdmin ? "All partners" : "Partners I can see" },
+            { value: "mine", label: "My partners" },
+            ...(isAdmin ? [{ value: "unassigned", label: "Unassigned — nobody is on them" }] : []),
+          ]} />
         <OpsSelect aria-label="Lifecycle" value={lifecycle} onValueChange={setLifecycle}
           options={[
             { value: "open", label: "Currently working with" },
@@ -176,7 +219,7 @@ export default function BesPartners() {
                 <th className="px-4 py-2.5">Partner</th>
                 <th className="px-4 py-2.5">Status</th>
                 <th className="px-4 py-2.5">Services</th>
-                <th className="px-4 py-2.5">Account manager</th>
+                <th className="px-4 py-2.5">Assigned to</th>
                 <th className="px-4 py-2.5 text-right">Clients</th>
                 <th className="px-4 py-2.5">Since</th>
               </tr>
@@ -231,7 +274,17 @@ export default function BesPartners() {
                       )}
                     </td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">
-                      {people.find((x) => x.userId === p.accountManagerId)?.name ?? "Unassigned"}
+                      {(() => {
+                        const rows = assignments.data?.[p.id] ?? [];
+                        if (rows.length === 0) {
+                          return <span className="text-amber-700">Nobody — only you can see it</span>;
+                        }
+                        const names = rows.map((a) =>
+                          a.userId
+                            ? people.find((x) => x.userId === a.userId)?.name ?? "Someone"
+                            : teams.find((t) => t.id === a.teamId)?.name ?? "A team");
+                        return [...new Set(names)].join(", ");
+                      })()}
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums text-foreground">
                       {count === undefined ? "—" : count}
@@ -245,8 +298,9 @@ export default function BesPartners() {
         )}
       </div>
       <p className="mt-2 text-[11px] text-muted-foreground">
-        Showing {rows.length} of {all.length} partner{all.length === 1 ? "" : "s"}. Client counts come
-        from real client records, not a figure anybody typed.
+        Showing {rows.length} of {all.length} partner{all.length === 1 ? "" : "s"} you can see. Client
+        counts come from real client records, not a figure anybody typed.
+        {isAdmin && " An unassigned partner is visible to owners and administrators only — assign a team to put it in front of the people who work it."}
       </p>
 
       {engaged.length > 0 && (

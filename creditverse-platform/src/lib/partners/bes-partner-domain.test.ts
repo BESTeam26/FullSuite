@@ -137,6 +137,6 @@ describe("filters and totals", () => {
   });
 
   it("counts live engagements per service, never dormant ones", () => {
-    expect(serviceTotals(partners)).toEqual({ creditops: 1, fundingops: 1, bes_crm: 0, talentops: 0 });
+    expect(serviceTotals(partners)).toEqual({ creditops: 1, fundingops: 1, bes_crm: 0, talentops: 0, corporate: 0 });
   });
 });

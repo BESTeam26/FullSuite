@@ -1,10 +1,25 @@
 /**
  * Who at BES runs this partner.
  *
- * Two different assignments that are easy to confuse:
+ * ── ASSIGNMENT IS WHAT MAKES A PARTNER VISIBLE ─────────────────────────────
+ *
+ * Not decoration. `can_see_partner()` reads these rows: an owner or admin sees
+ * every partner, and everybody else sees the ones assigned to them, to a live
+ * team they are on, or to a team in a department they manage. Removing an
+ * assignment removes the partner from that person's list.
+ *
+ * A TEAM assignment is the one worth making — everybody who joins the team
+ * inherits it, everybody who leaves loses it, and nobody edits partners
+ * one by one (Dee, §20).
+ *
+ * Assignments END rather than vanish, so who ran the account in March is still
+ * answerable after it changes hands.
+ *
+ * Three assignments that are easy to confuse:
  *
  *   ACCOUNT MANAGER / TEAM   the relationship. Set on the partner.
  *   PROCESSOR / TEAM         one service. Set on that engagement.
+ *   PARTNER ASSIGNMENT       who may WORK the account. Set here.
  *
  * ClickUp conflated a third thing with both — the task assignee — so "assigned
  * to Support Team" could mean the account is theirs, the work is theirs, or
@@ -19,6 +34,7 @@ import { OpsSelect } from "@/components/ui/ops-select";
 import { Detail } from "@/components/agency/partner/partner-ui";
 import { usePartnerActions } from "@/lib/data/use-agency-partners";
 import { useAgencyPermissions } from "@/lib/data/agency-permissions";
+import { PartnerAssignments } from "@/components/agency/partner/PartnerAssignments";
 import type { AgencyPartner } from "@/lib/data/agency-partners";
 import type { PartnerService } from "@/lib/data/partner-services";
 import type { AgencyPerson, AgencyTeam } from "@/lib/data/agency-workforce";
@@ -41,6 +57,7 @@ export function PartnerTeamTab({ partner, services, people, teams }: {
 
   return (
     <div className="space-y-3">
+      <PartnerAssignments groupId={partner.id} people={people} teams={teams} services={services} />
       <ContentCard
         title="Account assignment"
         action={canAssign && (

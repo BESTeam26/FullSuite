@@ -2537,7 +2537,7 @@ export type Database = {
           is_fixture: boolean
           lead_id: string | null
           name: string
-          service: Database["public"]["Enums"]["fulfillment_service"] | null
+          service: Database["public"]["Enums"]["fulfillment_service"]
           sort: number
           updated_at: string
         }
@@ -2550,7 +2550,7 @@ export type Database = {
           is_fixture?: boolean
           lead_id?: string | null
           name: string
-          service?: Database["public"]["Enums"]["fulfillment_service"] | null
+          service: Database["public"]["Enums"]["fulfillment_service"]
           sort?: number
           updated_at?: string
         }
@@ -2563,7 +2563,7 @@ export type Database = {
           is_fixture?: boolean
           lead_id?: string | null
           name?: string
-          service?: Database["public"]["Enums"]["fulfillment_service"] | null
+          service?: Database["public"]["Enums"]["fulfillment_service"]
           sort?: number
           updated_at?: string
         }
@@ -6409,6 +6409,100 @@ export type Database = {
           },
         ]
       }
+      partner_assignments: {
+        Row: {
+          agency_id: string
+          assignment_role: string
+          created_at: string
+          created_by: string | null
+          ended_on: string | null
+          group_id: string
+          id: string
+          is_primary: boolean
+          notes: string | null
+          service_id: string | null
+          started_on: string
+          team_id: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          agency_id: string
+          assignment_role?: string
+          created_at?: string
+          created_by?: string | null
+          ended_on?: string | null
+          group_id: string
+          id?: string
+          is_primary?: boolean
+          notes?: string | null
+          service_id?: string | null
+          started_on?: string
+          team_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          agency_id?: string
+          assignment_role?: string
+          created_at?: string
+          created_by?: string | null
+          ended_on?: string | null
+          group_id?: string
+          id?: string
+          is_primary?: boolean
+          notes?: string | null
+          service_id?: string | null
+          started_on?: string
+          team_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_assignments_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_assignments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_assignments_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "outsourcing_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_assignments_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "partner_services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_assignments_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_assignments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       partner_billing_models: {
         Row: {
           active: boolean
@@ -10102,6 +10196,16 @@ export type Database = {
           },
         ]
       }
+      fixture_login_state: {
+        Row: {
+          fixture_identities: number | null
+          identity_rows: number | null
+          live_sessions: number | null
+          not_banned: number | null
+          with_password: number | null
+        }
+        Relationships: []
+      }
       report_facts: {
         Row: {
           agency_id: string | null
@@ -10423,6 +10527,7 @@ export type Database = {
         Returns: Json
       }
       as_uuid: { Args: { p: string }; Returns: string }
+      assert_fixture_logins_disabled: { Args: never; Returns: Json }
       assert_seat_available: {
         Args: { p_for_user?: string; p_ignore_pending?: boolean; p_org: string }
         Returns: undefined
@@ -10461,6 +10566,7 @@ export type Database = {
         Args: { p_agency_slug?: string; p_email: string }
         Returns: string
       }
+      can_see_partner: { Args: { p_group: string }; Returns: boolean }
       can_view_activity: {
         Args: {
           p_agency: string
@@ -11755,7 +11861,12 @@ export type Database = {
         | "Round 3"
         | "Round 4+"
         | "Completed"
-      fulfillment_service: "creditops" | "fundingops" | "bes_crm" | "talentops"
+      fulfillment_service:
+        | "creditops"
+        | "fundingops"
+        | "bes_crm"
+        | "talentops"
+        | "corporate"
       funding_client_status:
         | "Onboarding"
         | "Credit Readiness"
@@ -12456,7 +12567,13 @@ export const Constants = {
         "Round 4+",
         "Completed",
       ],
-      fulfillment_service: ["creditops", "fundingops", "bes_crm", "talentops"],
+      fulfillment_service: [
+        "creditops",
+        "fundingops",
+        "bes_crm",
+        "talentops",
+        "corporate",
+      ],
       funding_client_status: [
         "Onboarding",
         "Credit Readiness",
