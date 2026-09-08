@@ -123,17 +123,28 @@ the Access Inspector; the CreditOps handoff fix and your locked credit-status
 list; and **operational notifications** — assignment, handoff, mention, direct
 message, announcement and attention now all reach the person they concern.
 
-Also fixed on the way: an @-mention in a BES channel was writing a
-notification **nobody could read**, because it was stamped with the wrong
-visibility. The bell never rang and nothing logged an error. That is why
-announcements were not reaching your other user.
+**Two things were broken and are now fixed, and together they explain what
+you reported.** An @-mention in a BES channel wrote a notification *nobody
+could read* — it was stamped with the wrong visibility, so the bell never rang
+and nothing logged an error. And the Notifications page itself was still
+flagged "not ready", which means the route guard refused it for everyone: the
+bell and the sidebar badge both led to "Notifications is not available yet" on
+a page full of real rows.
 
-Verified, not assumed: **1,321 unit tests**, and the full row-level-security
-matrix across **64 phases**. Numbers for the current run are in the report
-that follows this list.
+Also done: conversations are searchable from the top bar; the Settings screens
+that showed switches which switched nothing now state facts instead; a dead
+screen that was the only page in the product with no access guard is archived;
+two mobile drawers no longer put an invisible button in the keyboard tab
+order; and the authorization map is generated from the database now rather
+than hand-maintained, because the hand-written one was verified at migration
+21 while the database had reached 219 — and still labelled every line FACT.
+
+Verified, not assumed: **1,341 unit tests**, the full row-level-security
+matrix across **64 phases**, and the deploy checked by reading what the served
+files actually contain.
 
 ### Still moving without you
 
-Owner Home and Attention polish, the remaining audits (Calendar, Files,
-Knowledge, EOD, Production), global search isolation checks, role persona
-tests, and the deploy smoke test.
+The remaining Calendar / Files / Knowledge / EOD / Production audit passes,
+and the second mobile polish pass. Everything else on the agency programme is
+either done or waiting on an item above.
