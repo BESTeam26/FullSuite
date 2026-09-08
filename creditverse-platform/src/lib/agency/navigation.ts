@@ -74,15 +74,19 @@ export const AGENCY_ROUTES: AgencyRouteSpec[] = [
   { key: "education", label: "Knowledge Base", path: "/app/education", readiness: "ready", minRole: "agency_agent" },
   { key: "files", label: "Files", path: "/app/files", readiness: "ready", minRole: "agency_agent" },
 
-  /* Deliberately empty: there is no notifications table, no recipient and no
-     read state, so the page can only ever show nothing. It stays out of the
-     staff menu until the model exists rather than sitting there looking
-     broken. */
-  {
-    key: "notifications", label: "Notifications", path: "/app/notifications",
-    readiness: "locked_not_ready", minRole: "agency_agent",
-    lockedReason: "There is no notifications model yet — no recipient, no read state. The page can only show an empty list.",
-  },
+  /* WAS `locked_not_ready`, on the true statement that there was no
+     notifications model. There is one now — a `notifications` table with a
+     recipient, read state, and triggers that route assignment, handoff,
+     mention, direct message, announcement and attention (0005, 0006, 0218).
+
+     Leaving it locked was not cosmetic staleness. `locked` means the route
+     guard REFUSES the URL for everybody, including the owner — and the Topbar
+     bell links here unconditionally. So clicking the bell showed
+     "Notifications is not available yet" on a page full of real rows: exactly
+     the "a visible link must not lead to a refusal" failure the shared
+     `accessTo` exists to prevent, caused by a readiness flag nobody revisited
+     when the feature landed. */
+  { key: "notifications", label: "Notifications", path: "/app/notifications", readiness: "ready", minRole: "agency_agent" },
 
   /* ── Team leads and up ────────────────────────────────────────────── */
   { key: "attention", label: "Attention Center", path: "/app/attention", readiness: "ready", minRole: "agency_team_lead" },
@@ -95,6 +99,14 @@ export const AGENCY_ROUTES: AgencyRouteSpec[] = [
   { key: "reporting", label: "Reports", path: "/app/reporting", readiness: "ready", minRole: "agency_manager", permission: "reports.view" },
   { key: "partners", label: "BES Partners", path: "/app/bes-partners", readiness: "ready", minRole: "agency_manager" },
   { key: "creditops", label: "CreditOps", path: "/app/creditops", readiness: "ready", minRole: "agency_manager" },
+  /* An older BES-only fulfillment board, still routed and linked from
+     nowhere. It reads AGENCY-scope work, so an organization user typing the
+     URL rendered a BES workspace shell — the rows were refused by row-level
+     security, but the interface layer had no opinion because the path was
+     absent from this table. Same manager floor as CreditOps, the screen that
+     replaced it. It does not appear in the sidebar: the menu is built from its
+     own list and consults this table only for the items that list holds. */
+  { key: "fulfillment_board", label: "Fulfillment", path: "/app/fulfillment", readiness: "ready", minRole: "agency_manager" },
   { key: "fundingops", label: "FundingOps", path: "/app/fundingops", readiness: "ready", minRole: "agency_manager" },
   { key: "bes_crm", label: "BES CRM", path: "/app/bes-crm", readiness: "ready", minRole: "agency_manager" },
   { key: "talentops", label: "TalentOps", path: "/app/talentops", readiness: "ready", minRole: "agency_manager" },

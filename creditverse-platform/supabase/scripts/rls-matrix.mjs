@@ -4842,6 +4842,16 @@ if (runs(64)) {
     ["a message in a channel that is not direct raises no dm notification",
       () => act64(OWN64, say64(`'${GEN64}'`, OWN64, null), nCount(`kind='dm'`)), 0],
 
+    /* ── 0219: a direct message says WHO, not "Direct message" ───────── */
+    ["a direct-message notification is labelled with its author, not the channel's name",
+      () => act64(OWN64, `select public.open_direct_channel('${CO64}'); ${say64(dm64(OWN64, CO64), OWN64, null)}`,
+        `select entity_label as rows from public.notifications where kind='dm' order by id desc limit 1`),
+      q(`select coalesce(nullif(trim(p.full_name),''), p.email, 'Someone') as rows from public.profiles p where p.id='${OWN64}'`)[0].rows],
+    ["…and a mention in a real channel is still labelled with the channel",
+      () => act64(OWN64, say64(`'${GEN64}'`, OWN64, CO64),
+        `select entity_label as rows from public.notifications where kind='mention' order by id desc limit 1`),
+      q(`select name as rows from public.channels where id='${GEN64}'`)[0].rows],
+
     /* ── handoff ─────────────────────────────────────────────────────── */
     ["a handoff tells the client's assigned agent",
       () => act64(OWN64, `select public.handoff_client_departments('${EVAN64}','Onboarding',array['Dispute']::public.fulfillment_department[],array['Ready for Processing'],'probe');`,

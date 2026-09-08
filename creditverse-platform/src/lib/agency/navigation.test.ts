@@ -13,6 +13,10 @@ const allow = (role: AgencyRole | null, path: string, perms: string[] = []) =>
 const STAFF_MENU = [
   "/app", "/app/my-work", "/app/team-workspace", "/app/my-time",
   "/app/eod", "/app/calendar", "/app/announcements", "/app/education", "/app/files",
+  /* Added when the notifications model shipped. The Topbar bell links here
+     unconditionally, so this route being openable by an agent is a
+     requirement, not a preference. */
+  "/app/notifications",
 ];
 
 const MANAGEMENT = [
@@ -95,22 +99,49 @@ describe("admins and the owner", () => {
 });
 
 describe("things that are not ready", () => {
+  /* Tested against a synthetic spec, not against whichever page happens to be
+     unfinished this week. These assertions used to name /app/notifications —
+     and when the notifications model shipped, the flag on that row was not
+     revisited, so the Topbar bell led to "not available yet" on a page full
+     of real rows. A rule pinned to one example decays into a rule about that
+     example. */
+  const unfinished = {
+    key: "example", label: "Example", path: "/app/example-unfinished",
+    readiness: "locked_not_ready", minRole: "agency_agent",
+    lockedReason: "Not finished.",
+  } as const;
+
   it("are hidden from staff entirely", () => {
-    expect(accessTo(routeFor("/app/notifications")!, ctx("agency_agent"))).toBe("hide");
-    expect(accessTo(routeFor("/app/notifications")!, ctx("agency_manager"))).toBe("hide");
+    expect(accessTo(unfinished, ctx("agency_agent"))).toBe("hide");
+    expect(accessTo(unfinished, ctx("agency_manager"))).toBe("hide");
   });
 
   it("are shown to an admin as locked, so they know it exists and is unfinished", () => {
-    expect(accessTo(routeFor("/app/notifications")!, ctx("agency_admin"))).toBe("locked");
-    expect(routeFor("/app/notifications")!.lockedReason).toBeTruthy();
+    expect(accessTo(unfinished, ctx("agency_admin"))).toBe("locked");
+    expect(accessTo(unfinished, ctx("agency_owner"))).toBe("locked");
   });
 
   /* Locked means locked. A page that cannot work does not work for the owner
      either, so the door stays shut for everybody. */
   it("do not open for anyone, including the owner", () => {
     for (const role of ["agency_agent", "agency_team_lead", "agency_manager", "agency_admin", "agency_owner"] as AgencyRole[]) {
-      expect(allow(role, "/app/notifications")).toBe(false);
+      expect(accessTo(unfinished, ctx(role))).not.toBe("allow");
     }
+  });
+
+  it("every locked route in the real table carries a reason", () => {
+    /* If one is added, it must say why — the refusal screen prints it. */
+    for (const spec of AGENCY_ROUTES.filter((r) => r.readiness === "locked_not_ready")) {
+      expect(spec.lockedReason, spec.path).toBeTruthy();
+    }
+  });
+});
+
+describe("the Topbar bell", () => {
+  /* It is rendered for everybody with no permission check of its own, so its
+     destination must open for the lowest role that sees a Topbar. */
+  it("leads somewhere an ordinary agent can actually open", () => {
+    expect(allow("agency_agent", "/app/notifications")).toBe(true);
   });
 });
 
