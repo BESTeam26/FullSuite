@@ -875,3 +875,28 @@ Invite lifecycle walked to the edge of a mailbox: create (role Agency User) →
 pending list with Copy link → **Resend accepted the branded email** → revoke →
 dead-token page honest. Build-scope presets landed (§31): Full / Website only /
 Sales / Fulfillment / Custom, 3/4/13 engines verified live.
+
+### ClickUp partner import executed — 2026-09-09
+
+Dee's "proceed" ran the partner half of the migration (0243, merge fix 0244;
+batch `9c2f7a5e`). **26 partners** live in `outsourcing_groups` — 24 new, 2
+merged onto existing rows — each with typed `partner_services` and
+`fulfillment_engagements` for exactly the services bought (full = CreditOps +
+BES CRM; Nainoa also TalentOps; the two on-hold partners paused, authorizing
+nothing). Provenance on every row; credentials deliberately NOT imported —
+every group flagged `credential_migration_required` for hand re-keying into
+the vault. Targeted matrix over the partner surface: **301/301** (phases
+55–57, 59, 60, 63).
+
+Trap recorded: BES held Wavy One with `name`/`partner_name` SWAPPED relative
+to ClickUp, so name-to-name matching missed and duplicated it — 0244 merges
+cross-swapped pairs generically, original row (real email, contacts, client)
+surviving. Rule 2 held only because the verification query looked.
+
+Client import (~1,950 tasks surveyed across all 20 folders) is **blocked on
+emails**: required + unique per partner, but only reachable per-task in
+ClickUp where descriptions carry plaintext credentials. Options and the full
+status-mapping proposal are in `docs/MIGRATION_READINESS.md`, waiting on
+three Dee decisions. Standing rule from a near-miss: partner/client task
+descriptions are never fetched through assistant tooling — structured fields
+only, and the one exposed set of logins (Vanquish) gets rotated at re-key.
