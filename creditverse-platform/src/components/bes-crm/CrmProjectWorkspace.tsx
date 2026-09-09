@@ -38,6 +38,7 @@ import {
 } from "@/lib/data/use-work-timeline";
 import { VISIBILITY_LABEL, type ActivityVisibility } from "@/lib/data/activity";
 import { HealthPill, JourneyRail, ProgressBar } from "./CrmBoardTab";
+import { CrmClientRequirementsPanel, CrmMilestonesPanel } from "./CrmProjectSidePanels";
 import { cn } from "@/lib/utils";
 
 /**
@@ -127,23 +128,29 @@ export const CrmProjectWorkspace = ({
       {tab === "updates" && <ProjectTimeline project={project} isBes={isBes} />}
 
       {tab === "work" && (
-        <div className="space-y-3">
-          {engines.isLoading && (
-            <div className="space-y-2" aria-busy="true">
-              {[0, 1, 2].map((i) => (
-                <div key={i} className="h-16 rounded-xl border border-border bg-card" />
-              ))}
-            </div>
-          )}
-          {(engines.data ?? []).map((engine) => (
-            <EngineSection
-              key={engine.engineKey}
-              engine={engine}
-              units={byEngine.get(engine.engineKey) ?? []}
-              projectId={project.id}
-              isBes={isBes}
-            />
-          ))}
+        <div className="flex flex-col gap-3 lg:flex-row">
+          <div className="min-w-0 flex-1 space-y-3">
+            {engines.isLoading && (
+              <div className="space-y-2" aria-busy="true">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="h-16 rounded-xl border border-border bg-card" />
+                ))}
+              </div>
+            )}
+            {(engines.data ?? []).map((engine) => (
+              <EngineSection
+                key={engine.engineKey}
+                engine={engine}
+                units={byEngine.get(engine.engineKey) ?? []}
+                projectId={project.id}
+                isBes={isBes}
+              />
+            ))}
+          </div>
+          <aside className="w-full shrink-0 space-y-3 lg:w-72">
+            <CrmClientRequirementsPanel projectId={project.id} isBes={isBes} />
+            <CrmMilestonesPanel projectId={project.id} isBes={isBes} />
+          </aside>
         </div>
       )}
     </div>

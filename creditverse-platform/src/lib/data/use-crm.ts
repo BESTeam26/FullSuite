@@ -2,11 +2,15 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth/auth-context";
 import {
   addCrmEngine,
+  completeMilestone,
   completeWorkUnit,
   createCrmProject,
   failQa,
+  fetchClientRequirements,
   fetchCrmBoard,
   fetchCrmEngineOptions,
+  fetchProjectMilestones,
+  satisfyClientRequirement,
   fetchEngineProgress,
   fetchProjectUnits,
   passQa,
@@ -149,5 +153,53 @@ export function useCrmEngineOptions() {
     enabled: live(auth),
     /* The catalogue changes when a template is published — rarely. */
     staleTime: 5 * 60_000,
+  });
+}
+
+export const crmMilestonesKey = (p: string) => ["crm", "milestones", p] as const;
+export const crmRequirementsKey = (p: string) => ["crm", "client-requirements", p] as const;
+
+export function useCrmMilestones(projectId: string | null) {
+  const auth = useAuth();
+  return useQuery({
+    queryKey: crmMilestonesKey(projectId ?? ""),
+    queryFn: () => fetchProjectMilestones(projectId!),
+    enabled: live(auth) && !!projectId,
+    staleTime: 15_000,
+  });
+}
+
+export function useCompleteMilestone(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, note }: { id: string; note?: string | null }) =>
+      completeMilestone(id, note),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: crmMilestonesKey(projectId) });
+      refreshProject(qc, projectId);
+    },
+  });
+}
+
+export function useCrmClientRequirements(projectId: string | null) {
+  const auth = useAuth();
+  return useQuery({
+    queryKey: crmRequirementsKey(projectId ?? ""),
+    queryFn: () => fetchClientRequirements(projectId!),
+    enabled: live(auth) && !!projectId,
+    staleTime: 15_000,
+  });
+}
+
+export function useSatisfyRequirement(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, note }: { id: string; note?: string | null }) =>
+      satisfyClientRequirement(id, note),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: crmRequirementsKey(projectId) });
+      /* Delivering an input can auto-start units, so the work view is stale. */
+      refreshProject(qc, projectId);
+    },
   });
 }

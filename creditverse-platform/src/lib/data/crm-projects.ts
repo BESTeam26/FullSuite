@@ -321,3 +321,103 @@ export async function fetchCrmEngineOptions(): Promise<CrmEngineOption[]> {
     };
   });
 }
+
+/* ── Milestones and client requirements: the other two layers on screen ──── */
+
+/** One milestone. Most complete themselves when their work unit does. */
+export interface CrmMilestone {
+  id: string;
+  key: string;
+  label: string;
+  engineKey: string | null;
+  scheduledAt: string | null;
+  completedAt: string | null;
+  clientVisible: boolean;
+  /** Set when the milestone derives from a unit — those are never ticked by hand. */
+  workItemId: string | null;
+  notes: string | null;
+  sort: number;
+}
+
+export async function fetchProjectMilestones(projectId: string): Promise<CrmMilestone[]> {
+  const sb = requireSupabase();
+  const { data, error } = await sb
+    .from("crm_milestones")
+    .select("id,key,label,engine_key,scheduled_at,completed_at,client_visible,work_item_id,notes,sort")
+    .eq("project_id", projectId)
+    .order("sort");
+  if (error) throw error;
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    key: r.key,
+    label: r.label,
+    engineKey: r.engine_key,
+    scheduledAt: r.scheduled_at,
+    completedAt: r.completed_at,
+    clientVisible: Boolean(r.client_visible),
+    workItemId: r.work_item_id,
+    notes: r.notes,
+    sort: r.sort,
+  }));
+}
+
+/** Tick a milestone that has no unit of its own — a presentation, a training. */
+export async function completeMilestone(id: string, note?: string | null) {
+  const sb = requireSupabase();
+  const { error } = await sb.rpc("crm_complete_milestone", {
+    p_milestone: id,
+    p_note: note ?? null,
+  });
+  if (error) throw error;
+}
+
+/** Something the CLIENT owes before work can proceed. */
+export interface CrmClientRequirement {
+  id: string;
+  label: string;
+  detail: string | null;
+  satisfiedAt: string | null;
+  satisfiedNote: string | null;
+  /** How many work units are waiting on it right now. */
+  blocking: number;
+}
+
+export async function fetchClientRequirements(
+  projectId: string,
+): Promise<CrmClientRequirement[]> {
+  const sb = requireSupabase();
+  const { data, error } = await sb
+    .from("crm_client_requirements")
+    .select("id,label,detail,satisfied_at,satisfied_note,crm_client_requirement_blocks(work_item_id)")
+    .eq("project_id", projectId)
+    .order("created_at");
+  if (error) throw error;
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    label: r.label,
+    detail: r.detail,
+    satisfiedAt: r.satisfied_at,
+    satisfiedNote: r.satisfied_note,
+    blocking: r.satisfied_at
+      ? 0
+      : ((r.crm_client_requirement_blocks as { work_item_id: string }[]) ?? []).length,
+  }));
+}
+
+/**
+ * Record that the client delivered. Returns how many units that unblocked —
+ * the auto-start rule lives in the database, so the screen reports what
+ * happened rather than deciding it.
+ */
+export async function satisfyClientRequirement(
+  id: string,
+  note?: string | null,
+): Promise<number> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("crm_satisfy_client_requirement", {
+    p_requirement: id,
+    p_note: note ?? null,
+  });
+  if (error) throw error;
+  return Number(data ?? 0);
+}
