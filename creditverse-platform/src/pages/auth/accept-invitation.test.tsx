@@ -110,3 +110,29 @@ describe("invitationProblem", () => {
     }
   });
 });
+
+/* supabase-js rejects with a PostgrestError: a plain object carrying
+   `message`, not an Error. Reading it as an Error found nothing and every
+   refusal became "this link is not valid" — including the one a person can
+   act on. */
+describe("a database refusal keeps its own words", () => {
+  it("reads the message off a PostgrestError-shaped object", () => {
+    const postgrestError = {
+      message: "This invitation was sent to a different email address",
+      code: "42501", details: null, hint: null,
+    };
+    expect(invitationProblem(postgrestError)).toBe(
+      "This invitation was sent to a different email address",
+    );
+  });
+
+  it("still hides Postgres internals whatever shape they arrive in", () => {
+    expect(invitationProblem({ message: 'relation "invitations" does not exist' }))
+      .toBe("This invitation link is not valid, or it has already been used.");
+  });
+
+  it("falls back for a shape with no message at all", () => {
+    expect(invitationProblem({ code: "42501" }))
+      .toBe("This invitation link is not valid, or it has already been used.");
+  });
+});
