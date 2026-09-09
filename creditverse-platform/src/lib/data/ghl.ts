@@ -238,3 +238,55 @@ export async function fetchGhlAgencyStatus(): Promise<GhlAgencyStatus | null> {
   };
 }
 
+
+
+/* ── Outbound: BES status → GHL tag (0284) ─────────────────────────────── */
+
+export interface GhlOutboundEvent {
+  id: number;
+  locationId: string;
+  partnerGroupId: string | null;
+  clientId: string | null;
+  contactEmail: string;
+  contactName: string | null;
+  statusLabel: string;
+  tag: string;
+  state: "pending" | "sent" | "failed" | "skipped";
+  attempts: number;
+  lastError: string | null;
+  createdAt: string;
+  sentAt: string | null;
+}
+
+export async function fetchGhlOutbound(limit = 30): Promise<GhlOutboundEvent[]> {
+  const sb = requireSupabase();
+  const { data, error } = await sb
+    .from("ghl_outbound_events")
+    .select("id, location_id, outsourcing_group_id, client_id, contact_email, contact_name, status_label, tag, state, attempts, last_error, created_at, sent_at")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []).map((r) => ({
+    id: r.id as number,
+    locationId: r.location_id as string,
+    partnerGroupId: (r.outsourcing_group_id as string) ?? null,
+    clientId: (r.client_id as string) ?? null,
+    contactEmail: String(r.contact_email),
+    contactName: (r.contact_name as string) ?? null,
+    statusLabel: r.status_label as string,
+    tag: r.tag as string,
+    state: r.state as GhlOutboundEvent["state"],
+    attempts: Number(r.attempts ?? 0),
+    lastError: (r.last_error as string) ?? null,
+    createdAt: r.created_at as string,
+    sentAt: (r.sent_at as string) ?? null,
+  }));
+}
+
+/** Work the queue now, with the caller's own session — for the panel's button. */
+export async function pushGhlOutboundNow(): Promise<{ worked: number; sent: number; skipped: number; failed: number; note?: string }> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.functions.invoke("ghl-push", { body: {} });
+  if (error) throw error;
+  return data as { worked: number; sent: number; skipped: number; failed: number; note?: string };
+}

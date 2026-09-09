@@ -5643,6 +5643,63 @@ export type Database = {
           },
         ]
       }
+      ghl_outbound_events: {
+        Row: {
+          agency_id: string
+          attempts: number
+          client_id: string | null
+          contact_email: string
+          contact_name: string | null
+          created_at: string
+          event_kind: string
+          ghl_contact_id: string | null
+          id: number
+          last_error: string | null
+          location_id: string
+          outsourcing_group_id: string | null
+          sent_at: string | null
+          state: string
+          status_label: string
+          tag: string
+        }
+        Insert: {
+          agency_id: string
+          attempts?: number
+          client_id?: string | null
+          contact_email: string
+          contact_name?: string | null
+          created_at?: string
+          event_kind?: string
+          ghl_contact_id?: string | null
+          id?: never
+          last_error?: string | null
+          location_id: string
+          outsourcing_group_id?: string | null
+          sent_at?: string | null
+          state?: string
+          status_label: string
+          tag: string
+        }
+        Update: {
+          agency_id?: string
+          attempts?: number
+          client_id?: string | null
+          contact_email?: string
+          contact_name?: string | null
+          created_at?: string
+          event_kind?: string
+          ghl_contact_id?: string | null
+          id?: never
+          last_error?: string | null
+          location_id?: string
+          outsourcing_group_id?: string | null
+          sent_at?: string | null
+          state?: string
+          status_label?: string
+          tag?: string
+        }
+        Relationships: []
+      }
       hub_modules: {
         Row: {
           always_on: boolean

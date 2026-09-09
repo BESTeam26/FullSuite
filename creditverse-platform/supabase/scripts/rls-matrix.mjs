@@ -1642,6 +1642,36 @@ if (runs(36)) {
     ["an agent does not",                                          () => q(`begin; insert into public.ghl_connections (organization_id, location_id) values ('${lakesideOrg}', 'probe-see') on conflict do nothing; set local role authenticated; set local request.jwt.claims = '{"sub":"${AGENT}","role":"authenticated"}'; select count(*)::int as rows from public.ghl_connections where location_id='probe-see'; rollback;`)[0].rows, 0],
     ["another organization's owner sees no Lakeside events",       () => w36(OTHER, `select count(*)::int as rows from public.ghl_events where organization_id='${lakesideOrg}'`), 0],
     ["an event cannot be inserted from a browser",                 () => w36(BES, `insert into public.ghl_events (location_id, event_type, payload) values ('probe-location', 'probe', '{}'::jsonb); select 1 as rows`), "ERR 42501"],
+    /* ── outbound (0284): the queue is readable, never writable, and fixtures never leave ── */
+    ["staff read the outbound queue — it is the audit of what BES told GHL",
+      () => w36(BES, `select count(*)::int as rows from public.ghl_outbound_events`) === "ERR 42501" ? "refused" : "readable", "readable"],
+    ["…an organization user reads none of it",
+      () => w36(OWNER, `select count(*)::int as rows from public.ghl_outbound_events`), 0],
+    ["…and nobody inserts into it from a browser — the trigger and the worker write",
+      () => w36(BES, `insert into public.ghl_outbound_events (agency_id, location_id, contact_email, status_label, tag)
+        values ((select agency_id from public.agency_memberships limit 1), 'x', 'x@example.test', 'x', 'bes-status-x'); select 1 as rows`), "ERR 42501"],
+    ["a FIXTURE client's status change enqueues nothing — test data never reaches a partner's GHL",
+      () => q(`begin;
+        insert into public.ghl_connections (location_id, company_id, outsourcing_group_id, status, discovered_at)
+          values ('PROBE-LOC-F', 'probe', (select id from public.outsourcing_groups where is_fixture limit 1), 'connected', now());
+        update public.fulfillment_clients set status = 'Ready for Round 1'
+         where is_fixture and outsourcing_group_id = (select id from public.outsourcing_groups where is_fixture limit 1);
+        select count(*)::int as rows from public.ghl_outbound_events where location_id = 'PROBE-LOC-F';
+        rollback;`)[0].rows, 0],
+    ["a client whose partner has NO mapped location enqueues nothing — there is nowhere to send",
+      () => q(`begin;
+        insert into public.clients (id, agency_id, outsourcing_group_id, mode, last_name, email, provenance)
+          values ('44444444-0000-4000-8000-00000000ab11', (select id from public.agencies limit 1), (select id from public.outsourcing_groups where is_fixture limit 1), 'outsourcing_only', 'Probe', 'probe.nowhere@example.test', 'outsourcing_only');
+        insert into public.fulfillment_clients (id, agency_id, outsourcing_group_id, mode, client_id, name, email, status)
+          values ('44444444-0000-4000-8000-00000000ab12', (select id from public.agencies limit 1), (select id from public.outsourcing_groups where is_fixture limit 1), 'outsourcing_only', '44444444-0000-4000-8000-00000000ab11', 'Probe Nowhere', 'probe.nowhere@example.test', 'Onboarding');
+        select count(*)::int as rows from public.ghl_outbound_events where contact_email = 'probe.nowhere@example.test';
+        rollback;`)[0].rows, 0],
+    ["the status tag is a slug GHL accepts",
+      () => q(`select public.ghl_status_tag('Ready For Reimport/ Credit Update') as rows`)[0].rows, "bes-status-ready-for-reimport-credit-update"],
+    ["the dispatcher is scheduled and nothing but postgres may run it",
+      () => q(`select ((select count(*) from cron.job where jobname='ghl-outbound-dispatch' and active) = 1
+                   and not has_function_privilege('authenticated', 'public.ghl_outbound_dispatch()', 'execute'))::text as rows`)[0].rows, "true"],
+
     ["the same event twice is one row",                            () => q(`begin; insert into public.ghl_connections (organization_id, location_id) values ('${lakesideOrg}', 'probe-dupe') on conflict do nothing; insert into public.ghl_events (location_id, organization_id, event_type, external_id, payload) values ('probe-dupe', '${lakesideOrg}', 'ContactCreate', 'evt-1', '{}'::jsonb); insert into public.ghl_events (location_id, organization_id, event_type, external_id, payload) values ('probe-dupe', '${lakesideOrg}', 'ContactCreate', 'evt-1', '{}'::jsonb) on conflict do nothing; select count(*)::int as rows from public.ghl_events where location_id='probe-dupe'; rollback;`)[0].rows, 1],
   ];
   runPhase("phase 36", P36);

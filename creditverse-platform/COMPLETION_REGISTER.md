@@ -1442,3 +1442,35 @@ and inserted a NULL partner: it would have passed while testing nothing.
 matrix's positive control (the fixture lead saw 0 clients instead of 4). Both
 restored; bootstrap back to 77/77. A reminder that clicking through a live
 app to verify is itself a write.
+
+### BES → GHL: a status change reaches the partner's pipeline — 2026-09-09
+
+Dee: "I want seamless trigger from my status to clients GHL Pipeline and
+Workflow." Built so it needs NO stage mapping from her: BES applies a tag,
+`bes-status-<slug>` (e.g. `bes-status-ready-for-round-1`), to the matching
+contact in the partner's mapped GHL location, and her workflows trigger on
+"Contact Tag Added" the way she already builds automations. One status tag at
+a time — the previous one is removed when the new one lands.
+
+- **0284**: `ghl_outbound_events` is queue and audit in one — every attempt and
+  its outcome (sent / skipped / failed, with the provider's own words). An
+  AFTER trigger on `fulfillment_clients` enqueues on insert and on status
+  change only, and only when the partner is mapped to a connected location;
+  fixture clients never enqueue, so test data cannot reach a partner's GHL.
+- **`ghl-push` function** finds the contact by email in that location, swaps
+  the tag, records the outcome, retries a provider refusal five times, and
+  never creates a contact (a client missing from the partner's GHL is the
+  partner's decision — recorded as skipped, with the reason).
+- **Cron every minute** through pg_net, authenticating with a shared secret
+  held in Supabase Vault beside the function's own copy — written once, out
+  of band, never in a migration. An unset secret is a stopped bridge, not an
+  open one. An admin can also press "Send pending now".
+- **Panel**: how to wire a pipeline move in GHL, pending/sent/skipped/failed
+  counts, and every event with its outcome.
+
+Proven: enqueue (2 rows for insert + status change, none for a rename),
+worker refuses without secret or admin session and answers an admin with
+`worked 0`, cron active, pg_net installed. Phase 36 carries seven probes.
+**Not yet exercised against a real GHL contact** — the first live push will be
+a real status change on a Bizhub client, visible in the panel with its result.
+The agency token must carry `contacts.readonly` and `contacts.write`.

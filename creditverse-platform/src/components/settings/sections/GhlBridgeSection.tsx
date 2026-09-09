@@ -31,7 +31,10 @@ import {
   disconnectGhlLocation,
   fetchGhlConnections,
   fetchGhlEvents,
+  fetchGhlOutbound,
+  pushGhlOutboundNow,
 } from "@/lib/data/ghl";
+import { ArrowUpRight } from "lucide-react";
 
 const inputCls = "mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary";
 const labelCls = "block text-[10px] font-bold uppercase tracking-wider text-muted-foreground";
@@ -44,6 +47,19 @@ export function GhlBridgeSection() {
 
   const connections = useQuery({ queryKey: ["ghl", "connections"], queryFn: fetchGhlConnections, enabled: live, staleTime: 60_000 });
   const events = useQuery({ queryKey: ["ghl", "events"], queryFn: () => fetchGhlEvents(20), enabled: live, staleTime: 30_000 });
+  const outbound = useQuery({ queryKey: ["ghl", "outbound"], queryFn: () => fetchGhlOutbound(30), enabled: live, staleTime: 15_000 });
+  const pushNow = useMutation({
+    mutationFn: pushGhlOutboundNow,
+    onSuccess: (r) => {
+      setMessage({
+        text: r.note ?? `Worked ${r.worked}: ${r.sent} sent, ${r.skipped} skipped, ${r.failed} failed.`,
+        error: r.failed > 0,
+      });
+      void qc.invalidateQueries({ queryKey: ["ghl", "outbound"] });
+    },
+    onError: (e) => setMessage({ text: errorMessage(e, "The push could not run."), error: true }),
+  });
+  const pending = (outbound.data ?? []).filter((e) => e.state === "pending").length;
   /* Shares the partner list every partner screen uses — one query key, so
      opening Integrations after BES Partners costs nothing (rule 14). */
   const partners = useAgencyPartners();
@@ -181,6 +197,70 @@ export function GhlBridgeSection() {
           </ul>
         ) : (
           <p className="text-xs text-muted-foreground">None. Locations discovered through the agency are listed above.</p>
+        )}
+      </SectionCard>
+
+      <SectionCard
+        icon={ArrowUpRight}
+        title="Outbound: BES status → GHL"
+        description="When a client's status changes here, the matching contact in the partner's GHL location gets a tag. Your GHL workflows do the rest."
+      >
+        <div className="mb-3 rounded-lg border border-blue-500/30 bg-blue-500/5 p-3 text-xs text-foreground">
+          <p className="font-semibold">How to wire a pipeline move</p>
+          <p className="mt-1">
+            Every status becomes a tag named <span className="font-mono">bes-status-&lt;status&gt;</span>, for
+            example <span className="font-mono">bes-status-ready-for-round-1</span> or{" "}
+            <span className="font-mono">bes-status-letters-mailed</span>. In that partner&apos;s GHL:
+            Automation → Workflows → trigger <strong>Contact Tag Added</strong> → the tag → action{" "}
+            <strong>Update Opportunity Stage</strong> (or anything else). BES removes the previous
+            bes-status tag when the new one lands, so a contact carries one status at a time.
+          </p>
+          <p className="mt-1 text-muted-foreground">
+            Contacts are matched by email inside the location the partner is mapped to. BES never creates
+            a contact — a client missing from the partner&apos;s GHL is recorded as skipped, with the reason.
+            Pushes run every minute on their own; the button sends what is waiting right now.
+          </p>
+        </div>
+
+        <div className="mb-3 flex flex-wrap items-center gap-3">
+          <Button type="button" size="sm" variant="outline" disabled={pushNow.isPending || pending === 0}
+            onClick={() => pushNow.mutate()}>
+            {pushNow.isPending ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <ArrowUpRight className="mr-1 h-3.5 w-3.5" />}
+            Send {pending} pending now
+          </Button>
+          <span className="text-[11px] text-muted-foreground">
+            {(outbound.data ?? []).filter((e) => e.state === "sent").length} sent ·{" "}
+            {(outbound.data ?? []).filter((e) => e.state === "skipped").length} skipped ·{" "}
+            {(outbound.data ?? []).filter((e) => e.state === "failed").length} failed (last 30)
+          </span>
+        </div>
+
+        {outbound.isLoading ? (
+          <div className="h-16 animate-pulse rounded-lg bg-muted/40" aria-busy="true" />
+        ) : (outbound.data ?? []).length === 0 ? (
+          <p className="text-xs text-muted-foreground">
+            Nothing to push yet. The first status change on a client whose partner is mapped to a GHL
+            location appears here within a minute, with its outcome.
+          </p>
+        ) : (
+          <ul className="divide-y divide-border/60 text-xs">
+            {(outbound.data ?? []).map((e) => (
+              <li key={e.id} className="flex flex-wrap items-center gap-2 py-2">
+                <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                  e.state === "sent" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
+                  : e.state === "pending" ? "border-border text-muted-foreground"
+                  : e.state === "skipped" ? "border-amber-500/40 bg-amber-500/10 text-amber-800"
+                  : "border-red-500/40 bg-red-500/10 text-red-800"}`}>
+                  {e.state}
+                </span>
+                <span className="font-semibold text-foreground">{e.contactName ?? e.contactEmail}</span>
+                <span className="text-muted-foreground">→ {e.statusLabel}</span>
+                <span className="font-mono text-[10px] text-muted-foreground">{e.tag}</span>
+                <span className="ml-auto text-muted-foreground">{formatDateTime(e.sentAt ?? e.createdAt)}</span>
+                {e.lastError && <span className="basis-full text-[11px] text-status-danger">{e.lastError}</span>}
+              </li>
+            ))}
+          </ul>
         )}
       </SectionCard>
 
