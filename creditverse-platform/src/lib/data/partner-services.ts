@@ -486,6 +486,9 @@ export interface PartnerServiceSummary {
   groupId: string;
   live: string[];
   liveCount: number;
+  /** Bought but on hold — still a real service, never "None recorded". */
+  paused: string[];
+  pausedCount: number;
   historicalCount: number;
 }
 
@@ -506,12 +509,15 @@ export async function fetchPartnerServiceSummary(): Promise<Record<string, Partn
   for (const row of data ?? []) {
     const r = row as Record<string, unknown>;
     const id = r.group_id as string;
-    const entry = out[id] ?? { groupId: id, live: [], liveCount: 0, historicalCount: 0 };
+    const entry = out[id] ?? { groupId: id, live: [], liveCount: 0, paused: [], pausedCount: 0, historicalCount: 0 };
     const status = r.status as string;
+    const label = (r.service_type as string) ?? (r.name as string);
     if (status === "active" || status === "onboarding") {
       entry.liveCount += 1;
-      const label = (r.service_type as string) ?? (r.name as string);
       if (!entry.live.includes(label)) entry.live.push(label);
+    } else if (status === "paused") {
+      entry.pausedCount += 1;
+      if (!entry.paused.includes(label)) entry.paused.push(label);
     } else if (["completed", "cancelled", "ended"].includes(status)) {
       entry.historicalCount += 1;
     }

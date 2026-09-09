@@ -252,7 +252,7 @@ export default function BesPartners() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      {!summary || summary.liveCount === 0 ? (
+                      {!summary || (summary.liveCount === 0 && summary.pausedCount === 0) ? (
                         <span className="text-xs text-muted-foreground">
                           {summary?.historicalCount
                             ? `${summary.historicalCount} finished or cancelled`
@@ -263,6 +263,11 @@ export default function BesPartners() {
                           {summary.live.map((code) => (
                             <Pill key={code} tone="border-border bg-muted text-foreground">
                               {typeLabel[code] ?? code}
+                            </Pill>
+                          ))}
+                          {summary.paused.map((code) => (
+                            <Pill key={`paused-${code}`} tone="border-amber-500/40 bg-amber-500/10 text-amber-900">
+                              {(typeLabel[code] ?? code) + " — on hold"}
                             </Pill>
                           ))}
                           {summary.historicalCount > 0 && (
