@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
   const asUser = createClient(url, anon, { global: { headers: { Authorization: auth } } });
   const { data: inv, error } = await asUser
     .from("invitations")
-    .select("email, token, kind, organization_id, agency_role, partner_group_id, organizations(name, branding), outsourcing_groups(name)")
+    .select("email, token, kind, organization_id, agency_role, partner_group_id, organizations(name, branding), outsourcing_groups(name), agencies(name, branding)")
     .eq("id", invitationId)
     .is("accepted_at", null)
     .maybeSingle();
@@ -72,13 +72,26 @@ Deno.serve(async (req) => {
 
   const org = inv.organizations as { name: string; branding: Branding | null } | null;
   const partner = inv.outsourcing_groups as { name: string } | null;
+  /* The agency's OWN branding — the logo and colour configured under
+     Agency & Branding — faces its team and its partners, exactly as an
+     organization's branding faces its staff. Note the key difference: the
+     agency records its strapline as `tagline`, organizations as
+     `companyTagline`. */
+  const agency = inv.agencies as { name: string; branding: (Branding & { tagline?: string }) | null } | null;
   const isTeam = inv.kind === "agency";
   /* A partner portal invitation is BES-branded: the partner is BES's customer,
      and the portal they are joining is BES's. */
   const isPartner = !!inv.partner_group_id;
   const branding = org?.branding ?? {};
+  const agencyBranding = agency?.branding ?? {};
+  const agencyName = agency?.name ?? "Blessed Empire Services";
   const brand: EmailBrand = isTeam || isPartner
-    ? { name: "Blessed Empire Services" }
+    ? {
+        name: agencyName,
+        logoUrl: agencyBranding.logoUrl,
+        primaryColor: agencyBranding.primaryColor,
+        tagline: agencyBranding.tagline,
+      }
     : {
         name: org?.name ?? "your organization",
         logoUrl: branding.logoUrl,
@@ -88,17 +101,22 @@ Deno.serve(async (req) => {
 
   const link = `${origin}/accept-invitation/${inv.token}`;
   const where = isTeam
-    ? "the Blessed Empire Services team"
+    ? `the ${agencyName} team`
     : isPartner
-      ? `the BES Partner Portal${partner?.name ? ` for ${partner.name}` : ""}`
+      ? `the ${agencyName} Partner Portal${partner?.name ? ` for ${partner.name}` : ""}`
       : brand.name;
+  const subject = isTeam
+    ? `Activate your ${agencyName} team account`
+    : isPartner
+      ? `Activate your ${agencyName} Partner Portal account`
+      : `Activate your ${brand.name} account`;
 
   const result = await sendEmail({
     apiKey: mailKey,
     from,
     fromName: brand.name,
     to: String(inv.email),
-    subject: `Activate your ${where} account`,
+    subject,
     content: {
       brand,
       heading: `You have been invited to ${where}`,
