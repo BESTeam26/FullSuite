@@ -1278,13 +1278,16 @@ if (runs(25)) {
        is "all of them in ONE call", never the number 22. */
     ["my_permissions answers every key at once",                       () => w25(U["org.agent@bes.test"], `select count(*)::int as rows from public.my_permissions('${lakesideOrg}')`), q(`select count(*)::int as rows from public.permission_keys`)[0].rows],
     ["the owner grants an override; row and audit are written",        () => w25(U["org.owner@bes.test"], `select public.set_member_permission('${AGENT_M}','creditops.letters.approve', true, 'probe'); select (select allowed::text from public.member_permissions where membership_id='${AGENT_M}' and key='creditops.letters.approve') || ':' || (select count(*) from public.audit_log where action='organization.member_permission_set' and entity_id='${AGENT_M}' and created_at >= now())::text as rows`), "true:1"],
-    ["clearing an override removes the row",                           () => w25(U["org.owner@bes.test"], `select public.set_member_permission('${AGENT_M}','creditops.letters.approve', true); select public.set_member_permission('${AGENT_M}','creditops.letters.approve', null); select count(*)::int as rows from public.member_permissions where membership_id='${AGENT_M}'`), 0],
+    /* Counts THIS key's rows, not the member's whole override list: 0234
+       carried each migrated member's old role defaults into overrides, so
+       "no rows at all" stopped being what clearing one key means. */
+    ["clearing an override removes the row",                           () => w25(U["org.owner@bes.test"], `select public.set_member_permission('${AGENT_M}','creditops.letters.approve', true); select public.set_member_permission('${AGENT_M}','creditops.letters.approve', null); select count(*)::int as rows from public.member_permissions where membership_id='${AGENT_M}' and key='creditops.letters.approve'`), 0],
     ["a member cannot change their own permissions",                   () => w25(U["org.agent@bes.test"], `select public.set_member_permission('${AGENT_M}','billing.manage', true); select 1 as rows`), "ERR 42501"],
     ["a member cannot change another member's permissions",            () => w25(U["org.agent@bes.test"], `select public.set_member_permission('${LEAD_M}','billing.manage', true); select 1 as rows`), "ERR 42501"],
     ["an admin cannot change their own permissions either",            () => w25(U["org.owner@bes.test"], `select public.set_member_permission('${OWNER_M}','billing.manage', false); select 1 as rows`), "ERR 42501"],
     ["another organization's owner cannot touch a Lakeside member",    () => w25(U["org2.owner@bes.test"], `select public.set_member_permission('${AGENT_M}','billing.manage', true); select 1 as rows`), "ERR 42501"],
     ["an unknown permission key is refused",                           () => w25(U["org.owner@bes.test"], `select public.set_member_permission('${AGENT_M}','nonsense.key', true); select 1 as rows`), "ERR 22023"],
-    ["Copy Permission copies the role and the overrides",              () => w25(U["org.owner@bes.test"], `select public.set_member_permission('${AGENT_M}','reports.export', true); select public.copy_member_permissions('${AGENT_M}','${LEAD_M}'); select (select role::text from public.org_memberships where id='${LEAD_M}') || ':' || (select count(*) from public.member_permissions where membership_id='${LEAD_M}' and key='reports.export' and allowed)::text as rows`), "credit_processor:1"],
+    ["Copy Permission copies the role and the overrides",              () => w25(U["org.owner@bes.test"], `select public.set_member_permission('${AGENT_M}','reports.export', true); select public.copy_member_permissions('${AGENT_M}','${LEAD_M}'); select (select role::text from public.org_memberships where id='${LEAD_M}') || ':' || (select count(*) from public.member_permissions where membership_id='${LEAD_M}' and key='reports.export' and allowed)::text as rows`), "org_user:1"],
     ["a member cannot copy permissions",                               () => w25(U["org.agent@bes.test"], `select public.copy_member_permissions('${LEAD_M}','${AGENT_M}'); select 1 as rows`), "ERR 42501"],
     ["member_permissions has no direct write grant for the API role",  () => w25(U["org.owner@bes.test"], `insert into public.member_permissions (membership_id, key, allowed) values ('${AGENT_M}','billing.manage', true); select 1 as rows`), "ERR 42501"],
     ["permission_keys cannot be written by the API role",              () => w25(U["org.owner@bes.test"], `insert into public.permission_keys (key, module, label) values ('probe.key','Probe','Probe'); select 1 as rows`), "ERR 42501"],
@@ -1654,13 +1657,23 @@ if (runs(37)) {
   const OWNER = U["bes.owner@bes.test"], ADMIN = U["bes.admin@bes.test"], AGENT = U["bes.credit@bes.test"], ORGOWNER = U["org.owner@bes.test"];
   const INVITE = (role) => `select public.invite_agency_member('probe.teammate@bes.test', '${role}')`;
   const P37 = [
-    ["a BES owner invites an agent",                            () => w37(OWNER, `${INVITE('agency_agent')}; select count(*)::int as rows from public.invitations where kind='agency' and email='probe.teammate@bes.test'`), 1],
-    ["a BES admin may invite too",                              () => w37(ADMIN, `${INVITE('agency_agent')}; select count(*)::int as rows from public.invitations where kind='agency' and email='probe.teammate@bes.test'`), 1],
-    ["a BES agent may not invite",                              () => w37(AGENT, INVITE('agency_agent')), "ERR 42501"],
-    ["an organization owner may not invite onto the BES team",  () => w37(ORGOWNER, INVITE('agency_agent')), "ERR 42501"],
-    ["only an owner can create another owner",                  () => w37(ADMIN, INVITE('agency_owner')), "ERR 42501"],
-    ["…and an owner can",                                       () => w37(OWNER, `${INVITE('agency_owner')}; select count(*)::int as rows from public.invitations where kind='agency' and email='probe.teammate@bes.test' and agency_role='agency_owner'`), 1],
-    ["inviting an existing teammate is refused",                () => w37(OWNER, `select public.invite_agency_member('bes.credit@bes.test', 'agency_agent')`), "ERR 23505"],
+    /* 0234: the invitable roles are agency_admin and agency_user; ownership is
+       TRANSFERRED from the owner's own account, never mailed. The old probes
+       invited "agents" and mailed ownership — both rules are gone, so the
+       probes follow the rules rather than the memory of them. */
+    ["a BES owner invites an Agency User",                      () => w37(OWNER, `${INVITE('agency_user')}; select count(*)::int as rows from public.invitations where kind='agency' and email='probe.teammate@bes.test'`), 1],
+    ["a BES admin may invite too",                              () => w37(ADMIN, `${INVITE('agency_user')}; select count(*)::int as rows from public.invitations where kind='agency' and email='probe.teammate@bes.test'`), 1],
+    ["an Agency User may not invite",                           () => w37(AGENT, INVITE('agency_user')), "ERR 42501"],
+    ["an organization owner may not invite onto the BES team",  () => w37(ORGOWNER, INVITE('agency_user')), "ERR 42501"],
+    ["a retired rank is not an invitable role",                 () => w37(OWNER, INVITE('agency_agent')), "ERR 22023"],
+    ["ownership cannot be mailed — not even by the owner",      () => w37(OWNER, INVITE('agency_owner')), "ERR 22023"],
+    ["ownership moves only by the owner's own transfer",        () => w37(ADMIN, `select public.transfer_agency_ownership((select id from public.agency_memberships where user_id='${ADMIN}'))`), "ERR P0001"],
+    /* The invariant is the HANDOVER, not a global count — this agency
+       legitimately has two owners. The giver's flag ends, the receiver's
+       begins, in one act. */
+    ["…and a transfer moves the flag from giver to receiver",   () => w37(OWNER, `select public.transfer_agency_ownership((select id from public.agency_memberships where user_id='${ADMIN}'));
+        select ((select is_owner from public.agency_memberships where user_id='${OWNER}')::text || ':' || (select is_owner from public.agency_memberships where user_id='${ADMIN}')::text) as rows`), "false:true"],
+    ["inviting an existing teammate is refused",                () => w37(OWNER, `select public.invite_agency_member('bes.credit@bes.test', 'agency_user')`), "ERR 23505"],
     /* Every probe above rolls back, so there was no agency invitation left to
        accept and the function refused a null token as "no longer valid"
        (22023) — not the email check this is meant to prove. The invitation is
@@ -1672,7 +1685,7 @@ if (runs(37)) {
        a BES invitation at all (the very next probe proves it), so the subselect
        was null again. The token is carried past the role switch in a temp
        table, which RLS does not touch. */
-    ["an invitation is accepted only by its own address",       () => w37(OWNER, `${INVITE('agency_agent')}; create temp table probe_tok on commit drop as select token from public.invitations where kind='agency' and email='probe.teammate@bes.test' order by created_at desc limit 1; set local request.jwt.claims = '{"sub":"${ORGOWNER}","role":"authenticated"}'; select public.accept_agency_invitation((select token from probe_tok))`), "ERR 42501"],
+    ["an invitation is accepted only by its own address",       () => w37(OWNER, `${INVITE('agency_user')}; create temp table probe_tok on commit drop as select token from public.invitations where kind='agency' and email='probe.teammate@bes.test' order by created_at desc limit 1; set local request.jwt.claims = '{"sub":"${ORGOWNER}","role":"authenticated"}'; select public.accept_agency_invitation((select token from probe_tok))`), "ERR 42501"],
     ["an organization member cannot read BES invitations",      () => w37(ORGOWNER, `select count(*)::int as rows from public.invitations where kind='agency'`), 0],
     ["a direct insert of an agency invitation is refused",      () => w37(ADMIN, `insert into public.invitations (email, kind, agency_id, agency_role) values ('sneak@bes.test', 'agency', (select agency_id from public.agency_memberships where user_id=auth.uid() limit 1), 'agency_owner'); select 1 as rows`), "ERR 42501"],
     ["every public plan a signer can choose has a price and a trial", () => q(`select (count(*) filter (where monthly_cents > 0 and trial_days > 0) = count(*))::int as rows from public.plans where is_public and public_trial`)[0].rows, 1],
@@ -3275,8 +3288,10 @@ if (runs(56)) {
   ` : "";
   const seeService = `select count(*)::int as rows from public.partner_services where id='${SVC}'`;
   const seeBilling = `select count(*)::int as rows from public.partner_service_billing where service_id='${SVC}'`;
-  const grant = (k) => `insert into public.agency_member_permissions (membership_id, key, allowed) values ('${MGRM}','${k}', true);`;
-  const deny  = (k) => `insert into public.agency_member_permissions (membership_id, key, allowed) values ('${MGRM}','${k}', false);`;
+  /* Upserts: 0234 wrote the migrated manager's old role defaults as member
+     overrides, so a probe's own grant/deny must replace, not collide. */
+  const grant = (k) => `insert into public.agency_member_permissions (membership_id, key, allowed) values ('${MGRM}','${k}', true) on conflict (membership_id, key) do update set allowed = true;`;
+  const deny  = (k) => `insert into public.agency_member_permissions (membership_id, key, allowed) values ('${MGRM}','${k}', false) on conflict (membership_id, key) do update set allowed = false;`;
   const breakAdminScope = `update public.agency_memberships set scope='assigned' where user_id='${ADM56}';`;
 
   const P56 = GRP56 ? [
@@ -3616,23 +3631,25 @@ if (runs(58)) {
     /* Somebody ELSE — the function refuses self-deactivation, which is how an
        agency ends up with nobody active. */
     ["an admin CAN deactivate somebody, and the role survives it",
-      () => p58(ADM58, "", `select public.set_agency_member_status('${MGR_M}','inactive'); select (status || ':' || role::text) as rows from public.agency_memberships where id='${MGR_M}'`), "inactive:agency_manager"],
+      () => p58(ADM58, "", `select public.set_agency_member_status('${MGR_M}','inactive'); select (status || ':' || role::text) as rows from public.agency_memberships where id='${MGR_M}'`), "inactive:agency_user"],
 
     ["nobody can deactivate the owner",
       () => p58(ADM58, "", `select public.set_agency_member_status('${OWN_M}','inactive') as rows`), "ERR P0001"],
 
-    /* This agency genuinely has TWO active owners — Dee, and the fixture the
-       suite runs as — so demoting one is allowed and the first version of this
-       probe was asserting the wrong thing. The rule is about the LAST one, so
-       the probe makes it the last one first, inside its own rolled-back
-       transaction. */
-    ["a second owner CAN be demoted while another remains",
-      () => p58(ADM58, "", `select public.set_agency_member_role('${OWN_M}','agency_manager'); select role::text as rows from public.agency_memberships where id='${OWN_M}'`), "agency_manager"],
-
-    ["…but the last active owner cannot",
-      () => p58(ADM58,
-        `update public.agency_memberships set status='inactive' where agency_id='${AG58}' and role='agency_owner' and id <> '${OWN_M}';`,
-        `select public.set_agency_member_role('${OWN_M}','agency_manager'); select 'not refused' as rows`), "ERR P0001"],
+    /* 0234: an owner is never DEMOTED — ownership is transferred from the
+       owner's own account, and only then can the role change. The old probes
+       demoted owners to a rank that no longer exists; these hold the new
+       rules instead. */
+    ["a retired rank is not a role anybody can be set to",
+      () => p58(ADM58, "", `select public.set_agency_member_role('${MGR_M}','agency_manager') as rows`), "ERR 22023"],
+    ["an admin can move a person between the two roles",
+      () => p58(ADM58, "", `select public.set_agency_member_role('${MGR_M}','agency_admin'); select role::text as rows from public.agency_memberships where id='${MGR_M}'`), "agency_admin"],
+    ["…and narrowing back to user keeps the scope an admin chose",
+      () => p58(ADM58, "", `update public.agency_memberships set scope='division' where id='${MGR_M}';
+        select public.set_agency_member_role('${MGR_M}','agency_user');
+        select (role::text || ':' || scope::text) as rows from public.agency_memberships where id='${MGR_M}'`), "agency_user:division"],
+    ["the owner's role cannot be demoted — ownership transfers, never demotes",
+      () => p58(ADM58, "", `select public.set_agency_member_role('${OWN_M}','agency_user'); select 'not refused' as rows`), "ERR P0001"],
   ];
   runPhase("phase 58", P58, { strict: true });
 }

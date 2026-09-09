@@ -45,7 +45,17 @@ Deno.serve(async (req) => {
   if (!url || !anon) return json(500, { error: "Function is not configured" });
 
   const { invitationId, appOrigin } = await req.json().catch(() => ({}));
-  if (!invitationId || !appOrigin) return json(400, { error: "invitationId and appOrigin are required" });
+  if (!invitationId) return json(400, { error: "invitationId is required" });
+
+  /* The activation link's origin is PINNED server-side. The browser's origin
+     is a hint, honoured only when it is on the allow-list — otherwise an
+     invite sent from a dev tab would mail a teammate a localhost link (the
+     invite-safety rule this exists for), and a tampered request could brand a
+     BES email with a link to somewhere else entirely. */
+  const configured = (Deno.env.get("APP_ORIGINS") ?? "https://bes-full-suite.vercel.app")
+    .split(",").map((o) => o.trim().replace(/\/$/, "")).filter(Boolean);
+  const offered = typeof appOrigin === "string" ? appOrigin.replace(/\/$/, "") : "";
+  const origin = configured.includes(offered) ? offered : configured[0];
 
   const asUser = createClient(url, anon, { global: { headers: { Authorization: auth } } });
   const { data: inv, error } = await asUser
@@ -72,7 +82,7 @@ Deno.serve(async (req) => {
         tagline: branding.companyTagline,
       };
 
-  const link = `${appOrigin}/accept-invitation/${inv.token}`;
+  const link = `${origin}/accept-invitation/${inv.token}`;
   const where = isTeam ? "the Blessed Empire Services team" : brand.name;
 
   const result = await sendEmail({

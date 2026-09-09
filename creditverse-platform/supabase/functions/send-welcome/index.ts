@@ -42,7 +42,14 @@ Deno.serve(async (req) => {
   if (!url || !anon || !service) return json(500, { error: "Function is not configured" });
 
   const { organizationId, appOrigin } = await req.json().catch(() => ({}));
-  if (!organizationId || !appOrigin) return json(400, { error: "organizationId and appOrigin are required" });
+  if (!organizationId) return json(400, { error: "organizationId is required" });
+
+  /* Same pinning as send-invitation: a mailed link never points at a dev
+     origin or anywhere off the allow-list. */
+  const configured = (Deno.env.get("APP_ORIGINS") ?? "https://bes-full-suite.vercel.app")
+    .split(",").map((o) => o.trim().replace(/\/$/, "")).filter(Boolean);
+  const offered = typeof appOrigin === "string" ? appOrigin.replace(/\/$/, "") : "";
+  const origin = configured.includes(offered) ? offered : configured[0];
 
   /* As the caller: they must be able to see this organization at all, which
      row-level security decides. A stranger cannot make us email someone. */
@@ -81,7 +88,7 @@ Deno.serve(async (req) => {
         "Your workspace is ready. Your trial has started, and no card was asked for.",
         "The quickest way in: add your logo and colour, invite the people who will work with you, then add your first client and import their credit report. The Getting started card on your home page walks through it and disappears once you are done.",
       ],
-      action: { label: "Open your workspace", url: `${appOrigin}/app` },
+      action: { label: "Open your workspace", url: `${origin}/app` },
       footnote: "Anything you need, reply to this email and it reaches the BES team.",
     },
   });
