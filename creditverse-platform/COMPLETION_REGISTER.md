@@ -917,3 +917,21 @@ pushed to production.
 needs either a real credited organization or Dee's explicit OK to borrow a
 credited [TEST] org for one metered call — granting that membership is an
 authorization change the tooling correctly refused to make on its own.
+
+### The connection check finally ran — and three keys are refused — 2026-09-09
+
+"Check connections" died in the browser with the SAME CORS trap the ai-gateway
+comment already documents: four newer functions (integration-health, ghl-sync,
+post-letter, payments) shipped an allow-list missing the headers supabase-js
+always sends. Fixed and redeployed — post-letter and payments would have
+failed identically on their first real use, so this was caught before the
+pilot hit it. All provider-key reads now also trim stray whitespace.
+
+With the check working, the real findings (read-only, nothing sent or
+charged): **Resend WORKING** (bescrm.net + noreply.bescrm.net verified);
+**Anthropic REFUSED** the key; **Lob REFUSED** the key; **Authorize.Net
+REFUSED** the credentials at the configured AUTHNET_ENV endpoint (possible
+sandbox/production mismatch — the message is the provider's own). These are
+provider-dashboard fixes only Dee can make; the page re-tests in one click.
+The AI smoke test is therefore double-blocked: bad key first, org credits
+second.

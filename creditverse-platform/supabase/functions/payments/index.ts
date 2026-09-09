@@ -25,12 +25,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, content-type",
+  "Access-Control-Allow-Headers": "authorization, content-type, apikey, x-client-info, x-supabase-api-version",
 };
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, "content-type": "application/json" } });
 
-const env = (Deno.env.get("AUTHNET_ENV") ?? "sandbox").toLowerCase();
+const env = (Deno.env.get("AUTHNET_ENV")?.trim() ?? "sandbox").toLowerCase();
 const isProduction = env === "production" || env === "live";
 const ENDPOINT = isProduction
   ? "https://api.authorize.net/xml/v1/request.api"
@@ -62,8 +62,8 @@ async function callAuthNet(payload: unknown): Promise<AuthNetResult> {
 }
 
 const merchant = () => ({
-  name: Deno.env.get("AUTHNET_API_LOGIN_ID"),
-  transactionKey: Deno.env.get("AUTHNET_TRANSACTION_KEY"),
+  name: Deno.env.get("AUTHNET_API_LOGIN_ID")?.trim(),
+  transactionKey: Deno.env.get("AUTHNET_TRANSACTION_KEY")?.trim(),
 });
 
 /** The first message the processor gave, verbatim. Never our paraphrase. */
@@ -82,9 +82,9 @@ Deno.serve(async (req) => {
   const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (!url || !anon || !service) return json(500, { error: "Not configured" });
 
-  const login = Deno.env.get("AUTHNET_API_LOGIN_ID");
-  const txnKey = Deno.env.get("AUTHNET_TRANSACTION_KEY");
-  const clientKey = Deno.env.get("AUTHNET_PUBLIC_CLIENT_KEY");
+  const login = Deno.env.get("AUTHNET_API_LOGIN_ID")?.trim();
+  const txnKey = Deno.env.get("AUTHNET_TRANSACTION_KEY")?.trim();
+  const clientKey = Deno.env.get("AUTHNET_PUBLIC_CLIENT_KEY")?.trim();
 
   let input: { action?: string; organizationId?: string; opaqueData?: { dataDescriptor?: string; dataValue?: string }; amountCents?: number; description?: string };
   try {

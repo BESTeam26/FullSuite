@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
   const auth = req.headers.get("authorization") ?? "";
   if (!auth.startsWith("Bearer ")) return json(401, { error: "Sign in first" });
 
-  const url = Deno.env.get("SUPABASE_URL"), anon = Deno.env.get("SUPABASE_ANON_KEY"), service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"), providerKey = Deno.env.get("ANTHROPIC_API_KEY");
+  const url = Deno.env.get("SUPABASE_URL"), anon = Deno.env.get("SUPABASE_ANON_KEY"), service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"), providerKey = Deno.env.get("ANTHROPIC_API_KEY")?.trim();
   if (!url || !anon || !service) return json(500, { error: "Gateway is not configured" });
 
   let body: GatewayRequest;

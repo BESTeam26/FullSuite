@@ -37,8 +37,8 @@ Deno.serve(async (req) => {
   const url = Deno.env.get("SUPABASE_URL");
   const anon = Deno.env.get("SUPABASE_ANON_KEY");
   const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const mailKey = Deno.env.get("MAIL_PROVIDER_API_KEY");
-  const from = Deno.env.get("MAIL_FROM") ?? "";
+  const mailKey = Deno.env.get("MAIL_PROVIDER_API_KEY")?.trim();
+  const from = Deno.env.get("MAIL_FROM")?.trim() ?? "";
   if (!url || !anon || !service) return json(500, { error: "Function is not configured" });
 
   const { organizationId, appOrigin } = await req.json().catch(() => ({}));

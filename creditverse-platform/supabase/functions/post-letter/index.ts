@@ -24,7 +24,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, content-type",
+  "Access-Control-Allow-Headers": "authorization, content-type, apikey, x-client-info, x-supabase-api-version",
 };
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, "content-type": "application/json" } });
@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
   const url = Deno.env.get("SUPABASE_URL");
   const anon = Deno.env.get("SUPABASE_ANON_KEY");
   const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const lobKey = Deno.env.get("LOB_API_KEY");
+  const lobKey = Deno.env.get("LOB_API_KEY")?.trim();
   if (!url || !anon || !service) return json(500, { error: "Not configured" });
   if (!lobKey) return json(409, { error: "Letter posting is not connected yet — LOB_API_KEY is not set." });
 

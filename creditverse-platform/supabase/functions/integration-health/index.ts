@@ -25,7 +25,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, content-type",
+  "Access-Control-Allow-Headers": "authorization, content-type, apikey, x-client-info, x-supabase-api-version",
 };
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, "content-type": "application/json" } });
@@ -55,7 +55,7 @@ async function ask(url: string, init: RequestInit): Promise<Response> {
 
 async function checkAnthropic(): Promise<Check> {
   const base = { provider: "Anthropic", powers: "Reading scanned credit reports, letter wording help, fit explanations" };
-  const key = Deno.env.get("ANTHROPIC_API_KEY");
+  const key = Deno.env.get("ANTHROPIC_API_KEY")?.trim();
   if (!key) return { ...base, state: "not_configured", detail: "ANTHROPIC_API_KEY is not set." };
   try {
     const r = await ask("https://api.anthropic.com/v1/models?limit=1", {
@@ -73,8 +73,8 @@ async function checkAnthropic(): Promise<Check> {
 
 async function checkResend(): Promise<Check> {
   const base = { provider: "Resend", powers: "Activation and welcome email, and anything else the app sends itself" };
-  const key = Deno.env.get("MAIL_PROVIDER_API_KEY");
-  const from = Deno.env.get("MAIL_FROM");
+  const key = Deno.env.get("MAIL_PROVIDER_API_KEY")?.trim();
+  const from = Deno.env.get("MAIL_FROM")?.trim();
   if (!key) return { ...base, state: "not_configured", detail: "MAIL_PROVIDER_API_KEY is not set." };
   try {
     const r = await ask("https://api.resend.com/domains", { headers: { authorization: `Bearer ${key}` } });
@@ -113,7 +113,7 @@ async function checkResend(): Promise<Check> {
 
 async function checkLob(): Promise<Check> {
   const base = { provider: "Lob", powers: "Posting dispute letters and tracking them" };
-  const key = Deno.env.get("LOB_API_KEY");
+  const key = Deno.env.get("LOB_API_KEY")?.trim();
   if (!key) return { ...base, state: "not_configured", detail: "LOB_API_KEY is not set." };
   try {
     /* Lob uses HTTP Basic with the key as the username and an empty password. */
@@ -138,9 +138,9 @@ async function checkLob(): Promise<Check> {
 
 async function checkAuthorizeNet(): Promise<Check> {
   const base = { provider: "Authorize.Net", powers: "Paid sign-up, plan changes, consumer billing" };
-  const login = Deno.env.get("AUTHNET_API_LOGIN_ID");
-  const key = Deno.env.get("AUTHNET_TRANSACTION_KEY");
-  const env = (Deno.env.get("AUTHNET_ENV") ?? "sandbox").toLowerCase();
+  const login = Deno.env.get("AUTHNET_API_LOGIN_ID")?.trim();
+  const key = Deno.env.get("AUTHNET_TRANSACTION_KEY")?.trim();
+  const env = (Deno.env.get("AUTHNET_ENV")?.trim() ?? "sandbox").toLowerCase();
   if (!login || !key) {
     return { ...base, state: "not_configured", detail: "AUTHNET_API_LOGIN_ID or AUTHNET_TRANSACTION_KEY is not set." };
   }
