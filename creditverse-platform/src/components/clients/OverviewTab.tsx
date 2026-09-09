@@ -26,6 +26,8 @@ import ScorePotentialCard from "@/components/clients/ScorePotentialCard";
 import NextBestActionCard from "@/components/clients/NextBestActionCard";
 import BureauRadarCharts from "@/components/clients/BureauRadarCharts";
 import { useClientWorkspace } from "@/lib/client-workspace-context";
+import { useClientReports } from "@/lib/data/use-credit-reports";
+import { formatDate } from "@/lib/format-date";
 import {
   scoreHistory,
   bureaus,
@@ -46,18 +48,84 @@ const iconMap = {
   UserCheck,
 } as const;
 
+/* Presentation for each bureau. The NUMBERS never come from here. */
+const BUREAU_META: Record<string, { color: string; gradient: string }> = {
+  equifax: { color: "#ef4444", gradient: "from-red-500 to-rose-400" },
+  experian: { color: "#3b82f6", gradient: "from-blue-500 to-sky-400" },
+  transunion: { color: "#10b981", gradient: "from-emerald-500 to-green-400" },
+};
+
 const OverviewTab = () => {
-  const { items } = useClientWorkspace();
+  /* Three worlds, told apart by `reportSource` (rule 12):
+       "sample" — demo mode; the bundled sample renders exactly as before.
+       "none"   — a LIVE client with nothing imported. The page banner
+                  promises "nothing on this profile is estimated without it",
+                  so this tab shows real facts and honest emptiness — never
+                  the sample scores, gains, checklists or agents.
+       "live"   — the client's own imported reports, and only them. */
+  const { items, scores, reportSource, clientId, disputeCount, deletionCount } =
+    useClientWorkspace();
+  const demo = reportSource === "sample";
+  const noReport = reportSource === "none";
+  /* Same query key the workspace context already used — a cache read. */
+  const { reports } = useClientReports(demo ? null : clientId);
+
   const progress = Math.round(
     (checklist.filter((c) => c.done).length / checklist.length) * 100,
   );
 
   const classifiedItems = useMemo(() => items, [items]);
 
-  const totalGain =
-    bureaus.reduce((s, b) => s + (b.score - b.first), 0) / bureaus.length;
-  const roundGain =
-    bureaus.reduce((s, b) => s + (b.score - b.prev), 0) / bureaus.length;
+  const shownBureaus = useMemo(
+    () =>
+      scores.map((b) => ({
+        ...b,
+        color: BUREAU_META[b.key]?.color ?? "#64748b",
+        gradient: BUREAU_META[b.key]?.gradient ?? "from-slate-500 to-slate-400",
+      })),
+    [scores],
+  );
+  const totalGain = shownBureaus.length
+    ? shownBureaus.reduce((sum, b) => sum + (b.score - b.first), 0) / shownBureaus.length
+    : 0;
+  const roundGain = shownBureaus.length
+    ? shownBureaus.reduce((sum, b) => sum + (b.score - b.prev), 0) / shownBureaus.length
+    : 0;
+
+  /* The journey is every real pull, oldest first. It needs two points to be a
+     journey; before that the chart section says so instead of drawing one. */
+  const journey = useMemo(() => {
+    if (demo) return scoreHistory;
+    const byBureau = (r: (typeof reports)[number], bureau: "EQ" | "EX" | "TU") =>
+      r.scores.find((sc) => sc.bureau === bureau)?.score ?? null;
+    return [...reports]
+      .reverse()
+      .map((r) => ({
+        date: formatDate(r.pulledAt),
+        equifax: byBureau(r, "EQ"),
+        experian: byBureau(r, "EX"),
+        transunion: byBureau(r, "TU"),
+      }));
+  }, [demo, reports]);
+
+  if (noReport) {
+    return (
+      <div className="space-y-6">
+        <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-8 text-center">
+          <TrendingUp className="mx-auto mb-3 h-6 w-6 text-muted-foreground" />
+          <h2 className="text-sm font-semibold text-foreground">
+            No credit report imported yet
+          </h2>
+          <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
+            Scores, the journey chart and the analysis all come from this
+            client&apos;s own imported reports. Import the first one from
+            Import &amp; Analysis — nothing here is estimated before that.
+          </p>
+        </div>
+        <LiveRoundSnapshot disputeCount={disputeCount} deletionCount={deletionCount} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -109,7 +177,7 @@ const OverviewTab = () => {
 
         {/* Bureau gauge cards */}
         <div className="mt-6 grid gap-4 sm:grid-cols-3">
-          {bureaus.map((b) => {
+          {shownBureaus.map((b) => {
             const band = scoreBand(b.score);
             const roundDelta = b.score - b.prev;
             const totalDelta = b.score - b.first;
@@ -151,11 +219,13 @@ const OverviewTab = () => {
           <div>
             <h2 className="font-semibold">Score journey by round</h2>
             <p className="text-xs text-muted-foreground">
-              Tracked across every credit pull since intake · intake → round 5
+              {demo
+                ? "Tracked across every credit pull since intake · intake → round 5"
+                : `Every real pull we hold for this client · ${journey.length} import${journey.length === 1 ? "" : "s"}`}
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
-            {bureaus.map((b) => (
+            {shownBureaus.map((b) => (
               <div key={b.key} className="flex items-center gap-1.5">
                 <span
                   className="h-2.5 w-2.5 rounded-full"
@@ -168,14 +238,19 @@ const OverviewTab = () => {
             ))}
           </div>
         </div>
+        {!demo && journey.length < 2 ? (
+          <p className="mt-4 rounded-xl border border-dashed border-border bg-muted/20 px-4 py-6 text-center text-xs text-muted-foreground">
+            The journey appears after the second import — one pull is a starting point, not a trend.
+          </p>
+        ) : (
         <div className="mt-4 h-[260px]">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart
-              data={scoreHistory}
+              data={journey}
               margin={{ top: 10, right: 10, left: -16, bottom: 0 }}
             >
               <defs>
-                {bureaus.map((b) => (
+                {shownBureaus.map((b) => (
                   <linearGradient
                     key={b.key}
                     id={`fill-${b.key}`}
@@ -221,7 +296,7 @@ const OverviewTab = () => {
                   position: "insideTopRight",
                 }}
               />
-              {bureaus.map((b) => (
+              {shownBureaus.map((b) => (
                 <Area
                   key={b.key}
                   type="monotone"
@@ -242,6 +317,7 @@ const OverviewTab = () => {
             </AreaChart>
           </ResponsiveContainer>
         </div>
+        )}
       </div>
 
       {/* FICO Score Potential Analysis — smart logic, human-verified */}
@@ -250,9 +326,17 @@ const OverviewTab = () => {
       {/* Next Best Actions — prioritized repair-vs-build checklist */}
       <NextBestActionCard items={classifiedItems} />
 
-      {/* Per-bureau factor radar charts */}
-      <BureauRadarCharts />
+      {/* Per-bureau factor radar charts — the factor analysis behind them is
+          the bundled sample's; a live client's factors are not derived yet, so
+          in live mode the card would be an invented comparison (rule 12). */}
+      {demo && <BureauRadarCharts />}
 
+      {!demo && (
+        <LiveRoundSnapshot disputeCount={disputeCount} deletionCount={deletionCount} />
+      )}
+
+      {demo && (
+      <>
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="rounded-2xl border border-border bg-card p-6">
           <div className="flex items-center justify-between">
@@ -377,8 +461,39 @@ const OverviewTab = () => {
           </div>
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 };
+
+/**
+ * The live snapshot: the workspace's own derived facts and nothing else.
+ * No invented agent, affiliate or totals — and no round, deliberately: the
+ * page header already states the client's true round from the client record,
+ * and the workspace context's round is a letter-building default, not that
+ * fact. One truth, shown once.
+ */
+const LiveRoundSnapshot = ({
+  disputeCount,
+  deletionCount,
+}: {
+  disputeCount: number;
+  deletionCount: number;
+}) => (
+  <div className="rounded-2xl border border-border bg-card p-5">
+    <h2 className="text-sm font-semibold">Dispute snapshot</h2>
+    <div className="mt-3 grid gap-2.5 text-sm sm:grid-cols-2">
+      <div className="flex items-center justify-between sm:block">
+        <span className="text-muted-foreground">Items in dispute</span>
+        <p className="font-semibold">{disputeCount}</p>
+      </div>
+      <div className="flex items-center justify-between sm:block">
+        <span className="text-muted-foreground">Deletions confirmed</span>
+        <p className="font-semibold text-status-success">{deletionCount}</p>
+      </div>
+    </div>
+  </div>
+);
 
 export default OverviewTab;

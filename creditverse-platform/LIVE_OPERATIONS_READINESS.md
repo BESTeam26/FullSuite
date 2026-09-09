@@ -9,16 +9,17 @@ when a real operator can use it end to end — a page existing is not the bar.
 Future work lives in `DEFERRED_AGENCY_WORK.md`. Doctrine lives in
 `CURRENT_PRODUCT_DECISIONS.md`.
 
-**Status: IN PROGRESS — audit pass not yet run.** Every UNTESTED row below is
-exactly that: not yet walked as a real operator.
+**Status: IN PROGRESS.** Updated 2026-09-08 late evening — several rows moved
+by DEE'S OWN live usage, which is the best possible tester. UNTESTED rows have
+not yet been walked by a real operator.
 
 ## 1 · Invite Users / real team access
 
 | Criterion | State |
 |---|---|
 | Admin invites with role Agency Admin / Agency User | UNTESTED (UI updated to the two-role model 2026-09-08) |
-| Invitation email actually delivered (Resend SMTP) | UNTESTED |
-| Activation link is the production URL, not localhost | UNTESTED |
+| Invitation email actually delivered (Resend SMTP) | UNTESTED — keys + SMTP configured and verified server-side; needs one real mailbox |
+| Activation link is the production URL, not localhost | PASS — links are pinned server-side to the production origin (send-invitation/send-welcome); Supabase auth site URL and allowlist verified |
 | Password creation and activation completes | UNTESTED |
 | Membership active with correct team / department / scope | UNTESTED |
 | Partner assignments give exactly the assigned partners | UNTESTED |
@@ -30,8 +31,8 @@ exactly that: not yet walked as a real operator.
 
 | Criterion | State |
 |---|---|
-| Start / stop with correct user and date attribution | UNTESTED |
-| Running timer survives refresh and re-login | UNTESTED |
+| Start / stop with correct user and date attribution | PARTIAL — clock-in verified; a WEEK-BOUNDARY DEADLOCK was found live (invisible unstoppable Sat timer) and fixed; Dee's stale Sat 1:08 PM timer awaits her stated stop time |
+| Running timer survives refresh and re-login | PASS by construction (open entry now fetched unbounded); full walk after the stale entry is closed |
 | No accidental overlapping timers | UNTESTED |
 | History persists; durations correct | UNTESTED |
 | Timer time reaches EOD automatically | UNTESTED |
@@ -62,13 +63,13 @@ exactly that: not yet walked as a real operator.
 
 | Criterion | State |
 |---|---|
-| Create project from purchased engines (13 published) | PASS (verified in browser; real "Test" project created by Dee) |
+| Create project from purchased engines (13 published) | PASS — Dee created "Test" live |
 | Website-only / Sales / Fulfillment / Full / Custom presets | PARTIAL — engines selectable; named presets UNTESTED |
 | Work units assigned to a real user, visible in My Work | UNTESTED |
-| Complete & hand off; parallel next units | PASS in matrix probes; UNTESTED live as CRM user |
+| Complete & hand off; parallel next units | PASS — Dee completed two units live; dependants auto-derived READY |
 | QA pass/needs-fix loop | PASS in probes; UNTESTED live |
-| Progress/journey/health derive automatically | PASS |
-| CRM work reaches EOD automatically | PASS in probes; UNTESTED live |
+| Progress/journey/health derive automatically | PASS — live: 15% · building · on-track after Dee's two completions |
+| CRM work reaches EOD automatically | PASS — both of Dee's units appeared on her EOD untouched |
 
 ## Cross-cutting gates
 
@@ -78,3 +79,19 @@ exactly that: not yet walked as a real operator.
 | No dead visible controls in the five areas | UNTESTED (sweep pending) |
 | Production build deployed and smoke-tested | UNTESTED for this sprint |
 | Full RLS matrix green at the release commit | RUNNING (post role-migration certification) |
+
+
+## Fixed during the audit (2026-09-08 evening)
+
+- **Timer week-boundary deadlock** — a running clock left across the week
+  start became invisible and unstoppable while blocking every new clock-in.
+  The open entry is now fetched unbounded, and a stale timer asks the person
+  when they actually stopped instead of promising an edit that did not exist.
+- **CreditOps case Overview showed the SAMPLE data on live clients** — scores
+  (+57, 654/660/635), a five-round journey, fake results/notifications/
+  checklist, a hardcoded agent and affiliate, and "Round 5 · 32 deletions" on
+  a client with no imported report. The tab now renders the client's own
+  reports or an honest empty state, and the live snapshot shows only derived
+  facts (rule 12).
+- **Invite links pinned server-side** to the production origin.
+- **EOD row labels** distinguish "Client file" from "Partner work unit".

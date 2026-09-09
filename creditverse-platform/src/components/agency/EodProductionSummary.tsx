@@ -109,10 +109,13 @@ export function EodProductionSummary({ activity }: { activity: EodActivity }) {
                       <span className="block truncate text-sm font-medium text-foreground">{f.subject}</span>
                       {/* Say what the name IS. "Bryan Rodriguez · Onboarding"
                           reads as a teammate doing onboarding; it is the
-                          CLIENT whose file was worked, and a manager scanning
-                          a team EOD must not mistake clients for staff. */}
+                          CLIENT whose file was worked — and on a CRM row the
+                          subject is the PARTNER whose build it is. A manager
+                          scanning a team EOD must not mistake either for
+                          staff. */}
                       <span className="block text-[11px] text-muted-foreground">
-                        Client file{f.department ? ` · ${f.department}` : ""}
+                        {f.unit === "Work unit" ? "Partner work unit" : "Client file"}
+                        {f.department ? ` · ${f.department}` : ""}
                       </span>
                     </span>
                     <span className="shrink-0 text-xs text-muted-foreground">
