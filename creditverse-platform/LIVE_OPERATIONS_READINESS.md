@@ -54,7 +54,7 @@ not yet been walked by a real operator.
 |---|---|
 | Agent EOD derives production/actions/time automatically | PASS for production+actions; timer line UNTESTED |
 | Manual fields only for what the system cannot know | PASS |
-| Team EOD aggregates real members automatically | UNTESTED |
+| Team EOD aggregates real members automatically | PASS — real roster only (fixtures excluded); 2 humans shown, submissions joined |
 | Exceptions (absent/late/missing EOD) recordable | UNTESTED |
 | Drill-down team total → agent → work | UNTESTED |
 | Publishing to managers via Communication | DEFERRED unless trivially supported |
@@ -65,7 +65,7 @@ not yet been walked by a real operator.
 |---|---|
 | Create project from purchased engines (13 published) | PASS — Dee created "Test" live |
 | Website-only / Sales / Fulfillment / Full / Custom presets | PARTIAL — engines selectable; named presets UNTESTED |
-| Work units assigned to a real user, visible in My Work | UNTESTED |
+| Work units assigned to a real user, visible in My Work | PASS — assignee select on the board writes canonical assigned_to; verified live into My Active Work Items |
 | Complete & hand off; parallel next units | PASS — Dee completed two units live; dependants auto-derived READY |
 | QA pass/needs-fix loop | PASS in probes; UNTESTED live |
 | Progress/journey/health derive automatically | PASS — live: 15% · building · on-track after Dee's two completions |
@@ -76,9 +76,9 @@ not yet been walked by a real operator.
 | Criterion | State |
 |---|---|
 | Access isolation: pilot personas see only their scope | PASS in RLS matrix (68 phases); UNTESTED through the real UI |
-| No dead visible controls in the five areas | UNTESTED (sweep pending) |
-| Production build deployed and smoke-tested | UNTESTED for this sprint |
-| Full RLS matrix green at the release commit | RUNNING (post role-migration certification) |
+| No dead visible controls in the five areas | PASS on sweep (no coming-soon/placeholder/dead buttons found); the pilot walk is the final judge |
+| Production build deployed and smoke-tested | PARTIAL — deploys pushed; production serves the new shell; full smoke with a signed-in walk pending |
+| Full RLS matrix green at the release commit | PASS at the role migration (all 68 phases; 13 stale probes updated to the new rules and re-run green). A fresh full run accompanies the READY declaration |
 
 
 ## Fixed during the audit (2026-09-08 evening)
