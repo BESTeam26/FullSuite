@@ -5475,6 +5475,94 @@ if (runs(67)) {
 }
 
 
+if (runs(68)) {
+  startPhase("phase 68");
+  /* BES's own company files (0232), and the storage guard put back.
+  
+     Rule 18 says the agency hub and an organization hub are one engine with
+     two owners. The half that matters to prove is rule 16's: an agency
+     document has organization_id NULL, so NO organization branch can reach
+     it — a customer must not be able to read BES's internal handbook, however
+     its policies are combined. And the regression: 0218's storage rewrite
+     lost the guard that kept company uploads behind member_can, so the guard
+     itself is asserted against pg_policies, not assumed from the migration
+     having applied. */
+  const p68 = (uid, sql) => {
+    try {
+      return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows;
+    } catch (e) {
+      const m = (String(e.message) + String(e.stdout ?? "")).match(/ERROR:\s*(\w+):/);
+      return "ERR " + (m ? m[1] : "unknown");
+    }
+  };
+  const seeded68 = (uid, sql) => {
+    try {
+      return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${U["bes.owner@bes.test"]}","role":"authenticated"}';
+        select set_config('probe.doc', public.save_company_document(null, 'agency/company/probe.pdf', '[TEST] handbook.pdf', 'application/pdf', 100)::text, true);
+        set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows;
+    } catch (e) {
+      const m = (String(e.message) + String(e.stdout ?? "")).match(/ERROR:\s*(\w+):/);
+      return "ERR " + (m ? m[1] : "unknown");
+    }
+  };
+  const OWN68 = U["bes.owner@bes.test"], AGT68 = U["bes.credit@bes.test"];
+  const ORGOWN68 = U["org.owner@bes.test"];
+
+  const P68 = [
+    /* ── who may put a document into BES's own hub ─────────────────────── */
+    ["the owner may add a BES company document",
+      () => p68(OWN68, `select length(public.save_company_document(null, 'agency/company/a.pdf', '[TEST] a.pdf', 'application/pdf', 10)::text) as rows`), 36],
+    ["an agent without hub.files.manage may not",
+      () => p68(AGT68, `select public.save_company_document(null, 'agency/company/b.pdf', '[TEST] b.pdf', 'application/pdf', 10) as rows`), "ERR 42501"],
+    ["an organization owner may not reach the agency path at all",
+      () => p68(ORGOWN68, `select public.save_company_document(null, 'agency/company/c.pdf', '[TEST] c.pdf', 'application/pdf', 10) as rows`), "ERR 42501"],
+    ["a BES document must live in the agency company folder",
+      () => p68(OWN68, `select public.save_company_document(null, 'somewhere/else.pdf', '[TEST] d.pdf', 'application/pdf', 10) as rows`), "ERR 42501"],
+
+    /* ── rule 16: the customer never sees BES's internal documents ─────── */
+    ["BES staff read the agency document",
+      () => seeded68(AGT68, `select count(*)::int as rows from public.files where id = current_setting('probe.doc')::uuid`), 1],
+    ["an organization owner does NOT — no organization branch reaches a NULL organization",
+      () => seeded68(ORGOWN68, `select count(*)::int as rows from public.files where id = current_setting('probe.doc')::uuid`), 0],
+    /* entity_visible saying yes for staff is the new case actually working;
+       the customer's exclusion is the files policy above, not this helper. */
+    ["entity_visible accepts the agency as a company_document owner for staff",
+      () => p68(OWN68, `select public.entity_visible('company_document',
+              (select id::text from public.agencies limit 1))::int as rows`), 1],
+
+    /* ── removing: same asymmetry ──────────────────────────────────────── */
+    ["an agent may not remove it",
+      () => seeded68(AGT68, `select public.delete_company_document(current_setting('probe.doc')::uuid) as rows`), "ERR 42501"],
+    ["the owner may",
+      () => p68(OWN68, `select set_config('probe.doc', public.save_company_document(null, 'agency/company/e.pdf', '[TEST] e.pdf', 'application/pdf', 10)::text, true);
+              select (public.delete_company_document(current_setting('probe.doc')::uuid) = 'agency/company/e.pdf')::int as rows`), 1],
+
+    /* ── the storage guard, asserted against the live policy ───────────── */
+    ["the general storage insert policy excludes company folders again",
+      () => q(`select (coalesce(with_check, '') ilike '%IS DISTINCT FROM ''company''%')::int as rows
+                 from pg_policies
+                where schemaname = 'storage' and tablename = 'objects' and policyname = 'bes_files_insert'`)[0].rows, 1],
+    ["…and the company policy carries both owners",
+      () => q(`select ((coalesce(with_check,'') ilike '%hub.files.manage%') and (coalesce(with_check,'') ilike '%member_can%'))::int as rows
+                 from pg_policies
+                where schemaname = 'storage' and tablename = 'objects' and policyname = 'bes_files_company_insert'`)[0].rows, 1],
+
+    /* ── the organization path is exactly as it was ────────────────────── */
+    ["an organization owner still manages its own documents",
+      () => p68(ORGOWN68, `select length(public.save_company_document(
+               (select organization_id from public.org_memberships where user_id = '${ORGOWN68}' limit 1),
+               (select organization_id::text from public.org_memberships where user_id = '${ORGOWN68}' limit 1) || '/company/f.pdf',
+               '[TEST] f.pdf', 'application/pdf', 10)::text) as rows`), 36],
+    ["…and a BES agent has no key to a customer's documents",
+      () => p68(AGT68, `select public.save_company_document(
+               (select organization_id from public.org_memberships where user_id = '${ORGOWN68}' limit 1),
+               (select organization_id::text from public.org_memberships where user_id = '${ORGOWN68}' limit 1) || '/company/g.pdf',
+               '[TEST] g.pdf', 'application/pdf', 10) as rows`), "ERR 42501"],
+  ];
+  runPhase("phase 68", P68, { strict: true });
+}
+
+
 endPhase();
 
 /* ------------------------------------------------------------------ *

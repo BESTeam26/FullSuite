@@ -19,6 +19,9 @@ import { useCalendarEvents, useHolidayUpkeep } from "@/lib/data/use-agency-calen
 import { longDate } from "@/lib/data/agency-calendar";
 import { businessToday, addDays } from "@/lib/calendar/us-federal-holidays";
 import { atLeast, type AgencyRole } from "@/lib/agency/navigation";
+import { CalendarMonth, type MonthEntry } from "@/components/dashboard/CalendarMonth";
+import { dayKey, monthGridEnd } from "@/lib/calendar/month-grid";
+import { useCalendarView, type CalendarView } from "@/lib/calendar/use-calendar-view";
 import { requireSupabase } from "@/lib/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
@@ -39,9 +42,52 @@ export const AgencyCalendarPage = () => {
 
   const today = businessToday();
   const [from, setFrom] = useState(today);
-  const to = useMemo(() => addDays(from, 365), [from]);
-  const events = useCalendarEvents(from, to);
+  const { view, setView, cursor, goMonth, selectedDay, setSelectedDay } = useCalendarView();
+  /* The month grid can page into the past — a list of upcoming events cannot,
+     which is exactly why Dee asked for the toggle. Its range follows the
+     month on screen; the list keeps its rolling year. */
+  const to = useMemo(
+    () =>
+      view === "month"
+        ? dayKey(monthGridEnd(cursor.year, cursor.month))
+        : addDays(from, 365),
+    [view, cursor, from],
+  );
+  const events = useCalendarEvents(view === "month" ? dayKey(new Date(cursor.year, cursor.month, -6)) : from, to);
   const [adding, setAdding] = useState(false);
+
+  const monthEntries = useMemo<MonthEntry[]>(
+    () =>
+      (events.data ?? []).map((e) => {
+        const meta = KIND_META[e.kind];
+        return {
+          id: e.id,
+          day: e.observedDate,
+          title: e.name,
+          overdue: false,
+          kindLabel: meta.label,
+          kindTone: meta.cls,
+          kindDot: e.kind === "us_federal_holiday" ? "bg-blue-500" : e.kind === "custom_holiday" ? "bg-emerald-500" : e.kind === "special_workday" ? "bg-amber-500" : "bg-muted-foreground",
+        };
+      }),
+    [events.data],
+  );
+
+  const viewTab = (v: CalendarView, label: string) => (
+    <button
+      type="button"
+      onClick={() => setView(v)}
+      aria-pressed={view === v}
+      className={cn(
+        "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+        view === v
+          ? "bg-primary text-primary-foreground"
+          : "border border-border bg-card text-foreground hover:bg-muted",
+      )}
+    >
+      {label}
+    </button>
+  );
 
   return (
     <HqPageShell
@@ -50,8 +96,14 @@ export const AgencyCalendarPage = () => {
       icon={CalendarDays}
       actions={
         <div className="flex items-center gap-2">
-          <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
-            aria-label="From" className="h-8 w-40" />
+          <div className="flex items-center gap-1.5" role="group" aria-label="Calendar view">
+            {viewTab("list", "List")}
+            {viewTab("month", "Month")}
+          </div>
+          {view === "list" && (
+            <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
+              aria-label="From" className="h-8 w-40" />
+          )}
           {canAdd && (
             <Button size="sm" onClick={() => setAdding(true)}>
               <Plus className="mr-1.5 h-4 w-4" /> Add event
@@ -60,6 +112,19 @@ export const AgencyCalendarPage = () => {
         </div>
       }
     >
+      {view === "month" ? (
+        <ContentCard title="Month">
+          <CalendarMonth
+            year={cursor.year}
+            month={cursor.month}
+            today={today}
+            selected={selectedDay}
+            entries={monthEntries}
+            onMonth={goMonth}
+            onSelect={setSelectedDay}
+          />
+        </ContentCard>
+      ) : (
       <ContentCard title="Next 12 months">
         {events.isLoading ? (
           <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p>
@@ -109,6 +174,7 @@ export const AgencyCalendarPage = () => {
           </ul>
         )}
       </ContentCard>
+      )}
 
       {adding && agencyId && (
         <AddEventDialog

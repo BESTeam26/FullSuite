@@ -28,7 +28,8 @@ export interface MonthEntry {
   /** Local `YYYY-MM-DD`. */
   day: string;
   title: string;
-  href: string;
+  /** Where clicking the entry goes. A holiday has nowhere to go and has none. */
+  href?: string;
   overdue: boolean;
   /** A short coloured label, e.g. "Work item due". */
   kindLabel: string;
@@ -169,9 +170,13 @@ export function CalendarMonth({
             <ul className="mt-2 divide-y divide-border/60">
               {selectedList.map((e) => (
                 <li key={e.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-xs">
-                  <Link to={e.href} className="min-w-0 truncate font-semibold text-foreground hover:underline">
-                    {e.title}
-                  </Link>
+                  {e.href ? (
+                    <Link to={e.href} className="min-w-0 truncate font-semibold text-foreground hover:underline">
+                      {e.title}
+                    </Link>
+                  ) : (
+                    <span className="min-w-0 truncate font-semibold text-foreground">{e.title}</span>
+                  )}
                   <span className="inline-flex items-center gap-2">
                     <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-bold", e.kindTone)}>
                       {e.kindLabel}

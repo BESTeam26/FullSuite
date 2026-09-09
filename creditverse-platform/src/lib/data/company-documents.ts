@@ -1,9 +1,15 @@
 /**
- * Company documents — the Hub Core "Files" module. Canonical `files` rows with
- * `entity_type = 'company_document'`, objects in the private `bes-files`
- * bucket at `<organization_id>/company/<uuid>.<ext>`. Reading is every
- * member; publishing and removing need `settings.manage`, enforced by the
- * policies, not by this layer.
+ * Company documents — the Hub Core "Files" module, for BOTH tenancies.
+ *
+ * One engine, two owners (rule 18): a customer's documents are `files` rows
+ * with its `organization_id` and objects at `<org>/company/…`; BES's own are
+ * rows with `organization_id` NULL and objects at `agency/company/…`. Passing
+ * `organizationId: null` everywhere below means "BES's hub".
+ *
+ * Reading is every member (or every BES staff member, for the agency's);
+ * publishing and removing need `settings.manage` in an organization and
+ * `hub.files.manage` at BES — enforced by the policies and the writer
+ * (0232), not by this layer.
  */
 import { requireSupabase } from "@/lib/supabase/client";
 
@@ -26,12 +32,15 @@ export function documentProblem(file: File): string | null {
   return null;
 }
 
-export async function fetchCompanyDocuments(organizationId: string): Promise<CompanyDocument[]> {
+export async function fetchCompanyDocuments(organizationId: string | null): Promise<CompanyDocument[]> {
   const sb = requireSupabase();
-  const { data, error } = await sb
+  let q = sb
     .from("files")
-    .select("id, name, path, mime_type, size_bytes, uploaded_by, created_at, profiles:uploaded_by(full_name, email)")
-    .eq("organization_id", organizationId)
+    .select("id, name, path, mime_type, size_bytes, uploaded_by, created_at, profiles:uploaded_by(full_name, email)");
+  /* NULL narrows to the agency's own documents. It never widens: the select
+     policy still decides what comes back (rule 16). */
+  q = organizationId ? q.eq("organization_id", organizationId) : q.is("organization_id", null);
+  const { data, error } = await q
     .eq("entity_type", "company_document")
     .order("created_at", { ascending: false })
     .limit(200);
@@ -57,19 +66,19 @@ export async function fetchCompanyDocuments(organizationId: string): Promise<Com
  * the object is removed again, so a half-finished upload never lingers.
  */
 export async function uploadCompanyDocument(params: {
-  organizationId: string;
+  organizationId: string | null;
   file: File;
 }): Promise<string> {
   const sb = requireSupabase();
   const extension = params.file.name.includes(".") ? params.file.name.split(".").pop()!.slice(0, 12) : "bin";
-  const path = `${params.organizationId}/company/${crypto.randomUUID()}.${extension}`;
+  const path = `${params.organizationId ?? "agency"}/company/${crypto.randomUUID()}.${extension}`;
   const { error: uploadError } = await sb.storage.from("bes-files").upload(path, params.file, {
     contentType: params.file.type || "application/octet-stream",
     upsert: false,
   });
   if (uploadError) throw uploadError;
   const { data, error } = await sb.rpc("save_company_document", {
-    p_org: params.organizationId,
+    p_org: params.organizationId as string,
     p_path: path,
     p_name: params.file.name,
     p_mime: params.file.type || "",

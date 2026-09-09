@@ -23,7 +23,8 @@ import { useMyWork, useOrganizationWork } from "@/lib/data/use-work";
 import { useAgency } from "@/lib/agency-context";
 import { formatDate } from "@/lib/format-date";
 import { CalendarMonth, type MonthEntry } from "@/components/dashboard/CalendarMonth";
-import { addMonths, dayKey, monthGridEnd } from "@/lib/calendar/month-grid";
+import { dayKey, monthGridEnd } from "@/lib/calendar/month-grid";
+import { useCalendarView, type CalendarView } from "@/lib/calendar/use-calendar-view";
 import { cn } from "@/lib/utils";
 
 interface CalendarEntry { id: string; at: string; title: string; kind: "work" | "clock" | "renewal"; href: string; overdue: boolean }
@@ -33,29 +34,10 @@ const KIND: Record<CalendarEntry["kind"], { label: string; icon: LucideIcon; ton
   renewal: { label: "Renewal", icon: RefreshCw, tone: "bg-emerald-500/10 text-emerald-700 border-emerald-500/30", dot: "bg-emerald-500" },
 };
 
-type CalendarView = "list" | "month";
-const VIEW_KEY = "bes-calendar-view";
-
-/** Reads the remembered view, and copes with a browser that blocks storage. */
-const rememberedView = (): CalendarView => {
-  try {
-    return localStorage.getItem(VIEW_KEY) === "month" ? "month" : "list";
-  } catch {
-    return "list";
-  }
-};
 const TIMER_LABEL: Record<string, string> = { reinvestigation: "30-day reinvestigation ends", furnisher_notice: "Furnisher notice due", results_notice: "Results notice due", reinsertion_watch: "Reinsertion watch ends" };
 
 export function LiveCalendar({ days = 14 }: { days?: number }) {
-  const [view, setView] = useState<CalendarView>(rememberedView);
-  const [cursor, setCursor] = useState(() => {
-    const n = new Date();
-    return { year: n.getFullYear(), month: n.getMonth() };
-  });
-  const [selectedDay, setSelectedDay] = useState<string | null>(null);
-  useEffect(() => {
-    try { localStorage.setItem(VIEW_KEY, view); } catch { /* nothing is lost: the list is the default */ }
-  }, [view]);
+  const { view, setView, cursor, goMonth, selectedDay, setSelectedDay } = useCalendarView();
 
   const mine = useMyWork();
   const { activeOrganization } = useAgency();
@@ -106,16 +88,6 @@ export function LiveCalendar({ days = 14 }: { days?: number }) {
     })),
     [entries],
   );
-
-  const goMonth = (delta: number) => {
-    setSelectedDay(null);
-    if (delta === 0) {
-      const n = new Date();
-      setCursor({ year: n.getFullYear(), month: n.getMonth() });
-      return;
-    }
-    setCursor((c) => addMonths(c.year, c.month, delta));
-  };
 
   const tab = (v: CalendarView, label: string) => (
     <button

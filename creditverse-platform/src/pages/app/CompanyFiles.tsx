@@ -7,7 +7,9 @@ import { useRef, useState } from "react";
 import { Download, FileText, FolderOpen, Loader2, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAgency } from "@/lib/agency-context";
+import { useAuth } from "@/lib/auth/auth-context";
 import { usePermissions } from "@/lib/auth/use-permission";
+import { useAgencyPermissions } from "@/lib/data/agency-permissions";
 import { useCompanyDocuments } from "@/lib/data/use-company-documents";
 import { useOrganizationHub } from "@/lib/data/use-hub";
 import { documentProblem, signDocumentUrl, type CompanyDocument } from "@/lib/data/company-documents";
@@ -16,12 +18,24 @@ import { formatDate } from "@/lib/format-date";
 import { errorMessage } from "@/lib/data/error-message";
 
 export default function CompanyFiles() {
-  const { activeOrganization } = useAgency();
-  const organizationId = activeOrganization?.id ?? null;
+  /* One screen, two owners (rule 18). On the agency view this is BES's own
+     hub: organizationId null, managed by `hub.files.manage`, no entitlement
+     gate — BES does not buy modules from itself. Through a customer's lens it
+     is that organization's hub, exactly as before. */
+  const { activeOrganization, viewMode } = useAgency();
+  const auth = useAuth();
+  const isAgencyHub = viewMode === "agency" && auth.isAgencyStaff;
+  const organizationId = isAgencyHub ? null : activeOrganization?.id ?? null;
   const hub = useOrganizationHub(organizationId);
-  const docs = useCompanyDocuments(organizationId, hub.isActive("files"));
+  const docs = useCompanyDocuments(
+    organizationId,
+    isAgencyHub || (!!organizationId && hub.isActive("files")),
+  );
   const permissions = usePermissions();
-  const canManage = permissions.canAsMember("settings.manage");
+  const agencyPerms = useAgencyPermissions();
+  const canManage = isAgencyHub
+    ? agencyPerms.can("hub.files.manage")
+    : permissions.canAsMember("settings.manage");
   const fileRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
   const [opening, setOpening] = useState<string | null>(null);
@@ -57,7 +71,11 @@ export default function CompanyFiles() {
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-foreground">
             <FolderOpen className="h-6 w-6 text-primary" /> Files
           </h1>
-          <p className="text-sm text-muted-foreground">Documents everyone at your company can open: handbooks, price lists, forms.</p>
+          <p className="text-sm text-muted-foreground">
+            {isAgencyHub
+              ? "BES's own shared documents: handbooks, price lists, forms. Customer organizations never see these."
+              : "Documents everyone at your company can open: handbooks, price lists, forms."}
+          </p>
         </div>
         {canManage && (
           <>
