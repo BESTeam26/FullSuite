@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
   const asUser = createClient(url, anon, { global: { headers: { Authorization: auth } } });
   const { data: inv, error } = await asUser
     .from("invitations")
-    .select("email, token, kind, organization_id, agency_role, partner_group_id, organizations(name, branding), outsourcing_groups(name), agencies(name, branding)")
+    .select("email, token, kind, organization_id, agency_role, partner_group_id, organizations(name, branding), outsourcing_groups(name), partner_contacts(full_name, is_primary), agencies(name, branding)")
     .eq("id", invitationId)
     .is("accepted_at", null)
     .maybeSingle();
@@ -100,33 +100,69 @@ Deno.serve(async (req) => {
       };
 
   const link = `${origin}/accept-invitation/${inv.token}`;
-  const where = isTeam
-    ? `the ${agencyName} team`
-    : isPartner
-      ? `the ${agencyName} Partner Portal${partner?.name ? ` for ${partner.name}` : ""}`
-      : brand.name;
-  const subject = isTeam
-    ? `Activate your ${agencyName} team account`
-    : isPartner
-      ? `Activate your ${agencyName} Partner Portal account`
+
+  /* Portal activation copy is Dee's, verbatim (2026-09-09): the partner's
+     OWNER (the primary contact) is welcomed to THEIR portal; a partner TEAM
+     MEMBER is invited into the partner's portal with a role-scoped promise.
+     Both carry the growth-engine brand line and the company signature. */
+  const contact = inv.partner_contacts as { full_name: string | null; is_primary: boolean | null } | null;
+  const firstName = (contact?.full_name ?? "").trim().split(/\s+/)[0] || "there";
+  const partnerName = partner?.name ?? "your company";
+  const email = String(inv.email);
+
+  let subject: string;
+  let content: Parameters<typeof sendEmail>[0]["content"];
+  if (isPartner && contact?.is_primary) {
+    subject = `Welcome to your BES Partner Portal, ${firstName} \u{1F49B}`;
+    content = {
+      brand: { ...brand, tagline: "Beyond Outsourcing. Your Business Growth Engine." },
+      heading: `Welcome, ${firstName}!`,
+      paragraphs: [
+        "Your BES Partner Portal is ready.",
+        `This is where you can stay connected with our team, access shared files, check updates, and keep track of the services we\u2019re supporting for ${partnerName}.`,
+        `Activate your account using ${email} and you\u2019re good to go.`,
+      ],
+      action: { label: "Activate My Portal", url: link },
+      footnote: `This link is valid for 7 days \u2014 if it expires, just let us know and we\u2019ll send you a new one. We\u2019re happy to have you with us. Welcome to BES! \u{1F49B} \u2014 Blessed Empire Services · Process. Systems. People. This invite is only for ${email}; if you weren\u2019t expecting it, you can ignore this email.`,
+    };
+  } else if (isPartner) {
+    subject = `You\u2019ve been invited to ${partnerName}\u2019s BES Portal`;
+    content = {
+      brand: { ...brand, tagline: "Beyond Outsourcing. Your Business Growth Engine." },
+      heading: `Hi ${firstName}, welcome! \u{1F44B}`,
+      paragraphs: [
+        `You\u2019ve been invited to access ${partnerName}\u2019s BES Partner Portal.`,
+        "This gives you access to the files, updates, resources, and areas your team has shared with you.",
+        `Use ${email} to activate your account and get started.`,
+        "You\u2019ll only see the areas connected to your role and access.",
+      ],
+      action: { label: "Activate My Access", url: link },
+      footnote: `This link is valid for 7 days \u2014 if it expires, your admin or the BES team can send you a new one. Glad to have you here! \u2014 Blessed Empire Services · Process. Systems. People. This invite is only for ${email}; if you weren\u2019t expecting it, you can ignore this email.`,
+    };
+  } else {
+    const where = isTeam ? `the ${agencyName} team` : brand.name;
+    subject = isTeam
+      ? `Activate your ${agencyName} team account`
       : `Activate your ${brand.name} account`;
+    content = {
+      brand,
+      heading: `You have been invited to ${where}`,
+      paragraphs: [
+        `Activate your account to get started. You will be asked to sign in with this email address — ${email} — and the invitation only works for that address.`,
+        "The link is good for seven days. After that, ask whoever invited you to send a new one.",
+      ],
+      action: { label: "Activate my account", url: link },
+      footnote: "If you were not expecting this invitation, no account is created until you open the link.",
+    };
+  }
 
   const result = await sendEmail({
     apiKey: mailKey,
     from,
     fromName: brand.name,
-    to: String(inv.email),
+    to: email,
     subject,
-    content: {
-      brand,
-      heading: `You have been invited to ${where}`,
-      paragraphs: [
-        `Activate your account to get started. You will be asked to sign in with this email address — ${inv.email} — and the invitation only works for that address.`,
-        "The link is good for seven days. After that, ask whoever invited you to send a new one.",
-      ],
-      action: { label: "Activate my account", url: link },
-      footnote: "If you were not expecting this invitation, no account is created until you open the link.",
-    },
+    content,
   });
 
   if (!result.ok) {
