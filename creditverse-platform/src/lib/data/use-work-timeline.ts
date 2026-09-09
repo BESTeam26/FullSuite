@@ -60,3 +60,56 @@ export function usePostWorkComment() {
     },
   });
 }
+
+/* ── BES CRM projects use the same timeline engine ─────────────────────────
+   `fetchTimeline` and `postNote` are already generic over entity type, and
+   `entity_visible` knows 'crm_project' (0223). Same activity table, same
+   visibility rules, different subject — NOT a parallel updates system. */
+
+export function useCrmProjectTimeline(projectId: string | null) {
+  const auth = useAuth();
+  const live = auth.mode === "live" && auth.status === "signed-in" && !!projectId;
+  const q = useQuery({
+    queryKey: timelineKey("crm_project", projectId ?? undefined),
+    queryFn: () => fetchTimeline("crm_project", projectId as string, 100),
+    enabled: live,
+    staleTime: 15_000,
+  });
+  return {
+    entries: (q.data ?? []) as TimelineEntry[],
+    isLoading: live && q.isLoading,
+    error: q.error ? (q.error as Error).message : null,
+  };
+}
+
+export interface PostCrmCommentInput {
+  projectId: string;
+  agencyId: string;
+  organizationId?: string;
+  detail: string;
+  visibility: ActivityVisibility;
+}
+
+export function usePostCrmProjectComment() {
+  const auth = useAuth();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: PostCrmCommentInput) => {
+      if (!auth.user) throw new Error("Sign in to comment.");
+      return postNote({
+        agencyId: input.agencyId,
+        organizationId: input.organizationId,
+        entityType: "crm_project",
+        entityId: input.projectId,
+        actorId: auth.user.id,
+        actorName: auth.displayName,
+        action: "Comment posted",
+        detail: input.detail.trim(),
+        visibility: input.visibility,
+      });
+    },
+    onSuccess: (_, input) => {
+      void qc.invalidateQueries({ queryKey: timelineKey("crm_project", input.projectId) });
+    },
+  });
+}

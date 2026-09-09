@@ -12829,6 +12829,13 @@ export type Database = {
       crm_template_writable: { Args: { p_agency: string }; Returns: boolean }
       crm_work_unit_ready: { Args: { p_unit: string }; Returns: boolean }
       crm_work_unit_state: { Args: { p_unit: string }; Returns: string }
+      crm_work_unit_states: {
+        Args: { p_units: string[] }
+        Returns: {
+          id: string
+          state: string
+        }[]
+      }
       current_agency_role: {
         Args: never
         Returns: Database["public"]["Enums"]["agency_role"]

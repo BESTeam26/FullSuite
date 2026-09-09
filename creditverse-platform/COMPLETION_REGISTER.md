@@ -732,3 +732,83 @@ item rather than anything new: `borrower_funding_files` is readable by
 limits a borrower to their own files. Correct today, load-bearing, and
 recorded as **C16** with a recommendation — not a regression from this
 session's work. All twelve new `crm_*` tables carry RLS.
+
+### The loading feel, root-caused — 2026-09-08, second pass
+
+Dee: *"you fix the frame but the loading still feels the delay… blank screen
+in a snap then load all other element and contents. No modern app behaves like
+that."* The frame fix was necessary and insufficient. Three further causes,
+each a different kind of dead time:
+
+| Cause | Fix |
+|---|---|
+| A tab switch unmounted the screen and showed a skeleton while the next chunk downloaded | `useRouteTransition`: `<Routes>` renders against a location copied inside `startTransition`, so the previous screen stays until the next is ready. `RouteProgress` acknowledges only waits over 120ms |
+| The chunk was requested only after the click | `route-chunks.ts` — one registry holding every screen's `import()`; the router builds its `lazy()` from it and `PrefetchLink` / `prefetchVisibleRoutes` warm the same loader on hover, focus and idle. Menu-as-rendered only (already permission-filtered), stands down on Data Saver/2g |
+| A cold load painted white → a lone spinner → everything at once | The workspace frame is painted in `index.html` before any script runs; `RequireAuth` and the first-chunk fallback hold the same frame; removed pre-paint on non-`/app` paths |
+
+Found while verifying, fixed in the same commit: scroll leaking across the
+in-place swap (reset on the location that is ON SCREEN, so a query-string
+change keeps its place), and an idle handle cancelled with `clearTimeout`.
+Also: capabilities resolved as ~27 parallel `agency_can` calls per session —
+now ONE `agency_can_all()` (0226), both functions reading a single shared
+resolver, with matrix phase 67 comparing them key-by-key for every role.
+
+`route-chunks.test.ts` walks the menu the product renders (caught
+`/app/diy-management` missing on its first run); `workspace-skeleton.test.ts`
+holds the HTML frame and the React frame to the same measurements and palette.
+
+### Partner credential vault — 2026-09-08, migrations 0225 / 0227, phase 66
+
+Dee: *"we can hide the password BUT I need something my team can easily copy
+and paste… DisputeFox, GHL, Zapier, Emails… collected during client
+onboarding."* Shipped as the **Logins** tab on the partner profile.
+
+- Username, sign-in link, code destination, notes: in the clear, one-click
+  copy. `partner_credentials` has **no password column** — a row holds a
+  `secret_id` into Supabase Vault, which `authenticated` cannot read.
+- Reveal: behind `partners.credentials.view` (off below admin), audit row
+  written **before** the value returns, shown value hides itself after 30s,
+  "Copy" never displays the characters.
+- A note that looks like a password is refused — by the database and by the
+  form as you type, same pattern, held together by a test that reads the
+  migration. Archive needs a reason and keeps history.
+- 0227: creating an entry with a password no longer records a phantom
+  rotation, so "has this changed since we got it?" is answerable.
+- ClickUp confirmed the shape: the `Logins` list (901815950300) has **zero
+  custom fields** — everything lives in task descriptions, which is exactly
+  what this replaces. Migration off ClickUp remains scripted by
+  `clickup-partners.ts` (credentials stripped, `CREDENTIAL_MIGRATION_REQUIRED`).
+
+### The 140-row build standard is in the database — 2026-09-08, 0228 / 0230
+
+All 140 rows of `BES_GHL_Full_Infrastructure_Build_Tracker.xlsx` are now
+`crm_requirements` rows, classified by the workbook's own 55 sections plus
+seven named exceptions (`docs/bes-crm/scripts/classify-tracker.mjs`, which
+refuses to emit SQL while anything is unplaced). 22 client-collection rows are
+`client_requirement` gating the setup units; 15 QA rows attach to Pre-launch
+Verification; "if included/applicable/scheduled" → `optional`, read from the
+workbook's own words. **`crm_requirements_unmapped()` returns zero rows** —
+the gate Dee set (§57) is closed. `build-library.test.ts` re-derives the
+count from the committed sheets so an edited workbook fails the suite.
+
+### BES CRM screen on the engine model — 2026-09-08
+
+`/app/bes-crm` rebuilt from the old flat work-item list to the locked model:
+board (journey rail · health · derived progress · one-sentence attention
+summary) → project workspace (per-engine progress and state, work units
+ordered by urgency with BLOCKED first, Complete/Send-to-QA/Waiting/QA-review
+actions calling the 0223 functions) → Updates (project-level timeline on the
+same `activity_events` engine, `crm_project` entity, BES chooses
+internal/published, customer comments at shared level). Create dialog offers
+only engines with a **published** template. `crm-domain.test.ts` reads the
+migrations so the screen's vocabulary cannot drift from what the database
+returns — it caught four invented values on its first run. New batched
+`crm_work_unit_states(uuid[])` (0229) keeps the workspace at one round trip.
+
+### Full gate, 2026-09-08 second pass
+
+**1,360 / 1,360 checks across 67 phases, zero failures, 22m 09s** at
+migration 0226 — including the `agency_can` refactor under every existing
+phase, the vault (24 checks), and capability parity for every key × every
+role. After it: 0228–0230 applied (data + one INVOKER wrapper), unit suite at
+**1,538**, 0 lint errors, build clean.
