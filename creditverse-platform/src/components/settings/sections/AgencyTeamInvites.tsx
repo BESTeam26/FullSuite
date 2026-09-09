@@ -22,15 +22,14 @@ import { errorMessage } from "@/lib/data/error-message";
 import { sendInvitationEmail } from "@/lib/data/emails";
 import { isAdminRole } from "@/lib/agency/navigation";
 import {
-  AGENCY_ROLES,
-  AGENCY_ROLE_HINTS,
-  AGENCY_ROLE_LABELS,
+  INVITE_CHOICES,
   cancelAgencyInvitation,
   fetchAgencyInvitations,
   invitationLink,
   inviteAgencyMember,
-  type AgencyRole,
+  memberAccessLabel,
 } from "@/lib/data/agency-invitations";
+import { requireSupabase } from "@/lib/supabase/client";
 
 const inputCls = "mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary";
 const labelCls = "block text-[10px] font-bold uppercase tracking-wider text-muted-foreground";
@@ -41,11 +40,6 @@ export function AgencyTeamInvites() {
   const live = auth.mode === "live" && auth.status === "signed-in";
   const role = auth.agencyRole;
   const canInvite = isAdminRole(role);
-  /* Only an owner can create another owner — the same rule the function
-     enforces, so the option is not offered to someone who would be refused. */
-  /* Ownership is transferred from the owner's own account, never mailed
-     (0234) — so both roles are invitable and neither is ownership. */
-  const grantable = AGENCY_ROLES;
 
   const invitations = useQuery({
     queryKey: ["agency", "invitations"],
@@ -55,7 +49,29 @@ export function AgencyTeamInvites() {
   });
 
   const [email, setEmail] = useState("");
-  const [chosen, setChosen] = useState<AgencyRole>("agency_user");
+  /* One dropdown, two stored facts: the SECURITY ROLE stays agency_admin or
+     agency_user (0234 — never a third), and the ACCESS PROFILE is the
+     operational preset an Agency User starts from. Combined here because
+     "Agency User · Agent" is how Dee reads a person; separate underneath
+     because a preset must never be mistaken for a security role. */
+  const [choiceValue, setChoiceValue] = useState("agency_user:agent");
+  const chosen = INVITE_CHOICES.find((c) => c.value === choiceValue) ?? INVITE_CHOICES[0];
+  const [leadTeam, setLeadTeam] = useState("");
+
+  /* Loaded only once someone picks Team Lead — the team is required then,
+     and nobody else pays for the request (rule 14). */
+  const teams = useQuery({
+    queryKey: ["agency", "teams", "invite-picker"],
+    queryFn: async () => {
+      const sb = requireSupabase();
+      const { data, error } = await sb
+        .from("teams").select("id, name").is("archived_at", null).eq("is_fixture", false).order("name");
+      if (error) throw error;
+      return (data ?? []) as { id: string; name: string }[];
+    },
+    enabled: live && chosen.profile === "team_lead",
+    staleTime: 60_000,
+  });
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [resending, setResending] = useState<string | null>(null);
@@ -83,7 +99,10 @@ export function AgencyTeamInvites() {
    */
   const invite = useMutation({
     mutationFn: async () => {
-      const id = await inviteAgencyMember(email, chosen);
+      const id = await inviteAgencyMember(
+        email, chosen.role, chosen.profile ?? undefined,
+        chosen.profile === "team_lead" ? leadTeam : undefined,
+      );
       return { id, outcome: await sendInvitationEmail(id) };
     },
     onSuccess: ({ outcome }) => {
@@ -133,15 +152,29 @@ export function AgencyTeamInvites() {
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputCls} required autoComplete="off" />
             </label>
             <label className="text-sm">
-              <span className={labelCls}>Role</span>
-              <select value={chosen} onChange={(e) => setChosen(e.target.value as AgencyRole)} className={inputCls}>
-                {grantable.map((r) => <option key={r} value={r}>{AGENCY_ROLE_LABELS[r]}</option>)}
+              <span className={labelCls}>Access</span>
+              <select value={choiceValue} onChange={(e) => { setChoiceValue(e.target.value); setLeadTeam(""); }} className={inputCls}>
+                {INVITE_CHOICES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
               </select>
             </label>
           </div>
-          <p className="text-[11px] text-muted-foreground">{AGENCY_ROLE_HINTS[chosen]}</p>
+          {chosen.profile === "team_lead" && (
+            <label className="block text-sm sm:max-w-xs">
+              <span className={labelCls}>The team they lead</span>
+              <select value={leadTeam} onChange={(e) => setLeadTeam(e.target.value)} className={inputCls} required>
+                <option value="" disabled>{teams.isLoading ? "Loading teams…" : "Choose a team"}</option>
+                {(teams.data ?? []).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+              {teams.data && teams.data.length === 0 && (
+                <span className="mt-1 block text-[11px] text-status-danger">
+                  No teams exist yet — create the team first on the Teams page.
+                </span>
+              )}
+            </label>
+          )}
+          <p className="text-[11px] text-muted-foreground">{chosen.hint}</p>
           <div className="flex flex-wrap items-center gap-3">
-            <Button type="submit" size="sm" disabled={invite.isPending || !email.trim()}>
+            <Button type="submit" size="sm" disabled={invite.isPending || !email.trim() || (chosen.profile === "team_lead" && !leadTeam)}>
               {invite.isPending ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Send className="mr-1 h-3.5 w-3.5" />} Send invitation
             </Button>
             {message && <p role="status" className={`text-xs ${message.error ? "text-status-danger" : "text-status-success"}`}>{message.text}</p>}
@@ -162,7 +195,7 @@ export function AgencyTeamInvites() {
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold text-foreground">{i.email}</p>
                   <p className="text-muted-foreground">
-                    {i.role ? AGENCY_ROLE_LABELS[i.role] : "No role"} · expires {formatDate(i.expiresAt)}
+                    {i.role ? memberAccessLabel(i.role, i.accessProfile) : "No role"} · expires {formatDate(i.expiresAt)}
                   </p>
                 </div>
                 <Button

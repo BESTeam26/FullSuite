@@ -1689,6 +1689,58 @@ if (runs(37)) {
     ["an organization member cannot read BES invitations",      () => w37(ORGOWNER, `select count(*)::int as rows from public.invitations where kind='agency'`), 0],
     ["a direct insert of an agency invitation is refused",      () => w37(ADMIN, `insert into public.invitations (email, kind, agency_id, agency_role) values ('sneak@bes.test', 'agency', (select agency_id from public.agency_memberships where user_id=auth.uid() limit 1), 'agency_owner'); select 1 as rows`), "ERR 42501"],
     ["every public plan a signer can choose has a price and a trial", () => q(`select (count(*) filter (where monthly_cents > 0 and trial_days > 0) = count(*))::int as rows from public.plans where is_public and public_trial`)[0].rows, 1],
+
+    /* ── Access profiles (0266): presets on the two roles, never a third role ── */
+    ["an invitation carries the access profile",
+      () => w37(OWNER, `select public.invite_agency_member('probe.teammate@bes.test','agency_user','manager');
+        select access_profile::text as rows from public.invitations where kind='agency' and email='probe.teammate@bes.test'`), "manager"],
+    ["an Agency User invited with no profile becomes CUSTOM — deny by default, never a guess",
+      () => w37(OWNER, `${INVITE('agency_user')}; select access_profile::text as rows from public.invitations where kind='agency' and email='probe.teammate@bes.test'`), "custom"],
+    ["an admin invitation discards any profile — the role already grants everything",
+      () => w37(OWNER, `select public.invite_agency_member('probe.teammate@bes.test','agency_admin','manager');
+        select coalesce(access_profile::text,'none') as rows from public.invitations where kind='agency' and email='probe.teammate@bes.test'`), "none"],
+    ["a Team Lead invitation without its team is refused",
+      () => w37(OWNER, `select public.invite_agency_member('probe.teammate@bes.test','agency_user','team_lead')`), "ERR 22023"],
+    ["…and with a team that does not exist here",
+      () => w37(OWNER, `select public.invite_agency_member('probe.teammate@bes.test','agency_user','team_lead','44444444-0000-4000-8000-00000000dead'::uuid)`), "ERR 22023"],
+    ["…and a led team on a non-lead invitation is refused",
+      () => w37(OWNER, `select public.invite_agency_member('probe.teammate@bes.test','agency_user','agent',(select id from public.teams where archived_at is null limit 1))`), "ERR 22023"],
+    ["activation writes the profile onto the membership — and the lead FACT onto the team",
+      () => w37(OWNER, `select public.invite_agency_member('org.owner@bes.test','agency_user','team_lead',(select id from public.teams where archived_at is null limit 1));
+        create temp table probe_tok2 on commit drop as select token, lead_team_id from public.invitations where kind='agency' and email='org.owner@bes.test' order by created_at desc limit 1;
+        set local request.jwt.claims = '{"sub":"${ORGOWNER}","role":"authenticated"}';
+        select public.accept_agency_invitation((select token from probe_tok2));
+        select ((select access_profile::text from public.agency_memberships where user_id='${ORGOWNER}')
+             || ':' || (select is_lead::text from public.team_memberships tm where tm.user_id='${ORGOWNER}' and tm.team_id=(select lead_team_id from probe_tok2))) as rows`), "team_lead:true"],
+    /* The resolver's new layer, proven at each edge (§17: overrides still win). */
+    ["the MANAGER preset grants ops.manage through the one resolver",
+      () => w37(OWNER, `update public.agency_memberships set access_profile='manager' where user_id='${AGENT}';
+        set local request.jwt.claims = '{"sub":"${AGENT}","role":"authenticated"}';
+        select public.agency_can('ops.manage')::text as rows`), "true"],
+    ["…and no money — finance stays off for a manager by default",
+      () => w37(OWNER, `update public.agency_memberships set access_profile='manager' where user_id='${AGENT}';
+        set local request.jwt.claims = '{"sub":"${AGENT}","role":"authenticated"}';
+        select (public.agency_can('finance.dashboard.view') or public.agency_can('payroll.view') or public.agency_can('partners.financials.view'))::text as rows`), "false"],
+    /* The denial goes through the WRITER (set_agency_permission), exactly as
+       the product writes it — a direct insert is itself refused by RLS. */
+    ["a person's explicit denial beats their profile",
+      () => w37(OWNER, `update public.agency_memberships set access_profile='manager' where user_id='${AGENT}';
+        select public.set_agency_permission((select id from public.agency_memberships where user_id='${AGENT}'), 'ops.manage', false, 'probe');
+        set local request.jwt.claims = '{"sub":"${AGENT}","role":"authenticated"}';
+        select public.agency_can('ops.manage')::text as rows`), "false"],
+    ["the AGENT preset grants nothing — modules are deliberate per-person grants",
+      () => w37(OWNER, `update public.agency_memberships set access_profile='agent' where user_id='${AGENT}';
+        set local request.jwt.claims = '{"sub":"${AGENT}","role":"authenticated"}';
+        select (public.agency_can('ops.manage') or public.agency_can('partners.view') or public.agency_can('creditops.clients.view'))::text as rows`), "false"],
+    ["only an admin changes a profile",
+      () => w37(AGENT, `select public.set_agency_member_profile((select id from public.agency_memberships where user_id='${AGENT}'), 'manager')`), "ERR 42501"],
+    ["…an admin's own membership takes no profile",
+      () => w37(OWNER, `select public.set_agency_member_profile((select id from public.agency_memberships where user_id='${ADMIN}'), 'manager')`), "ERR 22023"],
+    ["…and a real change is audited with both values",
+      () => w37(OWNER, `select public.set_agency_member_profile((select id from public.agency_memberships where user_id='${AGENT}'), 'team_lead');
+        select count(*)::int as rows from public.activity_events where entity_type='agency_member' and field='access_profile' and new_value='team_lead'`), 1],
+    ["the preset catalogue is readable by staff and writable by nobody",
+      () => w37(AGENT, `insert into public.agency_profile_permissions (profile, key, allowed) values ('agent','payroll.view',true); select 1 as rows`), "ERR 42501"],
   ];
   runPhase("phase 37", P37);
 }

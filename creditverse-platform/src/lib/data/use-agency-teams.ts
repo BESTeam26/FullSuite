@@ -3,7 +3,8 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { workforceKey } from "@/lib/data/use-workforce";
 import {
   addTeamMember, createTeam, fetchAgencyMembers, fetchDepartments, removeTeam,
-  removeTeamMember, restoreTeam, setMemberRole, setMemberStatus, setTeamLead, updateTeam,
+  removeTeamMember, restoreTeam, setMemberRole,
+  setMemberProfile, setMemberStatus, setTeamLead, updateTeam,
 } from "@/lib/data/agency-teams";
 import type { Enums } from "@/lib/supabase/database.types";
 
@@ -92,6 +93,11 @@ export function useMemberActions() {
     setRole: useMutation({
       mutationFn: (v: { membershipId: string; role: Enums<"agency_role"> }) =>
         setMemberRole(v.membershipId, v.role),
+      onSuccess: refresh,
+    }),
+    setProfile: useMutation({
+      mutationFn: (v: { membershipId: string; profile: Enums<"access_profile"> }) =>
+        setMemberProfile(v.membershipId, v.profile),
       onSuccess: refresh,
     }),
   };

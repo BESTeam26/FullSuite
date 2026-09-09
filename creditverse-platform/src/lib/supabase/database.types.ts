@@ -567,6 +567,7 @@ export type Database = {
           primary_department_id: string | null
           primary_division_id: string | null
           primary_team_id: string | null
+          access_profile: Database["public"]["Enums"]["access_profile"] | null
           role: Database["public"]["Enums"]["agency_role"]
           scope: Database["public"]["Enums"]["access_scope"]
           scope_department_id: string | null
@@ -588,6 +589,7 @@ export type Database = {
           primary_department_id?: string | null
           primary_division_id?: string | null
           primary_team_id?: string | null
+          access_profile?: Database["public"]["Enums"]["access_profile"] | null
           role?: Database["public"]["Enums"]["agency_role"]
           scope?: Database["public"]["Enums"]["access_scope"]
           scope_department_id?: string | null
@@ -609,6 +611,7 @@ export type Database = {
           primary_department_id?: string | null
           primary_division_id?: string | null
           primary_team_id?: string | null
+          access_profile?: Database["public"]["Enums"]["access_profile"] | null
           role?: Database["public"]["Enums"]["agency_role"]
           scope?: Database["public"]["Enums"]["access_scope"]
           scope_department_id?: string | null
@@ -5606,9 +5609,11 @@ export type Database = {
       invitations: {
         Row: {
           accepted_at: string | null
+          access_profile: Database["public"]["Enums"]["access_profile"] | null
           agency_id: string | null
           agency_role: Database["public"]["Enums"]["agency_role"] | null
           created_at: string
+          lead_team_id: string | null
           email: string
           expires_at: string
           external_role: Database["public"]["Enums"]["external_role"] | null
@@ -5623,9 +5628,11 @@ export type Database = {
         }
         Insert: {
           accepted_at?: string | null
+          access_profile?: Database["public"]["Enums"]["access_profile"] | null
           agency_id?: string | null
           agency_role?: Database["public"]["Enums"]["agency_role"] | null
           created_at?: string
+          lead_team_id?: string | null
           email: string
           expires_at?: string
           external_role?: Database["public"]["Enums"]["external_role"] | null
@@ -5640,9 +5647,11 @@ export type Database = {
         }
         Update: {
           accepted_at?: string | null
+          access_profile?: Database["public"]["Enums"]["access_profile"] | null
           agency_id?: string | null
           agency_role?: Database["public"]["Enums"]["agency_role"] | null
           created_at?: string
+          lead_team_id?: string | null
           email?: string
           expires_at?: string
           external_role?: Database["public"]["Enums"]["external_role"] | null
@@ -13632,8 +13641,17 @@ export type Database = {
         Args: {
           p_email: string
           p_role: Database["public"]["Enums"]["agency_role"]
+          p_profile?: Database["public"]["Enums"]["access_profile"]
+          p_lead_team?: string
         }
         Returns: string
+      }
+      set_agency_member_profile: {
+        Args: {
+          p_membership: string
+          p_profile: Database["public"]["Enums"]["access_profile"]
+        }
+        Returns: undefined
       }
       invite_partner_contact: { Args: { p_contact: string }; Returns: string }
       invite_team_member: {
@@ -14437,6 +14455,7 @@ export type Database = {
       }
     }
     Enums: {
+      access_profile: "manager" | "team_lead" | "agent" | "custom"
       access_scope:
         | "agency"
         | "division"

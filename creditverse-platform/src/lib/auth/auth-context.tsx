@@ -138,6 +138,7 @@ const demoAgencyMembership: AgencyMembership = {
   user_id: DEMO_USER_ID,
   agency_id: DEMO_AGENCY_ID,
   role: "agency_admin",
+  access_profile: null,
   is_owner: true,
   // Demo explores the whole agency; mirrors the columns migration 0021 added.
   scope: "agency",

@@ -148,6 +148,8 @@ export interface AgencyMember {
   name: string;
   email: string;
   role: Enums<"agency_role">;
+  /** Operational preset for agency_user members; null for admins (0266). */
+  accessProfile: Enums<"access_profile"> | null;
   /** Ownership is a flag on the membership, not a role (0234). */
   isOwner: boolean;
   scope: string;
@@ -161,7 +163,7 @@ export async function fetchAgencyMembers(agencyId: string): Promise<AgencyMember
   const { data, error } = await sb
     .from("agency_memberships")
     // prettier-ignore
-    .select("id, user_id, role, is_owner, scope, status, created_at, deactivated_at, profiles!user_id!inner(full_name, email, is_fixture)")
+    .select("id, user_id, role, access_profile, is_owner, scope, status, created_at, deactivated_at, profiles!user_id!inner(full_name, email, is_fixture)")
     .eq("agency_id", agencyId)
     .eq("profiles.is_fixture", false)
     .order("created_at");
@@ -175,6 +177,7 @@ export async function fetchAgencyMembers(agencyId: string): Promise<AgencyMember
       name: p.full_name || p.email || "Unnamed",
       email: p.email ?? "",
       role: r.role as Enums<"agency_role">,
+      accessProfile: (r.access_profile as Enums<"access_profile">) ?? null,
       isOwner: Boolean(r.is_owner),
       scope: (r.scope as string) ?? "assigned",
       status: (r.status as "active" | "inactive") ?? "active",
@@ -198,6 +201,15 @@ export async function setMemberRole(membershipId: string, role: Enums<"agency_ro
   const sb = requireSupabase();
   const { error } = await sb.rpc("set_agency_member_role", {
     p_membership: membershipId, p_role: role,
+  });
+  if (error) throw error;
+}
+
+/** The preset an Agency User starts from. Overrides on the Access page still win. */
+export async function setMemberProfile(membershipId: string, profile: Enums<"access_profile">): Promise<void> {
+  const sb = requireSupabase();
+  const { error } = await sb.rpc("set_agency_member_profile", {
+    p_membership: membershipId, p_profile: profile,
   });
   if (error) throw error;
 }

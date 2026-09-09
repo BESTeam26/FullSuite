@@ -9,11 +9,13 @@ import { requireSupabase } from "@/lib/supabase/client";
 import type { Enums } from "@/lib/supabase/database.types";
 
 export type AgencyRole = Enums<"agency_role">;
+export type AccessProfile = Enums<"access_profile">;
 
 export interface AgencyInvitation {
   id: string;
   email: string;
   role: AgencyRole | null;
+  accessProfile: AccessProfile | null;
   invitedBy: string | null;
   expiresAt: string;
   createdAt: string;
@@ -24,7 +26,7 @@ export async function fetchAgencyInvitations(): Promise<AgencyInvitation[]> {
   const sb = requireSupabase();
   const { data, error } = await sb
     .from("invitations")
-    .select("id, email, agency_role, invited_by, expires_at, created_at, token")
+    .select("id, email, agency_role, access_profile, invited_by, expires_at, created_at, token")
     .eq("kind", "agency")
     .is("accepted_at", null)
     .gt("expires_at", new Date().toISOString())
@@ -34,6 +36,7 @@ export async function fetchAgencyInvitations(): Promise<AgencyInvitation[]> {
     id: i.id,
     email: String(i.email),
     role: i.agency_role,
+    accessProfile: (i as { access_profile?: AccessProfile | null }).access_profile ?? null,
     invitedBy: i.invited_by,
     expiresAt: i.expires_at,
     createdAt: i.created_at,
@@ -41,9 +44,17 @@ export async function fetchAgencyInvitations(): Promise<AgencyInvitation[]> {
   }));
 }
 
-export async function inviteAgencyMember(email: string, role: AgencyRole): Promise<string> {
+export async function inviteAgencyMember(
+  email: string,
+  role: AgencyRole,
+  profile?: AccessProfile,
+  leadTeamId?: string,
+): Promise<string> {
   const sb = requireSupabase();
-  const { data, error } = await sb.rpc("invite_agency_member", { p_email: email, p_role: role });
+  const { data, error } = await sb.rpc("invite_agency_member", {
+    p_email: email, p_role: role,
+    p_profile: profile ?? undefined, p_lead_team: leadTeamId ?? undefined,
+  });
   if (error) throw error;
   return data as unknown as string;
 }
@@ -106,6 +117,50 @@ export async function fetchInvitationPreview(token: string): Promise<InvitationP
   if (!row) return null;
   const r = row as { email: string; kind: string; expires_at: string };
   return { email: r.email, kind: r.kind, expiresAt: r.expires_at };
+}
+
+/* ── Access profiles: operational presets on top of the two roles (0266) ──
+   NOT security roles. A profile is the permission DEFAULT an Agency User
+   starts from; per-person overrides on the Access page still win. */
+export const ACCESS_PROFILES: AccessProfile[] = ["manager", "team_lead", "agent", "custom"];
+
+export const ACCESS_PROFILE_LABELS: Record<AccessProfile, string> = {
+  manager: "Manager",
+  team_lead: "Team Lead",
+  agent: "Agent",
+  custom: "Custom",
+};
+
+/**
+ * One dropdown the way Dee reads it — "Agency Admin", "Agency User ·
+ * Manager" — while role and profile stay two stored facts underneath.
+ */
+export interface InviteChoice {
+  value: string;
+  label: string;
+  role: AgencyRole;
+  profile: AccessProfile | null;
+  hint: string;
+}
+
+export const INVITE_CHOICES: InviteChoice[] = [
+  { value: "agency_admin", label: "Agency Admin", role: "agency_admin", profile: null,
+    hint: "The full agency management experience. Ownership itself is transferred, never invited." },
+  { value: "agency_user:manager", label: "Agency User · Manager", role: "agency_user", profile: "manager",
+    hint: "Runs their slice of the operation: team workload, Team EOD, partner operations and assignments within their scope. No money screens by default, and never agency-wide by itself." },
+  { value: "agency_user:team_lead", label: "Agency User · Team Lead", role: "agency_user", profile: "team_lead",
+    hint: "Leads one team: that team\u2019s workload, EOD and assigned partner work. Pick the team they lead \u2014 activation makes them its lead." },
+  { value: "agency_user:agent", label: "Agency User · Agent", role: "agency_user", profile: "agent",
+    hint: "The working day: My Work, My Time, EOD, Communication, and whatever is assigned to them. Modules like CreditOps are granted per person on the Access page." },
+  { value: "agency_user:custom", label: "Agency User · Custom", role: "agency_user", profile: "custom",
+    hint: "Starts with nothing granted. Use when you want to configure this person\u2019s permissions by hand on the Access page." },
+];
+
+/** "Agency Admin" or "Agency User · Manager" — for lists of people. */
+export function memberAccessLabel(role: string | null | undefined, profile?: AccessProfile | null): string {
+  const base = roleLabel(role);
+  if (role === "agency_user" && profile) return `${base} · ${ACCESS_PROFILE_LABELS[profile]}`;
+  return base;
 }
 
 /** A readable name for any role value, including retired ones in old rows. */

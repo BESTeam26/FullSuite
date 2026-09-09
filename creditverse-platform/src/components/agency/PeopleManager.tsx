@@ -33,13 +33,13 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { OwnerDeleteButton } from "@/components/agency/OwnerDeleteButton";
 import { formatDate } from "@/lib/format-date";
 import type { Enums } from "@/lib/supabase/database.types";
+import { ACCESS_PROFILES, ACCESS_PROFILE_LABELS, memberAccessLabel } from "@/lib/data/agency-invitations";
 
 const ROLES: { value: Enums<"agency_role">; label: string }[] = [
-
-  { value: "agency_admin", label: "Administrator" },
+  { value: "agency_admin", label: "Agency Admin" },
   { value: "agency_user", label: "Agency User" },
 ];
-const ROLE_LABEL = Object.fromEntries(ROLES.map((r) => [r.value, r.label]));
+const PROFILE_OPTIONS = ACCESS_PROFILES.map((v) => ({ value: v, label: ACCESS_PROFILE_LABELS[v] }));
 
 export function PeopleManager() {
   const { agencyMembership, user } = useAuth();
@@ -126,13 +126,26 @@ export function PeopleManager() {
                     </td>
                     <td className="py-2 pr-2">
                       {canManage ? (
-                        <OpsSelect aria-label={`Role for ${m.name}`} size="sm" value={m.role}
-                          onValueChange={(v) => change(() => actions.setRole.mutateAsync({
-                            membershipId: m.membershipId, role: v as Enums<"agency_role">,
-                          }))}
-                          options={ROLES} />
+                        <span className="flex flex-wrap items-center gap-1.5">
+                          <OpsSelect aria-label={`Security role for ${m.name}`} size="sm" value={m.role}
+                            onValueChange={(v) => change(() => actions.setRole.mutateAsync({
+                              membershipId: m.membershipId, role: v as Enums<"agency_role">,
+                            }))}
+                            options={ROLES} />
+                          {/* The PRESET an Agency User starts from — not a second
+                              security role, and meaningless for admins, whose role
+                              already grants everything. */}
+                          {m.role === "agency_user" && (
+                            <OpsSelect aria-label={`Access profile for ${m.name}`} size="sm"
+                              value={m.accessProfile ?? "custom"}
+                              onValueChange={(v) => change(() => actions.setProfile.mutateAsync({
+                                membershipId: m.membershipId, profile: v as Enums<"access_profile">,
+                              }))}
+                              options={PROFILE_OPTIONS} />
+                          )}
+                        </span>
                       ) : (
-                        <Pill tone="border-border bg-muted text-foreground">{ROLE_LABEL[m.role]}</Pill>
+                        <Pill tone="border-border bg-muted text-foreground">{memberAccessLabel(m.role, m.accessProfile)}</Pill>
                       )}
                     </td>
                     <td className="py-2 pr-2 text-xs text-muted-foreground">
@@ -218,7 +231,7 @@ export function PeopleManager() {
                 <span className="min-w-0">
                   <span className="block text-sm text-foreground">{m.name}</span>
                   <span className="block text-xs text-muted-foreground">
-                    {ROLE_LABEL[m.role]} · left {formatDate(m.deactivatedAt)}
+                    {memberAccessLabel(m.role, m.accessProfile)} · left {formatDate(m.deactivatedAt)}
                   </span>
                 </span>
                 {canManage && (

@@ -1125,3 +1125,38 @@ for nothing back — no policy loosened. A new probe pins the PRODUCT's shape.
 Phase 55: 132/132. Verified in the browser: Dee's exact TEST PARTNER form
 values create and land on the profile. Contacts are unaffected (their policy
 checks the pre-existing group row).
+
+### Access profiles: Manager / Team Lead / Agent are back — as presets, not roles — 2026-09-09
+
+Dee's correction: the invite screen offered only "Agency Admin / Agency User",
+which is the security model doing its job and the vocabulary failing hers.
+The two-role model is untouched (0233/0234 stay). What's new (0266–0268):
+
+- **access_profile** on the membership and the invitation: manager /
+  team_lead / agent / custom. A PRESET, never a third security role, and
+  meaningless for admins (whose role already grants everything — the invite
+  writer discards a profile sent with an admin).
+- **agency_profile_permissions** — what each preset grants, as rows. Manager:
+  ops.manage, team.manage, partner operations/assignments/contacts/files,
+  reports, org-structure view — and NO money. Team Lead: working partner
+  capabilities; the team surfaces come from the is_lead FACT, which the
+  invitation names (the team is required) and activation writes, so the
+  profile and the fact are born together. Agent and Custom grant nothing —
+  modules like CreditOps stay deliberate per-person grants, so a CreditOps
+  agent never sees BES CRM by default.
+- **One resolver, one new layer**: override > profile default > agency role
+  default > platform default. Proven at each edge in phase 37 (105/105),
+  including "an explicit denial beats the profile" and "manager gets no
+  finance/payroll".
+- **UI**: one dropdown reading "Agency User · Manager" while storing two
+  facts; a required team picker on Team Lead invitations (fixture teams
+  filtered); pending invitations and the People page show the combined label;
+  admins change a member's profile in place (set_agency_member_profile,
+  audited).
+- **Found while proving the audit**: entity_visible() had no 'agency_member'
+  branch, so every role-change audit event ever written was invisible to
+  every reader. Fixed (0268) — visibility follows the membership row.
+
+Existing people needed no mapping: production holds three memberships, all
+admins. The two pending pre-profile invitations activate as Custom (nothing
+granted) until Dee sets a profile. Suite 1,546; build clean.
