@@ -35,11 +35,9 @@ import { formatDate } from "@/lib/format-date";
 import type { Enums } from "@/lib/supabase/database.types";
 
 const ROLES: { value: Enums<"agency_role">; label: string }[] = [
-  { value: "agency_owner", label: "Owner" },
+
   { value: "agency_admin", label: "Administrator" },
-  { value: "agency_manager", label: "Manager" },
-  { value: "agency_team_lead", label: "Team lead" },
-  { value: "agency_agent", label: "Agent" },
+  { value: "agency_user", label: "Agency User" },
 ];
 const ROLE_LABEL = Object.fromEntries(ROLES.map((r) => [r.value, r.label]));
 
@@ -182,7 +180,7 @@ export function PeopleManager() {
                     </td>
                     <td className="py-2 pr-2 text-xs text-muted-foreground">{formatDate(m.since)}</td>
                     <td className="py-2 text-right">
-                      {canManage && m.userId !== user?.id && m.role !== "agency_owner" && (
+                      {canManage && m.userId !== user?.id && !m.isOwner && m.role !== "agency_owner" && (
                         <span className="flex items-center justify-end gap-1">
                           <Button size="sm" variant="ghost" className="h-7 px-2 text-xs"
                             onClick={() => change(() => actions.setStatus.mutateAsync({

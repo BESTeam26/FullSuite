@@ -74,6 +74,8 @@ export interface AuthContextValue {
    */
   agencyId: string | null;
   isAgencyStaff: boolean;
+  /** Ownership is a system attribute on the membership, not a role (0234). */
+  isAgencyOwner: boolean;
   agencyRole: AgencyRole | null;
   isAgencyAdmin: boolean;
   /**
@@ -135,7 +137,8 @@ const demoAgencyMembership: AgencyMembership = {
   id: "demo-agency-membership",
   user_id: DEMO_USER_ID,
   agency_id: DEMO_AGENCY_ID,
-  role: "agency_owner",
+  role: "agency_admin",
+  is_owner: true,
   // Demo explores the whole agency; mirrors the columns migration 0021 added.
   scope: "agency",
   scope_division: null,
@@ -355,6 +358,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       agencyRole,
       isAgencyAdmin:
         agencyRole === "agency_owner" || agencyRole === "agency_admin",
+      /* 0234: ownership is the flag; the retired role value is tolerated so an
+         old row fails toward the truth it encoded. */
+      isAgencyOwner:
+        agencyMembership?.is_owner === true || agencyRole === "agency_owner",
       agencyScope: agencyMembership?.scope ?? null,
       teamIds: teamMemberships.map((t) => t.team_id),
       ledTeamIds: teamMemberships.filter((t) => t.is_lead).map((t) => t.team_id),

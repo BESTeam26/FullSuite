@@ -148,6 +148,8 @@ export interface AgencyMember {
   name: string;
   email: string;
   role: Enums<"agency_role">;
+  /** Ownership is a flag on the membership, not a role (0234). */
+  isOwner: boolean;
   scope: string;
   status: "active" | "inactive";
   since: string;
@@ -159,7 +161,7 @@ export async function fetchAgencyMembers(agencyId: string): Promise<AgencyMember
   const { data, error } = await sb
     .from("agency_memberships")
     // prettier-ignore
-    .select("id, user_id, role, scope, status, created_at, deactivated_at, profiles!user_id!inner(full_name, email, is_fixture)")
+    .select("id, user_id, role, is_owner, scope, status, created_at, deactivated_at, profiles!user_id!inner(full_name, email, is_fixture)")
     .eq("agency_id", agencyId)
     .eq("profiles.is_fixture", false)
     .order("created_at");
@@ -173,6 +175,7 @@ export async function fetchAgencyMembers(agencyId: string): Promise<AgencyMember
       name: p.full_name || p.email || "Unnamed",
       email: p.email ?? "",
       role: r.role as Enums<"agency_role">,
+      isOwner: Boolean(r.is_owner),
       scope: (r.scope as string) ?? "assigned",
       status: (r.status as "active" | "inactive") ?? "active",
       since: r.created_at as string,

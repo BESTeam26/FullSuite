@@ -21,17 +21,19 @@
  * time (rule 3).
  */
 
-export type AgencyRole =
-  | "agency_owner" | "agency_admin" | "agency_manager" | "agency_team_lead" | "agency_agent";
+/**
+ * The two application security roles (0234, Dee's permanent model). Ownership
+ * is a FLAG on the membership, and manager / team lead / agent are POSITIONS,
+ * not authority. The retired enum values may still arrive from old rows or
+ * old sessions, so `isAdminRole` below normalizes rather than trusting the
+ * union to be exhaustive at runtime.
+ */
+export type AgencyRole = "agency_admin" | "agency_user";
 
-/** Higher reaches more. Ordering only — not a permission in itself. */
-const RANK: Record<AgencyRole, number> = {
-  agency_agent: 0,
-  agency_team_lead: 1,
-  agency_manager: 2,
-  agency_admin: 3,
-  agency_owner: 4,
-};
+/** A retired value read from an old row fails SAFE: owner was an admin, every
+    rank below admin is a user. */
+export const isAdminRole = (role: string | null | undefined): boolean =>
+  role === "agency_admin" || role === "agency_owner";
 
 export type Readiness = "ready" | "locked_not_ready";
 
@@ -41,9 +43,15 @@ export interface AgencyRouteSpec {
   /** Exact route path under /app. */
   path: string;
   readiness: Readiness;
-  /** The lowest role that may use this at all. */
-  minRole: AgencyRole;
-  /** An extra named permission, where the role alone is not the question. */
+  /**
+   * Who the door is for. Rank is retired (0234):
+   *   "user"   — everyone active at the agency
+   *   "lead"   — an admin, an ops.manage holder, or somebody who LEADS a team
+   *   "manage" — an admin, or an Agency User granted ops.manage
+   *   "admin"  — admins only
+   */
+  access: "user" | "lead" | "manage" | "admin";
+  /** An extra named permission, where the gate alone is not the question. */
   permission?: string;
   /** Why it is locked. Shown to an owner, never invented. */
   lockedReason?: string;
@@ -62,17 +70,17 @@ export const AGENCY_ROUTES: AgencyRouteSpec[] = [
      everybody else, and RequireAgencyRoute refuses the URL — the door and the
      menu read the same spec. */
   { key: "access-preview", path: "/app/access-preview", label: "Access preview",
-    minRole: "agency_admin", permission: "access.preview_as_user", readiness: "ready" },
+    access: "admin", permission: "access.preview_as_user", readiness: "ready" },
   /* ── Everyone on the team ─────────────────────────────────────────── */
-  { key: "home", label: "Home", path: "/app", readiness: "ready", minRole: "agency_agent" },
-  { key: "my_work", label: "My Work", path: "/app/my-work", readiness: "ready", minRole: "agency_agent" },
-  { key: "team_workspace", label: "Team Workspace", path: "/app/team-workspace", readiness: "ready", minRole: "agency_agent" },
-  { key: "my_time", label: "My Time", path: "/app/my-time", readiness: "ready", minRole: "agency_agent" },
-  { key: "eod", label: "End of Day", path: "/app/eod", readiness: "ready", minRole: "agency_agent" },
-  { key: "calendar", label: "Calendar", path: "/app/calendar", readiness: "ready", minRole: "agency_agent" },
-  { key: "announcements", label: "Announcements", path: "/app/announcements", readiness: "ready", minRole: "agency_agent" },
-  { key: "education", label: "Knowledge Base", path: "/app/education", readiness: "ready", minRole: "agency_agent" },
-  { key: "files", label: "Files", path: "/app/files", readiness: "ready", minRole: "agency_agent" },
+  { key: "home", label: "Home", path: "/app", readiness: "ready", access: "user" },
+  { key: "my_work", label: "My Work", path: "/app/my-work", readiness: "ready", access: "user" },
+  { key: "team_workspace", label: "Team Workspace", path: "/app/team-workspace", readiness: "ready", access: "user" },
+  { key: "my_time", label: "My Time", path: "/app/my-time", readiness: "ready", access: "user" },
+  { key: "eod", label: "End of Day", path: "/app/eod", readiness: "ready", access: "user" },
+  { key: "calendar", label: "Calendar", path: "/app/calendar", readiness: "ready", access: "user" },
+  { key: "announcements", label: "Announcements", path: "/app/announcements", readiness: "ready", access: "user" },
+  { key: "education", label: "Knowledge Base", path: "/app/education", readiness: "ready", access: "user" },
+  { key: "files", label: "Files", path: "/app/files", readiness: "ready", access: "user" },
 
   /* WAS `locked_not_ready`, on the true statement that there was no
      notifications model. There is one now — a `notifications` table with a
@@ -86,33 +94,33 @@ export const AGENCY_ROUTES: AgencyRouteSpec[] = [
      the "a visible link must not lead to a refusal" failure the shared
      `accessTo` exists to prevent, caused by a readiness flag nobody revisited
      when the feature landed. */
-  { key: "notifications", label: "Notifications", path: "/app/notifications", readiness: "ready", minRole: "agency_agent" },
+  { key: "notifications", label: "Notifications", path: "/app/notifications", readiness: "ready", access: "user" },
 
   /* ── Team leads and up ────────────────────────────────────────────── */
-  { key: "attention", label: "Attention Center", path: "/app/attention", readiness: "ready", minRole: "agency_team_lead" },
-  { key: "team_eod", label: "Team EOD", path: "/app/team-eod", readiness: "ready", minRole: "agency_team_lead" },
+  { key: "attention", label: "Attention Center", path: "/app/attention", readiness: "ready", access: "lead" },
+  { key: "team_eod", label: "Team EOD", path: "/app/team-eod", readiness: "ready", access: "lead" },
 
   /* ── Managers and up ──────────────────────────────────────────────── */
-  { key: "people", label: "People", path: "/app/people", readiness: "ready", minRole: "agency_manager" },
-  { key: "teams", label: "Teams", path: "/app/teams", readiness: "ready", minRole: "agency_manager" },
-  { key: "workforce", label: "Workforce", path: "/app/workforce", readiness: "ready", minRole: "agency_manager" },
-  { key: "reporting", label: "Reports", path: "/app/reporting", readiness: "ready", minRole: "agency_manager", permission: "reports.view" },
-  { key: "partners", label: "BES Partners", path: "/app/bes-partners", readiness: "ready", minRole: "agency_manager" },
-  { key: "creditops", label: "CreditOps", path: "/app/creditops", readiness: "ready", minRole: "agency_manager" },
-  { key: "fundingops", label: "FundingOps", path: "/app/fundingops", readiness: "ready", minRole: "agency_manager" },
-  { key: "bes_crm", label: "BES CRM", path: "/app/bes-crm", readiness: "ready", minRole: "agency_manager" },
-  { key: "talentops", label: "TalentOps", path: "/app/talentops", readiness: "ready", minRole: "agency_manager" },
+  { key: "people", label: "People", path: "/app/people", readiness: "ready", access: "manage" },
+  { key: "teams", label: "Teams", path: "/app/teams", readiness: "ready", access: "manage" },
+  { key: "workforce", label: "Workforce", path: "/app/workforce", readiness: "ready", access: "manage" },
+  { key: "reporting", label: "Reports", path: "/app/reporting", readiness: "ready", access: "manage", permission: "reports.view" },
+  { key: "partners", label: "BES Partners", path: "/app/bes-partners", readiness: "ready", access: "manage" },
+  { key: "creditops", label: "CreditOps", path: "/app/creditops", readiness: "ready", access: "manage" },
+  { key: "fundingops", label: "FundingOps", path: "/app/fundingops", readiness: "ready", access: "manage" },
+  { key: "bes_crm", label: "BES CRM", path: "/app/bes-crm", readiness: "ready", access: "manage" },
+  { key: "talentops", label: "TalentOps", path: "/app/talentops", readiness: "ready", access: "manage" },
 
   /* ── Admins and the owner ─────────────────────────────────────────── */
-  { key: "organizations", label: "Organizations", path: "/app/subaccounts", readiness: "ready", minRole: "agency_admin" },
+  { key: "organizations", label: "Organizations", path: "/app/subaccounts", readiness: "ready", access: "admin" },
   /* The agency's own money: what partners owe BES and what BES pays out.
      Separate from "Organization billing", which is SaaS subscription metering
      for customers — a different revenue stream and a different question. */
-  { key: "finance", label: "Finance", path: "/app/finance", readiness: "ready", minRole: "agency_admin", permission: "finance.dashboard.view" },
-  { key: "billing", label: "Organization billing", path: "/app/billing", readiness: "ready", minRole: "agency_admin" },
-  { key: "compliance", label: "Compliance & Legal", path: "/app/compliance", readiness: "ready", minRole: "agency_admin" },
-  { key: "settings", label: "Agency Settings", path: "/app/settings", readiness: "ready", minRole: "agency_admin" },
-  { key: "support", label: "Support", path: "/app/support", readiness: "ready", minRole: "agency_admin" },
+  { key: "finance", label: "Finance", path: "/app/finance", readiness: "ready", access: "admin", permission: "finance.dashboard.view" },
+  { key: "billing", label: "Organization billing", path: "/app/billing", readiness: "ready", access: "admin" },
+  { key: "compliance", label: "Compliance & Legal", path: "/app/compliance", readiness: "ready", access: "admin" },
+  { key: "settings", label: "Agency Settings", path: "/app/settings", readiness: "ready", access: "admin" },
+  { key: "support", label: "Support", path: "/app/support", readiness: "ready", access: "admin" },
 ];
 
 export const routeFor = (path: string): AgencyRouteSpec | undefined =>
@@ -130,6 +138,8 @@ export interface AccessContext {
   role: AgencyRole | null;
   /** Named permissions this person holds, from the canonical permission set. */
   can: (permission: string) => boolean;
+  /** Leads at least one live team — a fact from team_memberships, not a rank. */
+  leadsTeam: boolean;
 }
 
 /**
@@ -142,16 +152,25 @@ export interface AccessContext {
  */
 export function accessTo(spec: AgencyRouteSpec, ctx: AccessContext): Access {
   if (!ctx.role) return "deny";
-  const rank = RANK[ctx.role];
+  const admin = isAdminRole(ctx.role);
+  /* The same grant the database consults in `is_manager_of` (0234): the
+     manager RANK is retired, and management authority is the admin role or
+     the explicit ops.manage capability. */
+  const manages = admin || ctx.can("ops.manage");
 
   if (spec.readiness === "locked_not_ready") {
-    /* An owner or admin is shown that it exists and is not finished. Nobody
-       else sees it at all, and the door is shut for everyone — including the
-       owner, because a page that cannot work does not work for them either. */
-    return rank >= RANK.agency_admin ? "locked" : "hide";
+    /* An admin is shown that it exists and is not finished. Nobody else sees
+       it at all, and the door is shut for everyone — a page that cannot work
+       does not work for them either. */
+    return admin ? "locked" : "hide";
   }
 
-  if (rank < RANK[spec.minRole]) return "hide";
+  const gate =
+    spec.access === "user" ? true
+    : spec.access === "lead" ? manages || ctx.leadsTeam
+    : spec.access === "manage" ? manages
+    : admin;
+  if (!gate) return "hide";
   if (spec.permission && !ctx.can(spec.permission)) return "hide";
   return "allow";
 }
@@ -178,6 +197,10 @@ export function routeAllows(path: string, ctx: AccessContext): boolean {
   return accessTo(spec, ctx) === "allow";
 }
 
-/** Role ordering, exported so a caller can ask "is this person a manager?" */
-export const atLeast = (role: AgencyRole | null, min: AgencyRole): boolean =>
-  !!role && RANK[role] >= RANK[min];
+/**
+ * "Does this person hold management authority?" — the question `atLeast`
+ * used to answer with a ladder. Same answer as `is_manager_of` in the
+ * database: admin, or the explicit ops.manage grant.
+ */
+export const managesAgency = (ctx: Pick<AccessContext, "role" | "can">): boolean =>
+  isAdminRole(ctx.role) || ctx.can("ops.manage");

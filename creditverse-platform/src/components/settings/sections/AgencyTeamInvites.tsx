@@ -20,6 +20,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { formatDate } from "@/lib/format-date";
 import { errorMessage } from "@/lib/data/error-message";
 import { sendInvitationEmail } from "@/lib/data/emails";
+import { isAdminRole } from "@/lib/agency/navigation";
 import {
   AGENCY_ROLES,
   AGENCY_ROLE_HINTS,
@@ -39,10 +40,12 @@ export function AgencyTeamInvites() {
   const qc = useQueryClient();
   const live = auth.mode === "live" && auth.status === "signed-in";
   const role = auth.agencyRole;
-  const canInvite = role === "agency_owner" || role === "agency_admin";
+  const canInvite = isAdminRole(role);
   /* Only an owner can create another owner — the same rule the function
      enforces, so the option is not offered to someone who would be refused. */
-  const grantable = AGENCY_ROLES.filter((r) => r !== "agency_owner" || role === "agency_owner");
+  /* Ownership is transferred from the owner's own account, never mailed
+     (0234) — so both roles are invitable and neither is ownership. */
+  const grantable = AGENCY_ROLES;
 
   const invitations = useQuery({
     queryKey: ["agency", "invitations"],
@@ -52,7 +55,7 @@ export function AgencyTeamInvites() {
   });
 
   const [email, setEmail] = useState("");
-  const [chosen, setChosen] = useState<AgencyRole>("agency_agent");
+  const [chosen, setChosen] = useState<AgencyRole>("agency_user");
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [resending, setResending] = useState<string | null>(null);

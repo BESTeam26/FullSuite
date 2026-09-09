@@ -27,7 +27,8 @@ import { useHolidayUpkeep } from "@/lib/data/use-agency-calendar";
 import { useAnnouncements } from "@/lib/data/use-intranet";
 import { submissionKind, SUBMISSION_LABEL } from "@/lib/data/eod-day";
 import { bucketForManager, bucketMyWork, workloadBy } from "@/lib/agency/team-views";
-import { atLeast, type AgencyRole } from "@/lib/agency/navigation";
+import { useAgencyAccessContext } from "@/lib/agency/use-access-context";
+import { managesAgency, type AgencyRole } from "@/lib/agency/navigation";
 import { formatDate } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
 
@@ -48,7 +49,12 @@ function Tile({ to, icon: Icon, label, value, tone }: {
 export const AgencyHome = () => {
   const { user, displayName, agencyMembership } = useAuth();
   const role = (agencyMembership?.role as AgencyRole) ?? null;
-  const isManager = atLeast(role, "agency_team_lead");
+  /* Team-lead REACH is now the fact of leading a team, or management
+     authority — never a rank (0234). */
+  const access = useAgencyAccessContext();
+  /* Team-lead REACH is now the fact of leading a team, or management
+     authority — never a rank (0234). */
+  const isManager = managesAgency(access.ctx) || access.ctx.leadsTeam;
 
   /* Idempotent: keeps the holiday rows and notices current without a cron. */
   useHolidayUpkeep();

@@ -42,6 +42,10 @@ export function useAgencyAccessContext(): AgencyAccessContext {
   const permissions = usePermissions();
   const agencyPermissions = useAgencyPermissions();
   const viewAs = useViewAs();
+  /* Team leadership is a FACT the auth context already fetched with the
+     memberships (`team_memberships.is_lead`), not a rank (0234). No second
+     request (rule 14). */
+  const leadsTeam = (useAuth().ledTeamIds ?? []).length > 0;
 
   /* Two engines answer the same question for different populations: the
      organization permission context, and `agency_can` for capabilities that
@@ -54,13 +58,14 @@ export function useAgencyAccessContext(): AgencyAccessContext {
       can: (key) =>
         agencyPermissions.can(key as AgencyPermission) ||
         permissions.can(key as PermissionKeyName),
+      leadsTeam,
     }),
-    [agencyMembership?.role, agencyPermissions, permissions],
+    [agencyMembership?.role, agencyPermissions, permissions, leadsTeam],
   );
 
   return {
     ctx: viewAs.previewing
-      ? { role: viewAs.effectiveRole, can: viewAs.effectiveCan }
+      ? { role: viewAs.effectiveRole, can: viewAs.effectiveCan, leadsTeam: false }
       : own,
     previewing: viewAs.previewing,
     loading: status === "loading" || permissions.loading || agencyPermissions.loading,
@@ -77,13 +82,15 @@ export function useOwnAccessContext(): AccessContext {
   const { agencyMembership } = useAuth();
   const permissions = usePermissions();
   const agencyPermissions = useAgencyPermissions();
+  const leadsTeam = (useAuth().ledTeamIds ?? []).length > 0;
   return useMemo<AccessContext>(
     () => ({
       role: (agencyMembership?.role as AgencyRole) ?? null,
       can: (key) =>
         agencyPermissions.can(key as AgencyPermission) ||
         permissions.can(key as PermissionKeyName),
+      leadsTeam,
     }),
-    [agencyMembership?.role, agencyPermissions, permissions],
+    [agencyMembership?.role, agencyPermissions, permissions, leadsTeam],
   );
 }

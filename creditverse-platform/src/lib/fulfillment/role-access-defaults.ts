@@ -58,6 +58,7 @@ export const CONFIGURABLE_ROLES: Record<OpsProduct, OrgRoleKey[]> = {
 export const ORG_ROLE_LABELS: Record<OrgRoleKey, string> = {
   org_admin: "Organization Admin",
   org_manager: "Organization Manager",
+  org_user: "Organization User",
   credit_processor: "Credit Processor",
   credit_qa: "Credit QA",
   credit_support: "Credit Support",
@@ -117,6 +118,10 @@ export function defaultRoleAccess(role: OrgRoleKey, product: OpsProduct): RoleAc
 
 /** BES staff operate under BES's own rules, not an organization's configuration. */
 export function agencyRoleAccess(role: AgencyRoleKey, product: OpsProduct): RoleAccess {
+  /* 0234: management is the admin role. (The retired manager rank arrives
+     only from historical rows; its holders were migrated to agency_user with
+     the ops.manage capability, which this presentation layer does not need to
+     re-resolve — the database decides every actual grant.) */
   const management = role === "agency_owner" || role === "agency_admin" || role === "agency_manager";
   return full(product, management);
 }

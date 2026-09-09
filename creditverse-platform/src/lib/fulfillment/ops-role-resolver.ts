@@ -44,6 +44,9 @@ const AGENCY_TO_CREDITOPS: Record<AgencyRoleKey, CreditOpsRoleKey> = {
   agency_manager: "admin",
   agency_team_lead: "full-agent",
   agency_agent: "full-agent",
+  /* 0234: the generic operational role. Reach beyond this comes from
+     capabilities and assignments, not a rank. */
+  agency_user: "full-agent",
 };
 
 const AGENCY_TO_FUNDINGOPS: Record<AgencyRoleKey, FundingOpsRoleKey> = {
@@ -52,6 +55,9 @@ const AGENCY_TO_FUNDINGOPS: Record<AgencyRoleKey, FundingOpsRoleKey> = {
   agency_manager: "admin",
   agency_team_lead: "full-agent",
   agency_agent: "full-agent",
+  /* 0234: the generic operational role. Reach beyond this comes from
+     capabilities and assignments, not a rank. */
+  agency_user: "full-agent",
 };
 
 /* Organization members. A funding-only role has no CreditOps role and vice
@@ -62,6 +68,9 @@ const AGENCY_TO_FUNDINGOPS: Record<AgencyRoleKey, FundingOpsRoleKey> = {
 const ORG_TO_CREDITOPS: Record<OrgRoleKey, CreditOpsRoleKey> = {
   org_admin: "admin",
   org_manager: "admin",
+  /* 0234: the generic organization user starts at the narrowest CreditOps
+     surface; department reach is granted per member, not per rank. */
+  org_user: "dispute",
   credit_processor: "dispute",
   credit_qa: "full-agent",
   credit_support: "support",
@@ -80,6 +89,9 @@ const ORG_TO_CREDITOPS: Record<OrgRoleKey, CreditOpsRoleKey> = {
 const ORG_TO_FUNDINGOPS: Record<OrgRoleKey, FundingOpsRoleKey> = {
   org_admin: "admin",
   org_manager: "admin",
+  /* 0234: reach is granted per member. The processor surface is the
+     narrowest full working view. */
+  org_user: "full-agent",
   funding_admin: "admin",
   funding_manager: "admin",
   funding_processor: "full-agent",

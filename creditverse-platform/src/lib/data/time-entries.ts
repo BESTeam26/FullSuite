@@ -129,12 +129,20 @@ export async function clockIn(input: ClockInInput): Promise<string> {
   return data.id;
 }
 
-/** Stop the clock on the open entry. No-op when nothing is running. */
-export async function clockOut(employeeId: string): Promise<boolean> {
+/**
+ * Stop the clock on the open entry. No-op when nothing is running.
+ *
+ * `endedAt` exists for the forgotten timer: a clock left running over a
+ * weekend would otherwise record a 50-hour "shift" that production and EOD
+ * then repeat as fact. The person says when they actually stopped — the one
+ * fact the system cannot know — and the database records that. It is never
+ * defaulted or guessed here: omitted means "I am stopping right now".
+ */
+export async function clockOut(employeeId: string, endedAt?: string): Promise<boolean> {
   const sb = requireSupabase();
   const { data, error } = await sb
     .from("time_entries")
-    .update({ ended_at: new Date().toISOString() })
+    .update({ ended_at: endedAt ?? new Date().toISOString() })
     .eq("employee_id", employeeId)
     .is("ended_at", null)
     .select("id");

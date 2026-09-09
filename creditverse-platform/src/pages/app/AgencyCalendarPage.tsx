@@ -15,10 +15,11 @@ import { Input } from "@/components/ui/input";
 import { OpsSelect } from "@/components/ui/ops-select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useAuth } from "@/lib/auth/auth-context";
+import { useAgencyAccessContext } from "@/lib/agency/use-access-context";
 import { useCalendarEvents, useHolidayUpkeep } from "@/lib/data/use-agency-calendar";
 import { longDate } from "@/lib/data/agency-calendar";
 import { businessToday, addDays } from "@/lib/calendar/us-federal-holidays";
-import { atLeast, type AgencyRole } from "@/lib/agency/navigation";
+import { managesAgency } from "@/lib/agency/navigation";
 import { CalendarMonth, type MonthEntry } from "@/components/dashboard/CalendarMonth";
 import { dayKey, monthGridEnd } from "@/lib/calendar/month-grid";
 import { useCalendarView, type CalendarView } from "@/lib/calendar/use-calendar-view";
@@ -34,9 +35,11 @@ const KIND_META = {
 } as const;
 
 export const AgencyCalendarPage = () => {
-  const { agencyId, agencyMembership } = useAuth();
-  const role = (agencyMembership?.role as AgencyRole) ?? null;
-  const canAdd = atLeast(role, "agency_manager");
+  const { agencyId } = useAuth();
+  /* Same grant the calendar's own write policies consult via is_manager_of
+     (0234): admin, or the explicit ops.manage capability. */
+  const { ctx } = useAgencyAccessContext();
+  const canAdd = managesAgency(ctx);
   const qc = useQueryClient();
   useHolidayUpkeep();
 

@@ -33,7 +33,10 @@ export function AccessInspector() {
   const [openGroup, setOpenGroup] = useState<string | null>("modules");
 
   const modules = useMemo(() => {
-    const ctx = { role: effectiveRole, can: effectiveCan };
+    /* The preview cannot know the target's team leadership without another
+       query; false narrows, never widens (this surface is superseded and
+       parked — see DEFERRED_AGENCY_WORK.md). */
+    const ctx = { role: effectiveRole, can: effectiveCan, leadsTeam: false };
     const shown = new Set(visibleRoutes(ctx).map((r) => r.spec.path));
     return AGENCY_ROUTES.map((spec) => ({
       path: spec.path,
@@ -45,12 +48,12 @@ export function AccessInspector() {
         accessTo(spec, ctx) === "allow"
           ? spec.permission
             ? `holds ${spec.permission}`
-            : `role is at least ${spec.minRole.replace("agency_", "")}`
+            : `gate: ${spec.access}`
           : accessTo(spec, ctx) === "locked"
             ? "the feature is not finished — nobody can open it"
             : spec.permission && !effectiveCan(spec.permission)
               ? `does not hold ${spec.permission}`
-              : `role is below ${spec.minRole.replace("agency_", "")}`,
+              : `gate: ${spec.access}`,
     }));
   }, [effectiveRole, effectiveCan]);
 

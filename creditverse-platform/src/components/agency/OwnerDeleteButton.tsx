@@ -43,7 +43,9 @@ export function OwnerDeleteButton({ table, id, name, onDeleted, className }: {
   });
 
   /* Not disabled for an administrator — absent. */
-  if (agencyMembership?.role !== "agency_owner") return null;
+  /* Ownership is the flag now (0234); the retired role value is tolerated so
+     nothing regresses while an old session drains. */
+  if (!(agencyMembership?.is_owner || agencyMembership?.role === "agency_owner")) return null;
 
   if (!confirming) {
     return (

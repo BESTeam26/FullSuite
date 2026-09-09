@@ -231,6 +231,10 @@ export interface Organization {
 /* ------------------------------------------------------------------ */
 
 export type AgencyRole =
+  /* The two live security roles (0234). The retired values below may still
+     appear in historical rows and old sessions; runtime code normalizes with
+     isAdminRole rather than trusting this union. */
+  | "agency_user"
   | "agency_owner"
   | "agency_admin"
   | "agency_manager"

@@ -956,3 +956,64 @@ Mailgun (Resend is the email platform); any second database, ORM or auth SDK.
 **Credentials arrive later.** Every one of these is coded against and waiting
 on a key. Where a key is missing the feature says it is not connected — it does
 not fall back to a stub, a sample, or a second provider.
+
+## 20. Change control: classify before you build (permanent)
+
+Dee's governance rule, 2026-09-08. Dee gives instructions conversationally —
+corrections, ideas, architecture, bugs — while other work is running. **A new
+instruction is not automatically permission to start another implementation.**
+
+Before executing anything newly requested, classify it (internally; tell Dee
+only when it changes what happens): **simple correction · current-scope defect
+· current-scope completion · security/data-integrity blocker · architecture
+change · feature expansion · side enhancement · future roadmap item.**
+
+- Corrections, defects and completions **inside the current P0 scope**: do
+  them now. Feedback must stay fast — this rule prevents scope explosion, not
+  responsiveness.
+- **Security / data integrity**: fix immediately, narrowly. Never use one as
+  an excuse for unrelated expansion.
+- **Architecture changes** (role models, tenancy, canonical engines, auth,
+  anything with many migrations or a wide blast radius): PLAN AND DOCUMENT,
+  do not execute — unless Dee says "OVERRIDE CURRENT PRIORITY AND IMPLEMENT
+  THIS NOW", or documented evidence proves the current P0 cannot be done
+  safely without it.
+- **Expansions, enhancements, roadmap items**: record in
+  `DEFERRED_AGENCY_WORK.md` (ID, problem, proposed architecture, why deferred,
+  dependencies, risk, prior analysis) and continue the active priority.
+  VALID does not mean NEXT. Dee never has to re-request a documented item.
+
+**One active epic at a time.** Never leave half-migrations, competing systems,
+or "we'll come back later" fragments: park deliberately — smallest coherent
+boundary, tests green, migrations internally consistent, incomplete UI hidden,
+next entry point written down, checkpoint committed. Superseded designs are
+marked SUPERSEDED and cleaned to the right depth (docs / uncommitted code /
+committed code / schema each have their own path). Test invariants, never
+incidental counts; fixtures coexist with real data. While the full matrix
+runs: documentation and planning only, and never a schema change mid-run.
+
+Files: `CURRENT_PRODUCT_DECISIONS.md` (active doctrine only),
+`DEFERRED_AGENCY_WORK.md` (the backlog), `ARCHITECTURE_DECISIONS.md`
+(implemented decisions), `LIVE_OPERATIONS_READINESS.md` (this sprint's gate).
+
+## 21. The active program: Live Operations Readiness (until Dee changes it)
+
+**Goal: the real BES team starts daily operations.** P0, in order: **Invite
+Users → Timer/My Time → CreditOps → Agent EOD → Team EOD → BES CRM**, plus
+only the supporting systems those require. Everything else — portals, DIY,
+FundingOps expansion, Finance, integrations, ClickUp import, Login As, big
+refactors, cleanup for its own sake — is deferred and documented, foundations
+kept intact (rule 16b). A feature is READY only when a real operator walks it
+end to end; a rendering page is not the bar. No dead visible controls inside
+the five areas. When the five areas are usage-ready: **STOP** — Dee starts
+live testing, and the next phase comes from what real usage exposes.
+
+### Security roles after 0233/0234 (live)
+
+`agency_admin` / `agency_user` + `is_owner` flag; `org_admin` / `org_user`.
+Manager, team lead, agent are POSITIONS, not authority; the old manager rank
+is the `ops.manage` capability; team surfaces follow `team_memberships.is_lead`.
+Retired enum values still exist in history and must always normalize to fail
+SAFE (owner→admin, ranks→user). The GHL-style **Login As is designed but
+deferred** — see `DEFERRED_AGENCY_WORK.md` D-001. Do not build a second
+preview system meanwhile; the parked View As stays until Login As replaces it.

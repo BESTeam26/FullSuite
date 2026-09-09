@@ -23,6 +23,8 @@ import { Input } from "@/components/ui/input";
 import { OpsSelect } from "@/components/ui/ops-select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/lib/auth/auth-context";
+import { useAgencyAccessContext } from "@/lib/agency/use-access-context";
+import { managesAgency } from "@/lib/agency/navigation";
 import { useAgencyWork } from "@/lib/data/use-work";
 import { useAgencyMembers, useAgencyWorkspaces } from "@/lib/data/use-agency-work";
 import { formatDate } from "@/lib/format-date";
@@ -152,7 +154,10 @@ export const AgencyTeamWorkspace = () => {
   }, [items, assignee, stage, priority, includeCompleted, search, sort]);
 
   const byPerson = useMemo(() => workloadBy(items, (i) => i.assignedTo, nameOf), [items, nameOf]);
-  const isManager = agencyRole === "agency_owner" || agencyRole === "agency_admin" || agencyRole === "agency_manager" || agencyRole === "agency_team_lead";
+  /* Management view: admin, the explicit ops.manage grant, or leading a team
+     (0234 — rank is retired; these are the facts it stood for). */
+  const access = useAgencyAccessContext();
+  const isManager = managesAgency(access.ctx) || access.ctx.leadsTeam;
 
   const assignees = useMemo(() => {
     const seen = new Map<string, string>();

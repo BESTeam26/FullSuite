@@ -97,7 +97,7 @@ export const MyTimePage = () => {
       <div className="mt-5 flex flex-wrap items-center gap-3">
         {running ? (
           <button
-            onClick={t.clockOut}
+            onClick={() => t.clockOut()}
             disabled={t.isMutating}
             className="flex items-center gap-2 rounded-xl border border-border bg-card px-5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
           >
@@ -140,17 +140,14 @@ export const MyTimePage = () => {
           <AlertTriangle className="h-4 w-4 shrink-0 text-status-warning" />
           <p className="min-w-0 flex-1">
             This timer has been running for {describeRunningFor(t.openEntry)} — longer than a working day
-            ({STALE_TIMER_HOURS} hours). If you forgot to clock out, stop it now and fix the entry below;
-            production and End of Day read this figure.
+            ({STALE_TIMER_HOURS} hours). Production and End of Day read this figure, so say when you
+            actually stopped — the recorded time will be that, not the whole span.
           </p>
-          <button
-            type="button"
-            onClick={t.clockOut}
-            disabled={t.isMutating}
-            className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            Clock out now
-          </button>
+          <StaleClockOut
+            startedAt={t.openEntry.startedAt}
+            busy={t.isMutating}
+            onStop={(endedAt) => t.clockOut(endedAt)}
+          />
         </div>
       )}
 
@@ -189,3 +186,71 @@ export const MyTimePage = () => {
     </HqPageShell>
   );
 };
+
+
+/**
+ * Ending a forgotten timer: the person supplies the one fact the system
+ * cannot know — when they actually stopped. Nothing is guessed: the field
+ * starts empty, "It ran until now" is an explicit choice, and a moment
+ * outside the timer's life is refused.
+ */
+function StaleClockOut({
+  startedAt,
+  busy,
+  onStop,
+}: {
+  startedAt: string;
+  busy: boolean;
+  onStop: (endedAt?: string) => void;
+}) {
+  const [when, setWhen] = useState("");
+  const [problem, setProblem] = useState<string | null>(null);
+
+  const stopAt = () => {
+    setProblem(null);
+    const t = new Date(when);
+    if (!when || Number.isNaN(t.getTime())) {
+      setProblem("Pick the time you stopped.");
+      return;
+    }
+    if (t.getTime() <= new Date(startedAt).getTime()) {
+      setProblem("That is before the timer started.");
+      return;
+    }
+    if (t.getTime() > Date.now()) {
+      setProblem("That is in the future.");
+      return;
+    }
+    onStop(t.toISOString());
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <label htmlFor="stale-ended-at" className="sr-only">When did you stop?</label>
+      <input
+        id="stale-ended-at"
+        type="datetime-local"
+        value={when}
+        onChange={(e) => setWhen(e.target.value)}
+        className="rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      />
+      <button
+        type="button"
+        onClick={stopAt}
+        disabled={busy}
+        className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+      >
+        Stop at that time
+      </button>
+      <button
+        type="button"
+        onClick={() => onStop()}
+        disabled={busy}
+        className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+      >
+        It ran until now
+      </button>
+      {problem && <span className="w-full text-xs font-semibold text-status-danger">{problem}</span>}
+    </div>
+  );
+}

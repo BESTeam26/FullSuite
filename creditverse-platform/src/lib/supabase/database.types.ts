@@ -561,6 +561,7 @@ export type Database = {
           deactivated_at: string | null
           deactivated_by: string | null
           id: string
+          is_owner: boolean
           job_title: string | null
           manager_id: string | null
           primary_department_id: string | null
@@ -581,6 +582,7 @@ export type Database = {
           deactivated_at?: string | null
           deactivated_by?: string | null
           id?: string
+          is_owner?: boolean
           job_title?: string | null
           manager_id?: string | null
           primary_department_id?: string | null
@@ -601,6 +603,7 @@ export type Database = {
           deactivated_at?: string | null
           deactivated_by?: string | null
           id?: string
+          is_owner?: boolean
           job_title?: string | null
           manager_id?: string | null
           primary_department_id?: string | null
@@ -13738,6 +13741,10 @@ export type Database = {
         Args: { p: string }
         Returns: Database["public"]["Enums"]["fulfillment_service"]
       }
+      transfer_agency_ownership: {
+        Args: { p_to_membership: string }
+        Returns: undefined
+      }
       try_bigint: { Args: { t: string }; Returns: number }
       visible_channels: {
         Args: never
@@ -13801,6 +13808,7 @@ export type Database = {
         | "agency_manager"
         | "agency_team_lead"
         | "agency_agent"
+        | "agency_user"
       ai_reservation_status: "reserved" | "reconciled" | "released" | "expired"
       announcement_audience:
         | "organization"
@@ -14205,6 +14213,7 @@ export type Database = {
         | "funding_underwriter"
         | "funding_sales"
         | "funding_support"
+        | "org_user"
       org_status: "Active" | "Pending Onboarding" | "At Risk" | "Paused"
       outcome_source:
         | "cra_result_notice"
@@ -14513,6 +14522,7 @@ export const Constants = {
         "agency_manager",
         "agency_team_lead",
         "agency_agent",
+        "agency_user",
       ],
       ai_reservation_status: ["reserved", "reconciled", "released", "expired"],
       announcement_audience: [
@@ -14951,6 +14961,7 @@ export const Constants = {
         "funding_underwriter",
         "funding_sales",
         "funding_support",
+        "org_user",
       ],
       org_status: ["Active", "Pending Onboarding", "At Risk", "Paused"],
       outcome_source: [

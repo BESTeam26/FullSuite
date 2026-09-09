@@ -12,6 +12,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import {
   clockIn as clockInRow,
   clockOut as clockOutRow,
+  fetchOpenEntry,
   fetchTimeEntries,
   localWorkDate,
   type TimeEntry,
@@ -47,7 +48,9 @@ export interface TimesheetResult extends TimeSummary {
   isLoading: boolean;
   error: string | null;
   clockIn: (divisionId: string, taskNote?: string) => void;
-  clockOut: () => void;
+  /** Stop the clock. `endedAt` is for a forgotten timer — the person states
+      when they actually stopped; omitted means "now". */
+  clockOut: (endedAt?: string) => void;
   isMutating: boolean;
   actionError: string | null;
 }
@@ -72,8 +75,23 @@ export function useTimesheet(): TimesheetResult {
     staleTime: 15_000,
   });
 
-  const invalidate = () =>
-    qc.invalidateQueries({ queryKey: ["time", "week", userId, from] });
+  /* The running clock is a fact about ALL time, not about this week. Deriving
+     it from the week's rows deadlocked the screen: a clock left running past
+     a week boundary (Sunday's, when the week starts Monday) was invisible,
+     unstoppable, and blocked every new clock-in — the database refused with
+     "already clocked in" while the page showed nothing running. Found live on
+     2026-09-08 with exactly such an entry. */
+  const open = useQuery({
+    queryKey: ["time", "open", userId],
+    queryFn: () => fetchOpenEntry(userId),
+    enabled: live,
+    staleTime: 15_000,
+  });
+
+  const invalidate = () => {
+    void qc.invalidateQueries({ queryKey: ["time", "week", userId, from] });
+    void qc.invalidateQueries({ queryKey: ["time", "open", userId] });
+  };
 
   const inM = useMutation({
     mutationFn: (v: { divisionId: string; taskNote?: string }) => {
@@ -94,7 +112,7 @@ export function useTimesheet(): TimesheetResult {
     onSuccess: invalidate,
   });
   const outM = useMutation({
-    mutationFn: () => clockOutRow(userId),
+    mutationFn: (endedAt?: string) => clockOutRow(userId, endedAt),
     onSuccess: invalidate,
   });
 
@@ -103,6 +121,8 @@ export function useTimesheet(): TimesheetResult {
 
   return {
     ...summary,
+    /* Unbounded truth wins over the week-window derivation. */
+    openEntry: live ? (open.data ?? undefined) : summary.openEntry,
     entries,
     today,
     source: live ? "live" : "demo",
@@ -111,8 +131,8 @@ export function useTimesheet(): TimesheetResult {
     clockIn: (divisionId, taskNote) => {
       if (live && agencyId) inM.mutate({ divisionId, taskNote });
     },
-    clockOut: () => {
-      if (live) outM.mutate();
+    clockOut: (endedAt?: string) => {
+      if (live) outM.mutate(endedAt);
     },
     isMutating: inM.isPending || outM.isPending,
     actionError:

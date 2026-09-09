@@ -3,7 +3,7 @@ import { useAgency } from "@/lib/agency-context";
 import { AgencyDashboard } from "@/components/dashboard/AgencyDashboard";
 import { AgencyHome } from "@/pages/app/AgencyHome";
 import { useAuth } from "@/lib/auth/auth-context";
-import { atLeast, type AgencyRole } from "@/lib/agency/navigation";
+import { isAdminRole, type AgencyRole } from "@/lib/agency/navigation";
 import {
   AlertTriangle,
   Clock,
@@ -95,7 +95,7 @@ const Dashboard = () => {
      cannot act on and are not authorized to read. Admins and the owner keep
      the agency overview. */
   if (viewMode === "agency") {
-    return atLeast(agencyRole, "agency_admin") ? <AgencyDashboard /> : <AgencyHome />;
+    return isAdminRole(agencyRole) ? <AgencyDashboard /> : <AgencyHome />;
   }
   // Organization view: the organization's own dashboard lives at its ID route.
   if (activeOrganization?.publicId) {

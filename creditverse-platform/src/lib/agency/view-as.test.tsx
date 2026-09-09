@@ -15,7 +15,7 @@ import { accessTo, routeFor, visibleRoutes, type AccessContext } from "@/lib/age
 let previewing = false;
 let previewRole: string | null = null;
 let previewCan: (k: string) => boolean = () => false;
-const ownRole = "agency_owner";
+const ownRole = "agency_admin";
 const ownCan = () => true;
 
 vi.mock("@/lib/auth/auth-context", () => ({
@@ -53,17 +53,17 @@ describe("the context the interface runs on", () => {
   it("is the caller's own when nothing is being previewed", () => {
     const { result } = renderHook(() => useAgencyAccessContext());
     expect(result.current.previewing).toBe(false);
-    expect(result.current.ctx.role).toBe("agency_owner");
+    expect(result.current.ctx.role).toBe("agency_admin");
     expect(accessTo(settings, result.current.ctx)).toBe("allow");
   });
 
   it("becomes the TARGET's while previewing — role and capabilities both", () => {
     previewing = true;
-    previewRole = "agency_agent";
+    previewRole = "agency_user";
     previewCan = () => false;
     const { result } = renderHook(() => useAgencyAccessContext());
     expect(result.current.previewing).toBe(true);
-    expect(result.current.ctx.role).toBe("agency_agent");
+    expect(result.current.ctx.role).toBe("agency_user");
     /* The owner could open Settings; the agent cannot — and the SAME
        function answers, so the menu and the door agree. */
     expect(accessTo(settings, result.current.ctx)).not.toBe("allow");
@@ -71,7 +71,7 @@ describe("the context the interface runs on", () => {
 
   it("does not leak the previewer's capabilities into the preview", () => {
     previewing = true;
-    previewRole = "agency_agent";
+    previewRole = "agency_user";
     previewCan = (k) => k === "reports.view";
     const { result } = renderHook(() => useAgencyAccessContext());
     expect(result.current.ctx.can("reports.view")).toBe(true);
@@ -84,7 +84,7 @@ describe("the context the interface runs on", () => {
     const ownerCount = visibleRoutes(owner.result.current.ctx).length;
 
     previewing = true;
-    previewRole = "agency_agent";
+    previewRole = "agency_user";
     previewCan = () => false;
     const agent = renderHook(() => useAgencyAccessContext());
     const agentCount = visibleRoutes(agent.result.current.ctx).length;
@@ -94,23 +94,23 @@ describe("the context the interface runs on", () => {
 
   it("keeps the OWN context available for the provider to fall back to", () => {
     previewing = true;
-    previewRole = "agency_agent";
+    previewRole = "agency_user";
     previewCan = () => false;
     const { result } = renderHook(() => useOwnAccessContext());
     /* Unchanged by the preview — this is what the provider restores on exit. */
-    expect(result.current.role).toBe("agency_owner");
+    expect(result.current.role).toBe("agency_admin");
     expect(result.current.can("anything")).toBe(true);
   });
 });
 
 describe("the preview route itself", () => {
   it("is hidden from an agent and refused by the door", () => {
-    const agentCtx: AccessContext = { role: "agency_agent", can: () => false };
+    const agentCtx: AccessContext = { role: "agency_user", can: () => false, leadsTeam: false };
     expect(accessTo(preview, agentCtx)).toBe("hide");
   });
 
   it("is hidden from an admin who has not been granted it", () => {
-    const adminCtx: AccessContext = { role: "agency_admin", can: () => false };
+    const adminCtx: AccessContext = { role: "agency_admin", can: () => false, leadsTeam: false };
     expect(accessTo(preview, adminCtx)).toBe("hide");
   });
 
@@ -118,12 +118,13 @@ describe("the preview route itself", () => {
     const superAdmin: AccessContext = {
       role: "agency_admin",
       can: (k) => k === "access.preview_as_user",
+      leadsTeam: false,
     };
     expect(accessTo(preview, superAdmin)).toBe("allow");
   });
 
   it("opens for the owner", () => {
-    const owner: AccessContext = { role: "agency_owner", can: () => true };
+    const owner: AccessContext = { role: "agency_admin", can: () => true, leadsTeam: false };
     expect(accessTo(preview, owner)).toBe("allow");
   });
 });

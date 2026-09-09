@@ -66,29 +66,22 @@ export function invitationLink(token: string): string {
   return `${window.location.origin}/accept-invitation/${token}`;
 }
 
-/** The five roles the database actually defines, in order of reach. */
+/** The two application security roles (0234). Ownership is a flag, not a role. */
 export const AGENCY_ROLES: AgencyRole[] = [
-  "agency_owner",
   "agency_admin",
-  "agency_manager",
-  "agency_team_lead",
-  "agency_agent",
+  "agency_user",
 ];
 
-export const AGENCY_ROLE_LABELS: Record<AgencyRole, string> = {
-  agency_owner: "Agency Owner",
+/* Keyed by the LIVE roles. A retired value read from an old row falls back
+   through roleLabel() below rather than forcing dead keys to stay here. */
+export const AGENCY_ROLE_LABELS: Partial<Record<AgencyRole, string>> & Record<"agency_admin" | "agency_user", string> = {
   agency_admin: "Agency Admin",
-  agency_manager: "Manager",
-  agency_team_lead: "Team Lead",
-  agency_agent: "Agent",
+  agency_user: "Agency User",
 };
 
-export const AGENCY_ROLE_HINTS: Record<AgencyRole, string> = {
-  agency_owner: "Everything, including inviting other owners.",
-  agency_admin: "Runs the platform day to day; can invite the team.",
-  agency_manager: "Manages divisions and their work.",
-  agency_team_lead: "Leads a team and sees its work.",
-  agency_agent: "Works what is assigned to them.",
+export const AGENCY_ROLE_HINTS: Partial<Record<AgencyRole, string>> & Record<"agency_admin" | "agency_user", string> = {
+  agency_admin: "The full agency management experience. Ownership itself is transferred, never invited.",
+  agency_user: "The operational workspace: their work, their time, their day. Modules, scope and partners are granted on the Access page.",
 };
 
 /**
@@ -113,4 +106,13 @@ export async function fetchInvitationPreview(token: string): Promise<InvitationP
   if (!row) return null;
   const r = row as { email: string; kind: string; expires_at: string };
   return { email: r.email, kind: r.kind, expiresAt: r.expires_at };
+}
+
+/** A readable name for any role value, including retired ones in old rows. */
+export function roleLabel(role: string | null | undefined): string {
+  if (!role) return "—";
+  return (
+    AGENCY_ROLE_LABELS[role as AgencyRole] ??
+    role.replace(/^agency_/, "").replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase())
+  );
 }
