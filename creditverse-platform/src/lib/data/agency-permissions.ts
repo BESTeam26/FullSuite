@@ -93,6 +93,8 @@ export interface AgencyMemberAccess {
   name: string;
   email: string;
   role: string;
+  /** The preset an Agency User starts from; null for admins. */
+  accessProfile: string | null;
   /** Only the deliberate exceptions. Absent means "whatever the role says". */
   overrides: Record<string, boolean>;
 }
@@ -105,7 +107,7 @@ export async function fetchAgencyAccess(agencyId: string): Promise<AgencyMemberA
        staff, and All Access was toggled on one of them — which both wrote
        overrides nobody wanted and broke what phase 56 measures. */
     sb.from("agency_memberships")
-      .select("id, user_id, role, profiles:profiles!agency_memberships_user_id_fkey!inner(id, full_name, email, is_fixture)")
+      .select("id, user_id, role, access_profile, profiles:profiles!agency_memberships_user_id_fkey!inner(id, full_name, email, is_fixture)")
       .eq("agency_id", agencyId)
       .eq("profiles.is_fixture", false),
     sb.from("agency_member_permissions").select("membership_id, key, allowed"),
@@ -129,6 +131,7 @@ export async function fetchAgencyAccess(agencyId: string): Promise<AgencyMemberA
       name: p?.full_name || p?.email || "Unnamed",
       email: p?.email ?? "",
       role: row.role as string,
+      accessProfile: (row.access_profile as string) ?? null,
       overrides: byMembership.get(row.id as string) ?? {},
     };
   }).sort((a, b) => a.name.localeCompare(b.name));

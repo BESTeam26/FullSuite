@@ -47,6 +47,10 @@ import {
 } from "@/lib/data/agency-permissions";
 import { useAuth } from "@/lib/auth/auth-context";
 import { cn } from "@/lib/utils";
+import { OpsSelect } from "@/components/ui/ops-select";
+import { useMemberActions } from "@/lib/data/use-agency-teams";
+import { ACCESS_PROFILES, ACCESS_PROFILE_LABELS } from "@/lib/data/agency-invitations";
+import type { Enums } from "@/lib/supabase/database.types";
 
 const ROLE_LABEL: Record<string, string> = {
   agency_owner: "Owner",
@@ -77,6 +81,7 @@ export function AgencyAccessPanel({ lockedUserId }: { lockedUserId?: string } = 
     staleTime: 600_000,
   });
 
+  const memberActions = useMemberActions();
   const [selected, setSelected] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   /* The Team Member profile mounts this panel for ONE person — same editor,
@@ -141,14 +146,28 @@ export function AgencyAccessPanel({ lockedUserId }: { lockedUserId?: string } = 
     <ContentCard
       title={<span className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-muted-foreground" /> Access</span>}
     >
-      {(access.data ?? []).every((p) => p.role === "agency_owner" || p.role === "agency_admin") && (
-        <p className="mb-3 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-xs text-blue-900">
-          Everybody on the roster is an owner or an administrator, and both hold every agency
-          capability through their role — so every switch below is inert and says so. The toggles
-          become live as soon as somebody is a manager, team lead or agent. Change a role on the
-          roster above.
-        </p>
-      )}
+      {/* Two contexts, two truths. On a person's profile the roster is not on
+          the screen, so pointing at it was a dead instruction — the role and
+          profile controls are right here instead (Dee, 2026-09-09: "Why I
+          can't turn off some access for agent?"). */}
+      {locked
+        ? locked.role === "agency_admin" || locked.role === "agency_owner"
+          ? (
+            <p className="mb-3 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-xs text-blue-900">
+              {locked.name} is an <strong>Agency Admin</strong>, and an admin holds every capability
+              through the role — which is why the switches below are inert. To restrict them, change
+              the security role to <strong>Agency User</strong> below and pick an access profile;
+              the switches become live immediately.
+            </p>
+          )
+          : null
+        : (access.data ?? []).every((p) => p.role === "agency_owner" || p.role === "agency_admin") && (
+          <p className="mb-3 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-xs text-blue-900">
+            Everybody on the roster is an owner or an administrator, and both hold every agency
+            capability through their role — so every switch below is inert and says so. The toggles
+            become live as soon as somebody is an Agency User. Change a role on the roster above.
+          </p>
+        )}
       <div className="grid gap-3 lg:grid-cols-[16rem_1fr]">
         <div>
           <div className="relative mb-2">
@@ -185,6 +204,42 @@ export function AgencyAccessPanel({ lockedUserId }: { lockedUserId?: string } = 
           </p>
         ) : (
           <div>
+            {locked && (
+              <div className="mb-3 grid gap-3 rounded-lg border border-border bg-card p-3 sm:grid-cols-2">
+                <label className="text-sm">
+                  <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Security role</span>
+                  <span className="mt-1 block">
+                    <OpsSelect size="field" value={person.role === "agency_owner" ? "agency_admin" : person.role}
+                      onValueChange={(v) => memberActions.setRole.mutate({
+                        membershipId: person.membershipId, role: v as Enums<"agency_role">,
+                      })}
+                      options={[
+                        { value: "agency_admin", label: "Agency Admin" },
+                        { value: "agency_user", label: "Agency User" },
+                      ]} />
+                  </span>
+                  <span className="mt-1 block text-[11px] text-muted-foreground">
+                    An admin holds everything by role. An Agency User holds what the profile and the
+                    switches below give them.
+                  </span>
+                </label>
+                <label className="text-sm">
+                  <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Access profile</span>
+                  <span className="mt-1 block">
+                    <OpsSelect size="field" value={person.accessProfile ?? "custom"}
+                      onValueChange={(v) => memberActions.setProfile.mutate({
+                        membershipId: person.membershipId, profile: v as Enums<"access_profile">,
+                      })}
+                      options={ACCESS_PROFILES.map((v) => ({ value: v, label: ACCESS_PROFILE_LABELS[v] }))} />
+                  </span>
+                  <span className="mt-1 block text-[11px] text-muted-foreground">
+                    {person.role === "agency_user"
+                      ? "The starting point. Anything you switch below is an exception that overrides it."
+                      : "Applies once they are an Agency User."}
+                  </span>
+                </label>
+              </div>
+            )}
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
               <span>
                 <span className="block text-sm font-semibold text-foreground">{person.name}</span>

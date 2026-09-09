@@ -89,6 +89,11 @@ export function useTimesheet(): TimesheetResult {
      2026-09-08 with exactly such an entry. */
   const open = useQuery({
     queryKey: ["time", "open", userId],
+    /* The one query that DOES refetch on focus: a timer may have been stopped
+       elsewhere — by the 10-hour auto-stop, or on another device — and coming
+       back to a stale "still running" would be a lie about somebody's day.
+       Everything else is deliberately off (see the QueryClient defaults). */
+    refetchOnWindowFocus: true,
     queryFn: () => fetchOpenEntry(userId),
     enabled: live,
     staleTime: 15_000,

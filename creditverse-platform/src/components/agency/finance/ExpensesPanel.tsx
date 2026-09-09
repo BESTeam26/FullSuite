@@ -18,10 +18,12 @@ import { Empty, Pill } from "@/components/agency/partner/partner-ui";
 import { useExpenseActions, useExpenseTemplates, useExpenses } from "@/lib/data/use-agency-expenses";
 import { useAgencyPermissions } from "@/lib/data/agency-permissions";
 import type { Month } from "@/lib/partners/billing-engine";
-import { formatMoney } from "@/lib/format-money";
+import { formatCentsIn } from "@/lib/format-money";
 import { formatDate } from "@/lib/format-date";
 
-const money = (cents: number) => formatMoney(cents / 100);
+/* Expenses carry their own currency — a released PHP payroll writes a peso
+   expense, and a dollar sign on it would be wrong by a factor of sixty. */
+const money = (cents: number, currency?: string | null) => formatCentsIn(cents, currency ?? "USD");
 const STATUS_TONE: Record<string, string> = {
   paid: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700",
   due: "border-amber-500/40 bg-amber-500/10 text-amber-800",
@@ -106,7 +108,7 @@ export function ExpensesPanel({ month }: { month: Month }) {
                     </td>
                     <td className="py-1.5 pr-2 text-muted-foreground">{formatDate(e.dueDate)}</td>
                     <td className="py-1.5 pr-2 text-muted-foreground">{formatDate(e.paidOn)}</td>
-                    <td className="py-1.5 pr-2 text-right tabular-nums text-foreground">{money(e.amountCents)}</td>
+                    <td className="py-1.5 pr-2 text-right tabular-nums text-foreground">{money(e.amountCents, e.currency)}</td>
                     <td className="py-1.5 pr-2">
                       <Pill tone={STATUS_TONE[e.status] ?? STATUS_TONE.upcoming}>{e.status}</Pill>
                     </td>
@@ -153,7 +155,7 @@ export function ExpensesPanel({ month }: { month: Month }) {
                 <span>
                   <span className="font-medium text-foreground">{t.vendor}</span>
                   <span className="ml-2 text-xs text-muted-foreground">
-                    {money(t.amountCents)} · {t.cadence}{t.dueDay ? ` · day ${t.dueDay}` : ""}
+                    {money(t.amountCents, t.currency)} · {t.cadence}{t.dueDay ? ` · day ${t.dueDay}` : ""}
                   </span>
                 </span>
                 {!t.active && <Pill tone="border-border bg-muted text-muted-foreground">inactive</Pill>}

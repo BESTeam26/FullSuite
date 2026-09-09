@@ -28,7 +28,6 @@ import { Input } from "@/components/ui/input";
 import { OpsSelect } from "@/components/ui/ops-select";
 import { Empty, Pill } from "@/components/agency/partner/partner-ui";
 import { useAgencyMembers, useMemberActions, useTeamActions } from "@/lib/data/use-agency-teams";
-import { useOrganizationTree } from "@/lib/data/use-organization-structure";
 import { useWorkforce } from "@/lib/data/use-workforce";
 import { useAuth } from "@/lib/auth/auth-context";
 import { OwnerDeleteButton } from "@/components/agency/OwnerDeleteButton";
@@ -62,15 +61,16 @@ export function PeopleManager() {
   }
   /* One person, many teams (Dee, §7). The dropdown ADDS a membership rather
      than replacing one, because a second team is an addition to where somebody
-     works, not a correction of it. */
-  const tree = useOrganizationTree();
+     works, not a correction of it.
+
+     Where somebody sits comes from the WORKFORCE teams already loaded — each
+     carries its department and division names. Asking the organization tree
+     as well meant three more requests (divisions, departments, teams) to
+     render two words that were already in hand (rule 14). */
   const placeOf = (userId: string) => {
-    const onTeams = teamsOf.get(userId) ?? [];
-    const first = onTeams[0];
-    const dept = (tree.data?.departments ?? []).find(
-      (d) => d.id === (tree.data?.teams ?? []).find((t) => t.id === first?.id)?.departmentId);
-    const div = (tree.data?.divisions ?? []).find((v) => v.id === dept?.divisionId);
-    return { division: div?.name ?? null, department: dept?.name ?? null };
+    const first = (teamsOf.get(userId) ?? [])[0];
+    const team = first ? liveTeams.find((t) => t.id === first.id) : undefined;
+    return { division: team?.division ?? null, department: team?.department ?? null };
   };
 
   const all = members.data ?? [];

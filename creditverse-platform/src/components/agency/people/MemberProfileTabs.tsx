@@ -18,6 +18,8 @@ import { OpsSelect } from "@/components/ui/ops-select";
 import { Pill } from "@/components/agency/partner/partner-ui";
 import { SchedulesAndRates } from "@/components/agency/people/SchedulesAndRates";
 import { useTeamActions } from "@/lib/data/use-agency-teams";
+import { useAgencyPartners } from "@/lib/data/use-agency-partners";
+import { useMemberAssignmentActions } from "@/lib/data/use-partner-assignments";
 import { setMemberPlacement } from "@/lib/data/organization-structure";
 import { useOrganizationTree } from "@/lib/data/use-organization-structure";
 import {
@@ -31,6 +33,7 @@ import {
 import { useAgencyPermissions } from "@/lib/data/agency-permissions";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatDate } from "@/lib/format-date";
+import { formatCentsIn } from "@/lib/format-money";
 import { useToast } from "@/hooks/use-toast";
 import type { AgencyMember } from "@/lib/data/agency-teams";
 import type { AgencyPerson, AgencyTeam } from "@/lib/data/agency-workforce";
@@ -155,13 +158,61 @@ export function AssignmentsTab({ member, teams }: { member: AgencyMember; teams:
     .filter((t) => !t.archived && t.members.some((m) => m.userId === member.userId))
     .map((t) => t.id);
   const assignments = useMemberPartnerAssignments(member.userId, teamIds, true);
+  const partners = useAgencyPartners();
+  const actions = useMemberAssignmentActions(member.userId);
+  const perms = useAgencyPermissions();
+  const canAssign = perms.can("partners.assignments");
+  const { toast } = useToast();
+  const [picked, setPicked] = useState(NONE);
+
+  /* Only partners they do not already reach BY NAME. A team assignment is a
+     different fact and does not block a direct one — somebody may work a
+     partner personally as well as through their team. */
+  const directIds = new Set((assignments.data ?? []).filter((a) => a.via === "direct").map((a) => a.groupId));
+  const assignable = (partners.data ?? []).filter((p) => !directIds.has(p.id));
+
+  const assignOne = () => {
+    if (picked === NONE) return;
+    actions.assign.mutate({ groupId: picked }, {
+      onSuccess: () => { setPicked(NONE); toast({ title: "Assigned" }); },
+      onError: (e) => toast({ title: "Could not assign", description: (e as Error).message, variant: "destructive" }),
+    });
+  };
+
+  const assignAll = () => {
+    const ids = assignable.map((p) => p.id);
+    if (ids.length === 0) return;
+    actions.assignMany.mutate(ids, {
+      onSuccess: (n) => toast({ title: `Assigned ${n} partner${n === 1 ? "" : "s"}` }),
+      onError: (e) => toast({ title: "Could not assign them all", description: (e as Error).message, variant: "destructive" }),
+    });
+  };
 
   return (
     <ContentCard title="Partner assignments">
       <p className="mb-2 text-[11px] text-muted-foreground">
-        The two paths the database itself resolves: assigned by name, or through a team. Assigning and
-        ending assignments lives on the partner&apos;s Team tab, so there is one place that edits them.
+        Assignment is what makes a partner visible to {member.name}: the database resolves it two
+        ways — assigned by name here, or through a team they are on. Ending one removes future
+        access and keeps the history of who worked the account.
       </p>
+
+      {canAssign && (
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/20 p-2.5">
+          <OpsSelect size="sm" value={picked} onValueChange={setPicked}
+            options={[{ value: NONE, label: partners.isLoading ? "Loading partners…" : "Assign a partner…" },
+              ...assignable.map((p) => ({ value: p.id, label: p.name }))]} />
+          <Button size="sm" variant="outline" className="h-7 text-[11px]"
+            disabled={picked === NONE || actions.assign.isPending} onClick={assignOne}>
+            {actions.assign.isPending && <Loader2 className="mr-1 h-3 w-3 animate-spin" />} Assign
+          </Button>
+          <span className="text-[11px] text-muted-foreground">or</span>
+          <Button size="sm" variant="ghost" className="h-7 text-[11px]"
+            disabled={assignable.length === 0 || actions.assignMany.isPending} onClick={assignAll}>
+            {actions.assignMany.isPending && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+            Assign all {assignable.length} remaining
+          </Button>
+        </div>
+      )}
       {assignments.isLoading ? (
         <p className="py-4 text-xs text-muted-foreground"><Loader2 className="mr-1.5 inline h-3 w-3 animate-spin" /> Loading…</p>
       ) : (assignments.data ?? []).length === 0 ? (
@@ -176,9 +227,24 @@ export function AssignmentsTab({ member, teams }: { member: AgencyMember; teams:
                 </Link>
                 {a.service && <span className="ml-2 text-muted-foreground">{a.service}</span>}
               </span>
-              <span className="text-muted-foreground">
-                {a.via === "direct" ? "Assigned directly" : `Via ${a.teamName ?? "team"}`}
-                {a.startedOn ? ` · since ${formatDate(a.startedOn)}` : ""}
+              <span className="flex items-center gap-2 text-muted-foreground">
+                <span>
+                  {a.via === "direct" ? "Assigned directly" : `Via ${a.teamName ?? "team"}`}
+                  {a.startedOn ? ` · since ${formatDate(a.startedOn)}` : ""}
+                </span>
+                {canAssign && a.via === "direct" && (
+                  <Button size="sm" variant="ghost" className="h-6 text-[11px] text-destructive"
+                    disabled={actions.end.isPending}
+                    onClick={() => actions.end.mutate(a.id, {
+                      onSuccess: () => toast({ title: "Assignment ended", description: "Future access is removed; the history stays." }),
+                      onError: (e) => toast({ title: "Could not end it", description: (e as Error).message, variant: "destructive" }),
+                    })}>
+                    End
+                  </Button>
+                )}
+                {a.via === "team" && (
+                  <span className="text-[10px]">edited on the team</span>
+                )}
               </span>
             </li>
           ))}
@@ -244,7 +310,7 @@ export function CompensationTab({ member }: { member: AgencyMember }) {
       ) : rate ? (
         <div className="text-sm text-foreground">
           <p className="font-semibold">
-            ${(rate.rateCents / 100).toFixed(2)} {rate.rateType === "hourly" ? "/ hour" : "/ cutoff"} · {rate.currency}
+            {formatCentsIn(rate.rateCents, rate.currency)} {rate.rateType === "hourly" ? "/ hour" : "/ cutoff"}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
             Effective {formatDate(rate.effectiveFrom)}. Rate changes are made on the Schedule &amp; Time tab and

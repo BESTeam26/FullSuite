@@ -1317,3 +1317,57 @@ yet", which is also untrue. So `agency_owned` is its own flag (0280), at most
 one of the three may be set, and the event backlog is attributed to whichever
 was named. Verified live: dNO7USxedNlA9IKOjMuY is now BES's own, and naming
 two owners at once is refused.
+
+### The app got slow because the cache had no policy — 2026-09-09
+
+Dee: "the app is becoming super slow now, and the blank Page with a flash."
+Measured rather than guessed, and there were three separate causes:
+
+1. **`new QueryClient()` carried React Query's defaults** — every query stale
+   the instant it resolved, every mount refetching, and **every window focus
+   refetching every active query at once**. On a screen holding ten queries at
+   ~230ms each, alt-tabbing back cost a visible stall. Now: 30s baseline
+   staleTime, 5-minute cache, no focus refetch (the app already invalidates
+   precisely after every mutation), and one retry instead of three — three
+   retries with backoff turned a single refusal into seconds of apparent hang.
+   The ONE exception is the open-timer query, which still refetches on focus:
+   a timer may have been stopped by the 10-hour auto-stop or on another
+   device, and a stale "still running" would be a lie about somebody's day.
+2. **Opening People fired 12 requests** — `agency_memberships` four times and
+   `teams` three. PeopleManager asked the organization tree for a person's
+   division and department, which are already on the workforce teams it had
+   loaded: three requests (divisions, departments, teams) to render two words.
+   **Now 4 requests.**
+3. **The blank flash was literally a blank div** — the route guard rendered
+   `<div className="min-h-[60vh]" />` while permissions resolved, so a first
+   paint looked like the app had failed and then flashed the page in. It is a
+   page-shaped skeleton now (rule 15: loading preserves layout).
+
+Production build for comparison: 97ms and 11 requests. The 250 requests Dee
+sees on localhost are the dev server's unbundled modules, not the app.
+
+### The Access and Assignments tabs can now do what they described — 2026-09-09
+
+Dee: "Why I can't turn off some access for agent?" and "I can't assign
+partners here as well." Both tabs were built read-only against a spec that
+said they should act.
+
+- **Access** now carries the security role and the access profile on the
+  person, so the thing the panel tells you to change is changeable where you
+  are standing. Its banner used to say "change a role on the roster above" —
+  on a profile there is no roster above, a dead instruction; it now names the
+  person, says an admin holds everything by role, and points at the control
+  a line below.
+- **Assignments** assigns: one partner, or **all remaining** at once, and ends
+  a direct assignment (the row stays — it is who worked the account). A team
+  assignment says "edited on the team", because there is one canonical place
+  for it. Same writers the partner's own Team tab uses (§28).
+
+### A peso is not a dollar — 2026-09-09
+
+Dee: "This one contradicts $150.00 / hour · PHP." Compensation hardcoded a
+dollar sign in front of an amount whose currency was on the record — wrong by
+a factor of about sixty. One shared `formatMoneyIn`/`formatCentsIn` now takes
+the currency from the row and lets Intl supply the symbol; the rate editor,
+the payslip list and the expenses table use it too, so a released peso payroll
+reads as pesos. Verified: **₱150.00 / hour**.

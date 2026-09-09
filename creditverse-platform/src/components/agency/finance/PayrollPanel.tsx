@@ -20,10 +20,12 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { useAgencyPermissions } from "@/lib/data/agency-permissions";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/format-date";
+import { formatCentsIn } from "@/lib/format-money";
 import { formatDuration } from "@/lib/time-domain";
 
-const money = (cents: number, currency: string) =>
-  `${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2 })} ${currency}`;
+/* The shared formatter: the symbol comes from the currency on the record, so
+   a peso salary never renders with a dollar sign. */
+const money = (cents: number, currency: string) => formatCentsIn(cents, currency);
 
 export function PayrollPanel() {
   const perms = useAgencyPermissions();

@@ -28,6 +28,43 @@ export function useAllPartnerAssignments() {
   });
 }
 
+/**
+ * Assigning FROM the person's side — the same writers the partner's own Team
+ * tab uses, so there is one implementation and one set of rules (§28). The
+ * person is fixed; the partner varies.
+ */
+export function useMemberAssignmentActions(userId: string) {
+  const qc = useQueryClient();
+  const auth = useAuth();
+  const agencyId = auth.agencyId ?? "";
+  const refresh = () => {
+    void qc.invalidateQueries({ queryKey: ["partner"] });
+    void qc.invalidateQueries({ queryKey: ["agency", "partner-assignments"] });
+    void qc.invalidateQueries({ queryKey: ["agency", "partners"] });
+    void qc.invalidateQueries({ queryKey: ["agency", "member-partners"] });
+  };
+  return {
+    assign: useMutation({
+      mutationFn: (v: { groupId: string; role?: Parameters<typeof assignPartner>[0]["role"] }) =>
+        assignPartner({ agencyId, groupId: v.groupId, userId, role: v.role }),
+      onSuccess: refresh,
+    }),
+    /* Every partner at once — for somebody whose job really is all of them.
+       Sequential on purpose: each insert is its own authorization check, and
+       one refusal must not silently skip the rest. */
+    assignMany: useMutation({
+      mutationFn: async (groupIds: string[]) => {
+        for (const groupId of groupIds) {
+          await assignPartner({ agencyId, groupId, userId });
+        }
+        return groupIds.length;
+      },
+      onSuccess: refresh,
+    }),
+    end: useMutation({ mutationFn: (id: string) => endAssignment(id), onSuccess: refresh }),
+  };
+}
+
 export function useAssignmentActions(groupId: string) {
   const qc = useQueryClient();
   const auth = useAuth();

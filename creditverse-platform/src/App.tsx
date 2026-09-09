@@ -135,7 +135,34 @@ const CompanyTools = lazy(chunkFor("/app/tools"));
 const CompanyFiles = lazy(chunkFor("/app/files"));
 const SupportPage = lazy(chunkFor("/app/support"));
 
-const queryClient = new QueryClient();
+/**
+ * Cache deliberately, not accidentally (rule 14).
+ *
+ * The defaults were React Query's own, which mean: every query is stale the
+ * moment it resolves, every mount refetches, and every time the window regains
+ * focus EVERY active query refetches at once. On a screen holding ten queries
+ * at a couple of hundred milliseconds each, alt-tabbing back to the browser
+ * cost a visible stall — Dee, 2026-09-09: "the app is becoming super slow".
+ *
+ * The app already invalidates precisely after every mutation, so focus
+ * refetching adds load without adding truth. A short baseline staleTime keeps
+ * a navigation back to a screen instant while still refreshing a screen left
+ * open; hooks that need fresher or staler data still say so themselves.
+ */
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      gcTime: 5 * 60_000,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: true,
+      /* Three retries with backoff turned one refused request into seconds of
+         apparent hang. One retry covers a dropped connection; a real refusal
+         should surface immediately. */
+      retry: 1,
+    },
+  },
+});
 
 /* The placeholder for the very first screen of a session, before any chunk
    has arrived. On a workspace URL it is the same frame the boot HTML painted

@@ -54,7 +54,21 @@ export const RequireAgencyRoute = ({ children }: { children: ReactNode }) => {
      so this branch removed the navigation as well, which read as the app
      breaking on every tab change. */
   if (status === "loading" || permissions.loading || agencyPermissions.loading) {
-    return <div className="min-h-[60vh]" aria-busy="true" aria-label="Checking access" />;
+    /* A page-shaped skeleton, not an empty box: the old blank div made every
+       first paint look like the app had failed and then flashed the real page
+       in (rule 15 — loading preserves layout). */
+    return (
+      <div className="animate-pulse p-6 md:p-8" aria-busy="true" aria-label="Checking access">
+        <div className="mb-6 h-7 w-56 rounded-lg bg-muted" />
+        <div className="mb-3 h-4 w-80 max-w-full rounded bg-muted/70" />
+        <div className="grid gap-3 md:grid-cols-3">
+          <div className="h-24 rounded-xl bg-muted/60" />
+          <div className="h-24 rounded-xl bg-muted/60" />
+          <div className="h-24 rounded-xl bg-muted/60" />
+        </div>
+        <div className="mt-4 h-64 rounded-xl bg-muted/40" />
+      </div>
+    );
   }
 
   const access = accessTo(spec, ctx);

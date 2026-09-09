@@ -19,6 +19,7 @@ import { useWorkforce } from "@/lib/data/use-workforce";
 import { usePayRates, useSchedules, useSetPayRate, useSetSchedule } from "@/lib/data/use-people";
 import { useAgencyPermissions } from "@/lib/data/agency-permissions";
 import { PAY_CURRENCIES } from "@/lib/data/people-management";
+import { formatCentsIn } from "@/lib/format-money";
 import { useToast } from "@/hooks/use-toast";
 import type { WorkSchedule } from "@/lib/data/people-management";
 
@@ -63,7 +64,7 @@ export function SchedulesAndRates({ onlyUserId }: { onlyUserId?: string } = {}) 
                     {canPayroll && (
                       <span className="block text-muted-foreground">
                         {r
-                          ? `Rate: ${(r.rateCents / 100).toLocaleString("en-US", { minimumFractionDigits: 2 })} ${r.currency} ${r.rateType === "hourly" ? "/ hour" : "/ cutoff"}`
+                          ? `Rate: ${formatCentsIn(r.rateCents, r.currency)} ${r.rateType === "hourly" ? "/ hour" : "/ cutoff"}`
                           : "No rate — payroll will skip them until one is set"}
                       </span>
                     )}
