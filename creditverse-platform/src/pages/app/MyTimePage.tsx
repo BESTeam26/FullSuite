@@ -21,12 +21,14 @@ import { HqPageShell } from "@/pages/app/HqPages";
 import { useTimesheet } from "@/lib/data/use-time";
 import { useMyTimeAdjustments, useRequestTimeAdjustment } from "@/lib/data/use-time-adjustments";
 import { useLeaveActions, useLeaveTypes, useMyLeave, useSchedules } from "@/lib/data/use-people";
+import { useAgencyPartners } from "@/lib/data/use-agency-partners";
 import { formatDate } from "@/lib/format-date";
 import type { TimeAdjustmentRequest, TimeEntry } from "@/lib/data/time-entries";
 import { STALE_TIMER_HOURS, describeRunningFor, isStaleTimer } from "@/lib/time-domain";
 import {
   DIVISION_LABELS,
   divisionLabel,
+  TIMER_DIVISIONS,
   entrySeconds,
   formatClock,
   formatDuration,
@@ -48,9 +50,12 @@ function useNowTick(running: boolean): Date {
   return now;
 }
 
-const DIVISION_OPTIONS = Object.entries(DIVISION_LABELS).map(
-  ([value, label]) => ({ value, label }),
-);
+/* Built from TIMER_DIVISIONS, not from the label map: the map also holds the
+   retired "general" so an old row still reads, and offering a retired bucket
+   would put it back into use. */
+const DIVISION_OPTIONS = TIMER_DIVISIONS.map((value) => ({ value, label: DIVISION_LABELS[value] }));
+
+const NO_PARTNER = "__none";
 
 const clockTime = (iso: string) =>
   new Date(iso).toLocaleTimeString("en-US", {
@@ -62,6 +67,24 @@ export const MyTimePage = () => {
   const t = useTimesheet();
   const myAdjustments = useMyTimeAdjustments();
   const [division, setDivision] = useState("creditops");
+  const [partner, setPartner] = useState(NO_PARTNER);
+  /* Their partners, not every partner (Dee: "only the assigned one so it's
+     not too chaotic"). RLS already narrows this list to what they may see. */
+  const partners = useAgencyPartners();
+  const myPartners = (partners.data ?? []).filter((p) => p.lifecycle !== "archived");
+  const partnerName = new Map((partners.data ?? []).map((p) => [p.id, p.name]));
+  /* Hours per partner this week — the question a partner who pays for tracked
+     time actually asks, answered from the entries already loaded. */
+  const byPartner = (() => {
+    const totals = new Map<string, number>();
+    for (const e of t.entries ?? []) {
+      if (e.kind !== "work" || !e.partnerGroupId || !e.durationMinutes) continue;
+      totals.set(e.partnerGroupId, (totals.get(e.partnerGroupId) ?? 0) + e.durationMinutes);
+    }
+    return [...totals.entries()]
+      .map(([id, minutes]) => ({ id, name: partnerName.get(id) ?? "Partner", minutes }))
+      .sort((a, b) => b.minutes - a.minutes);
+  })();
   const [taskNote, setTaskNote] = useState("");
 
   const running = Boolean(t.openEntry);
@@ -174,7 +197,7 @@ export const MyTimePage = () => {
         ) : (
           <>
             <button
-              onClick={() => t.clockIn(division, taskNote || undefined)}
+              onClick={() => t.clockIn(division, taskNote || undefined, partner === NO_PARTNER ? null : partner)}
               disabled={t.isMutating || !t.entries || t.source === "demo"}
               className="flex items-center gap-2 rounded-xl bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
@@ -185,6 +208,19 @@ export const MyTimePage = () => {
               onValueChange={setDivision}
               options={DIVISION_OPTIONS}
               aria-label="Division"
+            />
+            {/* Only the partners assigned to this person: the list is already
+                scoped by `can_see_partner`, so an agent is offered their own
+                partners and nobody else's — and the database refuses a
+                partner they cannot see even if the value were forged. */}
+            <OpsSelect
+              value={partner}
+              onValueChange={setPartner}
+              options={[
+                { value: NO_PARTNER, label: myPartners.length > 0 ? "No partner (admin/internal)" : "No partner" },
+                ...myPartners.map((p) => ({ value: p.id, label: p.name })),
+              ]}
+              aria-label="Partner this time is for"
             />
             <input
               value={taskNote}
@@ -262,6 +298,22 @@ export const MyTimePage = () => {
         </p>
       )}
 
+      {byPartner.length > 0 && (
+        <ContentCard title="Hours by partner, this week">
+          <ul className="divide-y divide-border/50">
+            {byPartner.map((p) => (
+              <li key={p.id} className="flex items-center justify-between py-1.5 text-sm">
+                <span className="text-foreground">{p.name}</span>
+                <span className="font-semibold tabular-nums text-foreground">{formatDuration(p.minutes)}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            Work time only — breaks and lunch are the day&apos;s rest, and admin hours belong to no partner.
+          </p>
+        </ContentCard>
+      )}
+
       <ContentCard title="This Week's Time Entries">
         {t.isLoading ? (
           <p className="py-4 text-center text-xs text-muted-foreground">
@@ -275,7 +327,7 @@ export const MyTimePage = () => {
           </p>
         ) : (
           <DivisionTable
-            columns={["Date", "Started", "Division", "Task", "Duration", ""]}
+            columns={["Date", "Started", "Division", "Partner", "Task", "Duration", ""]}
             rows={t.entries.map((e) => [
               e.workDate,
               clockTime(e.startedAt),
@@ -285,6 +337,7 @@ export const MyTimePage = () => {
                   {e.kind === "lunch" ? "Lunch" : "Break"}
                 </span>
               ),
+              e.partnerGroupId ? (partnerName.get(e.partnerGroupId) ?? "—") : "—",
               e.taskNote ?? "—",
               e.endedAt ? (
                 <span key="d" className="inline-flex items-center gap-1.5">

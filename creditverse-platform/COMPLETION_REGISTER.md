@@ -1371,3 +1371,74 @@ a factor of about sixty. One shared `formatMoneyIn`/`formatCentsIn` now takes
 the currency from the row and lets Intl supply the symbol; the rate editor,
 the payslip list and the expenses table use it too, so a released peso payroll
 reads as pesos. Verified: **₱150.00 / hour**.
+
+### Access profiles became real preset packages — 2026-09-09
+
+Dee: "Dee should not have to manually flip 30 to 50 permission switches every
+time she adds an employee." The profiles existed but granted almost nothing,
+and the Access screen's mirror did not know profiles existed at all — it
+resolved for a role that no longer decides an Agency User's access, so the
+switches showed one answer and the person received another. A mirror that
+disagrees with the authority is worse than no mirror.
+
+- **One canonical matrix (0281)**, as rows, consulted by the one resolver —
+  not restated in the invite form, People, Access, navigation or the guards.
+  Manager gets management, teams, partner operations, assignments and reports;
+  Team Lead gets partner context and reports with **no** agency-wide
+  management (team surfaces come from the is_lead fact); Agent gets assigned
+  partners, their clients and the files their work needs; Custom grants
+  nothing. **No profile opens a module** — CreditOps, BES CRM, FundingOps and
+  TalentOps stay per-person grants, so a CreditOps agent never sees BES CRM.
+- **Deliberate denials are stated, not merely absent.** A missing row and a
+  `false` row both deny; only one of them can tell a person *why*. Every
+  sensitive capability — finance, payroll, credentials, employee documents,
+  settings, role administration, communication audit — carries an explicit
+  `false` on every profile, so the screen reads "Withheld by the Agent
+  default" instead of falling silent.
+- **The Access screen explains each answer** (§19): custom grant, custom
+  denial, profile default, withheld by profile, role. Admins no longer face
+  dozens of inert switches or a meaningless "Custom" — they get "Full Agency
+  Administration", what that covers, whether they hold the owner flag, and a
+  collapsed detail view.
+- **Changing a profile asks first** when there is something to lose (§20):
+  apply and keep the exceptions, or apply and clear them
+  (`reset_member_to_profile`, audited). Never silently discarded.
+- **The invitation carries the modules** (0282): pick CreditOps or BES CRM
+  while inviting, and activation grants them as that person's own exceptions
+  — so nobody activates into a workspace they cannot work. An admin
+  invitation refuses modules and a profile: the role already has everything.
+- **Access preview before sending** (§22) — what they will see, what stays
+  hidden, read from the same matrix so it cannot promise what the database
+  will refuse.
+
+Phase 37: **121/121**, including "no profile opens a module", "a manager is
+denied every sensitive capability", "Custom grants nothing at all" (zero true
+capabilities), and "one grant on top of Custom opens exactly one thing".
+
+### The timer names the partner, and Admin replaced General — 2026-09-09
+
+Dee: "add an option to choose the partner they are working with… so we can
+filter out how many hours has been dedicated for the partner", and "replace
+General by Admin, then add Meeting".
+
+`time_entries.division_id` is free text, so the rename was a data change and
+the seven existing 'general' rows moved with it — two values meaning one thing
+is how one truth becomes several. Meeting is its own bucket because "how much
+of the week went to calls?" is answerable and "admin" is not.
+
+The partner is nullable — admin time and meetings belong to no partner, and
+forcing one would make people pick a lie. Which partners a person may choose
+is decided where it always is: the picker lists what `can_see_partner` allows,
+so an agent is offered their own partners and nobody else's, and a trigger
+refuses a partner they cannot see even if the value were forged. My Time now
+shows the partner per entry and **hours by partner this week**.
+
+Phase 70: **128/128**. One probe had to be rewritten first — it picked the
+partner with a subquery that ran under the agent's own RLS, returned nothing,
+and inserted a NULL partner: it would have passed while testing nothing.
+
+**Caught during this work:** my own browser verification had archived the two
+`[TEST]` fixture teams earlier in the session, which silently broke the
+matrix's positive control (the fixture lead saw 0 clients instead of 4). Both
+restored; bootstrap back to 77/77. A reminder that clicking through a live
+app to verify is itself a write.

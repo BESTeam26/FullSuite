@@ -19,6 +19,8 @@ export interface TimeEntry {
   divisionId: string;
   organizationId?: string;
   clientId?: string;
+  /** The partner this time was worked for, when it was for one. */
+  partnerGroupId?: string;
   taskNote?: string;
   workDate: string;
   startedAt: string;
@@ -36,6 +38,7 @@ const mapRow = (r: TimeEntryRow): TimeEntry => ({
   divisionId: r.division_id,
   organizationId: r.organization_id ?? undefined,
   clientId: r.client_id ?? undefined,
+  partnerGroupId: (r as { partner_group_id?: string | null }).partner_group_id ?? undefined,
   taskNote: r.task_note ?? undefined,
   workDate: r.work_date,
   startedAt: r.started_at,
@@ -101,6 +104,8 @@ export interface ClockInInput {
   divisionId?: string;
   organizationId?: string;
   clientId?: string;
+  /** Who the work was for. NULL for admin time and meetings. */
+  partnerGroupId?: string | null;
   taskNote?: string;
 }
 
@@ -118,9 +123,10 @@ export async function clockIn(input: ClockInInput): Promise<string> {
     .insert({
       agency_id: input.agencyId,
       employee_id: input.employeeId,
-      division_id: input.divisionId ?? "general",
+      division_id: input.divisionId ?? "admin",
       organization_id: input.organizationId ?? null,
       client_id: input.clientId ?? null,
+      partner_group_id: input.partnerGroupId ?? null,
       task_note: input.taskNote ?? null,
       work_date: localWorkDate(),
     })

@@ -1739,6 +1739,63 @@ if (runs(37)) {
     ["…and a real change is audited with both values",
       () => w37(OWNER, `select public.set_agency_member_profile((select id from public.agency_memberships where user_id='${AGENT}'), 'team_lead');
         select count(*)::int as rows from public.activity_events where entity_type='agency_member' and field='access_profile' and new_value='team_lead'`), 1],
+    /* ── the preset matrix is real access, not a label (0281) ────────── */
+    ["the MANAGER preset arrives complete — management, partners, reports",
+      () => w37(OWNER, `update public.agency_memberships set access_profile='manager' where user_id='${AGENT}';
+        set local request.jwt.claims = '{"sub":"${AGENT}","role":"authenticated"}';
+        select (public.agency_can('ops.manage') and public.agency_can('team.manage')
+            and public.agency_can('partners.operations') and public.agency_can('partners.assignments')
+            and public.agency_can('reports.view'))::text as rows`), "true"],
+    ["…and a manager is denied every sensitive capability by default",
+      () => w37(OWNER, `update public.agency_memberships set access_profile='manager' where user_id='${AGENT}';
+        set local request.jwt.claims = '{"sub":"${AGENT}","role":"authenticated"}';
+        select (public.agency_can('finance.dashboard.view') or public.agency_can('payroll.view')
+             or public.agency_can('partners.credentials.view') or public.agency_can('people.documents.manage')
+             or public.agency_can('settings.manage') or public.agency_can('org.structure.manage')
+             or public.agency_can('team.permissions') or public.agency_can('communication.audit'))::text as rows`), "false"],
+    ["NO profile opens a module — every module key is false for all four",
+      () => q(`select count(*)::int as rows from public.agency_profile_permissions
+                where key in ('creditops.clients.view','crm.projects.view','fundingops.files.view','talentops.view')
+                  and allowed`)[0].rows, 0],
+    ["the TEAM LEAD preset holds no agency-wide management",
+      () => w37(OWNER, `update public.agency_memberships set access_profile='team_lead' where user_id='${AGENT}';
+        set local request.jwt.claims = '{"sub":"${AGENT}","role":"authenticated"}';
+        select (public.agency_can('ops.manage') or public.agency_can('team.manage')
+             or public.agency_can('partners.assignments') or public.agency_can('org.structure.view'))::text as rows`), "false"],
+    ["…and does hold the partner context its team's work needs",
+      () => w37(OWNER, `update public.agency_memberships set access_profile='team_lead' where user_id='${AGENT}';
+        set local request.jwt.claims = '{"sub":"${AGENT}","role":"authenticated"}';
+        select (public.agency_can('partners.view') and public.agency_can('partners.clients')
+            and public.agency_can('reports.view'))::text as rows`), "true"],
+    ["the CUSTOM preset grants nothing at all — the safe baseline",
+      () => w37(OWNER, `update public.agency_memberships set access_profile='custom' where user_id='${AGENT}';
+        set local request.jwt.claims = '{"sub":"${AGENT}","role":"authenticated"}';
+        select (select count(*) from jsonb_each(public.agency_can_all()) where value::text = 'true')::int as rows`), 0],
+    ["…and one explicit grant on top of Custom opens exactly one thing",
+      () => w37(OWNER, `update public.agency_memberships set access_profile='custom' where user_id='${AGENT}';
+        select public.set_agency_permission((select id from public.agency_memberships where user_id='${AGENT}'), 'crm.projects.view', true, 'probe');
+        set local request.jwt.claims = '{"sub":"${AGENT}","role":"authenticated"}';
+        select (select count(*) from jsonb_each(public.agency_can_all()) where value::text = 'true')::int as rows`), 1],
+    ["an invitation carries its module grants, and activation applies them",
+      () => w37(OWNER, `select public.invite_agency_member('org.owner@bes.test','agency_user','agent',null,array['crm.projects.view']);
+        create temp table probe_mod on commit drop as select token from public.invitations where kind='agency' and email='org.owner@bes.test' order by created_at desc limit 1;
+        set local request.jwt.claims = '{"sub":"${ORGOWNER}","role":"authenticated"}';
+        select public.accept_agency_invitation((select token from probe_mod));
+        select public.agency_can('crm.projects.view')::text as rows`), "true"],
+    ["…an admin invitation takes no module grants — the role already has them",
+      () => w37(OWNER, `select public.invite_agency_member('probe.teammate@bes.test','agency_admin',null,null,array['crm.projects.view']);
+        select coalesce(array_length(module_keys,1),0)::int as rows from public.invitations where email='probe.teammate@bes.test'`), 0],
+    ["…and an unknown capability in an invitation is refused, not stored",
+      () => w37(OWNER, `select public.invite_agency_member('probe.teammate@bes.test','agency_user','agent',null,array['creditops.everything'])`), "ERR 22023"],
+    ["resetting to profile defaults removes the exceptions and is audited",
+      () => w37(OWNER, `update public.agency_memberships set access_profile='agent' where user_id='${AGENT}';
+        select public.set_agency_permission((select id from public.agency_memberships where user_id='${AGENT}'), 'reports.view', true, 'probe');
+        select public.reset_member_to_profile((select id from public.agency_memberships where user_id='${AGENT}'));
+        set local request.jwt.claims = '{"sub":"${AGENT}","role":"authenticated"}';
+        select public.agency_can('reports.view')::text as rows`), "false"],
+    ["…and only an admin may reset somebody",
+      () => w37(AGENT, `select public.reset_member_to_profile((select id from public.agency_memberships where user_id='${AGENT}'))`), "ERR 42501"],
+
     ["the preset catalogue is readable by staff and writable by nobody",
       () => w37(AGENT, `insert into public.agency_profile_permissions (profile, key, allowed) values ('agent','payroll.view',true); select 1 as rows`), "ERR 42501"],
 
@@ -6234,6 +6291,25 @@ if (runs(70)) {
                 from pg_policy where polname='bes_files_select' and polrelid='storage.objects'::regclass`)[0].rows, "true"],
     ["no document is ever deleted — there is no delete policy",
       () => q(`select count(*)::int as rows from pg_policy where polrelid='public.member_documents'::regclass and polcmd='d'`)[0].rows, 0],
+
+    /* ── the timer names the partner, and cannot name a stranger (0283) ── */
+    /* A KNOWN id, read as the superuser. A subquery here would run under the
+       AGENT's own RLS, return nothing, and insert a NULL partner — the probe
+       would pass while testing nothing (the same trap as phase 55's upload). */
+    ["logging time against a partner you cannot see is refused",
+      () => { const g = q(`select id::text as rows from public.outsourcing_groups where is_fixture = false order by created_at limit 1`)[0].rows;
+              return p70(ADM70, `set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
+        insert into public.time_entries (agency_id, employee_id, division_id, work_date, partner_group_id)
+        values ('${AG70}', '${AGENT70}', 'creditops', current_date, '${g}'::uuid);
+        select 1 as rows`); }, "ERR 42501"],
+    ["…and an entry with no partner is fine — admin time belongs to nobody",
+      () => p70(ADM70, `set local bes.time_system = 'on';
+        set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
+        insert into public.time_entries (agency_id, employee_id, division_id, work_date)
+        values ('${AG70}', '${AGENT70}', 'admin', current_date);
+        select count(*)::int as rows from public.time_entries where employee_id='${AGENT70}' and division_id='admin'`), 1],
+    ["no time entry still says 'general' — one value per meaning",
+      () => q(`select count(*)::int as rows from public.time_entries where division_id = 'general'`)[0].rows, 0],
 
     /* ── currency conversion (0276–0279): a rate is data, and money is deliberate ── */
     ["recording an exchange rate needs the payroll permission",

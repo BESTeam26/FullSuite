@@ -49,11 +49,15 @@ export async function inviteAgencyMember(
   role: AgencyRole,
   profile?: AccessProfile,
   leadTeamId?: string,
+  /* The modules they are hired to work — granted on activation as their own
+     exceptions, because no profile grants a module (§16). */
+  moduleKeys?: string[],
 ): Promise<string> {
   const sb = requireSupabase();
   const { data, error } = await sb.rpc("invite_agency_member", {
     p_email: email, p_role: role,
     p_profile: profile ?? undefined, p_lead_team: leadTeamId ?? undefined,
+    p_modules: moduleKeys && moduleKeys.length > 0 ? moduleKeys : undefined,
   });
   if (error) throw error;
   return data as unknown as string;
@@ -155,6 +159,70 @@ export const INVITE_CHOICES: InviteChoice[] = [
   { value: "agency_user:custom", label: "Agency User · Custom", role: "agency_user", profile: "custom",
     hint: "Starts with nothing granted. Use when you want to configure this person\u2019s permissions by hand on the Access page." },
 ];
+
+/**
+ * What an invitation will actually produce, in plain words (§22).
+ *
+ * Read from the SAME preset matrix the database resolves against — passed in
+ * rather than restated, so this summary cannot drift from what the person
+ * receives. Personal surfaces are listed because they are true for everyone
+ * and their absence would read as a restriction.
+ */
+export interface AccessPreview {
+  headline: string;
+  sees: string[];
+  hidden: string[];
+  note: string;
+}
+
+const PERSONAL = ["My Work", "My Time", "End of Day", "Notifications", "Communication", "Knowledge Base", "Calendar"];
+
+const MODULE_LABELS: Record<string, string> = {
+  "creditops.clients.view": "CreditOps",
+  "crm.projects.view": "BES CRM",
+  "fundingops.files.view": "FundingOps",
+  "talentops.view": "TalentOps",
+};
+
+export function previewAccess(
+  choice: InviteChoice,
+  profileDefaults?: Record<string, Record<string, boolean>>,
+  extraModules: string[] = [],
+): AccessPreview {
+  if (choice.role === "agency_admin") {
+    return {
+      headline: "Agency Admin · Full Agency Administration",
+      sees: ["Everything released to the agency — people, operations, partners, finance, settings"],
+      hidden: ["Owner-only actions, which need the owner flag"],
+      note: "No access profile applies: the role grants it all.",
+    };
+  }
+  const defaults = (choice.profile && profileDefaults?.[choice.profile]) ?? {};
+  const granted = Object.entries(defaults).filter(([, on]) => on).map(([key]) => key);
+  const sees = [...PERSONAL];
+  if (granted.includes("partners.view")) sees.push("Assigned partners");
+  if (granted.includes("partners.clients")) sees.push("Their clients");
+  if (granted.includes("reports.view")) sees.push("Reports, within scope");
+  if (granted.includes("ops.manage")) sees.push("Team workload, Team EOD and people in their scope");
+  if (granted.includes("team.manage")) sees.push("Teams they manage");
+  for (const key of extraModules) if (MODULE_LABELS[key]) sees.push(MODULE_LABELS[key]);
+
+  const hidden: string[] = [];
+  for (const [key, label] of Object.entries(MODULE_LABELS)) {
+    if (!extraModules.includes(key)) hidden.push(label);
+  }
+  hidden.push("Finance and Payroll", "Agency Settings", "Partner credentials");
+  if (!granted.includes("ops.manage")) hidden.push("People and Teams administration");
+
+  return {
+    headline: `Agency User · ${choice.profile ? ACCESS_PROFILE_LABELS[choice.profile] : "Custom"}`,
+    sees,
+    hidden,
+    note: choice.profile === "team_lead"
+      ? "Team surfaces follow the team they actually lead, which this invitation names."
+      : "Scope still decides the records: they see the partners, clients and work assigned to them.",
+  };
+}
 
 /** "Agency Admin" or "Agency User · Manager" — for lists of people. */
 export function memberAccessLabel(role: string | null | undefined, profile?: AccessProfile | null): string {

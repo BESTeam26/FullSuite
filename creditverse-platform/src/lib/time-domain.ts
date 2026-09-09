@@ -176,8 +176,18 @@ export const DIVISION_LABELS: Record<string, string> = {
   fundingops: "FundingOps",
   "bes-crm": "BES CRM",
   talentops: "TalentOps",
-  general: "General",
+  /* "Admin" is what the team calls the hours that are not a module's — the
+     old "General" said nothing about the work. `meeting` is its own bucket
+     because a meeting is answerable ("how much of the week went to calls?")
+     in a way that "admin" is not. */
+  admin: "Admin",
+  meeting: "Meeting",
+  /* Retired 2026-09-09; kept so an old row still reads as something. */
+  general: "Admin",
 };
+
+/** The buckets a person may start a timer in, in the order they are offered. */
+export const TIMER_DIVISIONS = ["creditops", "fundingops", "bes-crm", "talentops", "admin", "meeting"] as const;
 
 export const divisionLabel = (id: string) => DIVISION_LABELS[id] ?? id;
 

@@ -49,7 +49,7 @@ export interface TimesheetResult extends TimeSummary {
   source: DataSource;
   isLoading: boolean;
   error: string | null;
-  clockIn: (divisionId: string, taskNote?: string) => void;
+  clockIn: (divisionId: string, taskNote?: string, partnerGroupId?: string | null) => void;
   /** Stop the clock, now. Corrections go through an approved adjustment
       request — an agent never states a custom time (0236). */
   clockOut: () => void;
@@ -105,7 +105,7 @@ export function useTimesheet(): TimesheetResult {
   };
 
   const inM = useMutation({
-    mutationFn: (v: { divisionId: string; taskNote?: string }) => {
+    mutationFn: (v: { divisionId: string; taskNote?: string; partnerGroupId?: string | null }) => {
       // Default deny rather than a non-null assertion: an unresolved agency
       // must fail loudly, not be asserted away.
       if (!agencyId) {
@@ -118,6 +118,7 @@ export function useTimesheet(): TimesheetResult {
         employeeId: userId,
         divisionId: v.divisionId,
         taskNote: v.taskNote,
+        partnerGroupId: v.partnerGroupId ?? null,
       });
     },
     onSuccess: invalidate,
@@ -147,8 +148,8 @@ export function useTimesheet(): TimesheetResult {
     source: live ? "live" : "demo",
     isLoading: live ? q.isLoading : false,
     error: live ? ((q.error as Error | null)?.message ?? null) : null,
-    clockIn: (divisionId, taskNote) => {
-      if (live && agencyId) inM.mutate({ divisionId, taskNote });
+    clockIn: (divisionId, taskNote, partnerGroupId) => {
+      if (live && agencyId) inM.mutate({ divisionId, taskNote, partnerGroupId });
     },
     clockOut: () => {
       if (live) outM.mutate();

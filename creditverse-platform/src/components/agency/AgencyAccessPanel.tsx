@@ -41,7 +41,8 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Pill } from "@/components/agency/partner/partner-ui";
 import {
-  AGENCY_PERMISSIONS, clearAgencyPermission, effectiveAgencyPermission,
+  AGENCY_PERMISSIONS, clearAgencyPermission, describePermissionSource, effectiveAgencyPermission,
+  resetMemberToProfile,
   fetchAgencyAccess, fetchPermissionCatalogue, setAgencyPermission,
   useAgencyPermissions,
 } from "@/lib/data/agency-permissions";
@@ -83,6 +84,8 @@ export function AgencyAccessPanel({ lockedUserId }: { lockedUserId?: string } = 
 
   const memberActions = useMemberActions();
   const [selected, setSelected] = useState<string | null>(null);
+  const [showAdminDetail, setShowAdminDetail] = useState(false);
+  const [pendingProfile, setPendingProfile] = useState<Enums<"access_profile"> | null>(null);
   const [search, setSearch] = useState("");
   /* The Team Member profile mounts this panel for ONE person — same editor,
      same writers, pre-selected and without the roster picker (§28: one
@@ -90,6 +93,14 @@ export function AgencyAccessPanel({ lockedUserId }: { lockedUserId?: string } = 
   const locked = lockedUserId
     ? (access.data ?? []).find((p) => p.userId === lockedUserId) ?? null
     : null;
+
+  const reset = useMutation({
+    mutationFn: resetMemberToProfile,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["agency", "access"] });
+      void qc.invalidateQueries({ queryKey: ["agency", "my-permissions"] });
+    },
+  });
 
   const change = useMutation({
     mutationFn: async (v: { membershipId: string; key: string; allowed: boolean | null }) => {
@@ -137,9 +148,27 @@ export function AgencyAccessPanel({ lockedUserId }: { lockedUserId?: string } = 
   const roleDefaults = catalogue.data?.roleDefaults ?? {};
   const roleHoldsEverything = person?.role === "agency_owner" || person?.role === "agency_admin";
 
+  const overrideCount = person ? Object.keys(person.overrides).length : 0;
+  /* Changing a profile is only a question when there is something to lose. */
+  const askProfileChange = (next: Enums<"access_profile">) => {
+    if (!person) return;
+    if (overrideCount === 0) {
+      memberActions.setProfile.mutate({ membershipId: person.membershipId, profile: next });
+      return;
+    }
+    setPendingProfile(next);
+  };
+  const applyProfile = async (clearExceptions: boolean) => {
+    if (!person || !pendingProfile) return;
+    await memberActions.setProfile.mutateAsync({ membershipId: person.membershipId, profile: pendingProfile });
+    if (clearExceptions) await reset.mutateAsync(person.membershipId);
+    setPendingProfile(null);
+  };
+
   const allOn = person
     ? (catalogue.data?.keys ?? []).every((k) =>
-        effectiveAgencyPermission(person.role, k.key, person.overrides, roleDefaults).allowed)
+        effectiveAgencyPermission(person.role, k.key, person.overrides, roleDefaults,
+          person.accessProfile, catalogue.data?.profileDefaults).allowed)
     : false;
 
   return (
@@ -223,21 +252,34 @@ export function AgencyAccessPanel({ lockedUserId }: { lockedUserId?: string } = 
                     switches below give them.
                   </span>
                 </label>
-                <label className="text-sm">
-                  <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Access profile</span>
-                  <span className="mt-1 block">
-                    <OpsSelect size="field" value={person.accessProfile ?? "custom"}
-                      onValueChange={(v) => memberActions.setProfile.mutate({
-                        membershipId: person.membershipId, profile: v as Enums<"access_profile">,
-                      })}
-                      options={ACCESS_PROFILES.map((v) => ({ value: v, label: ACCESS_PROFILE_LABELS[v] }))} />
+                <div className="text-sm">
+                  <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    {roleHoldsEverything ? "Access level" : "Access profile"}
                   </span>
-                  <span className="mt-1 block text-[11px] text-muted-foreground">
-                    {person.role === "agency_user"
-                      ? "The starting point. Anything you switch below is an exception that overrides it."
-                      : "Applies once they are an Agency User."}
-                  </span>
-                </label>
+                  {/* An admin has no profile to choose: offering "Custom" beside
+                      a role that already grants everything was a control with no
+                      effect (§2). They see what they have instead. */}
+                  {roleHoldsEverything ? (
+                    <>
+                      <p className="mt-1 font-semibold text-foreground">Full Agency Administration</p>
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        Every released agency capability, through the role. Owner-only actions still
+                        need the owner flag.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <span className="mt-1 block">
+                        <OpsSelect size="field" value={person.accessProfile ?? "custom"}
+                          onValueChange={(v) => askProfileChange(v as Enums<"access_profile">)}
+                          options={ACCESS_PROFILES.map((v) => ({ value: v, label: ACCESS_PROFILE_LABELS[v] }))} />
+                      </span>
+                      <span className="mt-1 block text-[11px] text-muted-foreground">
+                        The starting point. Anything you switch below is an exception that overrides it.
+                      </span>
+                    </>
+                  )}
+                </div>
               </div>
             )}
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
@@ -263,21 +305,73 @@ export function AgencyAccessPanel({ lockedUserId }: { lockedUserId?: string } = 
             </div>
 
             {roleHoldsEverything && (
-              <p className="mb-3 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-xs text-blue-900">
-                An {ROLE_LABEL[person.role]?.toLowerCase()} holds every agency capability through their
-                role, so there is nothing to switch. Removing one would mean changing their role — and
-                the database refuses an exception on an owner or administrator rather than pretending
-                to apply it.
-              </p>
+              <>
+                <div className="mb-3 rounded-lg border border-blue-500/30 bg-blue-500/5 p-3 text-xs">
+                  <p className="font-semibold text-foreground">
+                    {person.name} holds every released agency capability through the Agency Admin role.
+                  </p>
+                  <ul className="mt-2 grid gap-x-4 gap-y-1 text-muted-foreground sm:grid-cols-2">
+                    <li>People, Teams, Workforce and HR — manage</li>
+                    <li>CreditOps, BES CRM, TalentOps, FundingOps — manage</li>
+                    <li>Partners, Organizations, Reports — manage</li>
+                    <li>Finance, Payroll, Billing — manage</li>
+                    <li>Communication, Files, Knowledge, Calendar — manage</li>
+                    <li>Agency Settings, Compliance — manage</li>
+                  </ul>
+                  <p className="mt-2 text-muted-foreground">
+                    Owner-only actions — transferring ownership, the destructive agency controls —
+                    still require the owner flag, which {person.name}{" "}
+                    {person.role === "agency_owner" ? "holds" : "does not hold"}.
+                    To restrict this person, make them an Agency User above and pick a profile.
+                  </p>
+                  <button type="button" onClick={() => setShowAdminDetail((v) => !v)}
+                    className="mt-2 text-[11px] font-semibold text-primary underline-offset-2 hover:underline">
+                    {showAdminDetail ? "Hide permission detail" : "View permission detail"}
+                  </button>
+                </div>
+              </>
             )}
 
-            <div className="space-y-3">
+            {/* §20 — changing a profile changes inherited access, so it is a
+                question when the person already has deliberate exceptions. */}
+            {pendingProfile && (
+              <div className="mb-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs">
+                <p className="font-semibold text-foreground">
+                  Apply the {ACCESS_PROFILE_LABELS[pendingProfile]} defaults to {person.name}?
+                </p>
+                <p className="mt-1 text-muted-foreground">
+                  Inherited permissions will change. They currently have{" "}
+                  <strong>{overrideCount} custom exception{overrideCount === 1 ? "" : "s"}</strong>,
+                  which are kept unless you clear them.
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Button size="sm" className="h-7 text-[11px]" disabled={memberActions.setProfile.isPending}
+                    onClick={() => applyProfile(false)}>
+                    Apply profile, keep the {overrideCount} exception{overrideCount === 1 ? "" : "s"}
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-7 text-[11px]"
+                    disabled={memberActions.setProfile.isPending || reset.isPending}
+                    onClick={() => applyProfile(true)}>
+                    Apply profile and clear exceptions
+                  </Button>
+                  <Button size="sm" variant="ghost" className="h-7 text-[11px]"
+                    onClick={() => setPendingProfile(null)}>Cancel</Button>
+                </div>
+              </div>
+            )}
+
+            <div className={cn("space-y-3", roleHoldsEverything && !showAdminDetail && "hidden")}>
               {grouped.map(([module, keys]) => (
                 <div key={module}>
                   <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{module}</p>
                   <ul className="divide-y divide-border/50 rounded-lg border border-border">
                     {keys.map((k) => {
-                      const state = effectiveAgencyPermission(person.role, k.key, person.overrides, roleDefaults);
+                      const state = effectiveAgencyPermission(
+                        person.role, k.key, person.overrides, roleDefaults,
+                        person.accessProfile, catalogue.data?.profileDefaults);
+                      const profileLabel = person.accessProfile
+                        ? ACCESS_PROFILE_LABELS[person.accessProfile as keyof typeof ACCESS_PROFILE_LABELS]
+                        : undefined;
                       return (
                         <li key={k.key} className="flex items-start justify-between gap-3 px-3 py-2">
                           <span className="min-w-0">
@@ -296,15 +390,14 @@ export function AgencyAccessPanel({ lockedUserId }: { lockedUserId?: string } = 
                             {k.description && (
                               <span className="block text-[11px] text-muted-foreground">{k.description}</span>
                             )}
-                            {state.source === "default" && (
-                              <span className="block text-[11px] text-muted-foreground">
-                                {state.allowed ? "On" : "Off"} because that is what a{" "}
-                                {(ROLE_LABEL[person.role] ?? person.role).toLowerCase()} gets by default.
-                              </span>
-                            )}
+                            {/* Where this answer came from (§19), so access is
+                                explainable rather than merely true or false. */}
+                            <span className="block text-[11px] text-muted-foreground">
+                              {state.allowed ? "On" : "Off"} · {describePermissionSource(state.source, profileLabel)}
+                            </span>
                           </span>
                           <span className="flex shrink-0 items-center gap-2">
-                            {state.source !== "default" && !roleHoldsEverything && (
+                            {(state.source === "granted" || state.source === "denied") && !roleHoldsEverything && (
                               <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px]"
                                 onClick={() => change.mutate({
                                   membershipId: person.membershipId, key: k.key, allowed: null,

@@ -155,6 +155,8 @@ export async function clearAgencyPermission(membershipId: string, key: string): 
 
 /* ── The catalogue, and what each role gets by default ────────────────── */
 
+export interface ProfileDefaults { [profile: string]: Record<string, boolean> }
+
 export interface PermissionKeyRow {
   key: string;
   module: string;
@@ -174,17 +176,23 @@ export interface PermissionKeyRow {
 export async function fetchPermissionCatalogue(): Promise<{
   keys: PermissionKeyRow[];
   roleDefaults: Record<string, Record<string, boolean>>;
+  profileDefaults: ProfileDefaults;
 }> {
   const sb = requireSupabase();
-  const [keys, defaults] = await Promise.all([
+  const [keys, defaults, profiles] = await Promise.all([
     sb.from("permission_keys")
       .select("key, module, label, description, security_relevant, sort")
       .in("key", AGENCY_PERMISSIONS as unknown as string[])
       .order("sort"),
     sb.from("agency_role_permissions").select("agency_id, role, key, allowed"),
+    /* The preset matrix — the layer the resolver consults between a person's
+       own exceptions and their role's defaults (0281). Without it this mirror
+       answered for a role that no longer decides an Agency User's access. */
+    sb.from("agency_profile_permissions").select("profile, key, allowed"),
   ]);
   if (keys.error) throw keys.error;
   if (defaults.error) throw defaults.error;
+  if (profiles.error) throw profiles.error;
 
   /* An agency row overrides the platform default for that role, exactly as
      `agency_can` resolves it. Platform rows are applied first so the agency's
@@ -200,7 +208,14 @@ export async function fetchPermissionCatalogue(): Promise<{
     }
   }
 
+  const profileDefaults: ProfileDefaults = {};
+  for (const row of (profiles.data ?? []) as Record<string, unknown>[]) {
+    const profile = row.profile as string;
+    profileDefaults[profile] = { ...(profileDefaults[profile] ?? {}), [row.key as string]: row.allowed as boolean };
+  }
+
   return {
+    profileDefaults,
     keys: (keys.data ?? []).map((row) => {
       const r = row as Record<string, unknown>;
       return {
@@ -217,27 +232,62 @@ export async function fetchPermissionCatalogue(): Promise<{
 /**
  * What one person actually holds, resolved the way the database resolves it.
  *
- * Mirrors `agency_can`'s precedence exactly:
+ * Mirrors `resolve_agency_capability`'s precedence exactly:
  *
  *   owner / admin → true
  *   → their own explicit grant or denial
- *     → their agency's default for that role
- *       → the platform default for that role
- *         → false
+ *     → their ACCESS PROFILE's default
+ *       → their agency's default for that role
+ *         → the platform default for that role
+ *           → false
  *
- * A mirror, not the authority: this decides what a switch LOOKS like. The
- * database decides what anybody receives, and it re-checks every time.
+ * The profile layer was missing here while the database had it, so this
+ * mirror answered for a role that no longer decides an Agency User's access —
+ * the switches showed one thing and the person received another. A mirror
+ * that disagrees with the authority is worse than no mirror.
+ *
+ * A mirror, not the authority: this decides what a switch LOOKS like and how
+ * its source is explained (§19). The database decides what anybody receives,
+ * and it re-checks every time.
  */
+export type PermissionSource = "role" | "granted" | "denied" | "profile" | "profile_denied" | "default";
+
 export function effectiveAgencyPermission(
   role: string,
   key: string,
   overrides: Record<string, boolean>,
   roleDefaults: Record<string, Record<string, boolean>>,
-): { allowed: boolean; source: "role" | "granted" | "denied" | "default" } {
+  profile?: string | null,
+  profileDefaults?: ProfileDefaults,
+): { allowed: boolean; source: PermissionSource } {
   if (role === "agency_owner" || role === "agency_admin") return { allowed: true, source: "role" };
   if (key in overrides) {
     return { allowed: overrides[key], source: overrides[key] ? "granted" : "denied" };
   }
+  if (profile && profileDefaults?.[profile] && key in profileDefaults[profile]) {
+    const allowed = profileDefaults[profile][key];
+    return { allowed, source: allowed ? "profile" : "profile_denied" };
+  }
   const fallback = roleDefaults[role]?.[key];
   return { allowed: fallback ?? false, source: "default" };
+}
+
+/** How a capability's source reads on the Access screen (§19). */
+export function describePermissionSource(source: PermissionSource, profileLabel?: string): string {
+  switch (source) {
+    case "role": return "Inherited from Agency Admin";
+    case "granted": return "Custom grant";
+    case "denied": return "Custom denial";
+    case "profile": return `${profileLabel ?? "Profile"} default`;
+    case "profile_denied": return `Withheld by the ${profileLabel ?? "profile"} default`;
+    default: return "Not granted";
+  }
+}
+
+/** Remove every exception so the profile alone decides (§20). */
+export async function resetMemberToProfile(membershipId: string): Promise<number> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("reset_member_to_profile", { p_membership: membershipId });
+  if (error) throw error;
+  return (data as unknown as number) ?? 0;
 }

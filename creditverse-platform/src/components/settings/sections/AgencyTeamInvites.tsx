@@ -23,6 +23,7 @@ import { sendInvitationEmail } from "@/lib/data/emails";
 import { isAdminRole } from "@/lib/agency/navigation";
 import {
   INVITE_CHOICES,
+  previewAccess,
   cancelAgencyInvitation,
   fetchAgencyInvitations,
   invitationLink,
@@ -30,6 +31,15 @@ import {
   memberAccessLabel,
 } from "@/lib/data/agency-invitations";
 import { requireSupabase } from "@/lib/supabase/client";
+import { fetchPermissionCatalogue } from "@/lib/data/agency-permissions";
+
+/* The four module doors, by their canonical keys. */
+const MODULE_CHOICES = [
+  { key: "creditops.clients.view", label: "CreditOps" },
+  { key: "crm.projects.view", label: "BES CRM" },
+  { key: "talentops.view", label: "TalentOps" },
+  { key: "fundingops.files.view", label: "FundingOps" },
+];
 
 const inputCls = "mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary";
 const labelCls = "block text-[10px] font-bold uppercase tracking-wider text-muted-foreground";
@@ -40,6 +50,15 @@ export function AgencyTeamInvites() {
   const live = auth.mode === "live" && auth.status === "signed-in";
   const role = auth.agencyRole;
   const canInvite = isAdminRole(role);
+
+  /* The same preset matrix the database resolves against, so the preview
+     below cannot claim access the person will not receive. */
+  const catalogue = useQuery({
+    queryKey: ["agency", "permission-catalogue"],
+    queryFn: fetchPermissionCatalogue,
+    enabled: live && !!auth.isAgencyStaff,
+    staleTime: 600_000,
+  });
 
   const invitations = useQuery({
     queryKey: ["agency", "invitations"],
@@ -57,6 +76,12 @@ export function AgencyTeamInvites() {
   const [choiceValue, setChoiceValue] = useState("agency_user:agent");
   const chosen = INVITE_CHOICES.find((c) => c.value === choiceValue) ?? INVITE_CHOICES[0];
   const [leadTeam, setLeadTeam] = useState("");
+  /* The module a person is hired to work, chosen with their access rather
+     than remembered afterwards (§21/§23). Entering a module is its own named
+     capability, never a profile's gift (§16). */
+  const [modules, setModules] = useState<string[]>([]);
+  const toggleModule = (key: string) =>
+    setModules((m) => (m.includes(key) ? m.filter((k) => k !== key) : [...m, key]));
 
   /* Loaded only once someone picks Team Lead — the team is required then,
      and nobody else pays for the request (rule 14). */
@@ -89,6 +114,8 @@ export function AgencyTeamInvites() {
     );
   };
 
+  const preview = previewAccess(chosen, catalogue.data?.profileDefaults, modules);
+
   const refresh = () => void qc.invalidateQueries({ queryKey: ["agency", "invitations"] });
 
   /**
@@ -102,6 +129,7 @@ export function AgencyTeamInvites() {
       const id = await inviteAgencyMember(
         email, chosen.role, chosen.profile ?? undefined,
         chosen.profile === "team_lead" ? leadTeam : undefined,
+        chosen.role === "agency_user" ? modules : undefined,
       );
       return { id, outcome: await sendInvitationEmail(id) };
     },
@@ -173,6 +201,32 @@ export function AgencyTeamInvites() {
             </label>
           )}
           <p className="text-[11px] text-muted-foreground">{chosen.hint}</p>
+
+          {chosen.role === "agency_user" && (
+            <fieldset className="rounded-lg border border-border p-2.5">
+              <legend className={labelCls}>Which module do they work in?</legend>
+              <div className="flex flex-wrap gap-3 pt-1">
+                {MODULE_CHOICES.map((m) => (
+                  <label key={m.key} className="flex items-center gap-1.5 text-xs text-foreground">
+                    <input type="checkbox" checked={modules.includes(m.key)} onChange={() => toggleModule(m.key)} />
+                    {m.label}
+                  </label>
+                ))}
+              </div>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Entering a module is its own permission — never granted by the profile, so a CreditOps
+                agent never sees BES CRM by accident. Scope and assignment still decide the records.
+              </p>
+            </fieldset>
+          )}
+
+          {/* What this invitation actually produces, before it is sent (§22). */}
+          <div className="rounded-lg border border-border bg-muted/30 p-2.5 text-[11px]">
+            <p className="font-semibold text-foreground">{preview.headline}</p>
+            <p className="mt-1 text-muted-foreground"><strong>Will see:</strong> {preview.sees.join(" · ")}</p>
+            <p className="mt-0.5 text-muted-foreground"><strong>Hidden:</strong> {preview.hidden.join(" · ")}</p>
+            <p className="mt-0.5 text-muted-foreground">{preview.note}</p>
+          </div>
           <div className="flex flex-wrap items-center gap-3">
             <Button type="submit" size="sm" disabled={invite.isPending || !email.trim() || (chosen.profile === "team_lead" && !leadTeam)}>
               {invite.isPending ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Send className="mr-1 h-3.5 w-3.5" />} Send invitation

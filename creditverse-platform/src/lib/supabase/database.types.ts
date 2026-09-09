@@ -680,6 +680,24 @@ export type Database = {
           },
         ]
       }
+      agency_profile_permissions: {
+        Row: {
+          allowed: boolean
+          key: string
+          profile: Database["public"]["Enums"]["access_profile"]
+        }
+        Insert: {
+          allowed: boolean
+          key: string
+          profile: Database["public"]["Enums"]["access_profile"]
+        }
+        Update: {
+          allowed?: boolean
+          key?: string
+          profile?: Database["public"]["Enums"]["access_profile"]
+        }
+        Relationships: []
+      }
       agency_role_permissions: {
         Row: {
           agency_id: string | null
@@ -5666,6 +5684,7 @@ export type Database = {
           agency_role: Database["public"]["Enums"]["agency_role"] | null
           created_at: string
           lead_team_id: string | null
+          module_keys: string[]
           email: string
           expires_at: string
           external_role: Database["public"]["Enums"]["external_role"] | null
@@ -5685,6 +5704,7 @@ export type Database = {
           agency_role?: Database["public"]["Enums"]["agency_role"] | null
           created_at?: string
           lead_team_id?: string | null
+          module_keys?: string[]
           email: string
           expires_at?: string
           external_role?: Database["public"]["Enums"]["external_role"] | null
@@ -5704,6 +5724,7 @@ export type Database = {
           agency_role?: Database["public"]["Enums"]["agency_role"] | null
           created_at?: string
           lead_team_id?: string | null
+          module_keys?: string[]
           email?: string
           expires_at?: string
           external_role?: Database["public"]["Enums"]["external_role"] | null
@@ -11467,6 +11488,7 @@ export type Database = {
           id: string
           kind: string
           organization_id: string | null
+          partner_group_id: string | null
           started_at: string
           task_note: string | null
           work_date: string
@@ -11484,6 +11506,7 @@ export type Database = {
           id?: string
           kind?: string
           organization_id?: string | null
+          partner_group_id?: string | null
           started_at?: string
           task_note?: string | null
           work_date?: string
@@ -11501,6 +11524,7 @@ export type Database = {
           id?: string
           kind?: string
           organization_id?: string | null
+          partner_group_id?: string | null
           started_at?: string
           task_note?: string | null
           work_date?: string
@@ -13772,8 +13796,13 @@ export type Database = {
           p_role: Database["public"]["Enums"]["agency_role"]
           p_profile?: Database["public"]["Enums"]["access_profile"]
           p_lead_team?: string
+          p_modules?: string[]
         }
         Returns: string
+      }
+      reset_member_to_profile: {
+        Args: { p_membership: string }
+        Returns: number
       }
       set_agency_member_profile: {
         Args: {
