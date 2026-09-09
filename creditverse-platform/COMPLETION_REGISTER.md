@@ -812,3 +812,23 @@ migration 0226 — including the `agency_can` refactor under every existing
 phase, the vault (24 checks), and capability parity for every key × every
 role. After it: 0228–0230 applied (data + one INVOKER wrapper), unit suite at
 **1,538**, 0 lint errors, build clean.
+
+### Audit pass two — 2026-09-08
+
+| Screen | Finding | Outcome |
+|---|---|---|
+| `/app/calendar` | The Month toggle had landed on the workspace calendar card; the Agency Calendar Dee opens stayed list-only | List/Month toggle on the agency page; shared `use-calendar-view` hook (one storage key, one Today rule) so the two calendars cannot drift; month range follows the month on screen; a holiday renders as text, not a false link |
+| `/app/files` | Told the administrator "your administrator has not added any yet", with no way to add — the writer required an organization and storage excluded the agency folder | 0232: the agency tenancy of the same engine. `organization_id` NULL + `agency_id` = BES's hub; `hub.files.manage` capability (owner/admin default); rule 16 by construction — no membership branch reaches a NULL organization. Phase 68, 13/13 |
+| storage policies | **Regression**: 0218's channel-attachment rewrite of `bes_files_insert` dropped the "not the company folder" guard, letting any member PUT objects into `<org>/company/` at storage level | Guard restored; phase 68 asserts it against `pg_policies` — the live parse, not the migration file |
+| `/app/eod` | "Work behind these totals" listed client names bare — "Bryan Rodriguez · Onboarding" reads as a teammate; it is the CLIENT whose file was worked | Sub-line now says "Client file · department" |
+| `/app/education`, `/app/reporting` | Walked both against live data | Healthy — statutory guides render, reporting derives from real rows with manual provenance marked |
+| Mobile (375px) | Reporting pivot and month grid wider than the viewport | Both already scroll inside their own containers; no page-level horizontal scroll on any audited screen |
+
+Engine templates: all thirteen real engines published (0231), the eight new
+ones filled from the workbook's own rows with provenance `master_tracker`;
+optional scope became checklist actions so a Website-only partner never
+cancels a TikTok task. Three phase-65 probes had pinned the 0224 world and
+were rewritten to test the rule rather than the moment.
+
+Authorization map regenerated: **177 tables, 426 policies, 411 functions, 54
+permission keys.**

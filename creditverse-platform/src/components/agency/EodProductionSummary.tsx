@@ -107,7 +107,13 @@ export function EodProductionSummary({ activity }: { activity: EodActivity }) {
                     <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-medium text-foreground">{f.subject}</span>
-                      {f.department && <span className="block text-[11px] text-muted-foreground">{f.department}</span>}
+                      {/* Say what the name IS. "Bryan Rodriguez · Onboarding"
+                          reads as a teammate doing onboarding; it is the
+                          CLIENT whose file was worked, and a manager scanning
+                          a team EOD must not mistake clients for staff. */}
+                      <span className="block text-[11px] text-muted-foreground">
+                        Client file{f.department ? ` · ${f.department}` : ""}
+                      </span>
                     </span>
                     <span className="shrink-0 text-xs text-muted-foreground">
                       {plural(f.action_count, "action")}
