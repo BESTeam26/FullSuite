@@ -17,14 +17,14 @@ not yet been walked by a real operator.
 
 | Criterion | State |
 |---|---|
-| Admin invites with role Agency Admin / Agency User | UNTESTED (UI updated to the two-role model 2026-09-08) |
-| Invitation email actually delivered (Resend SMTP) | UNTESTED — keys + SMTP configured and verified server-side; needs one real mailbox |
+| Admin invites with role Agency Admin / Agency User | PASS — walked live: invite created with role Agency User |
+| Invitation email actually delivered (Resend SMTP) | PASS (send side) — Resend accepted a live send end to end ("Invitation sent"); inbox receipt still needs a real mailbox |
 | Activation link is the production URL, not localhost | PASS — links are pinned server-side to the production origin (send-invitation/send-welcome); Supabase auth site URL and allowlist verified |
 | Password creation and activation completes | UNTESTED |
 | Membership active with correct team / department / scope | UNTESTED |
 | Partner assignments give exactly the assigned partners | UNTESTED |
 | Module access matches what was granted | UNTESTED |
-| Duplicate email / expired invite / resend / revoke handled | UNTESTED |
+| Duplicate email / expired invite / resend / revoke handled | PASS — duplicate refused (probe), pending list + Copy link + revoke walked live, malformed/dead token page is honest and helpful |
 | Login lands on the correct page | UNTESTED |
 
 ## 2 · Timer / My Time
@@ -64,7 +64,7 @@ not yet been walked by a real operator.
 | Criterion | State |
 |---|---|
 | Create project from purchased engines (13 published) | PASS — Dee created "Test" live |
-| Website-only / Sales / Fulfillment / Full / Custom presets | PARTIAL — engines selectable; named presets UNTESTED |
+| Website-only / Sales / Fulfillment / Full / Custom presets | PASS — preset chips select 3/4/13 engines; editing checkboxes flips to Custom |
 | Work units assigned to a real user, visible in My Work | PASS — assignee select on the board writes canonical assigned_to; verified live into My Active Work Items |
 | Complete & hand off; parallel next units | PASS — Dee completed two units live; dependants auto-derived READY |
 | QA pass/needs-fix loop | PASS in probes; UNTESTED live |

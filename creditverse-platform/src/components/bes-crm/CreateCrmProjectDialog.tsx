@@ -51,14 +51,36 @@ export const CreateCrmProjectDialog = ({ onClose }: { onClose: () => void }) => 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [targetGoLive, setTargetGoLive] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [preset, setPreset] = useState<string | null>(null);
 
-  const toggle = (key: string) =>
+  /* Dee §31: practical presets, so nobody walks a website-only partner
+     through the full infrastructure maze. A preset is a STARTING SELECTION —
+     the checkboxes stay editable, and touching them makes the scope Custom.
+     Only published engines are ever selected. */
+  const applyPreset = (key: string, engineKeys: string[]) => {
+    const publishable = new Set(
+      (engines.data ?? []).filter((e) => e.published).map((e) => e.key),
+    );
+    setSelected(new Set(engineKeys.filter((k) => publishable.has(k))));
+    setPreset(key);
+  };
+  const PRESETS: { key: string; label: string; engines: string[] }[] = [
+    { key: "full", label: "Full build", engines: (engines.data ?? []).filter((e) => e.published).map((e) => e.key) },
+    { key: "website", label: "Website only", engines: ["project_setup", "website_funnel", "qa_launch"] },
+    { key: "sales", label: "Sales engine", engines: ["project_setup", "sales", "communication", "qa_launch"] },
+    { key: "fulfillment", label: "Fulfillment engine", engines: ["project_setup", "fulfillment", "onboarding_support", "qa_launch"] },
+    { key: "custom", label: "Custom", engines: [] },
+  ];
+
+  const toggle = (key: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
       return next;
     });
+    setPreset("custom");
+  };
 
   const canSave =
     name.trim().length > 0 && groupId && selected.size > 0 && !create.isPending;
@@ -119,7 +141,26 @@ export const CreateCrmProjectDialog = ({ onClose }: { onClose: () => void }) => 
           </div>
 
           <fieldset className="grid gap-1.5">
-            <legend className="text-sm font-medium text-foreground">Engines in scope</legend>
+            <legend className="text-sm font-medium text-foreground">Build scope</legend>
+            <div className="flex flex-wrap gap-1.5" role="group" aria-label="Scope preset">
+              {PRESETS.map((pr) => (
+                <button
+                  key={pr.key}
+                  type="button"
+                  onClick={() => applyPreset(pr.key, pr.engines)}
+                  aria-pressed={preset === pr.key}
+                  className={cn(
+                    "rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    preset === pr.key
+                      ? "bg-primary text-primary-foreground"
+                      : "border border-border bg-card text-foreground hover:bg-muted",
+                  )}
+                >
+                  {pr.label}
+                </button>
+              ))}
+            </div>
             <div className="grid gap-1 sm:grid-cols-2">
               {(engines.data ?? []).map((e) => (
                 <label
