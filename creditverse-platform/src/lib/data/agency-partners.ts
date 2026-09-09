@@ -355,27 +355,141 @@ export interface PartnerFile {
   mimeType: string | null;
   sizeBytes: number | null;
   createdAt: string;
+  path: string;
+  /** True only when BES deliberately published it to the partner portal. */
+  sharedWithPartner: boolean;
+  sharedAt: string | null;
+  sharedByName: string | null;
 }
 
 /**
  * Documents filed against this partner.
  *
- * Filing a document here does NOT share it with the partner. Their portal
- * policy reads the same rows, so anything filed against the partner IS
- * visible to them — which is why the upload control says so plainly rather
- * than leaving somebody to discover it (rule 16: association is not
- * publication, and where a surface breaks that rule it must say so).
+ * Filing a document here does NOT share it with the partner (0146: the portal
+ * policy requires `shared_with_partner`, default false). Publication is the
+ * separate, audited act below — `setPartnerFileShared` — so a margin sheet
+ * filed against a partner stays BES's until somebody deliberately shares it.
  */
 export async function fetchPartnerFiles(groupId: string): Promise<PartnerFile[]> {
   const sb = requireSupabase();
   const { data, error } = await sb
     .from("files")
-    .select("id, name, mime_type, size_bytes, created_at")
+    .select("id, name, mime_type, size_bytes, created_at, path, shared_with_partner, shared_at, shared_by_profile:profiles!files_shared_by_fkey(full_name, email)")
     .eq("entity_type", "partner").eq("entity_id", groupId)
     .order("created_at", { ascending: false }).limit(200);
   if (error) throw error;
-  return (data ?? []).map((r) => ({
-    id: r.id, name: r.name, mimeType: r.mime_type,
-    sizeBytes: r.size_bytes, createdAt: r.created_at,
+  return (data ?? []).map((r) => {
+    const row = r as Record<string, unknown>;
+    const sharer = row.shared_by_profile as { full_name?: string | null; email?: string | null } | null;
+    return {
+      id: row.id as string, name: row.name as string,
+      mimeType: (row.mime_type as string) ?? null,
+      sizeBytes: row.size_bytes === null ? null : Number(row.size_bytes),
+      createdAt: row.created_at as string,
+      path: row.path as string,
+      sharedWithPartner: Boolean(row.shared_with_partner),
+      sharedAt: (row.shared_at as string) ?? null,
+      sharedByName: sharer?.full_name?.trim() || sharer?.email || null,
+    };
+  });
+}
+
+/**
+ * Upload against the partner. Object first, row second; if the row is refused
+ * the object is removed again, so a half-finished upload never lingers (the
+ * same shape as company documents). The `agency/` prefix keeps the object
+ * readable by staff; a partner contact reaches it only through the
+ * shared-file storage policy once the row is shared.
+ */
+export async function uploadPartnerFile(groupId: string, file: File): Promise<void> {
+  const sb = requireSupabase();
+  const { data: group, error: groupError } = await sb
+    .from("outsourcing_groups").select("id, agency_id").eq("id", groupId).single();
+  if (groupError) throw groupError;
+  const extension = file.name.includes(".") ? file.name.split(".").pop()!.slice(0, 12) : "bin";
+  const path = `agency/partner/${groupId}/${crypto.randomUUID()}.${extension}`;
+  const { error: uploadError } = await sb.storage.from("bes-files").upload(path, file, {
+    contentType: file.type || "application/octet-stream",
+    upsert: false,
+  });
+  if (uploadError) throw uploadError;
+  const { data: me } = await sb.auth.getUser();
+  const { error } = await sb.from("files").insert({
+    agency_id: group.agency_id,
+    entity_type: "partner",
+    entity_id: groupId,
+    bucket: "bes-files",
+    path,
+    name: file.name,
+    mime_type: file.type || null,
+    size_bytes: file.size,
+    uploaded_by: me.user?.id ?? null,
+  });
+  if (error) {
+    await sb.storage.from("bes-files").remove([path]);
+    throw error;
+  }
+}
+
+/**
+ * Publish or withdraw a file from the partner portal. The database function
+ * is the only path (files has no staff UPDATE policy): permission-gated on
+ * `partners.portal`, and every change writes an activity event.
+ */
+export async function setPartnerFileShared(fileId: string, shared: boolean): Promise<void> {
+  const sb = requireSupabase();
+  const { error } = await sb.rpc("set_partner_file_shared", { p_file: fileId, p_shared: shared });
+  if (error) throw error;
+}
+
+/** A five-minute download link; storage RLS decides who may mint one. */
+export async function partnerFileUrl(path: string): Promise<string> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.storage.from("bes-files").createSignedUrl(path, 5 * 60);
+  if (error) throw error;
+  return data.signedUrl;
+}
+
+/* ── The portal's own reads ──────────────────────────────────────────── */
+
+/** One row of `my_partner_clients()` — partner-safe columns only. */
+export interface PartnerPortalClient {
+  publicId: string;
+  name: string;
+  email: string;
+  status: string;
+  round: string;
+  openItems: number;
+  lifecycle: string;
+  lastActivityAt: string;
+  processedOn: string | null;
+  createdAt: string;
+}
+
+/**
+ * The signed-in partner contact's own clients. The database function is the
+ * whole gate — a suspended contact or partner resolves to nothing — and it
+ * returns only partner-safe columns: no BES agent names, no internal notes.
+ */
+export async function fetchMyPartnerClients(includeClosed: boolean): Promise<PartnerPortalClient[]> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("my_partner_clients", { p_include_closed: includeClosed });
+  if (error) throw error;
+  return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+    publicId: r.public_id as string,
+    name: r.name as string,
+    email: String(r.email ?? ""),
+    status: r.status as string,
+    round: r.round as string,
+    openItems: Number(r.open_items ?? 0),
+    lifecycle: r.lifecycle as string,
+    lastActivityAt: r.last_activity_at as string,
+    processedOn: (r.processed_on as string) ?? null,
+    createdAt: r.created_at as string,
   }));
+}
+
+/** Files BES shared with the signed-in partner (RLS returns shared rows only). */
+export async function fetchMySharedFiles(groupId: string): Promise<PartnerFile[]> {
+  return fetchPartnerFiles(groupId);
 }

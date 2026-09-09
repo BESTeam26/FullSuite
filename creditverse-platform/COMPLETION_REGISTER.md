@@ -935,3 +935,27 @@ sandbox/production mismatch — the message is the provider's own). These are
 provider-dashboard fixes only Dee can make; the page re-tests in one click.
 The AI smoke test is therefore double-blocked: bad key first, org credits
 second.
+
+### Partner portal built out — 2026-09-09
+
+Dee's direction: proceed with the partner portal. Three pieces, all reading
+the canonical records (0247, migration 20260909001300):
+
+- **Your clients** — a partner contact sees their own clients' dispute state
+  through `my_partner_clients()`: partner-safe columns only (status, round,
+  items in work, last activity), no BES agent names, no internal notes, no
+  other partner, ever. Suspended contact or partner resolves to nothing. This
+  is the portal replacement for the per-partner ClickUp folder.
+- **Deliberate file sharing** — 0146's flag finally has its mechanism:
+  `set_partner_file_shared()` is permission-gated (`partners.portal`) and
+  audited; the agency Files tab gained upload, Share/Unshare, download and a
+  Private-to-BES / Shared-with-partner badge — and lost its dishonest copy
+  that claimed everything filed was already partner-visible.
+- **Downloads that work** — a storage policy lets the partner's contacts read
+  exactly the objects whose file rows are shared (a shared row used to list a
+  name the partner could not open).
+
+Proof: 7 new matrix probes in phase 55 (cross-partner isolation, suspended
+partner blackout, permission-gated + audited sharing, and a structural probe
+that fails if the function ever widens to an internal column) — 124/124.
+32 portal unit tests. Full suite 1,536 green, build clean.

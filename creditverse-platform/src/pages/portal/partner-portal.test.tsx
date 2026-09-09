@@ -11,13 +11,15 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { PartnerPortal } from "@/pages/portal/PartnerPortal";
-import type { AgencyPartner } from "@/lib/data/agency-partners";
+import type { AgencyPartner, PartnerFile, PartnerPortalClient } from "@/lib/data/agency-partners";
 import type { Channel } from "@/lib/data/channels";
 import type { RichMessage } from "@/lib/data/messages";
 
 let partner: AgencyPartner | null;
 let channels: Channel[];
 let messages: RichMessage[];
+let portalClients: PartnerPortalClient[];
+let sharedFiles: Partial<PartnerFile>[];
 const sendMutate = vi.fn().mockResolvedValue({ id: 1 });
 
 vi.mock("@/lib/auth/auth-context", () => ({
@@ -25,6 +27,8 @@ vi.mock("@/lib/auth/auth-context", () => ({
 }));
 vi.mock("@/lib/data/use-agency-partners", () => ({
   useMyPartner: () => ({ data: partner, isLoading: false }),
+  useMyPartnerClients: () => ({ data: portalClients, isLoading: false }),
+  useMySharedFiles: () => ({ data: sharedFiles, isLoading: false }),
 }));
 vi.mock("@/lib/data/use-channels", () => ({
   useChannels: () => ({ data: channels, isLoading: false }),
@@ -76,8 +80,17 @@ beforeEach(() => {
   partner = PARTNER;
   channels = [CHANNEL];
   messages = [];
+  portalClients = [];
+  sharedFiles = [];
   sendMutate.mockClear();
 });
+
+const CLIENT: PartnerPortalClient = {
+  publicId: "BES-1001", name: "Jordan Reyes", email: "jordan@example.test",
+  status: "Round Sent - Awaiting Results", round: "Round 2", openItems: 7,
+  lifecycle: "active", lastActivityAt: "2026-09-08T12:00:00Z",
+  processedOn: null, createdAt: "2026-08-01T00:00:00Z",
+};
 
 describe("the partner portal conversation", () => {
   it("shows the conversation BES opened", () => {
@@ -138,5 +151,54 @@ describe("the portal shows one partner's conversations and no others", () => {
     channels = [{ ...CHANNEL, archivedAt: "2026-09-01T00:00:00Z" }];
     render(<PartnerPortal />);
     expect(screen.getByText(/No conversation has been started yet/)).toBeInTheDocument();
+  });
+});
+
+describe("the partner's own clients", () => {
+  it("shows each client's dispute state — the canonical record, not a copy", () => {
+    portalClients = [CLIENT];
+    render(<PartnerPortal />);
+    expect(screen.getByText("Jordan Reyes")).toBeInTheDocument();
+    expect(screen.getByText("Round Sent - Awaiting Results")).toBeInTheDocument();
+    expect(screen.getByText("Round 2")).toBeInTheDocument();
+  });
+
+  it("never renders anything BES-internal — no agent, no notes", () => {
+    /* The type itself carries no internal fields; this pins the rendered
+       columns so a later edit cannot quietly add one. */
+    portalClients = [CLIENT];
+    render(<PartnerPortal />);
+    expect(screen.queryByText(/assigned/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/internal/i)).not.toBeInTheDocument();
+  });
+
+  it("says honestly when there are no client files yet", () => {
+    render(<PartnerPortal />);
+    expect(screen.getByText(/No client files yet/)).toBeInTheDocument();
+  });
+
+  it("filters by name without dropping the full list's count", () => {
+    portalClients = [CLIENT, { ...CLIENT, publicId: "BES-1002", name: "Sam Alvarez", email: "sam@example.test" }];
+    render(<PartnerPortal />);
+    fireEvent.change(screen.getByPlaceholderText(/Search by name or email/), { target: { value: "sam" } });
+    expect(screen.getByText("Sam Alvarez")).toBeInTheDocument();
+    expect(screen.queryByText("Jordan Reyes")).not.toBeInTheDocument();
+    expect(screen.getByText(/— 2/)).toBeInTheDocument();
+  });
+});
+
+describe("files shared with the partner", () => {
+  it("lists a shared file with a download control", () => {
+    sharedFiles = [{ id: "f1", name: "August progress report.pdf", path: "agency/partner/g1/x.pdf",
+      sharedAt: "2026-09-05T00:00:00Z", createdAt: "2026-09-05T00:00:00Z",
+      mimeType: "application/pdf", sizeBytes: 1000, sharedWithPartner: true, sharedByName: null }];
+    render(<PartnerPortal />);
+    expect(screen.getByText("August progress report.pdf")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Download/ })).toBeInTheDocument();
+  });
+
+  it("says honestly when nothing has been shared", () => {
+    render(<PartnerPortal />);
+    expect(screen.getByText(/Nothing has been shared yet/)).toBeInTheDocument();
   });
 });

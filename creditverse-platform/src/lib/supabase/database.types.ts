@@ -13270,6 +13270,21 @@ export type Database = {
       my_agency_id: { Args: never; Returns: string }
       my_client_ids: { Args: never; Returns: string[] }
       my_org_ids: { Args: never; Returns: string[] }
+      my_partner_clients: {
+        Args: { p_include_closed?: boolean }
+        Returns: {
+          created_at: string
+          email: string
+          last_activity_at: string
+          lifecycle: string
+          name: string
+          open_items: number
+          processed_on: string
+          public_id: string
+          round: string
+          status: string
+        }[]
+      }
       my_permissions: {
         Args: { p_org: string }
         Returns: {
@@ -13770,6 +13785,10 @@ export type Database = {
           p_views: string[]
         }
         Returns: Json
+      }
+      set_partner_file_shared: {
+        Args: { p_file: string; p_shared: boolean }
+        Returns: undefined
       }
       set_partner_health: {
         Args: {

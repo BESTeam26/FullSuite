@@ -3213,6 +3213,63 @@ if (runs(55)) {
     ["nobody unrelated resolves to a partner",
       () => probe55(ORG55, `select coalesce(public.partner_group_of_user()::text, 'none') as rows`), "none"],
 
+    /* ── Partner portal (0247): their clients, and deliberate file sharing ── */
+    ["my_partner_clients returns nothing for a user with no partner",
+      () => probe55(ORG55, `select count(*)::int as rows from public.my_partner_clients()`), 0],
+
+    ["a partner contact sees THEIR clients and nobody else's",
+      () => probe55(OWNER55,
+        `insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values
+           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active'),
+           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active');
+         insert into public.partner_contacts (group_id, agency_id, full_name, email, user_id, status) values
+           ('44444444-0000-4000-8000-0000000000fa'::uuid, '${AG}', 'Probe Contact', 'pc@example.test', '${ORG55}'::uuid, 'active');
+         insert into public.fulfillment_clients (agency_id, name, email, mode, outsourcing_group_id) values
+           ('${AG}', 'Mine', 'mine@example.test', 'outsourcing_only', '44444444-0000-4000-8000-0000000000fa'::uuid),
+           ('${AG}', 'Not mine', 'notmine@example.test', 'outsourcing_only', '44444444-0000-4000-8000-0000000000fb'::uuid);
+         set local request.jwt.claims = '{"sub":"${ORG55}","role":"authenticated"}';
+         select string_agg(name, ',') as rows from public.my_partner_clients()`), "Mine"],
+
+    ["…and a suspended partner resolves to no clients at all",
+      () => probe55(OWNER55,
+        `insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values
+           ('44444444-0000-4000-8000-0000000000fc'::uuid,'${AG}','Probe Portal C','pcx@example.test','suspended');
+         insert into public.partner_contacts (group_id, agency_id, full_name, email, user_id, status) values
+           ('44444444-0000-4000-8000-0000000000fc'::uuid, '${AG}', 'Probe Contact', 'pc2@example.test', '${ORG55}'::uuid, 'active');
+         insert into public.fulfillment_clients (agency_id, name, email, mode, outsourcing_group_id)
+           select '${AG}', 'Hidden', 'hidden@example.test', 'outsourcing_only', '44444444-0000-4000-8000-0000000000fc'::uuid;
+         set local request.jwt.claims = '{"sub":"${ORG55}","role":"authenticated"}';
+         select count(*)::int as rows from public.my_partner_clients()`), 0],
+
+    /* The rule, not the example: the function must never widen to internal
+       columns. If somebody adds the agent or the notes, this fails. */
+    ["my_partner_clients exposes no BES-internal column",
+      () => q(`select (def not like '%assigned_agent%' and def not like '%description%' and def not like '%next_action%' and def like '%partner_group_of_user%')::text as rows
+                 from (select pg_get_functiondef(p.oid) as def from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+                        where n.nspname='public' and p.proname='my_partner_clients') d`)[0].rows, "true"],
+
+    ["sharing a partner file needs the portal permission",
+      () => probe55(OWNER55,
+        `insert into public.outsourcing_groups (id, agency_id, name, contact_email) values
+           ('44444444-0000-4000-8000-0000000000fd'::uuid,'${AG}','Probe Portal D','pd@example.test');
+         insert into public.files (id, agency_id, entity_type, entity_id, bucket, path, name, uploaded_by) values
+           ('44444444-0000-4000-8000-0000000000fe'::uuid, '${AG}', 'partner', '44444444-0000-4000-8000-0000000000fd', 'bes-files', 'agency/partner/probe/x.pdf', 'x.pdf', '${U["bes.owner@bes.test"]}'::uuid);
+         set local request.jwt.claims = '{"sub":"${AGENT55}","role":"authenticated"}';
+         select public.set_partner_file_shared('44444444-0000-4000-8000-0000000000fe'::uuid, true); select 0 as rows`), "ERR 42501"],
+
+    ["…and with it, the share lands and is audited",
+      () => probe55(OWNER55,
+        `insert into public.outsourcing_groups (id, agency_id, name, contact_email) values
+           ('44444444-0000-4000-8000-0000000000fd'::uuid,'${AG}','Probe Portal D','pd@example.test');
+         insert into public.files (id, agency_id, entity_type, entity_id, bucket, path, name, uploaded_by) values
+           ('44444444-0000-4000-8000-0000000000fe'::uuid, '${AG}', 'partner', '44444444-0000-4000-8000-0000000000fd', 'bes-files', 'agency/partner/probe/x.pdf', 'x.pdf', '${U["bes.owner@bes.test"]}'::uuid);
+         select public.set_partner_file_shared('44444444-0000-4000-8000-0000000000fe'::uuid, true);
+         select ((select shared_with_partner from public.files where id='44444444-0000-4000-8000-0000000000fe')::int
+               + (select count(*) from public.activity_events where entity_type='partner' and action like 'File shared%')::int)::int as rows`), 2],
+
+    ["an unshared partner file's object is unreadable through the portal storage policy",
+      () => q(`select (position('shared_with_partner' in pg_get_expr(polqual, polrelid)) > 0)::text as rows from pg_policy where polname='bes_files_partner_select' and polrelid='storage.objects'::regclass`)[0].rows, "true"],
+
     ["anon reaches no partner contact",
       () => { try { q(`begin; set local role anon; select count(*)::int as rows from public.partner_contacts; rollback;`); return "no error"; } catch (e) { const m = (String(e.message)+String(e.stdout ?? "")).match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } }, "ERR 42501"],
 

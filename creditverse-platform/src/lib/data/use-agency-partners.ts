@@ -3,7 +3,8 @@ import { useAuth } from "@/lib/auth/auth-context";
 import type { PartnerHealth, PartnerLifecycle } from "@/lib/partners/partner-account";
 import {
   createAgencyPartner, createPartnerContact, fetchAgencyPartner, fetchAgencyPartners,
-  fetchPartnerClientCounts, fetchMyPartner, fetchPartnerContacts, setContactStatus, setPartnerHealth, setPartnerLifecycle,
+  fetchPartnerClientCounts, fetchMyPartner, fetchMyPartnerClients, fetchMySharedFiles,
+  fetchPartnerContacts, setContactStatus, setPartnerHealth, setPartnerLifecycle,
   updateAgencyPartner, type NewPartner,
 } from "@/lib/data/agency-partners";
 
@@ -102,5 +103,33 @@ export function usePartnerClientCounts() {
     queryFn: fetchPartnerClientCounts,
     enabled: live,
     staleTime: 60_000,
+  });
+}
+
+/**
+ * The signed-in partner contact's own clients (portal only). The database
+ * function is the gate; `includeClosed` widens to archived files on request
+ * rather than shipping them to everyone who never asks (rule 14).
+ */
+export function useMyPartnerClients(includeClosed: boolean) {
+  const { live } = useLive();
+  return useQuery({
+    queryKey: ["partner", "me", "clients", includeClosed],
+    queryFn: () => fetchMyPartnerClients(includeClosed),
+    enabled: live,
+    staleTime: 60_000,
+    retry: false,
+  });
+}
+
+/** Files BES shared with the signed-in partner (RLS returns shared rows only). */
+export function useMySharedFiles(groupId: string | null) {
+  const { live } = useLive();
+  return useQuery({
+    queryKey: ["partner", "me", "files", groupId],
+    queryFn: () => fetchMySharedFiles(groupId as string),
+    enabled: live && !!groupId,
+    staleTime: 60_000,
+    retry: false,
   });
 }

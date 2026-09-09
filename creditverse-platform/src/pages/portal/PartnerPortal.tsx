@@ -17,8 +17,10 @@
  * an agent opens from the partner's record, which is why a reply typed here
  * needs nothing to carry it across (0191).
  */
-import { Loader2, Building2, Mail, Phone, ShieldCheck, FileText, MessagesSquare } from "lucide-react";
-import { useMyPartner } from "@/lib/data/use-agency-partners";
+import { useMemo, useState } from "react";
+import { Loader2, Building2, Download, Mail, Phone, Search, ShieldCheck, FileText, MessagesSquare, Users } from "lucide-react";
+import { useMyPartner, useMyPartnerClients, useMySharedFiles } from "@/lib/data/use-agency-partners";
+import { partnerFileUrl } from "@/lib/data/agency-partners";
 import { useChannels } from "@/lib/data/use-channels";
 import { ConversationPane } from "@/components/communication/ConversationPane";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -108,16 +110,11 @@ export const PartnerPortal = () => {
           </p>
         </section>
 
+        <PortalClients />
+
         <PortalConversation partnerGroupId={p.id} />
 
-        <section className="rounded-xl border border-border bg-card p-4">
-          <h2 className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-            <FileText className="h-3.5 w-3.5" /> Shared with you
-          </h2>
-          <p className="py-4 text-center text-sm text-muted-foreground">
-            Nothing has been shared yet. Documents and updates BES shares with you will appear here.
-          </p>
-        </section>
+        <PortalFiles partnerGroupId={p.id} />
       </main>
     </div>
   );
@@ -160,6 +157,159 @@ function PortalConversation({ partnerGroupId }: { partnerGroupId: string }) {
           purpose={conversation.purpose}
           emptyLabel="No messages yet. Write to your BES team here."
         />
+      )}
+    </section>
+  );
+}
+
+/**
+ * The partner's own clients — the canonical BES records, not a copy.
+ *
+ * What each row shows is exactly what `my_partner_clients()` returns:
+ * partner-safe columns. No BES agent names, no internal notes, no other
+ * partner's client, ever — the database function is the boundary, and this
+ * component could not widen it if it tried (rule 1).
+ */
+function PortalClients() {
+  const [includeClosed, setIncludeClosed] = useState(false);
+  const [search, setSearch] = useState("");
+  const clients = useMyPartnerClients(includeClosed);
+
+  const rows = useMemo(() => {
+    const all = clients.data ?? [];
+    const needle = search.trim().toLowerCase();
+    if (!needle) return all;
+    return all.filter((c) =>
+      c.name.toLowerCase().includes(needle) || c.email.toLowerCase().includes(needle));
+  }, [clients.data, search]);
+
+  return (
+    <section className="rounded-xl border border-border bg-card p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+          <Users className="h-3.5 w-3.5" /> Your clients
+          {clients.data && <span className="font-normal normal-case">— {clients.data.length}</span>}
+        </h2>
+        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <input type="checkbox" checked={includeClosed}
+            onChange={(e) => setIncludeClosed(e.target.checked)} />
+          Include closed files
+        </label>
+      </div>
+
+      {clients.isLoading ? (
+        <p className="py-6 text-center text-sm text-muted-foreground">
+          <Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Loading your clients…
+        </p>
+      ) : (clients.data ?? []).length === 0 ? (
+        <p className="py-4 text-center text-sm text-muted-foreground">
+          No client files yet. When BES opens files for your clients, their progress appears here.
+        </p>
+      ) : (
+        <>
+          <div className="relative mb-2 max-w-xs">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <input
+              value={search} onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by name or email"
+              className="w-full rounded-lg border border-border bg-background py-1.5 pl-8 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                <tr className="border-b border-border">
+                  <th className="py-2 pr-3 font-medium">Client</th>
+                  <th className="py-2 pr-3 font-medium">Status</th>
+                  <th className="py-2 pr-3 font-medium">Round</th>
+                  <th className="py-2 pr-3 font-medium">Items in work</th>
+                  <th className="py-2 font-medium">Last activity</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((c) => (
+                  <tr key={c.publicId} className="border-b border-border/50 align-top">
+                    <td className="py-2 pr-3">
+                      <span className="block text-foreground">{c.name}</span>
+                      <span className="block text-[11px] text-muted-foreground">{c.email}</span>
+                    </td>
+                    <td className="py-2 pr-3">
+                      <span className={cn(
+                        "inline-block rounded-full border px-2 py-0.5 text-[11px] font-medium",
+                        c.lifecycle === "archived"
+                          ? "border-border bg-muted text-muted-foreground"
+                          : "border-primary/30 bg-primary/5 text-foreground",
+                      )}>
+                        {c.status}
+                      </span>
+                    </td>
+                    <td className="py-2 pr-3 text-muted-foreground">{c.round}</td>
+                    <td className="py-2 pr-3 text-muted-foreground">{c.openItems}</td>
+                    <td className="py-2 text-muted-foreground">{formatDate(c.lastActivityAt)}</td>
+                  </tr>
+                ))}
+                {rows.length === 0 && (
+                  <tr><td colSpan={5} className="py-4 text-center text-sm text-muted-foreground">
+                    No client matches that search.
+                  </td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
+/**
+ * Only what BES deliberately shared (0146): the row is readable because it is
+ * shared, and the download link works because the storage policy follows the
+ * row. An unshared file is not a hidden row here — it never arrives at all.
+ */
+function PortalFiles({ partnerGroupId }: { partnerGroupId: string }) {
+  const files = useMySharedFiles(partnerGroupId);
+  const [failedId, setFailedId] = useState<string | null>(null);
+
+  const open = async (id: string, path: string) => {
+    try {
+      setFailedId(null);
+      const url = await partnerFileUrl(path);
+      window.open(url, "_blank", "noopener");
+    } catch {
+      setFailedId(id);
+    }
+  };
+
+  return (
+    <section className="rounded-xl border border-border bg-card p-4">
+      <h2 className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+        <FileText className="h-3.5 w-3.5" /> Shared with you
+      </h2>
+      {files.isLoading ? (
+        <p className="py-4"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></p>
+      ) : (files.data ?? []).length === 0 ? (
+        <p className="py-4 text-center text-sm text-muted-foreground">
+          Nothing has been shared yet. Documents BES shares with you will appear here.
+        </p>
+      ) : (
+        <ul className="divide-y divide-border/50">
+          {(files.data ?? []).map((f) => (
+            <li key={f.id} className="flex items-center justify-between gap-2 py-2">
+              <span className="min-w-0">
+                <span className="block truncate text-sm text-foreground">{f.name}</span>
+                <span className="block text-[11px] text-muted-foreground">
+                  {f.sharedAt ? `Shared ${formatDate(f.sharedAt)}` : formatDate(f.createdAt)}
+                  {failedId === f.id && <span className="text-destructive"> · could not open — try again</span>}
+                </span>
+              </span>
+              <button type="button" onClick={() => void open(f.id, f.path)}
+                className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted">
+                <Download className="h-3.5 w-3.5" /> Download
+              </button>
+            </li>
+          ))}
+        </ul>
       )}
     </section>
   );
