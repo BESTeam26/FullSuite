@@ -9,7 +9,9 @@ import {
   adjustPayslip, cancelLeave, createCutoff, decideLeave, fetchAttendance,
   fetchCutoffs, fetchLeaveTypes, fetchMyLeave, fetchPayRates,
   fetchPayslips, fetchPendingLeave, fetchSchedules, generatePayroll,
-  fetchPayrollSettings, releasePayroll, setPayRate, setPayrollSettings,
+  fetchPayrollSettings,
+  fetchFxRates,
+  addFxRate, releasePayroll, setPayRate, setPayrollSettings,
   setWorkSchedule, submitLeave,
   type PayRate, type PayrollSettings, type ScheduleInput,
 } from "@/lib/data/people-management";
@@ -150,6 +152,30 @@ export function usePayrollActions() {
     }),
     release: useMutation({ mutationFn: (id: string) => releasePayroll(id), onSuccess: refresh }),
   };
+}
+
+export function useFxRates() {
+  const auth = useAuth();
+  return useQuery({
+    queryKey: ["people", "fx-rates"],
+    queryFn: fetchFxRates,
+    enabled: auth.mode === "live" && auth.status === "signed-in" && auth.isAgencyStaff,
+    staleTime: 60_000,
+  });
+}
+
+export function useAddFxRate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: addFxRate,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["people", "fx-rates"] });
+      /* Drafts convert from the rate table, so a new rate changes them on the
+         next generate — the payslip list is refetched so nobody reads a stale
+         conversion. */
+      void qc.invalidateQueries({ queryKey: ["people", "payslips"] });
+    },
+  });
 }
 
 export function usePayrollSettings() {

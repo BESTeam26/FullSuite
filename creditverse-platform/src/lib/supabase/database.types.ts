@@ -5383,6 +5383,48 @@ export type Database = {
           },
         ]
       }
+      fx_rates: {
+        Row: {
+          agency_id: string
+          base_currency: string
+          created_at: string
+          effective_from: string
+          id: string
+          note: string | null
+          quote_currency: string
+          rate: number
+          set_by: string | null
+          source: Database["public"]["Enums"]["fx_rate_source"]
+          spread_bps: number
+        }
+        Insert: {
+          agency_id: string
+          base_currency: string
+          created_at?: string
+          effective_from: string
+          id?: string
+          note?: string | null
+          quote_currency: string
+          rate: number
+          set_by?: string | null
+          source?: Database["public"]["Enums"]["fx_rate_source"]
+          spread_bps?: number
+        }
+        Update: {
+          agency_id?: string
+          base_currency?: string
+          created_at?: string
+          effective_from?: string
+          id?: string
+          note?: string | null
+          quote_currency?: string
+          rate?: number
+          set_by?: string | null
+          source?: Database["public"]["Enums"]["fx_rate_source"]
+          spread_bps?: number
+        }
+        Relationships: []
+      }
       ghl_agency_credentials: {
         Row: {
           access_token: string
@@ -5450,6 +5492,7 @@ export type Database = {
           label: string | null
           last_event_at: string | null
           location_id: string
+          agency_owned: boolean
           name: string | null
           organization_id: string | null
           outsourcing_group_id: string | null
@@ -5480,6 +5523,7 @@ export type Database = {
           label?: string | null
           last_event_at?: string | null
           location_id?: string
+          agency_owned?: boolean
           name?: string | null
           organization_id?: string | null
           outsourcing_group_id?: string | null
@@ -5538,6 +5582,7 @@ export type Database = {
           external_id: string | null
           id: number
           location_id: string
+          agency_owned: boolean
           organization_id: string | null
           outsourcing_group_id: string | null
           outcome: string | null
@@ -5562,6 +5607,7 @@ export type Database = {
           external_id?: string | null
           id?: never
           location_id?: string
+          agency_owned?: boolean
           organization_id?: string | null
           outsourcing_group_id?: string | null
           outcome?: string | null
@@ -9457,6 +9503,7 @@ export type Database = {
           scheme: string
           split_day: number
           timezone: string
+          payout_currency: string
           updated_at: string
           updated_by: string | null
           verify_window_days: number
@@ -9469,6 +9516,7 @@ export type Database = {
           scheme?: string
           split_day?: number
           timezone?: string
+          payout_currency?: string
           updated_at?: string
           updated_by?: string | null
           verify_window_days?: number
@@ -9481,6 +9529,7 @@ export type Database = {
           scheme?: string
           split_day?: number
           timezone?: string
+          payout_currency?: string
           updated_at?: string
           updated_by?: string | null
           verify_window_days?: number
@@ -9512,6 +9561,9 @@ export type Database = {
           currency: string
           cutoff_id: string
           gross_cents: number | null
+          payout_currency: string | null
+          fx_rate: number | null
+          payout_cents: number | null
           id: string
           paid_break_minutes: number
           paid_leave_minutes: number
@@ -9529,6 +9581,9 @@ export type Database = {
           currency: string
           cutoff_id: string
           gross_cents?: number | null
+          payout_currency?: string | null
+          fx_rate?: number | null
+          payout_cents?: number | null
           id?: string
           paid_break_minutes?: number
           paid_leave_minutes?: number
@@ -9546,6 +9601,9 @@ export type Database = {
           currency?: string
           cutoff_id?: string
           gross_cents?: number | null
+          payout_currency?: string | null
+          fx_rate?: number | null
+          payout_cents?: number | null
           id?: string
           paid_break_minutes?: number
           paid_leave_minutes?: number
@@ -13778,7 +13836,7 @@ export type Database = {
       looks_like_a_secret: { Args: { p_text: string }; Returns: boolean }
       manager_of: { Args: { p_user: string }; Returns: string }
       map_ghl_location: {
-        Args: { p_location_id: string; p_org?: string; p_partner?: string }
+        Args: { p_location_id: string; p_org?: string; p_partner?: string; p_agency_own?: boolean }
         Returns: undefined
       }
       mark_channel_read: {
@@ -14414,6 +14472,7 @@ export type Database = {
           p_split_day: number
           p_timezone: string
           p_verify_window_days: number
+          p_payout_currency?: string
         }
         Returns: undefined
       }
@@ -14527,6 +14586,7 @@ export type Database = {
     }
     Enums: {
       access_profile: "manager" | "team_lead" | "agent" | "custom"
+      fx_rate_source: "paypal_actual" | "market_reference"
       member_document_status:
         | "draft"
         | "pending_signature"

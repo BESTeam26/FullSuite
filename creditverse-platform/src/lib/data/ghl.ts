@@ -14,6 +14,8 @@ export interface GhlConnection {
   organizationId: string | null;
   /** The BES Partner it belongs to — the usual owner (rule 16 model 3). */
   outsourcingGroupId: string | null;
+  /** BES's own house account: its marketing, its leads, not a customer's. */
+  agencyOwned: boolean;
   locationId: string;
   label: string | null;
   /** GHL's own name for the location, as the sync found it. */
@@ -40,13 +42,14 @@ export async function fetchGhlConnections(): Promise<GhlConnection[]> {
   const sb = requireSupabase();
   const { data, error } = await sb
     .from("ghl_connections")
-    .select("id, organization_id, outsourcing_group_id, location_id, label, name, company_id, status, last_event_at, discovered_at, created_at")
+    .select("id, organization_id, outsourcing_group_id, agency_owned, location_id, label, name, company_id, status, last_event_at, discovered_at, created_at")
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []).map((r) => ({
     id: r.id,
     organizationId: r.organization_id,
     outsourcingGroupId: (r as { outsourcing_group_id?: string | null }).outsourcing_group_id ?? null,
+    agencyOwned: Boolean((r as { agency_owned?: boolean }).agency_owned),
     locationId: r.location_id,
     label: r.label,
     name: r.name,
@@ -153,13 +156,14 @@ export async function disconnectGhlAgency(): Promise<void> {
  */
 export async function mapGhlLocation(
   locationId: string,
-  owner: { organizationId?: string | null; partnerId?: string | null },
+  owner: { organizationId?: string | null; partnerId?: string | null; agencyOwn?: boolean },
 ): Promise<void> {
   const sb = requireSupabase();
   const { error } = await sb.rpc("map_ghl_location", {
     p_location_id: locationId,
     p_org: owner.organizationId ?? undefined,
     p_partner: owner.partnerId ?? undefined,
+    p_agency_own: owner.agencyOwn ?? false,
   });
   if (error) throw error;
 }

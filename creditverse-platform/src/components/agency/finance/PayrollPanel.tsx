@@ -12,7 +12,11 @@ import { Banknote, Loader2, Lock } from "lucide-react";
 import { ContentCard } from "@/components/dashboard/DivisionLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { OpsSelect } from "@/components/ui/ops-select";
 import { useCutoffs, usePayrollActions, usePayrollSettings, usePayslips, useSetPayrollSettings } from "@/lib/data/use-people";
+import { useAddFxRate, useFxRates } from "@/lib/data/use-people";
+import { PAY_CURRENCIES, suggestFxRate } from "@/lib/data/people-management";
+import { useAuth } from "@/lib/auth/auth-context";
 import { useAgencyPermissions } from "@/lib/data/agency-permissions";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/format-date";
@@ -33,10 +37,12 @@ export function PayrollPanel() {
 
   const rows = cutoffs.data ?? [];
   const active = rows.find((c) => c.id === selected) ?? rows[0] ?? null;
+  const settings = usePayrollSettings();
 
   return (
     <div className="space-y-3">
       {canManage && <AutomationCard />}
+      {canManage && <ExchangeRateCard payoutCurrency={settings.data?.payoutCurrency ?? "USD"} />}
       {canManage && (
         <ContentCard title="Manual cutoff">
           <div className="flex flex-wrap items-end gap-2 text-xs">
@@ -106,8 +112,15 @@ function CutoffDetail({ cutoffId, released, canManage }: { cutoffId: string; rel
   const [note, setNote] = useState("");
 
   const rows = slips.data ?? [];
-  const total = rows.reduce((s, p) => s + p.grossCents, 0);
-  const currency = rows[0]?.currency ?? "USD";
+  /* The total is in the PAYOUT currency, because payslips may be in several:
+     summing mixed currencies would state a number that means nothing. A
+     payslip with no recorded rate is excluded and named below — release
+     refuses while any is missing. */
+  const payoutCurrency = rows[0]?.payoutCurrency ?? "USD";
+  const converted = rows.filter((p) => p.payoutCents !== null);
+  const total = converted.reduce((s, p) => s + (p.payoutCents ?? 0), 0);
+  const currency = payoutCurrency;
+  const missingRate = rows.filter((p) => p.payoutCents === null);
 
   const err = (title: string) => (e: unknown) =>
     toast({ title, description: (e as Error).message, variant: "destructive" });
@@ -138,6 +151,14 @@ function CutoffDetail({ cutoffId, released, canManage }: { cutoffId: string; rel
         </span>
       )}
     >
+      {missingRate.length > 0 && (
+        <p className="mb-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-900">
+          {missingRate.length} payslip{missingRate.length === 1 ? "" : "s"} cannot be converted yet: no exchange
+          rate is recorded for {[...new Set(missingRate.map((p) => `${p.currency}→${p.payoutCurrency}`))].join(", ")}.
+          Record it under Exchange rate — release stays refused until every payslip has one, rather than
+          quietly leaving somebody out of the total.
+        </p>
+      )}
       {slips.isLoading ? (
         <p className="py-3 text-xs text-muted-foreground"><Loader2 className="mr-1.5 inline h-3 w-3 animate-spin" /> Loading…</p>
       ) : rows.length === 0 ? (
@@ -160,7 +181,21 @@ function CutoffDetail({ cutoffId, released, canManage }: { cutoffId: string; rel
                   </span>
                 </span>
                 <span className="flex items-center gap-2">
-                  <span className="font-semibold text-foreground">{money(p.grossCents, p.currency)}</span>
+                  <span className="text-right">
+                    <span className="block font-semibold text-foreground">
+                      {p.payoutCents !== null && p.payoutCurrency !== p.currency
+                        ? money(p.payoutCents, p.payoutCurrency ?? "USD")
+                        : money(p.grossCents, p.currency)}
+                    </span>
+                    {p.payoutCurrency !== p.currency && (
+                      <span className="block text-[10px] text-muted-foreground">
+                        {money(p.grossCents, p.currency)}
+                        {p.fxRate !== null
+                          ? ` @ ${p.fxRate}`
+                          : " · no rate recorded for this pair"}
+                      </span>
+                    )}
+                  </span>
                   {canManage && !released && (
                     <button type="button" className="text-[10px] text-primary underline-offset-2 hover:underline"
                       onClick={() => { setAdjusting(adjusting === p.id ? null : p.id); setAmount(""); setNote(""); }}>
@@ -194,6 +229,134 @@ function CutoffDetail({ cutoffId, released, canManage }: { cutoffId: string; rel
 }
 
 /**
+ * The exchange rate — entered, or fetched and adjusted, never assumed.
+ *
+ * PayPal publishes no public rate API: its conversion happens inside a
+ * transaction, at a market rate plus PayPal's own margin. So the truest
+ * number is the one PayPal actually gave you, typed in from a payout — and
+ * the convenience is a market reference less the spread you state, clearly
+ * labelled as an estimate. Whichever is used, the payslip freezes it, so a
+ * released payslip never changes because the peso moved afterwards.
+ */
+function ExchangeRateCard({ payoutCurrency }: { payoutCurrency: string }) {
+  const auth = useAuth();
+  const rates = useFxRates();
+  const add = useAddFxRate();
+  const { toast } = useToast();
+  const today = new Date().toISOString().slice(0, 10);
+  const [base, setBase] = useState<string>(PAY_CURRENCIES.find((c) => c !== payoutCurrency) ?? "PHP");
+  const [rate, setRate] = useState("");
+  const [spread, setSpread] = useState("350");
+  const [effectiveFrom, setEffectiveFrom] = useState(today);
+  const [source, setSource] = useState<"paypal_actual" | "market_reference">("paypal_actual");
+  const [fetching, setFetching] = useState(false);
+
+  const fetchSuggestion = async () => {
+    setFetching(true);
+    try {
+      const s = await suggestFxRate(base, payoutCurrency, Number(spread) || 0);
+      setRate(s.rate.toString());
+      setSource("market_reference");
+      toast({ title: `Market ${s.marketRate} less ${(Number(spread) / 100).toFixed(2)}%`, description: s.note });
+    } catch (e) {
+      toast({
+        title: "Could not fetch a rate",
+        description: `${(e as Error).message} Enter PayPal's own rate instead — it is the more accurate number.`,
+        variant: "destructive",
+      });
+    } finally {
+      setFetching(false);
+    }
+  };
+
+  const save = () => {
+    const value = Number(rate);
+    if (!Number.isFinite(value) || value <= 0) {
+      toast({ title: "That rate is not a number", variant: "destructive" });
+      return;
+    }
+    add.mutate(
+      {
+        agencyId: auth.agencyId ?? "",
+        baseCurrency: base,
+        quoteCurrency: payoutCurrency,
+        rate: value,
+        source,
+        spreadBps: source === "market_reference" ? Number(spread) || 0 : 0,
+        effectiveFrom,
+      },
+      {
+        onSuccess: () => { setRate(""); toast({ title: "Rate recorded", description: "Payroll generated from now on uses it; released payslips keep the rate they used." }); },
+        onError: (e) => toast({ title: "Could not record it", description: (e as Error).message, variant: "destructive" }),
+      },
+    );
+  };
+
+  const current = (rates.data ?? []).find((r) => r.quoteCurrency === payoutCurrency && r.baseCurrency === base);
+
+  return (
+    <ContentCard title="Exchange rate">
+      <p className="text-[11px] text-muted-foreground">
+        Salaries may be set in {PAY_CURRENCIES.join(" or ")}. Payroll totals in <strong>{payoutCurrency}</strong>,
+        converting each payslip at the rate in force at the end of its period. PayPal has no public rate
+        feed, so enter the rate PayPal actually gave you — or fetch a market reference and subtract your
+        PayPal spread for an estimate.
+      </p>
+
+      <div className="mt-3 flex flex-wrap items-end gap-2 text-xs">
+        <label className="text-muted-foreground">Salary currency
+          <div className="mt-0.5">
+            <OpsSelect size="sm" value={base} onValueChange={(v) => { setBase(v); setRate(""); }}
+              options={PAY_CURRENCIES.filter((c) => c !== payoutCurrency).map((c) => ({ value: c, label: c }))} />
+          </div>
+        </label>
+        <span className="pb-1.5 text-muted-foreground">→ {payoutCurrency}, at</span>
+        <label className="text-muted-foreground">Rate
+          <Input value={rate} onChange={(e) => { setRate(e.target.value); setSource("paypal_actual"); }}
+            placeholder="e.g. 0.0175" className="mt-0.5 h-7 w-28 text-xs" />
+        </label>
+        <label className="text-muted-foreground">PayPal spread (bps)
+          <Input type="number" value={spread} onChange={(e) => setSpread(e.target.value)}
+            className="mt-0.5 h-7 w-20 text-xs" />
+        </label>
+        <Button size="sm" variant="outline" className="h-7 text-xs" disabled={fetching}
+          onClick={() => void fetchSuggestion()}>
+          {fetching && <Loader2 className="mr-1 h-3 w-3 animate-spin" />} Fetch market estimate
+        </Button>
+        <label className="text-muted-foreground">Effective from
+          <Input type="date" value={effectiveFrom} onChange={(e) => setEffectiveFrom(e.target.value)}
+            className="mt-0.5 h-7 w-36 text-xs" />
+        </label>
+        <Button size="sm" className="h-7 text-xs" disabled={add.isPending || !rate.trim()} onClick={save}>
+          {add.isPending && <Loader2 className="mr-1 h-3 w-3 animate-spin" />} Record rate
+        </Button>
+      </div>
+
+      {current && (
+        <p className="mt-2 text-[11px] text-foreground">
+          In force: 1 {current.baseCurrency} = {current.rate} {current.quoteCurrency} — {" "}
+          {current.source === "paypal_actual"
+            ? "PayPal's own rate, as entered"
+            : `market reference less ${(current.spreadBps / 100).toFixed(2)}% (an estimate)`}
+          , effective {formatDate(current.effectiveFrom)}.
+        </p>
+      )}
+
+      {(rates.data ?? []).length > 1 && (
+        <ul className="mt-2 divide-y divide-border/50 text-[11px]">
+          {(rates.data ?? []).slice(0, 6).map((r) => (
+            <li key={r.id} className="flex items-center justify-between py-1 text-muted-foreground">
+              <span>1 {r.baseCurrency} = {r.rate} {r.quoteCurrency}</span>
+              <span>{r.source === "paypal_actual" ? "PayPal" : "market est."} · from {formatDate(r.effectiveFrom)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </ContentCard>
+  );
+}
+
+/**
  * The cutoff runs itself: the schedule here is Dee's policy as data. Turned
  * on, the day after each period ends the sweep creates the cutoff, computes
  * every payslip, reminds every agent to verify, refuses new adjustment
@@ -206,13 +369,14 @@ function AutomationCard() {
   const { toast } = useToast();
   const [draft, setDraft] = useState<null | {
     enabled: boolean; splitDay: string; paydayFirst: string;
-    paydaySecond: string; verifyWindowDays: string; timezone: string;
+    paydaySecond: string; verifyWindowDays: string; timezone: string; payoutCurrency: string;
   }>(null);
 
   const s = settings.data;
   const d = draft ?? (s ? {
     enabled: s.enabled, splitDay: String(s.splitDay), paydayFirst: String(s.paydayFirst),
     paydaySecond: String(s.paydaySecond), verifyWindowDays: String(s.verifyWindowDays), timezone: s.timezone,
+    payoutCurrency: s.payoutCurrency,
   } : null);
   if (!d) return null;
 
@@ -240,10 +404,20 @@ function AutomationCard() {
         <label className="text-muted-foreground">Timezone
           <Input value={d.timezone} onChange={(e) => set({ timezone: e.target.value })} className="mt-0.5 h-7 w-44 text-xs" />
         </label>
+        {/* What totals and the released expense are stated in. A person's own
+            rate may be in another currency; each payslip records the rate it
+            converted at. */}
+        <label className="text-muted-foreground">Pay out in
+          <div className="mt-0.5">
+            <OpsSelect size="sm" value={d.payoutCurrency} onValueChange={(v) => set({ payoutCurrency: v })}
+              options={PAY_CURRENCIES.map((c) => ({ value: c, label: c }))} />
+          </div>
+        </label>
         <Button size="sm" className="h-7 text-xs" disabled={save.isPending || !draft}
           onClick={() => save.mutate(
             { enabled: d.enabled, splitDay: Number(d.splitDay), paydayFirst: Number(d.paydayFirst),
-              paydaySecond: Number(d.paydaySecond), verifyWindowDays: Number(d.verifyWindowDays), timezone: d.timezone },
+              paydaySecond: Number(d.paydaySecond), verifyWindowDays: Number(d.verifyWindowDays), timezone: d.timezone,
+              payoutCurrency: d.payoutCurrency },
             {
               onSuccess: () => { setDraft(null); toast({ title: "Payroll schedule saved", description: d.enabled ? "The next completed period will run itself." : "Automation is off; cutoffs are manual." }); },
               onError: (e) => toast({ title: "Could not save", description: (e as Error).message, variant: "destructive" }),

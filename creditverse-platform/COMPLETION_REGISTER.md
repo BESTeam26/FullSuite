@@ -1262,3 +1262,58 @@ Verified live: the dropdown holds all 28 partners, BizHub Financial LLC now
 belongs to partner Bizhub, and the mapping persisted. Outbound (BES status →
 GHL pipeline/workflow) does not exist yet and the panel no longer suggests it
 does; designed as D-005.
+
+### Salary in USD or PHP, converted at a rate that is recorded — 2026-09-09
+
+Dee asked for USD/PHP salaries with automatic conversion "based on PayPal
+exchange rate". **PayPal publishes no public rate API** — its conversion
+happens inside a merchant transaction at a market rate plus PayPal's own
+margin — so nothing here claims to read PayPal. Instead (0276–0279):
+
+- **`fx_rates`**, effective-dated, append-only (no update or delete policy):
+  either `paypal_actual` — the rate PayPal really gave, typed from a payout,
+  the truest number — or `market_reference` with the spread applied, in basis
+  points, so the figure can be explained rather than trusted. Recording one
+  needs `payroll.manage`; any staff member may READ one, because a market
+  rate is nobody's salary.
+- **`fx_rate_for()`** is the one resolver: the latest rate at or before a
+  date, 1 for the same currency, and **NULL for an unrecorded pair — never
+  1**, because defaulting to 1 would pay a peso salary as if it were dollars.
+- **The payslip freezes what it used.** `payout_currency` and `fx_rate` are
+  written at generation from the rate in force at PERIOD END, and
+  `payout_cents` is GENERATED from (base + adjustment) × that rate, so an
+  adjustment moves the payout and a later rate change never rewrites a
+  released payslip (rule 11).
+- **Release totals the payout** in one currency and **refuses while any
+  payslip lacks a rate, naming the pair** — the alternative was an expense
+  that quietly omitted somebody's pay. The old "more than one currency"
+  refusal is gone: mixed currencies now convert.
+- **`fx-rate` Edge Function** fetches a market reference (two keyless
+  sources, tried in order) and subtracts the stated spread. It proposes;
+  a person with payroll permission records. Verified live: 0.015989 PHP→USD
+  from open.er-api.com less 3.50%.
+- UI: currency picker on the person's rate, "Pay out in" on the automation
+  card, an Exchange rate card, payslip rows showing both amounts with the
+  rate used, and an amber strip naming any pair that has no rate.
+
+Verified on real data: ₱7,472.50 gross @ 0.0175 = **$130.77**, and release
+refused when the pair had no rate. Phase 70: **125/125** — including "a later
+rate does not rewrite a frozen payslip" and "an unrecorded pair is NULL, not
+1". Two older probes were releasing payroll for the whole agency and now seed
+the pair's rate: they were testing release and would have failed on somebody
+else's currency.
+
+**Found while testing:** one live pay rate exists — ₱150.00/hour for Rowell,
+effective 2026-09-09 — which I did not create and have left untouched for Dee
+to confirm rather than delete on a guess.
+
+### A GHL location may be BES's own house account — 2026-09-09
+
+Dee: "Blessed Empire Services … THIS IS MY ACTUAL AGENCY SUB ACCOUNT." Three
+owners exist and they are different facts: a SaaS organization, a BES Partner,
+or **BES itself**. Mapping the house account to a partner would be a false
+attribution (rule 4); leaving it "Not mapped" would say "nobody has told us
+yet", which is also untrue. So `agency_owned` is its own flag (0280), at most
+one of the three may be set, and the event backlog is attributed to whichever
+was named. Verified live: dNO7USxedNlA9IKOjMuY is now BES's own, and naming
+two owners at once is refused.

@@ -6082,8 +6082,15 @@ if (runs(70)) {
         set local request.jwt.claims = '{"sub":"${LEAD70}","role":"authenticated"}';
         select count(*)::int as rows from public.member_pay_rates where user_id = '${AGENT70}'`), 0],
 
+    /* The agency may now hold rates in more than one currency, so a probe
+       that RELEASES must have a rate for every pair present — otherwise it is
+       testing the release path and failing on somebody else's currency. */
     ["generate computes work + paid leave, and release writes the expense",
-      () => p70(ADM70, `select public.set_member_pay_rate('${AGENT70}', 'hourly', 1500, 'USD', current_date - 30);
+      () => p70(ADM70, `select public.set_payroll_settings(false, 15, 25, 10, 5, 'America/New_York', 'USD');
+        insert into public.fx_rates (agency_id, base_currency, quote_currency, rate, source, effective_from, set_by)
+          values ('${AG70}', 'PHP', 'USD', 0.01750000, 'paypal_actual', current_date - 365, '${ADM70}')
+          on conflict do nothing;
+        select public.set_member_pay_rate('${AGENT70}', 'hourly', 1500, 'USD', current_date - 30);
         insert into public.payroll_cutoffs (agency_id, period_start, period_end) values ('${AG70}', current_date + 100, current_date + 113);
         select public.generate_payroll((select id from public.payroll_cutoffs where period_start = current_date + 100));
         select public.release_payroll((select id from public.payroll_cutoffs where period_start = current_date + 100));
@@ -6091,7 +6098,11 @@ if (runs(70)) {
               + (select count(*) from public.payroll_cutoffs where status = 'released' and expense_id is not null))::int as rows`), 2],
 
     ["…and a released cutoff refuses regeneration",
-      () => p70(ADM70, `select public.set_member_pay_rate('${AGENT70}', 'hourly', 1500, 'USD', current_date - 30);
+      () => p70(ADM70, `select public.set_payroll_settings(false, 15, 25, 10, 5, 'America/New_York', 'USD');
+        insert into public.fx_rates (agency_id, base_currency, quote_currency, rate, source, effective_from, set_by)
+          values ('${AG70}', 'PHP', 'USD', 0.01750000, 'paypal_actual', current_date - 365, '${ADM70}')
+          on conflict do nothing;
+        select public.set_member_pay_rate('${AGENT70}', 'hourly', 1500, 'USD', current_date - 30);
         insert into public.payroll_cutoffs (agency_id, period_start, period_end) values ('${AG70}', current_date + 100, current_date + 113);
         select public.generate_payroll((select id from public.payroll_cutoffs where period_start = current_date + 100));
         select public.release_payroll((select id from public.payroll_cutoffs where period_start = current_date + 100));
@@ -6223,6 +6234,57 @@ if (runs(70)) {
                 from pg_policy where polname='bes_files_select' and polrelid='storage.objects'::regclass`)[0].rows, "true"],
     ["no document is ever deleted — there is no delete policy",
       () => q(`select count(*)::int as rows from pg_policy where polrelid='public.member_documents'::regclass and polcmd='d'`)[0].rows, 0],
+
+    /* ── currency conversion (0276–0279): a rate is data, and money is deliberate ── */
+    ["recording an exchange rate needs the payroll permission",
+      () => p70(ADM70, `set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
+        insert into public.fx_rates (agency_id, base_currency, quote_currency, rate, source, effective_from, set_by)
+        values ('${AG70}', 'PHP', 'USD', 0.0175, 'paypal_actual', current_date, '${AGENT70}'); select 1 as rows`), "ERR 42501"],
+    ["…and any staff member may READ one — a market rate is nobody's salary",
+      () => p70(ADM70, `insert into public.fx_rates (agency_id, base_currency, quote_currency, rate, source, effective_from, set_by)
+        values ('${AG70}', 'PHP', 'USD', 0.0175, 'paypal_actual', current_date, '${ADM70}');
+        set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
+        select count(*)::int as rows from public.fx_rates where base_currency='PHP'`), 1],
+    ["a rate is history — no update and no delete grant exists",
+      () => q(`select count(*)::int as rows from pg_policy where polrelid='public.fx_rates'::regclass and polcmd in ('w','d')`)[0].rows, 0],
+    ["the resolver reads the latest rate at or before the date, never a later one",
+      () => p70(ADM70, `insert into public.fx_rates (agency_id, base_currency, quote_currency, rate, source, effective_from, set_by) values
+          ('${AG70}', 'PHP', 'USD', 0.01700000, 'paypal_actual', '2026-01-01', '${ADM70}'),
+          ('${AG70}', 'PHP', 'USD', 0.01900000, 'paypal_actual', '2026-12-01', '${ADM70}');
+        select public.fx_rate_for('${AG70}', 'PHP', 'USD', '2026-06-15')::text as rows`), "0.01700000"],
+    ["…the same currency is one, without a row",
+      () => p70(ADM70, `select public.fx_rate_for('${AG70}', 'USD', 'USD', current_date)::text as rows`), "1"],
+    ["…and an unrecorded pair is NULL, never 1 — a missing rate must stop a conversion",
+      () => p70(ADM70, `select coalesce(public.fx_rate_for('${AG70}', 'JPY', 'USD', current_date)::text, 'null') as rows`), "null"],
+    ["a payslip freezes its rate: a later rate does not rewrite it",
+      () => p70(ADM70, `insert into public.fx_rates (agency_id, base_currency, quote_currency, rate, source, effective_from, set_by)
+          values ('${AG70}', 'PHP', 'USD', 0.01750000, 'paypal_actual', '2026-01-01', '${ADM70}');
+        select public.set_payroll_settings(false, 15, 25, 10, 5, 'America/New_York', 'USD');
+        select public.set_member_pay_rate('${AGENT70}', 'per_cutoff', 100000, 'PHP');
+        insert into public.payroll_cutoffs (id, agency_id, period_start, period_end, payday, created_by)
+          values ('44444444-0000-4000-8000-0000000000fc'::uuid, '${AG70}', current_date - 7, current_date, current_date + 10, '${ADM70}');
+        select public.generate_payroll('44444444-0000-4000-8000-0000000000fc'::uuid);
+        insert into public.fx_rates (agency_id, base_currency, quote_currency, rate, source, effective_from, set_by)
+          values ('${AG70}', 'PHP', 'USD', 0.99000000, 'paypal_actual', current_date, '${ADM70}');
+        select fx_rate::text as rows from public.payslips
+         where cutoff_id='44444444-0000-4000-8000-0000000000fc' and user_id='${AGENT70}'`), "0.01750000"],
+    ["…and the payout is the gross at that frozen rate",
+      () => p70(ADM70, `insert into public.fx_rates (agency_id, base_currency, quote_currency, rate, source, effective_from, set_by)
+          values ('${AG70}', 'PHP', 'USD', 0.02000000, 'paypal_actual', '2026-01-01', '${ADM70}');
+        select public.set_payroll_settings(false, 15, 25, 10, 5, 'America/New_York', 'USD');
+        select public.set_member_pay_rate('${AGENT70}', 'per_cutoff', 100000, 'PHP');
+        insert into public.payroll_cutoffs (id, agency_id, period_start, period_end, payday, created_by)
+          values ('44444444-0000-4000-8000-0000000000fd'::uuid, '${AG70}', current_date - 7, current_date, current_date + 10, '${ADM70}');
+        select public.generate_payroll('44444444-0000-4000-8000-0000000000fd'::uuid);
+        select payout_cents as rows from public.payslips
+         where cutoff_id='44444444-0000-4000-8000-0000000000fd' and user_id='${AGENT70}'`), 2000],
+    ["release refuses while any payslip has no rate, and names the pair",
+      () => p70(ADM70, `select public.set_payroll_settings(false, 15, 25, 10, 5, 'America/New_York', 'PHP');
+        select public.set_member_pay_rate('${AGENT70}', 'per_cutoff', 100000, 'USD');
+        insert into public.payroll_cutoffs (id, agency_id, period_start, period_end, payday, created_by)
+          values ('44444444-0000-4000-8000-0000000000fe'::uuid, '${AG70}', current_date - 7, current_date, current_date + 10, '${ADM70}');
+        select public.generate_payroll('44444444-0000-4000-8000-0000000000fe'::uuid);
+        select public.release_payroll('44444444-0000-4000-8000-0000000000fe'::uuid)`), "ERR 22023"],
   ];
   runPhase("phase 70", P70, { strict: true });
 }

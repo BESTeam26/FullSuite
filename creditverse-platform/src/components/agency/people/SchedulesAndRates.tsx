@@ -14,9 +14,11 @@ import { CalendarClock, Loader2 } from "lucide-react";
 import { ContentCard } from "@/components/dashboard/DivisionLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { OpsSelect } from "@/components/ui/ops-select";
 import { useWorkforce } from "@/lib/data/use-workforce";
 import { usePayRates, useSchedules, useSetPayRate, useSetSchedule } from "@/lib/data/use-people";
 import { useAgencyPermissions } from "@/lib/data/agency-permissions";
+import { PAY_CURRENCIES } from "@/lib/data/people-management";
 import { useToast } from "@/hooks/use-toast";
 import type { WorkSchedule } from "@/lib/data/people-management";
 
@@ -184,8 +186,15 @@ function PersonEditor({ userId, schedule, rate, canPayroll, onDone }: {
             <Input type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)}
               placeholder="15.00" className="mt-0.5 h-7 w-24 text-xs" />
           </label>
+          {/* The person's OWN currency — a Manila processor in pesos, a US
+              contractor in dollars. Payroll converts to the payout currency at
+              the rate recorded in Finance → Payroll, and each payslip freezes
+              the rate it used. */}
           <label className="text-muted-foreground">Currency
-            <Input value={currency} onChange={(e) => setCurrency(e.target.value.toUpperCase())} className="mt-0.5 h-7 w-16 text-xs" />
+            <div className="mt-0.5">
+              <OpsSelect size="sm" value={currency} onValueChange={setCurrency}
+                options={PAY_CURRENCIES.map((c) => ({ value: c, label: c }))} />
+            </div>
           </label>
           <Button size="sm" variant="outline" className="h-7 text-xs" disabled={setRate.isPending || !amount} onClick={saveRate}>
             {setRate.isPending && <Loader2 className="mr-1 h-3 w-3 animate-spin" />} Save rate

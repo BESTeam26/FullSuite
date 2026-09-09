@@ -263,6 +263,84 @@ export interface PayRate {
   effectiveFrom: string;
 }
 
+/* ── Currency conversion: data, never a live guess ──────────────────────────
+   PayPal publishes no public rate API, so a rate is either the one PayPal
+   actually gave (entered) or a market reference less a stated spread. The
+   payslip freezes whichever was used. */
+export const PAY_CURRENCIES = ["USD", "PHP"] as const;
+
+export interface FxRate {
+  id: string;
+  baseCurrency: string;
+  quoteCurrency: string;
+  rate: number;
+  source: "paypal_actual" | "market_reference";
+  spreadBps: number;
+  effectiveFrom: string;
+  note: string | null;
+  createdAt: string;
+}
+
+export async function fetchFxRates(): Promise<FxRate[]> {
+  const sb = requireSupabase();
+  const { data, error } = await sb
+    .from("fx_rates")
+    .select("id, base_currency, quote_currency, rate, source, spread_bps, effective_from, note, created_at")
+    .order("effective_from", { ascending: false })
+    .limit(50);
+  if (error) throw error;
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    baseCurrency: r.base_currency as string,
+    quoteCurrency: r.quote_currency as string,
+    rate: Number(r.rate),
+    source: r.source as FxRate["source"],
+    spreadBps: Number(r.spread_bps ?? 0),
+    effectiveFrom: r.effective_from as string,
+    note: (r.note as string) ?? null,
+    createdAt: r.created_at as string,
+  }));
+}
+
+export async function addFxRate(input: {
+  agencyId: string;
+  baseCurrency: string;
+  quoteCurrency: string;
+  rate: number;
+  source: FxRate["source"];
+  spreadBps?: number;
+  effectiveFrom: string;
+  note?: string;
+}): Promise<void> {
+  const sb = requireSupabase();
+  const { data: me } = await sb.auth.getUser();
+  const { error } = await sb.from("fx_rates").insert({
+    agency_id: input.agencyId,
+    base_currency: input.baseCurrency,
+    quote_currency: input.quoteCurrency,
+    rate: input.rate,
+    source: input.source,
+    spread_bps: input.spreadBps ?? 0,
+    effective_from: input.effectiveFrom,
+    note: input.note?.trim() || null,
+    set_by: me.user?.id ?? null,
+  });
+  if (error) throw error;
+}
+
+/** Ask the function for a market reference less the stated spread. */
+export async function suggestFxRate(base: string, quote: string, spreadBps: number): Promise<{
+  rate: number; marketRate: number; marketSource: string; note: string;
+}> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.functions.invoke("fx-rate", {
+    body: { base, quote, spreadBps },
+  });
+  if (error) throw error;
+  const r = data as { rate: number; marketRate: number; marketSource: string; note: string };
+  return r;
+}
+
 /** The rate in force today per person, RLS-scoped (self, or payroll access). */
 export async function fetchPayRates(): Promise<PayRate[]> {
   const sb = requireSupabase();
@@ -290,6 +368,9 @@ export async function fetchPayRates(): Promise<PayRate[]> {
 export async function setPayRate(input: {
   userId: string; rateType: "hourly" | "per_cutoff"; rateCents: number; currency?: string;
 }): Promise<void> {
+  /* Currency is the person's OWN — a Manila processor is paid in pesos and a
+     US contractor in dollars; the payslip converts to the payout currency at
+     the recorded rate. */
   const sb = requireSupabase();
   const { error } = await sb.rpc("set_member_pay_rate", {
     p_user: input.userId,
@@ -373,11 +454,16 @@ export interface Payslip {
   adjustmentCents: number;
   adjustmentNote: string | null;
   grossCents: number;
+  /** The conversion this payslip froze. NULL = no rate for the pair. */
+  payoutCurrency: string | null;
+  fxRate: number | null;
+  payoutCents: number | null;
 }
 
 const PAYSLIP_SELECT =
   "id, cutoff_id, user_id, rate_type, rate_cents, currency, work_minutes, " +
   "paid_leave_minutes, paid_break_minutes, base_cents, adjustment_cents, adjustment_note, gross_cents, " +
+  "payout_currency, fx_rate, payout_cents, " +
   "person:profiles!payslips_user_id_fkey(full_name, email)";
 
 const mapPayslip = (r: Record<string, unknown>): Payslip => {
@@ -397,6 +483,9 @@ const mapPayslip = (r: Record<string, unknown>): Payslip => {
     adjustmentCents: Number(r.adjustment_cents ?? 0),
     adjustmentNote: (r.adjustment_note as string) ?? null,
     grossCents: Number(r.gross_cents ?? 0),
+    payoutCurrency: (r.payout_currency as string) ?? null,
+    fxRate: r.fx_rate === null || r.fx_rate === undefined ? null : Number(r.fx_rate),
+    payoutCents: r.payout_cents === null || r.payout_cents === undefined ? null : Number(r.payout_cents),
   };
 };
 
@@ -417,6 +506,8 @@ export interface PayrollSettings {
   splitDay: number;
   paydayFirst: number;
   paydaySecond: number;
+  /** What totals and the released expense are stated in. */
+  payoutCurrency: string;
   verifyWindowDays: number;
   timezone: string;
 }
@@ -433,6 +524,7 @@ export async function fetchPayrollSettings(): Promise<PayrollSettings | null> {
     paydaySecond: data.payday_second,
     verifyWindowDays: data.verify_window_days,
     timezone: data.timezone,
+    payoutCurrency: (data as { payout_currency?: string }).payout_currency ?? "USD",
   };
 }
 
@@ -444,6 +536,7 @@ export async function setPayrollSettings(input: PayrollSettings): Promise<void> 
     p_payday_first: input.paydayFirst,
     p_payday_second: input.paydaySecond,
     p_verify_window_days: input.verifyWindowDays,
+    p_payout_currency: input.payoutCurrency,
     p_timezone: input.timezone,
   });
   if (error) throw error;

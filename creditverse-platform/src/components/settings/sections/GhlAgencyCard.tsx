@@ -104,11 +104,13 @@ export function GhlAgencyCard({
       /* "p:<id>" a partner, "o:<id>" an organization — one control, because
          the question is "who does this location belong to", and the answer
          is one party of either shape (rule 16). */
-      mapGhlLocation(locationId, owner.startsWith("p:")
-        ? { partnerId: owner.slice(2) }
-        : owner.startsWith("o:")
-          ? { organizationId: owner.slice(2) }
-          : {}),
+      mapGhlLocation(locationId, owner === "bes"
+        ? { agencyOwn: true }
+        : owner.startsWith("p:")
+          ? { partnerId: owner.slice(2) }
+          : owner.startsWith("o:")
+            ? { organizationId: owner.slice(2) }
+            : {}),
     onSuccess: () => setMessage({ text: "Mapped. Any events already received were attributed to it.", error: false }),
     onError: (e) => setMessage({ text: errorMessage(e, "It could not be mapped."), error: true }),
     onSettled: refresh,
@@ -116,17 +118,23 @@ export function GhlAgencyCard({
 
   const ready = companyId.trim() && token.trim();
   const ghlLocations = connections.filter((c) => c.companyId);
-  const mapped = ghlLocations.filter((c) => c.organizationId || c.outsourcingGroupId).length;
+  const mapped = ghlLocations.filter((c) => c.organizationId || c.outsourcingGroupId || c.agencyOwned).length;
   /* Partners first: almost every BES customer is a partner with no SaaS
      organization, and before this the list held only organizations — of
      which there are none, so nothing could be mapped at all. */
   const ownerOptions = [
     { value: "__none", label: "Not mapped" },
+    /* BES's own house account — a different fact from "a customer's", and
+       from "nobody has said yet". */
+    { value: "bes", label: "BES — our own account" },
     ...partners.map((p) => ({ value: `p:${p.id}`, label: `${p.name} (partner)` })),
     ...organizations.map((o) => ({ value: `o:${o.id}`, label: `${o.name} (organization)` })),
   ];
-  const ownerValue = (c: { organizationId: string | null; outsourcingGroupId: string | null }) =>
-    c.outsourcingGroupId ? `p:${c.outsourcingGroupId}` : c.organizationId ? `o:${c.organizationId}` : "__none";
+  const ownerValue = (c: { organizationId: string | null; outsourcingGroupId: string | null; agencyOwned: boolean }) =>
+    c.agencyOwned ? "bes"
+      : c.outsourcingGroupId ? `p:${c.outsourcingGroupId}`
+      : c.organizationId ? `o:${c.organizationId}`
+      : "__none";
   const anyEventReceived = connections.some((c) => c.lastEventAt);
   const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL ?? "https://<project>.supabase.co"}/functions/v1/ghl-webhook`;
 
@@ -304,7 +312,7 @@ export function GhlAgencyCard({
                     {c.discoveredAt ? ` · seen ${formatDateTime(c.discoveredAt)}` : ""}
                   </p>
                 </div>
-                {!c.organizationId && !c.outsourcingGroupId && (
+                {!c.organizationId && !c.outsourcingGroupId && !c.agencyOwned && (
                   <span className="rounded-full border border-dashed border-border px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
                     Not mapped
                   </span>
