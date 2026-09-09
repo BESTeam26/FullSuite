@@ -72,6 +72,7 @@ export const ROUTE_CHUNKS: Record<string, Loader> = {
   "/app/people": named(hq2, "PeoplePage"),
   "/app/teams": named(hq2, "TeamsPage"),
   "/app/workforce": named(hq2, "WorkforcePage"),
+  "/app/hr": named(() => import("@/pages/app/HrPage"), "HrPage"),
   "/app/announcements": named(hq2, "AnnouncementsPage"),
   "/app/support": named(hq2, "SupportPage"),
   "/app/billing": named(hq2, "BillingPage"),

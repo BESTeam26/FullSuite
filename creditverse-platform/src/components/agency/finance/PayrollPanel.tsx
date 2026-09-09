@@ -153,6 +153,7 @@ function CutoffDetail({ cutoffId, released, canManage }: { cutoffId: string; rel
                   <span className="font-medium">{p.userName ?? "—"}</span>
                   <span className="text-muted-foreground">
                     {" "}· {formatDuration(p.workMinutes)} worked
+                    {p.paidBreakMinutes > 0 ? ` + ${formatDuration(p.paidBreakMinutes)} paid breaks` : ""}
                     {p.paidLeaveMinutes > 0 ? ` + ${formatDuration(p.paidLeaveMinutes)} paid leave` : ""}
                     {" "}· {p.rateType === "hourly" ? `${money(p.rateCents, p.currency)}/h` : `${money(p.rateCents, p.currency)}/cutoff`}
                     {p.adjustmentCents !== 0 ? ` · adj ${money(p.adjustmentCents, p.currency)} (${p.adjustmentNote})` : ""}

@@ -29,6 +29,7 @@ import { Button } from "@/components/ui/button";
 import { OpsSelect } from "@/components/ui/ops-select";
 import { Pill } from "@/components/agency/partner/partner-ui";
 import { OwnerDeleteButton } from "@/components/agency/OwnerDeleteButton";
+import { EditPartnerDialog } from "@/components/agency/partner/EditPartnerDialog";
 import { PartnerOverviewTab } from "@/components/agency/partner/PartnerOverviewTab";
 import { PartnerServicesTab } from "@/components/agency/partner/PartnerServicesTab";
 import { PartnerOperationsTab } from "@/components/agency/partner/PartnerOperationsTab";
@@ -127,7 +128,7 @@ export const PartnerProfilePage = () => {
   return (
     <HqPageShell
       title={p.name}
-      description={p.companyName ?? "BES Partner"}
+      description={p.primaryContact ?? p.contactEmail ?? "BES Partner"}
       icon={Handshake}
       actions={
         <div className="flex flex-wrap items-center gap-2">
@@ -151,6 +152,7 @@ export const PartnerProfilePage = () => {
           </Button>
           {perms.can("partners.edit") && (
             <>
+            <EditPartnerDialog partner={p} people={people} teams={teams} />
             <OpsSelect aria-label="Partner lifecycle" size="sm" value={p.lifecycle}
               onValueChange={(v) => actions.setLifecycle.mutate({ id: p.id, lifecycle: v as PartnerLifecycle })}
               options={PARTNER_LIFECYCLES.map((l) => ({ value: l, label: LIFECYCLE_LABEL[l] }))} />

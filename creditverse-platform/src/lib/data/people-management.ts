@@ -368,6 +368,7 @@ export interface Payslip {
   currency: string;
   workMinutes: number;
   paidLeaveMinutes: number;
+  paidBreakMinutes: number;
   baseCents: number;
   adjustmentCents: number;
   adjustmentNote: string | null;
@@ -376,7 +377,7 @@ export interface Payslip {
 
 const PAYSLIP_SELECT =
   "id, cutoff_id, user_id, rate_type, rate_cents, currency, work_minutes, " +
-  "paid_leave_minutes, base_cents, adjustment_cents, adjustment_note, gross_cents, " +
+  "paid_leave_minutes, paid_break_minutes, base_cents, adjustment_cents, adjustment_note, gross_cents, " +
   "person:profiles!payslips_user_id_fkey(full_name, email)";
 
 const mapPayslip = (r: Record<string, unknown>): Payslip => {
@@ -391,6 +392,7 @@ const mapPayslip = (r: Record<string, unknown>): Payslip => {
     currency: r.currency as string,
     workMinutes: Number(r.work_minutes ?? 0),
     paidLeaveMinutes: Number(r.paid_leave_minutes ?? 0),
+    paidBreakMinutes: Number(r.paid_break_minutes ?? 0),
     baseCents: Number(r.base_cents ?? 0),
     adjustmentCents: Number(r.adjustment_cents ?? 0),
     adjustmentNote: (r.adjustment_note as string) ?? null,

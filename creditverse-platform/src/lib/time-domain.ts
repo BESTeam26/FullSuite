@@ -32,6 +32,85 @@ export function entryMinutes(entry: TimeEntry, now: Date = new Date()): number {
   return Math.max(0, Math.round((now.getTime() - started) / 60_000));
 }
 
+/**
+ * Seconds for one entry: stored minutes for a closed one (the database keeps
+ * whole minutes, so a closed entry's seconds are :00 honestly), live seconds
+ * for a running one. Feeds the ticking counters (Dee, 2026-09-09: "I want my
+ * timer to have a counter … include the hours, minutes and seconds").
+ */
+export function entrySeconds(entry: TimeEntry, now: Date = new Date()): number {
+  if (entry.durationMinutes !== undefined) return entry.durationMinutes * 60;
+  const started = new Date(entry.startedAt).getTime();
+  return Math.max(0, Math.floor((now.getTime() - started) / 1000));
+}
+
+/** "1h 04m 32s" / "12m 05s" — the ticking form. Never drops the seconds. */
+export function formatClock(totalSeconds: number): string {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  const mm = String(m).padStart(2, "0");
+  const ss = String(sec).padStart(2, "0");
+  return h > 0 ? `${h}h ${mm}m ${ss}s` : `${m}m ${ss}s`;
+}
+
+/**
+ * The day's ticking totals: work and rest as SECONDS, the open entry's live
+ * span included on whichever side it belongs to.
+ */
+export function liveDaySeconds(
+  entries: TimeEntry[],
+  today: string,
+  now: Date = new Date(),
+): { workSeconds: number; restSeconds: number; breakSeconds: number; lunchSeconds: number } {
+  let workSeconds = 0;
+  let breakSeconds = 0;
+  let lunchSeconds = 0;
+  for (const e of entries) {
+    if (e.workDate !== today) continue;
+    const secs = entrySeconds(e, now);
+    if (e.kind === "work") workSeconds += secs;
+    else if (e.kind === "lunch") lunchSeconds += secs;
+    else breakSeconds += secs;
+  }
+  return { workSeconds, restSeconds: breakSeconds + lunchSeconds, breakSeconds, lunchSeconds };
+}
+
+/** "HH:MM:SS" wall-clock of an instant in a named timezone. */
+function wallTime(at: Date, timezone: string): string {
+  return at.toLocaleTimeString("en-GB", { hour12: false, timeZone: timezone });
+}
+
+/**
+ * How late the first work clock-in is against the schedule, in minutes.
+ * 0 when on time, not a scheduled day, or nothing recorded yet. Wall-clock
+ * comparison in the SCHEDULE's own timezone — the same arithmetic
+ * `attendance_for` runs in SQL, so the agent's warning and the manager's
+ * mark can never disagree.
+ */
+export function lateMinutesToday(
+  entries: TimeEntry[],
+  schedule: { workDays: number[]; shiftStart: string; graceMinutes: number; timezone: string },
+  today: string,
+  now: Date = new Date(),
+): number {
+  const isoDow = ((new Date(`${today}T12:00:00`).getDay() + 6) % 7) + 1;
+  if (!schedule.workDays.includes(isoDow)) return 0;
+  const firstIn = entries
+    .filter((e) => e.workDate === today && e.kind === "work")
+    .map((e) => new Date(e.startedAt))
+    .sort((a, b) => a.getTime() - b.getTime())[0];
+  if (!firstIn) return 0;
+  const inWall = wallTime(firstIn, schedule.timezone);
+  const [h, m] = schedule.shiftStart.split(":").map(Number);
+  const graceEnd = h * 60 + m + schedule.graceMinutes;
+  const [ih, im, is] = inWall.split(":").map(Number);
+  const inMinutes = ih * 60 + im + is / 60;
+  void now;
+  return Math.max(0, Math.ceil(inMinutes - graceEnd));
+}
+
 /** Monday-based week start for a given date, as YYYY-MM-DD. */
 export function weekStart(date: Date = new Date()): string {
   const d = new Date(date);

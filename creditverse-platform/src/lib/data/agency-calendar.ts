@@ -88,22 +88,30 @@ export async function syncFederalHolidays(agencyId: string, fromYear: number, ye
 
 type Lead = "7d" | "1d" | "day";
 
+/**
+ * Announcements PERSIST, so their wording must stay true after the day has
+ * passed (Dee, 2026-09-09: a "Today is Labor Day" card read two days later
+ * confused everyone). Every title and body carries the DATE and no "today"
+ * or "tomorrow" — dated text never goes stale. The live banner keeps its
+ * deictic wording because it recomputes and disappears; a stored record may
+ * not.
+ */
 const WORDING: Record<Lead, (name: string, when: string) => { title: string; body: string }> = {
   "7d": (name, when) => ({
-    title: `Upcoming U.S. Holiday: ${name}`,
+    title: `Upcoming U.S. holiday: ${name}`,
     body:
       `BES will observe ${name} on ${when}.\n\n` +
       "Please plan client work, deadlines, handoffs and EOD priorities accordingly.",
   }),
-  "1d": (name) => ({
-    title: `U.S. Holiday Tomorrow: ${name}`,
+  "1d": (name, when) => ({
+    title: `U.S. holiday next: ${name} (${when})`,
     body:
-      "BES will observe the holiday tomorrow. Please make sure urgent work and " +
-      "handoffs are completed today.",
+      `BES will observe ${name} on ${when}. Urgent work and handoffs should be ` +
+      "completed the working day before.",
   }),
-  day: (name) => ({
-    title: `Today is ${name}`,
-    body: "BES is observing the U.S. federal holiday.",
+  day: (name, when) => ({
+    title: `${name} — ${when}`,
+    body: `BES is observing the U.S. federal holiday on ${when}.`,
   }),
 };
 

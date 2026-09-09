@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 import type { TimeEntry } from "@/lib/data/time-entries";
 import {
   entryMinutes,
+  entrySeconds,
+  formatClock,
   formatDuration,
+  lateMinutesToday,
+  liveDaySeconds,
   summariseTime,
   weekStart,
 } from "@/lib/time-domain";
@@ -156,5 +160,66 @@ describe("breaks are rest, not production", () => {
       "2026-09-03",
     );
     expect(s.byDivision).toEqual([]);
+  });
+});
+
+describe("the ticking clock", () => {
+  const NOW = new Date("2026-09-03T10:30:45.000Z");
+
+  it("counts a running entry in live seconds", () => {
+    const e = entry({ endedAt: undefined, durationMinutes: undefined, startedAt: "2026-09-03T09:00:00.000Z" });
+    expect(entrySeconds(e, NOW)).toBe(90 * 60 + 45);
+  });
+
+  it("a closed entry's seconds come from its stored minutes", () => {
+    expect(entrySeconds(entry({ durationMinutes: 90 }))).toBe(5400);
+  });
+
+  it("formats hours, minutes and seconds — and never drops the seconds", () => {
+    expect(formatClock(3872)).toBe("1h 04m 32s");
+    expect(formatClock(725)).toBe("12m 05s");
+    expect(formatClock(0)).toBe("0m 00s");
+  });
+
+  it("splits the day's live totals into work and rest", () => {
+    const t = liveDaySeconds(
+      [
+        entry({ id: "w", durationMinutes: 60 }),
+        entry({ id: "b", kind: "break", durationMinutes: 10 }),
+        entry({ id: "r", kind: "work", endedAt: undefined, durationMinutes: undefined, startedAt: "2026-09-03T10:30:15.000Z" }),
+      ],
+      "2026-09-03",
+      NOW,
+    );
+    expect(t.workSeconds).toBe(3600 + 30);
+    expect(t.restSeconds).toBe(600);
+  });
+});
+
+describe("the agent's own warnings", () => {
+  const SCHEDULE = { workDays: [1, 2, 3, 4], shiftStart: "09:00:00", graceMinutes: 5, timezone: "UTC" };
+  // 2026-09-03 is a Thursday (ISO day 4).
+
+  it("splits rest into break and lunch", () => {
+    const t = liveDaySeconds(
+      [entry({ id: "b", kind: "break", durationMinutes: 20 }), entry({ id: "l", kind: "lunch", durationMinutes: 45 })],
+      "2026-09-03",
+    );
+    expect(t.breakSeconds).toBe(1200);
+    expect(t.lunchSeconds).toBe(2700);
+  });
+
+  it("counts lateness against shift start plus grace, in the schedule's timezone", () => {
+    const late = lateMinutesToday(
+      [entry({ startedAt: "2026-09-03T09:17:00.000Z" })],
+      SCHEDULE, "2026-09-03",
+    );
+    expect(late).toBe(12); // 9:17 against 9:00 + 5m grace
+  });
+
+  it("says nothing on a day off, or before the first clock-in", () => {
+    expect(lateMinutesToday([entry({ startedAt: "2026-09-04T12:00:00.000Z", workDate: "2026-09-04" })],
+      SCHEDULE, "2026-09-04")).toBe(0); // Friday not in workDays
+    expect(lateMinutesToday([], SCHEDULE, "2026-09-03")).toBe(0);
   });
 });

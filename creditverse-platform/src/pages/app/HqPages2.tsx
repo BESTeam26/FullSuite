@@ -16,7 +16,6 @@ import { SubAccountInvoicingMetering } from "@/components/dashboard/SubAccountIn
 import { useAgencySettings } from "@/lib/agency-settings-context";
 import { Link } from "react-router-dom";
 import { useWorkforce } from "@/lib/data/use-workforce";
-import { SchedulesAndRates } from "@/components/agency/people/SchedulesAndRates";
 import { useAuth } from "@/lib/auth/auth-context";
 import { usePermissions } from "@/lib/auth/use-permission";
 import { AnnouncementsBoard } from "@/components/intranet/AnnouncementsBoard";
@@ -109,9 +108,6 @@ export const WorkforcePage = () => {
             </div>
           )}
         </ContentCard>
-      </div>
-      <div className="mt-5">
-        <SchedulesAndRates />
       </div>
     </HqPageShell>
   );

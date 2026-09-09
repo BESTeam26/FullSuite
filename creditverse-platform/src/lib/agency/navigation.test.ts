@@ -34,7 +34,7 @@ const STAFF_MENU = [
 const LEAD_EXTRAS = ["/app/attention", "/app/team-eod"];
 
 const MANAGEMENT = [
-  "/app/people", "/app/teams", "/app/workforce",
+  "/app/people", "/app/teams", "/app/workforce", "/app/hr",
   "/app/creditops", "/app/fundingops", "/app/bes-crm", "/app/talentops",
   "/app/bes-partners",
 ];

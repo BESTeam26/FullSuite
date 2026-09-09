@@ -1068,3 +1068,44 @@ for managers but not LEADS, so a lead's approved adjustment was silently
 clamped to the 10-hour cap. The decision function now raises the system flag
 around its one authorized write — the decision is the authorization, and the
 guard no longer re-litigates it. Phases 69+70: **122/122**. Suite 1,538.
+
+### The matrix's one red check was a real hole — partner storage pinned — 2026-09-09
+
+The full 70-phase rerun finished 1436/1437, and the failing check was doing
+its job: "no OTHER bucket policy reaches the channels subtree." The new portal
+policy `bes_files_partner_select` (0259) authorized through the files row
+alone — nothing constrained WHERE the object lived, so a mis-pointed or forged
+partner files row aimed at `agency/channels/…` would have handed a channel
+attachment to a partner contact. Two layers now close it (003400/003500): the
+storage policy only matches `agency/partner/…`, and `set_partner_file_shared`
+refuses to flag a row whose path is outside that subtree. 003400's first
+applied version also carried a broken audit insert plpgsql only reports at
+call time; 003500 repaired it to the original audited body plus the guard.
+New probes: the pin exists, sharing outside the subtree is 42501 even for the
+owner, and the channels sweep exempts only path-pinned policies. Phases
+55+61: **213/213**.
+
+### Every ClickUp partner card is now the partner's note — passwords excepted — 2026-09-09
+
+All 24 cards fetched; 21 partners now carry their card verbatim in notes
+(0261, 0264): platforms, usernames, emails, spreadsheets, SOPs, special
+instructions like "NO MAILING" and the EDP monitoring-hold policy. Every
+password VALUE reads "[password — see Logins tab]" — notes are plain text
+readable by anyone with partner access, so secrets go only in the encrypted,
+read-audited Logins vault, re-keyed by hand and rotated. Verified live: a
+scan for every literal secret seen on the cards returns zero rows. Wavy One's
+hand-written note was kept and the card appended. Still empty: 8F, K&A,
+Romeo, Shawn (their cards were empty) and Kevin Hernandez (no card). Four
+attachments remain on ClickUp (BigOnCredit logo, Nainoa ×2, No Limit ×1) —
+each note links its card.
+
+### The Edit button edits the whole Relationship card — 2026-09-09
+
+Dee's screenshot: the fields under Relationship read "Not recorded" with no
+way in. EditPartnerDialog now covers started date, BES SaaS plan, contract
+reference, account manager and team beside company/person/email/phone/notes —
+one editor, the same `update` mutation the Team tab already used. And the HR
+& People page gained the sidebar link it never had: the registry (`hr`,
+manage-level) was wired but the Sidebar's hard-coded Workforce group wasn't.
+Verified in the browser: dialog opens, saves ("Partner updated"), /app/hr
+reachable from the rail. Suite 1,546.

@@ -104,6 +104,7 @@ export const AGENCY_ROUTES: AgencyRouteSpec[] = [
   { key: "people", label: "People", path: "/app/people", readiness: "ready", access: "manage" },
   { key: "teams", label: "Teams", path: "/app/teams", readiness: "ready", access: "manage" },
   { key: "workforce", label: "Workforce", path: "/app/workforce", readiness: "ready", access: "manage" },
+  { key: "hr", label: "HR & People", path: "/app/hr", readiness: "ready", access: "manage" },
   { key: "reporting", label: "Reports", path: "/app/reporting", readiness: "ready", access: "manage", permission: "reports.view" },
   { key: "partners", label: "BES Partners", path: "/app/bes-partners", readiness: "ready", access: "manage" },
   { key: "creditops", label: "CreditOps", path: "/app/creditops", readiness: "ready", access: "manage" },

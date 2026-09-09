@@ -122,6 +122,7 @@ const NotificationsPage = lazy(chunkFor("/app/notifications"));
 const PeoplePage = lazy(chunkFor("/app/people"));
 const TeamsPage = lazy(chunkFor("/app/teams"));
 const WorkforcePage = lazy(chunkFor("/app/workforce"));
+const HrPage = lazy(chunkFor("/app/hr"));
 const BillingPage = lazy(chunkFor("/app/billing"));
 const AgencyFinance = lazy(chunkFor("/app/finance"));
 const AnnouncementsPage = lazy(chunkFor("/app/announcements"));
@@ -450,6 +451,14 @@ const AppRoutes = () => {
               element={
                 <RequireAgencyStaff label="Workforce">
                   <WorkforcePage />
+                </RequireAgencyStaff>
+              }
+            />
+            <Route
+              path="hr"
+              element={
+                <RequireAgencyStaff label="HR & People">
+                  <HrPage />
                 </RequireAgencyStaff>
               }
             />

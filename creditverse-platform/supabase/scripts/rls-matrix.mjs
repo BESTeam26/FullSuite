@@ -3248,6 +3248,16 @@ if (runs(55)) {
                  from (select pg_get_functiondef(p.oid) as def from pg_proc p join pg_namespace n on n.oid=p.pronamespace
                         where n.nspname='public' and p.proname='my_partner_clients') d`)[0].rows, "true"],
 
+    /* A KNOWN group id, fetched as the superuser: an agent sees no partner at
+       all since 0184, so a subquery would insert zero rows and the probe
+       could never fail. Refused either way — by the permission branch or by
+       entity_visible — never accepted. */
+    ["uploading a partner file needs the upload permission — not just sight of the partner (0257)",
+      () => { const g = q(`select id::text as rows from public.outsourcing_groups where is_fixture = false limit 1`)[0].rows;
+              return probe55(AGENT55, `insert into public.files (agency_id, entity_type, entity_id, bucket, path, name, uploaded_by)
+        values ('${AG}', 'partner', '${g}', 'bes-files', 'agency/partner/probe/y.pdf', 'y.pdf', '${AGENT55}'::uuid);
+        select 0 as rows`); }, "ERR 42501"],
+
     ["sharing a partner file needs the portal permission",
       () => probe55(OWNER55,
         `insert into public.outsourcing_groups (id, agency_id, name, contact_email) values
@@ -3266,6 +3276,14 @@ if (runs(55)) {
          select public.set_partner_file_shared('44444444-0000-4000-8000-0000000000fe'::uuid, true);
          select ((select shared_with_partner from public.files where id='44444444-0000-4000-8000-0000000000fe')::int
                + (select count(*) from public.activity_events where entity_type='partner' and action like 'File shared%')::int)::int as rows`), 2],
+
+    ["sharing a file stored OUTSIDE the partner subtree is refused, even to the owner (003400)",
+      () => probe55(OWNER55,
+        `insert into public.outsourcing_groups (id, agency_id, name, contact_email) values
+           ('44444444-0000-4000-8000-0000000000fd'::uuid,'${AG}','Probe Portal D','pd@example.test');
+         insert into public.files (id, agency_id, entity_type, entity_id, bucket, path, name, uploaded_by) values
+           ('44444444-0000-4000-8000-0000000000ff'::uuid, '${AG}', 'partner', '44444444-0000-4000-8000-0000000000fd', 'bes-files', 'agency/channels/probe/leak.pdf', 'leak.pdf', '${U["bes.owner@bes.test"]}'::uuid);
+         select public.set_partner_file_shared('44444444-0000-4000-8000-0000000000ff'::uuid, true); select 0 as rows`), "ERR 42501"],
 
     ["an unshared partner file's object is unreadable through the portal storage policy",
       () => q(`select (position('shared_with_partner' in pg_get_expr(polqual, polrelid)) > 0)::text as rows from pg_policy where polname='bes_files_partner_select' and polrelid='storage.objects'::regclass`)[0].rows, "true"],
@@ -4480,12 +4498,20 @@ if (runs(61)) {
        are — `bes_files_activity_select` and `bes_files_borrower_select` are
        legitimate and both scoped to `…/activity/…`. The question is whether
        any of them reaches the CHANNELS subtree beside the narrow one. */
+    /* The partner portal policy (0259/003400) is legitimate too — but only
+       because it pins itself to agency/partner/. Assert the pin, then sweep
+       for anything ELSE: a policy is exempt from the sweep only when its
+       qual carries a positive path pin away from the channels subtree. */
+    ["…the partner portal policy is pinned to its own subtree (003400)",
+      () => q(`select (position('agency/partner/' in pg_get_expr(polqual, polrelid)) > 0)::text as rows
+                from pg_policy where polname='bes_files_partner_select' and polrelid='storage.objects'::regclass`)[0].rows, "true"],
     ["…and no OTHER bucket policy reaches the channels subtree",
       () => q(`select count(*)::int as rows from pg_policy p join pg_class c on c.oid=p.polrelid
                 where c.relname='objects' and p.polcmd in ('r','*')
                   and p.polname <> 'bes_files_select'
                   and pg_get_expr(p.polqual, p.polrelid) like '%bes-files%'
-                  and pg_get_expr(p.polqual, p.polrelid) not like '%activity%'`)[0].rows, 0],
+                  and pg_get_expr(p.polqual, p.polrelid) not like '%activity%'
+                  and pg_get_expr(p.polqual, p.polrelid) not like '%agency/partner/%'`)[0].rows, 0],
 
     /* ── §61 — the host start url has no home in this schema ──────── */
     ["no table anywhere holds a meeting host start url",

@@ -29,7 +29,6 @@ import { Button } from "@/components/ui/button";
 import { FinanceFigures } from "@/components/agency/finance/FinanceFigures";
 import { ReceivablesTable } from "@/components/agency/finance/ReceivablesTable";
 import { ExpensesPanel } from "@/components/agency/finance/ExpensesPanel";
-import { PayrollPanel } from "@/components/agency/finance/PayrollPanel";
 import { useFinancialInputs } from "@/lib/data/use-partner-billing";
 import { useExpenses } from "@/lib/data/use-agency-expenses";
 import { useAgencyPermissions } from "@/lib/data/agency-permissions";
@@ -48,8 +47,6 @@ export const AgencyFinance = () => {
   });
   const inputs = useFinancialInputs(month);
   const expenses = useExpenses(month.year, month.month);
-  /* The tab exists only for someone who may use it (rule 3). */
-  const payroll = perms.can("payroll.view") || perms.can("payroll.manage");
   const [tab, setTab] = useState("receivables");
 
   if (perms.loading) {
@@ -113,7 +110,6 @@ export const AgencyFinance = () => {
             <TabsList className="h-8 bg-muted/60">
               <TabsTrigger value="receivables" className="text-[11px]">Receivables</TabsTrigger>
               <TabsTrigger value="expenses" className="text-[11px]">Expenses</TabsTrigger>
-              {payroll && <TabsTrigger value="payroll" className="text-[11px]">Payroll</TabsTrigger>}
             </TabsList>
             <TabsContent value="receivables" className="mt-3">
               <ReceivablesTable
@@ -127,11 +123,6 @@ export const AgencyFinance = () => {
             <TabsContent value="expenses" className="mt-3">
               <ExpensesPanel month={month} />
             </TabsContent>
-            {payroll && (
-              <TabsContent value="payroll" className="mt-3">
-                <PayrollPanel />
-              </TabsContent>
-            )}
           </Tabs>
         </>
       )}

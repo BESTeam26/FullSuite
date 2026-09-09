@@ -9433,6 +9433,7 @@ export type Database = {
           cutoff_id: string
           gross_cents: number | null
           id: string
+          paid_break_minutes: number
           paid_leave_minutes: number
           rate_cents: number
           rate_type: string
@@ -9449,6 +9450,7 @@ export type Database = {
           cutoff_id: string
           gross_cents?: number | null
           id?: string
+          paid_break_minutes?: number
           paid_leave_minutes?: number
           rate_cents: number
           rate_type: string
@@ -9465,6 +9467,7 @@ export type Database = {
           cutoff_id?: string
           gross_cents?: number | null
           id?: string
+          paid_break_minutes?: number
           paid_leave_minutes?: number
           rate_cents?: number
           rate_type?: string
@@ -13484,6 +13487,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      dst_calendar_sweep: { Args: never; Returns: undefined }
       end_position_assignment: {
         Args: { p_id: string; p_on?: string }
         Returns: undefined
@@ -13780,6 +13784,13 @@ export type Database = {
         Returns: {
           allowed: boolean
           key: string
+        }[]
+      }
+      next_dst_transitions: {
+        Args: { p_count?: number; p_from: string; p_tz: string }
+        Returns: {
+          direction: string
+          transition_on: string
         }[]
       }
       next_invoice_number: { Args: { p_agency: string }; Returns: string }

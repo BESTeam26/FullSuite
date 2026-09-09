@@ -8,7 +8,7 @@
  * six unrelated pages, and adding data loading to one of them would have made a
  * 520-line module worse (rule 13).
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CalendarOff, Coffee, Clock, PlayCircle, PauseCircle, AlertTriangle, UtensilsCrossed } from "lucide-react";
 import {
   ContentCard,
@@ -20,16 +20,33 @@ import { OpsSelect } from "@/components/ui/ops-select";
 import { HqPageShell } from "@/pages/app/HqPages";
 import { useTimesheet } from "@/lib/data/use-time";
 import { useMyTimeAdjustments, useRequestTimeAdjustment } from "@/lib/data/use-time-adjustments";
-import { useLeaveActions, useLeaveTypes, useMyLeave } from "@/lib/data/use-people";
+import { useLeaveActions, useLeaveTypes, useMyLeave, useSchedules } from "@/lib/data/use-people";
 import { formatDate } from "@/lib/format-date";
 import type { TimeAdjustmentRequest, TimeEntry } from "@/lib/data/time-entries";
 import { STALE_TIMER_HOURS, describeRunningFor, isStaleTimer } from "@/lib/time-domain";
 import {
   DIVISION_LABELS,
   divisionLabel,
-  entryMinutes,
+  entrySeconds,
+  formatClock,
   formatDuration,
+  lateMinutesToday,
+  liveDaySeconds,
 } from "@/lib/time-domain";
+
+/**
+ * One shared heartbeat for every counter on the page. It beats only while a
+ * clock is running — a page of closed entries re-renders for nobody.
+ */
+function useNowTick(running: boolean): Date {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    if (!running) return;
+    const t = window.setInterval(() => setNow(new Date()), 1000);
+    return () => window.clearInterval(t);
+  }, [running]);
+  return now;
+}
 
 const DIVISION_OPTIONS = Object.entries(DIVISION_LABELS).map(
   ([value, label]) => ({ value, label }),
@@ -48,6 +65,19 @@ export const MyTimePage = () => {
   const [taskNote, setTaskNote] = useState("");
 
   const running = Boolean(t.openEntry);
+  const now = useNowTick(running);
+  const live = liveDaySeconds(t.entries, t.today, now);
+  const openSeconds = t.openEntry ? entrySeconds(t.openEntry, now) : 0;
+
+  /* The agent's own schedule; the same numbers a manager's attendance view
+     derives, said to the person themselves while they can still act on them
+     (Dee: "signal to the agents that they're already over break/lunch, or
+     even late"). */
+  const schedules = useSchedules();
+  const mySchedule = (schedules.data ?? [])[0];
+  const overBreakSec = mySchedule ? Math.max(0, live.breakSeconds - mySchedule.breakMinutes * 60) : 0;
+  const overLunchSec = mySchedule ? Math.max(0, live.lunchSeconds - mySchedule.lunchMinutes * 60) : 0;
+  const lateMin = mySchedule ? lateMinutesToday(t.entries, mySchedule, t.today, now) : 0;
   /* A timer left running overnight quietly corrupts production and End of Day,
      so it is said out loud. Stopping it stays the person's own act. */
   const stale = isStaleTimer(t.openEntry);
@@ -81,7 +111,7 @@ export const MyTimePage = () => {
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <StatCard
           label="Today"
-          value={formatDuration(t.todayMinutes)}
+          value={live.workSeconds > 0 ? formatClock(live.workSeconds) : "—"}
           icon={Clock}
         />
         <StatCard
@@ -165,15 +195,18 @@ export const MyTimePage = () => {
           </>
         )}
         {running && t.openEntry && (
-          <span className="text-xs text-muted-foreground">
+          <span className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span className={`rounded-lg border px-2.5 py-1 font-mono text-sm font-bold tabular-nums ${t.openEntry.kind === "work" ? "border-emerald-600/40 bg-emerald-500/10 text-emerald-800" : "border-amber-500/40 bg-amber-500/10 text-amber-800"}`}>
+              {formatClock(openSeconds)}
+            </span>
             {t.openEntry.kind === "work"
-              ? `Running since ${clockTime(t.openEntry.startedAt)} · ${divisionLabel(t.openEntry.divisionId)}${t.openEntry.taskNote ? ` · ${t.openEntry.taskNote}` : ""}`
-              : `On ${t.openEntry.kind} since ${clockTime(t.openEntry.startedAt)} — the clock counts it as rest`}
+              ? `since ${clockTime(t.openEntry.startedAt)} · ${divisionLabel(t.openEntry.divisionId)}${t.openEntry.taskNote ? ` · ${t.openEntry.taskNote}` : ""}`
+              : `on ${t.openEntry.kind} since ${clockTime(t.openEntry.startedAt)} — counted as rest`}
           </span>
         )}
-        {t.todayRestMinutes > 0 && (
-          <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
-            Rest today: {formatDuration(t.todayRestMinutes)}
+        {live.restSeconds > 0 && (
+          <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] tabular-nums text-muted-foreground">
+            Rest today: {formatClock(live.restSeconds)}
           </span>
         )}
       </div>
@@ -196,6 +229,31 @@ export const MyTimePage = () => {
             Clock out
           </button>
         </div>
+      )}
+
+      {mySchedule && (lateMin > 0 || overBreakSec > 0 || overLunchSec > 0) && (
+        <div role="status" className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-xs text-amber-900">
+          <AlertTriangle className="h-4 w-4 shrink-0 text-status-warning" />
+          {lateMin > 0 && (
+            <span><strong>{lateMin}m late</strong> today (shift starts {mySchedule.shiftStart.slice(0, 5)} {mySchedule.timezone}, {mySchedule.graceMinutes}m grace).</span>
+          )}
+          {overBreakSec > 0 && (
+            <span><strong>Over break by {formatClock(overBreakSec)}</strong> — {mySchedule.breakMinutes}m of break is paid; over-break is not.</span>
+          )}
+          {overLunchSec > 0 && (
+            <span><strong>Over lunch by {formatClock(overLunchSec)}</strong> — the lunch allowance is {mySchedule.lunchMinutes}m.</span>
+          )}
+        </div>
+      )}
+      {mySchedule && t.openEntry?.kind === "break" && overBreakSec === 0 && (
+        <p className="mt-2 text-[11px] tabular-nums text-muted-foreground">
+          Break used {formatClock(live.breakSeconds)} of {mySchedule.breakMinutes}m paid.
+        </p>
+      )}
+      {mySchedule && t.openEntry?.kind === "lunch" && overLunchSec === 0 && (
+        <p className="mt-2 text-[11px] tabular-nums text-muted-foreground">
+          Lunch used {formatClock(live.lunchSeconds)} of {mySchedule.lunchMinutes}m.
+        </p>
       )}
 
       {t.actionError && (
@@ -241,7 +299,9 @@ export const MyTimePage = () => {
                   )}
                 </span>
               ) : (
-                `${formatDuration(entryMinutes(e))} (running)`
+                <span key="run" className="font-mono text-xs font-semibold tabular-nums text-emerald-800">
+                  {formatClock(entrySeconds(e, now))} · running
+                </span>
               ),
               e.endedAt ? (
                 <AdjustmentCell key="a" entry={e} mine={myAdjustments.data ?? []} />
