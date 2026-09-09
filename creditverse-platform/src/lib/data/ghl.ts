@@ -12,6 +12,8 @@ export interface GhlConnection {
   id: string;
   /** NULL = a location seen under the agency credential, not mapped yet. */
   organizationId: string | null;
+  /** The BES Partner it belongs to — the usual owner (rule 16 model 3). */
+  outsourcingGroupId: string | null;
   locationId: string;
   label: string | null;
   /** GHL's own name for the location, as the sync found it. */
@@ -38,12 +40,13 @@ export async function fetchGhlConnections(): Promise<GhlConnection[]> {
   const sb = requireSupabase();
   const { data, error } = await sb
     .from("ghl_connections")
-    .select("id, organization_id, location_id, label, name, company_id, status, last_event_at, discovered_at, created_at")
+    .select("id, organization_id, outsourcing_group_id, location_id, label, name, company_id, status, last_event_at, discovered_at, created_at")
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []).map((r) => ({
     id: r.id,
     organizationId: r.organization_id,
+    outsourcingGroupId: (r as { outsourcing_group_id?: string | null }).outsourcing_group_id ?? null,
     locationId: r.location_id,
     label: r.label,
     name: r.name,
@@ -144,11 +147,19 @@ export async function disconnectGhlAgency(): Promise<void> {
 }
 
 /** Attach a discovered GHL location to a BES organization, or detach it. */
-export async function mapGhlLocation(locationId: string, organizationId: string | null): Promise<void> {
+/**
+ * Attribute a location to the party BES serves — a PARTNER (the usual case)
+ * or a SaaS organization. Exactly one; the database refuses both.
+ */
+export async function mapGhlLocation(
+  locationId: string,
+  owner: { organizationId?: string | null; partnerId?: string | null },
+): Promise<void> {
   const sb = requireSupabase();
   const { error } = await sb.rpc("map_ghl_location", {
     p_location_id: locationId,
-    p_org: organizationId ?? undefined,
+    p_org: owner.organizationId ?? undefined,
+    p_partner: owner.partnerId ?? undefined,
   });
   if (error) throw error;
 }

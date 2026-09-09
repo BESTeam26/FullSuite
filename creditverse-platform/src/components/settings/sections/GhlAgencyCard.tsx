@@ -40,10 +40,13 @@ const labelCls = "block text-[10px] font-bold uppercase tracking-wider text-mute
 export function GhlAgencyCard({
   connections,
   organizations,
+  partners,
   onChanged,
 }: {
   connections: GhlConnection[];
   organizations: Organization[];
+  /** BES Partners — the usual owner of a location (rule 16 model 3). */
+  partners: { id: string; name: string }[];
   onChanged: () => void;
 }) {
   const qc = useQueryClient();
@@ -97,8 +100,15 @@ export function GhlAgencyCard({
   });
 
   const map = useMutation({
-    mutationFn: ({ locationId, organizationId }: { locationId: string; organizationId: string | null }) =>
-      mapGhlLocation(locationId, organizationId),
+    mutationFn: ({ locationId, owner }: { locationId: string; owner: string }) =>
+      /* "p:<id>" a partner, "o:<id>" an organization — one control, because
+         the question is "who does this location belong to", and the answer
+         is one party of either shape (rule 16). */
+      mapGhlLocation(locationId, owner.startsWith("p:")
+        ? { partnerId: owner.slice(2) }
+        : owner.startsWith("o:")
+          ? { organizationId: owner.slice(2) }
+          : {}),
     onSuccess: () => setMessage({ text: "Mapped. Any events already received were attributed to it.", error: false }),
     onError: (e) => setMessage({ text: errorMessage(e, "It could not be mapped."), error: true }),
     onSettled: refresh,
@@ -106,7 +116,19 @@ export function GhlAgencyCard({
 
   const ready = companyId.trim() && token.trim();
   const ghlLocations = connections.filter((c) => c.companyId);
-  const mapped = ghlLocations.filter((c) => c.organizationId).length;
+  const mapped = ghlLocations.filter((c) => c.organizationId || c.outsourcingGroupId).length;
+  /* Partners first: almost every BES customer is a partner with no SaaS
+     organization, and before this the list held only organizations — of
+     which there are none, so nothing could be mapped at all. */
+  const ownerOptions = [
+    { value: "__none", label: "Not mapped" },
+    ...partners.map((p) => ({ value: `p:${p.id}`, label: `${p.name} (partner)` })),
+    ...organizations.map((o) => ({ value: `o:${o.id}`, label: `${o.name} (organization)` })),
+  ];
+  const ownerValue = (c: { organizationId: string | null; outsourcingGroupId: string | null }) =>
+    c.outsourcingGroupId ? `p:${c.outsourcingGroupId}` : c.organizationId ? `o:${c.organizationId}` : "__none";
+  const anyEventReceived = connections.some((c) => c.lastEventAt);
+  const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL ?? "https://<project>.supabase.co"}/functions/v1/ghl-webhook`;
 
   return (
     <>
@@ -128,10 +150,49 @@ export function GhlAgencyCard({
         {connectedCompany && (
           <p className="mb-3 rounded-lg border border-emerald-600/30 bg-emerald-500/10 p-2.5 text-xs text-status-success">
             Connected to company <span className="font-mono">{connectedCompany}</span>
-            {status.data?.tokenKind === "oauth" ? " via a Marketplace app" : " via an agency token"}
-            {status.data && !status.data.hasWebhookSecret && " · no webhook secret set"} · {ghlLocations.length}{" "}
-            location{ghlLocations.length === 1 ? "" : "s"} known, {mapped} mapped to an organization.
+            {status.data?.tokenKind === "oauth" ? " via a Marketplace app" : " via an agency token"} ·{" "}
+            {ghlLocations.length} location{ghlLocations.length === 1 ? "" : "s"} known, {mapped} mapped.
           </p>
+        )}
+
+        {/* Four facts, each measured — because "connected" was answering only
+            the first of them, and Dee asked how to know the bridge really
+            works (2026-09-09). A step that is not done says what to do. */}
+        {connectedCompany && (
+          <div className="mb-3 rounded-lg border border-border bg-muted/30 p-3">
+            <p className={labelCls}>Is the bridge actually live?</p>
+            <ul className="mt-2 space-y-1.5 text-[11px]">
+              <li className="text-foreground">
+                ✓ <strong>Agency credential</strong> — locations are being discovered, so BES can read GHL.
+              </li>
+              <li className={status.data?.hasWebhookSecret ? "text-foreground" : "text-status-danger"}>
+                {status.data?.hasWebhookSecret ? "✓" : "✗"} <strong>Webhook secret</strong>
+                {status.data?.hasWebhookSecret
+                  ? " — set, so signed events from GHL are accepted."
+                  : " — NOT set. Until it is, every event GHL sends here is refused: an endpoint that writes rows without checking who sent them would be worse than one switched off. Set it below, then paste the same phrase into GHL."}
+              </li>
+              <li className={mapped > 0 ? "text-foreground" : "text-muted-foreground"}>
+                {mapped > 0 ? "✓" : "○"} <strong>Locations mapped</strong> — {mapped} of {ghlLocations.length}.
+                An unmapped location&apos;s events are still recorded and attributed the moment you map it.
+              </li>
+              <li className={anyEventReceived ? "text-foreground" : "text-muted-foreground"}>
+                {anyEventReceived ? "✓" : "○"} <strong>Events arriving</strong>
+                {anyEventReceived
+                  ? " — something has reached BES; see Recent events below."
+                  : " — nothing has arrived yet. Once the secret is set and GHL points at the address below, a test fires within seconds."}
+              </li>
+            </ul>
+            <div className="mt-2.5 border-t border-border/60 pt-2 text-[11px] text-muted-foreground">
+              <p className="font-semibold text-foreground">To wire it in GHL</p>
+              <p className="mt-1">
+                Automation → Workflows → add a <strong>Webhook</strong> action (or Settings → Webhooks) →
+                method POST → URL <span className="font-mono text-foreground">{webhookUrl}</span> → add a
+                custom header <span className="font-mono text-foreground">x-ghl-signature</span> whose value
+                is the same secret you set here. Trigger it on the events you care about — opportunity
+                stage changed, contact created, appointment booked.
+              </p>
+            </div>
+          </div>
         )}
 
         <form
@@ -225,7 +286,7 @@ export function GhlAgencyCard({
       <SectionCard
         icon={Building2}
         title="Agency locations"
-        description="Every GHL location under the agency, and which BES organization it belongs to."
+        description="Every GHL location under the agency, and which BES partner or organization it belongs to."
       >
         {ghlLocations.length === 0 ? (
           <p className="text-xs text-muted-foreground">
@@ -243,22 +304,17 @@ export function GhlAgencyCard({
                     {c.discoveredAt ? ` · seen ${formatDateTime(c.discoveredAt)}` : ""}
                   </p>
                 </div>
-                {!c.organizationId && (
+                {!c.organizationId && !c.outsourcingGroupId && (
                   <span className="rounded-full border border-dashed border-border px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
                     Not mapped
                   </span>
                 )}
                 <OpsSelect
-                  value={c.organizationId ?? "__none"}
-                  onValueChange={(v) =>
-                    map.mutate({ locationId: c.locationId, organizationId: v === "__none" ? null : v })
-                  }
-                  options={[
-                    { value: "__none", label: "Not mapped" },
-                    ...organizations.map((o) => ({ value: o.id, label: o.name })),
-                  ]}
+                  value={ownerValue(c)}
+                  onValueChange={(v) => map.mutate({ locationId: c.locationId, owner: v })}
+                  options={ownerOptions}
                   size="sm"
-                  aria-label={`Organization for ${c.locationId}`}
+                  aria-label={`Who owns ${c.locationId}`}
                 />
               </li>
             ))}

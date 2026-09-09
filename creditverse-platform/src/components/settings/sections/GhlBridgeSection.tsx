@@ -25,6 +25,7 @@ import { useAgency } from "@/lib/agency-context";
 import { useAuth } from "@/lib/auth/auth-context";
 import { formatDateTime } from "@/lib/format-date";
 import { errorMessage } from "@/lib/data/error-message";
+import { useAgencyPartners } from "@/lib/data/use-agency-partners";
 import {
   connectGhlLocation,
   disconnectGhlLocation,
@@ -43,6 +44,9 @@ export function GhlBridgeSection() {
 
   const connections = useQuery({ queryKey: ["ghl", "connections"], queryFn: fetchGhlConnections, enabled: live, staleTime: 60_000 });
   const events = useQuery({ queryKey: ["ghl", "events"], queryFn: () => fetchGhlEvents(20), enabled: live, staleTime: 30_000 });
+  /* Shares the partner list every partner screen uses — one query key, so
+     opening Integrations after BES Partners costs nothing (rule 14). */
+  const partners = useAgencyPartners();
 
   const [organizationId, setOrganizationId] = useState("");
   const [locationId, setLocationId] = useState("");
@@ -85,6 +89,7 @@ export function GhlBridgeSection() {
       <GhlAgencyCard
         connections={connections.data ?? []}
         organizations={organizations}
+        partners={(partners.data ?? []).map((p) => ({ id: p.id, name: p.name }))}
         onChanged={refresh}
       />
 

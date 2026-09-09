@@ -1233,3 +1233,32 @@ new employee record: one person, one canonical record, many connected views.
 - **/app/workforce and /app/hr redirect** to People (insights view), specs
   and sidebar entries removed, old pages deleted after parity. Duplicate
   employee records created: ZERO.
+
+### GHL locations map to PARTNERS, and the bridge says whether it is live — 2026-09-09
+
+Dee: "How can I map it?" — she could not. The control offered BES
+*organizations* and there are **zero** of them: every real BES customer today
+is an `outsourcing_group` (a BES Partner, rule 16 model 3 — fulfillment
+without SaaS). So 52 discovered locations faced a dropdown whose only option
+was "Not mapped". A dead control (rule 12), not a mystery.
+
+- **0274**: `ghl_connections` and `ghl_events` gain `outsourcing_group_id`
+  with a one-owner check (organization XOR partner — two owners is how one
+  truth becomes several); `map_ghl_location(location, org, partner)` takes
+  either, refuses both, validates existence, and back-attributes the event
+  backlog for whichever it set. The webhook now stamps the partner too.
+- **0275 repaired 0274 the same hour**: mapping a partner threw a foreign-key
+  violation — `log_audit`'s org argument writes `audit_log.organization_id`,
+  which references organizations, and 0274 passed the partner id into it. The
+  browser showed a bare 409. The audit keeps the ORGANIZATION there (null for
+  a partner) and carries the partner in the payload. Caught by walking the
+  real mapping in the browser, not by reading the function.
+- **The panel stopped implying a connection it does not have.** Four measured
+  facts — credential ✓, webhook secret ✗ (nothing is set, so every inbound
+  event is refused 401 by design), locations mapped, events arriving — each
+  with what to do about it, plus the exact GHL wiring steps and the endpoint.
+
+Verified live: the dropdown holds all 28 partners, BizHub Financial LLC now
+belongs to partner Bizhub, and the mapping persisted. Outbound (BES status →
+GHL pipeline/workflow) does not exist yet and the panel no longer suggests it
+does; designed as D-005.

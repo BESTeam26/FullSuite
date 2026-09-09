@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
   const sb = createClient(url, service);
   const { data: connection, error: connectionError } = await sb
     .from("ghl_connections")
-    .select("organization_id, status, company_id")
+    .select("organization_id, outsourcing_group_id, status, company_id")
     .eq("location_id", locationId)
     .maybeSingle();
   if (connectionError) return json(500, { error: "Lookup failed" });
@@ -127,6 +127,7 @@ Deno.serve(async (req) => {
   const { error: insertError } = await sb.from("ghl_events").insert({
     location_id: locationId,
     organization_id: connection?.organization_id ?? null,
+    outsourcing_group_id: connection?.outsourcing_group_id ?? null,
     event_type: eventType,
     external_id: externalId,
     payload,

@@ -5452,6 +5452,7 @@ export type Database = {
           location_id: string
           name: string | null
           organization_id: string | null
+          outsourcing_group_id: string | null
           status: Database["public"]["Enums"]["ghl_connection_status"]
           updated_at: string
         }
@@ -5466,6 +5467,7 @@ export type Database = {
           location_id: string
           name?: string | null
           organization_id?: string | null
+          outsourcing_group_id?: string | null
           status?: Database["public"]["Enums"]["ghl_connection_status"]
           updated_at?: string
         }
@@ -5480,6 +5482,7 @@ export type Database = {
           location_id?: string
           name?: string | null
           organization_id?: string | null
+          outsourcing_group_id?: string | null
           status?: Database["public"]["Enums"]["ghl_connection_status"]
           updated_at?: string
         }
@@ -5536,6 +5539,7 @@ export type Database = {
           id: number
           location_id: string
           organization_id: string | null
+          outsourcing_group_id: string | null
           outcome: string | null
           payload: Json
           processed_at: string | null
@@ -5547,6 +5551,7 @@ export type Database = {
           id?: never
           location_id: string
           organization_id?: string | null
+          outsourcing_group_id?: string | null
           outcome?: string | null
           payload: Json
           processed_at?: string | null
@@ -5558,6 +5563,7 @@ export type Database = {
           id?: never
           location_id?: string
           organization_id?: string | null
+          outsourcing_group_id?: string | null
           outcome?: string | null
           payload?: Json
           processed_at?: string | null
@@ -13772,7 +13778,7 @@ export type Database = {
       looks_like_a_secret: { Args: { p_text: string }; Returns: boolean }
       manager_of: { Args: { p_user: string }; Returns: string }
       map_ghl_location: {
-        Args: { p_location_id: string; p_org: string }
+        Args: { p_location_id: string; p_org?: string; p_partner?: string }
         Returns: undefined
       }
       mark_channel_read: {
