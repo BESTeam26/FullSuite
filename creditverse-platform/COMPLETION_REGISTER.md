@@ -851,3 +851,27 @@ rule, not the moment — and phase 8 is 94/94.
 | Typecheck · lint · build | clean · 0 errors · ✓ |
 | Migrations | applied through **0232** |
 | Authorization map | 177 tables, 426 policies, 411 functions, 54 permission keys — every table under RLS |
+
+### Timer governance and the invite pipe — 2026-09-09 early morning
+
+Dee's correction reclassified the hours-old stale-timer design: **agents never
+manually edit time.** Shipped (0236–0239, phase 69 at 17 probes): clock-out
+means NOW (DB-computed, capped at ten hours whatever value arrives); a
+forgotten timer is auto-stopped at `start + 10h` by a pg_cron sweep — or by
+the agent's own next clock-in — marked `auto_stopped`, with notifications to
+the agent and their team leads (new notification kind `timer`, entity
+`time_entry`); corrections travel as `time_adjustment_requests` that a
+manager decides (never their own), with before/after audited under the
+decider's name. Verified on the real thing: Dee's forgotten Saturday timer
+closed at exactly 600 minutes with her notification written, and the full
+clock-in → refresh → clock-out walk passed live.
+
+Two traps recorded: SECURITY DEFINER changes the role but never the JWT
+claims, so system paths must declare themselves (`bes.time_system`) rather
+than be inferred from `auth.uid()`; and the enum cast that VALUES-form
+coerces, SELECT-form refuses.
+
+Invite lifecycle walked to the edge of a mailbox: create (role Agency User) →
+pending list with Copy link → **Resend accepted the branded email** → revoke →
+dead-token page honest. Build-scope presets landed (§31): Full / Website only /
+Sales / Fulfillment / Custom, 3/4/13 engines verified live.
