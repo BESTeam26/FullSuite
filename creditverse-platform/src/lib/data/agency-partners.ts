@@ -172,9 +172,17 @@ const blankToNull = (v?: string) => {
 
 export async function createAgencyPartner(agencyId: string, input: NewPartner): Promise<string> {
   const sb = requireSupabase();
-  const { data, error } = await sb
+  /* The id is generated HERE, not returned by the database. `INSERT …
+     RETURNING` re-checks the new row against the SELECT policy, and
+     `can_see_partner` looks the row up in a snapshot that does not include
+     the row this statement is inserting — so RETURNING is refused even for
+     the owner, while the same insert without it succeeds. Supplying the id
+     needs no RETURNING and leaves the policy exactly as strict as it is. */
+  const id = crypto.randomUUID();
+  const { error } = await sb
     .from("outsourcing_groups")
     .insert({
+      id,
       agency_id: agencyId,
       name: input.name.trim(),
       contact_email: input.contactEmail.trim(),
@@ -196,10 +204,9 @@ export async function createAgencyPartner(agencyId: string, input: NewPartner): 
       saas_plan: blankToNull(input.saasPlan),
       account_manager_id: input.accountManagerId ?? null,
       team_id: input.teamId ?? null,
-    })
-    .select("id").single();
+    });
   if (error) throw error;
-  return data.id as string;
+  return id;
 }
 
 export async function updateAgencyPartner(id: string, patch: Partial<NewPartner>): Promise<void> {

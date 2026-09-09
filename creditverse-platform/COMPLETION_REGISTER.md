@@ -1109,3 +1109,19 @@ one editor, the same `update` mutation the Team tab already used. And the HR
 manage-level) was wired but the Sidebar's hard-coded Workforce group wasn't.
 Verified in the browser: dialog opens, saves ("Partner updated"), /app/hr
 reachable from the rail. Suite 1,546.
+
+### "Add partner" refused everyone — RETURNING vs the visibility snapshot — 2026-09-09
+
+Dee: "Can't add a partner." Reproduced as her and as the fixture owner: the
+INSERT itself passes policy, but the app asked for the new id back
+(`.select("id")` → `INSERT … RETURNING`), and RETURNING re-checks the new row
+against the SELECT policy — whose `can_see_partner()` looks the row up in a
+snapshot that does not yet contain it. Refused for everyone, since whichever
+migration added `can_see_partner` to the select policy. The two-statement
+matrix probe stayed green the whole time because it never used the product's
+statement shape — the exact trap the register already names ("a probe that
+can't fail is worse than none"). Fix: the client now supplies the id and asks
+for nothing back — no policy loosened. A new probe pins the PRODUCT's shape.
+Phase 55: 132/132. Verified in the browser: Dee's exact TEST PARTNER form
+values create and land on the profile. Contacts are unaffected (their policy
+checks the pre-existing group row).

@@ -3184,6 +3184,16 @@ if (runs(55)) {
     ["a partner can be created with only a name and an email",
       () => probe55(OWNER55, `insert into public.outsourcing_groups (agency_id, name, contact_email) values ('${AG}','Probe Partner','probe@example.test'); select count(*)::int as rows from public.outsourcing_groups where contact_email='probe@example.test'`), 1],
 
+    /* The product's EXACT statement shape (agency-partners.ts): the client
+       supplies the id and asks for nothing back. `INSERT … RETURNING`
+       re-checks the new row against the SELECT policy, and can_see_partner
+       looks the row up in a snapshot that does not yet contain it — so the
+       .select("id") form fails 42501 for everyone, which is how "Add
+       partner" broke in production while the two-statement probe above
+       stayed green. Probe the shape the product uses, not a nicer one. */
+    ["…and creating one the way the PRODUCT does — client-supplied id, no RETURNING — works",
+      () => probe55(OWNER55, `insert into public.outsourcing_groups (id, agency_id, name, contact_email) values ('44444444-0000-4000-8000-0000000000c9'::uuid,'${AG}','Probe Product Shape','shape@example.test'); select count(*)::int as rows from public.outsourcing_groups where id='44444444-0000-4000-8000-0000000000c9'`), 1],
+
     /* Two statements, not a data-modifying CTE. The product creates a partner
        with a plain insert and that works; inside a CTE the same insert fails its
        WITH CHECK, so the probe was measuring a statement shape nothing uses. */
