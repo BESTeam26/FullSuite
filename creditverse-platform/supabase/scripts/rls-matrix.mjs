@@ -705,7 +705,12 @@ if (runs(8)) {
     ["BES owner reads the org's status change on a shared workspace item", () => W8(besOwner, `select least(count(*),1)::int as rows from public.activity_events where entity_id='ee000000-0000-4000-8000-000000000102' and visibility='shared_with_partner' and action='Status changed'`).rows, 1],
     ["…but never a customer's organization_internal note",           () => W8sudo(`insert into public.activity_events (agency_id, organization_id, entity_type, entity_id, actor_id, action, detail, visibility) values ('${AGENCY}','${LAKESIDE}','work_item','${CRM_L}', '${orgOwner}', 'Note', 'org private', 'organization_internal')`, besOwner, `select count(*)::int as rows from public.activity_events where entity_id='${CRM_L}' and visibility='organization_internal'`).rows, 0],
     // The fixture's project also carries the trigger-written 'Work item created' event (bes_internal); count internal NOTES only.
-    ["BES owner sees both projects and the internal note",            () => W8(besOwner, `select (select count(*) from public.work_items where division='bes_crm')::int + (select count(*) from public.activity_events where entity_id='${CRM_L}' and visibility='bes_internal' and action='Note')::int as rows`).rows, 3],
+    // Counts the FIXTURE rows, not the table: the first real project (Dee
+    // created "Test" through the live dialog on 2026-09-08) broke the old
+    // "exactly two rows exist" expectation, which was a snapshot of an empty
+    // product, not a rule. The rule is: the owner reaches both fixture
+    // projects and the internal note.
+    ["BES owner sees both fixture projects and the internal note",    () => W8(besOwner, `select (select count(*) from public.work_items where division='bes_crm' and is_fixture)::int + (select count(*) from public.activity_events where entity_id='${CRM_L}' and visibility='bes_internal' and action='Note')::int as rows`).rows, 3],
   ];
   runPhase("phase 8", P8, { strict: true });
 }

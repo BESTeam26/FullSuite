@@ -832,3 +832,22 @@ were rewritten to test the rule rather than the moment.
 
 Authorization map regenerated: **177 tables, 426 policies, 411 functions, 54
 permission keys.**
+
+### Full gate, 2026-09-08 end of second pass
+
+**Every check across all 68 phases passes.** The single failure in the
+22m13s run (1374/1375) was the suite's own: phase 8 asserted "exactly two
+`bes_crm` work items exist", a snapshot of an empty product — and the FIRST
+REAL PROJECT broke it, because Dee opened the new dialog that evening and
+created "Test" with the Fulfillment and Onboarding engines, which correctly
+instantiated exactly their 13 work units. The feature working is what failed
+the test of the world staying still. The probe now counts fixture rows — the
+rule, not the moment — and phase 8 is 94/94.
+
+| | |
+|---|---|
+| RLS checks | 68 phases, all green (fullest single run 1374/1375 + the corrected probe re-run) |
+| Unit tests | **1,538** passing, 137 files |
+| Typecheck · lint · build | clean · 0 errors · ✓ |
+| Migrations | applied through **0232** |
+| Authorization map | 177 tables, 426 policies, 411 functions, 54 permission keys — every table under RLS |
