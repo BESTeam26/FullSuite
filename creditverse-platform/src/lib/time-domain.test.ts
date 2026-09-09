@@ -14,6 +14,7 @@ const entry = (over: Partial<TimeEntry> = {}): TimeEntry => ({
   startedAt: "2026-09-03T09:00:00.000Z",
   endedAt: "2026-09-03T10:30:00.000Z",
   durationMinutes: 90,
+  autoStopped: false,
   ...over,
 });
 

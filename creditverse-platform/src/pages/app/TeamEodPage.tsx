@@ -15,6 +15,11 @@
 import { useState } from "react";
 import { AlertTriangle, CircleSlash, ClipboardCheck, Loader2, UserX } from "lucide-react";
 import { HqPageShell } from "@/pages/app/HqPages";
+import { useAuth } from "@/lib/auth/auth-context";
+import { useAgencyAccessContext } from "@/lib/agency/use-access-context";
+import { managesAgency } from "@/lib/agency/navigation";
+import { useDecideTimeAdjustment, usePendingTimeAdjustments } from "@/lib/data/use-time-adjustments";
+import { formatDateTime } from "@/lib/format-date";
 import { ContentCard } from "@/components/dashboard/DivisionLayout";
 import { Input } from "@/components/ui/input";
 import { EodProductionSummary } from "@/components/agency/EodProductionSummary";
@@ -130,10 +135,110 @@ export const TeamEodPage = () => {
         )}
       </ContentCard>
 
+      <TimeAdjustmentQueue />
+
       <p className="mt-3 text-xs text-muted-foreground">
         No recorded activity is shown as exactly that. Somebody may have spent the day on a
         call, in training, or on work nobody logged — the absence of a record is not a finding.
       </p>
     </HqPageShell>
+  );
+};
+
+/**
+ * Time corrections waiting on a decision (0236). An agent never edits their
+ * own recorded time — they state what was true and why, and it becomes the
+ * record only under a lead's or admin's name. Both names stay on the audit.
+ */
+const TimeAdjustmentQueue = () => {
+  const access = useAgencyAccessContext();
+  const mayDecide = managesAgency(access.ctx) || access.ctx.leadsTeam;
+  const pending = usePendingTimeAdjustments(mayDecide);
+  const decide = useDecideTimeAdjustment();
+  const [noteFor, setNoteFor] = useState<string | null>(null);
+  const [note, setNote] = useState("");
+  const { user } = useAuth();
+
+  if (!mayDecide) return null;
+  const rows = pending.data ?? [];
+
+  return (
+    <div className="mt-4">
+      <ContentCard title={`Time adjustment requests${rows.length ? ` · ${rows.length} pending` : ""}`}>
+        {pending.isLoading ? (
+          <p className="py-4 text-center text-xs text-muted-foreground">Loading…</p>
+        ) : rows.length === 0 ? (
+          <p className="py-4 text-center text-xs text-muted-foreground">
+            Nothing waiting. Agents request an adjustment from My Time when a
+            recorded duration is wrong; it lands here with their reason.
+          </p>
+        ) : (
+          <ul className="divide-y divide-border/60">
+            {rows.map((r) => {
+              const own = r.requestedBy === user?.id;
+              return (
+                <li key={r.id} className="py-3">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground">
+                        {r.requestedByName ?? "Unknown"} · {formatDate(r.entryWorkDate)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Recorded end {r.entryEndedAt ? formatDateTime(r.entryEndedAt) : "—"} → requested{" "}
+                        <span className="font-medium text-foreground">{formatDateTime(r.requestedEndedAt)}</span>
+                      </p>
+                      <p className="mt-1 text-xs text-foreground">“{r.reason}”</p>
+                    </div>
+                    {own ? (
+                      <span className="text-[11px] text-muted-foreground">
+                        Yours — another lead or admin decides it.
+                      </span>
+                    ) : (
+                      <span className="flex shrink-0 items-center gap-1.5">
+                        <button
+                          type="button"
+                          disabled={decide.isPending}
+                          onClick={() =>
+                            decide.mutate({ requestId: r.id, approve: true, note: noteFor === r.id ? note.trim() || undefined : undefined })
+                          }
+                          className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-status-success hover:bg-emerald-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          type="button"
+                          disabled={decide.isPending || (noteFor === r.id && note.trim().length === 0)}
+                          onClick={() => {
+                            if (noteFor !== r.id) { setNoteFor(r.id); setNote(""); return; }
+                            decide.mutate({ requestId: r.id, approve: false, note: note.trim() }, { onSuccess: () => setNoteFor(null) });
+                          }}
+                          className="rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-semibold text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                        >
+                          {noteFor === r.id ? "Confirm decline" : "Decline"}
+                        </button>
+                      </span>
+                    )}
+                  </div>
+                  {noteFor === r.id && (
+                    <textarea
+                      value={note}
+                      onChange={(e) => setNote(e.target.value)}
+                      rows={2}
+                      placeholder="Tell them why (required to decline)."
+                      className="mt-2 block w-full rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    />
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        {decide.error && (
+          <p className="mt-2 text-xs font-semibold text-status-danger">
+            {(decide.error as Error).message}
+          </p>
+        )}
+      </ContentCard>
+    </div>
   );
 };

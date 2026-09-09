@@ -5585,6 +5585,131 @@ if (runs(68)) {
 }
 
 
+if (runs(69)) {
+  startPhase("phase 69");
+  /* The timer cap and approved adjustments (0236–0238).
+  
+     Dee's rules: an agent NEVER writes their own time — a clock-out means
+     "now", the system stops a forgotten clock at ten hours and tells the
+     agent and their lead, and a wrong record is corrected only by a manager
+     deciding the agent's request. The probes hold each of those, and the
+     refusals matter as much as the grants: the whole design exists because
+     self-edited time cannot be trusted in production or EOD. */
+  const p69 = (uid, sql, seed = "") => {
+    try {
+      return q(`begin; ${seed ? `set local role postgres; ${seed}` : ""} set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows;
+    } catch (e) {
+      const m = (String(e.message) + String(e.stdout ?? "")).match(/ERROR:\s*(\w+):/);
+      return "ERR " + (m ? m[1] : "unknown");
+    }
+  };
+  const AGENT69 = U["bes.credit@bes.test"], LEAD69 = U["bes.lead@bes.test"], ADM69 = U["bes.admin@bes.test"];
+  const AG69 = q(`select agency_id::text as rows from public.agency_memberships limit 1`)[0].rows;
+  /* A CLOSED hour-long entry from this morning, seeded as the system and
+     carried by id in a setting (the actor's RLS must not resolve the seed). */
+  const seedClosed = `insert into public.time_entries (agency_id, employee_id, division_id, work_date, started_at, ended_at)
+     values ('${AG69}', '${AGENT69}', 'creditops', current_date, now() - interval '5 hours', now() - interval '4 hours');
+     select set_config('probe.entry', (select id::text from public.time_entries where employee_id='${AGENT69}' order by created_at desc limit 1), true);`;
+  const seedOpenStale = `insert into public.time_entries (agency_id, employee_id, division_id, work_date, started_at)
+     values ('${AG69}', '${AGENT69}', 'creditops', current_date - 1, now() - interval '30 hours');
+     select set_config('probe.entry', (select id::text from public.time_entries where employee_id='${AGENT69}' and ended_at is null order by created_at desc limit 1), true);`;
+  const ENTRY = `current_setting('probe.entry')::uuid`;
+  const mkReq = `select set_config('probe.req', public.request_time_adjustment(${ENTRY}, now() - interval '270 minutes', 'Forgot to stop; I finished at half past.')::text, true);`;
+
+  const P69 = [
+    /* ── the guard: a clock-out can only mean "now", inside the cap ────── */
+    ["a late clock-out records the cap, marked auto-stopped",
+      () => p69(AGENT69, `update public.time_entries set ended_at = now() where id = ${ENTRY} and employee_id = auth.uid();
+        select (extract(epoch from (ended_at - started_at))/3600)::int::text || ':' || auto_stopped::text as rows
+          from public.time_entries where id = ${ENTRY}`, seedOpenStale), "10:true"],
+    /* Silently reverted, not refused: a closed entry is not updatable by its
+       employee at all, and an open one keeps its start whatever arrives. */
+    ["an agent cannot move the clock's start",
+      () => p69(AGENT69, `update public.time_entries set started_at = started_at - interval '2 hours' where id = ${ENTRY};
+        select (abs(extract(epoch from (started_at - (now() - interval '5 hours')))) < 5)::text as rows from public.time_entries where id = ${ENTRY}`, seedClosed), "true"],
+    /* 0239: whatever ended_at is SENT, the record says the moment of the
+       call. The claim of "nine hours ago" leaves no trace. */
+    ["an agent cannot backdate a clock-out — the record says now",
+      () => p69(AGENT69, `update public.time_entries set ended_at = now() - interval '9 hours' where id = ${ENTRY} and ended_at is null;
+        select (abs(extract(epoch from (ended_at - now()))) < 5)::text as rows from public.time_entries where id = ${ENTRY}`,
+        `insert into public.time_entries (agency_id, employee_id, division_id, work_date, started_at)
+           values ('${AG69}', '${AGENT69}', 'creditops', current_date, now() - interval '2 hours');
+         select set_config('probe.entry', (select id::text from public.time_entries where employee_id='${AGENT69}' and ended_at is null limit 1), true);`), "true"],
+
+    /* ── self-heal: yesterday's forgotten clock never blocks today ─────── */
+    ["clocking in closes a stale forgotten timer at the cap",
+      () => p69(AGENT69, `insert into public.time_entries (agency_id, employee_id, division_id, work_date)
+          values ('${AG69}', auth.uid(), 'creditops', current_date);
+        select (select auto_stopped from public.time_entries where id = ${ENTRY})::text || ':' ||
+               (select count(*) from public.time_entries where employee_id = auth.uid() and ended_at is null)::text as rows`,
+        seedOpenStale), "true:1"],
+    ["…and it told the agent",
+      () => p69(AGENT69, `insert into public.time_entries (agency_id, employee_id, division_id, work_date)
+          values ('${AG69}', auth.uid(), 'creditops', current_date);
+        select count(*)::int as rows from public.notifications
+         where recipient_id = auth.uid() and kind = 'timer' and entity_id = ${ENTRY}::text`,
+        seedOpenStale), 1],
+    ["a timer inside its cap still refuses a second clock-in",
+      () => p69(AGENT69, `insert into public.time_entries (agency_id, employee_id, division_id, work_date)
+          values ('${AG69}', auth.uid(), 'creditops', current_date); select 1 as rows`,
+        `insert into public.time_entries (agency_id, employee_id, division_id, work_date, started_at)
+           values ('${AG69}', '${AGENT69}', 'creditops', current_date, now() - interval '1 hour');`), "ERR 23505"],
+
+    /* ── requests: the agent states; only their own, only closed, sane ─── */
+    ["an agent requests an adjustment to their own closed entry",
+      () => p69(AGENT69, `${mkReq} select (current_setting('probe.req') <> '') ::text as rows`, seedClosed), "true"],
+    ["…not to a colleague's",
+      () => p69(LEAD69, `select public.request_time_adjustment(${ENTRY}, now() - interval '270 minutes', 'not my entry but trying') as rows`, seedClosed), "ERR 42501"],
+    ["…not to a running timer",
+      () => p69(AGENT69, `select public.request_time_adjustment(${ENTRY}, now() - interval '10 minutes', 'still running should refuse') as rows`,
+        `insert into public.time_entries (agency_id, employee_id, division_id, work_date, started_at)
+           values ('${AG69}', '${AGENT69}', 'creditops', current_date, now() - interval '1 hour');
+         select set_config('probe.entry', (select id::text from public.time_entries where employee_id='${AGENT69}' and ended_at is null limit 1), true);`), "ERR 22023"],
+    ["…and not to a future stop time",
+      () => p69(AGENT69, `select public.request_time_adjustment(${ENTRY}, now() + interval '1 hour', 'the future is not workable') as rows`, seedClosed), "ERR 22023"],
+    ["one open request per entry",
+      () => p69(AGENT69, `${mkReq} select public.request_time_adjustment(${ENTRY}, now() - interval '260 minutes', 'second ask same entry') as rows`, seedClosed), "ERR 23505"],
+
+    /* ── decisions: management authority, never one's own request ──────── */
+    ["an agent cannot decide a request",
+      () => p69(AGENT69, `${mkReq} select public.decide_time_adjustment(current_setting('probe.req')::uuid, true) as rows`, seedClosed), "ERR 42501"],
+    ["an admin approves; the entry moves and the request closes",
+      () => p69(ADM69, `select public.decide_time_adjustment(current_setting('probe.req')::uuid, true);
+        select ((select status from public.time_adjustment_requests where id = current_setting('probe.req')::uuid) || ':' ||
+                (select (ended_at = started_at + interval '150 minutes')::text from public.time_entries where id = ${ENTRY})) as rows`,
+        seedClosed + ` set local role authenticated; set local request.jwt.claims = '{"sub":"${AGENT69}","role":"authenticated"}';
+        select set_config('probe.req', public.request_time_adjustment(${ENTRY}, now() - interval '270 minutes', 'Forgot to stop; I finished at half past.')::text, true);
+        set local role postgres; select set_config('probe.req150', '', true);
+        update public.time_adjustment_requests set requested_ended_at = (select started_at + interval '150 minutes' from public.time_entries where id = ${ENTRY}) where id = current_setting('probe.req')::uuid;`), "approved:true"],
+    ["…and the decision is audited with both identities",
+      () => p69(ADM69, `select public.decide_time_adjustment(current_setting('probe.req')::uuid, true);
+        set local role postgres;
+        select count(*)::int as rows from public.audit_log
+         where action = 'time_adjustment.approved' and actor_id = '${ADM69}'
+           and (after->>'requested_by') = '${AGENT69}'`,
+        seedClosed + ` set local role authenticated; set local request.jwt.claims = '{"sub":"${AGENT69}","role":"authenticated"}';
+        select set_config('probe.req', public.request_time_adjustment(${ENTRY}, now() - interval '270 minutes', 'Forgot to stop; I finished at half past.')::text, true);`), 1],
+    ["a manager cannot approve their own request",
+      () => p69(ADM69, `select public.decide_time_adjustment(current_setting('probe.req')::uuid, true) as rows`,
+        `insert into public.time_entries (agency_id, employee_id, division_id, work_date, started_at, ended_at)
+           values ('${AG69}', '${ADM69}', 'creditops', current_date, now() - interval '5 hours', now() - interval '4 hours');
+         select set_config('probe.entry', (select id::text from public.time_entries where employee_id='${ADM69}' order by created_at desc limit 1), true);
+         set local role authenticated; set local request.jwt.claims = '{"sub":"${ADM69}","role":"authenticated"}';
+         select set_config('probe.req', public.request_time_adjustment(${ENTRY}, now() - interval '270 minutes', 'my own entry my own ask')::text, true);
+         set local role postgres;`), "ERR 42501"],
+
+    /* ── the machinery stays the system's ──────────────────────────────── */
+    ["the sweep is not callable by the API role",
+      () => p69(AGENT69, `select public.auto_stop_stale_timers() as rows`), "ERR 42501"],
+    ["timer notifications are visible to their recipient and nobody else",
+      () => p69(LEAD69, `select count(*)::int as rows from public.notifications
+         where kind = 'timer' and entity_id = ${ENTRY}::text`,
+        seedOpenStale + ` select public.auto_stop_stale_timers();`), 0],
+  ];
+  runPhase("phase 69", P69, { strict: true });
+}
+
+
 endPhase();
 
 /* ------------------------------------------------------------------ *

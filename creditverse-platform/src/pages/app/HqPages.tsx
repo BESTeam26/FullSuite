@@ -363,6 +363,7 @@ const KIND_ICON: Record<Notification["kind"], ElementType> = {
   handoff: Share2,
   attention: AlertTriangle,
   announcement: Megaphone,
+  timer: Clock,
 };
 
 const ENTITY_LABEL: Record<string, string> = {
@@ -371,6 +372,7 @@ const ENTITY_LABEL: Record<string, string> = {
   funding_client: "FundingOps client",
   channel: "Conversation",
   announcement: "Announcement",
+  time_entry: "Time entry",
 };
 
 const formatWhen = (iso: string) => {

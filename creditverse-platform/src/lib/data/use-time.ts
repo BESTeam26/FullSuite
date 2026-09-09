@@ -48,9 +48,9 @@ export interface TimesheetResult extends TimeSummary {
   isLoading: boolean;
   error: string | null;
   clockIn: (divisionId: string, taskNote?: string) => void;
-  /** Stop the clock. `endedAt` is for a forgotten timer — the person states
-      when they actually stopped; omitted means "now". */
-  clockOut: (endedAt?: string) => void;
+  /** Stop the clock, now. Corrections go through an approved adjustment
+      request — an agent never states a custom time (0236). */
+  clockOut: () => void;
   isMutating: boolean;
   actionError: string | null;
 }
@@ -112,7 +112,7 @@ export function useTimesheet(): TimesheetResult {
     onSuccess: invalidate,
   });
   const outM = useMutation({
-    mutationFn: (endedAt?: string) => clockOutRow(userId, endedAt),
+    mutationFn: () => clockOutRow(userId),
     onSuccess: invalidate,
   });
 
@@ -131,8 +131,8 @@ export function useTimesheet(): TimesheetResult {
     clockIn: (divisionId, taskNote) => {
       if (live && agencyId) inM.mutate({ divisionId, taskNote });
     },
-    clockOut: (endedAt?: string) => {
-      if (live) outM.mutate(endedAt);
+    clockOut: () => {
+      if (live) outM.mutate();
     },
     isMutating: inM.isPending || outM.isPending,
     actionError:

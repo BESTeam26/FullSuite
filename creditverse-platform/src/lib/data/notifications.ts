@@ -24,7 +24,10 @@ export type NotificationKind =
      the one status change whose meaning is "somebody has to act". */
   | "handoff"
   | "attention"
-  | "announcement";
+  | "announcement"
+  /* The clock: an auto-stopped timer, a requested or decided adjustment
+     (0236). Routed to the agent and their lead. */
+  | "timer";
 
 export interface Notification {
   id: number;
@@ -108,6 +111,10 @@ export function hrefForEntity(
       return `/app/my-work?item=${id}`;
     case "fulfillment_client":
       return `/app/creditops?client=${id}`;
+    /* A timer notification is about ONE entry, but the page that explains it
+       — the entry, the cap, the adjustment request — is My Time itself. */
+    case "time_entry":
+      return "/app/my-time";
     case "funding_client":
       return `/app/fundingops?client=${id}`;
     /* A mention or a direct message opens the conversation it happened in —

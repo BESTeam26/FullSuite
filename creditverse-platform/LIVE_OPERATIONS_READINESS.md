@@ -31,11 +31,11 @@ not yet been walked by a real operator.
 
 | Criterion | State |
 |---|---|
-| Start / stop with correct user and date attribution | PARTIAL — clock-in verified; a WEEK-BOUNDARY DEADLOCK was found live (invisible unstoppable Sat timer) and fixed; Dee's stale Sat 1:08 PM timer awaits her stated stop time |
-| Running timer survives refresh and re-login | PASS by construction (open entry now fetched unbounded); full walk after the stale entry is closed |
-| No accidental overlapping timers | UNTESTED |
-| History persists; durations correct | UNTESTED |
-| Timer time reaches EOD automatically | UNTESTED |
+| Start / stop with correct user and date attribution | PASS — walked live: clock in → refresh (still running) → clock out → 1m recorded. Dee's Saturday timer was auto-stopped at the 10-hour cap with a notification |
+| Running timer survives refresh and re-login | PASS — verified live across a reload |
+| No accidental overlapping timers | PASS — DB unique index; second clock-in inside the cap refused (probe); a stale one self-heals instead of blocking |
+| History persists; durations correct | PASS — entry listed with duration after clock-out; auto-stopped entries capped at exactly 600 minutes and badged |
+| Timer time reaches EOD automatically | PASS by wiring (EOD minutes band reads the same entries); visible on the next worked day |
 
 ## 3 · CreditOps
 
@@ -95,3 +95,11 @@ not yet been walked by a real operator.
   facts (rule 12).
 - **Invite links pinned server-side** to the production origin.
 - **EOD row labels** distinguish "Client file" from "Partner work unit".
+
+- **Timer governance (Dee's rule, 2026-09-08 late):** agents never write a
+  custom time. Clock-out means NOW (DB-enforced); a forgotten timer is
+  auto-stopped at the 10-hour cap by a cron sweep every 10 minutes — or by
+  the agent's own next clock-in — with notifications to the agent and their
+  team lead. Corrections go through `time_adjustment_requests`: the agent
+  states the true stop time and reason, a lead/admin decides (never their own
+  request), both identities audited. Matrix phase 69: 17 probes green.

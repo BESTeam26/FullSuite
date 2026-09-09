@@ -10856,9 +10856,81 @@ export type Database = {
           },
         ]
       }
+      time_adjustment_requests: {
+        Row: {
+          agency_id: string
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          entry_id: string
+          id: string
+          reason: string
+          requested_by: string
+          requested_ended_at: string
+          status: string
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          entry_id: string
+          id?: string
+          reason: string
+          requested_by: string
+          requested_ended_at: string
+          status?: string
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          entry_id?: string
+          id?: string
+          reason?: string
+          requested_by?: string
+          requested_ended_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "time_adjustment_requests_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_adjustment_requests_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_adjustment_requests_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "time_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_adjustment_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       time_entries: {
         Row: {
           agency_id: string
+          auto_stopped: boolean
           client_id: string | null
           created_at: string
           division_id: string
@@ -10874,6 +10946,7 @@ export type Database = {
         }
         Insert: {
           agency_id: string
+          auto_stopped?: boolean
           client_id?: string | null
           created_at?: string
           division_id?: string
@@ -10889,6 +10962,7 @@ export type Database = {
         }
         Update: {
           agency_id?: string
+          auto_stopped?: boolean
           client_id?: string | null
           created_at?: string
           division_id?: string
@@ -12343,6 +12417,7 @@ export type Database = {
         Args: { p_client: string; p_code: string }
         Returns: string
       }
+      auto_stop_stale_timers: { Args: never; Returns: number }
       begin_letter_mailing: {
         Args: { p_from: Json; p_letter: string; p_to: Json }
         Returns: string
@@ -12849,6 +12924,10 @@ export type Database = {
         }
         Returns: Database["public"]["Enums"]["funding_deal_status"]
       }
+      decide_time_adjustment: {
+        Args: { p_approve: boolean; p_note?: string; p_request: string }
+        Returns: undefined
+      }
       default_role_access: {
         Args: {
           p_product: Database["public"]["Enums"]["product_key"]
@@ -13207,6 +13286,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      notify_timer_stopped: {
+        Args: { p_entry: Database["public"]["Tables"]["time_entries"]["Row"] }
+        Returns: undefined
+      }
       open_direct_channel: { Args: { p_other: string }; Returns: string }
       open_dispute_round: {
         Args: {
@@ -13468,6 +13551,10 @@ export type Database = {
           p_to?: string
         }
         Returns: Json[]
+      }
+      request_time_adjustment: {
+        Args: { p_ended_at: string; p_entry: string; p_reason: string }
+        Returns: string
       }
       require_permission: {
         Args: { p_key: string; p_org: string }
@@ -13737,6 +13824,7 @@ export type Database = {
           reactions: Json
         }[]
       }
+      timer_cap: { Args: never; Returns: string }
       to_service: {
         Args: { p: string }
         Returns: Database["public"]["Enums"]["fulfillment_service"]

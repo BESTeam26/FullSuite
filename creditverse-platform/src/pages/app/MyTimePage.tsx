@@ -19,6 +19,8 @@ import { DataSourceBadge } from "@/components/dashboard/DataSourceBadge";
 import { OpsSelect } from "@/components/ui/ops-select";
 import { HqPageShell } from "@/pages/app/HqPages";
 import { useTimesheet } from "@/lib/data/use-time";
+import { useMyTimeAdjustments, useRequestTimeAdjustment } from "@/lib/data/use-time-adjustments";
+import type { TimeAdjustmentRequest, TimeEntry } from "@/lib/data/time-entries";
 import { STALE_TIMER_HOURS, describeRunningFor, isStaleTimer } from "@/lib/time-domain";
 import {
   DIVISION_LABELS,
@@ -39,6 +41,7 @@ const clockTime = (iso: string) =>
 
 export const MyTimePage = () => {
   const t = useTimesheet();
+  const myAdjustments = useMyTimeAdjustments();
   const [division, setDivision] = useState("creditops");
   const [taskNote, setTaskNote] = useState("");
 
@@ -139,15 +142,19 @@ export const MyTimePage = () => {
         <div role="status" className="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-xs text-foreground">
           <AlertTriangle className="h-4 w-4 shrink-0 text-status-warning" />
           <p className="min-w-0 flex-1">
-            This timer has been running for {describeRunningFor(t.openEntry)} — longer than a working day
-            ({STALE_TIMER_HOURS} hours). Production and End of Day read this figure, so say when you
-            actually stopped — the recorded time will be that, not the whole span.
+            This timer has been running for {describeRunningFor(t.openEntry)} — longer than the
+            {" "}{STALE_TIMER_HOURS}-hour cap. Clocking out records AT MOST {STALE_TIMER_HOURS} hours
+            (the system also stops forgotten timers on its own and tells you and your lead). If the
+            real time differs, request an adjustment on the entry below — your lead approves it.
           </p>
-          <StaleClockOut
-            startedAt={t.openEntry.startedAt}
-            busy={t.isMutating}
-            onStop={(endedAt) => t.clockOut(endedAt)}
-          />
+          <button
+            type="button"
+            onClick={t.clockOut}
+            disabled={t.isMutating}
+            className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Clock out
+          </button>
         </div>
       )}
 
@@ -170,15 +177,32 @@ export const MyTimePage = () => {
           </p>
         ) : (
           <DivisionTable
-            columns={["Date", "Started", "Division", "Task", "Duration"]}
+            columns={["Date", "Started", "Division", "Task", "Duration", ""]}
             rows={t.entries.map((e) => [
               e.workDate,
               clockTime(e.startedAt),
               divisionLabel(e.divisionId),
               e.taskNote ?? "—",
-              e.endedAt
-                ? formatDuration(e.durationMinutes)
-                : `${formatDuration(entryMinutes(e))} (running)`,
+              e.endedAt ? (
+                <span key="d" className="inline-flex items-center gap-1.5">
+                  {formatDuration(e.durationMinutes)}
+                  {/* The system stopped this one at the cap — the agent may
+                      not have been working the whole span, and the row says
+                      so instead of passing the cap off as a shift. */}
+                  {e.autoStopped && (
+                    <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-status-warning">
+                      auto-stopped
+                    </span>
+                  )}
+                </span>
+              ) : (
+                `${formatDuration(entryMinutes(e))} (running)`
+              ),
+              e.endedAt ? (
+                <AdjustmentCell key="a" entry={e} mine={myAdjustments.data ?? []} />
+              ) : (
+                ""
+              ),
             ])}
           />
         )}
@@ -187,70 +211,92 @@ export const MyTimePage = () => {
   );
 };
 
-
 /**
- * Ending a forgotten timer: the person supplies the one fact the system
- * cannot know — when they actually stopped. Nothing is guessed: the field
- * starts empty, "It ran until now" is an explicit choice, and a moment
- * outside the timer's life is refused.
+ * "This recorded time is wrong" — said to a lead, never fixed by hand.
+ *
+ * One open request per entry (the database enforces it); while one is
+ * pending the cell shows that instead of a second button, and a decision
+ * shows as what it was.
  */
-function StaleClockOut({
-  startedAt,
-  busy,
-  onStop,
+const AdjustmentCell = ({
+  entry,
+  mine,
 }: {
-  startedAt: string;
-  busy: boolean;
-  onStop: (endedAt?: string) => void;
-}) {
+  entry: TimeEntry;
+  mine: TimeAdjustmentRequest[];
+}) => {
+  const [open, setOpen] = useState(false);
   const [when, setWhen] = useState("");
-  const [problem, setProblem] = useState<string | null>(null);
+  const [reason, setReason] = useState("");
+  const request = useRequestTimeAdjustment();
+  const existing = mine.find((r) => r.entryId === entry.id);
 
-  const stopAt = () => {
-    setProblem(null);
-    const t = new Date(when);
-    if (!when || Number.isNaN(t.getTime())) {
-      setProblem("Pick the time you stopped.");
-      return;
-    }
-    if (t.getTime() <= new Date(startedAt).getTime()) {
-      setProblem("That is before the timer started.");
-      return;
-    }
-    if (t.getTime() > Date.now()) {
-      setProblem("That is in the future.");
-      return;
-    }
-    onStop(t.toISOString());
+  if (existing?.status === "pending") {
+    return <span className="text-[11px] font-medium text-status-warning">Adjustment pending</span>;
+  }
+
+  const submit = () => {
+    const stamp = new Date(when);
+    if (!when || Number.isNaN(stamp.getTime())) return;
+    request.mutate(
+      { entryId: entry.id, endedAt: stamp.toISOString(), reason: reason.trim() },
+      { onSuccess: () => { setOpen(false); setWhen(""); setReason(""); } },
+    );
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <label htmlFor="stale-ended-at" className="sr-only">When did you stop?</label>
-      <input
-        id="stale-ended-at"
-        type="datetime-local"
-        value={when}
-        onChange={(e) => setWhen(e.target.value)}
-        className="rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      />
+    <span className="relative inline-block">
+      {existing && (
+        <span className={`mr-1.5 text-[10px] font-medium ${existing.status === "approved" ? "text-status-success" : "text-muted-foreground"}`}>
+          {existing.status === "approved" ? "adjusted" : "declined"}
+        </span>
+      )}
       <button
         type="button"
-        onClick={stopAt}
-        disabled={busy}
-        className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+        onClick={() => setOpen((v) => !v)}
+        className="rounded-md px-1.5 py-0.5 text-[11px] font-medium text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        Stop at that time
+        Request adjustment
       </button>
-      <button
-        type="button"
-        onClick={() => onStop()}
-        disabled={busy}
-        className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
-      >
-        It ran until now
-      </button>
-      {problem && <span className="w-full text-xs font-semibold text-status-danger">{problem}</span>}
-    </div>
+      {open && (
+        <span className="absolute right-0 z-20 mt-1 block w-72 rounded-xl border border-border bg-card p-3 text-left shadow-lg">
+          <span className="block text-[11px] font-semibold text-foreground">
+            When did this really end?
+          </span>
+          <input
+            type="datetime-local"
+            value={when}
+            onChange={(e) => setWhen(e.target.value)}
+            className="mt-1.5 block w-full rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+          <textarea
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            rows={2}
+            placeholder="Why the recorded time is wrong (required)."
+            className="mt-1.5 block w-full rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+          {request.error && (
+            <span className="mt-1 block text-[10px] font-semibold text-status-danger">
+              {(request.error as Error).message}
+            </span>
+          )}
+          <span className="mt-2 flex justify-end gap-1.5">
+            <button type="button" onClick={() => setOpen(false)}
+              className="rounded-lg px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground">
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={submit}
+              disabled={request.isPending || reason.trim().length < 5 || !when}
+              className="rounded-lg border border-border bg-card px-2 py-1 text-[11px] font-semibold text-foreground hover:bg-muted disabled:opacity-50"
+            >
+              Send to my lead
+            </button>
+          </span>
+        </span>
+      )}
+    </span>
   );
-}
+};
