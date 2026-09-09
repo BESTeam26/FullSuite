@@ -36,6 +36,12 @@ export const AGENCY_PERMISSIONS = [
   /* HR documents (§15): a team member's agreements and NDAs — never mere
      staff status, and not part of any preset. */
   "people.documents.manage",
+  /* The View As preview (parked until Login As replaces it, D-001). Its route
+     carries this key; an admin resolves it true through the role — but only if
+     the key is READ THROUGH here, which it was not, so the owner's own menu
+     link opened to "Access denied" once agency routes stopped consulting the
+     org engine. */
+  "access.preview_as_user",
 ] as const;
 
 export type AgencyPermission = (typeof AGENCY_PERMISSIONS)[number];

@@ -303,7 +303,6 @@ export const AgencyTeamWorkspace = () => {
             </ContentCard>
           </TabsContent>
         )}
-      </Tabs>
 
         {isManager && (
           <TabsContent value="lists" className="mt-4 space-y-4">
@@ -322,6 +321,7 @@ export const AgencyTeamWorkspace = () => {
             )}
           </TabsContent>
         )}
+      </Tabs>
       {openId && <AgencyTaskDrawer itemId={openId} onClose={() => setOpen(null)} allItems={items} />}
       {creating && (
         <NewAgencyTaskDialog
