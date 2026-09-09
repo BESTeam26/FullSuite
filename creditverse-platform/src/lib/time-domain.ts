@@ -44,6 +44,8 @@ export function weekStart(date: Date = new Date()): string {
 
 export interface TimeSummary {
   todayMinutes: number;
+  /** Today's break + lunch minutes — rest, shown separately, never summed in. */
+  todayRestMinutes: number;
   weekMinutes: number;
   /** Minutes per division across the week, highest first. */
   byDivision: { divisionId: string; minutes: number }[];
@@ -65,8 +67,14 @@ export function summariseTime(
   let weekMinutes = 0;
   const perDivision = new Map<string, number>();
 
+  let todayRestMinutes = 0;
   for (const e of entries) {
     const mins = entryMinutes(e, now);
+    /* Breaks and lunch are the day's rest — never production time (0250). */
+    if (e.kind !== "work") {
+      if (e.workDate === today) todayRestMinutes += mins;
+      continue;
+    }
     weekMinutes += mins;
     if (e.workDate === today) todayMinutes += mins;
     perDivision.set(e.divisionId, (perDivision.get(e.divisionId) ?? 0) + mins);
@@ -74,6 +82,7 @@ export function summariseTime(
 
   return {
     todayMinutes,
+    todayRestMinutes,
     weekMinutes,
     byDivision: [...perDivision.entries()]
       .map(([divisionId, minutes]) => ({ divisionId, minutes }))

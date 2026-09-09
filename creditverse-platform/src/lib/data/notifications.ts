@@ -27,7 +27,10 @@ export type NotificationKind =
   | "announcement"
   /* The clock: an auto-stopped timer, a requested or decided adjustment
      (0236). Routed to the agent and their lead. */
-  | "timer";
+  | "timer"
+  /* Time off: a submitted request (to the leads) and its decision (to the
+     requester), 0251. */
+  | "leave";
 
 export interface Notification {
   id: number;
@@ -114,6 +117,10 @@ export function hrefForEntity(
     /* A timer notification is about ONE entry, but the page that explains it
        — the entry, the cap, the adjustment request — is My Time itself. */
     case "time_entry":
+      return "/app/my-time";
+    /* A leave decision is read on My Time; deciding one happens on Team EOD —
+       the notification's entity_label says which page it points at. */
+    case "leave_request":
       return "/app/my-time";
     case "funding_client":
       return `/app/fundingops?client=${id}`;

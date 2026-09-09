@@ -27,6 +27,8 @@ export interface TimeEntry {
   durationMinutes?: number;
   /** The system ended it at the 10-hour cap (0236) — the agent forgot. */
   autoStopped: boolean;
+  /** 'work' counts toward production and pay; 'break'/'lunch' are the day's rest. */
+  kind: "work" | "break" | "lunch";
 }
 
 const mapRow = (r: TimeEntryRow): TimeEntry => ({
@@ -40,6 +42,7 @@ const mapRow = (r: TimeEntryRow): TimeEntry => ({
   endedAt: r.ended_at ?? undefined,
   durationMinutes: r.duration_minutes ?? undefined,
   autoStopped: Boolean(r.auto_stopped),
+  kind: ((r as { kind?: string }).kind ?? "work") as TimeEntry["kind"],
 });
 
 /** Local calendar date as YYYY-MM-DD — a work day is the employee's, not UTC's. */
@@ -237,5 +240,27 @@ export async function decideTimeAdjustment(
     p_approve: approve,
     p_note: note ?? null,
   });
+  if (error) throw error;
+}
+
+/* ------------------------------------------------------------------ */
+/* Breaks                                                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Switch the open WORK entry to a break or lunch. One database function does
+ * the close-and-open in a single transaction, so a mid-switch failure can
+ * never leave someone half clocked-out.
+ */
+export async function startBreak(kind: "break" | "lunch"): Promise<void> {
+  const sb = requireSupabase();
+  const { error } = await sb.rpc("start_break", { p_kind: kind });
+  if (error) throw error;
+}
+
+/** Close the open break and reopen work, carrying the interrupted context. */
+export async function resumeWork(): Promise<void> {
+  const sb = requireSupabase();
+  const { error } = await sb.rpc("resume_work");
   if (error) throw error;
 }

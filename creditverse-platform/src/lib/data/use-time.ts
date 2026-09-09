@@ -12,6 +12,8 @@ import { useAuth } from "@/lib/auth/auth-context";
 import {
   clockIn as clockInRow,
   clockOut as clockOutRow,
+  resumeWork as resumeWorkRow,
+  startBreak as startBreakRow,
   fetchOpenEntry,
   fetchTimeEntries,
   localWorkDate,
@@ -51,6 +53,10 @@ export interface TimesheetResult extends TimeSummary {
   /** Stop the clock, now. Corrections go through an approved adjustment
       request — an agent never states a custom time (0236). */
   clockOut: () => void;
+  /** Switch the running work entry to rest — one atomic database call. */
+  startBreak: (kind: "break" | "lunch") => void;
+  /** Close the rest entry and pick the interrupted work back up. */
+  resumeWork: () => void;
   isMutating: boolean;
   actionError: string | null;
 }
@@ -115,6 +121,14 @@ export function useTimesheet(): TimesheetResult {
     mutationFn: () => clockOutRow(userId),
     onSuccess: invalidate,
   });
+  const breakM = useMutation({
+    mutationFn: (kind: "break" | "lunch") => startBreakRow(kind),
+    onSuccess: invalidate,
+  });
+  const resumeM = useMutation({
+    mutationFn: () => resumeWorkRow(),
+    onSuccess: invalidate,
+  });
 
   const entries = live ? (q.data ?? []) : [];
   const summary = summariseTime(entries, today);
@@ -134,10 +148,18 @@ export function useTimesheet(): TimesheetResult {
     clockOut: () => {
       if (live) outM.mutate();
     },
-    isMutating: inM.isPending || outM.isPending,
+    startBreak: (kind) => {
+      if (live) breakM.mutate(kind);
+    },
+    resumeWork: () => {
+      if (live) resumeM.mutate();
+    },
+    isMutating: inM.isPending || outM.isPending || breakM.isPending || resumeM.isPending,
     actionError:
       (inM.error as Error | null)?.message ??
       (outM.error as Error | null)?.message ??
+      (breakM.error as Error | null)?.message ??
+      (resumeM.error as Error | null)?.message ??
       null,
   };
 }

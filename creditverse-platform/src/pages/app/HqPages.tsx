@@ -41,6 +41,7 @@ import {
   PlayCircle,
   PauseCircle,
   ShieldAlert,
+  CalendarOff,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -364,6 +365,7 @@ const KIND_ICON: Record<Notification["kind"], ElementType> = {
   attention: AlertTriangle,
   announcement: Megaphone,
   timer: Clock,
+  leave: CalendarOff,
 };
 
 const ENTITY_LABEL: Record<string, string> = {
@@ -373,6 +375,7 @@ const ENTITY_LABEL: Record<string, string> = {
   channel: "Conversation",
   announcement: "Announcement",
   time_entry: "Time entry",
+  leave_request: "Leave request",
 };
 
 const formatWhen = (iso: string) => {

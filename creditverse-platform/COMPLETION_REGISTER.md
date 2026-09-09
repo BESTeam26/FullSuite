@@ -988,3 +988,53 @@ definition has none of. Shipped (0248–0249):
 Five new phase-55 probes: permission gate, single-open-invitation invariant,
 email-bound acceptance, wrong-account refusal, suspended-partner blackout —
 129/129. send-invitation brands partner invites as BES. Suite 1,536 green.
+
+### People management: schedules, breaks, leave, attendance, payroll — 2026-09-09
+
+Dee's direction — Clockify-grade time, leave with rules, attendance marks,
+and payroll that expenses itself. One doctrine under all of it: expectations
+are STATED by a manager, events are RECORDED by the clock, and every
+judgement — late, over-break, absent, gross pay — is ARITHMETIC (rule 9).
+Migrations 0250–0254:
+
+- **Breaks in the timer.** `time_entries.kind` (work/break/lunch);
+  `start_break`/`resume_work` switch atomically (close + open in one
+  transaction), resuming carries the interrupted division/client/task back.
+  EOD minutes and the week's figures count WORK only; rest shows as its own
+  badge. Walked live: clock in → lunch → back to work → clock out.
+- **Work schedules**, effective-dated (yesterday judged by yesterday's
+  schedule): days, shift, lunch/break allowance, grace, timezone. Stated via
+  an audited definer function; leads read their team's, managers all,
+  agents their own.
+- **Leave with rules.** Types are rows (Vacation/Sick/Personal/Unpaid
+  seeded); one live request per person per day is a GiST exclusion
+  constraint; submission notifies the leads (new notification kind `leave`),
+  a lead or manager decides — never their own — and the requester is told
+  with the decider's name. Requesting and withdrawing live on My Time;
+  deciding on Team EOD.
+- **Attendance, derived.** `attendance_for(from,to)`: late (vs shift start +
+  grace, in the schedule's timezone), over-break/over-lunch (vs allowance),
+  absent (past scheduled day, no entries, no leave), on-leave. SECURITY
+  DEFINER with an explicit self/lead/manager gate — chosen over widening raw
+  time_entries so leads see marks, never entries' contents. Team EOD shows
+  the day; no schedule = "nothing claimed", said plainly.
+- **Payroll.** Effective-dated rates (hourly or fixed-per-cutoff — chosen
+  over "monthly" so semi-monthly cutoffs never need a proration nobody
+  agreed to), visible to payroll access and the person, NEVER a lead.
+  Non-overlapping cutoffs (the same hour is never paid twice); payslips
+  computed from work minutes + approved paid leave with the rate
+  snapshotted; manager adjustments carry a required reason; release freezes
+  the cutoff and writes ONE agency_expenses row (category `payroll`, due at
+  period end). Verified live end to end: Dee's real 2,989 work minutes ×
+  $15/h + $25 adjustment = $772.25 released as an expense (rolled back).
+  My payslips on My Time; the Payroll tab on Finance (permission-gated).
+
+Matrix phase 70: **99/99** — including "an agent cannot state their own
+schedule/rate", "nobody decides their own leave", "a lead sees no
+colleague's rate", "a released cutoff refuses regeneration", and "an agent
+outside the team cannot even FIND the request". Suite 1,538 green.
+
+Two traps re-recorded: RLS policies need base table GRANTS beneath them
+(42501 with a perfect policy, 0253); and INSERT…SELECT still does not coerce
+enum literals — the 0237 lesson, relearned by its own author inside a
+trigger, where it takes the user's write down with it (0254).

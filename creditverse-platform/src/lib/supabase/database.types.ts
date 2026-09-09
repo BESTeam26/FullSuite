@@ -5789,6 +5789,121 @@ export type Database = {
         }
         Relationships: []
       }
+      leave_requests: {
+        Row: {
+          agency_id: string
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          ends_on: string
+          id: string
+          reason: string | null
+          starts_on: string
+          status: string
+          type_id: string
+          user_id: string
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          ends_on: string
+          id?: string
+          reason?: string | null
+          starts_on: string
+          status?: string
+          type_id: string
+          user_id: string
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          ends_on?: string
+          id?: string
+          reason?: string | null
+          starts_on?: string
+          status?: string
+          type_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leave_requests_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leave_requests_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leave_requests_type_id_fkey"
+            columns: ["type_id"]
+            isOneToOne: false
+            referencedRelation: "leave_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leave_requests_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leave_types: {
+        Row: {
+          active: boolean
+          agency_id: string
+          code: string
+          created_at: string
+          id: string
+          label: string
+          paid: boolean
+          sort: number
+        }
+        Insert: {
+          active?: boolean
+          agency_id: string
+          code: string
+          created_at?: string
+          id?: string
+          label: string
+          paid?: boolean
+          sort?: number
+        }
+        Update: {
+          active?: boolean
+          agency_id?: string
+          code?: string
+          created_at?: string
+          id?: string
+          label?: string
+          paid?: boolean
+          sort?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leave_types_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lender_contacts: {
         Row: {
           created_at: string
@@ -6501,6 +6616,64 @@ export type Database = {
           {
             foreignKeyName: "meetings_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      member_pay_rates: {
+        Row: {
+          agency_id: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          effective_from: string
+          id: string
+          rate_cents: number
+          rate_type: string
+          user_id: string
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          effective_from?: string
+          id?: string
+          rate_cents: number
+          rate_type: string
+          user_id: string
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          effective_from?: string
+          id?: string
+          rate_cents?: number
+          rate_type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_pay_rates_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_pay_rates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_pay_rates_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -9109,6 +9282,147 @@ export type Database = {
           },
         ]
       }
+      payroll_cutoffs: {
+        Row: {
+          agency_id: string
+          created_at: string
+          created_by: string | null
+          expense_id: string | null
+          id: string
+          period_end: string
+          period_start: string
+          released_at: string | null
+          released_by: string | null
+          status: string
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          created_by?: string | null
+          expense_id?: string | null
+          id?: string
+          period_end: string
+          period_start: string
+          released_at?: string | null
+          released_by?: string | null
+          status?: string
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          created_by?: string | null
+          expense_id?: string | null
+          id?: string
+          period_end?: string
+          period_start?: string
+          released_at?: string | null
+          released_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_cutoffs_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_cutoffs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_cutoffs_expense_id_fkey"
+            columns: ["expense_id"]
+            isOneToOne: false
+            referencedRelation: "agency_expenses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_cutoffs_released_by_fkey"
+            columns: ["released_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payslips: {
+        Row: {
+          adjustment_cents: number
+          adjustment_note: string | null
+          agency_id: string
+          base_cents: number
+          created_at: string
+          currency: string
+          cutoff_id: string
+          gross_cents: number | null
+          id: string
+          paid_leave_minutes: number
+          rate_cents: number
+          rate_type: string
+          user_id: string
+          work_minutes: number
+        }
+        Insert: {
+          adjustment_cents?: number
+          adjustment_note?: string | null
+          agency_id: string
+          base_cents?: number
+          created_at?: string
+          currency: string
+          cutoff_id: string
+          gross_cents?: number | null
+          id?: string
+          paid_leave_minutes?: number
+          rate_cents: number
+          rate_type: string
+          user_id: string
+          work_minutes?: number
+        }
+        Update: {
+          adjustment_cents?: number
+          adjustment_note?: string | null
+          agency_id?: string
+          base_cents?: number
+          created_at?: string
+          currency?: string
+          cutoff_id?: string
+          gross_cents?: number | null
+          id?: string
+          paid_leave_minutes?: number
+          rate_cents?: number
+          rate_type?: string
+          user_id?: string
+          work_minutes?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payslips_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payslips_cutoff_id_fkey"
+            columns: ["cutoff_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_cutoffs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payslips_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       permission_keys: {
         Row: {
           description: string | null
@@ -10938,6 +11252,7 @@ export type Database = {
           employee_id: string
           ended_at: string | null
           id: string
+          kind: string
           organization_id: string | null
           started_at: string
           task_note: string | null
@@ -10954,6 +11269,7 @@ export type Database = {
           employee_id: string
           ended_at?: string | null
           id?: string
+          kind?: string
           organization_id?: string | null
           started_at?: string
           task_note?: string | null
@@ -10970,6 +11286,7 @@ export type Database = {
           employee_id?: string
           ended_at?: string | null
           id?: string
+          kind?: string
           organization_id?: string | null
           started_at?: string
           task_note?: string | null
@@ -11680,6 +11997,76 @@ export type Database = {
           },
         ]
       }
+      work_schedules: {
+        Row: {
+          agency_id: string
+          break_minutes: number
+          created_at: string
+          created_by: string | null
+          effective_from: string
+          grace_minutes: number
+          id: string
+          lunch_minutes: number
+          shift_end: string
+          shift_start: string
+          timezone: string
+          user_id: string
+          work_days: number[]
+        }
+        Insert: {
+          agency_id: string
+          break_minutes?: number
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          grace_minutes?: number
+          id?: string
+          lunch_minutes?: number
+          shift_end: string
+          shift_start: string
+          timezone?: string
+          user_id: string
+          work_days?: number[]
+        }
+        Update: {
+          agency_id?: string
+          break_minutes?: number
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          grace_minutes?: number
+          id?: string
+          lunch_minutes?: number
+          shift_end?: string
+          shift_start?: string
+          timezone?: string
+          user_id?: string
+          work_days?: number[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_schedules_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_schedules_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_schedules_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workspace_boards: {
         Row: {
           archived_at: string | null
@@ -12215,6 +12602,10 @@ export type Database = {
         }
         Returns: string
       }
+      adjust_payslip: {
+        Args: { p_cents: number; p_note: string; p_payslip: string }
+        Returns: undefined
+      }
       advance_closing: {
         Args: {
           p_closing: string
@@ -12412,6 +12803,25 @@ export type Database = {
           full_name: string
           id: string
           role: string
+        }[]
+      }
+      attendance_for: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          break_minutes: number
+          day: string
+          first_in: string
+          last_out: string
+          late_minutes: number
+          leave_label: string
+          lunch_minutes: number
+          on_leave: boolean
+          overbreak_minutes: number
+          overlunch_minutes: number
+          scheduled: boolean
+          status: string
+          user_id: string
+          work_minutes: number
         }[]
       }
       attribute_referral: {
@@ -12926,6 +13336,10 @@ export type Database = {
         }
         Returns: Database["public"]["Enums"]["funding_deal_status"]
       }
+      decide_leave_request: {
+        Args: { p_approve: boolean; p_note?: string; p_request: string }
+        Returns: undefined
+      }
       decide_time_adjustment: {
         Args: { p_approve: boolean; p_note?: string; p_request: string }
         Returns: undefined
@@ -13069,6 +13483,7 @@ export type Database = {
         Args: { p_agency: string; p_month: number; p_year: number }
         Returns: number
       }
+      generate_payroll: { Args: { p_cutoff: string }; Returns: number }
       ghl_agency_status: {
         Args: never
         Returns: {
@@ -13559,6 +13974,7 @@ export type Database = {
           subscribed: boolean
         }[]
       }
+      release_payroll: { Args: { p_cutoff: string }; Returns: string }
       report_analysis_complete: { Args: { p_report: string }; Returns: boolean }
       report_pivot: {
         Args: {
@@ -13592,6 +14008,7 @@ export type Database = {
         Returns: undefined
       }
       restore_partner: { Args: { p_group: string }; Returns: Json }
+      resume_work: { Args: never; Returns: string }
       reverse_commission: {
         Args: { p_commission: string; p_reason: string }
         Returns: undefined
@@ -13750,6 +14167,16 @@ export type Database = {
         }
         Returns: undefined
       }
+      set_member_pay_rate: {
+        Args: {
+          p_currency?: string
+          p_effective_from?: string
+          p_rate_cents: number
+          p_rate_type: string
+          p_user: string
+        }
+        Returns: string
+      }
       set_member_permission: {
         Args: {
           p_allowed: boolean
@@ -13805,6 +14232,20 @@ export type Database = {
         Args: { p_code: string; p_label?: string; p_org: string }
         Returns: string
       }
+      set_work_schedule: {
+        Args: {
+          p_break_minutes: number
+          p_effective_from?: string
+          p_grace_minutes: number
+          p_lunch_minutes: number
+          p_shift_end: string
+          p_shift_start: string
+          p_timezone: string
+          p_user: string
+          p_work_days: number[]
+        }
+        Returns: string
+      }
       shares_scope_with: { Args: { p_user: string }; Returns: boolean }
       split_person_name: {
         Args: { p_name: string }
@@ -13814,6 +14255,7 @@ export type Database = {
           surname: string
         }[]
       }
+      start_break: { Args: { p_kind?: string }; Returns: string }
       start_closing: {
         Args: { p_note?: string; p_offer: string }
         Returns: string

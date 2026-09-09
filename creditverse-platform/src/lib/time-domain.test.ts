@@ -15,6 +15,7 @@ const entry = (over: Partial<TimeEntry> = {}): TimeEntry => ({
   endedAt: "2026-09-03T10:30:00.000Z",
   durationMinutes: 90,
   autoStopped: false,
+  kind: "work",
   ...over,
 });
 
@@ -131,5 +132,29 @@ describe("summariseTime", () => {
   it("reports no open entry when every clock is stopped", () => {
     const s = summariseTime([entry()], "2026-09-03", now);
     expect(s.openEntry).toBeUndefined();
+  });
+});
+
+describe("breaks are rest, not production", () => {
+  it("excludes break and lunch minutes from today and the week", () => {
+    const s = summariseTime(
+      [
+        entry({ id: "w", durationMinutes: 120 }),
+        entry({ id: "b", kind: "break", durationMinutes: 15 }),
+        entry({ id: "l", kind: "lunch", durationMinutes: 60 }),
+      ],
+      "2026-09-03",
+    );
+    expect(s.todayMinutes).toBe(120);
+    expect(s.weekMinutes).toBe(120);
+    expect(s.todayRestMinutes).toBe(75);
+  });
+
+  it("never attributes rest to a division", () => {
+    const s = summariseTime(
+      [entry({ id: "b", kind: "lunch", divisionId: "creditops", durationMinutes: 60 })],
+      "2026-09-03",
+    );
+    expect(s.byDivision).toEqual([]);
   });
 });

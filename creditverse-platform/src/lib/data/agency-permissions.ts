@@ -25,6 +25,7 @@ export const AGENCY_PERMISSIONS = [
   "partners.financials.view", "partners.financials.edit", "partners.revenue.record",
   "partners.invoices.view", "partners.invoices.manage", "partners.payments.record",
   "finance.dashboard.view", "expenses.view", "expenses.manage",
+  "payroll.view", "payroll.manage",
   "org.structure.view", "org.structure.manage",
   "hub.files.manage", "ops.manage",
   "communication.audit", "communication.manage",

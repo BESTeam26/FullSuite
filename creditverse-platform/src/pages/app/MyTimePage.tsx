@@ -9,7 +9,7 @@
  * 520-line module worse (rule 13).
  */
 import { useState } from "react";
-import { Clock, PlayCircle, PauseCircle, AlertTriangle } from "lucide-react";
+import { CalendarOff, Coffee, Clock, PlayCircle, PauseCircle, AlertTriangle, Receipt, UtensilsCrossed } from "lucide-react";
 import {
   ContentCard,
   DivisionTable,
@@ -20,6 +20,8 @@ import { OpsSelect } from "@/components/ui/ops-select";
 import { HqPageShell } from "@/pages/app/HqPages";
 import { useTimesheet } from "@/lib/data/use-time";
 import { useMyTimeAdjustments, useRequestTimeAdjustment } from "@/lib/data/use-time-adjustments";
+import { useLeaveActions, useLeaveTypes, useMyLeave, useMyPayslips } from "@/lib/data/use-people";
+import { formatDate } from "@/lib/format-date";
 import type { TimeAdjustmentRequest, TimeEntry } from "@/lib/data/time-entries";
 import { STALE_TIMER_HOURS, describeRunningFor, isStaleTimer } from "@/lib/time-domain";
 import {
@@ -98,14 +100,47 @@ export const MyTimePage = () => {
       </div>
 
       <div className="mt-5 flex flex-wrap items-center gap-3">
-        {running ? (
-          <button
-            onClick={() => t.clockOut()}
-            disabled={t.isMutating}
-            className="flex items-center gap-2 rounded-xl border border-border bg-card px-5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <PauseCircle className="h-4 w-4" /> Clock Out
-          </button>
+        {running && t.openEntry?.kind !== "work" ? (
+          <>
+            <button
+              onClick={() => t.resumeWork()}
+              disabled={t.isMutating}
+              className="flex items-center gap-2 rounded-xl bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <PlayCircle className="h-4 w-4" /> Back to work
+            </button>
+            <button
+              onClick={() => t.clockOut()}
+              disabled={t.isMutating}
+              className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <PauseCircle className="h-4 w-4" /> Clock Out
+            </button>
+          </>
+        ) : running ? (
+          <>
+            <button
+              onClick={() => t.clockOut()}
+              disabled={t.isMutating}
+              className="flex items-center gap-2 rounded-xl border border-border bg-card px-5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <PauseCircle className="h-4 w-4" /> Clock Out
+            </button>
+            <button
+              onClick={() => t.startBreak("break")}
+              disabled={t.isMutating}
+              className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Coffee className="h-4 w-4" /> Break
+            </button>
+            <button
+              onClick={() => t.startBreak("lunch")}
+              disabled={t.isMutating}
+              className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <UtensilsCrossed className="h-4 w-4" /> Lunch
+            </button>
+          </>
         ) : (
           <>
             <button
@@ -131,9 +166,14 @@ export const MyTimePage = () => {
         )}
         {running && t.openEntry && (
           <span className="text-xs text-muted-foreground">
-            Running since {clockTime(t.openEntry.startedAt)} ·{" "}
-            {divisionLabel(t.openEntry.divisionId)}
-            {t.openEntry.taskNote ? ` · ${t.openEntry.taskNote}` : ""}
+            {t.openEntry.kind === "work"
+              ? `Running since ${clockTime(t.openEntry.startedAt)} · ${divisionLabel(t.openEntry.divisionId)}${t.openEntry.taskNote ? ` · ${t.openEntry.taskNote}` : ""}`
+              : `On ${t.openEntry.kind} since ${clockTime(t.openEntry.startedAt)} — the clock counts it as rest`}
+          </span>
+        )}
+        {t.todayRestMinutes > 0 && (
+          <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
+            Rest today: {formatDuration(t.todayRestMinutes)}
           </span>
         )}
       </div>
@@ -181,7 +221,12 @@ export const MyTimePage = () => {
             rows={t.entries.map((e) => [
               e.workDate,
               clockTime(e.startedAt),
-              divisionLabel(e.divisionId),
+              e.kind === "work" ? divisionLabel(e.divisionId) : (
+                <span key="k" className="inline-flex items-center gap-1 text-muted-foreground">
+                  {e.kind === "lunch" ? <UtensilsCrossed className="h-3 w-3" /> : <Coffee className="h-3 w-3" />}
+                  {e.kind === "lunch" ? "Lunch" : "Break"}
+                </span>
+              ),
               e.taskNote ?? "—",
               e.endedAt ? (
                 <span key="d" className="inline-flex items-center gap-1.5">
@@ -207,7 +252,133 @@ export const MyTimePage = () => {
           />
         )}
       </ContentCard>
+
+      <TimeOffCard />
+      <MyPayslipsCard />
     </HqPageShell>
+  );
+};
+
+/**
+ * Requesting time off, and where past requests stand. Submitting notifies the
+ * team's leads; a lead or manager decides (never their own) and the decision
+ * lands back here with who made it and why.
+ */
+const TimeOffCard = () => {
+  const types = useLeaveTypes();
+  const mine = useMyLeave();
+  const actions = useLeaveActions();
+  const [typeId, setTypeId] = useState("");
+  const [startsOn, setStartsOn] = useState("");
+  const [endsOn, setEndsOn] = useState("");
+  const [reason, setReason] = useState("");
+
+  const chosenType = typeId || (types.data?.[0]?.id ?? "");
+  const canSubmit = Boolean(chosenType && startsOn && endsOn && endsOn >= startsOn);
+  const STATUS_TONE: Record<string, string> = {
+    pending: "border-amber-500/40 bg-amber-500/10 text-amber-800",
+    approved: "border-emerald-500/40 bg-emerald-500/10 text-emerald-800",
+    declined: "border-red-500/30 bg-red-500/10 text-red-700",
+    cancelled: "border-border bg-muted text-muted-foreground",
+  };
+
+  return (
+    <ContentCard title={<span className="flex items-center gap-2"><CalendarOff className="h-4 w-4 text-muted-foreground" /> Time off</span>}>
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="text-xs text-muted-foreground">
+          Type
+          <select value={chosenType} onChange={(e) => setTypeId(e.target.value)}
+            className="mt-0.5 block rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground">
+            {(types.data ?? []).map((ty) => (
+              <option key={ty.id} value={ty.id}>{ty.label}{ty.paid ? "" : " (unpaid)"}</option>
+            ))}
+          </select>
+        </label>
+        <label className="text-xs text-muted-foreground">
+          From
+          <input type="date" value={startsOn} onChange={(e) => setStartsOn(e.target.value)}
+            className="mt-0.5 block rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground" />
+        </label>
+        <label className="text-xs text-muted-foreground">
+          To
+          <input type="date" value={endsOn} onChange={(e) => setEndsOn(e.target.value)}
+            className="mt-0.5 block rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground" />
+        </label>
+        <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason (optional)"
+          className="min-w-[180px] flex-1 rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground" />
+        <button type="button" disabled={!canSubmit || actions.submit.isPending}
+          onClick={() => actions.submit.mutate(
+            { typeId: chosenType, startsOn, endsOn, reason: reason || undefined },
+            { onSuccess: () => { setStartsOn(""); setEndsOn(""); setReason(""); } },
+          )}
+          className="rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-800 disabled:opacity-50">
+          Request
+        </button>
+      </div>
+      {actions.submit.error && (
+        <p className="mt-2 text-xs font-semibold text-status-danger">{(actions.submit.error as Error).message}</p>
+      )}
+      {(mine.data ?? []).length > 0 && (
+        <ul className="mt-3 divide-y divide-border/50">
+          {(mine.data ?? []).map((r) => (
+            <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-xs">
+              <span className="text-foreground">
+                {r.typeLabel} · {formatDate(r.startsOn)}{r.endsOn !== r.startsOn ? ` – ${formatDate(r.endsOn)}` : ""}
+                {r.reason ? <span className="text-muted-foreground"> · {r.reason}</span> : null}
+              </span>
+              <span className="flex items-center gap-2">
+                {r.decidedByName && (
+                  <span className="text-[10px] text-muted-foreground">
+                    by {r.decidedByName}{r.decisionNote ? ` — "${r.decisionNote}"` : ""}
+                  </span>
+                )}
+                <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${STATUS_TONE[r.status]}`}>
+                  {r.status}
+                </span>
+                {r.status === "pending" && (
+                  <button type="button" onClick={() => actions.cancel.mutate(r.id)}
+                    className="text-[10px] text-muted-foreground underline-offset-2 hover:underline">
+                    Withdraw
+                  </button>
+                )}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </ContentCard>
+  );
+};
+
+/** The agent's own payslips — computed, never typed (0252). */
+const MyPayslipsCard = () => {
+  const slips = useMyPayslips();
+  if ((slips.data ?? []).length === 0) return null;
+  const money = (cents: number, currency: string) =>
+    `${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2 })} ${currency}`;
+  return (
+    <ContentCard title={<span className="flex items-center gap-2"><Receipt className="h-4 w-4 text-muted-foreground" /> My payslips</span>}>
+      <ul className="divide-y divide-border/50">
+        {(slips.data ?? []).map((s) => (
+          <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-xs">
+            <span className="text-foreground">
+              {formatDate(s.periodStart)} – {formatDate(s.periodEnd)}
+              <span className="text-muted-foreground">
+                {" "}· {formatDuration(s.workMinutes)} worked
+                {s.paidLeaveMinutes > 0 ? ` + ${formatDuration(s.paidLeaveMinutes)} paid leave` : ""}
+                {s.adjustmentCents !== 0 ? ` · adj ${money(s.adjustmentCents, s.currency)}${s.adjustmentNote ? ` (${s.adjustmentNote})` : ""}` : ""}
+              </span>
+            </span>
+            <span className="flex items-center gap-2">
+              <span className="font-semibold text-foreground">{money(s.grossCents, s.currency)}</span>
+              <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${s.released ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-800" : "border-border bg-muted text-muted-foreground"}`}>
+                {s.released ? "released" : "draft"}
+              </span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </ContentCard>
   );
 };
 

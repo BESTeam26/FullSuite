@@ -5824,6 +5824,165 @@ if (runs(69)) {
   runPhase("phase 69", P69, { strict: true });
 }
 
+if (runs(70)) {
+  startPhase("phase 70");
+  /* People management (0250–0253): schedules, breaks, leave, attendance,
+     payroll. The doctrine under all of it: expectations are STATED by a
+     manager, events are RECORDED by the clock, and every judgement — late,
+     over-break, absent, gross pay — is ARITHMETIC. So the probes hold the
+     boundaries (who may state, who may see) and the honesty rules (breaks
+     are not production; released payroll is frozen; nobody decides their
+     own leave). */
+  const p70 = (uid, sql) => {
+    try {
+      return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows;
+    } catch (e) {
+      const m = (String(e.message) + String(e.stdout ?? "")).match(/ERROR:\s*(\w+):/);
+      return "ERR " + (m ? m[1] : "unknown");
+    }
+  };
+  const AGENT70 = U["bes.credit@bes.test"], LEAD70 = U["bes.lead@bes.test"],
+        ADM70 = U["bes.admin@bes.test"], FUND70 = U["bes.funding@bes.test"];
+  const AG70 = q(`select agency_id::text as rows from public.agency_memberships limit 1`)[0].rows;
+
+  const P70 = [
+    /* ── schedules: stated by management, seen by the right eyes ───────── */
+    ["an agent cannot state their own schedule",
+      () => p70(AGENT70, `select public.set_work_schedule('${AGENT70}', '{1,2,3,4,5}', '09:00', '18:00', 60, 30, 5, 'UTC') as rows`), "ERR 42501"],
+
+    ["a manager states one, and the person can read it",
+      () => p70(ADM70, `select public.set_work_schedule('${AGENT70}', '{1,2,3,4,5}', '09:00', '18:00', 60, 30, 5, 'UTC');
+        set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
+        select count(*)::int as rows from public.work_schedules where user_id = '${AGENT70}'`), 1],
+
+    ["…while an unrelated agent cannot read it",
+      () => p70(ADM70, `select public.set_work_schedule('${AGENT70}', '{1,2,3,4,5}', '09:00', '18:00', 60, 30, 5, 'UTC');
+        set local request.jwt.claims = '{"sub":"${FUND70}","role":"authenticated"}';
+        select count(*)::int as rows from public.work_schedules where user_id = '${AGENT70}'`), 0],
+
+    ["a schedule with an unknown timezone is refused",
+      () => p70(ADM70, `select public.set_work_schedule('${AGENT70}', '{1,2,3}', '09:00', '18:00', 60, 30, 5, 'Mars/Olympus') as rows`), "ERR P0001"],
+
+    /* ── breaks: one open entry, atomic switches, rest is not production ─ */
+    ["a break splits a workday — starting one while clocked out is refused",
+      () => p70(AGENT70, `select public.start_break('break') as rows`), "ERR P0001"],
+
+    ["switching to lunch closes the work entry and opens a lunch entry",
+      () => p70(AGENT70, `insert into public.time_entries (agency_id, employee_id, division_id, work_date)
+          values ('${AG70}', '${AGENT70}', 'creditops', current_date);
+        select public.start_break('lunch');
+        select (count(*) filter (where ended_at is null and kind = 'lunch'))::int
+             + (count(*) filter (where ended_at is not null and kind = 'work'))::int as rows
+          from public.time_entries where employee_id = '${AGENT70}' and work_date = current_date`), 2],
+
+    ["resuming work carries the interrupted division back",
+      () => p70(AGENT70, `insert into public.time_entries (agency_id, employee_id, division_id, work_date)
+          values ('${AG70}', '${AGENT70}', 'creditops', current_date);
+        select public.start_break('break');
+        select public.resume_work();
+        select division_id as rows from public.time_entries
+         where employee_id = '${AGENT70}' and ended_at is null`), "creditops"],
+
+    ["EOD minutes count work only — the rule is in the function text",
+      () => q(`select (position('t.kind = ' || quote_literal('work') in pg_get_functiondef(p.oid)) > 0)::text as rows
+                 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                where n.nspname = 'public' and p.proname = 'eod_day_activity'`)[0].rows, "true"],
+
+    /* ── leave: request → lead decides, never their own ────────────────── */
+    ["a person requests only their OWN leave",
+      () => p70(AGENT70, `insert into public.leave_requests (agency_id, user_id, type_id, starts_on, ends_on)
+        select '${AG70}'::uuid, '${LEAD70}'::uuid, id, current_date + 7, current_date + 7 from public.leave_types limit 1;
+        select 0 as rows`), "ERR 42501"],
+
+    ["two live requests cannot cover the same day — the database refuses",
+      () => p70(AGENT70, `insert into public.leave_requests (agency_id, user_id, type_id, starts_on, ends_on)
+        select '${AG70}'::uuid, '${AGENT70}'::uuid, id, current_date + 7, current_date + 9 from public.leave_types limit 1;
+        insert into public.leave_requests (agency_id, user_id, type_id, starts_on, ends_on)
+        select '${AG70}'::uuid, '${AGENT70}'::uuid, id, current_date + 8, current_date + 10 from public.leave_types limit 1;
+        select 0 as rows`), "ERR 23P01"],
+
+    ["submitting tells the leads",
+      () => p70(AGENT70, `insert into public.leave_requests (agency_id, user_id, type_id, starts_on, ends_on)
+        select '${AG70}'::uuid, '${AGENT70}'::uuid, id, current_date + 7, current_date + 7 from public.leave_types limit 1;
+        set local request.jwt.claims = '{"sub":"${LEAD70}","role":"authenticated"}';
+        select count(*)::int as rows from public.notifications
+         where recipient_id = '${LEAD70}' and kind = 'leave'`), 1],
+
+    ["nobody decides their own request — not even an admin",
+      () => p70(ADM70, `insert into public.leave_requests (agency_id, user_id, type_id, starts_on, ends_on)
+        select '${AG70}'::uuid, '${ADM70}'::uuid, id, current_date + 7, current_date + 7 from public.leave_types limit 1;
+        select public.decide_leave_request((select id from public.leave_requests where user_id = '${ADM70}' order by created_at desc limit 1), true) as rows`), "ERR 42501"],
+
+    ["the team's lead approves, and the requester is told with the decider's name",
+      () => p70(AGENT70, `insert into public.leave_requests (agency_id, user_id, type_id, starts_on, ends_on)
+        select '${AG70}'::uuid, '${AGENT70}'::uuid, id, current_date + 7, current_date + 7 from public.leave_types limit 1;
+        set local request.jwt.claims = '{"sub":"${LEAD70}","role":"authenticated"}';
+        select public.decide_leave_request((select id from public.leave_requests where user_id = '${AGENT70}' order by created_at desc limit 1), true, 'Enjoy');
+        set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
+        select (count(*) filter (where kind = 'leave' and recipient_id = '${AGENT70}'))::int
+             + (select count(*) from public.leave_requests where user_id = '${AGENT70}' and status = 'approved')::int as rows
+          from public.notifications`), 2],
+
+    /* Stronger than a refusal: an agent outside the team cannot even SEE the
+       request, so the decide call fails at "not found" — the row never
+       existed for them (default deny, rule 1). */
+    ["an agent outside the team cannot even find it to decide",
+      () => p70(AGENT70, `insert into public.leave_requests (agency_id, user_id, type_id, starts_on, ends_on)
+        select '${AG70}'::uuid, '${AGENT70}'::uuid, id, current_date + 7, current_date + 7 from public.leave_types limit 1;
+        set local request.jwt.claims = '{"sub":"${FUND70}","role":"authenticated"}';
+        select coalesce((select id from public.leave_requests where user_id = '${AGENT70}' order by created_at desc limit 1)::text, 'invisible') as rows`), "invisible"],
+
+    /* ── attendance: a gate, not a table ───────────────────────────────── */
+    ["an agent's attendance view reaches only themself",
+      () => p70(AGENT70, `select count(distinct user_id)::int as rows from public.attendance_for(current_date, current_date)`), 1],
+
+    ["approved leave shows as on_leave, never absent",
+      () => p70(ADM70, `select public.set_work_schedule('${AGENT70}', '{1,2,3,4,5,6,7}', '09:00', '18:00', 60, 30, 5, 'UTC');
+        set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
+        insert into public.leave_requests (agency_id, user_id, type_id, starts_on, ends_on)
+        select '${AG70}'::uuid, '${AGENT70}'::uuid, id, current_date - 1, current_date - 1 from public.leave_types limit 1;
+        set local request.jwt.claims = '{"sub":"${ADM70}","role":"authenticated"}';
+        select public.decide_leave_request((select id from public.leave_requests where user_id = '${AGENT70}' order by created_at desc limit 1), true);
+        select status as rows from public.attendance_for(current_date - 1, current_date - 1) a where a.user_id = '${AGENT70}'`), "on_leave"],
+
+    ["an unbounded range is refused by shape, not by patience",
+      () => p70(ADM70, `select count(*)::int as rows from public.attendance_for(current_date - 365, current_date)`), 0],
+
+    /* ── payroll: rates guarded, arithmetic frozen on release ──────────── */
+    ["an agent cannot state anybody's rate — their own included",
+      () => p70(AGENT70, `select public.set_member_pay_rate('${AGENT70}', 'hourly', 1500) as rows`), "ERR 42501"],
+
+    ["a lead sees no colleague's rate",
+      () => p70(ADM70, `select public.set_member_pay_rate('${AGENT70}', 'hourly', 1500);
+        set local request.jwt.claims = '{"sub":"${LEAD70}","role":"authenticated"}';
+        select count(*)::int as rows from public.member_pay_rates where user_id = '${AGENT70}'`), 0],
+
+    ["generate computes work + paid leave, and release writes the expense",
+      () => p70(ADM70, `select public.set_member_pay_rate('${AGENT70}', 'hourly', 1500, 'USD', current_date - 30);
+        insert into public.payroll_cutoffs (agency_id, period_start, period_end) values ('${AG70}', current_date + 100, current_date + 113);
+        select public.generate_payroll((select id from public.payroll_cutoffs where period_start = current_date + 100));
+        select public.release_payroll((select id from public.payroll_cutoffs where period_start = current_date + 100));
+        select ((select count(*) from public.agency_expenses where category = 'payroll')
+              + (select count(*) from public.payroll_cutoffs where status = 'released' and expense_id is not null))::int as rows`), 2],
+
+    ["…and a released cutoff refuses regeneration",
+      () => p70(ADM70, `select public.set_member_pay_rate('${AGENT70}', 'hourly', 1500, 'USD', current_date - 30);
+        insert into public.payroll_cutoffs (agency_id, period_start, period_end) values ('${AG70}', current_date + 100, current_date + 113);
+        select public.generate_payroll((select id from public.payroll_cutoffs where period_start = current_date + 100));
+        select public.release_payroll((select id from public.payroll_cutoffs where period_start = current_date + 100));
+        select public.generate_payroll((select id from public.payroll_cutoffs where period_start = current_date + 100)) as rows`), "ERR P0001"],
+
+    ["an agent reads their own payslip and nobody else's",
+      () => p70(ADM70, `select public.set_member_pay_rate('${AGENT70}', 'hourly', 1500, 'USD', current_date - 30);
+        select public.set_member_pay_rate('${LEAD70}', 'hourly', 2000, 'USD', current_date - 30);
+        insert into public.payroll_cutoffs (agency_id, period_start, period_end) values ('${AG70}', current_date + 100, current_date + 113);
+        select public.generate_payroll((select id from public.payroll_cutoffs where period_start = current_date + 100));
+        set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
+        select (count(*) > 0 and count(*) = count(*) filter (where user_id = '${AGENT70}'))::text as rows from public.payslips`), "true"],
+  ];
+  runPhase("phase 70", P70, { strict: true });
+}
+
 
 endPhase();
 
