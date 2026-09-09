@@ -3270,6 +3270,64 @@ if (runs(55)) {
     ["an unshared partner file's object is unreadable through the portal storage policy",
       () => q(`select (position('shared_with_partner' in pg_get_expr(polqual, polrelid)) > 0)::text as rows from pg_policy where polname='bes_files_partner_select' and polrelid='storage.objects'::regclass`)[0].rows, "true"],
 
+    /* ── Partner portal invitations (0248): the door itself ──────────── */
+    ["inviting a portal contact needs the portal permission",
+      () => probe55(OWNER55,
+        `insert into public.outsourcing_groups (id, agency_id, name, contact_email) values
+           ('44444444-0000-4000-8000-0000000000e1'::uuid,'${AG}','Probe Invite A','ia@example.test');
+         insert into public.partner_contacts (id, group_id, agency_id, full_name, email) values
+           ('44444444-0000-4000-8000-0000000000e2'::uuid, '44444444-0000-4000-8000-0000000000e1'::uuid, '${AG}', 'Probe Invitee', 'invitee@example.test');
+         set local request.jwt.claims = '{"sub":"${AGENT55}","role":"authenticated"}';
+         select public.invite_partner_contact('44444444-0000-4000-8000-0000000000e2'::uuid) as rows`), "ERR 42501"],
+
+    ["…and with it, ONE open invitation exists however often it is re-sent",
+      () => probe55(OWNER55,
+        `insert into public.outsourcing_groups (id, agency_id, name, contact_email) values
+           ('44444444-0000-4000-8000-0000000000e1'::uuid,'${AG}','Probe Invite A','ia@example.test');
+         insert into public.partner_contacts (id, group_id, agency_id, full_name, email) values
+           ('44444444-0000-4000-8000-0000000000e2'::uuid, '44444444-0000-4000-8000-0000000000e1'::uuid, '${AG}', 'Probe Invitee', 'invitee@example.test');
+         select public.invite_partner_contact('44444444-0000-4000-8000-0000000000e2'::uuid);
+         select public.invite_partner_contact('44444444-0000-4000-8000-0000000000e2'::uuid);
+         select (count(*)::int
+               + (select count(*)::int from public.partner_contacts where id='44444444-0000-4000-8000-0000000000e2' and invited_at is not null)) as rows
+           from public.invitations where partner_contact_id = '44444444-0000-4000-8000-0000000000e2'`), 2],
+
+    ["accepting binds the signed-in account to the contact — and only the invited address may",
+      () => probe55(OWNER55,
+        `insert into public.outsourcing_groups (id, agency_id, name, contact_email) values
+           ('44444444-0000-4000-8000-0000000000e1'::uuid,'${AG}','Probe Invite A','ia@example.test');
+         insert into public.partner_contacts (id, group_id, agency_id, full_name, email) values
+           ('44444444-0000-4000-8000-0000000000e2'::uuid, '44444444-0000-4000-8000-0000000000e1'::uuid, '${AG}', 'Probe Invitee',
+            (select email from public.profiles where id='${ORG55}'));
+         select public.invite_partner_contact('44444444-0000-4000-8000-0000000000e2'::uuid);
+         set local request.jwt.claims = '{"sub":"${ORG55}","role":"authenticated"}';
+         select public.accept_partner_invitation((select token from public.invitations where partner_contact_id='44444444-0000-4000-8000-0000000000e2'));
+         set local request.jwt.claims = '{"sub":"${OWNER55}","role":"authenticated"}';
+         select (user_id = '${ORG55}'::uuid)::text as rows from public.partner_contacts where id='44444444-0000-4000-8000-0000000000e2'`), "true"],
+
+    ["…while somebody ELSE with the link is refused",
+      () => probe55(OWNER55,
+        `insert into public.outsourcing_groups (id, agency_id, name, contact_email) values
+           ('44444444-0000-4000-8000-0000000000e1'::uuid,'${AG}','Probe Invite A','ia@example.test');
+         insert into public.partner_contacts (id, group_id, agency_id, full_name, email) values
+           ('44444444-0000-4000-8000-0000000000e2'::uuid, '44444444-0000-4000-8000-0000000000e1'::uuid, '${AG}', 'Probe Invitee',
+            (select email from public.profiles where id='${ORG55}'));
+         select public.invite_partner_contact('44444444-0000-4000-8000-0000000000e2'::uuid);
+         set local request.jwt.claims = '{"sub":"${AGENT55}","role":"authenticated"}';
+         select public.accept_partner_invitation((select token from public.invitations where partner_contact_id='44444444-0000-4000-8000-0000000000e2')) as rows`), "ERR 42501"],
+
+    ["a suspended partner's invitation refuses to open",
+      () => probe55(OWNER55,
+        `insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values
+           ('44444444-0000-4000-8000-0000000000e1'::uuid,'${AG}','Probe Invite A','ia@example.test','active');
+         insert into public.partner_contacts (id, group_id, agency_id, full_name, email) values
+           ('44444444-0000-4000-8000-0000000000e2'::uuid, '44444444-0000-4000-8000-0000000000e1'::uuid, '${AG}', 'Probe Invitee',
+            (select email from public.profiles where id='${ORG55}'));
+         select public.invite_partner_contact('44444444-0000-4000-8000-0000000000e2'::uuid);
+         update public.outsourcing_groups set lifecycle='suspended' where id='44444444-0000-4000-8000-0000000000e1';
+         set local request.jwt.claims = '{"sub":"${ORG55}","role":"authenticated"}';
+         select public.accept_partner_invitation((select token from public.invitations where partner_contact_id='44444444-0000-4000-8000-0000000000e2')) as rows`), "ERR 42501"],
+
     ["anon reaches no partner contact",
       () => { try { q(`begin; set local role anon; select count(*)::int as rows from public.partner_contacts; rollback;`); return "no error"; } catch (e) { const m = (String(e.message)+String(e.stdout ?? "")).match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); } }, "ERR 42501"],
 

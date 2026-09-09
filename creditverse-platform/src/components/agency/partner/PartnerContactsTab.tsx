@@ -16,7 +16,9 @@ import { Input } from "@/components/ui/input";
 import { Empty, Pill } from "@/components/agency/partner/partner-ui";
 import { usePartnerActions, usePartnerContacts } from "@/lib/data/use-agency-partners";
 import { PORTAL_LABEL, portalState } from "@/lib/data/agency-partners";
+import { invitationLink } from "@/lib/data/agency-invitations";
 import { useAgencyPermissions } from "@/lib/data/agency-permissions";
+import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/format-date";
 
 const PORTAL_TONE: Record<string, string> = {
@@ -33,12 +35,39 @@ export function PartnerContactsTab({ groupId }: { groupId: string }) {
   const perms = useAgencyPermissions();
   const canManage = perms.can("partners.contacts");
   const canPortal = perms.can("partners.portal");
+  const { toast } = useToast();
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [invitingId, setInvitingId] = useState<string | null>(null);
 
   const rows = contacts.data ?? [];
+
+  /* Email when connected; the link either way, so the invite is never stuck
+     behind a mail outage — the same honesty rule as agency invitations. */
+  const invite = async (id: string) => {
+    setInvitingId(id);
+    try {
+      const result = await actions.inviteContact.mutateAsync({ id, groupId });
+      const link = invitationLink(result.token);
+      if (result.emailOutcome.status === "sent") {
+        toast({ title: "Invitation sent", description: "They activate from the email, and the link lasts seven days." });
+      } else {
+        await navigator.clipboard.writeText(link).catch(() => undefined);
+        toast({
+          title: "Invitation created — email not sent",
+          description: `${result.emailOutcome.status === "not_connected"
+            ? "Email is not connected yet."
+            : result.emailOutcome.message ?? "The email could not be sent."} The activation link is on your clipboard.`,
+        });
+      }
+    } catch (e) {
+      toast({ title: "Could not invite", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setInvitingId(null);
+    }
+  };
 
   return (
     <ContentCard
@@ -95,6 +124,15 @@ export function PartnerContactsTab({ groupId }: { groupId: string }) {
                 </span>
                 <span className="flex shrink-0 items-center gap-2">
                   <Pill tone={PORTAL_TONE[state]}>{PORTAL_LABEL[state]}</Pill>
+                  {canPortal && c.status === "active" && !c.userId && (
+                    <Button size="sm" variant="outline" className="h-6 px-2 text-xs"
+                      disabled={actions.inviteContact.isPending}
+                      onClick={() => void invite(c.id)}>
+                      {actions.inviteContact.isPending && invitingId === c.id
+                        ? <Loader2 className="h-3 w-3 animate-spin" />
+                        : state === "invited" ? "Re-send invite" : "Invite to portal"}
+                    </Button>
+                  )}
                   {canPortal && c.status === "active" && (
                     <Button size="sm" variant="ghost" className="h-6 px-2 text-xs"
                       onClick={() => actions.setContactStatus.mutate({ id: c.id, groupId, status: "suspended" })}>

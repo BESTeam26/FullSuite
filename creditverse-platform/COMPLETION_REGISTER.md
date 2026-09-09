@@ -959,3 +959,32 @@ Proof: 7 new matrix probes in phase 55 (cross-partner isolation, suspended
 partner blackout, permission-gated + audited sharing, and a structural probe
 that fails if the function ever widens to an internal column) — 124/124.
 32 portal unit tests. Full suite 1,536 green, build clean.
+
+### The portal's front door — invitations — 2026-09-09
+
+The portal had rooms but no door: `partner_contacts` could be added yet never
+invited, and the base shape-check on `invitations` (written before partners
+existed) made a partner invitation structurally impossible — every 'external'
+row was required to carry an organization, which a model-3 partner by
+definition has none of. Shipped (0248–0249):
+
+- `invite_partner_contact` — staff with `partners.portal` mint or re-extend
+  the ONE open invitation, `invited_at` stamped, share recorded in the
+  partner's activity. Email goes out through the same pipe as every other
+  invitation and answers honestly when mail is down (Copy link fallback,
+  auto-copied to the clipboard).
+- `accept_partner_invitation` — binds the new account to the contact row and
+  nothing else: no membership, no tenant. Refuses a different email, a
+  contact already activated by someone else, and a suspended or archived
+  partner.
+- `cancel_partner_invitation` — revocation, since the generic cancel policy
+  requires an organization.
+- The activation page now tries all three accept functions in order, shows
+  the error that was ABOUT the invitation (never a kind-mismatch from the
+  wrong function), and lands a partner contact on `/partner` — /app has
+  nothing for them.
+- Contacts tab: Invite to portal / Re-send invite per contact.
+
+Five new phase-55 probes: permission gate, single-open-invitation invariant,
+email-bound acceptance, wrong-account refusal, suspended-partner blackout —
+129/129. send-invitation brands partner invites as BES. Suite 1,536 green.

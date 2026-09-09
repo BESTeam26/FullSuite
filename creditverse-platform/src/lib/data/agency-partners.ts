@@ -12,6 +12,7 @@
  * refuses is how records fill up with "n/a".
  */
 import { requireSupabase } from "@/lib/supabase/client";
+import { sendInvitationEmail, type EmailOutcome } from "@/lib/data/emails";
 import type { PartnerHealth, PartnerLifecycle } from "@/lib/partners/partner-account";
 
 /**
@@ -492,4 +493,39 @@ export async function fetchMyPartnerClients(includeClosed: boolean): Promise<Par
 /** Files BES shared with the signed-in partner (RLS returns shared rows only). */
 export async function fetchMySharedFiles(groupId: string): Promise<PartnerFile[]> {
   return fetchPartnerFiles(groupId);
+}
+
+/* ── Portal invitations ──────────────────────────────────────────────── */
+
+export interface PartnerInviteResult {
+  invitationId: string;
+  /** For "Copy link" when email is not connected. */
+  token: string;
+  emailOutcome: EmailOutcome;
+}
+
+/**
+ * Invite (or re-invite) a contact to the portal. The database function mints
+ * or extends the ONE open invitation and stamps invited_at; the email goes
+ * out through the same pipe as every other invitation, and answers honestly
+ * when mail is not connected so the caller offers Copy link instead.
+ */
+export async function invitePartnerContact(contactId: string): Promise<PartnerInviteResult> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("invite_partner_contact", { p_contact: contactId });
+  if (error) throw error;
+  const invitationId = data as unknown as string;
+  const { data: inv, error: tokenError } = await sb
+    .from("invitations").select("token").eq("id", invitationId).single();
+  if (tokenError) throw tokenError;
+  const emailOutcome = await sendInvitationEmail(invitationId);
+  return { invitationId, token: (inv as { token: string }).token, emailOutcome };
+}
+
+/** The invitee's half: bind the signed-in account to the contact row. */
+export async function acceptPartnerInvitation(token: string): Promise<string> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("accept_partner_invitation", { p_token: token });
+  if (error) throw error;
+  return data as unknown as string;
 }

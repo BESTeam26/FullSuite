@@ -12184,6 +12184,7 @@ export type Database = {
     Functions: {
       accept_agency_invitation: { Args: { p_token: string }; Returns: string }
       accept_invitation: { Args: { p_token: string }; Returns: string }
+      accept_partner_invitation: { Args: { p_token: string }; Returns: string }
       access_capabilities_for_user: {
         Args: { p_user: string }
         Returns: {
@@ -12467,6 +12468,7 @@ export type Database = {
       }
       can_write_work_item: { Args: { p_item: string }; Returns: boolean }
       cancel_agency_invitation: { Args: { p_id: string }; Returns: undefined }
+      cancel_partner_invitation: { Args: { p_id: string }; Returns: undefined }
       cancel_partner_service: {
         Args: { p_effective?: string; p_reason?: string; p_service: string }
         Returns: Json
@@ -13142,6 +13144,7 @@ export type Database = {
         }
         Returns: string
       }
+      invite_partner_contact: { Args: { p_contact: string }; Returns: string }
       invite_team_member: {
         Args: {
           p_assigned_only?: boolean

@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
   const asUser = createClient(url, anon, { global: { headers: { Authorization: auth } } });
   const { data: inv, error } = await asUser
     .from("invitations")
-    .select("email, token, kind, organization_id, agency_role, organizations(name, branding)")
+    .select("email, token, kind, organization_id, agency_role, partner_group_id, organizations(name, branding), outsourcing_groups(name)")
     .eq("id", invitationId)
     .is("accepted_at", null)
     .maybeSingle();
@@ -71,9 +71,13 @@ Deno.serve(async (req) => {
   }
 
   const org = inv.organizations as { name: string; branding: Branding | null } | null;
+  const partner = inv.outsourcing_groups as { name: string } | null;
   const isTeam = inv.kind === "agency";
+  /* A partner portal invitation is BES-branded: the partner is BES's customer,
+     and the portal they are joining is BES's. */
+  const isPartner = !!inv.partner_group_id;
   const branding = org?.branding ?? {};
-  const brand: EmailBrand = isTeam
+  const brand: EmailBrand = isTeam || isPartner
     ? { name: "Blessed Empire Services" }
     : {
         name: org?.name ?? "your organization",
@@ -83,7 +87,11 @@ Deno.serve(async (req) => {
       };
 
   const link = `${origin}/accept-invitation/${inv.token}`;
-  const where = isTeam ? "the Blessed Empire Services team" : brand.name;
+  const where = isTeam
+    ? "the Blessed Empire Services team"
+    : isPartner
+      ? `the BES Partner Portal${partner?.name ? ` for ${partner.name}` : ""}`
+      : brand.name;
 
   const result = await sendEmail({
     apiKey: mailKey,

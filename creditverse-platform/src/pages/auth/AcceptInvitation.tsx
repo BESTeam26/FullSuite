@@ -32,6 +32,7 @@ import { cn } from "@/lib/utils";
 import { invitationProblem } from "@/lib/auth/invitation-problem";
 import { acceptInvitation } from "@/lib/data/team-permissions";
 import { acceptAgencyInvitation, fetchInvitationPreview, type InvitationPreview } from "@/lib/data/agency-invitations";
+import { acceptPartnerInvitation } from "@/lib/data/agency-partners";
 
 type Door = "activate" | "signin";
 
@@ -51,15 +52,36 @@ export default function AcceptInvitation() {
   useEffect(() => {
     if (!signedIn || !wellFormed) return;
     let cancelled = false;
-    /* One link, two kinds. An organization invitation is the common case, so
-       it is tried first; a team invitation to BES itself is refused by that
-       function ("Only organization invitations"), and answered by its sibling
-       rather than by asking the person which sort of invitation they hold. */
-    acceptInvitation(token)
-      .catch(() => acceptAgencyInvitation(token))
-      .then(async () => {
+    /* One link, three kinds — organization, BES team, partner portal — and
+       nobody is asked which sort of invitation they hold: each accept
+       function refuses the kinds that are not its own, so they are simply
+       tried in order. When every one refuses, the error worth showing is the
+       first that was ABOUT this invitation ("sent to a different email
+       address"), never a kind-mismatch from a function the token was not
+       for. A partner contact lands on the portal — /app has nothing for
+       them. */
+    (async () => {
+      const attempts: Array<[() => Promise<unknown>, string]> = [
+        [() => acceptInvitation(token), "/app"],
+        [() => acceptAgencyInvitation(token), "/app"],
+        [() => acceptPartnerInvitation(token), "/partner"],
+      ];
+      const kindMismatch = /accepted here|not a team invitation/i;
+      let firstRealError: unknown = null;
+      for (const [run, destination] of attempts) {
+        try {
+          await run();
+          return destination;
+        } catch (e) {
+          const message = e instanceof Error ? e.message : String(e);
+          if (firstRealError === null && !kindMismatch.test(message)) firstRealError = e;
+        }
+      }
+      throw firstRealError ?? new Error("This invitation link is not valid, or it has already been used.");
+    })()
+      .then(async (destination) => {
         await auth.refreshMemberships();
-        if (!cancelled) navigate("/app", { replace: true });
+        if (!cancelled) navigate(destination, { replace: true });
       })
       .catch((e) => {
         if (!cancelled) setState({ status: "error", message: invitationProblem(e) });

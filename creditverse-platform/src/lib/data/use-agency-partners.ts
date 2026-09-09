@@ -4,8 +4,8 @@ import type { PartnerHealth, PartnerLifecycle } from "@/lib/partners/partner-acc
 import {
   createAgencyPartner, createPartnerContact, fetchAgencyPartner, fetchAgencyPartners,
   fetchPartnerClientCounts, fetchMyPartner, fetchMyPartnerClients, fetchMySharedFiles,
-  fetchPartnerContacts, setContactStatus, setPartnerHealth, setPartnerLifecycle,
-  updateAgencyPartner, type NewPartner,
+  fetchPartnerContacts, invitePartnerContact, setContactStatus, setPartnerHealth,
+  setPartnerLifecycle, updateAgencyPartner, type NewPartner,
 } from "@/lib/data/agency-partners";
 
 export const partnersKey = (archived: boolean) => ["agency", "partners", archived] as const;
@@ -72,6 +72,10 @@ export function usePartnerActions() {
     }),
     setContactStatus: useMutation({
       mutationFn: (v: { id: string; groupId: string; status: "active" | "suspended" | "archived" }) => setContactStatus(v.id, v.status),
+      onSuccess: (_d, v) => { void qc.invalidateQueries({ queryKey: partnerContactsKey(v.groupId) }); },
+    }),
+    inviteContact: useMutation({
+      mutationFn: (v: { id: string; groupId: string }) => invitePartnerContact(v.id),
       onSuccess: (_d, v) => { void qc.invalidateQueries({ queryKey: partnerContactsKey(v.groupId) }); },
     }),
   };
