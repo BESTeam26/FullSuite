@@ -77,8 +77,8 @@ not yet been walked by a real operator.
 |---|---|
 | Access isolation: pilot personas see only their scope | PASS in RLS matrix (68 phases); UNTESTED through the real UI |
 | No dead visible controls in the five areas | PASS on sweep (no coming-soon/placeholder/dead buttons found); the pilot walk is the final judge |
-| Production build deployed and smoke-tested | PARTIAL — deploys pushed; production serves the new shell; full smoke with a signed-in walk pending |
-| Full RLS matrix green at the release commit | PASS at the role migration (all 68 phases; 13 stale probes updated to the new rules and re-run green). A fresh full run accompanies the READY declaration |
+| Production build deployed and smoke-tested | PASS (content-verified) — the deployed MyTimePage chunk carries tonight's adjustment UI and auto-stopped badge; boot frame served. Signed-in production walk happens with the pilot |
+| Full RLS matrix green at the release commit | PASS — fresh full run 2026-09-09: **1396/1396 across all 69 phases**, including timer governance |
 
 
 ## Fixed during the audit (2026-09-08 evening)
