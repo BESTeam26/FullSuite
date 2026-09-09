@@ -106,9 +106,14 @@ gap, not a security gap.
 
 ## D-002 · ClickUp Partner + Logins migration
 
-- **Requested by:** Dee (partner database + logins), deferred by sprint §49.
+- **Requested by:** Dee (partner database + logins), deferred by sprint §49,
+  then green-lit ("proceed") and executed 2026-09-09.
 - **Category:** Data migration
-- **Status:** DEFERRED — after the team is live on the five P0 areas.
+- **Status:** PARTNERS DONE (migrations 0243–0245, 26 partners with services
+  and engagements). CLIENTS: Dee handles herself later — her ruling
+  2026-09-09; the status-mapping proposal and email options are in
+  `docs/MIGRATION_READINESS.md`. Canceled partners stay out (her ruling).
+  LOGINS: always by hand into the vault; never imported by tooling.
 
 `lib/migration/clickup-partners.ts` (25 tests) scrubs credentials and
 proposes partner imports; the ClickUp **Logins** list (901815950300, zero
