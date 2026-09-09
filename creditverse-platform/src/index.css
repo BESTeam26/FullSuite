@@ -295,3 +295,18 @@ summary:focus-visible,
 .hover\:bg-status-danger-tint-strong:hover  { background-color: color-mix(in srgb, hsl(var(--status-danger))  20%, hsl(var(--card))); }
 .hover\:bg-status-info-tint-strong:hover    { background-color: color-mix(in srgb, hsl(var(--status-info))    20%, hsl(var(--card))); }
 .hover\:bg-status-accent-tint-strong:hover  { background-color: color-mix(in srgb, hsl(var(--status-accent))  20%, hsl(var(--card))); }
+
+/* A rendered document (document builder, signer page) — the template's own
+   HTML, styled like paper. Scoped so it never leaks into app chrome. */
+.document-body { line-height: 1.6; font-size: 0.9rem; }
+.document-body h1 { font-size: 1.5rem; font-weight: 700; margin: 0 0 0.75rem; }
+.document-body h2 { font-size: 1.2rem; font-weight: 700; margin: 1rem 0 0.5rem; }
+.document-body h3 { font-size: 1rem; font-weight: 600; margin: 0.75rem 0 0.35rem; }
+.document-body p { margin: 0 0 0.6rem; }
+.document-body ul, .document-body ol { margin: 0 0 0.6rem 1.25rem; }
+.document-body ul { list-style: disc; } .document-body ol { list-style: decimal; }
+.document-body strong { font-weight: 600; }
+.document-body .signature-line {
+  display: inline-block; min-width: 14rem; border-bottom: 1px solid hsl(var(--foreground) / 0.5);
+  color: hsl(var(--muted-foreground)); font-size: 0.75rem; padding: 0 0.25rem; vertical-align: baseline;
+}

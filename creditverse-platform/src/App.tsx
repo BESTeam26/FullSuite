@@ -35,6 +35,7 @@ import { chunkFor, named } from "@/lib/nav/route-chunks";
 // Auth
 const Login = lazy(() => import("./pages/auth/Login"));
 const AcceptInvitation = lazy(() => import("./pages/auth/AcceptInvitation"));
+const SignDocumentPage = lazy(() => import("./pages/sign/SignDocumentPage"));
 const SignUp = lazy(() => import("./pages/auth/SignUp"));
 const BorrowerPortal = lazy(() => import("./pages/portals/BorrowerPortal"));
 const AuthCallback = lazy(() => import("./pages/auth/AuthCallback"));
@@ -236,6 +237,7 @@ const AppRoutes = () => {
           <Route path="/signup" element={<SignUp />} />
       <Route path="/login" element={<Login />} />
           <Route path="/accept-invitation/:token" element={<AcceptInvitation />} />
+          <Route path="/sign/:token" element={<SignDocumentPage />} />
           <Route
             path="/portal/funding"
             element={

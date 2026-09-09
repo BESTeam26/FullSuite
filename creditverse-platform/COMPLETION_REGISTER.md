@@ -1474,3 +1474,65 @@ worker refuses without secret or admin session and answers an admin with
 **Not yet exercised against a real GHL contact** — the first live push will be
 a real status change on a Bizhub client, visible in the panel with its result.
 The agency token must carry `contacts.readonly` and `contacts.write`.
+
+### A document is written once, frozen per person, and signed by a link — 2026-09-09
+
+**Dee's request:** "a document Builder just like DocuSign … folders …
+custom value/field, and SIGNATURE field and date they sign it", sent to a
+person or partner by email. Recorded as D-005, built when Dee said to build
+every request.
+
+**Shape.** `document_folders` organise; `document_templates` hold the words
+with `{{namespace.field}}` merge fields and the two signing fields
+`{{signature}}` / `{{signed_date}}`; a `signature_requests` row is ONE frozen
+document for ONE person. Templates are agency configuration (readable by all
+staff, written under the new `documents.manage` capability — admins hold it
+through the role, no preset grants it); a request is visible to holders of
+that capability and to its own signer, nobody else.
+
+**The one renderer.** `render_document(body, ctx)` in SQL replaces known
+tokens with HTML-escaped values and leaves unknown ones in place, so
+`create_signature_request` can refuse a document that still has an unfilled
+field rather than send it blank (`22023`). Context comes from
+`document_context_for` — `custom_values.*` from the agency, `user.*` from the
+member, `partner.*` / `contact.*` for partner documents, `today`,
+`current_year`, `agreement.effective_date`. The frontend mirror
+(`lib/documents/merge-fields.ts`) is the SAME token grammar with sample
+values, used only for the editor's preview and the unknown-token warning;
+it is never the source of a sent document.
+
+**Signing.** The link `/sign/<token>` is the key, like an invitation. The
+page needs no account: `signature_request_preview` (anon-callable) marks
+"viewed" and returns nothing for an unknown or voided token;
+`sign_document` requires typed name + consent, refuses a second signature
+and an expired link, writes the name and date into `signed_html` beside the
+untouched `rendered_html`, and for a member signer files a
+`member_documents` row already in `signed` — so the existing HR-documents
+lifecycle, capability gating and audit are what the builder fills (rule 2).
+A signed request cannot be voided (`22023`); editing an active template
+bumps its version and sent requests keep the version they were sent with.
+
+**Surfaces.** Settings → Operations → Documents & Signatures: folders with
+counts, template list, an editor (name, folder, audience, body, insert-field
+picker grouped by category and filtered by audience, live preview with
+sample values, Save & activate / draft / archive) and the signature-request
+ledger with Void. Team member profile → Documents → "Send for signature"
+with a Copy-link fallback when the mailer fails. Rendered documents use a
+scoped `.document-body` stylesheet — the Tailwind typography package is
+installed but was never registered as a plugin, so `prose` classes did
+nothing; enabling it globally would have been a visual-scope change.
+
+**Verified.** Phase 70: 141/141 including the fourteen document probes
+(capability on write, staff read, agent cannot send, unfilled-field refusal,
+draft refusal, snapshot escapes and resolves, signer isolation 0/1, unknown
+token → nothing, no-consent refused then signed + filed, sign-twice and
+void-after-sign both refused, voided token → nothing, anon cannot read the
+table, version bump). Browser: built a template, opened `/sign/<token>` as
+the fixture agent, signed, saw the read-only signed copy; the fixture rows
+were then deleted (one append-only activity event on the fixture agent
+remains — history is not rewritten, even for a fixture).
+
+**Not yet.** Partner-contact and external signer kinds exist in
+`create_signature_request` and `sendForSignature` but have no button on the
+partner record; client documents likewise. Both are one picker each on the
+respective profile, the same shape as the member one.

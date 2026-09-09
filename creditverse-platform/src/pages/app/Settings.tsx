@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { CommunicationSection } from "@/components/settings/sections/CommunicationSection";
 import { PositionsSection } from "@/components/settings/sections/PositionsSection";
+import { DocumentsSection } from "@/components/settings/sections/DocumentsSection";
 import { OrgChart } from "@/components/agency/OrgChart";
 import { useSearchParams } from "react-router-dom";
 import {
@@ -14,6 +15,7 @@ import {
   Banknote,
   Gift,
   FileText,
+  FileSignature,
   Zap,
   Gauge,
   Plug,
@@ -117,6 +119,7 @@ const groups: SettingsGroup[] = [
       { key: "fundingops", label: "FundingOps", icon: Banknote },
       { key: "diy", label: "DIY & Referrals", icon: Gift },
       { key: "templates", label: "Templates", icon: FileText },
+      { key: "documents", label: "Documents & Signatures", icon: FileSignature },
       { key: "automations", label: "Automations", icon: Zap },
       { key: "communication", label: "Communication", icon: MessagesSquare },
       { key: "kpi-catalogue", label: "KPI Catalogue", icon: BarChart3 },
@@ -239,6 +242,8 @@ const SettingsContent = () => {
         return <DiyReferralsSection />;
       case "templates":
         return <TemplatesSection />;
+      case "documents":
+        return <DocumentsSection />;
       case "automations":
         return <AutomationsSection />;
       case "communication":

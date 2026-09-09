@@ -6322,6 +6322,86 @@ if (runs(70)) {
     ["no document is ever deleted — there is no delete policy",
       () => q(`select count(*)::int as rows from pg_policy where polrelid='public.member_documents'::regclass and polcmd='d'`)[0].rows, 0],
 
+    /* ── document builder (D-005, 0292): templates are configuration, a request
+       is one frozen document for one person, and the signer's link is the key ── */
+    ["building a template needs the document builder capability",
+      () => p70(AGENT70, `insert into public.document_templates (agency_id, name, audience, body, status)
+        values ('${AG70}', 'Probe T', 'member', '<p>{{user.name}} {{signature}}</p>', 'active'); select 1 as rows`), "ERR 42501"],
+    ["…which the admin holds through the role, and every staff member may READ the result",
+      () => p70(ADM70, `insert into public.document_templates (agency_id, name, audience, body, status)
+        values ('${AG70}', 'Probe T', 'member', '<p>{{user.name}} {{signature}}</p>', 'active');
+        set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
+        select count(*)::int as rows from public.document_templates where name='Probe T'`), 1],
+    ["an agent cannot send a document for signature",
+      () => p70(ADM70, `insert into public.document_templates (id, agency_id, name, audience, body, status)
+        values ('44444444-0000-4000-8000-00000000d010', '${AG70}', 'Probe T', 'member', '<p>{{user.name}} {{signature}}</p>', 'active');
+        set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
+        select public.create_signature_request('44444444-0000-4000-8000-00000000d010', 'member', '${LEAD70}') as rows`), "ERR 42501"],
+    ["a template with a field the record cannot fill is refused at send, not sent blank",
+      () => p70(ADM70, `insert into public.document_templates (id, agency_id, name, audience, body, status)
+        values ('44444444-0000-4000-8000-00000000d011', '${AG70}', 'Probe T', 'member', '<p>{{partner.company_name}} {{signature}}</p>', 'active');
+        select public.create_signature_request('44444444-0000-4000-8000-00000000d011', 'member', '${AGENT70}') as rows`), "ERR 22023"],
+    ["a draft template cannot be sent",
+      () => p70(ADM70, `insert into public.document_templates (id, agency_id, name, audience, body, status)
+        values ('44444444-0000-4000-8000-00000000d012', '${AG70}', 'Probe T', 'member', '<p>{{user.name}} {{signature}}</p>', 'draft');
+        select public.create_signature_request('44444444-0000-4000-8000-00000000d012', 'member', '${AGENT70}') as rows`), "ERR 22023"],
+    ["the snapshot resolves the record's values, escapes them, and keeps only the signature fields",
+      () => p70(ADM70, `insert into public.document_templates (id, agency_id, name, audience, body, status)
+        values ('44444444-0000-4000-8000-00000000d013', '${AG70}', 'Probe T', 'member', '<p>{{user.email}} / {{signature}}</p>', 'active');
+        select set_config('probe.req', public.create_signature_request('44444444-0000-4000-8000-00000000d013', 'member', '${AGENT70}')::text, true);
+        select ((rendered_html like '%bes.credit@bes.test%') and (rendered_html like '%{{signature}}%') and (rendered_html not like '%{{user.email}}%'))::text as rows
+          from public.signature_requests where id = current_setting('probe.req')::uuid`), "true"],
+    ["a colleague's signature request is invisible to plain staff; the signer sees their own",
+      () => p70(ADM70, `insert into public.document_templates (id, agency_id, name, audience, body, status)
+        values ('44444444-0000-4000-8000-00000000d014', '${AG70}', 'Probe T', 'member', '<p>{{user.name}} {{signature}}</p>', 'active');
+        select set_config('probe.req', public.create_signature_request('44444444-0000-4000-8000-00000000d014', 'member', '${LEAD70}')::text, true);
+        set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
+        select set_config('probe.other', (select count(*) from public.signature_requests where id = current_setting('probe.req')::uuid)::text, true);
+        set local request.jwt.claims = '{"sub":"${LEAD70}","role":"authenticated"}';
+        select current_setting('probe.other') || '/' || (select count(*) from public.signature_requests where id = current_setting('probe.req')::uuid)::text as rows`), "0/1"],
+    ["an unknown signing token discloses nothing to the public",
+      () => p70(ADM70, `set local role anon; reset request.jwt.claims;
+        select count(*)::int as rows from public.signature_request_preview('44444444-0000-4000-8000-00000000dead')`), 0],
+    ["signing without consent is refused; signing with it fills the snapshot and files the member document",
+      () => p70(ADM70, `insert into public.document_templates (id, agency_id, name, audience, body, status)
+        values ('44444444-0000-4000-8000-00000000d015', '${AG70}', 'Probe NDA', 'member', '<p>{{user.name}} signs {{signature}} on {{signed_date}}</p>', 'active');
+        select set_config('probe.req', public.create_signature_request('44444444-0000-4000-8000-00000000d015', 'member', '${AGENT70}')::text, true);
+        select set_config('probe.tok', (select token::text from public.signature_requests where id = current_setting('probe.req')::uuid), true);
+        set local role anon; reset request.jwt.claims;
+        do $x$ begin perform public.sign_document(current_setting('probe.tok')::uuid, 'Probe Signer', false, null, 'probe'); exception when others then perform set_config('probe.nc', sqlstate, true); end $x$;
+        select public.sign_document(current_setting('probe.tok')::uuid, 'Probe Signer', true, null, 'probe');
+        set local role authenticated; set local request.jwt.claims = '{"sub":"${ADM70}","role":"authenticated"}';
+        select current_setting('probe.nc') || ' · ' || r.status || ' · ' || (r.signed_html like '%Probe Signer%')::text || ' · ' || (r.rendered_html like '%{{signature}}%')::text
+               || ' · ' || (select status::text from public.member_documents where id = r.member_document_id) as rows
+          from public.signature_requests r where r.id = current_setting('probe.req')::uuid`), "22023 · signed · true · true · signed"],
+    ["a signed document cannot be signed again, and cannot be voided",
+      () => p70(ADM70, `insert into public.document_templates (id, agency_id, name, audience, body, status)
+        values ('44444444-0000-4000-8000-00000000d016', '${AG70}', 'Probe NDA', 'member', '<p>{{signature}}</p>', 'active');
+        select set_config('probe.req', public.create_signature_request('44444444-0000-4000-8000-00000000d016', 'member', '${AGENT70}')::text, true);
+        select set_config('probe.tok', (select token::text from public.signature_requests where id = current_setting('probe.req')::uuid), true);
+        set local role anon; reset request.jwt.claims;
+        select public.sign_document(current_setting('probe.tok')::uuid, 'Probe Signer', true, null, 'probe');
+        do $x$ begin perform public.sign_document(current_setting('probe.tok')::uuid, 'Someone Else', true, null, 'probe'); exception when others then perform set_config('probe.again', sqlstate, true); end $x$;
+        set local role authenticated; set local request.jwt.claims = '{"sub":"${ADM70}","role":"authenticated"}';
+        do $x$ begin perform public.void_signature_request(current_setting('probe.req')::uuid); exception when others then perform set_config('probe.void', sqlstate, true); end $x$;
+        select current_setting('probe.again') || ' · ' || current_setting('probe.void') as rows`), "22023 · 22023"],
+    ["a voided link discloses nothing to the public",
+      () => p70(ADM70, `insert into public.document_templates (id, agency_id, name, audience, body, status)
+        values ('44444444-0000-4000-8000-00000000d017', '${AG70}', 'Probe NDA', 'member', '<p>{{signature}}</p>', 'active');
+        select set_config('probe.req', public.create_signature_request('44444444-0000-4000-8000-00000000d017', 'member', '${AGENT70}')::text, true);
+        select set_config('probe.tok', (select token::text from public.signature_requests where id = current_setting('probe.req')::uuid), true);
+        select public.void_signature_request(current_setting('probe.req')::uuid);
+        set local role anon; reset request.jwt.claims;
+        select count(*)::int as rows from public.signature_request_preview(current_setting('probe.tok')::uuid)`), 0],
+    ["the anonymous public may read a request only through the token functions, never the table",
+      () => p70(ADM70, `set local role anon; reset request.jwt.claims;
+        select count(*)::int as rows from public.signature_requests`), "ERR 42501"],
+    ["editing an active template's words makes a new version",
+      () => p70(ADM70, `insert into public.document_templates (id, agency_id, name, audience, body, status)
+        values ('44444444-0000-4000-8000-00000000d018', '${AG70}', 'Probe T', 'member', '<p>a {{signature}}</p>', 'active');
+        update public.document_templates set body = '<p>b {{signature}}</p>' where id = '44444444-0000-4000-8000-00000000d018';
+        select version as rows from public.document_templates where id = '44444444-0000-4000-8000-00000000d018'`), 2],
+
     /* ── the timer names the partner, and cannot name a stranger (0283) ── */
     /* A KNOWN id, read as the superuser. A subquery here would run under the
        AGENT's own RLS, return nothing, and insert a NULL partner — the probe

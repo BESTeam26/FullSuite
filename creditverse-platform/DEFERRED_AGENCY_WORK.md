@@ -207,10 +207,16 @@ that contracts later have to stay compatible with.
 
 ## D-005 · Document Builder with e-signature (DocuSign-style)
 
-**Recorded 2026-09-09 (Dee's directive). VALID approved product direction;
-NOT started — it is D-004's engine plus a signature workflow, and Dee's own
-change-control rule says plan and document rather than open a second epic
-mid-sprint. Activating it is one sentence.**
+**Recorded 2026-09-09 (Dee's directive). BUILT the same day, when Dee said
+"proceed with building all requests based on their priorities". Live in
+migrations `20260909005200_document_builder` + `005300`, the
+`send-signature-request` function, Settings → Documents & Signatures, the
+public `/sign/:token` page, and "Send for signature" on a team member's
+Documents tab. Fourteen matrix probes in phase 70. Register entry: "A
+document is written once, frozen per person, and signed by a link". Kept
+here for the design record; the partner-contact and client signer kinds are
+wired in the database and data layer but have no button yet — see the
+register entry for the exact remaining edge.**
 
 **What Dee asked for, verbatim in intent:** create documents in Settings with
 **folders** (Partner documents, Agent documents, Credit-repair documents,

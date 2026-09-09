@@ -4190,6 +4190,18 @@ export type Database = {
           },
         ]
       }
+      document_folders: {
+        Row: { agency_id: string; created_at: string; created_by: string | null; id: string; kind: string; name: string; sort: number }
+        Insert: { agency_id: string; created_at?: string; created_by?: string | null; id?: string; kind?: string; name: string; sort?: number }
+        Update: { agency_id?: string; created_at?: string; created_by?: string | null; id?: string; kind?: string; name?: string; sort?: number }
+        Relationships: []
+      }
+      document_templates: {
+        Row: { agency_id: string; audience: string; body: string; created_at: string; created_by: string | null; folder_id: string | null; id: string; name: string; status: string; updated_at: string; updated_by: string | null; version: number }
+        Insert: { agency_id: string; audience?: string; body?: string; created_at?: string; created_by?: string | null; folder_id?: string | null; id?: string; name: string; status?: string; updated_at?: string; updated_by?: string | null; version?: number }
+        Update: { agency_id?: string; audience?: string; body?: string; created_at?: string; created_by?: string | null; folder_id?: string | null; id?: string; name?: string; status?: string; updated_at?: string; updated_by?: string | null; version?: number }
+        Relationships: []
+      }
       eod_submissions: {
         Row: {
           additional_notes: string | null
@@ -11364,6 +11376,12 @@ export type Database = {
           },
         ]
       }
+      signature_requests: {
+        Row: { agency_id: string; created_at: string; created_by: string | null; expires_at: string; id: string; member_document_id: string | null; outsourcing_group_id: string | null; rendered_html: string; sent_at: string; signature_ip: string | null; signature_name: string | null; signature_user_agent: string | null; signed_at: string | null; signed_html: string | null; signer_contact_id: string | null; signer_email: string; signer_kind: string; signer_name: string; signer_user_id: string | null; status: string; template_id: string | null; template_version: number | null; title: string; token: string; viewed_at: string | null }
+        Insert: { agency_id: string; created_at?: string; created_by?: string | null; expires_at?: string; id?: string; member_document_id?: string | null; outsourcing_group_id?: string | null; rendered_html: string; sent_at?: string; signature_ip?: string | null; signature_name?: string | null; signature_user_agent?: string | null; signed_at?: string | null; signed_html?: string | null; signer_contact_id?: string | null; signer_email: string; signer_kind: string; signer_name: string; signer_user_id?: string | null; status?: string; template_id?: string | null; template_version?: number | null; title: string; token?: string; viewed_at?: string | null }
+        Update: { agency_id?: string; created_at?: string; created_by?: string | null; expires_at?: string; id?: string; member_document_id?: string | null; outsourcing_group_id?: string | null; rendered_html?: string; sent_at?: string; signature_ip?: string | null; signature_name?: string | null; signature_user_agent?: string | null; signed_at?: string | null; signed_html?: string | null; signer_contact_id?: string | null; signer_email?: string; signer_kind?: string; signer_name?: string; signer_user_id?: string | null; status?: string; template_id?: string | null; template_version?: number | null; title?: string; token?: string; viewed_at?: string | null }
+        Relationships: []
+      }
       team_memberships: {
         Row: {
           created_at: string
@@ -13861,6 +13879,19 @@ export type Database = {
         Args: { p_membership: string }
         Returns: number
       }
+      create_signature_request: {
+        Args: { p_template: string; p_signer_kind: string; p_user?: string; p_partner?: string; p_contact?: string; p_email?: string; p_name?: string }
+        Returns: string
+      }
+      signature_request_preview: {
+        Args: { p_token: string }
+        Returns: { title: string; signer_name: string; signer_email: string; rendered_html: string; signed_html: string | null; status: string; expires_at: string; signed_at: string | null; agency_name: string; agency_branding: Json }[]
+      }
+      sign_document: {
+        Args: { p_token: string; p_typed_name: string; p_consent: boolean; p_ip?: string; p_user_agent?: string }
+        Returns: undefined
+      }
+      void_signature_request: { Args: { p_id: string }; Returns: undefined }
       set_agency_member_profile: {
         Args: {
           p_membership: string

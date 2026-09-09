@@ -30,6 +30,7 @@ import {
   MEMBER_DOCUMENT_KINDS, MEMBER_DOCUMENT_STATUSES, memberDocumentUrl,
   useMemberDocumentActions, useMemberDocuments, type MemberDocumentStatus,
 } from "@/lib/data/member-documents";
+import { signingLink, useDocumentActions, useDocumentTemplates, useSignatureRequests } from "@/lib/data/documents";
 import { useAgencyPermissions } from "@/lib/data/agency-permissions";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatDate } from "@/lib/format-date";
@@ -389,6 +390,35 @@ export function DocumentsTab({ member, agencyId }: { member: AgencyMember; agenc
   const docs = useMemberDocuments(member.userId, true);
   const actions = useMemberDocumentActions(member.userId);
   const { toast } = useToast();
+  /* Sending for signature (D-005): pick an active member-audience template;
+     the database renders and freezes it for THIS person and refuses an
+     unfilled field; the mailer carries the link. */
+  const templates = useDocumentTemplates();
+  const requests = useSignatureRequests(member.userId);
+  const docActions = useDocumentActions();
+  const perms = useAgencyPermissions();
+  const canSend = perms.can("documents.manage");
+  const [templateId, setTemplateId] = useState(NONE);
+  const sendable = (templates.data ?? []).filter((t) => t.status === "active" && (t.audience === "member" || t.audience === "any"));
+  const sendForSig = () => {
+    if (templateId === NONE) return;
+    docActions.send.mutate(
+      { templateId, signer: { kind: "member", userId: member.userId } },
+      {
+        onSuccess: (r) => {
+          setTemplateId(NONE);
+          toast({
+            title: r.emailed ? "Sent for signature" : "Created — but the email did not go",
+            description: r.emailed
+              ? `${member.name} has an email with the signing link.`
+              : `${r.emailError ?? ""} Copy the link from the request below and send it yourself.`,
+            variant: r.emailed ? undefined : "destructive",
+          });
+        },
+        onError: (e) => toast({ title: "Could not send", description: (e as Error).message, variant: "destructive" }),
+      },
+    );
+  };
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState("agreement");
   const [name, setName] = useState("");
@@ -454,8 +484,47 @@ export function DocumentsTab({ member, agencyId }: { member: AgencyMember; agenc
         </ul>
       )}
 
+      {canSend && (
+        <div className="mt-3 rounded-lg border border-border bg-muted/20 p-2.5">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Send for signature</p>
+          <div className="mt-1.5 flex flex-wrap items-center gap-2">
+            <OpsSelect size="sm" value={templateId} onValueChange={setTemplateId}
+              options={[{ value: NONE, label: sendable.length === 0 ? "No active templates — build one in Settings → Documents" : "Choose a document…" },
+                ...sendable.map((t) => ({ value: t.id, label: `${t.name} (v${t.version})` }))]} />
+            <Button size="sm" className="h-7 text-[11px]" disabled={templateId === NONE || docActions.send.isPending} onClick={sendForSig}>
+              {docActions.send.isPending && <Loader2 className="mr-1 h-3 w-3 animate-spin" />} Send to {member.name.split(" ")[0]}
+            </Button>
+          </div>
+          {(requests.data ?? []).length > 0 && (
+            <ul className="mt-2 divide-y divide-border/50 text-[11px]">
+              {(requests.data ?? []).map((r) => (
+                <li key={r.id} className="flex flex-wrap items-center gap-2 py-1.5">
+                  <Pill tone={r.status === "signed" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700" : "border-border bg-muted text-foreground"}>{r.status}</Pill>
+                  <span className="text-foreground">{r.title}</span>
+                  <span className="text-muted-foreground">
+                    {r.signedAt ? `signed ${formatDate(r.signedAt)}` : `sent ${formatDate(r.sentAt)}`}
+                  </span>
+                  {(r.status === "sent" || r.status === "viewed") && (
+                    <>
+                      <button type="button" className="text-primary underline-offset-2 hover:underline"
+                        onClick={() => { void navigator.clipboard.writeText(signingLink(r.token)); toast({ title: "Signing link copied" }); }}>
+                        Copy link
+                      </button>
+                      <button type="button" className="text-destructive underline-offset-2 hover:underline"
+                        onClick={() => docActions.void.mutate(r.id, { onSuccess: () => toast({ title: "Request voided" }) })}>
+                        Void
+                      </button>
+                    </>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
       {!open ? (
-        <Button size="sm" variant="outline" className="mt-3" onClick={() => setOpen(true)}>Add document</Button>
+        <Button size="sm" variant="outline" className="mt-3" onClick={() => setOpen(true)}>Add signed document</Button>
       ) : (
         <div className="mt-3 space-y-2 rounded-lg border border-border p-3">
           <div className="grid gap-2 sm:grid-cols-2">
