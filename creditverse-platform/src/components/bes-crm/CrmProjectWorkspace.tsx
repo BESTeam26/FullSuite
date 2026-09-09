@@ -24,6 +24,7 @@ import {
 } from "@/lib/crm/crm-domain";
 import type { CrmProjectRow, CrmWorkUnit, EngineProgress } from "@/lib/data/crm-projects";
 import {
+  useAssignUnit,
   useCompleteWorkUnit,
   useCrmEngines,
   useCrmUnits,
@@ -31,6 +32,7 @@ import {
   usePassQa,
   useSetWaiting,
 } from "@/lib/data/use-crm";
+import { useAgencyMembers } from "@/lib/data/use-agency-teams";
 import { useAuth } from "@/lib/auth/auth-context";
 import {
   useCrmProjectTimeline,
@@ -271,10 +273,14 @@ const WorkUnitRow = ({
         <span className={cn("min-w-0 flex-1 truncate text-xs text-foreground", done && "line-through")}>
           {unit.title}
         </span>
-        {unit.assigneeName && (
-          <span className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
-            <UserRound className="h-3 w-3" /> {unit.assigneeName}
-          </span>
+        {isBes && !done ? (
+          <UnitAssignee unit={unit} projectId={projectId} />
+        ) : (
+          unit.assigneeName && (
+            <span className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
+              <UserRound className="h-3 w-3" /> {unit.assigneeName}
+            </span>
+          )
         )}
         {unit.dueAt && !done && (
           <span className="shrink-0 text-[11px] text-muted-foreground">
@@ -348,6 +354,36 @@ const WorkUnitRow = ({
         <QaForm unit={unit} projectId={projectId} onDone={() => setOpenAction("none")} />
       )}
     </li>
+  );
+};
+
+/**
+ * Whose hands the unit is in — writing the canonical `assigned_to`, the same
+ * field My Work and EOD read, so an assignment made on the build board is the
+ * assignment everywhere. Active, real teammates only.
+ */
+const UnitAssignee = ({ unit, projectId }: { unit: CrmWorkUnit; projectId: string }) => {
+  const members = useAgencyMembers();
+  const assign = useAssignUnit(projectId);
+  const options = [
+    { value: "unassigned", label: "Unassigned" },
+    ...(members.data ?? [])
+      .filter((m) => m.status === "active")
+      .map((m) => ({ value: m.userId, label: m.name })),
+  ];
+  return (
+    <span className="flex shrink-0 items-center gap-1">
+      <UserRound className="h-3 w-3 text-muted-foreground" />
+      <OpsSelect
+        value={unit.assignedTo ?? "unassigned"}
+        onValueChange={(v) =>
+          assign.mutate({ unitId: unit.id, userId: v === "unassigned" ? null : v })
+        }
+        options={options}
+        size="sm"
+        disabled={assign.isPending}
+      />
+    </span>
   );
 };
 

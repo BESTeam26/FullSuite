@@ -223,8 +223,15 @@ export async function fetchTeamEod(agencyId: string, workDate: string): Promise<
   const sb = requireSupabase();
   const [roster, submissions] = await Promise.all([
     sb.from("agency_memberships")
-      .select("user_id, role, profiles:profiles!agency_memberships_user_id_fkey(id, full_name, email)")
-      .eq("agency_id", agencyId),
+      /* Active, real people. The RLS-matrix fixtures live in the same tables
+         (that is what makes the suite honest) but they are not the team: a
+         Team EOD counting seven [TEST] personas as "missing" buries the two
+         humans it exists to show (rule 12). Same convention as the People
+         roster. Deactivated members are yesterday's roster, not today's. */
+      .select("user_id, role, profiles:profiles!agency_memberships_user_id_fkey!inner(id, full_name, email, is_fixture)")
+      .eq("agency_id", agencyId)
+      .eq("status", "active")
+      .eq("profiles.is_fixture", false),
     sb.from("eod_submissions").select("*").eq("agency_id", agencyId).eq("work_date", workDate),
   ]);
   if (roster.error) throw roster.error;

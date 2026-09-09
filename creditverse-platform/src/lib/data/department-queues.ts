@@ -13,12 +13,17 @@ export async function fetchOpenUnassignedDepartmentRows(organizationId: string |
   const sb = requireSupabase();
   let credit = sb
     .from("client_department_statuses")
-    .select("client_id, department, status, updated_at, client:fulfillment_clients!inner(name, organization_id, lifecycle)")
+    /* Real clients only: the RLS-matrix fixtures live in the same tables so the
+       suite stays honest, but a queue offering [TEST] people as workable files
+       buries the real work (rule 12). */
+    .select("client_id, department, status, updated_at, client:fulfillment_clients!inner(name, organization_id, lifecycle, is_fixture)")
+    .eq("client.is_fixture", false)
     .is("assignee_id", null)
     .limit(200);
   let funding = sb
     .from("funding_department_statuses")
-    .select("client_id, department, status, updated_at, client:funding_clients!inner(name, organization_id, lifecycle), file:funding_files(purpose)")
+    .select("client_id, department, status, updated_at, client:funding_clients!inner(name, organization_id, lifecycle, is_fixture), file:funding_files(purpose)")
+    .eq("client.is_fixture", false)
     .is("assignee_id", null)
     .limit(200);
   if (organizationId) {

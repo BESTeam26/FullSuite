@@ -16,6 +16,7 @@ import {
   passQa,
   setWaiting,
 } from "@/lib/data/crm-projects";
+import { assignWork } from "@/lib/data/work-items";
 import type { WaitingReason } from "@/lib/crm/crm-domain";
 
 const live = (a: ReturnType<typeof useAuth>) =>
@@ -201,5 +202,19 @@ export function useSatisfyRequirement(projectId: string) {
       /* Delivering an input can auto-start units, so the work view is stale. */
       refreshProject(qc, projectId);
     },
+  });
+}
+
+/**
+ * Put a unit in somebody's hands. The canonical `work_items.assigned_to` —
+ * the same field My Work, Team Workspace and EOD read — so an assignment made
+ * here appears everywhere at once, with no CRM-private copy of "whose".
+ */
+export function useAssignUnit(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ unitId, userId }: { unitId: string; userId: string | null }) =>
+      assignWork(unitId, userId),
+    onSuccess: () => refreshProject(qc, projectId),
   });
 }
