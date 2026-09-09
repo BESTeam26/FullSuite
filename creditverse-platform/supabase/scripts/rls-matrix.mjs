@@ -4998,8 +4998,16 @@ if (runs(65)) {
         from public.work_items where crm_project_id = ${proj65}`), "fulfillment"],
     ["a project with no engine is refused rather than created empty",
       () => p65(OWN65, "", `select public.crm_create_project('[TEST] none', array[]::text[], '${GRP65}') as rows`), "ERR 22023"],
+    /* Tests the RULE, not an example: 0231 published the engine this probe
+       used to name, and the probe kept passing on a stale premise until the
+       full run caught it. The draft is now made inside the transaction, so
+       the probe cannot decay as the catalogue matures. */
     ["an engine whose template is only a draft is refused, not guessed at",
-      () => p65(OWN65, "", `select public.crm_create_project('[TEST] draft', array['billing'], '${GRP65}') as rows`), "ERR 22023"],
+      () => p65(OWN65,
+        `insert into public.crm_engines (key, label, sort) values ('probe_draft', '[TEST] Draft engine', 9999) on conflict (key) do nothing;
+         insert into public.crm_engine_templates (agency_id, engine_key, version, status, provenance)
+         select id, 'probe_draft', 1, 'draft', 'agency_authored' from public.agencies limit 1;`,
+        `select public.crm_create_project('[TEST] draft', array['probe_draft'], '${GRP65}') as rows`), "ERR 22023"],
 
     /* ── §8 / §55: no second task engine ─────────────────────────────── */
     ["every work unit is a canonical work_items row in the bes_crm division",
@@ -5216,14 +5224,28 @@ if (runs(65)) {
                  'public.crm_instantiate_engine(uuid,text,uuid)'::regprocedure, 'execute')::text as rows`)[0].rows, "true"],
 
     /* ── §12 / §57: the master library ─────────────────────────────── */
-    ["the requirement library ships empty, so nothing is invented",
-      () => q(`select count(*)::int as rows from public.crm_requirements`)[0].rows, 0],
+    /* Until 0228 this asserted the library was EMPTY — nothing invented
+       before the workbook arrived. The workbook has arrived, so the claim
+       matures with it: everything present traces to the committed workbook,
+       and nothing is unclassified. */
+    ["every library row traces to the committed workbook, none invented",
+      () => q(`select count(*)::int as rows from public.crm_requirements
+                where source_reference <> 'BES_GHL_Full_Infrastructure_Build_Tracker.xlsx'
+                   or engine_key is null or kind is null`)[0].rows, 0],
+    ["…and it holds the workbook's 140 rows exactly",
+      () => q(`select count(*)::int as rows from public.crm_requirements`)[0].rows, 140],
     ["…and its completeness gate exists to prove every source row is accounted for",
       () => q(`select count(*)::int as rows from public.crm_requirements_unmapped(
                  (select id from public.agencies limit 1))`)[0].rows, 0],
-    ["every seeded template says it is provisional, not the BES standard",
+    /* Same maturation: the brief's five engines stay provisional, the eight
+       filled from the workbook say master_tracker, and none claims to be
+       hand-authored — a template with no source is a guessed standard. */
+    ["every template names its source, and none is hand-invented",
       () => q(`select count(*)::int as rows from public.crm_engine_templates
-                where provenance <> 'provisional_from_brief'`)[0].rows, 0],
+                where provenance not in ('provisional_from_brief', 'master_tracker')`)[0].rows, 0],
+    ["the workbook-fed engines say so",
+      () => q(`select count(*)::int as rows from public.crm_engine_templates
+                where status = 'published' and provenance = 'master_tracker'`)[0].rows, 8],
   ] : [["(no partner or no published engine template to probe)", () => "skip", "skip"]];
   runPhase("phase 65", P65, { strict: true });
 }
