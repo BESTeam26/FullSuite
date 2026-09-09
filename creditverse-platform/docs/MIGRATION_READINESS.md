@@ -131,13 +131,13 @@ Three obvious test rows are excluded: "Test User" (BMF), "John Doe" (EDP),
    (archived vs. left out) — NOT imported.
 5. Full RLS matrix after the client import lands.
 
-## Remaining decisions (client import gates on these)
+## Remaining decisions — Dee ruled 2026-09-09
 
-- [ ] Dee picks the email path: ClickUp CSV export (recommended) or nullable
-      email for imported records
-- [ ] Dee confirms the client status mapping table above and rules on the
-      four unmappable statuses
-- [ ] Dee decides whether canceled partners import as archived or stay out
+- **Canceled partners: OUT.** They do not import. Dee handles them herself
+  later if ever needed.
+- **Client import: Dee handles it herself later.** The import stops here —
+  the partner half is done, the client half is hers. The status-mapping
+  proposal above stays as reference for whenever she picks it up.
 
 ## Security note (2026-09-09)
 
