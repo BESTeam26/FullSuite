@@ -23,7 +23,11 @@ import {
   ActivityTab, AssignmentsTab, CompensationTab, DocumentsTab, EodTab, ScheduleTimeTab, WorkOrgTab,
 } from "@/components/agency/people/MemberProfileTabs";
 import { useAgencyMembers, useMemberActions } from "@/lib/data/use-agency-teams";
-import { useSchedules } from "@/lib/data/use-people";
+import { usePayRates, useSchedules } from "@/lib/data/use-people";
+import { useAgencyAccessContext } from "@/lib/agency/use-access-context";
+
+/* The four doors into operational work. */
+const MODULE_KEYS = ["creditops.clients.view", "crm.projects.view", "fundingops.files.view", "talentops.view"] as const;
 import { useWorkforce } from "@/lib/data/use-workforce";
 import { useAgencyPermissions } from "@/lib/data/agency-permissions";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -63,6 +67,14 @@ export default function TeamMemberProfilePage() {
   const week = time.find((t) => t.employeeId === userId);
   const schedules = useSchedules();
   const hasSchedule = (schedules.data ?? []).some((sch) => sch.userId === userId);
+  const rates = usePayRates();
+  const hasRate = (rates.data ?? []).some((r) => r.userId === userId);
+  /* Does anything let them into an operational module? Admins always; an
+     Agency User only through a deliberate grant (no profile gives one). */
+  const myAccess = useAgencyAccessContext();
+  const hasModule = isSelf
+    ? MODULE_KEYS.some((k) => myAccess.ctx.can(k))
+    : MODULE_KEYS.some((k) => member?.moduleGrants?.includes(k) ?? false);
   const canMoney = perms.can("payroll.view") || perms.can("payroll.manage");
   const canDocs = perms.can("people.documents.manage");
   const seesOwnDocs = isSelf && !canDocs;
@@ -95,12 +107,19 @@ export default function TeamMemberProfilePage() {
 
   /* §32 — the lightweight onboarding read: derived from the records, never a
      second checklist table. */
-  const checklist: { label: string; done: boolean }[] = [
+  const checklist: { label: string; done: boolean; why?: string }[] = [
     { label: "Account activated", done: member.status === "active" },
     { label: "Position assigned", done: !!member.jobTitle },
     { label: "Team assigned", done: myTeams.length > 0 },
-    { label: "Access configured", done: member.role === "agency_admin" || (!!member.accessProfile && member.accessProfile !== "custom") },
-    { label: "Schedule configured", done: hasSchedule },
+    { label: "Access profile set", done: member.role === "agency_admin" || (!!member.accessProfile && member.accessProfile !== "custom") },
+    /* The one that decides whether they can do their JOB: without a module
+       grant an Agency User has a workspace and nothing to work in. An admin
+       needs none — the role carries them all. */
+    { label: "Module access granted", done: member.role === "agency_admin" || hasModule,
+      why: "Without one they can log time and see their day, but no CreditOps, BES CRM or TalentOps." },
+    { label: "Schedule configured", done: hasSchedule,
+      why: "Attendance, lateness and paid breaks are all derived from it." },
+    { label: "Pay rate set", done: hasRate, why: "Payroll skips anybody without one." },
   ];
 
   return (
@@ -176,6 +195,9 @@ export default function TeamMemberProfilePage() {
                 {checklist.map((c) => (
                   <li key={c.label} className={c.done ? "text-foreground" : "text-muted-foreground"}>
                     {c.done ? "✓" : "○"} {c.label}
+                    {!c.done && c.why && (
+                      <span className="block pl-3 text-[10px] text-muted-foreground">{c.why}</span>
+                    )}
                   </li>
                 ))}
               </ul>

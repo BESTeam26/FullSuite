@@ -16,6 +16,8 @@ export interface AgencyInvitation {
   email: string;
   role: AgencyRole | null;
   accessProfile: AccessProfile | null;
+  /** Modules this invitation will grant on activation. */
+  moduleKeys: string[];
   invitedBy: string | null;
   expiresAt: string;
   createdAt: string;
@@ -26,7 +28,7 @@ export async function fetchAgencyInvitations(): Promise<AgencyInvitation[]> {
   const sb = requireSupabase();
   const { data, error } = await sb
     .from("invitations")
-    .select("id, email, agency_role, access_profile, invited_by, expires_at, created_at, token")
+    .select("id, email, agency_role, access_profile, module_keys, invited_by, expires_at, created_at, token")
     .eq("kind", "agency")
     .is("accepted_at", null)
     .gt("expires_at", new Date().toISOString())
@@ -37,6 +39,7 @@ export async function fetchAgencyInvitations(): Promise<AgencyInvitation[]> {
     email: String(i.email),
     role: i.agency_role,
     accessProfile: (i as { access_profile?: AccessProfile | null }).access_profile ?? null,
+    moduleKeys: (i as { module_keys?: string[] }).module_keys ?? [],
     invitedBy: i.invited_by,
     expiresAt: i.expires_at,
     createdAt: i.created_at,

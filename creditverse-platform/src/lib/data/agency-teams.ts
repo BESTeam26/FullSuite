@@ -158,10 +158,24 @@ export interface AgencyMember {
   deactivatedAt: string | null;
   jobTitle: string | null;
   managerId: string | null;
+  /** Capability keys granted to this person specifically — the module doors
+      among them decide whether they can work at all. */
+  moduleGrants: string[];
 }
+
+const MODULE_KEYS = ["creditops.clients.view", "crm.projects.view", "fundingops.files.view", "talentops.view"];
 
 export async function fetchAgencyMembers(agencyId: string): Promise<AgencyMember[]> {
   const sb = requireSupabase();
+  /* The module grants come with the roster in one extra bounded read, rather
+     than a query per person when a profile is opened (rule 14). */
+  const grants = await sb.from("agency_member_permissions")
+    .select("membership_id, key, allowed").in("key", MODULE_KEYS).eq("allowed", true);
+  const grantsByMembership = new Map<string, string[]>();
+  for (const row of (grants.data ?? []) as Record<string, unknown>[]) {
+    const id = row.membership_id as string;
+    grantsByMembership.set(id, [...(grantsByMembership.get(id) ?? []), row.key as string]);
+  }
   const { data, error } = await sb
     .from("agency_memberships")
     // prettier-ignore
@@ -187,6 +201,7 @@ export async function fetchAgencyMembers(agencyId: string): Promise<AgencyMember
       deactivatedAt: (r.deactivated_at as string) ?? null,
       jobTitle: (r.job_title as string) ?? null,
       managerId: (r.manager_id as string) ?? null,
+      moduleGrants: grantsByMembership.get(r.id as string) ?? [],
     };
   });
 }

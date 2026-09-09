@@ -103,3 +103,60 @@ not yet been walked by a real operator.
   team lead. Corrections go through `time_adjustment_requests`: the agent
   states the true stop time and reason, a lead/admin decides (never their own
   request), both identities audited. Matrix phase 69: 17 probes green.
+
+---
+
+# Go-live state — 2026-09-09 (evening)
+
+Measured, not assumed. Every line below was checked against the live project
+tonight rather than carried forward from an earlier pass.
+
+## The blocker that turned out not to be one
+
+**Email is LIVE.** The read-only provider check reports Resend
+**working** — "Verified: bescrm.net, noreply.bescrm.net. Sending as
+BES <noreply@bescrm.net>." Invitations can be emailed today; the screen's
+"copy the link instead" fallback is no longer the only path. This had been
+carried as a blocker for two days and was not re-tested.
+
+The other three providers still refuse their keys, and none of them stops the
+team starting:
+
+| Provider | State | What it costs while refused |
+|---|---|---|
+| Resend | **working** | — |
+| Anthropic | rejected | AI report reading and letter drafting |
+| Lob | rejected | **Posting dispute letters** — the one that limits CreditOps |
+| Authorize.Net | rejected | Paid sign-up and consumer billing — not needed internally |
+
+## What exists right now
+
+- **People:** 3 real members, all Agency Admin (Dee, Rowell, Dian). Rowell has
+  a position, a team, a schedule and a rate; the other two have neither
+  schedule nor rate.
+- **Invitations pending:** 1 (Alyssa, Agency User · Team Lead) — **granting no
+  module**, so she would activate able to log time with no CreditOps or BES
+  CRM. The pending list now says so, and the module can be granted on her
+  Access tab after she joins.
+- **Teams:** Team Daniel, Team Ally, Team Leads, CRM Team — one member each.
+- **Partners:** 28, of which 21 carry their ClickUp notes. One GHL location
+  mapped to a partner, one marked BES's own.
+- **No locked routes and no dead controls** anywhere in the five P0 areas.
+
+## What Dee does to start the team
+
+1. **Invite them** — People → Invite team member. Pick the access AND tick the
+   module they work in; the invitation now carries it through activation, so
+   nobody lands unable to work.
+2. **Set schedules and rates** — on each person's profile, Schedule & Time.
+   Attendance, lateness, paid breaks and payroll all derive from the schedule;
+   payroll skips anybody with no rate.
+3. **Assign partners** — on the person's Assignments tab (one, or all), or by
+   assigning the partner to a team. Assignment is what makes a partner
+   visible at all.
+4. **Fix the Lob key** if letters must go out; Anthropic and Authorize.Net can
+   wait.
+
+The profile's onboarding checklist now reads exactly this list per person —
+activated, position, team, access profile, **module access**, schedule, rate —
+so "who is ready to work?" is answerable at a glance.

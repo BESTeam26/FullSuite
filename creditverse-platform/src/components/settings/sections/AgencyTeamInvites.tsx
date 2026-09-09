@@ -250,6 +250,13 @@ export function AgencyTeamInvites() {
                   <p className="font-semibold text-foreground">{i.email}</p>
                   <p className="text-muted-foreground">
                     {i.role ? memberAccessLabel(i.role, i.accessProfile) : "No role"} · expires {formatDate(i.expiresAt)}
+                    {i.role === "agency_user" && i.moduleKeys.length === 0 && (
+                      <span className="block text-status-warning">
+                        No module granted — they will activate able to log time but with no CreditOps,
+                        BES CRM or TalentOps. Grant one on their Access tab after they join, or cancel
+                        and re-invite with the module ticked.
+                      </span>
+                    )}
                   </p>
                 </div>
                 <Button
