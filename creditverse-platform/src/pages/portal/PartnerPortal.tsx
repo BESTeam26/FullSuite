@@ -72,9 +72,17 @@ export const PartnerPortal = () => {
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card">
         <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-2 px-6 py-4">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">BES Partner Portal</p>
-            <h1 className="text-lg font-bold text-foreground">{p.name}</h1>
+          <div className="flex items-center gap-3">
+            {/* The bundled logo, deliberately: a portal user cannot read the
+                agency's branding record (staff-only), and the file ships with
+                the app, so the mark renders for everyone or falls away clean. */}
+            <img src="/bes-logo.png" alt="Blessed Empire Services"
+              className="h-10 w-10 shrink-0 object-contain"
+              onError={(e) => { e.currentTarget.hidden = true; }} />
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">BES Partner Portal</p>
+              <h1 className="text-lg font-bold text-foreground">{p.name}</h1>
+            </div>
           </div>
           <div className="text-right">
             <p className="text-sm text-foreground">{displayName}</p>
