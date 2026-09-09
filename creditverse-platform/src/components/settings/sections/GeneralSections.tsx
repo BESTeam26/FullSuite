@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { Building2, Boxes, Users, ShieldCheck, Network } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -227,45 +228,27 @@ export const ProductsSection = () => {
 };
 
 /* ---------------- Agency Users ---------------- */
-const AGENCY_ROLE_LABEL: Record<string, string> = { agency_owner: "Agency Owner", agency_admin: "Agency Admin", agency_manager: "Agency Manager", agency_team_lead: "Team Lead", agency_agent: "Agent" };
 
-export const AgencyUsersSection = () => {
-  const wf = useWorkforce();
-  const people = wf.data?.people ?? [];
-  const teamsOf = new Map<string, string[]>();
-  for (const t of wf.data?.teams ?? []) for (const m of t.members) teamsOf.set(m.userId, [...(teamsOf.get(m.userId) ?? []), t.name]);
-  return (
-    <div className="space-y-4">
-      <AgencyTeamInvites />
-    <SectionCard
-      icon={Users}
-      title="Agency Users"
-      description="BES employees — the live roster from agency memberships. Roles decide reach; teams decide scope. Team membership is edited in Divisions / Teams; invitations arrive with the mail connection."
+/**
+ * Settings configures the SYSTEM; People manages the people (Dee's People
+ * Hub doctrine, 2026-09-09). This section used to be a second roster and a
+ * second invite screen — both now live in one place, so this is a signpost,
+ * not a duplicate editor.
+ */
+export const AgencyUsersSection = () => (
+  <SectionCard
+    icon={Users}
+    title="Agency Users"
+    description="Team members are managed in People — invitations, access, teams, schedules, compensation and documents, all on the person."
+  >
+    <Link
+      to="/app/people"
+      className="inline-flex items-center rounded-lg border border-border bg-background px-3 py-2 text-xs font-semibold text-foreground transition-colors hover:border-primary/40 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      {wf.isLoading && <p className="text-xs text-muted-foreground">Loading the roster…</p>}
-      {wf.error && <p role="alert" className="text-xs text-status-danger">Could not load the roster.</p>}
-      <div className="space-y-3">
-        {people.map((u) => (
-          <div key={u.userId} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-green text-xs font-semibold text-white">{u.name.replace(/^\[[^\]]*\]\s*/, "").split(" ").map((x) => x[0]).join("").slice(0, 2)}</div>
-              <div>
-                <p className="text-sm font-medium text-foreground">{u.name}</p>
-                <p className="text-[11px] text-muted-foreground">{u.email} · since {formatDate(u.since)}</p>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
-              <span>{(teamsOf.get(u.userId) ?? []).join(", ") || "No team"}</span>
-              <StatusBadge state={AGENCY_ROLE_LABEL[u.role] ?? u.role} />
-            </div>
-          </div>
-        ))}
-        {!wf.isLoading && people.length === 0 && <p className="text-xs text-muted-foreground">No BES staff visible to you.</p>}
-      </div>
-    </SectionCard>
-    </div>
-  );
-};
+      Open People →
+    </Link>
+  </SectionCard>
+);
 
 /* ---------------- Roles & Permissions ---------------- */
 export const RolesPermissionsSection = () => {

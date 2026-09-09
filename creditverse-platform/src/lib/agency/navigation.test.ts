@@ -34,10 +34,19 @@ const STAFF_MENU = [
 const LEAD_EXTRAS = ["/app/attention", "/app/team-eod"];
 
 const MANAGEMENT = [
-  "/app/people", "/app/teams", "/app/workforce", "/app/hr",
-  "/app/creditops", "/app/fundingops", "/app/bes-crm", "/app/talentops",
+  "/app/people", "/app/teams",
   "/app/bes-partners",
 ];
+
+/* §59: entering an operational module is its own named capability — never
+   ops.manage, never a profile, never a rank. */
+const MODULES: Record<string, string> = {
+  "/app/creditops": "creditops.clients.view",
+  "/app/fundingops": "fundingops.files.view",
+  "/app/bes-crm": "crm.projects.view",
+  "/app/talentops": "talentops.view",
+};
+const MODULE_PATHS = Object.keys(MODULES);
 
 const ADMIN_ONLY = [
   "/app/subaccounts", "/app/billing", "/app/compliance", "/app/settings", "/app/support",
@@ -49,18 +58,48 @@ describe("an Agency User with no grants", () => {
     expect([...shown].sort()).toEqual([...STAFF_MENU].sort());
   });
 
-  it("is not shown any management area", () => {
+  it("is not shown any management area or module", () => {
     const shown = visibleRoutes(USER).map((r) => r.spec.path);
-    for (const path of [...MANAGEMENT, ...ADMIN_ONLY, ...LEAD_EXTRAS]) {
+    for (const path of [...MANAGEMENT, ...MODULE_PATHS, ...ADMIN_ONLY, ...LEAD_EXTRAS]) {
       expect(shown).not.toContain(path);
     }
   });
 
   /* THE ONE THAT MATTERS. Hiding a link is not security — the URL must refuse. */
   it("is refused at the door of every hidden route, not merely unshown", () => {
-    for (const path of [...MANAGEMENT, ...ADMIN_ONLY, ...LEAD_EXTRAS]) {
+    for (const path of [...MANAGEMENT, ...MODULE_PATHS, ...ADMIN_ONLY, ...LEAD_EXTRAS]) {
       expect(allow(USER, path), path).toBe(false);
     }
+  });
+});
+
+describe("module access is the module key, never authority (§59)", () => {
+  it("a CreditOps agent enters CreditOps — and only CreditOps", () => {
+    const agent = ctx("agency_user", ["creditops.clients.view"]);
+    expect(allow(agent, "/app/creditops")).toBe(true);
+    expect(allow(agent, "/app/bes-crm")).toBe(false);
+    expect(allow(agent, "/app/fundingops")).toBe(false);
+    expect(allow(agent, "/app/talentops")).toBe(false);
+    for (const path of [...MANAGEMENT, ...ADMIN_ONLY]) {
+      expect(allow(agent, path), path).toBe(false);
+    }
+  });
+
+  it("a BES CRM specialist enters BES CRM without any management authority", () => {
+    const laz = ctx("agency_user", ["crm.projects.view"]);
+    expect(allow(laz, "/app/bes-crm")).toBe(true);
+    expect(allow(laz, "/app/creditops")).toBe(false);
+  });
+
+  it("ops.manage alone is NOT a doorway into any module", () => {
+    for (const path of MODULE_PATHS) expect(allow(OPS, path), path).toBe(false);
+  });
+
+  it("each module answers to its own key — a cross-functional agent holds both", () => {
+    const both = ctx("agency_user", ["creditops.clients.view", "crm.projects.view"]);
+    expect(allow(both, "/app/creditops")).toBe(true);
+    expect(allow(both, "/app/bes-crm")).toBe(true);
+    expect(allow(both, "/app/fundingops")).toBe(false);
   });
 });
 
@@ -77,7 +116,7 @@ describe("leading a team is a fact, not a rank", () => {
 });
 
 describe("the ops.manage grant — what the manager rank became", () => {
-  it("opens the management areas and the team surfaces", () => {
+  it("opens the management areas and the team surfaces — modules stay on their own keys", () => {
     for (const path of [...MANAGEMENT, ...LEAD_EXTRAS]) {
       expect(allow(OPS, path), path).toBe(true);
     }

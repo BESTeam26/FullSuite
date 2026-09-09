@@ -120,9 +120,8 @@ const TeamEodPage = lazy(chunkFor("/app/team-eod"));
 const AgencyTeamWorkspace = lazy(chunkFor("/app/team-workspace"));
 const NotificationsPage = lazy(chunkFor("/app/notifications"));
 const PeoplePage = lazy(chunkFor("/app/people"));
+const TeamMemberProfilePage = lazy(chunkFor("/app/people/:userId"));
 const TeamsPage = lazy(chunkFor("/app/teams"));
-const WorkforcePage = lazy(chunkFor("/app/workforce"));
-const HrPage = lazy(chunkFor("/app/hr"));
 const BillingPage = lazy(chunkFor("/app/billing"));
 const AgencyFinance = lazy(chunkFor("/app/finance"));
 const AnnouncementsPage = lazy(chunkFor("/app/announcements"));
@@ -436,6 +435,14 @@ const AppRoutes = () => {
               }
             />
             <Route
+              path="people/:userId"
+              element={
+                <RequireAgencyStaff label="Team member">
+                  <TeamMemberProfilePage />
+                </RequireAgencyStaff>
+              }
+            />
+            <Route
               path="teams"
               element={
                 <HubOrAgencyPage
@@ -446,22 +453,12 @@ const AppRoutes = () => {
                 />
               }
             />
-            <Route
-              path="workforce"
-              element={
-                <RequireAgencyStaff label="Workforce">
-                  <WorkforcePage />
-                </RequireAgencyStaff>
-              }
-            />
-            <Route
-              path="hr"
-              element={
-                <RequireAgencyStaff label="HR & People">
-                  <HrPage />
-                </RequireAgencyStaff>
-              }
-            />
+            {/* Workforce and HR & People dissolved into People (Dee's People
+                Hub doctrine): their facts live on as People → Workforce
+                insights and the Team Member profile; payroll configuration
+                went to Finance. Old bookmarks land where the facts went. */}
+            <Route path="workforce" element={<Navigate to="/app/people?view=insights" replace />} />
+            <Route path="hr" element={<Navigate to="/app/people?view=insights" replace />} />
             {/* Management */}
             <Route
               path="reporting"

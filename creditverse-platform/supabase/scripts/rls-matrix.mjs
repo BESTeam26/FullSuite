@@ -1728,10 +1728,10 @@ if (runs(37)) {
         select public.set_agency_permission((select id from public.agency_memberships where user_id='${AGENT}'), 'ops.manage', false, 'probe');
         set local request.jwt.claims = '{"sub":"${AGENT}","role":"authenticated"}';
         select public.agency_can('ops.manage')::text as rows`), "false"],
-    ["the AGENT preset grants nothing — modules are deliberate per-person grants",
+    ["the AGENT preset grants no authority and no module — those are deliberate grants",
       () => w37(OWNER, `update public.agency_memberships set access_profile='agent' where user_id='${AGENT}';
         set local request.jwt.claims = '{"sub":"${AGENT}","role":"authenticated"}';
-        select (public.agency_can('ops.manage') or public.agency_can('partners.view') or public.agency_can('creditops.clients.view'))::text as rows`), "false"],
+        select (public.agency_can('ops.manage') or public.agency_can('team.manage') or public.agency_can('creditops.clients.view') or public.agency_can('finance.dashboard.view') or public.agency_can('payroll.view'))::text as rows`), "false"],
     ["only an admin changes a profile",
       () => w37(AGENT, `select public.set_agency_member_profile((select id from public.agency_memberships where user_id='${AGENT}'), 'manager')`), "ERR 42501"],
     ["…an admin's own membership takes no profile",
@@ -1741,6 +1741,43 @@ if (runs(37)) {
         select count(*)::int as rows from public.activity_events where entity_type='agency_member' and field='access_profile' and new_value='team_lead'`), 1],
     ["the preset catalogue is readable by staff and writable by nobody",
       () => w37(AGENT, `insert into public.agency_profile_permissions (profile, key, allowed) values ('agent','payroll.view',true); select 1 as rows`), "ERR 42501"],
+
+    /* ── §59: module ACCESS is a named per-person key, never authority ── */
+    ["a bare agent holds no module key — CreditOps and BES CRM are deliberate grants",
+      () => w37(OWNER, `update public.agency_memberships set access_profile='agent' where user_id='${AGENT}';
+        set local request.jwt.claims = '{"sub":"${AGENT}","role":"authenticated"}';
+        select (public.agency_can('creditops.clients.view') or public.agency_can('crm.projects.view')
+             or public.agency_can('fundingops.files.view') or public.agency_can('talentops.view'))::text as rows`), "false"],
+    ["…granting CreditOps opens CreditOps and nothing else — no ops.manage in sight",
+      () => w37(OWNER, `update public.agency_memberships set access_profile='agent' where user_id='${AGENT}';
+        select public.set_agency_permission((select id from public.agency_memberships where user_id='${AGENT}'), 'creditops.clients.view', true, 'probe');
+        set local request.jwt.claims = '{"sub":"${AGENT}","role":"authenticated"}';
+        select (public.agency_can('creditops.clients.view')::text || ':' || public.agency_can('crm.projects.view')::text || ':' || public.agency_can('ops.manage')::text) as rows`), "true:false:false"],
+    ["the AGENT preset carries assigned-partner context — and no partner money",
+      () => w37(OWNER, `update public.agency_memberships set access_profile='agent' where user_id='${AGENT}';
+        set local request.jwt.claims = '{"sub":"${AGENT}","role":"authenticated"}';
+        select (public.agency_can('partners.view')::text || ':' || public.agency_can('partners.files.view')::text || ':' || public.agency_can('partners.financials.view')::text) as rows`), "true:true:false"],
+    /* The full §46 persona at the ROW level: an agent with the agent preset,
+       the CreditOps key, and one assigned client sees that client — and not a
+       colleague's. Assignment decides the rows; the keys only open the door. */
+    ["a CreditOps agent sees their ASSIGNED client and not the unassigned one",
+      () => w37(OWNER, `update public.agency_memberships set access_profile='agent' where user_id='${AGENT}';
+        select public.set_agency_permission((select id from public.agency_memberships where user_id='${AGENT}'), 'creditops.clients.view', true, 'probe');
+        insert into public.outsourcing_groups (id, agency_id, name, contact_email) values
+          ('44444444-0000-4000-8000-0000000000d1'::uuid, (select agency_id from public.agency_memberships where user_id='${OWNER}'), 'Probe Scope Partner', 'scope@example.test');
+        /* The doctrine chain, in order: a client exists to BES only under a
+           LIVE engagement for that partner (rule 16 / client_writable). */
+        insert into public.fulfillment_engagements (agency_id, outsourcing_group_id, service, status, effective_from) values
+          ((select agency_id from public.agency_memberships where user_id='${OWNER}'), '44444444-0000-4000-8000-0000000000d1'::uuid, 'creditops', 'active', current_date);
+        insert into public.clients (id, agency_id, outsourcing_group_id, mode, last_name, email, provenance) values
+          ('44444444-0000-4000-8000-0000000000d2'::uuid, (select agency_id from public.agency_memberships where user_id='${OWNER}'), '44444444-0000-4000-8000-0000000000d1'::uuid, 'outsourcing_only', 'Mine', 'mine@example.test', 'outsourcing_only'),
+          ('44444444-0000-4000-8000-0000000000d3'::uuid, (select agency_id from public.agency_memberships where user_id='${OWNER}'), '44444444-0000-4000-8000-0000000000d1'::uuid, 'outsourcing_only', 'NotMine', 'notmine@example.test', 'outsourcing_only');
+        insert into public.fulfillment_clients (agency_id, outsourcing_group_id, mode, client_id, name, email, assigned_agent_id) values
+          ((select agency_id from public.agency_memberships where user_id='${OWNER}'), '44444444-0000-4000-8000-0000000000d1'::uuid, 'outsourcing_only', '44444444-0000-4000-8000-0000000000d2'::uuid, 'Probe Mine', 'mine@example.test', '${AGENT}'),
+          ((select agency_id from public.agency_memberships where user_id='${OWNER}'), '44444444-0000-4000-8000-0000000000d1'::uuid, 'outsourcing_only', '44444444-0000-4000-8000-0000000000d3'::uuid, 'Probe Not Mine', 'notmine@example.test', '${ADMIN}');
+        set local request.jwt.claims = '{"sub":"${AGENT}","role":"authenticated"}';
+        select ((select count(*) from public.fulfillment_clients where email='mine@example.test')::text || ':'
+             || (select count(*) from public.fulfillment_clients where email='notmine@example.test')::text) as rows`), "1:0"],
   ];
   runPhase("phase 37", P37);
 }
@@ -6134,6 +6171,58 @@ if (runs(70)) {
         set local request.jwt.claims = '{"sub":"${ADM70}","role":"authenticated"}';
         select work_minutes as rows from public.payslips where user_id = '${AGENT70}'`), 120],
 
+    /* ── member documents (0273): HR paper is a capability, never staff status ── */
+    ["adding a team member document needs the documents capability",
+      () => p70(ADM70, `set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
+        insert into public.member_documents (agency_id, user_id, kind, name, created_by)
+        values ('${AG70}', '${AGENT70}', 'nda', 'Probe NDA', '${AGENT70}'); select 1 as rows`), "ERR 42501"],
+    ["…and an admin holds it through the role",
+      () => p70(ADM70, `insert into public.member_documents (agency_id, user_id, kind, name, status, created_by)
+        values ('${AG70}', '${AGENT70}', 'nda', 'Probe NDA', 'pending_signature', '${ADM70}');
+        select count(*)::int as rows from public.member_documents where name='Probe NDA'`), 1],
+    ["a colleague's document — row, name and all — is invisible to plain staff",
+      () => p70(ADM70, `insert into public.member_documents (agency_id, user_id, kind, name, created_by)
+        values ('${AG70}', '${LEAD70}', 'agreement', 'Probe Agreement', '${ADM70}');
+        set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
+        select count(*)::int as rows from public.member_documents where name='Probe Agreement'`), 0],
+    ["the person sees their OWN document when it is marked visible to them",
+      () => p70(ADM70, `insert into public.member_documents (agency_id, user_id, kind, name, visible_to_member, created_by)
+        values ('${AG70}', '${AGENT70}', 'nda', 'Probe Own Visible', true, '${ADM70}');
+        set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
+        select count(*)::int as rows from public.member_documents where name='Probe Own Visible'`), 1],
+    ["…and not when it is not",
+      () => p70(ADM70, `insert into public.member_documents (agency_id, user_id, kind, name, visible_to_member, created_by)
+        values ('${AG70}', '${AGENT70}', 'agreement', 'Probe Own Hidden', false, '${ADM70}');
+        set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
+        select count(*)::int as rows from public.member_documents where name='Probe Own Hidden'`), 0],
+    ["…and can never edit their own document's status",
+      () => p70(ADM70, `insert into public.member_documents (id, agency_id, user_id, kind, name, visible_to_member, created_by)
+        values ('44444444-0000-4000-8000-0000000000e9'::uuid, '${AG70}', '${AGENT70}', 'nda', 'Probe Own Edit', true, '${ADM70}');
+        set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
+        update public.member_documents set status='signed' where id='44444444-0000-4000-8000-0000000000e9';
+        set local request.jwt.claims = '{"sub":"${ADM70}","role":"authenticated"}';
+        select status::text as rows from public.member_documents where id='44444444-0000-4000-8000-0000000000e9'`), "draft"],
+    ["a document lifecycle is audited onto the person's history",
+      () => p70(ADM70, `insert into public.member_documents (id, agency_id, user_id, kind, name, created_by)
+        values ('44444444-0000-4000-8000-0000000000ea'::uuid, '${AG70}', '${AGENT70}', 'agreement', 'Probe Audit Doc', '${ADM70}');
+        update public.member_documents set status='signed' where id='44444444-0000-4000-8000-0000000000ea';
+        select count(*)::int as rows from public.activity_events
+         where entity_type='agency_member' and entity_id='${AGENT70}' and field='member_document'`), 2],
+    ["a document FILE row follows the document rule, not staff status",
+      () => p70(ADM70, `insert into public.files (agency_id, entity_type, entity_id, bucket, path, name, uploaded_by)
+        values ('${AG70}', 'agency_member', '${LEAD70}', 'bes-files', 'agency/member/${LEAD70}/probe.pdf', 'Probe HR File', '${ADM70}');
+        set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
+        select count(*)::int as rows from public.files where entity_type='agency_member' and entity_id='${LEAD70}'`), 0],
+    ["…and uploading one needs the capability too",
+      () => p70(ADM70, `set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
+        insert into public.files (agency_id, entity_type, entity_id, bucket, path, name, uploaded_by)
+        values ('${AG70}', 'agency_member', '${AGENT70}', 'bes-files', 'agency/member/${AGENT70}/probe2.pdf', 'x', '${AGENT70}');
+        select 1 as rows`), "ERR 42501"],
+    ["the storage subtree agency/member/ left the any-staff lane",
+      () => q(`select (position('member' in pg_get_expr(polqual, polrelid)) > 0)::text as rows
+                from pg_policy where polname='bes_files_select' and polrelid='storage.objects'::regclass`)[0].rows, "true"],
+    ["no document is ever deleted — there is no delete policy",
+      () => q(`select count(*)::int as rows from pg_policy where polrelid='public.member_documents'::regclass and polcmd='d'`)[0].rows, 0],
   ];
   runPhase("phase 70", P70, { strict: true });
 }

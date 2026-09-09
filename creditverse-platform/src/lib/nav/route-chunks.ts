@@ -69,10 +69,9 @@ export const ROUTE_CHUNKS: Record<string, Loader> = {
   ),
 
   // People and company
-  "/app/people": named(hq2, "PeoplePage"),
+  "/app/people": named(() => import("@/pages/app/PeopleHubPage"), "PeopleHubPage"),
+  "/app/people/:userId": () => import("@/pages/app/TeamMemberProfilePage"),
   "/app/teams": named(hq2, "TeamsPage"),
-  "/app/workforce": named(hq2, "WorkforcePage"),
-  "/app/hr": named(() => import("@/pages/app/HrPage"), "HrPage"),
   "/app/announcements": named(hq2, "AnnouncementsPage"),
   "/app/support": named(hq2, "SupportPage"),
   "/app/billing": named(hq2, "BillingPage"),

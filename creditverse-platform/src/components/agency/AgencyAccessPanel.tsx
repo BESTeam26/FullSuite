@@ -56,7 +56,7 @@ const ROLE_LABEL: Record<string, string> = {
   agency_agent: "Agent",
 };
 
-export function AgencyAccessPanel() {
+export function AgencyAccessPanel({ lockedUserId }: { lockedUserId?: string } = {}) {
   const auth = useAuth();
   const qc = useQueryClient();
   const perms = useAgencyPermissions();
@@ -79,6 +79,12 @@ export function AgencyAccessPanel() {
 
   const [selected, setSelected] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  /* The Team Member profile mounts this panel for ONE person — same editor,
+     same writers, pre-selected and without the roster picker (§28: one
+     canonical edit path for access). */
+  const locked = lockedUserId
+    ? (access.data ?? []).find((p) => p.userId === lockedUserId) ?? null
+    : null;
 
   const change = useMutation({
     mutationFn: async (v: { membershipId: string; key: string; allowed: boolean | null }) => {
@@ -118,9 +124,11 @@ export function AgencyAccessPanel() {
     );
   }
 
-  const people = (access.data ?? []).filter((p) =>
-    !search.trim() || `${p.name} ${p.email}`.toLowerCase().includes(search.trim().toLowerCase()));
-  const person = (access.data ?? []).find((p) => p.membershipId === selected) ?? null;
+  const people = lockedUserId
+    ? []
+    : (access.data ?? []).filter((p) =>
+        !search.trim() || `${p.name} ${p.email}`.toLowerCase().includes(search.trim().toLowerCase()));
+  const person = locked ?? ((access.data ?? []).find((p) => p.membershipId === selected) ?? null);
   const roleDefaults = catalogue.data?.roleDefaults ?? {};
   const roleHoldsEverything = person?.role === "agency_owner" || person?.role === "agency_admin";
 

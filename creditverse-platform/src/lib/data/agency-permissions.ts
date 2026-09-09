@@ -30,6 +30,12 @@ export const AGENCY_PERMISSIONS = [
   "hub.files.manage", "ops.manage",
   "communication.audit", "communication.manage",
   "reports.view",
+  /* Module ENTRY keys (§59): the named door into each operational module,
+     granted per person — never through ops.manage, never by a preset. */
+  "creditops.clients.view", "crm.projects.view", "fundingops.files.view", "talentops.view",
+  /* HR documents (§15): a team member's agreements and NDAs — never mere
+     staff status, and not part of any preset. */
+  "people.documents.manage",
 ] as const;
 
 export type AgencyPermission = (typeof AGENCY_PERMISSIONS)[number];

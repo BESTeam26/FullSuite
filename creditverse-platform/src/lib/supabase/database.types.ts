@@ -6631,6 +6631,71 @@ export type Database = {
           },
         ]
       }
+      member_documents: {
+        Row: {
+          agency_id: string
+          created_at: string
+          created_by: string | null
+          expires_on: string | null
+          file_id: string | null
+          id: string
+          kind: string
+          name: string
+          notes: string | null
+          sent_at: string | null
+          signed_at: string | null
+          status: Database["public"]["Enums"]["member_document_status"]
+          updated_at: string
+          user_id: string
+          version: number
+          visible_to_member: boolean
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          created_by?: string | null
+          expires_on?: string | null
+          file_id?: string | null
+          id?: string
+          kind: string
+          name: string
+          notes?: string | null
+          sent_at?: string | null
+          signed_at?: string | null
+          status?: Database["public"]["Enums"]["member_document_status"]
+          updated_at?: string
+          user_id: string
+          version?: number
+          visible_to_member?: boolean
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          created_by?: string | null
+          expires_on?: string | null
+          file_id?: string | null
+          id?: string
+          kind?: string
+          name?: string
+          notes?: string | null
+          sent_at?: string | null
+          signed_at?: string | null
+          status?: Database["public"]["Enums"]["member_document_status"]
+          updated_at?: string
+          user_id?: string
+          version?: number
+          visible_to_member?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_documents_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       member_pay_rates: {
         Row: {
           agency_id: string
@@ -14456,6 +14521,14 @@ export type Database = {
     }
     Enums: {
       access_profile: "manager" | "team_lead" | "agent" | "custom"
+      member_document_status:
+        | "draft"
+        | "pending_signature"
+        | "signed"
+        | "acknowledged"
+        | "expired"
+        | "superseded"
+        | "archived"
       access_scope:
         | "agency"
         | "division"

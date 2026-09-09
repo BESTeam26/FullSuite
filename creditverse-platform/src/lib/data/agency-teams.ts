@@ -156,6 +156,8 @@ export interface AgencyMember {
   status: "active" | "inactive";
   since: string;
   deactivatedAt: string | null;
+  jobTitle: string | null;
+  managerId: string | null;
 }
 
 export async function fetchAgencyMembers(agencyId: string): Promise<AgencyMember[]> {
@@ -163,7 +165,7 @@ export async function fetchAgencyMembers(agencyId: string): Promise<AgencyMember
   const { data, error } = await sb
     .from("agency_memberships")
     // prettier-ignore
-    .select("id, user_id, role, access_profile, is_owner, scope, status, created_at, deactivated_at, profiles!user_id!inner(full_name, email, is_fixture)")
+    .select("id, user_id, role, access_profile, is_owner, scope, status, created_at, deactivated_at, job_title, manager_id, profiles!user_id!inner(full_name, email, is_fixture)")
     .eq("agency_id", agencyId)
     .eq("profiles.is_fixture", false)
     .order("created_at");
@@ -183,6 +185,8 @@ export async function fetchAgencyMembers(agencyId: string): Promise<AgencyMember
       status: (r.status as "active" | "inactive") ?? "active",
       since: r.created_at as string,
       deactivatedAt: (r.deactivated_at as string) ?? null,
+      jobTitle: (r.job_title as string) ?? null,
+      managerId: (r.manager_id as string) ?? null,
     };
   });
 }

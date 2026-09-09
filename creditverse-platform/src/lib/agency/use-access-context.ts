@@ -47,20 +47,21 @@ export function useAgencyAccessContext(): AgencyAccessContext {
      request (rule 14). */
   const leadsTeam = (useAuth().ledTeamIds ?? []).length > 0;
 
-  /* Two engines answer the same question for different populations: the
-     organization permission context, and `agency_can` for capabilities that
-     exist only inside BES HQ. Either granting is a grant — a capability is
-     not withheld because the other engine has never heard of it. Both are
-     already resolved once per session, so this asks nothing of the network. */
+  /* Agency routes answer to the AGENCY resolver alone. This context only
+     exists for someone with an agency membership, and the organization
+     engine answers TRUE to any key for BES staff ("staff are not gated by an
+     organization's keys") — correct inside an organization, poisonous here:
+     OR-ing it in made every `permission:` field on an agency route vacuous
+     for staff, which is why modules once had to hide behind access:"manage",
+     and why access.preview_as_user gated nothing. One resolver, one answer
+     (§34/§50). */
   const own = useMemo<AccessContext>(
     () => ({
       role: (agencyMembership?.role as AgencyRole) ?? null,
-      can: (key) =>
-        agencyPermissions.can(key as AgencyPermission) ||
-        permissions.can(key as PermissionKeyName),
+      can: (key) => agencyPermissions.can(key as AgencyPermission),
       leadsTeam,
     }),
-    [agencyMembership?.role, agencyPermissions, permissions, leadsTeam],
+    [agencyMembership?.role, agencyPermissions, leadsTeam],
   );
 
   return {
@@ -80,17 +81,16 @@ export function useAgencyAccessContext(): AgencyAccessContext {
  */
 export function useOwnAccessContext(): AccessContext {
   const { agencyMembership } = useAuth();
-  const permissions = usePermissions();
   const agencyPermissions = useAgencyPermissions();
   const leadsTeam = (useAuth().ledTeamIds ?? []).length > 0;
+  /* The agency resolver alone — the same composition (and the same reason)
+     as useAgencyAccessContext above. */
   return useMemo<AccessContext>(
     () => ({
       role: (agencyMembership?.role as AgencyRole) ?? null,
-      can: (key) =>
-        agencyPermissions.can(key as AgencyPermission) ||
-        permissions.can(key as PermissionKeyName),
+      can: (key) => agencyPermissions.can(key as AgencyPermission),
       leadsTeam,
     }),
-    [agencyMembership?.role, agencyPermissions, permissions, leadsTeam],
+    [agencyMembership?.role, agencyPermissions, leadsTeam],
   );
 }

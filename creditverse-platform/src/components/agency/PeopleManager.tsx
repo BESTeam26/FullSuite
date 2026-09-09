@@ -20,6 +20,7 @@
  * request that skipped this screen is refused just the same.
  */
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { Loader2, Search, UserMinus, Undo2, X } from "lucide-react";
 import { ContentCard } from "@/components/dashboard/DivisionLayout";
 import { Button } from "@/components/ui/button";
@@ -121,7 +122,9 @@ export function PeopleManager() {
                 {active.map((m) => (
                   <tr key={m.membershipId} className="transition-colors hover:bg-muted/40">
                     <td className="py-2 pr-2">
-                      <span className="block font-medium text-foreground">{m.name}</span>
+                      <Link to={`/app/people/${m.userId}`} className="block font-medium text-foreground hover:underline">
+                        {m.name}
+                      </Link>
                       <span className="block text-xs text-muted-foreground">{m.email}</span>
                     </td>
                     <td className="py-2 pr-2">

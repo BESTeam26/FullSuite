@@ -1160,3 +1160,76 @@ The two-role model is untouched (0233/0234 stay). What's new (0266–0268):
 Existing people needed no mapping: production holds three memberships, all
 admins. The two pending pre-profile invitations activate as Custom (nothing
 granted) until Dee sets a profile. Suite 1,546; build clean.
+
+### Module access ≠ module management — the enforcement pass — 2026-09-09
+
+Dee's §59, release-blocking: an operational employee must enter the module
+where they work without being handed management authority. Inspection first
+(§50), and the finding was better than feared:
+
+- **The database was never wrong.** Zero policies require ops.manage for
+  operational reads; every operational table already resolves rows by scope
+  and assignment (in_scope, can_see_partner, bes_holds_partner,
+  client_writable's engagement chain). RLS was not loosened by one predicate.
+- **The real hole was frontend composition.** For BES staff the ORGANIZATION
+  permission engine answers true to every key ("staff are not gated by an
+  org's keys") and the agency access context OR-ed it in — so every
+  `permission:` on an agency route was vacuous for staff, including
+  access.preview_as_user. That is WHY modules could only hide behind
+  access:"manage". Agency routes now consult the agency resolver alone.
+- **Module entry is now a named key** on the route spec: CreditOps →
+  creditops.clients.view, BES CRM → crm.projects.view, FundingOps →
+  fundingops.files.view (all reused, not invented), TalentOps →
+  talentops.view (new — it had no entry key at all). ops.manage opens
+  management surfaces only; admins pass through the resolver.
+- **The agent preset gained partner CONTEXT** (partners.view,
+  partners.files.view — 0270): fulfillment_clients reads sit behind
+  partners.view beneath the assignment scope, so an assigned agent held the
+  module key and still saw zero clients. can_see_partner still narrows both
+  to assigned partners; no agency-wide widening.
+- **Proven**: nav unit tests hold the doctrine (agent with creditops key
+  enters CreditOps and nothing else; ops.manage alone opens NO module;
+  cross-functional agent holds both keys). Phase 37 grew the §46 persona to
+  the ROW level — an agent with the agent preset + the CreditOps key + one
+  assigned client sees that client and not a colleague's (1:0), seeded
+  through the full doctrine chain (partner → live engagement → canonical
+  client → credit case). 109/109. Suite 1,550; build clean.
+
+Template engine (Custom Values + Merge Fields): full architecture recorded as
+D-004 in DEFERRED_AGENCY_WORK.md per Dee's own classification — the invite
+emails already carry her copy, so the narrow slice was not necessary, and
+everything larger is deferred, not forgotten.
+
+### People became the Team Member hub; Workforce and HR dissolved into it — 2026-09-09
+
+Dee's information-architecture correction, applied without creating a single
+new employee record: one person, one canonical record, many connected views.
+
+- **/app/people** is now the hub: the directory (search, role, profile,
+  teams, deactivate — the same PeopleManager), **Invite team member** on the
+  page itself (the one existing invitation engine, in a dialog), and
+  **Workforce insights** — the aggregate facts the old Workforce page
+  computed, plus today's attendance and the leave queue from the old HR page.
+- **/app/people/:userId** is the canonical Team Member profile: Overview
+  (snapshot + a derived onboarding checklist — never a second checklist
+  table), Work & Organization (position, reports-to, teams, lead — the same
+  writers Teams uses), Access (the SAME AgencyAccessPanel, locked to the
+  person), Assignments (the two paths can_see_partner resolves, shown),
+  Schedule & Time (the same SchedulesAndRates editor, filtered to one
+  person, plus 7-day derived attendance), Compensation (payroll-gated),
+  **Documents & Agreements**, EOD (canonical submissions, read), Activity
+  (the one activity log, filtered to the person).
+- **Documents & Agreements (0273)**: member_documents — kind, signature
+  lifecycle (draft → pending → signed/acknowledged → expired/superseded/
+  archived, no delete policy), version, visible-to-member — with files rows
+  and storage bytes BOTH routed through the new `people.documents.manage`
+  capability. Any-staff would have read an NDA's very name to the roster;
+  now a person sees only their own visible documents, and cannot edit their
+  own status. Audited onto the person's history. Phase 70 probes: 116/116.
+- **Teams stays** (structure), and a member's name there opens the same
+  canonical profile. Settings → Agency Users became a signpost to People.
+  Payroll configuration returned to Finance → Payroll (company machinery,
+  §25); a person's rate and schedule live on the person.
+- **/app/workforce and /app/hr redirect** to People (insights view), specs
+  and sidebar entries removed, old pages deleted after parity. Duplicate
+  employee records created: ZERO.

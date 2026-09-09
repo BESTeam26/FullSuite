@@ -130,3 +130,77 @@ SmartCredit, Metro 2 intelligence, marketing systems, template libraries).
 Each was already tracked in `COMPLETION_REGISTER.md`'s needs list (B5/B6/B7,
 A5/A6/A7, decisions C1–C16); nothing new is recorded here to avoid a second
 list of the same items — that register remains their home.
+
+## D-004 · Shared Template Engine — Custom Values + Merge Fields
+
+**Recorded 2026-09-09 (Dee's directive, verbatim intent). VALID approved
+product direction; NOT an active epic during Live Operations Readiness.**
+Dee never has to re-request this — activating it is one sentence.
+
+**Problem.** Emails, invitations, and eventually contracts, agreements,
+invoices, SMS, notifications and portal messages each need business values
+and record fields filled in. Building a placeholder mechanism per feature is
+how one truth becomes several (rules 2/5). GHL solved this with one variable
+system; BES needs its one canonical equivalent.
+
+**Architecture (planned).**
+- **One renderer.** A single module (target: `src/lib/templates/engine.ts`,
+  shared with Edge Functions via `supabase/functions/_shared/`) that resolves
+  `{{namespace.field}}` tokens from an ALLOWLISTED registry. Data resolution
+  only — never JavaScript, SQL, HTML script, or any expression evaluation
+  from a token. Unknown token = unresolved, never silently blank.
+- **Two concepts, kept apart.** CUSTOM VALUES are stored reusable
+  configuration (`{{custom_values.support_email}}`); MERGE FIELDS resolve
+  from the current record context (`{{contact.first_name}}`,
+  `{{invitation.activation_link}}`). Users may never create a custom value
+  named into a system namespace (`contact.*`, `invitation.*`, …).
+- **Custom values storage.** `custom_values` table: stable machine `key`
+  (never keyed by display label), value, label, description, scope,
+  updated_by/at, audited changes. Scopes: platform default → agency →
+  organization (→ partner only where genuinely needed), with EXPLICIT
+  per-field inheritance rules — no global inheritance invention. Keys whose
+  canonical home already exists (company_name → agencies.name, tagline /
+  logo_url / primary_color → agencies.branding) resolve READ-THROUGH from
+  that home rather than duplicating it (rule 2). NEVER store secrets
+  (passwords, API keys, tokens) in custom values — secrets live in the
+  integration/secret layer and the Logins vault.
+- **Field registry.** One catalogue describing every supported token: token,
+  label, category (Business/Contact/Partner/Organization/User/Service/
+  Agreement/Invitation/Date/System), data type, supported contexts,
+  sensitivity, required-vs-optional, fallback, preview availability.
+  Namespaces per Dee: contact.*, user.*, partner.*, organization.*,
+  invitation.* (activation_link, expires_at, role, portal_name),
+  agreement.*, service.*, {{today}}, {{current_year}} — preserving any
+  existing date tokens (e.g. right_now.*) rather than inventing a parallel
+  date syntax.
+- **Safety.** HTML-escape dynamic values per output context (a partner name
+  must never inject script); detect unresolved REQUIRED tokens and BLOCK
+  send/generation, listing exactly which tokens failed; optional tokens go
+  blank only when the registry marks them optional. No fallback syntax until
+  a real need names one.
+- **Editor & preview (future).** Every template editor gets an "Insert
+  Custom Value / Merge Field" picker (search + categories, insert at
+  cursor); preview with sample data always, preview with a real record where
+  authorized — never "send one to test formatting".
+- **Template library (future).** One library for Email/SMS/Agreement/
+  Contract/Notification/Document: name, type, scope, subject, body, context,
+  version, status, created_by, updated_at.
+- **Immutability (CRITICAL future rule).** Generating an agreement RESOLVES
+  the template and stores the rendered snapshot; once signed, the content
+  NEVER changes because a custom value or contact field changed later.
+  Templates are versioned: sent messages and signed v1 agreements are
+  untouched by v2. Audit template create/update, custom-value change,
+  document generation, send, signature — with template version references,
+  without logging message bodies into generic audit noise.
+
+**Why deferred.** The invitation emails already carry Dee's copy verbatim
+(deployed 2026-09-09), so the narrow renderer slice is not NECESSARY to
+improve the current invite flow — and everything beyond it (tables, editor,
+preview, versioning, agreements) is a new epic. §26 of Dee's directive says
+exactly this: document, defer, do not distract from CreditOps / EOD / Timer /
+BES CRM / Invite Users.
+
+**Dependencies.** None hard. First activation slice: engine + registry +
+`custom_values` table + convert send-invitation to the renderer.
+**Risk if rushed.** A second placeholder dialect in one corner of the product
+that contracts later have to stay compatible with.

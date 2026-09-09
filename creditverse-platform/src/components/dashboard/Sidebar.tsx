@@ -44,7 +44,6 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   X,
-  IdCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SubAccountSwitcher } from "@/components/dashboard/SubAccountSwitcher";
@@ -235,13 +234,11 @@ export const Sidebar = () => {
     {
       label: "Workforce",
       items: [
+        /* Two doors, deliberately (Dee's People Hub doctrine): People is the
+           person — profile, access, schedule, compensation, insights — and
+           Teams is the structure. Workforce and HR dissolved into them. */
         { label: "People", icon: Users, href: "/app/people" },
         { label: "Teams", icon: Network, href: "/app/teams" },
-        { label: "Workforce", icon: Briefcase, href: "/app/workforce" },
-        /* Schedules, attendance, leave and payroll in one place. Money inside
-           it is additionally gated by payroll.view/manage on the page — the
-           link itself is manager-level like the rest of this group. */
-        { label: "HR & People", icon: IdCard, href: "/app/hr" },
       ],
     },
     {

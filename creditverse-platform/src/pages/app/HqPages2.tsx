@@ -33,30 +33,6 @@ import {
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
-/* People                                                                */
-/* ------------------------------------------------------------------ */
-
-const AGENCY_ROLE_LABEL: Record<string, string> = { agency_owner: "Agency Owner", agency_admin: "Agency Admin", agency_manager: "Agency Manager", agency_team_lead: "Team Lead", agency_agent: "Agent" };
-const DIVISION_LABEL: Record<string, string> = { creditops: "CreditOps", fundingops: "FundingOps", bes_crm: "BES CRM", talentops: "TalentOps", general: "General" };
-const divisionLabel = (d: string | null) => (d ? DIVISION_LABEL[d] ?? d : null);
-const fmtMinutes = (m: number) => { const h = Math.floor(m / 60), r = Math.round(m % 60); return h > 0 ? `${h}h ${r}m` : `${r}m`; };
-
-export const PeoplePage = () => (
-  <HqPageShell
-    title="People"
-    description="BES agency staff — who is here, what they may do, and what they may see"
-    icon={Users}
-  >
-    <PeopleManager />
-    {/* Owner and administrator only; the panel renders nothing for anybody
-        else rather than a locked version of itself. */}
-    <div className="mt-4">
-      <AgencyAccessPanel />
-    </div>
-  </HqPageShell>
-);
-
-/* ------------------------------------------------------------------ */
 /* Teams                                                                 */
 /* ------------------------------------------------------------------ */
 
@@ -72,46 +48,6 @@ export const TeamsPage = () => (
     </div>
   </HqPageShell>
 );
-
-/* ------------------------------------------------------------------ */
-/* Workforce                                                             */
-/* ------------------------------------------------------------------ */
-
-export const WorkforcePage = () => {
-  const wf = useWorkforce();
-  const people = wf.data?.people ?? [];
-  const time = wf.data?.time ?? [];
-  const clockedIn = time.filter((t) => t.running).length;
-  const logged = time.reduce((s, t) => s + t.minutes, 0);
-  const capacity = people.length * 40 * 60;
-  const utilization = capacity > 0 ? Math.round((logged / capacity) * 100) : null;
-  const byDivision = new Map<string, { agents: Set<string>; minutes: number }>();
-  for (const t of wf.data?.teams ?? []) { const key = divisionLabel(t.division) ?? "Unassigned"; const row = byDivision.get(key) ?? { agents: new Set<string>(), minutes: 0 }; for (const m of t.members) { row.agents.add(m.userId); row.minutes += time.find((x) => x.employeeId === m.userId)?.minutes ?? 0; } byDivision.set(key, row); }
-  return (
-    <HqPageShell title="Workforce" description="Capacity and this week's logged time across BES staff — counts from time entries, never estimates" icon={Briefcase}>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatCard label="BES staff" value={people.length} icon={Users} />
-        <StatCard label="Clocked in now" value={clockedIn} icon={CheckCircle2} />
-        <StatCard label="Logged this week" value={fmtMinutes(logged)} icon={Clock} />
-        <StatCard label="Utilization (of 40h)" value={utilization === null ? "—" : `${utilization}%`} icon={Briefcase} />
-      </div>
-      <div className="mt-5">
-        <ContentCard title="Time by division (this week)">
-          {byDivision.size === 0 ? <p className="py-6 text-center text-sm text-muted-foreground">No BES teams yet — divisions appear once teams exist.</p> : (
-            <div className="space-y-3">
-              {[...byDivision.entries()].map(([div, row]) => (
-                <div key={div} className="flex items-center justify-between rounded-lg border border-border px-3 py-2 text-sm">
-                  <span className="font-medium text-foreground">{div}</span>
-                  <span className="text-muted-foreground">{row.agents.size} staff · {fmtMinutes(row.minutes)}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </ContentCard>
-      </div>
-    </HqPageShell>
-  );
-};
 
 /* ------------------------------------------------------------------ */
 /* Billing & Revenue                                                     */

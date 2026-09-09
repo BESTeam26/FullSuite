@@ -27,6 +27,7 @@ import { HqPageShell } from "@/pages/app/HqPages";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { FinanceFigures } from "@/components/agency/finance/FinanceFigures";
+import { PayrollPanel } from "@/components/agency/finance/PayrollPanel";
 import { ReceivablesTable } from "@/components/agency/finance/ReceivablesTable";
 import { ExpensesPanel } from "@/components/agency/finance/ExpensesPanel";
 import { useFinancialInputs } from "@/lib/data/use-partner-billing";
@@ -110,6 +111,12 @@ export const AgencyFinance = () => {
             <TabsList className="h-8 bg-muted/60">
               <TabsTrigger value="receivables" className="text-[11px]">Receivables</TabsTrigger>
               <TabsTrigger value="expenses" className="text-[11px]">Expenses</TabsTrigger>
+              {/* Company payroll CONFIGURATION — cutoffs, automation, payslips.
+                  A person's own rate and schedule live on their profile; this
+                  is the company's money machinery (People Hub doctrine §25). */}
+              {(perms.can("payroll.view") || perms.can("payroll.manage")) && (
+                <TabsTrigger value="payroll" className="text-[11px]">Payroll</TabsTrigger>
+              )}
             </TabsList>
             <TabsContent value="receivables" className="mt-3">
               <ReceivablesTable
@@ -123,6 +130,11 @@ export const AgencyFinance = () => {
             <TabsContent value="expenses" className="mt-3">
               <ExpensesPanel month={month} />
             </TabsContent>
+            {(perms.can("payroll.view") || perms.can("payroll.manage")) && (
+              <TabsContent value="payroll" className="mt-3">
+                <PayrollPanel />
+              </TabsContent>
+            )}
           </Tabs>
         </>
       )}

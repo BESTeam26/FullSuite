@@ -103,14 +103,18 @@ export const AGENCY_ROUTES: AgencyRouteSpec[] = [
   /* ── Managers and up ──────────────────────────────────────────────── */
   { key: "people", label: "People", path: "/app/people", readiness: "ready", access: "manage" },
   { key: "teams", label: "Teams", path: "/app/teams", readiness: "ready", access: "manage" },
-  { key: "workforce", label: "Workforce", path: "/app/workforce", readiness: "ready", access: "manage" },
-  { key: "hr", label: "HR & People", path: "/app/hr", readiness: "ready", access: "manage" },
   { key: "reporting", label: "Reports", path: "/app/reporting", readiness: "ready", access: "manage", permission: "reports.view" },
   { key: "partners", label: "BES Partners", path: "/app/bes-partners", readiness: "ready", access: "manage" },
-  { key: "creditops", label: "CreditOps", path: "/app/creditops", readiness: "ready", access: "manage" },
-  { key: "fundingops", label: "FundingOps", path: "/app/fundingops", readiness: "ready", access: "manage" },
-  { key: "bes_crm", label: "BES CRM", path: "/app/bes-crm", readiness: "ready", access: "manage" },
-  { key: "talentops", label: "TalentOps", path: "/app/talentops", readiness: "ready", access: "manage" },
+  /* ── Operational modules: ACCESS is the module key, never ops.manage ──
+     §59 (release-blocking): an agent hired to work CreditOps enters CreditOps
+     with the module grant and their assignments — being made a manager is not
+     the price of doing the job. The named key opens the door; RLS scope and
+     assignment decide which rows exist inside; ops.manage governs management
+     surfaces only. Admins pass because the resolver answers true for them. */
+  { key: "creditops", label: "CreditOps", path: "/app/creditops", readiness: "ready", access: "user", permission: "creditops.clients.view" },
+  { key: "fundingops", label: "FundingOps", path: "/app/fundingops", readiness: "ready", access: "user", permission: "fundingops.files.view" },
+  { key: "bes_crm", label: "BES CRM", path: "/app/bes-crm", readiness: "ready", access: "user", permission: "crm.projects.view" },
+  { key: "talentops", label: "TalentOps", path: "/app/talentops", readiness: "ready", access: "user", permission: "talentops.view" },
 
   /* ── Admins and the owner ─────────────────────────────────────────── */
   { key: "organizations", label: "Organizations", path: "/app/subaccounts", readiness: "ready", access: "admin" },

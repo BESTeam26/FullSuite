@@ -102,7 +102,7 @@ export const AttendanceCard = ({ date, names }: { date: string; names: Map<strin
         <p className="py-3 text-xs text-muted-foreground"><Loader2 className="mr-1.5 inline h-3 w-3 animate-spin" /> Working it out…</p>
       ) : rows.length === 0 ? (
         <p className="py-3 text-center text-xs text-muted-foreground">
-          Nobody visible to you has a work schedule yet. Schedules are set on the Workforce page —
+          Nobody visible to you has a work schedule yet. A schedule is set on the person's profile, under Schedule & Time —
           without one, late and over-break cannot honestly be computed.
         </p>
       ) : (

@@ -14,6 +14,7 @@
  * the AGENCY is not, and lives on the People screen.
  */
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { Loader2, Pencil, Plus, Star, Trash2, Undo2, UserPlus, X } from "lucide-react";
 import { ContentCard } from "@/components/dashboard/DivisionLayout";
 import { Button } from "@/components/ui/button";
@@ -252,7 +253,9 @@ function TeamCard({ team, people, canManage, departments, onRemoved, onError }: 
             {team.members.map((m) => (
               <li key={m.userId} className="flex items-center justify-between gap-2">
                 <span className="flex min-w-0 items-center gap-1.5 text-sm text-foreground">
-                  <span className="truncate">{nameOf(m.userId)}</span>
+                  {/* The SAME canonical person Teams shows — clicking opens
+                      their one profile, never a team-local copy (§47). */}
+                  <Link to={`/app/people/${m.userId}`} className="truncate hover:underline">{nameOf(m.userId)}</Link>
                   {m.isLead && <Pill tone="border-amber-500/40 bg-amber-500/10 text-amber-800">lead</Pill>}
                 </span>
                 {canManage && (

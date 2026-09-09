@@ -29,7 +29,7 @@ const describeSchedule = (s: WorkSchedule | undefined) =>
       ` · lunch ${s.lunchMinutes}m · breaks ${s.breakMinutes}m · grace ${s.graceMinutes}m`
     : "No schedule — attendance says nothing about them";
 
-export function SchedulesAndRates() {
+export function SchedulesAndRates({ onlyUserId }: { onlyUserId?: string } = {}) {
   const wf = useWorkforce();
   const schedules = useSchedules();
   const rates = usePayRates();
@@ -39,7 +39,9 @@ export function SchedulesAndRates() {
 
   const scheduleByUser = new Map((schedules.data ?? []).map((s) => [s.userId, s]));
   const rateByUser = new Map((rates.data ?? []).map((r) => [r.userId, r]));
-  const people = wf.data?.people ?? [];
+  /* The profile reuses this exact editor for ONE person — same component,
+     same writers, so schedule and rate have one canonical edit path (§28). */
+  const people = (wf.data?.people ?? []).filter((p) => !onlyUserId || p.userId === onlyUserId);
 
   return (
     <ContentCard title={<span className="flex items-center gap-2"><CalendarClock className="h-4 w-4 text-muted-foreground" /> Schedules &amp; rates</span>}>
