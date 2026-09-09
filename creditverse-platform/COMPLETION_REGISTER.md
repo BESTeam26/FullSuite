@@ -900,3 +900,20 @@ status-mapping proposal are in `docs/MIGRATION_READINESS.md`, waiting on
 three Dee decisions. Standing rule from a near-miss: partner/client task
 descriptions are never fetched through assistant tooling — structured fields
 only, and the one exposed set of logins (Vanquish) gets rotated at re-key.
+
+### Partner import follow-through — 2026-09-09
+
+Dee ruled: canceled partners stay OUT; the client import is hers to run
+later. Two defects the 26 real partners exposed, fixed and verified live:
+the import had written the person into `partner_name`, which the app reads
+as the COMPANY (profiles said "Company: Lloyd Argame") — 0245 moves each
+imported row's person to `primary_contact` and puts the company where the
+app looks; and the directory swallowed paused services (an on-hold partner
+showed "None recorded" despite purchased services) — paused services now
+render as amber "— on hold" pills. Full suite 1,530 green, build clean,
+pushed to production.
+
+**AI gateway smoke test stays parked**: the only honest end-to-end path
+needs either a real credited organization or Dee's explicit OK to borrow a
+credited [TEST] org for one metered call — granting that membership is an
+authorization change the tooling correctly refused to make on its own.
