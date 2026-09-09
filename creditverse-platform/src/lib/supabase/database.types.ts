@@ -9285,39 +9285,57 @@ export type Database = {
       payroll_cutoffs: {
         Row: {
           agency_id: string
+          agents_notified_at: string | null
+          auto_generated: boolean
           created_at: string
           created_by: string | null
           expense_id: string | null
+          final_reminder_at: string | null
           id: string
+          payday: string | null
           period_end: string
           period_start: string
+          ready_notified_at: string | null
           released_at: string | null
           released_by: string | null
           status: string
+          verification_locks_on: string | null
         }
         Insert: {
           agency_id: string
+          agents_notified_at?: string | null
+          auto_generated?: boolean
           created_at?: string
           created_by?: string | null
           expense_id?: string | null
+          final_reminder_at?: string | null
           id?: string
+          payday?: string | null
           period_end: string
           period_start: string
+          ready_notified_at?: string | null
           released_at?: string | null
           released_by?: string | null
           status?: string
+          verification_locks_on?: string | null
         }
         Update: {
           agency_id?: string
+          agents_notified_at?: string | null
+          auto_generated?: boolean
           created_at?: string
           created_by?: string | null
           expense_id?: string | null
+          final_reminder_at?: string | null
           id?: string
+          payday?: string | null
           period_end?: string
           period_start?: string
+          ready_notified_at?: string | null
           released_at?: string | null
           released_by?: string | null
           status?: string
+          verification_locks_on?: string | null
         }
         Relationships: [
           {
@@ -9344,6 +9362,60 @@ export type Database = {
           {
             foreignKeyName: "payroll_cutoffs_released_by_fkey"
             columns: ["released_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payroll_settings: {
+        Row: {
+          agency_id: string
+          enabled: boolean
+          payday_first: number
+          payday_second: number
+          scheme: string
+          split_day: number
+          timezone: string
+          updated_at: string
+          updated_by: string | null
+          verify_window_days: number
+        }
+        Insert: {
+          agency_id: string
+          enabled?: boolean
+          payday_first?: number
+          payday_second?: number
+          scheme?: string
+          split_day?: number
+          timezone?: string
+          updated_at?: string
+          updated_by?: string | null
+          verify_window_days?: number
+        }
+        Update: {
+          agency_id?: string
+          enabled?: boolean
+          payday_first?: number
+          payday_second?: number
+          scheme?: string
+          split_day?: number
+          timezone?: string
+          updated_at?: string
+          updated_by?: string | null
+          verify_window_days?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_settings_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: true
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_settings_updated_by_fkey"
+            columns: ["updated_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -13872,6 +13944,12 @@ export type Database = {
           reason: string
         }[]
       }
+      payroll_auto_sweep: { Args: never; Returns: undefined }
+      payroll_generate_internal: { Args: { p_cutoff: string }; Returns: number }
+      payroll_recompute_for_entry: {
+        Args: { p_entry: Database["public"]["Tables"]["time_entries"]["Row"] }
+        Returns: undefined
+      }
       publish_holiday_announcement: {
         Args: {
           p_agency: string
@@ -14225,6 +14303,17 @@ export type Database = {
           p_group: string
           p_health: Database["public"]["Enums"]["partner_health"]
           p_note?: string
+        }
+        Returns: undefined
+      }
+      set_payroll_settings: {
+        Args: {
+          p_enabled: boolean
+          p_payday_first: number
+          p_payday_second: number
+          p_split_day: number
+          p_timezone: string
+          p_verify_window_days: number
         }
         Returns: undefined
       }

@@ -9,7 +9,7 @@
  * 520-line module worse (rule 13).
  */
 import { useState } from "react";
-import { CalendarOff, Coffee, Clock, PlayCircle, PauseCircle, AlertTriangle, Receipt, UtensilsCrossed } from "lucide-react";
+import { CalendarOff, Coffee, Clock, PlayCircle, PauseCircle, AlertTriangle, UtensilsCrossed } from "lucide-react";
 import {
   ContentCard,
   DivisionTable,
@@ -20,7 +20,7 @@ import { OpsSelect } from "@/components/ui/ops-select";
 import { HqPageShell } from "@/pages/app/HqPages";
 import { useTimesheet } from "@/lib/data/use-time";
 import { useMyTimeAdjustments, useRequestTimeAdjustment } from "@/lib/data/use-time-adjustments";
-import { useLeaveActions, useLeaveTypes, useMyLeave, useMyPayslips } from "@/lib/data/use-people";
+import { useLeaveActions, useLeaveTypes, useMyLeave } from "@/lib/data/use-people";
 import { formatDate } from "@/lib/format-date";
 import type { TimeAdjustmentRequest, TimeEntry } from "@/lib/data/time-entries";
 import { STALE_TIMER_HOURS, describeRunningFor, isStaleTimer } from "@/lib/time-domain";
@@ -254,7 +254,6 @@ export const MyTimePage = () => {
       </ContentCard>
 
       <TimeOffCard />
-      <MyPayslipsCard />
     </HqPageShell>
   );
 };
@@ -350,37 +349,6 @@ const TimeOffCard = () => {
   );
 };
 
-/** The agent's own payslips — computed, never typed (0252). */
-const MyPayslipsCard = () => {
-  const slips = useMyPayslips();
-  if ((slips.data ?? []).length === 0) return null;
-  const money = (cents: number, currency: string) =>
-    `${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2 })} ${currency}`;
-  return (
-    <ContentCard title={<span className="flex items-center gap-2"><Receipt className="h-4 w-4 text-muted-foreground" /> My payslips</span>}>
-      <ul className="divide-y divide-border/50">
-        {(slips.data ?? []).map((s) => (
-          <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-xs">
-            <span className="text-foreground">
-              {formatDate(s.periodStart)} – {formatDate(s.periodEnd)}
-              <span className="text-muted-foreground">
-                {" "}· {formatDuration(s.workMinutes)} worked
-                {s.paidLeaveMinutes > 0 ? ` + ${formatDuration(s.paidLeaveMinutes)} paid leave` : ""}
-                {s.adjustmentCents !== 0 ? ` · adj ${money(s.adjustmentCents, s.currency)}${s.adjustmentNote ? ` (${s.adjustmentNote})` : ""}` : ""}
-              </span>
-            </span>
-            <span className="flex items-center gap-2">
-              <span className="font-semibold text-foreground">{money(s.grossCents, s.currency)}</span>
-              <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${s.released ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-800" : "border-border bg-muted text-muted-foreground"}`}>
-                {s.released ? "released" : "draft"}
-              </span>
-            </span>
-          </li>
-        ))}
-      </ul>
-    </ContentCard>
-  );
-};
 
 /**
  * "This recorded time is wrong" — said to a lead, never fixed by hand.

@@ -5972,13 +5972,80 @@ if (runs(70)) {
         select public.release_payroll((select id from public.payroll_cutoffs where period_start = current_date + 100));
         select public.generate_payroll((select id from public.payroll_cutoffs where period_start = current_date + 100)) as rows`), "ERR P0001"],
 
-    ["an agent reads their own payslip and nobody else's",
+    /* Dee's rule (0256): hours face the agent, MONEY faces admin only. */
+    ["an agent sees no payslip at all — not even their own",
       () => p70(ADM70, `select public.set_member_pay_rate('${AGENT70}', 'hourly', 1500, 'USD', current_date - 30);
-        select public.set_member_pay_rate('${LEAD70}', 'hourly', 2000, 'USD', current_date - 30);
         insert into public.payroll_cutoffs (agency_id, period_start, period_end) values ('${AG70}', current_date + 100, current_date + 113);
         select public.generate_payroll((select id from public.payroll_cutoffs where period_start = current_date + 100));
         set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
-        select (count(*) > 0 and count(*) = count(*) filter (where user_id = '${AGENT70}'))::text as rows from public.payslips`), "true"],
+        select count(*)::int as rows from public.payslips`), 0],
+
+    ["…and no rate — not even their own",
+      () => p70(ADM70, `select public.set_member_pay_rate('${AGENT70}', 'hourly', 1500, 'USD', current_date - 30);
+        set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
+        select count(*)::int as rows from public.member_pay_rates`), 0],
+    /* ── automation (0255): the cutoff runs itself, deterministically ──── */
+    ["payroll settings are written only with the payroll permission",
+      () => p70(AGENT70, `select public.set_payroll_settings(true, 15, 25, 10, 5, 'UTC') as rows`), "ERR 42501"],
+
+    ["the sweep creates ONE cutoff with Dee's payday math, however often it runs",
+      () => p70(ADM70, `set local role postgres;
+        update public.payroll_settings set enabled = true, split_day = 15, payday_first = 25, payday_second = 10, verify_window_days = 5, timezone = 'UTC';
+        insert into public.member_pay_rates (agency_id, user_id, rate_type, rate_cents, currency, effective_from)
+          values ('${AG70}', '${AGENT70}', 'hourly', 1500, 'USD', current_date - 90);
+        select public.payroll_auto_sweep(); select public.payroll_auto_sweep();
+        select (count(*) = 1
+            and bool_and(auto_generated)
+            and bool_and(verification_locks_on = period_end + 5)
+            and bool_and(case when extract(day from period_end)::int = 15
+                              then payday = make_date(extract(year from period_end)::int, extract(month from period_end)::int, 25)
+                              else payday = (date_trunc('month', period_end) + interval '1 month' + interval '9 days')::date end)
+           )::text as rows
+          from public.payroll_cutoffs`), "true"],
+
+    ["a locked period refuses NEW adjustment requests by name",
+      () => p70(AGENT70, `insert into public.time_entries (agency_id, employee_id, division_id, work_date, started_at, ended_at)
+          values ('${AG70}', '${AGENT70}', 'creditops', current_date - 20, now() - interval '20 days', now() - interval '20 days' + interval '4 hours');
+        set local role postgres;
+        insert into public.payroll_cutoffs (agency_id, period_start, period_end, verification_locks_on)
+          values ('${AG70}', current_date - 25, current_date - 15, current_date - 10);
+        set local role authenticated; set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
+        select public.request_time_adjustment(
+          (select id from public.time_entries where employee_id = '${AGENT70}' and work_date = current_date - 20 limit 1),
+          now() - interval '20 days' + interval '3 hours', 'I stopped earlier than recorded') as rows`), "ERR 22023"],
+
+    ["…while the same request inside the window is accepted",
+      () => p70(AGENT70, `insert into public.time_entries (agency_id, employee_id, division_id, work_date, started_at, ended_at)
+          values ('${AG70}', '${AGENT70}', 'creditops', current_date - 2, now() - interval '2 days', now() - interval '2 days' + interval '4 hours');
+        set local role postgres;
+        insert into public.payroll_cutoffs (agency_id, period_start, period_end, verification_locks_on)
+          values ('${AG70}', current_date - 8, current_date - 1, current_date + 4);
+        set local role authenticated; set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
+        select (public.request_time_adjustment(
+          (select id from public.time_entries where employee_id = '${AGENT70}' and work_date = current_date - 2 limit 1),
+          now() - interval '2 days' + interval '3 hours', 'I stopped earlier than recorded') is not null)::text as rows`), "true"],
+
+    ["an approved adjustment recomputes the draft payslips by itself",
+      () => p70(ADM70, `set local role postgres;
+        insert into public.member_pay_rates (agency_id, user_id, rate_type, rate_cents, currency, effective_from)
+          values ('${AG70}', '${AGENT70}', 'hourly', 6000, 'USD', current_date - 90);
+        select set_config('bes.time_system', '1', true);
+        insert into public.time_entries (agency_id, employee_id, division_id, work_date, started_at, ended_at)
+          values ('${AG70}', '${AGENT70}', 'creditops', current_date - 2, now() - interval '50 hours', now() - interval '46 hours');
+        select set_config('bes.time_system', '', true);
+        set local role authenticated; set local request.jwt.claims = '{"sub":"${ADM70}","role":"authenticated"}';
+        insert into public.payroll_cutoffs (agency_id, period_start, period_end)
+          values ('${AG70}', current_date - 8, current_date - 1);
+        select public.generate_payroll((select id from public.payroll_cutoffs limit 1));
+        set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
+        select set_config('probe.adj', public.request_time_adjustment(
+          (select id from public.time_entries where employee_id = '${AGENT70}' and work_date = current_date - 2 limit 1),
+          now() - interval '48 hours', 'Stopped two hours earlier than recorded')::text, true);
+        set local request.jwt.claims = '{"sub":"${LEAD70}","role":"authenticated"}';
+        select public.decide_time_adjustment(current_setting('probe.adj')::uuid, true);
+        set local request.jwt.claims = '{"sub":"${ADM70}","role":"authenticated"}';
+        select work_minutes as rows from public.payslips where user_id = '${AGENT70}'`), 120],
+
   ];
   runPhase("phase 70", P70, { strict: true });
 }

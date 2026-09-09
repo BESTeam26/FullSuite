@@ -1038,3 +1038,33 @@ Two traps re-recorded: RLS policies need base table GRANTS beneath them
 (42501 with a perfect policy, 0253); and INSERT…SELECT still does not coerce
 enum literals — the 0237 lesson, relearned by its own author inside a
 trigger, where it takes the user's write down with it (0254).
+
+### Payroll runs itself — and money became admin-only — 2026-09-09
+
+Dee's cutoff policy is now data (0255, Finance → Payroll → "Automatic
+cutoffs"): period splits after day 15; 1–15 pays on the 25th, 16–end pays on
+the 10th of the next month; adjustments lock 5 days after the period — every
+number changeable, seeded with her stated policy, OFF until she enables it.
+The hourly sweep then does everything but spend the money: the day after a
+period it creates the cutoff, computes the payslips (skipping silently until
+anyone has a rate), and tells each agent to verify their HOURS by the lock
+date; a lead-approved time adjustment recomputes the draft payslips
+instantly; the day before the lock, one reminder; on the lock date NEW
+adjustment requests for the period are refused by the database (the refusal
+names the date), the numbers settle once more, and the admins are told the
+total ready to release. Release stays a button, and the expense now falls
+due on the PAYDAY. Verified live: the sweep produced Aug 16–31 with payday
+Sep 10 and lock Sep 5, ran the whole lifecycle in one pass, and was
+idempotent on a second run.
+
+Dee's second rule landed the same hour (0256): **hours face the agent, money
+faces admin only.** Payslips and rates lost their self-read branch; the
+agent-facing payslip card and the released-payslip notification (it carried
+the gross) were withdrawn. Probes now assert an agent sees zero payslips and
+zero rates — their own included.
+
+The probes also caught a real pre-existing bug: the clock-out guard bypasses
+for managers but not LEADS, so a lead's approved adjustment was silently
+clamped to the 10-hour cap. The decision function now raises the system flag
+around its one authorized write — the decision is the authorization, and the
+guard no longer re-litigates it. Phases 69+70: **122/122**. Suite 1,538.

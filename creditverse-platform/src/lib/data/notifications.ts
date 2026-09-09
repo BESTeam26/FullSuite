@@ -30,7 +30,10 @@ export type NotificationKind =
   | "timer"
   /* Time off: a submitted request (to the leads) and its decision (to the
      requester), 0251. */
-  | "leave";
+  | "leave"
+  /* The payroll pipeline (0255): hours ready to verify, the lock reminder,
+     ready-to-release, and the released payslip. */
+  | "payroll";
 
 export interface Notification {
   id: number;
@@ -122,6 +125,11 @@ export function hrefForEntity(
        the notification's entity_label says which page it points at. */
     case "leave_request":
       return "/app/my-time";
+    /* An agent's payslip lives on My Time; a cutoff is decided on Finance. */
+    case "payslip":
+      return "/app/my-time";
+    case "payroll_cutoff":
+      return "/app/finance";
     case "funding_client":
       return `/app/fundingops?client=${id}`;
     /* A mention or a direct message opens the conversation it happened in —

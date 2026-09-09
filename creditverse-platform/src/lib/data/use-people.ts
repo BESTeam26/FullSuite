@@ -7,10 +7,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth/auth-context";
 import {
   adjustPayslip, cancelLeave, createCutoff, decideLeave, fetchAttendance,
-  fetchCutoffs, fetchLeaveTypes, fetchMyLeave, fetchMyPayslips, fetchPayRates,
+  fetchCutoffs, fetchLeaveTypes, fetchMyLeave, fetchPayRates,
   fetchPayslips, fetchPendingLeave, fetchSchedules, generatePayroll,
-  releasePayroll, setPayRate, setWorkSchedule, submitLeave,
-  type PayRate, type ScheduleInput,
+  fetchPayrollSettings, releasePayroll, setPayRate, setPayrollSettings,
+  setWorkSchedule, submitLeave,
+  type PayRate, type PayrollSettings, type ScheduleInput,
 } from "@/lib/data/people-management";
 
 function useLive() {
@@ -128,15 +129,6 @@ export function usePayslips(cutoffId: string | null) {
   });
 }
 
-export function useMyPayslips() {
-  const { live, userId } = useLive();
-  return useQuery({
-    queryKey: ["people", "payroll", "mine", userId],
-    queryFn: () => fetchMyPayslips(userId),
-    enabled: live && !!userId,
-    staleTime: 60_000,
-  });
-}
 
 export function usePayrollActions() {
   const qc = useQueryClient();
@@ -158,4 +150,17 @@ export function usePayrollActions() {
     }),
     release: useMutation({ mutationFn: (id: string) => releasePayroll(id), onSuccess: refresh }),
   };
+}
+
+export function usePayrollSettings() {
+  const { live } = useLive();
+  return useQuery({ queryKey: ["people", "payroll", "settings"], queryFn: fetchPayrollSettings, enabled: live, staleTime: 60_000 });
+}
+
+export function useSetPayrollSettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: PayrollSettings) => setPayrollSettings(input),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["people", "payroll"] }),
+  });
 }

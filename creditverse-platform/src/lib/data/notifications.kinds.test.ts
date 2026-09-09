@@ -48,6 +48,7 @@ describe("notification kinds", () => {
       announcement: true,
       timer: true,
       leave: true,
+      payroll: true,
     };
     const { file, kinds } = kindsFromNewestMigration();
     expect(kinds.sort(), `newest constraint is in ${file}`).toEqual(Object.keys(declared).sort());

@@ -42,6 +42,7 @@ import {
   PauseCircle,
   ShieldAlert,
   CalendarOff,
+  Receipt,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -366,6 +367,7 @@ const KIND_ICON: Record<Notification["kind"], ElementType> = {
   announcement: Megaphone,
   timer: Clock,
   leave: CalendarOff,
+  payroll: Receipt,
 };
 
 const ENTITY_LABEL: Record<string, string> = {
@@ -376,6 +378,8 @@ const ENTITY_LABEL: Record<string, string> = {
   announcement: "Announcement",
   time_entry: "Time entry",
   leave_request: "Leave request",
+  payslip: "Payslip",
+  payroll_cutoff: "Payroll",
 };
 
 const formatWhen = (iso: string) => {
