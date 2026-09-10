@@ -1536,3 +1536,81 @@ remains — history is not rewritten, even for a fixture).
 `create_signature_request` and `sendForSignature` but have no button on the
 partner record; client documents likewise. Both are one picker each on the
 respective profile, the same shape as the member one.
+
+### Partner → Business → Project, due dates that tell somebody, and the partner's own view — 2026-09-09
+
+**Dee's request:** BES CRM presented as Partner → Business → Project; SLA /
+due-date notifications; the partner sees on the portal what BES needs from
+them; and a referral portal inside the partner portal.
+
+**Business (0293).** `crm_projects.business_name` — a nullable label, not a
+table: a partner's brands are not a canonical record anywhere in BES yet,
+and inventing an entity for a grouping is the rule-2 mistake. The board
+function returns it and orders Partner → Business → Project; the New build
+project dialog has an optional "Business / brand" field; the board groups by
+partner, then by business only when a partner's projects actually name one
+(a one-project partner is one heading and one card, not three tiers of
+chrome). Partner-portal projects show the business too.
+
+**Due dates (0293).** Nothing told anyone work was due: `work_items.due_at`
+and `crm_projects.target_go_live` fed the board's overdue count and nothing
+else. `due_date_sweep()` runs hourly (pg_cron `due-date-sweep`): agency work
+due within 24 h → the assignee once; overdue → the assignee and the team's
+leads at most once a day; a CRM go-live within seven days or passed, while
+the project is still being built → the project lead and team leads daily.
+Two new notification kinds, `due_soon` and `overdue`, through the SAME
+`notifications` table and select policy (Dee's doctrine: "Overdue/SLA →
+responsible user plus authorized escalation recipient"). Agency-scoped work
+only — `notifications.agency_id` is NOT NULL and an organization's own work
+carries no agency, so it is out by construction; the organization platform
+is paused (rule 16b). The sweep is not executable by any browser role (the
+0284 lesson). Deterministic: dates are facts, lateness is arithmetic,
+nothing inferred (rule 9). A go-live notification deep-links to
+`/app/bes-crm?project=<id>`.
+
+**Partner's view (0293).** `my_partner_projects()` and
+`my_partner_requirements()` — SECURITY DEFINER, gated entirely by
+`partner_group_of_user()` like `my_partner_clients()`. The portal shows the
+partner's builds (business, scope, journey, progress, go-live) and "What
+BES needs from you" — the outstanding client requirements on their own
+projects, read-only: "received" stays a BES act (`crm_satisfy_client_
+requirement`, §54), so the partner sees the ask and BES records the
+receipt. No lead, no team, no health reason, no internal note, no other
+partner. The section is absent for a partner with no build.
+
+**Referral portal — NOT built, recorded as D-006.** Referral codes are
+owned by SaaS organizations (`referral_codes.organization_id` NOT NULL); a
+model-3 partner has no organization. Widening ownership touches the
+commissions ledger, DIY attribution and referral plans, and needs Dee's
+answers to "does a partner's referral pay a commission, on which plan, and
+to whom" — an architecture change under rule 20. Design and probes are
+written down in `DEFERRED_AGENCY_WORK.md`.
+
+**Security fix found by the gate (0294).** The full matrix after the document
+builder went 1510/1514. Three of the four were one finding: the activity
+rows "Document sent / added / signed: [TEST] Browser Walk NDA" about the
+fixture agent were readable by `bes.restricted`. Since 0268,
+`entity_visible('agency_member', …)` follows the membership row so that role
+and access-profile audits are readable — and the member-documents lifecycle
+(0273) and the document builder (0292) write onto the same person with the
+same entity type, so a colleague's NDA and signature history was visible to
+anyone who can see the People directory. The document ROWS were gated; their
+HISTORY was not. `activity_events_select` now carries one field-level clause:
+an `agency_member` event whose field is `member_document` or
+`signature_request` is readable by the person it is about and by holders of
+`people.documents.manage` / `documents.manage` only. The fourth failure
+(phase 37, "ERR unknown") was an API throttle during the 25-minute run;
+alone it passes 121/121. Two stale expectations corrected in the harness:
+the credit agent's activity count now includes their OWN team-member history
+(the invariant, not the old number), and the lifecycle probe counts events
+from its own transaction. New probe: a colleague's document history is
+invisible to plain staff and visible to the person (0/1).
+
+**Verified.** Phase 55 (+4: portal projects nothing-for-nobody, own build
+with business only, own outstanding asks only, partner cannot self-tick),
+phase 65 (+1: business carried by the board), phase 70 (+6: sweep not
+callable, due-soon once however often the sweep runs, readable by the
+assignee, overdue reaches agent and lead once each, completed/unassigned
+work is nobody's reminder, go-live in 3 days tells the lead while a
+launched project does not). Portal screen tests +4. Full gate re-run after
+the migration — see the run log in this entry's commit.

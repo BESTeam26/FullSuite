@@ -1,4 +1,4 @@
-import { AlertTriangle, CalendarDays, Flag } from "lucide-react";
+import { AlertTriangle, Building2, CalendarDays, Flag } from "lucide-react";
 import { formatDate } from "@/lib/format-date";
 import {
   attentionSummary,
@@ -22,7 +22,66 @@ import { cn } from "@/lib/utils";
  * component contains no judgement — a row cannot say "on track" here and
  * "blocked" in a report, because both read the same function.
  */
+/**
+ * Partner → Business → Project (Dee, 2026-09-09), the way the ClickUp folders
+ * read. Grouping is presentation over the same rows: a partner whose projects
+ * name no business gets no business tier, so a one-project partner is one
+ * heading and one card, not three levels of chrome.
+ */
 export const CrmBoardTab = ({
+  projects,
+  onOpen,
+}: {
+  projects: CrmProjectRow[];
+  onOpen: (id: string) => void;
+}) => {
+  const byPartner = new Map<string, CrmProjectRow[]>();
+  for (const p of projects) {
+    const list = byPartner.get(p.partnerName) ?? [];
+    list.push(p);
+    byPartner.set(p.partnerName, list);
+  }
+  return (
+    <div className="space-y-5">
+      {[...byPartner.entries()].map(([partner, rows]) => {
+        const businesses = new Map<string, CrmProjectRow[]>();
+        for (const r of rows) {
+          const key = r.businessName ?? "";
+          const list = businesses.get(key) ?? [];
+          list.push(r);
+          businesses.set(key, list);
+        }
+        const tiered = businesses.size > 1 || (businesses.size === 1 && !businesses.has(""));
+        return (
+          <section key={partner} aria-label={partner}>
+            <h3 className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              <Building2 className="h-3.5 w-3.5" /> {partner}
+              <span className="font-normal normal-case">
+                — {rows.length} project{rows.length === 1 ? "" : "s"}
+              </span>
+            </h3>
+            {tiered ? (
+              <div className="space-y-3 border-l-2 border-border pl-3">
+                {[...businesses.entries()].map(([business, list]) => (
+                  <div key={business || "__partner"}>
+                    <p className="mb-1.5 text-xs font-semibold text-foreground">
+                      {business || `${partner} (the partner itself)`}
+                    </p>
+                    <ProjectList projects={list} onOpen={onOpen} />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <ProjectList projects={rows} onOpen={onOpen} />
+            )}
+          </section>
+        );
+      })}
+    </div>
+  );
+};
+
+const ProjectList = ({
   projects,
   onOpen,
 }: {
@@ -55,6 +114,7 @@ export const CrmBoardTab = ({
                   <HealthPill health={p.health} />
                 </div>
                 <p className="mt-0.5 text-xs text-muted-foreground">
+                  {p.businessName ? <>{p.businessName} · </> : null}
                   {p.partnerName}
                   {p.leadName ? <> · led by {p.leadName}</> : null}
                 </p>

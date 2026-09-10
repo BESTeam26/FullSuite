@@ -265,3 +265,57 @@ public signing surface, e-signature evidence and a template library — and the
 current P0 (Invite Users, CreditOps, EOD, Timer, BES CRM) does not depend on
 it. Uploading and tracking already-signed documents works today on the Team
 Member profile, which covers the operational need until this is built.
+
+## D-006 · Referral portal inside the Partner Portal
+
+**Recorded 2026-09-09 (Dee's request, alongside the BES CRM Partner →
+Business → Project presentation). VALID; NOT built — an architecture
+change, classified under rule 20 and documented rather than started.**
+
+**What Dee asked for.** A partner opens the Partner Portal and can refer new
+customers to BES from inside it — see their referral link, who they sent,
+and what that earned.
+
+**Why it is an architecture change and not a screen.** The referral model
+that exists (0130 `referral_codes` / `referral_attributions` /
+`referral_events`, and the commissions ledger's second reason to owe money)
+is owned by a **SaaS organization**: `referral_codes.organization_id` is NOT
+NULL, attribution is to an organization, and payout follows an
+organization's referral plan. A BES Partner in model 3 is an
+`outsourcing_groups` row with **no organization**. Giving partners a
+referral portal therefore means one of:
+
+1. widening `referral_codes` to an either-or owner (organization **or**
+   partner group — the same shape `fulfillment_engagements` and
+   `crm_projects` use), with the ledger, plans and `my_referrals` reading
+   through both; or
+2. a partner-specific referral table, which is the second-engine mistake
+   (rules 2, 5) and is ruled out.
+
+Option 1 touches the commissions ledger (who is owed), the DIY sign-up
+attribution path (whose code was used), the referral plan model (which plan
+prices a partner's referral) and the partner portal's authorization surface.
+Every one of those is a question Dee has to answer before code: **does a
+partner's referral pay a commission, on which plan, and to whom at the
+partner?** None of that is derivable from the repository.
+
+**Proposed shape, when activated.**
+- `referral_codes.partner_group_id uuid null` + a CHECK that exactly one
+  of `organization_id` / `partner_group_id` is set; `referral_plans` gain
+  the same either-or.
+- `my_partner_referrals()` — SECURITY DEFINER, gated by
+  `partner_group_of_user()` like `my_partner_clients()`: the partner's code,
+  its attributions (first name + status only; being attributed a consumer
+  grants NO access to their records — the 0130 rule stands), and the ledger
+  lines that name the partner.
+- A "Refer a business" section on `/partner` with the link and the list.
+- Matrix probes in phase 55: a partner sees its own referrals and nobody
+  else's; a SaaS organization's code cannot be read through the partner path.
+
+**Dependencies.** Dee's three answers above; the DIY sign-up path accepting a
+partner-owned code; the commissions ledger already supports a
+`referral_event_id` cause, so the payout side needs only the plan lookup.
+
+**Risk if built without the decision.** A partner could be shown "you
+earned $X" from a plan that was never agreed with them — a commercial
+promise the software made up.

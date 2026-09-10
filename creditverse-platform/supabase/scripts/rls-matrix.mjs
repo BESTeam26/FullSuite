@@ -451,11 +451,13 @@ if (runs(2)) {
   const vantageWork = q(`select count(*)::int n from public.work_items w join public.organizations o on o.id=w.organization_id where o.name ilike '%Vantage%'`)[0].n;
   const creditIds = q(`select coalesce(string_agg(quote_literal(id::text),','),'null') s from public.fulfillment_clients where assigned_agent_id='${U["bes.credit@bes.test"]}'`)[0].s;
   const cdsForCredit = q(`select count(*)::int n from public.client_department_statuses where client_id::text in (${creditIds})`)[0].n;
-  // every event whose record credit can see: their clients, their work items, their own EODs
+  // every event whose record credit can see: their clients, their work items, their own EODs,
+  // and their OWN history as a team member (documents sent to and signed by them — 0294)
   const actForCredit = q(`select count(*)::int n from public.activity_events a where
       (a.entity_type='fulfillment_client' and a.entity_id in (${creditIds}))
    or (a.entity_type='work_item' and a.entity_id in (select id::text from public.work_items where assigned_to='${U["bes.credit@bes.test"]}'))
-   or (a.entity_type='eod_submission' and a.entity_id in (select id::text from public.eod_submissions where employee_id='${U["bes.credit@bes.test"]}'))`)[0].n;
+   or (a.entity_type='eod_submission' and a.entity_id in (select id::text from public.eod_submissions where employee_id='${U["bes.credit@bes.test"]}'))
+   or (a.entity_type='agency_member' and a.entity_id = '${U["bes.credit@bes.test"]}')`)[0].n;
   const orgAgentAct = q(`select count(*)::int n from public.activity_events a join public.fulfillment_clients c on c.id::text=a.entity_id where c.assigned_agent_id='${U["org.agent@bes.test"]}'`)[0].n;
 
   const R = (uid, sel) => { try { return asUser(uid, sel); } catch (e) { return { __err: String(e.message).slice(0, 80) }; } };
@@ -3416,6 +3418,55 @@ if (runs(55)) {
          set local request.jwt.claims = '{"sub":"${ORG55}","role":"authenticated"}';
          select string_agg(name, ',') as rows from public.my_partner_clients()`), "Mine"],
 
+    /* ── Partner portal (0293): their BES CRM build, and what BES needs from them ── */
+    ["my_partner_projects returns nothing for a user with no partner",
+      () => probe55(ORG55, `select count(*)::int as rows from public.my_partner_projects()`), 0],
+    ["a partner contact sees THEIR build and its business, and nobody else's",
+      () => probe55(OWNER55,
+        `insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values
+           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active'),
+           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active');
+         insert into public.partner_contacts (group_id, agency_id, full_name, email, user_id, status) values
+           ('44444444-0000-4000-8000-0000000000fa'::uuid, '${AG}', 'Probe Contact', 'pc@example.test', '${ORG55}'::uuid, 'active');
+         insert into public.crm_projects (id, agency_id, partner_group_id, name, business_name) values
+           ('44444444-0000-4000-8000-0000000000c1'::uuid, '${AG}', '44444444-0000-4000-8000-0000000000fa'::uuid, 'Mine build', 'Brand A'),
+           ('44444444-0000-4000-8000-0000000000c2'::uuid, '${AG}', '44444444-0000-4000-8000-0000000000fb'::uuid, 'Not mine build', null);
+         set local request.jwt.claims = '{"sub":"${ORG55}","role":"authenticated"}';
+         select string_agg(name || '/' || coalesce(business_name, '-'), ',') as rows from public.my_partner_projects()`), "Mine build/Brand A"],
+    ["…and what BES needs from them lists only their own OUTSTANDING asks",
+      () => probe55(OWNER55,
+        `insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values
+           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active'),
+           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active');
+         insert into public.partner_contacts (group_id, agency_id, full_name, email, user_id, status) values
+           ('44444444-0000-4000-8000-0000000000fa'::uuid, '${AG}', 'Probe Contact', 'pc@example.test', '${ORG55}'::uuid, 'active');
+         insert into public.crm_projects (id, agency_id, partner_group_id, name, business_name) values
+           ('44444444-0000-4000-8000-0000000000c1'::uuid, '${AG}', '44444444-0000-4000-8000-0000000000fa'::uuid, 'Mine build', 'Brand A'),
+           ('44444444-0000-4000-8000-0000000000c2'::uuid, '${AG}', '44444444-0000-4000-8000-0000000000fb'::uuid, 'Not mine build', null);
+         insert into public.crm_client_requirements (project_id, label) values
+           ('44444444-0000-4000-8000-0000000000c1'::uuid, 'Logo files'),
+           ('44444444-0000-4000-8000-0000000000c1'::uuid, 'Already received'),
+           ('44444444-0000-4000-8000-0000000000c2'::uuid, 'Their logo');
+         update public.crm_client_requirements set satisfied_at = now() where label = 'Already received';
+         set local request.jwt.claims = '{"sub":"${ORG55}","role":"authenticated"}';
+         select string_agg(label, ',') as rows from public.my_partner_requirements()`), "Logo files"],
+    ["…and the partner cannot mark a requirement received themselves — BES records the receipt",
+      () => probe55(OWNER55,
+        `insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values
+           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active'),
+           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active');
+         insert into public.partner_contacts (group_id, agency_id, full_name, email, user_id, status) values
+           ('44444444-0000-4000-8000-0000000000fa'::uuid, '${AG}', 'Probe Contact', 'pc@example.test', '${ORG55}'::uuid, 'active');
+         insert into public.crm_projects (id, agency_id, partner_group_id, name, business_name) values
+           ('44444444-0000-4000-8000-0000000000c1'::uuid, '${AG}', '44444444-0000-4000-8000-0000000000fa'::uuid, 'Mine build', 'Brand A'),
+           ('44444444-0000-4000-8000-0000000000c2'::uuid, '${AG}', '44444444-0000-4000-8000-0000000000fb'::uuid, 'Not mine build', null);
+         insert into public.crm_client_requirements (id, project_id, label) values
+           ('44444444-0000-4000-8000-0000000000c3'::uuid, '44444444-0000-4000-8000-0000000000c1'::uuid, 'Logo files');
+         set local request.jwt.claims = '{"sub":"${ORG55}","role":"authenticated"}';
+         update public.crm_client_requirements set satisfied_at = now() where id = '44444444-0000-4000-8000-0000000000c3';
+         set local role postgres;
+         select (satisfied_at is null)::text as rows from public.crm_client_requirements where id = '44444444-0000-4000-8000-0000000000c3'`), "true"],
+
     ["…and a suspended partner resolves to no clients at all",
       () => probe55(OWNER55,
         `insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values
@@ -5339,6 +5390,10 @@ if (runs(65)) {
       () => withP(["project_setup", "website_funnel", "qa_launch"],
         `select count(*)::int as rows from public.work_items
           where crm_project_id = ${proj65} and crm_engine_key in ('sales','fulfillment')`), 0],
+    ["a project names the business it is for, and the board carries it (Partner → Business → Project)",
+      () => act65(OWN65,
+        `select public.crm_create_project('[TEST] CRM build', array['project_setup'], '${GRP65}', null, null, current_date, null, null, null, null, 'Brand X');`,
+        `select business_name as rows from public.crm_project_board() where id = ${proj65}`), "Brand X"],
     ["a Sales-only project creates sales work only",
       () => withP(["sales"], `select string_agg(distinct crm_engine_key, ',') as rows
         from public.work_items where crm_project_id = ${proj65}`), "sales"],
@@ -6056,6 +6111,7 @@ if (runs(70)) {
   const AGENT70 = U["bes.credit@bes.test"], LEAD70 = U["bes.lead@bes.test"],
         ADM70 = U["bes.admin@bes.test"], FUND70 = U["bes.funding@bes.test"];
   const AG70 = q(`select agency_id::text as rows from public.agency_memberships limit 1`)[0].rows;
+  const TEAM_A70 = q(`select coalesce((select id::text from public.teams where name='[TEST] Team A'),'') as rows`)[0].rows;
 
   const P70 = [
     /* ── schedules: stated by management, seen by the right eyes ───────── */
@@ -6305,7 +6361,18 @@ if (runs(70)) {
         values ('44444444-0000-4000-8000-0000000000ea'::uuid, '${AG70}', '${AGENT70}', 'agreement', 'Probe Audit Doc', '${ADM70}');
         update public.member_documents set status='signed' where id='44444444-0000-4000-8000-0000000000ea';
         select count(*)::int as rows from public.activity_events
-         where entity_type='agency_member' and entity_id='${AGENT70}' and field='member_document'`), 2],
+         where entity_type='agency_member' and entity_id='${AGENT70}' and field='member_document'
+           and created_at >= now()`), 2],
+    /* 0294: the HISTORY of a colleague's documents is as private as the documents. */
+    ["a colleague's document history is invisible to plain staff — and visible to the person it is about",
+      () => p70(ADM70, `insert into public.member_documents (agency_id, user_id, kind, name, created_by)
+        values ('${AG70}', '${LEAD70}', 'nda', 'Probe History NDA', '${ADM70}');
+        set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
+        select set_config('probe.peer', (select count(*) from public.activity_events
+          where entity_type='agency_member' and entity_id='${LEAD70}' and created_at >= now())::text, true);
+        set local request.jwt.claims = '{"sub":"${LEAD70}","role":"authenticated"}';
+        select current_setting('probe.peer') || '/' || (select count(*) from public.activity_events
+          where entity_type='agency_member' and entity_id='${LEAD70}' and created_at >= now())::text as rows`), "0/1"],
     ["a document FILE row follows the document rule, not staff status",
       () => p70(ADM70, `insert into public.files (agency_id, entity_type, entity_id, bucket, path, name, uploaded_by)
         values ('${AG70}', 'agency_member', '${LEAD70}', 'bes-files', 'agency/member/${LEAD70}/probe.pdf', 'Probe HR File', '${ADM70}');
@@ -6401,6 +6468,52 @@ if (runs(70)) {
         values ('44444444-0000-4000-8000-00000000d018', '${AG70}', 'Probe T', 'member', '<p>a {{signature}}</p>', 'active');
         update public.document_templates set body = '<p>b {{signature}}</p>' where id = '44444444-0000-4000-8000-00000000d018';
         select version as rows from public.document_templates where id = '44444444-0000-4000-8000-00000000d018'`), 2],
+
+    /* ── due dates that tell somebody (0293) ─────────────────────────── */
+    ["the due-date sweep is not callable from a browser session",
+      () => p70(ADM70, `select public.due_date_sweep() as rows`), "ERR 42501"],
+    ["work due within a day tells its assignee ONCE, however often the sweep runs",
+      () => p70(ADM70, `set local role postgres;
+        insert into public.work_items (agency_id, scope, related_type, title, stage, priority, assigned_to, due_at)
+          values ('${AG70}', 'AGENCY', 'project', 'Probe due soon', 'Assigned', 'Normal', '${AGENT70}', now() + interval '2 hours');
+        select public.due_date_sweep(); select public.due_date_sweep();
+        select count(*)::int as rows from public.notifications
+         where recipient_id = '${AGENT70}' and kind = 'due_soon' and entity_label = 'Probe due soon'`), 1],
+    ["…and the assignee can read it where every other notification is read",
+      () => p70(ADM70, `set local role postgres;
+        insert into public.work_items (agency_id, scope, related_type, title, stage, priority, assigned_to, due_at)
+          values ('${AG70}', 'AGENCY', 'project', 'Probe due soon', 'Assigned', 'Normal', '${AGENT70}', now() + interval '2 hours');
+        select public.due_date_sweep();
+        set local role authenticated; set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
+        select count(*)::int as rows from public.notifications where kind = 'due_soon' and entity_label = 'Probe due soon'`), 1],
+    ["overdue work reaches the assignee AND the team's lead, once a day each",
+      () => p70(ADM70, `set local role postgres;
+        insert into public.work_items (agency_id, scope, related_type, title, stage, priority, assigned_to, team_id, due_at)
+          values ('${AG70}', 'AGENCY', 'project', 'Probe overdue', 'Assigned', 'Normal', '${AGENT70}', '${TEAM_A70}', now() - interval '1 day');
+        select public.due_date_sweep(); select public.due_date_sweep();
+        select string_agg(case when recipient_id = '${AGENT70}' then 'agent' when recipient_id = '${LEAD70}' then 'lead' else 'other' end, ',' order by recipient_id = '${AGENT70}' desc) as rows
+          from public.notifications where kind = 'overdue' and entity_label = 'Probe overdue'`), "agent,lead"],
+    ["completed or unassigned work is nobody's reminder",
+      () => p70(ADM70, `set local role postgres;
+        insert into public.work_items (agency_id, scope, related_type, title, stage, priority, assigned_to, due_at, completed_at)
+          values ('${AG70}', 'AGENCY', 'project', 'Probe done', 'Completed', 'Normal', '${AGENT70}', now() - interval '1 day', now());
+        insert into public.work_items (agency_id, scope, related_type, title, stage, priority, due_at)
+          values ('${AG70}', 'AGENCY', 'project', 'Probe nobody', 'Queued', 'Normal', now() - interval '1 day');
+        select public.due_date_sweep();
+        select count(*)::int as rows from public.notifications
+         where entity_label in ('Probe done', 'Probe nobody') and kind in ('due_soon', 'overdue')`), 0],
+    ["a CRM go-live inside a week tells the project lead; a launched project does not",
+      () => p70(ADM70, `set local role postgres;
+        insert into public.crm_projects (id, agency_id, partner_group_id, name, lead_id, target_go_live)
+          select '44444444-0000-4000-8000-00000000c070'::uuid, '${AG70}', g.id, 'Probe go-live', '${LEAD70}', current_date + 3
+            from public.outsourcing_groups g where g.name like '[TEST]%' limit 1;
+        insert into public.crm_projects (id, agency_id, partner_group_id, name, lead_id, target_go_live, went_live_at)
+          select '44444444-0000-4000-8000-00000000c071'::uuid, '${AG70}', g.id, 'Probe launched', '${LEAD70}', current_date - 3, now() - interval '3 days'
+            from public.outsourcing_groups g where g.name like '[TEST]%' limit 1;
+        select public.due_date_sweep(); select public.due_date_sweep();
+        select string_agg(entity_label || ':' || kind || ':' || title, ',') as rows
+          from public.notifications where recipient_id = '${LEAD70}' and entity_type = 'crm_project'
+           and entity_label like 'Probe %'`), "Probe go-live:due_soon:Go-live in 3 days"],
 
     /* ── the timer names the partner, and cannot name a stranger (0283) ── */
     /* A KNOWN id, read as the superuser. A subquery here would run under the

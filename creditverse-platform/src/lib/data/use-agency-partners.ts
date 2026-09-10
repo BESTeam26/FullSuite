@@ -6,6 +6,7 @@ import {
   fetchPartnerClientCounts, fetchMyPartner, fetchMyPartnerClients, fetchMySharedFiles,
   fetchPartnerContacts, invitePartnerContact, setContactStatus, setPartnerHealth,
   setPartnerLifecycle, updateAgencyPartner, type NewPartner,
+  fetchMyPartnerProjects, fetchMyPartnerRequirements,
 } from "@/lib/data/agency-partners";
 
 export const partnersKey = (archived: boolean) => ["agency", "partners", archived] as const;
@@ -120,6 +121,30 @@ export function useMyPartnerClients(includeClosed: boolean) {
   return useQuery({
     queryKey: ["partner", "me", "clients", includeClosed],
     queryFn: () => fetchMyPartnerClients(includeClosed),
+    enabled: live,
+    staleTime: 60_000,
+    retry: false,
+  });
+}
+
+/** The signed-in partner's BES CRM builds — one call, partner-safe columns. */
+export function useMyPartnerProjects() {
+  const { live } = useLive();
+  return useQuery({
+    queryKey: ["partner", "me", "projects"],
+    queryFn: fetchMyPartnerProjects,
+    enabled: live,
+    staleTime: 60_000,
+    retry: false,
+  });
+}
+
+/** What BES is waiting on the signed-in partner for. */
+export function useMyPartnerRequirements() {
+  const { live } = useLive();
+  return useQuery({
+    queryKey: ["partner", "me", "requirements"],
+    queryFn: fetchMyPartnerRequirements,
     enabled: live,
     staleTime: 60_000,
     retry: false,

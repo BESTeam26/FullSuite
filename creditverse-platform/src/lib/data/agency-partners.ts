@@ -536,3 +536,59 @@ export async function acceptPartnerInvitation(token: string): Promise<string> {
   if (error) throw error;
   return data as unknown as string;
 }
+
+/* ── The partner's own BES CRM builds (portal only) ───────────────────── */
+
+export interface PartnerPortalProject {
+  id: string;
+  name: string;
+  businessName: string | null;
+  engines: string[];
+  progress: number | null;
+  journey: string;
+  targetGoLive: string | null;
+  wentLiveAt: string | null;
+  openRequirements: number;
+}
+
+export interface PartnerPortalRequirement {
+  id: string;
+  projectId: string;
+  projectName: string;
+  label: string;
+  detail: string | null;
+  requestedOn: string;
+}
+
+/** `my_partner_projects()` is the gate: scope, progress and go-live, nothing internal. */
+export async function fetchMyPartnerProjects(): Promise<PartnerPortalProject[]> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("my_partner_projects");
+  if (error) throw error;
+  return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+    id: r.id as string,
+    name: r.name as string,
+    businessName: (r.business_name as string) ?? null,
+    engines: (r.engines as string[]) ?? [],
+    progress: r.progress === null || r.progress === undefined ? null : Number(r.progress),
+    journey: r.journey as string,
+    targetGoLive: (r.target_go_live as string) ?? null,
+    wentLiveAt: (r.went_live_at as string) ?? null,
+    openRequirements: Number(r.open_requirements ?? 0),
+  }));
+}
+
+/** What BES is waiting on this partner for, across their projects. */
+export async function fetchMyPartnerRequirements(): Promise<PartnerPortalRequirement[]> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("my_partner_requirements");
+  if (error) throw error;
+  return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+    id: r.id as string,
+    projectId: r.project_id as string,
+    projectName: r.project_name as string,
+    label: r.label as string,
+    detail: (r.detail as string) ?? null,
+    requestedOn: r.requested_on as string,
+  }));
+}

@@ -28,6 +28,8 @@ export interface CrmProjectRow {
   id: string;
   name: string;
   partnerName: string;
+  /** The partner's business or brand this build is for; null means the partner itself. */
+  businessName: string | null;
   organizationId: string | null;
   engines: string[];
   progress: number | null;
@@ -60,6 +62,7 @@ export async function fetchCrmBoard(): Promise<CrmProjectRow[]> {
       id: rec.id as string,
       name: rec.name as string,
       partnerName: (rec.partner_name as string) ?? "—",
+      businessName: (rec.business_name as string) ?? null,
       organizationId: (rec.organization_id as string) ?? null,
       engines: (rec.engines as string[]) ?? [],
       progress: rec.progress === null ? null : Number(rec.progress),
@@ -213,6 +216,7 @@ export async function createCrmProject(input: {
   engines: string[];
   partnerGroupId?: string | null;
   organizationId?: string | null;
+  businessName?: string | null;
   preset?: string | null;
   targetGoLive?: string | null;
   leadId?: string | null;
@@ -228,6 +232,7 @@ export async function createCrmProject(input: {
     p_target_go_live: input.targetGoLive ?? null,
     p_lead: input.leadId ?? null,
     p_team: input.teamId ?? null,
+    p_business: input.businessName ?? null,
   });
   if (error) throw error;
   return data as string;

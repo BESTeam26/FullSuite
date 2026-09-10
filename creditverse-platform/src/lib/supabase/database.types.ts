@@ -2703,6 +2703,7 @@ export type Database = {
         Row: {
           agency_id: string
           archived_at: string | null
+          business_name: string | null
           archived_reason: string | null
           created_at: string
           created_by: string | null
@@ -2733,6 +2734,7 @@ export type Database = {
         Insert: {
           agency_id: string
           archived_at?: string | null
+          business_name?: string | null
           archived_reason?: string | null
           created_at?: string
           created_by?: string | null
@@ -2763,6 +2765,7 @@ export type Database = {
         Update: {
           agency_id?: string
           archived_at?: string | null
+          business_name?: string | null
           archived_reason?: string | null
           created_at?: string
           created_by?: string | null
@@ -13534,6 +13537,7 @@ export type Database = {
           p_started_on?: string
           p_target_go_live?: string
           p_team?: string
+          p_business?: string | null
         }
         Returns: string
       }
@@ -13558,6 +13562,7 @@ export type Database = {
         Args: never
         Returns: {
           blocked: number
+          business_name: string | null
           engines: string[]
           health: string
           id: string
@@ -14041,6 +14046,31 @@ export type Database = {
           public_id: string
           round: string
           status: string
+        }[]
+      }
+      my_partner_projects: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          business_name: string | null
+          engines: string[]
+          id: string
+          journey: string
+          name: string
+          open_requirements: number
+          progress: number | null
+          target_go_live: string | null
+          went_live_at: string | null
+        }[]
+      }
+      my_partner_requirements: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          detail: string | null
+          id: string
+          label: string
+          project_id: string
+          project_name: string
+          requested_on: string
         }[]
       }
       my_permissions: {

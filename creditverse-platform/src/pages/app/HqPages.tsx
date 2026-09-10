@@ -42,6 +42,7 @@ import {
   PauseCircle,
   ShieldAlert,
   CalendarOff,
+  CalendarClock,
   Receipt,
 } from "lucide-react";
 
@@ -368,10 +369,13 @@ const KIND_ICON: Record<Notification["kind"], ElementType> = {
   timer: Clock,
   leave: CalendarOff,
   payroll: Receipt,
+  due_soon: CalendarClock,
+  overdue: AlertTriangle,
 };
 
 const ENTITY_LABEL: Record<string, string> = {
   work_item: "Work item",
+  crm_project: "BES CRM project",
   fulfillment_client: "CreditOps client",
   funding_client: "FundingOps client",
   channel: "Conversation",

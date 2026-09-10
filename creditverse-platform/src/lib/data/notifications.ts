@@ -33,7 +33,12 @@ export type NotificationKind =
   | "leave"
   /* The payroll pipeline (0255): hours ready to verify, the lock reminder,
      ready-to-release, and the released payslip. */
-  | "payroll";
+  | "payroll"
+  /* The clock on the work itself (0293): due within a day, and past due —
+     to the assignee, with the team's leads on the overdue one. A CRM go-live
+     date uses the same two kinds against the project. */
+  | "due_soon"
+  | "overdue";
 
 export interface Notification {
   id: number;
@@ -139,6 +144,9 @@ export function hrefForEntity(
     /* The board highlights the one that was announced. */
     case "announcement":
       return `/app/announcements?announcement=${id}`;
+    /* A go-live reminder opens the project on the board. */
+    case "crm_project":
+      return `/app/bes-crm?project=${id}`;
     default:
       return null;
   }

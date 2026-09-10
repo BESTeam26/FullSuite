@@ -18,8 +18,9 @@
  * needs nothing to carry it across (0191).
  */
 import { useMemo, useState } from "react";
-import { Loader2, Building2, Download, Mail, Phone, Search, ShieldCheck, FileText, MessagesSquare, Users } from "lucide-react";
-import { useMyPartner, useMyPartnerClients, useMySharedFiles } from "@/lib/data/use-agency-partners";
+import { Loader2, Building2, Download, Mail, Phone, Search, ShieldCheck, FileText, MessagesSquare, Users, Workflow, ClipboardList } from "lucide-react";
+import { useMyPartner, useMyPartnerClients, useMyPartnerProjects, useMyPartnerRequirements, useMySharedFiles } from "@/lib/data/use-agency-partners";
+import { JOURNEY_LABEL, type JourneyStage } from "@/lib/crm/crm-domain";
 import { partnerFileUrl } from "@/lib/data/agency-partners";
 import { useChannels } from "@/lib/data/use-channels";
 import { ConversationPane } from "@/components/communication/ConversationPane";
@@ -120,6 +121,8 @@ export const PartnerPortal = () => {
 
         <PortalClients />
 
+        <PortalProjects />
+
         <PortalConversation partnerGroupId={p.id} />
 
         <PortalFiles partnerGroupId={p.id} />
@@ -127,6 +130,98 @@ export const PartnerPortal = () => {
     </div>
   );
 };
+
+/**
+ * The partner's BES CRM builds, and what BES is waiting on them for.
+ *
+ * Both lists come from definer functions gated by `partner_group_of_user()`
+ * (0293) — the same boundary as their clients. What a partner sees is the
+ * canonical project (rule 2, Dee §40: "show the SAME canonical project"):
+ * scope, progress, journey, go-live. What they never see from here: who at
+ * BES is building it, the health reason, internal notes, other partners.
+ * Requirements are read-only on purpose — BES records the receipt, because
+ * "received" is a BES judgement about what arrived (§54), not a self-tick.
+ */
+function PortalProjects() {
+  const projects = useMyPartnerProjects();
+  const requirements = useMyPartnerRequirements();
+  const list = projects.data ?? [];
+  const asks = requirements.data ?? [];
+  if (!projects.isLoading && list.length === 0) return null;
+
+  const engineLabel = (key: string) => key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
+  return (
+    <section className="rounded-xl border border-border bg-card p-4">
+      <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+        <Workflow className="h-3.5 w-3.5" /> Your BES CRM builds
+        {projects.data && <span className="font-normal normal-case">— {list.length}</span>}
+      </h2>
+      {projects.isLoading ? (
+        <p className="py-3 text-xs text-muted-foreground"><Loader2 className="mr-1.5 inline h-3 w-3 animate-spin" /> Loading…</p>
+      ) : (
+        <ul className="space-y-2">
+          {list.map((pr) => (
+            <li key={pr.id} className="rounded-lg border border-border bg-background p-3">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">{pr.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {pr.businessName ? <>{pr.businessName} · </> : null}
+                    {pr.engines.map(engineLabel).join(" · ") || "Scope to be confirmed"}
+                  </p>
+                </div>
+                <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] font-medium text-foreground">
+                  {JOURNEY_LABEL[pr.journey as JourneyStage] ?? pr.journey}
+                </span>
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                <span className="flex items-center gap-2">
+                  <span className="h-1.5 w-32 overflow-hidden rounded-full bg-muted" role="progressbar"
+                    aria-valuenow={pr.progress ?? 0} aria-valuemin={0} aria-valuemax={100} aria-label="Progress">
+                    <span className="block h-full bg-primary" style={{ width: `${pr.progress ?? 0}%` }} />
+                  </span>
+                  {pr.progress === null ? "Not started" : `${pr.progress}% complete`}
+                </span>
+                {pr.wentLiveAt ? <span>Live since {formatDate(pr.wentLiveAt)}</span>
+                  : pr.targetGoLive ? <span>Target go-live {formatDate(pr.targetGoLive)}</span> : null}
+                {pr.openRequirements > 0 && (
+                  <span className="font-medium text-status-warning">
+                    {pr.openRequirements} item{pr.openRequirements === 1 ? "" : "s"} BES needs from you
+                  </span>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <h3 className="mb-2 mt-4 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+        <ClipboardList className="h-3.5 w-3.5" /> What BES needs from you
+      </h3>
+      {requirements.isLoading ? (
+        <p className="text-xs text-muted-foreground"><Loader2 className="mr-1.5 inline h-3 w-3 animate-spin" /> Loading…</p>
+      ) : asks.length === 0 ? (
+        <p className="text-xs text-muted-foreground">Nothing outstanding — BES has everything it asked you for.</p>
+      ) : (
+        <ul className="divide-y divide-border/50 text-xs">
+          {asks.map((a) => (
+            <li key={a.id} className="py-2">
+              <p className="font-medium text-foreground">{a.label}</p>
+              <p className="text-muted-foreground">
+                {a.projectName} · asked {formatDate(a.requestedOn)}
+                {a.detail ? <> — {a.detail}</> : null}
+              </p>
+            </li>
+          ))}
+          <li className="pt-2 text-muted-foreground">
+            Send these to your BES contact — in the conversation below or by email — and BES will mark them received.
+          </li>
+        </ul>
+      )}
+    </section>
+  );
+}
 
 /**
  * The partner's half of the conversation with BES.

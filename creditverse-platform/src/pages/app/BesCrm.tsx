@@ -17,6 +17,7 @@
  * customer reads published updates and comments; it does not run the build).
  */
 import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -40,7 +41,10 @@ export default function BesCrm() {
   const auth = useAuth();
   const isBes = viewMode === "agency";
   const board = useCrmBoard();
-  const [openId, setOpenId] = useState<string | null>(null);
+  /* A notification's link lands on one project (`?project=`); the board is
+     the fallback when the id is not one the caller may see. */
+  const [params] = useSearchParams();
+  const [openId, setOpenId] = useState<string | null>(params.get("project"));
   const [creating, setCreating] = useState(false);
 
   const projects = useMemo(() => board.data ?? [], [board.data]);

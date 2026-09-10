@@ -9,9 +9,11 @@
  * that goes nowhere, and a BES reply must be labelled as one.
  */
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { PartnerPortal } from "@/pages/portal/PartnerPortal";
-import type { AgencyPartner, PartnerFile, PartnerPortalClient } from "@/lib/data/agency-partners";
+import type {
+  AgencyPartner, PartnerFile, PartnerPortalClient, PartnerPortalProject, PartnerPortalRequirement,
+} from "@/lib/data/agency-partners";
 import type { Channel } from "@/lib/data/channels";
 import type { RichMessage } from "@/lib/data/messages";
 
@@ -20,6 +22,8 @@ let channels: Channel[];
 let messages: RichMessage[];
 let portalClients: PartnerPortalClient[];
 let sharedFiles: Partial<PartnerFile>[];
+let portalProjects: PartnerPortalProject[];
+let portalRequirements: PartnerPortalRequirement[];
 const sendMutate = vi.fn().mockResolvedValue({ id: 1 });
 
 vi.mock("@/lib/auth/auth-context", () => ({
@@ -29,6 +33,8 @@ vi.mock("@/lib/data/use-agency-partners", () => ({
   useMyPartner: () => ({ data: partner, isLoading: false }),
   useMyPartnerClients: () => ({ data: portalClients, isLoading: false }),
   useMySharedFiles: () => ({ data: sharedFiles, isLoading: false }),
+  useMyPartnerProjects: () => ({ data: portalProjects, isLoading: false }),
+  useMyPartnerRequirements: () => ({ data: portalRequirements, isLoading: false }),
 }));
 vi.mock("@/lib/data/use-channels", () => ({
   useChannels: () => ({ data: channels, isLoading: false }),
@@ -77,6 +83,8 @@ const CHANNEL: Channel = {
 };
 
 beforeEach(() => {
+  portalProjects = [];
+  portalRequirements = [];
   partner = PARTNER;
   channels = [CHANNEL];
   messages = [];
@@ -200,5 +208,48 @@ describe("files shared with the partner", () => {
   it("says honestly when nothing has been shared", () => {
     render(<PartnerPortal />);
     expect(screen.getByText(/Nothing has been shared yet/)).toBeInTheDocument();
+  });
+});
+
+describe("the partner's BES CRM build (0293)", () => {
+  const PROJECT: PartnerPortalProject = {
+    id: "p1", name: "Wavy One — GHL build", businessName: "Wavy One", engines: ["project_setup", "website_funnel"],
+    progress: 40, journey: "building", targetGoLive: "2026-10-01", wentLiveAt: null, openRequirements: 1,
+  };
+  const ASK: PartnerPortalRequirement = {
+    id: "r1", projectId: "p1", projectName: "Wavy One — GHL build", label: "Logo files", detail: "SVG or PNG", requestedOn: "2026-09-08T10:00:00Z",
+  };
+
+  it("shows the canonical project — business, scope, journey, progress — and what BES needs", () => {
+    portalProjects = [PROJECT];
+    portalRequirements = [ASK];
+    render(<PartnerPortal />);
+    expect(screen.getByText("Wavy One — GHL build")).toBeInTheDocument();
+    expect(screen.getByText(/Wavy One · Project Setup · Website Funnel/)).toBeInTheDocument();
+    expect(screen.getByText("Building")).toBeInTheDocument();
+    expect(screen.getByText("40% complete")).toBeInTheDocument();
+    expect(screen.getByText("Logo files")).toBeInTheDocument();
+    expect(screen.getByText(/SVG or PNG/)).toBeInTheDocument();
+  });
+
+  it("offers the partner no way to mark a requirement received — BES records the receipt", () => {
+    portalProjects = [PROJECT];
+    portalRequirements = [ASK];
+    render(<PartnerPortal />);
+    const section = screen.getByText(/What BES needs from you/i).closest("section") as HTMLElement;
+    expect(within(section).queryByRole("button", { name: /received|satisf|done/i })).not.toBeInTheDocument();
+    expect(within(section).queryByRole("checkbox")).not.toBeInTheDocument();
+  });
+
+  it("never names who at BES is building it", () => {
+    portalProjects = [PROJECT];
+    render(<PartnerPortal />);
+    expect(screen.queryByText(/led by/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/assigned/i)).not.toBeInTheDocument();
+  });
+
+  it("is absent altogether for a partner with no build — not an empty box", () => {
+    render(<PartnerPortal />);
+    expect(screen.queryByText(/Your BES CRM builds/i)).not.toBeInTheDocument();
   });
 });

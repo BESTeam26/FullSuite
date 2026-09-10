@@ -48,6 +48,7 @@ export const CreateCrmProjectDialog = ({ onClose }: { onClose: () => void }) => 
 
   const [name, setName] = useState("");
   const [groupId, setGroupId] = useState("");
+  const [business, setBusiness] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [targetGoLive, setTargetGoLive] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -92,6 +93,7 @@ export const CreateCrmProjectDialog = ({ onClose }: { onClose: () => void }) => 
         name: name.trim(),
         engines: [...selected],
         partnerGroupId: groupId,
+        businessName: business.trim() || null,
         targetGoLive: targetGoLive || null,
       });
       onClose();
@@ -138,6 +140,16 @@ export const CreateCrmProjectDialog = ({ onClose }: { onClose: () => void }) => 
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="grid gap-1.5">
+            <Label htmlFor="crm-business">Business / brand <span className="font-normal text-muted-foreground">(optional)</span></Label>
+            <Input
+              id="crm-business"
+              value={business}
+              onChange={(e) => setBusiness(e.target.value)}
+              placeholder="Which of the partner's businesses this build is for"
+            />
           </div>
 
           <fieldset className="grid gap-1.5">
