@@ -23,13 +23,14 @@ import { Pill } from "@/components/agency/partner/partner-ui";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useAgencyPermissions } from "@/lib/data/agency-permissions";
 import {
-  useDocumentActions, useDocumentFolders, useDocumentTemplates, useSignatureRequests,
+  signingLink, useDocumentActions, useDocumentFolders, useDocumentTemplates, useSignatureRequests,
   type DocumentAudience, type DocumentTemplate, type TemplateStatus,
 } from "@/lib/data/documents";
 import {
   MERGE_FIELDS, SAMPLE_AGREEMENT, renderPreview, sampleValues, unknownTokens, type MergeCategory,
 } from "@/lib/documents/merge-fields";
 import { formatDate, formatDateTime } from "@/lib/format-date";
+import { SendForSignatureDialog } from "@/components/documents/SendForSignatureDialog";
 import { useToast } from "@/hooks/use-toast";
 
 const NONE = "__none";
@@ -60,6 +61,7 @@ export function DocumentsSection() {
   const [draft, setDraft] = useState<ReturnType<typeof blank> | null>(null);
   const [newFolder, setNewFolder] = useState("");
   const [newFolderKind, setNewFolderKind] = useState("other");
+  const [sendingTemplate, setSendingTemplate] = useState<string | null>(null);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
 
   const visible = (templates.data ?? []).filter((t) => folderId === NONE || t.folderId === folderId);
@@ -187,6 +189,9 @@ export function DocumentsSection() {
                           <Pill tone={t.status === "active" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700" : "border-border bg-muted text-muted-foreground"}>
                             {t.status}
                           </Pill>
+                          {t.status === "active" && (
+                            <Button size="sm" className="h-7 text-[11px]" onClick={() => setSendingTemplate(t.id)}>Send</Button>
+                          )}
                           <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => setDraft({ ...t })}>Edit</Button>
                         </span>
                       </li>
@@ -281,6 +286,10 @@ export function DocumentsSection() {
           </div>
         </div>
       </SectionCard>
+
+      {sendingTemplate && (
+        <SendForSignatureDialog open templateId={sendingTemplate} onClose={() => setSendingTemplate(null)} />
+      )}
 
       <SectionCard icon={FileSignature} title="Signature requests" description="Everything sent for signature, newest first, with where it stands.">
         {requests.isLoading ? (

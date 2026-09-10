@@ -1614,3 +1614,27 @@ assignee, overdue reaches agent and lead once each, completed/unassigned
 work is nobody's reminder, go-live in 3 days tells the lead while a
 launched project does not). Portal screen tests +4. Full gate re-run after
 the migration — see the run log in this entry's commit.
+
+### Every signer kind has a door, and the gate no longer mistakes a rate limit for a failure — 2026-09-09
+
+**Send for signature, all three kinds.** `SendForSignatureDialog` is the one
+shared sender: a team member, a partner contact, or an email address (a
+prospect or client with no record). Opened from Documents & Signatures (per
+active template, "Send") and from a partner's Contacts tab ("Send document",
+signer fixed to that contact, `documents.manage` only). The member profile's
+inline sender stays. Templates offered are filtered by audience for the
+signer kind; an email signer is told plainly that only company values, their
+own name/email, dates and the signature block can fill. The signature-request
+ledger gained "Copy link" for a mail outage. Probe: a partner-contact request
+resolves `partner.*` and `contact.*`; an email signer resolves `signer.name`;
+an email signer against a member template is refused (22023) rather than
+sent blank. (First run of that probe failed on MY argument order — the
+function is (template, kind, user, partner, contact, email, name) and the app
+passes named parameters, so the product was never wrong.)
+
+**Harness: back off on 429.** The full 1,526-check gate lost 74 checks to
+`ThrottlerException: Too Many Requests` after ~1,900 statements; every one
+passed alone. `query-worker.mjs` now resends a throttled statement after
+1.5 s / 3 s / 6 s / 12 s — safe because each probe is its own
+`begin … rollback`, so a resend is the same test. No more splitting the run
+in halves.

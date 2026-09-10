@@ -40,11 +40,31 @@ function post({ projectRef, token, sql }) {
   });
 }
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * The Management API rate-limits after ~1,900 statements in a run, and a 429
+ * arrived as "ERR ThrottlerException" — a failed CHECK that tested nothing.
+ * Back off and resend the identical statement: each probe is its own
+ * `begin … rollback`, so a resend is the same test, not a second write.
+ */
+async function postWithBackoff(args) {
+  const waits = [1500, 3000, 6000, 12000];
+  let last;
+  for (let attempt = 0; attempt <= waits.length; attempt++) {
+    last = await post(args);
+    const throttled = last.status === 429 || /Too Many Requests|ThrottlerException/.test(last.text);
+    if (!throttled) return last;
+    if (attempt < waits.length) await sleep(waits[attempt]);
+  }
+  return last;
+}
+
 /** One statement in, one {rows} or {error} out. */
 async function runOne({ projectRef, token, sql }) {
   let payload;
   try {
-    const { status, text } = await post({ projectRef, token, sql });
+    const { status, text } = await postWithBackoff({ projectRef, token, sql });
     if (status >= 400) {
       let message = text.slice(0, 2000);
       try {

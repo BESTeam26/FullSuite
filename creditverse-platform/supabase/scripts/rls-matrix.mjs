@@ -6418,6 +6418,23 @@ if (runs(70)) {
         select set_config('probe.req', public.create_signature_request('44444444-0000-4000-8000-00000000d013', 'member', '${AGENT70}')::text, true);
         select ((rendered_html like '%bes.credit@bes.test%') and (rendered_html like '%{{signature}}%') and (rendered_html not like '%{{user.email}}%'))::text as rows
           from public.signature_requests where id = current_setting('probe.req')::uuid`), "true"],
+    ["a partner-contact signer resolves partner AND contact fields; an email signer resolves only their own name",
+      () => p70(ADM70, `set local role postgres;
+        insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle)
+          values ('44444444-0000-4000-8000-00000000d0a0'::uuid, '${AG70}', 'Probe Partner Co', 'ppc@example.test', 'active');
+        insert into public.partner_contacts (id, group_id, agency_id, full_name, email)
+          values ('44444444-0000-4000-8000-00000000d0a1'::uuid, '44444444-0000-4000-8000-00000000d0a0'::uuid, '${AG70}', 'Pat Contact', 'pat@example.test');
+        set local role authenticated; set local request.jwt.claims = '{"sub":"${ADM70}","role":"authenticated"}';
+        insert into public.document_templates (id, agency_id, name, audience, body, status) values
+          ('44444444-0000-4000-8000-00000000d019', '${AG70}', 'Probe P', 'partner', '<p>{{partner.name}} / {{contact.name}} / {{signature}}</p>', 'active'),
+          ('44444444-0000-4000-8000-00000000d01a', '${AG70}', 'Probe E', 'any', '<p>{{signer.name}} / {{signature}}</p>', 'active'),
+          ('44444444-0000-4000-8000-00000000d01b', '${AG70}', 'Probe E2', 'any', '<p>{{user.name}} / {{signature}}</p>', 'active');
+        select set_config('probe.pc', public.create_signature_request('44444444-0000-4000-8000-00000000d019', 'partner_contact', null, null, '44444444-0000-4000-8000-00000000d0a1')::text, true);
+        select set_config('probe.ex', public.create_signature_request('44444444-0000-4000-8000-00000000d01a', 'external', null, null, null, 'jo@example.test', 'Jo External')::text, true);
+        do $x$ begin perform public.create_signature_request('44444444-0000-4000-8000-00000000d01b', 'external', null, null, null, 'jo@example.test', 'Jo External'); exception when others then perform set_config('probe.ex2', sqlstate, true); end $x$;
+        select (select rendered_html like '%Probe Partner Co / Pat Contact / {{signature}}%' from public.signature_requests where id = current_setting('probe.pc')::uuid)::text
+          || ' · ' || (select rendered_html like '%Jo External / {{signature}}%' from public.signature_requests where id = current_setting('probe.ex')::uuid)::text
+          || ' · ' || current_setting('probe.ex2') as rows`), "true · true · 22023"],
     ["a colleague's signature request is invisible to plain staff; the signer sees their own",
       () => p70(ADM70, `insert into public.document_templates (id, agency_id, name, audience, body, status)
         values ('44444444-0000-4000-8000-00000000d014', '${AG70}', 'Probe T', 'member', '<p>{{user.name}} {{signature}}</p>', 'active');

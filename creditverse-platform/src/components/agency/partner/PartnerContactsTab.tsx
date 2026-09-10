@@ -20,6 +20,7 @@ import { invitationLink } from "@/lib/data/agency-invitations";
 import { useAgencyPermissions } from "@/lib/data/agency-permissions";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/format-date";
+import { SendForSignatureDialog, type FixedSigner } from "@/components/documents/SendForSignatureDialog";
 
 const PORTAL_TONE: Record<string, string> = {
   active: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700",
@@ -35,6 +36,8 @@ export function PartnerContactsTab({ groupId }: { groupId: string }) {
   const perms = useAgencyPermissions();
   const canManage = perms.can("partners.contacts");
   const canPortal = perms.can("partners.portal");
+  const canSendDocuments = perms.can("documents.manage");
+  const [signer, setSigner] = useState<FixedSigner | null>(null);
   const { toast } = useToast();
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
@@ -124,6 +127,12 @@ export function PartnerContactsTab({ groupId }: { groupId: string }) {
                 </span>
                 <span className="flex shrink-0 items-center gap-2">
                   <Pill tone={PORTAL_TONE[state]}>{PORTAL_LABEL[state]}</Pill>
+                  {canSendDocuments && c.status === "active" && (
+                    <Button size="sm" variant="outline" className="h-6 px-2 text-xs"
+                      onClick={() => setSigner({ kind: "partner_contact", contactId: c.id, groupId, name: c.fullName })}>
+                      Send document
+                    </Button>
+                  )}
                   {canPortal && c.status === "active" && !c.userId && (
                     <Button size="sm" variant="outline" className="h-6 px-2 text-xs"
                       disabled={actions.inviteContact.isPending}
@@ -151,6 +160,7 @@ export function PartnerContactsTab({ groupId }: { groupId: string }) {
           })}
         </ul>
       )}
+      {signer && <SendForSignatureDialog open fixedSigner={signer} onClose={() => setSigner(null)} />}
     </ContentCard>
   );
 }
