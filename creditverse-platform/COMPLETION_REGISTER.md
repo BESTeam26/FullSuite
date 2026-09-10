@@ -1638,3 +1638,33 @@ passed alone. `query-worker.mjs` now resends a throttled statement after
 1.5 s / 3 s / 6 s / 12 s — safe because each probe is its own
 `begin … rollback`, so a resend is the same test. No more splitting the run
 in halves.
+
+### The CRM derivation chain got an owner-only core that authorizes itself — 2026-09-09
+
+Phase 47's structural rule — no SECURITY DEFINER function calls an INVOKER
+helper whose answer depends on caller RLS — caught 0293 three times:
+`my_partner_projects()` and `due_date_sweep()` called `crm_project_progress`
+and `crm_project_journey`. Two migrations, because the first was wrong in a
+way only the browser showed:
+
+- **0295** moved each body in the chain (`crm_work_unit_ready` →
+  `crm_work_unit_state` → `crm_project_progress` / `crm_project_journey`) into
+  an `_unchecked` DEFINER twin and made the public name a wrapper ("if the
+  caller can see the row, compute"). `due_date_sweep` became INVOKER — cron
+  runs it as the owner, so it never needed DEFINER. The twins were revoked
+  from every browser role. **Result: the board came back empty for Dee.**
+  EXECUTE is checked against the current user, and inside an INVOKER wrapper
+  that is the signed-in person, who had just been refused the core.
+- **0296** is the rule-1 answer: the core decides for itself.
+  `crm_project_readable(uuid)` is `crm_projects_select`'s two branches (staff
+  in BES CRM scope; org admin with the CRM entitlement) plus the partner's own
+  contact, built from DEFINER helpers only (`is_staff_of`, `in_scope`,
+  `is_org_admin`, `org_entitled`, `partner_group_of_user`). Every core reads
+  through it and is granted to authenticated — safe to call directly, an
+  unseen project yields NULL. One body per rule; one visibility predicate;
+  no INVOKER helper inside a DEFINER anywhere (the structural query returns
+  0). The select policy still inlines its expression; folding it onto
+  `crm_project_readable` is a later, zero-behaviour-change tidy.
+
+Verified: board as a signed-in owner shows the live project again; phases
+47, 55, 65, 70 re-run after 0296 — see the commit.

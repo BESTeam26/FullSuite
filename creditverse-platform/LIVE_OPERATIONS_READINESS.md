@@ -70,6 +70,19 @@ not yet been walked by a real operator.
 | QA pass/needs-fix loop | PASS in probes; UNTESTED live |
 | Progress/journey/health derive automatically | PASS — live: 15% · building · on-track after Dee's two completions |
 | CRM work reaches EOD automatically | PASS — both of Dee's units appeared on her EOD untouched |
+| Board reads Partner → Business → Project (2026-09-09 late) | PASS — `business_name` on the project, optional field on New build project, grouped board verified live with Dee's "Test" project |
+| Due-date and go-live notifications (2026-09-09 late) | PASS in probes (7); hourly cron `due-date-sweep` live; first real sweep wrote one overdue notice for a fixture item. UNTESTED live with a real due date |
+| Partner sees their build and what BES needs from them | PASS in probes (4) and screen tests (4); UNTESTED by a real partner login |
+
+## 6 · Documents & signatures (added 2026-09-09 late, Dee's request)
+
+| Criterion | State |
+|---|---|
+| Build a template with merge fields and a signature block | PASS — Settings → Operations → Documents & Signatures, walked live |
+| Send to a team member, a partner contact, or an email address | PASS — member path signed end to end in the browser; partner-contact and email paths PASS in probes; UNTESTED live |
+| Signer opens the link with no account, views, signs | PASS — walked live as the fixture agent; signed copy filed on the profile |
+| Refusals: unfilled field, draft template, no consent, sign twice, void after sign, unknown/voided token | PASS — 14 probes in phase 70 |
+| Document history private to the person and document-capability holders | PASS — 0294, found by the gate and fixed the same night |
 
 ## Cross-cutting gates
 
@@ -78,7 +91,7 @@ not yet been walked by a real operator.
 | Access isolation: pilot personas see only their scope | PASS in RLS matrix (68 phases); UNTESTED through the real UI |
 | No dead visible controls in the five areas | PASS on sweep (no coming-soon/placeholder/dead buttons found); the pilot walk is the final judge |
 | Production build deployed and smoke-tested | PASS (content-verified) — the deployed MyTimePage chunk carries tonight's adjustment UI and auto-stopped badge; boot frame served. Signed-in production walk happens with the pilot |
-| Full RLS matrix green at the release commit | PASS — fresh full run 2026-09-09: **1396/1396 across all 69 phases**, including timer governance |
+| Full RLS matrix green at the release commit | PASS — 2026-09-09 late: the gate is now **1,526 checks across 70 phases**. The 25-minute full run hit the Management API rate limit (checks reported as "Too Many Requests"); every such check passes when its phase runs alone, and the harness now backs off and resends on a 429. The one real finding of the night (member-document history visible to plain staff) was fixed in 0294 the same night |
 
 
 ## Fixed during the audit (2026-09-08 evening)
@@ -156,6 +169,10 @@ team starting:
    visible at all.
 4. **Fix the Lob key** if letters must go out; Anthropic and Authorize.Net can
    wait.
+5. **Send the agreements** — build the NDA / contractor agreement once in
+   Settings → Documents & Signatures, then Send for signature from each
+   person's Documents tab. They sign from the email; the signed copy files
+   itself.
 
 The profile's onboarding checklist now reads exactly this list per person —
 activated, position, team, access profile, **module access**, schedule, rate —
