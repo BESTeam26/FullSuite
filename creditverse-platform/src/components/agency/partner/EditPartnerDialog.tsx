@@ -41,8 +41,18 @@ export function EditPartnerDialog({ partner, people, teams }: {
   const [manager, setManager] = useState(partner.accountManagerId ?? NONE);
   const [team, setTeam] = useState(partner.teamId ?? NONE);
   const [notes, setNotes] = useState(partner.notes ?? "");
+  const [legal, setLegal] = useState(partner.legalBusinessName ?? "");
+  const [dba, setDba] = useState(partner.dbaName ?? "");
+  const [street, setStreet] = useState(partner.addressStreet ?? "");
+  const [city, setCity] = useState(partner.addressCity ?? "");
+  const [state, setState] = useState(partner.addressState ?? "");
+  const [zip, setZip] = useState(partner.addressZip ?? "");
+  const [website, setWebsite] = useState(partner.website ?? "");
 
   const reset = () => {
+    setLegal(partner.legalBusinessName ?? ""); setDba(partner.dbaName ?? "");
+    setStreet(partner.addressStreet ?? ""); setCity(partner.addressCity ?? ""); setState(partner.addressState ?? ""); setZip(partner.addressZip ?? "");
+    setWebsite(partner.website ?? "");
     setCompany(partner.name);
     setPerson(partner.primaryContact ?? "");
     setEmail(partner.contactEmail);
@@ -71,6 +81,8 @@ export function EditPartnerDialog({ partner, people, teams }: {
           accountManagerId: manager === NONE ? null : manager,
           teamId: team === NONE ? null : team,
           notes,
+          legalBusinessName: legal, dbaName: dba, addressStreet: street, addressCity: city, addressState: state, addressZip: zip, website,
+          address: [street, city, [state, zip].filter(Boolean).join(" ")].filter((x) => x && x.trim()).join(", "),
         },
       },
       {
@@ -94,6 +106,29 @@ export function EditPartnerDialog({ partner, people, teams }: {
           <div>
             <Label htmlFor="ep-company">Company / business name</Label>
             <Input id="ep-company" value={company} onChange={(e) => setCompany(e.target.value)} />
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="ep-legal">Legal business name</Label>
+              <Input id="ep-legal" value={legal} onChange={(e) => setLegal(e.target.value)} />
+            </div>
+            <div>
+              <Label htmlFor="ep-dba">DBA / brand name</Label>
+              <Input id="ep-dba" value={dba} onChange={(e) => setDba(e.target.value)} />
+            </div>
+          </div>
+          <div>
+            <Label htmlFor="ep-street">Business address</Label>
+            <Input id="ep-street" value={street} onChange={(e) => setStreet(e.target.value)} placeholder="Street address" />
+            <div className="mt-1.5 grid grid-cols-[1fr_5rem_6rem] gap-1.5">
+              <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="City" aria-label="City" />
+              <Input value={state} onChange={(e) => setState(e.target.value)} placeholder="State" aria-label="State" />
+              <Input value={zip} onChange={(e) => setZip(e.target.value)} placeholder="ZIP" aria-label="ZIP code" />
+            </div>
+          </div>
+          <div>
+            <Label htmlFor="ep-website">Business website</Label>
+            <Input id="ep-website" value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://" />
           </div>
           <div>
             <Label htmlFor="ep-person">Partner (person)</Label>

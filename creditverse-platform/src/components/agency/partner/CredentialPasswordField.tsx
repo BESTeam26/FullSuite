@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, Copy, Eye, KeyRound, Loader2, ShieldAlert } from "lucide-react";
-import { useRevealCredential } from "@/lib/data/use-partner-credentials";
+import { useRevealCredential, type CredentialScope } from "@/lib/data/use-partner-credentials";
 import { cn } from "@/lib/utils";
 
 /** How long a revealed password stays on screen before hiding itself again. */
@@ -26,12 +26,14 @@ export const CredentialPasswordField = ({
   credentialId,
   hasSecret,
   mayReveal,
+  scope = "staff",
 }: {
   credentialId: string;
   hasSecret: boolean;
   mayReveal: boolean;
+  scope?: CredentialScope;
 }) => {
-  const reveal = useRevealCredential();
+  const reveal = useRevealCredential(scope);
   const [shown, setShown] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);

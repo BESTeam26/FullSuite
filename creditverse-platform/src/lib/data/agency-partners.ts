@@ -52,6 +52,16 @@ export interface AgencyPartner {
   legacyActiveClients: number | null;
   sourceType: string;
   credentialMigrationRequired: boolean;
+  /* 0298 — the Partner Profile the onboarding form fills. */
+  legalBusinessName: string | null;
+  dbaName: string | null;
+  addressStreet: string | null;
+  addressCity: string | null;
+  addressState: string | null;
+  addressZip: string | null;
+  website: string | null;
+  onboardingCompletedAt: string | null;
+  accessConfirmedAt: string | null;
   status: PartnerStatus;
   archivedAt: string | null;
   createdAt: string;
@@ -63,6 +73,8 @@ export interface PartnerContact {
   fullName: string;
   email: string;
   phone: string | null;
+  /** Title / role, from onboarding or the partner's own edit (0298). */
+  title: string | null;
   isPrimary: boolean;
   userId: string | null;
   status: "active" | "suspended" | "archived";
@@ -111,6 +123,15 @@ const mapPartner = (r: Record<string, unknown>): AgencyPartner => ({
   accountManagerId: (r.account_manager_id as string) ?? null,
   teamId: (r.team_id as string) ?? null,
   primaryContactId: (r.primary_contact_id as string) ?? null,
+  legalBusinessName: (r.legal_business_name as string) ?? null,
+  dbaName: (r.dba_name as string) ?? null,
+  addressStreet: (r.address_street as string) ?? null,
+  addressCity: (r.address_city as string) ?? null,
+  addressState: (r.address_state as string) ?? null,
+  addressZip: (r.address_zip as string) ?? null,
+  website: (r.website as string) ?? null,
+  onboardingCompletedAt: (r.onboarding_completed_at as string) ?? null,
+  accessConfirmedAt: (r.access_confirmed_at as string) ?? null,
   legacyClientVolume: (r.legacy_reported_client_volume as string) ?? null,
   legacyActiveClients: r.legacy_reported_active_clients === null || r.legacy_reported_active_clients === undefined
     ? null : Number(r.legacy_reported_active_clients),
@@ -124,7 +145,7 @@ const mapPartner = (r: Record<string, unknown>): AgencyPartner => ({
 /* ONE string literal. supabase-js infers the row shape from the literal
    itself, so a joined array or a concatenation degrades every result. */
 // prettier-ignore
-const COLUMNS = "id, name, partner_name, contact_email, phone, address, notes, primary_contact, service, contract_ref, status, archived_at, created_at, lifecycle, health, health_note, health_changed_by, health_changed_at, started_on, ended_on, saas_plan, account_manager_id, team_id, primary_contact_id, legacy_reported_client_volume, legacy_reported_active_clients, source_type, credential_migration_required";
+const COLUMNS = "id, name, partner_name, contact_email, phone, address, notes, primary_contact, service, contract_ref, status, archived_at, created_at, lifecycle, health, health_note, health_changed_by, health_changed_at, started_on, ended_on, saas_plan, account_manager_id, team_id, primary_contact_id, legacy_reported_client_volume, legacy_reported_active_clients, source_type, credential_migration_required, legal_business_name, dba_name, address_street, address_city, address_state, address_zip, website, onboarding_completed_at, access_confirmed_at";
 
 /** Active partners. Archived ones are excluded here and never deleted. */
 export async function fetchAgencyPartners(includeArchived = false): Promise<AgencyPartner[]> {
@@ -162,6 +183,13 @@ export interface NewPartner {
   startedOn?: string;
   saasPlan?: string;
   accountManagerId?: string | null;
+  legalBusinessName?: string;
+  dbaName?: string;
+  addressStreet?: string;
+  addressCity?: string;
+  addressState?: string;
+  addressZip?: string;
+  website?: string;
   teamId?: string | null;
 }
 
@@ -226,6 +254,13 @@ export async function updateAgencyPartner(id: string, patch: Partial<NewPartner>
   if (patch.saasPlan !== undefined) row.saas_plan = blankToNull(patch.saasPlan);
   if (patch.accountManagerId !== undefined) row.account_manager_id = patch.accountManagerId;
   if (patch.teamId !== undefined) row.team_id = patch.teamId;
+  if (patch.legalBusinessName !== undefined) row.legal_business_name = blankToNull(patch.legalBusinessName);
+  if (patch.dbaName !== undefined) row.dba_name = blankToNull(patch.dbaName);
+  if (patch.addressStreet !== undefined) row.address_street = blankToNull(patch.addressStreet);
+  if (patch.addressCity !== undefined) row.address_city = blankToNull(patch.addressCity);
+  if (patch.addressState !== undefined) row.address_state = blankToNull(patch.addressState);
+  if (patch.addressZip !== undefined) row.address_zip = blankToNull(patch.addressZip);
+  if (patch.website !== undefined) row.website = blankToNull(patch.website);
   if (Object.keys(row).length === 0) return;
   const { error } = await sb.from("outsourcing_groups").update(row as never).eq("id", id);
   if (error) throw error;
@@ -268,6 +303,7 @@ const mapContact = (r: Record<string, unknown>): PartnerContact => ({
   fullName: r.full_name as string,
   email: String(r.email ?? ""),
   phone: (r.phone as string) ?? null,
+  title: (r.title as string) ?? null,
   isPrimary: Boolean(r.is_primary),
   userId: (r.user_id as string) ?? null,
   status: (r.status as PartnerContact["status"]) ?? "active",
@@ -591,4 +627,49 @@ export async function fetchMyPartnerRequirements(): Promise<PartnerPortalRequire
     detail: (r.detail as string) ?? null,
     requestedOn: r.requested_on as string,
   }));
+}
+
+/* ── The partner edits their own profile (0298) ───────────────────────── */
+
+export interface MyPartnerProfileInput {
+  legalBusinessName?: string;
+  dbaName?: string;
+  addressStreet?: string;
+  addressCity?: string;
+  addressState?: string;
+  addressZip?: string;
+  website?: string;
+  phone?: string;
+  contactEmail?: string;
+  /* The calling contact's own row. */
+  firstName?: string;
+  lastName?: string;
+  title?: string;
+  mobile?: string;
+}
+
+/** Company information and the caller's own contact row, on the canonical records. */
+export async function saveMyPartnerProfile(input: MyPartnerProfileInput): Promise<void> {
+  const sb = requireSupabase();
+  const payload: Record<string, string> = {};
+  const put = (k: string, v: string | undefined) => { if (v !== undefined) payload[k] = v; };
+  put("legal_business_name", input.legalBusinessName); put("dba_name", input.dbaName);
+  put("address_street", input.addressStreet); put("address_city", input.addressCity);
+  put("address_state", input.addressState); put("address_zip", input.addressZip);
+  put("website", input.website); put("phone", input.phone); put("contact_email", input.contactEmail);
+  put("first_name", input.firstName); put("last_name", input.lastName); put("title", input.title); put("mobile", input.mobile);
+  const { error } = await sb.rpc("my_partner_profile_save", { p: payload });
+  if (error) throw error;
+}
+
+/**
+ * Finish onboarding: records the access confirmation and returns the signing
+ * token of the onboarding agreement when BES has flagged one — null means
+ * "complete; BES will send the agreement".
+ */
+export async function completeMyPartnerOnboarding(confirm: boolean): Promise<string | null> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("my_partner_onboarding_complete", { p_confirm: confirm });
+  if (error) throw error;
+  return (data as string | null) ?? null;
 }

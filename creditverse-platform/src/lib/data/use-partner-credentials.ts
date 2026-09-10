@@ -9,6 +9,7 @@ import {
   revealPartnerCredential,
   savePartnerCredential,
   type SaveCredentialInput,
+  fetchMyPartnerCredentials, saveMyPartnerCredential, revealMyPartnerCredential, archiveMyPartnerCredential,
 } from "@/lib/data/partner-credentials";
 
 const live = (a: ReturnType<typeof useAuth>) =>
@@ -73,21 +74,37 @@ export function useCredentialAccess() {
  * mount, and each refetch would write another line into the access record
  * saying somebody read the password when nobody did anything at all.
  */
-export function useRevealCredential() {
+/** Which door: BES staff (the partner record) or the partner themself (the portal). */
+export type CredentialScope = "staff" | "portal";
+export const myCredentialsKey = ["partner", "me", "credentials"] as const;
+
+export function useMyPartnerCredentials() {
+  const auth = useAuth();
+  return useQuery({
+    queryKey: myCredentialsKey,
+    queryFn: fetchMyPartnerCredentials,
+    enabled: live(auth),
+    staleTime: 30_000,
+    retry: false,
+  });
+}
+
+export function useRevealCredential(scope: CredentialScope = "staff") {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => revealPartnerCredential(id),
+    mutationFn: (id: string) => (scope === "portal" ? revealMyPartnerCredential(id) : revealPartnerCredential(id)),
     onSuccess: (_value, id) => {
       void qc.invalidateQueries({ queryKey: credentialEventsKey(id) });
     },
   });
 }
 
-export function useSaveCredential(groupId: string | null) {
+export function useSaveCredential(groupId: string | null, scope: CredentialScope = "staff") {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: SaveCredentialInput) => savePartnerCredential(input),
+    mutationFn: (input: SaveCredentialInput) => (scope === "portal" ? saveMyPartnerCredential(input) : savePartnerCredential(input)),
     onSuccess: (id) => {
+      void qc.invalidateQueries({ queryKey: myCredentialsKey });
       if (groupId) {
         void qc.invalidateQueries({ queryKey: credentialsKey(groupId, false) });
         void qc.invalidateQueries({ queryKey: credentialsKey(groupId, true) });
@@ -97,12 +114,13 @@ export function useSaveCredential(groupId: string | null) {
   });
 }
 
-export function useArchiveCredential(groupId: string | null) {
+export function useArchiveCredential(groupId: string | null, scope: CredentialScope = "staff") {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) =>
-      archivePartnerCredential(id, reason),
+      (scope === "portal" ? archiveMyPartnerCredential(id, reason) : archivePartnerCredential(id, reason)),
     onSuccess: (_v, { id }) => {
+      void qc.invalidateQueries({ queryKey: myCredentialsKey });
       if (groupId) {
         void qc.invalidateQueries({ queryKey: credentialsKey(groupId, false) });
         void qc.invalidateQueries({ queryKey: credentialsKey(groupId, true) });

@@ -43,7 +43,7 @@ const AUDIENCES: { value: DocumentAudience; label: string }[] = [
 const FOLDER_KINDS = ["agent", "partner", "credit_repair", "proposal", "agreement", "policy", "other"];
 
 const blank = (folderId: string | null): Omit<DocumentTemplate, "id" | "version" | "updatedAt"> & { id?: string } => ({
-  folderId, name: "", audience: "member", body: SAMPLE_AGREEMENT, status: "draft",
+  folderId, name: "", audience: "member", body: SAMPLE_AGREEMENT, status: "draft", partnerOnboardingAgreement: false,
 });
 
 export function DocumentsSection() {
@@ -92,7 +92,8 @@ export function DocumentsSection() {
       return;
     }
     actions.saveTemplate.mutate(
-      { id: draft.id, agencyId: auth.agencyId ?? "", folderId: draft.folderId, name: draft.name, audience: draft.audience, body: draft.body, status },
+      { id: draft.id, agencyId: auth.agencyId ?? "", folderId: draft.folderId, name: draft.name, audience: draft.audience, body: draft.body, status,
+        partnerOnboardingAgreement: draft.partnerOnboardingAgreement && draft.audience !== "member" },
       {
         onSuccess: () => { setDraft(null); toast({ title: status === "active" ? "Template active — it can be sent" : "Draft saved" }); },
         onError: (e) => toast({ title: "Could not save", description: (e as Error).message, variant: "destructive" }),
@@ -223,6 +224,18 @@ export function DocumentsSection() {
                     </div>
                   </label>
                 </div>
+
+                {draft.audience !== "member" && (
+                  <label className="flex items-start gap-2 rounded-lg border border-border bg-muted/20 p-2.5 text-xs text-foreground">
+                    <input type="checkbox" className="mt-0.5" checked={draft.partnerOnboardingAgreement}
+                      onChange={(e) => setDraft({ ...draft, partnerOnboardingAgreement: e.target.checked })} />
+                    <span>
+                      <span className="font-medium">Use as the partner onboarding agreement.</span>{" "}
+                      When a partner finishes onboarding on their portal they are asked to sign this document.
+                      Only one active template can hold this role.
+                    </span>
+                  </label>
+                )}
 
                 <div className="grid gap-3 lg:grid-cols-[1fr_15rem]">
                   <label className="text-xs">

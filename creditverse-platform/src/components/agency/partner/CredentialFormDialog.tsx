@@ -19,12 +19,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { looksLikeASecret } from "@/lib/partners/credential-domain";
+import { CREDENTIAL_CATEGORIES, looksLikeASecret } from "@/lib/partners/credential-domain";
 import type {
   CredentialPlatform,
   PartnerCredential,
 } from "@/lib/data/partner-credentials";
-import { useSaveCredential } from "@/lib/data/use-partner-credentials";
+import { useSaveCredential, type CredentialScope } from "@/lib/data/use-partner-credentials";
 
 /**
  * Add or edit one login.
@@ -40,16 +40,30 @@ export const CredentialFormDialog = ({
   credential,
   platforms,
   onClose,
+  scope = "staff",
+  defaultCategory,
 }: {
   groupId: string;
   credential: PartnerCredential | null;
   platforms: CredentialPlatform[];
   onClose: () => void;
+  /** "portal": the partner editing their own systems — no rotation date, their own gate. */
+  scope?: CredentialScope;
+  /** Opened from a category section: preselect it and its first platform. */
+  defaultCategory?: string;
 }) => {
   const editing = credential !== null;
-  const save = useSaveCredential(groupId);
+  const save = useSaveCredential(groupId, scope);
+  const portal = scope === "portal";
 
-  const [platformKey, setPlatformKey] = useState(credential?.platformKey ?? "disputefox");
+  const [category, setCategory] = useState(credential?.category ?? defaultCategory ?? "crm");
+  const platformsFor = (cat: string) => platforms.filter((p) => p.category === cat || p.key === "other" || (cat === "esp" && p.key === "gohighlevel") || (cat === "affiliate" && p.category === "credit_monitoring"));
+  const [platformKey, setPlatformKey] = useState(credential?.platformKey ?? platformsFor(credential?.category ?? defaultCategory ?? "crm")[0]?.key ?? "other");
+  const [providerName, setProviderName] = useState(credential?.providerName ?? "");
+  const [accountName, setAccountName] = useState(credential?.accountName ?? "");
+  const [accountType, setAccountType] = useState(credential?.accountType ?? "");
+  const [affiliateLink, setAffiliateLink] = useState(credential?.affiliateLink ?? "");
+  const [dashboardUrl, setDashboardUrl] = useState(credential?.dashboardUrl ?? "");
   const [label, setLabel] = useState(credential?.label ?? "");
   const [username, setUsername] = useState(credential?.username ?? "");
   const [url, setUrl] = useState(credential?.url ?? "");
@@ -62,7 +76,12 @@ export const CredentialFormDialog = ({
 
   const platform = platforms.find((p) => p.key === platformKey);
   const noteWarning = looksLikeASecret(notes);
-  const canSave = label.trim().length > 0 && !noteWarning && !save.isPending;
+  const canSave = label.trim().length > 0 && !noteWarning && !save.isPending
+    && (platformKey !== "other" || providerName.trim().length > 0);
+  const visiblePlatforms = platformsFor(category);
+  const isGhl = category === "ghl";
+  const hasAffiliate = category === "affiliate" || category === "credit_monitoring";
+  const isDomain = category === "domain";
 
   const submit = async () => {
     setError(null);
@@ -80,7 +99,13 @@ export const CredentialFormDialog = ({
         secret: clearSecret ? "" : secret.length > 0 ? secret : undefined,
         codeDestination: codeDestination.trim() || null,
         notes: notes.trim() || null,
-        rotationDue: rotationDue || null,
+        rotationDue: portal ? null : rotationDue || null,
+        category,
+        providerName: providerName.trim() || null,
+        accountName: accountName.trim() || null,
+        accountType: isGhl ? accountType || null : null,
+        affiliateLink: hasAffiliate ? affiliateLink.trim() || null : null,
+        dashboardUrl: hasAffiliate ? dashboardUrl.trim() || null : null,
       });
       onClose();
     } catch (e) {
@@ -96,23 +121,35 @@ export const CredentialFormDialog = ({
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{editing ? "Edit login" : "Add a login"}</DialogTitle>
+          <DialogTitle>{editing ? "Edit system" : "Add a system"}</DialogTitle>
           <DialogDescription>
-            The password is encrypted and never stored in this record. Everything
-            else here is stored in the clear so the team can copy it.
+            {portal
+              ? "The password is encrypted and only shown to BES staff who are authorized to work on your account; every look is recorded."
+              : "The password is encrypted and never stored in this record. Everything else here is stored in the clear so the team can copy it."}
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="grid gap-1.5">
-              <Label htmlFor="cred-platform">Platform</Label>
+              <Label htmlFor="cred-category">What kind of system</Label>
+              <Select value={category} onValueChange={(v) => { setCategory(v); const first = platformsFor(v)[0]; if (first && !platformsFor(v).some((p) => p.key === platformKey)) setPlatformKey(first.key); }}>
+                <SelectTrigger id="cred-category"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {CREDENTIAL_CATEGORIES.map((c) => (
+                    <SelectItem key={c.key} value={c.key}>{c.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="cred-platform">Provider</Label>
               <Select value={platformKey} onValueChange={setPlatformKey}>
                 <SelectTrigger id="cred-platform">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {platforms.map((p) => (
+                  {visiblePlatforms.map((p) => (
                     <SelectItem key={p.key} value={p.key}>
                       {p.label}
                     </SelectItem>
@@ -120,8 +157,54 @@ export const CredentialFormDialog = ({
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          {platformKey === "other" && (
             <div className="grid gap-1.5">
-              <Label htmlFor="cred-label">What the team calls it</Label>
+              <Label htmlFor="cred-provider">Provider / platform name</Label>
+              <Input id="cred-provider" value={providerName} onChange={(e) => setProviderName(e.target.value)} placeholder="The name of the system" />
+            </div>
+          )}
+
+          {(isGhl || isDomain || category === "affiliate") && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-1.5">
+                <Label htmlFor="cred-account">{isGhl ? "Account / location name" : isDomain ? "Domain name" : "Affiliate / program name"}</Label>
+                <Input id="cred-account" value={accountName} onChange={(e) => setAccountName(e.target.value)}
+                  placeholder={isGhl ? "e.g. Wavy One" : isDomain ? "example.com" : "e.g. IdentityIQ Affiliate"} />
+              </div>
+              {isGhl && (
+                <div className="grid gap-1.5">
+                  <Label htmlFor="cred-account-type">Account type</Label>
+                  <Select value={accountType || "not_sure"} onValueChange={setAccountType}>
+                    <SelectTrigger id="cred-account-type"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="agency">Agency</SelectItem>
+                      <SelectItem value="subaccount">Subaccount</SelectItem>
+                      <SelectItem value="not_sure">Not sure</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+          )}
+
+          {hasAffiliate && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-1.5">
+                <Label htmlFor="cred-affiliate">Affiliate link</Label>
+                <Input id="cred-affiliate" value={affiliateLink} onChange={(e) => setAffiliateLink(e.target.value)} placeholder="https://…" />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="cred-dashboard">Affiliate / partner dashboard URL</Label>
+                <Input id="cred-dashboard" value={dashboardUrl} onChange={(e) => setDashboardUrl(e.target.value)} placeholder="https://…" />
+              </div>
+            </div>
+          )}
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-1.5">
+              <Label htmlFor="cred-label">{portal ? "Name for this login" : "What the team calls it"}</Label>
               <Input
                 id="cred-label"
                 value={label}
@@ -194,15 +277,17 @@ export const CredentialFormDialog = ({
                 placeholder="ops@dispute-me.com"
               />
             </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="cred-rotation">Change the password by</Label>
-              <Input
-                id="cred-rotation"
-                type="date"
-                value={rotationDue}
-                onChange={(e) => setRotationDue(e.target.value)}
-              />
-            </div>
+            {!portal && (
+              <div className="grid gap-1.5">
+                <Label htmlFor="cred-rotation">Change the password by</Label>
+                <Input
+                  id="cred-rotation"
+                  type="date"
+                  value={rotationDue}
+                  onChange={(e) => setRotationDue(e.target.value)}
+                />
+              </div>
+            )}
           </div>
 
           <div className="grid gap-1.5">

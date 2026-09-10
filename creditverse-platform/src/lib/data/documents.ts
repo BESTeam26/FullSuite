@@ -25,6 +25,8 @@ export interface DocumentTemplate {
   version: number;
   status: TemplateStatus;
   updatedAt: string;
+  /** The one active template a partner signs at the end of onboarding (0298). */
+  partnerOnboardingAgreement: boolean;
 }
 
 export interface SignatureRequest {
@@ -56,19 +58,20 @@ export async function fetchDocumentTemplates(): Promise<DocumentTemplate[]> {
   const sb = requireSupabase();
   const { data, error } = await sb
     .from("document_templates")
-    .select("id, folder_id, name, audience, body, version, status, updated_at")
+    .select("id, folder_id, name, audience, body, version, status, updated_at, partner_onboarding_agreement")
     .neq("status", "archived")
     .order("name");
   if (error) throw error;
   return (data ?? []).map((r) => ({
     id: r.id, folderId: r.folder_id, name: r.name, audience: r.audience as DocumentAudience,
     body: r.body, version: r.version, status: r.status as TemplateStatus, updatedAt: r.updated_at,
+    partnerOnboardingAgreement: Boolean(r.partner_onboarding_agreement),
   }));
 }
 
 export async function saveDocumentTemplate(input: {
   id?: string; agencyId: string; folderId: string | null; name: string;
-  audience: DocumentAudience; body: string; status: TemplateStatus;
+  audience: DocumentAudience; body: string; status: TemplateStatus; partnerOnboardingAgreement?: boolean;
 }): Promise<string> {
   const sb = requireSupabase();
   const { data: me } = await sb.auth.getUser();
@@ -76,6 +79,7 @@ export async function saveDocumentTemplate(input: {
     const { error } = await sb.from("document_templates").update({
       folder_id: input.folderId, name: input.name.trim(), audience: input.audience,
       body: input.body, status: input.status, updated_by: me.user?.id ?? null,
+      partner_onboarding_agreement: input.partnerOnboardingAgreement ?? false,
     }).eq("id", input.id);
     if (error) throw error;
     return input.id;
@@ -83,6 +87,7 @@ export async function saveDocumentTemplate(input: {
   const { data, error } = await sb.from("document_templates").insert({
     agency_id: input.agencyId, folder_id: input.folderId, name: input.name.trim(),
     audience: input.audience, body: input.body, status: input.status,
+    partner_onboarding_agreement: input.partnerOnboardingAgreement ?? false,
     created_by: me.user?.id ?? null, updated_by: me.user?.id ?? null,
   }).select("id").single();
   if (error) throw error;

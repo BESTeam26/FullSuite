@@ -1741,3 +1741,71 @@ TalentOps has no fixture user; the rule is division-agnostic (any active
 agency membership) and is probed through CreditOps and FundingOps. (4)
 Add-on seat blocks are recorded by raising `organization_subscriptions.
 seats`; there is no separate add-on ledger row.
+
+### Partner onboarding IS the Partner Profile — 2026-09-10
+
+**Dee's request:** the onboarding form is the initial data entry point for
+the Partner Profile, not a one-time intake; the partner later edits the same
+information from the portal; credentials editable with mask / View / Copy /
+Edit / Remove, encrypted separately and only linked to the partner; "Updated
+<date> by <name>" on every credential; Partner → Profile → Systems /
+Credentials → Affiliate Accounts as rows, not columns.
+
+**Where the data lives (no intake table).** Company information →
+`outsourcing_groups` (`legal_business_name`, `dba_name`, `address_street/
+city/state/zip`, `website`; the legacy `address` string is composed from the
+parts). Primary contact → the calling contact's own `partner_contacts` row
+(name, title, mobile; the email stays, it is their sign-in). Every system →
+`partner_credentials`, the 0225 vault: the password in Supabase Vault, the
+row now carrying `category` (crm / ghl / esp / credit_monitoring / affiliate
+/ domain / other), `provider_name` for "Other", `account_name` /
+`account_type` (GHL location, domain name, affiliate program),
+`affiliate_link`, `dashboard_url`, and `updated_by` set by trigger.
+Twenty platform rows added to the catalogue with categories. Access
+confirmation → `access_confirmed_at/by`, `onboarding_completed_at/by`.
+
+**One vault write path, two gates.** `partner_credential_write` (owner-only)
+holds the body; `partner_credential_save` (staff: `partners.credentials.
+manage` + `can_see_partner`) and `my_partner_credential_save` (the partner:
+`partner_group_of_user()` only) both call it. Reveal and archive follow the
+same split. The partner reads through `my_partner_credentials()` — never the
+secret, with who last changed each. A partner cannot reveal, edit or remove
+another partner's credential and the refusal says only "not found".
+
+**Onboarding → agreement.** `my_partner_onboarding_complete(confirm)` refuses
+without the confirmation, records completion and confirmation, writes
+"Partner completed onboarding" to the partner's shared activity, and — when
+BES flagged a template as the partner onboarding agreement (`document_
+templates.partner_onboarding_agreement`, one active per agency) — creates
+the signature request for THIS contact and returns the token; the portal
+opens `/sign/<token>`. Idempotent: a second call returns the open request.
+`create_signature_request` split into an owner-only core for this.
+
+**Surfaces.** Portal: the onboarding form (Company Information, Primary
+Contact, Credit Repair CRM, GoHighLevel, Email/ESP, Credit Monitoring,
+Affiliate Accounts (repeatable), Domain, Additional Systems (repeatable),
+Access Confirmation, Continue to Agreement) shows until completed; then
+Partner Information with editable company/contact and systems by category
+(masked password, View/Copy, Edit, Remove, Updated by). BES: the partner
+record's Logins tab is now Partner Information — company panel with
+onboarding status, systems grouped by category, updated-by on each card,
+per-category Add; the Edit dialog gained the company fields. Settings →
+Documents: "Use as the partner onboarding agreement".
+
+**Verified.** Phase 55: 151/151 (+15: own-record save with composed address,
+other partner untouched, shared activity written, non-contact refused, vault
+save with category/account/updated_by and a created event, read-back without
+secret, reveal recorded against the contact, cross-partner reveal/edit
+refused as not-found, removal archives, staff path still needs the
+capability, onboarding refuses without confirmation, completes + confirms +
+creates the agreement request idempotently, no flagged template → nothing to
+sign, two flagged templates refused). tsc, eslint, 1,573 tests, build clean.
+
+**Not yet / edge cases.** (1) No real partner has walked the portal
+onboarding; the flow is probed and screen-tested. (2) The contact's email is
+not editable from the portal (it is the sign-in identity) — BES changes it.
+(3) Staff-side "Add a system" defaults the category from the platform; a
+GoHighLevel login used as the ESP must be filed under Email/ESP by hand.
+(4) The onboarding form saves one CRM, one GHL, one ESP, one monitoring
+provider and one domain; more of each are added afterwards from Partner
+Information.

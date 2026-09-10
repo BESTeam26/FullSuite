@@ -71,6 +71,8 @@ const PARTNER: AgencyPartner = {
   accountManagerId: null, teamId: null, primaryContactId: null,
   legacyClientVolume: null, legacyActiveClients: null, sourceType: "bes",
   credentialMigrationRequired: false, status: "Active", archivedAt: null,
+  legalBusinessName: null, dbaName: null, addressStreet: null, addressCity: null, addressState: null, addressZip: null,
+  website: null, onboardingCompletedAt: "2026-09-01T00:00:00Z", accessConfirmedAt: "2026-09-01T00:00:00Z",
   createdAt: "2026-01-04T00:00:00Z",
 };
 

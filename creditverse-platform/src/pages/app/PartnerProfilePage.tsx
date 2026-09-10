@@ -119,7 +119,7 @@ export const PartnerProfilePage = () => {
     /* Seeing that a login EXISTS is part of doing the work, so this is not
        behind the password capability — that one only governs the password
        itself, inside the tab (migration 0225). */
-    { key: "logins", label: "Logins", show: true },
+    { key: "logins", label: "Partner Information", show: true },
     { key: "portal", label: "Portal", show: true },
     { key: "activity", label: "Activity", show: true },
     { key: "billing", label: "Billing & Revenue", show: perms.can("partners.financials.view") },
@@ -244,7 +244,7 @@ export const PartnerProfilePage = () => {
           </TabsContent>
         )}
         <TabsContent value="logins" className="mt-3">
-          <PartnerCredentialsTab groupId={p.id} />
+          <PartnerCredentialsTab groupId={p.id} partner={p} />
         </TabsContent>
         <TabsContent value="portal" className="mt-3">
           <PartnerPortalTab partner={p} />

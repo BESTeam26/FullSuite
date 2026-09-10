@@ -3533,6 +3533,192 @@ if (runs(55)) {
          set local role postgres;
          select (satisfied_at is null)::text as rows from public.crm_client_requirements where id = '44444444-0000-4000-8000-0000000000c3'`), "true"],
 
+    /* ── Onboarding is the Partner Profile (0298) ─────────────────────── */
+    ["a partner contact saves company information onto THEIR OWN record, and the address is composed",
+      () => probe55(OWNER55, `set local role postgres;
+         insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values
+           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active'),
+           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active');
+         insert into public.partner_contacts (id, group_id, agency_id, full_name, email, user_id, status) values
+           ('44444444-0000-4000-8000-0000000000e1'::uuid, '44444444-0000-4000-8000-0000000000fa'::uuid, '${AG}', 'Probe Contact', 'pc@example.test', '${ORG55}'::uuid, 'active');
+         insert into public.partner_credentials (id, agency_id, group_id, platform_key, label, username, category) values
+           ('44444444-0000-4000-8000-0000000000d1'::uuid, '${AG}', '44444444-0000-4000-8000-0000000000fb'::uuid, 'disputefox', 'Not mine', 'other@example.test', 'crm');
+         set local role authenticated;
+         set local request.jwt.claims = '{"sub":"${ORG55}","role":"authenticated"}';
+         select public.my_partner_profile_save('{"legal_business_name":"Probe Legal LLC","dba_name":"Probe Brand","address_street":"1 Main St","address_city":"Dallas","address_state":"TX","address_zip":"75001","website":"https://probe.example","first_name":"Pat","last_name":"Contact","title":"Owner","mobile":"555-0100"}'::jsonb);
+         set local role postgres;
+         select g.legal_business_name || ' | ' || g.dba_name || ' | ' || g.address || ' | ' || c.full_name || ' | ' || c.title as rows
+           from public.outsourcing_groups g join public.partner_contacts c on c.group_id = g.id where g.id = '44444444-0000-4000-8000-0000000000fa'`),
+      "Probe Legal LLC | Probe Brand | 1 Main St, Dallas, TX 75001 | Pat Contact | Owner"],
+    ["…and the other partner's record is untouched, because the gate is the caller's own group",
+      () => probe55(OWNER55, `set local role postgres;
+         insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values
+           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active'),
+           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active');
+         insert into public.partner_contacts (id, group_id, agency_id, full_name, email, user_id, status) values
+           ('44444444-0000-4000-8000-0000000000e1'::uuid, '44444444-0000-4000-8000-0000000000fa'::uuid, '${AG}', 'Probe Contact', 'pc@example.test', '${ORG55}'::uuid, 'active');
+         insert into public.partner_credentials (id, agency_id, group_id, platform_key, label, username, category) values
+           ('44444444-0000-4000-8000-0000000000d1'::uuid, '${AG}', '44444444-0000-4000-8000-0000000000fb'::uuid, 'disputefox', 'Not mine', 'other@example.test', 'crm');
+         set local role authenticated;
+         set local request.jwt.claims = '{"sub":"${ORG55}","role":"authenticated"}';
+         select public.my_partner_profile_save('{"legal_business_name":"Hijack"}'::jsonb);
+         set local role postgres;
+         select coalesce(legal_business_name, '-') as rows from public.outsourcing_groups where id = '44444444-0000-4000-8000-0000000000fb'`), "-"],
+    ["a partner profile change is written to the partner's shared activity",
+      () => probe55(OWNER55, `set local role postgres;
+         insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values
+           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active'),
+           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active');
+         insert into public.partner_contacts (id, group_id, agency_id, full_name, email, user_id, status) values
+           ('44444444-0000-4000-8000-0000000000e1'::uuid, '44444444-0000-4000-8000-0000000000fa'::uuid, '${AG}', 'Probe Contact', 'pc@example.test', '${ORG55}'::uuid, 'active');
+         insert into public.partner_credentials (id, agency_id, group_id, platform_key, label, username, category) values
+           ('44444444-0000-4000-8000-0000000000d1'::uuid, '${AG}', '44444444-0000-4000-8000-0000000000fb'::uuid, 'disputefox', 'Not mine', 'other@example.test', 'crm');
+         set local role authenticated;
+         set local request.jwt.claims = '{"sub":"${ORG55}","role":"authenticated"}';
+         select public.my_partner_profile_save('{"website":"https://probe.example"}'::jsonb);
+         set local role postgres;
+         select action || ':' || visibility::text as rows from public.activity_events
+          where entity_type = 'partner' and entity_id = '44444444-0000-4000-8000-0000000000fa' and created_at >= now() limit 1`),
+      "Partner updated their profile:shared_with_partner"],
+    ["somebody who is not a partner contact cannot save a partner profile",
+      () => probe55(U["org2.owner@bes.test"], `select public.my_partner_profile_save('{"legal_business_name":"X"}'::jsonb) as rows`), "ERR 42501"],
+    ["a partner contact adds a system: the password goes to the vault, the row carries the category and who saved it",
+      () => probe55(OWNER55, `set local role postgres;
+         insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values
+           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active'),
+           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active');
+         insert into public.partner_contacts (id, group_id, agency_id, full_name, email, user_id, status) values
+           ('44444444-0000-4000-8000-0000000000e1'::uuid, '44444444-0000-4000-8000-0000000000fa'::uuid, '${AG}', 'Probe Contact', 'pc@example.test', '${ORG55}'::uuid, 'active');
+         insert into public.partner_credentials (id, agency_id, group_id, platform_key, label, username, category) values
+           ('44444444-0000-4000-8000-0000000000d1'::uuid, '${AG}', '44444444-0000-4000-8000-0000000000fb'::uuid, 'disputefox', 'Not mine', 'other@example.test', 'crm');
+         set local role authenticated;
+         set local request.jwt.claims = '{"sub":"${ORG55}","role":"authenticated"}';
+         select set_config('probe.cred', public.my_partner_credential_save('gohighlevel', 'GHL login', 'me@probe.example', 'https://app.gohighlevel.com', 'Sup3r-Secret!', null, null, null, 'ghl', null, 'Wavy One', 'subaccount', null, null)::text, true);
+         set local role postgres;
+         select c.category || ':' || c.account_name || ':' || c.account_type || ':' || (c.secret_id is not null)::text || ':' || (c.updated_by = '${ORG55}')::text
+              || ':' || (select count(*) from public.partner_credential_events e where e.credential_id = c.id and e.action = 'created' and e.actor_id = '${ORG55}')::text as rows
+           from public.partner_credentials c where c.id = current_setting('probe.cred')::uuid`), "ghl:Wavy One:subaccount:true:true:1"],
+    ["…the partner reads back their own systems, without the secret, and never another partner's",
+      () => probe55(OWNER55, `set local role postgres;
+         insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values
+           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active'),
+           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active');
+         insert into public.partner_contacts (id, group_id, agency_id, full_name, email, user_id, status) values
+           ('44444444-0000-4000-8000-0000000000e1'::uuid, '44444444-0000-4000-8000-0000000000fa'::uuid, '${AG}', 'Probe Contact', 'pc@example.test', '${ORG55}'::uuid, 'active');
+         insert into public.partner_credentials (id, agency_id, group_id, platform_key, label, username, category) values
+           ('44444444-0000-4000-8000-0000000000d1'::uuid, '${AG}', '44444444-0000-4000-8000-0000000000fb'::uuid, 'disputefox', 'Not mine', 'other@example.test', 'crm');
+         set local role authenticated;
+         set local request.jwt.claims = '{"sub":"${ORG55}","role":"authenticated"}';
+         select public.my_partner_credential_save('disputefox', 'DF login', 'me@probe.example', null, 'pw', null, null, null, 'crm');
+         select string_agg(label || ':' || has_secret::text, ',') as rows from public.my_partner_credentials()`), "DF login:true"],
+    ["…reveals their own password, and the look is recorded against the contact",
+      () => probe55(OWNER55, `set local role postgres;
+         insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values
+           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active'),
+           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active');
+         insert into public.partner_contacts (id, group_id, agency_id, full_name, email, user_id, status) values
+           ('44444444-0000-4000-8000-0000000000e1'::uuid, '44444444-0000-4000-8000-0000000000fa'::uuid, '${AG}', 'Probe Contact', 'pc@example.test', '${ORG55}'::uuid, 'active');
+         insert into public.partner_credentials (id, agency_id, group_id, platform_key, label, username, category) values
+           ('44444444-0000-4000-8000-0000000000d1'::uuid, '${AG}', '44444444-0000-4000-8000-0000000000fb'::uuid, 'disputefox', 'Not mine', 'other@example.test', 'crm');
+         set local role authenticated;
+         set local request.jwt.claims = '{"sub":"${ORG55}","role":"authenticated"}';
+         select set_config('probe.cred', public.my_partner_credential_save('disputefox', 'DF login', null, null, 'Sup3r-Secret!', null, null, null, 'crm')::text, true);
+         select set_config('probe.pw', public.my_partner_credential_reveal(current_setting('probe.cred')::uuid), true);
+         set local role postgres;
+         select current_setting('probe.pw') || ':' || (select count(*) from public.partner_credential_events where credential_id = current_setting('probe.cred')::uuid and action = 'revealed' and actor_id = '${ORG55}')::text as rows`), "Sup3r-Secret!:1"],
+    ["…but cannot reveal, edit or remove another partner's credential — and learns nothing from the refusal",
+      () => probe55(OWNER55, `set local role postgres;
+         insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values
+           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active'),
+           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active');
+         insert into public.partner_contacts (id, group_id, agency_id, full_name, email, user_id, status) values
+           ('44444444-0000-4000-8000-0000000000e1'::uuid, '44444444-0000-4000-8000-0000000000fa'::uuid, '${AG}', 'Probe Contact', 'pc@example.test', '${ORG55}'::uuid, 'active');
+         insert into public.partner_credentials (id, agency_id, group_id, platform_key, label, username, category) values
+           ('44444444-0000-4000-8000-0000000000d1'::uuid, '${AG}', '44444444-0000-4000-8000-0000000000fb'::uuid, 'disputefox', 'Not mine', 'other@example.test', 'crm');
+         set local role authenticated;
+         set local request.jwt.claims = '{"sub":"${ORG55}","role":"authenticated"}';
+         select public.my_partner_credential_reveal('44444444-0000-4000-8000-0000000000d1') as rows`), "ERR P0002"],
+    ["…editing another partner's credential is refused the same way",
+      () => probe55(OWNER55, `set local role postgres;
+         insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values
+           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active'),
+           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active');
+         insert into public.partner_contacts (id, group_id, agency_id, full_name, email, user_id, status) values
+           ('44444444-0000-4000-8000-0000000000e1'::uuid, '44444444-0000-4000-8000-0000000000fa'::uuid, '${AG}', 'Probe Contact', 'pc@example.test', '${ORG55}'::uuid, 'active');
+         insert into public.partner_credentials (id, agency_id, group_id, platform_key, label, username, category) values
+           ('44444444-0000-4000-8000-0000000000d1'::uuid, '${AG}', '44444444-0000-4000-8000-0000000000fb'::uuid, 'disputefox', 'Not mine', 'other@example.test', 'crm');
+         set local role authenticated;
+         set local request.jwt.claims = '{"sub":"${ORG55}","role":"authenticated"}';
+         select public.my_partner_credential_save('disputefox', 'Hijack', null, null, null, null, null, '44444444-0000-4000-8000-0000000000d1', 'crm') as rows`), "ERR P0002"],
+    ["…and removal archives — the row and its history stay",
+      () => probe55(OWNER55, `set local role postgres;
+         insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values
+           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active'),
+           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active');
+         insert into public.partner_contacts (id, group_id, agency_id, full_name, email, user_id, status) values
+           ('44444444-0000-4000-8000-0000000000e1'::uuid, '44444444-0000-4000-8000-0000000000fa'::uuid, '${AG}', 'Probe Contact', 'pc@example.test', '${ORG55}'::uuid, 'active');
+         insert into public.partner_credentials (id, agency_id, group_id, platform_key, label, username, category) values
+           ('44444444-0000-4000-8000-0000000000d1'::uuid, '${AG}', '44444444-0000-4000-8000-0000000000fb'::uuid, 'disputefox', 'Not mine', 'other@example.test', 'crm');
+         set local role authenticated;
+         set local request.jwt.claims = '{"sub":"${ORG55}","role":"authenticated"}';
+         select set_config('probe.cred', public.my_partner_credential_save('godaddy', 'Domain', null, null, null, null, null, null, 'domain', null, 'probe.example')::text, true);
+         select public.my_partner_credential_archive(current_setting('probe.cred')::uuid, 'moved registrar');
+         set local role postgres;
+         select (archived_at is not null)::text || ':' || archived_reason || ':' || (select count(*) from public.my_partner_credentials())::text as rows
+           from public.partner_credentials where id = current_setting('probe.cred')::uuid`), "true:moved registrar:0"],
+    ["the staff vault path still requires the credentials capability",
+      () => probe55(U["bes.credit@bes.test"], `select public.partner_credential_save('44444444-0000-4000-8000-0000000000fa', 'disputefox', 'X') as rows`,
+        `insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active');`), "ERR 42501"],
+    ["finishing onboarding without the confirmation is refused",
+      () => probe55(OWNER55, `set local role postgres;
+         insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values
+           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active'),
+           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active');
+         insert into public.partner_contacts (id, group_id, agency_id, full_name, email, user_id, status) values
+           ('44444444-0000-4000-8000-0000000000e1'::uuid, '44444444-0000-4000-8000-0000000000fa'::uuid, '${AG}', 'Probe Contact', 'pc@example.test', '${ORG55}'::uuid, 'active');
+         insert into public.partner_credentials (id, agency_id, group_id, platform_key, label, username, category) values
+           ('44444444-0000-4000-8000-0000000000d1'::uuid, '${AG}', '44444444-0000-4000-8000-0000000000fb'::uuid, 'disputefox', 'Not mine', 'other@example.test', 'crm');
+         set local role authenticated;
+         set local request.jwt.claims = '{"sub":"${ORG55}","role":"authenticated"}';
+         select public.my_partner_onboarding_complete(false) as rows`), "ERR 22023"],
+    ["finishing onboarding records completion and the access confirmation, and hands over the agreement when BES flagged one",
+      () => probe55(OWNER55, `set local role postgres;
+         insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values
+           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active'),
+           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active');
+         insert into public.partner_contacts (id, group_id, agency_id, full_name, email, user_id, status) values
+           ('44444444-0000-4000-8000-0000000000e1'::uuid, '44444444-0000-4000-8000-0000000000fa'::uuid, '${AG}', 'Probe Contact', 'pc@example.test', '${ORG55}'::uuid, 'active');
+         insert into public.partner_credentials (id, agency_id, group_id, platform_key, label, username, category) values
+           ('44444444-0000-4000-8000-0000000000d1'::uuid, '${AG}', '44444444-0000-4000-8000-0000000000fb'::uuid, 'disputefox', 'Not mine', 'other@example.test', 'crm');
+         set local role authenticated;
+         insert into public.document_templates (id, agency_id, name, audience, body, status, partner_onboarding_agreement) values
+           ('44444444-0000-4000-8000-00000000d0aa', '${AG}', 'Partner Agreement', 'partner', '<p>{{partner.name}} / {{contact.name}} / {{signature}}</p>', 'active', true);
+         set local request.jwt.claims = '{"sub":"${ORG55}","role":"authenticated"}';
+         select set_config('probe.tok', public.my_partner_onboarding_complete(true)::text, true);
+         select set_config('probe.tok2', public.my_partner_onboarding_complete(true)::text, true);
+         set local role postgres;
+         select (g.onboarding_completed_by = '${ORG55}')::text || ':' || (g.access_confirmed_at is not null)::text
+              || ':' || (r.signer_contact_id = '44444444-0000-4000-8000-0000000000e1')::text || ':' || r.status
+              || ':' || (current_setting('probe.tok') = current_setting('probe.tok2'))::text
+              || ':' || (select count(*) from public.signature_requests where template_id = '44444444-0000-4000-8000-00000000d0aa')::text as rows
+           from public.outsourcing_groups g join public.signature_requests r on r.token = current_setting('probe.tok')::uuid
+          where g.id = '44444444-0000-4000-8000-0000000000fa'`), "true:true:true:sent:true:1"],
+    ["…and with no flagged agreement, onboarding completes and returns nothing to sign",
+      () => probe55(OWNER55, `set local role postgres;
+         insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values
+           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active'),
+           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active');
+         insert into public.partner_contacts (id, group_id, agency_id, full_name, email, user_id, status) values
+           ('44444444-0000-4000-8000-0000000000e1'::uuid, '44444444-0000-4000-8000-0000000000fa'::uuid, '${AG}', 'Probe Contact', 'pc@example.test', '${ORG55}'::uuid, 'active');
+         insert into public.partner_credentials (id, agency_id, group_id, platform_key, label, username, category) values
+           ('44444444-0000-4000-8000-0000000000d1'::uuid, '${AG}', '44444444-0000-4000-8000-0000000000fb'::uuid, 'disputefox', 'Not mine', 'other@example.test', 'crm');
+         set local role authenticated;
+         set local request.jwt.claims = '{"sub":"${ORG55}","role":"authenticated"}';
+         select coalesce(public.my_partner_onboarding_complete(true)::text, 'none') as rows`), "none"],
+    ["only one active template may be the onboarding agreement",
+      () => probe55(OWNER55, `insert into public.document_templates (agency_id, name, audience, body, status, partner_onboarding_agreement) values
+           ('${AG}', 'A', 'partner', '<p>{{signature}}</p>', 'active', true), ('${AG}', 'B', 'partner', '<p>{{signature}}</p>', 'active', true); select 1 as rows`), "ERR 23505"],
+
     ["…and a suspended partner resolves to no clients at all",
       () => probe55(OWNER55,
         `insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values

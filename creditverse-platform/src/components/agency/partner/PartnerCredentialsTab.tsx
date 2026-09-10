@@ -14,13 +14,15 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { formatDate } from "@/lib/format-date";
 import {
-  byPlatform,
+  byCategory,
+  CREDENTIAL_CATEGORIES,
   credentialHref,
   ROTATION_LABEL,
   rotationState,
   type RotationState,
 } from "@/lib/partners/credential-domain";
 import type { PartnerCredential } from "@/lib/data/partner-credentials";
+import type { AgencyPartner } from "@/lib/data/agency-partners";
 import {
   useCredentialAccess,
   useCredentialEvents,
@@ -44,8 +46,9 @@ import { ArchiveCredentialDialog } from "./ArchiveCredentialDialog";
  * all in the open and all copyable. Only the password is held back, and only
  * behind a capability that records who looked.
  */
-export const PartnerCredentialsTab = ({ groupId }: { groupId: string }) => {
+export const PartnerCredentialsTab = ({ groupId, partner }: { groupId: string; partner?: AgencyPartner }) => {
   const [showArchived, setShowArchived] = useState(false);
+  const [creatingIn, setCreatingIn] = useState<string | undefined>(undefined);
   const [editing, setEditing] = useState<PartnerCredential | null>(null);
   const [creating, setCreating] = useState(false);
   const [archiving, setArchiving] = useState<PartnerCredential | null>(null);
@@ -59,19 +62,17 @@ export const PartnerCredentialsTab = ({ groupId }: { groupId: string }) => {
     () => (platforms.data ?? []).map((p) => p.key),
     [platforms.data],
   );
-  const platformLabel = useMemo(
-    () => new Map((platforms.data ?? []).map((p) => [p.key, p.label])),
-    [platforms.data],
-  );
   const grouped = useMemo(
-    () => byPlatform(credentials.data ?? [], order),
+    () => byCategory(credentials.data ?? [], order),
     [credentials.data, order],
   );
+  const categoryHint = new Map(CREDENTIAL_CATEGORIES.map((c) => [c.key, c]));
 
   const rows = credentials.data ?? [];
 
   return (
     <div className="space-y-3">
+      {partner && <PartnerInformationPanel partner={partner} />}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <ShieldCheck className="h-4 w-4 shrink-0 text-status-success" />
@@ -91,8 +92,8 @@ export const PartnerCredentialsTab = ({ groupId }: { groupId: string }) => {
             {showArchived ? "Hide archived" : "Show archived"}
           </Button>
           {access.mayManage && (
-            <Button size="sm" className="h-8 text-xs" onClick={() => setCreating(true)}>
-              <Plus className="mr-1 h-3.5 w-3.5" /> Add a login
+            <Button size="sm" className="h-8 text-xs" onClick={() => { setCreatingIn(undefined); setCreating(true); }}>
+              <Plus className="mr-1 h-3.5 w-3.5" /> Add a system
             </Button>
           )}
         </div>
@@ -118,11 +119,19 @@ export const PartnerCredentialsTab = ({ groupId }: { groupId: string }) => {
         </Card>
       )}
 
-      {grouped.map(({ platformKey, items }) => (
-        <section key={platformKey} className="space-y-2">
-          <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            {platformLabel.get(platformKey) ?? platformKey}
-          </h3>
+      {grouped.map(({ category, items }) => (
+        <section key={category} className="space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              {categoryHint.get(category)?.label ?? category}
+            </h3>
+            {access.mayManage && (
+              <button type="button" className="text-[11px] text-primary underline-offset-2 hover:underline"
+                onClick={() => { setCreatingIn(category); setCreating(true); }}>
+                + Add
+              </button>
+            )}
+          </div>
           {items.map((c) => (
             <CredentialCard
               key={c.id}
@@ -145,6 +154,7 @@ export const PartnerCredentialsTab = ({ groupId }: { groupId: string }) => {
           groupId={groupId}
           credential={editing}
           platforms={platforms.data ?? []}
+          defaultCategory={creatingIn}
           onClose={() => {
             setCreating(false);
             setEditing(null);
@@ -210,6 +220,12 @@ const CredentialCard = ({
               </Badge>
             )}
           </div>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {c.providerName ?? c.platformLabel ?? c.platformKey}
+            {c.accountName ? <> · {c.accountName}</> : null}
+            {c.accountType ? <> · {c.accountType === "subaccount" ? "Subaccount" : c.accountType === "agency" ? "Agency" : "Account type not sure"}</> : null}
+            {c.updatedAt ? <> · Updated {formatDate(c.updatedAt)}{c.updatedByName ? ` by ${c.updatedByName}` : ""}</> : null}
+          </p>
           {archived && c.archivedReason && (
             <p className="mt-0.5 text-xs text-muted-foreground">{c.archivedReason}</p>
           )}
@@ -246,6 +262,8 @@ const CredentialCard = ({
             mayReveal={mayReveal}
           />
         )}
+        {c.affiliateLink && <CopyField label="Affiliate link" value={c.affiliateLink} mono={false} />}
+        {c.dashboardUrl && <CopyField label="Dashboard URL" value={c.dashboardUrl} mono={false} />}
         {c.url && (
           <div className="min-w-0">
             <CopyField label="Sign-in link" value={c.url} mono={false} />
@@ -334,5 +352,41 @@ const CredentialHistory = ({ credentialId }: { credentialId: string }) => {
         ))}
       </ul>
     </div>
+  );
+};
+
+/**
+ * Company information and primary contact — what onboarding filled and what
+ * the partner keeps current from their portal. Read from the partner record;
+ * edited through Edit on the record header (staff) or the portal (partner).
+ */
+const PartnerInformationPanel = ({ partner: p }: { partner: AgencyPartner }) => {
+  const address = [p.addressStreet, p.addressCity, [p.addressState, p.addressZip].filter(Boolean).join(" ")]
+    .filter((x) => x && x.trim()).join(", ") || p.address;
+  const Row = ({ label, value }: { label: string; value: string | null | undefined }) => (
+    <div className="min-w-0">
+      <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="truncate text-sm text-foreground">{value && value.trim() ? value : <span className="text-muted-foreground">Not recorded</span>}</div>
+    </div>
+  );
+  return (
+    <Card className="p-4">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Company information</h3>
+        <span className="text-[11px] text-muted-foreground">
+          {p.onboardingCompletedAt
+            ? `Onboarding completed ${formatDate(p.onboardingCompletedAt)}${p.accessConfirmedAt ? " · access confirmed" : ""}`
+            : "Onboarding not completed by the partner yet"}
+        </span>
+      </div>
+      <div className="grid gap-x-4 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+        <Row label="Legal business name" value={p.legalBusinessName ?? p.name} />
+        <Row label="DBA / brand" value={p.dbaName} />
+        <Row label="Business address" value={address} />
+        <Row label="Website" value={p.website} />
+        <Row label="Business phone" value={p.phone} />
+        <Row label="Main business email" value={p.contactEmail} />
+      </div>
+    </Card>
   );
 };

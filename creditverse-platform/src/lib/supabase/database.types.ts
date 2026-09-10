@@ -2199,18 +2199,21 @@ export type Database = {
           label: string
           sends_code: boolean
           sort: number
+          category: string
         }
         Insert: {
           key: string
           label: string
           sends_code?: boolean
           sort?: number
+          category?: string
         }
         Update: {
           key?: string
           label?: string
           sends_code?: boolean
           sort?: number
+          category?: string
         }
         Relationships: []
       }
@@ -4200,9 +4203,9 @@ export type Database = {
         Relationships: []
       }
       document_templates: {
-        Row: { agency_id: string; audience: string; body: string; created_at: string; created_by: string | null; folder_id: string | null; id: string; name: string; status: string; updated_at: string; updated_by: string | null; version: number }
-        Insert: { agency_id: string; audience?: string; body?: string; created_at?: string; created_by?: string | null; folder_id?: string | null; id?: string; name: string; status?: string; updated_at?: string; updated_by?: string | null; version?: number }
-        Update: { agency_id?: string; audience?: string; body?: string; created_at?: string; created_by?: string | null; folder_id?: string | null; id?: string; name?: string; status?: string; updated_at?: string; updated_by?: string | null; version?: number }
+        Row: { agency_id: string; audience: string; body: string; created_at: string; created_by: string | null; folder_id: string | null; id: string; name: string; status: string; updated_at: string; updated_by: string | null; version: number; partner_onboarding_agreement: boolean }
+        Insert: { agency_id: string; audience?: string; body?: string; created_at?: string; created_by?: string | null; folder_id?: string | null; id?: string; name: string; status?: string; updated_at?: string; updated_by?: string | null; version?: number; partner_onboarding_agreement?: boolean }
+        Update: { agency_id?: string; audience?: string; body?: string; created_at?: string; created_by?: string | null; folder_id?: string | null; id?: string; name?: string; status?: string; updated_at?: string; updated_by?: string | null; version?: number; partner_onboarding_agreement?: boolean }
         Relationships: []
       }
       eod_submissions: {
@@ -8030,6 +8033,17 @@ export type Database = {
           status: Database["public"]["Enums"]["outsourcing_group_status"]
           team_id: string | null
           updated_at: string
+          legal_business_name: string | null
+          dba_name: string | null
+          address_street: string | null
+          address_city: string | null
+          address_state: string | null
+          address_zip: string | null
+          website: string | null
+          onboarding_completed_at: string | null
+          onboarding_completed_by: string | null
+          access_confirmed_at: string | null
+          access_confirmed_by: string | null
         }
         Insert: {
           account_manager_id?: string | null
@@ -8069,6 +8083,17 @@ export type Database = {
           status?: Database["public"]["Enums"]["outsourcing_group_status"]
           team_id?: string | null
           updated_at?: string
+          legal_business_name?: string | null
+          dba_name?: string | null
+          address_street?: string | null
+          address_city?: string | null
+          address_state?: string | null
+          address_zip?: string | null
+          website?: string | null
+          onboarding_completed_at?: string | null
+          onboarding_completed_by?: string | null
+          access_confirmed_at?: string | null
+          access_confirmed_by?: string | null
         }
         Update: {
           account_manager_id?: string | null
@@ -8108,6 +8133,17 @@ export type Database = {
           status?: Database["public"]["Enums"]["outsourcing_group_status"]
           team_id?: string | null
           updated_at?: string
+          legal_business_name?: string | null
+          dba_name?: string | null
+          address_street?: string | null
+          address_city?: string | null
+          address_state?: string | null
+          address_zip?: string | null
+          website?: string | null
+          onboarding_completed_at?: string | null
+          onboarding_completed_by?: string | null
+          access_confirmed_at?: string | null
+          access_confirmed_by?: string | null
         }
         Relationships: [
           {
@@ -8519,6 +8555,13 @@ export type Database = {
           updated_at: string
           url: string | null
           username: string | null
+          category: string
+          provider_name: string | null
+          account_name: string | null
+          account_type: string | null
+          affiliate_link: string | null
+          dashboard_url: string | null
+          updated_by: string | null
         }
         Insert: {
           agency_id: string
@@ -8538,6 +8581,13 @@ export type Database = {
           updated_at?: string
           url?: string | null
           username?: string | null
+          category?: string
+          provider_name?: string | null
+          account_name?: string | null
+          account_type?: string | null
+          affiliate_link?: string | null
+          dashboard_url?: string | null
+          updated_by?: string | null
         }
         Update: {
           agency_id?: string
@@ -8557,6 +8607,13 @@ export type Database = {
           updated_at?: string
           url?: string | null
           username?: string | null
+          category?: string
+          provider_name?: string | null
+          account_name?: string | null
+          account_type?: string | null
+          affiliate_link?: string | null
+          dashboard_url?: string | null
+          updated_by?: string | null
         }
         Relationships: [
           {
@@ -12685,6 +12742,37 @@ export type Database = {
       }
     }
     Views: {
+      partner_credentials_with_actor: {
+        Row: {
+          id: string
+          agency_id: string
+          group_id: string
+          platform_key: string
+          platform_label: string | null
+          label: string
+          username: string | null
+          url: string | null
+          code_destination: string | null
+          notes: string | null
+          secret_id: string | null
+          last_rotated_at: string | null
+          rotation_due_on: string | null
+          archived_at: string | null
+          archived_reason: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+          category: string
+          provider_name: string | null
+          account_name: string | null
+          account_type: string | null
+          affiliate_link: string | null
+          dashboard_url: string | null
+          updated_by: string | null
+          updated_by_name: string | null
+        }
+        Relationships: []
+      }
       borrower_funding_files: {
         Row: {
           agency_id: string | null
@@ -14048,6 +14136,52 @@ export type Database = {
           status: string
         }[]
       }
+      my_partner_credential_save: {
+        Args: {
+          p_platform: string
+          p_label: string
+          p_username?: string | null
+          p_url?: string | null
+          p_secret?: string | null
+          p_code_destination?: string | null
+          p_notes?: string | null
+          p_id?: string | null
+          p_category?: string | null
+          p_provider_name?: string | null
+          p_account_name?: string | null
+          p_account_type?: string | null
+          p_affiliate_link?: string | null
+          p_dashboard_url?: string | null
+        }
+        Returns: string
+      }
+      my_partner_credential_reveal: { Args: { p_id: string }; Returns: string }
+      my_partner_credential_archive: { Args: { p_id: string; p_reason?: string }; Returns: undefined }
+      my_partner_credentials: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          platform_key: string
+          platform_label: string
+          category: string
+          label: string
+          provider_name: string | null
+          account_name: string | null
+          account_type: string | null
+          username: string | null
+          url: string | null
+          affiliate_link: string | null
+          dashboard_url: string | null
+          code_destination: string | null
+          notes: string | null
+          has_secret: boolean
+          updated_at: string
+          updated_by_name: string | null
+          created_at: string
+        }[]
+      }
+      my_partner_profile_save: { Args: { p: Json }; Returns: undefined }
+      my_partner_onboarding_complete: { Args: { p_confirm: boolean }; Returns: string | null }
       my_partner_projects: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -14232,6 +14366,12 @@ export type Database = {
           p_secret?: string
           p_url?: string
           p_username?: string
+          p_category?: string | null
+          p_provider_name?: string | null
+          p_account_name?: string | null
+          p_account_type?: string | null
+          p_affiliate_link?: string | null
+          p_dashboard_url?: string | null
         }
         Returns: string
       }

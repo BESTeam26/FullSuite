@@ -18,8 +18,10 @@
  * needs nothing to carry it across (0191).
  */
 import { useMemo, useState } from "react";
-import { Loader2, Building2, Download, Mail, Phone, Search, ShieldCheck, FileText, MessagesSquare, Users, Workflow, ClipboardList } from "lucide-react";
-import { useMyPartner, useMyPartnerClients, useMyPartnerProjects, useMyPartnerRequirements, useMySharedFiles } from "@/lib/data/use-agency-partners";
+import { Loader2, Download, Search, ShieldCheck, FileText, MessagesSquare, Users, Workflow, ClipboardList } from "lucide-react";
+import { useMyPartner, useMyPartnerClients, useMyPartnerProjects, useMyPartnerRequirements, useMySharedFiles, usePartnerContacts } from "@/lib/data/use-agency-partners";
+import { PartnerOnboarding } from "@/components/portal/PartnerOnboarding";
+import { PartnerInformation } from "@/components/portal/PartnerInformation";
 import { JOURNEY_LABEL, type JourneyStage } from "@/lib/crm/crm-domain";
 import { partnerFileUrl } from "@/lib/data/agency-partners";
 import { useChannels } from "@/lib/data/use-channels";
@@ -37,8 +39,13 @@ const STATUS_NOTE: Record<string, string> = {
 };
 
 export const PartnerPortal = () => {
-  const { displayName, signOut } = useAuth();
+  const { displayName, signOut, user } = useAuth();
   const partner = useMyPartner();
+  /* The signed-in contact's own row: what onboarding fills and Partner
+     Information edits. The contacts policy already lets a contact read their
+     partner's contacts, so this is the same bounded read the Contacts tab does. */
+  const contacts = usePartnerContacts(partner.data?.id ?? null);
+  const me = (contacts.data ?? []).find((c) => c.userId === user?.id) ?? null;
 
   if (partner.isLoading) {
     return (
@@ -104,28 +111,24 @@ export const PartnerPortal = () => {
           <p className="text-xs text-muted-foreground">{STATUS_NOTE[p.status] ?? ""}</p>
         </section>
 
-        <section className="rounded-xl border border-border bg-card p-4">
-          <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Your details</h2>
-          <dl className="grid gap-3 sm:grid-cols-2">
-            <Row label="Name" value={p.name} />
-            <Row label="Company" value={p.companyName} icon={Building2} />
-            <Row label="Email" value={p.contactEmail} icon={Mail} />
-            <Row label="Phone" value={p.phone} icon={Phone} />
-            <Row label="Service" value={p.service} />
-            <Row label="Partner since" value={formatDate(p.createdAt)} />
-          </dl>
-          <p className="mt-3 text-xs text-muted-foreground">
-            Something out of date? Let your BES contact know and they will update it.
-          </p>
-        </section>
+        {!p.onboardingCompletedAt ? (
+          <PartnerOnboarding partner={p} contactName={me?.fullName ?? displayName ?? null} contactEmail={me?.email ?? null} />
+        ) : (
+          <PartnerInformation partner={p} contactName={me?.fullName ?? null} contactTitle={me?.title ?? null}
+            contactPhone={me?.phone ?? null} contactEmail={me?.email ?? null} />
+        )}
 
-        <PortalClients />
+        {p.onboardingCompletedAt && (
+          <>
+            <PortalClients />
 
-        <PortalProjects />
+            <PortalProjects />
 
-        <PortalConversation partnerGroupId={p.id} />
+            <PortalConversation partnerGroupId={p.id} />
 
-        <PortalFiles partnerGroupId={p.id} />
+            <PortalFiles partnerGroupId={p.id} />
+          </>
+        )}
       </main>
     </div>
   );
@@ -418,14 +421,3 @@ function PortalFiles({ partnerGroupId }: { partnerGroupId: string }) {
   );
 }
 
-function Row({ label, value, icon: Icon }: { label: string; value: string | null; icon?: typeof Mail }) {
-  return (
-    <div>
-      <dt className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{label}</dt>
-      <dd className="mt-0.5 flex items-center gap-1.5 text-sm text-foreground">
-        {Icon && value && <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
-        {value || <span className="italic text-muted-foreground">Not recorded</span>}
-      </dd>
-    </div>
-  );
-}

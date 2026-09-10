@@ -98,3 +98,40 @@ export const byPlatform = <T extends { platformKey: string; label: string }>(
       items: items.sort((x, y) => x.label.localeCompare(y.label)),
     }));
 };
+
+
+/* ── Categories (0298): what KIND of system a login is ─────────────────────
+   Dee's Partner Information sections, in her order. A platform carries a
+   default category; the row carries the category that applies (GoHighLevel
+   can be the CRM or the ESP — the row says which). */
+export type CredentialCategory =
+  | "crm" | "ghl" | "esp" | "credit_monitoring" | "affiliate" | "domain" | "other";
+
+export const CREDENTIAL_CATEGORIES: { key: CredentialCategory; label: string; hint: string }[] = [
+  { key: "crm", label: "Credit Repair CRM", hint: "DisputeFox, Credit Repair Cloud, Client Dispute Manager, DisputeBee…" },
+  { key: "ghl", label: "GoHighLevel", hint: "The agency or sub-account BES works in" },
+  { key: "esp", label: "Email / ESP", hint: "Google Workspace, Microsoft 365, Mailgun, SendGrid…" },
+  { key: "credit_monitoring", label: "Credit Monitoring", hint: "SmartCredit, IdentityIQ, MyFreeScoreNow, Experian — and the affiliate link" },
+  { key: "affiliate", label: "Affiliate Accounts", hint: "Any affiliate program BES may need for your account" },
+  { key: "domain", label: "Domain", hint: "GoDaddy, Namecheap, Cloudflare, Squarespace, Wix…" },
+  { key: "other", label: "Additional Systems", hint: "Any other platform BES needs access to" },
+];
+
+export const categoryLabel = (key: string): string =>
+  CREDENTIAL_CATEGORIES.find((c) => c.key === key)?.label ?? "Additional Systems";
+
+/** Group by category in Dee's order, then by platform order inside each. */
+export const byCategory = <T extends { category: string; platformKey: string; label: string }>(
+  credentials: readonly T[],
+  platformOrder: readonly string[],
+): { category: CredentialCategory; items: T[] }[] => {
+  const rank = new Map(platformOrder.map((k, i) => [k, i]));
+  const out: { category: CredentialCategory; items: T[] }[] = [];
+  for (const cat of CREDENTIAL_CATEGORIES) {
+    const items = credentials
+      .filter((c) => c.category === cat.key)
+      .sort((a, b) => (rank.get(a.platformKey) ?? 999) - (rank.get(b.platformKey) ?? 999) || a.label.localeCompare(b.label));
+    if (items.length > 0) out.push({ category: cat.key, items });
+  }
+  return out;
+};
