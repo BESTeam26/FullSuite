@@ -319,3 +319,42 @@ partner-owned code; the commissions ledger already supports a
 **Risk if built without the decision.** A partner could be shown "you
 earned $X" from a plan that was never agreed with them — a commercial
 promise the software made up.
+
+## D-007 · Partner Portal — frozen for the Live Operations sprint
+
+**Dee's change-control correction, 2026-09-10.** Commit `c4c3964` (partner
+onboarding as the Partner Profile, the vault gates, Partner Information, the
+agreement hand-off) stays exactly as shipped. **No further Partner Portal
+work during the current sprint.** New Partner Portal ideas are recorded here
+and not built.
+
+**Backlog (valid, not next):**
+1. Partner file uploads / sending a requested document through the portal
+   (today: conversation or email; BES marks received).
+2. Partner-submitted client intake (needs Dee's rule: draft that BES
+   approves, or straight in?).
+3. Partner-facing monthly reporting (rounds sent, results, hours).
+4. Portal notifications by email (file shared, update posted, requirement
+   asked).
+5. Billing / invoices on the portal (depends on Authorize.Net).
+6. Self-service change of a contact's sign-in email.
+7. Onboarding form accepting more than one CRM / GHL / ESP / monitoring /
+   domain in the first pass (today: one each, more from Partner Information).
+8. D-006 referral portal (own entry above).
+
+**DEFERRED LIVE VALIDATION — Partner Portal onboarding first-real-user
+test.** The flow is probed (phase 55, 151/151) and screen-tested; no real
+partner has walked it. Not required for the Agency operations sprint. Do not
+invite a partner merely to run this test.
+
+**Partner onboarding agreement configuration required before Partner Portal
+rollout.** "Continue to Agreement" hands over the template flagged in
+Settings → Documents ("Use as the partner onboarding agreement"). None is
+flagged yet. Flagging one is configuration, not development; building more
+document-system features is not.
+
+**Governance note.** This epic is the worked example of "a request can be
+VALID without being NEXT": an architecture/feature expansion outside P0 that
+was built because it was asked for, kept because it shipped coherently, and
+the reason the rule now reads: new non-P0 request → classify → document →
+defer, unless it is a security or data-integrity issue.

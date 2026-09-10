@@ -43,18 +43,32 @@ function post({ projectRef, token, sql }) {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /**
- * The Management API rate-limits after ~1,900 statements in a run, and a 429
- * arrived as "ERR ThrottlerException" — a failed CHECK that tested nothing.
- * Back off and resend the identical statement: each probe is its own
- * `begin … rollback`, so a resend is the same test, not a second write.
+ * The Management API rate-limits a long run. Sometimes that is an honest 429
+ * ("ThrottlerException"); sometimes the gateway answers 5xx, times out, or
+ * drops the socket — which the harness printed as "ERR unknown" and counted
+ * as a failed check that tested nothing.
+ *
+ * Two defences, both safe because every probe is its own `begin … rollback`
+ * (a resend is the same test, never a second write):
+ *   - resend the statement after 2 s / 4 s / 8 s / 16 s / 32 s;
+ *   - once ANY throttle is seen, every statement for the next minute waits a
+ *     beat before going out, so the run backs off as a whole instead of each
+ *     request rediscovering the limit.
  */
+let cooldownUntil = 0;
+const throttled = (r) =>
+  r.status === 429 || r.status === 0 || r.status >= 500
+  || /Too Many Requests|ThrottlerException|timed? ?out|Bad Gateway|Service Unavailable|ECONNRESET|socket hang up|EAI_AGAIN/i.test(r.text);
+
 async function postWithBackoff(args) {
-  const waits = [1500, 3000, 6000, 12000];
+  const waits = [2000, 4000, 8000, 16000, 32000];
   let last;
   for (let attempt = 0; attempt <= waits.length; attempt++) {
+    const pause = cooldownUntil - Date.now();
+    if (pause > 0) await sleep(Math.min(pause, 600));
     last = await post(args);
-    const throttled = last.status === 429 || /Too Many Requests|ThrottlerException/.test(last.text);
-    if (!throttled) return last;
+    if (!throttled(last)) return last;
+    cooldownUntil = Date.now() + 60_000;
     if (attempt < waits.length) await sleep(waits[attempt]);
   }
   return last;
@@ -100,7 +114,7 @@ parentPort.on("message", async ({ signal, port, projectRef, token, sql, sqls }) 
      * requests gets rate-limited and then looks like a test failure.
      */
     const results = new Array(sqls.length);
-    const LIMIT = 12;
+    const LIMIT = 6;
     let next = 0;
     await Promise.all(
       Array.from({ length: Math.min(LIMIT, sqls.length) }, async () => {
