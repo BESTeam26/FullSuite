@@ -13,6 +13,11 @@ Future work lives in `DEFERRED_AGENCY_WORK.md`. Doctrine lives in
 by DEE'S OWN live usage, which is the best possible tester. UNTESTED rows have
 not yet been walked by a real operator.
 
+> **Pilot observation mode from 2026-09-10.** Every "PASS" below that a real
+> operator has not walked is AUTOMATED PASS + UNTESTED LIVE. Live results and
+> defects are tracked in `PILOT_ISSUES.md`; a gate turns LIVE VERIFIED only
+> when the named real operator confirms it.
+
 ## 1 · Invite Users / real team access
 
 | Criterion | State |
@@ -20,12 +25,12 @@ not yet been walked by a real operator.
 | Admin invites with role Agency Admin / Agency User | PASS — walked live: invite created with role Agency User |
 | Invitation email actually delivered (Resend SMTP) | PASS (send side) — Resend accepted a live send end to end ("Invitation sent"); inbox receipt still needs a real mailbox |
 | Activation link is the production URL, not localhost | PASS — links are pinned server-side to the production origin (send-invitation/send-welcome); Supabase auth site URL and allowlist verified |
-| Password creation and activation completes | UNTESTED |
-| Membership active with correct team / department / scope | UNTESTED |
-| Partner assignments give exactly the assigned partners | UNTESTED |
-| Module access matches what was granted | UNTESTED |
+| Password creation and activation completes | UNTESTED LIVE |
+| Membership active with correct team / department / scope | UNTESTED LIVE |
+| Partner assignments give exactly the assigned partners | UNTESTED LIVE |
+| Module access matches what was granted | UNTESTED LIVE |
 | Duplicate email / expired invite / resend / revoke handled | PASS — duplicate refused (probe), pending list + Copy link + revoke walked live, malformed/dead token page is honest and helpful |
-| Login lands on the correct page | UNTESTED |
+| Login lands on the correct page | UNTESTED LIVE |
 
 ## 2 · Timer / My Time
 
@@ -42,9 +47,9 @@ not yet been walked by a real operator.
 | Criterion | State |
 |---|---|
 | Master statuses are Dee's locked ten, unchanged | PASS (locked; regression-tested) |
-| Partner → Client → File path for an AUTHORIZED user | UNTESTED as a non-admin |
-| Complete Work = recording + actions + handoffs, never status mutation | PASS by design (unit + matrix probes); UNTESTED live as agent |
-| Parallel handoffs (no source close, no dest reset, no dup production) | PASS in matrix probes; UNTESTED live as agent |
+| Partner → Client → File path for an AUTHORIZED user | UNTESTED LIVE as a non-admin |
+| Complete Work = recording + actions + handoffs, never status mutation | PASS by design (unit + matrix probes); UNTESTED LIVE as agent |
+| Parallel handoffs (no source close, no dest reset, no dup production) | PASS in matrix probes; UNTESTED LIVE as agent |
 | 1 file = 1 production unit; actions counted separately | PASS (probes + EOD panel) |
 | Sticky client context while scrolling | PASS (existing; re-verify in agent pass) |
 
@@ -52,11 +57,11 @@ not yet been walked by a real operator.
 
 | Criterion | State |
 |---|---|
-| Agent EOD derives production/actions/time automatically | PASS for production+actions; timer line UNTESTED |
+| Agent EOD derives production/actions/time automatically | PASS for production+actions; timer line UNTESTED LIVE |
 | Manual fields only for what the system cannot know | PASS |
 | Team EOD aggregates real members automatically | PASS — real roster only (fixtures excluded); 2 humans shown, submissions joined |
-| Exceptions (absent/late/missing EOD) recordable | UNTESTED |
-| Drill-down team total → agent → work | UNTESTED |
+| Exceptions (absent/late/missing EOD) recordable | UNTESTED LIVE |
+| Drill-down team total → agent → work | UNTESTED LIVE |
 | Publishing to managers via Communication | DEFERRED unless trivially supported |
 
 ## 5 · BES CRM
@@ -67,19 +72,19 @@ not yet been walked by a real operator.
 | Website-only / Sales / Fulfillment / Full / Custom presets | PASS — preset chips select 3/4/13 engines; editing checkboxes flips to Custom |
 | Work units assigned to a real user, visible in My Work | PASS — assignee select on the board writes canonical assigned_to; verified live into My Active Work Items |
 | Complete & hand off; parallel next units | PASS — Dee completed two units live; dependants auto-derived READY |
-| QA pass/needs-fix loop | PASS in probes; UNTESTED live |
+| QA pass/needs-fix loop | PASS in probes; UNTESTED LIVE |
 | Progress/journey/health derive automatically | PASS — live: 15% · building · on-track after Dee's two completions |
 | CRM work reaches EOD automatically | PASS — both of Dee's units appeared on her EOD untouched |
 | Board reads Partner → Business → Project (2026-09-09 late) | PASS — `business_name` on the project, optional field on New build project, grouped board verified live with Dee's "Test" project |
-| Due-date and go-live notifications (2026-09-09 late) | PASS in probes (7); hourly cron `due-date-sweep` live; first real sweep wrote one overdue notice for a fixture item. UNTESTED live with a real due date |
-| Partner sees their build and what BES needs from them | PASS in probes (4) and screen tests (4); UNTESTED by a real partner login |
+| Due-date and go-live notifications (2026-09-09 late) | PASS in probes (7); hourly cron `due-date-sweep` live; first real sweep wrote one overdue notice for a fixture item. UNTESTED LIVE with a real due date |
+| Partner sees their build and what BES needs from them | PASS in probes (4) and screen tests (4); UNTESTED LIVE by a real partner login |
 
 ## 6 · Documents & signatures (added 2026-09-09 late, Dee's request)
 
 | Criterion | State |
 |---|---|
 | Build a template with merge fields and a signature block | PASS — Settings → Operations → Documents & Signatures, walked live |
-| Send to a team member, a partner contact, or an email address | PASS — member path signed end to end in the browser; partner-contact and email paths PASS in probes; UNTESTED live |
+| Send to a team member, a partner contact, or an email address | PASS — member path signed end to end in the browser; partner-contact and email paths PASS in probes; UNTESTED LIVE |
 | Signer opens the link with no account, views, signs | PASS — walked live as the fixture agent; signed copy filed on the profile |
 | Refusals: unfilled field, draft template, no consent, sign twice, void after sign, unknown/voided token | PASS — 14 probes in phase 70 |
 | Document history private to the person and document-capability holders | PASS — 0294, found by the gate and fixed the same night |
@@ -88,7 +93,7 @@ not yet been walked by a real operator.
 
 | Criterion | State |
 |---|---|
-| Access isolation: pilot personas see only their scope | PASS in RLS matrix (68 phases); UNTESTED through the real UI |
+| Access isolation: pilot personas see only their scope | PASS in RLS matrix (68 phases); UNTESTED LIVE through the real UI |
 | No dead visible controls in the five areas | PASS on sweep (no coming-soon/placeholder/dead buttons found); the pilot walk is the final judge |
 | Production build deployed and smoke-tested | PASS (content-verified) — the deployed MyTimePage chunk carries tonight's adjustment UI and auto-stopped badge; boot frame served. Signed-in production walk happens with the pilot |
 | Full RLS matrix green at the release commit | PASS — clean full run 2026-09-10 at commit `644b1be` (migrations through `20260910000200`): **1559/1559 across 70 phases**, 27m22s, no throttled checks (the harness now retries 5xx/timeouts with a run-wide cooldown) |

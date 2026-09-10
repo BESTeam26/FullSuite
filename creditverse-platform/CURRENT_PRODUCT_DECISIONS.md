@@ -5,6 +5,12 @@ else. Brainstorming and future concepts go to `DEFERRED_AGENCY_WORK.md`;
 completed history goes to `COMPLETION_REGISTER.md`; permanent build rules live
 in `CLAUDE.md`.
 
+## PILOT OBSERVATION MODE (2026-09-10, supersedes "build first")
+
+Real BES operations pilot. No proactive development; fix real defects at the
+root, capture ideas in `DEFERRED_AGENCY_WORK.md`, log issues in
+`PILOT_ISSUES.md`, LIVE VERIFIED is a human gate. Full rules: CLAUDE.md §21a.
+
 ## The active program (2026-09-08)
 
 **LIVE OPERATIONS READINESS.** P0 = Invite Users · Timer/My Time · CreditOps ·
