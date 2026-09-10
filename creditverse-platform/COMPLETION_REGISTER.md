@@ -1668,3 +1668,76 @@ way only the browser showed:
 
 Verified: board as a signed-in owner shows the live project again; phases
 47, 55, 65, 70 re-run after 0296 — see the commit.
+
+### Seat doctrine completed: deactivated means deactivated, BES means active BES, and every seat event is written once — 2026-09-10
+
+**Dee's directive:** implement §24 Seat Doctrine from the commercial rules
+already established. 0127/0128 had built the count, the reasons and the
+refusal; reconciling them against the directive found four gaps, one of
+them security. Migration `20260910000100_seat_doctrine_completed`.
+
+**Canonical seat calculation.** `seat_billable(org, user)` — the ONE
+predicate: an active (not archived) membership of the organization, who is
+not the designated owner, and who is not ACTIVE BES personnel. Portal
+consumers, GHL-only users and service identities hold no `org_memberships`
+row and are false by construction. `organization_seat_detail` (counts +
+reason), `organization_seat_summary` (used / pending / committed / included
+/ available / over), `organization_seat_usage`, the refusal
+`assert_seat_available`, and every seat audit event read this predicate.
+Capacity = the live subscription's `seats` (an Enterprise seat block raises
+that number), falling back to the trial plan's `seats_included`; no plan →
+null → nothing to exceed.
+
+**Capacity enforcement point.** `assert_seat_available(org, for_user,
+ignore_pending)` inside `invite_team_member` (a pending invitation reserves
+a seat), `accept_invitation` (the allowance may have shrunk since the
+invite) and `set_member_archived(…, false)` (reactivation takes a seat
+back). Refusal is `22023` with the count in the message. Existing users are
+never touched by a downgrade; the organization is flagged over capacity and
+new/reactivated seats are refused. ACTIVE BES personnel and the owner are
+exempt from the refusal because they never consume one.
+
+**Security fix (A).** 0127 claimed "authorization already fails for an
+archived member because every helper reads membership". Sixteen helpers
+read `org_memberships` with no `archived_at` test — `is_org_member`,
+`is_org_admin`, `is_org_owner_admin`, `org_role_for`, `my_org_ids`,
+`org_scope_allows`, `member_can`, `shares_scope_with`,
+`work_items_assignee_allowed`, `assignable_profiles`,
+`organization_directory`, `team_birthdays`, `may_notify_mention`,
+`lender_visible`, `letter_template_visible`, `save_organization_department`,
+`notify_announcement`. A deactivated admin kept admin access; only the seat
+was freed. Every one now treats an archived membership as no membership.
+Probes: a deactivated member is not a member, cannot read the
+organization's clients, and could before.
+
+**Active BES personnel (B).** The exclusion and the exemption now require
+`agency_memberships.status = 'active'`. Somebody who left BES and later
+works for a customer is a seat (probed); classification follows employment,
+and the flip is audited ("left BES").
+
+**Who inspects (C).** Detail (names, emails, reasons): the organization's
+owner/admin, or on the BES side `bes_may_inspect_seats` = agency admin or
+`finance.dashboard.view`. Summary (numbers): any member of the organization.
+A plain BES agent reads nothing; another organization reads nothing.
+
+**Audit (D).** `seat_transition_audit` writes `organization.seat_billable`
+/ `seat_unbillable` only when the predicate's answer changed — from
+membership insert/archive/restore/delete, owner designation change (old
+owner becomes billable, new owner stops) and BES employment status change.
+`organization.owner_changed`, `capacity_changed`, `plan_changed`,
+`subscription_status_changed` from triggers, each only for a value that
+differs. `set_member_archived` is idempotent. Dedupe is by construction;
+probes: deactivate twice → one event each; a no-op seats update → nothing.
+
+**Tests.** Phase 48: 125/125 (22 new). Full gate after — see the commit
+line. Frontend: "N of M seats used" and an "Add seats or change plan" link
+to Plan & billing when none are left.
+
+**Unresolved edge cases.** (1) `external_memberships` (referral partners,
+BRMs) have no archived_at and are outside the seat count by design; if one
+must be deactivated there is no switch yet. (2) A person who is BOTH an
+organization's owner and BES staff is excluded twice and reads "owner". (3)
+TalentOps has no fixture user; the rule is division-agnostic (any active
+agency membership) and is probed through CreditOps and FundingOps. (4)
+Add-on seat blocks are recorded by raising `organization_subscriptions.
+seats`; there is no separate add-on ledger row.

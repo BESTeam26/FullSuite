@@ -2657,6 +2657,72 @@ if (runs(48)) {
       () => w48(OWNER, `select public.invite_team_member('${lakesideOrg}', 'seat.blocked@bes.test', 'credit_processor') as rows`, seats("1")), "ERR 22023"],
     ["…and blocks reactivation too, without touching anyone already active",
       () => w48(OWNER, `select public.set_member_archived('${AGENT_M}', false) as rows`, seats("1", ARCHIVE_AGENT)), "ERR 22023"],
+    /* ── §24 completed (0297): deactivation, ACTIVE BES personnel, who inspects, audit ── */
+    ["a deactivated member is no longer a member — not a free seat with admin rights",
+      () => w48(AGENT, `select public.is_org_member('${lakesideOrg}')::text || '/' || (select count(*) from public.my_org_ids() where my_org_ids = '${lakesideOrg}')::text as rows`, ARCHIVE_AGENT), "false/0"],
+    ["…and cannot reach the organization's records any more",
+      () => w48(AGENT, `select count(*)::int as rows from public.clients where organization_id = '${lakesideOrg}'`, ARCHIVE_AGENT), 0],
+    ["…while before deactivation the same person could",
+      () => w48(AGENT, `select (count(*) > 0)::text as rows from public.clients where organization_id = '${lakesideOrg}'`), "true"],
+    ["ACTIVE BES CreditOps and FundingOps personnel holding a customer membership are not seats",
+      () => w48(OWNER, `select string_agg(counts::text, ',' order by user_id) as rows from public.organization_seat_detail('${lakesideOrg}') where user_id in ('${U["bes.credit@bes.test"]}', '${U["bes.funding@bes.test"]}')`,
+        `${WITH_OWNER} insert into public.org_memberships (user_id, organization_id, role) values ('${U["bes.credit@bes.test"]}', '${lakesideOrg}', 'credit_processor'), ('${U["bes.funding@bes.test"]}', '${lakesideOrg}', 'credit_processor') on conflict do nothing;`), "false,false"],
+    ["…and the reason says so",
+      () => w48(OWNER, `select reason as rows from public.organization_seat_detail('${lakesideOrg}') where user_id = '${U["bes.funding@bes.test"]}'`,
+        `${WITH_OWNER} insert into public.org_memberships (user_id, organization_id, role) values ('${U["bes.funding@bes.test"]}', '${lakesideOrg}', 'credit_processor') on conflict do nothing;`), "BES personnel — never a customer seat"],
+    ["somebody who LEFT BES and now works for the customer IS a seat — classification follows active employment",
+      () => w48(OWNER, `select counts::text as rows from public.organization_seat_detail('${lakesideOrg}') where user_id = '${U["bes.funding@bes.test"]}'`,
+        `${WITH_OWNER} insert into public.org_memberships (user_id, organization_id, role) values ('${U["bes.funding@bes.test"]}', '${lakesideOrg}', 'credit_processor') on conflict do nothing;
+         update public.agency_memberships set status = 'inactive' where user_id = '${U["bes.funding@bes.test"]}';`), "true"],
+    ["a plain BES agent cannot read a customer's seat detail — names and emails are not staff-wide",
+      () => w48(U["bes.credit@bes.test"], `select count(*)::int as rows from public.organization_seat_detail('${lakesideOrg}')`), 0],
+    ["…a BES agency admin can",
+      () => w48(BES, `select (count(*) > 0)::text as rows from public.organization_seat_detail('${lakesideOrg}')`), "true"],
+    ["an ordinary organization member sees the summary numbers but not the detail",
+      () => w48(AGENT, `select (select count(*) from public.organization_seat_summary('${lakesideOrg}'))::text || '/' || (select count(*) from public.organization_seat_detail('${lakesideOrg}'))::text as rows`), "1/0"],
+    ["the organization admin sees both — and only for their own organization",
+      () => w48(OWNER, `select ((select count(*) from public.organization_seat_summary('${lakesideOrg}')) = 1 and (select count(*) from public.organization_seat_detail('${lakesideOrg}')) > 0
+               and (select count(*) from public.organization_seat_summary((select id from public.organizations where id <> '${lakesideOrg}' limit 1))) = 0)::text as rows`, WITH_OWNER), "true"],
+    ["deactivating writes ONE seat_unbillable event; asking again writes nothing more",
+      () => w48(OWNER, `select public.set_member_archived('${AGENT_M}', true); select public.set_member_archived('${AGENT_M}', true);
+        set local role postgres;
+        select (select count(*) from public.audit_log where action = 'organization.seat_unbillable' and entity_id = '${AGENT_M}' and created_at >= now())::text
+          || '/' || (select count(*) from public.audit_log where action = 'organization.member_archived' and entity_id = '${AGENT_M}' and created_at >= now())::text as rows`, WITH_OWNER), "1/1"],
+    ["reactivating writes seat_billable — and the pair reads as a history, not a state",
+      () => w48(OWNER, `select public.set_member_archived('${AGENT_M}', true); select public.set_member_archived('${AGENT_M}', false);
+        set local role postgres;
+        select string_agg(replace(action, 'organization.', ''), ',' order by id) as rows from public.audit_log
+         where entity_id = '${AGENT_M}' and created_at >= now() and action like 'organization.seat_%'`, WITH_OWNER), "seat_unbillable,seat_billable"],
+    ["changing the owner designation is audited, and flips exactly the two people involved",
+      /* The seed's own owner assignment (null → OWNER) is itself audited, so
+         the probe marks the log and reads only what its update wrote. */
+      () => w48(OWNER, `set local role postgres;
+        select set_config('probe.aid', (select coalesce(max(id), 0)::text from public.audit_log), true);
+        update public.organizations set owner_user_id = '${AGENT}' where id = '${lakesideOrg}';
+        select (select count(*) from public.audit_log where action = 'organization.owner_changed' and entity_id = '${lakesideOrg}' and id > current_setting('probe.aid')::bigint)::text
+          || '/' || (select string_agg(replace(action, 'organization.', '') || ':' || (after->>'user_id' = '${AGENT}')::text, ',' order by action)
+                       from public.audit_log where organization_id = '${lakesideOrg}' and id > current_setting('probe.aid')::bigint and action like 'organization.seat_%') as rows`, WITH_OWNER),
+      "1/seat_billable:false,seat_unbillable:true"],
+    ["a capacity change is audited once with both values; a no-op update is not audited at all",
+      () => w48(OWNER, `set local role postgres;
+        update public.organization_subscriptions set seats = seats + 3 where organization_id = '${lakesideOrg}' and status = 'active';
+        update public.organization_subscriptions set seats = seats where organization_id = '${lakesideOrg}' and status = 'active';
+        select (select count(*) from public.audit_log where action = 'organization.capacity_changed' and organization_id = '${lakesideOrg}' and created_at >= now())::text
+          || '/' || (select (after->>'seats')::int - (before->>'seats')::int from public.audit_log where action = 'organization.capacity_changed' and organization_id = '${lakesideOrg}' and created_at >= now() limit 1)::text as rows`,
+        seats(`${COUNTED} + 5`)), "1/3"],
+    ["a plan change is audited",
+      () => w48(OWNER, `set local role postgres;
+        update public.organization_subscriptions set plan_key = (select key from public.plans where key <> plan_key order by position limit 1) where organization_id = '${lakesideOrg}' and status = 'active';
+        select count(*)::int as rows from public.audit_log where action = 'organization.plan_changed' and organization_id = '${lakesideOrg}' and created_at >= now() and before is not null`, seats(`${COUNTED} + 5`)), 1],
+    ["BES personnel leaving BES while holding a customer membership becomes a seat — audited as such",
+      () => w48(OWNER, `set local role postgres;
+        update public.agency_memberships set status = 'inactive' where user_id = '${U["bes.funding@bes.test"]}';
+        select string_agg(replace(action, 'organization.', '') || ':' || (after->>'cause'), ',') as rows from public.audit_log
+         where organization_id = '${lakesideOrg}' and created_at >= now() and action like 'organization.seat_%' and (after->>'user_id') = '${U["bes.funding@bes.test"]}'`,
+        `${WITH_OWNER} insert into public.org_memberships (user_id, organization_id, role) values ('${U["bes.funding@bes.test"]}', '${lakesideOrg}', 'credit_processor') on conflict do nothing;`), "seat_billable:left BES"],
+    ["capacity reached still does not block ACTIVE BES fulfillment staff joining — for CreditOps or FundingOps",
+      () => w48(BES, `select public.assert_seat_available('${lakesideOrg}', '${U["bes.credit@bes.test"]}'); select public.assert_seat_available('${lakesideOrg}', '${U["bes.funding@bes.test"]}'); select 'ok' as rows`, TINY), "ok"],
+
     ["a downgrade is never blocked by capacity — that decision is the customer's",
       () => w48(OWNER, `select (public.choose_subscription_plan('${lakesideOrg}', (select key from public.plans order by position limit 1), 'monthly', 1) is not null)::text as rows`, TINY), "true"],
 

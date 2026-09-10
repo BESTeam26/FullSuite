@@ -8,7 +8,8 @@
  * the part that stops a support conversation.
  */
 import { useQuery } from "@tanstack/react-query";
-import { Users, Info } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Users, Info, ArrowUpRight } from "lucide-react";
 import { SectionCard } from "@/components/settings/shared";
 import { fetchSeatHolders, fetchSeatSummary } from "@/lib/data/seats";
 
@@ -45,15 +46,21 @@ export function SeatUsageCard({ organizationId }: { organizationId: string }) {
               <span className="ml-2 text-muted-foreground">in use · no plan in force, so nothing to exceed</span>
             ) : (
               <span className="ml-2 text-muted-foreground">
-                of {s.seatsIncluded} · {s.pendingInvitations} invitation
+                of {s.seatsIncluded} seats used · {s.pendingInvitations} invitation
                 {s.pendingInvitations === 1 ? "" : "s"} pending · {s.source}
               </span>
             )}
           </p>
+          {s.seatsIncluded !== null && s.seatsAvailable !== null && s.seatsAvailable <= 0 && (
+            <Link to="/app/settings?section=plan"
+              className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary underline-offset-2 hover:underline">
+              Add seats or change plan <ArrowUpRight className="h-3 w-3" />
+            </Link>
+          )}
           {s.overCapacity && (
             <p className="mt-2 rounded-lg border border-red-500/30 bg-red-500/10 p-2.5 text-xs text-status-danger">
-              Over the plan's allowance. Further invitations are refused until a member is archived or the
-              plan gains seats.
+              Over the plan's allowance. Everyone already active keeps working; further invitations and
+              reactivations are refused until a member is deactivated or the plan gains seats.
             </p>
           )}
           {s.seatsIncluded !== null && !s.overCapacity && s.seatsAvailable !== null && s.seatsAvailable <= 1 && (
