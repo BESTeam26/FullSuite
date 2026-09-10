@@ -1809,3 +1809,12 @@ GoHighLevel login used as the ESP must be filed under Email/ESP by hand.
 (4) The onboarding form saves one CRM, one GHL, one ESP, one monitoring
 provider and one domain; more of each are added afterwards from Partner
 Information.
+
+### Clean full gate at the stable migration state — 2026-09-10
+
+Dee's correction: 1534/1559 is not a pass. The harness retry now covers 5xx,
+timeouts and dropped sockets (not only an explicit 429), with a run-wide
+one-minute cooldown once any throttle is seen and concurrency lowered from
+12 to 6. Result at commit `644b1be`, schema through `20260910000200`:
+**1559/1559 checks, 70 phases, 27m22s, zero throttled probes.** No schema or
+policy changed during the run.

@@ -91,7 +91,7 @@ not yet been walked by a real operator.
 | Access isolation: pilot personas see only their scope | PASS in RLS matrix (68 phases); UNTESTED through the real UI |
 | No dead visible controls in the five areas | PASS on sweep (no coming-soon/placeholder/dead buttons found); the pilot walk is the final judge |
 | Production build deployed and smoke-tested | PASS (content-verified) — the deployed MyTimePage chunk carries tonight's adjustment UI and auto-stopped badge; boot frame served. Signed-in production walk happens with the pilot |
-| Full RLS matrix green at the release commit | PASS — 2026-09-09 late: the gate is now **1,526 checks across 70 phases**. The 25-minute full run hit the Management API rate limit (checks reported as "Too Many Requests"); every such check passes when its phase runs alone, and the harness now backs off and resends on a 429. The one real finding of the night (member-document history visible to plain staff) was fixed in 0294 the same night |
+| Full RLS matrix green at the release commit | PASS — clean full run 2026-09-10 at commit `644b1be` (migrations through `20260910000200`): **1559/1559 across 70 phases**, 27m22s, no throttled checks (the harness now retries 5xx/timeouts with a run-wide cooldown) |
 
 
 ## Fixed during the audit (2026-09-08 evening)
