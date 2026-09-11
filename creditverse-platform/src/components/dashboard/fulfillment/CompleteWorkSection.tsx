@@ -32,6 +32,8 @@ import {
 } from "@/lib/fulfillment/creditops-access";
 import { cn } from "@/lib/utils";
 import { OpsSelect } from "@/components/ui/ops-select";
+import { updateClientStatus } from "@/lib/data/fulfillment-clients";
+import { creditStatusOptionsFor } from "@/lib/fulfillment/department-domain";
 import { HandoffPicker } from "@/components/dashboard/fulfillment/HandoffPicker";
 import { handOffToDepartments } from "@/lib/data/fulfillment-clients";
 
@@ -39,6 +41,12 @@ interface Props {
   clientId: string;
   clientName?: string;
   partnerName?: string;
+  /**
+   * The client's current credit status, so this panel can offer "keep it or
+   * move it" as part of finishing the work (Dee, 2026-09-11). Omitted, the
+   * selector is not shown at all — it must never guess at a status.
+   */
+  currentStatus?: string;
   /** Reported upward for the sticky client context bar (§21). */
   onActiveDepartmentChange?: (department: string | null) => void;
 }
@@ -68,11 +76,14 @@ interface Props {
  * A processor moves a round along. Only an admin finishes or graduates a file.
  */
 /*
- * The status options that used to live here are gone with the control.
+ * The status options that used to live here came back on 2026-09-11, at Dee's
+ * request — but through `updateClientStatus`, never through a local log. See
+ * the note beside `nextStatus`.
  *
  * Dee's locked doctrine, restated because a helpful person will try to put it
  * back: COMPLETE WORK RECORDS WORK AND HANDS OFF NEXT STEPS. IT DOES NOT
- * CHANGE THE CLIENT'S MASTER STATUS. The status vocabulary itself is
+ * CHANGE THE CLIENT'S MASTER STATUS UNLESS THE OPERATOR PICKS ONE. The
+ * status vocabulary itself is
  * untouched — `fulfillment_client_status` and every label are exactly as they
  * were — and the dedicated Status control still moves the file. This panel
  * simply is not where that happens.
@@ -82,6 +93,7 @@ export function CompleteWorkSection({
   clientId,
   clientName = "this client",
   partnerName = "—",
+  currentStatus,
   onActiveDepartmentChange,
 }: Props) {
   const store = useCreditOpsStore();
@@ -114,6 +126,23 @@ export function CompleteWorkSection({
     { opened: string[]; alreadyOpen: string[] } | null
   >(null);
   const departmentRows = store.getDepartmentStatuses(clientId);
+  /* Dee, 2026-09-11: "the credit status change should be showing here as well
+     before they submit the work — can keep current status or change to the new
+     stage." It defaults to the status the file already has, so finishing work
+     changes nothing unless the operator deliberately moves it.
+
+     THE OLD SELECTOR WAS REMOVED FOR A REASON, AND THIS IS NOT IT. That one
+     logged an activity entry SAYING the status had changed while the record
+     stayed put, and offered values the enum did not have. This one writes
+     through `updateClientStatus` — the same canonical writer the dedicated
+     Status control uses — offers only `creditStatusOptionsFor`, and logs
+     nothing itself: the database trigger on `fulfillment_clients` writes the
+     activity, so a status entry cannot exist without the status change. */
+  const [nextStatus, setNextStatus] = useState<string>(currentStatus ?? "");
+  useEffect(() => { setNextStatus(currentStatus ?? ""); }, [currentStatus]);
+  const statusOptions = currentStatus ? creditStatusOptionsFor(currentStatus) : [];
+  const statusMoves = !!currentStatus && !!nextStatus && nextStatus !== currentStatus;
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   /* Synchronous guard — see the note in OpsActivityTimeline. `isSubmitting`
      drives the label; this is what actually stops a second production row. */
@@ -211,11 +240,12 @@ export function CompleteWorkSection({
         });
       }
 
-      /* NOTHING HERE TOUCHES THE MASTER STATUS. Dee's locked doctrine:
-         Complete Work records production, actions and the next-step handoff,
-         and it does NOT change the client's master status. The dedicated
-         Status control elsewhere still does that, deliberately, on its own.
-         A matrix probe asserts the status is unchanged by a handoff. */
+      /* The status moves only when the operator MOVED it. A handoff still
+         never changes it — the matrix probe asserting that stays true, because
+         nothing below is reached by handing off. */
+      if (statusMoves) {
+        await updateClientStatus(clientId, nextStatus as never);
+      }
 
       /* And the handoffs, which run in parallel with everything above. */
       if (handoffTo.length > 0) {
@@ -236,6 +266,8 @@ export function CompleteWorkSection({
       setSelectedItems([]);
       setWorkNotes("");
       setHandoffTo([]);
+      /* Not reset to blank: the file's status is now whatever was just
+         written, and the selector should go on showing the truth. */
     } catch (err) {
       setSubmitError(errorMessage(err, "Could not record this work."));
     } finally {
@@ -261,7 +293,7 @@ export function CompleteWorkSection({
         <p>
           <span className="font-bold">1 file = 1 production unit.</span> Checked
           items are the actions completed inside that file — not additional
-          files. Status change is separate.
+          files. The status below moves only if you move it.
         </p>
       </div>
 
@@ -330,6 +362,33 @@ export function CompleteWorkSection({
             rows={2}
             className="w-full rounded-lg border border-border bg-background p-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
           />
+
+          {/* Status, before they submit (Dee, 2026-09-11). Defaults to what the
+              file already says, so "Complete Work" changes nothing here unless
+              the operator chooses to move it. */}
+          {currentStatus && (
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Credit status after this work
+              </p>
+              <OpsSelect
+                value={nextStatus}
+                onValueChange={setNextStatus}
+                options={statusOptions}
+                size="sm"
+                aria-label="Credit status after this work"
+                className="w-full font-semibold"
+                disabled={isSubmitting}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                {statusMoves ? (
+                  <>Completing this work moves the file from <span className="font-medium text-foreground">{currentStatus}</span> to <span className="font-medium text-foreground">{nextStatus}</span>.</>
+                ) : (
+                  <>Keeping <span className="font-medium text-foreground">{currentStatus}</span>. Pick another stage to move the file as you finish.</>
+                )}
+              </p>
+            </div>
+          )}
 
           {/* Handing off is not a status change and not one department. Bureau
               calling and complaints run at the same time; picking both opens

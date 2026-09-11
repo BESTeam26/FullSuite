@@ -405,6 +405,7 @@ export function ClientWorkWorkspace({ clientId, onBack }: Props) {
             clientId={clientId}
             clientName={client?.name ?? "this client"}
             partnerName={client ? clientGroupLabel(client) : "—"}
+            currentStatus={client?.status}
             onActiveDepartmentChange={setActiveDepartment}
           />
 
