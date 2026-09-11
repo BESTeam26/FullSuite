@@ -9,23 +9,47 @@
  *   │   ├── ... (all queues)
  *   │   └── Webhooks
  *   │
- *   ├── ManagedOps (Folder)
+ *   ├── Managed Ops (Folder)     BES owns the execution
  *   │   ├── Partner A (List/Workspace)
  *   │   └── ...
- *   ├── Outsourcing (Folder)
- *   │   └── ...
- *   └── CreditOps Users (Folder)
- *       └── ...
+ *   ├── Outsourcing (Folder)     BES supplies the people
+ *   └── Needs Review (Folder)    not enough service data to say
  *
  * The Management layer sits above individual Partner workspaces. Its views
  * aggregate authorized records from ALL Partners. Partner workspaces scope to
  * one Partner. Same canonical client records — different scope.
  *
+ * ── THE FOLDERS ARE DATA NOW (0301-0304) ────────────────────────────────────
+ *
+ * They used to be computed here from the RECORD TYPE: an `organizations` row
+ * rendered under Managed Ops, an `outsourcing_groups` row under Outsourcing.
+ * Nobody had ever chosen any of it, which is why every partner BES has sat in
+ * Outsourcing whatever BES was actually doing for them.
+ *
+ * A folder is now a `module_categories` row, and an account's folder is
+ * derived from its SERVICE relationship — a CreditOps fulfilment service means
+ * BES owns the execution, so Managed Ops. Dragging is the exception, not the
+ * filing system: it pins one account against the derivation and nothing else.
+ *
+ * CREDITOPS USERS is gone. An organization with no live CreditOps engagement
+ * is not work in progress. They keep their SaaS tenancy and every customer
+ * administration surface — those read the organizations table directly and
+ * know nothing about this sidebar.
+ *
  * Counts show ACTIVE clients only (excludes Completed / Archived / Graduated).
  */
 
-import { useCallback, useMemo, useState } from "react";
-import { Building2, FileText, LayoutDashboard, BarChart3, Webhook } from "lucide-react";
+import { useCallback, useMemo, useState, type DragEvent } from "react";
+import { Building2, FileText, LayoutDashboard, BarChart3, Webhook, Wand2, MoreHorizontal } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useCategoryMove } from "./use-category-move";
 import {
   CREDIT_OPS_PARTNERS,
   type CreditOpsPartner,
@@ -35,6 +59,7 @@ import { cn } from "@/lib/utils";
 import { usePartners } from "@/lib/data/use-partners";
 import { useCreditOpsStore } from "@/lib/fulfillment/creditops-client-store";
 import type { OpsPartner } from "@/lib/fulfillment/ops-client-domain";
+import type { ModuleCategory } from "@/lib/data/module-categories";
 import {
   OpsTreeFolder,
   OpsTreeManagementSection,
@@ -58,6 +83,16 @@ const INACTIVE_STATUSES = [
 ];
 
 const isActive = (status: string) => !INACTIVE_STATUSES.includes(status);
+
+/**
+ * The demo fixtures have no engagements and so no category. They keep their
+ * legacy bucket so the backend-less workspace is still explorable.
+ * `creditops_users` is deliberately absent: that folder is gone.
+ */
+const LEGACY_DEMO_BUCKET: Record<string, string> = {
+  managed: "managed_ops",
+  outsourcing: "outsourcing",
+};
 
 /**
  * Active clients per partner, counted from the canonical list.
@@ -112,21 +147,36 @@ export function CreditOpsTreeSidebar({
     (scopeId: string) => countActiveForPartner(clients, scopeId),
     [clients],
   );
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({
-    management: true,
-    managed: true,
-    outsourcing: true,
-    creditops_users: true,
-  });
-
+  const move = useCategoryMove("creditops");
+  /* Collapsed is the exception, so an unlisted folder reads as open and a new
+     category does not arrive shut. */
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [overCategory, setOverCategory] = useState<string | null>(null);
+  const isOpen = (key: string) => !collapsed[key];
   const toggleFolder = (key: string) =>
-    setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
+    setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
 
-  const managedPartners = partners.filter((p) => p.group === "managed");
-  const outsourcingPartners = partners.filter((p) => p.group === "outsourcing");
-  const creditopsUserPartners = partners.filter(
-    (p) => p.group === "creditops_users",
-  );
+  /**
+   * Accounts per category.
+   *
+   * The demo fixtures have no engagements and so no category; they keep their
+   * legacy bucket so the backend-less workspace still explores. `creditops_users`
+   * is deliberately not mapped — that folder is gone, and a fixture in it is a
+   * fixture nobody should be navigating by anyway.
+   */
+  const byCategory = useMemo(() => {
+    const map = new Map<string, OpsPartner[]>();
+    for (const c of move.categories) map.set(c.id, []);
+    for (const p of partners) {
+      const id =
+        move.categoryIdOf(p) ??
+        move.categories.find((c) => c.key === LEGACY_DEMO_BUCKET[p.group])?.id ??
+        null;
+      if (id && map.has(id)) map.get(id)!.push(p);
+    }
+    for (const list of map.values()) list.sort((a, b) => a.name.localeCompare(b.name));
+    return map;
+  }, [partners, move]);
 
   const totalActive = partners.reduce(
     (sum, p) => sum + countFor(p.scopeId),
@@ -144,60 +194,188 @@ export function CreditOpsTreeSidebar({
     [selected],
   );
 
+  /**
+   * One account.
+   *
+   * Draggable only when the viewer may reorganise AND the row has a live
+   * engagement to move. Native HTML5 drag is what keeps click working: a press
+   * without movement never fires `dragstart`, so the browser supplies the
+   * movement threshold and normal navigation is untouched.
+   */
   const renderPartner = (partner: OpsPartner) => {
     const count = countFor(partner.scopeId);
     const isSelected = isPartnerActive(partner.id);
+    const draggable = move.canMove && !!partner.engagementId;
+    const isDragging = move.draggingId === partner.engagementId;
+    const here = move.categoryIdOf(partner);
+
     return (
-      <button
+      <div
         key={partner.id}
-        onClick={() => onSelect({ kind: "partner", partnerId: partner.id })}
+        draggable={draggable}
+        onDragStart={(e: DragEvent<HTMLDivElement>) => {
+          if (!partner.engagementId) return;
+          move.setDraggingId(partner.engagementId);
+          e.dataTransfer.effectAllowed = "move";
+          /* Something has to be set or Firefox refuses to start the drag; the
+             payload is never read, because the id is already in state. */
+          e.dataTransfer.setData("text/plain", partner.engagementId);
+        }}
+        onDragEnd={() => { move.setDraggingId(null); setOverCategory(null); }}
         className={cn(
-          "flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs font-medium transition-colors",
-          isSelected
-            ? "bg-primary font-bold text-primary-foreground"
-            : "text-foreground hover:bg-muted/60",
+          "group/row flex w-full items-center gap-1 rounded-md pr-1 transition-colors",
+          isSelected ? "bg-primary" : "hover:bg-muted/60",
+          isDragging && "opacity-40",
+          draggable && "cursor-grab active:cursor-grabbing",
         )}
       >
-        <div className="flex items-center gap-1.5">
-          <Building2
-            className={cn(
-              "h-3.5 w-3.5",
-              isSelected ? "text-primary-foreground" : "text-muted-foreground",
-            )}
-          />
-          <span>{partner.name}</span>
-        </div>
-        <span
+        <button
+          onClick={() => onSelect({ kind: "partner", partnerId: partner.id })}
           className={cn(
-            "text-[10px]",
-            isSelected ? "text-primary-foreground/80" : "text-muted-foreground",
+            "flex min-w-0 flex-1 items-center justify-between rounded-md px-2 py-1.5 text-left text-xs font-medium",
+            isSelected ? "font-bold text-primary-foreground" : "text-foreground",
           )}
         >
-          {count}
-        </span>
-      </button>
+          <span className="flex min-w-0 items-center gap-1.5">
+            <Building2
+              className={cn(
+                "h-3.5 w-3.5 shrink-0",
+                isSelected ? "text-primary-foreground" : "text-muted-foreground",
+              )}
+            />
+            <span className="truncate">{partner.name}</span>
+            {partner.categorySource === "manual" && (
+              /* So a placement that stopped following the service records says
+                 so, rather than looking like the system's own answer. */
+              <span
+                title="Moved here by BES — automatic placement is not managing this one"
+                className={cn(
+                  "shrink-0 rounded px-1 text-[9px] font-semibold uppercase tracking-wide",
+                  isSelected
+                    ? "bg-primary-foreground/20 text-primary-foreground"
+                    : "bg-muted text-muted-foreground",
+                )}
+              >
+                Set
+              </span>
+            )}
+          </span>
+          <span
+            className={cn(
+              "ml-2 shrink-0 text-[10px]",
+              isSelected ? "text-primary-foreground/80" : "text-muted-foreground",
+            )}
+          >
+            {count}
+          </span>
+        </button>
+
+        {/* Keyboard- and touch-reachable equivalent of the drag. Appears on
+            hover or focus so every row is not permanently cluttered. */}
+        {draggable && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                aria-label={`Move ${partner.name} to another category`}
+                className={cn(
+                  "shrink-0 rounded p-1 opacity-0 transition-opacity focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring group-hover/row:opacity-100",
+                  isSelected ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <MoreHorizontal className="h-3.5 w-3.5" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel className="text-xs">Move to…</DropdownMenuLabel>
+              {move.categories.map((c) => (
+                <DropdownMenuItem
+                  key={c.id}
+                  disabled={c.id === here}
+                  onSelect={() => move.move(partner, c.id)}
+                  className="text-xs"
+                >
+                  {c.label}
+                  {c.id === here && <span className="ml-auto text-[10px] text-muted-foreground">current</span>}
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                disabled={partner.categorySource !== "manual"}
+                onSelect={() => move.followAuto(partner)}
+                className="text-xs"
+              >
+                <Wand2 className="mr-2 h-3.5 w-3.5" />
+                Follow automatic placement
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
     );
   };
 
-  const renderGroup = (
-    key: string,
-    label: string,
-    partners: CreditOpsPartner[],
-    accent: string,
-  ) => (
-    <OpsTreeFolder
-      label={label}
-      accent={accent}
-      count={partners.reduce(
-        (sum, p) => sum + countFor(p.scopeId),
-        0,
-      )}
-      open={!!expanded[key]}
-      onToggle={() => toggleFolder(key)}
-    >
-      {partners.map(renderPartner)}
-    </OpsTreeFolder>
-  );
+  /**
+   * A category folder, and a drop target.
+   *
+   * It accepts a drop whenever a drag is in flight, including when it holds
+   * nothing — Dee has to be able to move the first account into an empty
+   * category, so an empty folder still renders, still highlights, and says
+   * what it is for instead of looking broken.
+   */
+  const renderCategory = (category: ModuleCategory) => {
+    const inHere = byCategory.get(category.id) ?? [];
+    const isTarget = overCategory === category.id;
+    const dragging = move.draggingId !== null;
+    return (
+      <div
+        key={category.id}
+        onDragOver={(e: DragEvent<HTMLDivElement>) => {
+          if (!dragging || !move.canMove) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
+          setOverCategory(category.id);
+          /* Open a shut folder so the drop lands somewhere the eye can see. */
+          if (collapsed[category.id]) setCollapsed((p) => ({ ...p, [category.id]: false }));
+        }}
+        onDragLeave={(e: DragEvent<HTMLDivElement>) => {
+          if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+          setOverCategory((c) => (c === category.id ? null : c));
+        }}
+        onDrop={(e: DragEvent<HTMLDivElement>) => {
+          e.preventDefault();
+          setOverCategory(null);
+          const dragged = partners.find((p) => p.engagementId === move.draggingId);
+          move.setDraggingId(null);
+          if (dragged) move.move(dragged, category.id);
+        }}
+        className={cn(
+          "rounded-lg transition-colors",
+          isTarget && "bg-primary/10 ring-1 ring-primary/40",
+          dragging && !isTarget && "ring-1 ring-dashed ring-border",
+        )}
+      >
+        <OpsTreeFolder
+          label={category.label.toUpperCase()}
+          accent={category.isFallback ? "text-status-warning" : "text-purple-500"}
+          count={inHere.reduce((sum, p) => sum + countFor(p.scopeId), 0)}
+          open={isOpen(category.id)}
+          onToggle={() => toggleFolder(category.id)}
+        >
+          {inHere.length > 0 ? (
+            inHere.map(renderPartner)
+          ) : (
+            <p className="px-2 py-1.5 text-[11px] italic text-muted-foreground">
+              {category.isFallback
+                ? "Nothing needs review."
+                : move.canMove
+                  ? "Empty — drag an account here."
+                  : "No accounts."}
+            </p>
+          )}
+        </OpsTreeFolder>
+      </div>
+    );
+  };
 
   /* ── ONE nav model, two presentations (Dee, §28) ─────────────────────
      The collapsed icon rail is built from the SAME authorized arrays the
@@ -241,22 +419,23 @@ export function CreditOpsTreeSidebar({
           <OpsTreeManagementSection
             views={MANAGEMENT_VIEWS}
             icon={LayoutDashboard}
-            open={!!expanded.management}
+            open={isOpen("management")}
             onToggle={() => toggleFolder("management")}
             isActive={isMgmtViewActive}
             onSelect={(view) => onSelect({ kind: "management", view })}
           />
         )}
 
-        <div className="pt-1">
-          {renderGroup("managed", "MANAGED OPS", managedPartners, "text-status-warning")}
-        </div>
-        <div className="pt-1">
-          {renderGroup("outsourcing", "OUTSOURCING", outsourcingPartners, "text-purple-500")}
-        </div>
-        <div className="pt-1">
-          {renderGroup("creditops_users", "CREDITOPS USERS", creditopsUserPartners, "text-status-success")}
-        </div>
+        {/* A folder per category, in the catalogue's order. Needs Review is
+            hidden when empty: an incomplete-data folder should appear because
+            there IS incomplete data, not sit there permanently. */}
+        {move.categories
+          .filter((c) => !c.isFallback || (byCategory.get(c.id)?.length ?? 0) > 0)
+          .map((c) => (
+            <div key={c.id} className="pt-1">
+              {renderCategory(c)}
+            </div>
+          ))}
       </div>
       {/* What used to be a paragraph of explanation living in the rail is now
           in the page header, where there is room to read it. A navigation rail

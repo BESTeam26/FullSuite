@@ -31,6 +31,24 @@ vi.mock("@/lib/fulfillment/creditops-client-store", () => ({
     clients: [{ outsourcingGroupId: "s1", status: "In Dispute" }],
   }),
 }));
+/* Categories and moving are a different concern with a different test. Mocked
+   so this one keeps asserting the single thing it is for — that the collapsed
+   rail and the expanded tree cannot disagree about what the caller may reach —
+   without dragging in auth, permissions and a query client to do it. */
+vi.mock("./use-category-move", () => ({
+  useCategoryMove: () => ({
+    categories: [
+      { id: "c1", module: "creditops", key: "outsourcing", label: "Outsourcing", sort: 20, isFallback: false },
+    ],
+    canMove: false,
+    categoryIdOf: () => "c1",
+    draggingId: null,
+    setDraggingId: vi.fn(),
+    move: vi.fn(),
+    followAuto: vi.fn(),
+    isMoving: false,
+  }),
+}));
 
 beforeEach(() => {
   window.localStorage.clear();

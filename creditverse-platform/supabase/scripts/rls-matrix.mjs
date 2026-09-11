@@ -6993,6 +6993,119 @@ if (runs(71)) {
 }
 
 
+if (runs(72)) {
+  startPhase("phase 72");
+  /* OPERATIONAL CATEGORIES (0301-0304).
+   *
+   * Two things are being held here. First the obvious one: only somebody who
+   * may manage partner operations can reorganise the workspace, enforced in
+   * the database so typing the call by hand meets the same rule as dragging.
+   *
+   * Second, and the one Dee cared about most: a move must not touch SaaS
+   * tenancy. So the probe does not inspect the columns it expects to change —
+   * it diffs the WHOLE engagement row and asserts that exactly
+   * operational_category_id, category_source and updated_at moved. A probe
+   * that checked only the interesting columns would pass while a move quietly
+   * rewrote the organization link.
+   */
+  const p72 = (uid, sql) => {
+    try {
+      return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows;
+    } catch (e) {
+      const m = (String(e.message) + String(e.stdout ?? "")).match(/ERROR:\s*(\w+):/);
+      return "ERR " + (m ? m[1] : "unknown");
+    }
+  };
+  const OWN72 = U["bes.owner@bes.test"], AGENT72 = U["bes.credit@bes.test"];
+  /* Deliberately an engagement whose partner HAS an active CreditOps
+     fulfilment service: the derivation probe below asserts what the service
+     records decide, and a partner with no services would answer Needs Review
+     and make the probe test nothing. */
+  const ENG72 = q(`select e.id::text as rows
+                     from public.fulfillment_engagements e
+                    where e.service='creditops' and e.outsourcing_group_id is not null
+                      and exists (select 1 from public.partner_services s
+                                   where s.group_id = e.outsourcing_group_id
+                                     and s.status='active'
+                                     and s.service_type='CREDITOPS_FULFILLMENT')
+                    limit 1`)[0].rows;
+  const MANAGED72 = q(`select id::text as rows from public.module_categories
+                        where module='creditops' and key='managed_ops' limit 1`)[0].rows;
+  const OUTSRC72 = q(`select id::text as rows from public.module_categories
+                       where module='creditops' and key='outsourcing' limit 1`)[0].rows;
+  const CRM72 = q(`select coalesce((select id::text from public.module_categories
+                                     where module='bes_crm' limit 1), '') as rows`)[0].rows;
+
+  /* The whole-row diff, as one reusable expression. */
+  const movedColumns = (uid, category) => p72(uid, `
+    create temp table b72 on commit drop as
+      select * from public.fulfillment_engagements where id = '${ENG72}';
+    select public.set_engagement_category('${ENG72}', '${category}');
+    select coalesce(string_agg(col, ', ' order by col), '(nothing)') as rows from (
+      select a.key as col
+        from b72 b
+        join public.fulfillment_engagements e on e.id = b.id
+       cross join lateral jsonb_each_text(to_jsonb(b)) a(key, val)
+       where a.val is distinct from (to_jsonb(e) ->> a.key)
+    ) d`);
+
+  const P72 = [
+    ["a move writes the category, its source, and nothing else",
+      () => movedColumns(OWN72, OUTSRC72),
+      "category_source, operational_category_id, updated_at"],
+
+    ["an agent without partners.operations cannot move an account",
+      () => p72(AGENT72, `select public.set_engagement_category('${ENG72}', '${OUTSRC72}')`),
+      "ERR 42501"],
+    ["nor can they hand one back to automatic placement",
+      () => p72(AGENT72, `select public.follow_automatic_placement('${ENG72}')`),
+      "ERR 42501"],
+    ["anon cannot move anything",
+      () => { try { q(`begin; set local role anon; select public.set_engagement_category('${ENG72}', '${OUTSRC72}'); rollback;`); return "allowed"; } catch { return "refused"; } },
+      "refused"],
+    ["anon reads no category catalogue",
+      () => { try { return q(`begin; set local role anon; select count(*)::int as rows from public.module_categories; rollback;`)[0].rows; } catch { return 0; } },
+      0],
+    ["every staff member sees the same hierarchy, whether or not they may change it",
+      () => p72(AGENT72, `select count(*)::int as rows from public.module_categories where module='creditops'`),
+      q(`select count(*)::int as rows from public.module_categories where module='creditops'`)[0].rows],
+
+    ["a category from another module is refused",
+      () => (CRM72 === ""
+        ? "ERR 22023"   /* no BES CRM catalogue yet: nothing to smuggle in */
+        : p72(OWN72, `select public.set_engagement_category('${ENG72}', '${CRM72}')`)),
+      "ERR 22023"],
+    ["an uncategorised move is refused — that is what Follow automatic placement is for",
+      () => p72(OWN72, `select public.set_engagement_category('${ENG72}', null)`),
+      "ERR 22023"],
+
+    ["a move pins the engagement against the derivation",
+      () => p72(OWN72, `select public.set_engagement_category('${ENG72}', '${OUTSRC72}');
+                        select category_source as rows from public.fulfillment_engagements where id='${ENG72}'`),
+      "manual"],
+    ["following automatic placement hands it back, and the service decides",
+      () => p72(OWN72, `select public.set_engagement_category('${ENG72}', '${OUTSRC72}');
+                        select public.follow_automatic_placement('${ENG72}');
+                        select category_source || ':' || (operational_category_id = '${MANAGED72}')::text as rows
+                          from public.fulfillment_engagements where id='${ENG72}'`),
+      "auto:true"],
+    ["a move is on the partner's timeline",
+      () => p72(OWN72, `select public.set_engagement_category('${ENG72}', '${OUTSRC72}');
+                        select count(*)::int as rows from public.activity_events
+                         where action='Moved between categories' and field='operational_category'`),
+      1],
+    ["the automatic rule never files a complete record under Needs Review",
+      () => q(`select count(*)::int as rows from public.fulfillment_engagements e
+                 join public.module_categories c on c.id = e.operational_category_id
+                where e.service='creditops' and e.category_source='auto' and c.is_fallback
+                  and exists (select 1 from public.partner_services s
+                               where s.group_id = e.outsourcing_group_id and s.status='active'
+                                 and s.service_type = 'CREDITOPS_FULFILLMENT')`)[0].rows,
+      0],
+  ];
+  runPhase("phase 72", P72, { strict: true });
+}
+
 endPhase();
 
 /* ------------------------------------------------------------------ *

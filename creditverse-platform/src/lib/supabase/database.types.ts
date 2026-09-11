@@ -4703,6 +4703,7 @@ export type Database = {
           agency_id: string
           authorized_team: string | null
           authorized_team_id: string | null
+          category_source: string
           created_at: string
           created_by: string | null
           effective_from: string
@@ -4719,6 +4720,7 @@ export type Database = {
           agency_id: string
           authorized_team?: string | null
           authorized_team_id?: string | null
+          category_source?: string
           created_at?: string
           created_by?: string | null
           effective_from?: string
@@ -4735,6 +4737,7 @@ export type Database = {
           agency_id?: string
           authorized_team?: string | null
           authorized_team_id?: string | null
+          category_source?: string
           created_at?: string
           created_by?: string | null
           effective_from?: string
@@ -7391,7 +7394,9 @@ export type Database = {
           archived_at: string | null
           created_at: string
           created_by: string | null
+          derived_from_service_types: string[]
           id: string
+          is_fallback: boolean
           key: string
           label: string
           module: Database["public"]["Enums"]["fulfillment_service"]
@@ -7403,7 +7408,9 @@ export type Database = {
           archived_at?: string | null
           created_at?: string
           created_by?: string | null
+          derived_from_service_types?: string[]
           id?: string
+          is_fallback?: boolean
           key: string
           label: string
           module: Database["public"]["Enums"]["fulfillment_service"]
@@ -7415,7 +7422,9 @@ export type Database = {
           archived_at?: string | null
           created_at?: string
           created_by?: string | null
+          derived_from_service_types?: string[]
           id?: string
+          is_fallback?: boolean
           key?: string
           label?: string
           module?: Database["public"]["Enums"]["fulfillment_service"]
@@ -14272,6 +14281,10 @@ export type Database = {
         Args: { p_agency: string; p_departments: string[] }
         Returns: string[]
       }
+      derive_engagement_category: {
+        Args: { p_engagement: string }
+        Returns: string
+      }
       dev_seed_user: {
         Args: { p_email: string; p_full_name: string; p_password: string }
         Returns: string
@@ -14364,6 +14377,10 @@ export type Database = {
           division: string
           status: string
         }[]
+      }
+      follow_automatic_placement: {
+        Args: { p_engagement: string }
+        Returns: string
       }
       fulfillment_department_key: {
         Args: { p_department: string }
@@ -15029,6 +15046,10 @@ export type Database = {
           source: string
           subscribed: boolean
         }[]
+      }
+      refresh_engagement_categories: {
+        Args: { p_group?: string }
+        Returns: undefined
       }
       release_payroll: { Args: { p_cutoff: string }; Returns: string }
       render_document: {

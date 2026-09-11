@@ -69,6 +69,12 @@ export interface OpsPartner {
   contactEmail?: string;
   /** Contract reference for outsourcing partners. */
   contractRef?: string;
+  /** The live engagement this row represents, and where it is filed. Set for
+   *  live records; absent on the demo fixtures, which have no engagements. */
+  engagementId?: string;
+  operationalCategoryId?: string | null;
+  /** `manual` once BES has deliberately moved it (0304). */
+  categorySource?: "auto" | "manual";
   /**
    * Lifecycle. `Suspended` stops portal access without touching a record;
    * `Archived` drops the partner out of active views and keeps every trace of

@@ -16,6 +16,7 @@ import { requireSupabase } from "@/lib/supabase/client";
 import type { OpsPartner } from "@/lib/fulfillment/ops-client-domain";
 import {
   besMayFulfil,
+  liveEngagementFor,
   type FulfillmentEngagement,
   type FulfillmentService,
 } from "@/lib/data/fulfillment-engagements";
@@ -88,6 +89,7 @@ export function partnerForOrganization(
   o: Organization,
   engagements: FulfillmentEngagement[],
 ): OpsPartner {
+  const engagement = liveEngagementFor(engagements, o.id, SERVICE_FOR[product]);
   return {
     id: `org-${o.id}`,
     name: o.name,
@@ -105,6 +107,9 @@ export function partnerForOrganization(
         ? "fundingops_users"
         : "creditops_users",
     scopeId: o.id,
+    engagementId: engagement?.id,
+    operationalCategoryId: engagement?.operationalCategoryId ?? null,
+    categorySource: engagement?.categorySource,
     mode: "saas_pulled",
     contactName: o.principal.name,
     contactEmail: o.principal.email,
@@ -118,8 +123,19 @@ export function buildPartners(
   groups: GroupRow[],
   engagements: FulfillmentEngagement[],
 ): OpsPartner[] {
+  /**
+   * An organization is in this division's ACTIVE workspace only while BES
+   * holds a live engagement to fulfil this service for them — the same rule
+   * the partners below already follow (Dee, 2026-09-11).
+   *
+   * This is what removed CREDITOPS USERS: an entitlement means they BOUGHT the
+   * product, not that BES is working it, and an operations sidebar is a list of
+   * work in progress. It takes nothing away from them — every organization
+   * stays in the customer administration surfaces, which read the whole table
+   * and are untouched by this.
+   */
   const managed: OpsPartner[] = organizations
-    .filter((o) => o.entitlements.some((e) => e.key === product && e.enabled))
+    .filter((o) => besMayFulfil(engagements, o.id, SERVICE_FOR[product]))
     .map((o) => partnerForOrganization(product, o, engagements));
 
   /**
@@ -144,17 +160,25 @@ export function buildPartners(
    */
   const outsourced: OpsPartner[] = groups
     .filter((g) => !g.archived_at && besMayFulfil(engagements, g.id, SERVICE_FOR[product]))
-    .map((g) => ({
+    .map((g) => {
+      const engagement = liveEngagementFor(engagements, g.id, SERVICE_FOR[product]);
+      return {
     id: `grp-${g.id}`,
     name: g.name,
+    /* Kept for the demo fixtures and the FundingOps tree. CreditOps groups by
+       the engagement's category now, not by what kind of record this is. */
     group: "outsourcing",
     scopeId: g.id,
+    engagementId: engagement?.id,
+    operationalCategoryId: engagement?.operationalCategoryId ?? null,
+    categorySource: engagement?.categorySource,
     mode: "outsourcing_only",
     contactName: g.partner_name,
     contactEmail: g.contact_email,
     contractRef: g.contract_ref ?? undefined,
     status: asStatus(g.status),
-  }));
+      } satisfies OpsPartner;
+    });
 
   return [...managed, ...outsourced];
 }

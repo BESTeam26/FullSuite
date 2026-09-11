@@ -149,3 +149,114 @@ describe("leaving the operating list is not being deleted", () => {
     expect(back[0].id).toBe(paused[0].id);
   });
 });
+
+/* ────────────────────────────────────────────────────────────────────────── *
+ * Operational categories (0301-0304).
+ *
+ * The category is how an ACTIVE engagement is filed inside its module. It is
+ * derived from the service relationship, overridable by hand, and completely
+ * separate from SaaS tenancy — which is the invariant most of these lock.
+ * ────────────────────────────────────────────────────────────────────────── */
+const MANAGED = "cat-managed-ops";
+const OUTSOURCED = "cat-outsourcing";
+
+describe("an account carries the engagement it is filed under", () => {
+  const kevin = group("g-k", "Kevin Hernandez");
+
+  it("carries the live engagement's id and category, so a move has something to move", () => {
+    const live = [engagement("g-k", "creditops", { operationalCategoryId: MANAGED })];
+    const [p] = buildPartners("creditOps", [], [kevin], live);
+    expect(p.engagementId).toBe("eng-g-k-creditops");
+    expect(p.operationalCategoryId).toBe(MANAGED);
+    expect(p.categorySource).toBeUndefined();
+  });
+
+  it("reports a manual placement as manual, so the interface can say so", () => {
+    const held = [
+      engagement("g-k", "creditops", { operationalCategoryId: OUTSOURCED, categorySource: "manual" }),
+    ];
+    const [p] = buildPartners("creditOps", [], [kevin], held);
+    expect(p.operationalCategoryId).toBe(OUTSOURCED);
+    expect(p.categorySource).toBe("manual");
+  });
+
+  it("15 — the same partner is filed independently in each module", () => {
+    /* One canonical partner, two engagements, two categories. Filing the
+       CreditOps one says nothing about the BES CRM one. */
+    const both = [
+      engagement("g-k", "creditops", { operationalCategoryId: MANAGED }),
+      engagement("g-k", "bes_crm", { operationalCategoryId: "cat-active-builds" }),
+    ];
+    const [credit] = buildPartners("creditOps", [], [kevin], both);
+    expect(credit.operationalCategoryId).toBe(MANAGED);
+    expect(both.filter((e) => e.service === "bes_crm")[0].operationalCategoryId).toBe("cat-active-builds");
+    expect(buildPartners("creditOps", [], [kevin], both)).toHaveLength(1);
+  });
+
+  it("16 — pausing removes it from the active workspace and keeps the category", () => {
+    const paused = [
+      engagement("g-k", "creditops", { status: "paused", operationalCategoryId: OUTSOURCED }),
+    ];
+    expect(buildPartners("creditOps", [], [kevin], paused)).toHaveLength(0);
+    /* The row is untouched: nothing about pausing edits where it is filed. */
+    expect(paused[0].operationalCategoryId).toBe(OUTSOURCED);
+  });
+
+  it("17 — reactivating restores it to the category it kept", () => {
+    const back = [
+      engagement("g-k", "creditops", { status: "active", operationalCategoryId: OUTSOURCED }),
+    ];
+    const [p] = buildPartners("creditOps", [], [kevin], back);
+    expect(p.operationalCategoryId).toBe(OUTSOURCED);
+    expect(p.scopeId).toBe("g-k");
+  });
+});
+
+describe("CREDITOPS USERS is gone, and tenancy is untouched by that", () => {
+  const entitled = {
+    id: "org-1",
+    name: "Ironwood Self-Serve",
+    status: "Active",
+    entitlements: [{ key: "creditOps", enabled: true }],
+    principal: { name: "A Person", email: "a@example.test" },
+  } as unknown as Parameters<typeof buildPartners>[1][number];
+
+  it("an organization that bought CreditOps but has no engagement is not in the workspace", () => {
+    /* An entitlement means they BOUGHT it. An operations sidebar is a list of
+       work in progress, and there is none. */
+    expect(buildPartners("creditOps", [entitled], [], [])).toHaveLength(0);
+  });
+
+  it("the same organization appears the moment BES is engaged", () => {
+    const live = [engagement("org-1", "creditops", { operationalCategoryId: MANAGED })];
+    const [p] = buildPartners("creditOps", [entitled], [], live);
+    expect(p.name).toBe("Ironwood Self-Serve");
+    expect(p.mode).toBe("saas_pulled");
+    expect(p.operationalCategoryId).toBe(MANAGED);
+  });
+
+  it("filing a tenant under Outsourcing does not stop it being a tenant", () => {
+    /* Dee's extra regression: the category is presentation of the engagement.
+       `mode` is provenance and is what says "this came from a SaaS tenant" —
+       it must not move when the category does. */
+    const moved = [
+      engagement("org-1", "creditops", { operationalCategoryId: OUTSOURCED, categorySource: "manual" }),
+    ];
+    const [p] = buildPartners("creditOps", [entitled], [], moved);
+    expect(p.operationalCategoryId).toBe(OUTSOURCED);
+    expect(p.mode).toBe("saas_pulled");
+    expect(p.scopeId).toBe("org-1");
+  });
+
+  it("and the inverse: filing an outsourced partner under Managed Ops creates no tenant", () => {
+    const partner = group("g-n", "Credit by Nainoa");
+    const moved = [
+      engagement("g-n", "creditops", { operationalCategoryId: MANAGED, categorySource: "manual" }),
+    ];
+    const [p] = buildPartners("creditOps", [], [partner], moved);
+    expect(p.operationalCategoryId).toBe(MANAGED);
+    /* Still an outsourcing-only record. No organization was invented. */
+    expect(p.mode).toBe("outsourcing_only");
+    expect(p.id).toBe("grp-g-n");
+  });
+});

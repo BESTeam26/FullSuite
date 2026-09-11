@@ -33,8 +33,11 @@ export interface FulfillmentEngagement {
   effectiveTo?: string;
   authorizedTeam?: string;
   /** Where this engagement is filed inside its module (0301). Null until the
-   *  module has a category catalogue, or until somebody files it. */
+   *  module has a category catalogue. */
   operationalCategoryId?: string;
+  /** `auto` follows the service relationship; `manual` is an override BES made
+   *  deliberately, which the derivation must never overwrite (0303/0304). */
+  categorySource?: "auto" | "manual";
 }
 
 const mapRow = (r: Row): FulfillmentEngagement => ({
@@ -48,6 +51,7 @@ const mapRow = (r: Row): FulfillmentEngagement => ({
   effectiveTo: r.effective_to ?? undefined,
   authorizedTeam: r.authorized_team ?? undefined,
   operationalCategoryId: r.operational_category_id ?? undefined,
+  categorySource: (r.category_source as "auto" | "manual" | null) ?? undefined,
 });
 
 /**
