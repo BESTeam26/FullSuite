@@ -64,7 +64,7 @@ const SUBMIT_LABEL: Record<Panel, string> = {
 };
 
 /** Dee's brand artwork. Optional: `BesSystemsMap` stands in without it. */
-const BRAND_ART = "/bes-login-panel.webp";
+const BRAND_ART = "/bes-login-panel.png";
 
 /**
  * The shape of the light the pointer carries: opaque at the centre so the
@@ -261,7 +261,7 @@ const Login = () => {
             src={BRAND_ART}
             alt=""
             aria-hidden="true"
-            className="pointer-events-none absolute inset-0 h-full w-full scale-105 object-cover object-left"
+            className="pointer-events-none absolute inset-0 h-full w-full scale-105 object-cover object-center"
             onError={() => setArtOk(false)}
           />
         ) : (
@@ -316,7 +316,7 @@ const Login = () => {
             src={BRAND_ART}
             alt=""
             aria-hidden="true"
-            className="pointer-events-none absolute inset-0 h-full w-full scale-105 object-cover object-left opacity-0 transition-opacity duration-500 ease-out group-hover:opacity-100 motion-reduce:transition-none"
+            className="pointer-events-none absolute inset-0 h-full w-full scale-105 object-cover object-center opacity-0 transition-opacity duration-500 ease-out group-hover:opacity-100 motion-reduce:transition-none"
             style={{
               WebkitMaskImage: SPOTLIGHT_MASK,
               maskImage: SPOTLIGHT_MASK,
