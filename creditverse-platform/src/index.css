@@ -310,3 +310,18 @@ summary:focus-visible,
   display: inline-block; min-width: 14rem; border-bottom: 1px solid hsl(var(--foreground) / 0.5);
   color: hsl(var(--muted-foreground)); font-size: 0.75rem; padding: 0 0.25rem; vertical-align: baseline;
 }
+
+/* The sign-in page's systems map: a highlight travelling core → module, so the
+   diagram reads as a running system rather than a logo arrangement. Long and
+   slow on purpose; the map is complete and legible with it switched off. */
+.bes-connector-flow {
+  stroke-dasharray: 26 190;
+  animation: bes-connector-flow 7s linear infinite;
+}
+@keyframes bes-connector-flow {
+  from { stroke-dashoffset: 216; }
+  to   { stroke-dashoffset: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bes-connector-flow { animation: none; stroke-opacity: 0.18; }
+}

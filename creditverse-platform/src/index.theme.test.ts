@@ -117,9 +117,13 @@ describe("custom colour utilities are defined", () => {
       if (file.endsWith(".css")) continue;
       for (const classes of classStrings(code)) {
         if (!/\btext-white\b/.test(classes)) continue;
-        /* Opacity-modified light surfaces (bg-white/10) are overlays on top of
-           something dark, not light surfaces. Only bare ones are the bug. */
-        const bare = classes.replace(/\bbg-[a-z0-9-]+\/\d+/g, "");
+        /* Opacity-modified light surfaces (bg-white/10, bg-white/[0.04]) are
+           overlays on top of something dark, not light surfaces. Only bare
+           ones are the bug. Both spellings of the alpha have to be stripped:
+           matching only `/10` and not `/[0.04]` flagged a dark sign-in card as
+           white-on-white, which is the kind of false alarm that gets a real
+           guard switched off. */
+        const bare = classes.replace(/\bbg-[a-z0-9-]+\/(?:\d+|\[[^\]]+\])/g, "");
         const hit = bare.match(LIGHT_SURFACE);
         if (hit) offenders.push(`${file.replace(SRC, "src")}: text-white on ${hit[0]}`);
       }

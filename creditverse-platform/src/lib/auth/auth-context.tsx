@@ -88,6 +88,8 @@ export interface AuthContextValue {
     password: string,
   ) => Promise<{ error: string | null }>;
   signInWithMagicLink: (email: string, redirectPath?: string) => Promise<{ error: string | null }>;
+  /** Hands off to Google. Resolves only on failure — success is a redirect. */
+  signInWithGoogle: (redirectPath?: string) => Promise<{ error: string | null }>;
   signUp: (
     email: string,
     password: string,
@@ -288,6 +290,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return { error: error?.message ?? null };
   }, []);
 
+  /**
+   * Google.
+   *
+   * AUTHENTICATION IS NOT AUTHORIZATION, and this is the place that is easiest
+   * to get wrong. Supabase creates an `auth.users` row for any Google account
+   * that completes the handshake — that is what an identity provider does, and
+   * it cannot be switched off per-provider without also breaking invitations.
+   *
+   * It grants nothing here. Every surface in this platform is gated on a
+   * MEMBERSHIP — `agency_memberships`, `org_memberships`, or a partner/client
+   * link — and row-level security asks for one on every table. A Google
+   * account nobody invited authenticates, lands on "No workspace access", and
+   * can read exactly zero rows. The account is a name at the door, not a key.
+   *
+   * The same was already true of the sign-up form; Google adds no new route in.
+   */
+  const signInWithGoogle = useCallback(async (redirectPath?: string) => {
+    if (!supabase) return { error: "Backend not configured." };
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: authCallbackUrl({ next: redirectPath }),
+        queryParams: { prompt: "select_account" },
+      },
+    });
+    return { error: error?.message ?? null };
+  }, []);
+
   const signUp = useCallback(
     async (email: string, password: string, fullName: string, options?: SignUpOptions) => {
       if (!supabase) return { error: "Backend not configured." };
@@ -375,6 +405,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         "Signed in",
       signInWithPassword,
       signInWithMagicLink,
+      signInWithGoogle,
       signUp,
       resetPassword,
       signOut,
@@ -390,6 +421,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     teamMemberships,
     signInWithPassword,
     signInWithMagicLink,
+    signInWithGoogle,
     signUp,
     resetPassword,
     signOut,
