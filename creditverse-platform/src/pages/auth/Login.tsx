@@ -39,6 +39,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PlanPicker } from "@/components/auth/PlanPicker";
 import { BesSystemsMap } from "@/components/auth/BesSystemsMap";
+import { usePointerSpotlight } from "@/components/auth/use-pointer-spotlight";
+import { BrandPanelSmoke } from "@/components/auth/BrandPanelSmoke";
 import { pickOperatorQuote } from "@/lib/brand/operator-quotes";
 import { useExternalProviders } from "@/lib/auth/use-external-providers";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -63,6 +65,16 @@ const SUBMIT_LABEL: Record<Panel, string> = {
 
 /** Dee's brand artwork. Optional: `BesSystemsMap` stands in without it. */
 const BRAND_ART = "/bes-login-panel.webp";
+
+/**
+ * The shape of the light the pointer carries: opaque at the centre so the
+ * artwork is fully clear there, feathered to nothing by 70% so there is no
+ * visible edge to the circle. `--spot-x` / `--spot-y` are written by
+ * `usePointerSpotlight`; the 50% fallback keeps it centred before the pointer
+ * has ever moved.
+ */
+const SPOTLIGHT_MASK =
+  "radial-gradient(circle 210px at var(--spot-x, 50%) var(--spot-y, 50%), #000 0%, #000 32%, transparent 70%)";
 
 /** Google's mark, in Google's colours — their brand terms require it. */
 function GoogleMark() {
@@ -162,6 +174,7 @@ const Login = () => {
      somebody is reading it is movement beside a password field. */
   const [quote] = useState(pickOperatorQuote);
   const providers = useExternalProviders();
+  const spotlight = usePointerSpotlight();
 
   useSeo({
     title: "Sign in — BES",
@@ -238,13 +251,17 @@ const Login = () => {
         panel is hidden entirely below `lg`, so nothing on a phone or for
         somebody who asked for less movement depends on it.
       */}
-      <aside className="group relative hidden overflow-hidden bg-charcoal-deep lg:flex lg:flex-col lg:justify-between lg:p-12">
+      <aside
+        ref={spotlight.ref as React.RefObject<HTMLElement>}
+        onPointerMove={spotlight.onPointerMove}
+        className="group relative hidden overflow-hidden bg-charcoal-deep lg:flex lg:flex-col lg:justify-between lg:p-12"
+      >
         {artOk ? (
           <img
             src={BRAND_ART}
             alt=""
             aria-hidden="true"
-            className="pointer-events-none absolute inset-0 h-full w-full scale-105 object-cover object-left transition-transform duration-[1200ms] ease-out group-hover:scale-[1.09] motion-reduce:transition-none motion-reduce:group-hover:scale-105"
+            className="pointer-events-none absolute inset-0 h-full w-full scale-105 object-cover object-left"
             onError={() => setArtOk(false)}
           />
         ) : (
@@ -265,7 +282,7 @@ const Login = () => {
         {/* The scrim, and the thing that lifts on hover. White type over gold
             is unreadable without it, so it never leaves entirely. */}
         <div
-          className="pointer-events-none absolute inset-0 transition-opacity duration-700 ease-out group-hover:opacity-40 motion-reduce:transition-none"
+          className="pointer-events-none absolute inset-0"
           style={{
             background:
               "linear-gradient(135deg, hsl(var(--charcoal-deep) / 0.95) 0%, hsl(var(--charcoal-deep) / 0.88) 50%, hsl(var(--charcoal-deep) / 0.95) 100%)",
@@ -278,6 +295,44 @@ const Login = () => {
           style={{
             background:
               "radial-gradient(at 25% 15%, hsl(var(--green)) 0%, transparent 55%), radial-gradient(at 75% 85%, hsl(var(--gold)) 0%, transparent 45%)",
+          }}
+        />
+
+        {/* THE SPOTLIGHT.
+            The same artwork a second time, at full brightness, masked to a
+            soft circle that follows the pointer — so what clears is the part
+            under the cursor and nothing else. Cheaper than it looks: the
+            browser has the image cached from the layer below, the circle
+            moves by two CSS variables, and React never re-renders (see
+            use-pointer-spotlight). It fades in and out with the pointer so
+            the panel is not left with a bright patch nobody is holding. */}
+        {/* Drifting light, always on — the panel is alive before anybody
+            touches it. Above the scrim so it lifts the artwork rather than
+            sitting under it. */}
+        <BrandPanelSmoke />
+
+        {artOk && (
+          <img
+            src={BRAND_ART}
+            alt=""
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 h-full w-full scale-105 object-cover object-left opacity-0 transition-opacity duration-500 ease-out group-hover:opacity-100 motion-reduce:transition-none"
+            style={{
+              WebkitMaskImage: SPOTLIGHT_MASK,
+              maskImage: SPOTLIGHT_MASK,
+            }}
+          />
+        )}
+
+        {/* A warm bloom on the same coordinates, so the revealed circle looks
+            like light catching the smoke rather than a hole cut in it. Wider
+            and much softer than the reveal, which is what stops the mask
+            having a visible edge. */}
+        <div
+          className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 ease-out group-hover:opacity-100 motion-reduce:transition-none"
+          style={{
+            background:
+              "radial-gradient(circle 340px at var(--spot-x, 50%) var(--spot-y, 50%), hsl(var(--gold) / 0.22) 0%, hsl(var(--gold) / 0.08) 38%, transparent 72%)",
           }}
         />
 

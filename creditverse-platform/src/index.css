@@ -325,3 +325,34 @@ summary:focus-visible,
 @media (prefers-reduced-motion: reduce) {
   .bes-connector-flow { animation: none; stroke-opacity: 0.18; }
 }
+
+/* ── Sign-in panel atmosphere ───────────────────────────────────────────────
+   Slow luminous drift over the darkened brand artwork — the "smoke" Dee
+   asked for. Three blobs on different periods and different paths, so they
+   never line up into an obvious loop, and long enough (30-52s) that the
+   movement is felt rather than watched next to a password field.
+   Transform-only, so each blob is composited and nothing relayouts. */
+@keyframes bes-drift-a {
+  0%   { transform: translate3d(-12%, -6%, 0) scale(1);    }
+  50%  { transform: translate3d(14%, 10%, 0)  scale(1.25); }
+  100% { transform: translate3d(-12%, -6%, 0) scale(1);    }
+}
+@keyframes bes-drift-b {
+  0%   { transform: translate3d(18%, 14%, 0)  scale(1.15); }
+  50%  { transform: translate3d(-10%, -12%, 0) scale(0.95); }
+  100% { transform: translate3d(18%, 14%, 0)  scale(1.15); }
+}
+@keyframes bes-drift-c {
+  0%   { transform: translate3d(-8%, 18%, 0)  scale(1.05); }
+  50%  { transform: translate3d(12%, -14%, 0) scale(1.35); }
+  100% { transform: translate3d(-8%, 18%, 0)  scale(1.05); }
+}
+.bes-smoke-a { animation: bes-drift-a 34s ease-in-out infinite; }
+.bes-smoke-b { animation: bes-drift-b 46s ease-in-out infinite; }
+.bes-smoke-c { animation: bes-drift-c 52s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .bes-smoke-a,
+  .bes-smoke-b,
+  .bes-smoke-c { animation: none; }
+}
