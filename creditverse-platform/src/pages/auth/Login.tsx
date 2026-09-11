@@ -62,7 +62,7 @@ const SUBMIT_LABEL: Record<Panel, string> = {
 };
 
 /** Dee's brand artwork. Optional: `BesSystemsMap` stands in without it. */
-const BRAND_ART = "/bes-login-panel.png";
+const BRAND_ART = "/bes-login-panel.webp";
 
 /** Google's mark, in Google's colours — their brand terms require it. */
 function GoogleMark() {
@@ -223,13 +223,28 @@ const Login = () => {
   return (
     <div className="min-h-screen bg-background lg:grid lg:grid-cols-2">
       {/* ── The brand half ────────────────────────────────────────────── */}
-      <aside className="relative hidden overflow-hidden bg-charcoal-deep lg:flex lg:flex-col lg:justify-between lg:p-12">
+      {/*
+        The layer stack is Dee's, carried over from the Company Hub: artwork,
+        vignette, heavy scrim, faint brand tint, then the type. The artwork is
+        meant to be felt rather than looked at — at rest the scrim holds it at
+        the edge of visible so the quote is the only thing with contrast.
+        `object-left` keeps the gold half in frame: the artwork is 16:9 and
+        this panel is portrait, so centring it would crop to the seam.
+
+        The reveal is the one addition. Hovering the panel lifts the scrim and
+        eases the artwork up a few percent, over most of a second — slow enough
+        to read as the picture surfacing rather than a state flipping. It is
+        decoration on a decoration: `motion-reduce` holds both still, and the
+        panel is hidden entirely below `lg`, so nothing on a phone or for
+        somebody who asked for less movement depends on it.
+      */}
+      <aside className="group relative hidden overflow-hidden bg-charcoal-deep lg:flex lg:flex-col lg:justify-between lg:p-12">
         {artOk ? (
           <img
             src={BRAND_ART}
             alt=""
             aria-hidden="true"
-            className="pointer-events-none absolute inset-0 h-full w-full object-cover object-center"
+            className="pointer-events-none absolute inset-0 h-full w-full scale-105 object-cover object-left transition-transform duration-[1200ms] ease-out group-hover:scale-[1.09] motion-reduce:transition-none motion-reduce:group-hover:scale-105"
             onError={() => setArtOk(false)}
           />
         ) : (
@@ -237,23 +252,51 @@ const Login = () => {
             <BesSystemsMap className="h-full w-full text-white opacity-40" />
           </div>
         )}
-        {/* White type over artwork needs this, whatever the artwork is. */}
-        <div className="pointer-events-none absolute inset-0 bg-charcoal-deep/[0.72]" />
 
-        <div className="relative">
-          <BrandMark tone="dark" />
+        {/* Vignette: pulls the eye to the centre, where the quote sits. */}
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(520px, transparent 0%, transparent 45%, hsl(var(--charcoal-deep) / 0.55) 78%, hsl(var(--charcoal-deep) / 0.92) 100%)",
+          }}
+        />
+
+        {/* The scrim, and the thing that lifts on hover. White type over gold
+            is unreadable without it, so it never leaves entirely. */}
+        <div
+          className="pointer-events-none absolute inset-0 transition-opacity duration-700 ease-out group-hover:opacity-40 motion-reduce:transition-none"
+          style={{
+            background:
+              "linear-gradient(135deg, hsl(var(--charcoal-deep) / 0.95) 0%, hsl(var(--charcoal-deep) / 0.88) 50%, hsl(var(--charcoal-deep) / 0.95) 100%)",
+          }}
+        />
+
+        {/* BES green and gold, at a level you would only notice if it went. */}
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.07]"
+          style={{
+            background:
+              "radial-gradient(at 25% 15%, hsl(var(--green)) 0%, transparent 55%), radial-gradient(at 75% 85%, hsl(var(--gold)) 0%, transparent 45%)",
+          }}
+        />
+
+        <div className="relative z-10">
+          <span className="drop-shadow-[0_1px_6px_rgba(0,0,0,0.85)]">
+            <BrandMark tone="dark" />
+          </span>
         </div>
 
-        <div className="relative mx-auto max-w-lg px-4 text-center">
-          <blockquote className="text-[26px] font-medium italic leading-snug text-white/90">
+        <div className="relative z-10 mx-auto max-w-md px-6 text-center">
+          <blockquote className="text-[17px] font-medium italic leading-relaxed text-white/85 drop-shadow-[0_1px_8px_rgba(0,0,0,0.6)]">
             “{quote}”
           </blockquote>
-          <p className="mt-8 text-[11px] font-semibold uppercase tracking-[0.42em] text-white/40">
+          <p className="mt-7 text-[10px] font-semibold uppercase tracking-[0.42em] text-white/45 drop-shadow-[0_1px_6px_rgba(0,0,0,0.85)] transition-colors duration-700 group-hover:text-white/80">
             Process · Systems · People
           </p>
         </div>
 
-        <p className="relative flex items-center gap-2 text-[11px] text-white/35">
+        <p className="relative z-10 flex items-center gap-2 text-[11px] text-white/35 drop-shadow-[0_1px_6px_rgba(0,0,0,0.85)] transition-colors duration-700 group-hover:text-white/70">
           <ShieldCheck className="h-3.5 w-3.5" />
           Protected enterprise access
         </p>
