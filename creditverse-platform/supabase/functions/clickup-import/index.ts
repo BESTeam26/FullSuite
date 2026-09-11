@@ -205,10 +205,28 @@ Deno.serve(async (req) => {
           label: c.provider === "CFPB" ? "CFPB complaint portal" : "Credit monitoring",
           username: c.username, secret: c.secret, url: null,
         })),
-        notes: noteComments.map((n) => ({
-          source_id: n.id, author: n.author, at: n.at,
-          text: scrubSecrets(n.text, secretValues),
-        })),
+        /* The CARD ITSELF, kept whole and scrubbed — the same discipline the
+           partner card import used in 0263/0264. Parsing lifts the fields we
+           know how to store; it cannot know that "SWEEP", "OPEN ACCOUNTS /
+           CAPITAL ONE AUTO" or "RD/WE/AVENUE" matter to whoever works the
+           file. Throwing away the text because the parser found no field in
+           it is exactly the loss Dee objected to. */
+        notes: [
+          ...(description.trim()
+            ? [{
+                source_id: `task:${brief.id}:description`,
+                author: (task.creator as { username?: string })?.username ?? "ClickUp",
+                at: task.date_created
+                  ? new Date(Number(task.date_created)).toISOString()
+                  : new Date().toISOString(),
+                text: scrubSecrets(description, secretValues),
+              }]
+            : []),
+          ...noteComments.map((n) => ({
+            source_id: n.id, author: n.author, at: n.at,
+            text: scrubSecrets(n.text, secretValues),
+          })),
+        ],
         address_history: addressHistory,
       };
 
