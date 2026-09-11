@@ -37,6 +37,7 @@ import {
   type EmailConflictState,
 } from "./EmailConflictBanner";
 import { cn } from "@/lib/utils";
+import { formatDate } from "@/lib/format-date";
 import { OpsSelect } from "@/components/ui/ops-select";
 
 /** The store operations the table needs, supplied by the owning division. */
@@ -412,7 +413,38 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
           onConfirmCrossPartner={confirmCrossPartnerEmail}
         />
       )}
-      <div className="overflow-x-auto rounded-xl border border-border">
+      {/* Phones: the same clients as cards — name, partner, status, due,
+          assignee — tap to open (Dee's mobile standard §17). The inline
+          editors stay on the table, which is a tablet/desktop surface. */}
+      <ul className="space-y-2 md:hidden">
+        {clients.map((c) => (
+          <li key={c.id}>
+            <button type="button" onClick={() => onOpenClient(c.id)}
+              className="w-full rounded-xl border border-border bg-card p-3 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-foreground">{c.name}</p>
+                  <p className="truncate text-xs text-muted-foreground">{c.outsourcingGroupName ?? c.organizationName ?? "—"}</p>
+                </div>
+                <span className="shrink-0">{renderStatusPill(c.status)}</span>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                {c.dueAt && <span>Due {formatDate(c.dueAt)}</span>}
+                <span>{c.assignedAgent ? `Assigned to ${c.assignedAgent}` : "Unassigned"}</span>
+                {typeof c.slaHoursRemaining === "number" && (
+                  <span className={c.slaHoursRemaining <= slaWarningHours ? "font-medium text-status-danger" : ""}>
+                    SLA {c.slaHoursRemaining}h
+                  </span>
+                )}
+              </div>
+            </button>
+          </li>
+        ))}
+        {clients.length === 0 && (
+          <li className="rounded-xl border border-dashed border-border p-6 text-center text-xs text-muted-foreground">No clients in this list.</li>
+        )}
+      </ul>
+      <div className="hidden overflow-x-auto rounded-xl border border-border md:block">
         <table className="w-full text-sm">
           <thead className="bg-muted/50">
             <tr>

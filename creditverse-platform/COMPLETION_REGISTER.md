@@ -1888,3 +1888,57 @@ any people screen.
 `payroll.manage` (managers and leads see Time & Pay without pay). The Teams
 page title remains "Team Workspace" since it carries the team's work as well
 as the structure.
+
+### Mobile usability standard — P0 responsive pass — 2026-09-10
+
+**Dee's standard (§1–§71): same data, same security, same workflow,
+different presentation.** One application; no mobile routes, tables or
+components duplicated. Structural fixes at the shared primitives first,
+page-specific cards only where a P0 list needed them.
+
+**Shell.** Top bar on phones: menu · HQ badge · search icon (opens its own
+full-width row) · notifications · overflow menu (Ask Lina, Add Organization
+/ New Client, My account) · avatar; every control keeps its desktop action
+and authorization. Sidebar was already a drawer under `lg`. Page shell
+stacks heading and actions on phones so a description never squeezes beside
+a button (§9), and pads for the device safe area. Dialog primitive is a
+bottom sheet on phones (max 92dvh, scrolls inside, safe-area padding) and
+the centered dialog from `sm` (§32) — every dialog inherits it. Tabs
+primitive scrolls horizontally instead of wrapping (§33).
+
+**Lists → cards under `md`, table from `md` up.** `DivisionTable` (My Work
+queues, My Active Work Items, My Time entries, and every other page using
+it) renders the same rows as cards with the first column as title and the
+rest as labelled lines (§10, §48). Team Members directory: cards with name,
+role · profile, position, division · department · teams, since, Open
+profile (§11). CreditOps Main Client List: cards with client, partner,
+status, due, assignee, SLA — tap opens; the inline editors stay on the
+tablet/desktop table (§17).
+
+**CreditOps client work.** Sticky client context was already compact (name,
+partner, status, round, due, department). Complete Work actions are a two-
+column grid on phones; handoff targets are 2-per-row touch chips with a
+check mark so selection is not colour-only (§15–§16).
+
+**Communication.** Phone shows the channel list OR the conversation, with
+an "All conversations" back row; tablet and up keep both panes (§26).
+
+**Audit at 375 / 390 / 430 / 768 / 1440 (browser, as the owner):** no
+document-level horizontal overflow on `/app`, CreditOps dashboard, client
+view, My Work, My Time, EOD, Team EOD, BES CRM board and project, Channels,
+Notifications, Team Members, Team Member profile. Desktop and tablet
+unchanged where they were dense on purpose.
+
+**Classification.** MOBILE READY (owner-verified presentation): shell,
+Team Members, profile, My Work, CreditOps queue and client view, Complete
+Work, handoffs, Timer, EOD, Team EOD, BES CRM board and project,
+Communication, Notifications. **Persona flows §54–§58 (agent, CRM agent,
+team lead, admin invite, communication as a real user) are UNTESTED LIVE** —
+no authenticatable fixture personas exist by design (§60); the pilot's real
+operators are the test. Zero DESKTOP-ONLY BLOCKERS found for the agent
+workflow. Non-P0 findings recorded as D-008.
+
+**Verified:** tsc, eslint (0 errors), 1,576 unit tests, build. No schema or
+policy change. Automated responsive checks (§59) beyond the unit suite are
+not added — a browser-level overflow audit script is the manual pass above;
+recorded as a follow-up in D-008 rather than built during P0.

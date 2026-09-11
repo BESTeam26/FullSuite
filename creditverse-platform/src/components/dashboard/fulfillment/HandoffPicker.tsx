@@ -67,7 +67,7 @@ export function HandoffPicker({ from, rows, selected, onChange, disabled }: {
         your own department; finish that separately when you are done.
       </p>
 
-      <div className="mt-1.5 flex flex-wrap gap-1.5">
+      <div className="mt-1.5 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
         {targets.map((d) => {
           const isSelected = selected.includes(d);
           const current = openNow(d);
@@ -80,7 +80,7 @@ export function HandoffPicker({ from, rows, selected, onChange, disabled }: {
               onClick={() => toggle(d)}
               aria-pressed={isSelected}
               className={cn(
-                "rounded-lg border px-2.5 py-1.5 text-left text-xs transition-colors",
+                "flex min-h-11 items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs transition-colors",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
                 isSelected
                   ? "border-primary bg-primary text-primary-foreground"
@@ -88,10 +88,16 @@ export function HandoffPicker({ from, rows, selected, onChange, disabled }: {
                 disabled && "cursor-not-allowed opacity-60",
               )}
             >
-              <span className="block font-medium">{TITLE[d]}</span>
-              <span className={cn("block text-[10px]",
-                isSelected ? "text-primary-foreground/80" : "text-muted-foreground")}>
-                {busy ? `already ${current?.status}` : current ? current.status : "not open"}
+              <span className={cn("flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px]",
+                isSelected ? "border-primary-foreground bg-primary-foreground text-primary" : "border-border bg-background text-transparent")} aria-hidden>
+                ✓
+              </span>
+              <span className="min-w-0">
+                <span className="block font-medium">{TITLE[d]}</span>
+                <span className={cn("block text-[10px]",
+                  isSelected ? "text-primary-foreground/80" : "text-muted-foreground")}>
+                  {busy ? `already ${current?.status}` : current ? current.status : "not open"}
+                </span>
               </span>
             </button>
           );

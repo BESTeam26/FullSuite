@@ -64,17 +64,21 @@ export const HqPageShell = ({
   /** Page-level controls, shown beside the heading. */
   actions?: ReactNode;
 }) => (
-  <div className="p-6">
+  <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:p-6">
     <div className="mx-auto max-w-6xl">
-      <div className="mb-6 flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-          <Icon className="h-5 w-5" />
+      {/* Phones: heading first, actions on their own row underneath — the
+          description never squeezes into a strip beside a button (Dee §9). */}
+      <div className="mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-start">
+        <div className="flex min-w-0 flex-1 items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <Icon className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl font-bold text-foreground">{title}</h1>
+            <p className="text-sm text-muted-foreground">{description}</p>
+          </div>
         </div>
-        <div className="min-w-0 flex-1">
-          <h1 className="text-xl font-bold text-foreground">{title}</h1>
-          <p className="text-sm text-muted-foreground">{description}</p>
-        </div>
-        {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+        {actions && <div className="flex flex-wrap items-center gap-2 sm:shrink-0">{actions}</div>}
       </div>
       {children}
     </div>

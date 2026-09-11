@@ -36,6 +36,7 @@ import { useSearchParams } from "react-router-dom";
 import {
   Archive, ArchiveRestore, Hash, Loader2, Lock, Plus, Search, Settings2,
   ShieldAlert, Users, X,
+  ArrowLeft,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -113,7 +114,9 @@ export default function Channels() {
 
   return (
     <div className="mx-auto flex h-[calc(100vh-4rem)] max-w-[1600px] flex-col gap-4 p-4 md:flex-row md:p-6">
-      <aside className="flex w-full shrink-0 flex-col md:w-72">
+      {/* Phone: the list OR the conversation, never both squeezed side by side
+          (Dee's mobile standard §26). Tablet and up: the two panes. */}
+      <aside className={cn("w-full shrink-0 flex-col md:flex md:w-72", current ? "hidden" : "flex")}>
         <div className="mb-3 flex items-center justify-between gap-2">
           <h1 className="text-sm font-bold text-foreground">Communication</h1>
           {canCreate && (
@@ -187,7 +190,13 @@ export default function Channels() {
         </div>
       </aside>
 
-      <section className="flex min-h-0 flex-1 flex-col rounded-xl border border-border bg-card">
+      <section className={cn("min-h-0 flex-1 flex-col rounded-xl border border-border bg-card md:flex", current ? "flex" : "hidden")}>
+        {current && (
+          <button type="button" onClick={() => setOpenId(null)}
+            className="flex h-11 items-center gap-1.5 border-b border-border px-3 text-sm font-medium text-foreground md:hidden">
+            <ArrowLeft className="h-4 w-4" /> All conversations
+          </button>
+        )}
         {!current ? (
           <p className="p-6 text-sm text-muted-foreground">Pick a conversation.</p>
         ) : current.auditOnly ? (

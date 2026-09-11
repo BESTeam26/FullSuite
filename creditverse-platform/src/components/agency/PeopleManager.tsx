@@ -119,7 +119,34 @@ export function PeopleManager() {
         ) : active.length === 0 ? (
           <Empty title={needle ? "Nobody matches" : "No staff visible to you"} />
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <ul className="space-y-2 md:hidden">
+            {active.map((m) => {
+              const place = placeOf(m.userId);
+              return (
+                <li key={m.membershipId} className="rounded-xl border border-border bg-card p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <Link to={`/app/people/${m.userId}`} className="block truncate text-sm font-semibold text-foreground hover:underline">{m.name}</Link>
+                      <p className="truncate text-xs text-muted-foreground">{memberAccessLabel(m.role, m.accessProfile)}{m.jobTitle ? ` · ${m.jobTitle}` : ""}</p>
+                    </div>
+                    <Pill tone={running.has(m.userId) ? "border-status-success/40 bg-status-success/10 text-foreground" : "border-border bg-muted text-foreground"}>
+                      {running.has(m.userId) ? "Clocked in" : "Active"}
+                    </Pill>
+                  </div>
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    {[place.division, place.department].filter(Boolean).join(" · ") || "No division yet"}
+                    {(teamsOf.get(m.userId) ?? []).length > 0 && <> · {(teamsOf.get(m.userId) ?? []).map((t) => t.name + (t.isLead ? " (lead)" : "")).join(", ")}</>}
+                  </p>
+                  <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Since {formatDate(m.since)}</span>
+                    <Link to={`/app/people/${m.userId}`} className="inline-flex h-9 items-center rounded-lg border border-border px-3 font-medium text-foreground hover:bg-muted">Open profile</Link>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[36rem] text-left text-sm">
               <thead>
                 <tr className="border-b border-border/60 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
@@ -240,6 +267,7 @@ export function PeopleManager() {
               </tbody>
             </table>
           </div>
+          </>
         )}
 
         <p className="mt-3 text-[11px] text-muted-foreground">

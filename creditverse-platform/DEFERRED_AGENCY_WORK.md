@@ -358,3 +358,29 @@ VALID without being NEXT": an architecture/feature expansion outside P0 that
 was built because it was asked for, kept because it shipped coherently, and
 the reason the rule now reads: new non-P0 request → classify → document →
 defer, unless it is a security or data-integrity issue.
+
+## D-008 · Non-P0 mobile findings (from the 2026-09-10 responsive pass)
+
+Recorded per Dee's mobile standard §62: found during the P0 mobile audit,
+outside the pilot's P0 surfaces, not blocking the operational shell.
+
+1. **FundingOps client list and deal tables** use `OpsClientListTable` /
+   `FundingDealListPanel` / `RecordTable`: the shared client list now has
+   phone cards, the deal and record tables do not. FundingOps is paused.
+2. **Agency Settings sections** (Roles & Permissions matrix, Organization
+   Teams roster, GHL bridge cards, Documents editor's side-by-side picker)
+   are usable but dense at 375; the Documents editor stacks its preview but
+   the field picker column could become a bottom sheet.
+3. **Partner portal** (`/partner`) is single-column already; the onboarding
+   form's three-column address row should stack under 375. Portal is frozen
+   (D-007).
+4. **Finance / Payroll panel** tables (payslips, FX rates) render through
+   their own tables, not `DivisionTable`; phone cards not built. Finance is
+   deferred.
+5. **Org chart** is a wide canvas by nature; horizontal scroll inside its
+   own container is deliberate and should stay.
+6. **Sticky stack on the CreditOps client view**: partner header + "CreditOps
+   Space" bar + module tabs + client Back row all scroll away except the tab
+   strip, but on a 812-tall phone the first screen is chrome-heavy. A collapsed
+   partner header under `md` would give the first screen to the client.
+7. **View As** stays off the phone header (deferred D-001 anyway).

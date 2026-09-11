@@ -1,4 +1,5 @@
 import { useState, type ReactNode, type ElementType } from "react";
+import { Fragment } from "react";
 import { cn } from "@/lib/utils";
 
 /* ------------------------------------------------------------------ */
@@ -49,6 +50,15 @@ export const StatCard = ({
   </div>
 );
 
+/**
+ * The one operational table (Dee's mobile standard §10, §48).
+ *
+ * Desktop and tablet keep the dense table. Under `md` the SAME rows render
+ * as cards: the first column is the card's title, every other column a
+ * labelled line, so nothing is hidden and nothing scrolls sideways. Pages
+ * pass the same `columns` and `rows` either way — the presentation adapts,
+ * the data does not change.
+ */
 export const DivisionTable = ({
   columns,
   rows,
@@ -59,43 +69,71 @@ export const DivisionTable = ({
   /** Index of the row a deep link points at; highlighted, still readable. */
   activeRow?: number;
 }) => (
-  <div className="overflow-x-auto rounded-xl border border-border">
-    <table className="w-full text-sm">
-      <thead className="bg-muted/50">
-        <tr>
-          {columns.map((col) => (
-            <th
-              key={col}
-              className="px-4 py-2.5 text-left font-medium text-muted-foreground whitespace-nowrap"
-            >
-              {col}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody className="divide-y divide-border">
-        {rows.map((row, i) => (
-          <tr
-            key={i}
-            aria-current={activeRow === i ? "true" : undefined}
-            className={cn(
-              "transition-colors hover:bg-muted/30",
-              activeRow === i && "bg-primary/5 shadow-[inset_3px_0_0_0_hsl(var(--primary))]",
-            )}
-          >
-            {row.map((cell, j) => (
-              <td
-                key={j}
-                className="px-4 py-2.5 text-foreground whitespace-nowrap"
+  <>
+    <div className="hidden overflow-x-auto rounded-xl border border-border md:block">
+      <table className="w-full text-sm">
+        <thead className="bg-muted/50">
+          <tr>
+            {columns.map((col) => (
+              <th
+                key={col}
+                className="px-4 py-2.5 text-left font-medium text-muted-foreground whitespace-nowrap"
               >
-                {cell}
-              </td>
+                {col}
+              </th>
             ))}
           </tr>
-        ))}
-      </tbody>
-    </table>
-  </div>
+        </thead>
+        <tbody className="divide-y divide-border">
+          {rows.map((row, i) => (
+            <tr
+              key={i}
+              aria-current={activeRow === i ? "true" : undefined}
+              className={cn(
+                "transition-colors hover:bg-muted/30",
+                activeRow === i && "bg-primary/5 shadow-[inset_3px_0_0_0_hsl(var(--primary))]",
+              )}
+            >
+              {row.map((cell, j) => (
+                <td
+                  key={j}
+                  className="px-4 py-2.5 text-foreground whitespace-nowrap"
+                >
+                  {cell}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <ul className="space-y-2 md:hidden">
+      {rows.map((row, i) => (
+        <li
+          key={i}
+          aria-current={activeRow === i ? "true" : undefined}
+          className={cn(
+            "rounded-xl border border-border bg-card p-3 text-sm",
+            activeRow === i && "border-primary/50 bg-primary/5",
+          )}
+        >
+          <div className="min-w-0 break-words font-semibold text-foreground">{row[0]}</div>
+          <dl className="mt-2 grid grid-cols-[minmax(0,7rem)_minmax(0,1fr)] gap-x-3 gap-y-1">
+            {row.slice(1).map((cell, j) =>
+              cell === null || cell === undefined || cell === "" || columns[j + 1] === "" ? (
+                cell ? <div key={j} className="col-span-2 flex justify-end">{cell}</div> : null
+              ) : (
+                <Fragment key={j}>
+                  <dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{columns[j + 1]}</dt>
+                  <dd className="min-w-0 break-words text-foreground">{cell}</dd>
+                </Fragment>
+              ),
+            )}
+          </dl>
+        </li>
+      ))}
+    </ul>
+  </>
 );
 
 export const ContentCard = ({
