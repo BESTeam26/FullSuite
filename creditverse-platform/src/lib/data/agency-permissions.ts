@@ -103,6 +103,8 @@ export interface AgencyMemberAccess {
   role: string;
   /** The preset an Agency User starts from; null for admins. */
   accessProfile: string | null;
+  /** The agency owner. Owner-gated capabilities (money) are theirs by right. */
+  isOwner: boolean;
   /** Only the deliberate exceptions. Absent means "whatever the role says". */
   overrides: Record<string, boolean>;
 }
@@ -115,7 +117,7 @@ export async function fetchAgencyAccess(agencyId: string): Promise<AgencyMemberA
        staff, and All Access was toggled on one of them — which both wrote
        overrides nobody wanted and broke what phase 56 measures. */
     sb.from("agency_memberships")
-      .select("id, user_id, role, access_profile, profiles:profiles!agency_memberships_user_id_fkey!inner(id, full_name, email, is_fixture)")
+      .select("id, user_id, role, access_profile, is_owner, profiles:profiles!agency_memberships_user_id_fkey!inner(id, full_name, email, is_fixture)")
       .eq("agency_id", agencyId)
       .eq("profiles.is_fixture", false),
     sb.from("agency_member_permissions").select("membership_id, key, allowed"),
@@ -140,6 +142,7 @@ export async function fetchAgencyAccess(agencyId: string): Promise<AgencyMemberA
       email: p?.email ?? "",
       role: row.role as string,
       accessProfile: (row.access_profile as string) ?? null,
+      isOwner: row.is_owner === true,
       overrides: byMembership.get(row.id as string) ?? {},
     };
   }).sort((a, b) => a.name.localeCompare(b.name));
@@ -172,6 +175,11 @@ export interface PermissionKeyRow {
   description: string | null;
   securityRelevant: boolean;
   sort: number;
+  /**
+   * Money. Being an agency admin does NOT confer it — only the owner holds it,
+   * or somebody the owner has explicitly granted it (0299).
+   */
+  ownerGated: boolean;
 }
 
 /**
@@ -189,7 +197,7 @@ export async function fetchPermissionCatalogue(): Promise<{
   const sb = requireSupabase();
   const [keys, defaults, profiles] = await Promise.all([
     sb.from("permission_keys")
-      .select("key, module, label, description, security_relevant, sort")
+      .select("key, module, label, description, security_relevant, sort, owner_gated")
       .in("key", AGENCY_PERMISSIONS as unknown as string[])
       .order("sort"),
     sb.from("agency_role_permissions").select("agency_id, role, key, allowed"),
@@ -230,6 +238,7 @@ export async function fetchPermissionCatalogue(): Promise<{
         key: r.key as string, module: r.module as string, label: r.label as string,
         description: (r.description as string) ?? null,
         securityRelevant: Boolean(r.security_relevant),
+        ownerGated: r.owner_gated === true,
         sort: Number(r.sort ?? 0),
       };
     }),
@@ -258,7 +267,7 @@ export async function fetchPermissionCatalogue(): Promise<{
  * its source is explained (§19). The database decides what anybody receives,
  * and it re-checks every time.
  */
-export type PermissionSource = "role" | "granted" | "denied" | "profile" | "profile_denied" | "default";
+export type PermissionSource = "role" | "granted" | "denied" | "profile" | "profile_denied" | "default" | "owner" | "owner_only";
 
 export function effectiveAgencyPermission(
   role: string,
@@ -267,7 +276,19 @@ export function effectiveAgencyPermission(
   roleDefaults: Record<string, Record<string, boolean>>,
   profile?: string | null,
   profileDefaults?: ProfileDefaults,
+  /** Owner-gated keys and whether this person is the owner (0299). */
+  gate?: { ownerGated: boolean; isOwner: boolean },
 ): { allowed: boolean; source: PermissionSource } {
+  /* Money is decided BEFORE the admin shortcut, exactly as the database
+     resolver decides it — the two must agree or the screen lies about who can
+     see the books. */
+  if (gate?.ownerGated) {
+    if (gate.isOwner) return { allowed: true, source: "owner" };
+    if (key in overrides) {
+      return { allowed: overrides[key], source: overrides[key] ? "granted" : "denied" };
+    }
+    return { allowed: false, source: "owner_only" };
+  }
   if (role === "agency_owner" || role === "agency_admin") return { allowed: true, source: "role" };
   if (key in overrides) {
     return { allowed: overrides[key], source: overrides[key] ? "granted" : "denied" };
@@ -288,6 +309,8 @@ export function describePermissionSource(source: PermissionSource, profileLabel?
     case "denied": return "Custom denial";
     case "profile": return `${profileLabel ?? "Profile"} default`;
     case "profile_denied": return `Withheld by the ${profileLabel ?? "profile"} default`;
+    case "owner": return "Held by the agency owner";
+    case "owner_only": return "Owner only — not granted";
     default: return "Not granted";
   }
 }

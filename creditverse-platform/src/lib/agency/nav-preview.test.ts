@@ -96,3 +96,25 @@ describe("an Agency Admin", () => {
     }
   });
 });
+
+/* Money is owner-gated (0299). The menu must follow the capability, not the
+   admin role — an admin without the grant sees neither money surface, and a
+   plain Agency User the owner HAS granted sees both without being promoted. */
+describe("money in the menu", () => {
+  it("is absent for someone who holds every other capability but not the money one", () => {
+    const menu = labels(ctx([
+      "creditops.clients.view", "partners.view", "reports.view", "ops.manage", "team.manage",
+    ], true));
+    expect(menu).not.toContain("Finance");
+    expect(menu).not.toContain("Organization billing");
+  });
+
+  it("appears for a granted billing specialist who is only an Agency User", () => {
+    const menu = labels(ctx(["finance.dashboard.view"]));
+    expect(menu).toContain("Finance");
+    expect(menu).toContain("Organization billing");
+    /* And the grant buys money, not management. */
+    expect(menu).not.toContain("Team Members");
+    expect(menu).not.toContain("Reports");
+  });
+});

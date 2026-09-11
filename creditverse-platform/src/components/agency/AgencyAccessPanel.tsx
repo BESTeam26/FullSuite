@@ -123,6 +123,13 @@ export function AgencyAccessPanel({ lockedUserId }: { lockedUserId?: string } = 
     return [...byModule.entries()];
   }, [catalogue.data]);
 
+  /* The owner-gated keys, pulled out of their modules so the owner can find
+     them without expanding an admin's full capability list. */
+  const moneyKeys = useMemo(
+    () => (catalogue.data?.keys ?? []).filter((k) => k.ownerGated),
+    [catalogue.data],
+  );
+
   if (!isAdmin) {
     /* Not "you are not allowed to see this" — the panel is simply not part of
        the page for anybody else (Dee: if they don't have access, do not show
@@ -147,6 +154,10 @@ export function AgencyAccessPanel({ lockedUserId }: { lockedUserId?: string } = 
   const person = locked ?? ((access.data ?? []).find((p) => p.membershipId === selected) ?? null);
   const roleDefaults = catalogue.data?.roleDefaults ?? {};
   const roleHoldsEverything = person?.role === "agency_owner" || person?.role === "agency_admin";
+  /* Money is the owner's to hand out (0299). The database refuses anybody
+     else outright; the switch is disabled here so the refusal is visible
+     before it is provoked, never as the security itself (rule 1). */
+  const viewerIsOwner = auth.agencyMembership?.is_owner === true;
 
   const overrideCount = person ? Object.keys(person.overrides).length : 0;
   /* Changing a profile is only a question when there is something to lose. */
@@ -360,6 +371,48 @@ export function AgencyAccessPanel({ lockedUserId }: { lockedUserId?: string } = 
               </div>
             )}
 
+            {/* An admin's capability list is collapsed by default because the
+                role answers for all of it — except the money rows, which the
+                role no longer answers for. Those are surfaced above it. */}
+            {roleHoldsEverything && !showAdminDetail && moneyKeys.length > 0 && (
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Money</p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">
+                  {person.isOwner
+                    ? "Held by the agency owner."
+                    : viewerIsOwner
+                      ? "Administrators do not get these with their role. Switch one on to give this person access."
+                      : "Only the agency owner can grant these."}
+                </p>
+                <ul className="mt-2 divide-y divide-border/50 rounded-lg border border-border bg-card">
+                  {moneyKeys.map((k) => {
+                    const state = effectiveAgencyPermission(
+                      person.role, k.key, person.overrides, roleDefaults,
+                      person.accessProfile, catalogue.data?.profileDefaults,
+                      { ownerGated: true, isOwner: person.isOwner });
+                    return (
+                      <li key={k.key} className="flex items-start justify-between gap-3 px-3 py-2">
+                        <span className="min-w-0">
+                          <span className="block text-sm font-medium text-foreground">{k.label}</span>
+                          <span className="block text-[11px] text-muted-foreground">
+                            {state.allowed ? "On" : "Off"} · {describePermissionSource(state.source)}
+                          </span>
+                        </span>
+                        <Switch
+                          checked={state.allowed}
+                          disabled={!viewerIsOwner || person.isOwner || change.isPending}
+                          aria-label={`${k.label} for ${person.name}`}
+                          onCheckedChange={(on) => change.mutate({
+                            membershipId: person.membershipId, key: k.key, allowed: on,
+                          })}
+                        />
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+
             <div className={cn("space-y-3", roleHoldsEverything && !showAdminDetail && "hidden")}>
               {grouped.map(([module, keys]) => (
                 <div key={module}>
@@ -368,7 +421,13 @@ export function AgencyAccessPanel({ lockedUserId }: { lockedUserId?: string } = 
                     {keys.map((k) => {
                       const state = effectiveAgencyPermission(
                         person.role, k.key, person.overrides, roleDefaults,
-                        person.accessProfile, catalogue.data?.profileDefaults);
+                        person.accessProfile, catalogue.data?.profileDefaults,
+                        { ownerGated: k.ownerGated, isOwner: person.isOwner });
+                      /* An owner-gated row stays live even for an admin —
+                         withholding money from admins is the whole point, so
+                         "the role holds everything" must not grey it out. */
+                      const lockedByRole = roleHoldsEverything && !k.ownerGated;
+                      const lockedByOwnership = k.ownerGated && (!viewerIsOwner || person.isOwner);
                       const profileLabel = person.accessProfile
                         ? ACCESS_PROFILE_LABELS[person.accessProfile as keyof typeof ACCESS_PROFILE_LABELS]
                         : undefined;
@@ -379,6 +438,9 @@ export function AgencyAccessPanel({ lockedUserId }: { lockedUserId?: string } = 
                               {k.label}
                               {k.securityRelevant && (
                                 <Pill tone="border-amber-500/40 bg-amber-500/10 text-amber-800">sensitive</Pill>
+                              )}
+                              {k.ownerGated && (
+                                <Pill tone="border-primary/40 bg-primary/10 text-foreground">owner grants this</Pill>
                               )}
                               {state.source === "granted" && (
                                 <Pill tone="border-emerald-500/30 bg-emerald-500/10 text-emerald-700">granted to them</Pill>
@@ -397,7 +459,7 @@ export function AgencyAccessPanel({ lockedUserId }: { lockedUserId?: string } = 
                             </span>
                           </span>
                           <span className="flex shrink-0 items-center gap-2">
-                            {(state.source === "granted" || state.source === "denied") && !roleHoldsEverything && (
+                            {(state.source === "granted" || state.source === "denied") && !lockedByRole && !lockedByOwnership && (
                               <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px]"
                                 onClick={() => change.mutate({
                                   membershipId: person.membershipId, key: k.key, allowed: null,
@@ -407,7 +469,7 @@ export function AgencyAccessPanel({ lockedUserId }: { lockedUserId?: string } = 
                             )}
                             <Switch
                               checked={state.allowed}
-                              disabled={roleHoldsEverything || change.isPending}
+                              disabled={lockedByRole || lockedByOwnership || change.isPending}
                               aria-label={`${k.label} for ${person.name}`}
                               onCheckedChange={(on) => change.mutate({
                                 membershipId: person.membershipId, key: k.key, allowed: on,

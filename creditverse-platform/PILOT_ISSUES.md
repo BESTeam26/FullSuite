@@ -32,9 +32,86 @@ operator who hit it does.
 
 | ID | Date | Reported by | Module | Actual | Expected | Class | Sev | Root cause | Fix commit | Live verified by | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| P-004 | 2026-09-11 | Dee | Access / Finance | Bryan and every agency admin could open **Finance** and **Organization billing**, and read payroll data | Money is the owner's alone, and the owner can switch it on for one person (e.g. a billing specialist) | **C security / data-integrity** | S1 — agency financials exposed to all administrators | `resolve_agency_capability` opened with `role in ('agency_owner','agency_admin') then true`, so an admin resolved TRUE for every capability including money, and no override could take it back | `f0b2e7c` | — | **FIXED AWAITING LIVE RETEST** |
+| P-005 | 2026-09-11 | Phase 70 probe, during the pilot | My Time / Timer | One real time entry (Dee's, 2026-09-11) carried the retired division `general`, two days after it was renamed to `admin` | Only the six live divisions are storable | A pilot defect | S2 — splits division totals on My Time, EOD and production reporting | `time_entries.division_id` is TEXT with no constraint, so a browser tab running the pre-rename bundle kept writing the old value | `f0b2e7c` | — | **FIXED AWAITING LIVE RETEST** |
 | P-002 | 2026-09-11 | Dee (and Bryan Breva, first real invited user) | Invite Users / Login | After choosing a password, the page looked unchanged — only a small green line appeared inside the still-complete form. Bryan then wandered to `/app` and hit **"No workspace access"** | A clear "we sent you a confirmation email" state that says what to do next | A pilot defect | S1 — the first real invited user believed activation had failed | Sign-up sets a `notice` string rendered as one `text-xs` line between the password field and the button; the form stays fully visible, so nothing reads as progress | `18999b8` | — | **FIXED AWAITING LIVE RETEST** |
 | P-003 | 2026-09-11 | Dee | Invite Users / Login | The internal team invitation used generic copy and the platform tagline ("Credit + Funding Operations. One Connected Platform.") | BES's own branding and voice for internal team members, distinct from the partner emails | B pilot UX correction | S3 | The `isTeam` invitation shared a generic branch with customer-organization invites; only the two partner branches carried Dee's verbatim branded copy | `18999b8` | — | **FIXED AWAITING LIVE RETEST** |
 | P-001 | 2026-09-10 | Dee | Invite Users / Login | The activation email from `noreply@bescrm.net` landed in Gmail **Spam** | It reaches the inbox so a new team member can activate | A pilot defect | S1 — blocks the Invite Users P0 flow | See below | Partial (`reply_to`); the fix is DNS + `APP_ORIGINS` | — | **OPEN — awaiting Dee's DNS change** |
+
+### P-004 · Finance was visible to every agency admin
+
+**The flaw was one line.** `resolve_agency_capability` began:
+
+```sql
+when m.role in ('agency_owner', 'agency_admin') then true
+```
+
+Every capability, money included, and an override could not claw it back. All
+four real BES staff are administrators, so all four could open Finance. The
+profile defaults were already correct (`finance.dashboard.view` is `false` for
+manager, team lead, agent and custom) — they were simply never consulted for an
+admin.
+
+**The rule now.** `permission_keys.owner_gated` marks a capability as money.
+For those keys the admin shortcut does not apply:
+
+> allowed = the person is the agency **owner**, or the owner has **explicitly
+> granted** it to them.
+
+Gated today: `finance.dashboard.view`, `expenses.view`, `expenses.manage`,
+`payroll.view`, `payroll.manage`. It is a column, not a hardcoded list, so
+gating another capability later is one `UPDATE`.
+
+**Why this protects data and not just the menu.** Every money table already
+asks `agency_can(...)` in its RLS — `payslips`, `payroll_cutoffs`,
+`member_pay_rates`, `fx_rates`. Fixing the resolver therefore closes the data
+path; the menu change merely stops offering a door that is already locked
+(rule 1). Verified live: all three non-owner admins now read **zero** rows from
+`member_pay_rates`, and the owner reads them.
+
+**The gate has no handle on the inside.** `set_agency_permission` and
+`clear_agency_permission` now refuse a gated key unless the caller is the
+owner, so an administrator cannot grant themselves what they were just denied.
+The old guard that refused *any* override on an admin was relaxed for gated
+keys only — every real BES staff member is an admin, so without that the
+feature would be unusable by exactly the people it exists for.
+
+**Also gated:** `/app/billing` (Organization billing), on Dee's follow-up. Both
+money surfaces now follow one switch, "Financial dashboard", and both moved
+from `access: "admin"` to `access: "user"` so a granted billing specialist
+reaches them without being promoted to administrator.
+
+**Found on the way:** `resolve_agency_capability` never checked
+`status = 'active'`. Every policy pairs it with `is_staff_of()`, which does
+check, so nothing was exposed — but a resolver that answers TRUE for a
+deactivated person is a trap for the next caller who forgets the pairing. Now
+checked, and probed.
+
+**Probes:** ten in phase 37 — owner holds money, admin does not, admin keeps
+everything that is not money, admin cannot READ payslip rows, owner can, a
+grant reaches exactly one person and one key, an admin cannot grant or
+withdraw money, a granted Agency User gets money without management, and a
+deactivated member holds nothing. Two in the menu tests. Phases 37, 48, 67, 70
+all green.
+
+**Probes corrected, not fixtures:** eleven payroll and currency probes ran as
+an admin and asserted payroll *mechanics*. That assumption is now wrong, so
+they run as the owner — the rule changed, so the tests follow the rule. The
+refusal probes keep their own subjects, and phase 37 asserts the admin's
+refusal explicitly, so none of them passes merely because everybody is denied.
+
+### P-005 · A retired division came back through a stale tab
+
+Phase 70's own probe caught it in production: one entry saying `general`, made
+two days after 0283 renamed it to `admin`. `division_id` is TEXT with no
+constraint, so a browser tab still running the old bundle kept writing a value
+the current interface cannot offer — splitting the division totals for whoever
+had that tab open.
+
+Fixed at the database, where a stale client cannot argue: the row was
+normalised, a trigger maps `general` → `admin` on the way in (a person's hours
+are not the place to lose data over a cache), and a CHECK closes the set to the
+six live divisions.
 
 ### P-002 · Sign-up gave no visible sign that anything happened
 

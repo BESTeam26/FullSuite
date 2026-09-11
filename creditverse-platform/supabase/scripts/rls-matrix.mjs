@@ -1693,6 +1693,51 @@ if (runs(37)) {
        TRANSFERRED from the owner's own account, never mailed. The old probes
        invited "agents" and mailed ownership — both rules are gone, so the
        probes follow the rules rather than the memory of them. */
+    /* ── Money is owner-gated (0299, Dee 2026-09-11) ──────────────────────
+       An agency ADMIN resolved true for every capability, so every admin
+       could open Finance and read payslips. Money keys now ignore the admin
+       shortcut: the owner holds them, or the owner grants them. These probes
+       assert the DATA boundary, not the menu. */
+    ["the agency owner still holds the money capabilities",
+      () => w37(OWNER, `select (public.agency_can('finance.dashboard.view') and public.agency_can('payroll.view') and public.agency_can('payroll.manage'))::text as rows`), "true"],
+    ["an agency ADMIN does not — the role no longer confers money",
+      () => w37(ADMIN, `select (public.agency_can('finance.dashboard.view') or public.agency_can('payroll.view') or public.agency_can('payroll.manage') or public.agency_can('expenses.view') or public.agency_can('expenses.manage'))::text as rows`), "false"],
+    ["…and the admin still holds everything that is not money",
+      () => w37(ADMIN, `select (public.agency_can('partners.view') and public.agency_can('team.manage') and public.agency_can('ops.manage'))::text as rows`), "true"],
+    ["an admin cannot READ payslips, not merely fail to see the menu",
+      () => w37(ADMIN, `set local role postgres;
+        insert into public.member_pay_rates (agency_id, user_id, rate_type, rate_cents, currency, effective_from)
+          values ((select agency_id from public.agency_memberships limit 1), '${AGENT}', 'hourly', 5000, 'USD', current_date - 10);
+        set local role authenticated; set local request.jwt.claims = '{"sub":"${ADMIN}","role":"authenticated"}';
+        select count(*)::int as rows from public.member_pay_rates`), 0],
+    ["…while the owner can",
+      () => w37(OWNER, `set local role postgres;
+        insert into public.member_pay_rates (agency_id, user_id, rate_type, rate_cents, currency, effective_from)
+          values ((select agency_id from public.agency_memberships limit 1), '${AGENT}', 'hourly', 5000, 'USD', current_date - 10);
+        set local role authenticated; set local request.jwt.claims = '{"sub":"${OWNER}","role":"authenticated"}';
+        select (count(*) > 0)::text as rows from public.member_pay_rates`), "true"],
+    ["the owner grants money to one person, and only that person gains it",
+      () => w37(OWNER, `select public.set_agency_permission(
+          (select id from public.agency_memberships where user_id = '${ADMIN}'), 'finance.dashboard.view', true, 'billing specialist');
+        set local request.jwt.claims = '{"sub":"${ADMIN}","role":"authenticated"}';
+        select (public.agency_can('finance.dashboard.view') and not public.agency_can('payroll.view'))::text as rows`), "true"],
+    ["an ADMIN cannot grant money to themselves — the gate has no handle inside",
+      () => w37(ADMIN, `select public.set_agency_permission(
+          (select id from public.agency_memberships where user_id = '${ADMIN}'), 'finance.dashboard.view', true, 'self') as rows`), "ERR 42501"],
+    ["…nor withdraw it from anybody",
+      () => w37(ADMIN, `select public.clear_agency_permission(
+          (select id from public.agency_memberships where user_id = '${AGENT}'), 'payroll.view') as rows`), "ERR 42501"],
+    ["a granted Agency User reaches money without being made an admin",
+      () => w37(OWNER, `select public.set_agency_permission(
+          (select id from public.agency_memberships where user_id = '${AGENT}'), 'payroll.view', true, 'billing specialist');
+        set local request.jwt.claims = '{"sub":"${AGENT}","role":"authenticated"}';
+        select (public.agency_can('payroll.view') and not public.agency_can('ops.manage'))::text as rows`), "true"],
+    ["a deactivated member holds no capability at all, money or otherwise",
+      () => w37(OWNER, `set local role postgres;
+        update public.agency_memberships set status = 'inactive' where user_id = '${AGENT}';
+        set local role authenticated; set local request.jwt.claims = '{"sub":"${AGENT}","role":"authenticated"}';
+        select (public.agency_can('creditops.clients.view') or public.agency_can('payroll.view'))::text as rows`), "false"],
+
     ["a BES owner invites an Agency User",                      () => w37(OWNER, `${INVITE('agency_user')}; select count(*)::int as rows from public.invitations where kind='agency' and email='probe.teammate@bes.test'`), 1],
     ["a BES admin may invite too",                              () => w37(ADMIN, `${INVITE('agency_user')}; select count(*)::int as rows from public.invitations where kind='agency' and email='probe.teammate@bes.test'`), 1],
     ["an Agency User may not invite",                           () => w37(AGENT, INVITE('agency_user')), "ERR 42501"],
@@ -6364,6 +6409,12 @@ if (runs(70)) {
         ADM70 = U["bes.admin@bes.test"], FUND70 = U["bes.funding@bes.test"];
   const AG70 = q(`select agency_id::text as rows from public.agency_memberships limit 1`)[0].rows;
   const TEAM_A70 = q(`select coalesce((select id::text from public.teams where name='[TEST] Team A'),'') as rows`)[0].rows;
+  /* Money is owner-gated since 0299: an agency ADMIN no longer holds payroll,
+     so the probes about payroll MECHANICS run as the owner, who does. The
+     probes about who is REFUSED keep their own subjects — and phase 37 now
+     asserts the admin's refusal explicitly, so nothing here passes merely
+     because everybody is denied. */
+  const PAY70 = U["bes.owner@bes.test"];
 
   const P70 = [
     /* ── schedules: stated by management, seen by the right eyes ───────── */
@@ -6473,7 +6524,7 @@ if (runs(70)) {
       () => p70(AGENT70, `select public.set_member_pay_rate('${AGENT70}', 'hourly', 1500) as rows`), "ERR 42501"],
 
     ["a lead sees no colleague's rate",
-      () => p70(ADM70, `select public.set_member_pay_rate('${AGENT70}', 'hourly', 1500);
+      () => p70(PAY70, `select public.set_member_pay_rate('${AGENT70}', 'hourly', 1500);
         set local request.jwt.claims = '{"sub":"${LEAD70}","role":"authenticated"}';
         select count(*)::int as rows from public.member_pay_rates where user_id = '${AGENT70}'`), 0],
 
@@ -6481,9 +6532,9 @@ if (runs(70)) {
        that RELEASES must have a rate for every pair present — otherwise it is
        testing the release path and failing on somebody else's currency. */
     ["generate computes work + paid leave, and release writes the expense",
-      () => p70(ADM70, `select public.set_payroll_settings(false, 15, 25, 10, 5, 'America/New_York', 'USD');
+      () => p70(PAY70, `select public.set_payroll_settings(false, 15, 25, 10, 5, 'America/New_York', 'USD');
         insert into public.fx_rates (agency_id, base_currency, quote_currency, rate, source, effective_from, set_by)
-          values ('${AG70}', 'PHP', 'USD', 0.01750000, 'paypal_actual', current_date - 365, '${ADM70}')
+          values ('${AG70}', 'PHP', 'USD', 0.01750000, 'paypal_actual', current_date - 365, '${PAY70}')
           on conflict do nothing;
         select public.set_member_pay_rate('${AGENT70}', 'hourly', 1500, 'USD', current_date - 30);
         insert into public.payroll_cutoffs (agency_id, period_start, period_end) values ('${AG70}', current_date + 100, current_date + 113);
@@ -6493,9 +6544,9 @@ if (runs(70)) {
               + (select count(*) from public.payroll_cutoffs where status = 'released' and expense_id is not null))::int as rows`), 2],
 
     ["…and a released cutoff refuses regeneration",
-      () => p70(ADM70, `select public.set_payroll_settings(false, 15, 25, 10, 5, 'America/New_York', 'USD');
+      () => p70(PAY70, `select public.set_payroll_settings(false, 15, 25, 10, 5, 'America/New_York', 'USD');
         insert into public.fx_rates (agency_id, base_currency, quote_currency, rate, source, effective_from, set_by)
-          values ('${AG70}', 'PHP', 'USD', 0.01750000, 'paypal_actual', current_date - 365, '${ADM70}')
+          values ('${AG70}', 'PHP', 'USD', 0.01750000, 'paypal_actual', current_date - 365, '${PAY70}')
           on conflict do nothing;
         select public.set_member_pay_rate('${AGENT70}', 'hourly', 1500, 'USD', current_date - 30);
         insert into public.payroll_cutoffs (agency_id, period_start, period_end) values ('${AG70}', current_date + 100, current_date + 113);
@@ -6505,14 +6556,14 @@ if (runs(70)) {
 
     /* Dee's rule (0256): hours face the agent, MONEY faces admin only. */
     ["an agent sees no payslip at all — not even their own",
-      () => p70(ADM70, `select public.set_member_pay_rate('${AGENT70}', 'hourly', 1500, 'USD', current_date - 30);
+      () => p70(PAY70, `select public.set_member_pay_rate('${AGENT70}', 'hourly', 1500, 'USD', current_date - 30);
         insert into public.payroll_cutoffs (agency_id, period_start, period_end) values ('${AG70}', current_date + 100, current_date + 113);
         select public.generate_payroll((select id from public.payroll_cutoffs where period_start = current_date + 100));
         set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
         select count(*)::int as rows from public.payslips`), 0],
 
     ["…and no rate — not even their own",
-      () => p70(ADM70, `select public.set_member_pay_rate('${AGENT70}', 'hourly', 1500, 'USD', current_date - 30);
+      () => p70(PAY70, `select public.set_member_pay_rate('${AGENT70}', 'hourly', 1500, 'USD', current_date - 30);
         set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
         select count(*)::int as rows from public.member_pay_rates`), 0],
     /* ── automation (0255): the cutoff runs itself, deterministically ──── */
@@ -6520,7 +6571,7 @@ if (runs(70)) {
       () => p70(AGENT70, `select public.set_payroll_settings(true, 15, 25, 10, 5, 'UTC') as rows`), "ERR 42501"],
 
     ["the sweep creates ONE cutoff with Dee's payday math, however often it runs",
-      () => p70(ADM70, `set local role postgres;
+      () => p70(PAY70, `set local role postgres;
         update public.payroll_settings set enabled = true, split_day = 15, payday_first = 25, payday_second = 10, verify_window_days = 5, timezone = 'UTC';
         insert into public.member_pay_rates (agency_id, user_id, rate_type, rate_cents, currency, effective_from)
           values ('${AG70}', '${AGENT70}', 'hourly', 1500, 'USD', current_date - 90);
@@ -6557,14 +6608,14 @@ if (runs(70)) {
           now() - interval '2 days' + interval '3 hours', 'I stopped earlier than recorded') is not null)::text as rows`), "true"],
 
     ["an approved adjustment recomputes the draft payslips by itself",
-      () => p70(ADM70, `set local role postgres;
+      () => p70(PAY70, `set local role postgres;
         insert into public.member_pay_rates (agency_id, user_id, rate_type, rate_cents, currency, effective_from)
           values ('${AG70}', '${AGENT70}', 'hourly', 6000, 'USD', current_date - 90);
         select set_config('bes.time_system', '1', true);
         insert into public.time_entries (agency_id, employee_id, division_id, work_date, started_at, ended_at)
           values ('${AG70}', '${AGENT70}', 'creditops', current_date - 2, now() - interval '50 hours', now() - interval '46 hours');
         select set_config('bes.time_system', '', true);
-        set local role authenticated; set local request.jwt.claims = '{"sub":"${ADM70}","role":"authenticated"}';
+        set local role authenticated; set local request.jwt.claims = '{"sub":"${PAY70}","role":"authenticated"}';
         insert into public.payroll_cutoffs (agency_id, period_start, period_end)
           values ('${AG70}', current_date - 8, current_date - 1);
         select public.generate_payroll((select id from public.payroll_cutoffs limit 1));
@@ -6574,7 +6625,7 @@ if (runs(70)) {
           now() - interval '48 hours', 'Stopped two hours earlier than recorded')::text, true);
         set local request.jwt.claims = '{"sub":"${LEAD70}","role":"authenticated"}';
         select public.decide_time_adjustment(current_setting('probe.adj')::uuid, true);
-        set local request.jwt.claims = '{"sub":"${ADM70}","role":"authenticated"}';
+        set local request.jwt.claims = '{"sub":"${PAY70}","role":"authenticated"}';
         select work_minutes as rows from public.payslips where user_id = '${AGENT70}'`), 120],
 
     /* ── member documents (0273): HR paper is a capability, never staff status ── */
@@ -6805,52 +6856,52 @@ if (runs(70)) {
 
     /* ── currency conversion (0276–0279): a rate is data, and money is deliberate ── */
     ["recording an exchange rate needs the payroll permission",
-      () => p70(ADM70, `set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
+      () => p70(PAY70, `set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
         insert into public.fx_rates (agency_id, base_currency, quote_currency, rate, source, effective_from, set_by)
         values ('${AG70}', 'PHP', 'USD', 0.0175, 'paypal_actual', current_date, '${AGENT70}'); select 1 as rows`), "ERR 42501"],
     ["…and any staff member may READ one — a market rate is nobody's salary",
-      () => p70(ADM70, `insert into public.fx_rates (agency_id, base_currency, quote_currency, rate, source, effective_from, set_by)
-        values ('${AG70}', 'PHP', 'USD', 0.0175, 'paypal_actual', current_date, '${ADM70}');
+      () => p70(PAY70, `insert into public.fx_rates (agency_id, base_currency, quote_currency, rate, source, effective_from, set_by)
+        values ('${AG70}', 'PHP', 'USD', 0.0175, 'paypal_actual', current_date, '${PAY70}');
         set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
         select count(*)::int as rows from public.fx_rates where base_currency='PHP'`), 1],
     ["a rate is history — no update and no delete grant exists",
       () => q(`select count(*)::int as rows from pg_policy where polrelid='public.fx_rates'::regclass and polcmd in ('w','d')`)[0].rows, 0],
     ["the resolver reads the latest rate at or before the date, never a later one",
-      () => p70(ADM70, `insert into public.fx_rates (agency_id, base_currency, quote_currency, rate, source, effective_from, set_by) values
-          ('${AG70}', 'PHP', 'USD', 0.01700000, 'paypal_actual', '2026-01-01', '${ADM70}'),
-          ('${AG70}', 'PHP', 'USD', 0.01900000, 'paypal_actual', '2026-12-01', '${ADM70}');
+      () => p70(PAY70, `insert into public.fx_rates (agency_id, base_currency, quote_currency, rate, source, effective_from, set_by) values
+          ('${AG70}', 'PHP', 'USD', 0.01700000, 'paypal_actual', '2026-01-01', '${PAY70}'),
+          ('${AG70}', 'PHP', 'USD', 0.01900000, 'paypal_actual', '2026-12-01', '${PAY70}');
         select public.fx_rate_for('${AG70}', 'PHP', 'USD', '2026-06-15')::text as rows`), "0.01700000"],
     ["…the same currency is one, without a row",
-      () => p70(ADM70, `select public.fx_rate_for('${AG70}', 'USD', 'USD', current_date)::text as rows`), "1"],
+      () => p70(PAY70, `select public.fx_rate_for('${AG70}', 'USD', 'USD', current_date)::text as rows`), "1"],
     ["…and an unrecorded pair is NULL, never 1 — a missing rate must stop a conversion",
-      () => p70(ADM70, `select coalesce(public.fx_rate_for('${AG70}', 'JPY', 'USD', current_date)::text, 'null') as rows`), "null"],
+      () => p70(PAY70, `select coalesce(public.fx_rate_for('${AG70}', 'JPY', 'USD', current_date)::text, 'null') as rows`), "null"],
     ["a payslip freezes its rate: a later rate does not rewrite it",
-      () => p70(ADM70, `insert into public.fx_rates (agency_id, base_currency, quote_currency, rate, source, effective_from, set_by)
-          values ('${AG70}', 'PHP', 'USD', 0.01750000, 'paypal_actual', '2026-01-01', '${ADM70}');
+      () => p70(PAY70, `insert into public.fx_rates (agency_id, base_currency, quote_currency, rate, source, effective_from, set_by)
+          values ('${AG70}', 'PHP', 'USD', 0.01750000, 'paypal_actual', '2026-01-01', '${PAY70}');
         select public.set_payroll_settings(false, 15, 25, 10, 5, 'America/New_York', 'USD');
         select public.set_member_pay_rate('${AGENT70}', 'per_cutoff', 100000, 'PHP');
         insert into public.payroll_cutoffs (id, agency_id, period_start, period_end, payday, created_by)
-          values ('44444444-0000-4000-8000-0000000000fc'::uuid, '${AG70}', current_date - 7, current_date, current_date + 10, '${ADM70}');
+          values ('44444444-0000-4000-8000-0000000000fc'::uuid, '${AG70}', current_date - 7, current_date, current_date + 10, '${PAY70}');
         select public.generate_payroll('44444444-0000-4000-8000-0000000000fc'::uuid);
         insert into public.fx_rates (agency_id, base_currency, quote_currency, rate, source, effective_from, set_by)
-          values ('${AG70}', 'PHP', 'USD', 0.99000000, 'paypal_actual', current_date, '${ADM70}');
+          values ('${AG70}', 'PHP', 'USD', 0.99000000, 'paypal_actual', current_date, '${PAY70}');
         select fx_rate::text as rows from public.payslips
          where cutoff_id='44444444-0000-4000-8000-0000000000fc' and user_id='${AGENT70}'`), "0.01750000"],
     ["…and the payout is the gross at that frozen rate",
-      () => p70(ADM70, `insert into public.fx_rates (agency_id, base_currency, quote_currency, rate, source, effective_from, set_by)
-          values ('${AG70}', 'PHP', 'USD', 0.02000000, 'paypal_actual', '2026-01-01', '${ADM70}');
+      () => p70(PAY70, `insert into public.fx_rates (agency_id, base_currency, quote_currency, rate, source, effective_from, set_by)
+          values ('${AG70}', 'PHP', 'USD', 0.02000000, 'paypal_actual', '2026-01-01', '${PAY70}');
         select public.set_payroll_settings(false, 15, 25, 10, 5, 'America/New_York', 'USD');
         select public.set_member_pay_rate('${AGENT70}', 'per_cutoff', 100000, 'PHP');
         insert into public.payroll_cutoffs (id, agency_id, period_start, period_end, payday, created_by)
-          values ('44444444-0000-4000-8000-0000000000fd'::uuid, '${AG70}', current_date - 7, current_date, current_date + 10, '${ADM70}');
+          values ('44444444-0000-4000-8000-0000000000fd'::uuid, '${AG70}', current_date - 7, current_date, current_date + 10, '${PAY70}');
         select public.generate_payroll('44444444-0000-4000-8000-0000000000fd'::uuid);
         select payout_cents as rows from public.payslips
          where cutoff_id='44444444-0000-4000-8000-0000000000fd' and user_id='${AGENT70}'`), 2000],
     ["release refuses while any payslip has no rate, and names the pair",
-      () => p70(ADM70, `select public.set_payroll_settings(false, 15, 25, 10, 5, 'America/New_York', 'PHP');
+      () => p70(PAY70, `select public.set_payroll_settings(false, 15, 25, 10, 5, 'America/New_York', 'PHP');
         select public.set_member_pay_rate('${AGENT70}', 'per_cutoff', 100000, 'USD');
         insert into public.payroll_cutoffs (id, agency_id, period_start, period_end, payday, created_by)
-          values ('44444444-0000-4000-8000-0000000000fe'::uuid, '${AG70}', current_date - 7, current_date, current_date + 10, '${ADM70}');
+          values ('44444444-0000-4000-8000-0000000000fe'::uuid, '${AG70}', current_date - 7, current_date, current_date + 10, '${PAY70}');
         select public.generate_payroll('44444444-0000-4000-8000-0000000000fe'::uuid);
         select public.release_payroll('44444444-0000-4000-8000-0000000000fe'::uuid)`), "ERR 22023"],
   ];

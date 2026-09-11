@@ -9794,6 +9794,7 @@ export type Database = {
           module: string
           security_relevant: boolean
           sort: number
+          owner_gated: boolean
         }
         Insert: {
           description?: string | null
@@ -9802,6 +9803,7 @@ export type Database = {
           module: string
           security_relevant?: boolean
           sort?: number
+          owner_gated?: boolean
         }
         Update: {
           description?: string | null
@@ -9810,6 +9812,7 @@ export type Database = {
           module?: string
           security_relevant?: boolean
           sort?: number
+          owner_gated?: boolean
         }
         Relationships: []
       }

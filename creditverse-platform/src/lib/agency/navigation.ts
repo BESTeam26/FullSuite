@@ -124,8 +124,16 @@ export const AGENCY_ROUTES: AgencyRouteSpec[] = [
   /* The agency's own money: what partners owe BES and what BES pays out.
      Separate from "Organization billing", which is SaaS subscription metering
      for customers — a different revenue stream and a different question. */
-  { key: "finance", label: "Finance", path: "/app/finance", readiness: "ready", access: "admin", permission: "finance.dashboard.view" },
-  { key: "billing", label: "Organization billing", path: "/app/billing", readiness: "ready", access: "admin" },
+  /* Money is owner-gated (0299): `finance.dashboard.view` is false for an
+     admin unless the owner granted it, and true for a granted billing
+     specialist who is only an Agency User — so the ROLE gate has to step out
+     of the way and let the capability decide, exactly as the module keys do. */
+  { key: "finance", label: "Finance", path: "/app/finance", readiness: "ready", access: "user", permission: "finance.dashboard.view" },
+  /* Agency-wide money, so it follows the same owner-gated capability as
+     Finance (0299, Dee 2026-09-11: "same with Finance, I don't want this
+     automatically shown to all admin unless I allow them"). One switch —
+     "Financial dashboard" — governs both surfaces. */
+  { key: "billing", label: "Organization billing", path: "/app/billing", readiness: "ready", access: "user", permission: "finance.dashboard.view" },
   { key: "compliance", label: "Compliance & Legal", path: "/app/compliance", readiness: "ready", access: "admin" },
   { key: "settings", label: "Agency Settings", path: "/app/settings", readiness: "ready", access: "admin" },
   { key: "support", label: "Support", path: "/app/support", readiness: "ready", access: "admin" },
