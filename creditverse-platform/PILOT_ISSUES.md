@@ -99,10 +99,16 @@ reacting to, in order of weight:
 3. **`noreply@` with no Reply-To.** A sender that cannot be replied to is a
    small negative signal on top of the two above.
 
-**Fixed in code (partial):** `sendEmail` now sets `reply_to` when
-`MAIL_REPLY_TO` is present in the function environment, and omits the header
-when it is not — no address nobody reads. Deployed to `send-invitation`,
-`send-welcome`, `send-signature-request`. This addresses (3) only.
+**Fixed in code and configured (partial):** `sendEmail` takes an optional
+`replyTo`; each mailer passes `MAIL_REPLY_TO` from its own environment, and the
+header is omitted when there is none rather than pointed at an address nobody
+reads. `MAIL_REPLY_TO` is set to `support@blessedempireservices.com` (Dee,
+2026-09-11 — a monitored Gmail inbox); the three mailers were redeployed to
+pick it up. This addresses (3) only.
+
+The reply domain differs from the sending domain, which is normal and not a
+meaningful spam signal — a real reply path is worth far more than domain
+symmetry here.
 
 **The actual fix is configuration, and it is Dee's to make:** give the app a
 hostname on the sending domain (e.g. `app.bescrm.net` → Vercel), then set
