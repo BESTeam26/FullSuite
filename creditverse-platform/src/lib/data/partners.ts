@@ -41,6 +41,10 @@ export interface GroupRow {
   contact_email: string;
   contract_ref: string | null;
   status: string;
+  /** Set when the partner has been archived. Archived is not deleted: they
+   *  stay on BES Partners with all their history, and leave the operating
+   *  lists (Dee, 2026-09-11). */
+  archived_at: string | null;
 }
 
 const asStatus = (s: string): OpsPartner["status"] =>
@@ -55,7 +59,7 @@ export async function fetchOutsourcingGroups(): Promise<GroupRow[]> {
   const sb = requireSupabase();
   const { data, error } = await sb
     .from("outsourcing_groups")
-    .select("id,name,partner_name,contact_email,contract_ref,status")
+    .select("id,name,partner_name,contact_email,contract_ref,status,archived_at")
     .eq("is_fixture", false)
     .order("name");
   if (error) throw error;
@@ -118,7 +122,29 @@ export function buildPartners(
     .filter((o) => o.entitlements.some((e) => e.key === product && e.enabled))
     .map((o) => partnerForOrganization(product, o, engagements));
 
-  const outsourced: OpsPartner[] = groups.map((g) => ({
+  /**
+   * A partner belongs to a division's ACTIVE list only while BES holds a live
+   * engagement to perform that division's service for them (Dee, 2026-09-11).
+   *
+   * This used to append EVERY partner to BOTH trees unconditionally, while the
+   * organizations above it were filtered by entitlement. So a partner who
+   * bought nothing but a GHL build sat in the CreditOps queue, and pausing a
+   * CreditOps engagement changed nothing anybody could see.
+   *
+   * `besMayFulfil` is the in-memory twin of the database's `bes_may_fulfil()`,
+   * and "live" already means what Dee decided it means: active, started, and
+   * not yet ended. So paused, completed, ended and dated-out all drop out of
+   * the operating list here through the SAME definition the database
+   * authorizes with — not a second rule that could disagree with it.
+   *
+   * Nothing is deleted or hidden anywhere else. The canonical partner, its
+   * clients, projects, documents, assignments, billing and activity all stay
+   * exactly where they are, on BES Partners; only the operating queue narrows.
+   * Re-activating the engagement puts the partner back with no record remade.
+   */
+  const outsourced: OpsPartner[] = groups
+    .filter((g) => !g.archived_at && besMayFulfil(engagements, g.id, SERVICE_FOR[product]))
+    .map((g) => ({
     id: `grp-${g.id}`,
     name: g.name,
     group: "outsourcing",
