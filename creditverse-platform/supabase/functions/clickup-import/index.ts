@@ -240,7 +240,7 @@ Deno.serve(async (req) => {
         const file = await fetch(a.url, { headers: { Authorization: cuToken } });
         if (!file.ok) { summary.needsReview.push(`${payload.full_name}: could not fetch ${a.title}`); continue; }
         const bytes = new Uint8Array(await file.arrayBuffer());
-        const path = `clients/${fcId}/clickup/${a.id}-${a.title.replace(/[^\w.\-]/g, "_")}`;
+        const path = `clients/${fcId}/clickup/${a.id}-${a.title.replace(/[^\w.-]/g, "_")}`;
         const up = await admin.storage.from("bes-files").upload(path, bytes, {
           contentType: a.mimetype || "application/octet-stream", upsert: true,
         });
