@@ -1,9 +1,7 @@
 import { useState } from "react";
 import { CommunicationSection } from "@/components/settings/sections/CommunicationSection";
-import { PositionsSection } from "@/components/settings/sections/PositionsSection";
 import { DocumentsSection } from "@/components/settings/sections/DocumentsSection";
-import { OrgChart } from "@/components/agency/OrgChart";
-import { useSearchParams } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
 import {
   Building2,
   Network,
@@ -31,7 +29,6 @@ import {
   Palette,
   UserRound,
   MessagesSquare,
-  BriefcaseBusiness,
 } from "lucide-react";
 import {
   AgencySettingsProvider,
@@ -47,9 +44,7 @@ import {
   AgencyBrandingSection,
   SubAccountsSection,
   ProductsSection,
-  AgencyUsersSection,
   RolesPermissionsSection,
-  AgencyStructureSection,
 } from "@/components/settings/sections/GeneralSections";
 import {
   FulfillmentSection,
@@ -87,6 +82,17 @@ import { useAgency } from "@/lib/agency-context";
 import { useAuth } from "@/lib/auth/auth-context";
 import { usePermissions } from "@/lib/auth/use-permission";
 
+/** Where a retired Settings section now lives (Dee §58). Pure, so it is testable. */
+export const legacySettingsRedirect = (section: string | null): string | null => {
+  switch (section) {
+    case "users": return "/app/people";
+    case "structure": return "/app/teams";
+    case "positions": return "/app/teams?tab=positions";
+    case "org-chart": return "/app/teams?tab=org-chart";
+    default: return null;
+  }
+};
+
 const groups: SettingsGroup[] = [
   {
     label: "You",
@@ -103,12 +109,12 @@ const groups: SettingsGroup[] = [
   {
     label: "People & Access",
     items: [
-      { key: "users", label: "Agency Users", icon: Users },
+      /* People management lives on Team Members; organization structure on
+         Teams (Dee, 2026-09-10 §6–§7). Settings keeps SYSTEM configuration:
+         global security (Roles & Permissions) and the customer-organization
+         roster, which is organization-specific configuration BES administers. */
       { key: "org-teams", label: "Organization Teams", icon: Users },
       { key: "permissions", label: "Roles & Permissions", icon: ShieldCheck },
-      { key: "structure", label: "Divisions / Teams", icon: Network },
-      { key: "positions", label: "Positions", icon: BriefcaseBusiness },
-      { key: "org-chart", label: "Org Chart", icon: Network },
     ],
   },
   {
@@ -195,9 +201,15 @@ const SettingsContent = () => {
   /* Guides and links land on a section directly (…/settings?section=team);
      an unknown or not-permitted section falls back to the first visible one. */
   const requested = params.get("section");
-  const requestedVisible = requested && (isOrganizationView ? visibleOrganizationGroups : groups).some((g) => g.items.some((i) => i.key === requested));
+  /* Old bookmarks and links keep working (Dee §58): person management moved
+     to Team Members and structure to Teams, so their Settings sections
+     redirect instead of becoming blank pages or duplicate editors. */
+  const legacy = legacySettingsRedirect(requested);
+  const requestedVisible = !legacy && requested && (isOrganizationView ? visibleOrganizationGroups : groups).some((g) => g.items.some((i) => i.key === requested));
   const [chosen, setActive] = useState<string | null>(null);
   const active = chosen ?? (requestedVisible ? requested : isOrganizationView ? firstVisible : "branding");
+
+  if (legacy) return <Navigate to={legacy} replace />;
 
   const render = () => {
     if (active === "account") return <AccountSection />;
@@ -226,12 +238,10 @@ const SettingsContent = () => {
         return <SubAccountsSection />;
       case "products":
         return <ProductsSection />;
-      case "users":
-        return <AgencyUsersSection />;
+
       case "permissions":
         return <RolesPermissionsSection />;
-      case "structure":
-        return <AgencyStructureSection />;
+
       case "fulfillment":
         return <FulfillmentSection />;
       case "creditops":
@@ -248,10 +258,7 @@ const SettingsContent = () => {
         return <AutomationsSection />;
       case "communication":
         return <CommunicationSection />;
-      case "positions":
-        return <PositionsSection />;
-      case "org-chart":
-        return <OrgChart />;
+
       case "billing":
         /* The real subscription for the organization in view; BillingSection
            is the agency-level rules screen and stays beneath it. */

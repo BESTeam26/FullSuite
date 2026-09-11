@@ -108,8 +108,12 @@ describe("leading a team is a fact, not a rank", () => {
     for (const path of LEAD_EXTRAS) expect(allow(LEAD, path), path).toBe(true);
   });
 
-  it("opens nothing else beyond the staff menu", () => {
-    for (const path of [...MANAGEMENT, ...ADMIN_ONLY]) {
+  /* Dee §38/§39 (2026-09-10): a lead reaches Team Members and Teams — scoped
+     by those pages to the teams they lead — but no other management area. */
+  it("opens Team Members and Teams for their own scope, and nothing else beyond the staff menu", () => {
+    expect(allow(LEAD, "/app/people")).toBe(true);
+    expect(allow(LEAD, "/app/teams")).toBe(true);
+    for (const path of [...MANAGEMENT.filter((p) => p !== "/app/people" && p !== "/app/teams"), ...ADMIN_ONLY]) {
       expect(allow(LEAD, path), path).toBe(false);
     }
   });

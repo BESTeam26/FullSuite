@@ -109,7 +109,7 @@ export type CredentialCategory =
 
 export const CREDENTIAL_CATEGORIES: { key: CredentialCategory; label: string; hint: string }[] = [
   { key: "crm", label: "Credit Repair CRM", hint: "DisputeFox, Credit Repair Cloud, Client Dispute Manager, DisputeBee…" },
-  { key: "ghl", label: "GoHighLevel", hint: "The agency or sub-account BES works in" },
+  { key: "ghl", label: "GoHighLevel", hint: "The agency account or location BES works in" },
   { key: "esp", label: "Email / ESP", hint: "Google Workspace, Microsoft 365, Mailgun, SendGrid…" },
   { key: "credit_monitoring", label: "Credit Monitoring", hint: "SmartCredit, IdentityIQ, MyFreeScoreNow, Experian — and the affiliate link" },
   { key: "affiliate", label: "Affiliate Accounts", hint: "Any affiliate program BES may need for your account" },

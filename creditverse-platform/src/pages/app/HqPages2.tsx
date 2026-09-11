@@ -14,7 +14,10 @@ import { cn } from "@/lib/utils";
 import { LiveCalendar } from "@/components/dashboard/LiveCalendar";
 import { SubAccountInvoicingMetering } from "@/components/dashboard/SubAccountInvoicingMetering";
 import { useAgencySettings } from "@/lib/agency-settings-context";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PositionsSection } from "@/components/settings/sections/PositionsSection";
+import { OrgChart } from "@/components/agency/OrgChart";
 import { useWorkforce } from "@/lib/data/use-workforce";
 import { useAuth } from "@/lib/auth/auth-context";
 import { usePermissions } from "@/lib/auth/use-permission";
@@ -36,18 +39,41 @@ import {
 /* Teams                                                                 */
 /* ------------------------------------------------------------------ */
 
-export const TeamsPage = () => (
-  <HqPageShell
-    title="Teams"
-    description="Divisions, departments and teams — the one structure People, Work, EOD, production and partner assignment all read"
-    icon={Network}
-  >
-    <OrganizationStructure />
-    <div className="mt-4">
-      <TeamsManager />
-    </div>
-  </HqPageShell>
-);
+/**
+ * Teams answers "how is BES organized?" (Dee §5, §48): divisions, departments,
+ * teams and leads, with Positions and the org chart as subviews of the same
+ * structure rather than unrelated Settings destinations. Person management
+ * is Team Members; this page reads the same canonical relationships.
+ */
+const TEAM_TABS = new Set(["structure", "positions", "org-chart"]);
+export const TeamsPage = () => {
+  const [params, setParams] = useSearchParams();
+  const requested = params.get("tab") ?? "";
+  const tab = TEAM_TABS.has(requested) ? requested : "structure";
+  return (
+    <HqPageShell
+      title="Teams"
+      description="Divisions, departments, teams and positions — the one structure Team Members, Work, EOD, production and partner assignment all read"
+      icon={Network}
+    >
+      <Tabs value={tab} onValueChange={(v) => setParams(v === "structure" ? {} : { tab: v }, { replace: true })}>
+        <TabsList className="h-8 flex-wrap bg-muted/60">
+          <TabsTrigger value="structure" className="text-[11px]">Structure</TabsTrigger>
+          <TabsTrigger value="positions" className="text-[11px]">Positions</TabsTrigger>
+          <TabsTrigger value="org-chart" className="text-[11px]">Org chart</TabsTrigger>
+        </TabsList>
+        <TabsContent value="structure" className="mt-3">
+          <OrganizationStructure />
+          <div className="mt-4">
+            <TeamsManager />
+          </div>
+        </TabsContent>
+        <TabsContent value="positions" className="mt-3"><PositionsSection /></TabsContent>
+        <TabsContent value="org-chart" className="mt-3"><OrgChart /></TabsContent>
+      </Tabs>
+    </HqPageShell>
+  );
+};
 
 /* ------------------------------------------------------------------ */
 /* Billing & Revenue                                                     */

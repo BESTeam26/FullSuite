@@ -60,13 +60,6 @@ export function AgencyTeamInvites() {
     staleTime: 600_000,
   });
 
-  const invitations = useQuery({
-    queryKey: ["agency", "invitations"],
-    queryFn: fetchAgencyInvitations,
-    enabled: live && !!auth.isAgencyStaff,
-    staleTime: 30_000,
-  });
-
   const [email, setEmail] = useState("");
   /* One dropdown, two stored facts: the SECURITY ROLE stays agency_admin or
      agency_user (0234 — never a third), and the ACCESS PROFILE is the
@@ -98,21 +91,6 @@ export function AgencyTeamInvites() {
     staleTime: 60_000,
   });
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
-  const [copied, setCopied] = useState<string | null>(null);
-  const [resending, setResending] = useState<string | null>(null);
-
-  const resend = async (id: string) => {
-    setResending(id);
-    const outcome = await sendInvitationEmail(id);
-    setResending(null);
-    setMessage(
-      outcome.status === "sent"
-        ? { text: "Activation email sent again.", error: false }
-        : outcome.status === "not_connected"
-          ? { text: "Email is not connected yet — copy the link instead.", error: false }
-          : { text: outcome.message, error: true },
-    );
-  };
 
   const preview = previewAccess(chosen, catalogue.data?.profileDefaults, modules);
 
@@ -147,21 +125,6 @@ export function AgencyTeamInvites() {
     onError: (e) => setMessage({ text: errorMessage(e, "That invitation could not be created."), error: true }),
   });
 
-  const cancel = useMutation({
-    mutationFn: cancelAgencyInvitation,
-    onSuccess: () => { setMessage({ text: "Invitation cancelled.", error: false }); refresh(); },
-    onError: (e) => setMessage({ text: errorMessage(e, "It could not be cancelled."), error: true }),
-  });
-
-  const copy = async (token: string) => {
-    try {
-      await navigator.clipboard.writeText(invitationLink(token));
-      setCopied(token);
-      window.setTimeout(() => setCopied(null), 2000);
-    } catch {
-      setMessage({ text: "The link could not be copied. Select it manually from the address below.", error: true });
-    }
-  };
 
   return (
     <SectionCard icon={UserPlus} title="Invite a team member" description="Bring someone onto the BES team and give them a role.">
@@ -237,56 +200,109 @@ export function AgencyTeamInvites() {
       )}
 
       <div className="mt-5">
-        <p className={labelCls}>Pending invitations</p>
-        {invitations.isLoading ? (
-          <div className="mt-2 h-12 animate-pulse rounded-lg bg-muted/40" aria-busy="true" />
-        ) : invitations.error ? (
-          <p role="alert" className="mt-2 text-xs text-status-danger">They could not be loaded.</p>
-        ) : invitations.data && invitations.data.length > 0 ? (
-          <ul className="mt-2 divide-y divide-border/60 rounded-lg border border-border">
-            {invitations.data.map((i) => (
-              <li key={i.id} className="flex flex-wrap items-center gap-3 px-3 py-2.5 text-xs">
-                <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-foreground">{i.email}</p>
-                  <p className="text-muted-foreground">
-                    {i.role ? memberAccessLabel(i.role, i.accessProfile) : "No role"} · expires {formatDate(i.expiresAt)}
-                    {i.role === "agency_user" && i.moduleKeys.length === 0 && (
-                      <span className="block text-status-warning">
-                        No module granted — they will activate able to log time but with no CreditOps,
-                        BES CRM or TalentOps. Grant one on their Access tab after they join, or cancel
-                        and re-invite with the module ticked.
-                      </span>
-                    )}
-                  </p>
-                </div>
-                <Button
-                  type="button" size="sm" variant="ghost"
-                  disabled={resending === i.id}
-                  onClick={() => void resend(i.id)}
-                  title="Send the activation email again"
-                >
-                  {resending === i.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
-                </Button>
-                <Button type="button" size="sm" variant="outline" onClick={() => void copy(i.token)}>
-                  {copied === i.token ? <Check className="mr-1 h-3.5 w-3.5 text-status-success" /> : <Copy className="mr-1 h-3.5 w-3.5" />}
-                  {copied === i.token ? "Copied" : "Copy link"}
-                </Button>
-                {canInvite && (
-                  <Button type="button" size="sm" variant="ghost" disabled={cancel.isPending} onClick={() => cancel.mutate(i.id)} title="Cancel this invitation">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                )}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="mt-2 text-xs text-muted-foreground">None outstanding.</p>
-        )}
-        <p className="mt-2 text-[11px] text-muted-foreground">
-          Invitations last seven days and carry a BES-branded email asking the person to activate. The link only
-          works for the address it was sent to; copying it and sending it yourself works just as well.
-        </p>
+        <PendingInvitationsList />
       </div>
     </SectionCard>
+  );
+}
+
+/**
+ * Pending invitations — the ONE list, used inside the invite dialog and on the
+ * Team Members directory (Dee §31). Resend, copy the activation link, revoke.
+ */
+export function PendingInvitationsList() {
+  const auth = useAuth();
+  const qc = useQueryClient();
+  const live = auth.mode === "live" && auth.status === "signed-in";
+  const canInvite = isAdminRole(auth.agencyRole);
+  const invitations = useQuery({
+    queryKey: ["agency", "invitations"],
+    queryFn: fetchAgencyInvitations,
+    enabled: live && !!auth.isAgencyStaff,
+    staleTime: 30_000,
+  });
+  const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
+  const [resending, setResending] = useState<string | null>(null);
+  const refresh = () => void qc.invalidateQueries({ queryKey: ["agency", "invitations"] });
+
+  const resend = async (id: string) => {
+    setResending(id);
+    const outcome = await sendInvitationEmail(id);
+    setResending(null);
+    setMessage(
+      outcome.status === "sent"
+        ? { text: "Activation email sent again.", error: false }
+        : outcome.status === "not_connected"
+          ? { text: "Email is not connected yet — copy the link instead.", error: false }
+          : { text: outcome.message, error: true },
+    );
+  };
+  const cancel = useMutation({
+    mutationFn: cancelAgencyInvitation,
+    onSuccess: () => { setMessage({ text: "Invitation revoked.", error: false }); refresh(); },
+    onError: (e) => setMessage({ text: errorMessage(e, "It could not be revoked."), error: true }),
+  });
+  const copy = async (token: string) => {
+    try {
+      await navigator.clipboard.writeText(invitationLink(token));
+      setCopied(token);
+      window.setTimeout(() => setCopied(null), 2000);
+    } catch {
+      setMessage({ text: "The link could not be copied.", error: true });
+    }
+  };
+
+  return (
+    <div>
+      <p className={labelCls}>Pending invitations{invitations.data ? ` · ${invitations.data.length}` : ""}</p>
+      {invitations.isLoading ? (
+        <div className="mt-2 h-12 animate-pulse rounded-lg bg-muted/40" aria-busy="true" />
+      ) : invitations.error ? (
+        <p role="alert" className="mt-2 text-xs text-status-danger">They could not be loaded.</p>
+      ) : invitations.data && invitations.data.length > 0 ? (
+        <ul className="mt-2 divide-y divide-border/60 rounded-lg border border-border">
+          {invitations.data.map((i) => (
+            <li key={i.id} className="flex flex-wrap items-center gap-3 px-3 py-2.5 text-xs">
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold text-foreground">{i.email}</p>
+                <p className="text-muted-foreground">
+                  {i.role ? memberAccessLabel(i.role, i.accessProfile) : "No role"} · Pending invitation · expires {formatDate(i.expiresAt)}
+                  {i.role === "agency_user" && i.moduleKeys.length === 0 && (
+                    <span className="block text-status-warning">
+                      No module granted — they will activate able to log time but with no CreditOps,
+                      BES CRM or TalentOps. Grant one on their Access tab after they join, or revoke
+                      and re-invite with the module ticked.
+                    </span>
+                  )}
+                </p>
+              </div>
+              <Button type="button" size="sm" variant="ghost" disabled={resending === i.id}
+                onClick={() => void resend(i.id)} title="Send the activation email again">
+                {resending === i.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
+              </Button>
+              <Button type="button" size="sm" variant="outline" onClick={() => void copy(i.token)}>
+                {copied === i.token ? <Check className="mr-1 h-3.5 w-3.5 text-status-success" /> : <Copy className="mr-1 h-3.5 w-3.5" />}
+                {copied === i.token ? "Copied" : "Copy link"}
+              </Button>
+              {canInvite && (
+                <Button type="button" size="sm" variant="ghost" disabled={cancel.isPending} onClick={() => cancel.mutate(i.id)} title="Revoke this invitation">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-2 text-xs text-muted-foreground">None outstanding.</p>
+      )}
+      {message && (
+        <p role={message.error ? "alert" : "status"} className={`mt-2 text-xs ${message.error ? "text-status-danger" : "text-muted-foreground"}`}>{message.text}</p>
+      )}
+      <p className="mt-2 text-[11px] text-muted-foreground">
+        Invitations last seven days and carry a BES-branded email asking the person to activate. The link only
+        works for the address it was sent to; copying it and sending it yourself works just as well.
+      </p>
+    </div>
   );
 }

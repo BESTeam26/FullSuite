@@ -26,6 +26,7 @@ import {
   useMemberActivity, useMemberEod, useMemberPartnerAssignments,
 } from "@/lib/data/team-member";
 import { useAttendanceRange, usePayRates } from "@/lib/data/use-people";
+import { useEodActivity } from "@/lib/data/use-eod-day";
 import {
   MEMBER_DOCUMENT_KINDS, MEMBER_DOCUMENT_STATUSES, memberDocumentUrl,
   useMemberDocumentActions, useMemberDocuments, type MemberDocumentStatus,
@@ -559,6 +560,89 @@ export function DocumentsTab({ member, agencyId }: { member: AgencyMember; agenc
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
           </div>
+        </div>
+      )}
+    </ContentCard>
+  );
+}
+
+/* ── Work & Performance: today as the system observed it (Dee §18–§19) ──
+   Read from the SAME derivation Agent EOD uses (`eod_day_activity`): files or
+   work units worked, actions, production, handoffs, QA, time. Nothing here is
+   typed by anybody, and the columns follow the person's actual work — a
+   CreditOps day shows departments and rounds, a BES CRM day shows work units
+   and build actions — because the activity carries them, not because a KPI
+   grid demanded them. */
+export function WorkPerformanceTab({ member }: { member: AgencyMember }) {
+  const today = new Date().toISOString().slice(0, 10);
+  const activity = useEodActivity(today, member.userId);
+  const a = activity.data;
+  const fmt = (m: number) => `${Math.floor(m / 60)}h ${Math.round(m % 60)}m`;
+  return (
+    <ContentCard title="Today — derived from the canonical work">
+      {activity.isLoading ? (
+        <p className="py-4 text-xs text-muted-foreground"><Loader2 className="mr-1.5 inline h-3 w-3 animate-spin" /> Loading…</p>
+      ) : !a ? (
+        <p className="py-3 text-xs text-muted-foreground">Nothing recorded today.</p>
+      ) : (
+        <div className="space-y-3 text-xs">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+            {[
+              ["Files / units worked", a.filesWorked],
+              ["Actions completed", a.actionsCompleted],
+              ["Production units", a.productionUnits],
+              ["In progress", a.inProgress.length],
+              ["Blocked", a.blocked.length],
+              ["Time logged", fmt(a.minutesLogged)],
+            ].map(([label, value]) => (
+              <div key={String(label)} className="rounded-lg border border-border bg-background p-2.5">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</div>
+                <div className="text-lg font-bold text-foreground">{value}</div>
+              </div>
+            ))}
+          </div>
+          {a.byDepartment.length > 0 && (
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">By department</p>
+              <ul className="mt-1 divide-y divide-border/50">
+                {a.byDepartment.map((d) => (
+                  <li key={d.department} className="flex items-center justify-between py-1">
+                    <span className="text-foreground">{d.department}</span>
+                    <span className="text-muted-foreground">{d.files} file{d.files === 1 ? "" : "s"} · {d.actions} action{d.actions === 1 ? "" : "s"}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {a.actionBreakdown.length > 0 && (
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Actions</p>
+              <p className="mt-1 text-foreground">{a.actionBreakdown.map((x) => `${x.action} ×${x.count}`).join(" · ")}</p>
+            </div>
+          )}
+          {(a.worked.length > 0 || a.inProgress.length > 0) && (
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Current work</p>
+              <ul className="mt-1 divide-y divide-border/50">
+                {[...a.inProgress, ...a.worked.filter((w) => !a.inProgress.some((i) => i.id === w.id))].slice(0, 12).map((w) => (
+                  <li key={w.id} className="flex items-center justify-between py-1">
+                    <span className="text-foreground">{w.title}</span>
+                    <span className="text-muted-foreground">{w.stage ?? ""}{w.due_at ? ` · due ${formatDate(w.due_at)}` : ""}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {a.blocked.length > 0 && (
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-status-warning">Blocked</p>
+              <ul className="mt-1 divide-y divide-border/50">
+                {a.blocked.map((w) => (
+                  <li key={w.id} className="py-1 text-foreground">{w.title}{w.reason ? <span className="text-muted-foreground"> — {w.reason}</span> : null}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
     </ContentCard>

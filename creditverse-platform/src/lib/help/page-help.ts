@@ -130,7 +130,7 @@ const HELP: [prefix: string, help: PageHelp][] = [
     tip: "You only see the sections your role may change.",
   }],
   ["/app/people", {
-    title: "People",
+    title: "Team Members",
     summary: "Everyone at your company, what they do and how to reach them.",
     steps: ["Search by name, role or department.", "An administrator can move someone into a department here.", "A birthday shows only if that person chose to share it."],
   }],

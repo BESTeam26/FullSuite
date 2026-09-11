@@ -22,7 +22,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import { PeopleManager } from "@/components/agency/PeopleManager";
-import { AgencyTeamInvites } from "@/components/settings/sections/AgencyTeamInvites";
+import { AgencyTeamInvites, PendingInvitationsList } from "@/components/settings/sections/AgencyTeamInvites";
 import { AttendanceCard, LeaveQueue } from "@/components/agency/people/AttendanceAndLeave";
 import { useWorkforce } from "@/lib/data/use-workforce";
 import { useAgencyAccessContext } from "@/lib/agency/use-access-context";
@@ -97,8 +97,8 @@ export const PeopleHubPage = () => {
 
   return (
     <HqPageShell
-      title="People"
-      description="Everyone who works with BES and everything connected to their working relationship."
+      title="Team Members"
+      description="Everyone who works with BES and everything connected to their working relationship — one profile per person."
       icon={Users}
       actions={
         manages ? (
@@ -120,10 +120,14 @@ export const PeopleHubPage = () => {
         <Tabs value={view} onValueChange={setView}>
           <TabsList className="h-8 bg-muted/60">
             <TabsTrigger value="directory" className="text-[11px]">Directory</TabsTrigger>
-            <TabsTrigger value="insights" className="text-[11px]">Workforce insights</TabsTrigger>
+            <TabsTrigger value="insights" className="text-[11px]">Workforce summary</TabsTrigger>
           </TabsList>
-          <TabsContent value="directory" className="mt-3">
+          <TabsContent value="directory" className="mt-3 space-y-3">
             <PeopleManager />
+            {/* §31: pending invitations live here, not in Settings. */}
+            <div className="rounded-xl border border-border bg-card p-4">
+              <PendingInvitationsList />
+            </div>
           </TabsContent>
           <TabsContent value="insights" className="mt-3">
             <WorkforceInsights />

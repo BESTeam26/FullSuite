@@ -20,13 +20,18 @@ import { Button } from "@/components/ui/button";
 import { Pill } from "@/components/agency/partner/partner-ui";
 import { AgencyAccessPanel } from "@/components/agency/AgencyAccessPanel";
 import {
-  ActivityTab, AssignmentsTab, CompensationTab, DocumentsTab, EodTab, ScheduleTimeTab, WorkOrgTab,
+  ActivityTab, AssignmentsTab, CompensationTab, DocumentsTab, EodTab, ScheduleTimeTab, WorkOrgTab, WorkPerformanceTab,
 } from "@/components/agency/people/MemberProfileTabs";
 import { useAgencyMembers, useMemberActions } from "@/lib/data/use-agency-teams";
 import { usePayRates, useSchedules } from "@/lib/data/use-people";
 import { useAgencyAccessContext } from "@/lib/agency/use-access-context";
 
 /* The four doors into operational work. */
+/* Division codes as the team rows carry them, shown as names (§44). */
+const DIVISION_LABELS: Record<string, string> = {
+  creditops: "CreditOps", fundingops: "FundingOps", bes_crm: "BES CRM", talentops: "TalentOps", general: "General",
+};
+const divisionLabel = (code: string | null) => (code ? DIVISION_LABELS[code] ?? code : null);
 const MODULE_KEYS = ["creditops.clients.view", "crm.projects.view", "fundingops.files.view", "talentops.view"] as const;
 import { useWorkforce } from "@/lib/data/use-workforce";
 import { useAgencyPermissions } from "@/lib/data/agency-permissions";
@@ -44,6 +49,7 @@ export default function TeamMemberProfilePage() {
   const wf = useWorkforce();
   const actions = useMemberActions();
   const [tab, setTab] = useState("overview");
+  const [confirmReactivate, setConfirmReactivate] = useState(false);
 
   const member = (members.data ?? []).find((m) => m.userId === userId) ?? null;
   const people = wf.data?.people ?? [];
@@ -125,7 +131,13 @@ export default function TeamMemberProfilePage() {
   return (
     <HqPageShell
       title={member.name}
-      description={member.email}
+      /* §44: one compact line — position · role · profile · division · department · team(s) — then tabs. */
+      description={[
+        member.jobTitle,
+        memberAccessLabel(member.role, member.accessProfile),
+        [divisionLabel(myTeams[0]?.division ?? null), myTeams[0]?.department ?? null].filter(Boolean).join(" · ") || null,
+        myTeams.map((t) => t.name).join(", ") || null,
+      ].filter(Boolean).join(" · ") || member.email}
       icon={UserRound}
       actions={
         <div className="flex flex-wrap items-center gap-2">
@@ -141,8 +153,7 @@ export default function TeamMemberProfilePage() {
             </Button>
           )}
           {mayManage && member.status === "inactive" && (
-            <Button size="sm" variant="outline"
-              onClick={() => actions.setStatus.mutate({ membershipId: member.membershipId, status: "active" })}>
+            <Button size="sm" variant="outline" onClick={() => setConfirmReactivate(true)}>
               Reactivate
             </Button>
           )}
@@ -151,20 +162,32 @@ export default function TeamMemberProfilePage() {
     >
       <p className="mb-3 text-xs">
         <Link to="/app/people" className="text-muted-foreground hover:text-foreground hover:underline">
-          ← People
+          ← Team Members
         </Link>
       </p>
 
+      {confirmReactivate && (
+        <ReactivateConfirm
+          member={member}
+          teams={myTeams.map((t) => t.name)}
+          onCancel={() => setConfirmReactivate(false)}
+          onConfirm={() => {
+            actions.setStatus.mutate({ membershipId: member.membershipId, status: "active" });
+            setConfirmReactivate(false);
+          }}
+        />
+      )}
+
       <Tabs value={tab} onValueChange={setTab}>
+        {/* Six tabs (Dee §9). Overview also edits placement; Access & Assignments
+            is everything about what the person can reach; Work & Performance and
+            Time & Pay aggregate canonical facts and never own a copy. */}
         <TabsList className="h-8 flex-wrap bg-muted/60">
           <TabsTrigger value="overview" className="text-[11px]">Overview</TabsTrigger>
-          {mayManage && <TabsTrigger value="work" className="text-[11px]">Work &amp; Organization</TabsTrigger>}
-          {isAdmin && <TabsTrigger value="access" className="text-[11px]">Access</TabsTrigger>}
-          {(mayManage || leadsThisPerson) && <TabsTrigger value="assignments" className="text-[11px]">Assignments</TabsTrigger>}
-          {(mayManage || leadsThisPerson || isSelf) && <TabsTrigger value="time" className="text-[11px]">Schedule &amp; Time</TabsTrigger>}
-          {canMoney && <TabsTrigger value="compensation" className="text-[11px]">Compensation</TabsTrigger>}
+          {(isAdmin || mayManage || leadsThisPerson) && <TabsTrigger value="access" className="text-[11px]">Access &amp; Assignments</TabsTrigger>}
+          {(mayManage || leadsThisPerson || isSelf) && <TabsTrigger value="performance" className="text-[11px]">Work &amp; Performance</TabsTrigger>}
+          {(mayManage || leadsThisPerson || isSelf) && <TabsTrigger value="time" className="text-[11px]">Time &amp; Pay</TabsTrigger>}
           {(canDocs || seesOwnDocs) && <TabsTrigger value="documents" className="text-[11px]">Documents</TabsTrigger>}
-          {(mayManage || leadsThisPerson || isSelf) && <TabsTrigger value="eod" className="text-[11px]">EOD</TabsTrigger>}
           {mayManage && <TabsTrigger value="activity" className="text-[11px]">Activity</TabsTrigger>}
         </TabsList>
 
@@ -173,6 +196,10 @@ export default function TeamMemberProfilePage() {
             <div className="rounded-xl border border-border bg-card p-4 lg:col-span-2">
               <h3 className="text-sm font-semibold text-foreground">Snapshot</h3>
               <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-3">
+                <div><dt className="font-bold uppercase tracking-wider text-[10px] text-muted-foreground">Work email</dt>
+                  <dd className="truncate text-foreground">{member.email}</dd></div>
+                <div><dt className="font-bold uppercase tracking-wider text-[10px] text-muted-foreground">Status</dt>
+                  <dd className="text-foreground">{member.status === "active" ? "Active" : "Deactivated"}</dd></div>
                 <div><dt className="font-bold uppercase tracking-wider text-[10px] text-muted-foreground">Position</dt>
                   <dd className="text-foreground">{member.jobTitle ?? "Not recorded"}</dd></div>
                 <div><dt className="font-bold uppercase tracking-wider text-[10px] text-muted-foreground">Teams</dt>
@@ -203,41 +230,34 @@ export default function TeamMemberProfilePage() {
               </ul>
             </div>
           </div>
+          {mayManage && (
+            <div className="mt-3">
+              <WorkOrgTab member={member} people={people} teams={teams} />
+            </div>
+          )}
         </TabsContent>
 
-        {mayManage && (
-          <TabsContent value="work" className="mt-3">
-            <WorkOrgTab member={member} people={people} teams={teams} />
-          </TabsContent>
-        )}
-        {isAdmin && (
-          <TabsContent value="access" className="mt-3">
-            <AgencyAccessPanel lockedUserId={member.userId} />
-          </TabsContent>
-        )}
-        {(mayManage || leadsThisPerson) && (
-          <TabsContent value="assignments" className="mt-3">
+        {(isAdmin || mayManage || leadsThisPerson) && (
+          <TabsContent value="access" className="mt-3 space-y-3">
+            {isAdmin && <AgencyAccessPanel lockedUserId={member.userId} />}
             <AssignmentsTab member={member} teams={teams} />
           </TabsContent>
         )}
         {(mayManage || leadsThisPerson || isSelf) && (
-          <TabsContent value="time" className="mt-3">
-            <ScheduleTimeTab member={member} />
+          <TabsContent value="performance" className="mt-3 space-y-3">
+            <WorkPerformanceTab member={member} />
+            <EodTab member={member} />
           </TabsContent>
         )}
-        {canMoney && (
-          <TabsContent value="compensation" className="mt-3">
-            <CompensationTab member={member} />
+        {(mayManage || leadsThisPerson || isSelf) && (
+          <TabsContent value="time" className="mt-3 space-y-3">
+            <ScheduleTimeTab member={member} />
+            {canMoney && <CompensationTab member={member} />}
           </TabsContent>
         )}
         {(canDocs || seesOwnDocs) && (
           <TabsContent value="documents" className="mt-3">
             <DocumentsTab member={member} agencyId={auth.agencyId ?? ""} />
-          </TabsContent>
-        )}
-        {(mayManage || leadsThisPerson || isSelf) && (
-          <TabsContent value="eod" className="mt-3">
-            <EodTab member={member} />
           </TabsContent>
         )}
         {mayManage && (
@@ -247,5 +267,34 @@ export default function TeamMemberProfilePage() {
         )}
       </Tabs>
     </HqPageShell>
+  );
+}
+
+/**
+ * Reactivation must not silently restore what should have ended (Dee §33).
+ * Say what comes back — teams and any still-standing assignments — before it
+ * does. Nothing here decides; the person reactivating does.
+ */
+function ReactivateConfirm({ member, teams, onCancel, onConfirm }: {
+  member: { name: string; role: string; accessProfile: string | null };
+  teams: string[];
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-label="Reactivate team member">
+      <div className="w-full max-w-md rounded-xl border border-border bg-card p-4 shadow-lg">
+        <p className="text-sm font-semibold text-foreground">Reactivate {member.name}?</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Their sign-in and access come back exactly as they were left: <span className="text-foreground">{memberAccessLabel(member.role as never, member.accessProfile as never)}</span>
+          {teams.length > 0 ? <>, on {teams.join(", ")}</> : ", on no team"}. Partner assignments and module access that were never
+          ended are still in place. Check the Access &amp; Assignments tab after reactivating if anything should have ended.
+        </p>
+        <div className="mt-3 flex justify-end gap-2">
+          <Button size="sm" variant="ghost" onClick={onCancel}>Cancel</Button>
+          <Button size="sm" onClick={onConfirm}>Reactivate</Button>
+        </div>
+      </div>
+    </div>
   );
 }

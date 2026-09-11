@@ -9,7 +9,14 @@
  * that goes nowhere, and a BES reply must be labelled as one.
  */
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render as rtlRender, screen, within } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ReactElement } from "react";
+
+/* Partner Information saves the profile through react-query mutations, so
+   the portal now needs a client in the tree — a fresh one per render. */
+const render = (ui: ReactElement) =>
+  rtlRender(<QueryClientProvider client={new QueryClient()}>{ui}</QueryClientProvider>);
 import { PartnerPortal } from "@/pages/portal/PartnerPortal";
 import type {
   AgencyPartner, PartnerFile, PartnerPortalClient, PartnerPortalProject, PartnerPortalRequirement,
@@ -35,6 +42,16 @@ vi.mock("@/lib/data/use-agency-partners", () => ({
   useMySharedFiles: () => ({ data: sharedFiles, isLoading: false }),
   useMyPartnerProjects: () => ({ data: portalProjects, isLoading: false }),
   useMyPartnerRequirements: () => ({ data: portalRequirements, isLoading: false }),
+  usePartnerContacts: () => ({ data: [], isLoading: false }),
+}));
+vi.mock("@/lib/data/use-partner-credentials", () => ({
+  /* Partner Information reads the partner's own systems; the screen tests are
+     about the conversation, clients and builds, so the vault stays quiet. */
+  useMyPartnerCredentials: () => ({ data: [], isLoading: false }),
+  useCredentialPlatforms: () => ({ data: [], isLoading: false }),
+  useArchiveCredential: () => ({ mutate: () => undefined, isPending: false }),
+  useRevealCredential: () => ({ mutateAsync: async () => "", isPending: false }),
+  useSaveCredential: () => ({ mutateAsync: async () => "", isPending: false }),
 }));
 vi.mock("@/lib/data/use-channels", () => ({
   useChannels: () => ({ data: channels, isLoading: false }),

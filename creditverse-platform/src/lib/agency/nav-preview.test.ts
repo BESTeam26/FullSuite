@@ -18,7 +18,7 @@ const MODULES = ["CreditOps", "FundingOps", "BES CRM", "TalentOps"];
 /* No "HR & People": it dissolved into People when the hub was built, and
    naming a route that no longer exists is how a test starts asserting the
    past. */
-const MANAGEMENT = ["People", "Teams", "Reports", "BES Partners"];
+const MANAGEMENT = ["Team Members", "Teams", "Reports", "BES Partners"];
 const ADMIN_ONLY = ["Finance", "Agency Settings", "Organizations", "Organization billing", "Compliance & Legal"];
 const PERSONAL = ["Home", "My Work", "My Time", "End of Day", "Notifications"];
 
@@ -56,8 +56,10 @@ describe("a Team Lead who actually leads a team", () => {
     expect(menu).toContain("Team EOD");
   });
 
-  it("but no agency-wide administration", () => {
-    for (const item of ["People", "Teams", ...ADMIN_ONLY]) expect(menu, item).not.toContain(item);
+  it("sees Team Members and Teams — scoped to the teams they lead — but no agency-wide administration", () => {
+    expect(menu).toContain("Team Members");
+    expect(menu).toContain("Teams");
+    for (const item of ["Reports", ...ADMIN_ONLY]) expect(menu, item).not.toContain(item);
   });
 
   /* The profile is a permission preset; leading a team is a FACT. Without the
@@ -73,7 +75,7 @@ describe("a Manager", () => {
   const menu = labels(ctx(["ops.manage", "team.manage", "reports.view", "partners.view", "crm.projects.view"]));
 
   it("runs their scope", () => {
-    for (const item of ["People", "Teams", "Reports", "BES Partners", "BES CRM"]) {
+    for (const item of ["Team Members", "Teams", "Reports", "BES Partners", "BES CRM"]) {
       expect(menu, item).toContain(item);
     }
   });

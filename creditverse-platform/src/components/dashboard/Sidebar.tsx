@@ -237,7 +237,7 @@ export const Sidebar = () => {
         /* Two doors, deliberately (Dee's People Hub doctrine): People is the
            person — profile, access, schedule, compensation, insights — and
            Teams is the structure. Workforce and HR dissolved into them. */
-        { label: "People", icon: Users, href: "/app/people" },
+        { label: "Team Members", icon: Users, href: "/app/people" },
         { label: "Teams", icon: Network, href: "/app/teams" },
       ],
     },

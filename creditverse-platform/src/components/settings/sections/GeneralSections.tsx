@@ -1,4 +1,3 @@
-import { Link } from "react-router-dom";
 import { Building2, Boxes, Users, ShieldCheck, Network } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -226,29 +225,6 @@ export const ProductsSection = () => {
     </SectionCard>
   );
 };
-
-/* ---------------- Agency Users ---------------- */
-
-/**
- * Settings configures the SYSTEM; People manages the people (Dee's People
- * Hub doctrine, 2026-09-09). This section used to be a second roster and a
- * second invite screen — both now live in one place, so this is a signpost,
- * not a duplicate editor.
- */
-export const AgencyUsersSection = () => (
-  <SectionCard
-    icon={Users}
-    title="Agency Users"
-    description="Team members are managed in People — invitations, access, teams, schedules, compensation and documents, all on the person."
-  >
-    <Link
-      to="/app/people"
-      className="inline-flex items-center rounded-lg border border-border bg-background px-3 py-2 text-xs font-semibold text-foreground transition-colors hover:border-primary/40 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-    >
-      Open People →
-    </Link>
-  </SectionCard>
-);
 
 /* ---------------- Roles & Permissions ---------------- */
 export const RolesPermissionsSection = () => {

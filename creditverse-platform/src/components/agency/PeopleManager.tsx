@@ -30,6 +30,7 @@ import { Empty, Pill } from "@/components/agency/partner/partner-ui";
 import { useAgencyMembers, useMemberActions, useTeamActions } from "@/lib/data/use-agency-teams";
 import { useWorkforce } from "@/lib/data/use-workforce";
 import { useAuth } from "@/lib/auth/auth-context";
+import { useAgencyPermissions } from "@/lib/data/agency-permissions";
 import { OwnerDeleteButton } from "@/components/agency/OwnerDeleteButton";
 import { formatDate } from "@/lib/format-date";
 import type { Enums } from "@/lib/supabase/database.types";
@@ -42,7 +43,9 @@ const ROLES: { value: Enums<"agency_role">; label: string }[] = [
 const PROFILE_OPTIONS = ACCESS_PROFILES.map((v) => ({ value: v, label: ACCESS_PROFILE_LABELS[v] }));
 
 export function PeopleManager() {
-  const { agencyMembership, user } = useAuth();
+  const auth = useAuth();
+  const { agencyMembership, user } = auth;
+  const perms = useAgencyPermissions();
   const canManage = agencyMembership?.role === "agency_owner"
     || agencyMembership?.role === "agency_admin";
   const members = useAgencyMembers();
@@ -73,7 +76,17 @@ export function PeopleManager() {
     return { division: team?.division ?? null, department: team?.department ?? null };
   };
 
-  const all = members.data ?? [];
+  /* §38: a Team Lead who is not a manager sees the members of the teams they
+     lead. The rows are readable either way (memberships are the directory);
+     this is what the page SHOWS, and the profile route enforces the same. */
+  const ledTeamIds = new Set(auth.ledTeamIds ?? []);
+  const isManagerLike = canManage || perms.can("ops.manage");
+  const inScope = (userId: string) =>
+    isManagerLike || (teamsOf.get(userId) ?? []).some((t) => ledTeamIds.has(t.id));
+  const nameOf = new Map((members.data ?? []).map((m) => [m.userId, m.name]));
+  const running = new Set((wf.data?.time ?? []).filter((t) => t.running).map((t) => t.employeeId));
+
+  const all = (members.data ?? []).filter((m) => inScope(m.userId));
   const needle = search.trim().toLowerCase();
   const match = (m: { name: string; email: string }) =>
     !needle || `${m.name} ${m.email}`.toLowerCase().includes(needle);
@@ -111,9 +124,12 @@ export function PeopleManager() {
               <thead>
                 <tr className="border-b border-border/60 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                   <th className="py-2 pr-2">Name</th>
-                  <th className="py-2 pr-2">Role</th>
+                  <th className="py-2 pr-2">Status</th>
+                  <th className="py-2 pr-2">Role · access profile</th>
+                  <th className="py-2 pr-2">Position</th>
                   <th className="py-2 pr-2">Division · department</th>
                   <th className="py-2 pr-2">Teams</th>
+                  <th className="py-2 pr-2">Manager</th>
                   <th className="py-2 pr-2">Since</th>
                   <th className="py-2" />
                 </tr>
@@ -126,6 +142,11 @@ export function PeopleManager() {
                         {m.name}
                       </Link>
                       <span className="block text-xs text-muted-foreground">{m.email}</span>
+                    </td>
+                    <td className="py-2 pr-2">
+                      <Pill tone={running.has(m.userId) ? "border-status-success/40 bg-status-success/10 text-foreground" : "border-border bg-muted text-foreground"}>
+                        {running.has(m.userId) ? "Active · clocked in" : "Active"}
+                      </Pill>
                     </td>
                     <td className="py-2 pr-2">
                       {canManage ? (
@@ -151,6 +172,7 @@ export function PeopleManager() {
                         <Pill tone="border-border bg-muted text-foreground">{memberAccessLabel(m.role, m.accessProfile)}</Pill>
                       )}
                     </td>
+                    <td className="py-2 pr-2 text-xs text-foreground">{m.jobTitle ?? <span className="text-muted-foreground">—</span>}</td>
                     <td className="py-2 pr-2 text-xs text-muted-foreground">
                       {[placeOf(m.userId).division, placeOf(m.userId).department]
                         .filter(Boolean).join(" · ") || "—"}
@@ -194,6 +216,7 @@ export function PeopleManager() {
                         )}
                       </span>
                     </td>
+                    <td className="py-2 pr-2 text-xs text-muted-foreground">{m.managerId ? nameOf.get(m.managerId) ?? "—" : "—"}</td>
                     <td className="py-2 pr-2 text-xs text-muted-foreground">{formatDate(m.since)}</td>
                     <td className="py-2 text-right">
                       {canManage && m.userId !== user?.id && !m.isOwner && m.role !== "agency_owner" && (

@@ -1818,3 +1818,73 @@ one-minute cooldown once any throttle is seen and concurrency lowered from
 12 to 6. Result at commit `644b1be`, schema through `20260910000200`:
 **1559/1559 checks, 70 phases, 27m22s, zero throttled probes.** No schema or
 policy changed during the run.
+
+### Team Member hub consolidation — 2026-09-10 (current-scope completion, Dee)
+
+**What changed, on the same canonical records (no new table, no copies):**
+- **Team Members** is the Workforce destination (route `/app/people` kept;
+  label, title, sidebar, help and back-links renamed). Directory columns per
+  §8: name, status (with "clocked in"), security role · access profile,
+  position, division · department, teams, manager, since; search; Invite
+  team member; **pending invitations live on the directory** (resend, copy
+  link, revoke, expiry, module warning) — `PendingInvitationsList` is the one
+  list, also rendered inside the invite dialog.
+- **One profile, six tabs** (§9): Overview (snapshot + onboarding checklist +
+  placement editing: position, manager, teams), Access & Assignments (access
+  panel + partner assignments with why-visible), Work & Performance (today
+  derived from `eod_day_activity` — files/units, actions, production,
+  departments, current work, blockers, time — plus EOD history), Time & Pay
+  (schedule + time; compensation only with payroll capability), Documents,
+  Activity. **Reactivate** now confirms and states what comes back (§33).
+- **Settings is system configuration** (§6–§7): Agency Users, Divisions /
+  Teams, Positions and Org Chart left the menu; their `?section=` links
+  redirect to Team Members or to Teams. Roles & Permissions (global security)
+  and Organization Teams (customer-organization roster) stay. The Agency
+  Users signpost component was deleted as dead code.
+- **Teams answers "how is BES organized?"** (§5): Structure, Positions and
+  Org chart are tabs on `/app/teams` for managers and leads, deep-linkable
+  with `?tab=`.
+- **Access** (§38–§39): Team Members and Teams open for admins, `ops.manage`
+  holders and people who lead a team; the directory scopes a lead to their
+  teams' members; agents have no directory.
+
+**§57 consolidation checklist — every old capability mapped before removal:**
+
+| Old surface | Capability | New surface | Canonical data | Verified | Removed / redirected |
+|---|---|---|---|---|---|
+| People (`/app/people`) | Directory, invite, profile | **Team Members** (same route, relabelled) | agency_memberships, profiles | browser | relabelled |
+| Workforce (`/app/workforce`) | Staff count, clocked in, logged this week, utilization, time by division | Team Members → Workforce summary | time_entries, teams | browser (earlier) | redirected since 2026-09-09 |
+| HR & People (`/app/hr`) | Attendance, leave queue | Team Members → Workforce summary | attendance (derived), leave_requests | browser (earlier) | redirected since 2026-09-09 |
+| HR & People | Schedules & rates | Team Member profile → Time & Pay | work_schedules, member_pay_rates | browser | redirected |
+| HR & People | Payroll cutoffs (global) | Finance → Payroll | payroll_cutoffs, payroll settings | code (AgencyFinance renders PayrollPanel) | not on any people screen |
+| Settings → Agency Users | Roster, invite, role/profile edit | Team Members (directory, invite dialog, profile Access) | agency_memberships, invitations | browser | menu entry removed; `?section=users` → `/app/people`; signpost component deleted |
+| Settings → Divisions / Teams | Division/department/team editor | Teams → Structure | divisions, departments, teams | browser | menu entry removed; `?section=structure` → `/app/teams` |
+| Settings → Positions | Positions, assignments, reports-to | Teams → Positions | positions, position_assignments | browser | menu entry removed; redirect to `/app/teams?tab=positions` |
+| Settings → Org Chart | Chart | Teams → Org chart | same | browser | menu entry removed; redirect to `/app/teams?tab=org-chart` |
+| Settings → Roles & Permissions | Global security configuration | stays in Settings | role_permissions | — | kept |
+| Settings → Organization Teams | Customer-organization roster BES administers | stays in Settings | org_memberships | — | kept (organization-specific configuration) |
+
+**§40 duplicate writers:** role and access profile are edited on the directory
+(admin shortcut) and the profile's Access panel — both call
+`useMemberActions().setRole / setProfile`; team membership on the directory,
+the profile Overview, and Teams — all `useTeamActions().addMember /
+removeMember`; partner assignment on the profile and the partner record —
+both `useMemberAssignmentActions` / the partner's assignment actions over
+`partner_assignments`; schedule and rate only on the profile; documents only
+through the document builder's send flow. No independent writer remains.
+
+**Verified:** tsc, eslint (0 errors), full unit suite, build; browser walk of
+the directory and Rowell's profile. No schema or policy change → no matrix
+run (per pilot test discipline). Status: DEPLOYED, UNTESTED LIVE.
+
+**Continuation (§44–§67) applied:** compact profile header (position · role ·
+profile · division · department · teams; status in the header actions);
+Positions and Org chart are subviews of Teams (`?tab=`), not Settings; legacy
+Settings sections redirect before validation (pure `legacySettingsRedirect`,
+unit-tested); global payroll configuration confirmed under Finance, not on
+any people screen.
+
+**Not done / notes:** Compensation stays behind `payroll.view`/
+`payroll.manage` (managers and leads see Time & Pay without pay). The Teams
+page title remains "Team Workspace" since it carries the team's work as well
+as the structure.
