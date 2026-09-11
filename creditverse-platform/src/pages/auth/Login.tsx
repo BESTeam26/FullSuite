@@ -511,7 +511,9 @@ const Login = () => {
           )}
 
           <p className="mt-10 text-center text-[11px] uppercase tracking-[0.1em] text-muted-foreground/70">
-            © {new Date().getFullYear()} BES
+            {/* The wordmark above is the platform; a copyright notice names the
+                legal entity that holds it. */}
+            © {new Date().getFullYear()} Blessed Empire Services LLC
           </p>
         </div>
       </main>
