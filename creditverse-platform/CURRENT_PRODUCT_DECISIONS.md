@@ -5,6 +5,14 @@ else. Brainstorming and future concepts go to `DEFERRED_AGENCY_WORK.md`;
 completed history goes to `COMPLETION_REGISTER.md`; permanent build rules live
 in `CLAUDE.md`.
 
+## LOCKED ROADMAP (2026-09-10)
+
+Agency HQ live pilot → Partner Portal MVP → Organization platform refinement
+→ DIY Credit Repair → FundingOps / advanced. Agency HQ is functionally
+frozen; Partner Portal is planned (D-007) and starts only after a clean
+pilot checkpoint; DIY is documented (D-009), not started. Rules: CLAUDE.md
+§21b.
+
 ## PILOT OBSERVATION MODE (2026-09-10, supersedes "build first")
 
 Real BES operations pilot. No proactive development; fix real defects at the

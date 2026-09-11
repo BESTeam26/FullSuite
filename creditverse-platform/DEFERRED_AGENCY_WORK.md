@@ -320,7 +320,7 @@ partner-owned code; the commissions ledger already supports a
 earned $X" from a plan that was never agreed with them — a commercial
 promise the software made up.
 
-## D-007 · Partner Portal — frozen for the Live Operations sprint
+## D-007 · Partner Portal MVP — NEXT ACTIVE EPIC after the Agency pilot checkpoint (frozen until then)
 
 **Dee's change-control correction, 2026-09-10.** Commit `c4c3964` (partner
 onboarding as the Partner Profile, the vault gates, Partner Information, the
@@ -384,3 +384,57 @@ outside the pilot's P0 surfaces, not blocking the operational shell.
    strip, but on a 812-tall phone the first screen is chrome-heavy. A collapsed
    partner header under `md` would give the first screen to the client.
 7. **View As** stays off the phone header (deferred D-001 anyway).
+
+### D-007 MVP map (Dee's execution plan §8–§23, 2026-09-10) — planning only
+
+Inspected on current `main` (commit `37dddf7`). Nothing here is rebuilt;
+the MVP is the gap column.
+
+| MVP capability (§8) | Exists today | Gap for MVP |
+|---|---|---|
+| Log in / activation | Partner contact invitation + activation (`accept_partner_invitation`), `partner_group_of_user()` boundary | — |
+| Company / profile | Onboarding form → Partner Information (edit company + own contact) | Other contacts read-only list |
+| Active BES services | `partner_services` exists; portal shows one "Service" string | **Services list** via a definer fn (service type, status, since) — §11 |
+| Service / project status | BES CRM builds with progress, journey, go-live | CreditOps partner view (§12): active client count, high-level status, actions needed — mostly `my_partner_clients()` already |
+| Partner-facing clients | `my_partner_clients()` | — |
+| Shared files | `useMySharedFiles` + `set_partner_file_shared` | — |
+| Upload requested files | none | **Partner upload** into canonical `files` (entity partner, `shared_with_partner` = true by the partner's own act), storage policy for `agency/partner/<group>/portal/` |
+| Needed from you | `my_partner_requirements()` (CRM client requirements, read-only) | **Action Center** (§14): unify CRM requirements + signature requests + onboarding gaps; completing an action (upload, sign) satisfies the requirement deterministically where the link is explicit |
+| Published updates | `activity_events` with `shared_with_partner` readable via `activity_partner_select` | Portal **Updates** list surface |
+| Agreements / documents | Document builder + `/sign/:token`; onboarding agreement hand-off | Portal list of the partner's own signature requests (status, signed copy) — `signature_requests` needs a partner-side read fn |
+| Team / access (§9, §16) | `partner_contacts` with status; BES invites contacts | **Partner Admin role** on `partner_contacts` (`is_admin boolean`), partner-side invite/deactivate fns, module grants per user kept minimal |
+| Communication | Canonical channel surfaced in the portal (read/reply) | Partner cannot start a conversation (BES opens) — acceptable for MVP; DM to a BES contact deferred |
+| Navigation (§21) | Single scrolling page | Tabs/sections: Home · Services · Clients · Needed from you · Files & Documents · Updates · Communication · Team · Profile — shown only when relevant |
+| Home (§22) | — | Cards: Active services, Needs your attention, Recent updates, Shared files, Projects/clients status, Upcoming milestone |
+| Security proofs (§23) | Phase 55 covers isolation for clients, files, credentials, profile, projects | Add: partner-admin vs partner-user, suspended user, deactivated relationship, search, documents |
+
+**High-risk shared changes to plan first (§29):** the partner-admin flag and
+partner-side invites touch `partner_contacts` policies; partner uploads
+touch `files` and storage policies. Both wait for the stable checkpoint and
+a full matrix run.
+
+**MVP complete (§35)** = one real partner activates, logs in, sees the
+correct partner, services, clients/projects, Needed from you, uploads,
+shared files, documents/signing, updates, communication, manages their
+users — and never sees BES internal data.
+
+## D-009 · DIY Credit Repair — future product epic (documented, not started)
+
+**Dee, 2026-09-10 (§5, §27):** not the next build. Fourth in the locked
+roadmap, after the Agency pilot, the Partner Portal MVP and Organization
+platform refinement.
+
+Future scope, to be architecture-reviewed before execution: consumer
+account; credit report import; credit analysis (deterministic, on the
+existing `lib/dispute` engines); dispute planning; letter generation (the
+Letter Library and Lob path); round tracking; document storage (canonical
+`files`); education; status; billing/entitlement (plans + Authorize.Net);
+white-label experience (organization branding); Partner/Organization
+sponsorship (referral attribution, D-006); consumer portal (the client
+portal identity).
+
+Do not begin the DIY dispute engine, consumer report analysis, letter
+generation, DIY client workflows, consumer billing, white-label DIY setup,
+credit monitoring integration or a DIY SaaS portal during the Agency pilot.
+Prior decisions that still stand: DIY referrals reference design and the
+30-day trial / BES- ID / public sign-up decisions in memory.
