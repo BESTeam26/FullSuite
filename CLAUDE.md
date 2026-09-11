@@ -992,9 +992,96 @@ committed code / schema each have their own path). Test invariants, never
 incidental counts; fixtures coexist with real data. While the full matrix
 runs: documentation and planning only, and never a schema change mid-run.
 
+> **Worked example, 2026-09-10 (Dee's correction).** Partner onboarding as the
+> Partner Profile (commit `c4c3964`) was a valid, coherent, asked-for feature
+> expansion — and it was outside P0. It stays because it shipped whole; the
+> Partner Portal is then FROZEN for the sprint (`DEFERRED_AGENCY_WORK.md`
+> D-007). From that point: **new non-P0 request → classify → document →
+> defer**, unless it is a security or data-integrity issue. And a security
+> gate is reported at its actual completed count — 1534/1559 is not "green";
+> throttled probes are re-run through the harness's back-off, never treated
+> as passes.
+
 Files: `CURRENT_PRODUCT_DECISIONS.md` (active doctrine only),
 `DEFERRED_AGENCY_WORK.md` (the backlog), `ARCHITECTURE_DECISIONS.md`
 (implemented decisions), `LIVE_OPERATIONS_READINESS.md` (this sprint's gate).
+
+## 21b. THE LOCKED ROADMAP (Dee, 2026-09-10 — until Dee changes it)
+
+```
+1. AGENCY HQ LIVE PILOT          ← active (pilot / observation mode, §21a)
+2. PARTNER PORTAL MVP            ← next active epic, only after a clean checkpoint
+3. ORGANIZATION PLATFORM REFINEMENT
+4. DIY CREDIT REPAIR             ← documented as a future epic; not started
+5. FUNDINGOPS / ADVANCED PRODUCT WORK
+```
+
+- **Agency HQ is FUNCTIONALLY FROZEN**: repair what breaks real usage;
+  never casually alter authorization, canonical Work, Partner ownership,
+  Team structure, EOD, Production, the CreditOps status model or the BES CRM
+  execution model unless a pilot defect proves the model wrong.
+- **Pilot blockers** (fix immediately): broken login/invitation, wrong module
+  access, unauthorized exposure, missing assigned partner, wrong client
+  visibility, CreditOps/handoff/Timer/EOD/BES CRM work failure, duplicate
+  production, data not saving, dead visible control, broken route, serious
+  mobile blocker, security, corruption. Everything else → document.
+- **Two lanes, never mixed in one commit:** primary = pilot defects;
+  secondary = Partner Portal *planning* and low-risk work only after a stable
+  Agency checkpoint. No broad shared RLS/schema change while staff are
+  testing; a high-risk shared authorization migration is planned first and
+  applied only at a stable checkpoint.
+- **Checkpoint before Partner Portal execution:** no open P0 security,
+  corruption, Invite, CreditOps core, Timer, EOD or BES CRM defect. Then a
+  clean checkpoint commit; only then does the Partner Portal become the
+  active epic (`DEFERRED_AGENCY_WORK.md` D-007 holds the MVP map).
+- **DIY Credit Repair is not next** (D-009). It is built only on the proven
+  identity / tenant / partner-organization / documents / communication /
+  entitlement / files / portal-security foundation.
+- **Reporting during the pilot:** P0 pilot defects, fixed blockers, remaining
+  blockers, deferred-findings count — nothing else. Before Partner Portal
+  execution: "AGENCY PILOT STABLE: YES / NO" with exact blockers.
+
+## 21a. PILOT OBSERVATION MODE (Dee, 2026-09-10 — active until Dee ends it)
+
+The release gate is clean (1559/1559, 70 phases). **That is not permission to
+build.** The real BES team now uses the platform to expose real defects.
+
+- **Do not** proactively build features, start architecture projects, resume
+  deferred work, or optimize working systems. Not Login As, Organization,
+  FundingOps, DIY, Portal, Finance, reporting, AI, Metro 2, SmartCredit,
+  ClickUp migration, templates, or cosmetic redesign — unless Dee changes the
+  priority.
+- **Active P0 surfaces:** Invite Users / Login · CreditOps · My Time / Timer ·
+  Agent EOD · Team EOD · BES CRM. Supporting surfaces (People/Access, Teams,
+  Partner assignments, Notifications, Communication, Files) are corrected only
+  where they directly affect one of those.
+- **Classify every report first:** A pilot defect · B simple pilot UX
+  correction · C security / data-integrity · D new feature · E architecture
+  change · F deferred idea. A, B (when it materially affects the workflow) and
+  C: find the root cause, fix the smallest canonical cause, test, deploy, no
+  scope expansion. C is always immediate. D/E/F: record in
+  `DEFERRED_AGENCY_WORK.md` in enough detail to never be re-explained, then
+  return to the pilot — unless Dee says **IMPLEMENT THIS NOW** or evidence
+  proves it is required for a P0 workflow.
+- **Real use is the source of truth.** A passing unit test does not dismiss a
+  real defect; if reality contradicts a test, inspect the test's assumption.
+  Never change fixtures to match real data; fix fragile probes (no assumed
+  zero projects, fixed partner/client/user counts, empty files or channels).
+- **`PILOT_ISSUES.md` is the bug tracker.** ID, date, reporter, module, actual,
+  expected, classification, severity, root cause, fix commit, live verifier,
+  status. Statuses: OPEN → FIXED AWAITING LIVE RETEST → LIVE VERIFIED, or
+  DEFERRED. **LIVE VERIFIED is a human gate** — Dee or the operator who hit it.
+- **Status language, used exactly:** AUTOMATED PASS · SECURITY PASS · DEPLOYED
+  · UNTESTED LIVE · FIXED AWAITING LIVE RETEST · LIVE VERIFIED · DEFERRED ·
+  BLOCKED. Never "DONE" when the requirement needs a real-user test. A gate at
+  1540/1559 is NOT PASS.
+- **Deploy discipline:** batch related pilot fixes; never a deploy per cosmetic
+  change; never many unrelated fixes in one release. Small UI fix → targeted
+  tests, tsc, eslint, build. Authorization/schema/RLS → affected phases, then
+  the full matrix when the coherent security batch is ready — not per text
+  change.
+- **The pilot ends only when Dee says so.** Until then: observe, fix current
+  operational defects, capture ideas, keep the system stable and deployable.
 
 ## 21. The active program: Live Operations Readiness (until Dee changes it)
 
