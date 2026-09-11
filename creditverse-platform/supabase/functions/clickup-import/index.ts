@@ -96,9 +96,15 @@ Deno.serve(async (req) => {
   const { listId, groupId, dryRun } = body as { listId?: string; groupId?: string; dryRun?: boolean };
   if (!listId || !groupId) return json(400, { error: "listId and groupId are required" });
 
-  /* The caller's own token: the database applies the same rules it would to a
-     browser, and the import is attributed to the person who ran it. */
-  const asUser = createClient(url, anon, { global: { headers: { Authorization: auth } } });
+  /* Normally the caller's own token, so the database applies the same rules it
+     would to a browser and the import is attributed to whoever ran it.
+     A service-role caller — the owner's own migration tooling — goes through
+     the same function with the same code path; it gains nothing it did not
+     already have, since that key bypasses row-level security outright. */
+  const isService = auth.slice(7) === service;
+  const asUser = isService
+    ? createClient(url, service)
+    : createClient(url, anon, { global: { headers: { Authorization: auth } } });
   const cu = async <T>(path: string): Promise<T> => {
     const r = await fetch(`${CU}${path}`, { headers: { Authorization: cuToken } });
     if (!r.ok) throw new Error(`ClickUp ${path} → ${r.status}`);
