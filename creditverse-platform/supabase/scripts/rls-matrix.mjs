@@ -6908,6 +6908,90 @@ if (runs(70)) {
   runPhase("phase 70", P70, { strict: true });
 }
 
+if (runs(71)) {
+  startPhase("phase 71");
+  /* AUTHENTICATION IS NOT AUTHORIZATION (Google sign-in, 2026-09-11).
+   *
+   * Google is now an enabled provider, and Supabase mints an `auth.users` row
+   * for ANY Google account that completes the handshake. That is what an
+   * identity provider does and it cannot be switched off per-provider without
+   * also breaking invitation sign-up. Dee's requirement is that it grants
+   * nothing, so this phase probes the only thing that makes that true: a
+   * session with no membership behind it reads nothing.
+   *
+   * The subject is a uuid that exists nowhere — no profile, no membership, no
+   * contact row. Exactly the shape of a stranger who signed in with Google
+   * thirty seconds ago. If any count here ever stops being zero, an account
+   * nobody invited can see BES data, whatever the interface is doing.
+   */
+  const stranger = "11111111-2222-4333-8444-555566667777";
+  const p71 = (sql) => {
+    try {
+      return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${stranger}","role":"authenticated","email":"a.stranger@gmail.com"}'; ${sql}; rollback;`)[0].rows;
+    } catch (e) {
+      const m = (String(e.message) + String(e.stdout ?? "")).match(/ERROR:\s*(\w+):/);
+      return "ERR " + (m ? m[1] : "unknown");
+    }
+  };
+  /* Resolved as the harness, not as the stranger — see the INSERT probes. */
+  const AG71 = q(`select id::text as rows from public.agencies limit 1`)[0].rows;
+  const ORG71 = q(`select id::text as rows from public.organizations limit 1`)[0].rows;
+  const readsNothing = (table) => [
+    `an uninvited account reads no ${table}`,
+    () => p71(`select count(*)::int as rows from public.${table}`),
+    0,
+  ];
+
+  const P71 = [
+    readsNothing("outsourcing_groups"),
+    readsNothing("fulfillment_clients"),
+    readsNothing("funding_clients"),
+    readsNothing("organizations"),
+    readsNothing("work_items"),
+    readsNothing("crm_projects"),
+    readsNothing("agency_memberships"),
+    readsNothing("org_memberships"),
+    readsNothing("partner_credentials"),
+    readsNothing("partner_assignments"),
+    readsNothing("files"),
+    readsNothing("payslips"),
+    readsNothing("time_entries"),
+    readsNothing("activity_events"),
+    readsNothing("notifications"),
+    readsNothing("profiles"),
+
+    /* Not staff, and holding no capability — including the owner-gated ones,
+       which must not fall open for somebody with no membership at all. */
+    ["an uninvited account is not BES staff",
+      () => p71(`select public.is_agency_staff()::text as rows`), "false"],
+    ["an uninvited account holds no finance capability",
+      () => p71(`select public.agency_can('finance.dashboard.view')::text as rows`), "false"],
+    ["an uninvited account holds no payroll capability",
+      () => p71(`select public.agency_can('payroll.view')::text as rows`), "false"],
+    ["an uninvited account holds no document capability",
+      () => p71(`select public.agency_can('documents.manage')::text as rows`), "false"],
+
+    /* And cannot write itself in. The membership tables are the whole
+       boundary, so being refused at INSERT is what stops a stranger from
+       simply granting themselves what the reads above denied.
+     *
+     * The agency id is resolved OUTSIDE the stranger's transaction on purpose.
+     * Written as `insert … select id from agencies`, the probe passes for the
+     * wrong reason: the stranger cannot read `agencies` either, so the source
+     * select is empty, zero rows are inserted and no policy is ever consulted.
+     * A probe that would pass with the policy dropped is not a probe. */
+    ["an uninvited account cannot grant itself an agency membership",
+      () => p71(`insert into public.agency_memberships (agency_id, user_id, role, status)
+                 values ('${AG71}'::uuid, '${stranger}'::uuid, 'agency_admin', 'active')`),
+      "ERR 42501"],
+    ["an uninvited account cannot grant itself an organization membership",
+      () => p71(`insert into public.org_memberships (organization_id, user_id, role)
+                 values ('${ORG71}'::uuid, '${stranger}'::uuid, 'org_admin')`),
+      "ERR 42501"],
+  ];
+  runPhase("phase 71", P71, { strict: true });
+}
+
 
 endPhase();
 
