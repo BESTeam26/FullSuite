@@ -7238,6 +7238,122 @@ if (runs(73)) {
   runPhase("phase 73", P73, { strict: true });
 }
 
+if (runs(74)) {
+  startPhase("phase 74");
+  /* OPERATIONAL SLA (0311/0312) — Dee's acceptance list.
+   *
+   * The rules are in `sla_policies` and the arithmetic is in the database, so
+   * these probe the database rather than a rendered number. The one that
+   * matters most is the LAST one: an imported ClickUp due date must not
+   * survive once BES has its own anchor.
+   */
+  const p74 = (uid, sql) => {
+    try {
+      return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows;
+    } catch (e) {
+      const m = (String(e.message) + String(e.stdout ?? "")).match(/ERROR:\s*(\w+):/);
+      return "ERR " + (m ? m[1] : "unknown");
+    }
+  };
+  const OWN74 = U["bes.owner@bes.test"], AGENT74 = U["bes.credit@bes.test"];
+  const CL74 = q(`select fc.id::text as rows from public.fulfillment_clients fc
+                   where fc.outsourcing_group_id is not null and fc.archived_at is null
+                   order by fc.created_at limit 1`)[0].rows;
+
+  const P74 = [
+    ["1 — mailed Sep 1 is due Oct 1, by date arithmetic and not by 30x24 drift",
+      () => p74(OWN74, `select public.mark_client_mailed('${CL74}', timestamptz '2026-09-01 12:00+00')::date::text as rows`),
+      "2026-10-01"],
+
+    ["2 — the processing agent is cleared on entering the waiting stage",
+      () => p74(OWN74, `update public.fulfillment_clients set assigned_agent_id='${AGENT74}' where id='${CL74}';
+                        select public.mark_client_mailed('${CL74}', now());
+                        select coalesce(assigned_agent_id::text,'cleared') as rows
+                          from public.fulfillment_clients where id='${CL74}'`),
+      "cleared"],
+
+    ["3 — the partner relationship is untouched by it",
+      () => p74(OWN74, `select public.mark_client_mailed('${CL74}', now());
+                        select (outsourcing_group_id is not null)::text as rows
+                          from public.fulfillment_clients where id='${CL74}'`),
+      "true"],
+
+    /* The clearing is recorded by the activity trigger that owns assignee
+       changes — one entry for one event, not two. */
+    ["5 — and the previous holder is on the record, so the history survives",
+      () => p74(OWN74, `update public.fulfillment_clients set assigned_agent_id='${AGENT74}' where id='${CL74}';
+                        select public.mark_client_mailed('${CL74}', now());
+                        select count(*)::int as rows from public.activity_events
+                         where entity_id='${CL74}' and field='assigned_agent_id'
+                           and previous_value is not null and new_value is null`),
+      1],
+
+    ["6 — a support case is due in 24 hours",
+      () => p74(OWN74, `select (round(extract(epoch from (public.open_support_case('${CL74}') - now()))/3600))::int as rows`),
+      24],
+
+    ["7 — a complaint is due in 5 days",
+      () => p74(OWN74, `select (round(extract(epoch from (public.open_complaint('${CL74}', 'CFPB Needed') - now()))/86400))::int as rows`),
+      5],
+
+    ["8 — changing the mailed date recalculates the due date",
+      () => p74(OWN74, `select public.mark_client_mailed('${CL74}', timestamptz '2026-09-01 12:00+00');
+                        select public.mark_client_mailed('${CL74}', timestamptz '2026-09-05 12:00+00')::date::text as rows`),
+      "2026-10-05"],
+
+    ["9 — an override is kept BESIDE the system date, never on top of it",
+      () => p74(OWN74, `select public.mark_client_mailed('${CL74}', timestamptz '2026-09-01 12:00+00');
+                        select public.set_department_due_override('${CL74}', 'Dispute', timestamptz '2026-09-15 12:00+00', 'client asked');
+                        select (manual_due_at::date::text || ' / ' || system_due_at::date::text) as rows
+                          from public.client_department_statuses
+                         where client_id='${CL74}' and department='Dispute'`),
+      "2026-09-15 / 2026-10-01"],
+
+    ["10 — an agent cannot override an SLA date",
+      () => p74(AGENT74, `select public.set_department_due_override('${CL74}', 'Dispute', now(), 'because')`),
+      "ERR 42501"],
+    ["...nor clear somebody else's override",
+      () => p74(AGENT74, `select public.clear_department_due_override('${CL74}', 'Dispute')`),
+      "ERR 42501"],
+
+    ["clearing an override returns the calculated date",
+      () => p74(OWN74, `select public.mark_client_mailed('${CL74}', timestamptz '2026-09-01 12:00+00');
+                        select public.set_department_due_override('${CL74}', 'Dispute', now(), 'x');
+                        select public.clear_department_due_override('${CL74}', 'Dispute');
+                        select coalesce(manual_due_at, system_due_at)::date::text as rows
+                          from public.client_department_statuses
+                         where client_id='${CL74}' and department='Dispute'`),
+      "2026-10-01"],
+
+    ["the client's own due date is the soonest of its open queues",
+      () => p74(OWN74, `select public.mark_client_mailed('${CL74}', timestamptz '2026-09-01 12:00+00');
+                        select public.open_complaint('${CL74}', 'FTC Needed');
+                        select (due_at::date = (now() + interval '5 days')::date)::text as rows
+                          from public.fulfillment_clients where id='${CL74}'`),
+      "true"],
+
+    ["14 — an imported ClickUp due date does not survive its own anchor",
+      /* The whole point: the row carries ClickUp's date until BES knows when
+         the letters went out, and then BES's arithmetic wins. */
+      () => p74(OWN74, `update public.fulfillment_clients set due_at = timestamptz '2027-01-01' where id='${CL74}';
+                        select public.mark_client_mailed('${CL74}', timestamptz '2026-09-01 12:00+00');
+                        select due_at::date::text as rows from public.fulfillment_clients where id='${CL74}'`),
+      "2026-10-01"],
+
+    ["a department with no policy gets no invented due date",
+      () => p74(OWN74, `select public.enter_department_queue('${CL74}', 'Bureau Calling', 'BC NEEDED');
+                        select coalesce(system_due_at::text,'none') as rows
+                          from public.client_department_statuses
+                         where client_id='${CL74}' and department='Bureau Calling'`),
+      "none"],
+
+    ["anon reaches none of it",
+      () => { try { q(`begin; set local role anon; select public.mark_client_mailed('${CL74}', now()); rollback;`); return "allowed"; } catch { return "refused"; } },
+      "refused"],
+  ];
+  runPhase("phase 74", P74, { strict: true });
+}
+
 endPhase();
 
 /* ------------------------------------------------------------------ *
