@@ -7216,6 +7216,15 @@ if (runs(73)) {
       () => p73(AGENT73, `select public.crm_project_reopen('${PROJ73}')`), "ERR 42501"],
     ["nor delete",
       () => p73(AGENT73, `select public.crm_project_delete('${PROJ73}')`), "ERR 42501"],
+    /* Deleting is the OWNER's alone (Dee, 0171 and again 2026-09-11), so an
+       administrator holding crm.projects.manage — who may complete, archive
+       and reopen — is still refused the one irreversible verb. */
+    ["an ADMINISTRATOR CAN archive — the reversible verbs are not restricted",
+      () => p73(U["bes.admin@bes.test"], `select public.crm_project_archive('${PROJ73}', null);
+                                          select count(*)::int as rows from public.crm_projects
+                                           where id='${PROJ73}' and archived_at is not null`), 1],
+    ["...and refused it explicitly",
+      () => p73(U["bes.admin@bes.test"], `select public.crm_project_delete('${PROJ73}')`), "ERR 42501"],
     ["anon reaches none of it",
       () => { try { q(`begin; set local role anon; select public.crm_project_delete('${PROJ73}'); rollback;`); return "allowed"; } catch { return "refused"; } },
       "refused"],

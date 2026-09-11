@@ -43,12 +43,17 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useAgencyPermissions } from "@/lib/data/agency-permissions";
+import { useAuth } from "@/lib/auth/auth-context";
 import { useCrmProjectLifecycle } from "@/lib/data/use-crm";
 import type { CrmProjectRow } from "@/lib/data/crm-projects";
 import { isActiveProject, isDeletable } from "@/lib/crm/project-lifecycle";
 
 export function CrmProjectActions({ project }: { project: CrmProjectRow }) {
   const perms = useAgencyPermissions();
+  /* Deleting a record is the owner's alone (Dee, 0171 and again 2026-09-11).
+     The database refuses everybody else regardless; this stops an admin being
+     shown an action they cannot take. */
+  const { isAgencyOwner } = useAuth();
   const lifecycle = useCrmProjectLifecycle();
   const { toast } = useToast();
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -60,7 +65,7 @@ export function CrmProjectActions({ project }: { project: CrmProjectRow }) {
 
   const closed = !isActiveProject(project);
   const blockers = project.deletionBlockers;
-  const deletable = isDeletable(project);
+  const deletable = isAgencyOwner && isDeletable(project);
 
   const run = (
     p: Promise<void>,
@@ -142,8 +147,9 @@ export function CrmProjectActions({ project }: { project: CrmProjectRow }) {
             <div className="px-2 py-1.5 text-[11px] leading-relaxed text-muted-foreground">
               <p className="font-medium text-foreground">Cannot be deleted</p>
               <p className="mt-0.5">
-                This project has {blockers.join(", ")}. Deleting it would destroy that record.
-                Archive it instead — that keeps all of it.
+                {blockers.length > 0
+                  ? `This project has ${blockers.join(", ")}. Deleting it would destroy that record. Archive it instead — that keeps all of it.`
+                  : "Only the agency owner can delete a record. Archive it instead — that keeps all of it."}
               </p>
             </div>
           )}
