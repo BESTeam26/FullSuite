@@ -37,6 +37,7 @@ import {
   type EmailConflictState,
 } from "./EmailConflictBanner";
 import { cn } from "@/lib/utils";
+import { readSla, SLA_TONE_CLASS } from "@/lib/fulfillment/sla-display";
 import { formatDate } from "@/lib/format-date";
 import { OpsSelect } from "@/components/ui/ops-select";
 
@@ -70,6 +71,9 @@ interface OpsClientListTableProps<T extends OpsClient, Id extends string> {
   visibleCols: ColDef<Id>[];
   prefs: ViewPrefs<Id>;
   setPrefs: React.Dispatch<React.SetStateAction<ViewPrefs<Id>>>;
+  /** Retained for the shared queue prop shape; the SLA reading owns its own
+   *  thresholds now (see sla-display). Removing it is a separate tidy-up. */
+  slaWarningHours: number;
   onOpenClient: (id: string) => void;
   actions: OpsClientListActions<T>;
   /** Name recorded as the actor on every edit this table performs. */
@@ -80,7 +84,6 @@ interface OpsClientListTableProps<T extends OpsClient, Id extends string> {
   assignees: readonly string[];
   renderStatusPill: (status: string) => ReactNode;
   /** SLA hours at or below which the figure turns red. */
-  slaWarningHours: number;
   /** Cells for columns unique to this division. Return null if unhandled. */
   renderExtraCell: (client: T, colId: Id) => ReactNode | null;
 }
@@ -90,13 +93,13 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
   visibleCols,
   prefs,
   setPrefs,
+  slaWarningHours: _slaWarningHours,
   onOpenClient,
   actions,
   actor,
   statusOptions,
   assignees,
   renderStatusPill,
-  slaWarningHours,
   renderExtraCell,
 }: OpsClientListTableProps<T, Id>) {
   const [editingStatusId, setEditingStatusId] = useState<string | null>(null);
@@ -377,21 +380,13 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
             </span>
           </button>
         );
-      case "sla":
-        return client.slaHoursRemaining !== undefined ? (
-          <span
-            className={cn(
-              "font-medium",
-              client.slaHoursRemaining <= slaWarningHours
-                ? "text-status-danger"
-                : "text-foreground",
-            )}
-          >
-            {client.slaHoursRemaining}h
-          </span>
-        ) : (
-          "—"
-        );
+      case "sla": {
+        /* Words, not raw hours: 901.2h and 949.2h sat side by side and could
+           not be told apart at a glance (Dee). The number is still what the
+           column SORTS on — this is only the reading. */
+        const sla = readSla(client.slaHoursRemaining);
+        return <span className={SLA_TONE_CLASS[sla.tone]}>{sla.label}</span>;
+      }
       case "lastActivity":
         return (
           <span className="text-xs text-muted-foreground">
@@ -432,8 +427,8 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
                 {c.dueAt && <span>Due {formatDate(c.dueAt)}</span>}
                 <span>{c.assignedAgent ? `Assigned to ${c.assignedAgent}` : "Unassigned"}</span>
                 {typeof c.slaHoursRemaining === "number" && (
-                  <span className={c.slaHoursRemaining <= slaWarningHours ? "font-medium text-status-danger" : ""}>
-                    SLA {c.slaHoursRemaining}h
+                  <span className={SLA_TONE_CLASS[readSla(c.slaHoursRemaining).tone]}>
+                    {readSla(c.slaHoursRemaining).label}
                   </span>
                 )}
               </div>
