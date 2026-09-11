@@ -41,6 +41,7 @@ import { PlanPicker } from "@/components/auth/PlanPicker";
 import { BesSystemsMap } from "@/components/auth/BesSystemsMap";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/auth/auth-context";
+import { pickOperatorQuote } from "@/lib/brand/operator-quotes";
 import { useExternalProviders } from "@/lib/auth/use-external-providers";
 import { useSeo } from "@/lib/use-seo";
 
@@ -128,6 +129,9 @@ const Login = () => {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [artOk, setArtOk] = useState(true);
+  /* Chosen once per visit, not on every render: a line that changes while
+     somebody is reading it is movement beside a password field. */
+  const [quote] = useState(pickOperatorQuote);
   const providers = useExternalProviders();
 
   useSeo({
@@ -224,7 +228,7 @@ const Login = () => {
             One connected operating system for the businesses we build, support, and scale.
           </h2>
           <blockquote className="mt-8 border-l border-gold/40 pl-4 text-[15px] italic leading-relaxed text-white/60">
-            “If it lives in someone's memory, it's not a system yet.”
+            “{quote}”
           </blockquote>
           <p className="mt-8 flex items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-white/35">
             <ShieldCheck className="h-3.5 w-3.5" />
