@@ -23,6 +23,7 @@ import {
   ClientContextBar, ClientHeaderSentinel, useClientContextBar,
 } from "./ClientContextBar";
 import { Link } from "react-router-dom";
+import { ClientSecretsPanel } from "@/components/dashboard/fulfillment/ClientSecretsPanel";
 import { FundingReadinessCard } from "./FundingReadinessCard";
 import { ClientLifecycleControl } from "./ClientLifecycleControl";
 import { ClientStatusControl } from "./ClientStatusControl";
@@ -419,6 +420,7 @@ export function ClientWorkWorkspace({ clientId, onBack }: Props) {
 
         {/* RIGHT PANEL = COMMENTS + CHRONOLOGICAL ACTIVITY TIMELINE */}
         <div className="space-y-4 lg:col-span-5">
+          <ClientSecretsPanel clientId={clientId} />
           <FundingReadinessCard fulfillmentClientId={clientId} />
           <ClientWorkActivityTimeline clientId={clientId} />
         </div>

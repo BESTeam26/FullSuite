@@ -90,6 +90,7 @@ const PARTNER: AgencyPartner = {
   credentialMigrationRequired: false, status: "Active", archivedAt: null,
   legalBusinessName: null, dbaName: null, addressStreet: null, addressCity: null, addressState: null, addressZip: null,
   website: null, onboardingCompletedAt: "2026-09-01T00:00:00Z", accessConfirmedAt: "2026-09-01T00:00:00Z",
+  sourceListRef: null,
   createdAt: "2026-01-04T00:00:00Z",
 };
 

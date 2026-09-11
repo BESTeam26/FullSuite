@@ -60,6 +60,8 @@ export interface AgencyPartner {
   addressState: string | null;
   addressZip: string | null;
   website: string | null;
+  /** Where this partner's client records come from, e.g. `clickup:list:…`. */
+  sourceListRef: string | null;
   onboardingCompletedAt: string | null;
   accessConfirmedAt: string | null;
   status: PartnerStatus;
@@ -130,6 +132,7 @@ const mapPartner = (r: Record<string, unknown>): AgencyPartner => ({
   addressState: (r.address_state as string) ?? null,
   addressZip: (r.address_zip as string) ?? null,
   website: (r.website as string) ?? null,
+  sourceListRef: (r.source_list_ref as string) ?? null,
   onboardingCompletedAt: (r.onboarding_completed_at as string) ?? null,
   accessConfirmedAt: (r.access_confirmed_at as string) ?? null,
   legacyClientVolume: (r.legacy_reported_client_volume as string) ?? null,
@@ -145,7 +148,7 @@ const mapPartner = (r: Record<string, unknown>): AgencyPartner => ({
 /* ONE string literal. supabase-js infers the row shape from the literal
    itself, so a joined array or a concatenation degrades every result. */
 // prettier-ignore
-const COLUMNS = "id, name, partner_name, contact_email, phone, address, notes, primary_contact, service, contract_ref, status, archived_at, created_at, lifecycle, health, health_note, health_changed_by, health_changed_at, started_on, ended_on, saas_plan, account_manager_id, team_id, primary_contact_id, legacy_reported_client_volume, legacy_reported_active_clients, source_type, credential_migration_required, legal_business_name, dba_name, address_street, address_city, address_state, address_zip, website, onboarding_completed_at, access_confirmed_at";
+const COLUMNS = "id, name, partner_name, contact_email, phone, address, notes, primary_contact, service, contract_ref, status, archived_at, created_at, lifecycle, health, health_note, health_changed_by, health_changed_at, started_on, ended_on, saas_plan, account_manager_id, team_id, primary_contact_id, legacy_reported_client_volume, legacy_reported_active_clients, source_type, credential_migration_required, legal_business_name, dba_name, address_street, address_city, address_state, address_zip, website, onboarding_completed_at, access_confirmed_at, source_list_ref";
 
 /** Active partners. Archived ones are excluded here and never deleted. */
 export async function fetchAgencyPartners(includeArchived = false): Promise<AgencyPartner[]> {
@@ -191,6 +194,9 @@ export interface NewPartner {
   addressZip?: string;
   website?: string;
   teamId?: string | null;
+  /** Where this partner's client records come from, e.g. `clickup:list:901821115879`.
+   *  Stored so an import never matches a partner by name (Dee, 2026-09-11). */
+  sourceListRef?: string | null;
 }
 
 const blankToNull = (v?: string) => {
@@ -232,6 +238,7 @@ export async function createAgencyPartner(agencyId: string, input: NewPartner): 
       saas_plan: blankToNull(input.saasPlan),
       account_manager_id: input.accountManagerId ?? null,
       team_id: input.teamId ?? null,
+      source_list_ref: input.sourceListRef ?? null,
     });
   if (error) throw error;
   return id;
@@ -261,6 +268,7 @@ export async function updateAgencyPartner(id: string, patch: Partial<NewPartner>
   if (patch.addressState !== undefined) row.address_state = blankToNull(patch.addressState);
   if (patch.addressZip !== undefined) row.address_zip = blankToNull(patch.addressZip);
   if (patch.website !== undefined) row.website = blankToNull(patch.website);
+  if (patch.sourceListRef !== undefined) row.source_list_ref = blankToNull(patch.sourceListRef ?? undefined);
   if (Object.keys(row).length === 0) return;
   const { error } = await sb.from("outsourcing_groups").update(row as never).eq("id", id);
   if (error) throw error;

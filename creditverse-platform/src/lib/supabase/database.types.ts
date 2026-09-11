@@ -1618,6 +1618,72 @@ export type Database = {
           },
         ]
       }
+      client_address_history: {
+        Row: {
+          address_line1: string | null
+          address_line2: string | null
+          agency_id: string
+          city: string | null
+          client_id: string
+          created_at: string
+          id: string
+          needs_review: boolean
+          note: string | null
+          postal_code: string | null
+          recorded_at: string
+          source: string
+          source_ref: string | null
+          state: string | null
+        }
+        Insert: {
+          address_line1?: string | null
+          address_line2?: string | null
+          agency_id: string
+          city?: string | null
+          client_id: string
+          created_at?: string
+          id?: string
+          needs_review?: boolean
+          note?: string | null
+          postal_code?: string | null
+          recorded_at?: string
+          source: string
+          source_ref?: string | null
+          state?: string | null
+        }
+        Update: {
+          address_line1?: string | null
+          address_line2?: string | null
+          agency_id?: string
+          city?: string | null
+          client_id?: string
+          created_at?: string
+          id?: string
+          needs_review?: boolean
+          note?: string | null
+          postal_code?: string | null
+          recorded_at?: string
+          source?: string
+          source_ref?: string | null
+          state?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_address_history_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_address_history_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_department_statuses: {
         Row: {
           assignee_id: string | null
@@ -1720,6 +1786,144 @@ export type Database = {
           },
         ]
       }
+      client_secret_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          agency_id: string
+          created_at: string
+          id: number
+          secret_row_id: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          agency_id: string
+          created_at?: string
+          id?: never
+          secret_row_id: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          agency_id?: string
+          created_at?: string
+          id?: never
+          secret_row_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_secret_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_secret_events_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_secret_events_secret_row_id_fkey"
+            columns: ["secret_row_id"]
+            isOneToOne: false
+            referencedRelation: "client_secrets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_secrets: {
+        Row: {
+          agency_id: string
+          archived_at: string | null
+          archived_reason: string | null
+          client_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          kind: string
+          label: string | null
+          last_rotated_at: string | null
+          notes: string | null
+          provider: string | null
+          secret_id: string | null
+          updated_at: string
+          updated_by: string | null
+          url: string | null
+          username: string | null
+        }
+        Insert: {
+          agency_id: string
+          archived_at?: string | null
+          archived_reason?: string | null
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind: string
+          label?: string | null
+          last_rotated_at?: string | null
+          notes?: string | null
+          provider?: string | null
+          secret_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          url?: string | null
+          username?: string | null
+        }
+        Update: {
+          agency_id?: string
+          archived_at?: string | null
+          archived_reason?: string | null
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind?: string
+          label?: string | null
+          last_rotated_at?: string | null
+          notes?: string | null
+          provider?: string | null
+          secret_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          url?: string | null
+          username?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_secrets_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_secrets_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_secrets_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_secrets_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           address_line1: string | null
@@ -1729,7 +1933,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           date_of_birth: string | null
-          email: string
+          email: string | null
           first_name: string | null
           full_name: string | null
           id: string
@@ -1758,7 +1962,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           date_of_birth?: string | null
-          email: string
+          email?: string | null
           first_name?: string | null
           full_name?: string | null
           id?: string
@@ -1787,7 +1991,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           date_of_birth?: string | null
-          email?: string
+          email?: string | null
           first_name?: string | null
           full_name?: string | null
           id?: string
@@ -4579,6 +4783,8 @@ export type Database = {
           archived_at: string | null
           assigned_agent_id: string | null
           auto_sync: boolean
+          breach_equifax: boolean | null
+          breach_npd: boolean | null
           client_id: string
           created_at: string
           created_by: string | null
@@ -4589,6 +4795,7 @@ export type Database = {
           id: string
           is_fixture: boolean
           last_activity_at: string
+          legacy_client_id: string | null
           lifecycle: Database["public"]["Enums"]["client_lifecycle"]
           mode: Database["public"]["Enums"]["fulfillment_mode"]
           name: string
@@ -4600,8 +4807,11 @@ export type Database = {
           phone: string | null
           preferred_name: string | null
           processed_on: string | null
+          program_started_on: string | null
           public_id: string
           round: Database["public"]["Enums"]["fulfillment_round"]
+          security_freeze_only: boolean
+          source_status: string | null
           status: Database["public"]["Enums"]["fulfillment_client_status"]
           team_id: string | null
           updated_at: string
@@ -4612,6 +4822,8 @@ export type Database = {
           archived_at?: string | null
           assigned_agent_id?: string | null
           auto_sync?: boolean
+          breach_equifax?: boolean | null
+          breach_npd?: boolean | null
           client_id: string
           created_at?: string
           created_by?: string | null
@@ -4622,6 +4834,7 @@ export type Database = {
           id?: string
           is_fixture?: boolean
           last_activity_at?: string
+          legacy_client_id?: string | null
           lifecycle?: Database["public"]["Enums"]["client_lifecycle"]
           mode: Database["public"]["Enums"]["fulfillment_mode"]
           name: string
@@ -4633,8 +4846,11 @@ export type Database = {
           phone?: string | null
           preferred_name?: string | null
           processed_on?: string | null
+          program_started_on?: string | null
           public_id?: string
           round?: Database["public"]["Enums"]["fulfillment_round"]
+          security_freeze_only?: boolean
+          source_status?: string | null
           status?: Database["public"]["Enums"]["fulfillment_client_status"]
           team_id?: string | null
           updated_at?: string
@@ -4645,6 +4861,8 @@ export type Database = {
           archived_at?: string | null
           assigned_agent_id?: string | null
           auto_sync?: boolean
+          breach_equifax?: boolean | null
+          breach_npd?: boolean | null
           client_id?: string
           created_at?: string
           created_by?: string | null
@@ -4655,6 +4873,7 @@ export type Database = {
           id?: string
           is_fixture?: boolean
           last_activity_at?: string
+          legacy_client_id?: string | null
           lifecycle?: Database["public"]["Enums"]["client_lifecycle"]
           mode?: Database["public"]["Enums"]["fulfillment_mode"]
           name?: string
@@ -4666,8 +4885,11 @@ export type Database = {
           phone?: string | null
           preferred_name?: string | null
           processed_on?: string | null
+          program_started_on?: string | null
           public_id?: string
           round?: Database["public"]["Enums"]["fulfillment_round"]
+          security_freeze_only?: boolean
+          source_status?: string | null
           status?: Database["public"]["Enums"]["fulfillment_client_status"]
           team_id?: string | null
           updated_at?: string
@@ -5960,6 +6182,60 @@ export type Database = {
           status?: Database["public"]["Enums"]["hub_module_status"]
         }
         Relationships: []
+      }
+      import_links: {
+        Row: {
+          agency_id: string
+          entity_id: string
+          entity_type: string
+          id: string
+          import_batch_id: string | null
+          imported_at: string
+          imported_by: string | null
+          source_id: string
+          source_kind: string
+          source_system: string
+        }
+        Insert: {
+          agency_id: string
+          entity_id: string
+          entity_type: string
+          id?: string
+          import_batch_id?: string | null
+          imported_at?: string
+          imported_by?: string | null
+          source_id: string
+          source_kind: string
+          source_system: string
+        }
+        Update: {
+          agency_id?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          import_batch_id?: string | null
+          imported_at?: string
+          imported_by?: string | null
+          source_id?: string
+          source_kind?: string
+          source_system?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_links_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_links_imported_by_fkey"
+            columns: ["imported_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       invitations: {
         Row: {
@@ -8334,6 +8610,7 @@ export type Database = {
           primary_contact_id: string | null
           saas_plan: string | null
           service: string | null
+          source_list_ref: string | null
           source_reference: string | null
           source_row_ref: string | null
           source_type: string
@@ -8384,6 +8661,7 @@ export type Database = {
           primary_contact_id?: string | null
           saas_plan?: string | null
           service?: string | null
+          source_list_ref?: string | null
           source_reference?: string | null
           source_row_ref?: string | null
           source_type?: string
@@ -8434,6 +8712,7 @@ export type Database = {
           primary_contact_id?: string | null
           saas_plan?: string | null
           service?: string | null
+          source_list_ref?: string | null
           source_reference?: string | null
           source_row_ref?: string | null
           source_type?: string
@@ -13903,6 +14182,23 @@ export type Database = {
         Args: { p_key: string; p_membership: string }
         Returns: undefined
       }
+      clickup_import_client: { Args: { p: Json }; Returns: Json }
+      client_address_record: {
+        Args: {
+          p_city: string
+          p_client: string
+          p_l1: string
+          p_l2: string
+          p_needs_review?: boolean
+          p_note?: string
+          p_recorded_at: string
+          p_source: string
+          p_source_ref: string
+          p_state: string
+          p_zip: string
+        }
+        Returns: string
+      }
       client_birthdays: {
         Args: { p_org: string; p_within_days?: number }
         Returns: {
@@ -13916,6 +14212,19 @@ export type Database = {
       client_department_writable: {
         Args: { p_client: string }
         Returns: boolean
+      }
+      client_match_for_import: {
+        Args: {
+          p_dob: string
+          p_email: string
+          p_full_name: string
+          p_group: string
+          p_legacy_id: string
+          p_phone: string
+          p_source_system: string
+          p_task_id: string
+        }
+        Returns: string
       }
       client_portal_home: {
         Args: never
@@ -13938,6 +14247,25 @@ export type Database = {
           public_id: string
           published_updates: number
         }[]
+      }
+      client_secret_archive: {
+        Args: { p_id: string; p_reason?: string }
+        Returns: undefined
+      }
+      client_secret_reveal: { Args: { p_id: string }; Returns: string }
+      client_secret_write: {
+        Args: {
+          p_client: string
+          p_id?: string
+          p_kind: string
+          p_label?: string
+          p_notes?: string
+          p_provider?: string
+          p_secret: string
+          p_url?: string
+          p_username?: string
+        }
+        Returns: string
       }
       client_visible: { Args: { p_client: string }; Returns: boolean }
       client_writable: {
@@ -14522,6 +14850,17 @@ export type Database = {
           p_package: Database["public"]["Enums"]["product_key"]
         }
         Returns: boolean
+      }
+      import_link_record: {
+        Args: {
+          p_batch?: string
+          p_entity_id: string
+          p_entity_type: string
+          p_source_id: string
+          p_source_kind: string
+          p_source_system: string
+        }
+        Returns: undefined
       }
       in_scope: {
         Args: {

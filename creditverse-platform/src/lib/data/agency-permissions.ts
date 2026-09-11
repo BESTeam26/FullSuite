@@ -37,6 +37,11 @@ export const AGENCY_PERMISSIONS = [
      reopen, and the narrow delete. The database asks for this key too — the
      menu is presentation, the function is the gate. */
   "crm.projects.manage",
+  /* Pulling a whole ClickUp list into production is not the same act as
+     correcting a client's phone number, so it is not the same key. */
+  "creditops.clients.import",
+  /* Revealing a client's SSN and portal logins. */
+  "creditops.clients.sensitive",
   /* HR documents (§15): a team member's agreements and NDAs — never mere
      staff status, and not part of any preset. */
   "people.documents.manage",

@@ -12,6 +12,7 @@
  */
 import { useState } from "react";
 import { HeartPulse, Loader2 } from "lucide-react";
+import { PartnerImportAction } from "@/components/agency/partner/PartnerImportAction";
 import { ContentCard } from "@/components/dashboard/DivisionLayout";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -181,6 +182,15 @@ export function PartnerOverviewTab({ partner, services, people, teams, clientCou
           ) : (
             <p className="text-sm text-muted-foreground">Not recorded.</p>
           )}
+        </ContentCard>
+
+        <ContentCard title="Migration">
+          <p className="mb-3 text-xs text-muted-foreground">
+            Bring this partner&rsquo;s clients across from ClickUp — records, comments,
+            attachments and logins. Running it again updates the same clients rather than
+            creating duplicates.
+          </p>
+          <PartnerImportAction partner={partner} />
         </ContentCard>
       </div>
     </div>
