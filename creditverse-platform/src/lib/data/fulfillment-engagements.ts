@@ -32,6 +32,9 @@ export interface FulfillmentEngagement {
   effectiveFrom: string;
   effectiveTo?: string;
   authorizedTeam?: string;
+  /** Where this engagement is filed inside its module (0301). Null until the
+   *  module has a category catalogue, or until somebody files it. */
+  operationalCategoryId?: string;
 }
 
 const mapRow = (r: Row): FulfillmentEngagement => ({
@@ -44,6 +47,7 @@ const mapRow = (r: Row): FulfillmentEngagement => ({
   effectiveFrom: r.effective_from,
   effectiveTo: r.effective_to ?? undefined,
   authorizedTeam: r.authorized_team ?? undefined,
+  operationalCategoryId: r.operational_category_id ?? undefined,
 });
 
 /**
@@ -108,4 +112,25 @@ export function servicesFor(
   return engagements
     .filter((e) => e.scopeId === scopeId && isEngagementLive(e, today))
     .map((e) => e.service);
+}
+
+/**
+ * The live engagement itself, not merely whether one exists.
+ *
+ * `besMayFulfil` answers the authorization question; this answers the
+ * operational one — which row is BES working under right now, so the interface
+ * can read its category and move it. The schema does not forbid two rows for
+ * one partner and service, so the choice is made deterministically (latest
+ * start, then id) rather than left to row order.
+ */
+export function liveEngagementFor(
+  engagements: FulfillmentEngagement[],
+  scopeId: string | undefined,
+  service: FulfillmentService,
+  today?: string,
+): FulfillmentEngagement | undefined {
+  if (!scopeId) return undefined;
+  return engagements
+    .filter((e) => e.scopeId === scopeId && e.service === service && isEngagementLive(e, today))
+    .sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom) || a.id.localeCompare(b.id))[0];
 }

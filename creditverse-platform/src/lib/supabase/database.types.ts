@@ -556,6 +556,7 @@ export type Database = {
       }
       agency_memberships: {
         Row: {
+          access_profile: Database["public"]["Enums"]["access_profile"] | null
           agency_id: string
           created_at: string
           deactivated_at: string | null
@@ -567,7 +568,6 @@ export type Database = {
           primary_department_id: string | null
           primary_division_id: string | null
           primary_team_id: string | null
-          access_profile: Database["public"]["Enums"]["access_profile"] | null
           role: Database["public"]["Enums"]["agency_role"]
           scope: Database["public"]["Enums"]["access_scope"]
           scope_department_id: string | null
@@ -578,6 +578,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          access_profile?: Database["public"]["Enums"]["access_profile"] | null
           agency_id: string
           created_at?: string
           deactivated_at?: string | null
@@ -589,7 +590,6 @@ export type Database = {
           primary_department_id?: string | null
           primary_division_id?: string | null
           primary_team_id?: string | null
-          access_profile?: Database["public"]["Enums"]["access_profile"] | null
           role?: Database["public"]["Enums"]["agency_role"]
           scope?: Database["public"]["Enums"]["access_scope"]
           scope_department_id?: string | null
@@ -600,6 +600,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          access_profile?: Database["public"]["Enums"]["access_profile"] | null
           agency_id?: string
           created_at?: string
           deactivated_at?: string | null
@@ -611,7 +612,6 @@ export type Database = {
           primary_department_id?: string | null
           primary_division_id?: string | null
           primary_team_id?: string | null
-          access_profile?: Database["public"]["Enums"]["access_profile"] | null
           role?: Database["public"]["Enums"]["agency_role"]
           scope?: Database["public"]["Enums"]["access_scope"]
           scope_department_id?: string | null
@@ -696,7 +696,15 @@ export type Database = {
           key?: string
           profile?: Database["public"]["Enums"]["access_profile"]
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "agency_profile_permissions_key_fkey"
+            columns: ["key"]
+            isOneToOne: false
+            referencedRelation: "permission_keys"
+            referencedColumns: ["key"]
+          },
+        ]
       }
       agency_role_permissions: {
         Row: {
@@ -2195,25 +2203,25 @@ export type Database = {
       }
       credential_platforms: {
         Row: {
+          category: string
           key: string
           label: string
           sends_code: boolean
           sort: number
-          category: string
         }
         Insert: {
+          category?: string
           key: string
           label: string
           sends_code?: boolean
           sort?: number
-          category?: string
         }
         Update: {
+          category?: string
           key?: string
           label?: string
           sends_code?: boolean
           sort?: number
-          category?: string
         }
         Relationships: []
       }
@@ -2706,8 +2714,8 @@ export type Database = {
         Row: {
           agency_id: string
           archived_at: string | null
-          business_name: string | null
           archived_reason: string | null
+          business_name: string | null
           created_at: string
           created_by: string | null
           description: string | null
@@ -2737,8 +2745,8 @@ export type Database = {
         Insert: {
           agency_id: string
           archived_at?: string | null
-          business_name?: string | null
           archived_reason?: string | null
+          business_name?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -2768,8 +2776,8 @@ export type Database = {
         Update: {
           agency_id?: string
           archived_at?: string | null
-          business_name?: string | null
           archived_reason?: string | null
+          business_name?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -3896,6 +3904,51 @@ export type Database = {
           },
         ]
       }
+      document_folders: {
+        Row: {
+          agency_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          kind: string
+          name: string
+          sort: number
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind?: string
+          name: string
+          sort?: number
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind?: string
+          name?: string
+          sort?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_folders_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_folders_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_instances: {
         Row: {
           classified_period: string | null
@@ -4154,6 +4207,83 @@ export type Database = {
           },
         ]
       }
+      document_templates: {
+        Row: {
+          agency_id: string
+          audience: string
+          body: string
+          created_at: string
+          created_by: string | null
+          folder_id: string | null
+          id: string
+          name: string
+          partner_onboarding_agreement: boolean
+          status: string
+          updated_at: string
+          updated_by: string | null
+          version: number
+        }
+        Insert: {
+          agency_id: string
+          audience?: string
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          folder_id?: string | null
+          id?: string
+          name: string
+          partner_onboarding_agreement?: boolean
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Update: {
+          agency_id?: string
+          audience?: string
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          folder_id?: string | null
+          id?: string
+          name?: string
+          partner_onboarding_agreement?: boolean
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_templates_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_templates_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "document_folders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_templates_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       eod_revisions: {
         Row: {
           eod_id: string
@@ -4195,18 +4325,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      document_folders: {
-        Row: { agency_id: string; created_at: string; created_by: string | null; id: string; kind: string; name: string; sort: number }
-        Insert: { agency_id: string; created_at?: string; created_by?: string | null; id?: string; kind?: string; name: string; sort?: number }
-        Update: { agency_id?: string; created_at?: string; created_by?: string | null; id?: string; kind?: string; name?: string; sort?: number }
-        Relationships: []
-      }
-      document_templates: {
-        Row: { agency_id: string; audience: string; body: string; created_at: string; created_by: string | null; folder_id: string | null; id: string; name: string; status: string; updated_at: string; updated_by: string | null; version: number; partner_onboarding_agreement: boolean }
-        Insert: { agency_id: string; audience?: string; body?: string; created_at?: string; created_by?: string | null; folder_id?: string | null; id?: string; name: string; status?: string; updated_at?: string; updated_by?: string | null; version?: number; partner_onboarding_agreement?: boolean }
-        Update: { agency_id?: string; audience?: string; body?: string; created_at?: string; created_by?: string | null; folder_id?: string | null; id?: string; name?: string; status?: string; updated_at?: string; updated_by?: string | null; version?: number; partner_onboarding_agreement?: boolean }
-        Relationships: []
       }
       eod_submissions: {
         Row: {
@@ -4590,6 +4708,7 @@ export type Database = {
           effective_from: string
           effective_to: string | null
           id: string
+          operational_category_id: string | null
           organization_id: string | null
           outsourcing_group_id: string | null
           service: Database["public"]["Enums"]["fulfillment_service"]
@@ -4605,6 +4724,7 @@ export type Database = {
           effective_from?: string
           effective_to?: string | null
           id?: string
+          operational_category_id?: string | null
           organization_id?: string | null
           outsourcing_group_id?: string | null
           service: Database["public"]["Enums"]["fulfillment_service"]
@@ -4620,6 +4740,7 @@ export type Database = {
           effective_from?: string
           effective_to?: string | null
           id?: string
+          operational_category_id?: string | null
           organization_id?: string | null
           outsourcing_group_id?: string | null
           service?: Database["public"]["Enums"]["fulfillment_service"]
@@ -4640,6 +4761,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "teams"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fulfillment_engagements_category_fk"
+            columns: ["operational_category_id", "service"]
+            isOneToOne: false
+            referencedRelation: "module_categories"
+            referencedColumns: ["id", "module"]
           },
           {
             foreignKeyName: "fulfillment_engagements_created_by_fkey"
@@ -5459,7 +5587,22 @@ export type Database = {
           source?: Database["public"]["Enums"]["fx_rate_source"]
           spread_bps?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fx_rates_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fx_rates_set_by_fkey"
+            columns: ["set_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ghl_agency_credentials: {
         Row: {
@@ -5520,6 +5663,7 @@ export type Database = {
       }
       ghl_connections: {
         Row: {
+          agency_owned: boolean
           company_id: string | null
           created_at: string
           created_by: string | null
@@ -5528,7 +5672,6 @@ export type Database = {
           label: string | null
           last_event_at: string | null
           location_id: string
-          agency_owned: boolean
           name: string | null
           organization_id: string | null
           outsourcing_group_id: string | null
@@ -5536,6 +5679,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          agency_owned?: boolean
           company_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -5551,6 +5695,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          agency_owned?: boolean
           company_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -5559,7 +5704,6 @@ export type Database = {
           label?: string | null
           last_event_at?: string | null
           location_id?: string
-          agency_owned?: boolean
           name?: string | null
           organization_id?: string | null
           outsourcing_group_id?: string | null
@@ -5579,6 +5723,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ghl_connections_outsourcing_group_id_fkey"
+            columns: ["outsourcing_group_id"]
+            isOneToOne: false
+            referencedRelation: "outsourcing_groups"
             referencedColumns: ["id"]
           },
         ]
@@ -5614,39 +5765,40 @@ export type Database = {
       }
       ghl_events: {
         Row: {
+          agency_owned: boolean
           event_type: string
           external_id: string | null
           id: number
           location_id: string
-          agency_owned: boolean
           organization_id: string | null
-          outsourcing_group_id: string | null
           outcome: string | null
+          outsourcing_group_id: string | null
           payload: Json
           processed_at: string | null
           received_at: string
         }
         Insert: {
+          agency_owned?: boolean
           event_type: string
           external_id?: string | null
           id?: never
           location_id: string
           organization_id?: string | null
-          outsourcing_group_id?: string | null
           outcome?: string | null
+          outsourcing_group_id?: string | null
           payload: Json
           processed_at?: string | null
           received_at?: string
         }
         Update: {
+          agency_owned?: boolean
           event_type?: string
           external_id?: string | null
           id?: never
           location_id?: string
-          agency_owned?: boolean
           organization_id?: string | null
-          outsourcing_group_id?: string | null
           outcome?: string | null
+          outsourcing_group_id?: string | null
           payload?: Json
           processed_at?: string | null
           received_at?: string
@@ -5657,6 +5809,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ghl_events_outsourcing_group_id_fkey"
+            columns: ["outsourcing_group_id"]
+            isOneToOne: false
+            referencedRelation: "outsourcing_groups"
             referencedColumns: ["id"]
           },
         ]
@@ -5716,7 +5875,29 @@ export type Database = {
           status_label?: string
           tag?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "ghl_outbound_events_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ghl_outbound_events_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "fulfillment_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ghl_outbound_events_outsourcing_group_id_fkey"
+            columns: ["outsourcing_group_id"]
+            isOneToOne: false
+            referencedRelation: "outsourcing_groups"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       hub_modules: {
         Row: {
@@ -5758,14 +5939,14 @@ export type Database = {
           agency_id: string | null
           agency_role: Database["public"]["Enums"]["agency_role"] | null
           created_at: string
-          lead_team_id: string | null
-          module_keys: string[]
           email: string
           expires_at: string
           external_role: Database["public"]["Enums"]["external_role"] | null
           id: string
           invited_by: string | null
           kind: Database["public"]["Enums"]["membership_kind"]
+          lead_team_id: string | null
+          module_keys: string[]
           org_role: Database["public"]["Enums"]["org_role"] | null
           organization_id: string | null
           partner_contact_id: string | null
@@ -5778,14 +5959,14 @@ export type Database = {
           agency_id?: string | null
           agency_role?: Database["public"]["Enums"]["agency_role"] | null
           created_at?: string
-          lead_team_id?: string | null
-          module_keys?: string[]
           email: string
           expires_at?: string
           external_role?: Database["public"]["Enums"]["external_role"] | null
           id?: string
           invited_by?: string | null
           kind: Database["public"]["Enums"]["membership_kind"]
+          lead_team_id?: string | null
+          module_keys?: string[]
           org_role?: Database["public"]["Enums"]["org_role"] | null
           organization_id?: string | null
           partner_contact_id?: string | null
@@ -5798,14 +5979,14 @@ export type Database = {
           agency_id?: string | null
           agency_role?: Database["public"]["Enums"]["agency_role"] | null
           created_at?: string
-          lead_team_id?: string | null
-          module_keys?: string[]
           email?: string
           expires_at?: string
           external_role?: Database["public"]["Enums"]["external_role"] | null
           id?: string
           invited_by?: string | null
           kind?: Database["public"]["Enums"]["membership_kind"]
+          lead_team_id?: string | null
+          module_keys?: string[]
           org_role?: Database["public"]["Enums"]["org_role"] | null
           organization_id?: string | null
           partner_contact_id?: string | null
@@ -5825,6 +6006,13 @@ export type Database = {
             columns: ["invited_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invitations_lead_team_id_fkey"
+            columns: ["lead_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
             referencedColumns: ["id"]
           },
           {
@@ -6836,10 +7024,31 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "member_documents_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_documents_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "member_documents_file_id_fkey"
             columns: ["file_id"]
             isOneToOne: false
             referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_documents_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -7172,6 +7381,60 @@ export type Database = {
             columns: ["reply_to_id"]
             isOneToOne: false
             referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      module_categories: {
+        Row: {
+          agency_id: string
+          archived_at: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          key: string
+          label: string
+          module: Database["public"]["Enums"]["fulfillment_service"]
+          sort: number
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          key: string
+          label: string
+          module: Database["public"]["Enums"]["fulfillment_service"]
+          sort?: number
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          key?: string
+          label?: string
+          module?: Database["public"]["Enums"]["fulfillment_service"]
+          sort?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "module_categories_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "module_categories_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -7996,8 +8259,14 @@ export type Database = {
       }
       outsourcing_groups: {
         Row: {
+          access_confirmed_at: string | null
+          access_confirmed_by: string | null
           account_manager_id: string | null
           address: string | null
+          address_city: string | null
+          address_state: string | null
+          address_street: string | null
+          address_zip: string | null
           agency_id: string
           archived_at: string | null
           contact_email: string
@@ -8006,6 +8275,7 @@ export type Database = {
           created_by: string | null
           credential_migration_required: boolean
           credential_note: string | null
+          dba_name: string | null
           ended_on: string | null
           health: Database["public"]["Enums"]["partner_health"] | null
           health_changed_at: string | null
@@ -8017,9 +8287,12 @@ export type Database = {
           is_fixture: boolean
           legacy_reported_active_clients: number | null
           legacy_reported_client_volume: string | null
+          legal_business_name: string | null
           lifecycle: Database["public"]["Enums"]["partner_lifecycle"]
           name: string
           notes: string | null
+          onboarding_completed_at: string | null
+          onboarding_completed_by: string | null
           partner_name: string | null
           phone: string | null
           primary_contact: string | null
@@ -8033,21 +8306,17 @@ export type Database = {
           status: Database["public"]["Enums"]["outsourcing_group_status"]
           team_id: string | null
           updated_at: string
-          legal_business_name: string | null
-          dba_name: string | null
-          address_street: string | null
-          address_city: string | null
-          address_state: string | null
-          address_zip: string | null
           website: string | null
-          onboarding_completed_at: string | null
-          onboarding_completed_by: string | null
-          access_confirmed_at: string | null
-          access_confirmed_by: string | null
         }
         Insert: {
+          access_confirmed_at?: string | null
+          access_confirmed_by?: string | null
           account_manager_id?: string | null
           address?: string | null
+          address_city?: string | null
+          address_state?: string | null
+          address_street?: string | null
+          address_zip?: string | null
           agency_id: string
           archived_at?: string | null
           contact_email: string
@@ -8056,6 +8325,7 @@ export type Database = {
           created_by?: string | null
           credential_migration_required?: boolean
           credential_note?: string | null
+          dba_name?: string | null
           ended_on?: string | null
           health?: Database["public"]["Enums"]["partner_health"] | null
           health_changed_at?: string | null
@@ -8067,9 +8337,12 @@ export type Database = {
           is_fixture?: boolean
           legacy_reported_active_clients?: number | null
           legacy_reported_client_volume?: string | null
+          legal_business_name?: string | null
           lifecycle?: Database["public"]["Enums"]["partner_lifecycle"]
           name: string
           notes?: string | null
+          onboarding_completed_at?: string | null
+          onboarding_completed_by?: string | null
           partner_name?: string | null
           phone?: string | null
           primary_contact?: string | null
@@ -8083,21 +8356,17 @@ export type Database = {
           status?: Database["public"]["Enums"]["outsourcing_group_status"]
           team_id?: string | null
           updated_at?: string
-          legal_business_name?: string | null
-          dba_name?: string | null
-          address_street?: string | null
-          address_city?: string | null
-          address_state?: string | null
-          address_zip?: string | null
           website?: string | null
-          onboarding_completed_at?: string | null
-          onboarding_completed_by?: string | null
-          access_confirmed_at?: string | null
-          access_confirmed_by?: string | null
         }
         Update: {
+          access_confirmed_at?: string | null
+          access_confirmed_by?: string | null
           account_manager_id?: string | null
           address?: string | null
+          address_city?: string | null
+          address_state?: string | null
+          address_street?: string | null
+          address_zip?: string | null
           agency_id?: string
           archived_at?: string | null
           contact_email?: string
@@ -8106,6 +8375,7 @@ export type Database = {
           created_by?: string | null
           credential_migration_required?: boolean
           credential_note?: string | null
+          dba_name?: string | null
           ended_on?: string | null
           health?: Database["public"]["Enums"]["partner_health"] | null
           health_changed_at?: string | null
@@ -8117,9 +8387,12 @@ export type Database = {
           is_fixture?: boolean
           legacy_reported_active_clients?: number | null
           legacy_reported_client_volume?: string | null
+          legal_business_name?: string | null
           lifecycle?: Database["public"]["Enums"]["partner_lifecycle"]
           name?: string
           notes?: string | null
+          onboarding_completed_at?: string | null
+          onboarding_completed_by?: string | null
           partner_name?: string | null
           phone?: string | null
           primary_contact?: string | null
@@ -8133,19 +8406,16 @@ export type Database = {
           status?: Database["public"]["Enums"]["outsourcing_group_status"]
           team_id?: string | null
           updated_at?: string
-          legal_business_name?: string | null
-          dba_name?: string | null
-          address_street?: string | null
-          address_city?: string | null
-          address_state?: string | null
-          address_zip?: string | null
           website?: string | null
-          onboarding_completed_at?: string | null
-          onboarding_completed_by?: string | null
-          access_confirmed_at?: string | null
-          access_confirmed_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "outsourcing_groups_access_confirmed_by_fkey"
+            columns: ["access_confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "outsourcing_groups_account_manager_id_fkey"
             columns: ["account_manager_id"]
@@ -8170,6 +8440,13 @@ export type Database = {
           {
             foreignKeyName: "outsourcing_groups_health_changed_by_fkey"
             columns: ["health_changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outsourcing_groups_onboarding_completed_by_fkey"
+            columns: ["onboarding_completed_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -8534,86 +8811,93 @@ export type Database = {
             referencedRelation: "partner_credentials"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "partner_credential_events_credential_id_fkey"
+            columns: ["credential_id"]
+            isOneToOne: false
+            referencedRelation: "partner_credentials_with_actor"
+            referencedColumns: ["id"]
+          },
         ]
       }
       partner_credentials: {
         Row: {
+          account_name: string | null
+          account_type: string | null
+          affiliate_link: string | null
           agency_id: string
           archived_at: string | null
           archived_reason: string | null
+          category: string
           code_destination: string | null
           created_at: string
           created_by: string | null
+          dashboard_url: string | null
           group_id: string
           id: string
           label: string
           last_rotated_at: string | null
           notes: string | null
           platform_key: string
+          provider_name: string | null
           rotation_due_on: string | null
           secret_id: string | null
           updated_at: string
+          updated_by: string | null
           url: string | null
           username: string | null
-          category: string
-          provider_name: string | null
-          account_name: string | null
-          account_type: string | null
-          affiliate_link: string | null
-          dashboard_url: string | null
-          updated_by: string | null
         }
         Insert: {
+          account_name?: string | null
+          account_type?: string | null
+          affiliate_link?: string | null
           agency_id: string
           archived_at?: string | null
           archived_reason?: string | null
+          category?: string
           code_destination?: string | null
           created_at?: string
           created_by?: string | null
+          dashboard_url?: string | null
           group_id: string
           id?: string
           label: string
           last_rotated_at?: string | null
           notes?: string | null
           platform_key: string
+          provider_name?: string | null
           rotation_due_on?: string | null
           secret_id?: string | null
           updated_at?: string
+          updated_by?: string | null
           url?: string | null
           username?: string | null
-          category?: string
-          provider_name?: string | null
+        }
+        Update: {
           account_name?: string | null
           account_type?: string | null
           affiliate_link?: string | null
-          dashboard_url?: string | null
-          updated_by?: string | null
-        }
-        Update: {
           agency_id?: string
           archived_at?: string | null
           archived_reason?: string | null
+          category?: string
           code_destination?: string | null
           created_at?: string
           created_by?: string | null
+          dashboard_url?: string | null
           group_id?: string
           id?: string
           label?: string
           last_rotated_at?: string | null
           notes?: string | null
           platform_key?: string
+          provider_name?: string | null
           rotation_due_on?: string | null
           secret_id?: string | null
           updated_at?: string
+          updated_by?: string | null
           url?: string | null
           username?: string | null
-          category?: string
-          provider_name?: string | null
-          account_name?: string | null
-          account_type?: string | null
-          affiliate_link?: string | null
-          dashboard_url?: string | null
-          updated_by?: string | null
         }
         Relationships: [
           {
@@ -8643,6 +8927,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "credential_platforms"
             referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "partner_credentials_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -9650,10 +9941,10 @@ export type Database = {
           enabled: boolean
           payday_first: number
           payday_second: number
+          payout_currency: string
           scheme: string
           split_day: number
           timezone: string
-          payout_currency: string
           updated_at: string
           updated_by: string | null
           verify_window_days: number
@@ -9663,10 +9954,10 @@ export type Database = {
           enabled?: boolean
           payday_first?: number
           payday_second?: number
+          payout_currency?: string
           scheme?: string
           split_day?: number
           timezone?: string
-          payout_currency?: string
           updated_at?: string
           updated_by?: string | null
           verify_window_days?: number
@@ -9676,10 +9967,10 @@ export type Database = {
           enabled?: boolean
           payday_first?: number
           payday_second?: number
+          payout_currency?: string
           scheme?: string
           split_day?: number
           timezone?: string
-          payout_currency?: string
           updated_at?: string
           updated_by?: string | null
           verify_window_days?: number
@@ -9710,13 +10001,13 @@ export type Database = {
           created_at: string
           currency: string
           cutoff_id: string
-          gross_cents: number | null
-          payout_currency: string | null
           fx_rate: number | null
-          payout_cents: number | null
+          gross_cents: number | null
           id: string
           paid_break_minutes: number
           paid_leave_minutes: number
+          payout_cents: number | null
+          payout_currency: string | null
           rate_cents: number
           rate_type: string
           user_id: string
@@ -9730,13 +10021,13 @@ export type Database = {
           created_at?: string
           currency: string
           cutoff_id: string
-          gross_cents?: number | null
-          payout_currency?: string | null
           fx_rate?: number | null
-          payout_cents?: number | null
+          gross_cents?: number | null
           id?: string
           paid_break_minutes?: number
           paid_leave_minutes?: number
+          payout_cents?: number | null
+          payout_currency?: string | null
           rate_cents: number
           rate_type: string
           user_id: string
@@ -9750,13 +10041,13 @@ export type Database = {
           created_at?: string
           currency?: string
           cutoff_id?: string
-          gross_cents?: number | null
-          payout_currency?: string | null
           fx_rate?: number | null
-          payout_cents?: number | null
+          gross_cents?: number | null
           id?: string
           paid_break_minutes?: number
           paid_leave_minutes?: number
+          payout_cents?: number | null
+          payout_currency?: string | null
           rate_cents?: number
           rate_type?: string
           user_id?: string
@@ -9792,27 +10083,27 @@ export type Database = {
           key: string
           label: string
           module: string
+          owner_gated: boolean
           security_relevant: boolean
           sort: number
-          owner_gated: boolean
         }
         Insert: {
           description?: string | null
           key: string
           label: string
           module: string
+          owner_gated?: boolean
           security_relevant?: boolean
           sort?: number
-          owner_gated?: boolean
         }
         Update: {
           description?: string | null
           key?: string
           label?: string
           module?: string
+          owner_gated?: boolean
           security_relevant?: boolean
           sort?: number
-          owner_gated?: boolean
         }
         Relationships: []
       }
@@ -11440,10 +11731,138 @@ export type Database = {
         ]
       }
       signature_requests: {
-        Row: { agency_id: string; created_at: string; created_by: string | null; expires_at: string; id: string; member_document_id: string | null; outsourcing_group_id: string | null; rendered_html: string; sent_at: string; signature_ip: string | null; signature_name: string | null; signature_user_agent: string | null; signed_at: string | null; signed_html: string | null; signer_contact_id: string | null; signer_email: string; signer_kind: string; signer_name: string; signer_user_id: string | null; status: string; template_id: string | null; template_version: number | null; title: string; token: string; viewed_at: string | null }
-        Insert: { agency_id: string; created_at?: string; created_by?: string | null; expires_at?: string; id?: string; member_document_id?: string | null; outsourcing_group_id?: string | null; rendered_html: string; sent_at?: string; signature_ip?: string | null; signature_name?: string | null; signature_user_agent?: string | null; signed_at?: string | null; signed_html?: string | null; signer_contact_id?: string | null; signer_email: string; signer_kind: string; signer_name: string; signer_user_id?: string | null; status?: string; template_id?: string | null; template_version?: number | null; title: string; token?: string; viewed_at?: string | null }
-        Update: { agency_id?: string; created_at?: string; created_by?: string | null; expires_at?: string; id?: string; member_document_id?: string | null; outsourcing_group_id?: string | null; rendered_html?: string; sent_at?: string; signature_ip?: string | null; signature_name?: string | null; signature_user_agent?: string | null; signed_at?: string | null; signed_html?: string | null; signer_contact_id?: string | null; signer_email?: string; signer_kind?: string; signer_name?: string; signer_user_id?: string | null; status?: string; template_id?: string | null; template_version?: number | null; title?: string; token?: string; viewed_at?: string | null }
-        Relationships: []
+        Row: {
+          agency_id: string
+          created_at: string
+          created_by: string | null
+          expires_at: string
+          id: string
+          member_document_id: string | null
+          outsourcing_group_id: string | null
+          rendered_html: string
+          sent_at: string
+          signature_ip: string | null
+          signature_name: string | null
+          signature_user_agent: string | null
+          signed_at: string | null
+          signed_html: string | null
+          signer_contact_id: string | null
+          signer_email: string
+          signer_kind: string
+          signer_name: string
+          signer_user_id: string | null
+          status: string
+          template_id: string | null
+          template_version: number | null
+          title: string
+          token: string
+          viewed_at: string | null
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          id?: string
+          member_document_id?: string | null
+          outsourcing_group_id?: string | null
+          rendered_html: string
+          sent_at?: string
+          signature_ip?: string | null
+          signature_name?: string | null
+          signature_user_agent?: string | null
+          signed_at?: string | null
+          signed_html?: string | null
+          signer_contact_id?: string | null
+          signer_email: string
+          signer_kind: string
+          signer_name: string
+          signer_user_id?: string | null
+          status?: string
+          template_id?: string | null
+          template_version?: number | null
+          title: string
+          token?: string
+          viewed_at?: string | null
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          id?: string
+          member_document_id?: string | null
+          outsourcing_group_id?: string | null
+          rendered_html?: string
+          sent_at?: string
+          signature_ip?: string | null
+          signature_name?: string | null
+          signature_user_agent?: string | null
+          signed_at?: string | null
+          signed_html?: string | null
+          signer_contact_id?: string | null
+          signer_email?: string
+          signer_kind?: string
+          signer_name?: string
+          signer_user_id?: string | null
+          status?: string
+          template_id?: string | null
+          template_version?: number | null
+          title?: string
+          token?: string
+          viewed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signature_requests_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signature_requests_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signature_requests_member_document_id_fkey"
+            columns: ["member_document_id"]
+            isOneToOne: false
+            referencedRelation: "member_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signature_requests_outsourcing_group_id_fkey"
+            columns: ["outsourcing_group_id"]
+            isOneToOne: false
+            referencedRelation: "outsourcing_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signature_requests_signer_contact_id_fkey"
+            columns: ["signer_contact_id"]
+            isOneToOne: false
+            referencedRelation: "partner_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signature_requests_signer_user_id_fkey"
+            columns: ["signer_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signature_requests_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "document_templates"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       team_memberships: {
         Row: {
@@ -11695,6 +12114,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_entries_partner_group_id_fkey"
+            columns: ["partner_group_id"]
+            isOneToOne: false
+            referencedRelation: "outsourcing_groups"
             referencedColumns: ["id"]
           },
           {
@@ -12745,37 +13171,6 @@ export type Database = {
       }
     }
     Views: {
-      partner_credentials_with_actor: {
-        Row: {
-          id: string
-          agency_id: string
-          group_id: string
-          platform_key: string
-          platform_label: string | null
-          label: string
-          username: string | null
-          url: string | null
-          code_destination: string | null
-          notes: string | null
-          secret_id: string | null
-          last_rotated_at: string | null
-          rotation_due_on: string | null
-          archived_at: string | null
-          archived_reason: string | null
-          created_by: string | null
-          created_at: string
-          updated_at: string
-          category: string
-          provider_name: string | null
-          account_name: string | null
-          account_type: string | null
-          affiliate_link: string | null
-          dashboard_url: string | null
-          updated_by: string | null
-          updated_by_name: string | null
-        }
-        Relationships: []
-      }
       borrower_funding_files: {
         Row: {
           agency_id: string | null
@@ -12817,6 +13212,73 @@ export type Database = {
           with_password: number | null
         }
         Relationships: []
+      }
+      partner_credentials_with_actor: {
+        Row: {
+          account_name: string | null
+          account_type: string | null
+          affiliate_link: string | null
+          agency_id: string | null
+          archived_at: string | null
+          archived_reason: string | null
+          category: string | null
+          code_destination: string | null
+          created_at: string | null
+          created_by: string | null
+          dashboard_url: string | null
+          group_id: string | null
+          id: string | null
+          label: string | null
+          last_rotated_at: string | null
+          notes: string | null
+          platform_key: string | null
+          platform_label: string | null
+          provider_name: string | null
+          rotation_due_on: string | null
+          secret_id: string | null
+          updated_at: string | null
+          updated_by: string | null
+          updated_by_name: string | null
+          url: string | null
+          username: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_credentials_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_credentials_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_credentials_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "outsourcing_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_credentials_platform_key_fkey"
+            columns: ["platform_key"]
+            isOneToOne: false
+            referencedRelation: "credential_platforms"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "partner_credentials_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       report_facts: {
         Row: {
@@ -13195,6 +13657,10 @@ export type Database = {
       }
       as_uuid: { Args: { p: string }; Returns: string }
       assert_fixture_logins_disabled: { Args: never; Returns: Json }
+      assert_may_grant_capability: {
+        Args: { p_agency: string; p_key: string }
+        Returns: undefined
+      }
       assert_seat_available: {
         Args: { p_for_user?: string; p_ignore_pending?: boolean; p_org: string }
         Returns: undefined
@@ -13249,6 +13715,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      bes_may_inspect_seats: { Args: { p_org: string }; Returns: boolean }
       bootstrap_agency_owner: {
         Args: { p_agency_slug?: string; p_email: string }
         Returns: string
@@ -13580,6 +14047,18 @@ export type Database = {
         }
         Returns: string
       }
+      create_signature_request: {
+        Args: {
+          p_contact?: string
+          p_email?: string
+          p_name?: string
+          p_partner?: string
+          p_signer_kind: string
+          p_template: string
+          p_user?: string
+        }
+        Returns: string
+      }
       credit_client_visible: { Args: { p_client: string }; Returns: boolean }
       credit_client_writable: { Args: { p_client: string }; Returns: boolean }
       credit_report_visible: {
@@ -13618,6 +14097,7 @@ export type Database = {
       }
       crm_create_project: {
         Args: {
+          p_business?: string
           p_engines: string[]
           p_lead?: string
           p_name: string
@@ -13628,7 +14108,6 @@ export type Database = {
           p_started_on?: string
           p_target_go_live?: string
           p_team?: string
-          p_business?: string | null
         }
         Returns: string
       }
@@ -13653,7 +14132,7 @@ export type Database = {
         Args: never
         Returns: {
           blocked: number
-          business_name: string | null
+          business_name: string
           engines: string[]
           health: string
           id: string
@@ -13691,7 +14170,15 @@ export type Database = {
       }
       crm_project_health: { Args: { p_project: string }; Returns: string }
       crm_project_journey: { Args: { p_project: string }; Returns: string }
+      crm_project_journey_unchecked: {
+        Args: { p_project: string }
+        Returns: string
+      }
       crm_project_progress: { Args: { p_project: string }; Returns: number }
+      crm_project_progress_unchecked: {
+        Args: { p_project: string }
+        Returns: number
+      }
       crm_project_readable: { Args: { p_project: string }; Returns: boolean }
       crm_project_writable: { Args: { p_project: string }; Returns: boolean }
       crm_record_go_live: {
@@ -13726,7 +14213,15 @@ export type Database = {
       crm_template_readable: { Args: { p_agency: string }; Returns: boolean }
       crm_template_writable: { Args: { p_agency: string }; Returns: boolean }
       crm_work_unit_ready: { Args: { p_unit: string }; Returns: boolean }
+      crm_work_unit_ready_unchecked: {
+        Args: { p_unit: string }
+        Returns: boolean
+      }
       crm_work_unit_state: { Args: { p_unit: string }; Returns: string }
+      crm_work_unit_state_unchecked: {
+        Args: { p_unit: string }
+        Returns: string
+      }
       crm_work_unit_states: {
         Args: { p_units: string[] }
         Returns: {
@@ -13813,6 +14308,16 @@ export type Database = {
         Returns: string
       }
       diy_upgrade_to_managed: { Args: { p_client: string }; Returns: string }
+      document_context_for: {
+        Args: {
+          p_agency: string
+          p_contact: string
+          p_partner: string
+          p_signer_kind: string
+          p_user: string
+        }
+        Returns: Json
+      }
       document_request_transition_allowed: {
         Args: {
           p_from: Database["public"]["Enums"]["document_request_status"]
@@ -13821,6 +14326,7 @@ export type Database = {
         Returns: boolean
       }
       dst_calendar_sweep: { Args: never; Returns: undefined }
+      due_date_sweep: { Args: never; Returns: number }
       end_position_assignment: {
         Args: { p_id: string; p_on?: string }
         Returns: undefined
@@ -13886,6 +14392,15 @@ export type Database = {
         }
         Returns: string[]
       }
+      fx_rate_for: {
+        Args: {
+          p_agency: string
+          p_base: string
+          p_on: string
+          p_quote: string
+        }
+        Returns: number
+      }
       gen_org_public_id: { Args: never; Returns: string }
       gen_public_code: { Args: { p_prefix: string }; Returns: string }
       generate_expenses_for_month: {
@@ -13904,6 +14419,8 @@ export type Database = {
           token_kind: string
         }[]
       }
+      ghl_outbound_dispatch: { Args: never; Returns: undefined }
+      ghl_status_tag: { Args: { p_status: string }; Returns: string }
       grant_ai_credits: {
         Args: {
           p_credits: number
@@ -13964,36 +14481,12 @@ export type Database = {
       invite_agency_member: {
         Args: {
           p_email: string
-          p_role: Database["public"]["Enums"]["agency_role"]
-          p_profile?: Database["public"]["Enums"]["access_profile"]
           p_lead_team?: string
           p_modules?: string[]
+          p_profile?: Database["public"]["Enums"]["access_profile"]
+          p_role: Database["public"]["Enums"]["agency_role"]
         }
         Returns: string
-      }
-      reset_member_to_profile: {
-        Args: { p_membership: string }
-        Returns: number
-      }
-      create_signature_request: {
-        Args: { p_template: string; p_signer_kind: string; p_user?: string; p_partner?: string; p_contact?: string; p_email?: string; p_name?: string }
-        Returns: string
-      }
-      signature_request_preview: {
-        Args: { p_token: string }
-        Returns: { title: string; signer_name: string; signer_email: string; rendered_html: string; signed_html: string | null; status: string; expires_at: string; signed_at: string | null; agency_name: string; agency_branding: Json }[]
-      }
-      sign_document: {
-        Args: { p_token: string; p_typed_name: string; p_consent: boolean; p_ip?: string; p_user_agent?: string }
-        Returns: undefined
-      }
-      void_signature_request: { Args: { p_id: string }; Returns: undefined }
-      set_agency_member_profile: {
-        Args: {
-          p_membership: string
-          p_profile: Database["public"]["Enums"]["access_profile"]
-        }
-        Returns: undefined
       }
       invite_partner_contact: { Args: { p_contact: string }; Returns: string }
       invite_team_member: {
@@ -14049,7 +14542,12 @@ export type Database = {
       looks_like_a_secret: { Args: { p_text: string }; Returns: boolean }
       manager_of: { Args: { p_user: string }; Returns: string }
       map_ghl_location: {
-        Args: { p_location_id: string; p_org?: string; p_partner?: string; p_agency_own?: boolean }
+        Args: {
+          p_agency_own?: boolean
+          p_location_id: string
+          p_org?: string
+          p_partner?: string
+        }
         Returns: undefined
       }
       mark_channel_read: {
@@ -14139,70 +14637,76 @@ export type Database = {
           status: string
         }[]
       }
+      my_partner_credential_archive: {
+        Args: { p_id: string; p_reason?: string }
+        Returns: undefined
+      }
+      my_partner_credential_reveal: { Args: { p_id: string }; Returns: string }
       my_partner_credential_save: {
         Args: {
-          p_platform: string
+          p_account_name?: string
+          p_account_type?: string
+          p_affiliate_link?: string
+          p_category?: string
+          p_code_destination?: string
+          p_dashboard_url?: string
+          p_id?: string
           p_label: string
-          p_username?: string | null
-          p_url?: string | null
-          p_secret?: string | null
-          p_code_destination?: string | null
-          p_notes?: string | null
-          p_id?: string | null
-          p_category?: string | null
-          p_provider_name?: string | null
-          p_account_name?: string | null
-          p_account_type?: string | null
-          p_affiliate_link?: string | null
-          p_dashboard_url?: string | null
+          p_notes?: string
+          p_platform: string
+          p_provider_name?: string
+          p_secret?: string
+          p_url?: string
+          p_username?: string
         }
         Returns: string
       }
-      my_partner_credential_reveal: { Args: { p_id: string }; Returns: string }
-      my_partner_credential_archive: { Args: { p_id: string; p_reason?: string }; Returns: undefined }
       my_partner_credentials: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
+          account_name: string
+          account_type: string
+          affiliate_link: string
+          category: string
+          code_destination: string
+          created_at: string
+          dashboard_url: string
+          has_secret: boolean
           id: string
+          label: string
+          notes: string
           platform_key: string
           platform_label: string
-          category: string
-          label: string
-          provider_name: string | null
-          account_name: string | null
-          account_type: string | null
-          username: string | null
-          url: string | null
-          affiliate_link: string | null
-          dashboard_url: string | null
-          code_destination: string | null
-          notes: string | null
-          has_secret: boolean
+          provider_name: string
           updated_at: string
-          updated_by_name: string | null
-          created_at: string
+          updated_by_name: string
+          url: string
+          username: string
         }[]
       }
+      my_partner_onboarding_complete: {
+        Args: { p_confirm: boolean }
+        Returns: string
+      }
       my_partner_profile_save: { Args: { p: Json }; Returns: undefined }
-      my_partner_onboarding_complete: { Args: { p_confirm: boolean }; Returns: string | null }
       my_partner_projects: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
-          business_name: string | null
+          business_name: string
           engines: string[]
           id: string
           journey: string
           name: string
           open_requirements: number
-          progress: number | null
-          target_go_live: string | null
-          went_live_at: string | null
+          progress: number
+          target_go_live: string
+          went_live_at: string
         }[]
       }
       my_partner_requirements: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
-          detail: string | null
+          detail: string
           id: string
           label: string
           project_id: string
@@ -14357,24 +14861,50 @@ export type Database = {
         Returns: undefined
       }
       partner_credential_reveal: { Args: { p_id: string }; Returns: string }
+      partner_credential_reveal_unchecked: {
+        Args: { p_id: string }
+        Returns: string
+      }
       partner_credential_save: {
         Args: {
+          p_account_name?: string
+          p_account_type?: string
+          p_affiliate_link?: string
+          p_category?: string
           p_code_destination?: string
+          p_dashboard_url?: string
           p_group: string
           p_id?: string
           p_label: string
           p_notes?: string
           p_platform: string
+          p_provider_name?: string
           p_rotation_due?: string
           p_secret?: string
           p_url?: string
           p_username?: string
-          p_category?: string | null
-          p_provider_name?: string | null
-          p_account_name?: string | null
-          p_account_type?: string | null
-          p_affiliate_link?: string | null
-          p_dashboard_url?: string | null
+        }
+        Returns: string
+      }
+      partner_credential_write: {
+        Args: {
+          p_account_name: string
+          p_account_type: string
+          p_affiliate_link: string
+          p_agency: string
+          p_category: string
+          p_code_destination: string
+          p_dashboard_url: string
+          p_group: string
+          p_id: string
+          p_label: string
+          p_notes: string
+          p_platform: string
+          p_provider_name: string
+          p_rotation_due: string
+          p_secret: string
+          p_url: string
+          p_username: string
         }
         Returns: string
       }
@@ -14501,6 +15031,10 @@ export type Database = {
         }[]
       }
       release_payroll: { Args: { p_cutoff: string }; Returns: string }
+      render_document: {
+        Args: { p_body: string; p_context: Json }
+        Returns: string
+      }
       report_analysis_complete: { Args: { p_report: string }; Returns: boolean }
       report_pivot: {
         Args: {
@@ -14519,6 +15053,10 @@ export type Database = {
       require_permission: {
         Args: { p_key: string; p_org: string }
         Returns: undefined
+      }
+      reset_member_to_profile: {
+        Args: { p_membership: string }
+        Returns: number
       }
       reset_organization_role_access: {
         Args: {
@@ -14619,6 +15157,21 @@ export type Database = {
           message_id: number
         }[]
       }
+      seat_billable: {
+        Args: { p_org: string; p_user: string }
+        Returns: boolean
+      }
+      seat_transition_audit: {
+        Args: {
+          p_after: boolean
+          p_before: boolean
+          p_cause: string
+          p_membership: string
+          p_org: string
+          p_user: string
+        }
+        Returns: undefined
+      }
       services_visible_to_user: {
         Args: { p_user: string }
         Returns: {
@@ -14628,6 +15181,13 @@ export type Database = {
           service_id: string
           service_name: string
         }[]
+      }
+      set_agency_member_profile: {
+        Args: {
+          p_membership: string
+          p_profile: Database["public"]["Enums"]["access_profile"]
+        }
+        Returns: undefined
       }
       set_agency_member_role: {
         Args: {
@@ -14665,6 +15225,10 @@ export type Database = {
           p_lifecycle: Database["public"]["Enums"]["client_lifecycle"]
           p_reason?: string
         }
+        Returns: undefined
+      }
+      set_engagement_category: {
+        Args: { p_category: string; p_engagement: string }
         Returns: undefined
       }
       set_funding_department_status: {
@@ -14759,10 +15323,10 @@ export type Database = {
           p_enabled: boolean
           p_payday_first: number
           p_payday_second: number
+          p_payout_currency?: string
           p_split_day: number
           p_timezone: string
           p_verify_window_days: number
-          p_payout_currency?: string
         }
         Returns: undefined
       }
@@ -14785,6 +15349,43 @@ export type Database = {
         Returns: string
       }
       shares_scope_with: { Args: { p_user: string }; Returns: boolean }
+      sign_document: {
+        Args: {
+          p_consent: boolean
+          p_ip?: string
+          p_token: string
+          p_typed_name: string
+          p_user_agent?: string
+        }
+        Returns: undefined
+      }
+      signature_request_create_unchecked: {
+        Args: {
+          p_contact: string
+          p_email: string
+          p_name: string
+          p_partner: string
+          p_signer_kind: string
+          p_template: string
+          p_user: string
+        }
+        Returns: string
+      }
+      signature_request_preview: {
+        Args: { p_token: string }
+        Returns: {
+          agency_branding: Json
+          agency_name: string
+          expires_at: string
+          rendered_html: string
+          signed_at: string
+          signed_html: string
+          signer_email: string
+          signer_name: string
+          status: string
+          title: string
+        }[]
+      }
       split_person_name: {
         Args: { p_name: string }
         Returns: {
@@ -14836,6 +15437,10 @@ export type Database = {
         Returns: undefined
       }
       try_bigint: { Args: { t: string }; Returns: number }
+      unresolved_document_tokens: {
+        Args: { p_body: string; p_context: Json }
+        Returns: string[]
+      }
       visible_channels: {
         Args: never
         Returns: {
@@ -14860,6 +15465,7 @@ export type Database = {
           unread: number
         }[]
       }
+      void_signature_request: { Args: { p_id: string }; Returns: undefined }
       workspace_reach: {
         Args: {
           p_assignee?: string
@@ -14876,15 +15482,6 @@ export type Database = {
     }
     Enums: {
       access_profile: "manager" | "team_lead" | "agent" | "custom"
-      fx_rate_source: "paypal_actual" | "market_reference"
-      member_document_status:
-        | "draft"
-        | "pending_signature"
-        | "signed"
-        | "acknowledged"
-        | "expired"
-        | "superseded"
-        | "archived"
       access_scope:
         | "agency"
         | "division"
@@ -15245,6 +15842,7 @@ export type Database = {
         | "Documents"
         | "Approval"
         | "No Action Required"
+      fx_rate_source: "paypal_actual" | "market_reference"
       ghl_connection_status: "connected" | "paused" | "error"
       hub_module_status: "available" | "planned"
       identity_kind:
@@ -15286,6 +15884,14 @@ export type Database = {
         | "failed"
         | "cancelled"
       meeting_provider: "google_meet" | "zoom"
+      member_document_status:
+        | "draft"
+        | "pending_signature"
+        | "signed"
+        | "acknowledged"
+        | "expired"
+        | "superseded"
+        | "archived"
       membership_kind: "agency" | "organization" | "external"
       offer_status:
         | "received"
@@ -15596,6 +16202,7 @@ export const Constants = {
   },
   public: {
     Enums: {
+      access_profile: ["manager", "team_lead", "agent", "custom"],
       access_scope: [
         "agency",
         "division",
@@ -15993,6 +16600,7 @@ export const Constants = {
         "Approval",
         "No Action Required",
       ],
+      fx_rate_source: ["paypal_actual", "market_reference"],
       ghl_connection_status: ["connected", "paused", "error"],
       hub_module_status: ["available", "planned"],
       identity_kind: ["email", "email_domain", "phone", "business_name", "ein"],
@@ -16033,6 +16641,15 @@ export const Constants = {
         "cancelled",
       ],
       meeting_provider: ["google_meet", "zoom"],
+      member_document_status: [
+        "draft",
+        "pending_signature",
+        "signed",
+        "acknowledged",
+        "expired",
+        "superseded",
+        "archived",
+      ],
       membership_kind: ["agency", "organization", "external"],
       offer_status: [
         "received",
