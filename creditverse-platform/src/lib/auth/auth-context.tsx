@@ -23,12 +23,11 @@ import {
 import type { Session, User } from "@supabase/supabase-js";
 import {
   authMode,
-  siteUrl,
   supabase,
   type AuthMode,
 } from "@/lib/supabase/client";
 import type { Enums, Tables } from "@/lib/supabase/database.types";
-import { safeRedirectPath } from "@/lib/auth/safe-redirect";
+import { authCallbackUrl, safeRedirectPath } from "@/lib/auth/safe-redirect";
 
 export type Profile = Tables<"profiles">;
 export type AgencyMembership = Tables<"agency_memberships">;
@@ -48,13 +47,6 @@ export interface SignUpOptions {
   /** Where the confirmation link should land, e.g. back on an invitation.
    *  Sanitised — only a path inside this application is honoured. */
   redirectPath?: string;
-}
-
-/** The confirmation/magic-link destination, carrying an onward path safely. */
-function callbackUrl(redirectPath?: string): string {
-  const base = `${siteUrl}/auth/callback`;
-  const next = safeRedirectPath(redirectPath, "");
-  return next ? `${base}?next=${encodeURIComponent(next)}` : base;
 }
 
 export interface AuthContextValue {
@@ -291,7 +283,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!supabase) return { error: "Backend not configured." };
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: callbackUrl(redirectPath) },
+      options: { emailRedirectTo: authCallbackUrl({ next: redirectPath }) },
     });
     return { error: error?.message ?? null };
   }, []);
@@ -314,7 +306,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               ? { business_name: business.businessName.trim(), phone: business.phone?.trim() || null, plan: business.plan }
               : {}),
           },
-          emailRedirectTo: callbackUrl(options?.redirectPath),
+          emailRedirectTo: authCallbackUrl({ next: options?.redirectPath }),
         },
       });
       /* Whether the person still has to open a confirmation email, reported
@@ -331,7 +323,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const resetPassword = useCallback(async (email: string) => {
     if (!supabase) return { error: "Backend not configured." };
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${siteUrl}/auth/callback?type=recovery`,
+      redirectTo: authCallbackUrl({ recovery: true }),
     });
     return { error: error?.message ?? null };
   }, []);

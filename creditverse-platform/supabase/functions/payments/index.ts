@@ -57,7 +57,7 @@ async function callAuthNet(payload: unknown): Promise<AuthNetResult> {
     headers: { "content-type": "application/json" },
     body: JSON.stringify(payload),
   });
-  const text = (await r.text()).replace(/^﻿/, "");
+  const text = (await r.text()).replace(/^\uFEFF/, "");
   return JSON.parse(text) as AuthNetResult;
 }
 

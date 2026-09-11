@@ -12,6 +12,8 @@
  *   • `/\host` and `/%2f…`                    — the same trick, browser- or
  *                                               server-decoded later
  */
+import { siteUrl } from "@/lib/supabase/client";
+
 const FALLBACK = "/app";
 
 export function safeRedirectPath(value: string | null | undefined, fallback = FALLBACK): string {
@@ -23,4 +25,24 @@ export function safeRedirectPath(value: string | null | undefined, fallback = FA
   if (second === "/" || second === "\\") return fallback;
   if (/^\/%2f/i.test(path) || /^\/%5c/i.test(path)) return fallback;
   return path;
+}
+
+/**
+ * The absolute URL an emailed auth link (confirm, magic link, recovery) must
+ * come back to. One builder, because the two callers had drifted: password
+ * reset from the sign-in page landed on `/auth/callback?type=recovery`, which
+ * forwards to Settings so a new password can be set, while the same reset
+ * requested from Settings landed on `/login` — where supabase-js consumed the
+ * recovery token, signed the person straight in and never asked them for the
+ * new password they had just asked for.
+ *
+ * `next` carries where they were going first, sanitised as a path.
+ */
+export function authCallbackUrl(options: { recovery?: boolean; next?: string | null } = {}): string {
+  const params = new URLSearchParams();
+  if (options.recovery) params.set("type", "recovery");
+  const next = safeRedirectPath(options.next, "");
+  if (next) params.set("next", next);
+  const query = params.toString();
+  return `${siteUrl}/auth/callback${query ? `?${query}` : ""}`;
 }

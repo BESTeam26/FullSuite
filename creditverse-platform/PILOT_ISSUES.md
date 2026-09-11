@@ -37,7 +37,7 @@ operator who hit it does.
 | P-005 | 2026-09-11 | Phase 70 probe, during the pilot | My Time / Timer | One real time entry (Dee's, 2026-09-11) carried the retired division `general`, two days after it was renamed to `admin` | Only the six live divisions are storable | A pilot defect | S2 — splits division totals on My Time, EOD and production reporting | `time_entries.division_id` is TEXT with no constraint, so a browser tab running the pre-rename bundle kept writing the old value | `cae687d` | — | **FIXED AWAITING LIVE RETEST** |
 | P-002 | 2026-09-11 | Dee (and Bryan Breva, first real invited user) | Invite Users / Login | After choosing a password, the page looked unchanged — only a small green line appeared inside the still-complete form. Bryan then wandered to `/app` and hit **"No workspace access"** | A clear "we sent you a confirmation email" state that says what to do next | A pilot defect | S1 — the first real invited user believed activation had failed | Sign-up sets a `notice` string rendered as one `text-xs` line between the password field and the button; the form stays fully visible, so nothing reads as progress | `18999b8` | — | **FIXED AWAITING LIVE RETEST** |
 | P-003 | 2026-09-11 | Dee | Invite Users / Login | The internal team invitation used generic copy and the platform tagline ("Credit + Funding Operations. One Connected Platform.") | BES's own branding and voice for internal team members, distinct from the partner emails | B pilot UX correction | S3 | The `isTeam` invitation shared a generic branch with customer-organization invites; only the two partner branches carried Dee's verbatim branded copy | `18999b8` | — | **FIXED AWAITING LIVE RETEST** |
-| P-001 | 2026-09-10 | Dee | Invite Users / Login | The activation email from `noreply@bescrm.net` landed in Gmail **Spam** | It reaches the inbox so a new team member can activate | A pilot defect | S1 — blocks the Invite Users P0 flow | See below | Partial (`reply_to`); the fix is DNS + `APP_ORIGINS` | — | **OPEN — awaiting Dee's DNS change** |
+| P-001 | 2026-09-10 | Dee | Invite Users / Login | The activation email from `noreply@bescrm.net` landed in Gmail **Spam** | It reaches the inbox so a new team member can activate | A pilot defect | S1 — blocks the Invite Users P0 flow | See below | `bfd6f7c` (reply-to) + `app.bescrm.net` cut over 2026-09-11 | — | **FIXED AWAITING LIVE RETEST** — the next real invitation is the test |
 
 ### P-006 · Credit status now moves as part of finishing the work
 
@@ -212,14 +212,34 @@ The reply domain differs from the sending domain, which is normal and not a
 meaningful spam signal — a real reply path is worth far more than domain
 symmetry here.
 
-**The actual fix is configuration, and it is Dee's to make:** give the app a
-hostname on the sending domain (e.g. `app.bescrm.net` → Vercel), then set
-`APP_ORIGINS=https://app.bescrm.net` so every emailed link matches the sender.
-That removes (1) outright and starts building (2).
+### The cut-over, 2026-09-11 — signal (1) removed
+
+Dee added `app.bescrm.net` to Vercel; it resolves and serves the app. Changed
+the same day, all of it verified live:
+
+| Setting | Was | Now |
+|---|---|---|
+| Supabase Auth **Site URL** | `https://bes-full-suite.vercel.app` | `https://app.bescrm.net` |
+| Supabase Auth **redirect allow-list** | Vercel + localhost 5173/3000 | `app.bescrm.net` **and** Vercel **and** localhost 8080/5173/3000 |
+| Edge Function **`APP_ORIGINS`** | unset — fell back to the Vercel default | `https://app.bescrm.net` |
+| Fallback inside the three mailers | `https://bes-full-suite.vercel.app` | `https://app.bescrm.net` |
+| Agency `branding.logoUrl` (0300) | the logo served from Vercel | the logo served from `app.bescrm.net` |
+| `siteUrl` in the browser bundle | `VITE_SITE_URL`, baked to Vercel at build | the live browser origin, so each host returns you to itself |
+
+An email from `noreply@bescrm.net` now links to `app.bescrm.net` and loads its
+logo from `app.bescrm.net`. Nothing a recipient sees names another host.
+
+**The Vercel address still works and was deliberately kept** — it is no longer
+where BES points people, and it no longer appears in anything emailed.
+
+**Live retest:** send one real invitation to a Gmail address and confirm it
+arrives in the inbox. Cold-domain reputation (2) only builds with volume, so an
+early message may still be filtered even now; the workaround below stands until
+an invitation is seen to land.
 
 **Immediate pilot workaround:** the pending-invitation row has **Copy link**.
 Sending that link to the person directly, from Dee's own mailbox, activates
-them today without waiting on DNS.
+them today.
 
 ## P0 workflow gates (human)
 

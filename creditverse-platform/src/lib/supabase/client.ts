@@ -25,9 +25,24 @@ export const authMode: AuthMode =
       ? "live"
       : "demo";
 
+/**
+ * Where an emailed auth link should bring the person back to.
+ *
+ * The browser's own origin comes FIRST, deliberately. BES is served from more
+ * than one hostname — `app.bescrm.net` is canonical, and the original
+ * `bes-full-suite.vercel.app` is kept alive — and a build-time constant sends
+ * whoever confirms an email out of the door they came in by and in through the
+ * other one. It also silently rots the day a domain changes, which is exactly
+ * how a confirmation link ends up pointing at a retired host.
+ *
+ * This is not the security boundary: Supabase refuses any `redirectTo` outside
+ * the project's redirect allow-list and falls back to its Site URL, so an
+ * origin nobody authorised cannot be smuggled in here. `VITE_SITE_URL` remains
+ * for builds with no `window` at all.
+ */
 export const siteUrl =
-  (import.meta.env.VITE_SITE_URL as string | undefined) ??
-  (typeof window !== "undefined" ? window.location.origin : "");
+  (typeof window !== "undefined" ? window.location.origin : "") ||
+  ((import.meta.env.VITE_SITE_URL as string | undefined) ?? "");
 
 export const supabase: SupabaseClient<Database> | null =
   isSupabaseConfigured && url && anonKey

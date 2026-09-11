@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
      invite sent from a dev tab would mail a teammate a localhost link (the
      invite-safety rule this exists for), and a tampered request could brand a
      BES email with a link to somewhere else entirely. */
-  const configured = (Deno.env.get("APP_ORIGINS") ?? "https://bes-full-suite.vercel.app")
+  const configured = (Deno.env.get("APP_ORIGINS") ?? "https://app.bescrm.net")
     .split(",").map((o) => o.trim().replace(/\/$/, "")).filter(Boolean);
   const offered = typeof appOrigin === "string" ? appOrigin.replace(/\/$/, "") : "";
   const origin = configured.includes(offered) ? offered : configured[0];

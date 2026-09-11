@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
 
   /* Same pinning as send-invitation: a mailed link never points at a dev
      origin or anywhere off the allow-list. */
-  const configured = (Deno.env.get("APP_ORIGINS") ?? "https://bes-full-suite.vercel.app")
+  const configured = (Deno.env.get("APP_ORIGINS") ?? "https://app.bescrm.net")
     .split(",").map((o) => o.trim().replace(/\/$/, "")).filter(Boolean);
   const offered = typeof appOrigin === "string" ? appOrigin.replace(/\/$/, "") : "";
   const origin = configured.includes(offered) ? offered : configured[0];

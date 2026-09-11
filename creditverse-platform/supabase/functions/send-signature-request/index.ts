@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
   const { data: allowed } = await asUser.rpc("agency_can", { p_key: "documents.manage" });
   if (allowed !== true) return json(403, { error: "Document builder permission required" });
 
-  const configured = (Deno.env.get("APP_ORIGINS") ?? "https://bes-full-suite.vercel.app")
+  const configured = (Deno.env.get("APP_ORIGINS") ?? "https://app.bescrm.net")
     .split(",").map((o) => o.trim().replace(/\/$/, "")).filter(Boolean);
   const offered = typeof body.appOrigin === "string" ? body.appOrigin.replace(/\/$/, "") : "";
   const origin = configured.includes(offered) ? offered : configured[0];

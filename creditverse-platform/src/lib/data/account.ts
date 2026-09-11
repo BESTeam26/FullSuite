@@ -4,6 +4,7 @@
  * through Supabase Auth. Nothing here touches another user's record.
  */
 import { requireSupabase } from "@/lib/supabase/client";
+import { authCallbackUrl } from "@/lib/auth/safe-redirect";
 
 export interface OwnProfile {
   id: string;
@@ -112,6 +113,6 @@ export async function updateOwnPassword(nextPassword: string): Promise<void> {
 /** Sends the reset email for an address; used from the account page and sign-in. */
 export async function sendPasswordReset(email: string): Promise<void> {
   const sb = requireSupabase();
-  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/login` });
+  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: authCallbackUrl({ recovery: true }) });
   if (error) throw error;
 }

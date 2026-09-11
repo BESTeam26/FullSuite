@@ -161,7 +161,7 @@ async function checkAuthorizeNet(): Promise<Check> {
        does not mean the credentials were accepted — that is what resultCode
        says, and reading only the HTTP status would report a rejection as a
        success. */
-    const text = (await r.text()).replace(/^﻿/, "");
+    const text = (await r.text()).replace(/^\uFEFF/, "");
     const body = JSON.parse(text) as { messages?: { resultCode?: string; message?: { text?: string }[] } };
     const ok = body.messages?.resultCode === "Ok";
     const said = body.messages?.message?.[0]?.text ?? "no reason given";
