@@ -156,14 +156,16 @@ export async function sendEmail(params: {
   to: string;
   subject: string;
   content: EmailContent;
+  /** A monitored mailbox for replies. Omitted when the caller has none. */
+  replyTo?: string;
 }): Promise<SendResult> {
   const from = parseFrom(params.from, params.fromName);
   const name = (params.fromName || from.name || "").replace(/["\\<>]/g, "").trim();
   /* A "no-reply" sender with nowhere to reply is both unhelpful to the person
-     who hits Reply and a small negative deliverability signal. MAIL_REPLY_TO
-     names a real monitored mailbox; unset, the header is simply omitted
-     rather than pointed at an address nobody reads. */
-  const replyTo = Deno.env.get("MAIL_REPLY_TO")?.trim();
+     who hits Reply and a small negative deliverability signal. Callers pass a
+     real monitored mailbox (MAIL_REPLY_TO in their environment); with none,
+     the header is omitted rather than pointed at an address nobody reads. */
+  const replyTo = params.replyTo?.trim();
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {

@@ -101,7 +101,7 @@ export interface AuthContextValue {
     password: string,
     fullName: string,
     options?: SignUpOptions,
-  ) => Promise<{ error: string | null }>;
+  ) => Promise<{ error: string | null; needsConfirmation?: boolean }>;
   resetPassword: (email: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   refreshMemberships: () => Promise<void>;
@@ -304,7 +304,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // only when `business` is present, so someone joining a team that already
       // exists does not get an organization of their own.
       const business = options?.business;
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -317,7 +317,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           emailRedirectTo: callbackUrl(options?.redirectPath),
         },
       });
-      return { error: error?.message ?? null };
+      /* Whether the person still has to open a confirmation email, reported
+         rather than inferred: Supabase returns a user with NO session when
+         confirmation is required, and a session when it is not. A caller that
+         cannot tell the difference has to guess what to say next, and guessing
+         wrong leaves somebody staring at a form that looks like it failed. */
+      const needsConfirmation = !error && !data.session && !!data.user;
+      return { error: error?.message ?? null, needsConfirmation };
     },
     [],
   );

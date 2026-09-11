@@ -139,14 +139,30 @@ Deno.serve(async (req) => {
       action: { label: "Activate My Access", url: link },
       footnote: `This link is valid for 7 days \u2014 if it expires, your admin or the BES team can send you a new one. Glad to have you here! \u2014 Blessed Empire Services · Process. Systems. People. This invite is only for ${email}; if you weren\u2019t expecting it, you can ignore this email.`,
     };
+  } else if (isTeam) {
+    /* The BES team's OWN welcome (Dee, 2026-09-10): internal, and deliberately
+       NOT the partner copy above. Somebody joining BES is joining the company,
+       so the brand line is the company's own rather than the outsourcing
+       promise a partner is sold. */
+    subject = `Welcome to the ${agencyName} team \u{1F49B}`;
+    content = {
+      brand: { ...brand, tagline: "Freedom isn’t found, it’s built with structure." },
+      heading: "Welcome to the team!",
+      paragraphs: [
+        `You’ve been invited to join the ${agencyName} team.`,
+        "This is where your work lives — the partners and clients you’re assigned to, your daily tasks, your time, and your end-of-day report, all in one place.",
+        `Activate your account using ${email} and you’re all set.`,
+      ],
+      action: { label: "Activate My Account", url: link },
+      footnote: `This link is valid for 7 days — if it expires, just ask whoever invited you and we’ll send a new one. Welcome aboard! \u{1F49B} — ${agencyName} · Process. Systems. People. This invite is only for ${email}; if you weren’t expecting it, no account is created until you open the link.`,
+    };
   } else {
-    const where = isTeam ? `the ${agencyName} team` : brand.name;
-    subject = isTeam
-      ? `Activate your ${agencyName} team account`
-      : `Activate your ${brand.name} account`;
+    /* A customer organization's own invitation: THEIR branding, neutral copy.
+       Not BES's voice — the person joining is joining their company. */
+    subject = `Activate your ${brand.name} account`;
     content = {
       brand,
-      heading: `You have been invited to ${where}`,
+      heading: `You have been invited to ${brand.name}`,
       paragraphs: [
         `Activate your account to get started. You will be asked to sign in with this email address — ${email} — and the invitation only works for that address.`,
         "The link is good for seven days. After that, ask whoever invited you to send a new one.",
@@ -157,6 +173,7 @@ Deno.serve(async (req) => {
   }
 
   const result = await sendEmail({
+    replyTo: Deno.env.get("MAIL_REPLY_TO")?.trim() || undefined,
     apiKey: mailKey,
     from,
     fromName: brand.name,

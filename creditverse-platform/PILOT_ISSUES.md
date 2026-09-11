@@ -32,7 +32,47 @@ operator who hit it does.
 
 | ID | Date | Reported by | Module | Actual | Expected | Class | Sev | Root cause | Fix commit | Live verified by | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| P-002 | 2026-09-11 | Dee (and Bryan Breva, first real invited user) | Invite Users / Login | After choosing a password, the page looked unchanged — only a small green line appeared inside the still-complete form. Bryan then wandered to `/app` and hit **"No workspace access"** | A clear "we sent you a confirmation email" state that says what to do next | A pilot defect | S1 — the first real invited user believed activation had failed | Sign-up sets a `notice` string rendered as one `text-xs` line between the password field and the button; the form stays fully visible, so nothing reads as progress | `77f9a5b` | — | **FIXED AWAITING LIVE RETEST** |
+| P-003 | 2026-09-11 | Dee | Invite Users / Login | The internal team invitation used generic copy and the platform tagline ("Credit + Funding Operations. One Connected Platform.") | BES's own branding and voice for internal team members, distinct from the partner emails | B pilot UX correction | S3 | The `isTeam` invitation shared a generic branch with customer-organization invites; only the two partner branches carried Dee's verbatim branded copy | `77f9a5b` | — | **FIXED AWAITING LIVE RETEST** |
 | P-001 | 2026-09-10 | Dee | Invite Users / Login | The activation email from `noreply@bescrm.net` landed in Gmail **Spam** | It reaches the inbox so a new team member can activate | A pilot defect | S1 — blocks the Invite Users P0 flow | See below | Partial (`reply_to`); the fix is DNS + `APP_ORIGINS` | — | **OPEN — awaiting Dee's DNS change** |
+
+### P-002 · Sign-up gave no visible sign that anything happened
+
+**What actually happened** (from `auth.users` and `invitations`, so this is the
+record rather than a reconstruction):
+
+| Time | Event |
+|---|---|
+| 03:11:35 | Bryan signs up; Supabase sends a confirmation email |
+| 03:12:06 | He opens the confirmation link |
+| 03:12:21 | Signed in |
+| 03:12:22 | Invitation accepted — `agency_user · Manager`, 3 modules, **active** |
+
+So the pipeline worked and **Bryan is a fully active member right now.** The
+"No workspace access" screen was the gap between confirming his email and the
+acceptance completing, reached because nothing on the sign-up page told him to
+go and check his inbox — so he navigated away and landed somewhere that
+correctly reported he had no membership *yet*.
+
+**Fixed:** `signUp` now reports whether a confirmation is pending (Supabase
+returns a user with no session in that case) instead of discarding it, and the
+invitation page replaces the whole form with a "Check your email" panel naming
+the address, saying the link brings them straight back and accepts
+automatically, mentioning the spam folder, and offering "Back to sign in".
+
+**Not changed:** the "No workspace access" screen itself is telling the truth
+for someone genuinely uninvited. Making it detect a pending invitation would be
+a new feature; recorded in `DEFERRED_AGENCY_WORK.md` rather than built here.
+
+### P-003 · Internal team invitation was generic
+
+The two partner branches carried Dee's verbatim branded copy; the internal team
+invitation fell through to the same neutral branch as a customer
+organization's own invite, so it inherited the platform tagline. Internal
+invitations now carry their own voice and the brand line **"Freedom isn't
+found, it's built with structure."** — the partner emails keep "Beyond
+Outsourcing. Your Business Growth Engine.", and a customer organization's
+invitation stays neutral in *their* branding, which is correct.
 
 ### P-001 · Invitation email delivered to Spam
 

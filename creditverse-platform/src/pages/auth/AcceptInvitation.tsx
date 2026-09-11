@@ -140,6 +140,7 @@ export default function AcceptInvitation() {
  * this person will use, and the invitation works for it alone.
  */
 function ActivationForms({ token }: { token: string }) {
+  const navigate = useNavigate();
   const auth = useAuth();
   const [door, setDoor] = useState<Door>("activate");
   const [fullName, setFullName] = useState("");
@@ -159,6 +160,11 @@ function ActivationForms({ token }: { token: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  /* Set when the account was created and a confirmation email is on its way.
+     It replaces the form entirely: a green line under a still-complete form
+     reads as "nothing happened", which is exactly how the first real invited
+     user read it (P-002). */
+  const [confirmSentTo, setConfirmSentTo] = useState<string | null>(null);
 
   /* Locked only when we actually know the address. A lookup that failed or
      found nothing leaves the field editable rather than blocking activation. */
@@ -195,10 +201,11 @@ function ActivationForms({ token }: { token: string }) {
       /* No business details: this person is joining an existing team, so no
          organization and no trial is created for them. The confirmation link
          comes back to this invitation instead of a generic landing page. */
-      const { error: err } = await auth.signUp(email, password, fullName, {
+      const { error: err, needsConfirmation } = await auth.signUp(email, password, fullName, {
         redirectPath: `/accept-invitation/${token}`,
       });
-      if (!err) setNotice("Almost there — open the confirmation email we just sent, and your invitation is accepted automatically.");
+      if (!err && needsConfirmation) setConfirmSentTo(email);
+      else if (!err) setNotice("Account created — accepting your invitation…");
       setError(err);
     } else {
       const { error: err } = await auth.signInWithPassword(email, password);
@@ -221,6 +228,34 @@ function ActivationForms({ token }: { token: string }) {
       {label}
     </button>
   );
+
+  /* One clear destination after sign-up, instead of a form that looks
+     untouched. It says what happened, what to do, and where they land. */
+  if (confirmSentTo) {
+    return (
+      <div className="mt-2 text-center">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-status-success/10">
+          <Mail className="h-6 w-6 text-status-success" />
+        </div>
+        <h2 className="mt-3 text-base font-bold text-foreground">Check your email</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Your account is created. We sent a confirmation link to{" "}
+          <span className="font-medium text-foreground">{confirmSentTo}</span>.
+        </p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Open that email and click the link — it brings you straight back here and accepts your
+          invitation automatically. You can close this tab.
+        </p>
+        <p className="mt-3 text-xs text-muted-foreground">
+          Nothing in your inbox after a minute or two? Check your spam folder, then ask whoever
+          invited you to send it again.
+        </p>
+        <Button variant="outline" className="mt-4" onClick={() => navigate("/login")}>
+          Back to sign in
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <>

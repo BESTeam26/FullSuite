@@ -70,6 +70,7 @@ Deno.serve(async (req) => {
   const expires = new Date(r.expires_at as string).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 
   const result = await sendEmail({
+    replyTo: Deno.env.get("MAIL_REPLY_TO")?.trim() || undefined,
     apiKey: mailKey,
     from,
     fromName: brand.name,

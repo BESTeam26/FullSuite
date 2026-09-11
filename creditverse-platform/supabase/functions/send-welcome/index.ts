@@ -76,6 +76,7 @@ Deno.serve(async (req) => {
   };
 
   const result = await sendEmail({
+    replyTo: Deno.env.get("MAIL_REPLY_TO")?.trim() || undefined,
     apiKey: mailKey,
     from,
     fromName: brand.name,
