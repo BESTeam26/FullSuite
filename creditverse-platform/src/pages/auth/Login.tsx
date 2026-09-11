@@ -4,10 +4,15 @@
  * ── ONE DOOR, MANY KINDS OF PERSON ─────────────────────────────────────────
  *
  * BES staff, partners, partner staff and clients all sign in here. So the page
- * names the company and not a product: "Credit + Funding Operations" described
+ * names the PLATFORM and not a product: "Credit + Funding Operations" described
  * two of the modules and quietly excluded BES CRM, TalentOps, Agency HQ and
  * both portals. Where somebody lands is decided AFTER authentication, by their
  * memberships — never by which page they opened (Dee, 2026-09-11).
+ *
+ * The wordmark is BES. "Blessed Empire Services" is the company; BES is what
+ * the platform is called, and this is a platform door (Dee, 2026-09-11). The
+ * company name still belongs where the legal entity is meant — the onboarding
+ * consent, document merge samples — and is untouched there.
  *
  * ── THE LAYOUT ─────────────────────────────────────────────────────────────
  *
@@ -109,7 +114,7 @@ function BrandMark({ tone }: { tone: "dark" | "light" }) {
             : "text-[15px] font-semibold tracking-tight text-foreground"
         }
       >
-        Blessed Empire Services
+        BES
       </span>
     </span>
   );
@@ -166,7 +171,7 @@ const Login = () => {
 
   useSeo({
     title: "Sign in — BES",
-    description: "Sign in to the Blessed Empire Services operating platform.",
+    description: "Sign in to the BES operating platform.",
     canonical: "/login",
     noindex: true,
   });
@@ -506,7 +511,7 @@ const Login = () => {
           )}
 
           <p className="mt-10 text-center text-[11px] uppercase tracking-[0.1em] text-muted-foreground/70">
-            © {new Date().getFullYear()} Blessed Empire Services
+            © {new Date().getFullYear()} BES
           </p>
         </div>
       </main>

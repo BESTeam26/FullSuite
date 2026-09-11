@@ -170,7 +170,7 @@ export const Topbar = () => {
             </p>
             <p className="text-xs text-muted-foreground">
               {viewMode === "agency"
-                ? "Blessed Empire Services HQ"
+                ? "BES HQ"
                 : activeSubAccount?.name}
             </p>
           </div>

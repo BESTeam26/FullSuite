@@ -52,7 +52,7 @@ export const AgencyDashboard = () => {
         <div>
           <div className="flex items-center gap-2">
             <Badge className="border border-amber-500/30 bg-amber-500/10 font-semibold text-status-warning">
-              <Crown className="mr-1 h-3 w-3" /> Blessed Empire Services HQ
+              <Crown className="mr-1 h-3 w-3" /> BES HQ
             </Badge>
           </div>
           <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-foreground md:text-3xl">

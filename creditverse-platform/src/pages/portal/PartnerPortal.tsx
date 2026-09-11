@@ -84,7 +84,7 @@ export const PartnerPortal = () => {
             {/* The bundled logo, deliberately: a portal user cannot read the
                 agency's branding record (staff-only), and the file ships with
                 the app, so the mark renders for everyone or falls away clean. */}
-            <img src="/bes-logo.png" alt="Blessed Empire Services"
+            <img src="/bes-logo.png" alt="BES"
               className="h-10 w-10 shrink-0 object-contain"
               onError={(e) => { e.currentTarget.hidden = true; }} />
             <div>
