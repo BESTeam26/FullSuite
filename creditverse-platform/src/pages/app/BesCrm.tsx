@@ -32,15 +32,26 @@ import { DivisionLayout, type DivisionTab } from "@/components/dashboard/Divisio
 import { useAgency } from "@/lib/agency-context";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useCrmBoard } from "@/lib/data/use-crm";
+import type { CrmBoardScope } from "@/lib/data/crm-projects";
+import { cn } from "@/lib/utils";
 import { CrmBoardTab } from "@/components/bes-crm/CrmBoardTab";
 import { CrmProjectWorkspace } from "@/components/bes-crm/CrmProjectWorkspace";
 import { CreateCrmProjectDialog } from "@/components/bes-crm/CreateCrmProjectDialog";
+
+const SCOPES: { id: CrmBoardScope; label: string }[] = [
+  { id: "active", label: "Active Projects" },
+  { id: "closed", label: "Completed / Archived" },
+];
 
 export default function BesCrm() {
   const { viewMode } = useAgency();
   const auth = useAuth();
   const isBes = viewMode === "agency";
-  const board = useCrmBoard();
+  /* Active is work in progress; Completed / Archived is the same partners'
+     history, reachable rather than merely out of the way. Two scopes, one
+     query key prefix, so switching does not refetch what is already held. */
+  const [scope, setScope] = useState<CrmBoardScope>("active");
+  const board = useCrmBoard(scope);
   /* A notification's link lands on one project (`?project=`); the board is
      the fallback when the id is not one the caller may see. */
   const [params] = useSearchParams();
@@ -113,7 +124,33 @@ export default function BesCrm() {
             </Button>
           </div>
         )}
-        <CrmBoardTab projects={projects} onOpen={setOpenId} />
+        <div className="flex flex-wrap items-center gap-1 rounded-lg bg-muted/60 p-1 sm:w-fit">
+          {SCOPES.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => setScope(s.id)}
+              aria-pressed={scope === s.id}
+              className={cn(
+                "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                scope === s.id
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+        {projects.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+            {scope === "active"
+              ? "No projects in active work."
+              : "Nothing completed or archived yet. Finished builds stay here, attached to their partner."}
+          </p>
+        ) : (
+          <CrmBoardTab projects={projects} onOpen={setOpenId} />
+        )}
       </div>
     );
   };

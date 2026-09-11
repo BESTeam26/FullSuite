@@ -15,6 +15,11 @@ import {
   fetchProjectUnits,
   passQa,
   setWaiting,
+  archiveCrmProject,
+  completeCrmProject,
+  deleteCrmProject,
+  reopenCrmProject,
+  type CrmBoardScope,
 } from "@/lib/data/crm-projects";
 import { assignWork } from "@/lib/data/work-items";
 import type { WaitingReason } from "@/lib/crm/crm-domain";
@@ -33,11 +38,13 @@ export const crmUnitsKey = (p: string) => ["crm", "units", p] as const;
  * a team works, and a stale progress bar is misleading in a way a stale
  * settings page is not.
  */
-export function useCrmBoard() {
+export function useCrmBoard(scope: CrmBoardScope = "active") {
   const auth = useAuth();
   return useQuery({
-    queryKey: crmBoardKey,
-    queryFn: fetchCrmBoard,
+    /* Scoped, so Active and Completed/Archived are separate cache entries and
+       switching tabs does not refetch the one already in hand. */
+    queryKey: [...crmBoardKey, scope],
+    queryFn: () => fetchCrmBoard(scope),
     enabled: live(auth),
     staleTime: 15_000,
   });
@@ -217,4 +224,38 @@ export function useAssignUnit(projectId: string) {
       assignWork(unitId, userId),
     onSuccess: () => refreshProject(qc, projectId),
   });
+}
+
+/**
+ * The project lifecycle, as one hook.
+ *
+ * Every one invalidates the whole board prefix, so a project completed on the
+ * Active tab is already gone from it and already present on Completed /
+ * Archived the moment either is looked at. `crmBoardKey` is a prefix, so both
+ * scoped entries are covered by the one call.
+ */
+export function useCrmProjectLifecycle() {
+  const qc = useQueryClient();
+  const after = () => {
+    void qc.invalidateQueries({ queryKey: crmBoardKey });
+    void qc.invalidateQueries({ queryKey: ["work"] });
+  };
+  return {
+    complete: useMutation({
+      mutationFn: (v: { projectId: string; note?: string }) => completeCrmProject(v.projectId, v.note),
+      onSuccess: after,
+    }),
+    archive: useMutation({
+      mutationFn: (v: { projectId: string; reason?: string }) => archiveCrmProject(v.projectId, v.reason),
+      onSuccess: after,
+    }),
+    reopen: useMutation({
+      mutationFn: (v: { projectId: string }) => reopenCrmProject(v.projectId),
+      onSuccess: after,
+    }),
+    remove: useMutation({
+      mutationFn: (v: { projectId: string }) => deleteCrmProject(v.projectId),
+      onSuccess: after,
+    }),
+  };
 }

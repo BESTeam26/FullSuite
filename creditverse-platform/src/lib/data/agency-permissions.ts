@@ -33,6 +33,10 @@ export const AGENCY_PERMISSIONS = [
   /* Module ENTRY keys (§59): the named door into each operational module,
      granted per person — never through ops.manage, never by a preset. */
   "creditops.clients.view", "crm.projects.view", "fundingops.files.view", "talentops.view",
+  /* Configuring a BES CRM project, and its lifecycle: complete, archive,
+     reopen, and the narrow delete. The database asks for this key too — the
+     menu is presentation, the function is the gate. */
+  "crm.projects.manage",
   /* HR documents (§15): a team member's agreements and NDAs — never mere
      staff status, and not part of any preset. */
   "people.documents.manage",

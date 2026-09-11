@@ -11,6 +11,7 @@ import {
   type ProjectHealth,
 } from "@/lib/crm/crm-domain";
 import type { CrmProjectRow } from "@/lib/data/crm-projects";
+import { CrmProjectActions } from "./CrmProjectActions";
 import { cn } from "@/lib/utils";
 
 /**
@@ -96,22 +97,39 @@ const ProjectList = ({
         inQa: p.inQa,
         overdue: p.overdue,
       });
+      const closed = p.completedAt ?? p.archivedAt;
       return (
-        <li key={p.id}>
+        <li key={p.id} className="relative">
+          {/* Outside the button, because a menu inside a button is a button
+              inside a button — invalid, and the click lands on the wrong one. */}
+          <div className="absolute right-3 top-3 z-10">
+            <CrmProjectActions project={p} />
+          </div>
           <button
             type="button"
             onClick={() => onOpen(p.id)}
             className={cn(
-              "w-full rounded-xl border border-border bg-card p-4 text-left transition-colors",
+              "w-full rounded-xl border border-border bg-card p-4 pr-12 text-left transition-colors",
               "hover:border-primary/40 hover:bg-muted/40",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+              closed && "opacity-80",
             )}
           >
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm font-semibold text-foreground">{p.name}</span>
-                  <HealthPill health={p.health} />
+                  {p.completedAt ? (
+                    <span className="rounded-full bg-status-success-tint px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-status-success">
+                      Complete
+                    </span>
+                  ) : p.archivedAt ? (
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Archived
+                    </span>
+                  ) : (
+                    <HealthPill health={p.health} />
+                  )}
                 </div>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {p.businessName ? <>{p.businessName} · </> : null}

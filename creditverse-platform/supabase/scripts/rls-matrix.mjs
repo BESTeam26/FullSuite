@@ -371,7 +371,12 @@ const lakesideOrg = q(`select id from public.organizations where name='[TEST] La
 const S = `
   (select count(*) from public.work_items)::int as work,
   (select count(*) from public.work_attention)::int as attention,
-  (select count(*) from public.fulfillment_clients)::int as fclients,
+  /* Live clients only, because that is what the oracle above counts. Left
+     unfiltered, this probe silently measured a different thing from its own
+     expectation and stayed green only while nobody had archived a client —
+     which somebody did on 2026-09-11, during the pilot. The invariant here is
+     WHOSE clients a person may see, not whether archived ones are included. */
+  (select count(*) from public.fulfillment_clients where archived_at is null)::int as fclients,
   (select count(*) from public.funding_clients)::int as fund,
   (select count(*) from public.fulfillment_clients where id='${T.lakeside_client}')::int as lakeside_by_id,
   (select count(*) from public.fulfillment_clients where id='${T.cedar_client}')::int as cedar_by_id
@@ -7104,6 +7109,124 @@ if (runs(72)) {
       0],
   ];
   runPhase("phase 72", P72, { strict: true });
+}
+
+if (runs(73)) {
+  startPhase("phase 73");
+  /* BES CRM PROJECT LIFECYCLE (0305/0306).
+   *
+   * Dee could not delete a project for three independent reasons: no control
+   * existed, `crm_projects` has no DELETE policy so default-deny refused every
+   * attempt, and every foreign key to it cascades — so a delete that HAD
+   * worked would have taken the work items, checklist items, blockers and
+   * field values with it, and failed anyway on production_logs' RESTRICT.
+   *
+   * The table stays closed. These probes hold the guarded functions that are
+   * now the only door, and the invariant that matters most: a project is work
+   * UNDERNEATH an engagement, so nothing in its lifecycle may touch the
+   * partner, the engagement, or any other project.
+   */
+  const p73 = (uid, sql) => {
+    try {
+      return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows;
+    } catch (e) {
+      const m = (String(e.message) + String(e.stdout ?? "")).match(/ERROR:\s*(\w+):/);
+      return "ERR " + (m ? m[1] : "unknown");
+    }
+  };
+  const OWN73 = U["bes.owner@bes.test"], AGENT73 = U["bes.credit@bes.test"];
+  const PROJ73 = q(`select id::text as rows from public.crm_projects limit 1`)[0].rows;
+  const AG73 = q(`select agency_id::text as rows from public.crm_projects where id='${PROJ73}'`)[0].rows;
+  const GRP73 = q(`select coalesce(partner_group_id::text,'') as rows from public.crm_projects where id='${PROJ73}'`)[0].rows;
+
+  /* A disposable project, created inside the probe's own transaction so the
+     safe-delete path is exercised against something real and nothing survives
+     the rollback. */
+  const fresh73 = `
+    insert into public.crm_projects (id, agency_id, partner_group_id, name, created_by)
+    values ('cc000000-0000-4000-8000-0000000000c1'::uuid, '${AG73}',
+            nullif('${GRP73}','')::uuid, '[PROBE] Disposable', '${OWN73}'::uuid);`;
+
+  const P73 = [
+    /* Stronger than expected and worth recording: `authenticated` holds no
+       DELETE grant on the table at all, so this is 42501 rather than a policy
+       quietly matching no rows. The guarded function is the only door. */
+    ["the table itself still refuses a direct delete, for the owner too",
+      () => p73(OWN73, `delete from public.crm_projects where id = '${PROJ73}'`), "ERR 42501"],
+
+    ["a project with real history reports exactly why it cannot be deleted",
+      () => q(`select array_length(public.crm_project_deletion_blockers('${PROJ73}'), 1) as rows`)[0].rows,
+      4],
+    ["and deleting it is refused rather than cascading",
+      () => p73(OWN73, `select public.crm_project_delete('${PROJ73}')`), "ERR 23503"],
+
+    ["completing takes it out of active work",
+      () => p73(OWN73, `select public.crm_project_complete('${PROJ73}', 'Delivered');
+                        select count(*)::int as rows from public.crm_project_board('active') where id='${PROJ73}'`),
+      0],
+    ["and it is reachable under completed / archived",
+      () => p73(OWN73, `select public.crm_project_complete('${PROJ73}', 'Delivered');
+                        select count(*)::int as rows from public.crm_project_board('closed') where id='${PROJ73}'`),
+      1],
+    ["completing destroys no work, milestones or engines",
+      () => p73(OWN73, `select public.crm_project_complete('${PROJ73}', null);
+                        select (select count(*) from public.work_items where crm_project_id='${PROJ73}')
+                             + (select count(*) from public.crm_milestones where project_id='${PROJ73}')
+                             + (select count(*) from public.crm_project_engines where project_id='${PROJ73}') as rows`),
+      q(`select (select count(*) from public.work_items where crm_project_id='${PROJ73}')
+              + (select count(*) from public.crm_milestones where project_id='${PROJ73}')
+              + (select count(*) from public.crm_project_engines where project_id='${PROJ73}') as rows`)[0].rows],
+
+    ["archiving takes it out of active work",
+      () => p73(OWN73, `select public.crm_project_archive('${PROJ73}', 'Wound down');
+                        select count(*)::int as rows from public.crm_project_board('active') where id='${PROJ73}'`),
+      0],
+    ["reopening brings the same project back, not a new one",
+      () => p73(OWN73, `select public.crm_project_archive('${PROJ73}', null);
+                        select public.crm_project_reopen('${PROJ73}');
+                        select count(*)::int as rows from public.crm_project_board('active') where id='${PROJ73}'`),
+      1],
+
+    ["a disposable project can be deleted",
+      () => p73(OWN73, `${fresh73}
+                        select public.crm_project_delete('cc000000-0000-4000-8000-0000000000c1');
+                        select count(*)::int as rows from public.crm_projects
+                         where id='cc000000-0000-4000-8000-0000000000c1'`),
+      0],
+
+    /* The invariant Dee cared about: the relationship above the project. */
+    ["the partner survives every lifecycle action",
+      () => p73(OWN73, `${fresh73}
+                        select public.crm_project_delete('cc000000-0000-4000-8000-0000000000c1');
+                        select public.crm_project_archive('${PROJ73}', null);
+                        select count(*)::int as rows from public.outsourcing_groups where id = nullif('${GRP73}','')::uuid`),
+      GRP73 === "" ? 0 : 1],
+    ["the BES CRM service engagement survives them too",
+      () => p73(OWN73, `select public.crm_project_archive('${PROJ73}', null);
+                        select count(*)::int as rows from public.fulfillment_engagements
+                         where outsourcing_group_id = nullif('${GRP73}','')::uuid and service='bes_crm'`),
+      q(`select count(*)::int as rows from public.fulfillment_engagements
+          where outsourcing_group_id = nullif('${GRP73}','')::uuid and service='bes_crm'`)[0].rows],
+
+    ["an agent without crm.projects.manage cannot complete",
+      () => p73(AGENT73, `select public.crm_project_complete('${PROJ73}', null)`), "ERR 42501"],
+    ["nor archive",
+      () => p73(AGENT73, `select public.crm_project_archive('${PROJ73}', null)`), "ERR 42501"],
+    ["nor reopen",
+      () => p73(AGENT73, `select public.crm_project_reopen('${PROJ73}')`), "ERR 42501"],
+    ["nor delete",
+      () => p73(AGENT73, `select public.crm_project_delete('${PROJ73}')`), "ERR 42501"],
+    ["anon reaches none of it",
+      () => { try { q(`begin; set local role anon; select public.crm_project_delete('${PROJ73}'); rollback;`); return "allowed"; } catch { return "refused"; } },
+      "refused"],
+
+    ["a lifecycle change is on the partner's timeline",
+      () => p73(OWN73, `select public.crm_project_archive('${PROJ73}', null);
+                        select count(*)::int as rows from public.activity_events
+                         where entity_type='partner' and action='Project archived'`),
+      GRP73 === "" ? 0 : 1],
+  ];
+  runPhase("phase 73", P73, { strict: true });
 }
 
 endPhase();

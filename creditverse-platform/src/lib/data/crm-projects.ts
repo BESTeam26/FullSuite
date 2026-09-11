@@ -43,7 +43,15 @@ export interface CrmProjectRow {
   blocked: number;
   inQa: number;
   overdue: number;
+  /** Delivered — an explicit event, not a reading of progress. */
+  completedAt: string | null;
+  archivedAt: string | null;
+  /** Why permanent deletion is refused. Empty means genuinely disposable. */
+  deletionBlockers: string[];
 }
+
+/** Which slice of the board to read. Active is work in progress. */
+export type CrmBoardScope = "active" | "closed" | "all";
 
 /**
  * Every project the caller may see, with its derived state already computed.
@@ -52,9 +60,9 @@ export interface CrmProjectRow {
  * the database. A loop of `crm_project_progress` per row would be the N+1 on
  * the screen an owner opens most (rule 14).
  */
-export async function fetchCrmBoard(): Promise<CrmProjectRow[]> {
+export async function fetchCrmBoard(scope: CrmBoardScope = "active"): Promise<CrmProjectRow[]> {
   const sb = requireSupabase();
-  const { data, error } = await sb.rpc("crm_project_board");
+  const { data, error } = await sb.rpc("crm_project_board", { p_scope: scope });
   if (error) throw error;
   return (data ?? []).map((r) => {
     const rec = r as Record<string, unknown>;
@@ -76,6 +84,9 @@ export async function fetchCrmBoard(): Promise<CrmProjectRow[]> {
       blocked: Number(rec.blocked ?? 0),
       inQa: Number(rec.in_qa ?? 0),
       overdue: Number(rec.overdue ?? 0),
+      completedAt: (rec.completed_at as string) ?? null,
+      archivedAt: (rec.archived_at as string) ?? null,
+      deletionBlockers: (rec.deletion_blockers as string[]) ?? [],
     };
   });
 }
@@ -425,4 +436,49 @@ export async function satisfyClientRequirement(
   });
   if (error) throw error;
   return Number(data ?? 0);
+}
+
+/* ------------------------------------------------------------------ *
+ * Project lifecycle
+ *
+ * Every one of these is a database function, because each has to check the
+ * capability, write the timeline on BOTH the project and its partner, and — in
+ * the case of deletion — decide whether the project is disposable at all. None
+ * of that can be done safely in a browser (rule 1).
+ *
+ * What none of them touch: the partner, the organization, the BES CRM service
+ * engagement, SaaS tenancy, or any other project. A project is work underneath
+ * an engagement; its lifecycle says nothing about the relationship above it.
+ * ------------------------------------------------------------------ */
+
+/** Delivered. Out of active work, kept whole and reachable from the partner. */
+export async function completeCrmProject(projectId: string, note?: string): Promise<void> {
+  const sb = requireSupabase();
+  const { error } = await sb.rpc("crm_project_complete", { p_project: projectId, p_note: note ?? null });
+  if (error) throw error;
+}
+
+/** Out of active work for any other reason. Also kept whole. */
+export async function archiveCrmProject(projectId: string, reason?: string): Promise<void> {
+  const sb = requireSupabase();
+  const { error } = await sb.rpc("crm_project_archive", { p_project: projectId, p_reason: reason ?? null });
+  if (error) throw error;
+}
+
+/** Back into active work — the same project, not a recreated one. */
+export async function reopenCrmProject(projectId: string): Promise<void> {
+  const sb = requireSupabase();
+  const { error } = await sb.rpc("crm_project_reopen", { p_project: projectId });
+  if (error) throw error;
+}
+
+/**
+ * Permanent, and refused the moment the project holds anything worth keeping.
+ * The error names what is in the way, so the caller can offer Archive instead
+ * of reporting a failure nobody can act on.
+ */
+export async function deleteCrmProject(projectId: string): Promise<void> {
+  const sb = requireSupabase();
+  const { error } = await sb.rpc("crm_project_delete", { p_project: projectId });
+  if (error) throw error;
 }

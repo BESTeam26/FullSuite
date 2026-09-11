@@ -2714,8 +2714,12 @@ export type Database = {
         Row: {
           agency_id: string
           archived_at: string | null
+          archived_by: string | null
           archived_reason: string | null
           business_name: string | null
+          completed_at: string | null
+          completed_by: string | null
+          completion_note: string | null
           created_at: string
           created_by: string | null
           description: string | null
@@ -2745,8 +2749,12 @@ export type Database = {
         Insert: {
           agency_id: string
           archived_at?: string | null
+          archived_by?: string | null
           archived_reason?: string | null
           business_name?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          completion_note?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -2776,8 +2784,12 @@ export type Database = {
         Update: {
           agency_id?: string
           archived_at?: string | null
+          archived_by?: string | null
           archived_reason?: string | null
           business_name?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          completion_note?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -2810,6 +2822,20 @@ export type Database = {
             columns: ["agency_id"]
             isOneToOne: false
             referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_projects_archived_by_fkey"
+            columns: ["archived_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_projects_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -13670,6 +13696,10 @@ export type Database = {
         Args: { p_agency: string; p_key: string }
         Returns: undefined
       }
+      assert_may_manage_crm_project: {
+        Args: { p_project: string }
+        Returns: string
+      }
       assert_seat_available: {
         Args: { p_for_user?: string; p_ignore_pending?: boolean; p_org: string }
         Returns: undefined
@@ -14137,11 +14167,18 @@ export type Database = {
         Returns: number
       }
       crm_pass_qa: { Args: { p_note?: string; p_unit: string }; Returns: Json }
+      crm_project_archive: {
+        Args: { p_project: string; p_reason?: string }
+        Returns: undefined
+      }
       crm_project_board: {
-        Args: never
+        Args: { p_scope?: string }
         Returns: {
+          archived_at: string
           blocked: number
           business_name: string
+          completed_at: string
+          deletion_blockers: string[]
           engines: string[]
           health: string
           id: string
@@ -14158,6 +14195,15 @@ export type Database = {
           target_go_live: string
           waiting_client: number
         }[]
+      }
+      crm_project_complete: {
+        Args: { p_note?: string; p_project: string }
+        Returns: undefined
+      }
+      crm_project_delete: { Args: { p_project: string }; Returns: undefined }
+      crm_project_deletion_blockers: {
+        Args: { p_project: string }
+        Returns: string[]
       }
       crm_project_engine_progress: {
         Args: { p_project: string }
@@ -14189,6 +14235,7 @@ export type Database = {
         Returns: number
       }
       crm_project_readable: { Args: { p_project: string }; Returns: boolean }
+      crm_project_reopen: { Args: { p_project: string }; Returns: undefined }
       crm_project_writable: { Args: { p_project: string }; Returns: boolean }
       crm_record_go_live: {
         Args: {
@@ -14554,6 +14601,10 @@ export type Database = {
           p_entity_type: string
           p_org?: string
         }
+        Returns: undefined
+      }
+      log_crm_project_event: {
+        Args: { p_action: string; p_detail: string; p_project: string }
         Returns: undefined
       }
       looks_like_a_secret: { Args: { p_text: string }; Returns: boolean }
