@@ -32,13 +32,52 @@ operator who hit it does.
 
 | ID | Date | Reported by | Module | Actual | Expected | Class | Sev | Root cause | Fix commit | Live verified by | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| — | — | — | — | *No pilot issues reported yet.* | | | | | | | |
+| P-001 | 2026-09-10 | Dee | Invite Users / Login | The activation email from `noreply@bescrm.net` landed in Gmail **Spam** | It reaches the inbox so a new team member can activate | A pilot defect | S1 — blocks the Invite Users P0 flow | See below | Partial (`reply_to`); the fix is DNS + `APP_ORIGINS` | — | **OPEN — awaiting Dee's DNS change** |
+
+### P-001 · Invitation email delivered to Spam
+
+**Not an authentication failure.** Verified live against DNS:
+
+| Check | Record | Verdict |
+|---|---|---|
+| DKIM | `resend._domainkey.bescrm.net` — 1024-bit key present | PASS |
+| SPF (envelope) | `send.bescrm.net` → `v=spf1 include:dc-fd741b8612._spfm.send.bescrm.net ~all` | PASS |
+| Return-Path / bounces | `send.bescrm.net` MX → `feedback-smtp.us-east-1.amazonses.com` | Correct |
+| DMARC | `_dmarc.bescrm.net` — `p=quarantine; adkim=r; aspf=r` | Aligns on both, so it PASSES |
+
+So Resend is set up correctly and the message is authenticated. What Gmail is
+reacting to, in order of weight:
+
+1. **Sender domain ≠ link domain.** The email comes from `bescrm.net` and the
+   activation button points at `https://bes-full-suite.vercel.app/accept-invitation/…`.
+   `APP_ORIGINS` is unset in the function environment, so the link falls back to
+   the hardcoded Vercel default. A first-contact message from an unknown domain
+   sending you to a *different* domain on free hosting, to create a password, is
+   the exact shape of a phishing email.
+2. **Cold domain.** `bescrm.net` has no transactional sending reputation; this
+   is among its first messages.
+3. **`noreply@` with no Reply-To.** A sender that cannot be replied to is a
+   small negative signal on top of the two above.
+
+**Fixed in code (partial):** `sendEmail` now sets `reply_to` when
+`MAIL_REPLY_TO` is present in the function environment, and omits the header
+when it is not — no address nobody reads. Deployed to `send-invitation`,
+`send-welcome`, `send-signature-request`. This addresses (3) only.
+
+**The actual fix is configuration, and it is Dee's to make:** give the app a
+hostname on the sending domain (e.g. `app.bescrm.net` → Vercel), then set
+`APP_ORIGINS=https://app.bescrm.net` so every emailed link matches the sender.
+That removes (1) outright and starts building (2).
+
+**Immediate pilot workaround:** the pending-invitation row has **Copy link**.
+Sending that link to the person directly, from Dee's own mailbox, activates
+them today without waiting on DNS.
 
 ## P0 workflow gates (human)
 
 | Workflow | Automated | Live |
 |---|---|---|
-| Invite Users / login (§9: email, branding, activation, production URL, password, membership, profile, team, module, partner access, landing page, refresh, logout/login) | AUTOMATED PASS | UNTESTED LIVE |
+| Invite Users / login (§9: email, branding, activation, production URL, password, membership, profile, team, module, partner access, landing page, refresh, logout/login) | AUTOMATED PASS | **BLOCKED — P-001, invitation delivered to Spam** |
 | CreditOps (§10: assigned partner only, client opens, status, sticky context, actions, Complete Work, multiple handoffs, source/destination departments, production once, activity, EOD) | AUTOMATED PASS | UNTESTED LIVE — owner-only walks do not count |
 | My Time / Timer (§11: start, refresh survives, stop, duration, association, history, EOD, no duplicate running timer) | AUTOMATED PASS | UNTESTED LIVE |
 | Agent EOD (§12: work, actions, production, handoffs, QA, time, blockers derived; manual fields for context only) | AUTOMATED PASS | UNTESTED LIVE |

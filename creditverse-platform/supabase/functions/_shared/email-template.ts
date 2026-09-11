@@ -159,6 +159,11 @@ export async function sendEmail(params: {
 }): Promise<SendResult> {
   const from = parseFrom(params.from, params.fromName);
   const name = (params.fromName || from.name || "").replace(/["\\<>]/g, "").trim();
+  /* A "no-reply" sender with nowhere to reply is both unhelpful to the person
+     who hits Reply and a small negative deliverability signal. MAIL_REPLY_TO
+     names a real monitored mailbox; unset, the header is simply omitted
+     rather than pointed at an address nobody reads. */
+  const replyTo = Deno.env.get("MAIL_REPLY_TO")?.trim();
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
@@ -171,6 +176,7 @@ export async function sendEmail(params: {
       subject: params.subject,
       html: renderEmail(params.content),
       text: renderEmailText(params.content),
+      ...(replyTo ? { reply_to: replyTo } : {}),
     }),
   });
   if (res.ok) return { ok: true, status: res.status };
