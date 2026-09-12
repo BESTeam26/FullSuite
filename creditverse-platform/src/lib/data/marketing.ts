@@ -15,6 +15,7 @@ import type {
   Campaign, MarketingApproval, MarketingCounters, MarketingPartner, MarketingWorkItem,
 } from "@/lib/marketing/marketing-domain";
 import { EMPTY_COUNTERS, compareByName } from "@/lib/marketing/marketing-domain";
+import { setItemFieldValue } from "@/lib/data/workspaces";
 
 const client = () => {
   if (!supabase) throw new Error("Not connected");
@@ -250,4 +251,151 @@ export async function requestPartnerApproval(
   } as never);
   if (error) throw new Error(error.message);
   return data as unknown as string;
+}
+
+/* ------------------------------------------------------------------ */
+/* Spreadsheet import                                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Apply a plan the person has already seen.
+ *
+ * Sequential rather than parallel, and counted honestly: a burst that half
+ * succeeds leaves nobody able to say which half, and "imported" when nine rows
+ * failed is the report that costs a day.
+ *
+ * Every write goes through the ordinary policies as the signed-in person —
+ * this is a data-entry path onto the canonical engine, never a way past it.
+ */
+export interface ImportContext {
+  workspaceId: string;
+  agencyId: string;
+  partnerGroupId: string | null;
+  /** Workspace statuses, so a sheet's "In Progress" lands on the right row. */
+  statuses: { id: string; key: string; label: string; position: number }[];
+  itemTypes: { id: string; key: string; label: string }[];
+  fields: { id: string; key: string }[];
+  /** People who may be named in an Assignee column. */
+  members: { id: string; name: string; email: string }[];
+  campaigns: { id: string; name: string }[];
+}
+
+export interface ImportOutcome {
+  created: number;
+  updated: number;
+  campaignsCreated: number;
+  failed: { line: number; title: string; reason: string }[];
+}
+
+const normalize = (v: string): string => v.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+
+export async function applyMarketingImport(
+  rows: { line: number; externalRef: string; title: string; publishOn: string | null;
+          channel: string | null; contentType: string | null; caption: string | null;
+          campaign: string | null; assignee: string | null; status: string | null;
+          dueOn: string | null; notes: string | null; existingId: string | null }[],
+  ctx: ImportContext,
+): Promise<ImportOutcome> {
+  const sb = client();
+  const out: ImportOutcome = { created: 0, updated: 0, campaignsCreated: 0, failed: [] };
+
+  /* Campaigns first, so a row naming one can point at it. Reused by name
+     within the workspace — never a second campaign with the same name. */
+  const campaignByName = new Map(ctx.campaigns.map((c) => [normalize(c.name), c.id]));
+  for (const name of new Set(rows.map((r) => r.campaign).filter((c): c is string => !!c))) {
+    if (campaignByName.has(normalize(name))) continue;
+    try {
+      const id = await createCampaign({
+        workspaceId: ctx.workspaceId, agencyId: ctx.agencyId,
+        partnerGroupId: ctx.partnerGroupId, name, status: "active",
+      });
+      campaignByName.set(normalize(name), id);
+      out.campaignsCreated += 1;
+    } catch {
+      /* Reported per row below rather than failing the whole import: a
+         campaign that could not be created is a task without a campaign, not
+         a task that should not exist. */
+    }
+  }
+
+  const firstStatus = [...ctx.statuses].sort((a, b) => a.position - b.position)[0] ?? null;
+  const statusFor = (label: string | null) => {
+    if (!label) return firstStatus?.id ?? null;
+    const want = normalize(label);
+    return ctx.statuses.find((s) => normalize(s.label) === want || normalize(s.key) === want)?.id
+      ?? firstStatus?.id ?? null;
+  };
+  const contentType = ctx.itemTypes.find((t) => t.key === "content") ?? ctx.itemTypes[0] ?? null;
+  const memberFor = (who: string | null) => {
+    if (!who) return null;
+    const want = normalize(who);
+    return ctx.members.find((m) => normalize(m.name) === want || normalize(m.email) === want)?.id ?? null;
+  };
+  const fieldId = (key: string) => ctx.fields.find((f) => f.key === key)?.id ?? null;
+
+  for (const row of rows) {
+    try {
+      const patch = {
+        title: row.title,
+        status_id: statusFor(row.status),
+        campaign_id: row.campaign ? campaignByName.get(normalize(row.campaign)) ?? null : null,
+        assigned_to: memberFor(row.assignee),
+        due_at: row.dueOn ? new Date(`${row.dueOn}T17:00:00`).toISOString() : null,
+        description: row.notes,
+        external_ref: row.externalRef,
+      };
+
+      let itemId = row.existingId;
+      if (itemId) {
+        const { error } = await sb.from("work_items").update(patch as never).eq("id", itemId);
+        if (error) throw new Error(error.message);
+        out.updated += 1;
+      } else {
+        const { data, error } = await sb.from("work_items").insert({
+          ...patch,
+          agency_id: ctx.agencyId,
+          scope: "AGENCY",
+          related_type: "project",
+          division: "sales_marketing",
+          workspace_id: ctx.workspaceId,
+          item_type_id: contentType?.id ?? null,
+        } as never).select("id").single();
+        if (error) throw new Error(error.message);
+        itemId = (data as Row).id;
+        out.created += 1;
+      }
+
+      /* Content metadata is field values on the same record — not a second
+         content table, which is the rule the calendar depends on. */
+      for (const [key, value] of [
+        ["publish_at", row.publishOn],
+        ["channel", row.channel],
+        ["content_type", row.contentType],
+        ["caption", row.caption],
+      ] as const) {
+        const id = fieldId(key);
+        if (!id || value === null) continue;
+        await setItemFieldValue(itemId, id, value);
+      }
+    } catch (e) {
+      out.failed.push({ line: row.line, title: row.title, reason: (e as Error).message });
+    }
+  }
+
+  return out;
+}
+
+/** The existing work an import needs to see to decide create vs update. */
+export async function fetchImportTargets(workspaceId: string): Promise<
+  { id: string; title: string; externalRef: string | null }[]
+> {
+  const { data, error } = await client()
+    .from("work_items")
+    .select("id, title, external_ref")
+    .eq("workspace_id", workspaceId)
+    .is("archived_at", null);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((r: Row) => ({
+    id: r.id, title: r.title, externalRef: r.external_ref ?? null,
+  }));
 }

@@ -13757,6 +13757,7 @@ export type Database = {
           description: string | null
           division: Database["public"]["Enums"]["fulfillment_service"] | null
           due_at: string | null
+          external_ref: string | null
           id: string
           is_fixture: boolean
           item_type_id: string | null
@@ -13799,6 +13800,7 @@ export type Database = {
           description?: string | null
           division?: Database["public"]["Enums"]["fulfillment_service"] | null
           due_at?: string | null
+          external_ref?: string | null
           id?: string
           is_fixture?: boolean
           item_type_id?: string | null
@@ -13841,6 +13843,7 @@ export type Database = {
           description?: string | null
           division?: Database["public"]["Enums"]["fulfillment_service"] | null
           due_at?: string | null
+          external_ref?: string | null
           id?: string
           is_fixture?: boolean
           item_type_id?: string | null

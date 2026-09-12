@@ -13,7 +13,7 @@
  * times is noise.
  */
 import { useMemo, useState } from "react";
-import { AlertTriangle, Calendar, Flag, Plus, Search, User } from "lucide-react";
+import { AlertTriangle, Calendar, ClipboardPaste, Flag, Plus, Search, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { OpsSelect } from "@/components/ui/ops-select";
@@ -59,6 +59,7 @@ export function MarketingTaskList({
   onFiltersChange,
   onOpenItem,
   onNewTask,
+  onImport,
 }: {
   items: MarketingWorkItem[];
   statuses: WorkspaceStatus[];
@@ -69,6 +70,8 @@ export function MarketingTaskList({
   onFiltersChange: (next: TaskListFilters) => void;
   onOpenItem: (item: MarketingWorkItem) => void;
   onNewTask: () => void;
+  /** Absent for somebody who may only read — the button is not rendered at all. */
+  onImport?: () => void;
 }) {
   const [search, setSearch] = useState("");
 
@@ -126,6 +129,11 @@ export function MarketingTaskList({
         {activeJump && (
           <Button size="sm" variant="ghost" onClick={() => onFiltersChange({ openOnly: filters.openOnly })}>
             Clear filters
+          </Button>
+        )}
+        {onImport && (
+          <Button size="sm" variant="outline" onClick={onImport}>
+            <ClipboardPaste className="mr-1.5 h-3.5 w-3.5" /> Import
           </Button>
         )}
         {canWork && (

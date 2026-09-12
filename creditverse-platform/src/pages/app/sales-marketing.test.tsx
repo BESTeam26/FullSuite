@@ -165,6 +165,19 @@ describe("Sales & Marketing", () => {
     expect(screen.getByRole("button", { name: /new task/i })).toBeInTheDocument();
   });
 
+  it("offers the spreadsheet import to somebody who may work the module", () => {
+    render(at("/app/marketing?view=tasks"));
+    expect(screen.getByRole("button", { name: /import/i })).toBeInTheDocument();
+  });
+
+  it("does not offer the import to somebody who may only read", () => {
+    /* An import button that cannot import is worse than no button: the
+       refusal arrives after they have pasted a month of planning. */
+    canManage = false;
+    render(at("/app/marketing?view=tasks"));
+    expect(screen.queryByRole("button", { name: /import/i })).toBeNull();
+  });
+
   it("does not offer it to somebody who may only read", () => {
     /* Absent, not disabled. A greyed button says "you are not allowed this",
        which is true and useless — and the database refuses it either way. */

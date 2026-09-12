@@ -31,6 +31,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { useAgencyPermissions } from "@/lib/data/agency-permissions";
 import { useAgencyMembers, useAgencyTeams } from "@/lib/data/use-agency-work";
 import { setItemFieldValue } from "@/lib/data/workspaces";
+import { applyMarketingImport, fetchImportTargets } from "@/lib/data/marketing";
 import {
   useCampaigns, useCreateCampaign, useCreateMarketingWork, useMarketingCounters,
   useMarketingPartners, useMarketingWork, useMarketingWorkspaces, useSetWorkCampaign,
@@ -47,6 +48,7 @@ import { ContentCalendar } from "@/components/dashboard/marketing/ContentCalenda
 import { CampaignsView } from "@/components/dashboard/marketing/CampaignsView";
 import { PartnerWorkspaceHeader } from "@/components/dashboard/marketing/PartnerWorkspaceHeader";
 import { NewMarketingTaskDialog } from "@/components/dashboard/marketing/NewMarketingTaskDialog";
+import { SheetImportDialog } from "@/components/dashboard/marketing/SheetImportDialog";
 import { MarketingItemDrawer } from "@/components/dashboard/marketing/MarketingItemDrawer";
 import { PartnerFilesTab } from "@/components/agency/partner/PartnerFilesTab";
 import { PartnerActivityTab } from "@/components/agency/partner/PartnerActivityTab";
@@ -90,6 +92,8 @@ export function SalesMarketing() {
 
   const [openItemId, setOpenItemId] = useState<string | null>(null);
   const [creatingTask, setCreatingTask] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importTargets, setImportTargets] = useState<{ id: string; title: string; externalRef: string | null }[]>([]);
   const [filters, setFilters] = useState<TaskListFilters>({ openOnly: true });
 
   const rows = useMemo(() => work.data ?? [], [work.data]);
@@ -151,6 +155,20 @@ export function SalesMarketing() {
   };
 
   const loading = work.isLoading || workspaces.isLoading;
+  const importTarget = activeWorkspaceOrInternal(activeWorkspace, internal);
+
+  /* The existing work is fetched WHEN THE DIALOG OPENS, not on every render of
+     the module: it is only needed to decide create vs update, and nobody
+     reading a dashboard should pay for it (rule 14). */
+  const openImport = async () => {
+    if (!importTarget) return;
+    try {
+      setImportTargets(await fetchImportTargets(importTarget.id));
+      setImporting(true);
+    } catch (e) {
+      toast({ title: "Could not read this workspace", description: (e as Error).message, variant: "destructive" });
+    }
+  };
 
   const globalBody = () => {
     if (selection.kind !== "global") return null;
@@ -171,6 +189,7 @@ export function SalesMarketing() {
             items={rows} statuses={statuses} showPartner loading={loading} canWork={canWork}
             filters={filters} onFiltersChange={setFilters}
             onOpenItem={openItem} onNewTask={() => setCreatingTask(true)}
+            onImport={canWork ? () => void openImport() : undefined}
           />
         );
       case "calendar":
@@ -178,6 +197,7 @@ export function SalesMarketing() {
           <ContentCalendar
             items={rows} showPartner canWork={canWork}
             onOpenItem={openItem} onReschedule={(i, d) => void reschedule(i, d)}
+            onImport={canWork ? () => void openImport() : undefined}
           />
         );
       case "campaigns":
@@ -217,6 +237,7 @@ export function SalesMarketing() {
             items={rows} statuses={statuses} showPartner={false} loading={loading} canWork={canWork}
             filters={filters} onFiltersChange={setFilters}
             onOpenItem={openItem} onNewTask={() => setCreatingTask(true)}
+            onImport={canWork ? () => void openImport() : undefined}
           />
         );
       case "calendar":
@@ -224,6 +245,7 @@ export function SalesMarketing() {
           <ContentCalendar
             items={rows} showPartner={false} canWork={canWork}
             onOpenItem={openItem} onReschedule={(i, d) => void reschedule(i, d)}
+            onImport={canWork ? () => void openImport() : undefined}
           />
         );
       case "campaigns":
@@ -328,6 +350,29 @@ export function SalesMarketing() {
           agencyId={auth.agencyId ?? ""}
           onClose={() => setCreatingTask(false)}
           onCreate={async (input) => { await createWork.mutateAsync(input); setCreatingTask(false); }}
+        />
+      )}
+
+      {importing && importTarget && (
+        <SheetImportDialog
+          workspaceName={importTarget.name}
+          existing={importTargets}
+          campaignNames={(campaigns.data ?? []).map((c) => c.name)}
+          onClose={() => setImporting(false)}
+          onApply={async (plan) => {
+            const result = await applyMarketingImport([...plan.creates, ...plan.updates], {
+              workspaceId: importTarget.id,
+              agencyId: importTarget.agencyId ?? auth.agencyId ?? "",
+              partnerGroupId: importTarget.partnerGroupId ?? null,
+              statuses: importTarget.statuses,
+              itemTypes: importTarget.itemTypes,
+              fields: importTarget.fields,
+              members: members.data ?? [],
+              campaigns: campaigns.data ?? [],
+            });
+            await qc.invalidateQueries({ queryKey: marketingKeys.all });
+            return result;
+          }}
         />
       )}
 

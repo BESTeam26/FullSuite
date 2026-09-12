@@ -1,4 +1,11 @@
-## D-011 · Sales & Marketing — import the calendar and campaigns from a spreadsheet (documented, not started)
+## D-011 · Sales & Marketing — import the calendar and campaigns from a spreadsheet
+
+**Option A SHIPPED 2026-09-13** — paste/CSV import, on the Tasks and Content
+Calendar views. Option B (live Google Sheets sync) remains open and still
+needs Dee to decide on adding Google to the locked stack, plus credentials.
+The shared design below is what Option A already implements, so a later sync
+reuses the upsert key, the column mapping and the preview rather than
+replacing them.
 
 **Dee, 2026-09-13:** *"we use to generate campaign via GPT, manually uploading
 this info here is chaotic and waste of time, let's have an automatic import or

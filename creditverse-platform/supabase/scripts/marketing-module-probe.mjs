@@ -424,6 +424,38 @@ if (!BMF_WS) {
     [{ n: 1 }]);
 }
 
+console.log("\nIMPORTING A PLANNING SHEET");
+
+check("45. a marketing hire can stamp the row a task was imported from",
+  as(AGENT, HIRED, `do $a$ declare v uuid; begin ${NEW_TASK} into v;
+       update work_items set external_ref = 'sheet-row-1' where id = v; end $a$;
+     reset role; select external_ref from work_items where title='Probe: October launch post';`).rows,
+  [{ external_ref: "sheet-row-1" }]);
+
+check("46. the same sheet row cannot become two tasks in one workspace",
+  as(AGENT, HIRED, `do $a$ declare v uuid; begin
+       ${NEW_TASK} into v; update work_items set external_ref = 'sheet-row-1' where id = v;
+       ${NEW_TASK} into v; update work_items set external_ref = 'sheet-row-1' where id = v; end $a$;`)
+    .error?.includes("work_items_external_ref_per_workspace") ?? false,
+  true);
+
+check("47. …but two partners may both have a row 1, because they are not the same post",
+  (() => {
+    const ws2 = q.query(`select id from workspaces where module='sales_marketing' and partner_group_id is not null limit 1`)[0]?.id;
+    if (!ws2) return "skipped";
+    const OTHER_TASK = `insert into work_items (agency_id, scope, related_type, division, workspace_id, status_id, item_type_id, title, external_ref)
+      values ('${AGENCY}', 'AGENCY', 'project', 'sales_marketing', '${ws2}',
+        (select id from workspace_statuses where workspace_id='${ws2}' and key='todo'),
+        (select id from workspace_item_types where workspace_id='${ws2}' and key='content'),
+        'Probe: their row 1', 'sheet-row-1') returning id`;
+    return as(AGENT, HIRED, `do $a$ declare v uuid; begin
+         ${NEW_TASK} into v; update work_items set external_ref = 'sheet-row-1' where id = v;
+         ${OTHER_TASK} into v; end $a$;
+       reset role; select count(*)::int as n from work_items where external_ref = 'sheet-row-1';`)
+      .rows;
+  })(),
+  [{ n: 2 }]);
+
 console.log("\nWHAT THE PARTNER MUST NOT SEE");
 
 /* Dee, 2026-09-13: "BES internal notes remain private." An approval puts a

@@ -15,7 +15,7 @@
  * rule forbids.
  */
 import { useMemo, useState } from "react";
-import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, ClipboardPaste } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { partnerLabel } from "@/lib/partners/partner-label";
@@ -42,6 +42,7 @@ export function ContentCalendar({
   canWork,
   onOpenItem,
   onReschedule,
+  onImport,
 }: {
   items: MarketingWorkItem[];
   showPartner: boolean;
@@ -49,6 +50,8 @@ export function ContentCalendar({
   onOpenItem: (item: MarketingWorkItem) => void;
   /** Writes the item's `publish_at` field. `null` takes it off the calendar. */
   onReschedule: (item: MarketingWorkItem, date: string) => void;
+  /** Absent for somebody who may only read. */
+  onImport?: () => void;
 }) {
   const [month, setMonth] = useState(() => startOfMonth(new Date()));
   const [dragging, setDragging] = useState<string | null>(null);
@@ -70,6 +73,11 @@ export function ContentCalendar({
           <Button size="sm" variant="ghost" onClick={() => setMonth(startOfMonth(new Date()))}>
             Today
           </Button>
+          {onImport && (
+            <Button size="sm" variant="outline" className="ml-1" onClick={onImport}>
+              <ClipboardPaste className="mr-1.5 h-3.5 w-3.5" /> Import
+            </Button>
+          )}
         </div>
         <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
           <CalendarDays className="h-3.5 w-3.5" />
