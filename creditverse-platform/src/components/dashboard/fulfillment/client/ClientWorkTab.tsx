@@ -34,6 +34,7 @@ import {
 } from "@/lib/data/use-client-work-detail";
 import type { DepartmentStatus } from "@/lib/fulfillment/creditops-store-types";
 import type { FulfillmentClient } from "@/lib/fulfillment/fulfillment-client-domain";
+import { ClientNotesCard } from "./ClientNotesCard";
 import { ClientUpdateComposer } from "./ClientUpdateComposer";
 
 /**
@@ -87,14 +88,22 @@ export function ClientWorkTab({
   const department = (current?.department ?? null) as CreditOpsDepartment | null;
   const canWork = department ? access.canLogDepartment(department) : false;
 
+  /* Notes are not department work, so they survive the case below: a file
+     nobody is working is exactly when somebody writes down what to do with it
+     next (Dee, 2026-09-12). */
+  const notes = <ClientNotesCard clientId={clientId} notes={client.description ?? ""} />;
+
   if (!current || !department) {
     return (
-      <ContentCard title="Current work">
-        <p className="text-xs text-muted-foreground">
-          No department is working this file right now. It will appear here when the workflow
-          opens work on it.
-        </p>
-      </ContentCard>
+      <div className="space-y-3">
+        <ContentCard title="Current work">
+          <p className="text-xs text-muted-foreground">
+            No department is working this file right now. It will appear here when the workflow
+            opens work on it.
+          </p>
+        </ContentCard>
+        {notes}
+      </div>
     );
   }
 
@@ -126,6 +135,8 @@ export function ClientWorkTab({
       {/* Standard actions first — an agent checks what they did rather than
           typing it. Custom steps are secondary, for the unusual file. */}
       <Checklist clientId={clientId} department={department} canWork={canWork} />
+
+      {notes}
 
       {/* Posting an update while working. Removed in the consolidation and
           restored: one post puts the note in History and any screenshot in

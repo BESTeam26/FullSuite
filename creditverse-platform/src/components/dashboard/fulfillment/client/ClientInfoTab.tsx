@@ -39,7 +39,6 @@ export function ClientInfoTab({
   const c = client as FulfillmentClient & {
     dateOfBirth?: string | null;
     address?: string | null;
-    description?: string | null;
   };
 
   return (
@@ -66,12 +65,6 @@ export function ClientInfoTab({
           reveal/copy/audit behaviour is genuinely intricate and belongs in one
           tested place — not because it is a separate subject. */}
       <ClientSecretsPanel clientId={client.id} />
-
-      {c.description?.trim() && (
-        <ContentCard title="Background">
-          <p className="whitespace-pre-wrap text-xs leading-relaxed text-foreground">{c.description}</p>
-        </ContentCard>
-      )}
 
       {hasFunding && <FundingReadinessCard fulfillmentClientId={client.id} />}
     </div>

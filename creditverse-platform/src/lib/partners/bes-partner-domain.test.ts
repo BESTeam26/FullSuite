@@ -137,6 +137,11 @@ describe("filters and totals", () => {
   });
 
   it("counts live engagements per service, never dormant ones", () => {
-    expect(serviceTotals(partners)).toEqual({ creditops: 1, fundingops: 1, bes_crm: 0, talentops: 0, corporate: 0 });
+    /* Every service in the enum appears, including the ones nobody here
+       bought — a total of zero is an answer, and a missing key is a hole the
+       caller has to guard against. `sales_marketing` joined on 2026-09-12. */
+    expect(serviceTotals(partners)).toEqual({
+      creditops: 1, fundingops: 1, bes_crm: 0, talentops: 0, sales_marketing: 0, corporate: 0,
+    });
   });
 });
