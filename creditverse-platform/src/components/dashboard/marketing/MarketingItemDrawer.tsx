@@ -138,8 +138,9 @@ function MarketingExtras({
           </p>
         ) : awaiting ? (
           <p className="text-[11px] text-muted-foreground">
-            Already with the partner. Their answer — approved, or changes requested with their
-            comment — lands on this task's activity and moves it on.
+            Already with the partner. Approving moves it to <strong>Approved / Scheduled</strong> —
+            not Completed, because it still has to be published. Changes requested sends it back with
+            their comment on this task.
           </p>
         ) : canWork ? (
           <>

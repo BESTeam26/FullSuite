@@ -90,7 +90,7 @@ export function PortalActionNeeded() {
       toast({
         title: approved ? "Approved — thank you" : "Sent back for changes",
         description: approved
-          ? "It is marked complete and BES has been notified."
+          ? "BES has been notified and will schedule it."
           : "Your note is on the task and it has gone back to the team.",
       });
       close();

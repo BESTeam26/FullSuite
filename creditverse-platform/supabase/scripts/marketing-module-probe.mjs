@@ -255,7 +255,11 @@ const PARTNER_CONTACT = `
   values ('11111111-2222-4333-8444-555555555555', '${AGENCY}', 'Probe Contact', 'probe.contact@bes.test',
           '${OUTSIDER}', 'active', true, now());`;
 
-check("27. the partner approving completes the work",
+/* Dee, 2026-09-13: "Do NOT mark content as Completed merely because the
+   Partner approved it. Approval is not publication." Completing it here is
+   what took the work out of My Work and counted it in production before
+   anybody had posted the thing. */
+check("27. the partner approving schedules the work — it does NOT complete it",
   as(OUTSIDER, PARTNER_SETUP + PARTNER_CONTACT + `
       set local role authenticated;
       do $c$ begin perform set_config('request.jwt.claims', '{"sub":"${OWNER}","role":"authenticated"}', true); end $c$;
@@ -265,10 +269,11 @@ check("27. the partner approving completes the work",
     `do $a$ begin perform my_partner_review(
         (select id from my_partner_actions() where status='open' and kind='content_approval'
           order by requested_at desc limit 1), true, 'Looks good'); end $a$;
-     reset role; select status_key from marketing_work where title='Probe: partner post';`).rows,
-  [{ status_key: "completed" }]);
+     reset role; select status_key, is_terminal, completed_at is null as still_open
+       from marketing_work where title='Probe: partner post';`).rows,
+  [{ status_key: "approved_scheduled", is_terminal: false, still_open: true }]);
 
-check("28. the partner requesting changes sends it back to In Progress",
+check("28. the partner requesting changes sends it to Changes Requested",
   as(OUTSIDER, PARTNER_SETUP + PARTNER_CONTACT + `
       set local role authenticated;
       do $c$ begin perform set_config('request.jwt.claims', '{"sub":"${OWNER}","role":"authenticated"}', true); end $c$;
@@ -281,7 +286,7 @@ check("28. the partner requesting changes sends it back to In Progress",
      reset role; select mw.status_key, a.status, a.response
        from marketing_work mw join partner_action_items a on a.work_item_id = mw.id
       where mw.title='Probe: partner post';`).rows,
-  [{ status_key: "in_progress", status: "changes_requested", response: "Swap the headline" }]);
+  [{ status_key: "changes_requested", status: "changes_requested", response: "Swap the headline" }]);
 
 /* The approval is inserted with a KNOWN id, as the owner, so the refusal
    below can only be about ownership. Resolving it as the caller would return
