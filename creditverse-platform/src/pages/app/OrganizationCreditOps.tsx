@@ -82,6 +82,9 @@ function OrganizationCreditOpsWorkspace() {
         activeView={currentView}
         onViewChange={setActiveView}
         views={views}
+        /* No global CreditOps layer above an organization's own page, so its
+           department queues live here — the one place they can. */
+        level="organization"
         openClientId={openClientId}
       />
       <StatusGuideModal

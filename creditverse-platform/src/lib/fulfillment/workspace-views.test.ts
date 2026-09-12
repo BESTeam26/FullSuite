@@ -7,6 +7,7 @@ import {
   visibleFundingOpsViews,
   workspaceViewOptions,
 } from "./workspace-views";
+import { PARTNER_VIEWS } from "@/lib/fulfillment/creditops-partners";
 
 describe("organization workspace views", () => {
   it("shows every view when nothing is configured", () => {
@@ -115,5 +116,39 @@ describe("a CreditOps member sees their own workspace, not everybody's", () => {
     expect(views.indexOf("dashboard")).toBeLessThan(views.indexOf("main-list"));
     expect(views.indexOf("onboarding-queue")).toBeLessThan(views.indexOf("dispute-queue"));
     expect(views[views.length - 1]).toBe("sops-logins");
+  });
+});
+
+/* ────────────────────────────────────────────────────────────────────────── *
+ * Global queues vs the partner workspace (Dee, 2026-09-11).
+ *
+ * "Since we already have GLOBAL CreditOps department queues, do NOT repeat
+ * those same queues inside every Partner workspace… Global queues for work.
+ * Partner workspace for visibility and client context."
+ * ────────────────────────────────────────────────────────────────────────── */
+describe("a department queue exists once, globally", () => {
+  const partnerLevel = PARTNER_VIEWS.filter((v) => v.partnerLevel).map((v) => v.id);
+
+  it("a partner workspace offers only the summary, the client list and the SOPs", () => {
+    expect(partnerLevel).toEqual(["dashboard", "main-list", "sops-logins"]);
+  });
+
+  it("no department queue is a partner-level view", () => {
+    for (const v of PARTNER_VIEWS) {
+      if (v.scope === "department") expect(v.partnerLevel).toBe(false);
+    }
+  });
+
+  it("the Escalation Queue is not repeated per partner either", () => {
+    expect(partnerLevel).not.toContain("escalation-queue");
+  });
+
+  it("every queue is still reachable globally — consolidated, not removed", () => {
+    /* The functionality Dee kept: one source of truth per department, narrowed
+       with a partner filter rather than rebuilt per partner. */
+    const everything = creditOpsViewsForPerson({ departments: [], canAccessManagement: true });
+    for (const q of ["onboarding-queue", "dispute-queue", "support-queue", "complaints-queue", "bureau-queue", "escalation-queue"]) {
+      expect(everything).toContain(q);
+    }
   });
 });

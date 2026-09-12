@@ -4,9 +4,12 @@
  * SOPs & Logins). Every view is a filtered projection of the same canonical
  * client records for `scopeId` (an organization id or an outsourcing group id).
  *
- * Which tabs appear follows the person: Dashboard, Main Client List and SOPs &
- * Logins for everybody, then the queues for the departments they actually
- * work, then the management-only views (Dee, 2026-09-11).
+ * Inside BES's own module this is deliberately SHORT — Dashboard, Main Client
+ * List, SOPs & Logins. The department queues are not repeated per partner:
+ * there is one global Dispute Queue, one global Complaints Queue, and looking
+ * at Kevin Hernandez's complaint work is that queue with a partner filter
+ * (Dee, 2026-09-11). An organization's own page keeps its queues, because
+ * there is no global layer above it.
  *
  * Shared by the BES agency division page and by an organization's own
  * CreditOps page: same components, same rows, a different scope. Row Level
@@ -34,6 +37,25 @@ export interface CreditOpsPartnerWorkspaceProps {
   onViewChange: (view: PartnerViewId) => void;
   /** The organization's own configured views. Narrowed further by the person. */
   views?: readonly PartnerViewId[];
+  /**
+   * Where this workspace sits.
+   *
+   * `partner` — inside BES's CreditOps module, below the global queues. The
+   *   department queues are NOT repeated here; they live once, globally, and
+   *   are narrowed with a partner filter (Dee, 2026-09-11).
+   * `organization` — the customer's own CreditOps page. There is no global
+   *   layer above it, so its queues are the only ones it has.
+   */
+  level?: "partner" | "organization";
+  /**
+   * Open the global department queue narrowed to this partner.
+   *
+   * Supplied by the CreditOps module, which owns the global layer. An
+   * organization's own page leaves it out, and the dashboard's tiles fall
+   * back to its client list rather than offering a destination that does not
+   * exist there.
+   */
+  onOpenGlobalQueue?: (queueId: string) => void;
 }
 
 export function CreditOpsPartnerWorkspace({
@@ -43,6 +65,8 @@ export function CreditOpsPartnerWorkspace({
   onViewChange,
   openClientId = null,
   views,
+  level = "partner",
+  onOpenGlobalQueue,
 }: CreditOpsPartnerWorkspaceProps) {
   const { myDepartments, canAccessManagement } = useCreditOpsAccess();
   /* Two independent filters, and a view has to survive both:
@@ -53,7 +77,10 @@ export function CreditOpsPartnerWorkspace({
      protected by their own policies (rule 1). */
   const mine = new Set(creditOpsViewsForPerson({ departments: myDepartments, canAccessManagement }));
   const offered = PARTNER_VIEWS.filter(
-    (v) => mine.has(v.id) && (!views || views.includes(v.id)),
+    (v) =>
+      mine.has(v.id) &&
+      (!views || views.includes(v.id)) &&
+      (level === "organization" || v.partnerLevel),
   );
 
   /* A tab that is no longer offered must not stay selected — the person would
@@ -95,6 +122,7 @@ export function CreditOpsPartnerWorkspace({
             selectedScope={scopeId}
             partnerName={partner.name}
             onNavigateToView={(v) => onViewChange(v as PartnerViewId)}
+            onOpenGlobalQueue={onOpenGlobalQueue}
           />
         ) : (
           <QueueView queueType={activeView} selectedScope={scopeId} />

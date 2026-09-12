@@ -96,6 +96,9 @@ function CreditOpsWorkspace() {
     view: "mgmt-dashboard",
   });
   const [activeView, setActiveView] = useState<PartnerViewId>("dashboard");
+  /* The partner a global queue was opened for, so it arrives filtered. Cleared
+     when a queue is chosen from the navigation, which means "all partners". */
+  const [queuePartnerScope, setQueuePartnerScope] = useState<string | null>(null);
   const [isStatusGuideOpen, setIsStatusGuideOpen] = useState(false);
 
   // Deep link (notifications): /app/creditops?client=<id>. The client is
@@ -169,6 +172,8 @@ function CreditOpsWorkspace() {
             selected={selection}
             onSelect={(sel) => {
               setSelection(sel);
+              /* Chosen from the navigation, a queue means every partner. */
+              setQueuePartnerScope(null);
               if (sel.kind === "partner") setActiveView("dashboard");
             }}
           />
@@ -178,6 +183,7 @@ function CreditOpsWorkspace() {
               mayOpen(selection.view) ? (
                 <ManagementView
                   view={selection.view}
+                  partnerScope={queuePartnerScope}
                   onNavigateToView={(v) =>
                     setSelection({ kind: "management", view: v })
                   }
@@ -192,6 +198,12 @@ function CreditOpsWorkspace() {
                 activeView={activeView}
                 onViewChange={setActiveView}
                 openClientId={linkedOpenClientId}
+                /* A summary tile opens the ONE global queue, narrowed to this
+                   partner — not a second queue inside the workspace. */
+                onOpenGlobalQueue={(queueId) => {
+                  setQueuePartnerScope(partner.scopeId);
+                  setSelection({ kind: "management", view: `mgmt-${queueId}` });
+                }}
               />
             ) : (
               <div className="flex h-full items-center justify-center p-10 text-center">
@@ -244,9 +256,12 @@ function AccessDeniedNotice() {
 
 function ManagementView({
   view,
+  partnerScope,
   onNavigateToView,
 }: {
   view: string;
+  /** Narrow a queue to one partner, when it was opened from that partner. */
+  partnerScope: string | null;
   onNavigateToView: (v: string) => void;
 }) {
   // Map management view ids to the actual queue types
@@ -287,7 +302,7 @@ function ManagementView({
   if (queueType) {
     return (
       <div className="p-6">
-        <CreditOpsGlobalQueue queueType={queueType} />
+        <CreditOpsGlobalQueue queueType={queueType} partnerScope={partnerScope} />
       </div>
     );
   }

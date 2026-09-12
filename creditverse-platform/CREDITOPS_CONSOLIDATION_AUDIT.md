@@ -82,7 +82,27 @@ today, because `RoleAccess.views` is `[]` for every role and the filter reads
 | Escalation Queue | everyone | **MANAGEMENT ONLY** — escalations surface contextually on an agent's own work |
 | CRM Signal Log | everyone | **RELOCATE** — Admin/management tooling |
 | SOPs & Logins | partner tabs only | **UNIVERSAL** — scoped to the person's departments |
-| Managed Ops / Outsourcing partner tree | everyone | **MANAGEMENT ONLY** for the full tree; agents see the partners their work touches |
+| Managed Ops / Outsourcing partner tree | everyone | **KEEP** — Dee's correction, 2026-09-11: "Do not solve complexity by removing navigation hierarchy." The pane keeps the ClickUp-style partner folders; only what sits above them follows the person |
+
+### The global / partner split (Dee's second correction, 2026-09-11)
+
+> *"Since we already have GLOBAL CreditOps department queues, do NOT repeat
+> those same queues inside every Partner workspace… Global queues for work.
+> Partner workspace for visibility and client context."*
+
+| Level | Contains |
+|---|---|
+| **CreditOps pane (global)** | Dashboard · Main Client List · the department queues this person works · MANAGEMENT: Escalation Queue, CRM Signal Log · the partner folders |
+| **Selected partner workspace** | Dashboard (summary tiles only) · Main Client List · SOPs & Logins |
+
+A department queue exists **once**. Kevin Hernandez's complaint work is the
+global Complaints Queue with `Partner = Kevin Hernandez`, reached by clicking
+"Complaints Open" on his dashboard — not a second complaints board that has to
+be kept in step with the real one.
+
+The exception is an organization's own CreditOps page: there is no global layer
+above it, so its queues stay. `CreditOpsPartnerWorkspace` takes that as an
+explicit `level` prop rather than inferring it.
 
 ---
 

@@ -11,7 +11,7 @@
  * external CRMs via webhooks, FundingOps does not).
  */
 
-import { useMemo, useState, type ElementType, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ElementType, type ReactNode } from "react";
 import { Search, ChevronRight } from "lucide-react";
 import {
   clientGroupLabel,
@@ -49,6 +49,17 @@ interface OpsGlobalQueueProps<T extends OpsClient, P extends OpsPartner> {
   /** SLA hours at or below which the figure turns red. */
   slaWarningHours: number;
   onOpenClient: (clientId: string) => void;
+  /**
+   * Open with the partner filter already applied — the scope id a summary
+   * tile came from.
+   *
+   * This is how "Complaints Open: 3" on Kevin Hernandez's dashboard reaches
+   * his complaint work: the ONE global queue, narrowed, rather than a second
+   * complaints board inside his workspace (Dee, 2026-09-11). It seeds the
+   * filter and does not lock it — the person can widen it back to all
+   * partners from the same control.
+   */
+  initialPartnerScope?: string | null;
 }
 
 export function OpsGlobalQueue<T extends OpsClient, P extends OpsPartner>({
@@ -66,9 +77,16 @@ export function OpsGlobalQueue<T extends OpsClient, P extends OpsPartner>({
   onCommitStatus,
   slaWarningHours,
   onOpenClient,
+  initialPartnerScope = null,
 }: OpsGlobalQueueProps<T, P>) {
   const [search, setSearch] = useState("");
-  const [partnerFilter, setPartnerFilter] = useState("all");
+  const [partnerFilter, setPartnerFilter] = useState(initialPartnerScope ?? "all");
+  /* Arriving from a different partner's tile re-seeds the filter; changing it
+     by hand afterwards is not overwritten, because the effect only fires when
+     the incoming scope itself changes. */
+  useEffect(() => {
+    setPartnerFilter(initialPartnerScope ?? "all");
+  }, [initialPartnerScope]);
   const [editingStatusId, setEditingStatusId] = useState<string | null>(null);
 
   const visible = useMemo(

@@ -117,22 +117,38 @@ export const getPartnerByScope = (
  * views receives, so a hidden queue hides nothing that was not already
  * protected, and a visible one shows nothing extra (rule 1).
  *
+ * ── WHERE EACH VIEW LIVES: GLOBAL vs PARTNER ───────────────────────────────
+ *
+ * Dee, 2026-09-11: *"Since we already have GLOBAL CreditOps department queues,
+ * do NOT repeat those same queues inside every Partner workspace… Global
+ * queues for work. Partner workspace for visibility and client context."*
+ *
+ * `partnerLevel` says whether a view also belongs INSIDE one partner's
+ * workspace. The department queues are false: there is ONE Dispute Queue for
+ * all of CreditOps, and narrowing it to Kevin Hernandez is a filter on that
+ * queue, not a second queue that has to be kept in step with it.
+ *
+ * The one exception is an organization's own CreditOps page, where there is no
+ * global layer above it — their workspace IS the module, so their queues stay.
+ * `CreditOpsPartnerWorkspace` takes that as an explicit prop rather than
+ * inferring it.
+ *
  * Order is operational: the file's journey, then reference material last.
  */
 export type CreditOpsViewScope = "universal" | "department" | "management";
 
 export const PARTNER_VIEWS = [
-  { id: "dashboard", label: "Dashboard", scope: "universal" },
-  { id: "main-list", label: "Main Client List", scope: "universal" },
-  { id: "onboarding-queue", label: "Onboarding Queue", scope: "department", department: "Onboarding" },
-  { id: "dispute-queue", label: "Dispute Queue", scope: "department", department: "Dispute" },
-  { id: "support-queue", label: "Support Queue", scope: "department", department: "Support" },
-  { id: "complaints-queue", label: "Complaints & Mailing", scope: "department", department: "Complaints" },
-  { id: "bureau-queue", label: "Bureau Calling", scope: "department", department: "Bureau Calling" },
-  { id: "escalation-queue", label: "Escalation Queue", scope: "management" },
-  { id: "sops-logins", label: "SOPs & Logins", scope: "universal" },
+  { id: "dashboard", label: "Dashboard", scope: "universal", partnerLevel: true },
+  { id: "main-list", label: "Main Client List", scope: "universal", partnerLevel: true },
+  { id: "onboarding-queue", label: "Onboarding Queue", scope: "department", department: "Onboarding", partnerLevel: false },
+  { id: "dispute-queue", label: "Dispute Queue", scope: "department", department: "Dispute", partnerLevel: false },
+  { id: "support-queue", label: "Support Queue", scope: "department", department: "Support", partnerLevel: false },
+  { id: "complaints-queue", label: "Complaints & Mailing", scope: "department", department: "Complaints", partnerLevel: false },
+  { id: "bureau-queue", label: "Bureau Calling", scope: "department", department: "Bureau Calling", partnerLevel: false },
+  { id: "escalation-queue", label: "Escalation Queue", scope: "management", partnerLevel: false },
+  { id: "sops-logins", label: "SOPs & Logins", scope: "universal", partnerLevel: true },
 ] as const satisfies readonly {
-  id: string; label: string; scope: CreditOpsViewScope; department?: string;
+  id: string; label: string; scope: CreditOpsViewScope; department?: string; partnerLevel: boolean;
 }[];
 
 export type PartnerViewId = (typeof PARTNER_VIEWS)[number]["id"];

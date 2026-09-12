@@ -87,6 +87,34 @@ export const CLOSED_DEPARTMENT_STATUSES: ReadonlySet<string> = new Set([
 export const isOpenDepartmentStatus = (status: string) => !CLOSED_DEPARTMENT_STATUSES.has(status.toUpperCase());
 
 /**
+ * Open, but waiting on somebody outside BES.
+ *
+ * A round in the post is not idle work and it is not finished work — it is a
+ * clock. Dee, 2026-09-11: *"Waiting clients should not inflate active assigned
+ * workload… The active processor should be released."*
+ *
+ * One set, used everywhere the distinction matters: the Waiting figure on a
+ * partner dashboard, and the exclusion from My Work. Two lists would drift,
+ * and the drift shows up as a number nobody can reconcile.
+ */
+export const WAITING_DEPARTMENT_STATUSES: ReadonlySet<string> = new Set([
+  "ROUND SENT - AWAITING RESULTS",
+  "WAITING FOR PARTNER APPROVAL",
+  "WAITING CLIENT RESPONSE",
+  "CM AWAITING RESPONSE",
+  "MONITORING PENDING",
+  "DOCS PENDING",
+]);
+
+export const isWaitingDepartmentStatus = (status: string) =>
+  WAITING_DEPARTMENT_STATUSES.has(status.toUpperCase());
+
+/** Open work somebody can actually pick up now — open, and not waiting. */
+export const isActionableDepartmentStatus = (status: string) =>
+  isOpenDepartmentStatus(status) && !isWaitingDepartmentStatus(status);
+
+
+/**
  * Open department rows, in department order.
  *
  * Generic so a caller holding rows with a narrower `department` — the store's

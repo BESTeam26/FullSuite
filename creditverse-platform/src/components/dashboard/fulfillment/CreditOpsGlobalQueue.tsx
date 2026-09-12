@@ -22,7 +22,6 @@ import type { FulfillmentClient } from "@/lib/fulfillment/fulfillment-client-dom
 import { useCreditOpsStore } from "@/lib/fulfillment/creditops-client-store";
 import {
   CREDIT_OPS_PARTNERS,
-  getPartnerByScope,
   type CreditOpsPartner,
 } from "@/lib/fulfillment/creditops-partners";
 import {
@@ -35,6 +34,8 @@ import { usePartners } from "@/lib/data/use-partners";
 
 interface Props {
   queueType: string;
+  /** Open narrowed to one partner — see `initialPartnerScope`. */
+  partnerScope?: string | null;
 }
 
 const SLA_WARNING_HOURS = 4;
@@ -104,7 +105,7 @@ const QUEUE_SPECS: Record<
   },
 };
 
-export function CreditOpsGlobalQueue({ queueType }: Props) {
+export function CreditOpsGlobalQueue({ queueType, partnerScope = null }: Props) {
   const { partners: livePartners } = usePartners(
     "creditOps",
     CREDIT_OPS_PARTNERS,
@@ -143,9 +144,13 @@ export function CreditOpsGlobalQueue({ queueType }: Props) {
       color={spec.color}
       clients={queueClients}
       partners={livePartners}
-      resolvePartner={(c) =>
-        getPartnerByScope(c.organizationId ?? c.outsourcingGroupId ?? "")
-      }
+      /* The LIVE partners, not the demo constants. `getPartnerByScope` reads
+         `CREDIT_OPS_PARTNERS`, whose scope ids are invented, so every real
+         client resolved to no partner and the Partner column read blank. */
+      resolvePartner={(c) => {
+        const scope = c.organizationId ?? c.outsourcingGroupId ?? "";
+        return livePartners.find((p) => p.scopeId === scope);
+      }}
       groupLabel={(g) => GROUP_LABELS[g ?? ""] ?? "CreditOps Users"}
       detailColumn={{ label: "Round", render: (c) => c.round }}
       statusColumnLabel="Queue Status"
@@ -154,6 +159,7 @@ export function CreditOpsGlobalQueue({ queueType }: Props) {
       onCommitStatus={commitStatus}
       slaWarningHours={SLA_WARNING_HOURS}
       onOpenClient={setOpenClientId}
+      initialPartnerScope={partnerScope}
     />
   );
 }
