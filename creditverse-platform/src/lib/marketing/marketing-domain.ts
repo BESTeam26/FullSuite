@@ -34,6 +34,8 @@ export interface MarketingWorkItem {
   dueAt: string | null;
   completedAt: string | null;
   createdAt: string;
+  /** Last touched — what "recent activity" is ordered by. */
+  updatedAt: string | null;
   statusId: string | null;
   statusKey: string | null;
   statusLabel: string | null;
@@ -147,12 +149,54 @@ export const compareByName = <T extends { name: string; id: string }>(a: T, b: T
   return byName !== 0 ? byName : a.id.localeCompare(b.id);
 };
 
+/* ------------------------------------------------------------------ */
+/* Approval state                                                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Where a piece of content stands with the partner — DERIVED from its status,
+ * never stored beside it.
+ *
+ * A second column saying "approved" would drift from the status the moment
+ * anybody moved a card, and then two screens would disagree about whether a
+ * partner had said yes. Dee, 2026-09-13: approval is not publication, so
+ * `approved` deliberately covers Approved / Scheduled AND Published — both
+ * mean the partner said yes.
+ */
+export type ApprovalState = "none" | "awaiting" | "changes_requested" | "approved";
+
+export const APPROVAL_LABEL: Record<ApprovalState, string> = {
+  none: "Not sent",
+  awaiting: "Awaiting partner",
+  changes_requested: "Changes requested",
+  approved: "Approved",
+};
+
+export function approvalStateOf(item: MarketingWorkItem): ApprovalState {
+  switch (item.statusKey) {
+    case "partner_approval": return "awaiting";
+    case "changes_requested": return "changes_requested";
+    case "approved_scheduled":
+    case "published": return "approved";
+    default: return "none";
+  }
+}
+
+/** True when this item carries the metadata that makes it CONTENT. */
+export const isContent = (item: MarketingWorkItem): boolean =>
+  item.itemTypeKey === "content" || item.publishOn !== null || item.channel !== null;
+
 export interface WorkFilters {
   /** Free text over the title, partner, campaign and assignee. */
   search?: string;
   statusKey?: string | null;
   assignedTo?: string | null;
   campaignId?: string | null;
+  /** One partner, in the global views. */
+  partnerGroupId?: string | null;
+  /** Platform / channel — Instagram, Email, Blog. */
+  channel?: string | null;
+  approvalState?: ApprovalState | null;
   /** Hide finished work. On by default on a board somebody is working from. */
   openOnly?: boolean;
 }
@@ -164,8 +208,16 @@ export function filterWork(items: MarketingWorkItem[], f: WorkFilters): Marketin
     if (f.statusKey && i.statusKey !== f.statusKey) return false;
     if (f.assignedTo && i.assignedTo !== f.assignedTo) return false;
     if (f.campaignId && i.campaignId !== f.campaignId) return false;
+    /* `__bes__` is BES's own work, which has no partner group — a filter that
+       could only ever name partners would make it unreachable. */
+    if (f.partnerGroupId) {
+      const mine = f.partnerGroupId === "__bes__" ? i.partnerGroupId === null : i.partnerGroupId === f.partnerGroupId;
+      if (!mine) return false;
+    }
+    if (f.channel && i.channel !== f.channel) return false;
+    if (f.approvalState && approvalStateOf(i) !== f.approvalState) return false;
     if (!q) return true;
-    return [i.title, i.partnerName, i.campaignName, i.assigneeName, i.channel, i.contentType]
+    return [i.title, i.partnerName, i.partnerContactName, i.campaignName, i.assigneeName, i.channel, i.contentType]
       .some((v) => v?.toLowerCase().includes(q));
   });
 }
@@ -238,6 +290,65 @@ export function calendarGrid(
       items: (byDay.get(date) ?? []).slice().sort((a, b) => a.title.localeCompare(b.title)),
     };
   });
+}
+
+/**
+ * The seven days of the week `date` falls in, same shape as the month grid.
+ *
+ * Sunday-first, matching the month view, because a week view whose columns sit
+ * under different weekday headings than the month view is a week view people
+ * misread.
+ */
+export function weekGrid(
+  date: Date,
+  items: MarketingWorkItem[],
+  today = new Date(),
+): CalendarDay[] {
+  const byDay = new Map<string, MarketingWorkItem[]>();
+  for (const item of items) {
+    if (!item.publishOn) continue;
+    const key = item.publishOn.slice(0, 10);
+    const list = byDay.get(key);
+    if (list) list.push(item);
+    else byDay.set(key, [item]);
+  }
+  const start = startOfWeek(date);
+  const todayKey = isoDay(today);
+
+  return Array.from({ length: 7 }, (_, n) => {
+    const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + n);
+    const key = isoDay(d);
+    return {
+      date: key,
+      dayOfMonth: d.getDate(),
+      /* Every day of a week view belongs to the week, so nothing is padding. */
+      inMonth: true,
+      isToday: key === todayKey,
+      items: (byDay.get(key) ?? []).slice().sort((a, b) => a.title.localeCompare(b.title)),
+    };
+  });
+}
+
+export const startOfWeek = (d: Date): Date =>
+  new Date(d.getFullYear(), d.getMonth(), d.getDate() - d.getDay());
+
+export const shiftWeek = (d: Date, by: number): Date =>
+  new Date(d.getFullYear(), d.getMonth(), d.getDate() + by * 7);
+
+export const WEEK_LABEL = (d: Date): string => {
+  const start = startOfWeek(d);
+  const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
+  const sameMonth = start.getMonth() === end.getMonth();
+  const fmt = (x: Date, withMonth: boolean) =>
+    x.toLocaleDateString(undefined, withMonth ? { month: "short", day: "numeric" } : { day: "numeric" });
+  return `${fmt(start, true)} – ${fmt(end, !sameMonth)}, ${end.getFullYear()}`;
+};
+
+/** Content published in the seven days from `today`, for the "this week" counters. */
+export function contentThisWeek(items: MarketingWorkItem[], today = new Date()): MarketingWorkItem[] {
+  const from = isoDay(today);
+  const to = isoDay(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 6));
+  return items.filter((i) => i.publishOn && i.publishOn >= from && i.publishOn <= to);
 }
 
 /** The month a calendar should open on: this one. Kept here so tests can fix it. */

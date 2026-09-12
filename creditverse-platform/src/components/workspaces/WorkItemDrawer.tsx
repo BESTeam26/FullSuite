@@ -96,6 +96,7 @@ export function WorkItemDrawer({
   canAssign,
   readOnly,
   visibilityModule = "talentops",
+  fieldGroups,
   extra,
   onClose,
 }: {
@@ -114,6 +115,13 @@ export function WorkItemDrawer({
    * somebody else's audience rules.
    */
   visibilityModule?: FulfillmentService;
+  /**
+   * Optional headings for the workspace's own fields, in order. A field named
+   * in a group renders under that heading; anything left over keeps the plain
+   * "Fields" block. Generic on purpose — Sales & Marketing groups Content, and
+   * any workspace with more than a handful of fields will want the same.
+   */
+  fieldGroups?: { title: string; keys: string[] }[];
   /**
    * Anything the surface wants beside the canonical fields — Sales & Marketing
    * puts the campaign picker here. It is a slot rather than a prop per module,
@@ -145,6 +153,13 @@ export function WorkItemDrawer({
   const assignee = members.find((m) => m.id === item.assignedTo);
   const patch = (p: Parameters<typeof update.mutate>[0]["patch"]) => update.mutate({ itemId: item.id, patch: p });
   const activeFields = workspace.fields.filter((f) => !f.archivedAt);
+  /* A group renders only when it has fields, so a workspace missing one of
+     them shows no empty heading. */
+  const groupedFields = (fieldGroups ?? [])
+    .map((g) => ({ title: g.title, fields: g.keys.map((k) => activeFields.find((f) => f.key === k)).filter((f): f is WorkspaceField => !!f) }))
+    .filter((g) => g.fields.length > 0);
+  const claimed = new Set(groupedFields.flatMap((g) => g.fields.map((f) => f.id)));
+  const ungroupedFields = activeFields.filter((f) => !claimed.has(f.id));
   const agencyId = workspace.agencyId ?? auth.agencyId ?? "";
 
   return (
@@ -211,11 +226,27 @@ export function WorkItemDrawer({
                 onBlur={() => description !== (item.description ?? "") && patch({ description: description || null })} rows={3} className="text-sm" />
             </Field>
           </div>
-          {activeFields.length > 0 && (
+          {groupedFields.map((group) => (
+            <div key={group.title} className="sm:col-span-2">
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{group.title}</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {group.fields.map((f) => (
+                  <Field key={f.id} label={f.label}>
+                    {readOnly ? (
+                      <p className="text-sm text-foreground">{values[f.id] === null || values[f.id] === undefined ? "—" : String(values[f.id])}</p>
+                    ) : (
+                      <FieldInput key={`${f.id}:${String(values[f.id])}`} field={f} value={values[f.id] ?? null} onChange={(v) => setValue.mutate({ fieldId: f.id, value: v })} />
+                    )}
+                  </Field>
+                ))}
+              </div>
+            </div>
+          ))}
+          {ungroupedFields.length > 0 && (
             <div className="sm:col-span-2">
               <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Fields</p>
               <div className="grid gap-3 sm:grid-cols-2">
-                {activeFields.map((f) => (
+                {ungroupedFields.map((f) => (
                   <Field key={f.id} label={f.label}>
                     {readOnly ? (
                       <p className="text-sm text-foreground">{values[f.id] === null || values[f.id] === undefined ? "—" : String(values[f.id])}</p>

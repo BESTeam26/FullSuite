@@ -10,7 +10,7 @@
  * than two sets of records.
  */
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactElement } from "react";
@@ -37,7 +37,7 @@ const item = (over: Partial<MarketingWorkItem>): MarketingWorkItem => ({
   id: "i1", workspaceId: "w-bes", workspaceName: "BES Internal Marketing",
   partnerGroupId: null, partnerName: null, partnerContactName: null, title: "A task", description: null,
   priority: "Normal", assignedTo: null, assigneeName: null, teamId: null,
-  dueAt: null, completedAt: null, createdAt: "2026-09-01T00:00:00Z",
+  dueAt: null, completedAt: null, createdAt: "2026-09-01T00:00:00Z", updatedAt: null,
   statusId: "s-todo", statusKey: "todo", statusLabel: "To Do", statusColour: "#64748b",
   statusPosition: 20, isTerminal: false, itemTypeId: null, itemTypeKey: "content",
   itemTypeLabel: "Content", campaignId: null, campaignName: null,
@@ -152,6 +152,35 @@ describe("Sales & Marketing", () => {
     unmount();
     render(at("/app/marketing?view=calendar"));
     expect(screen.getByText("October carousel")).toBeInTheDocument();
+  });
+
+  it("offers Month, Week and List over the same records", () => {
+    /* Three views, one set of rows. If these ever diverge it is because
+       somebody created a second content store. */
+    work = [item({ id: "i1", title: "October carousel", publishOn: "2026-10-05" })];
+    render(at("/app/marketing?view=calendar"));
+
+    expect(screen.getByRole("tab", { name: "month" })).toHaveAttribute("aria-selected", "true");
+    fireEvent.click(screen.getByRole("tab", { name: "week" }));
+    expect(screen.getByRole("tab", { name: "week" })).toHaveAttribute("aria-selected", "true");
+
+    /* List is date-ordered rather than windowed, so the post is visible there
+       whatever today happens to be — which is what makes it the view somebody
+       checks when they cannot find something. */
+    fireEvent.click(screen.getByRole("tab", { name: "list" }));
+    expect(screen.getByText("October carousel")).toBeInTheDocument();
+  });
+
+  it("offers the filters that answer Dee's three questions", () => {
+    work = [item({
+      id: "i1", title: "October carousel", publishOn: "2026-10-05",
+      channel: "Instagram", partnerGroupId: "g-apex", partnerName: "Apex",
+      assignedTo: "u1", assigneeName: "Roniel Pena", campaignId: "c1", campaignName: "Q4",
+    })];
+    render(at("/app/marketing?view=calendar"));
+    for (const label of ["Partner", "Platform", "Campaign", "Assignee", "Status", "Approval state"]) {
+      expect(screen.getByLabelText(label)).toBeInTheDocument();
+    }
   });
 
   it("leaves a task with no publish date off the calendar", () => {

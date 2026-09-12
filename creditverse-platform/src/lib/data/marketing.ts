@@ -43,6 +43,7 @@ const mapWork = (r: Row): MarketingWorkItem => ({
   dueAt: r.due_at ?? null,
   completedAt: r.completed_at ?? null,
   createdAt: r.created_at,
+  updatedAt: r.updated_at ?? null,
   statusId: r.status_id ?? null,
   statusKey: r.status_key ?? null,
   statusLabel: r.status_label ?? null,
@@ -398,4 +399,43 @@ export async function fetchImportTargets(workspaceId: string): Promise<
   return (data ?? []).map((r: Row) => ({
     id: r.id, title: r.title, externalRef: r.external_ref ?? null,
   }));
+}
+
+/**
+ * Create one piece of content, quickly.
+ *
+ * The task and its content metadata in one call, because a post that exists
+ * without its publish date is a post that is not on the calendar — and the
+ * person who just typed the date would have to go and find it.
+ */
+export async function createContentItem(input: {
+  workspaceId: string;
+  agencyId: string;
+  statusId: string | null;
+  itemTypeId: string | null;
+  fields: { id: string; key: string }[];
+  title: string;
+  channel: string | null;
+  contentType: string | null;
+  publishOn: string | null;
+  assignedTo: string | null;
+}): Promise<string> {
+  const id = await createMarketingWork({
+    workspaceId: input.workspaceId,
+    agencyId: input.agencyId,
+    title: input.title,
+    statusId: input.statusId,
+    itemTypeId: input.itemTypeId,
+    assignedTo: input.assignedTo,
+  });
+  const fieldId = (key: string) => input.fields.find((f) => f.key === key)?.id ?? null;
+  for (const [key, value] of [
+    ["publish_at", input.publishOn],
+    ["channel", input.channel],
+    ["content_type", input.contentType],
+  ] as const) {
+    const fid = fieldId(key);
+    if (fid && value) await setItemFieldValue(id, fid, value);
+  }
+  return id;
 }

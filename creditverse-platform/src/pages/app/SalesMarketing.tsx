@@ -31,7 +31,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { useAgencyPermissions } from "@/lib/data/agency-permissions";
 import { useAgencyMembers, useAgencyTeams } from "@/lib/data/use-agency-work";
 import { setItemFieldValue } from "@/lib/data/workspaces";
-import { applyMarketingImport, fetchImportTargets } from "@/lib/data/marketing";
+import { applyMarketingImport, createContentItem, fetchImportTargets } from "@/lib/data/marketing";
 import {
   useCampaigns, useCreateCampaign, useCreateMarketingWork, useMarketingCounters,
   useMarketingPartners, useMarketingWork, useMarketingWorkspaces, useSetWorkCampaign,
@@ -46,6 +46,8 @@ import { MarketingDashboard } from "@/components/dashboard/marketing/MarketingDa
 import { MarketingTaskList, type TaskListFilters } from "@/components/dashboard/marketing/MarketingTaskList";
 import { ContentCalendar } from "@/components/dashboard/marketing/ContentCalendar";
 import { CampaignsView } from "@/components/dashboard/marketing/CampaignsView";
+import { CampaignPage } from "@/components/dashboard/marketing/CampaignPage";
+import { CreateContentDialog, type NewContent } from "@/components/dashboard/marketing/CreateContentDialog";
 import { PartnerWorkspaceHeader } from "@/components/dashboard/marketing/PartnerWorkspaceHeader";
 import { NewMarketingTaskDialog } from "@/components/dashboard/marketing/NewMarketingTaskDialog";
 import { SheetImportDialog } from "@/components/dashboard/marketing/SheetImportDialog";
@@ -92,6 +94,8 @@ export function SalesMarketing() {
 
   const [openItemId, setOpenItemId] = useState<string | null>(null);
   const [creatingTask, setCreatingTask] = useState(false);
+  const [creatingContent, setCreatingContent] = useState(false);
+  const [openCampaignId, setOpenCampaignId] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const [importTargets, setImportTargets] = useState<{ id: string; title: string; externalRef: string | null }[]>([]);
   const [filters, setFilters] = useState<TaskListFilters>({ openOnly: true });
@@ -118,6 +122,10 @@ export function SalesMarketing() {
     }
     return map;
   }, [rows]);
+
+  const openCampaign = (campaigns.data ?? []).find((c) => c.id === openCampaignId) ?? null;
+  const partnerNameFor = (groupId: string | null) =>
+    groupId ? partners.data?.find((p) => p.id === groupId)?.name ?? null : null;
 
   const go = useCallback((next: MarketingSelection, tab?: PartnerViewId) => {
     const p = new URLSearchParams();
@@ -155,6 +163,26 @@ export function SalesMarketing() {
   };
 
   const loading = work.isLoading || workspaces.isLoading;
+
+  const createContent = async (input: NewContent) => {
+    const target = allWorkspaces.find((w) => w.id === input.workspaceId);
+    if (!target) throw new Error("That workspace is no longer available");
+    const first = [...target.statuses].sort((a, b) => a.position - b.position)[0] ?? null;
+    await createContentItem({
+      workspaceId: target.id,
+      agencyId: target.agencyId ?? auth.agencyId ?? "",
+      statusId: first?.id ?? null,
+      itemTypeId: target.itemTypes.find((t) => t.key === "content")?.id ?? null,
+      fields: target.fields,
+      title: input.title,
+      channel: input.channel,
+      contentType: input.contentType,
+      publishOn: input.publishOn,
+      assignedTo: input.assignedTo,
+    });
+    await qc.invalidateQueries({ queryKey: marketingKeys.all });
+    setCreatingContent(false);
+  };
   const importTarget = activeWorkspaceOrInternal(activeWorkspace, internal);
 
   /* The existing work is fetched WHEN THE DIALOG OPENS, not on every render of
@@ -195,19 +223,31 @@ export function SalesMarketing() {
       case "calendar":
         return (
           <ContentCalendar
-            items={rows} showPartner canWork={canWork}
+            items={rows} statuses={statuses} showPartner canWork={canWork}
+            filters={filters} onFiltersChange={setFilters}
             onOpenItem={openItem} onReschedule={(i, d) => void reschedule(i, d)}
             onImport={canWork ? () => void openImport() : undefined}
+            onCreate={canWork ? () => setCreatingContent(true) : undefined}
           />
         );
       case "campaigns":
-        return (
+        return openCampaign ? (
+          <CampaignPage
+            campaign={openCampaign}
+            partnerName={partnerNameFor(openCampaign.partnerGroupId)}
+            partnerGroupId={openCampaign.partnerGroupId}
+            ownerName={members.data?.find((m) => m.id === openCampaign.ownerId)?.name ?? null}
+            work={rows}
+            onBack={() => setOpenCampaignId(null)}
+            onOpenItem={openItem}
+          />
+        ) : (
           <CampaignsView
             campaigns={campaigns.data ?? []} work={rows} loading={campaigns.isLoading}
             canWork={canWork} workspaceId={null}
             onCreate={async () => {}}
             onUpdate={(id, patch) => updateCampaign.mutate({ id, patch })}
-            onOpenCampaign={(c) => { setFilters({ openOnly: true, campaignId: c.id }); go({ kind: "global", view: "tasks" }); }}
+            onOpenCampaign={(c) => setOpenCampaignId(c.id)}
           />
         );
       default:
@@ -229,6 +269,7 @@ export function SalesMarketing() {
             campaigns={campaigns.data ?? []}
             onOpenItem={openItem}
             onGoToTasks={(f) => { setFilters({ openOnly: true, ...f }); go(selection, "tasks"); }}
+            onOpenCampaign={(c) => { setOpenCampaignId(c.id); go(selection, "campaigns"); }}
           />
         );
       case "tasks":
@@ -243,13 +284,26 @@ export function SalesMarketing() {
       case "calendar":
         return (
           <ContentCalendar
-            items={rows} showPartner={false} canWork={canWork}
+            items={rows} statuses={statuses} showPartner={false} canWork={canWork}
+            filters={filters} onFiltersChange={setFilters}
             onOpenItem={openItem} onReschedule={(i, d) => void reschedule(i, d)}
             onImport={canWork ? () => void openImport() : undefined}
+            onCreate={canWork ? () => setCreatingContent(true) : undefined}
           />
         );
       case "campaigns":
         return (
+          openCampaign ? (
+          <CampaignPage
+            campaign={openCampaign}
+            partnerName={activePartner?.name ?? null}
+            partnerGroupId={activeWorkspace.partnerGroupId ?? null}
+            ownerName={members.data?.find((m) => m.id === openCampaign.ownerId)?.name ?? null}
+            work={rows}
+            onBack={() => setOpenCampaignId(null)}
+            onOpenItem={openItem}
+          />
+        ) : (
           <CampaignsView
             campaigns={campaigns.data ?? []} work={rows} loading={campaigns.isLoading}
             canWork={canWork} workspaceId={activeWorkspace.id}
@@ -262,9 +316,9 @@ export function SalesMarketing() {
               });
             }}
             onUpdate={(id, patch) => updateCampaign.mutate({ id, patch })}
-            onOpenCampaign={(c: Campaign) => { setFilters({ openOnly: true, campaignId: c.id }); go(selection, "tasks"); }}
+            onOpenCampaign={(c: Campaign) => setOpenCampaignId(c.id)}
           />
-        );
+        ));
       case "files":
         return activePartner
           ? <PartnerFilesTab groupId={activePartner.id} />
@@ -373,6 +427,16 @@ export function SalesMarketing() {
             await qc.invalidateQueries({ queryKey: marketingKeys.all });
             return result;
           }}
+        />
+      )}
+
+      {creatingContent && activeWorkspaceOrInternal(activeWorkspace, internal) && (
+        <CreateContentDialog
+          workspace={activeWorkspaceOrInternal(activeWorkspace, internal)!}
+          workspaces={allWorkspaces}
+          members={members.data ?? []}
+          onClose={() => setCreatingContent(false)}
+          onCreate={createContent}
         />
       )}
 

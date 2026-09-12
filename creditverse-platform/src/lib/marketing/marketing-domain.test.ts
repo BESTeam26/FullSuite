@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  calendarGrid, campaignProgress, compareByName, filterWork, isoDay, shiftMonth,
+  approvalStateOf, calendarGrid, campaignProgress, compareByName, contentThisWeek,
+  filterWork, isoDay, shiftMonth, shiftWeek, weekGrid,
   type MarketingWorkItem,
 } from "./marketing-domain";
 
@@ -8,7 +9,7 @@ const item = (over: Partial<MarketingWorkItem> = {}): MarketingWorkItem => ({
   id: over.id ?? "i1", workspaceId: "w1", workspaceName: "BES Internal Marketing",
   partnerGroupId: null, partnerName: null, partnerContactName: null, title: "A post", description: null,
   priority: "Normal", assignedTo: null, assigneeName: null, teamId: null,
-  dueAt: null, completedAt: null, createdAt: "2026-09-01T00:00:00Z",
+  dueAt: null, completedAt: null, createdAt: "2026-09-01T00:00:00Z", updatedAt: null,
   statusId: "s1", statusKey: "todo", statusLabel: "To Do", statusColour: null,
   statusPosition: 20, isTerminal: false, itemTypeId: null, itemTypeKey: "content",
   itemTypeLabel: "Content", campaignId: null, campaignName: null,
@@ -127,5 +128,86 @@ describe("campaign progress", () => {
 
   it("is zero, not NaN, for a campaign nobody has put work in yet", () => {
     expect(campaignProgress([], "c1")).toEqual({ total: 0, done: 0, percent: 0 });
+  });
+});
+
+describe("where content stands with the partner", () => {
+  it("derives the approval state from the status, never a second column", () => {
+    /* A stored approval flag drifts from the status the moment somebody moves
+       a card, and then two screens disagree about whether a partner said yes. */
+    expect(approvalStateOf(item({ statusKey: "in_progress" }))).toBe("none");
+    expect(approvalStateOf(item({ statusKey: "partner_approval" }))).toBe("awaiting");
+    expect(approvalStateOf(item({ statusKey: "changes_requested" }))).toBe("changes_requested");
+    expect(approvalStateOf(item({ statusKey: "approved_scheduled" }))).toBe("approved");
+  });
+
+  it("counts Published as approved, because the partner did say yes", () => {
+    /* Approval is not publication — but publication does not un-approve it. */
+    expect(approvalStateOf(item({ statusKey: "published", isTerminal: true }))).toBe("approved");
+  });
+});
+
+describe("the week view", () => {
+  it("is seven days, Sunday first, matching the month view's columns", () => {
+    const week = weekGrid(new Date(2026, 9, 14), []); // a Wednesday
+    expect(week).toHaveLength(7);
+    expect(week[0].date).toBe("2026-10-11"); // the Sunday
+    expect(week[6].date).toBe("2026-10-17");
+  });
+
+  it("shows the same rows the month view would, on the same days", () => {
+    const post = item({ publishOn: "2026-10-14", title: "Midweek reel" });
+    const week = weekGrid(new Date(2026, 9, 14), [post]);
+    const month = calendarGrid(new Date(2026, 9, 1), [post]);
+    expect(week.find((d) => d.date === "2026-10-14")?.items[0].id).toBe(post.id);
+    expect(month.find((d) => d.date === "2026-10-14")?.items[0].id).toBe(post.id);
+  });
+
+  it("pages across a month boundary without losing a day", () => {
+    const week = weekGrid(shiftWeek(new Date(2026, 9, 28), 1), []);
+    expect(week.map((d) => d.date)).toEqual([
+      "2026-11-01", "2026-11-02", "2026-11-03", "2026-11-04",
+      "2026-11-05", "2026-11-06", "2026-11-07",
+    ]);
+  });
+
+  it("counts the next seven days as 'this week', including today", () => {
+    const today = new Date(2026, 9, 14);
+    const rows = [
+      item({ id: "a", publishOn: "2026-10-14" }),
+      item({ id: "b", publishOn: "2026-10-20" }),
+      item({ id: "c", publishOn: "2026-10-21" }),
+      item({ id: "d", publishOn: "2026-10-13" }),
+    ];
+    expect(contentThisWeek(rows, today).map((r) => r.id)).toEqual(["a", "b"]);
+  });
+});
+
+describe("the calendar filters", () => {
+  const rows = [
+    item({ id: "1", partnerGroupId: "g1", partnerName: "Apex", channel: "Instagram", statusKey: "partner_approval" }),
+    item({ id: "2", partnerGroupId: null, partnerName: null, channel: "Email", statusKey: "in_progress" }),
+    item({ id: "3", partnerGroupId: "g1", partnerName: "Apex", channel: "Instagram", statusKey: "changes_requested" }),
+  ];
+
+  it("narrows to one partner", () => {
+    expect(filterWork(rows, { partnerGroupId: "g1" }).map((r) => r.id)).toEqual(["1", "3"]);
+  });
+
+  it("can name BES's own work, which has no partner group", () => {
+    /* A partner filter that could only name partners would make BES's own
+       content unreachable in the global view. */
+    expect(filterWork(rows, { partnerGroupId: "__bes__" }).map((r) => r.id)).toEqual(["2"]);
+  });
+
+  it("narrows by platform and by approval state", () => {
+    expect(filterWork(rows, { channel: "Instagram" }).map((r) => r.id)).toEqual(["1", "3"]);
+    expect(filterWork(rows, { approvalState: "awaiting" }).map((r) => r.id)).toEqual(["1"]);
+    expect(filterWork(rows, { approvalState: "changes_requested" }).map((r) => r.id)).toEqual(["3"]);
+  });
+
+  it("combines them rather than replacing one with the next", () => {
+    expect(filterWork(rows, { partnerGroupId: "g1", approvalState: "awaiting" }).map((r) => r.id))
+      .toEqual(["1"]);
   });
 });

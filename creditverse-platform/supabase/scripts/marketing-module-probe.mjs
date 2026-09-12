@@ -488,6 +488,90 @@ if (!KAORI_PORTAL) {
     true);
 }
 
+console.log("\nTHE WHOLE CONTENT LIFECYCLE, ON ONE RECORD");
+
+/* Dee, 2026-09-13: "Prove the same canonical work item survives the entire
+   process." Import/Create → In Progress → Internal Review → Partner Approval
+   → Changes Requested → revise → Partner Approval → Approved / Scheduled →
+   Published. One id, start to finish. */
+if (!BMF_WS) {
+  console.log("  SKIP 48  no partner marketing workspace to run the lifecycle in");
+} else {
+  const move = (key) => `update work_items set status_id =
+    (select id from workspace_statuses where workspace_id = v_ws and key = '${key}') where id = v;`;
+
+  check("48. one work item walks the entire lifecycle and keeps its id",
+    as(OUTSIDER, PARTNER_SETUP + PARTNER_CONTACT + `
+        set local role authenticated;
+        do $c$ begin perform set_config('request.jwt.claims', '{"sub":"${OWNER}","role":"authenticated"}', true); end $c$;
+        do $b$
+        declare v uuid; v_ws uuid;
+        begin
+          v_ws := (select id from workspaces where partner_group_id='11111111-2222-4333-8444-555555555555' and module='sales_marketing');
+          -- created, with a publish date, exactly as the importer leaves it
+          insert into work_items (agency_id, scope, related_type, division, workspace_id, status_id, item_type_id, title, external_ref)
+          values ('${AGENCY}', 'AGENCY', 'project', 'sales_marketing', v_ws,
+                  (select id from workspace_statuses where workspace_id=v_ws and key='todo'),
+                  (select id from workspace_item_types where workspace_id=v_ws and key='content'),
+                  'Probe: lifecycle post', 'sheet-lifecycle-1')
+          returning id into v;
+          insert into work_item_field_values (work_item_id, field_id, value)
+          values (v, (select id from workspace_fields where workspace_id=v_ws and key='publish_at'),
+                  to_jsonb('2026-10-30'::text));
+          perform set_config('probe.item', v::text, true);
+          ${move('in_progress')}
+          ${move('internal_review')}
+          perform request_partner_approval(v, 'content_approval', null, null);
+        end $b$;
+        reset role;`,
+      `do $a$
+       declare v uuid := current_setting('probe.item', true)::uuid;
+       begin
+         -- the partner sends it back
+         perform my_partner_review(
+           (select id from my_partner_actions() where status='open' and kind='content_approval'
+             order by requested_at desc limit 1), false, 'Tighten the hook');
+       end $a$;
+       set local role authenticated;
+       do $c2$ begin perform set_config('request.jwt.claims', '{"sub":"${OWNER}","role":"authenticated"}', true); end $c2$;
+       do $b2$
+       declare v uuid := current_setting('probe.item', true)::uuid;
+               v_ws uuid := (select workspace_id from work_items where id = v);
+       begin
+         -- revised, and sent again
+         ${move('in_progress')}
+         ${move('internal_review')}
+         perform request_partner_approval(v, 'content_approval', null, null);
+       end $b2$;
+       set local role authenticated;
+       do $c3$ begin perform set_config('request.jwt.claims', '{"sub":"${OUTSIDER}","role":"authenticated"}', true); end $c3$;
+       do $a2$ begin
+         perform my_partner_review(
+           (select id from my_partner_actions() where status='open' and kind='content_approval'
+             order by requested_at desc limit 1), true, 'Perfect');
+       end $a2$;
+       set local role authenticated;
+       do $c4$ begin perform set_config('request.jwt.claims', '{"sub":"${OWNER}","role":"authenticated"}', true); end $c4$;
+       do $b3$
+       declare v uuid := current_setting('probe.item', true)::uuid;
+               v_ws uuid := (select workspace_id from work_items where id = v);
+       begin
+         ${move('published')}
+         insert into work_item_field_values (work_item_id, field_id, value)
+         values (v, (select id from workspace_fields where workspace_id=v_ws and key='published_url'),
+                 to_jsonb('https://instagram.com/p/probe'::text))
+         on conflict (work_item_id, field_id) do update set value = excluded.value;
+       end $b3$;
+       reset role;
+       select (select count(*)::int from work_items where external_ref = 'sheet-lifecycle-1') as items,
+              (id = current_setting('probe.item', true)::uuid) as same_id,
+              status_key, is_terminal, publish_on,
+              (select count(*)::int from partner_action_items where work_item_id = mw.id) as approvals_asked
+         from marketing_work mw where mw.title = 'Probe: lifecycle post';`).rows,
+    [{ items: 1, same_id: true, status_key: "published", is_terminal: true,
+       publish_on: "2026-10-30", approvals_asked: 2 }]);
+}
+
 console.log(`\n${pass} passed, ${failures.length} failed`);
 if (failures.length) { failures.forEach((f) => console.log(`  - ${f}`)); process.exitCode = 1; }
 q.close();

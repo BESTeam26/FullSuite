@@ -62,6 +62,14 @@ export function MarketingItemDrawer({
       canAssign={canWork}
       readOnly={!canWork}
       visibilityModule="sales_marketing"
+      /* Dee's own grouping, 2026-09-13. Production (status, assignee, due
+         date, priority, checklist) and Collaboration (comments, mentions,
+         attachments, activity) are the drawer's canonical halves already;
+         this names the content half. */
+      fieldGroups={[{
+        title: "Content",
+        keys: ["channel", "content_type", "publish_at", "caption", "cta", "asset_url", "published_url"],
+      }]}
       extra={
         <MarketingExtras
           row={row}
