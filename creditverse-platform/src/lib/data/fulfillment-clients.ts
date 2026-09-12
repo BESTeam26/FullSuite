@@ -594,12 +594,18 @@ export async function handOffToDepartments(input: {
  * The activity entry is written by the database trigger on
  * `fulfillment_clients`, never here — a screen that logs its own changes is a
  * screen that can log a change it failed to make.
+ *
+ * `due_at` is deliberately NOT writable here. Since the SLA engine it is a
+ * DERIVED column — the earliest of the client's open department deadlines,
+ * rewritten by the database whenever work moves — so a value typed into it
+ * survives only until the next status change. Adjusting a deadline goes
+ * through `set_department_due_override`, which keeps the calculated date
+ * beside the override and records the reason.
  */
 export async function updateClientField(input: {
   clientId: string;
   round?: Enums<"fulfillment_round">;
   processedOn?: string | null;
-  dueAt?: string | null;
   /** The standing working description and the one-line next action (0212). */
   description?: string | null;
   nextAction?: string | null;
@@ -610,12 +616,6 @@ export async function updateClientField(input: {
   if (input.description !== undefined) row.description = input.description?.trim() || null;
   if (input.nextAction !== undefined) row.next_action = input.nextAction?.trim() || null;
   if (input.processedOn !== undefined) row.processed_on = input.processedOn;
-  /* A date input gives a plain day; `due_at` is a timestamp, so it becomes the
-     end of that day rather than midnight — a file due "the 5th" is not overdue
-     at one minute past midnight on the 5th. */
-  if (input.dueAt !== undefined) {
-    row.due_at = input.dueAt ? `${input.dueAt}T23:59:59Z` : null;
-  }
   if (Object.keys(row).length === 0) return;
   const { error } = await sb
     .from("fulfillment_clients").update(withActivityStamp(row) as never).eq("id", input.clientId);

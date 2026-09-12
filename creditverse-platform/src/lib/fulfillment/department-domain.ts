@@ -57,8 +57,15 @@ export const CLOSED_DEPARTMENT_STATUSES: ReadonlySet<string> = new Set([
 
 export const isOpenDepartmentStatus = (status: string) => !CLOSED_DEPARTMENT_STATUSES.has(status.toUpperCase());
 
-/** Open department rows, in department order. */
-export function openDepartments(rows: readonly DepartmentStatusRow[]): DepartmentStatusRow[] {
+/**
+ * Open department rows, in department order.
+ *
+ * Generic so a caller holding rows with a narrower `department` — the store's
+ * five-value union rather than a bare string — gets those rows back, and can
+ * pass one straight to a writer that demands the enum. Widening here and
+ * casting at the call site would put the guess in the caller.
+ */
+export function openDepartments<T extends DepartmentStatusRow>(rows: readonly T[]): T[] {
   const order = new Map(CREDITOPS_DEPARTMENT_ORDER.map((d, i) => [d as string, i]));
   return rows
     .filter((r) => isOpenDepartmentStatus(r.status))
@@ -66,7 +73,7 @@ export function openDepartments(rows: readonly DepartmentStatusRow[]): Departmen
 }
 
 /** "Where is this file right now?" — the first open department, or none. */
-export function currentDepartment(rows: readonly DepartmentStatusRow[]): DepartmentStatusRow | null {
+export function currentDepartment<T extends DepartmentStatusRow>(rows: readonly T[]): T | null {
   return openDepartments(rows)[0] ?? null;
 }
 

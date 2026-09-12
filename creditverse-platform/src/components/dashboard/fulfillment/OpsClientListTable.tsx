@@ -22,6 +22,7 @@ import {
   checkClientConflict,
   clientGroupKey,
   clientGroupLabel,
+  type AssignedPerson,
   type OpsClient,
 } from "@/lib/fulfillment/ops-client-domain";
 import {
@@ -46,7 +47,7 @@ export interface OpsClientListActions<T extends OpsClient> {
   /** Full client set for the division — used for the duplicate-email check. */
   allClients: T[];
   updateStatus: (clientId: string, status: string, actor: string) => void;
-  updateAssignee: (clientId: string, agent: string, actor: string) => void;
+  updateAssignee: (clientId: string, person: AssignedPerson, actor: string) => void;
   /** False when the division cannot yet save an assignment; see the store. */
   canAssign: boolean;
   updateContact: (
@@ -81,7 +82,8 @@ interface OpsClientListTableProps<T extends OpsClient, Id extends string> {
   /** Selectable statuses for the inline status editor. */
   statusOptions: readonly string[];
   /** Scoped assignee pool — never the whole agency directory. */
-  assignees: readonly string[];
+  /** The roster this division may assign to, as identities, not labels. */
+  assignees: readonly AssignedPerson[];
   renderStatusPill: (status: string) => ReactNode;
   /** SLA hours at or below which the figure turns red. */
   /** Cells for columns unique to this division. Return null if unhandled. */
@@ -155,8 +157,12 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
     actions.updateStatus(clientId, newStatus, actor);
     setEditingStatusId(null);
   };
-  const commitAgent = (clientId: string, newAgent: string) => {
-    actions.updateAssignee(clientId, newAgent, actor);
+  /* The picker's value is the profile id, so the person is looked up by
+     identity and never matched back from the label (rule 4). "" is the
+     honest empty choice: nobody, rather than a person named Unassigned. */
+  const commitAgent = (clientId: string, assigneeId: string) => {
+    const person = assignees.find((a) => (a.id ?? "") === assigneeId);
+    actions.updateAssignee(clientId, person ?? { id: null, name: "Unassigned" }, actor);
     setEditingAgentId(null);
   };
   const commitContact = () => {
@@ -346,10 +352,10 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
               openOnMount
               size="inline"
               aria-label="Assignee"
-              value={client.assignedAgent ?? "Unassigned"}
+              value={client.assignedAgentId ?? ""}
               onValueChange={(v) => commitAgent(client.id, v)}
               onDismiss={() => setEditingAgentId(null)}
-              options={assignees}
+              options={assignees.map((a) => ({ value: a.id ?? "", label: a.name }))}
             />
           );
         }

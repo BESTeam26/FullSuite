@@ -42,6 +42,7 @@ import {
 import {
   checkClientConflict,
   clientGroupLabel,
+  type AssignedPerson,
   type ClientConflictResult,
   type OpsClient,
 } from "@/lib/fulfillment/ops-client-domain";
@@ -102,9 +103,18 @@ export interface OpsClientStoreValue<T extends OpsClient, D> {
     newStatus: string,
     actor: string,
   ) => Promise<void>;
+  /**
+   * Assign, or release, by IDENTITY.
+   *
+   * The person is passed whole — `{ id, name }` — rather than as a display
+   * name to be looked up. A name is not an identity (rule 4): two people can
+   * share one, and resolving a picker's label back to a profile row is a guess
+   * dressed up as a lookup. The id is what is written; the name is only what
+   * the seed store shows and what the activity entry reads back.
+   */
   updateAssignee: (
     clientId: string,
-    newAssignee: string,
+    person: AssignedPerson,
     actor: string,
   ) => Promise<void>;
   /**
@@ -177,7 +187,7 @@ export interface OpsClientLiveBackend<T extends OpsClient, D> {
    * Names are not identities (rule 4), so a division without a people
    * directory reports "cannot assign" rather than guessing from a name.
    */
-  updateAssignee?: (clientId: string, assigneeName: string) => Promise<T>;
+  updateAssignee?: (clientId: string, person: AssignedPerson) => Promise<T>;
   updateContact: (
     clientId: string,
     field: "email" | "phone",
@@ -377,7 +387,8 @@ export function createOpsClientStore<T extends OpsClient, D>(
     );
 
     const updateAssignee = useCallback(
-      async (clientId: string, newAssignee: string, actor: string) => {
+      async (clientId: string, person: AssignedPerson, actor: string) => {
+        const newAssignee = person.name;
         setClients((prev) =>
           prev.map((c) => {
             if (c.id !== clientId) return c;
@@ -400,6 +411,7 @@ export function createOpsClientStore<T extends OpsClient, D>(
             return {
               ...c,
               assignedAgent: newAssignee,
+              assignedAgentId: person.id,
               lastActivity: "Just now",
             };
           }),
@@ -711,10 +723,10 @@ export function createOpsClientStore<T extends OpsClient, D>(
     const canAssign = Boolean(backend.updateAssignee);
 
     const updateAssignee = useCallback(
-      async (clientId: string, newAssignee: string) => {
+      async (clientId: string, person: AssignedPerson) => {
         if (!backend.updateAssignee) return;
         try {
-          patchClient(await backend.updateAssignee(clientId, newAssignee));
+          patchClient(await backend.updateAssignee(clientId, person));
         } catch (err) {
           report("Assignment update")(err);
           throw err;

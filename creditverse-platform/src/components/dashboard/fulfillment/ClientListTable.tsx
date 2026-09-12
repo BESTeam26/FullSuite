@@ -8,10 +8,7 @@
  */
 
 import type { FulfillmentClient } from "@/lib/fulfillment/fulfillment-client-domain";
-import {
-  useCreditOpsStore,
-  ELIGIBLE_ASSIGNEES,
-} from "@/lib/fulfillment/creditops-client-store";
+import { useCreditOpsStore } from "@/lib/fulfillment/creditops-client-store";
 import {
   ALL_STATUS_OPTIONS,
   FulfillmentStatusPill,
@@ -21,11 +18,14 @@ import {
 } from "./client-list-helpers";
 import { OpsClientListTable } from "./OpsClientListTable";
 import type { DepartmentStatus } from "@/lib/fulfillment/creditops-store-types";
-import { currentDepartment, openDepartments } from "@/lib/fulfillment/department-domain";
+import { currentDepartment, departmentStatuses, openDepartments } from "@/lib/fulfillment/department-domain";
 import {
-  DaysToUpdateCell, EditableChoiceCell, EditableDateCell,
+  DaysToUpdateCell, DueDateOverrideCell, EditableChoiceCell, EditableDateCell,
 } from "@/components/dashboard/fulfillment/ClientRowEditors";
-import { updateClientField } from "@/lib/data/fulfillment-clients";
+import { setClientDepartmentStatus, updateClientField } from "@/lib/data/fulfillment-clients";
+import { clearDueOverride, setDueOverride } from "@/lib/data/client-workflow";
+import { useAgencyPermissions } from "@/lib/data/agency-permissions";
+import { formatDate } from "@/lib/format-date";
 import { useQueryClient } from "@tanstack/react-query";
 
 /* Dee's board reaches Round 13; "Round 4+" stays for anything recorded under
@@ -36,7 +36,7 @@ const ROUND_OPTIONS = [
   "Round 10", "Round 11", "Round 12", "Round 13", "Completed",
 ];
 import { useAuth } from "@/lib/auth/auth-context";
-import { useWorkforce } from "@/lib/data/use-workforce";
+import { useAssignableRoster } from "@/lib/data/use-workforce";
 
 /* Who is actually doing it. Every activity entry used to be attributed to
    "Agent (BES HQ)" — a name nobody has — so history could not say who did the
@@ -67,13 +67,11 @@ export function ClientListTable({
      refetching it here is what puts the new value in front of everybody
      looking at the same row rather than only the person who typed it. */
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["creditops"] });
-  /* The real roster, not a list of names in the source. "Unassigned" first so
-     the honest choice is the default and nobody has to pick a person to save. */
-  const roster = useWorkforce();
-  const assignees = [
-    ...ELIGIBLE_ASSIGNEES,
-    ...(roster.data?.people ?? []).map((x) => x.name).filter(Boolean),
-  ];
+  /* Identities from the live Workforce roster, shared with intake. */
+  const assignees = useAssignableRoster();
+  /* A due date is the output of the SLA policy, so retyping one is a Team
+     Lead action; everyone else reads it (Dee: no silent date edits). */
+  const canOverrideDates = useAgencyPermissions().can("ops.manage");
   const actor = useActor();
   const store = useCreditOpsStore();
 
@@ -126,17 +124,35 @@ export function ClientListTable({
                 }}
               />
             );
-          case "dueDate":
+          case "dueDate": {
+            /* The due date belongs to the department that owns the deadline,
+               and `fulfillment_clients.due_at` is the derived read of it. So
+               the cell adjusts the department — with the reason the SLA policy
+               requires — rather than typing over a calculated value. */
+            const cur = currentDepartment(departmentRows[client.id] ?? []);
+            const due = (client as { dueAt?: string | null }).dueAt ?? null;
+            if (!canOverrideDates) {
+              return (
+                <span className="text-[11px] text-foreground">
+                  {due ? formatDate(due) : <span className="text-muted-foreground">—</span>}
+                </span>
+              );
+            }
             return (
-              <EditableDateCell
-                label="Due date"
-                value={(client as { dueAt?: string | null }).dueAt ?? null}
-                onSave={async (next) => {
-                  await updateClientField({ clientId: client.id, dueAt: next });
+              <DueDateOverrideCell
+                value={due}
+                department={cur?.department ?? null}
+                onSave={async (date, reason) => {
+                  await setDueOverride(client.id, cur!.department, date, reason);
+                  await refresh();
+                }}
+                onClear={async () => {
+                  await clearDueOverride(client.id, cur!.department);
                   await refresh();
                 }}
               />
             );
+          }
           case "daysToUpdate":
             return <DaysToUpdateCell dueAt={(client as { dueAt?: string | null }).dueAt ?? null} />;
           case "latestComment": {
@@ -160,13 +176,27 @@ export function ClientListTable({
             );
           }
           case "workStatus": {
+            /* The operational status of the department currently working the
+               file — the one an agent changes all day. `set_client_department_
+               status` validates it against that department's vocabulary and
+               writes the activity entry in the same transaction, so the row
+               cannot record a status the department does not have. */
             const cur = currentDepartment(departmentRows[client.id] ?? []);
-            return cur ? (
-              <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-status-success">
-                {cur.status}
-              </span>
-            ) : (
-              <span className="text-muted-foreground">No open work</span>
+            if (!cur) return <span className="text-muted-foreground">No open work</span>;
+            return (
+              <EditableChoiceCell
+                label={`${cur.department} work status`}
+                value={cur.status}
+                options={departmentStatuses(cur.department)}
+                onSave={async (next) => {
+                  await setClientDepartmentStatus({
+                    clientId: client.id,
+                    department: cur.department,
+                    status: next,
+                  });
+                  await refresh();
+                }}
+              />
             );
           }
           case "openWork":

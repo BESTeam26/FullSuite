@@ -11,10 +11,9 @@ import type { FundingDepartmentStatus } from "@/lib/fulfillment/fundingops-store
 import { FUNDINGOPS_DEPARTMENT_ORDER, isOpenFundingStatus } from "@/lib/fulfillment/funding-department-domain";
 import { formatCurrency } from "@/lib/fulfillment/fundingops-domain";
 import { useAuth } from "@/lib/auth/auth-context";
-import { useWorkforce } from "@/lib/data/use-workforce";
+import { useAssignableRoster } from "@/lib/data/use-workforce";
 import {
   useFundingOpsStore,
-  FUNDING_ELIGIBLE_ASSIGNEES,
 } from "@/lib/fulfillment/fundingops-client-store";
 import {
   FUNDING_STATUS_OPTIONS,
@@ -54,13 +53,8 @@ export function FundingClientListTable({
   onOpenClient,
   departmentRows,
 }: FundingClientListTableProps) {
-  /* The real roster, not a list of names in the source. "Unassigned" first so
-     the honest choice is the default and nobody has to pick a person to save. */
-  const roster = useWorkforce();
-  const assignees = [
-    ...FUNDING_ELIGIBLE_ASSIGNEES,
-    ...(roster.data?.people ?? []).map((x) => x.name).filter(Boolean),
-  ];
+  /* Identities from the live Workforce roster, shared with intake. */
+  const assignees = useAssignableRoster();
   const actor = useActor();
   const order = new Map(FUNDINGOPS_DEPARTMENT_ORDER.map((d, i) => [d as string, i]));
   const openRows = (id: string) =>

@@ -31,6 +31,7 @@ import {
   createFulfillmentClient,
   fetchDepartmentStatuses,
   fetchFulfillmentClients,
+  updateClientAssignee,
   updateClientContact,
   updateClientStatus,
 } from "@/lib/data/fulfillment-clients";
@@ -59,22 +60,22 @@ export { COMMENT_MARKS, getMark };
 export const ELIGIBLE_ASSIGNEES = ["Unassigned"];
 
 /**
- * `updateAssignee` is deliberately ABSENT, not stubbed.
+ * Assignment writes a PROFILE ID, which is why it exists now.
  *
- * Assignees are still names rather than profile rows; the scoped assignee
- * picker becomes real in Phase 4 alongside Workforce. A name cannot be resolved
- * to a profile id without guessing, and guessing would attribute work to the
- * wrong person (rule 4: never infer identity from a display name).
+ * It used to be absent on purpose: the picker offered display names, and a
+ * name cannot be resolved to a profile row without guessing (rule 4). The
+ * picker now carries the identity — `{ id, name }` from the Workforce roster
+ * — so there is nothing left to guess and the control can be real.
  *
- * Omitting the method makes the store report `canAssign: false`, so the
- * interface hides the control instead of offering it and then failing after the
- * click (rule 3).
+ * `id: null` clears the assignment rather than writing somebody called
+ * "Unassigned".
  */
 const live: OpsClientLiveBackend<FulfillmentClient, DepartmentStatus> = {
   fetchClients: fetchFulfillmentClients,
   fetchDepartmentStatuses,
   updateStatus: (clientId, status) =>
     updateClientStatus(clientId, status as Enums<"fulfillment_client_status">),
+  updateAssignee: (clientId, person) => updateClientAssignee(clientId, person.id),
   updateContact: updateClientContact,
   addClient: (client, agencyId) =>
     createFulfillmentClient({

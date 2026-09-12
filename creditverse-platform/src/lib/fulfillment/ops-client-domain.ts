@@ -93,6 +93,18 @@ export interface OpsPartner {
  * `status` is a plain string here because each division owns its own status
  * vocabulary; division interfaces narrow it to their own union type.
  */
+/**
+ * Who a file is assigned to, passed as an identity rather than a label.
+ *
+ * `id` is the profile row that is actually written; `name` is what the
+ * interface showed and what the activity entry reads back. `id: null` is the
+ * honest "Unassigned" — an absence, not a person called Unassigned.
+ */
+export interface AssignedPerson {
+  id: string | null;
+  name: string;
+}
+
 export interface OpsClient {
   id: string;
   /** Display name of the end client. */

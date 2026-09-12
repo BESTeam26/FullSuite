@@ -17,6 +17,7 @@
 import { useState } from "react";
 import { ChevronDown, Loader2, Pencil } from "lucide-react";
 import { OpsSelect } from "@/components/ui/ops-select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatDate } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
 
@@ -130,6 +131,97 @@ export function EditableChoiceCell({ value, options, onSave, label }: {
         </>
       )}
     </button>
+  );
+}
+
+/**
+ * The due date, in the row, for somebody who may override it.
+ *
+ * ── WHY THIS IS NOT `EditableDateCell` ─────────────────────────────────────
+ *
+ * `fulfillment_clients.due_at` is DERIVED — the earliest of the client's open
+ * department deadlines, rewritten by the database whenever work moves. Typing
+ * into it directly saves a number the next status change silently discards,
+ * which is worse than an uneditable field because it looks like it worked.
+ *
+ * So the cell writes an override on the department that owns the deadline,
+ * exactly as the client file does: the calculated date is preserved beside it
+ * and the reason is recorded. Dee: "I do not want silent date edits that
+ * destroy the original SLA logic." One extra field is the price of that, and
+ * anyone without `ops.manage` sees the date read-only.
+ */
+export function DueDateOverrideCell({ value, department, onSave, onClear }: {
+  value: string | null;
+  department: string | null;
+  onSave: (date: string, reason: string) => Promise<void>;
+  onClear: () => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [date, setDate] = useState("");
+  const [reason, setReason] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const shown = value ? formatDate(value) : "—";
+  if (!department) {
+    return <span className="text-[11px] text-muted-foreground">{shown}</span>;
+  }
+
+  return (
+    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (o) { setDate(value ? String(value).slice(0, 10) : ""); setReason(""); } }}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label="Due date — click to adjust"
+          className="group flex w-full items-center gap-1 rounded border border-transparent px-1 py-0.5 text-left text-[11px] text-foreground transition-colors hover:border-border hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        >
+          <span className="flex-1 truncate">{shown}</span>
+          <Pencil className="h-2.5 w-2.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-72 space-y-2 p-3">
+        <p className="text-[11px] text-muted-foreground">
+          Adjusting the {department} deadline. The calculated date is kept beside it.
+        </p>
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          aria-label="New due date"
+          className="h-8 w-full rounded border border-border bg-background px-2 text-xs text-foreground"
+        />
+        <input
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="Why is this date different?"
+          aria-label="Reason for the override"
+          className="h-8 w-full rounded border border-border bg-background px-2 text-xs text-foreground"
+        />
+        <div className="flex gap-2">
+          <button
+            type="button"
+            disabled={!date || !reason.trim() || saving}
+            onClick={async () => {
+              setSaving(true);
+              try { await onSave(date, reason.trim()); setOpen(false); } finally { setSaving(false); }
+            }}
+            className="inline-flex h-8 flex-1 items-center justify-center rounded bg-primary text-xs font-medium text-primary-foreground disabled:opacity-50"
+          >
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
+          </button>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={async () => {
+              setSaving(true);
+              try { await onClear(); setOpen(false); } finally { setSaving(false); }
+            }}
+            className="inline-flex h-8 items-center justify-center rounded border border-border px-2 text-xs text-foreground hover:bg-muted disabled:opacity-50"
+          >
+            System date
+          </button>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
