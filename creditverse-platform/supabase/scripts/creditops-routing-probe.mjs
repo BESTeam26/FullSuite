@@ -388,5 +388,41 @@ check("31 — somebody else's work is not in mine",
                 where client_id::text like 'cccccccc%' and department='Complaints';`),
   { mine: 0 });
 
+console.log("\nPARTNER ACTION REQUIRED");
+
+const PARTNER_GROUP = `(select id from outsourcing_groups where is_fixture=false limit 1)`;
+
+check("32 — For Partner Confirmation raises an item for the partner",
+  probe(`${makeClients(1, "Ready for Processing")}
+    update fulfillment_clients set status='For Partner Confirmation' where id::text like 'cccccccc%';
+    select count(*)::int as items, min(status) as state from partner_action_items
+     where fulfillment_client_id::text like 'cccccccc%';`)[0],
+  { items: 1, state: "open" });
+
+check("33 — re-entering the status does not stack up a second request",
+  probe(`${makeClients(1, "Ready for Processing")}
+    update fulfillment_clients set status='For Partner Confirmation' where id::text like 'cccccccc%';
+    update fulfillment_clients set status='Ready for Processing' where id::text like 'cccccccc%';
+    update fulfillment_clients set status='For Partner Confirmation' where id::text like 'cccccccc%';
+    select count(*)::int as items from partner_action_items
+     where fulfillment_client_id::text like 'cccccccc%' and status='open';`)[0],
+  { items: 1 });
+
+check("34 — BES moving the file on cancels what the partner was asked",
+  probe(`${makeClients(1, "Ready for Processing")}
+    update fulfillment_clients set status='For Partner Confirmation' where id::text like 'cccccccc%';
+    update fulfillment_clients set status='Ready for Processing' where id::text like 'cccccccc%';
+    select status, cancelled_reason from partner_action_items
+     where fulfillment_client_id::text like 'cccccccc%';`)[0],
+  { status: "cancelled", cancelled_reason: "The file moved on" });
+
+check("35 — no BES assignee while the partner holds it",
+  probe(`${setup([P.ada])}
+    ${makeClients(1, "Ready for Processing")}
+    update fulfillment_clients set status='For Partner Confirmation' where id::text like 'cccccccc%';
+    select count(*)::int as assigned from client_department_statuses
+     where client_id::text like 'cccccccc%' and assignee_id is not null;`)[0],
+  { assigned: 0 });
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail === 0 ? 0 : 1);

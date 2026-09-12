@@ -21,6 +21,8 @@ import { useMemo, useState } from "react";
 import { Loader2, Download, Search, ShieldCheck, FileText, MessagesSquare, Users, Workflow, ClipboardList } from "lucide-react";
 import { useMyPartner, useMyPartnerClients, useMyPartnerProjects, useMyPartnerRequirements, useMySharedFiles, usePartnerContacts } from "@/lib/data/use-agency-partners";
 import { PartnerOnboarding } from "@/components/portal/PartnerOnboarding";
+import { PortalActionNeeded } from "@/components/portal/PortalActionNeeded";
+import { PortalRecentUpdates } from "@/components/portal/PortalRecentUpdates";
 import { PartnerInformation } from "@/components/portal/PartnerInformation";
 import { JOURNEY_LABEL, type JourneyStage } from "@/lib/crm/crm-domain";
 import { partnerFileUrl } from "@/lib/data/agency-partners";
@@ -111,22 +113,48 @@ export const PartnerPortal = () => {
           <p className="text-xs text-muted-foreground">{STATUS_NOTE[p.status] ?? ""}</p>
         </section>
 
+        {/* ── TWO MODES, NEVER MIXED ───────────────────────────────────
+            Dee, 2026-09-12: "Do not mix onboarding and active-portal
+            experiences… The active portal should no longer make the Partner
+            feel like they are signing up again every time they log in."
+
+            Before onboarding: the onboarding flow, and nothing else.
+            After: what is happening, what BES needs, their clients, their
+            documents, how to reach us — and the business information tucked
+            into Account settings where a partner goes to CHANGE something,
+            not to be re-asked for it. Nothing was deleted: the same
+            component, moved. */}
         {!p.onboardingCompletedAt ? (
           <PartnerOnboarding partner={p} contactName={me?.fullName ?? displayName ?? null} contactEmail={me?.email ?? null} />
         ) : (
-          <PartnerInformation partner={p} contactName={me?.fullName ?? null} contactTitle={me?.title ?? null}
-            contactPhone={me?.phone ?? null} contactEmail={me?.email ?? null} />
-        )}
-
-        {p.onboardingCompletedAt && (
           <>
+            <PortalActionNeeded />
+
             <PortalClients />
+
+            <PortalRecentUpdates />
 
             <PortalProjects />
 
+            <PortalFiles partnerGroupId={p.id} />
+
             <PortalConversation partnerGroupId={p.id} />
 
-            <PortalFiles partnerGroupId={p.id} />
+            {/* Closed by default. The agreement, the credentials and the
+                company details are settled facts by this point; a partner
+                opens this when something has changed. */}
+            <details className="rounded-xl border border-border bg-card">
+              <summary className="cursor-pointer px-4 py-3 text-sm font-bold text-foreground">
+                Account settings
+                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                  Company information, contact, access and credentials
+                </span>
+              </summary>
+              <div className="border-t border-border p-4">
+                <PartnerInformation partner={p} contactName={me?.fullName ?? null} contactTitle={me?.title ?? null}
+                  contactPhone={me?.phone ?? null} contactEmail={me?.email ?? null} />
+              </div>
+            </details>
           </>
         )}
       </main>

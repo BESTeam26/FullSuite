@@ -2575,6 +2575,9 @@ export type Database = {
           entry_status: string | null
           kind: string
           note: string | null
+          on_resolved_status:
+            | Database["public"]["Enums"]["fulfillment_client_status"]
+            | null
           status: Database["public"]["Enums"]["fulfillment_client_status"]
         }
         Insert: {
@@ -2584,6 +2587,9 @@ export type Database = {
           entry_status?: string | null
           kind: string
           note?: string | null
+          on_resolved_status?:
+            | Database["public"]["Enums"]["fulfillment_client_status"]
+            | null
           status: Database["public"]["Enums"]["fulfillment_client_status"]
         }
         Update: {
@@ -2593,6 +2599,9 @@ export type Database = {
           entry_status?: string | null
           kind?: string
           note?: string | null
+          on_resolved_status?:
+            | Database["public"]["Enums"]["fulfillment_client_status"]
+            | null
           status?: Database["public"]["Enums"]["fulfillment_client_status"]
         }
         Relationships: []
@@ -8869,6 +8878,99 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_action_items: {
+        Row: {
+          agency_id: string
+          cancelled_reason: string | null
+          created_at: string
+          detail: string | null
+          fulfillment_client_id: string | null
+          group_id: string
+          id: string
+          kind: string
+          requested_at: string
+          requested_by: string | null
+          responded_at: string | null
+          responded_by: string | null
+          response: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          cancelled_reason?: string | null
+          created_at?: string
+          detail?: string | null
+          fulfillment_client_id?: string | null
+          group_id: string
+          id?: string
+          kind?: string
+          requested_at?: string
+          requested_by?: string | null
+          responded_at?: string | null
+          responded_by?: string | null
+          response?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          cancelled_reason?: string | null
+          created_at?: string
+          detail?: string | null
+          fulfillment_client_id?: string | null
+          group_id?: string
+          id?: string
+          kind?: string
+          requested_at?: string
+          requested_by?: string | null
+          responded_at?: string | null
+          responded_by?: string | null
+          response?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_action_items_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_action_items_fulfillment_client_id_fkey"
+            columns: ["fulfillment_client_id"]
+            isOneToOne: false
+            referencedRelation: "fulfillment_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_action_items_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "outsourcing_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_action_items_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_action_items_responded_by_fkey"
+            columns: ["responded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -15415,6 +15517,25 @@ export type Database = {
       my_agency_id: { Args: never; Returns: string }
       my_client_ids: { Args: never; Returns: string[] }
       my_org_ids: { Args: never; Returns: string[] }
+      my_partner_action_respond: {
+        Args: { p_action: string; p_response: string }
+        Returns: undefined
+      }
+      my_partner_actions: {
+        Args: never
+        Returns: {
+          client_name: string
+          detail: string
+          id: string
+          kind: string
+          requested_at: string
+          requested_by_name: string
+          responded_at: string
+          response: string
+          status: string
+          title: string
+        }[]
+      }
       my_partner_clients: {
         Args: { p_include_closed?: boolean }
         Returns: {
@@ -15505,6 +15626,16 @@ export type Database = {
           project_id: string
           project_name: string
           requested_on: string
+        }[]
+      }
+      my_partner_updates: {
+        Args: { p_limit?: number }
+        Returns: {
+          action: string
+          client_name: string
+          detail: string
+          happened_at: string
+          id: number
         }[]
       }
       my_permissions: {
@@ -15738,6 +15869,15 @@ export type Database = {
           p_title: string
         }
         Returns: boolean
+      }
+      raise_partner_action: {
+        Args: {
+          p_client: string
+          p_detail?: string
+          p_kind?: string
+          p_title?: string
+        }
+        Returns: string
       }
       record_document_disposition: {
         Args: {
