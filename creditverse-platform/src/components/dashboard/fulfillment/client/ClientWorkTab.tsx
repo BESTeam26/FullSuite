@@ -33,13 +33,49 @@ import {
   reportWorkBlocker, useChecklistActions, useWorkChecklist,
 } from "@/lib/data/use-client-work-detail";
 import type { DepartmentStatus } from "@/lib/fulfillment/creditops-store-types";
+import type { FulfillmentClient } from "@/lib/fulfillment/fulfillment-client-domain";
+import { ClientUpdateComposer } from "./ClientUpdateComposer";
+
+/**
+ * Complete Work, with what has been checked already visible on it.
+ *
+ * Dee: "When the standard required actions are checked: show ✓ Complete
+ * Work." The tick is a readiness signal, not a gate — somebody who genuinely
+ * finished without every box is not stopped, they are just not told they are
+ * done.
+ */
+function CompleteButton({
+  clientId, department, onCompleteWork,
+}: { clientId: string; department: CreditOpsDepartment; onCompleteWork: () => void }) {
+  const items = useWorkChecklist(clientId, department);
+  const rows = items.data ?? [];
+  const outstanding = rows.filter((r) => !r.done).length;
+  const ready = rows.length > 0 && outstanding === 0;
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-2">
+      <Button onClick={onCompleteWork}>
+        {ready ? <CheckCircle2 className="mr-2 h-3.5 w-3.5" /> : null}
+        Complete Work
+      </Button>
+      {rows.length > 0 && (
+        <span className="text-[11px] text-muted-foreground">
+          {ready
+            ? "Everything standard is checked."
+            : `${outstanding} standard ${outstanding === 1 ? "step" : "steps"} still open`}
+        </span>
+      )}
+    </div>
+  );
+}
 
 export function ClientWorkTab({
+  client,
   clientId,
   current,
   nextAction,
   onCompleteWork,
 }: {
+  client: FulfillmentClient;
   clientId: string;
   /** The department row currently holding this file, or null. */
   current: DepartmentStatus | null;
@@ -78,7 +114,7 @@ export function ClientWorkTab({
         <Blocker clientId={clientId} department={department} canWork={canWork} />
 
         {canWork ? (
-          <Button className="mt-3" onClick={onCompleteWork}>Complete Work</Button>
+          <CompleteButton clientId={clientId} department={department} onCompleteWork={onCompleteWork} />
         ) : (
           <p className="mt-3 rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
             This file is with <span className="font-medium text-foreground">{department}</span>. You can
@@ -87,7 +123,14 @@ export function ClientWorkTab({
         )}
       </ContentCard>
 
+      {/* Standard actions first — an agent checks what they did rather than
+          typing it. Custom steps are secondary, for the unusual file. */}
       <Checklist clientId={clientId} department={department} canWork={canWork} />
+
+      {/* Posting an update while working. Removed in the consolidation and
+          restored: one post puts the note in History and any screenshot in
+          Documents, from the same write (Dee, 2026-09-12). */}
+      <ClientUpdateComposer client={client} />
 
       {canWork && <ClientWorkflowActions clientId={clientId} department={department} />}
     </div>
@@ -200,7 +243,7 @@ function Checklist({
     <ContentCard title={rows.length > 0 ? `Checklist (${done}/${rows.length})` : "Checklist"}>
       {rows.length === 0 ? (
         <p className="text-xs text-muted-foreground">
-          No steps yet. Add the ones this file needs — they stay with the {department} work.
+          No standard steps are configured for {department} yet.
         </p>
       ) : (
         <ul className="space-y-1">
@@ -242,8 +285,8 @@ function Checklist({
               actions.add.mutate({ label: adding, sort: rows.length });
               setAdding("");
             }}
-            placeholder="Add a step…"
-            aria-label="Add a checklist step"
+            placeholder="+ Add a custom step (unusual work only)"
+            aria-label="Add a custom step"
             className="h-8 text-xs"
           />
           <Button

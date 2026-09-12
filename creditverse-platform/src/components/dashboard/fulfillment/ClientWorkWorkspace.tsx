@@ -42,6 +42,7 @@ import { ClientWorkTab } from "./client/ClientWorkTab";
 import { ClientInfoTab } from "./client/ClientInfoTab";
 import { ClientDocumentsTab } from "./client/ClientDocumentsTab";
 import { ClientHistoryTab } from "./client/ClientHistoryTab";
+import { ClientUpdateComposer } from "./client/ClientUpdateComposer";
 import { CompleteWorkSection } from "./CompleteWorkSection";
 import { ClientLifecycleControl } from "./ClientLifecycleControl";
 import { ClientStatusControl } from "./ClientStatusControl";
@@ -129,6 +130,7 @@ export function ClientWorkWorkspace({
 
       {tab === "work" && (
         <ClientWorkTab
+          client={client}
           clientId={clientId}
           current={current}
           nextAction={(client as { nextAction?: string | null }).nextAction ?? null}
@@ -144,7 +146,14 @@ export function ClientWorkWorkspace({
         />
       )}
       {tab === "documents" && <ClientDocumentsTab clientId={clientId} />}
-      {tab === "history" && <ClientHistoryTab clientId={clientId} />}
+      {tab === "history" && (
+        <div className="space-y-3">
+          {/* The same composer as the Work tab: an agent reading the history
+              and wanting to add to it should not have to change tab. */}
+          <ClientUpdateComposer client={client} />
+          <ClientHistoryTab clientId={clientId} />
+        </div>
+      )}
 
       {/* ── COMPLETE WORK IS A DRAWER ──────────────────────────────────────
           Dee: "Do NOT permanently display the giant Complete Work form."

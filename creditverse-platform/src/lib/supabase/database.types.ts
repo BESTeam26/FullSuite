@@ -2647,6 +2647,50 @@ export type Database = {
           },
         ]
       }
+      creditops_checklist_templates: {
+        Row: {
+          active: boolean
+          agency_id: string
+          created_at: string
+          department: Database["public"]["Enums"]["fulfillment_department"]
+          id: string
+          label: string
+          required: boolean
+          sort: number
+          work_status: string | null
+        }
+        Insert: {
+          active?: boolean
+          agency_id: string
+          created_at?: string
+          department: Database["public"]["Enums"]["fulfillment_department"]
+          id?: string
+          label: string
+          required?: boolean
+          sort?: number
+          work_status?: string | null
+        }
+        Update: {
+          active?: boolean
+          agency_id?: string
+          created_at?: string
+          department?: Database["public"]["Enums"]["fulfillment_department"]
+          id?: string
+          label?: string
+          required?: boolean
+          sort?: number
+          work_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "creditops_checklist_templates_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       creditops_status_routing: {
         Row: {
           closes_department:
@@ -6427,6 +6471,7 @@ export type Database = {
           organization_id: string | null
           partner_contact_id: string | null
           partner_group_id: string | null
+          team_id: string | null
           token: string
         }
         Insert: {
@@ -6447,6 +6492,7 @@ export type Database = {
           organization_id?: string | null
           partner_contact_id?: string | null
           partner_group_id?: string | null
+          team_id?: string | null
           token?: string
         }
         Update: {
@@ -6467,6 +6513,7 @@ export type Database = {
           organization_id?: string | null
           partner_contact_id?: string | null
           partner_group_id?: string | null
+          team_id?: string | null
           token?: string
         }
         Relationships: [
@@ -6510,6 +6557,13 @@ export type Database = {
             columns: ["partner_group_id"]
             isOneToOne: false
             referencedRelation: "outsourcing_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invitations_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
             referencedColumns: ["id"]
           },
         ]
@@ -12094,6 +12148,57 @@ export type Database = {
           },
         ]
       }
+      report_recipients: {
+        Row: {
+          active: boolean
+          agency_id: string
+          created_at: string
+          created_by: string | null
+          email: string
+          id: string
+          label: string | null
+          report_kind: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          agency_id: string
+          created_at?: string
+          created_by?: string | null
+          email: string
+          id?: string
+          label?: string | null
+          report_kind: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          agency_id?: string
+          created_at?: string
+          created_by?: string | null
+          email?: string
+          id?: string
+          label?: string | null
+          report_kind?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_recipients_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_recipients_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       report_reconciliation: {
         Row: {
           bureau: string | null
@@ -15041,6 +15146,13 @@ export type Database = {
         Args: { p_client: string; p_consumer: string; p_org: string }
         Returns: boolean
       }
+      creditops_apply_checklist_template: {
+        Args: {
+          p_client: string
+          p_department: Database["public"]["Enums"]["fulfillment_department"]
+        }
+        Returns: number
+      }
       creditops_assign_agent: {
         Args: {
           p_assignee: string
@@ -15576,16 +15688,29 @@ export type Database = {
           kind: string
         }[]
       }
-      invite_agency_member: {
-        Args: {
-          p_email: string
-          p_lead_team?: string
-          p_modules?: string[]
-          p_profile?: Database["public"]["Enums"]["access_profile"]
-          p_role: Database["public"]["Enums"]["agency_role"]
-        }
-        Returns: string
-      }
+      invite_agency_member:
+        | {
+            Args: {
+              p_email: string
+              p_lead_team?: string
+              p_modules?: string[]
+              p_profile?: Database["public"]["Enums"]["access_profile"]
+              p_role: Database["public"]["Enums"]["agency_role"]
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_email: string
+              p_full_name?: string
+              p_lead_team?: string
+              p_modules?: string[]
+              p_profile?: Database["public"]["Enums"]["access_profile"]
+              p_role: Database["public"]["Enums"]["agency_role"]
+              p_team?: string
+            }
+            Returns: string
+          }
       invite_partner_contact: { Args: { p_contact: string }; Returns: string }
       invite_team_member: {
         Args: {
@@ -15603,6 +15728,7 @@ export type Database = {
       is_borrower_of_file: { Args: { p_file: string }; Returns: boolean }
       is_client_of: { Args: { p_client: string }; Returns: boolean }
       is_external_member: { Args: { p_org: string }; Returns: boolean }
+      is_financial_report: { Args: { p_kind: string }; Returns: boolean }
       is_lender_for_file: { Args: { p_file: string }; Returns: boolean }
       is_manager_of: { Args: { p_agency: string }; Returns: boolean }
       is_member_of_team: { Args: { p_team: string }; Returns: boolean }
@@ -16514,6 +16640,15 @@ export type Database = {
       }
       set_referral_code: {
         Args: { p_code: string; p_label?: string; p_org: string }
+        Returns: string
+      }
+      set_report_recipient: {
+        Args: {
+          p_active?: boolean
+          p_email: string
+          p_kind: string
+          p_label?: string
+        }
         Returns: string
       }
       set_work_schedule: {

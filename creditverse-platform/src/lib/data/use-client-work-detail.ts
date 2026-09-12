@@ -26,6 +26,9 @@ export interface ChecklistItem {
   sort: number;
 }
 
+/** Steps that came from the template sort below 1000; custom ones above. */
+export const CUSTOM_STEP_SORT = 1000;
+
 export interface ClientDocument {
   id: string;
   name: string;
@@ -39,6 +42,15 @@ export interface ClientDocument {
 
 const live = (a: ReturnType<typeof useAuth>) => a.mode === "live" && a.status === "signed-in";
 
+/**
+ * The steps for this department's work, standard ones included.
+ *
+ * The template is applied first, every read: a file that predates the
+ * templates — or one whose department just changed — gets its standard steps
+ * the first time somebody opens the tab, rather than needing a migration or a
+ * sweep. Idempotent on the database side, so a step already on the file,
+ * checked or not, is left exactly as it is (Dee, 2026-09-12).
+ */
 export function useWorkChecklist(clientId: string | null, department: Department | null) {
   const auth = useAuth();
   return useQuery({
@@ -47,6 +59,10 @@ export function useWorkChecklist(clientId: string | null, department: Department
     staleTime: 15_000,
     queryFn: async (): Promise<ChecklistItem[]> => {
       const sb = requireSupabase();
+      await sb.rpc("creditops_apply_checklist_template", {
+        p_client: clientId as string,
+        p_department: department as Department,
+      });
       const { data, error } = await sb
         .from("client_work_checklist")
         .select("id, label, done, done_at, sort")
