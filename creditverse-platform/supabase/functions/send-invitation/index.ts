@@ -113,23 +113,26 @@ Deno.serve(async (req) => {
   let subject: string;
   let content: Parameters<typeof sendEmail>[0]["content"];
   if (isPartner && contact?.is_primary) {
-    subject = `Welcome to your BES Partner Portal, ${firstName} \u{1F49B}`;
+    subject = `Activate your BES Partner Portal`;
     content = {
       brand: { ...brand, tagline: "Beyond Outsourcing. Your Business Growth Engine." },
-      heading: `Welcome, ${firstName}!`,
+      heading: `Welcome, ${firstName}`,
       paragraphs: [
         "Your BES Partner Portal is ready.",
         `This is where you can stay connected with our team, access shared files, check updates, and keep track of the services we\u2019re supporting for ${partnerName}.`,
         `Activate your account using ${email} and you\u2019re good to go.`,
       ],
       action: { label: "Activate My Portal", url: link },
-      footnote: `This link is valid for 7 days \u2014 if it expires, just let us know and we\u2019ll send you a new one. We\u2019re happy to have you with us. Welcome to BES! \u{1F49B} \u2014 Blessed Empire Services · Process. Systems. People. This invite is only for ${email}; if you weren\u2019t expecting it, you can ignore this email.`,
+      security: [
+        `This invitation is valid for 7 days and is intended only for ${email}.`,
+        "If you did not expect this invitation, you may safely ignore this email.",
+      ],
     };
   } else if (isPartner) {
-    subject = `You\u2019ve been invited to ${partnerName}\u2019s BES Portal`;
+    subject = `You have been invited to ${partnerName}\u2019s BES Partner Portal`;
     content = {
       brand: { ...brand, tagline: "Beyond Outsourcing. Your Business Growth Engine." },
-      heading: `Hi ${firstName}, welcome! \u{1F44B}`,
+      heading: `Hi ${firstName}, welcome`,
       paragraphs: [
         `You\u2019ve been invited to access ${partnerName}\u2019s BES Partner Portal.`,
         "This gives you access to the files, updates, resources, and areas your team has shared with you.",
@@ -137,24 +140,32 @@ Deno.serve(async (req) => {
         "You\u2019ll only see the areas connected to your role and access.",
       ],
       action: { label: "Activate My Access", url: link },
-      footnote: `This link is valid for 7 days \u2014 if it expires, your admin or the BES team can send you a new one. Glad to have you here! \u2014 Blessed Empire Services · Process. Systems. People. This invite is only for ${email}; if you weren\u2019t expecting it, you can ignore this email.`,
+      security: [
+        `This invitation is valid for 7 days and is intended only for ${email}.`,
+        "If it expires, your administrator or the BES team can send a new one.",
+        "If you did not expect this invitation, you may safely ignore this email.",
+      ],
     };
   } else if (isTeam) {
     /* The BES team's OWN welcome (Dee, 2026-09-10): internal, and deliberately
        NOT the partner copy above. Somebody joining BES is joining the company,
        so the brand line is the company's own rather than the outsourcing
        promise a partner is sold. */
-    subject = `Welcome to the ${agencyName} team \u{1F49B}`;
+    subject = `Activate your ${agencyName} account`;
     content = {
       brand: { ...brand, tagline: "Freedom isn’t found, it’s built with structure." },
-      heading: "Welcome to the team!",
+      heading: "Welcome to the team",
       paragraphs: [
         `You’ve been invited to join the ${agencyName} team.`,
         "This is where your work lives — the partners and clients you’re assigned to, your daily tasks, your time, and your end-of-day report, all in one place.",
         `Activate your account using ${email} and you’re all set.`,
       ],
       action: { label: "Activate My Account", url: link },
-      footnote: `This link is valid for 7 days — if it expires, just ask whoever invited you and we’ll send a new one. Welcome aboard! \u{1F49B} — ${agencyName} · Process. Systems. People. This invite is only for ${email}; if you weren’t expecting it, no account is created until you open the link.`,
+      security: [
+        `This invitation is valid for 7 days and is intended only for ${email}.`,
+        "If it expires, ask whoever invited you to send a new one.",
+        "If you did not expect this invitation, you may safely ignore this email — no account is created until the link is opened.",
+      ],
     };
   } else {
     /* A customer organization's own invitation: THEIR branding, neutral copy.
@@ -165,10 +176,12 @@ Deno.serve(async (req) => {
       heading: `You have been invited to ${brand.name}`,
       paragraphs: [
         `Activate your account to get started. You will be asked to sign in with this email address — ${email} — and the invitation only works for that address.`,
-        "The link is good for seven days. After that, ask whoever invited you to send a new one.",
       ],
       action: { label: "Activate my account", url: link },
-      footnote: "If you were not expecting this invitation, no account is created until you open the link.",
+      security: [
+        `This invitation is valid for 7 days and is intended only for ${email}.`,
+        "If you did not expect this invitation, you may safely ignore this email — no account is created until the link is opened.",
+      ],
     };
   }
 

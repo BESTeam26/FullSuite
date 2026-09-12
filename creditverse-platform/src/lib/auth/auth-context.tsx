@@ -33,6 +33,14 @@ export type Profile = Tables<"profiles">;
 export type AgencyMembership = Tables<"agency_memberships">;
 export type OrgMembership = Tables<"org_memberships">;
 export type ExternalMembership = Tables<"external_memberships">;
+/** The columns of `partner_contacts` identity needs — never the whole row. */
+export interface PartnerContact {
+  id: string;
+  group_id: string;
+  agency_id: string;
+  is_primary: boolean | null;
+  status: string | null;
+}
 export type TeamMembership = Tables<"team_memberships">;
 export type AgencyRole = Enums<"agency_role">;
 export type AccessScope = Enums<"access_scope">;
@@ -58,6 +66,8 @@ export interface AuthContextValue {
   agencyMembership: AgencyMembership | null;
   orgMemberships: OrgMembership[];
   externalMemberships: ExternalMembership[];
+  /** Partner organizations this person is an active contact of. */
+  partnerContacts: PartnerContact[];
   /** Derived helpers */
   /**
    * The agency this user acts for, from their own membership. Read this rather
@@ -170,12 +180,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     ExternalMembership[]
   >([]);
   const [teamMemberships, setTeamMemberships] = useState<TeamMembership[]>([]);
+  /**
+   * The partner organizations this person is a CONTACT of.
+   *
+   * A fourth kind of membership, and the one that was missing. Somebody
+   * invited to a Partner Portal has no agency membership, no organization
+   * membership and no external membership — their entire authorization is a
+   * `partner_contacts` row with their `user_id` on it. Until this was read,
+   * `hasAnyAccess` said false and a correctly invited, correctly activated
+   * partner met "No workspace access" (Dee's live test, 2026-09-12).
+   */
+  const [partnerContacts, setPartnerContacts] = useState<PartnerContact[]>([]);
 
   const readIdentity = useCallback(async (userId: string) => {
     if (!supabase) return;
     /* Team roster rides in the same parallel batch as the rest of identity —
        one round, resolved once per session, no waterfall (rule 14). */
-    const [p, am, om, em, tm] = await Promise.all([
+    const [p, am, om, em, tm, pc] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
       supabase
         .from("agency_memberships")
@@ -185,12 +206,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       supabase.from("org_memberships").select("*").eq("user_id", userId),
       supabase.from("external_memberships").select("*").eq("user_id", userId),
       supabase.from("team_memberships").select("*").eq("user_id", userId),
+      /* Rides in the same batch — a partner's whole authorization, resolved
+         in the one round with everything else (rule 14). `status` narrows to
+         a contact whose access has not been revoked; RLS already limits the
+         rows to their own. */
+      supabase
+        .from("partner_contacts")
+        .select("id, group_id, agency_id, is_primary, status")
+        .eq("user_id", userId)
+        .eq("status", "active"),
     ]);
     setProfile(p.data ?? null);
     setAgencyMembership(am.data ?? null);
     setOrgMemberships(om.data ?? []);
     setExternalMemberships(em.data ?? []);
     setTeamMemberships(tm.data ?? []);
+    setPartnerContacts((pc.data ?? []) as PartnerContact[]);
   }, []);
 
   /**
@@ -394,10 +425,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       agencyScope: agencyMembership?.scope ?? null,
       teamIds: teamMemberships.map((t) => t.team_id),
       ledTeamIds: teamMemberships.filter((t) => t.is_lead).map((t) => t.team_id),
+      partnerContacts,
       hasAnyAccess:
         isAgencyStaff ||
         orgMemberships.length > 0 ||
-        externalMemberships.length > 0,
+        externalMemberships.length > 0 ||
+        /* A partner contact IS authorized — to their own partner's portal and
+           to nothing else. Leaving this out is what turned a working
+           invitation into "No workspace access". */
+        partnerContacts.length > 0,
       displayName:
         profile?.full_name?.trim() ||
         profile?.email ||

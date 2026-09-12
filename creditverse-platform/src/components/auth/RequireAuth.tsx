@@ -4,7 +4,16 @@
  * - loading      → spinner
  * - signed-out   → redirect to /login (remembering where the user was going)
  * - signed-in but zero memberships → "no workspace access" screen
+ * - signed-in with ONLY a partner-contact relationship → their Partner Portal
+ * - signed-in with ONLY a borrower relationship → their funding portal
  * - otherwise    → render children
+ *
+ * "Zero memberships" counts FOUR kinds, not two: agency staff, organization
+ * member, external/borrower, and partner contact. The last was missing, so a
+ * partner who accepted a valid invitation and activated correctly was told
+ * their account "has not been added to an agency or organization yet" — true,
+ * and not the question that should have been asked (Dee's live test,
+ * 2026-09-12).
  */
 import { Navigate, useLocation } from "react-router-dom";
 import type { ReactNode } from "react";
@@ -49,7 +58,7 @@ const NoAccess = () => {
 };
 
 export const RequireAuth = ({ children }: { children: ReactNode }) => {
-  const { status, hasAnyAccess, mode, agencyMembership, orgMemberships, externalMemberships } = useAuth();
+  const { status, hasAnyAccess, mode, agencyMembership, orgMemberships, externalMemberships, partnerContacts } = useAuth();
   const location = useLocation();
 
   /* Resolving the session is the longest part of a cold load. On a workspace
@@ -67,6 +76,21 @@ export const RequireAuth = ({ children }: { children: ReactNode }) => {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
   if (mode === "live" && !hasAnyAccess) return <NoAccess />;
+
+  /* ── WHERE AN AUTHENTICATED PERSON ACTUALLY BELONGS ──────────────────────
+     Authentication says who they are; these say what they are entitled to.
+     Somebody with no BES-internal membership has no business in the staff
+     shell — it would show them "nothing here" at best, and the navigation of
+     an operation they are not part of at worst.
+
+     Checked before the borrower case because a partner contact is the
+     narrower, newer relationship; a person who is BOTH staff and a partner
+     contact keeps the workspace and reaches the portal by its own URL, which
+     is the multi-context behaviour Dee asked for. */
+  const partnerOnly =
+    mode === "live" && !agencyMembership && orgMemberships.length === 0 && partnerContacts.length > 0;
+  if (partnerOnly && location.pathname.startsWith("/app")) return <Navigate to="/partner" replace />;
+
   /* A borrower (external `client` membership and nothing else) has no workspace: the staff shell would
      only show them "nothing here". Their surface is the portal (Addendum D). */
   const borrowerOnly = mode === "live" && !agencyMembership && orgMemberships.length === 0 && externalMemberships.length > 0 && externalMemberships.every((m) => m.role === "client");

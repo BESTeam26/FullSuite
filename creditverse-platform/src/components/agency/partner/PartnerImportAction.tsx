@@ -12,6 +12,8 @@
  * even if they call the function directly.
  */
 import { useState } from "react";
+import { cn } from "@/lib/utils";
+import { describeClickUpRef, parseClickUpListRef } from "@/lib/migration/clickup-list-ref";
 import { DownloadCloud, Loader2 } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -60,15 +62,39 @@ export function PartnerImportAction({ partner }: { partner: AgencyPartner & { so
     }
   };
 
+  /* Understood as you type, so a wrong link is refused before it is stored
+     rather than after it has imported somebody else's clients. */
+  const parsed = parseClickUpListRef(listInput);
+
   const link = async () => {
-    const digits = listInput.replace(/\D/g, "");
-    if (!digits) return;
+    if (!parsed) return;
     try {
-      await actions.update.mutateAsync({ id: partner.id, patch: { sourceListRef: `clickup:list:${digits}` } });
-      toast({ title: "ClickUp list linked", description: "Future imports will use it automatically." });
+      await actions.update.mutateAsync({ id: partner.id, patch: { sourceListRef: parsed.ref } });
+      toast({ title: "ClickUp list linked", description: describeClickUpRef(parsed) });
       setLinking(false);
+      setListInput("");
     } catch (e) {
       toast({ title: "Could not link the list", description: (e as Error).message, variant: "destructive" });
+    }
+  };
+
+  /**
+   * Unlink the list. Deliberately NOT "delete the import".
+   *
+   * It forgets WHERE to import from next time and touches nothing that was
+   * ever imported — every client, comment, attachment and credential stays
+   * exactly where it is, and the crosswalk that makes a re-run update rather
+   * than duplicate is untouched. Linking the same list again resumes.
+   */
+  const unlink = async () => {
+    try {
+      await actions.update.mutateAsync({ id: partner.id, patch: { sourceListRef: null } });
+      toast({
+        title: "ClickUp list unlinked",
+        description: "Nothing already imported was changed.",
+      });
+    } catch (e) {
+      toast({ title: "Could not unlink the list", description: (e as Error).message, variant: "destructive" });
     }
   };
 
@@ -85,7 +111,27 @@ export function PartnerImportAction({ partner }: { partner: AgencyPartner & { so
           {running ? "Importing…" : "Import from ClickUp"}
         </Button>
         {listId ? (
-          <span className="text-xs text-muted-foreground">List {listId}</span>
+          /* The list id was read-only text, so a wrong one could not be
+             corrected and a stale one could not be removed (Dee,
+             2026-09-12). */
+          <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+            <span>List {listId}</span>
+            <button
+              type="button"
+              onClick={() => { setListInput(listId); setLinking(true); }}
+              className="font-medium text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Change
+            </button>
+            <button
+              type="button"
+              disabled={actions.update.isPending}
+              onClick={() => void unlink()}
+              className="font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+            >
+              Unlink
+            </button>
+          </span>
         ) : (
           <span className="text-xs text-muted-foreground">No ClickUp list linked yet</span>
         )}
@@ -136,19 +182,27 @@ export function PartnerImportAction({ partner }: { partner: AgencyPartner & { so
           <AlertDialogHeader>
             <AlertDialogTitle>Link a ClickUp list to {partner.name}</AlertDialogTitle>
             <AlertDialogDescription>
-              Paste the ClickUp list id once. It is stored on the partner, so imports never ask
-              again and never match this partner by name.
+              Paste the ClickUp address from your browser — open the list in ClickUp and copy the
+              URL. It is stored on the partner, so imports never ask again and never match this
+              partner by name.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <Input
             value={listInput}
             onChange={(e) => setListInput(e.target.value)}
-            placeholder="901821115879"
-            aria-label="ClickUp list id"
+            placeholder="https://app.clickup.com/25798251/v/li/901821115879"
+            aria-label="ClickUp list address"
           />
+          {listInput.trim() !== "" && (
+            <p className={cn("text-xs", parsed ? "text-muted-foreground" : "text-status-danger")}>
+              {parsed
+                ? describeClickUpRef(parsed)
+                : "That is not a ClickUp list address. Open the list in ClickUp and copy the URL from the address bar."}
+            </p>
+          )}
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={(e) => { e.preventDefault(); void link(); }}>
+            <AlertDialogAction disabled={!parsed} onClick={(e) => { e.preventDefault(); void link(); }}>
               Link list
             </AlertDialogAction>
           </AlertDialogFooter>

@@ -81,10 +81,13 @@ Deno.serve(async (req) => {
       heading: `Hi ${firstName}, a document is waiting for your signature`,
       paragraphs: [
         `${brand.name} has sent you "${r.title}" to review and sign. Open it, read it through, type your full name, and you are done — no account or printing needed.`,
-        `This link is only for ${r.signer_email} and stays valid until ${expires}. If it expires, ask the sender for a new one.`,
       ],
       action: { label: "Review and sign", url: link },
-      footnote: `${brand.name} · Process. Systems. People. If you were not expecting this document, you can ignore this email; nothing is signed until you sign it.`,
+      security: [
+        `This link is valid until ${expires} and is intended only for ${r.signer_email}.`,
+        "If it expires, ask the sender for a new one.",
+        "If you did not expect this document, you may safely ignore this email — nothing is signed until you sign it.",
+      ],
     },
   });
 

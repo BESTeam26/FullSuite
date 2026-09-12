@@ -90,7 +90,12 @@ Deno.serve(async (req) => {
         "The quickest way in: add your logo and colour, invite the people who will work with you, then add your first client and import their credit report. The Getting started card on your home page walks through it and disappears once you are done.",
       ],
       action: { label: "Open your workspace", url: `${origin}/app` },
-      footnote: "Anything you need, reply to this email and it reaches the BES team.",
+      security: [
+        /* Not a credential email — nothing here grants access — so the
+           closing is the one thing a new customer needs: how to reach a
+           person. The structure stays identical to every other message. */
+        "Anything you need, reply to this email and it reaches the BES team.",
+      ],
     },
   });
 

@@ -10,6 +10,17 @@
  * Kept deliberately plain: a table-free single column, inline styles, no
  * external CSS and no web fonts. Email clients strip most of it anyway, and
  * anything that fails to load must still leave a readable message and a link.
+ *
+ * ── THE CLOSING IS STRUCTURED, NOT PROSE ───────────────────────────────────
+ *
+ * Every message ends the same way: the action, then the security block (how
+ * long it is good for, who it is for, what to do if unexpected), then the
+ * signature. Dee, 2026-09-12: "For this kind of email, the right tone is
+ * professional, warm, concise, secure."
+ *
+ * It used to end in a free-text footnote that had grown into a paragraph, and
+ * then a SECOND footer outside the card repeating the same "if you were not
+ * expecting this" sentence. Both are gone.
  */
 
 export interface EmailBrand {
@@ -52,7 +63,18 @@ export interface EmailContent {
   /** One or two short paragraphs. Plain text; it is escaped. */
   paragraphs: string[];
   action?: { label: string; url: string };
-  /** Small print under the button — what to do if the button fails, etc. */
+  /**
+   * The closing block: how long this is good for, who it is for, and what to
+   * do if it was unexpected.
+   *
+   * One line per sentence, because this is the part a cautious reader
+   * actually reads. It used to be a single free-text `footnote` and had
+   * become a paragraph — validity, a reassurance, an emoji, the company
+   * name, the tagline and the security notice all run together — which Dee
+   * rightly called marketing copy on a security email (2026-09-12).
+   */
+  security?: string[];
+  /** Anything else small under the button. Rare; prefer `security`. */
   footnote?: string;
 }
 
@@ -90,6 +112,23 @@ export function renderEmail(content: EmailContent): string {
     ? `<p style="margin:16px 0 0;font-size:12px;line-height:1.6;color:#64748b">${escapeHtml(content.footnote)}</p>`
     : "";
 
+  const security = (content.security ?? []).length
+    ? `<div style="margin:20px 0 0;padding-top:16px;border-top:1px solid #e2e8f0">
+         ${(content.security ?? [])
+           .map((line) => `<p style="margin:0 0 8px;font-size:12px;line-height:1.6;color:#64748b">${escapeHtml(line)}</p>`)
+           .join("")}
+       </div>`
+    : "";
+
+  /* The signature closes the message. It replaced a second footer OUTSIDE the
+     card that repeated "Sent by <name>. If you were not expecting this, you
+     can ignore it." — the same sentence the security block already says, in a
+     second place (Dee, 2026-09-12). */
+  const signature = `<div style="margin:16px 0 0;font-size:12px;line-height:1.5;color:#475569">
+      <div style="font-weight:600;color:#334155">${name}</div>
+      ${content.brand.tagline ? `<div>${escapeHtml(content.brand.tagline)}</div>` : ""}
+    </div>`;
+
   const tagline = content.brand.tagline
     ? `<div style="font-size:12px;color:#64748b;text-align:center">${escapeHtml(content.brand.tagline)}</div>`
     : "";
@@ -105,10 +144,9 @@ export function renderEmail(content: EmailContent): string {
       ${body}
       ${button}
       ${footnote}
+      ${security}
+      ${signature}
     </div>
-  </div>
-  <div style="max-width:560px;margin:12px auto 0;text-align:center;font-size:11px;color:#94a3b8">
-    Sent by ${name}. If you were not expecting this, you can ignore it.
   </div>
 </body></html>`;
 }
@@ -118,7 +156,9 @@ export function renderEmailText(content: EmailContent): string {
   const lines = [content.brand.name, "", content.heading, "", ...content.paragraphs];
   if (content.action) lines.push("", `${content.action.label}: ${content.action.url}`);
   if (content.footnote) lines.push("", content.footnote);
-  lines.push("", `Sent by ${content.brand.name}. If you were not expecting this, you can ignore it.`);
+  for (const line of content.security ?? []) lines.push("", line);
+  lines.push("", content.brand.name);
+  if (content.brand.tagline) lines.push(content.brand.tagline);
   return lines.join("\n");
 }
 
