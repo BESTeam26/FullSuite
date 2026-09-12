@@ -40,7 +40,8 @@ interface OpsGlobalQueueProps<T extends OpsClient, P extends OpsPartner> {
   resolvePartner: (client: T) => P | undefined;
   groupLabel: (group: string | undefined) => string;
   /** The one division-specific column: dispute Round vs Requested amount. */
-  detailColumn: OpsGlobalQueueColumn<T>;
+  /** Narrow columns between Service Group and the status pill. */
+  detailColumns: OpsGlobalQueueColumn<T>[];
   /** "Queue Status" in CreditOps, "Stage Status" in FundingOps. */
   statusColumnLabel: string;
   statusOptions: readonly string[];
@@ -93,7 +94,7 @@ export function OpsGlobalQueue<T extends OpsClient, P extends OpsPartner>({
   partners,
   resolvePartner,
   groupLabel,
-  detailColumn,
+  detailColumns,
   statusColumnLabel,
   statusOptions,
   renderStatusPill,
@@ -223,7 +224,7 @@ export function OpsGlobalQueue<T extends OpsClient, P extends OpsPartner>({
                 "Client",
                 "Partner",
                 "Service Group",
-                detailColumn.label,
+                ...detailColumns.map((c) => c.label),
                 statusColumnLabel,
                 "Assigned Agent",
                 "SLA",
@@ -242,7 +243,7 @@ export function OpsGlobalQueue<T extends OpsClient, P extends OpsPartner>({
             {visible.length === 0 ? (
               <tr>
                 <td
-                  colSpan={8}
+                  colSpan={7 + detailColumns.length}
                   className="px-3 py-6 text-center text-muted-foreground"
                 >
                   No clients in this queue.
@@ -269,9 +270,11 @@ export function OpsGlobalQueue<T extends OpsClient, P extends OpsPartner>({
                     <td className="px-3 py-2.5 text-muted-foreground">
                       {groupLabel(partner?.group)}
                     </td>
-                    <td className="px-3 py-2.5 font-semibold text-foreground">
-                      {detailColumn.render(c)}
-                    </td>
+                    {detailColumns.map((col) => (
+                      <td key={col.label} className="px-3 py-2.5 font-semibold text-foreground">
+                        {col.render(c)}
+                      </td>
+                    ))}
                     <td
                       className="px-3 py-2.5"
                       onClick={(e) => {

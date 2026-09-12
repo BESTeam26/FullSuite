@@ -2649,6 +2649,9 @@ export type Database = {
       }
       creditops_status_routing: {
         Row: {
+          closes_department:
+            | Database["public"]["Enums"]["fulfillment_department"]
+            | null
           department:
             | Database["public"]["Enums"]["fulfillment_department"]
             | null
@@ -2661,6 +2664,9 @@ export type Database = {
           status: Database["public"]["Enums"]["fulfillment_client_status"]
         }
         Insert: {
+          closes_department?:
+            | Database["public"]["Enums"]["fulfillment_department"]
+            | null
           department?:
             | Database["public"]["Enums"]["fulfillment_department"]
             | null
@@ -2673,6 +2679,9 @@ export type Database = {
           status: Database["public"]["Enums"]["fulfillment_client_status"]
         }
         Update: {
+          closes_department?:
+            | Database["public"]["Enums"]["fulfillment_department"]
+            | null
           department?:
             | Database["public"]["Enums"]["fulfillment_department"]
             | null
@@ -13874,6 +13883,73 @@ export type Database = {
           updated_at: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "client_department_statuses_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "fulfillment_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fulfillment_clients_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fulfillment_clients_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fulfillment_clients_outsourcing_group_id_fkey"
+            columns: ["outsourcing_group_id"]
+            isOneToOne: false
+            referencedRelation: "outsourcing_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      creditops_department_queue: {
+        Row: {
+          actionable: boolean | null
+          agency_id: string | null
+          assignee_id: string | null
+          assignee_name: string | null
+          assignment_method: string | null
+          blocked_reason: string | null
+          client_email: string | null
+          client_id: string | null
+          client_name: string | null
+          client_phone: string | null
+          client_public_id: string | null
+          credit_status:
+            | Database["public"]["Enums"]["fulfillment_client_status"]
+            | null
+          department:
+            | Database["public"]["Enums"]["fulfillment_department"]
+            | null
+          due_at: string | null
+          organization_id: string | null
+          outsourcing_group_id: string | null
+          partner_name: string | null
+          partner_scope_id: string | null
+          round: Database["public"]["Enums"]["fulfillment_round"] | null
+          updated_at: string | null
+          waiting: boolean | null
+          work_status: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_department_statuses_assignee_id_fkey"
+            columns: ["assignee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "client_department_statuses_client_id_fkey"
             columns: ["client_id"]

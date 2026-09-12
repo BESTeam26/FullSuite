@@ -158,11 +158,11 @@ export function FundingGlobalQueue({ queueType, onOpenClient }: Props) {
         getFundingPartnerByScope(c.organizationId ?? c.outsourcingGroupId ?? "")
       }
       groupLabel={(g) => GROUP_LABELS[g ?? ""] ?? "FundingOps Users"}
-      detailColumn={{
+      detailColumns={[{
         label: "Requested",
         render: (c) =>
           c.totalRequested ? formatCurrency(c.totalRequested) : "—",
-      }}
+      }]}
       statusColumnLabel="Stage Status"
       statusOptions={FUNDING_ALL_STATUSES}
       renderStatusPill={(status) => <FundingStatusPill status={status} />}

@@ -33,6 +33,7 @@ import { OpsGlobalQueue } from "./OpsGlobalQueue";
 import { usePartners } from "@/lib/data/use-partners";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useDepartmentRoster } from "@/lib/data/use-department-roster";
+import { useDepartmentQueue } from "@/lib/data/use-department-queue";
 import type { CreditOpsDepartment } from "@/lib/fulfillment/creditops-access";
 
 interface Props {
@@ -141,10 +142,46 @@ export function CreditOpsGlobalQueue({ queueType, partnerScope = null }: Props) 
   const unassignedIsException = department !== "Support";
 
   const spec = QUEUE_SPECS[queueType] ?? QUEUE_SPECS["dispute-queue"];
-  const queueClients = useMemo(
-    () => store.clients.filter(spec.filterFn),
-    [store.clients, spec],
-  );
+  /**
+   * MEMBERSHIP COMES FROM DEPARTMENT WORK, NOT FROM CREDIT STATUS.
+   *
+   * This was `store.clients.filter(spec.filterFn)` over the client's overall
+   * credit status. Complaints' predicate was `() => true`, so the Complaints
+   * queue listed every client BES had — including files whose statuses were
+   * `In Dispute` and `Onboarding` (Dee's screenshot, 2026-09-12).
+   *
+   * `creditops_department_queue` is one open department row per line. The
+   * status shown is THAT DEPARTMENT'S; the client's overall stage is its own
+   * column beside it, never conflated with it.
+   *
+   * The Escalation Queue has no department of its own — it spans them — so it
+   * keeps the client-level predicate it always had.
+   */
+  const queue = useDepartmentQueue(department ?? null);
+  const queueClients = useMemo(() => {
+    if (!department) return store.clients.filter(spec.filterFn);
+    return queue.rows.map((r) => ({
+      id: r.clientId,
+      name: r.clientName,
+      email: r.clientEmail ?? "",
+      phone: r.clientPhone ?? undefined,
+      /* The DEPARTMENT's work status drives the Queue Status column. */
+      status: r.workStatus,
+      round: r.round,
+      organizationId: r.partnerScopeId ?? undefined,
+      outsourcingGroupId: r.partnerScopeId ?? undefined,
+      assignedAgent: r.assigneeName ?? undefined,
+      assignedAgentId: r.assigneeId,
+      slaHoursRemaining: r.dueAt
+        ? Math.round(((new Date(r.dueAt).getTime() - Date.now()) / 3_600_000) * 10) / 10
+        : undefined,
+      lastActivity: r.updatedAt,
+      createdAt: r.updatedAt.slice(0, 10),
+      /* Carried for the extra columns and the ownership filter. */
+      creditStatus: r.creditStatus,
+      waiting: r.waiting,
+    })) as unknown as FulfillmentClient[];
+  }, [department, queue.rows, store.clients, spec]);
 
   if (openClientId) {
     return (
@@ -179,7 +216,21 @@ export function CreditOpsGlobalQueue({ queueType, partnerScope = null }: Props) 
         return livePartners.find((p) => p.scopeId === scope);
       }}
       groupLabel={(g) => GROUP_LABELS[g ?? ""] ?? "CreditOps Users"}
-      detailColumn={{ label: "Round", render: (c) => c.round }}
+      detailColumns={[
+        { label: "Round", render: (c) => c.round },
+        /* The client's overall stage, beside the department's own status and
+           never standing in for it (Dee, 2026-09-12). */
+        ...(department
+          ? [{
+              label: "Credit Status",
+              render: (c: FulfillmentClient) => (
+                <span className="text-xs font-normal text-muted-foreground">
+                  {(c as unknown as { creditStatus?: string }).creditStatus ?? "—"}
+                </span>
+              ),
+            }]
+          : []),
+      ]}
       statusColumnLabel="Queue Status"
       statusOptions={ALL_STATUS_OPTIONS}
       renderStatusPill={(status) => <FulfillmentStatusPill status={status} />}
@@ -190,17 +241,16 @@ export function CreditOpsGlobalQueue({ queueType, partnerScope = null }: Props) 
       ownership={
         department
           ? {
+              /* Straight off the queue row — no second lookup, and no chance
+                 of the filter and the column disagreeing. */
               resolve: (c) => {
-                const row = store
-                  .getDepartmentStatuses(c.id)
-                  .find((d) => d.department === department);
+                const row = queue.rows.find((r) => r.clientId === c.id);
                 return {
                   assigneeId: row?.assigneeId ?? null,
-                  assigneeName: row?.assigneeId ? (row.assignee ?? null) : null,
+                  assigneeName: row?.assigneeName ?? null,
                   /* Only an auto-distributed department can FAIL to place a
                      file; Support leaving it unassigned is a decision. */
-                  assignmentRequired:
-                    unassignedIsException && !row?.assigneeId,
+                  assignmentRequired: unassignedIsException && !row?.assigneeId,
                 };
               },
               agents: roster,

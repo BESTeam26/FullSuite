@@ -424,5 +424,82 @@ check("35 — no BES assignee while the partner holds it",
      where client_id::text like 'cccccccc%' and assignee_id is not null;`)[0],
   { assigned: 0 });
 
+console.log("\nPARTNER CONFIRMATION RETURNS HOME");
+
+check("36 — the request remembers which workflow asked",
+  probe(`${makeClients(1, "Ready for Processing")}
+    update fulfillment_clients set status='For Partner Confirmation' where id::text like 'cccccccc%';
+    select origin_status::text, origin_department::text, needs_routing_review
+      from partner_action_items where fulfillment_client_id::text like 'cccccccc%';`)[0],
+  { origin_status: "Ready for Processing", origin_department: "Dispute", needs_routing_review: false });
+
+check("37 — a Support request records Support, not Processing",
+  probe(`${makeClients(1, "On Hold (Non Workable)")}
+    update fulfillment_clients set status='For Partner Confirmation' where id::text like 'cccccccc%';
+    select origin_status::text, origin_department::text
+      from partner_action_items where fulfillment_client_id::text like 'cccccccc%';`)[0],
+  { origin_status: "On Hold (Non Workable)", origin_department: "Support" });
+
+console.log("\nQUEUES READ DEPARTMENT WORK");
+
+check("38 — In Dispute with no complaints work is NOT in the Complaints queue",
+  probe(`${makeClients(1, "In Dispute")}
+    select count(*)::int as rows from creditops_department_queue
+     where client_id::text like 'cccccccc%' and department='Complaints';`)[0],
+  { rows: 0 });
+
+check("39 — …and IS in the Complaints queue once complaints work exists",
+  probe(`${makeClients(1, "In Dispute")}
+    insert into client_department_statuses (client_id, department, status)
+      select id, 'Complaints', 'LETTERS PENDING' from fulfillment_clients where id::text like 'cccccccc%';
+    select count(*)::int as rows from creditops_department_queue
+     where client_id::text like 'cccccccc%' and department='Complaints';`)[0],
+  { rows: 1 });
+
+check("40 — the queue's status is the DEPARTMENT's, not the client's credit status",
+  probe(`${makeClients(1, "In Dispute")}
+    insert into client_department_statuses (client_id, department, status)
+      select id, 'Complaints', 'LETTERS PENDING' from fulfillment_clients where id::text like 'cccccccc%';
+    select work_status, credit_status::text from creditops_department_queue
+     where client_id::text like 'cccccccc%' and department='Complaints';`)[0],
+  { work_status: "LETTERS PENDING", credit_status: "In Dispute" });
+
+check("41 — a waiting round is in Dispute as WAITING, not actionable",
+  probe(`${makeClients(1, "Round Sent - Awaiting Results")}
+    select department::text, actionable, waiting from creditops_department_queue
+     where client_id::text like 'cccccccc%';`)[0],
+  { department: "Dispute", actionable: false, waiting: true });
+
+check("42 — Ready For Reimport goes to Support and CLOSES the dispute work",
+  probe(`${makeClients(1, "Round Sent - Awaiting Results")}
+    update fulfillment_clients set status='Ready For Reimport/ Credit Update' where id::text like 'cccccccc%';
+    select
+      (select count(*)::int from creditops_department_queue
+        where client_id::text like 'cccccccc%' and department='Support') as in_support,
+      (select count(*)::int from creditops_department_queue
+        where client_id::text like 'cccccccc%' and department='Dispute') as in_dispute;`)[0],
+  { in_support: 1, in_dispute: 0 });
+
+check("43 — resolved department work leaves the queue",
+  probe(`${makeClients(1, "For Complaints")}
+    update client_department_statuses set status='CM COMPLETED'
+     where client_id::text like 'cccccccc%' and department='Complaints';
+    select count(*)::int as rows from creditops_department_queue where client_id::text like 'cccccccc%';`)[0],
+  { rows: 0 });
+
+check("44 — an archived client leaves every queue",
+  probe(`${makeClients(1, "For Complaints")}
+    update fulfillment_clients set lifecycle='archived', archived_at=now() where id::text like 'cccccccc%';
+    select count(*)::int as rows from creditops_department_queue where client_id::text like 'cccccccc%';`)[0],
+  { rows: 0 });
+
+check("45 — two legitimate department workstreams put the client in both queues",
+  probe(`${makeClients(1, "In Dispute")}
+    insert into client_department_statuses (client_id, department, status)
+      select id, 'Complaints', 'FTC FILED' from fulfillment_clients where id::text like 'cccccccc%';
+    select count(distinct department)::int as queues from creditops_department_queue
+     where client_id::text like 'cccccccc%';`)[0],
+  { queues: 2 });
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail === 0 ? 0 : 1);
