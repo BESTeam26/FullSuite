@@ -7094,10 +7094,16 @@ if (runs(72)) {
                         select category_source || ':' || (operational_category_id = '${MANAGED72}')::text as rows
                           from public.fulfillment_engagements where id='${ENG72}'`),
       "auto:true"],
+    /* The DELTA, not the total: counting every such row in the table passed
+       only while there happened to be none, and started failing the moment
+       real moves existed. */
     ["a move is on the partner's timeline",
-      () => p72(OWN72, `select public.set_engagement_category('${ENG72}', '${OUTSRC72}');
-                        select count(*)::int as rows from public.activity_events
-                         where action='Moved between categories' and field='operational_category'`),
+      () => p72(OWN72, `create temp table b72c on commit drop as
+                          select count(*) as n from public.activity_events
+                           where action='Moved between categories';
+                        select public.set_engagement_category('${ENG72}', '${OUTSRC72}');
+                        select ((select count(*) from public.activity_events
+                                  where action='Moved between categories') - (select n from b72c))::int as rows`),
       1],
     ["the automatic rule never files a complete record under Needs Review",
       () => q(`select count(*)::int as rows from public.fulfillment_engagements e
@@ -7340,18 +7346,214 @@ if (runs(74)) {
                         select due_at::date::text as rows from public.fulfillment_clients where id='${CL74}'`),
       "2026-10-01"],
 
-    ["a department with no policy gets no invented due date",
+    /* Superseded by the canonical policy (0314): Dee's rule is that every
+       actionable queue has a deadline, defaulting to 24 hours, because a queue
+       with no deadline is how work goes quiet. So the assertion inverts. */
+    ["a queue with no specific rule still gets the 24-hour default",
       () => p74(OWN74, `select public.enter_department_queue('${CL74}', 'Bureau Calling', 'BC NEEDED');
-                        select coalesce(system_due_at::text,'none') as rows
+                        select round(extract(epoch from (system_due_at - opened_at))/3600)::int as rows
                           from public.client_department_statuses
                          where client_id='${CL74}' and department='Bureau Calling'`),
-      "none"],
+      24],
 
     ["anon reaches none of it",
       () => { try { q(`begin; set local role anon; select public.mark_client_mailed('${CL74}', now()); rollback;`); return "allowed"; } catch { return "refused"; } },
       "refused"],
   ];
   runPhase("phase 74", P74, { strict: true });
+}
+
+if (runs(75)) {
+  startPhase("phase 75");
+  /* THE CANONICAL SLA POLICY (0314/0315) — Dee's 21 acceptance tests.
+   *
+   * Every rule is a row in `sla_policies`, so these probe the policy and the
+   * sweep rather than any rendered number. The sweep is called directly
+   * instead of waiting for cron: what is under test is the decision it makes,
+   * not that pg_cron fires.
+   */
+  const p75 = (uid, sql) => {
+    try {
+      return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows;
+    } catch (e) {
+      const m = (String(e.message) + String(e.stdout ?? "")).match(/ERROR:\s*(\w+):/);
+      return "ERR " + (m ? m[1] : "unknown");
+    }
+  };
+  /* The sweep is not granted to `authenticated` — it is cron's. Called as the
+     harness, which is how cron calls it. */
+  const OWN75 = U["bes.owner@bes.test"], AGENT75 = U["bes.credit@bes.test"];
+  const CL75 = q(`select fc.id::text as rows from public.fulfillment_clients fc
+                   where fc.outsourcing_group_id is not null and fc.archived_at is null
+                   order by fc.created_at limit 1`)[0].rows;
+  /* A run as the harness role, so the sweep (cron's, not a user's) can be
+     exercised alongside user-level setup. */
+  const run = (sql) => {
+    try { return q(`begin; ${sql}; rollback;`)[0].rows; }
+    catch (e) {
+      const m = (String(e.message) + String(e.stdout ?? "")).match(/ERROR:\s*(\w+):/);
+      return "ERR " + (m ? m[1] : "unknown");
+    }
+  };
+  const enter = (status, dept, openedAgo) =>
+    `insert into public.client_department_statuses (client_id, department, status, opened_at)
+     values ('${CL75}', '${dept}', '${status}', now() - interval '${openedAgo}')
+     on conflict (client_id, department) do update
+       set status = excluded.status, opened_at = excluded.opened_at, cycle_number = 1,
+           needs_lead_review = false;`;
+
+  const P75 = [
+    ["6 — Ready for Round 1 is 24 hours",
+      () => run(`${enter('Ready for Round 1', 'Onboarding', '0 hours')}
+                 select round(extract(epoch from (system_due_at - opened_at))/3600)::int as rows
+                   from public.client_department_statuses
+                  where client_id='${CL75}' and department='Onboarding'`), 24],
+
+    ["7 — Ready for Processing is 72 hours",
+      () => run(`${enter('Ready for Processing', 'Onboarding', '0 hours')}
+                 select round(extract(epoch from (system_due_at - opened_at))/3600)::int as rows
+                   from public.client_department_statuses
+                  where client_id='${CL75}' and department='Onboarding'`), 72],
+
+    ["9 — a complaint is 120 hours",
+      () => run(`${enter('CFPB Needed', 'Complaints', '0 hours')}
+                 select round(extract(epoch from (system_due_at - opened_at))/3600)::int as rows
+                   from public.client_department_statuses
+                  where client_id='${CL75}' and department='Complaints'`), 120],
+
+    ["10 — support is 24 hours",
+      () => run(`${enter('Needs Response', 'Support', '0 hours')}
+                 select round(extract(epoch from (system_due_at - opened_at))/3600)::int as rows
+                   from public.client_department_statuses
+                  where client_id='${CL75}' and department='Support'`), 24],
+
+    ["11 — mailed is 720 hours, and waiting",
+      () => run(`${enter('Mailed', 'Dispute', '0 hours')}
+                 select (round(extract(epoch from (system_due_at - opened_at))/3600)::int::text
+                         || ' ' || public.department_is_waiting((select agency_id from public.fulfillment_clients where id='${CL75}'), 'Dispute', 'Mailed')::text) as rows
+                   from public.client_department_statuses
+                  where client_id='${CL75}' and department='Dispute'`), "720 true"],
+
+    ["16 — an unknown actionable queue falls back to 24 hours",
+      () => run(`${enter('Some Queue Nobody Defined', 'Bureau Calling', '0 hours')}
+                 select round(extract(epoch from (system_due_at - opened_at))/3600)::int as rows
+                   from public.client_department_statuses
+                  where client_id='${CL75}' and department='Bureau Calling'`), 24],
+
+    ["1 — an incomplete onboarding starts at follow-up 1 of 3",
+      () => run(`${enter('OB INCOMPLETE', 'Onboarding', '0 hours')}
+                 select (cycle_number::text || ' of ' ||
+                         (public.sla_policy_for((select agency_id from public.fulfillment_clients where id='${CL75}'),'Onboarding','OB INCOMPLETE')).max_cycles::text) as rows
+                   from public.client_department_statuses
+                  where client_id='${CL75}' and department='Onboarding'`), "1 of 3"],
+
+    ["2 — unresolved after 24 hours schedules follow-up 2",
+      () => run(`${enter('OB INCOMPLETE', 'Onboarding', '25 hours')}
+                 select public.sla_sweep();
+                 select cycle_number as rows from public.client_department_statuses
+                  where client_id='${CL75}' and department='Onboarding'`), 2],
+
+    ["3 — and then follow-up 3",
+      () => run(`${enter('OB INCOMPLETE', 'Onboarding', '25 hours')}
+                 update public.client_department_statuses set cycle_number = 2
+                  where client_id='${CL75}' and department='Onboarding';
+                 select public.sla_sweep();
+                 select cycle_number as rows from public.client_department_statuses
+                  where client_id='${CL75}' and department='Onboarding'`), 3],
+
+    ["4 — and never a fourth: a person decides instead",
+      () => run(`${enter('OB INCOMPLETE', 'Onboarding', '25 hours')}
+                 update public.client_department_statuses set cycle_number = 3
+                  where client_id='${CL75}' and department='Onboarding';
+                 select public.sla_sweep();
+                 select (cycle_number::text || ' ' || needs_lead_review::text) as rows
+                   from public.client_department_statuses
+                  where client_id='${CL75}' and department='Onboarding'`), "3 true"],
+
+    ["4 — and a flagged client is left alone thereafter",
+      () => run(`${enter('OB INCOMPLETE', 'Onboarding', '25 hours')}
+                 update public.client_department_statuses set cycle_number = 3, needs_lead_review = true
+                  where client_id='${CL75}' and department='Onboarding';
+                 select public.sla_sweep();
+                 select cycle_number as rows from public.client_department_statuses
+                  where client_id='${CL75}' and department='Onboarding'`), 3],
+
+    ["5 — completing onboarding ends the follow-up cycle",
+      () => run(`${enter('OB INCOMPLETE', 'Onboarding', '25 hours')}
+                 ${enter('Ready for Round 1', 'Onboarding', '0 hours')}
+                 select public.sla_sweep();
+                 select (status || ' / ' || cycle_number::text) as rows
+                   from public.client_department_statuses
+                  where client_id='${CL75}' and department='Onboarding'`), "Ready for Round 1 / 1"],
+
+    ["8 — unresolved processing escalates to priority at five days",
+      () => run(`${enter('Ready for Processing', 'Onboarding', '5 days 1 hour')}
+                 select public.sla_sweep();
+                 select status as rows from public.client_department_statuses
+                  where client_id='${CL75}' and department='Onboarding'`), "Prio Processing"],
+
+    ["8 — and escalating does not erase how long they have waited",
+      () => run(`${enter('Ready for Processing', 'Onboarding', '5 days 1 hour')}
+                 select public.sla_sweep();
+                 select (extract(day from (now() - opened_at)))::int as rows
+                   from public.client_department_statuses
+                  where client_id='${CL75}' and department='Onboarding'`), 5],
+
+    ["13 — the 30th day returns the file for review",
+      () => run(`${enter('Mailed', 'Dispute', '31 days')}
+                 select public.sla_sweep();
+                 select status as rows from public.client_department_statuses
+                  where client_id='${CL75}' and department='Dispute'`), "Ready for Reimport / Review"],
+
+    ["14 — returned work comes back unassigned",
+      () => run(`update public.fulfillment_clients set assigned_agent_id='${AGENT75}' where id='${CL75}';
+                 ${enter('Mailed', 'Dispute', '31 days')}
+                 select public.sla_sweep();
+                 select coalesce(assigned_agent_id::text,'unassigned') as rows
+                   from public.fulfillment_clients where id='${CL75}'`), "unassigned"],
+
+    ["15 — and returned work gets the 24-hour review clock",
+      () => run(`${enter('Mailed', 'Dispute', '31 days')}
+                 select public.sla_sweep();
+                 select round(extract(epoch from (system_due_at - opened_at))/3600)::int as rows
+                   from public.client_department_statuses
+                  where client_id='${CL75}' and department='Dispute'`), 24],
+
+    ["17 — changing the assignee does not restart the clock",
+      () => run(`${enter('Ready for Processing', 'Onboarding', '40 hours')}
+                 update public.fulfillment_clients set assigned_agent_id='${AGENT75}' where id='${CL75}';
+                 select (extract(epoch from (now() - opened_at))/3600)::int as rows
+                   from public.client_department_statuses
+                  where client_id='${CL75}' and department='Onboarding'`), 40],
+
+    ["18 — nor does writing a note",
+      () => run(`${enter('Ready for Processing', 'Onboarding', '40 hours')}
+                 insert into public.activity_events (agency_id, entity_type, entity_id, actor_name, action, detail, visibility)
+                 select agency_id, 'client', '${CL75}', 'probe', 'Note', 'text', 'bes_internal'
+                   from public.fulfillment_clients where id='${CL75}';
+                 select (extract(epoch from (now() - opened_at))/3600)::int as rows
+                   from public.client_department_statuses
+                  where client_id='${CL75}' and department='Onboarding'`), 40],
+
+    ["12 — entering the waiting stage clears the processor",
+      () => run(`update public.fulfillment_clients set assigned_agent_id='${AGENT75}' where id='${CL75}';
+                 ${enter('Mailed', 'Dispute', '0 hours')}
+                 select coalesce(assigned_agent_id::text,'unassigned') as rows
+                   from public.fulfillment_clients where id='${CL75}'`), "unassigned"],
+
+    ["19 — a manual override keeps the calculated date beside it",
+      () => p75(OWN75, `${enter('Mailed', 'Dispute', '0 hours')}
+                        select public.set_department_due_override('${CL75}', 'Dispute', now() + interval '3 days', 'client asked');
+                        select (system_due_at is not null and manual_due_at is not null)::text as rows
+                          from public.client_department_statuses
+                         where client_id='${CL75}' and department='Dispute'`), "true"],
+
+    ["the policy always has an answer — no queue is left without a deadline",
+      () => q(`select count(*)::int as rows from public.sla_policies
+                where agency_id = (select id from public.agencies order by created_at limit 1)
+                  and department is null and status is null`)[0].rows, 1],
+  ];
+  runPhase("phase 75", P75, { strict: true });
 }
 
 endPhase();
