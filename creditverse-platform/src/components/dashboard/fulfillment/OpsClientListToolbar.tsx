@@ -30,6 +30,21 @@ interface OpsClientListToolbarProps<Id extends string> {
   statusFilter: string;
   onStatusFilterChange: (value: string) => void;
   statusOptions: readonly string[];
+  /**
+   * Extra filters the division supplies — department, round, assigned agent.
+   *
+   * Passed in rather than built here because the vocabularies belong to the
+   * division: CreditOps rounds and FundingOps stages have nothing to say to
+   * each other, and a shared toolbar that knew both would be a shared toolbar
+   * that knew neither.
+   */
+  extraFilters?: {
+    key: string;
+    label: string;
+    value: string;
+    options: { value: string; label: string }[];
+    onChange: (value: string) => void;
+  }[];
 }
 
 export function OpsClientListToolbar<Id extends string>({
@@ -47,6 +62,7 @@ export function OpsClientListToolbar<Id extends string>({
   search,
   onSearchChange,
   statusFilter,
+  extraFilters = [],
   onStatusFilterChange,
   statusOptions,
 }: OpsClientListToolbarProps<Id>) {
@@ -175,6 +191,16 @@ export function OpsClientListToolbar<Id extends string>({
           options={statusOptions}
           aria-label="Filter by status"
         />
+
+        {extraFilters.map((f) => (
+          <OpsSelect
+            key={f.key}
+            value={f.value}
+            onValueChange={f.onChange}
+            options={f.options}
+            aria-label={f.label}
+          />
+        ))}
       </div>
     </div>
   );

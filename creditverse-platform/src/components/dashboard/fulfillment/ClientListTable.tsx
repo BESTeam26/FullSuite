@@ -167,6 +167,19 @@ export function ClientListTable({
           }
           case "openItems":
             return <span className="text-foreground">{client.openItems}</span>;
+          case "departmentStatus": {
+            /* "Complaints · FTC Needed" — the operational state in one
+               human phrase, the way Dee reads it out loud. */
+            const cur = currentDepartment(departmentRows[client.id] ?? []);
+            if (!cur) return <span className="text-muted-foreground">No open work</span>;
+            return (
+              <span className="flex min-w-0 items-center gap-1 text-[11px]">
+                <span className="font-semibold text-foreground">{cur.department}</span>
+                <span className="text-muted-foreground">·</span>
+                <span className="truncate text-foreground">{cur.status}</span>
+              </span>
+            );
+          }
           case "department": {
             const cur = currentDepartment(departmentRows[client.id] ?? []);
             return cur ? (

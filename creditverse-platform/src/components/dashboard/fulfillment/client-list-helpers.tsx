@@ -90,6 +90,7 @@ export type ColId =
   | "sla"
   | "lastActivity"
   /* The columns Dee's live dispute board actually works from. */
+  | "departmentStatus"
   | "processed"
   | "dueDate"
   | "daysToUpdate"
@@ -105,8 +106,14 @@ export const COLUMN_DEFS: ColDef<ColId>[] = [
   { ...MODE_COL, defaultOn: false },
   compactColumn("round", "Credit Stage"),
   STATUS_COL,
-  { ...compactColumn("department", "Current Department"), defaultWidth: 160, minWidth: 120 },
-  { ...compactColumn("workStatus", "Work Status"), defaultWidth: 180, minWidth: 130 },
+  /* ONE human column, not two. Dee, 2026-09-12: "Do not force agents to
+     interpret Lifecycle, Credit Status, Department Status and Work Status as
+     four separate columns. Present the operational state in human language."
+     Reads "Complaints · FTC Needed". The separate ones stay available behind
+     Columns for anybody who sorts by department. */
+  { ...compactColumn("departmentStatus", "Department / Status"), defaultWidth: 220, minWidth: 160 },
+  { ...compactColumn("department", "Current Department"), defaultOn: false, defaultWidth: 160, minWidth: 120 },
+  { ...compactColumn("workStatus", "Work Status"), defaultOn: false, defaultWidth: 180, minWidth: 130 },
   AGENT_COL,
   countColumn("openWork", "Open Work"),
   { ...countColumn("openItems", "Open Items"), defaultOn: false },
@@ -133,7 +140,10 @@ export const COLUMN_DEFS: ColDef<ColId>[] = [
    existed. Bumping the key hands everybody the new defaults once; anyone who
    had hidden a column re-hides it. */
 const prefsStore = createViewPrefsStore<ColId>(
-  "creditops-clientlist-prefs-v3",
+  /* v4: the saved set is a list of column ids, so a column added later is
+     absent from it and never appears. Bumping hands everybody the new
+     defaults once — including the combined Department / Status column. */
+  "creditops-clientlist-prefs-v4",
   COLUMN_DEFS,
   "client",
 );
