@@ -27,7 +27,12 @@
 /* ── Lifecycle: the relationship ──────────────────────────────────────── */
 
 export const PARTNER_LIFECYCLES = [
-  "new", "onboarding", "active", "on_hold", "suspended", "archived",
+  "new", "onboarding", "active", "on_hold", "suspended",
+  /* Two ways a relationship ENDS, because "archived" says nothing about why
+     (Dee, 2026-09-12). A partner whose build BES finished and one who walked
+     away in month two are not the same fact a year later. */
+  "completed", "cancelled",
+  "archived",
 ] as const;
 export type PartnerLifecycle = (typeof PARTNER_LIFECYCLES)[number];
 
@@ -37,6 +42,8 @@ export const LIFECYCLE_LABEL: Record<PartnerLifecycle, string> = {
   active: "Active",
   on_hold: "On hold",
   suspended: "Suspended",
+  completed: "Completed",
+  cancelled: "Cancelled",
   archived: "Archived",
 };
 
@@ -46,6 +53,10 @@ export const LIFECYCLE_TONE: Record<PartnerLifecycle, string> = {
   active: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700",
   on_hold: "border-amber-500/40 bg-amber-500/10 text-amber-800",
   suspended: "border-amber-600/40 bg-amber-600/10 text-amber-900",
+  /* Completed is an ending BES is pleased with, so it reads calm rather than
+     alarming; cancelled is neutral-negative, not a failure state to shout. */
+  completed: "border-emerald-600/30 bg-emerald-600/10 text-emerald-800",
+  cancelled: "border-border bg-muted text-muted-foreground",
   archived: "border-border bg-muted text-muted-foreground",
 };
 

@@ -16779,6 +16779,8 @@ export type Database = {
         | "active"
         | "on_hold"
         | "suspended"
+        | "completed"
+        | "cancelled"
         | "archived"
       partner_payment_provider:
         | "authorize_net"
@@ -17544,6 +17546,8 @@ export const Constants = {
         "active",
         "on_hold",
         "suspended",
+        "completed",
+        "cancelled",
         "archived",
       ],
       partner_payment_provider: [
