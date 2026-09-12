@@ -40,6 +40,7 @@ export const SERVICE_LABEL: Record<FulfillmentService, string> = {
   fundingops: "FundingOps",
   bes_crm: "BES CRM",
   talentops: "TalentOps",
+  sales_marketing: "Sales & Marketing",
   corporate: "Corporate",
 };
 
@@ -192,6 +193,7 @@ export function serviceTotals(partners: BesPartner[]): Record<FulfillmentService
     fundingops: 0,
     bes_crm: 0,
     talentops: 0,
+    sales_marketing: 0,
     /* Never non-zero in practice: `corporate` is an organizational label, not
        something a partner buys, so no engagement carries it. */
     corporate: 0,
