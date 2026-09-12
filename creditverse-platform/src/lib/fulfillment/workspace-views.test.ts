@@ -108,12 +108,14 @@ describe("a CreditOps member sees their own workspace, not everybody's", () => {
     /* The whole point of the universal half: they can look a client up and
        report where it is. They just have no queue to work. */
     const views = creditOpsViewsForPerson({ departments: [], canAccessManagement: false });
-    expect(views).toEqual(["dashboard", "main-list", "sops-logins"]);
+    /* The client list leads: CreditOps opens on the work, not on a summary
+       of it (Dee, 2026-09-12). */
+    expect(views).toEqual(["main-list", "dashboard", "sops-logins"]);
   });
 
   it("keeps the views in workspace order, not the order they were asked for", () => {
     const views = creditOpsViewsForPerson(lead);
-    expect(views.indexOf("dashboard")).toBeLessThan(views.indexOf("main-list"));
+    expect(views.indexOf("main-list")).toBeLessThan(views.indexOf("dashboard"));
     expect(views.indexOf("onboarding-queue")).toBeLessThan(views.indexOf("dispute-queue"));
     expect(views[views.length - 1]).toBe("sops-logins");
   });
@@ -130,7 +132,7 @@ describe("a department queue exists once, globally", () => {
   const partnerLevel = PARTNER_VIEWS.filter((v) => v.partnerLevel).map((v) => v.id);
 
   it("a partner workspace offers only the summary, the client list and the SOPs", () => {
-    expect(partnerLevel).toEqual(["dashboard", "main-list", "sops-logins"]);
+    expect(partnerLevel).toEqual(["main-list", "dashboard", "sops-logins"]);
   });
 
   it("no department queue is a partner-level view", () => {

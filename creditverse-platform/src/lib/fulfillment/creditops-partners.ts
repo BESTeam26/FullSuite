@@ -138,8 +138,12 @@ export const getPartnerByScope = (
 export type CreditOpsViewScope = "universal" | "department" | "management";
 
 export const PARTNER_VIEWS = [
-  { id: "dashboard", label: "Dashboard", scope: "universal", partnerLevel: true },
+  /* The client list leads, and is where CreditOps opens. Dee, 2026-09-12:
+     "I wanna switch the default view as the main client list and dashboard.
+     Dashboard comes after the client list." The work is the list; the
+     dashboard is what you check afterwards. */
   { id: "main-list", label: "Main Client List", scope: "universal", partnerLevel: true },
+  { id: "dashboard", label: "Dashboard", scope: "universal", partnerLevel: true },
   { id: "onboarding-queue", label: "Onboarding Queue", scope: "department", department: "Onboarding", partnerLevel: false },
   { id: "dispute-queue", label: "Dispute Queue", scope: "department", department: "Dispute", partnerLevel: false },
   { id: "support-queue", label: "Support Queue", scope: "department", department: "Support", partnerLevel: false },

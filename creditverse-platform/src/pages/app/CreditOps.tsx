@@ -93,9 +93,9 @@ function CreditOpsWorkspace() {
      an agent is kept out of wholesale. */
   const [selection, setSelection] = useState<CreditOpsSelection>({
     kind: "management",
-    view: "mgmt-dashboard",
+    view: "mgmt-main-list",
   });
-  const [activeView, setActiveView] = useState<PartnerViewId>("dashboard");
+  const [activeView, setActiveView] = useState<PartnerViewId>("main-list");
   /* The partner a global queue was opened for, so it arrives filtered. Cleared
      when a queue is chosen from the navigation, which means "all partners". */
   const [queuePartnerScope, setQueuePartnerScope] = useState<string | null>(null);
@@ -130,7 +130,7 @@ function CreditOpsWorkspace() {
   // always available, so there is somewhere honest to land.
   useEffect(() => {
     if (selection.kind === "management" && !mayOpen(selection.view)) {
-      setSelection({ kind: "management", view: "mgmt-dashboard" });
+      setSelection({ kind: "management", view: "mgmt-main-list" });
     }
   }, [mayOpen, selection]);
 
@@ -174,7 +174,7 @@ function CreditOpsWorkspace() {
               setSelection(sel);
               /* Chosen from the navigation, a queue means every partner. */
               setQueuePartnerScope(null);
-              if (sel.kind === "partner") setActiveView("dashboard");
+              if (sel.kind === "partner") setActiveView("main-list");
             }}
           />
 

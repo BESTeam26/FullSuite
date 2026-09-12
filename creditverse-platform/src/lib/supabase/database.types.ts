@@ -1689,6 +1689,9 @@ export type Database = {
           assigned_at: string | null
           assignee_id: string | null
           assignment_method: string | null
+          blocked_at: string | null
+          blocked_by: string | null
+          blocked_reason: string | null
           client_id: string
           cycle_number: number
           department: Database["public"]["Enums"]["fulfillment_department"]
@@ -1706,6 +1709,9 @@ export type Database = {
           assigned_at?: string | null
           assignee_id?: string | null
           assignment_method?: string | null
+          blocked_at?: string | null
+          blocked_by?: string | null
+          blocked_reason?: string | null
           client_id: string
           cycle_number?: number
           department: Database["public"]["Enums"]["fulfillment_department"]
@@ -1723,6 +1729,9 @@ export type Database = {
           assigned_at?: string | null
           assignee_id?: string | null
           assignment_method?: string | null
+          blocked_at?: string | null
+          blocked_by?: string | null
+          blocked_reason?: string | null
           client_id?: string
           cycle_number?: number
           department?: Database["public"]["Enums"]["fulfillment_department"]
@@ -1740,6 +1749,13 @@ export type Database = {
           {
             foreignKeyName: "client_department_statuses_assignee_id_fkey"
             columns: ["assignee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_department_statuses_blocked_by_fkey"
+            columns: ["blocked_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -1955,6 +1971,70 @@ export type Database = {
           {
             foreignKeyName: "client_secrets_updated_by_fkey"
             columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_work_checklist: {
+        Row: {
+          client_id: string
+          created_at: string
+          created_by: string | null
+          department: Database["public"]["Enums"]["fulfillment_department"]
+          done: boolean
+          done_at: string | null
+          done_by: string | null
+          id: string
+          label: string
+          sort: number
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          department: Database["public"]["Enums"]["fulfillment_department"]
+          done?: boolean
+          done_at?: string | null
+          done_by?: string | null
+          id?: string
+          label: string
+          sort?: number
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          department?: Database["public"]["Enums"]["fulfillment_department"]
+          done?: boolean
+          done_at?: string | null
+          done_by?: string | null
+          id?: string
+          label?: string
+          sort?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_work_checklist_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "fulfillment_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_work_checklist_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_work_checklist_done_by_fkey"
+            columns: ["done_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -16010,6 +16090,14 @@ export type Database = {
           p_to?: string
         }
         Returns: Json[]
+      }
+      report_work_blocker: {
+        Args: {
+          p_client: string
+          p_department: Database["public"]["Enums"]["fulfillment_department"]
+          p_reason: string
+        }
+        Returns: undefined
       }
       request_time_adjustment: {
         Args: { p_ended_at: string; p_entry: string; p_reason: string }
