@@ -96,6 +96,10 @@ export async function fetchMyWork(userId: string): Promise<WorkItemRow[]> {
        future query that keeps one cannot leak a cancelled service's work back
        into somebody's day. */
     .is("archived_at", null)
+    /* Work held because its partner is suspended leaves somebody's day and
+       keeps its assignment. Filtered on the real column rather than hidden in
+       the component: the API must not serve it either (Dee, 2026-09-13). */
+    .is("held_at", null)
     .order("due_at", { ascending: true, nullsFirst: false })
     .limit(100);
   if (error) throw error;
@@ -126,6 +130,7 @@ export async function fetchAgencyWork(): Promise<WorkItemRow[]> {
     .select("*")
     .eq("scope", "AGENCY")
     .is("archived_at", null)
+    .is("held_at", null)
     .order("due_at", { ascending: true, nullsFirst: false })
     .limit(500);
   if (error) throw error;

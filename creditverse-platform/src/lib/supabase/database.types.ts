@@ -9898,6 +9898,104 @@ export type Database = {
           },
         ]
       }
+      partner_credit_ledger: {
+        Row: {
+          agency_id: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          fulfillment_client_id: string | null
+          group_id: string
+          id: string
+          invoice_id: string | null
+          kind: string
+          quantity: number
+          reverses_id: string | null
+          round: string | null
+          unit: string
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          fulfillment_client_id?: string | null
+          group_id: string
+          id?: string
+          invoice_id?: string | null
+          kind: string
+          quantity: number
+          reverses_id?: string | null
+          round?: string | null
+          unit?: string
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          fulfillment_client_id?: string | null
+          group_id?: string
+          id?: string
+          invoice_id?: string | null
+          kind?: string
+          quantity?: number
+          reverses_id?: string | null
+          round?: string | null
+          unit?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_credit_ledger_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_credit_ledger_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_credit_ledger_fulfillment_client_id_fkey"
+            columns: ["fulfillment_client_id"]
+            isOneToOne: false
+            referencedRelation: "fulfillment_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_credit_ledger_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_credit_ledger_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "outsourcing_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_credit_ledger_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "partner_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_credit_ledger_reverses_id_fkey"
+            columns: ["reverses_id"]
+            isOneToOne: false
+            referencedRelation: "partner_credit_ledger"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       partner_invoice_lines: {
         Row: {
           amount_cents: number
@@ -10718,6 +10816,114 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_suspension_invoices: {
+        Row: {
+          invoice_id: string
+          suspension_id: string
+        }
+        Insert: {
+          invoice_id: string
+          suspension_id: string
+        }
+        Update: {
+          invoice_id?: string
+          suspension_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_suspension_invoices_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "partner_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_suspension_invoices_suspension_id_fkey"
+            columns: ["suspension_id"]
+            isOneToOne: false
+            referencedRelation: "partner_suspensions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_suspensions: {
+        Row: {
+          agency_id: string
+          created_at: string
+          detail: string | null
+          group_id: string
+          id: string
+          lift_reason: string | null
+          lifted_at: string | null
+          lifted_by: string | null
+          reason: string
+          suspended_at: string
+          suspended_by: string | null
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          detail?: string | null
+          group_id: string
+          id?: string
+          lift_reason?: string | null
+          lifted_at?: string | null
+          lifted_by?: string | null
+          reason?: string
+          suspended_at?: string
+          suspended_by?: string | null
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          detail?: string | null
+          group_id?: string
+          id?: string
+          lift_reason?: string | null
+          lifted_at?: string | null
+          lifted_by?: string | null
+          reason?: string
+          suspended_at?: string
+          suspended_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_suspensions_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_suspensions_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_suspensions_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "outsourcing_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_suspensions_lifted_by_fkey"
+            columns: ["lifted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_suspensions_suspended_by_fkey"
+            columns: ["suspended_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -13758,6 +13964,8 @@ export type Database = {
           division: Database["public"]["Enums"]["fulfillment_service"] | null
           due_at: string | null
           external_ref: string | null
+          held_at: string | null
+          held_reason: string | null
           id: string
           is_fixture: boolean
           item_type_id: string | null
@@ -13801,6 +14009,8 @@ export type Database = {
           division?: Database["public"]["Enums"]["fulfillment_service"] | null
           due_at?: string | null
           external_ref?: string | null
+          held_at?: string | null
+          held_reason?: string | null
           id?: string
           is_fixture?: boolean
           item_type_id?: string | null
@@ -13844,6 +14054,8 @@ export type Database = {
           division?: Database["public"]["Enums"]["fulfillment_service"] | null
           due_at?: string | null
           external_ref?: string | null
+          held_at?: string | null
+          held_reason?: string | null
           id?: string
           is_fixture?: boolean
           item_type_id?: string | null
@@ -14903,6 +15115,32 @@ export type Database = {
           },
         ]
       }
+      partner_credit_balance: {
+        Row: {
+          added: number | null
+          available: number | null
+          group_id: string | null
+          last_movement: string | null
+          unit: string | null
+          used: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_credit_ledger_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_credit_ledger_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "outsourcing_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       report_facts: {
         Row: {
           agency_id: string | null
@@ -15392,6 +15630,10 @@ export type Database = {
           p_scope: Database["public"]["Enums"]["work_scope"]
           p_subject_org: string
         }
+        Returns: boolean
+      }
+      can_work_fulfillment_client: {
+        Args: { p_client: string }
         Returns: boolean
       }
       can_write_work: {
@@ -16432,6 +16674,10 @@ export type Database = {
         Args: { p_agency: string; p_org: string }
         Returns: boolean
       }
+      lift_partner_suspension: {
+        Args: { p_actor?: string; p_group: string; p_reason?: string }
+        Returns: boolean
+      }
       log_audit: {
         Args: {
           p_action: string
@@ -16871,6 +17117,7 @@ export type Database = {
         Args: { p_invoice: string }
         Returns: undefined
       }
+      partner_is_suspended: { Args: { p_group: string }; Returns: boolean }
       partner_portal_eligible: { Args: { p_group: string }; Returns: boolean }
       partners_visible_to_user: {
         Args: { p_user: string }
@@ -17067,6 +17314,10 @@ export type Database = {
       reverse_commission: {
         Args: { p_commission: string; p_reason: string }
         Returns: undefined
+      }
+      reverse_partner_credit: {
+        Args: { p_entry: string; p_reason: string }
+        Returns: string
       }
       save_announcement: {
         Args: {
@@ -17432,6 +17683,15 @@ export type Database = {
         }
       }
       sla_sweep: { Args: never; Returns: Json }
+      spend_partner_credit: {
+        Args: {
+          p_client: string
+          p_description?: string
+          p_quantity?: number
+          p_unit?: string
+        }
+        Returns: string
+      }
       split_person_name: {
         Args: { p_name: string }
         Returns: {
@@ -17446,6 +17706,16 @@ export type Database = {
         Returns: string
       }
       storage_channel_of: { Args: { p_name: string }; Returns: string }
+      suspend_partner: {
+        Args: {
+          p_actor?: string
+          p_detail?: string
+          p_group: string
+          p_invoices?: string[]
+          p_reason?: string
+        }
+        Returns: string
+      }
       team_birthdays: {
         Args: { p_org: string; p_within_days?: number }
         Returns: {
@@ -18003,6 +18273,7 @@ export type Database = {
         | "overdue"
         | "void"
         | "cancelled"
+        | "refunded"
       partner_lifecycle:
         | "new"
         | "onboarding"
@@ -18770,6 +19041,7 @@ export const Constants = {
         "overdue",
         "void",
         "cancelled",
+        "refunded",
       ],
       partner_lifecycle: [
         "new",
