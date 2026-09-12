@@ -119,6 +119,8 @@ export interface OpsClient {
   status: string;
   /** BES agent assigned to this client's work. */
   assignedAgent?: string;
+  /** ...and their id, so a picker can select them rather than match a name. */
+  assignedAgentId?: string | null;
   /** Owning team — stable id, never a name. Set at intake or by a supervisor. */
   teamId?: string;
   slaHoursRemaining?: number;

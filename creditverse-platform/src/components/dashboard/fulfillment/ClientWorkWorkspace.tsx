@@ -17,7 +17,9 @@ import {
   type AttachmentFile,
 } from "@/lib/fulfillment/attachment-domain";
 import { ClientWorkActivityTimeline } from "./ClientWorkActivityTimeline";
-import { DepartmentProgressSection } from "./DepartmentProgressSection";
+import { ClientProgressReport } from "./ClientProgressReport";
+import { ClientWorkflowActions } from "./ClientWorkflowActions";
+import { ClientAssignmentCard } from "./ClientAssignmentCard";
 import { CompleteWorkSection } from "./CompleteWorkSection";
 import {
   ClientContextBar, ClientHeaderSentinel, useClientContextBar,
@@ -310,8 +312,19 @@ export function ClientWorkWorkspace({ clientId, onBack }: Props) {
             </p>
           )}
 
-          {/* Department Progress — access controlled */}
-          <DepartmentProgressSection clientId={clientId} />
+          {/* What has been done, filled in by the work itself. The hand-off
+              controls that used to live here are gone: Dee's ruling is that
+              this is a report, not a process. Department state still moves —
+              through Complete Work and the SLA engine, which is what writes
+              the records this reads. */}
+          <ClientProgressReport clientId={clientId} />
+
+          {/* The business actions that used to be hand-offs. */}
+          <ClientWorkflowActions clientId={clientId} />
+
+          {/* Round, assignee and the dates the SLA counts from — the manual
+              corrections that used to be possible only in ClickUp. */}
+          <ClientAssignmentCard clientId={clientId} />
 
           {/* Workability */}
           <div className="flex items-center justify-between rounded-xl border border-border bg-card p-4 shadow-sm">

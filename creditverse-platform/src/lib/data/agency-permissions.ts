@@ -40,6 +40,9 @@ export const AGENCY_PERMISSIONS = [
   /* Pulling a whole ClickUp list into production is not the same act as
      correcting a client's phone number, so it is not the same key. */
   "creditops.clients.import",
+  /* Working a client file: statuses, queues and the business actions that
+     move them. The database asks for this on every workflow call. */
+  "creditops.clients.edit",
   /* Revealing a client's SSN and portal logins. */
   "creditops.clients.sensitive",
   /* HR documents (§15): a team member's agreements and NDAs — never mere

@@ -42,6 +42,7 @@ const CLIENT_SELECT = `
   *,
   organizations(name),
   outsourcing_groups(name),
+  assigned_agent_id,
   assigned_agent:profiles!fulfillment_clients_assigned_agent_id_fkey(full_name, email)
 `;
 
@@ -86,6 +87,7 @@ export function mapClientRow(row: ClientRow): FulfillmentClient {
     openItems: row.open_items,
     slaHoursRemaining: hoursUntil(row.due_at),
     processedOn: (row as { processed_on?: string | null }).processed_on ?? null,
+    assignedAgentId: (row as { assigned_agent_id?: string | null }).assigned_agent_id ?? null,
     description: (row as { description?: string | null }).description ?? null,
     nextAction: (row as { next_action?: string | null }).next_action ?? null,
     dueAt: row.due_at ?? null,
@@ -156,7 +158,7 @@ export async function fetchDepartmentStatusesForClients(
   const sb = requireSupabase();
   const { data, error } = await sb
     .from("client_department_statuses")
-    .select("*, assignee:profiles(full_name, email)")
+    .select("*, assignee:profiles!client_department_statuses_assignee_id_fkey(full_name, email)")
     .in("client_id", [...clientIds]);
   if (error) throw error;
   const out: Record<string, DepartmentStatus[]> = {};
@@ -179,7 +181,7 @@ export async function fetchDepartmentStatuses(
   const sb = requireSupabase();
   const { data, error } = await sb
     .from("client_department_statuses")
-    .select("*, assignee:profiles(full_name, email)")
+    .select("*, assignee:profiles!client_department_statuses_assignee_id_fkey(full_name, email)")
     .eq("client_id", clientId);
   if (error) throw error;
   return (data ?? []).map((d) => {
@@ -298,6 +300,28 @@ export async function updateClientAssignee(
   const { data, error } = await sb
     .from("fulfillment_clients")
     .update(withActivityStamp({ assigned_agent_id: assignedAgentId }))
+    .eq("id", clientId)
+    .select(CLIENT_SELECT)
+    .single();
+  if (error) throw error;
+  return mapClientRow(data as unknown as ClientRow);
+}
+
+/**
+ * The dispute round the file is on.
+ *
+ * A plain field, deliberately: the round is what BES says it is, and there is
+ * no arithmetic that could derive it. `updateClientStatus` owns the credit
+ * status; this owns the round; neither reaches into the other.
+ */
+export async function updateClientRound(
+  clientId: string,
+  round: Enums<"fulfillment_round">,
+): Promise<FulfillmentClient> {
+  const sb = requireSupabase();
+  const { data, error } = await sb
+    .from("fulfillment_clients")
+    .update(withActivityStamp({ round }))
     .eq("id", clientId)
     .select(CLIENT_SELECT)
     .single();

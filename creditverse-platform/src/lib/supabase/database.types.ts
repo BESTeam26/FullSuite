@@ -1688,22 +1688,46 @@ export type Database = {
         Row: {
           assignee_id: string | null
           client_id: string
+          cycle_number: number
           department: Database["public"]["Enums"]["fulfillment_department"]
+          manual_due_at: string | null
+          manual_due_by: string | null
+          manual_due_reason: string | null
+          manual_due_set_at: string | null
+          needs_lead_review: boolean
+          opened_at: string
           status: string
+          system_due_at: string | null
           updated_at: string
         }
         Insert: {
           assignee_id?: string | null
           client_id: string
+          cycle_number?: number
           department: Database["public"]["Enums"]["fulfillment_department"]
+          manual_due_at?: string | null
+          manual_due_by?: string | null
+          manual_due_reason?: string | null
+          manual_due_set_at?: string | null
+          needs_lead_review?: boolean
+          opened_at?: string
           status: string
+          system_due_at?: string | null
           updated_at?: string
         }
         Update: {
           assignee_id?: string | null
           client_id?: string
+          cycle_number?: number
           department?: Database["public"]["Enums"]["fulfillment_department"]
+          manual_due_at?: string | null
+          manual_due_by?: string | null
+          manual_due_reason?: string | null
+          manual_due_set_at?: string | null
+          needs_lead_review?: boolean
+          opened_at?: string
           status?: string
+          system_due_at?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1719,6 +1743,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "fulfillment_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_department_statuses_manual_due_by_fkey"
+            columns: ["manual_due_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -4791,7 +4822,7 @@ export type Database = {
           date_of_birth: string | null
           description: string | null
           due_at: string | null
-          email: string
+          email: string | null
           id: string
           is_fixture: boolean
           last_activity_at: string
@@ -4830,7 +4861,7 @@ export type Database = {
           date_of_birth?: string | null
           description?: string | null
           due_at?: string | null
-          email: string
+          email?: string | null
           id?: string
           is_fixture?: boolean
           last_activity_at?: string
@@ -4869,7 +4900,7 @@ export type Database = {
           date_of_birth?: string | null
           description?: string | null
           due_at?: string | null
-          email?: string
+          email?: string | null
           id?: string
           is_fixture?: boolean
           last_activity_at?: string
@@ -12178,6 +12209,74 @@ export type Database = {
           },
         ]
       }
+      sla_policies: {
+        Row: {
+          agency_id: string
+          created_at: string
+          department:
+            | Database["public"]["Enums"]["fulfillment_department"]
+            | null
+          escalate_after_hours: number | null
+          escalate_to_status: string | null
+          hours: number
+          id: string
+          label: string | null
+          max_cycles: number | null
+          on_expiry_department:
+            | Database["public"]["Enums"]["fulfillment_department"]
+            | null
+          on_expiry_status: string | null
+          status: string | null
+          waiting: boolean
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          department?:
+            | Database["public"]["Enums"]["fulfillment_department"]
+            | null
+          escalate_after_hours?: number | null
+          escalate_to_status?: string | null
+          hours: number
+          id?: string
+          label?: string | null
+          max_cycles?: number | null
+          on_expiry_department?:
+            | Database["public"]["Enums"]["fulfillment_department"]
+            | null
+          on_expiry_status?: string | null
+          status?: string | null
+          waiting?: boolean
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          department?:
+            | Database["public"]["Enums"]["fulfillment_department"]
+            | null
+          escalate_after_hours?: number | null
+          escalate_to_status?: string | null
+          hours?: number
+          id?: string
+          label?: string | null
+          max_cycles?: number | null
+          on_expiry_department?:
+            | Database["public"]["Enums"]["fulfillment_department"]
+            | null
+          on_expiry_status?: string | null
+          status?: string | null
+          waiting?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sla_policies_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_memberships: {
         Row: {
           created_at: string
@@ -14182,6 +14281,13 @@ export type Database = {
         Args: { p_key: string; p_membership: string }
         Returns: undefined
       }
+      clear_department_due_override: {
+        Args: {
+          p_client: string
+          p_department: Database["public"]["Enums"]["fulfillment_department"]
+        }
+        Returns: undefined
+      }
       clickup_import_client: { Args: { p: Json }; Returns: Json }
       client_address_record: {
         Args: {
@@ -14246,6 +14352,17 @@ export type Database = {
           presented_offers: number
           public_id: string
           published_updates: number
+        }[]
+      }
+      client_progress_report: {
+        Args: { p_client: string }
+        Returns: {
+          actor: string
+          at: string
+          department: string
+          detail: string
+          headline: string
+          kind: string
         }[]
       }
       client_secret_archive: {
@@ -14336,6 +14453,15 @@ export type Database = {
       compute_commissions_for_deal: {
         Args: { p_funded_deal: string }
         Returns: number
+      }
+      compute_department_due: {
+        Args: {
+          p_agency: string
+          p_department: Database["public"]["Enums"]["fulfillment_department"]
+          p_opened_at: string
+          p_status: string
+        }
+        Returns: string
       }
       confirm_deal_revenue: {
         Args: { p_amount: number; p_funded_deal: string }
@@ -14652,6 +14778,20 @@ export type Database = {
       delete_company_document: { Args: { p_id: string }; Returns: string }
       delete_hub_tool: { Args: { p_id: string }; Returns: undefined }
       delete_own_message: { Args: { p_id: number }; Returns: undefined }
+      department_due_at: {
+        Args: {
+          p: Database["public"]["Tables"]["client_department_statuses"]["Row"]
+        }
+        Returns: string
+      }
+      department_is_waiting: {
+        Args: {
+          p_agency: string
+          p_department: Database["public"]["Enums"]["fulfillment_department"]
+          p_status: string
+        }
+        Returns: boolean
+      }
       department_leads: {
         Args: { p_agency: string; p_departments: string[] }
         Returns: string[]
@@ -14732,6 +14872,15 @@ export type Database = {
         Returns: undefined
       }
       ensure_general_channel: { Args: { p_org: string }; Returns: string }
+      enter_department_queue: {
+        Args: {
+          p_client: string
+          p_department: Database["public"]["Enums"]["fulfillment_department"]
+          p_opened_at?: string
+          p_status: string
+        }
+        Returns: string
+      }
       entity_visible: {
         Args: { p_entity_id: string; p_entity_type: string }
         Returns: boolean
@@ -14851,6 +15000,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      import_caller_may_write: { Args: never; Returns: boolean }
       import_link_record: {
         Args: {
           p_batch?: string
@@ -14917,6 +15067,7 @@ export type Database = {
       is_owner_of: { Args: { p_agency: string }; Returns: boolean }
       is_partner_contact_of: { Args: { p_group: string }; Returns: boolean }
       is_portal_client: { Args: never; Returns: boolean }
+      is_service_caller: { Args: never; Returns: boolean }
       is_staff_of: { Args: { p_agency: string }; Returns: boolean }
       is_team_lead_of: { Args: { p_team: string }; Returns: boolean }
       kpi_match_sql: { Args: { p_match: Json }; Returns: string }
@@ -14961,6 +15112,10 @@ export type Database = {
         Args: { p_at?: string; p_channel: string }
         Returns: undefined
       }
+      mark_client_mailed: {
+        Args: { p_client: string; p_mailed_at?: string }
+        Returns: string
+      }
       mark_commission_paid: {
         Args: { p_commission: string; p_reference: string }
         Returns: undefined
@@ -14980,6 +15135,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      may_work_client: { Args: { p_client: string }; Returns: boolean }
       member_can: { Args: { p_key: string; p_org: string }; Returns: boolean }
       member_first_run: {
         Args: never
@@ -15148,6 +15304,10 @@ export type Database = {
         Args: { p_entry: Database["public"]["Tables"]["time_entries"]["Row"] }
         Returns: undefined
       }
+      open_complaint: {
+        Args: { p_client: string; p_status: string }
+        Returns: string
+      }
       open_direct_channel: { Args: { p_other: string }; Returns: string }
       open_dispute_round: {
         Args: {
@@ -15155,6 +15315,10 @@ export type Database = {
           p_reset_cycle: boolean
           p_strategy: Database["public"]["Enums"]["dispute_strategy"]
         }
+        Returns: string
+      }
+      open_support_case: {
+        Args: { p_client: string; p_status?: string }
         Returns: string
       }
       org_agency: { Args: { p_org: string }; Returns: string }
@@ -15437,6 +15601,7 @@ export type Database = {
           subscribed: boolean
         }[]
       }
+      refresh_client_due: { Args: { p_client: string }; Returns: undefined }
       refresh_engagement_categories: {
         Args: { p_group?: string }
         Returns: undefined
@@ -15638,6 +15803,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      set_department_due_override: {
+        Args: {
+          p_client: string
+          p_department: Database["public"]["Enums"]["fulfillment_department"]
+          p_due: string
+          p_reason?: string
+        }
+        Returns: undefined
+      }
       set_engagement_category: {
         Args: { p_category: string; p_engagement: string }
         Returns: undefined
@@ -15797,6 +15971,39 @@ export type Database = {
           title: string
         }[]
       }
+      sla_policy_for: {
+        Args: {
+          p_agency: string
+          p_department: Database["public"]["Enums"]["fulfillment_department"]
+          p_status: string
+        }
+        Returns: {
+          agency_id: string
+          created_at: string
+          department:
+            | Database["public"]["Enums"]["fulfillment_department"]
+            | null
+          escalate_after_hours: number | null
+          escalate_to_status: string | null
+          hours: number
+          id: string
+          label: string | null
+          max_cycles: number | null
+          on_expiry_department:
+            | Database["public"]["Enums"]["fulfillment_department"]
+            | null
+          on_expiry_status: string | null
+          status: string | null
+          waiting: boolean
+        }
+        SetofOptions: {
+          from: "*"
+          to: "sla_policies"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      sla_sweep: { Args: never; Returns: Json }
       split_person_name: {
         Args: { p_name: string }
         Returns: {
