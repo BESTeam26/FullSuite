@@ -305,6 +305,152 @@ check("30. …and the approval is untouched afterwards",
   q.query(`select count(*)::int as n from partner_action_items where id = '${FOREIGN_APPROVAL}'`),
   [{ n: 0 }]);
 
+console.log("\nA MARKETING HIRE'S WORKING DAY");
+
+/* Everything Dee listed for Roniel and Kaori, asked of an AGENT with the two
+   marketing capabilities and nothing else — no ops.manage, no admin role.
+   "without requiring management-level access" is the whole assertion. */
+
+check("31. posts an update on a marketing task",
+  as(AGENT, HIRED, `do $a$ declare v uuid; begin ${NEW_TASK} into v;
+       insert into activity_events (agency_id, entity_type, entity_id, actor_id, actor_name,
+                                    action, detail, visibility)
+       values ('${AGENCY}', 'work_item', v::text, auth.uid(), 'Probe', 'Comment posted',
+               'Draft is ready for review', 'bes_internal'); end $a$;
+     reset role; select count(*)::int as n from activity_events ae
+       join work_items wi on wi.id::text = ae.entity_id
+      where wi.title='Probe: October launch post' and ae.action='Comment posted';`).rows,
+  [{ n: 1 }]);
+
+check("32. an @mention on that update notifies the person named",
+  as(AGENT, HIRED, `do $a$ declare v uuid; begin ${NEW_TASK} into v;
+       insert into activity_events (agency_id, entity_type, entity_id, actor_id, actor_name,
+                                    action, detail, visibility, body)
+       values ('${AGENCY}', 'work_item', v::text, auth.uid(), 'Probe', 'Comment posted',
+               '@Owner take a look', 'bes_internal',
+               jsonb_build_object('type','doc','content', jsonb_build_array(
+                 jsonb_build_object('type','paragraph','content', jsonb_build_array(
+                   jsonb_build_object('type','mention','attrs',
+                     jsonb_build_object('userId','${OWNER}','label','Owner'))))))); end $a$;
+     reset role; select count(*)::int as n from notifications
+      where kind='mention' and recipient_id='${OWNER}' and entity_type='work_item';`).rows,
+  [{ n: 1 }]);
+
+check("33. attaches a file to a marketing task",
+  as(AGENT, HIRED, `do $a$ declare v uuid; begin ${NEW_TASK} into v;
+       insert into files (agency_id, entity_type, entity_id, bucket, path, name,
+                          mime_type, size_bytes, uploaded_by)
+       values ('${AGENCY}', 'work_item', v::text, 'work-files',
+               'probe/' || v::text || '/shot.png', 'shot.png', 'image/png', 1234, auth.uid()); end $a$;
+     reset role; select count(*)::int as n from files f
+       join work_items wi on wi.id::text = f.entity_id
+      where wi.title='Probe: October launch post' and f.entity_type='work_item';`).rows,
+  [{ n: 1 }]);
+
+check("34. creates a campaign and puts work in it",
+  as(AGENT, HIRED, `do $a$ declare v uuid; c uuid; begin
+       insert into campaigns (agency_id, workspace_id, name, status)
+       values ('${AGENCY}', '${WS}', 'Probe: Q4 launch', 'active') returning id into c;
+       ${NEW_TASK} into v;
+       update work_items set campaign_id = c where id = v; end $a$;
+     reset role; select campaign_name from marketing_work where title='Probe: October launch post';`).rows,
+  [{ campaign_name: "Probe: Q4 launch" }]);
+
+check("35. a view-only hire cannot create a campaign",
+  as(AGENT, VIEW_ONLY, `do $a$ begin
+       insert into campaigns (agency_id, workspace_id, name, status)
+       values ('${AGENCY}', '${WS}', 'Probe: refused', 'active'); end $a$;`)
+    .error?.includes("row-level security") ?? false,
+  true);
+
+check("36. schedules content on the calendar",
+  as(AGENT, HIRED, `do $a$ declare v uuid; begin ${NEW_TASK} into v;
+       insert into work_item_field_values (work_item_id, field_id, value)
+       values (v, (select id from workspace_fields where workspace_id='${WS}' and key='publish_at'),
+               to_jsonb('2026-10-20'::text));
+       insert into work_item_field_values (work_item_id, field_id, value)
+       values (v, (select id from workspace_fields where workspace_id='${WS}' and key='channel'),
+               to_jsonb('Instagram'::text)); end $a$;
+     reset role; select publish_on, channel from marketing_work where title='Probe: October launch post';`).rows,
+  [{ publish_on: "2026-10-20", channel: "Instagram" }]);
+
+check("37. …and none of that made them a manager",
+  as(AGENT, HIRED, `select is_agency_manager_or_above() as manager, agency_can('ops.manage') as ops,
+       agency_can('partners.clients') as creditops, agency_can('finance.dashboard.view') as money;`).rows,
+  [{ manager: false, ops: false, creditops: false, money: false }]);
+
+console.log("\nSCOPE: GLOBAL vs ONE PARTNER");
+
+const BMF = q.query(`select id from outsourcing_groups where name = 'Business Made Fair' and archived_at is null`)[0]?.id;
+const BMF_WS = BMF
+  ? q.query(`select id from workspaces where partner_group_id = '${BMF}' and module = 'sales_marketing'`)[0]?.id
+  : null;
+
+if (!BMF_WS) {
+  console.log("  SKIP 38-41  Business Made Fair has no marketing workspace yet");
+} else {
+  const BMF_TASK = `insert into work_items (agency_id, scope, related_type, division, workspace_id, status_id, item_type_id, title)
+    values ('${AGENCY}', 'AGENCY', 'project', 'sales_marketing', '${BMF_WS}',
+      (select id from workspace_statuses where workspace_id='${BMF_WS}' and key='in_progress'),
+      (select id from workspace_item_types where workspace_id='${BMF_WS}' and key='content'),
+      'Probe: BMF reel') returning id`;
+
+  check("38. the global view shows both BES's work and the partner's",
+    as(AGENT, HIRED, `do $a$ declare v uuid; begin ${NEW_TASK} into v; ${BMF_TASK} into v; end $a$;
+       reset role; select count(distinct workspace_id)::int as workspaces from marketing_work
+        where title in ('Probe: October launch post', 'Probe: BMF reel');`).rows,
+    [{ workspaces: 2 }]);
+
+  check("39. the partner view shows only that partner's",
+    as(AGENT, HIRED, `do $a$ declare v uuid; begin ${NEW_TASK} into v; ${BMF_TASK} into v; end $a$;
+       reset role; select count(*)::int as n from marketing_work
+        where workspace_id = '${BMF_WS}' and title = 'Probe: October launch post';`).rows,
+    [{ n: 0 }]);
+
+  check("40. the calendar and the campaign read that same row, not copies",
+    as(AGENT, HIRED, `do $a$ declare v uuid; c uuid; begin ${BMF_TASK} into v;
+         insert into campaigns (agency_id, workspace_id, partner_group_id, name, status)
+         values ('${AGENCY}', '${BMF_WS}', '${BMF}', 'Probe: BMF October', 'active') returning id into c;
+         update work_items set campaign_id = c where id = v;
+         insert into work_item_field_values (work_item_id, field_id, value)
+         values (v, (select id from workspace_fields where workspace_id='${BMF_WS}' and key='publish_at'),
+                 to_jsonb('2026-10-09'::text)); end $a$;
+       reset role; select count(distinct id)::int as one_row, max(publish_on) as publish_on,
+              max(campaign_name) as campaign from marketing_work where title='Probe: BMF reel';`).rows,
+    [{ one_row: 1, publish_on: "2026-10-09", campaign: "Probe: BMF October" }]);
+
+  check("41. BMF is in the partner list because of the engagement, not a list",
+    q.query(`select count(*)::int as n from marketing_partners where name = 'Business Made Fair'`),
+    [{ n: 1 }]);
+}
+
+console.log("\nWHAT THE PARTNER MUST NOT SEE");
+
+/* Dee, 2026-09-13: "BES internal notes remain private." An approval puts a
+   partner's eyes on one task — it must not put their eyes on the discussion
+   around it. Asked as a REAL partner contact, not as staff. */
+const KAORI_PORTAL = q.query(
+  `select user_id from partner_contacts where email = 'kaori@blessedempireservices.com'
+     and status = 'active' and user_id is not null limit 1`)[0]?.user_id;
+
+if (!KAORI_PORTAL) {
+  console.log("  SKIP 42-44  no activated partner contact to ask as");
+} else {
+  check("42. a partner contact reads no marketing work directly",
+    as(KAORI_PORTAL, "", `select count(*)::int as n from marketing_work;`).rows,
+    [{ n: 0 }]);
+
+  check("43. …and no BES-internal note, on a task they were asked to approve",
+    as(KAORI_PORTAL, "", `select count(*)::int as n from activity_events
+       where entity_type = 'work_item' and visibility = 'bes_internal';`).rows,
+    [{ n: 0 }]);
+
+  check("44. they DO see the approval they were asked for",
+    (as(KAORI_PORTAL, "", `select count(*)::int as n from my_partner_actions() where status = 'open';`)
+      .rows?.[0]?.n ?? 0) > 0,
+    true);
+}
+
 console.log(`\n${pass} passed, ${failures.length} failed`);
 if (failures.length) { failures.forEach((f) => console.log(`  - ${f}`)); process.exitCode = 1; }
 q.close();
