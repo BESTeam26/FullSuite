@@ -80,6 +80,8 @@ vi.mock("@/lib/data/use-messages", () => ({
 }));
 
 const PARTNER: AgencyPartner = {
+  /* The portal is on, or this partner's contacts could not be here at all. */
+  portalAccessEnabled: true,
   id: "g1", name: "Acme Fulfilment", companyName: "Acme LLC",
   contactEmail: "ops@acme.test", phone: null, address: null, notes: null,
   primaryContact: null, service: "CreditOps outsourcing", contractRef: null,

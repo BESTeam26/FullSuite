@@ -24,6 +24,15 @@ export type PartnerStatus = "Active" | "Paused" | "Onboarding" | "Suspended" | "
 export interface AgencyPartner {
   id: string;
   name: string;
+  /**
+   * Whether the Partner Portal is switched on for this partner.
+   *
+   * Separate from the partner's lifecycle and separate from whether anybody
+   * has been invited: a partner can be Active with the portal off, or have an
+   * accepted invitation and the portal off. Enforced in
+   * `partner_group_of_user()` (Dee, 2026-09-12).
+   */
+  portalAccessEnabled: boolean;
   /** The partner's company, when they have one. */
   companyName: string | null;
   contactEmail: string;
@@ -133,6 +142,7 @@ const mapPartner = (r: Record<string, unknown>): AgencyPartner => ({
   addressZip: (r.address_zip as string) ?? null,
   website: (r.website as string) ?? null,
   sourceListRef: (r.source_list_ref as string) ?? null,
+  portalAccessEnabled: (r.portal_access_enabled as boolean) ?? false,
   onboardingCompletedAt: (r.onboarding_completed_at as string) ?? null,
   accessConfirmedAt: (r.access_confirmed_at as string) ?? null,
   legacyClientVolume: (r.legacy_reported_client_volume as string) ?? null,
@@ -148,7 +158,7 @@ const mapPartner = (r: Record<string, unknown>): AgencyPartner => ({
 /* ONE string literal. supabase-js infers the row shape from the literal
    itself, so a joined array or a concatenation degrades every result. */
 // prettier-ignore
-const COLUMNS = "id, name, partner_name, contact_email, phone, address, notes, primary_contact, service, contract_ref, status, archived_at, created_at, lifecycle, health, health_note, health_changed_by, health_changed_at, started_on, ended_on, saas_plan, account_manager_id, team_id, primary_contact_id, legacy_reported_client_volume, legacy_reported_active_clients, source_type, credential_migration_required, legal_business_name, dba_name, address_street, address_city, address_state, address_zip, website, onboarding_completed_at, access_confirmed_at, source_list_ref";
+const COLUMNS = "id, name, partner_name, contact_email, phone, address, notes, primary_contact, service, contract_ref, status, archived_at, created_at, lifecycle, health, health_note, health_changed_by, health_changed_at, started_on, ended_on, saas_plan, account_manager_id, team_id, primary_contact_id, legacy_reported_client_volume, legacy_reported_active_clients, source_type, credential_migration_required, legal_business_name, dba_name, address_street, address_city, address_state, address_zip, website, onboarding_completed_at, access_confirmed_at, source_list_ref, portal_access_enabled";
 
 /** Active partners. Archived ones are excluded here and never deleted. */
 export async function fetchAgencyPartners(includeArchived = false): Promise<AgencyPartner[]> {
@@ -694,4 +704,60 @@ export async function completeMyPartnerOnboarding(confirm: boolean): Promise<str
   const { data, error } = await sb.rpc("my_partner_onboarding_complete", { p_confirm: confirm });
   if (error) throw error;
   return (data as string | null) ?? null;
+}
+
+
+/* ------------------------------------------------------------------ */
+/* Portal access                                                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Turn the Partner Portal on or off for one partner.
+ *
+ * Dee, 2026-09-12: OFF "blocks Partner Portal access, does not delete the
+ * contact, does not delete identity/auth history, does not delete Partner
+ * data, does not affect service engagements, does not affect CreditOps
+ * operations."
+ *
+ * The whole operation is `set_partner_portal_access`: it re-checks
+ * `partners.edit`, refuses to enable a partner with no primary contact email,
+ * writes the activity entry and the audit record. The switch is read by
+ * `partner_group_of_user()`, the one function every partner-facing query
+ * resolves through — so OFF is off everywhere at once, not screen by screen.
+ */
+export async function setPartnerPortalAccess(
+  groupId: string,
+  enabled: boolean,
+  reason?: string,
+): Promise<void> {
+  const sb = requireSupabase();
+  const { error } = await sb.rpc("set_partner_portal_access", {
+    p_group: groupId,
+    p_enabled: enabled,
+    p_reason: reason?.trim() || null,
+  });
+  if (error) throw error;
+}
+
+/**
+ * Whether this partner COULD be switched on — an active primary contact with
+ * a usable email address.
+ *
+ * Derived from the contacts in hand rather than asked of the database again:
+ * the Portal tab already holds them, and a cached eligibility flag would be
+ * wrong the moment somebody adds an email. Mirrors `partner_portal_eligible`
+ * in SQL, which is what actually enforces it.
+ */
+export function partnerPortalEligible(
+  contacts: readonly { isPrimary: boolean; status: string | null; email: string | null }[],
+): boolean {
+  return contacts.some(
+    (c) => c.isPrimary && c.status === "active" && !!c.email && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(c.email.trim()),
+  );
+}
+
+/** What the Partner Profile shows for access, in Dee's words. */
+export function portalAccessLabel(partner: { portalAccessEnabled: boolean }, eligible: boolean): string {
+  if (partner.portalAccessEnabled) return "ON";
+  return eligible ? "OFF" : "Cannot enable · primary contact email required";
 }

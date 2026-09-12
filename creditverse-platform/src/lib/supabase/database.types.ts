@@ -8682,6 +8682,9 @@ export type Database = {
           onboarding_completed_by: string | null
           partner_name: string | null
           phone: string | null
+          portal_access_changed_at: string | null
+          portal_access_changed_by: string | null
+          portal_access_enabled: boolean
           primary_contact: string | null
           primary_contact_id: string | null
           saas_plan: string | null
@@ -8733,6 +8736,9 @@ export type Database = {
           onboarding_completed_by?: string | null
           partner_name?: string | null
           phone?: string | null
+          portal_access_changed_at?: string | null
+          portal_access_changed_by?: string | null
+          portal_access_enabled?: boolean
           primary_contact?: string | null
           primary_contact_id?: string | null
           saas_plan?: string | null
@@ -8784,6 +8790,9 @@ export type Database = {
           onboarding_completed_by?: string | null
           partner_name?: string | null
           phone?: string | null
+          portal_access_changed_at?: string | null
+          portal_access_changed_by?: string | null
+          portal_access_enabled?: boolean
           primary_contact?: string | null
           primary_contact_id?: string | null
           saas_plan?: string | null
@@ -8837,6 +8846,13 @@ export type Database = {
           {
             foreignKeyName: "outsourcing_groups_onboarding_completed_by_fkey"
             columns: ["onboarding_completed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outsourcing_groups_portal_access_changed_by_fkey"
+            columns: ["portal_access_changed_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -15698,6 +15714,7 @@ export type Database = {
         Args: { p_invoice: string }
         Returns: undefined
       }
+      partner_portal_eligible: { Args: { p_group: string }; Returns: boolean }
       partners_visible_to_user: {
         Args: { p_user: string }
         Returns: {
@@ -16115,6 +16132,10 @@ export type Database = {
           p_health: Database["public"]["Enums"]["partner_health"]
           p_note?: string
         }
+        Returns: undefined
+      }
+      set_partner_portal_access: {
+        Args: { p_enabled: boolean; p_group: string; p_reason?: string }
         Returns: undefined
       }
       set_payroll_settings: {

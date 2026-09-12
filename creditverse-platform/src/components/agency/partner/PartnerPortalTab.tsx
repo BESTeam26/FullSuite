@@ -1,26 +1,102 @@
 /**
- * What this partner can see of BES, and who at the partner can see it.
+ * Whether this partner may use the portal, who at the partner can, and what
+ * they would see.
  *
  * Written plainly because the question "what do they actually see?" is asked
  * every time somebody is invited, and a vague answer is how internal material
  * ends up shared.
+ *
+ * ── THREE STATES, NOT ONE ──────────────────────────────────────────────────
+ *
+ *   ACCESS       the switch on the partner — ON, OFF, or cannot be enabled
+ *   ELIGIBILITY  whether there IS a primary contact with a usable email
+ *   INVITATION   whether anybody has been asked, and whether they accepted
+ *
+ * Dee, 2026-09-12, kept them apart deliberately: turning access on does not
+ * invite anybody, and turning it off destroys nothing — the contact, their
+ * identity, the engagements and every CreditOps record stay exactly as they
+ * are, and switching back on restores them without a new invitation.
  */
-import { ShieldCheck } from "lucide-react";
+import { useState } from "react";
+import { Loader2, ShieldCheck } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import { useAgencyPermissions } from "@/lib/data/agency-permissions";
 import { ContentCard } from "@/components/dashboard/DivisionLayout";
 import { Pill } from "@/components/agency/partner/partner-ui";
 import { usePartnerContacts } from "@/lib/data/use-agency-partners";
-import { PORTAL_LABEL, portalState } from "@/lib/data/agency-partners";
+import {
+  PORTAL_LABEL, partnerPortalEligible, portalAccessLabel, portalState,
+  setPartnerPortalAccess,
+} from "@/lib/data/agency-partners";
 import type { AgencyPartner } from "@/lib/data/agency-partners";
 
 export function PartnerPortalTab({ partner }: { partner: AgencyPartner }) {
   const contacts = usePartnerContacts(partner.id);
+  const perms = useAgencyPermissions();
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [busy, setBusy] = useState(false);
   const rows = contacts.data ?? [];
   const activeCount = rows.filter((c) => portalState(c) === "active").length;
   const suspended = partner.lifecycle === "suspended" || partner.lifecycle === "archived";
+  const eligible = partnerPortalEligible(rows);
+  const canEdit = perms.can("partners.edit");
+
+  /* Invitation state is the CONTACTS' business and access is the PARTNER's.
+     Dee, 2026-09-12: "Keep access state and invitation state separate." A
+     partner can be ON with nobody invited, or OFF with somebody who accepted
+     months ago — and switching back on restores them without a new
+     invitation, because nothing about their identity was destroyed. */
+  const invitationState =
+    activeCount > 0 ? "Accepted" : rows.some((c) => portalState(c) === "invited") ? "Pending" : "Not sent";
+
+  const toggle = async (next: boolean) => {
+    setBusy(true);
+    try {
+      await setPartnerPortalAccess(partner.id, next);
+      await qc.invalidateQueries({ queryKey: ["agency", "partners"] });
+      toast({
+        title: next ? "Portal access enabled" : "Portal access disabled",
+        description: next
+          ? "Their contacts can sign in. Nobody is invited until you invite them."
+          : "Nobody at this partner can sign in. Nothing was deleted.",
+      });
+    } catch (e) {
+      toast({ title: "Could not change portal access", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <div className="space-y-3">
       <ContentCard title="Portal access">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2.5">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-foreground">
+              Portal access:{" "}
+              <span className={partner.portalAccessEnabled ? "text-status-success" : "text-muted-foreground"}>
+                {portalAccessLabel(partner, eligible)}
+              </span>
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              Invitation: {invitationState}
+              {!eligible && " · add a primary contact with an email address on the Contacts tab"}
+            </p>
+          </div>
+          {canEdit && (
+            <Button
+              size="sm"
+              variant={partner.portalAccessEnabled ? "outline" : "default"}
+              disabled={busy || (!partner.portalAccessEnabled && !eligible)}
+              onClick={() => void toggle(!partner.portalAccessEnabled)}
+            >
+              {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : partner.portalAccessEnabled ? "Turn off" : "Turn on"}
+            </Button>
+          )}
+        </div>
         {suspended ? (
           <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-900">
             This partner is {partner.lifecycle === "archived" ? "archived" : "suspended"}, so nobody at
