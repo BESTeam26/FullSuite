@@ -30,6 +30,7 @@ const P = {
   ben: "12c034aa-c73d-4cf5-bd01-362b91d10866",
   cora: "3925d409-086e-4eee-90de-1d104197c9a2",
   dev: "83f1ff5c-6831-41af-ab6d-d0e14b8e41d6",
+  eli: "315f8257-bd8d-49fc-955c-036972f803bc",
 };
 
 let pass = 0, fail = 0;
@@ -53,23 +54,43 @@ const makeClients = (n, status) =>
           '${status}', 'Pre-Round', (select id from outsourcing_groups limit 1));`).join("\n");
 
 console.log("\nEQUAL DISTRIBUTION");
-check("1 — four processors, four files: one each",
-  probe(`${setup([P.ada, P.ben, P.cora, P.dev])}
-    ${makeClients(4, "Ready for Processing")}
-    select count(distinct assignee_id)::int as n, count(*)::int as rows
-      from client_department_statuses
-     where client_id::text like 'cccccccc%' and department = 'Dispute';`)[0],
-  { n: 4, rows: 4 });
 
-check("2 — a fifth file goes back to the front of the rotation, not to a fifth person",
-  probe(`${setup([P.ada, P.ben, P.cora, P.dev])}
-    ${makeClients(5, "Ready for Processing")}
-    select count(distinct assignee_id)::int as n,
-           max(c)::int as busiest
-      from (select assignee_id, count(*) as c from client_department_statuses
-             where client_id::text like 'cccccccc%' and department='Dispute'
-             group by 1) x;`)[0],
-  { n: 4, busiest: 2 });
+/* Measured as SPREAD, not as "one each".
+ *
+ * The first version asserted four files across four members gave four
+ * distinct assignees, and broke the moment a member already held work — which
+ * is the normal state of a real team. Fairness does not mean everybody gets
+ * the next one; it means nobody ends up more than one file ahead of the least
+ * loaded person. That is the rule, so that is what is checked.
+ *
+ * Complaints is used because no team pointed at it before today, so the
+ * members start from a known zero. */
+const COMPLAINTS_TEAM = "(select id from teams where name='CreditOps Complaints & Mailing Team')";
+const staffComplaints = (members) => members
+  .map((m) => `insert into team_memberships (team_id, user_id, is_lead) values (${COMPLAINTS_TEAM}, '${m}', false);`)
+  .join("\n");
+const complaintsSpread = (n) => `
+  ${staffComplaints([P.ada, P.ben, P.cora, P.dev])}
+  ${makeClients(n, "For Complaints")}
+  with load as (
+    select u.user_id,
+           (select count(*) from client_department_statuses s
+             join fulfillment_clients c on c.id = s.client_id
+            where s.assignee_id = u.user_id and c.archived_at is null
+              and coalesce(c.lifecycle,'active')='active'
+              and public.creditops_status_is_actionable(s.department, s.status)) as files
+      from (values ('${P.ada}'::uuid), ('${P.ben}'), ('${P.cora}'), ('${P.dev}')) u(user_id)
+  )
+  select (max(files) - min(files) <= 1) as level,
+         (select count(*)::int from client_department_statuses
+           where client_id::text like 'cccccccc%' and assignee_id is not null) as placed
+    from load;`;
+
+check("1 — four members, four files: nobody ends up more than one file ahead",
+  probe(complaintsSpread(4))[0], { level: true, placed: 4 });
+
+check("2 — eight files stay level, so the rotation does not favour anyone",
+  probe(complaintsSpread(8))[0], { level: true, placed: 8 });
 
 check("3 — waiting files do not count as workload",
   /* Isolated on Complaints, which has no pre-existing team: the Dispute pool
@@ -228,6 +249,102 @@ check("19 — routed to Support unassigned, the headline is nobody",
     update fulfillment_clients set status='Ready For Reimport/ Credit Update' where id::text like 'cccccccc%';
     select assigned_agent_id::text as headline from fulfillment_clients where id::text like 'cccccccc%';`)[0],
   { headline: null });
+
+console.log("\nASSIGN AGENT");
+
+/* Setup runs as the connection owner; the CALL runs as a real authenticated
+   user. The point of these is WHO may invoke the function, which a superuser
+   never proves — and a team roster is not what is being tested, so building it
+   under RLS would only be testing the Teams screen. */
+/* `reset role` before the verification SELECT, always: the acting user is
+   deliberately restricted, so reading the outcome AS them tests their read
+   policy rather than the write that just happened. */
+const attempt = (user, setup, action) => {
+  try {
+    return { ok: true, rows: q.query(
+      /* One statement, one answer.
+       *
+       * The transport hands back a single result set, so the whole scenario —
+       * become the user, call the function, read the outcome — is wrapped in
+       * one SELECT over a CTE-free DO block plus a final query. Anything that
+       * returns rows in between silently becomes the "answer" instead. */
+      `begin; ${setup}
+       set local role authenticated;
+       do $claims$ begin perform set_config('request.jwt.claims', '{"sub":"${user}","role":"authenticated"}', true); end $claims$;
+       ${action} rollback;`) };
+  } catch (e) {
+    return { ok: false, error: String(e.message).replace(/\s+/g, " ").slice(0, 140) };
+  }
+};
+
+const SUPPORT_TEAM = "(select id from teams where name='CreditOps Client Success / Support Team')";
+
+/* Resolved ONCE, as the connection owner, and inlined as a literal.
+ *
+ * Looking it up inside the probe's own statement would run under the acting
+ * user's RLS — a Support lead who cannot yet see that row gets null, the
+ * function is handed null, and the refusal that comes back says "Client not
+ * visible" when the real answer is "the probe asked the wrong question". */
+const SUPPORT_FILE = `'${
+  q.query(`select s.client_id from client_department_statuses s
+             join fulfillment_clients c on c.id = s.client_id
+            where s.department = 'Support' and c.is_fixture = false
+              and c.archived_at is null limit 1`)[0].client_id
+}'::uuid`;
+
+/* A genuine agent, not a manager: [TEST] Cora Manager holds `ops.manage`, so
+ * using her to prove "an agent may not" proved the opposite by accident. */
+const AGENT = P.eli;
+
+const supportTeam = (lead, member) => `
+  insert into team_memberships (team_id, user_id, is_lead) values
+    (${SUPPORT_TEAM}, '${lead}', true), (${SUPPORT_TEAM}, '${member}', false);`;
+
+check("20 — a Support Team Lead can assign a Support agent",
+  attempt(P.dev, supportTeam(P.dev, P.ben), `
+    do $$ begin perform public.creditops_assign_agent(${SUPPORT_FILE}, 'Support', '${P.ben}', 'covering today'); end $$;
+    reset role;
+    select assignee_id::text as owner, assignment_method from client_department_statuses
+     where client_id = ${SUPPORT_FILE} and department='Support';`).rows?.[0],
+  { owner: P.ben, assignment_method: "team_lead" });
+
+check("21 — a plain Support agent cannot reassign a case",
+  attempt(AGENT, `insert into team_memberships (team_id, user_id, is_lead) values
+      (${SUPPORT_TEAM}, '${AGENT}', false), (${SUPPORT_TEAM}, '${P.ben}', false);`,
+    `select public.creditops_assign_agent(${SUPPORT_FILE}, 'Support', '${P.ben}', null);`).ok,
+  false);
+
+check("22 — …and cannot take the case for themselves either",
+  attempt(AGENT, `insert into team_memberships (team_id, user_id, is_lead) values (${SUPPORT_TEAM}, '${AGENT}', false);`,
+    `select public.creditops_assign_agent(${SUPPORT_FILE}, 'Support', '${AGENT}', null);`).ok,
+  false);
+
+check("23 — work cannot be parked on somebody outside the department",
+  attempt(P.dev, `insert into team_memberships (team_id, user_id, is_lead) values (${SUPPORT_TEAM}, '${P.dev}', true);`,
+    `select public.creditops_assign_agent(${SUPPORT_FILE}, 'Support', '${P.ada}', null);`).ok,
+  false);
+
+check("24 — the change is recorded with actor, previous and new",
+  attempt(P.dev, supportTeam(P.dev, P.ben), `
+    do $$ begin perform public.creditops_assign_agent(${SUPPORT_FILE}, 'Support', '${P.ben}', 'covering today'); end $$;
+    reset role;
+    select action, previous_value, (actor_id = '${P.dev}') as actor_is_the_lead,
+           (detail like '%covering today%') as reason_kept
+      from activity_events
+     where entity_id = (${SUPPORT_FILE})::text and action = 'Assignment changed'
+     order by created_at desc limit 1;`).rows?.[0],
+  { action: "Assignment changed", previous_value: "Unassigned", actor_is_the_lead: true, reason_kept: true });
+
+check("25 — releasing a file back to the queue is allowed",
+  attempt(P.dev, supportTeam(P.dev, P.ben), `
+    do $$ begin
+      perform public.creditops_assign_agent(${SUPPORT_FILE}, 'Support', '${P.ben}', null);
+      perform public.creditops_assign_agent(${SUPPORT_FILE}, 'Support', null, 'back to the queue');
+    end $$;
+    reset role;
+    select assignee_id::text as owner from client_department_statuses
+     where client_id = ${SUPPORT_FILE} and department='Support';`).rows?.[0],
+  { owner: null });
 
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail === 0 ? 0 : 1);

@@ -251,7 +251,12 @@ export const Sidebar = () => {
            somebody stops opening the wrong one. */
         { label: "Finance", icon: Banknote, href: "/app/finance" },
         { label: "Organization billing", icon: Receipt, href: "/app/billing" },
-        { label: "Compliance & Legal", icon: Scale, href: "/app/compliance" },
+        /* Compliance & Legal and Access preview were removed from the
+           navigation on Dee's word, 2026-09-12: "I don't need access preview,
+           and the compliance and legal should be removed here as well."
+           Both routes still exist and still enforce their own access — this
+           is a navigation change, not a deletion, so nothing that links to
+           either breaks and neither becomes reachable by anybody new. */
       ],
     },
     {
@@ -266,10 +271,6 @@ export const Sidebar = () => {
       label: "System",
       items: [
         { label: "Agency Settings", icon: Settings, href: "/app/settings" },
-        /* Hidden from everybody but the owner and an admin holding
-           `access.preview_as_user` — `accessTo` reads the route spec, and
-           RequireAgencyRoute refuses the URL from the same spec. */
-        { label: "Access preview", icon: Eye, href: "/app/access-preview" },
         { label: "Support", icon: LifeBuoy, href: "/app/support" },
       ],
     },
@@ -598,37 +599,20 @@ export const Sidebar = () => {
             );
           })}
 
-          {/* BES portals are agency chrome. An organization sees only its own
-              modules (rule 16: no path into BES internal operations). */}
-          {viewMode === "agency" && (
-          <div className="pt-4">
-            {groupHeading("Portals & Apps")}
-            <Link
-              to="/affiliate"
-              title={rail ? "Partner Referral Portal" : undefined}
-              className={itemClass(false)}
-            >
-              <UserCheck className="h-4 w-4 shrink-0" />
-              {!rail && "Partner Referral Portal"}
-            </Link>
-            <Link
-              to="/outsourcing"
-              title={rail ? "Outsourcing Portal" : undefined}
-              className={itemClass(false)}
-            >
-              <Briefcase className="h-4 w-4 shrink-0" />
-              {!rail && "Outsourcing Portal"}
-            </Link>
-            <Link
-              to="/diy"
-              title={rail ? "BES DIY Credit" : undefined}
-              className={itemClass(false)}
-            >
-              <Zap className="h-4 w-4 shrink-0 text-amber-400" />
-              {!rail && "BES DIY Credit"}
-            </Link>
-          </div>
-          )}
+          {/* ── PORTALS ARE NOT INTERNAL WORKSPACES ────────────────────
+              Dee's rule, 2026-09-12: "BES internal sidebar = internal
+              operating workspaces. External portals/apps = accessible
+              through their appropriate user experience, not permanently
+              displayed in the BES internal sidebar."
+
+              Partner Referral Portal, Outsourcing Portal and BES DIY Credit
+              were links from this sidebar into customer-facing experiences.
+              The links are gone; NOTHING else is. Every route, component,
+              table, policy and permission behind them is untouched, and each
+              is still reached at its own URL under its own guard — staff work
+              partners through the canonical internal Partner Profile
+              instead. */}
+
         </nav>
 
         <div className={cn("border-t border-sidebar-border", rail ? "p-2" : "p-3")}>
