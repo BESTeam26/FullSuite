@@ -8981,6 +8981,13 @@ export type Database = {
           group_id: string
           id: string
           kind: string
+          needs_routing_review: boolean
+          origin_department:
+            | Database["public"]["Enums"]["fulfillment_department"]
+            | null
+          origin_status:
+            | Database["public"]["Enums"]["fulfillment_client_status"]
+            | null
           requested_at: string
           requested_by: string | null
           responded_at: string | null
@@ -8999,6 +9006,13 @@ export type Database = {
           group_id: string
           id?: string
           kind?: string
+          needs_routing_review?: boolean
+          origin_department?:
+            | Database["public"]["Enums"]["fulfillment_department"]
+            | null
+          origin_status?:
+            | Database["public"]["Enums"]["fulfillment_client_status"]
+            | null
           requested_at?: string
           requested_by?: string | null
           responded_at?: string | null
@@ -9017,6 +9031,13 @@ export type Database = {
           group_id?: string
           id?: string
           kind?: string
+          needs_routing_review?: boolean
+          origin_department?:
+            | Database["public"]["Enums"]["fulfillment_department"]
+            | null
+          origin_status?:
+            | Database["public"]["Enums"]["fulfillment_client_status"]
+            | null
           requested_at?: string
           requested_by?: string | null
           responded_at?: string | null
@@ -14719,6 +14740,7 @@ export type Database = {
         }
         Returns: string
       }
+      clean_history_text: { Args: { p: string }; Returns: string }
       clear_agency_permission: {
         Args: { p_key: string; p_membership: string }
         Returns: undefined
@@ -14760,6 +14782,17 @@ export type Database = {
       client_department_writable: {
         Args: { p_client: string }
         Returns: boolean
+      }
+      client_history: {
+        Args: { p_client: string }
+        Returns: {
+          actor: string
+          department: string
+          detail: string
+          happened_at: string
+          kind: string
+          title: string
+        }[]
       }
       client_match_for_import: {
         Args: {
@@ -15062,7 +15095,13 @@ export type Database = {
         Args: { p_client: string }
         Returns: undefined
       }
-      creditops_route_client: { Args: { p_client: string }; Returns: undefined }
+      creditops_route_client: {
+        Args: {
+          p_client: string
+          p_previous_status?: Database["public"]["Enums"]["fulfillment_client_status"]
+        }
+        Returns: undefined
+      }
       creditops_status_is_actionable: {
         Args: {
           p_department: Database["public"]["Enums"]["fulfillment_department"]
@@ -16049,6 +16088,7 @@ export type Database = {
           p_client: string
           p_detail?: string
           p_kind?: string
+          p_origin_status?: Database["public"]["Enums"]["fulfillment_client_status"]
           p_title?: string
         }
         Returns: string

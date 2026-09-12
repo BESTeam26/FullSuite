@@ -26,13 +26,42 @@ import { markMailed, openComplaint, openSupportCase } from "@/lib/data/client-wo
 
 type ActionKey = "mailed" | "support" | "ftc" | "cfpb";
 
-export function ClientWorkflowActions({ clientId }: { clientId: string }) {
+/**
+ * Which actions belong to which department's work.
+ *
+ * Dee, 2026-09-12: "Do not show an agent actions that have nothing to do with
+ * the current department/work." All four used to show on every file, so a
+ * Complaints agent was offered Mark as Mailed and a processor was offered
+ * CFPB Needed.
+ *
+ * Opening work in ANOTHER department is a handoff, and handoffs live inside
+ * Complete Work now — "what happens next" — rather than as four buttons that
+ * are wrong three times out of four.
+ */
+const FOR_DEPARTMENT: Record<string, ActionKey[]> = {
+  Dispute: ["mailed"],
+  Complaints: ["ftc", "cfpb"],
+  Support: [],
+  Onboarding: [],
+  "Bureau Calling": [],
+};
+
+export function ClientWorkflowActions({
+  clientId,
+  department,
+}: {
+  clientId: string;
+  /** The department whose work is open. Null means no open work. */
+  department: string | null;
+}) {
   const perms = useAgencyPermissions();
   const qc = useQueryClient();
   const { toast } = useToast();
   const [busy, setBusy] = useState<ActionKey | null>(null);
 
   if (!perms.can("creditops.clients.edit")) return null;
+  const allowed = department ? (FOR_DEPARTMENT[department] ?? []) : [];
+  if (allowed.length === 0) return null;
 
   const run = async (key: ActionKey, fn: () => Promise<string>, said: string) => {
     setBusy(key);
@@ -67,14 +96,13 @@ export function ClientWorkflowActions({ clientId }: { clientId: string }) {
   ];
 
   return (
-    <ContentCard title="Actions">
+    <ContentCard title={`${department} actions`}>
       <p className="mb-3 text-xs text-muted-foreground">
         The dates look after themselves. Marking a file mailed starts its 30-day wait and
-        releases the processing agent; the complaint and support clocks start when you open
-        them.
+        releases the processing agent; the complaint clocks start when you open them.
       </p>
       <div className="flex flex-wrap gap-2">
-        {actions.map((a) => {
+        {actions.filter((a) => allowed.includes(a.key)).map((a) => {
           const Icon = a.icon;
           return (
             <Button
