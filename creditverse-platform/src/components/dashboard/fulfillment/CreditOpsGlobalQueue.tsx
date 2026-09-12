@@ -31,12 +31,32 @@ import {
 import { ClientWorkWorkspace } from "./ClientWorkWorkspace";
 import { OpsGlobalQueue } from "./OpsGlobalQueue";
 import { usePartners } from "@/lib/data/use-partners";
+import { useAuth } from "@/lib/auth/auth-context";
+import { useDepartmentRoster } from "@/lib/data/use-department-roster";
+import type { CreditOpsDepartment } from "@/lib/fulfillment/creditops-access";
 
 interface Props {
   queueType: string;
   /** Open narrowed to one partner — see `initialPartnerScope`. */
   partnerScope?: string | null;
 }
+
+/**
+ * Which department each queue is the queue FOR.
+ *
+ * The queue's rows are still selected by the client's credit status (the
+ * specs below), but assignment belongs to a department row, so the ownership
+ * filter needs to know which one. The Escalation Queue spans every
+ * department by definition and therefore has none.
+ */
+const QUEUE_DEPARTMENT: Record<string, CreditOpsDepartment | undefined> = {
+  "onboarding-queue": "Onboarding",
+  "dispute-queue": "Dispute",
+  "support-queue": "Support",
+  "complaints-queue": "Complaints",
+  "bureau-queue": "Bureau Calling",
+  "escalation-queue": undefined,
+};
 
 const SLA_WARNING_HOURS = 4;
 
@@ -111,7 +131,14 @@ export function CreditOpsGlobalQueue({ queueType, partnerScope = null }: Props) 
     CREDIT_OPS_PARTNERS,
   );
   const store = useCreditOpsStore();
+  const auth = useAuth();
   const [openClientId, setOpenClientId] = useState<string | null>(null);
+  const department = QUEUE_DEPARTMENT[queueType];
+  const roster = useDepartmentRoster(department);
+  /* Support is Team Lead assignment, so an unassigned file there is the
+     normal state and must not be offered as "Assignment required" (Dee,
+     §16). Everywhere else it is an exception worth surfacing. */
+  const unassignedIsException = department !== "Support";
 
   const spec = QUEUE_SPECS[queueType] ?? QUEUE_SPECS["dispute-queue"];
   const queueClients = useMemo(
@@ -160,6 +187,28 @@ export function CreditOpsGlobalQueue({ queueType, partnerScope = null }: Props) 
       slaWarningHours={SLA_WARNING_HOURS}
       onOpenClient={setOpenClientId}
       initialPartnerScope={partnerScope}
+      ownership={
+        department
+          ? {
+              resolve: (c) => {
+                const row = store
+                  .getDepartmentStatuses(c.id)
+                  .find((d) => d.department === department);
+                return {
+                  assigneeId: row?.assigneeId ?? null,
+                  assigneeName: row?.assigneeId ? (row.assignee ?? null) : null,
+                  /* Only an auto-distributed department can FAIL to place a
+                     file; Support leaving it unassigned is a decision. */
+                  assignmentRequired:
+                    unassignedIsException && !row?.assigneeId,
+                };
+              },
+              agents: roster,
+              currentUserId: auth.user?.id ?? null,
+              unassignedIsException,
+            }
+          : undefined
+      }
     />
   );
 }

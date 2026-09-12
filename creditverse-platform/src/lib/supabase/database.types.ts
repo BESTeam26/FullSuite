@@ -13706,6 +13706,59 @@ export type Database = {
           },
         ]
       }
+      creditops_my_work: {
+        Row: {
+          assignee_id: string | null
+          assignment_method: string | null
+          client_id: string | null
+          client_name: string | null
+          client_public_id: string | null
+          credit_status:
+            | Database["public"]["Enums"]["fulfillment_client_status"]
+            | null
+          department:
+            | Database["public"]["Enums"]["fulfillment_department"]
+            | null
+          due_at: string | null
+          next_action: string | null
+          organization_id: string | null
+          outsourcing_group_id: string | null
+          partner_name: string | null
+          round: Database["public"]["Enums"]["fulfillment_round"] | null
+          updated_at: string | null
+          work_status: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_department_statuses_assignee_id_fkey"
+            columns: ["assignee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_department_statuses_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "fulfillment_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fulfillment_clients_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fulfillment_clients_outsourcing_group_id_fkey"
+            columns: ["outsourcing_group_id"]
+            isOneToOne: false
+            referencedRelation: "outsourcing_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fixture_login_state: {
         Row: {
           fixture_identities: number | null
@@ -14647,6 +14700,35 @@ export type Database = {
       credit_report_visible: {
         Args: { p_client: string; p_consumer: string; p_org: string }
         Returns: boolean
+      }
+      creditops_assign_agent: {
+        Args: {
+          p_assignee: string
+          p_client: string
+          p_department: Database["public"]["Enums"]["fulfillment_department"]
+          p_reason?: string
+        }
+        Returns: undefined
+      }
+      creditops_backfill_routing: {
+        Args: never
+        Returns: {
+          clients: number
+          departments_opened: number
+          still_unassigned: number
+        }[]
+      }
+      creditops_department_roster: {
+        Args: {
+          p_department: Database["public"]["Enums"]["fulfillment_department"]
+        }
+        Returns: {
+          active_files: number
+          email: string
+          full_name: string
+          is_lead: boolean
+          user_id: string
+        }[]
       }
       creditops_department_statuses: {
         Args: {

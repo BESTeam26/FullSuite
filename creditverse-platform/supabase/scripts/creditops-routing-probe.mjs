@@ -346,5 +346,47 @@ check("25 — releasing a file back to the queue is allowed",
      where client_id = ${SUPPORT_FILE} and department='Support';`).rows?.[0],
   { owner: null });
 
+console.log("\nMY WORK");
+
+/* The client used for these is created inside the transaction so its
+   department rows are known exactly, rather than depending on whatever the
+   live board happens to hold today. */
+const myWorkCount = (setup) => probe(`
+  ${staffComplaints([P.ada])}
+  ${makeClients(1, "For Complaints")}
+  ${setup}
+  select count(*)::int as mine from creditops_my_work where assignee_id = '${P.ada}'
+   and client_id::text like 'cccccccc%';`)[0];
+
+check("26 — actionable work I own is in My Work",
+  myWorkCount(""), { mine: 1 });
+
+check("27 — a waiting file is not, even though it is still mine on paper",
+  myWorkCount(`update client_department_statuses set status='CM AWAITING RESPONSE'
+                where client_id::text like 'cccccccc%' and department='Complaints';`),
+  { mine: 0 });
+
+check("28 — resolved work is not",
+  myWorkCount(`update client_department_statuses set status='CM COMPLETED'
+                where client_id::text like 'cccccccc%' and department='Complaints';`),
+  { mine: 0 });
+
+check("29 — an archived client's work is not",
+  myWorkCount(`update fulfillment_clients set lifecycle='archived', archived_at=now()
+                where id::text like 'cccccccc%';`),
+  { mine: 0 });
+
+check("30 — work sitting with the partner is not",
+  myWorkCount(`update fulfillment_clients set status='For Partner Confirmation'
+                where id::text like 'cccccccc%';
+               update client_department_statuses set assignee_id='${P.ada}'
+                where client_id::text like 'cccccccc%' and department='Complaints';`),
+  { mine: 0 });
+
+check("31 — somebody else's work is not in mine",
+  myWorkCount(`update client_department_statuses set assignee_id='${P.ben}'
+                where client_id::text like 'cccccccc%' and department='Complaints';`),
+  { mine: 0 });
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail === 0 ? 0 : 1);

@@ -21,6 +21,7 @@ import {
 import { Avatar } from "./ops-client-list-helpers";
 import { cn } from "@/lib/utils";
 import { OpsSelect } from "@/components/ui/ops-select";
+import { readSla, SLA_TONE_CLASS } from "@/lib/fulfillment/sla-display";
 
 export interface OpsGlobalQueueColumn<T extends OpsClient> {
   label: string;
@@ -47,8 +48,30 @@ interface OpsGlobalQueueProps<T extends OpsClient, P extends OpsPartner> {
   /** Commit an inline status transition. */
   onCommitStatus: (client: T, newStatus: string) => void;
   /** SLA hours at or below which the figure turns red. */
+  /** Retained for the divisions that still colour their own thresholds. */
   slaWarningHours: number;
   onOpenClient: (clientId: string) => void;
+  /**
+   * Who owns each row's work IN THIS QUEUE'S DEPARTMENT, and whether the
+   * department could not place it.
+   *
+   * Optional because FundingOps has no assignment engine yet. When it is
+   * supplied the ownership filter appears and the Assigned Agent column shows
+   * the DEPARTMENT's assignee rather than the client's headline summary —
+   * which is the right answer for a department queue, and can differ when a
+   * client has concurrent work in two departments.
+   */
+  ownership?: {
+    resolve: (client: T) => { assigneeId: string | null; assigneeName: string | null; assignmentRequired: boolean };
+    /** The people this department may assign to, for the by-agent filter. */
+    agents: readonly { id: string; name: string }[];
+    currentUserId: string | null;
+    /**
+     * False for a department whose policy is Team Lead assignment. Unassigned
+     * is normal there and must not read as an engine failure (Dee, §16).
+     */
+    unassignedIsException: boolean;
+  };
   /**
    * Open with the partner filter already applied — the scope id a summary
    * tile came from.
@@ -77,9 +100,12 @@ export function OpsGlobalQueue<T extends OpsClient, P extends OpsPartner>({
   onCommitStatus,
   slaWarningHours,
   onOpenClient,
+  ownership,
   initialPartnerScope = null,
 }: OpsGlobalQueueProps<T, P>) {
   const [search, setSearch] = useState("");
+  /* "all" · "unassigned" · "mine" · "attention" · a user id */
+  const [owner, setOwner] = useState("all");
   const [partnerFilter, setPartnerFilter] = useState(initialPartnerScope ?? "all");
   /* Arriving from a different partner's tile re-seeds the filter; changing it
      by hand afterwards is not overwritten, because the effect only fires when
@@ -99,6 +125,13 @@ export function OpsGlobalQueue<T extends OpsClient, P extends OpsPartner>({
           )
             return false;
         }
+        if (ownership && owner !== "all") {
+          const who = ownership.resolve(c);
+          if (owner === "unassigned" && who.assigneeId !== null) return false;
+          if (owner === "attention" && !who.assignmentRequired) return false;
+          if (owner === "mine" && who.assigneeId !== ownership.currentUserId) return false;
+          if (!["unassigned", "attention", "mine"].includes(owner) && who.assigneeId !== owner) return false;
+        }
         if (!search) return true;
         const q = search.toLowerCase();
         return (
@@ -107,7 +140,7 @@ export function OpsGlobalQueue<T extends OpsClient, P extends OpsPartner>({
           clientGroupLabel(c).toLowerCase().includes(q)
         );
       }),
-    [clients, search, partnerFilter],
+    [clients, search, partnerFilter, owner, ownership],
   );
 
   const commit = (client: T, newStatus: string) => {
@@ -148,6 +181,27 @@ export function OpsGlobalQueue<T extends OpsClient, P extends OpsPartner>({
               ...partners.map((p) => ({ value: p.scopeId, label: p.name })),
             ]}
           />
+          {ownership && (
+            <OpsSelect
+              value={owner}
+              onValueChange={setOwner}
+              aria-label="Filter by assignment"
+              options={[
+                { value: "all", label: "All work" },
+                {
+                  value: "unassigned",
+                  /* The word means two different things depending on the
+                     department's policy, so the label says which (Dee, §16). */
+                  label: ownership.unassignedIsException ? "Unassigned" : "Unassigned — to allocate",
+                },
+                ...(ownership.unassignedIsException
+                  ? [{ value: "attention", label: "Assignment required" }]
+                  : []),
+                ...(ownership.currentUserId ? [{ value: "mine", label: "Assigned to me" }] : []),
+                ...ownership.agents.map((a) => ({ value: a.id, label: a.name })),
+              ]}
+            />
+          )}
           <div className="relative min-w-[200px]">
             <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <input
@@ -250,25 +304,38 @@ export function OpsGlobalQueue<T extends OpsClient, P extends OpsPartner>({
                       )}
                     </td>
                     <td className="px-3 py-2.5">
-                      <div className="inline-flex items-center gap-1.5">
-                        <Avatar name={c.assignedAgent ?? "Unassigned"} />
-                        <span className="text-xs text-foreground">
-                          {c.assignedAgent ?? "Unassigned"}
-                        </span>
-                      </div>
+                      {(() => {
+                        /* The DEPARTMENT's assignee where one is known. A
+                           client worked by two departments has two owners, and
+                           this queue is about one of them. */
+                        const who = ownership?.resolve(c);
+                        const name = who ? who.assigneeName : (c.assignedAgent ?? null);
+                        if (!name && who?.assignmentRequired) {
+                          return (
+                            <span
+                              className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold text-status-warning"
+                              title="No eligible team member — this file needs somebody assigning to it"
+                            >
+                              Assignment required
+                            </span>
+                          );
+                        }
+                        return (
+                          <div className="inline-flex items-center gap-1.5">
+                            <Avatar name={name ?? "Unassigned"} />
+                            <span className="text-xs text-foreground">{name ?? "Unassigned"}</span>
+                          </div>
+                        );
+                      })()}
                     </td>
-                    <td
-                      className={cn(
-                        "px-3 py-2.5 font-extrabold",
-                        c.slaHoursRemaining !== undefined &&
-                          c.slaHoursRemaining <= slaWarningHours
-                          ? "text-status-danger"
-                          : "text-foreground",
-                      )}
-                    >
-                      {c.slaHoursRemaining !== undefined
-                        ? `${c.slaHoursRemaining}h`
-                        : "—"}
+                    <td className="px-3 py-2.5 font-semibold">
+                      {/* Human language, never raw hours. Dee, §8: "Never show
+                          raw SLA like 902.4h." This column read `${hours}h`
+                          straight from the calculation. */}
+                      {(() => {
+                        const sla = readSla(c.slaHoursRemaining);
+                        return <span className={SLA_TONE_CLASS[sla.tone]}>{sla.label}</span>;
+                      })()}
                     </td>
                     <td className="px-3 py-2.5">
                       <button
