@@ -204,20 +204,32 @@ const blankToNull = (v?: string) => {
   return t === "" ? null : t;
 };
 
+/**
+ * Create a partner AND establish its primary contact, in one transaction.
+ *
+ * Dee, 2026-09-12: "Partner creation should atomically establish Partner →
+ * Primary Partner Contact using the submitted Partner information." Two steps
+ * is not just tedious — 26 of 27 existing partners had zero contacts, because
+ * nobody ever did the second one, and a partner with no contact cannot be
+ * given portal access at all.
+ *
+ * The whole operation is one database function: it re-checks `partners.create`
+ * itself, matches an existing contact on this partner by email exactly (never
+ * across partners, never by name), and creates NO end client. A partner is a
+ * company; a contact is a person; a consumer is neither.
+ *
+ * The id is still generated here. `INSERT … RETURNING` re-checks the new row
+ * against the SELECT policy, and `can_see_partner` reads a snapshot that does
+ * not contain the row being inserted — so RETURNING is refused even for the
+ * owner while the same insert without it succeeds.
+ */
 export async function createAgencyPartner(agencyId: string, input: NewPartner): Promise<string> {
   const sb = requireSupabase();
-  /* The id is generated HERE, not returned by the database. `INSERT …
-     RETURNING` re-checks the new row against the SELECT policy, and
-     `can_see_partner` looks the row up in a snapshot that does not include
-     the row this statement is inserting — so RETURNING is refused even for
-     the owner, while the same insert without it succeeds. Supplying the id
-     needs no RETURNING and leaves the policy exactly as strict as it is. */
   const id = crypto.randomUUID();
-  const { error } = await sb
-    .from("outsourcing_groups")
-    .insert({
+  const { error } = await sb.rpc("create_partner_with_contact", {
+    p_agency: agencyId,
+    p_partner: {
       id,
-      agency_id: agencyId,
       name: input.name.trim(),
       contact_email: input.contactEmail.trim(),
       /* Blank stays NULL rather than becoming an empty string. An empty
@@ -239,7 +251,9 @@ export async function createAgencyPartner(agencyId: string, input: NewPartner): 
       account_manager_id: input.accountManagerId ?? null,
       team_id: input.teamId ?? null,
       source_list_ref: input.sourceListRef ?? null,
-    });
+    } as never,
+    p_contact: {} as never,
+  });
   if (error) throw error;
   return id;
 }

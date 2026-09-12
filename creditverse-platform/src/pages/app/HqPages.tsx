@@ -11,7 +11,6 @@ import { cn } from "@/lib/utils";
 import { DataSourceBadge } from "@/components/dashboard/DataSourceBadge";
 import { useMyWork, useAttention } from "@/lib/data/use-work";
 import { useMyDepartmentFiles } from "@/lib/data/use-my-department-files";
-import { useMyQueues } from "@/lib/data/use-my-queues";
 import { useAgency } from "@/lib/agency-context";
 import {
   useMarkAllNotificationsRead,
@@ -217,7 +216,6 @@ export const MyWorkPage = () => {
   /* Department files assigned to me (CreditOps / FundingOps) — the second half
      of "what do I need to do right now" (separation step 4). */
   const departmentFiles = useMyDepartmentFiles();
-  const queues = useMyQueues();
   const { viewMode } = useAgency();
   const fileHref = (f: { division: string; clientId: string }) =>
     f.division === "CreditOps"
@@ -286,30 +284,19 @@ export const MyWorkPage = () => {
           </ContentCard>
         </div>
       )}
-      {queues.live && (
-        <div className="mb-4">
-          <ContentCard title="Available in my queues">
-            {queues.error ? (
-              <p className="text-sm text-red-700">Could not load your queues: {queues.error}</p>
-            ) : queues.isLoading ? (
-              <p className="py-6 text-center text-sm text-muted-foreground">Loading…</p>
-            ) : queues.rows.length === 0 ? (
-              <p className="py-6 text-center text-sm text-muted-foreground">Nothing unassigned in the departments you are authorized to work.</p>
-            ) : (
-              <DivisionTable
-                columns={["Client", "Division", "Department", "Work status", "Waiting since"]}
-                rows={queues.rows.map((f) => [
-                  <Link key={f.key} to={fileHref(f)} className="font-medium text-primary underline-offset-2 hover:underline">{f.clientName}{f.filePurpose ? ` · ${f.filePurpose}` : ""}</Link>,
-                  f.division,
-                  f.department,
-                  <StatusPill status={f.status} />,
-                  formatDate(f.updatedAt),
-                ])}
-              />
-            )}
-          </ContentCard>
-        </div>
-      )}
+      {/* ── "AVAILABLE IN MY QUEUES" IS GONE ─────────────────────────────
+          Dee, 2026-09-12: "My Work = only work assigned directly to the
+          logged-in internal BES user… Do NOT show every available department
+          queue underneath."
+
+          It listed every UNASSIGNED department row the person was authorized
+          to work — which, for an owner or an admin, is the whole operation.
+          Dee's personal workspace read "0 open items" and then showed eleven
+          other people's files. Management authority is not personal workload.
+
+          Unassigned department work has a home already: the department queue,
+          with its Unassigned and Assignment Required filters. This page is
+          for what is assigned to YOU, and says so when that is nothing. */}
       <ContentCard title="My Active Work Items">
         {isLoading ? (
           <p className="py-8 text-center text-sm text-muted-foreground">

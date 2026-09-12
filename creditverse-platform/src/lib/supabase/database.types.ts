@@ -14261,6 +14261,13 @@ export type Database = {
         Returns: string
       }
       auto_stop_stale_timers: { Args: never; Returns: number }
+      backfill_primary_partner_contacts: {
+        Args: never
+        Returns: {
+          created: number
+          skipped_no_email: number
+        }[]
+      }
       begin_letter_mailing: {
         Args: { p_from: Json; p_letter: string; p_to: Json }
         Returns: string
@@ -14674,6 +14681,14 @@ export type Database = {
           p_source: string
         }
         Returns: string
+      }
+      create_partner_with_contact: {
+        Args: { p_agency: string; p_contact?: Json; p_partner: Json }
+        Returns: {
+          contact_id: string
+          contact_reused: boolean
+          partner_id: string
+        }[]
       }
       create_renewal_file: {
         Args: {
