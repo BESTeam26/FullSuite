@@ -243,6 +243,40 @@ export function PendingInvitationsList() {
     onSuccess: () => { setMessage({ text: "Invitation revoked.", error: false }); refresh(); },
     onError: (e) => setMessage({ text: errorMessage(e, "It could not be revoked."), error: true }),
   });
+  /**
+   * Send every outstanding activation email, one at a time.
+   *
+   * Sixteen people were invited in one go; sending them one click each is
+   * sixteen chances to lose count of which ones went. Sequential rather than
+   * parallel on purpose: the provider rate-limits, and a burst that half
+   * succeeds leaves nobody able to say who was emailed.
+   *
+   * The result is counted honestly — sent, not connected, failed — because
+   * "done" when four bounced is the report that costs a day.
+   */
+  const [sendingAll, setSendingAll] = useState(false);
+  const sendAll = async () => {
+    const pending = invitations.data ?? [];
+    if (pending.length === 0) return;
+    setSendingAll(true);
+    let sent = 0, notConnected = 0;
+    const failed: string[] = [];
+    for (const i of pending) {
+      const outcome = await sendInvitationEmail(i.id);
+      if (outcome.status === "sent") sent += 1;
+      else if (outcome.status === "not_connected") notConnected += 1;
+      else failed.push(i.email);
+    }
+    setSendingAll(false);
+    setMessage(
+      failed.length > 0
+        ? { text: `${sent} sent. These did not go: ${failed.join(", ")}.`, error: true }
+        : notConnected > 0
+          ? { text: `Email is not connected — copy the links instead (${notConnected} waiting).`, error: false }
+          : { text: `${sent} activation ${sent === 1 ? "email" : "emails"} sent.`, error: false },
+    );
+  };
+
   const copy = async (token: string) => {
     try {
       await navigator.clipboard.writeText(invitationLink(token));
@@ -255,7 +289,16 @@ export function PendingInvitationsList() {
 
   return (
     <div>
-      <p className={labelCls}>Pending invitations{invitations.data ? ` · ${invitations.data.length}` : ""}</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className={labelCls}>Pending invitations{invitations.data ? ` · ${invitations.data.length}` : ""}</p>
+        {canInvite && (invitations.data?.length ?? 0) > 1 && (
+          <Button type="button" size="sm" variant="outline" disabled={sendingAll}
+            onClick={() => void sendAll()}>
+            {sendingAll ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Mail className="mr-2 h-3.5 w-3.5" />}
+            {sendingAll ? "Sending…" : `Send all ${invitations.data?.length}`}
+          </Button>
+        )}
+      </div>
       {invitations.isLoading ? (
         <div className="mt-2 h-12 animate-pulse rounded-lg bg-muted/40" aria-busy="true" />
       ) : invitations.error ? (
