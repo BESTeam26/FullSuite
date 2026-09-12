@@ -86,17 +86,29 @@ export function validateFieldValue(field: WorkspaceField, value: FieldValue): st
 export interface WorkspaceBoard {
   id: string;
   name: string;
-  viewKind: "list" | "board";
+  /* `calendar` joined when Sales & Marketing needed one — a third view over
+     the same work items, never a second data source (2026-09-13). */
+  viewKind: "list" | "board" | "calendar";
   position: number;
 }
 
 export interface Workspace {
   id: string;
-  organizationId: string;
+  /**
+   * Null for a workspace BES owns — its own marketing, for instance. The
+   * platform has agency-owned workspaces precisely so BES does not have to be
+   * modelled as one of its own customers (Dee: "Do NOT create BES as a fake
+   * Partner").
+   */
+  organizationId: string | null;
   /** Present when loaded across organizations (BES shared view). */
   organizationName?: string;
-  /** The organization's agency — activity and file rows are stamped with it. */
+  /** The owning agency — activity and file rows are stamped with it. */
   agencyId?: string;
+  /** The BES module this workspace belongs to, when it belongs to one. */
+  module?: string | null;
+  /** The partner it belongs to, for a partner workspace inside a module. */
+  partnerGroupId?: string | null;
   name: string;
   description: string | null;
   icon: string | null;

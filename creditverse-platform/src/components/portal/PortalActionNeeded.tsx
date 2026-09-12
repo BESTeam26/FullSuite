@@ -12,6 +12,14 @@
  * Answering moves the client on. WHICH step it moves to is a row in
  * `creditops_status_routing`, decided by BES, not by this screen and not by
  * the partner — they confirm; the workflow routes.
+ *
+ * ── TWO KINDS OF ANSWER ─────────────────────────────────────────────────────
+ *
+ * A CreditOps confirmation has one: yes. A marketing approval has two, and
+ * "change this" is the one that matters — without it a partner can only stall,
+ * and the work never comes back to whoever made it. They are different
+ * database calls because they are different acts: answering a marketing
+ * approval through the CreditOps path would mark it done and move nothing.
  */
 import { useState } from "react";
 import { CheckCircle2, Loader2 } from "lucide-react";
@@ -20,16 +28,20 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/format-date";
 import {
+  isReview,
   useMyPartnerActions,
+  useMyPartnerReview,
   useRespondToPartnerAction,
 } from "@/lib/data/use-partner-portal-actions";
 
 export function PortalActionNeeded() {
   const actions = useMyPartnerActions();
   const respond = useRespondToPartnerAction();
+  const review = useMyPartnerReview();
   const { toast } = useToast();
   const [answering, setAnswering] = useState<string | null>(null);
   const [note, setNote] = useState("");
+  const busy = respond.isPending || review.isPending;
 
   const open = (actions.data ?? []).filter((a) => a.status === "open");
 
@@ -50,12 +62,38 @@ export function PortalActionNeeded() {
     );
   }
 
+  const close = () => { setAnswering(null); setNote(""); };
+
   const send = async (id: string) => {
     try {
       await respond.mutateAsync({ id, response: note });
       toast({ title: "Thank you — that is confirmed", description: "BES has been notified and the file moves on." });
-      setAnswering(null);
-      setNote("");
+      close();
+    } catch (e) {
+      toast({ title: "That did not save", description: (e as Error).message, variant: "destructive" });
+    }
+  };
+
+  const answer = async (id: string, approved: boolean) => {
+    /* Asking for changes without saying what to change is a round trip
+       nobody can act on, so the comment is required in that direction only. */
+    if (!approved && !note.trim()) {
+      toast({
+        title: "Tell us what to change",
+        description: "A note here goes straight to the person who made it.",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      await review.mutateAsync({ id, approved, comment: note });
+      toast({
+        title: approved ? "Approved — thank you" : "Sent back for changes",
+        description: approved
+          ? "It is marked complete and BES has been notified."
+          : "Your note is on the task and it has gone back to the team.",
+      });
+      close();
     } catch (e) {
       toast({ title: "That did not save", description: (e as Error).message, variant: "destructive" });
     }
@@ -87,24 +125,37 @@ export function PortalActionNeeded() {
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   rows={3}
-                  placeholder="Anything BES should know (optional)"
+                  placeholder={isReview(a.kind)
+                    ? "What should we change? Leave blank if you are approving."
+                    : "Anything BES should know (optional)"}
                   aria-label="Your response"
                   className="text-xs"
                 />
-                <div className="flex gap-2">
-                  <Button size="sm" disabled={respond.isPending} onClick={() => void send(a.id)}>
-                    {respond.isPending ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
-                    Confirm
-                  </Button>
-                  <Button size="sm" variant="outline" disabled={respond.isPending}
-                    onClick={() => { setAnswering(null); setNote(""); }}>
+                <div className="flex flex-wrap gap-2">
+                  {isReview(a.kind) ? (
+                    <>
+                      <Button size="sm" disabled={busy} onClick={() => void answer(a.id, true)}>
+                        {busy ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
+                        Approve
+                      </Button>
+                      <Button size="sm" variant="outline" disabled={busy} onClick={() => void answer(a.id, false)}>
+                        Request changes
+                      </Button>
+                    </>
+                  ) : (
+                    <Button size="sm" disabled={busy} onClick={() => void send(a.id)}>
+                      {busy ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
+                      Confirm
+                    </Button>
+                  )}
+                  <Button size="sm" variant="ghost" disabled={busy} onClick={close}>
                     Cancel
                   </Button>
                 </div>
               </div>
             ) : (
               <Button size="sm" className="mt-3" onClick={() => { setAnswering(a.id); setNote(""); }}>
-                Review
+                {isReview(a.kind) ? "Review it" : "Review"}
               </Button>
             )}
           </li>

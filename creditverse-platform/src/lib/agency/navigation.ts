@@ -118,6 +118,7 @@ export const AGENCY_ROUTES: AgencyRouteSpec[] = [
   { key: "fundingops", label: "FundingOps", path: "/app/fundingops", readiness: "ready", access: "user", permission: "fundingops.files.view" },
   { key: "bes_crm", label: "BES CRM", path: "/app/bes-crm", readiness: "ready", access: "user", permission: "crm.projects.view" },
   { key: "talentops", label: "TalentOps", path: "/app/talentops", readiness: "ready", access: "user", permission: "talentops.view" },
+  { key: "marketing", label: "Sales & Marketing", path: "/app/marketing", readiness: "ready", access: "user", permission: "marketing.workspace.view" },
 
   /* ── Admins and the owner ─────────────────────────────────────────── */
   { key: "organizations", label: "Organizations", path: "/app/subaccounts", readiness: "ready", access: "admin" },

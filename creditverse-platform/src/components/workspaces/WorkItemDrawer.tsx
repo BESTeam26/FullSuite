@@ -24,6 +24,7 @@ import { postNote, timelineKey } from "@/lib/data/activity";
 import { useWorkItemTimeline } from "@/lib/data/use-work-timeline";
 import { useQueryClient } from "@tanstack/react-query";
 import { useItemFieldValues, useSetItemFieldValue, useUpdateWorkspaceItem, useWorkspaceItems } from "@/lib/data/use-workspaces";
+import { WorkChecklist } from "@/components/workspaces/WorkChecklist";
 import type { OrgMember, OrgTeam } from "@/lib/data/workspaces";
 import {
   isOverdue,
@@ -37,7 +38,10 @@ import {
 import { CheckCircle2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { VisibilityAudience } from "@/lib/auth/use-visibility-audience";
+import type { Enums } from "@/lib/supabase/database.types";
 import { useMentionable } from "@/lib/data/use-mentionable";
+
+type FulfillmentService = Enums<"fulfillment_service">;
 
 const NONE = "__none__";
 const toDateInput = (iso: string | null) => (iso ? iso.slice(0, 10) : "");
@@ -91,6 +95,8 @@ export function WorkItemDrawer({
   teams,
   canAssign,
   readOnly,
+  visibilityModule = "talentops",
+  extra,
   onClose,
 }: {
   /** The drawer resolves the LIVE item from the shared items query, so its own edits refresh it. */
@@ -101,6 +107,19 @@ export function WorkItemDrawer({
   /** Assignment is a supervisor act (org admin, BES manager/lead); others see the assignee read-only. */
   canAssign: boolean;
   readOnly: boolean;
+  /**
+   * Which module's visibility rules the comment composer offers. TalentOps is
+   * the default because the shared-workspace bridge was the first caller;
+   * Sales & Marketing passes its own, so a marketing note is not filed under
+   * somebody else's audience rules.
+   */
+  visibilityModule?: FulfillmentService;
+  /**
+   * Anything the surface wants beside the canonical fields — Sales & Marketing
+   * puts the campaign picker here. It is a slot rather than a prop per module,
+   * so the generic drawer never learns what a campaign is.
+   */
+  extra?: React.ReactNode;
   onClose: () => void;
 }) {
   const auth = useAuth();
@@ -114,7 +133,7 @@ export function WorkItemDrawer({
   const { entries, isLoading: tlLoading } = useWorkItemTimeline(item?.id ?? null);
   const attachments = useActivityAttachments(entries.map((e) => e.id));
   const mention = useMentionable(workspace.organizationId);
-  const { allowed, fallback } = useActivityVisibility(workspace.organizationId, "talentops");
+  const { allowed, fallback } = useActivityVisibility(workspace.organizationId, visibilityModule);
   const [title, setTitle] = useState(item?.title ?? "");
   const [description, setDescription] = useState(item?.description ?? "");
 
@@ -209,6 +228,10 @@ export function WorkItemDrawer({
               {setValue.error && <p className="mt-1 text-xs text-red-700">{(setValue.error as Error).message}</p>}
             </div>
           )}
+          <div className="sm:col-span-2">
+            <WorkChecklist workItemId={item.id} readOnly={readOnly} />
+          </div>
+          {extra && <div className="sm:col-span-2">{extra}</div>}
           {!readOnly && !item.completedAt && terminal && (
             <div className="sm:col-span-2">
               <Button size="sm" onClick={() => patch({ statusId: terminal.id })} disabled={update.isPending}>

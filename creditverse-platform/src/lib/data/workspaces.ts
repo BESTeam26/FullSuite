@@ -29,7 +29,7 @@ const choicesOf = (options: unknown): string[] => {
 };
 
 const WORKSPACE_SELECT = `
-  id, organization_id, name, description, icon, colour,
+  id, organization_id, agency_id, partner_group_id, module, name, description, icon, colour,
   workspace_boards(id, name, view_kind, position, archived_at),
   workspace_statuses(id, key, label, colour, position, canonical_stage, is_terminal),
   workspace_item_types(id, key, label, icon, position),
@@ -41,14 +41,19 @@ export const mapWorkspace = (row: WorkspaceRow): Workspace => ({
   id: row.id,
   organizationId: row.organization_id,
   organizationName: row.organizations?.name,
-  agencyId: row.organizations?.agency_id,
+  /* The workspace's OWN agency first: an agency-owned workspace has no
+     organization to borrow one from, and reading it through the join returned
+     undefined — which is how activity and file rows lose their tenant stamp. */
+  agencyId: row.agency_id ?? row.organizations?.agency_id ?? undefined,
+  module: row.module ?? null,
+  partnerGroupId: row.partner_group_id ?? null,
   name: row.name,
   description: row.description,
   icon: row.icon,
   colour: row.colour,
   boards: row.workspace_boards
     .filter((b) => !b.archived_at)
-    .map((b) => ({ id: b.id, name: b.name, viewKind: b.view_kind as "list" | "board", position: b.position }))
+    .map((b) => ({ id: b.id, name: b.name, viewKind: b.view_kind as "list" | "board" | "calendar", position: b.position }))
     .sort((a, b) => a.position - b.position),
   statuses: row.workspace_statuses.map((s) => ({
     id: s.id, key: s.key, label: s.label, colour: s.colour, position: s.position,
@@ -70,6 +75,24 @@ export async function fetchWorkspaces(organizationId: string): Promise<Workspace
     .from("workspaces")
     .select(WORKSPACE_SELECT)
     .eq("organization_id", organizationId)
+    .is("archived_at", null)
+    .order("name");
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as unknown as WorkspaceRow[]).map(mapWorkspace);
+}
+
+/**
+ * The Sales & Marketing workspaces: BES's own, and one per partner.
+ *
+ * The same nested select as every other workspace read, so a marketing
+ * workspace arrives with its statuses, item types, fields and boards already
+ * attached — one request, not one per workspace (rule 14).
+ */
+export async function fetchMarketingWorkspaces(): Promise<Workspace[]> {
+  const { data, error } = await supabase
+    .from("workspaces")
+    .select(WORKSPACE_SELECT)
+    .eq("module", "sales_marketing")
     .is("archived_at", null)
     .order("name");
   if (error) throw new Error(error.message);

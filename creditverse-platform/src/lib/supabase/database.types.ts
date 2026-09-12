@@ -2911,6 +2911,13 @@ export type Database = {
             foreignKeyName: "crm_client_requirement_blocks_work_item_id_fkey"
             columns: ["work_item_id"]
             isOneToOne: false
+            referencedRelation: "marketing_work"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_client_requirement_blocks_work_item_id_fkey"
+            columns: ["work_item_id"]
+            isOneToOne: false
             referencedRelation: "work_attention"
             referencedColumns: ["id"]
           },
@@ -3190,6 +3197,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "crm_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_milestones_work_item_id_fkey"
+            columns: ["work_item_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_work"
             referencedColumns: ["id"]
           },
           {
@@ -5156,6 +5170,7 @@ export type Database = {
           created_by: string | null
           date_of_birth: string | null
           description: string | null
+          description_body: Json | null
           due_at: string | null
           email: string | null
           id: string
@@ -5195,6 +5210,7 @@ export type Database = {
           created_by?: string | null
           date_of_birth?: string | null
           description?: string | null
+          description_body?: Json | null
           due_at?: string | null
           email?: string | null
           id?: string
@@ -5234,6 +5250,7 @@ export type Database = {
           created_by?: string | null
           date_of_birth?: string | null
           description?: string | null
+          description_body?: Json | null
           due_at?: string | null
           email?: string | null
           id?: string
@@ -9364,6 +9381,13 @@ export type Database = {
             foreignKeyName: "partner_action_items_work_item_id_fkey"
             columns: ["work_item_id"]
             isOneToOne: false
+            referencedRelation: "marketing_work"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_action_items_work_item_id_fkey"
+            columns: ["work_item_id"]
+            isOneToOne: false
             referencedRelation: "work_attention"
             referencedColumns: ["id"]
           },
@@ -11716,6 +11740,13 @@ export type Database = {
             foreignKeyName: "production_logs_work_item_id_fkey"
             columns: ["work_item_id"]
             isOneToOne: false
+            referencedRelation: "marketing_work"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_logs_work_item_id_fkey"
+            columns: ["work_item_id"]
+            isOneToOne: false
             referencedRelation: "work_attention"
             referencedColumns: ["id"]
           },
@@ -13249,6 +13280,13 @@ export type Database = {
             foreignKeyName: "time_entries_work_item_id_fkey"
             columns: ["work_item_id"]
             isOneToOne: false
+            referencedRelation: "marketing_work"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_entries_work_item_id_fkey"
+            columns: ["work_item_id"]
+            isOneToOne: false
             referencedRelation: "work_attention"
             referencedColumns: ["id"]
           },
@@ -13547,6 +13585,13 @@ export type Database = {
             foreignKeyName: "work_checklist_items_work_item_id_fkey"
             columns: ["work_item_id"]
             isOneToOne: false
+            referencedRelation: "marketing_work"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_checklist_items_work_item_id_fkey"
+            columns: ["work_item_id"]
+            isOneToOne: false
             referencedRelation: "work_attention"
             referencedColumns: ["id"]
           },
@@ -13598,6 +13643,13 @@ export type Database = {
             foreignKeyName: "work_item_blockers_blocked_by_id_fkey"
             columns: ["blocked_by_id"]
             isOneToOne: false
+            referencedRelation: "marketing_work"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_item_blockers_blocked_by_id_fkey"
+            columns: ["blocked_by_id"]
+            isOneToOne: false
             referencedRelation: "work_attention"
             referencedColumns: ["id"]
           },
@@ -13613,6 +13665,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_item_blockers_work_item_id_fkey"
+            columns: ["work_item_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_work"
             referencedColumns: ["id"]
           },
           {
@@ -13656,6 +13715,13 @@ export type Database = {
             columns: ["field_id"]
             isOneToOne: false
             referencedRelation: "workspace_fields"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_item_field_values_work_item_id_fkey"
+            columns: ["work_item_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_work"
             referencedColumns: ["id"]
           },
           {
@@ -14234,6 +14300,7 @@ export type Database = {
           description: string | null
           icon: string | null
           id: string
+          module: Database["public"]["Enums"]["fulfillment_service"] | null
           name: string
           organization_id: string | null
           partner_group_id: string | null
@@ -14249,6 +14316,7 @@ export type Database = {
           description?: string | null
           icon?: string | null
           id?: string
+          module?: Database["public"]["Enums"]["fulfillment_service"] | null
           name: string
           organization_id?: string | null
           partner_group_id?: string | null
@@ -14264,6 +14332,7 @@ export type Database = {
           description?: string | null
           icon?: string | null
           id?: string
+          module?: Database["public"]["Enums"]["fulfillment_service"] | null
           name?: string
           organization_id?: string | null
           partner_group_id?: string | null
@@ -14563,6 +14632,97 @@ export type Database = {
         }
         Relationships: []
       }
+      marketing_approvals: {
+        Row: {
+          campaign_id: string | null
+          campaign_name: string | null
+          created_at: string | null
+          detail: string | null
+          group_id: string | null
+          id: string | null
+          kind: string | null
+          partner_name: string | null
+          requested_by: string | null
+          responded_at: string | null
+          responded_by: string | null
+          responded_by_name: string | null
+          response: string | null
+          status: string | null
+          title: string | null
+          work_item_id: string | null
+          work_title: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_action_items_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_action_items_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_action_items_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "outsourcing_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_action_items_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_action_items_responded_by_fkey"
+            columns: ["responded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_action_items_work_item_id_fkey"
+            columns: ["work_item_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_work"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_action_items_work_item_id_fkey"
+            columns: ["work_item_id"]
+            isOneToOne: false
+            referencedRelation: "work_attention"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_action_items_work_item_id_fkey"
+            columns: ["work_item_id"]
+            isOneToOne: false
+            referencedRelation: "work_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketing_overview: {
+        Row: {
+          active_partners: number | null
+          awaiting_partner_approval: number | null
+          content_scheduled: number | null
+          due_today: number | null
+          for_internal_review: number | null
+          open_tasks: number | null
+          overdue: number | null
+        }
+        Relationships: []
+      }
       marketing_partners: {
         Row: {
           id: string | null
@@ -14572,6 +14732,97 @@ export type Database = {
           workspace_id: string | null
         }
         Relationships: []
+      }
+      marketing_work: {
+        Row: {
+          assigned_to: string | null
+          assignee_name: string | null
+          campaign_id: string | null
+          campaign_name: string | null
+          channel: string | null
+          completed_at: string | null
+          content_type: string | null
+          created_at: string | null
+          description: string | null
+          due_at: string | null
+          id: string | null
+          is_terminal: boolean | null
+          item_type_id: string | null
+          item_type_key: string | null
+          item_type_label: string | null
+          partner_group_id: string | null
+          partner_name: string | null
+          priority: Database["public"]["Enums"]["work_priority"] | null
+          publish_on: string | null
+          status_colour: string | null
+          status_id: string | null
+          status_key: string | null
+          status_label: string | null
+          status_position: number | null
+          team_id: string | null
+          title: string | null
+          updated_at: string | null
+          workspace_id: string | null
+          workspace_name: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_items_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_items_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_items_item_type_id_fkey"
+            columns: ["item_type_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_item_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_items_status_id_fkey"
+            columns: ["status_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_statuses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_items_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_items_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspaces_partner_group_id_fkey"
+            columns: ["partner_group_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspaces_partner_group_id_fkey"
+            columns: ["partner_group_id"]
+            isOneToOne: false
+            referencedRelation: "outsourcing_groups"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       partner_credentials_with_actor: {
         Row: {
@@ -16238,6 +16489,10 @@ export type Database = {
           p_user: string
           p_visibility: Database["public"]["Enums"]["activity_visibility"]
         }
+        Returns: boolean
+      }
+      may_reach_marketing: {
+        Args: { p_need_work?: boolean; p_workspace: string }
         Returns: boolean
       }
       may_work_client: { Args: { p_client: string }; Returns: boolean }

@@ -10,12 +10,24 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth/auth-context";
 import { requireSupabase } from "@/lib/supabase/client";
 
+/**
+ * The kinds that are a REVIEW rather than a confirmation.
+ *
+ * A CreditOps confirmation has one answer — yes — and returns the client to
+ * the workflow step that asked. A marketing approval has two, and "change
+ * this" is the one that matters: without it a partner can only stall, and the
+ * work never comes back to the person who made it.
+ */
+export const REVIEW_KINDS = ["content_approval", "campaign_approval"] as const;
+export const isReview = (kind: string): boolean =>
+  (REVIEW_KINDS as readonly string[]).includes(kind);
+
 export interface PartnerActionItem {
   id: string;
   kind: string;
   title: string;
   detail: string | null;
-  status: "open" | "completed" | "cancelled";
+  status: "open" | "completed" | "cancelled" | "changes_requested";
   clientName: string | null;
   requestedByName: string | null;
   requestedAt: string;
@@ -74,6 +86,34 @@ export function useMyPartnerUpdates(limit = 12) {
         action: r.action as string,
         detail: (r.detail as string) ?? null,
       }));
+    },
+  });
+}
+
+/**
+ * Approving a piece of marketing work, or asking for changes.
+ *
+ * A separate call from `my_partner_action_respond` because it is a separate
+ * act: that one confirms a CreditOps step and returns the client to the
+ * workflow that asked, while this one either completes the work or sends it
+ * back to In Progress with the partner's comment attached. Answering a
+ * marketing approval through the CreditOps path would mark it done and move
+ * nothing — half the job, silently.
+ */
+export function useMyPartnerReview() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, approved, comment }: { id: string; approved: boolean; comment: string }) => {
+      const sb = requireSupabase();
+      const { error } = await sb.rpc("my_partner_review", {
+        p_action: id,
+        p_approved: approved,
+        p_comment: comment.trim() || null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["portal", "partner"] });
     },
   });
 }

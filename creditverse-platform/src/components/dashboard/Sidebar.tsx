@@ -229,6 +229,7 @@ export const Sidebar = () => {
         { label: "FundingOps", icon: Landmark, href: "/app/fundingops" },
         { label: "BES CRM", icon: Workflow, href: "/app/bes-crm" },
         { label: "TalentOps", icon: UserCheck, href: "/app/talentops" },
+        { label: "Sales & Marketing", icon: Megaphone, href: "/app/marketing" },
       ],
     },
     {

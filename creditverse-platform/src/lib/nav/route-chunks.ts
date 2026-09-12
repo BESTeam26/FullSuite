@@ -63,6 +63,7 @@ export const ROUTE_CHUNKS: Record<string, Loader> = {
     "AgencyTeamWorkspace",
   ),
   "/app/channels": () => import("@/pages/app/Channels"),
+  "/app/marketing": named(() => import("@/pages/app/SalesMarketing"), "SalesMarketing"),
   "/app/calendar": named(
     () => import("@/pages/app/AgencyOrOrgCalendar"),
     "AgencyOrOrgCalendar",

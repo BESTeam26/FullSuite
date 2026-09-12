@@ -103,6 +103,7 @@ const Education = lazy(chunkFor("/app/education"));
 const Settings = lazy(chunkFor("/app/settings"));
 
 const CreditOps = lazy(chunkFor("/app/creditops"));
+const SalesMarketing = lazy(chunkFor("/app/marketing"));
 const FundingOps = lazy(chunkFor("/app/fundingops"));
 const BesCrm = lazy(chunkFor("/app/bes-crm"));
 const TalentOps = lazy(chunkFor("/app/talentops"));
@@ -582,6 +583,13 @@ const AppRoutes = () => {
               what is actually on it.
             */}
             <Route path="diy-referrals" element={<RequireEntitlement product="diyCredit" label="DIY Credit"><DiyReferrals /></RequireEntitlement>} />
+            {/* No wrapper: `RequireAgencyRoute` already guards every /app route
+                from AGENCY_ROUTES, so the menu and the door read the same key
+                — `marketing.workspace.view` — and cannot disagree. Sales &
+                Marketing is capability-gated rather than entitlement-gated
+                because it is BES's own operating module, not something a
+                customer subscribes to (rule 16). */}
+            <Route path="marketing" element={<SalesMarketing />} />
             <Route path="bes-partners" element={<RequireAgencyStaff label="BES Partners"><BesPartners /></RequireAgencyStaff>} />
             <Route path="bes-partners/:id" element={<RequireAgencyStaff label="Partner"><PartnerProfilePage /></RequireAgencyStaff>} />
             <Route path="commissions" element={<RequirePermission permission="fundingops.commissions.view" label="Commissions"><Commissions /></RequirePermission>} />
