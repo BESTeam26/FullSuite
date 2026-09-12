@@ -15,6 +15,7 @@ import { AlertTriangle, CalendarClock, CheckSquare, Clock, Eye, Send, Users } fr
 import { ContentCard } from "@/components/dashboard/DivisionLayout";
 import { formatDate } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
+import { partnerLabel } from "@/lib/partners/partner-label";
 import type { MarketingCounters, MarketingWorkItem } from "@/lib/marketing/marketing-domain";
 
 export interface DashboardJump {
@@ -107,7 +108,9 @@ export function MarketingDashboard({
                     className="flex w-full items-center justify-between gap-3 py-1.5 text-left hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <span className="min-w-0 flex-1 truncate text-xs text-foreground">{w.title}</span>
-                    <span className="shrink-0 text-[11px] text-muted-foreground">{w.partnerName ?? "BES"}</span>
+                    <span className="shrink-0 text-[11px] text-muted-foreground">
+                      {partnerLabel({ business: w.partnerName, contact: w.partnerContactName }) || "BES"}
+                    </span>
                     <span className="shrink-0 text-[11px] font-semibold text-red-700">{formatDate(w.dueAt)}</span>
                   </button>
                 </li>
@@ -129,7 +132,9 @@ export function MarketingDashboard({
                     className="flex w-full items-center justify-between gap-3 py-1.5 text-left hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <span className="min-w-0 flex-1 truncate text-xs text-foreground">{w.title}</span>
-                    <span className="shrink-0 text-[11px] text-muted-foreground">{w.partnerName ?? "BES"}</span>
+                    <span className="shrink-0 text-[11px] text-muted-foreground">
+                      {partnerLabel({ business: w.partnerName, contact: w.partnerContactName }) || "BES"}
+                    </span>
                   </button>
                 </li>
               ))}

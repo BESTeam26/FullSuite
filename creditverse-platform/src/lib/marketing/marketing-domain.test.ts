@@ -6,7 +6,7 @@ import {
 
 const item = (over: Partial<MarketingWorkItem> = {}): MarketingWorkItem => ({
   id: over.id ?? "i1", workspaceId: "w1", workspaceName: "BES Internal Marketing",
-  partnerGroupId: null, partnerName: null, title: "A post", description: null,
+  partnerGroupId: null, partnerName: null, partnerContactName: null, title: "A post", description: null,
   priority: "Normal", assignedTo: null, assigneeName: null, teamId: null,
   dueAt: null, completedAt: null, createdAt: "2026-09-01T00:00:00Z",
   statusId: "s1", statusKey: "todo", statusLabel: "To Do", statusColour: null,

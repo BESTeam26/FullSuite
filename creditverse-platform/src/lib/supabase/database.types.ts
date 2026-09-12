@@ -14729,6 +14729,7 @@ export type Database = {
           lifecycle: Database["public"]["Enums"]["partner_lifecycle"] | null
           name: string | null
           partner_name: string | null
+          primary_contact_name: string | null
           workspace_id: string | null
         }
         Relationships: []
@@ -14750,6 +14751,7 @@ export type Database = {
           item_type_id: string | null
           item_type_key: string | null
           item_type_label: string | null
+          partner_contact_name: string | null
           partner_group_id: string | null
           partner_name: string | null
           priority: Database["public"]["Enums"]["work_priority"] | null
@@ -16373,29 +16375,18 @@ export type Database = {
           kind: string
         }[]
       }
-      invite_agency_member:
-        | {
-            Args: {
-              p_email: string
-              p_lead_team?: string
-              p_modules?: string[]
-              p_profile?: Database["public"]["Enums"]["access_profile"]
-              p_role: Database["public"]["Enums"]["agency_role"]
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_email: string
-              p_full_name?: string
-              p_lead_team?: string
-              p_modules?: string[]
-              p_profile?: Database["public"]["Enums"]["access_profile"]
-              p_role: Database["public"]["Enums"]["agency_role"]
-              p_team?: string
-            }
-            Returns: string
-          }
+      invite_agency_member: {
+        Args: {
+          p_email: string
+          p_full_name?: string
+          p_lead_team?: string
+          p_modules?: string[]
+          p_profile?: Database["public"]["Enums"]["access_profile"]
+          p_role: Database["public"]["Enums"]["agency_role"]
+          p_team?: string
+        }
+        Returns: string
+      }
       invite_partner_contact: { Args: { p_contact: string }; Returns: string }
       invite_team_member: {
         Args: {

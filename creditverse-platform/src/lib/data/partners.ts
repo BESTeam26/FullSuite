@@ -46,6 +46,21 @@ export interface GroupRow {
    *  stay on BES Partners with all their history, and leave the operating
    *  lists (Dee, 2026-09-11). */
   archived_at: string | null;
+  /**
+   * The canonical contacts. Read defensively: a partner HAS many contacts, but
+   * the generated types describe this embed as one object, so trusting either
+   * shape alone would throw on real data.
+   */
+  partner_contacts?: unknown;
+}
+
+interface ContactRow { full_name?: string | null; is_primary?: boolean | null }
+
+/** The primary contact's name, or null when nobody has been recorded yet. */
+export function primaryContactName(g: Pick<GroupRow, "partner_contacts">): string | null {
+  const raw = g.partner_contacts;
+  const rows: ContactRow[] = Array.isArray(raw) ? (raw as ContactRow[]) : raw ? [raw as ContactRow] : [];
+  return rows.find((c) => c.is_primary)?.full_name?.trim() || null;
 }
 
 const asStatus = (s: string): OpsPartner["status"] =>
@@ -60,7 +75,11 @@ export async function fetchOutsourcingGroups(): Promise<GroupRow[]> {
   const sb = requireSupabase();
   const { data, error } = await sb
     .from("outsourcing_groups")
-    .select("id,name,partner_name,contact_email,contract_ref,status,archived_at")
+    /* The primary contact comes from the canonical `partner_contacts` row.
+       `partner_name` is the legacy text field and stays only as the fallback
+       for partners imported before contacts existed — for most of them it
+       holds the company name again, which `partnerLabel` then drops. */
+    .select("id,name,partner_name,contact_email,contract_ref,status,archived_at,partner_contacts(full_name,is_primary)")
     .eq("is_fixture", false)
     .order("name");
   if (error) throw error;
@@ -185,7 +204,7 @@ export function buildPartners(
     operationalCategoryId: engagement?.operationalCategoryId ?? null,
     categorySource: engagement?.categorySource,
     mode: "outsourcing_only",
-    contactName: g.partner_name,
+    contactName: primaryContactName(g) ?? g.partner_name,
     contactEmail: g.contact_email,
     contractRef: g.contract_ref ?? undefined,
     status: asStatus(g.status),

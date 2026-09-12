@@ -53,6 +53,7 @@ import {
   type PartnerHealth, type PartnerLifecycle,
 } from "@/lib/partners/partner-account";
 import { buildBesPartners, RELATIONSHIP_LABEL, SERVICE_LABEL } from "@/lib/partners/bes-partner-domain";
+import { partnerLabel } from "@/lib/partners/partner-label";
 import { formatDate } from "@/lib/format-date";
 
 const Tile = ({ label, value, hint, tone }: {
@@ -233,10 +234,10 @@ export default function BesPartners() {
                     <td className="px-4 py-3">
                       <Link to={`/app/bes-partners/${p.id}`}
                         className="font-medium text-foreground hover:text-primary hover:underline">
-                        {p.name}
+                        {partnerLabel({ business: p.name, contact: p.primaryContact })}
                       </Link>
                       <p className="text-xs text-muted-foreground">
-                        {p.companyName ? `${p.companyName} · ` : ""}{p.primaryContact ?? p.contactEmail}
+                        {p.companyName ? `${p.companyName} · ` : ""}{p.contactEmail}
                       </p>
                     </td>
                     <td className="px-4 py-3">
@@ -330,7 +331,7 @@ export default function BesPartners() {
               <tbody>
                 {engaged.map((p) => (
                   <tr key={p.scopeId} className="border-t border-border/60 align-top">
-                    <td className="px-4 py-3 font-medium text-foreground">{p.name}</td>
+                    <td className="px-4 py-3 font-medium text-foreground">{partnerLabel({ business: p.name, contact: p.contactName })}</td>
                     <td className="px-4 py-3">
                       <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 py-0.5 text-[11px] font-semibold text-foreground">
                         {p.relationship === "outsourcing_only"

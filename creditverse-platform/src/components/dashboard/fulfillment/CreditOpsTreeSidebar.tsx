@@ -64,6 +64,7 @@ import {
 } from "@/lib/fulfillment/creditops-partners";
 import { useCreditOpsAccess } from "@/lib/fulfillment/creditops-access";
 import { cn } from "@/lib/utils";
+import { partnerLabel } from "@/lib/partners/partner-label";
 import { usePartners } from "@/lib/data/use-partners";
 import { useCreditOpsStore } from "@/lib/fulfillment/creditops-client-store";
 import { comparePartnersByName, type OpsPartner } from "@/lib/fulfillment/ops-client-domain";
@@ -267,7 +268,7 @@ export function CreditOpsTreeSidebar({
                 isSelected ? "text-primary-foreground" : "text-muted-foreground",
               )}
             />
-            <span className="truncate">{partner.name}</span>
+            <span className="truncate">{partnerLabel({ business: partner.name, contact: partner.contactName })}</span>
             {partner.categorySource === "manual" && (
               /* So a placement that stopped following the service records says
                  so, rather than looking like the system's own answer. */

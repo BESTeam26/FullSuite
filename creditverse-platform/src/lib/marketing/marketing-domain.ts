@@ -23,6 +23,8 @@ export interface MarketingWorkItem {
   partnerGroupId: string | null;
   /** Null for BES's own marketing, which has no partner by design. */
   partnerName: string | null;
+  /** Their primary contact, so a row can read `Business · Person`. */
+  partnerContactName: string | null;
   title: string;
   description: string | null;
   priority: "Normal" | "High" | "Urgent";
@@ -53,6 +55,8 @@ export interface MarketingPartner {
   id: string;
   name: string;
   partnerName: string | null;
+  /** The primary contact — the person half of `Business · Person`. */
+  primaryContactName: string | null;
   lifecycle: string | null;
   workspaceId: string | null;
 }

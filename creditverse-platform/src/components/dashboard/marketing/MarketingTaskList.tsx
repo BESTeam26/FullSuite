@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { OpsSelect } from "@/components/ui/ops-select";
 import { formatDate } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
+import { partnerLabel } from "@/lib/partners/partner-label";
 import {
   byStatusThenDue, filterWork, type MarketingWorkItem, type WorkFilters,
 } from "@/lib/marketing/marketing-domain";
@@ -170,7 +171,9 @@ export function MarketingTaskList({
                       >
                         <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">{w.title}</span>
                         {showPartner && (
-                          <span className="shrink-0 text-[11px] text-muted-foreground">{w.partnerName ?? "BES"}</span>
+                          <span className="shrink-0 text-[11px] text-muted-foreground">
+                            {partnerLabel({ business: w.partnerName, contact: w.partnerContactName }) || "BES"}
+                          </span>
                         )}
                         {w.campaignName && (
                           <span className="inline-flex shrink-0 items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[11px] text-foreground">

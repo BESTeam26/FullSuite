@@ -51,6 +51,7 @@ import { MarketingItemDrawer } from "@/components/dashboard/marketing/MarketingI
 import { PartnerFilesTab } from "@/components/agency/partner/PartnerFilesTab";
 import { PartnerActivityTab } from "@/components/agency/partner/PartnerActivityTab";
 import { PARTNER_VIEWS, type PartnerViewId } from "@/lib/marketing/marketing-domain";
+import { partnerLabel } from "@/lib/partners/partner-label";
 import { cn } from "@/lib/utils";
 
 export function SalesMarketing() {
@@ -201,7 +202,9 @@ export function SalesMarketing() {
         return (
           <PartnerWorkspaceHeader
             workspace={activeWorkspace}
-            partnerName={activePartner?.name ?? "BES Internal Marketing"}
+            partnerName={activePartner
+              ? partnerLabel({ business: activePartner.name, contact: activePartner.primaryContactName })
+              : "BES Internal Marketing"}
             work={rows}
             campaigns={campaigns.data ?? []}
             onOpenItem={openItem}
@@ -273,7 +276,9 @@ export function SalesMarketing() {
             <>
               <div>
                 <h2 className="text-base font-bold text-foreground">
-                  {activePartner?.name ?? activeWorkspace.name}
+                  {activePartner
+                    ? partnerLabel({ business: activePartner.name, contact: activePartner.primaryContactName })
+                    : activeWorkspace.name}
                 </h2>
                 <p className="text-xs text-muted-foreground">
                   {activePartner ? "Marketing work BES does for this partner." : "BES's own content, campaigns and launches."}

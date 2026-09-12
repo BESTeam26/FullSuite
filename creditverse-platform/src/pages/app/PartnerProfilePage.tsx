@@ -53,6 +53,7 @@ import {
   formatDaysActive, daysActive, rollUpServices, suggestedLifecycle,
   type PartnerLifecycle,
 } from "@/lib/partners/partner-account";
+import { partnerLabel } from "@/lib/partners/partner-label";
 
 export const PartnerProfilePage = () => {
   const { id = "" } = useParams();
@@ -127,7 +128,7 @@ export const PartnerProfilePage = () => {
 
   return (
     <HqPageShell
-      title={p.name}
+      title={partnerLabel({ business: p.name, contact: p.primaryContact })}
       description={p.primaryContact ?? p.contactEmail ?? "BES Partner"}
       icon={Handshake}
       actions={

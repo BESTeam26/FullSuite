@@ -18,6 +18,7 @@ import { useMemo, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { partnerLabel } from "@/lib/partners/partner-label";
 import {
   MONTH_LABEL, calendarGrid, shiftMonth, startOfMonth, type MarketingWorkItem,
 } from "@/lib/marketing/marketing-domain";
@@ -124,7 +125,7 @@ export function ContentCalendar({
                         onDragStart={() => setDragging(item.id)}
                         onDragEnd={() => { setDragging(null); setOver(null); }}
                         onClick={() => onOpenItem(item)}
-                        title={`${item.title}${item.partnerName ? ` · ${item.partnerName}` : ""}`}
+                        title={[item.title, partnerLabel({ business: item.partnerName, contact: item.partnerContactName })].filter(Boolean).join(" — ")}
                         className={cn(
                           "w-full rounded-md border px-1.5 py-1 text-left text-[11px] leading-tight transition-shadow",
                           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring hover:shadow-sm",
@@ -135,7 +136,7 @@ export function ContentCalendar({
                       >
                         <span className="block truncate font-medium">{item.title}</span>
                         <span className="block truncate opacity-80">
-                          {[showPartner ? item.partnerName ?? "BES" : null, item.contentType, item.channel]
+                          {[showPartner ? partnerLabel({ business: item.partnerName, contact: item.partnerContactName }) || "BES" : null, item.contentType, item.channel]
                             .filter(Boolean)
                             .join(" · ")}
                         </span>

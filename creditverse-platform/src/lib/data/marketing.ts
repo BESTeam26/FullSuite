@@ -32,6 +32,7 @@ const mapWork = (r: Row): MarketingWorkItem => ({
   workspaceName: r.workspace_name,
   partnerGroupId: r.partner_group_id ?? null,
   partnerName: r.partner_name ?? null,
+  partnerContactName: r.partner_contact_name ?? null,
   title: r.title,
   description: r.description ?? null,
   priority: r.priority,
@@ -90,6 +91,7 @@ export async function fetchMarketingPartners(): Promise<MarketingPartner[]> {
   return (data ?? [])
     .map((r: Row) => ({
       id: r.id, name: r.name, partnerName: r.partner_name ?? null,
+      primaryContactName: r.primary_contact_name ?? null,
       lifecycle: r.lifecycle ?? null, workspaceId: r.workspace_id ?? null,
     }))
     .sort(compareByName);

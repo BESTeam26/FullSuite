@@ -18,6 +18,7 @@
  */
 import { Megaphone, LayoutDashboard, CheckSquare, CalendarDays, Flag, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { partnerLabel } from "@/lib/partners/partner-label";
 import { GLOBAL_VIEWS, type GlobalViewId, type MarketingPartner } from "@/lib/marketing/marketing-domain";
 
 const VIEW_ICON: Record<GlobalViewId, typeof LayoutDashboard> = {
@@ -131,7 +132,7 @@ export function MarketingTreeSidebar({
               <li key={p.id}>
                 <Row
                   active={isWorkspace(p.workspaceId)}
-                  label={p.name}
+                  label={partnerLabel({ business: p.name, contact: p.primaryContactName })}
                   icon={Building2}
                   count={countFor(p.workspaceId)}
                   indent

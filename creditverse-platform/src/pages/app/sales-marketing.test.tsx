@@ -35,7 +35,7 @@ const workspace = (over: Partial<Workspace>): Workspace => ({
 
 const item = (over: Partial<MarketingWorkItem>): MarketingWorkItem => ({
   id: "i1", workspaceId: "w-bes", workspaceName: "BES Internal Marketing",
-  partnerGroupId: null, partnerName: null, title: "A task", description: null,
+  partnerGroupId: null, partnerName: null, partnerContactName: null, title: "A task", description: null,
   priority: "Normal", assignedTo: null, assigneeName: null, teamId: null,
   dueAt: null, completedAt: null, createdAt: "2026-09-01T00:00:00Z",
   statusId: "s-todo", statusKey: "todo", statusLabel: "To Do", statusColour: "#64748b",
@@ -64,8 +64,8 @@ vi.mock("@/lib/data/use-marketing", async () => {
     /* Deliberately NOT alphabetical, so the assertion below tests the sort
        rather than the order the fixture happened to be written in. */
     useMarketingPartners: () => ({ data: [
-      { id: "g-zen", name: "Zenith Media", partnerName: null, lifecycle: "active", workspaceId: "w-zen" },
-      { id: "g-apex", name: "Apex Outsourcing", partnerName: null, lifecycle: "active", workspaceId: "w-apex" },
+      { id: "g-zen", name: "Zenith Media", partnerName: null, primaryContactName: "Jesse Roldan", lifecycle: "active", workspaceId: "w-zen" },
+      { id: "g-apex", name: "Apex Outsourcing", partnerName: null, primaryContactName: "Parker Cathcart", lifecycle: "active", workspaceId: "w-apex" },
     ].sort((a, b) => a.name.localeCompare(b.name)), isLoading: false }),
     useMarketingWork: () => ({ data: work, isLoading: false, error: null }),
     useMarketingCounters: () => ({ data: {
@@ -105,6 +105,23 @@ describe("Sales & Marketing", () => {
     ]) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
+  });
+
+  it("writes every partner as Business · Person", () => {
+    render(at("/app/marketing"));
+    const pane = screen.getByRole("navigation", { name: "Sales & Marketing" });
+    expect(within(pane).getByRole("button", { name: /Apex Outsourcing · Parker Cathcart/ })).toBeInTheDocument();
+    expect(within(pane).getByRole("button", { name: /Zenith Media · Jesse Roldan/ })).toBeInTheDocument();
+  });
+
+  it("still sorts on the business, not the person", () => {
+    /* The company leads precisely so one person's several businesses file
+       under their own names rather than together under the person's. */
+    render(at("/app/marketing"));
+    const pane = screen.getByRole("navigation", { name: "Sales & Marketing" });
+    const names = within(pane).getAllByRole("button").map((b) => b.textContent ?? "");
+    expect(names.findIndex((n) => n.includes("Zenith")))
+      .toBeGreaterThan(names.findIndex((n) => n.includes("Apex")));
   });
 
   it("lists partners A→Z in the module pane", () => {
@@ -158,7 +175,9 @@ describe("Sales & Marketing", () => {
 
   it("shows a partner's own tabs when a partner workspace is open", () => {
     render(at("/app/marketing?ws=w-apex&partner=g-apex&tab=overview"));
-    expect(screen.getByRole("heading", { name: "Apex Outsourcing" })).toBeInTheDocument();
+    /* `Business · Person` (Dee, 2026-09-13) — some agents know the company,
+       some only ever hear the person's name. */
+    expect(screen.getByRole("heading", { name: "Apex Outsourcing · Parker Cathcart" })).toBeInTheDocument();
     /* Scoped to the tab strip: the module pane above carries buttons with the
        same words, and "Tasks" there means every partner's. */
     const tabs = screen.getByRole("navigation", { name: "Workspace views" });
