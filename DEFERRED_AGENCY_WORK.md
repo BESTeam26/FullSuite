@@ -1,3 +1,44 @@
+## D-011 · Sales & Marketing — import the calendar and campaigns from a spreadsheet (documented, not started)
+
+**Dee, 2026-09-13:** *"we use to generate campaign via GPT, manually uploading
+this info here is chaotic and waste of time, let's have an automatic import or
+update of calendar and campaign details from a google spreadsheet or tracker."*
+
+**The real problem is data entry, not integration.** A month of content is
+planned in one go and then typed in one row at a time. Both options below fix
+that; they differ in what they cost and what they need from Dee.
+
+**Option A — paste / CSV import (no new stack, buildable inside the existing
+architecture).** Export the sheet, paste it in, preview what will be created
+or updated, confirm. Writes canonical `work_items` + `campaigns`, the same as
+every other path into the engine. Nothing new in the stack (rule 19), no
+Google account, no credentials. Re-pasting an edited sheet UPDATES rather than
+duplicating, on a stable key. This is the ClickUp importer's shape, which
+already exists in the repo and works.
+
+**Option B — live Google Sheets sync.** A Google service account or OAuth app,
+a sheet id recorded per workspace, a scheduled pull, and conflict rules for a
+row edited on both sides. Google Sheets is **not in the locked stack** (rule
+19), so adding it is Dee's decision, not an implementation detail — and it
+needs credentials that do not exist yet.
+
+**Shared design, either way**
+
+| Piece | Note |
+|---|---|
+| Upsert key | A stable `external_ref` on `work_items`, unique per workspace. Without it, a second import duplicates a month of content. Row number is NOT stable — people insert rows |
+| What a row becomes | One `work_item` in the partner's (or BES's) marketing workspace. NOT a new content table — one record, three views stays the rule |
+| Columns | title, publish date, channel, content type, caption, campaign, assignee, status, due date. Publish date and channel are `workspace_fields` rows already |
+| Campaigns | A campaign named in a row is created if missing, reused if not. Never a second campaign with the same name in one workspace |
+| Unmapped columns | Surfaced and skipped, never guessed. A column nobody mapped must not silently become the caption |
+| Preview before write | Created / updated / skipped counts and the first rows, exactly like the ClickUp import. Dee confirms; the importer does not decide |
+| Deletion | A row removed from the sheet does NOT delete the task. Work in progress is not the sheet's to revoke (rule 11) |
+| Authorization | `marketing.tasks.manage`, and the workspace must be one the importer may already write to. The importer is not a way past RLS |
+
+**Do not** create a marketing content table to stage the import. **Do not**
+let an import overwrite a status somebody moved by hand without saying so in
+the preview. **Do not** add Google to the stack without Dee deciding it.
+
 
 ## D-010 · Agency Calendar — Google Calendar integration (documented, not started)
 
