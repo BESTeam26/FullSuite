@@ -13824,6 +13824,24 @@ export type Database = {
           },
         ]
       }
+      creditops_exceptions: {
+        Row: {
+          agency_id: string | null
+          assignee_id: string | null
+          client_id: string | null
+          client_name: string | null
+          department:
+            | Database["public"]["Enums"]["fulfillment_department"]
+            | null
+          due_at: string | null
+          kind: string | null
+          organization_id: string | null
+          outsourcing_group_id: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Relationships: []
+      }
       creditops_my_work: {
         Row: {
           assignee_id: string | null

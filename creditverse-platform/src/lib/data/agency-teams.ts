@@ -26,16 +26,30 @@ export interface AgencyDepartment {
   name: string;
   division: string | null;
   key: string | null;
+  /**
+   * How this department's actionable work reaches an individual.
+   *
+   * `auto_equal` — the routing engine gives it to whoever on this
+   *   department's team has the fewest active actionable files.
+   * `team_lead` — the department owns it and the Team Lead decides who;
+   *   unassigned is the normal state, not a failure.
+   *
+   * A property of the DEPARTMENT rather than the team, because a department
+   * with two teams must not be able to distribute work two different ways
+   * (Dee, 2026-09-11).
+   */
+  assignmentMode: "auto_equal" | "team_lead";
 }
 
 export async function fetchDepartments(): Promise<AgencyDepartment[]> {
   const sb = requireSupabase();
   const { data, error } = await sb
-    .from("departments").select("id, name, division, key").order("name");
+    .from("departments").select("id, name, division, key, assignment_mode").order("name");
   if (error) throw error;
   return (data ?? []).map((r) => ({
     id: r.id as string, name: r.name as string,
     division: (r.division as string) ?? null, key: (r.key as string) ?? null,
+    assignmentMode: ((r.assignment_mode as string) ?? "auto_equal") as AgencyDepartment["assignmentMode"],
   }));
 }
 

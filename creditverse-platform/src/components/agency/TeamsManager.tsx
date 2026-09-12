@@ -133,13 +133,16 @@ function TeamCard({ team, people, canManage, departments, onRemoved, onError }: 
   team: AgencyTeam;
   people: { userId: string; name: string; role: string }[];
   canManage: boolean;
-  departments: { id: string; name: string }[];
+  departments: { id: string; name: string; assignmentMode?: "auto_equal" | "team_lead" }[];
   onRemoved: (r: RemoveTeamOutcome) => void;
   onError: (m: string) => void;
 }) {
   const actions = useTeamActions();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(team.name);
+  /* Null for a team with no department, and for FundingOps or BES CRM teams
+     — the CreditOps routing engine is the only one with a policy today. */
+  const assignmentMode = departments.find((d) => d.id === team.departmentId)?.assignmentMode ?? null;
   const [dept, setDept] = useState("__none__");
   const [adding, setAdding] = useState(false);
   const [addUser, setAddUser] = useState("");
@@ -177,6 +180,16 @@ function TeamCard({ team, people, canManage, departments, onRemoved, onError }: 
             <p className="text-xs text-muted-foreground">
               {[team.division, team.department].filter(Boolean).join(" · ") || "No department"}
             </p>
+            {/* How work reaches a person in this department. Shown here
+                because this is where somebody adds members and then wonders
+                what happens next (Dee, 2026-09-12). */}
+            {assignmentMode && (
+              <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                {assignmentMode === "auto_equal"
+                  ? "Assignment: automatic, shared evenly"
+                  : "Assignment: the Team Lead assigns each file"}
+              </p>
+            )}
           </div>
         )}
         {canManage && !editing && (

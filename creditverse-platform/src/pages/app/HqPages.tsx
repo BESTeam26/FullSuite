@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { DataSourceBadge } from "@/components/dashboard/DataSourceBadge";
 import { useMyWork, useAttention } from "@/lib/data/use-work";
 import { useMyDepartmentFiles } from "@/lib/data/use-my-department-files";
+import { useCreditOpsExceptions } from "@/lib/data/use-creditops-exceptions";
 import { useAgency } from "@/lib/agency-context";
 import {
   useMarkAllNotificationsRead,
@@ -203,9 +204,83 @@ export const AttentionCenter = () => {
           );
         })}
       </div>
+
+      <CreditOpsExceptions />
     </HqPageShell>
   );
 };
+
+/**
+ * CreditOps exceptions the routing engine could not resolve by itself.
+ *
+ * Separate from the list above because the list above is BES's canonical work
+ * items, and these are department rows — a different record answering a
+ * different question. Joining them would mean one of the two had to pretend
+ * to be the other.
+ *
+ * Support's unassigned files are deliberately absent: there, waiting for the
+ * Team Lead IS the process, and showing them as failures would train everybody
+ * to ignore the list (Dee, 2026-09-11 §16).
+ */
+function CreditOpsExceptions() {
+  const { items, isLoading, error, live } = useCreditOpsExceptions();
+  if (!live) return null;
+
+  const META: Record<string, { label: string; note: string; cls: string }> = {
+    assignment_required: {
+      label: "Assignment required",
+      note: "No eligible team member — add somebody to the department team, or assign it by hand",
+      cls: "border-amber-500/40 bg-amber-500/5",
+    },
+    inactive_assignee: {
+      label: "Held by a deactivated person",
+      note: "Still assigned to somebody who has left. Reassign it deliberately — nothing is moved automatically",
+      cls: "border-red-500/30 bg-red-500/5",
+    },
+    overdue: {
+      label: "Overdue",
+      note: "Past its deadline and somebody can act on it now",
+      cls: "border-red-500/30 bg-red-500/5",
+    },
+  };
+
+  return (
+    <section className="mt-6">
+      <h2 className="mb-2 text-sm font-bold text-foreground">CreditOps exceptions</h2>
+      {error ? (
+        <p className="rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-700">
+          Could not load CreditOps exceptions: {error}
+        </p>
+      ) : isLoading ? (
+        <p className="rounded-xl border border-border px-4 py-6 text-center text-sm text-muted-foreground">Loading…</p>
+      ) : items.length === 0 ? (
+        <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-4 py-4 text-sm text-foreground">
+          Every actionable file has an owner and none is overdue.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {items.map((x) => {
+            const meta = META[x.kind];
+            return (
+              <div key={`${x.kind}:${x.clientId}:${x.department}`}
+                className={cn("flex items-center gap-3 rounded-xl border px-4 py-3", meta.cls)}>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-foreground">
+                    {x.clientName} · {x.department}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {meta.label} — {meta.note}
+                  </p>
+                </div>
+                <StatusPill status={x.status} />
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
 
 /* ------------------------------------------------------------------ */
 /* My Work                                                               */
