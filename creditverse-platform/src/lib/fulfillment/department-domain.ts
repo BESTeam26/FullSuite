@@ -37,6 +37,35 @@ const CATEGORY_FOR: Record<CreditOpsDepartment, "onboarding" | "dispute" | "supp
   "Bureau Calling": "bureau",
 };
 
+/**
+ * The CreditOps work department a `departments.key` belongs to.
+ *
+ * Two vocabularies exist and neither is wrong. The organization chart
+ * (`departments`) is how BES is STAFFED — it separates Client Success from
+ * Support, because they are different teams to sit in. The work model
+ * (`fulfillment_department`) is how a client FILE moves, and there both are
+ * Support, because a file is either with the support desk or it is not.
+ *
+ * Mapped by `key`, never by name: a department renamed in Settings must not
+ * silently drop somebody out of their own queue (rule 4).
+ *
+ * A key that is not here belongs to another division — FundingOps, BES CRM,
+ * TalentOps — and gives no CreditOps department, which is the correct answer
+ * rather than a fallback.
+ */
+const CREDITOPS_DEPARTMENT_FOR_KEY: Record<string, CreditOpsDepartment> = {
+  onboarding: "Onboarding",
+  dispute: "Dispute",
+  support: "Support",
+  client_success: "Support",
+  complaints: "Complaints",
+  bureau_calling: "Bureau Calling",
+};
+
+export function creditOpsDepartmentForKey(key: string | null | undefined): CreditOpsDepartment | null {
+  return (key && CREDITOPS_DEPARTMENT_FOR_KEY[key]) || null;
+}
+
 /** The statuses a department may hold — from the Status Guide, the one vocabulary. */
 export function departmentStatuses(department: CreditOpsDepartment): string[] {
   return CREDIT_OPS_STATUS_GUIDE.filter((i) => i.category === CATEGORY_FOR[department]).map((i) => i.code);

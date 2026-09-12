@@ -1,13 +1,18 @@
 /**
- * CreditOps Partner workspace — ONE workspace navigation row over the nine
- * views of a single Partner (Dashboard, SOPs & Logins, Main Client List and the
- * queues). Every view is a filtered projection of the same canonical client
- * records for `scopeId` (an organization id or an outsourcing group id).
+ * CreditOps Partner workspace — ONE workspace navigation row over the views of
+ * a single Partner (Dashboard, Main Client List, the department queues and
+ * SOPs & Logins). Every view is a filtered projection of the same canonical
+ * client records for `scopeId` (an organization id or an outsourcing group id).
+ *
+ * Which tabs appear follows the person: Dashboard, Main Client List and SOPs &
+ * Logins for everybody, then the queues for the departments they actually
+ * work, then the management-only views (Dee, 2026-09-11).
  *
  * Shared by the BES agency division page and by an organization's own
  * CreditOps page: same components, same rows, a different scope. Row Level
  * Security decides what each side actually receives.
  */
+import { useEffect } from "react";
 import { FulfillmentClientsPanel } from "./FulfillmentClientsPanel";
 import { CreditOpsDashboardView } from "./CreditOpsDashboardView";
 import { QueueView } from "./QueueViews";
@@ -15,6 +20,8 @@ import {
   PARTNER_VIEWS,
   type PartnerViewId,
 } from "@/lib/fulfillment/creditops-partners";
+import { useCreditOpsAccess } from "@/lib/fulfillment/creditops-access";
+import { creditOpsViewsForPerson } from "@/lib/fulfillment/workspace-views";
 import type { OpsPartner } from "@/lib/fulfillment/ops-client-domain";
 import { cn } from "@/lib/utils";
 
@@ -25,7 +32,7 @@ export interface CreditOpsPartnerWorkspaceProps {
   partner: OpsPartner;
   activeView: PartnerViewId;
   onViewChange: (view: PartnerViewId) => void;
-  /** Views to offer, in order. Defaults to all nine (the agency always sees all). */
+  /** The organization's own configured views. Narrowed further by the person. */
   views?: readonly PartnerViewId[];
 }
 
@@ -37,12 +44,28 @@ export function CreditOpsPartnerWorkspace({
   openClientId = null,
   views,
 }: CreditOpsPartnerWorkspaceProps) {
-  const offered = views
-    ? PARTNER_VIEWS.filter((v) => views.includes(v.id))
-    : PARTNER_VIEWS;
+  const { myDepartments, canAccessManagement } = useCreditOpsAccess();
+  /* Two independent filters, and a view has to survive both:
+       · what the ORGANIZATION shows its people (`views`, from settings)
+       · what THIS PERSON'S job includes (department and capability)
+     Dee, 2026-09-11: "Do not show every department tab to every employee."
+     Presentation only — the rows behind a hidden queue were already
+     protected by their own policies (rule 1). */
+  const mine = new Set(creditOpsViewsForPerson({ departments: myDepartments, canAccessManagement }));
+  const offered = PARTNER_VIEWS.filter(
+    (v) => mine.has(v.id) && (!views || views.includes(v.id)),
+  );
+
+  /* A tab that is no longer offered must not stay selected — the person would
+     be looking at a queue their navigation says they do not work. */
+  useEffect(() => {
+    if (offered.length > 0 && !offered.some((v) => v.id === activeView)) {
+      onViewChange(offered[0].id);
+    }
+  }, [offered, activeView, onViewChange]);
   return (
     <div className="flex flex-col">
-      {/* ONE workspace navigation row — the 9 views of this Partner */}
+      {/* ONE workspace navigation row — the views this person's job includes */}
       <div className="sticky top-0 z-10 flex items-center gap-1 overflow-x-auto border-b border-border bg-card px-4">
         {offered.map((view) => (
           <button

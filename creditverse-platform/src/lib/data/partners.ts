@@ -13,7 +13,7 @@
  */
 
 import { requireSupabase } from "@/lib/supabase/client";
-import type { OpsPartner } from "@/lib/fulfillment/ops-client-domain";
+import { comparePartnersByName, type OpsPartner } from "@/lib/fulfillment/ops-client-domain";
 import {
   besMayFulfil,
   liveEngagementFor,
@@ -192,5 +192,9 @@ export function buildPartners(
       } satisfies OpsPartner;
     });
 
-  return [...managed, ...outsourced];
+  /* A → Z, once, here — so the pane, the collapsed icon rail, the workspace
+     header and every count read the same order. Sorting per consumer is how
+     two lists of the same partners end up in different orders (Dee,
+     2026-09-11: "the default and canonical presentation is alphabetical"). */
+  return [...managed, ...outsourced].sort(comparePartnersByName);
 }

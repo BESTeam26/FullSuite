@@ -66,11 +66,13 @@ import { useCreditOpsAccess } from "@/lib/fulfillment/creditops-access";
 import { cn } from "@/lib/utils";
 import { usePartners } from "@/lib/data/use-partners";
 import { useCreditOpsStore } from "@/lib/fulfillment/creditops-client-store";
-import type { OpsPartner } from "@/lib/fulfillment/ops-client-domain";
+import { comparePartnersByName, type OpsPartner } from "@/lib/fulfillment/ops-client-domain";
 import type { ModuleCategory } from "@/lib/data/module-categories";
+import { creditOpsNavForPerson } from "@/lib/fulfillment/workspace-views";
 import {
   OpsTreeFolder,
-  OpsTreeManagementSection,
+  OpsTreeGroup,
+  OpsTreeNavItem,
 } from "./OpsTreeSidebarParts";
 import { ModuleRail, type ModuleRailItem } from "@/components/dashboard/module-rail/ModuleRail";
 
@@ -125,23 +127,20 @@ const countActiveForPartner = (
       isActive(c.status),
   ).length;
 
-const MANAGEMENT_VIEWS = [
-  { id: "mgmt-dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "mgmt-main-list", label: "Main Client List", icon: BarChart3 },
-  { id: "mgmt-dispute-queue", label: "Dispute Queue", icon: BarChart3 },
-  { id: "mgmt-onboarding-queue", label: "Onboarding Queue", icon: BarChart3 },
-  { id: "mgmt-support-queue", label: "Support Queue", icon: BarChart3 },
-  { id: "mgmt-escalation-queue", label: "Escalation Queue", icon: BarChart3 },
-  {
-    id: "mgmt-complaints-queue",
-    label: "Complaints & Mailing",
-    icon: BarChart3,
-  },
-  { id: "mgmt-bureau-queue", label: "Bureau Calling", icon: BarChart3 },
-  /* The outbound-CRM signal log: what this platform pushed to GHL /
-     DisputeFox and when. An audit trail needs a screen (rule 10). */
-  { id: "mgmt-webhooks", label: "CRM Signal Log", icon: Webhook },
-];
+/**
+ * The cross-partner view id for a workspace view.
+ *
+ * The pane's Dashboard and Main Client List aggregate every partner; the tabs
+ * inside a partner workspace show the same views scoped to that partner. Two
+ * id namespaces, one catalogue — the `mgmt-` prefix is the only difference,
+ * so nobody has to keep a second list in step.
+ */
+const mgmtId = (view: string) => `mgmt-${view}`;
+
+/* The CRM Signal Log has no partner-scoped equivalent: it is what this
+   platform pushed to GHL / DisputeFox and when, across everything. Management
+   tooling, so it lives here rather than in the workspace tabs (Dee, §19). */
+const SIGNAL_LOG = { id: "mgmt-webhooks", label: "CRM Signal Log", icon: Webhook };
 
 export function CreditOpsTreeSidebar({
   selected,
@@ -151,7 +150,19 @@ export function CreditOpsTreeSidebar({
      the demo fallback — their scope ids are invented, so a live session must
      navigate by real ones or intake cannot save (rule 2). */
   const { partners } = usePartners("creditOps", CREDIT_OPS_PARTNERS);
-  const { canAccessManagement } = useCreditOpsAccess();
+  const { canAccessManagement, myDepartments } = useCreditOpsAccess();
+  /* One rule for the pane, the icon rail and the workspace tabs. */
+  const nav = useMemo(() => {
+    const groups = creditOpsNavForPerson({ departments: myDepartments, canAccessManagement });
+    return {
+      ...groups,
+      /* SOPs & Logins is reference material for the partner you are working
+         in, so it belongs on the workspace tabs and not in the space
+         navigation (Dee, 2026-09-11: "REMOVE THE SOP and Logins in the MAIN
+         Space, that is not needed"). */
+      universal: groups.universal.filter((v) => v.id !== "sops-logins"),
+    };
+  }, [myDepartments, canAccessManagement]);
   /* The same array the client list renders — one source, so the tree count and
      the list can never disagree. */
   const { clients } = useCreditOpsStore();
@@ -184,7 +195,10 @@ export function CreditOpsTreeSidebar({
         null;
       if (id && map.has(id)) map.get(id)!.push(p);
     }
-    for (const list of map.values()) list.sort((a, b) => a.name.localeCompare(b.name));
+    /* A → Z inside every folder, always — sorted at render from the current
+       data, so a drag, a rename or a new partner lands in the right place
+       without an order to maintain (Dee, 2026-09-11). */
+    for (const list of map.values()) list.sort(comparePartnersByName);
     return map;
   }, [partners, move]);
 
@@ -398,15 +412,27 @@ export function CreditOpsTreeSidebar({
      drift is a destination somebody is no longer authorized for surviving in
      the collapsed rail after being removed from the expanded one. */
   const railItems = useMemo<ModuleRailItem[]>(() => {
-    const views: ModuleRailItem[] = canAccessManagement
-      ? MANAGEMENT_VIEWS.map((v) => ({
-          id: v.id,
-          label: v.label,
-          icon: v.icon,
-          active: isMgmtViewActive(v.id),
-          onSelect: () => onSelect({ kind: "management", view: v.id }),
-        }))
-      : [];
+    const railView = (v: { id: string; label: string }, icon: typeof BarChart3) => ({
+      id: mgmtId(v.id),
+      label: v.label,
+      icon,
+      active: isMgmtViewActive(mgmtId(v.id)),
+      onSelect: () => onSelect({ kind: "management", view: mgmtId(v.id) }),
+    });
+    const views: ModuleRailItem[] = [
+      ...nav.universal.map((v) => railView(v, v.id === "dashboard" ? LayoutDashboard : BarChart3)),
+      ...nav.department.map((v) => railView(v, BarChart3)),
+      ...nav.management.map((v) => railView(v, BarChart3)),
+      ...(canAccessManagement
+        ? [{
+            id: SIGNAL_LOG.id,
+            label: SIGNAL_LOG.label,
+            icon: SIGNAL_LOG.icon,
+            active: isMgmtViewActive(SIGNAL_LOG.id),
+            onSelect: () => onSelect({ kind: "management", view: SIGNAL_LOG.id }),
+          }]
+        : []),
+    ];
     const partnerItems: ModuleRailItem[] = partners.map((p) => ({
       id: p.id,
       label: p.name,
@@ -417,7 +443,7 @@ export function CreditOpsTreeSidebar({
       onSelect: () => onSelect({ kind: "partner", partnerId: p.id }),
     }));
     return [...views, ...partnerItems];
-  }, [canAccessManagement, partners, countFor, isMgmtViewActive, isPartnerActive, onSelect]);
+  }, [nav, canAccessManagement, partners, countFor, isMgmtViewActive, isPartnerActive, onSelect]);
 
   return (
     <ModuleRail
@@ -427,18 +453,41 @@ export function CreditOpsTreeSidebar({
       badge={{ value: totalActive, label: "active" }}
       items={railItems}
     >
-      {/* Management layer — management role only. Agents are scoped to their
-          Partner workspace and never see cross-partner aggregate views. */}
       <div className="space-y-2 text-xs">
-        {canAccessManagement && (
-          <OpsTreeManagementSection
-            views={MANAGEMENT_VIEWS}
-            icon={LayoutDashboard}
-            open={isOpen("management")}
-            onToggle={() => toggleFolder("management")}
-            isActive={isMgmtViewActive}
-            onSelect={(view) => onSelect({ kind: "management", view })}
-          />
+        {/* ── The shared workspace ─────────────────────────────────────
+            Dashboard and Main Client List, cross-partner, for every
+            authorized CreditOps member. Dee: "ALL authorized CreditOps
+            members must be able to see ALL CreditOps clients in the Main
+            Client List… This is our SHARED CREDITOPS CLIENT DIRECTORY."
+            Row Level Security still decides which rows arrive. */}
+        <div className="space-y-0.5">
+          {nav.universal.map((v) => (
+            <OpsTreeNavItem
+              key={v.id}
+              label={v.label}
+              icon={v.id === "dashboard" ? LayoutDashboard : BarChart3}
+              active={isMgmtViewActive(mgmtId(v.id))}
+              onSelect={() => onSelect({ kind: "management", view: mgmtId(v.id) })}
+            />
+          ))}
+        </div>
+
+        {/* ── The queues this person actually works ────────────────────
+            From the canonical team → department assignment, not from a
+            second role system. Somebody in no department team keeps their
+            role's departments rather than being left with no queue. */}
+        {nav.department.length > 0 && (
+          <OpsTreeGroup label="MY DEPARTMENT">
+            {nav.department.map((v) => (
+              <OpsTreeNavItem
+                key={v.id}
+                label={v.label}
+                icon={BarChart3}
+                active={isMgmtViewActive(mgmtId(v.id))}
+                onSelect={() => onSelect({ kind: "management", view: mgmtId(v.id) })}
+              />
+            ))}
+          </OpsTreeGroup>
         )}
 
         {/* A folder per category, in the catalogue's order. Needs Review is
@@ -451,6 +500,30 @@ export function CreditOpsTreeSidebar({
               {renderCategory(c)}
             </div>
           ))}
+
+        {/* ── Management tooling ───────────────────────────────────────
+            The consolidated Escalation Queue and the CRM Signal Log. Dee,
+            §18/§19: escalations reach an agent contextually on their own
+            work, and signal infrastructure is not a processor's job. */}
+        {canAccessManagement && (
+          <OpsTreeGroup label="MANAGEMENT">
+            {nav.management.map((v) => (
+              <OpsTreeNavItem
+                key={v.id}
+                label={v.label}
+                icon={BarChart3}
+                active={isMgmtViewActive(mgmtId(v.id))}
+                onSelect={() => onSelect({ kind: "management", view: mgmtId(v.id) })}
+              />
+            ))}
+            <OpsTreeNavItem
+              label={SIGNAL_LOG.label}
+              icon={SIGNAL_LOG.icon}
+              active={isMgmtViewActive(SIGNAL_LOG.id)}
+              onSelect={() => onSelect({ kind: "management", view: SIGNAL_LOG.id })}
+            />
+          </OpsTreeGroup>
+        )}
       </div>
       {/* What used to be a paragraph of explanation living in the rail is now
           in the page header, where there is room to read it. A navigation rail

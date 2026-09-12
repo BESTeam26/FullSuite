@@ -274,3 +274,58 @@ describe("CreditOps Users is the SaaS side, and tenancy is untouched by the fold
     expect(p.id).toBe("grp-g-n");
   });
 });
+
+/* ────────────────────────────────────────────────────────────────────────── *
+ * Alphabetical order inside every folder (Dee, 2026-09-11).
+ *
+ * "Do not preserve manual row order for Partners… This should apply
+ * consistently after page load, drag/drop move, category change, Partner
+ * rename, new Partner creation, reactivation." The order is computed from the
+ * data every time rather than stored, which is what makes all six true — so
+ * these check the computation, not six sequences of events.
+ * ────────────────────────────────────────────────────────────────────────── */
+describe("partners are listed A to Z", () => {
+  const named = (id: string, name: string) => group(id, name);
+  const live = (id: string) => engagement(id, "creditops");
+
+  it("sorts by name regardless of the order the rows arrive in", () => {
+    const rows = [named("g-3", "Vanquish Ventures"), named("g-1", "BearwithUs Consulting"), named("g-2", "CreditCure")];
+    expect(listed("creditOps", rows, rows.map((r) => live(r.id)))).toEqual([
+      "BearwithUs Consulting", "CreditCure", "Vanquish Ventures",
+    ]);
+  });
+
+  it("ignores capitalisation, so a lower-case name does not fall to the end", () => {
+    const rows = [named("g-1", "Zenith"), named("g-2", "bearwithUs"), named("g-3", "Credify")];
+    const out = buildPartners("creditOps", [], rows, rows.map((r) => live(r.id))).map((p) => p.name);
+    expect(out).toEqual(["bearwithUs", "Credify", "Zenith"]);
+  });
+
+  it("puts organizations and outsourcing groups in ONE alphabetical run", () => {
+    /* The two kinds of partner used to be concatenated, so every organization
+       came before every group whatever they were called. */
+    const org = {
+      id: "org-1", name: "Credit by Nainoa", status: "Active",
+      entitlements: [{ key: "creditOps", enabled: true }],
+      principal: { name: "A Person", email: "a@example.test" },
+    } as unknown as Parameters<typeof buildPartners>[1][number];
+    const rows = [named("g-1", "BearwithUs Consulting"), named("g-2", "CreditCure")];
+    const out = buildPartners("creditOps", [org], rows, [live("org-1"), ...rows.map((r) => live(r.id))]);
+    expect(out.map((p) => p.name)).toEqual(["BearwithUs Consulting", "Credit by Nainoa", "CreditCure"]);
+  });
+
+  it("breaks a tie on the canonical id, so the order never flickers", () => {
+    const rows = [named("g-b", "Jensen"), named("g-a", "Jensen")];
+    const out = buildPartners("creditOps", [], rows, rows.map((r) => live(r.id)));
+    expect(out.map((p) => p.id)).toEqual(["grp-g-a", "grp-g-b"]);
+    /* Same input, reversed: the same answer. */
+    const again = buildPartners("creditOps", [], [...rows].reverse(), rows.map((r) => live(r.id)));
+    expect(again.map((p) => p.id)).toEqual(["grp-g-a", "grp-g-b"]);
+  });
+
+  it("sorts numbers inside names the way a person reads them", () => {
+    const rows = [named("g-1", "Team 10"), named("g-2", "Team 2")];
+    const out = buildPartners("creditOps", [], rows, rows.map((r) => live(r.id)));
+    expect(out.map((p) => p.name)).toEqual(["Team 2", "Team 10"]);
+  });
+});

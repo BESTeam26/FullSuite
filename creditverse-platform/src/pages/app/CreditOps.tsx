@@ -10,7 +10,7 @@
  * one Partner. Same canonical client records — different scope.
  */
 
-import { useState, useEffect } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { clientGroupKey } from "@/lib/fulfillment/ops-client-domain";
 import { isActiveClient } from "@/lib/fulfillment/fulfillment-client-domain";
@@ -42,6 +42,7 @@ import {
   CREDIT_OPS_PARTNERS,
   type PartnerViewId,
 } from "@/lib/fulfillment/creditops-partners";
+import { creditOpsViewsForPerson } from "@/lib/fulfillment/workspace-views";
 import { LayoutDashboard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePartners } from "@/lib/data/use-partners";
@@ -72,14 +73,28 @@ export default function CreditOps() {
 
 function CreditOpsWorkspace() {
   const { partners } = usePartners("creditOps", CREDIT_OPS_PARTNERS);
-  const { canAccessManagement } = useCreditOpsAccess();
-  const [selection, setSelection] = useState<CreditOpsSelection>(() =>
-    // Non-management roles never start on the Management layer — they land
-    // on their first authorized Partner workspace instead.
-    canAccessManagement
-      ? { kind: "management", view: "mgmt-dashboard" }
-      : { kind: "partner", partnerId: partners[0]?.id ?? "" },
+  const { canAccessManagement, myDepartments } = useCreditOpsAccess();
+  /* Which cross-partner views this person may open. The whole layer used to
+     be management-only; Dee's ruling (2026-09-11) is that the Dashboard and
+     the Main Client List are the SHARED CreditOps workspace, and only the
+     Escalation Queue and the CRM Signal Log stay management tooling. Row
+     Level Security still decides which client rows arrive in either. */
+  const mayOpen = useCallback(
+    (view: string) => {
+      if (view === "mgmt-webhooks") return canAccessManagement;
+      const id = view.replace(/^mgmt-/, "");
+      return creditOpsViewsForPerson({ departments: myDepartments, canAccessManagement }).includes(
+        id as PartnerViewId,
+      );
+    },
+    [myDepartments, canAccessManagement],
   );
+  /* Everybody lands on the shared dashboard now — there is no longer a layer
+     an agent is kept out of wholesale. */
+  const [selection, setSelection] = useState<CreditOpsSelection>({
+    kind: "management",
+    view: "mgmt-dashboard",
+  });
   const [activeView, setActiveView] = useState<PartnerViewId>("dashboard");
   const [isStatusGuideOpen, setIsStatusGuideOpen] = useState(false);
 
@@ -107,16 +122,14 @@ function CreditOpsWorkspace() {
     setSearchParams({}, { replace: true });
   }, [linkedClient, clients, partners, setSearchParams]);
 
-  // If the role loses Management access while a Management view is selected,
-  // fall back to the first Partner workspace so nothing restricted renders.
+  // A view the person may not open must not stay selected — for instance when
+  // their department assignment changes mid-session. The shared dashboard is
+  // always available, so there is somewhere honest to land.
   useEffect(() => {
-    if (!canAccessManagement && selection.kind === "management") {
-      setSelection({
-        kind: "partner",
-        partnerId: partners[0]?.id ?? "",
-      });
+    if (selection.kind === "management" && !mayOpen(selection.view)) {
+      setSelection({ kind: "management", view: "mgmt-dashboard" });
     }
-  }, [canAccessManagement, selection]);
+  }, [mayOpen, selection]);
 
   const partner =
     selection.kind === "partner"
@@ -162,7 +175,7 @@ function CreditOpsWorkspace() {
 
           <div className="flex-1 overflow-y-auto">
             {selection.kind === "management" ? (
-              canAccessManagement ? (
+              mayOpen(selection.view) ? (
                 <ManagementView
                   view={selection.view}
                   onNavigateToView={(v) =>
@@ -206,19 +219,19 @@ function CreditOpsWorkspace() {
   );
 }
 
-/* Management layer is restricted to management roles. */
+/* Reached only by typing a URL or by an assignment changing mid-session: the
+   navigation never offers a view this appears for. */
 function AccessDeniedNotice() {
   return (
     <div className="flex h-full items-center justify-center p-10 text-center">
       <div className="max-w-sm">
         <LayoutDashboard className="mx-auto mb-3 h-10 w-10 text-muted-foreground/40" />
         <p className="text-sm font-semibold text-foreground">
-          Management access required
+          Not part of your workspace
         </p>
         <p className="text-xs text-muted-foreground">
-          The Management layer aggregates records across all Partners and is
-          restricted to CreditOps Admin / Manager roles. Your role is scoped to
-          a Partner workspace.
+          This queue belongs to a department you are not assigned to. You can
+          still look up any CreditOps client in the Main Client List.
         </p>
       </div>
     </div>

@@ -93,18 +93,46 @@ export const getPartnerByScope = (
 ): CreditOpsPartner | undefined =>
   CREDIT_OPS_PARTNERS.find((p) => p.scopeId === scopeId);
 
-/* Order is the order the Workspace shows. SOPs & Logins is reference material,
-   so it always comes last (Dee, 2026-09-05). */
+/**
+ * The CreditOps workspace views, and WHO EACH ONE IS FOR.
+ *
+ * Dee, 2026-09-11: "Only show employees the operational workspace they are
+ * responsible for. Do not make a Complaints agent navigate Processing,
+ * Onboarding, Support, Bureau Calling, Escalations."
+ *
+ * Every view used to be shown to everybody, because the only filter was the
+ * organization's `workspace_views` setting and `RoleAccess.views`, which is
+ * empty for every role. Three scopes replace that:
+ *
+ *   universal   every authorized CreditOps member. Dashboard and Main Client
+ *               List are the SHARED CLIENT DIRECTORY — deliberately not
+ *               narrowed to a department or to your own assignments, so any
+ *               agent can answer "where is this client?" for a caller.
+ *   department  only the departments this person actually works, read from
+ *               the canonical team → department assignment.
+ *   management  cross-department operations tooling: the consolidated
+ *               Escalation Queue and the CRM Signal Log.
+ *
+ * Presentation only. Row Level Security still decides which rows any of these
+ * views receives, so a hidden queue hides nothing that was not already
+ * protected, and a visible one shows nothing extra (rule 1).
+ *
+ * Order is operational: the file's journey, then reference material last.
+ */
+export type CreditOpsViewScope = "universal" | "department" | "management";
+
 export const PARTNER_VIEWS = [
-  { id: "dashboard", label: "Dashboard" },
-  { id: "main-list", label: "Main Client List" },
-  { id: "dispute-queue", label: "Dispute Queue" },
-  { id: "onboarding-queue", label: "Onboarding Queue" },
-  { id: "support-queue", label: "Support Queue" },
-  { id: "escalation-queue", label: "Escalation Queue" },
-  { id: "complaints-queue", label: "Complaints & Mailing" },
-  { id: "bureau-queue", label: "Bureau Calling" },
-  { id: "sops-logins", label: "SOPs & Logins" },
-] as const;
+  { id: "dashboard", label: "Dashboard", scope: "universal" },
+  { id: "main-list", label: "Main Client List", scope: "universal" },
+  { id: "onboarding-queue", label: "Onboarding Queue", scope: "department", department: "Onboarding" },
+  { id: "dispute-queue", label: "Dispute Queue", scope: "department", department: "Dispute" },
+  { id: "support-queue", label: "Support Queue", scope: "department", department: "Support" },
+  { id: "complaints-queue", label: "Complaints & Mailing", scope: "department", department: "Complaints" },
+  { id: "bureau-queue", label: "Bureau Calling", scope: "department", department: "Bureau Calling" },
+  { id: "escalation-queue", label: "Escalation Queue", scope: "management" },
+  { id: "sops-logins", label: "SOPs & Logins", scope: "universal" },
+] as const satisfies readonly {
+  id: string; label: string; scope: CreditOpsViewScope; department?: string;
+}[];
 
 export type PartnerViewId = (typeof PARTNER_VIEWS)[number]["id"];

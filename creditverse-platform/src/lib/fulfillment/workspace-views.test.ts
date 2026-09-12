@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  creditOpsViewsForPerson,
   hiddenViews,
   toggleHiddenView,
   visibleCreditOpsViews,
@@ -42,5 +43,77 @@ describe("organization workspace views", () => {
     expect(toggleHiddenView(s, "creditOps", "dispute-queue", false)).toEqual({
       creditOps: { hidden: [] },
     });
+  });
+});
+
+/* ────────────────────────────────────────────────────────────────────────── *
+ * Person scope (Dee's consolidation, 2026-09-11).
+ *
+ * "SHARED CLIENT VISIBILITY. DEPARTMENT-SCOPED WORK." These lock the first
+ * half: the directory stays open to everyone authorized, the queues do not.
+ * ────────────────────────────────────────────────────────────────────────── */
+describe("a CreditOps member sees their own workspace, not everybody's", () => {
+  const complaints = { departments: ["Complaints"], canAccessManagement: false };
+  const processor = { departments: ["Dispute"], canAccessManagement: false };
+  const bothDesks = { departments: ["Support", "Complaints"], canAccessManagement: false };
+  const lead = { departments: ["Dispute"], canAccessManagement: true };
+
+  it("gives every member the four universal views", () => {
+    for (const who of [complaints, processor, bothDesks, lead]) {
+      const views = creditOpsViewsForPerson(who);
+      expect(views).toContain("dashboard");
+      expect(views).toContain("main-list");
+      expect(views).toContain("sops-logins");
+    }
+  });
+
+  it("a Complaints agent gets Complaints & Mailing and no other queue", () => {
+    const views = creditOpsViewsForPerson(complaints);
+    expect(views).toContain("complaints-queue");
+    expect(views).not.toContain("dispute-queue");
+    expect(views).not.toContain("onboarding-queue");
+    expect(views).not.toContain("support-queue");
+    expect(views).not.toContain("bureau-queue");
+  });
+
+  it("a processor gets the Dispute Queue and not Complaints", () => {
+    const views = creditOpsViewsForPerson(processor);
+    expect(views).toContain("dispute-queue");
+    expect(views).not.toContain("complaints-queue");
+  });
+
+  it("somebody in two departments gets both queues", () => {
+    /* Dee: "Do not force somebody into one department if their actual
+       assignment allows multiple departments." */
+    const views = creditOpsViewsForPerson(bothDesks);
+    expect(views).toContain("support-queue");
+    expect(views).toContain("complaints-queue");
+    expect(views).not.toContain("dispute-queue");
+  });
+
+  it("the Escalation Queue is management only", () => {
+    expect(creditOpsViewsForPerson(processor)).not.toContain("escalation-queue");
+    expect(creditOpsViewsForPerson(lead)).toContain("escalation-queue");
+  });
+
+  it("management sees every department queue", () => {
+    const views = creditOpsViewsForPerson(lead);
+    for (const q of ["onboarding-queue", "dispute-queue", "support-queue", "complaints-queue", "bureau-queue"]) {
+      expect(views).toContain(q);
+    }
+  });
+
+  it("somebody with no department still has the shared directory", () => {
+    /* The whole point of the universal half: they can look a client up and
+       report where it is. They just have no queue to work. */
+    const views = creditOpsViewsForPerson({ departments: [], canAccessManagement: false });
+    expect(views).toEqual(["dashboard", "main-list", "sops-logins"]);
+  });
+
+  it("keeps the views in workspace order, not the order they were asked for", () => {
+    const views = creditOpsViewsForPerson(lead);
+    expect(views.indexOf("dashboard")).toBeLessThan(views.indexOf("main-list"));
+    expect(views.indexOf("onboarding-queue")).toBeLessThan(views.indexOf("dispute-queue"));
+    expect(views[views.length - 1]).toBe("sops-logins");
   });
 });

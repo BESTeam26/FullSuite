@@ -15,6 +15,7 @@ import { resolveCreditOpsRole, resolveOpsAccess } from "@/lib/fulfillment/ops-ro
 import { useOrganizationRoleAccess } from "@/lib/data/use-role-access";
 import { roleAccessKey } from "@/lib/data/role-access";
 import { ORG_ROLE_LABELS } from "@/lib/fulfillment/role-access-defaults";
+import { useMyCreditOpsDepartments } from "@/lib/data/use-my-departments";
 
 /* ------------------------------------------------------------------ */
 /* Departments                                                         */
@@ -379,6 +380,17 @@ interface CreditOpsAccessValue {
   allowedViews: string[];
   canEditDepartmentProgress: boolean;
   canAccessManagement: boolean;
+  /**
+   * The departments this person WORKS — their queues, and the files they may
+   * complete work on.
+   *
+   * Narrowed from `allowedDepartments` by the canonical team → department
+   * assignment when there is one. Management keeps every department, because
+   * running the operation is the job. Somebody in no department-bearing team
+   * keeps the role's departments: see `useMyCreditOpsDepartments` for why
+   * silence is treated as "no opinion" rather than "nothing".
+   */
+  myDepartments: CreditOpsDepartment[];
   allowedDepartments: CreditOpsDepartment[];
   /** Work items the current role is authorized to log. */
   allowedWorkItems: WorkItemDef[];
@@ -397,6 +409,8 @@ export function CreditOpsAccessProvider({ children }: { children: ReactNode }) {
   const auth = useAuth();
   const { activeOrganization } = useAgency();
   const live = auth.mode === "live";
+  /* Canonical team → department assignment. Reused, not re-invented. */
+  const { departments: teamDepartments } = useMyCreditOpsDepartments();
   const [previewRole, setPreviewRole] = useState<CreditOpsRoleKey>("admin");
   const agencyRole = auth.agencyMembership?.role ?? null;
   const orgRole =
@@ -440,12 +454,19 @@ export function CreditOpsAccessProvider({ children }: { children: ReactNode }) {
       }
     : preview;
 
+  /* Team membership narrows the role, it never widens it: the intersection,
+     and only when membership actually says something. */
+  const myDepartments =
+    roleDef.canAccessManagement || teamDepartments.length === 0
+      ? allowedDepartments
+      : allowedDepartments.filter((d) => teamDepartments.includes(d));
+
   const allowedWorkItems = WORK_ITEMS.filter((w) =>
-    allowedDepartments.includes(w.department),
+    myDepartments.includes(w.department),
   );
 
   const canLogDepartment = (dept: CreditOpsDepartment) =>
-    access.canLogWork && allowedDepartments.includes(dept);
+    access.canLogWork && myDepartments.includes(dept);
 
   return (
     <CreditOpsAccessContext.Provider
@@ -458,6 +479,7 @@ export function CreditOpsAccessProvider({ children }: { children: ReactNode }) {
         allowedViews: access.views,
         canEditDepartmentProgress: roleDef.canEditDepartmentProgress,
         canAccessManagement: roleDef.canAccessManagement,
+        myDepartments,
         allowedDepartments,
         allowedWorkItems,
         canLogDepartment,
@@ -490,6 +512,7 @@ export function useCreditOpsAccess(): CreditOpsAccessValue {
     allowedViews: [],
     canEditDepartmentProgress: roleDef.canEditDepartmentProgress,
     canAccessManagement: roleDef.canAccessManagement,
+    myDepartments: roleDef.allowedDepartments,
     allowedDepartments: roleDef.allowedDepartments,
     allowedWorkItems,
     canLogDepartment,

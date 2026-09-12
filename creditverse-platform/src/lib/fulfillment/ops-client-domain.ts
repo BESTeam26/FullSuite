@@ -94,6 +94,40 @@ export interface OpsPartner {
  * vocabulary; division interfaces narrow it to their own union type.
  */
 /**
+ * The canonical order for partner names in a navigation folder: A → Z.
+ *
+ * Dee, 2026-09-11: *"Inside EACH folder, Partner names should always be
+ * alphabetized… Do not preserve manual row order for Partners… Do not add a
+ * separate manual sort control."*
+ *
+ * Case-insensitive and accent-insensitive, so "bearwithUs" files where a
+ * reader expects it rather than after every capitalised name — the default
+ * `localeCompare` on raw strings does not guarantee that across locales.
+ * Numbers inside names sort naturally ("Round 2" before "Round 10").
+ *
+ * The tie-break is the canonical id, never the created date: two partners can
+ * share a name AND a creation second, and an unstable sort makes rows jump
+ * between renders. The id is unique by construction.
+ *
+ * It is a comparator rather than a sorted list because the ordering has to
+ * hold after a drag, a category change, a rename, a new partner and a
+ * reactivation — and the only way to guarantee that is to sort at the point
+ * of render from whatever the data currently says, not to maintain an order.
+ */
+const PARTNER_COLLATOR = new Intl.Collator(undefined, {
+  sensitivity: "base",
+  numeric: true,
+});
+
+export function comparePartnersByName(
+  a: { name: string; id: string },
+  b: { name: string; id: string },
+): number {
+  const byName = PARTNER_COLLATOR.compare(a.name.trim(), b.name.trim());
+  return byName !== 0 ? byName : a.id.localeCompare(b.id);
+}
+
+/**
  * Who a file is assigned to, passed as an identity rather than a label.
  *
  * `id` is the profile row that is actually written; `name` is what the

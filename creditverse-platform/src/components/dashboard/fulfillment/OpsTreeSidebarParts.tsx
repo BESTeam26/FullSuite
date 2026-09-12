@@ -72,7 +72,13 @@ export const OpsTreeFolder = ({
 );
 
 /* ------------------------------------------------------------------ */
-/* Management section                                                  */
+/* Navigation items and groups                                         */
+/*                                                                     */
+/* The second pane's own vocabulary, replacing the single MANAGEMENT   */
+/* folder that used to hold every cross-partner view. Dee, 2026-09-11: */
+/* the pane keeps its hierarchy, but what sits in it follows the       */
+/* person — the shared workspace, then their department queues, then   */
+/* the partner folders, then management tooling.                       */
 /* ------------------------------------------------------------------ */
 
 export interface ManagementView {
@@ -81,9 +87,58 @@ export interface ManagementView {
   icon: ElementType;
 }
 
+/** One destination in the pane. */
+export const OpsTreeNavItem = ({
+  label,
+  icon: Icon,
+  active,
+  onSelect,
+}: {
+  label: string;
+  icon: ElementType;
+  active: boolean;
+  onSelect: () => void;
+}) => (
+  <button
+    onClick={onSelect}
+    aria-current={active ? "page" : undefined}
+    className={cn(
+      "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs font-medium transition-colors",
+      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+      active
+        ? "bg-primary/10 font-bold text-primary"
+        : "text-foreground hover:bg-muted/60",
+    )}
+  >
+    <Icon className={cn("h-3.5 w-3.5 shrink-0", active ? "text-primary" : "text-muted-foreground")} />
+    <span className="truncate">{label}</span>
+  </button>
+);
+
+/** A labelled band of destinations — MY DEPARTMENT, MANAGEMENT. */
+export const OpsTreeGroup = ({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) => (
+  <div className="pt-2">
+    <p className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+      {label}
+    </p>
+    <div className="space-y-0.5">{children}</div>
+  </div>
+);
+
 /**
- * Cross-partner views. Rendered only for management roles — agents are scoped
- * to their Partner workspace and never see aggregate views (rule 3).
+ * The single collapsible MANAGEMENT folder holding every cross-partner view.
+ *
+ * CreditOps no longer uses this: its pane is grouped per person by
+ * `creditOpsNavForPerson` (Dee's consolidation, 2026-09-11). FundingOps still
+ * does, and is deliberately untouched — that brief was about CreditOps, and
+ * changing FundingOps navigation on the way past would be scope Dee did not
+ * ask for. It moves when FundingOps gets the same treatment.
  */
 export const OpsTreeManagementSection = ({
   views,
@@ -120,25 +175,15 @@ export const OpsTreeManagementSection = ({
     </button>
     {open && (
       <div className="ml-4 mt-1 space-y-0.5 border-l border-border pl-2">
-        {views.map((v) => {
-          const Item = v.icon;
-          const active = isActive(v.id);
-          return (
-            <button
-              key={v.id}
-              onClick={() => onSelect(v.id)}
-              className={cn(
-                "flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors",
-                active
-                  ? "bg-primary/10 font-bold text-primary"
-                  : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-              )}
-            >
-              <Item className="h-3 w-3" />
-              <span>{v.label}</span>
-            </button>
-          );
-        })}
+        {views.map((v) => (
+          <OpsTreeNavItem
+            key={v.id}
+            label={v.label}
+            icon={v.icon}
+            active={isActive(v.id)}
+            onSelect={() => onSelect(v.id)}
+          />
+        ))}
       </div>
     )}
   </div>
