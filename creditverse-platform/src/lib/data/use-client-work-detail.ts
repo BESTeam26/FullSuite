@@ -145,7 +145,11 @@ export function useClientDocuments(clientId: string | null) {
       const { data, error } = await sb
         .from("files")
         .select("id, name, path, bucket, mime_type, size_bytes, created_at, shared_with_partner")
-        .eq("entity_type", "client")
+        /* `fulfillment_client`, not `client`: the canonical `clients` row is
+           the person, and these files belong to the CreditOps work file.
+           The importer used the wrong word and only got away with it because
+           it ran as the service role (2026-09-12). */
+        .eq("entity_type", "fulfillment_client")
         .eq("entity_id", clientId as string)
         .order("created_at", { ascending: false })
         .limit(300);

@@ -78,16 +78,21 @@ export function ClientUpdateComposer({ client }: { client: FulfillmentClient }) 
         if (up.error) throw up.error;
         /* The same canonical row the Documents tab lists and the ClickUp
            import wrote. One file, one record, two places it shows up. */
+        /* `uploaded_by` and `agency_id` are required by the insert policy,
+           and `fulfillment_client` is the entity type that actually resolves
+           for a CreditOps work file. */
         const { error } = await sb.from("files").insert({
-          entity_type: "client", entity_id: client.id, bucket: "bes-files",
+          entity_type: "fulfillment_client", entity_id: client.id, bucket: "bes-files",
           path, name, mime_type: file.type || null, size_bytes: file.size,
+          uploaded_by: auth.user?.id ?? null,
+          agency_id: auth.agencyId ?? null,
         } as never);
         if (error) throw error;
         stored.push(name);
       }
 
       await postNote({
-        agencyId: (client as { agencyId?: string }).agencyId ?? "",
+        agencyId: auth.agencyId ?? "",
         organizationId: client.organizationId ?? null,
         entityType: "fulfillment_client",
         entityId: client.id,

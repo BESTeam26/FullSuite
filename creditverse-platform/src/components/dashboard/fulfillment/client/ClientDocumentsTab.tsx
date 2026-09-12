@@ -18,6 +18,7 @@ import { formatDate } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
 import { useClientDocuments } from "@/lib/data/use-client-work-detail";
 import { requireSupabase } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/auth/auth-context";
 
 const sizeLabel = (bytes: number | null) => {
   if (!bytes) return "";
@@ -37,6 +38,9 @@ const categoryOf = (name: string, mime: string | null) => {
 };
 
 export function ClientDocumentsTab({ clientId }: { clientId: string }) {
+  const auth = useAuth();
+  const userId = auth.user?.id ?? null;
+  const agencyId = auth.agencyId ?? null;
   const docs = useClientDocuments(clientId);
   const { toast } = useToast();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -66,9 +70,12 @@ export function ClientDocumentsTab({ clientId }: { clientId: string }) {
         /* The SAME canonical row the import writes. An uploaded file and an
            imported one are the same kind of thing and need no code to tell
            them apart. */
+        /* `uploaded_by` and `agency_id` are required by the insert policy —
+           a file with no author is a file nobody can be asked about. */
         const { error } = await sb.from("files").insert({
-          entity_type: "client", entity_id: clientId, bucket: "bes-files",
+          entity_type: "fulfillment_client", entity_id: clientId, bucket: "bes-files",
           path, name: file.name, mime_type: file.type || null, size_bytes: file.size,
+          uploaded_by: userId, agency_id: agencyId,
         } as never);
         if (error) throw error;
       }
