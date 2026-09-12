@@ -1686,7 +1686,9 @@ export type Database = {
       }
       client_department_statuses: {
         Row: {
+          assigned_at: string | null
           assignee_id: string | null
+          assignment_method: string | null
           client_id: string
           cycle_number: number
           department: Database["public"]["Enums"]["fulfillment_department"]
@@ -1701,7 +1703,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          assigned_at?: string | null
           assignee_id?: string | null
+          assignment_method?: string | null
           client_id: string
           cycle_number?: number
           department: Database["public"]["Enums"]["fulfillment_department"]
@@ -1716,7 +1720,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          assigned_at?: string | null
           assignee_id?: string | null
+          assignment_method?: string | null
           client_id?: string
           cycle_number?: number
           department?: Database["public"]["Enums"]["fulfillment_department"]
@@ -2560,6 +2566,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      creditops_status_routing: {
+        Row: {
+          department:
+            | Database["public"]["Enums"]["fulfillment_department"]
+            | null
+          entry_status: string | null
+          kind: string
+          note: string | null
+          status: Database["public"]["Enums"]["fulfillment_client_status"]
+        }
+        Insert: {
+          department?:
+            | Database["public"]["Enums"]["fulfillment_department"]
+            | null
+          entry_status?: string | null
+          kind: string
+          note?: string | null
+          status: Database["public"]["Enums"]["fulfillment_client_status"]
+        }
+        Update: {
+          department?:
+            | Database["public"]["Enums"]["fulfillment_department"]
+            | null
+          entry_status?: string | null
+          kind?: string
+          note?: string | null
+          status?: Database["public"]["Enums"]["fulfillment_client_status"]
+        }
+        Relationships: []
       }
       crm_client_requirement_blocks: {
         Row: {
@@ -3420,6 +3456,7 @@ export type Database = {
         Row: {
           agency_id: string
           archived_at: string | null
+          assignment_mode: string
           created_at: string
           description: string | null
           division: Database["public"]["Enums"]["fulfillment_service"]
@@ -3434,6 +3471,7 @@ export type Database = {
         Insert: {
           agency_id: string
           archived_at?: string | null
+          assignment_mode?: string
           created_at?: string
           description?: string | null
           division: Database["public"]["Enums"]["fulfillment_service"]
@@ -3448,6 +3486,7 @@ export type Database = {
         Update: {
           agency_id?: string
           archived_at?: string | null
+          assignment_mode?: string
           created_at?: string
           description?: string | null
           division?: Database["public"]["Enums"]["fulfillment_service"]
@@ -13622,6 +13661,51 @@ export type Database = {
           },
         ]
       }
+      creditops_assignment_required: {
+        Row: {
+          agency_id: string | null
+          client_id: string | null
+          client_name: string | null
+          department:
+            | Database["public"]["Enums"]["fulfillment_department"]
+            | null
+          due_at: string | null
+          organization_id: string | null
+          outsourcing_group_id: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_department_statuses_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "fulfillment_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fulfillment_clients_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fulfillment_clients_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fulfillment_clients_outsourcing_group_id_fkey"
+            columns: ["outsourcing_group_id"]
+            isOneToOne: false
+            referencedRelation: "outsourcing_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fixture_login_state: {
         Row: {
           fixture_identities: number | null
@@ -14569,6 +14653,33 @@ export type Database = {
           p_department: Database["public"]["Enums"]["fulfillment_department"]
         }
         Returns: string[]
+      }
+      creditops_is_eligible: {
+        Args: {
+          p_agency: string
+          p_department: Database["public"]["Enums"]["fulfillment_department"]
+          p_user: string
+        }
+        Returns: boolean
+      }
+      creditops_pick_assignee: {
+        Args: {
+          p_agency: string
+          p_department: Database["public"]["Enums"]["fulfillment_department"]
+        }
+        Returns: string
+      }
+      creditops_refresh_headline: {
+        Args: { p_client: string }
+        Returns: undefined
+      }
+      creditops_route_client: { Args: { p_client: string }; Returns: undefined }
+      creditops_status_is_actionable: {
+        Args: {
+          p_department: Database["public"]["Enums"]["fulfillment_department"]
+          p_status: string
+        }
+        Returns: boolean
       }
       crm_add_engine: {
         Args: { p_engine: string; p_project: string }
