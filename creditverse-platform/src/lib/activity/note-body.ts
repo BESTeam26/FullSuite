@@ -127,7 +127,18 @@ export function docToPlainText(doc: unknown): string {
 
   const inline = (nodes: NoteNode[] | undefined): string =>
     (nodes ?? [])
-      .map((n) => (n.type === "hardBreak" ? " " : (n.text ?? inline(n.content))))
+      .map((n) => {
+        if (n.type === "hardBreak") return " ";
+        /* A mention is a node with no `text` of its own, so without this it
+           vanished from the mirror entirely — and the mirror is what search,
+           the client list, notification previews and every pre-mention reader
+           show. The document keeps the user id; the text keeps the name. */
+        if (n.type === "mention") {
+          const label = String(n.attrs?.label ?? "").trim();
+          return label ? `@${label}` : "";
+        }
+        return n.text ?? inline(n.content);
+      })
       .join("");
 
   walk(doc.content);

@@ -33,7 +33,7 @@ import {
   Redo2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { EMPTY_DOC, safeUrl, type NoteDoc } from "@/lib/activity/note-body";
+import { EMPTY_DOC, isDocEmpty, safeUrl, type NoteDoc } from "@/lib/activity/note-body";
 import { mentionQueryAt } from "@/lib/activity/mentions";
 import { MentionNode } from "@/components/composer/mention-extension";
 import { MentionPicker, type MentionCandidate } from "@/components/composer/MentionPicker";
@@ -41,6 +41,13 @@ import { MentionPicker, type MentionCandidate } from "@/components/composer/Ment
 export interface RichTextEditorProps {
   /** Bumping this resets the editor — used to clear after a successful post. */
   resetToken: number;
+  /**
+   * What the editor opens with. A composer starts empty and clears after it
+   * posts; a saved note opens with what is already written and resets back to
+   * it. Read once at mount, so a surface showing a different record remounts
+   * (`key`) rather than pushing new content into a field somebody is typing in.
+   */
+  initialDoc?: NoteDoc;
   disabled?: boolean;
   placeholder?: string;
   onChange: (doc: NoteDoc, isEmpty: boolean) => void;
@@ -166,6 +173,7 @@ const TOOLS: (ToolButton | "divider")[] = [
 
 export default function RichTextEditor({
   resetToken,
+  initialDoc,
   disabled,
   placeholder = "Write a comment or an internal note…",
   onChange,
@@ -179,6 +187,7 @@ export default function RichTextEditor({
   const [mentionQuery, setMentionQuery] = useState<{ query: string; from: number } | null>(null);
   const canMention = !!mentionable && mentionable.length > 0;
   const editor = useEditor({
+    content: initialDoc,
     extensions: [
       StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
       Underline,
@@ -265,8 +274,9 @@ export default function RichTextEditor({
   /* Cleared only when the parent says the post succeeded. */
   useEffect(() => {
     if (!editor || resetToken === 0) return;
-    editor.commands.setContent(EMPTY_DOC);
-    onChange(EMPTY_DOC, true);
+    const blank = initialDoc ?? EMPTY_DOC;
+    editor.commands.setContent(blank);
+    onChange(blank, isDocEmpty(blank));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resetToken]);
 

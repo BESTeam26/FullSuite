@@ -131,6 +131,8 @@ export interface FulfillmentClient extends OpsClient {
   openItems: number;
   /** The standing working description, and the one-line next action (0212). */
   description?: string | null;
+  /** The same notes as a document, where @mentions are nodes (2026-09-12). */
+  descriptionBody?: unknown;
   nextAction?: string | null;
 }
 

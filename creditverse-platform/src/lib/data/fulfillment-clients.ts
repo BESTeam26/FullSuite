@@ -89,6 +89,7 @@ export function mapClientRow(row: ClientRow): FulfillmentClient {
     processedOn: (row as { processed_on?: string | null }).processed_on ?? null,
     assignedAgentId: (row as { assigned_agent_id?: string | null }).assigned_agent_id ?? null,
     description: (row as { description?: string | null }).description ?? null,
+    descriptionBody: (row as { description_body?: unknown }).description_body ?? null,
     nextAction: (row as { next_action?: string | null }).next_action ?? null,
     dueAt: row.due_at ?? null,
     lastActivity: relativeTime(row.last_activity_at),
@@ -608,12 +609,19 @@ export async function updateClientField(input: {
   processedOn?: string | null;
   /** The standing working description and the one-line next action (0212). */
   description?: string | null;
+  /**
+   * The same notes as a document, so an @mention is a node carrying a user id
+   * and the database can tell exactly who was named. Written together with
+   * `description`, which stays the plain-text mirror (2026-09-12).
+   */
+  descriptionBody?: unknown;
   nextAction?: string | null;
 }): Promise<void> {
   const sb = requireSupabase();
   const row: Record<string, unknown> = {};
   if (input.round !== undefined) row.round = input.round;
   if (input.description !== undefined) row.description = input.description?.trim() || null;
+  if (input.descriptionBody !== undefined) row.description_body = input.descriptionBody ?? null;
   if (input.nextAction !== undefined) row.next_action = input.nextAction?.trim() || null;
   if (input.processedOn !== undefined) row.processed_on = input.processedOn;
   if (Object.keys(row).length === 0) return;

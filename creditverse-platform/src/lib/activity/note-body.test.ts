@@ -98,3 +98,33 @@ describe("docToPlainText", () => {
     expect(isNoteDoc({ type: "not-a-doc" })).toBe(false);
   });
 });
+
+describe("the plain-text mirror keeps the mention", () => {
+  /* It did not, until 2026-09-12. `inline()` read `n.text ?? inline(n.content)`
+     and a mention node has neither, so every @name silently disappeared from
+     `detail` — the column search reads, the client list shows and notification
+     previews quote. The document always carried the user id; only the human-
+     readable half was lost. */
+  it("renders a mention as @Label between the surrounding text", () => {
+    const doc = {
+      type: "doc",
+      content: [{
+        type: "paragraph",
+        content: [
+          { type: "text", text: "Ask " },
+          { type: "mention", attrs: { userId: "9f2a1c34-5b6d-4e7f-8a9b-0c1d2e3f4a5b", label: "Bryan Breva" } },
+          { type: "text", text: " to reimport" },
+        ],
+      }],
+    };
+    expect(docToPlainText(doc)).toBe("Ask @Bryan Breva to reimport");
+  });
+
+  it("counts a note that is only a mention as having content", () => {
+    const doc = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "mention", attrs: { userId: "9f2a1c34-5b6d-4e7f-8a9b-0c1d2e3f4a5b", label: "Dee" } }] }],
+    };
+    expect(isDocEmpty(doc)).toBe(false);
+  });
+});

@@ -1,59 +1,87 @@
 /**
  * The free-text notes kept about a client — quick facts, reminders, standing
- * instructions.
+ * instructions, and who needs to know.
  *
  * Dee, 2026-09-12: "I lost the DESCRIPTION FIELD I have on client info that I
  * can save almost all info just like my old ClickUp. These are for quick
- * client info and reminders and client instruction." And then: "This should
- * be on the work and not on client info" — it is working material, read while
- * the file is being worked, not a record of who the person is.
+ * client info and reminders and client instruction." Then: "This should be on
+ * the work and not on client info." Then: "I also want this to have mention
+ * capability just like the ClickUp."
  *
- * The consolidation had made it read-only AND hidden when empty, so a client
- * with no notes had nowhere to write any and a client with notes could not
- * have them corrected.
+ * ── WHAT IS SAVED ───────────────────────────────────────────────────────────
  *
- * It writes `fulfillment_clients.description` through `updateClientField`, the
- * same canonical writer the client list uses, and the database records the
- * change. Saved on blur rather than behind a button: this is a scratchpad
- * somebody types in between calls, and a Save button people forget is how
- * notes get lost.
+ * Two columns, one note. `description` is the plain text every other reader
+ * already uses — the client list, search, exports, notes written before today.
+ * `description_body` is the same note as a document, where an @mention is a
+ * node carrying a user id, which is what lets the database tell the right
+ * person and not somebody who happens to share a first name.
  *
- * The gate here is presentation. Whether the write is allowed is decided by
+ * Saved on blur rather than behind a button: this is a scratchpad somebody
+ * types in between calls, and a Save button people forget is how notes get
+ * lost. Only newly added mentions notify — correcting a typo in a note that
+ * names three people does not tell those three people again.
+ *
+ * ── WHAT DECIDES THE WRITE ──────────────────────────────────────────────────
+ *
+ * The gate below is presentation. Whether the update is allowed is decided by
  * row-level security on `fulfillment_clients` as the signed-in person, and a
- * refusal surfaces as the toast below rather than as a silent no-op.
+ * refusal surfaces as the toast rather than as a silent no-op.
  */
-import { useEffect, useRef, useState } from "react";
+import { Suspense, lazy, useRef, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ContentCard } from "@/components/dashboard/DivisionLayout";
-import { Textarea } from "@/components/ui/textarea";
+import { NoteContent } from "@/components/composer/NoteContent";
 import { useToast } from "@/hooks/use-toast";
 import { useCreditOpsAccess } from "@/lib/fulfillment/creditops-access";
+import { useMentionable } from "@/lib/data/use-mentionable";
 import { updateClientField } from "@/lib/data/fulfillment-clients";
+import { isDocEmpty, isNoteDoc, type NoteDoc } from "@/lib/activity/note-body";
+import { clientNotesPatch } from "@/lib/fulfillment/client-notes";
 
-export function ClientNotesCard({ clientId, notes }: { clientId: string; notes: string }) {
+/* Same as the composer: the editor bundle is paid for only on a screen that
+   actually renders one (rule 14). */
+const RichTextEditor = lazy(() => import("@/components/composer/RichTextEditor"));
+
+const EditorFallback = () => (
+  <div className="flex h-[120px] items-center justify-center rounded-lg border border-border bg-muted/20">
+    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+  </div>
+);
+
+export function ClientNotesCard({
+  clientId,
+  notes,
+  notesBody,
+}: {
+  clientId: string;
+  notes: string;
+  notesBody: unknown;
+}) {
   const access = useCreditOpsAccess();
   const qc = useQueryClient();
   const { toast } = useToast();
-  const [text, setText] = useState(notes);
+  /* A client record is BES's own, so the people who may be named are BES
+     colleagues — `useMentionable(null)` is exactly that roster. */
+  const { mentionable, mentionAvatars } = useMentionable(null);
   const [saving, setSaving] = useState(false);
-  /* What is on the server, as far as this card knows. Compared against on
-     blur so clicking away without typing does not write. */
-  const saved = useRef(notes);
+
+  /* The document as last saved, and the document being edited. Compared on
+     blur so clicking away without typing writes nothing. */
+  const initial: NoteDoc | undefined = isNoteDoc(notesBody) ? notesBody : undefined;
+  const saved = useRef<string>(JSON.stringify(initial ?? null));
+  const draft = useRef<NoteDoc | null>(initial ?? null);
+
   const canEdit = access.canLogWork;
 
-  /* Re-seed when the RECORD changes, not on every refetch — a background
-     refresh must never overwrite a half-typed sentence. */
-  useEffect(() => {
-    setText(notes);
-    saved.current = notes;
-  }, [clientId]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const save = async () => {
-    const next = text;
+    const doc = draft.current;
+    if (doc === null) return;
+    const next = JSON.stringify(doc);
     if (next === saved.current) return;
     setSaving(true);
     try {
-      await updateClientField({ clientId, description: next });
+      await updateClientField({ clientId, ...clientNotesPatch(doc) });
       saved.current = next;
       await qc.invalidateQueries({ queryKey: ["creditops"] });
     } catch (e) {
@@ -63,27 +91,49 @@ export function ClientNotesCard({ clientId, notes }: { clientId: string; notes: 
     }
   };
 
+  /* Read-only for anyone who does not work CreditOps, and absent entirely when
+     there is nothing to read — an empty box they cannot type in is furniture. */
   if (!canEdit) {
-    return text.trim() ? (
+    if (initial && !isDocEmpty(initial)) {
+      return (
+        <ContentCard title="Notes & instructions">
+          <NoteContent body={initial} fallbackText={notes} />
+        </ContentCard>
+      );
+    }
+    return notes.trim() ? (
       <ContentCard title="Notes & instructions">
-        <p className="whitespace-pre-wrap text-xs leading-relaxed text-foreground">{text}</p>
+        <p className="whitespace-pre-wrap text-xs leading-relaxed text-foreground">{notes}</p>
       </ContentCard>
     ) : null;
   }
 
   return (
     <ContentCard title="Notes & instructions">
-      <Textarea
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onBlur={() => void save()}
-        rows={7}
-        placeholder="Quick client info, reminders, standing instructions — anything the next person working this file should know."
-        aria-label="Client notes and instructions"
-        className="text-xs leading-relaxed"
-      />
+      {/* Remounted per client: the editor reads its starting document once, so
+          the record changing has to be a new editor rather than new content
+          pushed into the one somebody is typing in. */}
+      <div key={clientId} onBlur={() => void save()}>
+        <Suspense fallback={<EditorFallback />}>
+          <RichTextEditor
+            resetToken={0}
+            initialDoc={initial}
+            placeholder="Quick client info, reminders, standing instructions. Type @ to mention someone."
+            onChange={(doc) => { draft.current = doc; }}
+            onSubmit={() => void save()}
+            onFiles={() => {
+              toast({
+                title: "Files go on the update",
+                description: "Attach screenshots and documents to a posted update, so they land in Documents with a note saying what they are.",
+              });
+            }}
+            mentionable={mentionable}
+            mentionAvatars={mentionAvatars}
+          />
+        </Suspense>
+      </div>
       <p className="mt-1 text-[11px] text-muted-foreground">
-        {saving ? "Saving…" : "Saves when you click away."}
+        {saving ? "Saving…" : "Saves when you click away. Anyone you @mention is notified once."}
       </p>
     </ContentCard>
   );

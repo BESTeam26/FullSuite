@@ -91,7 +91,7 @@ export function ClientWorkTab({
   /* Notes are not department work, so they survive the case below: a file
      nobody is working is exactly when somebody writes down what to do with it
      next (Dee, 2026-09-12). */
-  const notes = <ClientNotesCard clientId={clientId} notes={client.description ?? ""} />;
+  const notes = <ClientNotesCard clientId={clientId} notes={client.description ?? ""} notesBody={client.descriptionBody} />;
 
   if (!current || !department) {
     return (
