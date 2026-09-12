@@ -121,8 +121,18 @@ export function CreditOpsPartnerWorkspace({
           <CreditOpsDashboardView
             selectedScope={scopeId}
             partnerName={partner.name}
-            onNavigateToView={(v) => onViewChange(v as PartnerViewId)}
-            onOpenGlobalQueue={onOpenGlobalQueue}
+            /* The dashboard's own layout is untouched. Only its DESTINATIONS
+               changed: a card pointing at a department queue now opens the ONE
+               global queue narrowed to this partner, because that queue no
+               longer exists as a tab here (Dee, 2026-09-11). Anything that is
+               still a tab — the client list — switches tab as before. */
+            onNavigateToView={(v) => {
+              if (offered.some((o) => o.id === v)) {
+                onViewChange(v as PartnerViewId);
+              } else {
+                onOpenGlobalQueue?.(v);
+              }
+            }}
           />
         ) : (
           <QueueView queueType={activeView} selectedScope={scopeId} />
