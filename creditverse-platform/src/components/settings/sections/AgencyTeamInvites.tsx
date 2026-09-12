@@ -199,16 +199,19 @@ export function AgencyTeamInvites() {
         </form>
       )}
 
-      <div className="mt-5">
-        <PendingInvitationsList />
-      </div>
     </SectionCard>
   );
 }
 
 /**
- * Pending invitations — the ONE list, used inside the invite dialog and on the
- * Team Members directory (Dee §31). Resend, copy the activation link, revoke.
+ * Pending invitations — the ONE list, rendered on the Team Members directory
+ * (Dee §31). Resend, copy the activation link, revoke, or send them all.
+ *
+ * It used to be rendered INSIDE the invite dialog as well. Dee, 2026-09-13:
+ * "I am adding a member so why am i seeing all the pending invitation on the
+ * pop up page". Because it was there twice — once in the dialog and once on
+ * the directory behind it — and the sixteen-row list buried the four fields
+ * she had opened the dialog to fill in.
  */
 export function PendingInvitationsList() {
   const auth = useAuth();
