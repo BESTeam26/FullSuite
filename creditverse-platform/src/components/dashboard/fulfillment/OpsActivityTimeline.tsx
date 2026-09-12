@@ -12,12 +12,24 @@
  * display, not to write. It previously contained its own Markdown textarea,
  * which is how the composer came to differ from module to module.
  *
- * Layout:
- *   - Latest entries at the BOTTOM (ascending), so the newest context sits
- *     directly above the composer.
- *   - Pinned entries float to the top.
+ * Layout, changed 2026-09-13. Dee: "with this design we're gonna end up having
+ * a very long trail of activity history before we even get to the Comment
+ * section."
+ *
+ * She is right, and it gets worse rather than better: three of the four
+ * entries on the task she was looking at were system events — created, status,
+ * status — around a single human comment. The audit trail grows forever and
+ * the thing people came to do was write.
+ *
+ *   - The COMPOSER IS FIRST. You open a record to say something.
+ *   - Newest entry directly beneath it, so the most recent context is the
+ *     nearest thing to where you are typing.
+ *   - Older entries are FOLDED, not dropped — a count and one click. Nothing
+ *     is hidden from the record; `activity_events` is append-only and every
+ *     row is still here (rule 10).
+ *   - Pinned entries float above everything.
  */
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { History } from "lucide-react";
 import { FileViewer } from "./FileViewer";
 import type {
@@ -37,7 +49,7 @@ interface OpsActivityTimelineProps {
   emptyMessage: string;
   /** Persisted attachments keyed by activity id, fetched in one query. */
   attachmentsByActivity?: Record<string, TimelineAttachment[]>;
-  /** Rendered beneath the list. The canonical `ActivityComposer`. */
+  /** Rendered ABOVE the list. The canonical `ActivityComposer`. */
   composer?: ReactNode;
   /** Whether pin / mark can be saved. False hides both controls (rule 3). */
   canAnnotate?: boolean;
@@ -47,6 +59,15 @@ interface OpsActivityTimelineProps {
 
 const isHumanNote = (action: string) =>
   action === "Comment posted" || action === "Comment added";
+
+/**
+ * How many entries are shown before the fold.
+ *
+ * Enough to carry the current conversation — what just happened and who said
+ * what about it — without the reader scrolling past six months of status
+ * changes to reach it.
+ */
+const VISIBLE_BEFORE_FOLD = 5;
 
 export function OpsActivityTimeline({
   entries: activity,
@@ -61,22 +82,18 @@ export function OpsActivityTimeline({
   const audience = useVisibilityAudience();
   const [viewerFiles, setViewerFiles] = useState<AttachmentFile[]>([]);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const [expanded, setExpanded] = useState(false);
 
   const { pinned, chronological } = useMemo(() => {
     const pinnedList = activity.filter((a) => a.pinned);
     const rest = activity.filter((a) => !a.pinned);
+    /* Newest FIRST, now that the composer sits above the list. */
     rest.sort(
       (a, b) =>
-        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
     );
     return { pinned: pinnedList, chronological: rest };
   }, [activity]);
-
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [chronological.length, pinned.length]);
 
   /** Legacy in-memory attachment (demo mode and pre-storage rows). */
   const openLegacy = (att: CommentAttachment) => {
@@ -128,18 +145,20 @@ export function OpsActivityTimeline({
     />
   );
 
+  const shown = expanded ? chronological : chronological.slice(0, VISIBLE_BEFORE_FOLD);
+  const folded = chronological.length - shown.length;
+
   return (
     <div className="space-y-4">
+      {composer}
+
       <div className="space-y-3 rounded-xl border border-border bg-card p-4 shadow-sm">
         <h3 className="flex items-center gap-2 border-b border-border/50 pb-2 text-xs font-bold uppercase tracking-wider text-foreground">
           <History className="h-4 w-4 text-primary" /> Activity History (
           {activity.length})
         </h3>
 
-        <div
-          ref={scrollRef}
-          className="max-h-[500px] space-y-3 overflow-y-auto pr-1"
-        >
+        <div className="max-h-[500px] space-y-3 overflow-y-auto pr-1">
           {activity.length === 0 ? (
             <p className="text-xs italic text-muted-foreground">
               {emptyMessage}
@@ -154,13 +173,29 @@ export function OpsActivityTimeline({
                   {pinned.map(card)}
                 </div>
               )}
-              {chronological.map(card)}
+              {shown.map(card)}
+              {folded > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setExpanded(true)}
+                  className="w-full rounded-lg border border-dashed border-border py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  Show {folded} earlier {folded === 1 ? "entry" : "entries"}
+                </button>
+              )}
+              {expanded && chronological.length > VISIBLE_BEFORE_FOLD && (
+                <button
+                  type="button"
+                  onClick={() => setExpanded(false)}
+                  className="w-full rounded-lg border border-dashed border-border py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  Show less
+                </button>
+              )}
             </>
           )}
         </div>
       </div>
-
-      {composer}
 
       {viewerIndex !== null && viewerFiles.length > 0 && (
         <FileViewer
