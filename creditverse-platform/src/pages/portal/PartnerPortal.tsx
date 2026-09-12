@@ -20,7 +20,6 @@
 import { useMemo, useState } from "react";
 import { Loader2, Download, Search, ShieldCheck, FileText, MessagesSquare, Users, Workflow, ClipboardList } from "lucide-react";
 import { useMyPartner, useMyPartnerClients, useMyPartnerProjects, useMyPartnerRequirements, useMySharedFiles, usePartnerContacts } from "@/lib/data/use-agency-partners";
-import { PartnerOnboarding } from "@/components/portal/PartnerOnboarding";
 import { PortalActionNeeded } from "@/components/portal/PortalActionNeeded";
 import { PortalRecentUpdates } from "@/components/portal/PortalRecentUpdates";
 import { PartnerInformation } from "@/components/portal/PartnerInformation";
@@ -113,50 +112,45 @@ export const PartnerPortal = () => {
           <p className="text-xs text-muted-foreground">{STATUS_NOTE[p.status] ?? ""}</p>
         </section>
 
-        {/* ── TWO MODES, NEVER MIXED ───────────────────────────────────
-            Dee, 2026-09-12: "Do not mix onboarding and active-portal
-            experiences… The active portal should no longer make the Partner
-            feel like they are signing up again every time they log in."
+        {/* ── THE PORTAL NEVER ASKS THEM TO ONBOARD ────────────────────
+            Dee, 2026-09-12: "I don't want this onboarding form upon portal
+            access… this onboarding has been done prior during their
+            onboarding."
 
-            Before onboarding: the onboarding flow, and nothing else.
-            After: what is happening, what BES needs, their clients, their
-            documents, how to reach us — and the business information tucked
-            into Account settings where a partner goes to CHANGE something,
-            not to be re-asked for it. Nothing was deleted: the same
-            component, moved. */}
-        {!p.onboardingCompletedAt ? (
-          <PartnerOnboarding partner={p} contactName={me?.fullName ?? displayName ?? null} contactEmail={me?.email ?? null} />
-        ) : (
-          <>
-            <PortalActionNeeded />
+            It was gated on `onboarding_completed_at`, which is null for every
+            partner BES onboarded OUTSIDE the platform — which is all of them.
+            So the first thing a partner saw on signing in was a long form
+            asking for details they had already given a person.
 
-            <PortalClients />
+            Onboarding is a BES process that happens before the portal exists
+            for them. The portal opens on their account. If details are
+            genuinely missing, they are asked for as one Action Needed line,
+            not as a wall — and the business information lives in Account
+            settings, where somebody goes to CHANGE something. */}
+        <PortalActionNeeded />
 
-            <PortalRecentUpdates />
+        <PortalClients />
 
-            <PortalProjects />
+        <PortalRecentUpdates />
 
-            <PortalFiles partnerGroupId={p.id} />
+        <PortalProjects />
 
-            <PortalConversation partnerGroupId={p.id} />
+        <PortalFiles partnerGroupId={p.id} />
 
-            {/* Closed by default. The agreement, the credentials and the
-                company details are settled facts by this point; a partner
-                opens this when something has changed. */}
-            <details className="rounded-xl border border-border bg-card">
-              <summary className="cursor-pointer px-4 py-3 text-sm font-bold text-foreground">
-                Account settings
-                <span className="ml-2 text-xs font-normal text-muted-foreground">
-                  Company information, contact, access and credentials
-                </span>
-              </summary>
-              <div className="border-t border-border p-4">
-                <PartnerInformation partner={p} contactName={me?.fullName ?? null} contactTitle={me?.title ?? null}
-                  contactPhone={me?.phone ?? null} contactEmail={me?.email ?? null} />
-              </div>
-            </details>
-          </>
-        )}
+        <PortalConversation partnerGroupId={p.id} />
+
+        <details className="rounded-xl border border-border bg-card">
+          <summary className="cursor-pointer px-4 py-3 text-sm font-bold text-foreground">
+            Account settings
+            <span className="ml-2 text-xs font-normal text-muted-foreground">
+              Company information, contact, access and credentials
+            </span>
+          </summary>
+          <div className="border-t border-border p-4">
+            <PartnerInformation partner={p} contactName={me?.fullName ?? null} contactTitle={me?.title ?? null}
+              contactPhone={me?.phone ?? null} contactEmail={me?.email ?? null} />
+          </div>
+        </details>
       </main>
     </div>
   );

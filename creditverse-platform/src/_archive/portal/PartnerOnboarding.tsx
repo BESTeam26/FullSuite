@@ -1,3 +1,15 @@
+/* ARCHIVED 2026-09-12 — the portal no longer asks a partner to onboard.
+ *
+ * Dee: "I don't want this onboarding form upon portal access… this onboarding
+ * has been done prior during their onboarding." BES onboards a partner before
+ * the portal exists for them, so a guided first-time flow inside the portal
+ * was asking for details somebody had already given a person.
+ *
+ * The FIELDS are not lost: `PartnerInformation` carries the same ones and is
+ * live under Account settings, where a partner goes to change something.
+ * Parked here rather than deleted because Dee asked for the forms to be kept,
+ * and nothing in the bundle imports this file.
+ */
 /**
  * BES CreditOps Partner Onboarding — the first entry into the Partner Profile.
  *
