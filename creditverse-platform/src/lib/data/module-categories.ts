@@ -28,6 +28,14 @@ export interface ModuleCategory {
   /** Where an engagement lands when no category claims it. Incomplete data,
    *  surfaced rather than guessed into a business classification. */
   isFallback: boolean;
+  /** The contract term that files an account here: a weekly commitment
+   *  (Managed Ops) or per client per round (Outsourcing). Null for the
+   *  folders that are not a commercial arrangement. */
+  commitmentModel: "weekly_retainer" | "per_client_round" | null;
+  /** Membership comes from somewhere other than an engagement — CreditOps
+   *  Users follows the customer's own subscription — so nothing is ever
+   *  dragged into it. */
+  isAutomatic: boolean;
 }
 
 /** Every live category for one module, in the order they should be shown. */
@@ -35,7 +43,7 @@ export async function fetchModuleCategories(module: FulfillmentService): Promise
   const sb = requireSupabase();
   const { data, error } = await sb
     .from("module_categories")
-    .select("id, module, key, label, sort, is_fallback")
+    .select("id, module, key, label, sort, is_fallback, commitment_model, is_automatic")
     .eq("module", module)
     .is("archived_at", null)
     .order("sort");
@@ -47,6 +55,8 @@ export async function fetchModuleCategories(module: FulfillmentService): Promise
     label: r.label as string,
     sort: r.sort as number,
     isFallback: r.is_fallback as boolean,
+    commitmentModel: (r.commitment_model ?? null) as ModuleCategory["commitmentModel"],
+    isAutomatic: (r.is_automatic ?? false) as boolean,
   }));
 }
 

@@ -212,7 +212,7 @@ describe("an account carries the engagement it is filed under", () => {
   });
 });
 
-describe("CREDITOPS USERS is gone, and tenancy is untouched by that", () => {
+describe("CreditOps Users is the SaaS side, and tenancy is untouched by the folders", () => {
   const entitled = {
     id: "org-1",
     name: "Ironwood Self-Serve",
@@ -221,24 +221,38 @@ describe("CREDITOPS USERS is gone, and tenancy is untouched by that", () => {
     principal: { name: "A Person", email: "a@example.test" },
   } as unknown as Parameters<typeof buildPartners>[1][number];
 
-  it("an organization that bought CreditOps but has no engagement is not in the workspace", () => {
-    /* An entitlement means they BOUGHT it. An operations sidebar is a list of
-       work in progress, and there is none. */
-    expect(buildPartners("creditOps", [entitled], [], [])).toHaveLength(0);
+  it("a CreditOps subscriber with no engagement is listed under CreditOps Users", () => {
+    /* Dee, 2026-09-11: the folder is for "future users on the CreditOps CRM I
+       am building that will autofeed clients info in the workspace". Listing
+       the tenant is not access to it — with no live engagement the database
+       refuses BES every client row they own. */
+    const [p] = buildPartners("creditOps", [entitled], [], []);
+    expect(p.name).toBe("Ironwood Self-Serve");
+    expect(p.group).toBe("creditops_users");
+    expect(p.engagementId).toBeUndefined();
   });
 
-  it("the same organization appears the moment BES is engaged", () => {
+  it("and is not in the FundingOps tree, which has no self-serve CRM", () => {
+    expect(buildPartners("fundingOps", [entitled], [], [])).toHaveLength(0);
+  });
+
+  it("an organization entitled to nothing is in no tree at all", () => {
+    const none = { ...(entitled as object), id: "org-2", entitlements: [] } as typeof entitled;
+    expect(buildPartners("creditOps", [none], [], [])).toHaveLength(0);
+  });
+
+  it("the same organization moves into the operating folders once BES is engaged", () => {
     const live = [engagement("org-1", "creditops", { operationalCategoryId: MANAGED })];
     const [p] = buildPartners("creditOps", [entitled], [], live);
-    expect(p.name).toBe("Ironwood Self-Serve");
+    expect(p.group).toBe("managed");
     expect(p.mode).toBe("saas_pulled");
     expect(p.operationalCategoryId).toBe(MANAGED);
   });
 
   it("filing a tenant under Outsourcing does not stop it being a tenant", () => {
-    /* Dee's extra regression: the category is presentation of the engagement.
-       `mode` is provenance and is what says "this came from a SaaS tenant" —
-       it must not move when the category does. */
+    /* Dee's regression: the folder is the COMMERCIAL TERM — weekly commitment
+       versus per client per round. `mode` is provenance and is what says "this
+       came from a SaaS tenant"; it must not move when the folder does. */
     const moved = [
       engagement("org-1", "creditops", { operationalCategoryId: OUTSOURCED, categorySource: "manual" }),
     ];

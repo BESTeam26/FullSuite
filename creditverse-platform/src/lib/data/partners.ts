@@ -124,18 +124,30 @@ export function buildPartners(
   engagements: FulfillmentEngagement[],
 ): OpsPartner[] {
   /**
-   * An organization is in this division's ACTIVE workspace only while BES
-   * holds a live engagement to fulfil this service for them — the same rule
-   * the partners below already follow (Dee, 2026-09-11).
+   * Organizations reach a division's tree two different ways, and the
+   * difference is the whole point of the folders (Dee, 2026-09-11):
    *
-   * This is what removed CREDITOPS USERS: an entitlement means they BOUGHT the
-   * product, not that BES is working it, and an operations sidebar is a list of
-   * work in progress. It takes nothing away from them — every organization
-   * stays in the customer administration surfaces, which read the whole table
-   * and are untouched by this.
+   *   BES is engaged to fulfil this service   → the operating folders,
+   *                                             Managed Ops or Outsourcing
+   *                                             depending on the contract term
+   *   they subscribe and run it themselves    → CREDITOPS USERS
+   *
+   * The second is Dee's CreditOps CRM tenants — "future users on the CreditOps
+   * CRM I am building that will autofeed clients info in the workspace". They
+   * are listed, and that is all: with no live engagement `bes_may_fulfil()`
+   * refuses BES every one of their client rows, so the folder shows the tenant
+   * beside a count of zero until BES is actually hired (rule 16). Listing a
+   * name is not access, and the sidebar is not what grants it.
+   *
+   * FundingOps is untouched: it has no self-serve CRM to feed the workspace,
+   * so an unengaged FundingOps tenant is still not that tree's business.
    */
+  const entitledTo = (o: Organization) =>
+    product === "creditOps" &&
+    o.entitlements.some((e) => e.key === "creditOps" && e.enabled);
+
   const managed: OpsPartner[] = organizations
-    .filter((o) => besMayFulfil(engagements, o.id, SERVICE_FOR[product]))
+    .filter((o) => besMayFulfil(engagements, o.id, SERVICE_FOR[product]) || entitledTo(o))
     .map((o) => partnerForOrganization(product, o, engagements));
 
   /**

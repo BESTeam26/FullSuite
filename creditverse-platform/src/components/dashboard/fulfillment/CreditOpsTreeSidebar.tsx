@@ -9,11 +9,12 @@
  *   │   ├── ... (all queues)
  *   │   └── Webhooks
  *   │
- *   ├── Managed Ops (Folder)     BES owns the execution
+ *   ├── Managed Ops (Folder)     paying a weekly commitment
  *   │   ├── Partner A (List/Workspace)
  *   │   └── ...
- *   ├── Outsourcing (Folder)     BES supplies the people
- *   └── Needs Review (Folder)    not enough service data to say
+ *   ├── Outsourcing (Folder)     paying per client per round, no commitment
+ *   ├── CreditOps Users (Folder) SaaS tenants running the CreditOps CRM
+ *   └── Needs Review (Folder)    nobody has recorded the terms yet
  *
  * The Management layer sits above individual Partner workspaces. Its views
  * aggregate authorized records from ALL Partners. Partner workspaces scope to
@@ -26,15 +27,22 @@
  * Nobody had ever chosen any of it, which is why every partner BES has sat in
  * Outsourcing whatever BES was actually doing for them.
  *
- * A folder is now a `module_categories` row, and an account's folder is
- * derived from its SERVICE relationship — a CreditOps fulfilment service means
- * BES owns the execution, so Managed Ops. Dragging is the exception, not the
- * filing system: it pins one account against the derivation and nothing else.
+ * A folder is a `module_categories` row, and an account's folder follows the
+ * CONTRACT TERM on its engagement (Dee, 2026-09-11):
  *
- * CREDITOPS USERS is gone. An organization with no live CreditOps engagement
- * is not work in progress. They keep their SaaS tenancy and every customer
- * administration surface — those read the organizations table directly and
- * know nothing about this sidebar.
+ *   "ManageOps are for those paying us weekly commitment and we have full
+ *    access on everything. Outsourcing are those who are paying us per client
+ *    per round and no commitment, thus I need my agents to see that clearly."
+ *
+ * Dragging an account records that term, so the placement holds and the next
+ * import of the same partner lands in the right folder unaided.
+ *
+ * CREDITOPS USERS is back, and it is the SaaS side rather than a third
+ * contract: organizations running the CreditOps CRM themselves, who will
+ * autofeed their clients into the workspace. Membership follows the
+ * subscription, so nothing is ever dragged into it, and listing a tenant is
+ * not access to one — with no live engagement every client row of theirs is
+ * still refused (rule 16).
  *
  * Counts show ACTIVE clients only (excludes Completed / Archived / Graduated).
  */
@@ -85,13 +93,17 @@ const INACTIVE_STATUSES = [
 const isActive = (status: string) => !INACTIVE_STATUSES.includes(status);
 
 /**
- * The demo fixtures have no engagements and so no category. They keep their
- * legacy bucket so the backend-less workspace is still explorable.
- * `creditops_users` is deliberately absent: that folder is gone.
+ * A folder for an account that carries no engagement category.
+ *
+ * Two kinds land here and both are legitimate: the demo fixtures, which have
+ * no engagements at all so the backend-less workspace still explores, and
+ * CreditOps SaaS tenants, whose folder is their subscription rather than a
+ * contract with BES.
  */
-const LEGACY_DEMO_BUCKET: Record<string, string> = {
+const BUCKET_FOR_GROUP: Record<string, string> = {
   managed: "managed_ops",
   outsourcing: "outsourcing",
+  creditops_users: "creditops_users",
 };
 
 /**
@@ -159,10 +171,8 @@ export function CreditOpsTreeSidebar({
   /**
    * Accounts per category.
    *
-   * The demo fixtures have no engagements and so no category; they keep their
-   * legacy bucket so the backend-less workspace still explores. `creditops_users`
-   * is deliberately not mapped — that folder is gone, and a fixture in it is a
-   * fixture nobody should be navigating by anyway.
+   * An account with no engagement category falls back to the folder its kind
+   * implies — see BUCKET_FOR_GROUP.
    */
   const byCategory = useMemo(() => {
     const map = new Map<string, OpsPartner[]>();
@@ -170,7 +180,7 @@ export function CreditOpsTreeSidebar({
     for (const p of partners) {
       const id =
         move.categoryIdOf(p) ??
-        move.categories.find((c) => c.key === LEGACY_DEMO_BUCKET[p.group])?.id ??
+        move.categories.find((c) => c.key === BUCKET_FOR_GROUP[p.group])?.id ??
         null;
       if (id && map.has(id)) map.get(id)!.push(p);
     }
@@ -287,7 +297,7 @@ export function CreditOpsTreeSidebar({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel className="text-xs">Move to…</DropdownMenuLabel>
-              {move.categories.map((c) => (
+              {move.categories.filter((c) => !c.isAutomatic).map((c) => (
                 <DropdownMenuItem
                   key={c.id}
                   disabled={c.id === here}
@@ -330,7 +340,10 @@ export function CreditOpsTreeSidebar({
       <div
         key={category.id}
         onDragOver={(e: DragEvent<HTMLDivElement>) => {
-          if (!dragging || !move.canMove) return;
+          /* CreditOps Users follows the customer's subscription, so there is
+             nothing to drop into it. Refusing the drag is how the interface
+             says so, rather than accepting it and failing at the database. */
+          if (!dragging || !move.canMove || category.isAutomatic) return;
           e.preventDefault();
           e.dataTransfer.dropEffect = "move";
           setOverCategory(category.id);
@@ -346,7 +359,7 @@ export function CreditOpsTreeSidebar({
           setOverCategory(null);
           const dragged = partners.find((p) => p.engagementId === move.draggingId);
           move.setDraggingId(null);
-          if (dragged) move.move(dragged, category.id);
+          if (dragged && !category.isAutomatic) move.move(dragged, category.id);
         }}
         className={cn(
           "rounded-lg transition-colors",
@@ -367,9 +380,11 @@ export function CreditOpsTreeSidebar({
             <p className="px-2 py-1.5 text-[11px] italic text-muted-foreground">
               {category.isFallback
                 ? "Nothing needs review."
-                : move.canMove
-                  ? "Empty — drag an account here."
-                  : "No accounts."}
+                : category.isAutomatic
+                  ? "No CreditOps subscribers yet."
+                  : move.canMove
+                    ? "Empty — drag an account here."
+                    : "No accounts."}
             </p>
           )}
         </OpsTreeFolder>

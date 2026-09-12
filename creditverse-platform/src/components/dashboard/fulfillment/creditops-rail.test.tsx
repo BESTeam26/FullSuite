@@ -38,7 +38,7 @@ vi.mock("@/lib/fulfillment/creditops-client-store", () => ({
 vi.mock("./use-category-move", () => ({
   useCategoryMove: () => ({
     categories: [
-      { id: "c1", module: "creditops", key: "outsourcing", label: "Outsourcing", sort: 20, isFallback: false },
+      { id: "c1", module: "creditops", key: "outsourcing", label: "Outsourcing", sort: 20, isFallback: false, commitmentModel: "per_client_round", isAutomatic: false },
     ],
     canMove: false,
     categoryIdOf: () => "c1",

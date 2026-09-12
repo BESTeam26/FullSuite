@@ -4983,6 +4983,7 @@ export type Database = {
           authorized_team: string | null
           authorized_team_id: string | null
           category_source: string
+          commitment: string | null
           created_at: string
           created_by: string | null
           effective_from: string
@@ -5000,6 +5001,7 @@ export type Database = {
           authorized_team?: string | null
           authorized_team_id?: string | null
           category_source?: string
+          commitment?: string | null
           created_at?: string
           created_by?: string | null
           effective_from?: string
@@ -5017,6 +5019,7 @@ export type Database = {
           authorized_team?: string | null
           authorized_team_id?: string | null
           category_source?: string
+          commitment?: string | null
           created_at?: string
           created_by?: string | null
           effective_from?: string
@@ -7725,10 +7728,11 @@ export type Database = {
         Row: {
           agency_id: string
           archived_at: string | null
+          commitment_model: string | null
           created_at: string
           created_by: string | null
-          derived_from_service_types: string[]
           id: string
+          is_automatic: boolean
           is_fallback: boolean
           key: string
           label: string
@@ -7739,10 +7743,11 @@ export type Database = {
         Insert: {
           agency_id: string
           archived_at?: string | null
+          commitment_model?: string | null
           created_at?: string
           created_by?: string | null
-          derived_from_service_types?: string[]
           id?: string
+          is_automatic?: boolean
           is_fallback?: boolean
           key: string
           label: string
@@ -7753,10 +7758,11 @@ export type Database = {
         Update: {
           agency_id?: string
           archived_at?: string | null
+          commitment_model?: string | null
           created_at?: string
           created_by?: string | null
-          derived_from_service_types?: string[]
           id?: string
+          is_automatic?: boolean
           is_fallback?: boolean
           key?: string
           label?: string
