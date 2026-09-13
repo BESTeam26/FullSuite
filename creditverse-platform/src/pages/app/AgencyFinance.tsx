@@ -30,6 +30,7 @@ import { FinanceFigures } from "@/components/agency/finance/FinanceFigures";
 import { PayrollPanel } from "@/components/agency/finance/PayrollPanel";
 import { ReceivablesTable } from "@/components/agency/finance/ReceivablesTable";
 import { ExpensesPanel } from "@/components/agency/finance/ExpensesPanel";
+import { AllInvoicesPanel } from "@/components/agency/finance/AllInvoicesPanel";
 import { useFinancialInputs } from "@/lib/data/use-partner-billing";
 import { useExpenses } from "@/lib/data/use-agency-expenses";
 import { useAgencyPermissions } from "@/lib/data/agency-permissions";
@@ -110,6 +111,9 @@ export const AgencyFinance = () => {
           <Tabs value={tab} onValueChange={setTab} className="mt-4">
             <TabsList className="h-8 bg-muted/60">
               <TabsTrigger value="receivables" className="text-[11px]">Receivables</TabsTrigger>
+              {/* Every invoice, across every partner — Dee's "one place to see
+                  all invoices". The same records, not a copy. */}
+              <TabsTrigger value="invoices" className="text-[11px]">Invoices</TabsTrigger>
               <TabsTrigger value="expenses" className="text-[11px]">Expenses</TabsTrigger>
               {/* Company payroll CONFIGURATION — cutoffs, automation, payslips.
                   A person's own rate and schedule live on their profile; this
@@ -126,6 +130,9 @@ export const AgencyFinance = () => {
                 month={month}
                 today={today}
               />
+            </TabsContent>
+            <TabsContent value="invoices" className="mt-3">
+              <AllInvoicesPanel />
             </TabsContent>
             <TabsContent value="expenses" className="mt-3">
               <ExpensesPanel month={month} />

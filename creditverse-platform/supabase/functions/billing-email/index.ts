@@ -27,7 +27,13 @@
  *
  * Called by `billing_email_dispatch()` with a shared secret from the Vault.
  * There is no user session involved and none is accepted: this sends mail on
- * BES's behalf, so the only caller is the database.
+ * BES's behalf, so the only caller is the database. Deployed with
+ * `--no-verify-jwt` for that reason — `pg_net` carries no user token, and the
+ * check below is the door instead.
+ *
+ * The comparison is constant-time. A `!==` on a secret leaks its prefix one
+ * byte at a time to anyone patient enough to measure, and this endpoint sends
+ * mail in BES's name.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendEmail, type EmailBrand } from "../_shared/email-template.ts";
@@ -36,6 +42,16 @@ const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
 const BATCH = 25;
+
+/** Compares in time proportional to length, never to how much matched. */
+function timingSafeEqual(a: string, b: string): boolean {
+  const x = new TextEncoder().encode(a);
+  const y = new TextEncoder().encode(b);
+  if (x.length !== y.length) return false;
+  let diff = 0;
+  for (let i = 0; i < x.length; i += 1) diff |= x[i] ^ y[i];
+  return diff === 0;
+}
 
 interface OutboxRow {
   id: string;
@@ -103,7 +119,7 @@ function compose(row: OutboxRow, brand: EmailBrand, portalUrl: string) {
       heading: "Payment received",
       paragraphs,
       action: { label: "View your billing", url: portalUrl },
-      security: ["This is a record of a payment received by Blessed Empire Services.",
+      security: [`This is a record of a payment received by ${brand.name}.`,
                  "If anything here looks wrong, reply to this email and we will check it."],
       brand,
     };
@@ -132,7 +148,7 @@ function compose(row: OutboxRow, brand: EmailBrand, portalUrl: string) {
         "If you have already paid, or something about this invoice is wrong, reply to this email and we will sort it out.",
       ],
       action: { label: "View and pay", url: portalUrl },
-      security: ["Sent by Blessed Empire Services regarding an outstanding invoice."],
+      security: [`Sent by ${brand.name} regarding an outstanding invoice.`],
       brand,
     };
   }
@@ -146,7 +162,7 @@ function compose(row: OutboxRow, brand: EmailBrand, portalUrl: string) {
         "Please arrange payment, or reply to this email if there is a problem with the invoice.",
       ],
       action: { label: "View and pay", url: portalUrl },
-      security: ["Sent by Blessed Empire Services regarding an outstanding invoice."],
+      security: [`Sent by ${brand.name} regarding an outstanding invoice.`],
       brand,
     };
   }
@@ -159,7 +175,7 @@ function compose(row: OutboxRow, brand: EmailBrand, portalUrl: string) {
       "If you have already sent payment, thank you — please ignore this and let us know the reference so we can match it.",
     ],
     action: { label: "View and pay", url: portalUrl },
-    security: ["Sent by Blessed Empire Services regarding an outstanding invoice."],
+    security: [`Sent by ${brand.name} regarding an outstanding invoice.`],
     brand,
   };
 }
@@ -169,7 +185,9 @@ Deno.serve(async (req) => {
 
   const expected = Deno.env.get("BILLING_DISPATCH_SECRET")?.trim();
   const offered = req.headers.get("x-dispatch-secret")?.trim();
-  if (!expected || offered !== expected) return json(401, { error: "not authorised" });
+  if (!expected || !offered || !timingSafeEqual(expected, offered)) {
+    return json(401, { error: "not authorised" });
+  }
 
   const url = Deno.env.get("SUPABASE_URL");
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -202,7 +220,22 @@ Deno.serve(async (req) => {
   if (error) return json(500, { error: error.message });
 
   const rows = (data ?? []) as OutboxRow[];
-  const brand: EmailBrand = { name: "Blessed Empire Services", primaryColor: "#0f5132", logoUrl: null };
+  /* The name and colours come from the AGENCY RECORD, the same place
+     `send-invitation` reads them. Hard-coding them here is how one email says
+     "Blessed Empire Services" and the next says something else (Dee,
+     2026-09-13, having received exactly that). */
+  const { data: agency } = await sb
+    .from("agencies")
+    .select("name, branding")
+    .order("created_at")
+    .limit(1)
+    .maybeSingle();
+  const agencyBranding = (agency?.branding ?? {}) as { logoUrl?: string; primaryColor?: string };
+  const brand: EmailBrand = {
+    name: agency?.name ?? "Blessed Empire Services",
+    primaryColor: agencyBranding.primaryColor ?? "#0f5132",
+    logoUrl: agencyBranding.logoUrl ?? null,
+  };
   let sent = 0;
   const failed: string[] = [];
 
@@ -211,7 +244,7 @@ Deno.serve(async (req) => {
     const result = await sendEmail({
       apiKey: mailKey,
       from,
-      fromName: "Blessed Empire Services",
+      fromName: brand.name,
       to: row.to_email as string,
       subject: row.subject,
       content: { ...content, brand },

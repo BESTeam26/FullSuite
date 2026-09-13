@@ -89,6 +89,47 @@ export async function fetchPartnerInvoices(groupId: string, limit = 50): Promise
   return (data ?? []).map((r) => mapInvoice(r as Record<string, unknown>));
 }
 
+/**
+ * EVERY invoice, across every partner — the one list Finance opens.
+ *
+ * Dee, 2026-09-13: "i need one place to see all invoices in finance too."
+ * There is no second invoice record anywhere: this reads the same
+ * `partner_invoices` rows the partner's own Billing tab reads and the partner
+ * portal reads. One invoice, three places it can be looked at (rule 2).
+ *
+ * Bounded and newest-first. The partner's name comes back with it, so the list
+ * does not need a lookup per row.
+ */
+export interface InvoiceWithPartner extends PartnerInvoice {
+  partnerName: string;
+  balanceCents: number;
+}
+
+export const ALL_INVOICES_LIMIT = 500;
+
+export async function fetchAllInvoices(limit = ALL_INVOICES_LIMIT): Promise<InvoiceWithPartner[]> {
+  const sb = requireSupabase();
+  const { data, error } = await sb
+    .from("partner_invoices")
+    .select(`${INVOICE_COLUMNS}, outsourcing_groups(name)`)
+    .order("issue_date", { ascending: false })
+    .order("invoice_number", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []).map((row) => {
+    const r = row as Record<string, unknown>;
+    const invoice = mapInvoice(r);
+    const group = r.outsourcing_groups as { name?: string } | null;
+    return {
+      ...invoice,
+      partnerName: group?.name ?? "—",
+      /* Derived here so the list never disagrees with the invoice page: both
+         read total minus collected, floored at zero. */
+      balanceCents: Math.max(invoice.totalCents - invoice.amountPaidCents, 0),
+    };
+  });
+}
+
 export async function fetchInvoiceLines(invoiceId: string): Promise<InvoiceLine[]> {
   const sb = requireSupabase();
   const { data, error } = await sb

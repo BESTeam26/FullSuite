@@ -822,6 +822,42 @@ check("82. a partner only sees the payment methods BES turned on for them",
     `select method, instructions from my_partner_payment_methods();`).rows,
   [{ method: "wise", instructions: "Send to wise.com/pay/bes" }]);
 
+console.log("\nAN EMAIL THAT STOPPED BEING TRUE");
+
+check("83. paying between queue and dispatch stands the reminder email down",
+  /* Dee: "payment before dispatch prevents an invalid overdue email if the
+     canonical event is no longer applicable." A demand for money already
+     sent is worse than sending nothing. */
+  as(OWNER, SETUP + CONTACT_EMAIL + invoice(1) + `do $p$ begin perform billing_reminder_sweep(); end $p$;`,
+    `do $r$ begin perform record_partner_payment('${PARTNER}', 42500, 'wise', '${INVOICE}',
+       current_date, 'REF-EARLY', null); end $r$;
+     do $d$ begin perform billing_email_supersede_settled(); end $d$;
+     reset role;
+     select (select state from billing_email_outbox where group_id='${PARTNER}' and kind='reminder') as reminder_email,
+            (select state from billing_email_outbox where group_id='${PARTNER}' and kind='receipt') as receipt_email;`).rows,
+  [{ reminder_email: "superseded", receipt_email: "pending" }]);
+
+check("84. the reminder EVENT still stands — only the email is stood down",
+  /* It happened. The portal notification went. Losing the record would make
+     the schedule unauditable. */
+  as(OWNER, SETUP + CONTACT_EMAIL + invoice(1) + `do $p$ begin perform billing_reminder_sweep(); end $p$;`,
+    `do $r$ begin perform record_partner_payment('${PARTNER}', 42500, 'wise', '${INVOICE}',
+       current_date, 'REF-EARLY', null); end $r$;
+     do $d$ begin perform billing_email_supersede_settled(); end $d$;
+     reset role;
+     select count(*)::int as reminders_still_recorded
+       from partner_invoice_reminders where invoice_id='${INVOICE}';`).rows,
+  [{ reminders_still_recorded: 1 }]);
+
+check("85. a receipt is never stood down — the money did arrive",
+  as(OWNER, SETUP + CONTACT_EMAIL + invoice(3), `
+     do $r$ begin perform record_partner_payment('${PARTNER}', 42500, 'wise', '${INVOICE}',
+       current_date, 'REF-R', null); end $r$;
+     do $d$ begin perform billing_email_supersede_settled(); end $d$;
+     reset role;
+     select state from billing_email_outbox where group_id='${PARTNER}' and kind='receipt';`).rows,
+  [{ state: "pending" }]);
+
 console.log(`\n${pass} passed, ${failures.length} failed`);
 if (failures.length) { failures.forEach((f) => console.log(`  - ${f}`)); process.exitCode = 1; }
 q.close();
