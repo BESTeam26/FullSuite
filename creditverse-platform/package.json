@@ -13,6 +13,7 @@
     "test:watch": "vitest",
     "probe:shapes": "node supabase/scripts/postgrest-shapes-probe.mjs",
     "probe:sql": "node supabase/scripts/sql-contract-probe.mjs",
+    "probe:work": "node supabase/scripts/work-extensions-probe.mjs",
     "probe": "npm run probe:shapes && npm run probe:sql",
     "verify:live": "node supabase/scripts/verify-live.mjs",
     "db:push": "npx supabase db push",
