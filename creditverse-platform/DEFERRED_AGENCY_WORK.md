@@ -464,3 +464,26 @@ FundingOps UI work during a pause, not completion of Dee's request.
 give the row an open action through `signDocumentUrl`, and drop in
 `FilePreviewGrid` — the components and the batched signing hook already
 exist. Roughly an hour's work, no schema change, no new authorization.
+
+---
+
+## Status of this whole backlog — Dee, 2026-09-13
+
+**This file is a record, not a queue.** Every item here is documented so it need
+never be re-explained. **None of it is scheduled.**
+
+Nothing in it is picked up until:
+
+1. the **Product Charter** exists and Dee has approved it, and
+2. the incoming technical lead's stabilization assessment is in, and
+3. the relevant module has been classified **Core · Product Module · Later ·
+   unnecessary**.
+
+This applies to **D-012 specifically**, which an earlier draft of the first-week
+plan proposed as a day-four task. It was withdrawn: it is legitimate technical
+work, but whether FundingOps is in the immediate product milestone has not been
+re-established, and picking up a deferred ticket before that is settled is
+exactly how the scope got here.
+
+**Nothing in this file is to be deleted either.** A documented deferral is
+cheaper to keep than to rediscover.

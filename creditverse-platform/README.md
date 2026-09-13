@@ -134,9 +134,18 @@ Deeper history, kept as archives rather than reading material:
 
 ---
 
+## Two sources of truth
+
+This repository and its `docs/` answer **how the system works**. They do not
+define what the product should become — that is the **Product Charter**, which
+Dee authors and which is deliberately not derived from this codebase. Ask for it
+before planning anything.
+
 ## Current policy
 
 - **Feature development is stopped.** The platform is in live validation.
+- **Nothing is removed** until modules are classified Core · Product Module ·
+  Later · unnecessary, with Dee.
 - **Authorize.Net production charging is OFF** and stays off until it is
   approved separately, in writing.
 - **A human technical lead is the deployment gatekeeper.**

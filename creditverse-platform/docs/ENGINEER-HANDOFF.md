@@ -50,6 +50,38 @@ but a migration can do both.
 
 ---
 
+## Two sources of truth — and this is only one of them
+
+| | Answers | Author |
+|---|---|---|
+| **Product Charter** | *Why does this system exist, who is it for, what are we building, and what should we NOT build?* | **Dee.** Not yet written |
+| **Engineering Handoff** (this package) | *How does the system work?* | Derived from the running system |
+
+**This package does not define product direction, and must not be read as
+doing so.** The repository tells you what was built. It does not get to decide
+what the product should become.
+
+Dee, 2026-09-13: the Charter is being reconstructed from the business vision —
+BES as the operator today, FullSuite as the infrastructure underneath BES, and
+the parts of that infrastructure that eventually become products BES can sell.
+**It is deliberately not derived from this codebase.**
+
+Consequences for you, in your first weeks:
+
+- **Do not continue where the previous work left off.** Your first
+  responsibility is to understand and stabilize what exists.
+- **Do not treat anything in `DEFERRED_AGENCY_WORK.md` as a queue.** Those items
+  are documented so they need not be re-explained, not scheduled.
+- **Do not delete or rip out modules** — FundingOps, Marketing, TalentOps,
+  billing or portal features — because the scope feels large. Each is first
+  classified **Core · Product Module · Later · unnecessary**, with Dee, after
+  the Charter exists and your assessment is in.
+- **No feature roadmap until Dee approves the Charter.** The work list is the
+  difference between what the Charter says and what your assessment found.
+
+Ask Dee for the Charter before you plan anything. If it does not exist yet, that
+is the answer: nothing is planned yet.
+
 ## Read these first, in this order
 
 1. **`CLAUDE.md`** (repository root) — the permanent project rules. Not
@@ -180,6 +212,8 @@ clear to you, start with `docs/ARCHITECTURE.md` and `docs/MODULES.md`:
 - **A human technical lead is the deployment gatekeeper.** AI assistance may
   continue to write code; it is not the final authority on whether production
   is safe.
+- **No feature development, and no removals.** Understand and stabilize first;
+  classify with Dee second; build third.
 - **Permanent Delete is Owner-only.** Financial surfaces are Owner-gated;
   admin is not financial access. See `docs/AUTHORIZATION.md`.
 
