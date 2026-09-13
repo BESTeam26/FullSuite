@@ -196,7 +196,12 @@ export async function fetchPositionHistory(
 ): Promise<PositionHistoryEntry[]> {
   const sb = requireSupabase();
   let q = sb.from("position_assignments")
-    .select("id, position_id, user_id, assignment_type, effective_from, effective_until, note, positions(title), profiles(full_name, email)")
+    /* The FK is named because `position_assignments` has THREE routes to
+       `profiles` — user_id, created_by and ended_by — and an unqualified
+       embed is refused outright with PGRST201, which renders the assignment
+       list empty rather than wrong. Found by the shapes probe on
+       2026-09-13, not by anybody opening the page. */
+    .select("id, position_id, user_id, assignment_type, effective_from, effective_until, note, positions(title), profiles!position_assignments_user_id_fkey(full_name, email)")
     .order("effective_from", { ascending: false });
   q = "positionId" in scope
     ? q.eq("position_id", scope.positionId)

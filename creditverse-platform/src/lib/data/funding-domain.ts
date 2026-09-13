@@ -835,7 +835,7 @@ export async function fetchDealDocuments(dealId: string, fileId: string): Promis
   const sb = requireSupabase();
   const { data, error } = await sb
     .from("document_instances")
-    .select("id, request_id, classified_type, classified_period, disposition, shareable_with_lender, size_bytes, created_at, files(name), document_requests(deal_id, document_type, period)")
+    .select("id, request_id, classified_type, classified_period, disposition, shareable_with_lender, size_bytes, created_at, files(name), document_requests!document_instances_request_id_fkey(deal_id, document_type, period)")
     .eq("file_id", fileId)
     .order("created_at", { ascending: false });
   if (error) throw error;

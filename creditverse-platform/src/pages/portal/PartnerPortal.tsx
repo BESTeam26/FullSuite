@@ -34,6 +34,8 @@ import { PortalShell, PortalShellLoading } from "@/components/portal/shell/Porta
 import { navFor, type PortalPageId } from "@/lib/portal/portal-nav";
 import { PortalOverview } from "@/pages/portal/pages/PortalOverview";
 import { PortalAgreements } from "@/pages/portal/pages/PortalAgreements";
+import { PortalClientsPage } from "@/pages/portal/pages/PortalClientsPage";
+import { PortalClientDetail } from "@/pages/portal/pages/PortalClientDetail";
 import { PortalUpdates } from "@/pages/portal/pages/PortalUpdates";
 import { PortalActionNeeded } from "@/components/portal/PortalActionNeeded";
 import { PortalBilling } from "@/components/portal/PortalBilling";
@@ -100,7 +102,8 @@ export const PartnerPortal = () => {
           <PortalOverview summary={s} />
         </PortalShell>
       } />
-      <Route path="clients" element={page("clients", <PortalClients />)} />
+      <Route path="clients" element={page("clients", <PortalClientsPage />)} />
+      <Route path="clients/:publicId" element={page("clients", <PortalClientDetail />)} />
       <Route path="services" element={page("services", <PortalProjects />)} />
       <Route path="actions" element={page("actions", <PortalActionNeeded />)} />
       <Route path="messages" element={page("messages", <PortalMessages />)} />
