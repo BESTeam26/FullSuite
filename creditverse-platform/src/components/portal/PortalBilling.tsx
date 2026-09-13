@@ -14,6 +14,7 @@
  * take no id. Nothing here is typed in, and nothing here can be reached by
  * guessing at somebody else's.
  */
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle, CalendarClock, CreditCard, FileText, Loader2, MessageSquare, Wallet,
@@ -55,6 +56,9 @@ const Panel = ({ icon: Icon, title, children }: {
 
 export function PortalBilling({ onContactBes }: { onContactBes?: () => void }) {
   const auth = useAuth();
+  /* Four sections, one page. Dee: "Keep Billing as ONE main menu item… inside
+     Billing use Invoices | Payments | Credits | Billing Settings." */
+  const [tab, setTab] = useState<"invoices" | "payments" | "credits" | "settings">("invoices");
   const live = auth.mode === "live" && auth.status === "signed-in";
   const opts = { enabled: live, staleTime: 60_000 };
 
@@ -91,6 +95,7 @@ export function PortalBilling({ onContactBes }: { onContactBes?: () => void }) {
   }
 
   const currency = invoices.data?.[0]?.currency ?? "USD";
+  const processingAvailable = (credits.data ?? []).reduce((n, c) => n + c.available, 0);
 
   return (
     <div className="space-y-3">
@@ -124,7 +129,7 @@ export function PortalBilling({ onContactBes }: { onContactBes?: () => void }) {
         </section>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <div className={cn(
           "rounded-xl border bg-card p-4",
           s.balanceCents > 0 ? "border-amber-500/40" : "border-border",
@@ -155,15 +160,55 @@ export function PortalBilling({ onContactBes }: { onContactBes?: () => void }) {
 
         <div className="rounded-xl border border-border bg-card p-4">
           <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+            <CreditCard className="h-3.5 w-3.5" /> Payment method
+          </p>
+          <p className="mt-1 text-sm font-semibold text-foreground">{s.paymentMethods}</p>
+          <p className="text-[11px] text-muted-foreground">use your invoice number as the reference</p>
+        </div>
+
+        {/* The two ledgers, side by side and never merged. Money and rounds
+            are different units, so they are different cards with different
+            words — Dee, 2026-09-13. */}
+        <div className="rounded-xl border border-border bg-card p-4">
+          <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
             <Wallet className="h-3.5 w-3.5" /> Account credit
           </p>
           <p className={cn("mt-1 text-2xl font-bold",
             (accountCredit.data?.availableCents ?? 0) > 0 ? "text-status-success" : "text-muted-foreground")}>
             {formatMoneyIn((accountCredit.data?.availableCents ?? 0) / 100, accountCredit.data?.currency ?? currency)}
           </p>
-          <p className="text-[11px] text-muted-foreground">money held on your account</p>
+          <p className="text-[11px] text-muted-foreground">money on your account</p>
+        </div>
+
+        <div className="rounded-xl border border-border bg-card p-4">
+          <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+            <CreditCard className="h-3.5 w-3.5" /> Processing credits
+          </p>
+          <p className={cn("mt-1 text-2xl font-bold tabular-nums",
+            processingAvailable > 0 ? "text-foreground" : "text-muted-foreground")}>
+            {processingAvailable}
+          </p>
+          <p className="text-[11px] text-muted-foreground">rounds available</p>
         </div>
       </div>
+
+      <nav aria-label="Billing sections" className="flex gap-1 overflow-x-auto border-b border-border">
+        {(["invoices", "payments", "credits", "settings"] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setTab(t)}
+            aria-current={tab === t ? "page" : undefined}
+            className={cn(
+              "shrink-0 border-b-2 px-3.5 py-2 text-xs font-bold capitalize transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              tab === t ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {t === "settings" ? "Billing settings" : t}
+          </button>
+        ))}
+      </nav>
 
       {/* ── PAY NOW ────────────────────────────────────────────────────────
           Exactly the methods BES turned on for this partner, with the
@@ -206,6 +251,7 @@ export function PortalBilling({ onContactBes }: { onContactBes?: () => void }) {
         </Panel>
       )}
 
+      {tab === "invoices" && (
       <Panel icon={FileText} title="Invoices">
         {invoices.isLoading ? (
           <p className="py-4"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></p>
@@ -253,7 +299,9 @@ export function PortalBilling({ onContactBes }: { onContactBes?: () => void }) {
           </div>
         )}
       </Panel>
+      )}
 
+      {tab === "payments" && (
       <Panel icon={Wallet} title="Payments received">
         {(payments.data ?? []).length === 0 ? (
           <p className="py-4 text-center text-sm text-muted-foreground">
@@ -280,8 +328,9 @@ export function PortalBilling({ onContactBes }: { onContactBes?: () => void }) {
           </ul>
         )}
       </Panel>
+      )}
 
-      {(accountCredit.data?.history.length ?? 0) > 0 && (
+      {tab === "credits" && (accountCredit.data?.history.length ?? 0) > 0 && (
         <Panel icon={Wallet} title="Account credit — money on your account">
           <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
             <span className="text-[11px] text-muted-foreground">Added <span className="font-medium text-foreground">{formatMoneyIn((accountCredit.data?.addedCents ?? 0) / 100, accountCredit.data?.currency ?? currency)}</span></span>
@@ -306,7 +355,7 @@ export function PortalBilling({ onContactBes }: { onContactBes?: () => void }) {
         </Panel>
       )}
 
-      {(credits.data ?? []).length > 0 && (
+      {tab === "credits" && (credits.data ?? []).length > 0 && (
         <Panel icon={CreditCard} title="Processing credits — rounds you have bought">
           {(credits.data ?? []).map((c) => (
             <div key={c.unit} className="mb-3 last:mb-0">
@@ -334,6 +383,83 @@ export function PortalBilling({ onContactBes }: { onContactBes?: () => void }) {
               )}
             </div>
           ))}
+        </Panel>
+      )}
+
+      {tab === "credits"
+        && (accountCredit.data?.history.length ?? 0) === 0
+        && (credits.data ?? []).length === 0 && (
+        <div className="rounded-xl border border-dashed border-border bg-muted/20 px-6 py-10 text-center">
+          <Wallet className="mx-auto mb-2 h-5 w-5 text-muted-foreground" />
+          <p className="text-sm font-semibold text-foreground">No credits on your account</p>
+          <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
+            Account credit is money held for you — from an overpayment, for instance. Processing
+            credits are rounds bought in advance. They are different things and neither is on your
+            account yet.
+          </p>
+        </div>
+      )}
+
+      {/* ── BILLING SETTINGS ───────────────────────────────────────────────
+          Partner-safe only: how and when they are billed, and how to pay.
+          Rates, margins and the commercial terms behind them are BES's and
+          stay on the internal side (Dee, 2026-09-13). */}
+      {tab === "settings" && (
+        <Panel icon={CalendarClock} title="Billing settings">
+          <dl className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Next billing date</dt>
+              <dd className="mt-0.5 text-sm text-foreground">
+                {s.nextBillingOn ? formatDate(s.nextBillingOn) : "No recurring agreement"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Expected amount</dt>
+              <dd className="mt-0.5 text-sm text-foreground">
+                {s.nextBillingCents > 0 ? formatMoneyIn(s.nextBillingCents / 100, currency) : "—"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Payment methods</dt>
+              <dd className="mt-0.5 text-sm text-foreground">{s.paymentMethods}</dd>
+            </div>
+            <div>
+              <dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">AutoPay</dt>
+              <dd className="mt-0.5 text-sm text-foreground">
+                {(methods.data ?? []).some((m) => m.method === "authorize_net_autopay")
+                  ? "On — BES collects automatically once an invoice is raised"
+                  : "Off — invoices are paid manually"}
+              </dd>
+            </div>
+          </dl>
+
+          {(methods.data ?? []).filter((m) => m.instructions || m.payUrl).length > 0 && (
+            <div className="mt-3 space-y-2">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Payment instructions
+              </p>
+              {(methods.data ?? []).filter((m) => m.instructions || m.payUrl).map((m) => (
+                <div key={m.method} className="rounded-lg border border-border bg-muted/30 p-3">
+                  <p className="text-sm font-semibold text-foreground">{m.label}</p>
+                  {m.instructions && (
+                    <p className="mt-0.5 whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
+                      {m.instructions}
+                    </p>
+                  )}
+                  {m.payUrl && (
+                    <a href={m.payUrl} target="_blank" rel="noopener noreferrer"
+                      className="mt-1.5 inline-block text-xs font-medium text-primary hover:underline">
+                      {m.payUrl}
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          <p className="mt-3 text-[11px] text-muted-foreground">
+            To change how you pay, message BES — payment details are never entered or stored here.
+          </p>
         </Panel>
       )}
 

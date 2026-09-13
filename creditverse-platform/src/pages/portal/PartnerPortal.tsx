@@ -36,12 +36,13 @@ import { PortalOverview } from "@/pages/portal/pages/PortalOverview";
 import { PortalAgreements } from "@/pages/portal/pages/PortalAgreements";
 import { PortalClientsPage } from "@/pages/portal/pages/PortalClientsPage";
 import { PortalClientDetail } from "@/pages/portal/pages/PortalClientDetail";
+import { PortalServices } from "@/pages/portal/pages/PortalServices";
 import { PortalUpdates } from "@/pages/portal/pages/PortalUpdates";
 import { PortalActionNeeded } from "@/components/portal/PortalActionNeeded";
 import { PortalBilling } from "@/components/portal/PortalBilling";
 import { PartnerInformation } from "@/components/portal/PartnerInformation";
 import {
-  PortalClients, PortalConversation, PortalFiles, PortalProjects,
+  PortalConversation, PortalFiles,
 } from "@/components/portal/PortalSections";
 import { useMyPartner, usePartnerContacts } from "@/lib/data/use-agency-partners";
 
@@ -104,7 +105,7 @@ export const PartnerPortal = () => {
       } />
       <Route path="clients" element={page("clients", <PortalClientsPage />)} />
       <Route path="clients/:publicId" element={page("clients", <PortalClientDetail />)} />
-      <Route path="services" element={page("services", <PortalProjects />)} />
+      <Route path="services" element={page("services", <PortalServices />)} />
       <Route path="actions" element={page("actions", <PortalActionNeeded />)} />
       <Route path="messages" element={page("messages", <PortalMessages />)} />
       <Route path="billing" element={page("billing", <PortalBilling />)} />
