@@ -254,8 +254,10 @@ const AppRoutes = () => {
           {/* C3: one client identity, one portal. The guard
               decides routing; row-level security decides what
               is inside. */}
+          {/* `/*` because the portal is a multi-page app of its own now: it
+              owns everything under /partner and routes internally. */}
           <Route
-            path="/partner"
+            path="/partner/*"
             element={
               <RequireAuth>
                 <PartnerPortal />

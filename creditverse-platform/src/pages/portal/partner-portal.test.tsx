@@ -8,6 +8,7 @@
  * a conversation nobody has started must say so rather than showing a composer
  * that goes nowhere, and a BES reply must be labelled as one.
  */
+import { readFileSync } from "node:fs";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { fireEvent, render as rtlRender, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -17,7 +18,12 @@ import type { ReactElement } from "react";
    the portal now needs a client in the tree — a fresh one per render. */
 const render = (ui: ReactElement) =>
   rtlRender(<QueryClientProvider client={new QueryClient()}>{ui}</QueryClientProvider>);
-import { PartnerPortal } from "@/pages/portal/PartnerPortal";
+/* The portal is a multi-page app now (2026-09-13), so these render the SECTION
+   each block is about rather than the router. What they assert — what a
+   partner sees, and what they must never see — is unchanged. */
+import {
+  PortalClients, PortalConversation, PortalFiles, PortalProjects,
+} from "@/components/portal/PortalSections";
 import type {
   AgencyPartner, PartnerFile, PartnerPortalClient, PartnerPortalProject, PartnerPortalRequirement,
 } from "@/lib/data/agency-partners";
@@ -124,7 +130,7 @@ const CLIENT: PartnerPortalClient = {
 
 describe("the partner portal conversation", () => {
   it("shows the conversation BES opened", () => {
-    render(<PartnerPortal />);
+    render(<PortalConversation partnerGroupId="g1" />);
     expect(screen.getByText("Messages")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /General/ })).toBeInTheDocument();
     expect(screen.getByText("BES and Acme Fulfilment")).toBeInTheDocument();
@@ -132,7 +138,7 @@ describe("the partner portal conversation", () => {
 
   it("says plainly when nobody has started one, rather than showing a dead composer", () => {
     channels = [];
-    render(<PartnerPortal />);
+    render(<PortalConversation partnerGroupId="g1" />);
     expect(screen.getByText(/No conversation has been started yet/)).toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: /Message/ })).not.toBeInTheDocument();
   });
@@ -147,13 +153,13 @@ describe("the partner portal conversation", () => {
       replyToId: null, replyToText: null, replyToAuthor: null, replyCount: 0,
       lastReplyAt: null, pinned: false, reactions: [], attachments: [], mentions: [],
     }];
-    render(<PartnerPortal />);
+    render(<PortalConversation partnerGroupId="g1" />);
     expect(screen.getByText("BES team")).toBeInTheDocument();
     expect(screen.getByText(/round 2 letters went out today/)).toBeInTheDocument();
   });
 
   it("sends a reply into that same channel", () => {
-    render(<PartnerPortal />);
+    render(<PortalConversation partnerGroupId="g1" />);
     const box = screen.getByRole("textbox", { name: /Message General/ });
     fireEvent.change(box, { target: { value: "Thanks — any word on the third one?" } });
     fireEvent.keyDown(box, { key: "Enter" });
@@ -161,25 +167,28 @@ describe("the partner portal conversation", () => {
     expect(sendMutate.mock.calls[0][0].bodyText).toBe("Thanks — any word on the third one?");
   });
 
-  it("shows no conversation at all to somebody with no partner", () => {
-    partner = null;
-    render(<PartnerPortal />);
-    expect(screen.getByText("No portal access")).toBeInTheDocument();
-    expect(screen.queryByText("Messages")).not.toBeInTheDocument();
+  it("refuses an account with no partner at the door, not inside a section", () => {
+    /* "No portal access" moved to the router when the portal became
+       multi-page (2026-09-13): the shell decides whether there is a portal at
+       all, and the sections behind it never render for somebody without one.
+       Asserted here so the two cannot drift apart. */
+    const source = readFileSync("src/pages/portal/PartnerPortal.tsx", "utf8");
+    expect(source).toContain("No portal access");
+    expect(source).toMatch(/if \(!summary\.data\) return <NoAccess/);
   });
 });
 
 describe("the portal shows one partner's conversations and no others", () => {
   it("ignores a conversation belonging to a different partner", () => {
     channels = [{ ...CHANNEL, id: "other", partnerGroupId: "g2", displayName: "Someone else" }];
-    render(<PartnerPortal />);
+    render(<PortalConversation partnerGroupId="g1" />);
     expect(screen.getByText(/No conversation has been started yet/)).toBeInTheDocument();
     expect(screen.queryByText("Someone else")).not.toBeInTheDocument();
   });
 
   it("ignores an archived one — history is kept, not offered as live", () => {
     channels = [{ ...CHANNEL, archivedAt: "2026-09-01T00:00:00Z" }];
-    render(<PartnerPortal />);
+    render(<PortalConversation partnerGroupId="g1" />);
     expect(screen.getByText(/No conversation has been started yet/)).toBeInTheDocument();
   });
 });
@@ -187,7 +196,7 @@ describe("the portal shows one partner's conversations and no others", () => {
 describe("the partner's own clients", () => {
   it("shows each client's dispute state — the canonical record, not a copy", () => {
     portalClients = [CLIENT];
-    render(<PartnerPortal />);
+    render(<PortalClients />);
     expect(screen.getByText("Jordan Reyes")).toBeInTheDocument();
     expect(screen.getByText("Round Sent - Awaiting Results")).toBeInTheDocument();
     expect(screen.getByText("Round 2")).toBeInTheDocument();
@@ -197,19 +206,19 @@ describe("the partner's own clients", () => {
     /* The type itself carries no internal fields; this pins the rendered
        columns so a later edit cannot quietly add one. */
     portalClients = [CLIENT];
-    render(<PartnerPortal />);
+    render(<PortalClients />);
     expect(screen.queryByText(/assigned/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/internal/i)).not.toBeInTheDocument();
   });
 
   it("says honestly when there are no client files yet", () => {
-    render(<PartnerPortal />);
+    render(<PortalClients />);
     expect(screen.getByText(/No client files yet/)).toBeInTheDocument();
   });
 
   it("filters by name without dropping the full list's count", () => {
     portalClients = [CLIENT, { ...CLIENT, publicId: "BES-1002", name: "Sam Alvarez", email: "sam@example.test" }];
-    render(<PartnerPortal />);
+    render(<PortalClients />);
     fireEvent.change(screen.getByPlaceholderText(/Search by name or email/), { target: { value: "sam" } });
     expect(screen.getByText("Sam Alvarez")).toBeInTheDocument();
     expect(screen.queryByText("Jordan Reyes")).not.toBeInTheDocument();
@@ -222,13 +231,13 @@ describe("files shared with the partner", () => {
     sharedFiles = [{ id: "f1", name: "August progress report.pdf", path: "agency/partner/g1/x.pdf",
       sharedAt: "2026-09-05T00:00:00Z", createdAt: "2026-09-05T00:00:00Z",
       mimeType: "application/pdf", sizeBytes: 1000, sharedWithPartner: true, sharedByName: null }];
-    render(<PartnerPortal />);
+    render(<PortalFiles partnerGroupId="g1" />);
     expect(screen.getByText("August progress report.pdf")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Download/ })).toBeInTheDocument();
   });
 
   it("says honestly when nothing has been shared", () => {
-    render(<PartnerPortal />);
+    render(<PortalFiles partnerGroupId="g1" />);
     expect(screen.getByText(/Nothing has been shared yet/)).toBeInTheDocument();
   });
 });
@@ -245,7 +254,7 @@ describe("the partner's BES CRM build (0293)", () => {
   it("shows the canonical project — business, scope, journey, progress — and what BES needs", () => {
     portalProjects = [PROJECT];
     portalRequirements = [ASK];
-    render(<PartnerPortal />);
+    render(<PortalProjects />);
     expect(screen.getByText("Wavy One — GHL build")).toBeInTheDocument();
     expect(screen.getByText(/Wavy One · Project Setup · Website Funnel/)).toBeInTheDocument();
     expect(screen.getByText("Building")).toBeInTheDocument();
@@ -257,7 +266,7 @@ describe("the partner's BES CRM build (0293)", () => {
   it("offers the partner no way to mark a requirement received — BES records the receipt", () => {
     portalProjects = [PROJECT];
     portalRequirements = [ASK];
-    render(<PartnerPortal />);
+    render(<PortalProjects />);
     const section = screen.getByText(/What BES needs from you/i).closest("section") as HTMLElement;
     expect(within(section).queryByRole("button", { name: /received|satisf|done/i })).not.toBeInTheDocument();
     expect(within(section).queryByRole("checkbox")).not.toBeInTheDocument();
@@ -265,13 +274,13 @@ describe("the partner's BES CRM build (0293)", () => {
 
   it("never names who at BES is building it", () => {
     portalProjects = [PROJECT];
-    render(<PartnerPortal />);
+    render(<PortalProjects />);
     expect(screen.queryByText(/led by/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/assigned/i)).not.toBeInTheDocument();
   });
 
   it("is absent altogether for a partner with no build — not an empty box", () => {
-    render(<PartnerPortal />);
+    render(<PortalProjects />);
     expect(screen.queryByText(/Your BES CRM builds/i)).not.toBeInTheDocument();
   });
 });
