@@ -165,10 +165,8 @@ export function useChannelTeams(channelId: string | null) {
  */
 export function useOpenPartnerConversation() {
   const qc = useQueryClient();
-  const auth = useAuth();
   return useMutation({
-    mutationFn: (v: { partnerGroupId: string; partnerName: string }) =>
-      openPartnerConversation({ ...v, createdBy: auth.user?.id ?? "" }),
+    mutationFn: (partnerGroupId: string) => openPartnerConversation(partnerGroupId),
     onSuccess: () => { void qc.invalidateQueries({ queryKey: channelsKey }); },
   });
 }

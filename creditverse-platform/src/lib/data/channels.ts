@@ -318,52 +318,26 @@ export async function removeChannelMember(channelId: string, userId: string): Pr
 }
 
 /**
- * Open — or reopen — the conversation with one partner.
+ * Open — or find — the conversation with one partner, from BES's side.
  *
- * A partner has ONE canonical conversation, so this looks before it creates.
- * Two agents clicking "Conversation" on the same partner an hour apart must
- * land in the same channel, otherwise the promise that a partner's portal and
- * the BES view are two doors onto one row quietly becomes untrue.
+ * Both sides press this. An agent opening it from the partner profile and the
+ * partner opening General in their portal must land in the SAME row, so the
+ * find-or-create lives in `partner_topic_channel` (0333) and not here: a rule
+ * written twice in two languages is a rule that disagrees with itself one day.
  *
- * Called on click, never on page load: the partner profile does not need the
+ * Called on click, never on page load — the partner profile does not need the
  * channel list to render, and asking for it there would be a request nobody
  * asked for (rule 14).
  */
-export async function openPartnerConversation(input: {
-  partnerGroupId: string;
-  partnerName: string;
-  createdBy: string;
-}): Promise<string> {
+export async function openPartnerConversation(partnerGroupId: string): Promise<string> {
   const sb = requireSupabase();
-  const { data, error } = await sb
-    .from("channels")
-    .select("id")
-    .eq("partner_group_id", input.partnerGroupId)
-    .is("archived_at", null)
-    .order("created_at")
-    .limit(1);
+  const { data, error } = await sb.rpc("partner_topic_channel" as never,
+    { p_group: partnerGroupId, p_topic: "general" } as never);
   if (error) throw error;
-  if (data && data.length > 0) return (data[0] as { id: string }).id;
-
-  return createChannel({
-    name: "General",
-    kind: "general",
-    purpose: `BES and ${input.partnerName}`,
-    createdBy: input.createdBy,
-    partnerGroupId: input.partnerGroupId,
-    /* A whole-partner conversation: everybody assigned to this partner is in
-       it, without anybody being added one at a time. A narrower conversation
-       about one service is created deliberately, with its own scope (§19). */
-    openToScope: true,
-  });
+  return data as unknown as string;
 }
 
 
-/* ------------------------------------------------------------------------ *
- * The central inbox's other verbs.
- * ------------------------------------------------------------------------ */
-
-/** Where this person has read up to. Never moves backwards (0193). */
 export async function markChannelRead(channelId: string): Promise<void> {
   const sb = requireSupabase();
   const { error } = await sb.rpc("mark_channel_read", { p_channel: channelId });

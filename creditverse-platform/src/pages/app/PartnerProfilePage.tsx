@@ -141,10 +141,9 @@ export const PartnerProfilePage = () => {
           <Button size="sm" variant="outline"
             disabled={conversation.isPending}
             onClick={() =>
-              conversation.mutate(
-                { partnerGroupId: p.id, partnerName: p.name },
-                { onSuccess: (channelId) => navigate(`/app/channels?channel=${channelId}`) },
-              )
+              conversation.mutate(p.id, {
+                onSuccess: (channelId) => navigate(`/app/channels?channel=${channelId}`),
+              })
             }>
             {conversation.isPending
               ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
