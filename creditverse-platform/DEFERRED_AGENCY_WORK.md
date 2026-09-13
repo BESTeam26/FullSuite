@@ -694,3 +694,104 @@ Associates, Thrive Solutions, Elevate Capital, Prime Consulting and Summit
 Enterprises are not partners in the system. The list is engagement-driven by
 design, so it will show exactly the partners holding a live TalentOps-family
 service — three today.
+
+---
+
+## D-014 · BES CRM as a project-delivery module (specified + inspected, NOT started)
+
+**Dee, 2026-09-13**, with a full written spec, a phase-model correction, and a
+mockup. **Classification: major feature expansion + UI redesign**, arriving
+during the pre-handoff stabilization freeze alongside D-013.
+
+**The architecture inspection she asked for is complete: `BES_CRM_INSPECTION.md`.**
+Nothing in production was changed to produce it.
+
+### The headline finding
+
+**There are no phase records to preserve.** `phase` exists as one column —
+`crm_work_unit_templates.phase` (integer) — and is **NULL on all 64 templates**.
+No phase column on `crm_projects`, no phase table, no enum, no data. That is
+deliberate: `CLAUDE.md` rule 17b says readiness comes from per-unit
+dependencies, *never* from a phase counter.
+
+What plays the role today is `crm_project_journey()` — a **derived**, never-stored
+stage (Gathering information → Planning & designing → Building → Testing →
+Launch → Support → Complete) with `journey_override` when a human disagrees.
+
+So Dee's instruction to preserve phase data resolves to: **nothing to destroy,
+and Phase-as-a-first-class-concept is new model work.** The open decision is
+whether Phase is stored or derived. Recommendation in the report: **store it,
+keep deriving a suggestion** — the same shape `suggestedLifecycle()` already
+uses for partners.
+
+### What she asked for
+
+Project → **Phase** → Milestone → Task, with Status separate from Phase. Second
+navigation pane (Dashboard · My Tasks · All Tasks · Calendar · Workload ·
+**Approvals**, then PARTNERS A→Z, engagement-driven). Partner workspace
+(Overview · Projects · Tasks · Calendar · Files · Activity · Team · Settings)
+with five cards: Active Projects · Open Tasks · Due This Week · Overdue · On
+Track %. Project detail with Overview · List · Board · Calendar · Timeline ·
+Files · Activity · Team, progress **derived**. Project lifecycle states,
+milestones per engine, task drawer, approvals through the canonical Partner
+Action system, revisions, project templates, My Tasks / All Tasks, workload,
+time tracking on existing My Time, canonical files and activity, and a
+partner-safe portal projection that exposes no internal comments, QA notes,
+workload, time, cost, internal files or raw audit.
+
+The mockup adds: `MANAGED OPERATIONS` sidebar grouping, partner search, a
+`Quick Actions` panel (Create Project · **Import from Template**), a Partner
+Team panel with roles (Project Lead, Developer, Marketing Support, Account
+Manager) and `+ Add Team Member`, and a task table with Project, Status,
+Priority, Assignee, Due Date (red when near) and **Time** columns.
+
+### Inspection summary
+
+**REUSE (already built, suitable):** `crm_projects` · **`crm_milestones`**
+(already first-class, already linked to a work item, already carrying
+`client_visible`) · `work_items` with `crm_project_id` / `crm_engine_key` /
+`crm_work_unit_template_id` · waiting-with-a-reason · **QA as a first-class step**
+(`qa_result`, `crm_pass_qa`, `crm_fail_qa`, `requires_qa`) · dependencies
+(`dependency_mode`, `crm_work_unit_ready`) · **versioned project templates**
+(`crm_engine_templates` → 64 work unit templates → actions; 14 engines) ·
+**derived progress and health** · checklists auditing who ticked · canonical
+files, comments, mentions, activity · **`partner_action_items` for approvals** ·
+`partner_assignments` + `lead_id` · **`time_entries` already carrying
+`work_item_id` AND `partner_group_id`** · the full lifecycle (complete, archive,
+reopen, **owner-only blocker-checked delete**) · `my_partner_projects()`.
+
+**EXTEND (small):** the Phase decision · `start_date` on `work_items` ·
+estimated time · revisions **derived from rejected approvals rather than a new
+engine** · labels (no canonical home today).
+
+**DO NOT DUPLICATE:** `work_items`, `crm_milestones`, the template chain,
+`partner_action_items`, `files`, `activity_events`, `time_entries`,
+`partner_assignments`, the `crm_project_*` lifecycle functions. No
+`bes_crm_tasks`, no second approval engine, no second timer, no per-view task
+copies.
+
+**GAPS:** Phase as a concept, then **frontend** — second pane, partner folders,
+partner workspace, board with drag, calendar, timeline, workload, approvals
+view, My/All Tasks. **The backend is nearly done; the frontend is the work.**
+
+### Two data facts
+
+- `crm_projects` holds **1 row**; `crm_project_engines` holds **2**. The module
+  is built but barely populated — real projects must be created before it can be
+  meaningfully tested or demoed.
+- Partner names in the mockup are illustrative; the sidebar is
+  engagement-driven and will show only partners with a live BES CRM service.
+
+### Relationship to D-013
+
+D-013 (TalentOps) and D-014 share three extensions — `start_date`, estimated
+time, labels — and the same principle:
+
+```
+TalentOps          Partner → Project/List → Task → People → Workload
+BES CRM            Partner → Build → PHASE → Milestone → Task → QA → Approval → Launch
+Sales & Marketing  Partner → Campaign → Content → Calendar → Approval → Publish
+```
+
+**One engine, three operating experiences.** If both are approved they should be
+designed together and built in sequence so the shared extensions are made once.
