@@ -160,5 +160,63 @@ console.log("\nProvisioning is idempotent");
   check("with Dee's seven statuses", r2.ok ? r2.rows[0]?.n : "error", 7);
 }
 
+console.log("\nSERVICE decides the module; ASSIGNMENT decides the people");
+{
+  /* The rule Bizhub proved. JM does EA work there, and the partner was
+     invisible in TalentOps because the FUNCTION carried a short list of
+     service codes — not because the model was wrong. The catalogue's own
+     `module` column is the mapping now (0342). */
+  const JM_STANDIN = OTHER;
+
+  const r = as(JM_STANDIN, SETUP, `select partner_name from public.talentops_partners() order by 1;`);
+  check("a partner with a live TalentOps-family service appears",
+    (r.ok ? r.rows.map((x) => x.partner_name) : []).includes("Bizhub"), true);
+
+  /* An assignment is NOT what puts a partner in the module. Strip the service
+     and the partner leaves TalentOps even though the assignment remains. */
+  const r2 = as(JM_STANDIN, `${SETUP}
+    update partner_services set status = 'paused'
+     where group_id = '${BIZHUB}' and service_type = 'EXECUTIVE_ASSISTANT';`,
+    `select count(*)::int as n from public.talentops_partners() where partner_name = 'Bizhub';`);
+  check("pause the service and it leaves TalentOps, assignment untouched",
+    r2.ok ? r2.rows[0]?.n : "error", 0);
+
+  const stillThere = as(OWNER, `${SETUP}
+    update partner_services set status = 'paused'
+     where group_id = '${BIZHUB}' and service_type = 'EXECUTIVE_ASSISTANT';`,
+    `select count(*)::int as n from partner_assignments
+      where group_id = '${BIZHUB}' and user_id = '${JM_STANDIN}' and ended_on is null;`);
+  check("and the history of who worked it is preserved",
+    stillThere.ok ? stillThere.rows[0]?.n : "error", 1);
+
+  /* Removing the person removes THEIR scope, not the partner's module. */
+  const r3 = as(JM_STANDIN, `${SETUP}
+    update partner_assignments set ended_on = current_date
+     where group_id = '${BIZHUB}' and user_id = '${JM_STANDIN}' and ended_on is null;`,
+    `select count(*)::int as n from public.talentops_partners() where partner_name = 'Bizhub';`);
+  check("end the assignment and THEY lose it", r3.ok ? r3.rows[0]?.n : "error", 0);
+
+  const r4 = as(OWNER, `${SETUP}
+    update partner_assignments set ended_on = current_date
+     where group_id = '${BIZHUB}' and user_id = '${JM_STANDIN}' and ended_on is null;`,
+    `select count(*)::int as n from public.talentops_partners() where partner_name = 'Bizhub';`);
+  check("but the partner is still in TalentOps for everyone else",
+    r4.ok ? r4.rows[0]?.n : "error", 1);
+
+  /* Both modules at once: adding TalentOps must not disturb BES CRM. */
+  const r5 = as(OWNER, "", `
+    select count(*)::int as n from partner_services ps
+      join partner_service_types st on st.code = ps.service_type
+     where ps.group_id = '${BIZHUB}' and ps.status = 'active' and st.module = 'bes_crm';`);
+  check("its BES CRM service is untouched", r5.ok ? r5.rows[0]?.n : "error", 1);
+
+  /* And the mapping is the catalogue, not a list in a function. */
+  const r6 = as(OWNER, "", `
+    select count(*)::int as n from partner_service_types
+     where category = 'Staffing' and module is distinct from 'talentops';`);
+  check("every Staffing service maps to TalentOps by catalogue",
+    r6.ok ? r6.rows[0]?.n : "error", 0);
+}
+
 console.log(`\n${pass} passed, ${failures.length} failed`);
 if (failures.length) { failures.forEach((f) => console.log(`  · ${f}`)); process.exit(1); }
