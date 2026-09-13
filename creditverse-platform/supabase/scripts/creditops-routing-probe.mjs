@@ -41,7 +41,39 @@ const check = (name, got, want) => {
 };
 
 /** Run SQL inside a rolled-back transaction; returns the last statement's rows. */
-const probe = (sql) => q.query(`begin; ${sql} rollback;`);
+/*
+ * Every scenario runs in a rolled-back transaction, and starts by removing the
+ * REAL people from the CreditOps teams it measures.
+ *
+ * ── WHY THIS EXISTS ─────────────────────────────────────────────────────────
+ *
+ * Several scenarios below were written around the comment "Complaints has no
+ * pre-existing team", and they were right on the day they were written. Then
+ * Ivan Olympia accepted his invitation and became a real member of Complaints
+ * — and five assertions began failing, not because the routing engine changed,
+ * but because the fixture assumption did.
+ *
+ * That is the fragile-probe trap this project has already named: never assume
+ * an empty team, a fixed headcount, or zero rows. The fix is isolation, NOT
+ * relaxing what the probe expects — the rotation rules being asserted are
+ * still exactly right, and a real person joining a team must never be able to
+ * turn a green gate red.
+ *
+ * Nothing is committed: the delete lives and dies inside the rollback.
+ */
+const ISOLATE = `
+  delete from team_memberships tm
+   using teams t, profiles p
+   where tm.team_id = t.id and p.id = tm.user_id
+     and t.name in ('CreditOps Complaints & Mailing Team',
+                    'CreditOps Dispute Processing Team',
+                    'CreditOps Client Success / Support Team',
+                    'CreditOps Onboarding Team',
+                    'CreditOps Bureau Calling Team')
+     and coalesce(p.is_fixture, false) = false;
+`;
+
+const probe = (sql) => q.query(`begin; ${ISOLATE} ${sql} rollback;`);
 
 /* Four fresh clients, four processors on the Dispute team. */
 const setup = (members) => `
