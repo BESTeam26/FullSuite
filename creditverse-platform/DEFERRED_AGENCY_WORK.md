@@ -438,3 +438,29 @@ generation, DIY client workflows, consumer billing, white-label DIY setup,
 credit monitoring integration or a DIY SaaS portal during the Agency pilot.
 Prior decisions that still stand: DIY referrals reference design and the
 30-day trial / BES- ID / public sign-up decisions in memory.
+
+## D-012 · Document previews on the funding deal panel (deferred, small)
+
+**Found 2026-09-13**, while applying Dee's "I want all documents as preview
+and not just names" across every document surface.
+
+`FilePreviewGrid` now renders images, PDFs and text files everywhere a
+document row carries a storage path: the CreditOps client Documents tab, the
+client profile's own documents, the Partner Portal's shared files and the
+partner's client detail.
+
+`DealDocumentsPanel` is the one that stayed a list. `fetchDealDocuments`
+selects `id, request_id, classified_type, classified_period, disposition,
+shareable_with_lender, size_bytes, created_at, files(name), …` — no `path`
+and no `mime_type`, so there is nothing to sign a URL for. The panel also has
+no open/download action today: it is a compact disposition summary inside a
+deal card, not a document browser.
+
+**Why deferred:** the fix is a query change plus an open action in FundingOps,
+which is PAUSED (rule 16b). Adding a preview grid there would be new
+FundingOps UI work during a pause, not completion of Dee's request.
+
+**When it resumes:** add `path` and `mime_type` to the `files(...)` embed,
+give the row an open action through `signDocumentUrl`, and drop in
+`FilePreviewGrid` — the components and the batched signing hook already
+exist. Roughly an hour's work, no schema change, no new authorization.
