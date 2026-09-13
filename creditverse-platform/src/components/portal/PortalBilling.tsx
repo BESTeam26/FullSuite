@@ -23,7 +23,8 @@ import { formatDate } from "@/lib/format-date";
 import { formatMoneyIn } from "@/lib/format-money";
 import { cn } from "@/lib/utils";
 import {
-  creditUnitLabel, fetchPortalBilling, fetchPortalCredits, fetchPortalInvoices, fetchPortalPayments,
+  creditUnitLabel, fetchPortalAccountCredit, fetchPortalBilling, fetchPortalInvoices,
+  fetchPortalPaymentMethods, fetchPortalPayments, fetchPortalProcessingCredits,
 } from "@/lib/data/portal-billing";
 
 const STATUS_TONE: Record<string, string> = {
@@ -60,7 +61,12 @@ export function PortalBilling({ onContactBes }: { onContactBes?: () => void }) {
   const summary = useQuery({ queryKey: ["portal", "billing", "summary"], queryFn: fetchPortalBilling, ...opts });
   const invoices = useQuery({ queryKey: ["portal", "billing", "invoices"], queryFn: fetchPortalInvoices, ...opts });
   const payments = useQuery({ queryKey: ["portal", "billing", "payments"], queryFn: fetchPortalPayments, ...opts });
-  const credits = useQuery({ queryKey: ["portal", "billing", "credits"], queryFn: fetchPortalCredits, ...opts });
+  /* Two separate reads, because they are two separate ledgers. Money and
+     rounds are never summed, never shown in one figure, and never both called
+     "credits" (Dee, 2026-09-13). */
+  const accountCredit = useQuery({ queryKey: ["portal", "billing", "account-credit"], queryFn: fetchPortalAccountCredit, ...opts });
+  const credits = useQuery({ queryKey: ["portal", "billing", "processing-credits"], queryFn: fetchPortalProcessingCredits, ...opts });
+  const methods = useQuery({ queryKey: ["portal", "billing", "methods"], queryFn: fetchPortalPaymentMethods, ...opts });
 
   if (summary.isLoading) {
     return (
@@ -149,14 +155,56 @@ export function PortalBilling({ onContactBes }: { onContactBes?: () => void }) {
 
         <div className="rounded-xl border border-border bg-card p-4">
           <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-            <CreditCard className="h-3.5 w-3.5" /> How to pay
+            <Wallet className="h-3.5 w-3.5" /> Account credit
           </p>
-          <p className="mt-1 text-sm font-semibold text-foreground">{s.paymentMethods}</p>
-          <p className="text-[11px] text-muted-foreground">
-            Use the invoice number as your reference.
+          <p className={cn("mt-1 text-2xl font-bold",
+            (accountCredit.data?.availableCents ?? 0) > 0 ? "text-status-success" : "text-muted-foreground")}>
+            {formatMoneyIn((accountCredit.data?.availableCents ?? 0) / 100, accountCredit.data?.currency ?? currency)}
           </p>
+          <p className="text-[11px] text-muted-foreground">money held on your account</p>
         </div>
       </div>
+
+      {/* ── PAY NOW ────────────────────────────────────────────────────────
+          Exactly the methods BES turned on for this partner, with the
+          instructions they wrote. Wise and PayPal are Personal accounts with
+          no API to generate a charge from, so these are instructions and a
+          link rather than a button that would pretend to take money. */}
+      {(methods.data ?? []).length > 0 && (
+        <Panel icon={CreditCard} title={s.balanceCents > 0 ? "Pay now" : "How to pay"}>
+          <ul className="space-y-2">
+            {(methods.data ?? []).map((m) => (
+              <li key={m.method} className="rounded-lg border border-border bg-muted/30 p-3">
+                <p className="text-sm font-semibold text-foreground">{m.label}</p>
+                {m.instructions && (
+                  <p className="mt-0.5 whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
+                    {m.instructions}
+                  </p>
+                )}
+                {m.payUrl && (
+                  <a
+                    href={m.payUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <CreditCard className="h-3.5 w-3.5" /> {m.label}
+                  </a>
+                )}
+                {m.method === "authorize_net_autopay" && (
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    AutoPay is arranged with BES. Nothing is charged without an invoice being raised first.
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 rounded-lg border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-[11px] text-amber-900">
+            Please include your invoice number — for example <strong>INV-0512</strong> — as the payment
+            reference, so it can be matched to the right invoice.
+          </p>
+        </Panel>
+      )}
 
       <Panel icon={FileText} title="Invoices">
         {invoices.isLoading ? (
@@ -233,8 +281,33 @@ export function PortalBilling({ onContactBes }: { onContactBes?: () => void }) {
         )}
       </Panel>
 
+      {(accountCredit.data?.history.length ?? 0) > 0 && (
+        <Panel icon={Wallet} title="Account credit — money on your account">
+          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+            <span className="text-[11px] text-muted-foreground">Added <span className="font-medium text-foreground">{formatMoneyIn((accountCredit.data?.addedCents ?? 0) / 100, accountCredit.data?.currency ?? currency)}</span></span>
+            <span className="text-[11px] text-muted-foreground">Used <span className="font-medium text-foreground">{formatMoneyIn((accountCredit.data?.usedCents ?? 0) / 100, accountCredit.data?.currency ?? currency)}</span></span>
+            <span className="text-[11px] text-muted-foreground">Available <span className="font-bold text-foreground">{formatMoneyIn((accountCredit.data?.availableCents ?? 0) / 100, accountCredit.data?.currency ?? currency)}</span></span>
+          </div>
+          <ul className="mt-1.5 divide-y divide-border/40">
+            {(accountCredit.data?.history ?? []).slice(0, 10).map((h, n) => (
+              <li key={`ac-${n}`} className="flex items-center justify-between gap-2 py-1">
+                <span className="min-w-0 flex-1 truncate text-[11px] text-foreground">{h.description ?? h.kind}</span>
+                <span className="shrink-0 text-[11px] text-muted-foreground">{formatDate(h.at?.slice(0, 10))}</span>
+                <span className={cn("w-20 shrink-0 text-right text-[11px] font-semibold tabular-nums",
+                  h.amountCents > 0 ? "text-status-success" : "text-foreground")}>
+                  {h.amountCents > 0 ? "+" : "−"}{formatMoneyIn(Math.abs(h.amountCents) / 100, accountCredit.data?.currency ?? currency)}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1.5 text-[11px] text-muted-foreground">
+            This is money, and it is applied to invoices. It is not the same thing as processing credits.
+          </p>
+        </Panel>
+      )}
+
       {(credits.data ?? []).length > 0 && (
-        <Panel icon={CreditCard} title="Credits">
+        <Panel icon={CreditCard} title="Processing credits — rounds you have bought">
           {(credits.data ?? []).map((c) => (
             <div key={c.unit} className="mb-3 last:mb-0">
               <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
@@ -265,6 +338,7 @@ export function PortalBilling({ onContactBes }: { onContactBes?: () => void }) {
       )}
 
       <p className="text-[11px] text-muted-foreground">
+        Processing credits are units of work, not money — they are separate from account credit above.
         Every figure here is calculated from your invoices and the payments recorded against them.
         If something looks wrong, contact BES and it can be checked against the same records.
       </p>

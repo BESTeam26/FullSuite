@@ -56,7 +56,30 @@ export interface PortalPayment {
   status: string;
 }
 
-export interface PortalCredits {
+/**
+ * MONEY held on the account. Deliberately a different type, a different name
+ * and a different unit from `PortalProcessingCredits` — Dee, 2026-09-13: a
+ * partner may hold $100 here and 7 rounds there, and calling both "credits"
+ * is how that becomes a billing mess.
+ */
+export interface PortalAccountCredit {
+  currency: string;
+  addedCents: number;
+  usedCents: number;
+  availableCents: number;
+  history: { at: string; kind: string; amountCents: number; description: string | null }[];
+}
+
+export interface PortalPaymentMethod {
+  method: string;
+  label: string;
+  instructions: string | null;
+  payUrl: string | null;
+  sort: number;
+}
+
+/** UNITS — CreditOps rounds. Never money. */
+export interface PortalProcessingCredits {
   unit: string;
   added: number;
   used: number;
@@ -110,7 +133,29 @@ export async function fetchPortalPayments(): Promise<PortalPayment[]> {
   }));
 }
 
-export async function fetchPortalCredits(): Promise<PortalCredits[]> {
+export async function fetchPortalAccountCredit(): Promise<PortalAccountCredit | null> {
+  const r = (await rpc("my_partner_account_credit"))[0];
+  if (!r) return null;
+  return {
+    currency: r.currency ?? "USD",
+    addedCents: Number(r.added_cents ?? 0),
+    usedCents: Number(r.used_cents ?? 0),
+    availableCents: Number(r.available_cents ?? 0),
+    history: (Array.isArray(r.history) ? r.history : []).map((h: Row) => ({
+      at: h.at, kind: h.kind, amountCents: Number(h.amount_cents ?? 0),
+      description: h.description ?? null,
+    })),
+  };
+}
+
+export async function fetchPortalPaymentMethods(): Promise<PortalPaymentMethod[]> {
+  return (await rpc("my_partner_payment_methods")).map((r) => ({
+    method: r.method, label: r.label, instructions: r.instructions ?? null,
+    payUrl: r.pay_url ?? null, sort: Number(r.sort ?? 0),
+  }));
+}
+
+export async function fetchPortalProcessingCredits(): Promise<PortalProcessingCredits[]> {
   return (await rpc("my_partner_credits")).map((r) => ({
     unit: r.unit, added: Number(r.added ?? 0), used: Number(r.used ?? 0),
     available: Number(r.available ?? 0),
@@ -119,6 +164,7 @@ export async function fetchPortalCredits(): Promise<PortalCredits[]> {
 }
 
 /** `creditops_round` → `CreditOps rounds`. */
+/** `creditops_round` → `CreditOps rounds`. Units, never currency. */
 export const creditUnitLabel = (unit: string): string => {
   const words = unit.replace(/_/g, " ").replace(/^creditops/i, "CreditOps");
   return words.endsWith("s") ? words : `${words}s`;

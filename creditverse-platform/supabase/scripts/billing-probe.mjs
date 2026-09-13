@@ -304,6 +304,11 @@ const invoice = (daysOverdue, totalCents = 42500, paidCents = 0) => `
 const INVOICE = "44444444-5555-4666-8777-888888888888";
 const sweep = "do $s$ begin perform billing_reminder_sweep(); end $s$;";
 
+/* A billing contact with a real address, for the email tests. */
+const CONTACT_EMAIL = `
+  insert into partner_contacts (group_id, agency_id, full_name, email, status, is_primary)
+  values ('${PARTNER}', '${AGENCY}', 'Probe Billing', 'billing.contact@bes.test', 'active', true);`;
+
 check("26. day 1 sends one reminder and no more",
   as(OWNER, SETUP + invoice(1), `${sweep}
     reset role; select stage, days_overdue from partner_invoice_reminders where invoice_id='${INVOICE}' order by stage;`).rows,
@@ -686,6 +691,136 @@ if (OUTSIDER_PORTAL) check("68. an archived partner is refused even for billing"
       update outsourcing_groups set lifecycle = 'archived' where id = '${PARTNER}';`,
     `select partner_billing_group_of_user() is null as refused;`).rows,
   [{ refused: true }]);
+
+console.log("\nTWO LEDGERS, NEVER ONE");
+
+check("69. account credit is money and processing credits are units, in different tables",
+  /* Dee: "If both are called 'credits' internally, that will become a billing
+     mess very quickly." The schema is where that is prevented. */
+  q.query(`select
+      (select count(*)::int from information_schema.columns
+        where table_name='partner_account_credit_ledger' and column_name='amount_cents') as money_in_cents,
+      (select count(*)::int from information_schema.columns
+        where table_name='partner_credit_ledger' and column_name='quantity') as units_in_quantity,
+      (select count(*)::int from information_schema.columns
+        where table_name='partner_account_credit_ledger' and column_name='quantity') as money_has_no_quantity,
+      (select count(*)::int from information_schema.columns
+        where table_name='partner_credit_ledger' and column_name like '%cents%') as units_have_no_cents`),
+  [{ money_in_cents: 1, units_in_quantity: 1, money_has_no_quantity: 0, units_have_no_cents: 0 }]);
+
+check("70. a partner can hold both at once without either affecting the other",
+  as(OWNER, SETUP + credits(7) + `
+      insert into partner_account_credit_ledger (agency_id, group_id, kind, amount_cents, currency, description)
+      values ('${AGENCY}', '${PARTNER}', 'goodwill', 10000, 'USD', 'probe');`,
+    `select (select available::int from partner_credit_balance where group_id='${PARTNER}') as processing_rounds,
+            (select available_cents::int from partner_account_credit_balance where group_id='${PARTNER}') as account_cents;`).rows,
+  [{ processing_rounds: 7, account_cents: 10000 }]);
+
+console.log("\nOVERPAYMENT IS NOT LOST");
+
+check("71. $425 against a $400 balance settles the invoice and keeps $25 on account",
+  /* Dee's own example. */
+  as(OWNER, SETUP + invoice(3, 40000), `
+    do $r$ begin perform record_partner_payment('${PARTNER}', 42500, 'wise', '${INVOICE}',
+      current_date, 'REF-OVER', null); end $r$;
+    reset role;
+    select (select status::text from partner_invoices where id='${INVOICE}') as invoice_status,
+           (select amount_paid_cents::int from partner_invoices where id='${INVOICE}') as invoice_paid,
+           (select available_cents::int from partner_account_credit_balance where group_id='${PARTNER}') as on_account;`).rows,
+  [{ invoice_status: "paid", invoice_paid: 40000, on_account: 2500 }]);
+
+check("72. the payment itself is still recorded at what actually arrived",
+  as(OWNER, SETUP + invoice(3, 40000), `
+    do $r$ begin perform record_partner_payment('${PARTNER}', 42500, 'wise', '${INVOICE}',
+      current_date, null, null); end $r$;
+    reset role; select amount_cents::int as amount from partner_payments where group_id='${PARTNER}';`).rows,
+  [{ amount: 42500 }]);
+
+check("73. applying account credit settles an invoice through the payment ledger",
+  as(OWNER, SETUP + invoice(3, 10000) + `
+      insert into partner_account_credit_ledger (agency_id, group_id, kind, amount_cents, currency, description)
+      values ('${AGENCY}', '${PARTNER}', 'goodwill', 25000, 'USD', 'probe');`,
+    `do $a$ begin perform apply_account_credit('${PARTNER}', '${INVOICE}', null); end $a$;
+     reset role;
+     select (select status::text from partner_invoices where id='${INVOICE}') as invoice_status,
+            (select available_cents::int from partner_account_credit_balance where group_id='${PARTNER}') as left_on_account,
+            (select count(*)::int from partner_payments where invoice_id='${INVOICE}') as payments;`).rows,
+  [{ invoice_status: "paid", left_on_account: 15000, payments: 1 }]);
+
+check("74. it refuses to spend credit the partner does not have",
+  as(OWNER, SETUP + invoice(3), `do $a$ begin
+     perform apply_account_credit('${PARTNER}', '${INVOICE}', null); end $a$;`)
+    .error?.includes("nothing to apply") ?? false,
+  true);
+
+console.log("\nEMAIL COMES FROM THE SAME EVENT");
+
+check("75. a reminder queues exactly one email, addressed to the billing contact",
+  as(OWNER, SETUP + CONTACT_EMAIL + invoice(1), `${sweep}
+    reset role;
+    select (select count(*)::int from billing_email_outbox where group_id='${PARTNER}' and kind='reminder') as queued,
+           (select state from billing_email_outbox where group_id='${PARTNER}' and kind='reminder') as state,
+           (select to_email from billing_email_outbox where group_id='${PARTNER}' and kind='reminder') as addressed_to,
+           (select email_state from partner_invoice_reminders where invoice_id='${INVOICE}') as reminder_email_state;`).rows,
+  [{ queued: 1, state: "pending", addressed_to: "billing.contact@bes.test", reminder_email_state: "pending" }]);
+
+check("76. running the sweep three times still queues one",
+  /* The reminder is the idempotency source; email inherits it. */
+  as(OWNER, SETUP + CONTACT_EMAIL + invoice(1), `${sweep} ${sweep} ${sweep}
+    reset role; select count(*)::int as n from billing_email_outbox where group_id='${PARTNER}';`).rows,
+  [{ n: 1 }]);
+
+check("77. no billing email is recorded as unavailable, never as delivered",
+  /* Dee: "do NOT pretend the email was delivered." */
+  as(OWNER, SETUP + `update outsourcing_groups set contact_email = '' where id = '${PARTNER}';` + invoice(1),
+    `${sweep}
+     reset role;
+     select (select state from billing_email_outbox where group_id='${PARTNER}') as state,
+            (select email_state from partner_invoice_reminders where invoice_id='${INVOICE}') as reminder_state,
+            (select count(*)::int from billing_attention
+              where kind='missing_billing_email' and group_id='${PARTNER}') as in_attention;`).rows,
+  [{ state: "unavailable", reminder_state: "unavailable", in_attention: 1 }]);
+
+check("78. a payment queues exactly one receipt, whatever recorded it",
+  as(OWNER, SETUP + CONTACT_EMAIL + invoice(3), `
+    do $r$ begin perform record_partner_payment('${PARTNER}', 42500, 'wise', '${INVOICE}',
+      current_date, 'REF-1', null); end $r$;
+    reset role;
+    select count(*)::int as receipts,
+           (payload->>'reactivated')::boolean as says_reactivated
+      from billing_email_outbox where group_id='${PARTNER}' and kind='receipt' group by 2;`).rows,
+  [{ receipts: 1, says_reactivated: false }]);
+
+check("79. a receipt after suspension says the account is reactivated",
+  as(OWNER, SETUP + CONTACT_EMAIL + invoice(7) + `do $p$ begin perform billing_reminder_sweep(); end $p$;`,
+    `do $r$ begin perform record_partner_payment('${PARTNER}', 42500, 'wise', '${INVOICE}',
+       current_date, 'REF-2', null); end $r$;
+     reset role;
+     select (payload->>'reactivated')::boolean as says_reactivated
+       from billing_email_outbox where group_id='${PARTNER}' and kind='receipt';`).rows,
+  [{ says_reactivated: true }]);
+
+console.log("\nBILLING ATTENTION");
+
+check("80. the BMF missing rate surfaces rather than staying hidden",
+  /* Dee: "Business Made Fair currently has missing recurring rate
+     information, so that should surface here rather than remain hidden." */
+  q.query(`select count(*)::int as n from billing_attention
+            where kind = 'billing_terms_missing_rate' and partner_name = 'Business Made Fair'`),
+  [{ n: 1 }]);
+
+check("81. suspension and past due use the pipeline's existing vocabulary",
+  q.query(`select distinct label from billing_attention order by label`)
+    .map((r) => r.label).filter((l) => ["Billing Attention Required", "Suspended Due To Non-Payment"].includes(l)).length > 0,
+  true);
+
+check("82. a partner only sees the payment methods BES turned on for them",
+  as(OUTSIDER_PORTAL, SETUP + CONTACT + `
+      insert into partner_payment_methods (agency_id, group_id, method, enabled, instructions, sort)
+      values ('${AGENCY}', '${PARTNER}', 'wise', true, 'Send to wise.com/pay/bes', 10),
+             ('${AGENCY}', '${PARTNER}', 'paypal', false, 'not for them', 20);`,
+    `select method, instructions from my_partner_payment_methods();`).rows,
+  [{ method: "wise", instructions: "Send to wise.com/pay/bes" }]);
 
 console.log(`\n${pass} passed, ${failures.length} failed`);
 if (failures.length) { failures.forEach((f) => console.log(`  - ${f}`)); process.exitCode = 1; }
