@@ -647,3 +647,50 @@ end, and would do it while fourteen employees are being activated for UAT.
 after UAT and before handoff; after handoff, as the new technical lead's first
 substantial epic; or as part of the Product Charter's module classification,
 where TalentOps' place in the product is settled before its UI is built.
+
+### The mockup (Dee, 2026-09-13)
+
+A full-screen visual followed the written spec. What it settles beyond the text:
+
+**Global sidebar gains a grouping.** `MANAGED OPERATIONS` holds CreditOps,
+FundingOps, BES CRM, **TalentOps**, Sales & Marketing, Finance, Team
+Management, Reports, Settings. `MY WORK` holds My Work, My Time, End of Day,
+Notifications. TalentOps is a peer of CreditOps, not a sub-screen.
+
+**Second pane**, inside TalentOps: Dashboard · My Tasks · All Tasks · Calendar ·
+Workload, then `PARTNERS` with a **search box** above an A→Z list, each partner
+with its own avatar/initial tile.
+
+**Partner header:** breadcrumb `TalentOps / Partners / Business Made Fair`, a
+`BMF` tile, the partner name with an **Active** pill, the engagement line
+("Virtual Assistant & Client Support Outsourcing"), and a **Partner Details**
+button linking back to the canonical partner record. Tabs: Overview ·
+**Projects** · Tasks · Calendar · Files · Activity · Team · **Settings** — two
+more than the written spec.
+
+**Five header cards:** Active Agents · Open Tasks · Due Today · Overdue · **On
+Track %** (a donut). The last is new and must be *derived*, like project
+progress — never typed.
+
+**Overview body, three panels:** Recent Projects (name, `12 tasks · 75%
+complete`, progress bar), Upcoming Deadlines (checkbox, title, Today/Tomorrow,
+priority pill), Recent Activity (avatar, actor, what changed, relative time).
+
+**Task table**, with a view switcher `List · Board · Calendar · Timeline
+(Beta)` and `Filter · Group · Me · + New Task`. Columns: checkbox, Task (title
+**plus a one-line description**), Status, Priority, Assignee (avatar + name),
+Due Date (**red when overdue/today**), **Time**, **Labels**, row menu.
+
+Two things the mockup adds that the written spec did not:
+
+- **Labels/tags on a task** — not in the canonical model today. Nearest
+  existing mechanism is `workspace_fields`, or a small canonical label table if
+  Dee wants them filterable across partners.
+- **A `Time` column on every row** (`1h`, `30m`, `1h 15m`) — consistent with the
+  estimated/actual gap already recorded above.
+
+**Partner names in the mockup are illustrative.** Lakeside Partners, Keystone &
+Associates, Thrive Solutions, Elevate Capital, Prime Consulting and Summit
+Enterprises are not partners in the system. The list is engagement-driven by
+design, so it will show exactly the partners holding a live TalentOps-family
+service — three today.
