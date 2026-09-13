@@ -77,9 +77,16 @@ export async function fetchOutsourcingGroups(): Promise<GroupRow[]> {
     .from("outsourcing_groups")
     /* The primary contact comes from the canonical `partner_contacts` row.
        `partner_name` is the legacy text field and stays only as the fallback
-       for partners imported before contacts existed — for most of them it
-       holds the company name again, which `partnerLabel` then drops. */
-    .select("id,name,partner_name,contact_email,contract_ref,status,archived_at,partner_contacts(full_name,is_primary)")
+       for partners imported before contacts existed.
+
+       The FOREIGN KEY IS NAMED, and it has to be: there are two relationships
+       between these tables — `partner_contacts.group_id` pointing here, and
+       `outsourcing_groups.primary_contact_id` pointing back — so an unqualified
+       embed is ambiguous and PostgREST refuses the whole query with PGRST201.
+       That took out the CreditOps partner tree entirely on 2026-09-13: every
+       folder rendered "Empty — drag an account here" because the request that
+       fed them was failing, not because there were no partners. */
+    .select("id,name,partner_name,contact_email,contract_ref,status,archived_at,partner_contacts!partner_contacts_group_id_fkey(full_name,is_primary)")
     .eq("is_fixture", false)
     .order("name");
   if (error) throw error;

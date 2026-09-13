@@ -126,6 +126,10 @@ const CLIENT: PartnerPortalClient = {
   status: "Round Sent - Awaiting Results", round: "Round 2", openItems: 7,
   lifecycle: "active", lastActivityAt: "2026-09-08T12:00:00Z",
   processedOn: null, createdAt: "2026-08-01T00:00:00Z",
+  /* The partner-safe projection carries what BES is doing, and whether the
+     PARTNER owes an action — added 2026-09-13 for the Clients page. */
+  currentDepartment: "Dispute", currentWork: "DISPUTE PROCESSING",
+  waiting: false, actionNeeded: false, actionTitle: null,
 };
 
 describe("the partner portal conversation", () => {

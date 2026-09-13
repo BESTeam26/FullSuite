@@ -540,6 +540,13 @@ export interface PartnerPortalClient {
   lastActivityAt: string;
   processedOn: string | null;
   createdAt: string;
+  /* What BES is doing, said plainly — never the internal next-action note,
+     which is written for an agent (2026-09-13). */
+  currentDepartment: string | null;
+  currentWork: string | null;
+  waiting: boolean;
+  actionNeeded: boolean;
+  actionTitle: string | null;
 }
 
 /**
@@ -562,6 +569,11 @@ export async function fetchMyPartnerClients(includeClosed: boolean): Promise<Par
     lastActivityAt: r.last_activity_at as string,
     processedOn: (r.processed_on as string) ?? null,
     createdAt: r.created_at as string,
+    currentDepartment: (r.current_department as string) ?? null,
+    currentWork: (r.current_work as string) ?? null,
+    waiting: r.waiting === true,
+    actionNeeded: r.action_needed === true,
+    actionTitle: (r.action_title as string) ?? null,
   }));
 }
 
