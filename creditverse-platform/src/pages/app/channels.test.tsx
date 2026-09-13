@@ -87,8 +87,8 @@ const render = (path = "/app/channels") =>
 
 const channel = (over: Partial<Channel> = {}): Channel => ({
   id: "c1", organizationId: "org-1", agencyId: null, partnerGroupId: null,
-  partnerServiceId: null, kind: "general", name: "General Chat",
-  displayName: "General Chat", purpose: "Everyone in the company.",
+  partnerServiceId: null, partnerTopic: null, kind: "general", name: "General Chat",
+  displayName: "General Chat", directUserId: null, purpose: "Everyone in the company.",
   openToScope: false, archivedAt: null, sharedWithBes: false, auditOnly: false,
   isManager: false, unread: 0, lastMessageAt: "2026-09-07T00:00:00Z", ...over,
 });

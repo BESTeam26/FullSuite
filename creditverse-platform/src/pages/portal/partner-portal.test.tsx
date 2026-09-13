@@ -22,8 +22,9 @@ const render = (ui: ReactElement) =>
    each block is about rather than the router. What they assert — what a
    partner sees, and what they must never see — is unchanged. */
 import {
-  PortalClients, PortalConversation, PortalFiles, PortalProjects,
+  PortalClients, PortalFiles, PortalProjects,
 } from "@/components/portal/PortalSections";
+import { PortalMessages } from "@/pages/portal/pages/PortalMessages";
 import type {
   AgencyPartner, PartnerFile, PartnerPortalClient, PartnerPortalProject, PartnerPortalRequirement,
 } from "@/lib/data/agency-partners";
@@ -38,6 +39,13 @@ let sharedFiles: Partial<PartnerFile>[];
 let portalProjects: PartnerPortalProject[];
 let portalRequirements: PartnerPortalRequirement[];
 const sendMutate = vi.fn().mockResolvedValue({ id: 1 });
+/* Messages offers a conversation per live engagement and a DM per person on
+   the account team, so the page needs both — and the two "open" calls, which
+   are find-or-create in the database (0333). */
+let liveServices: { module: string; status: string }[];
+let accountTeam: { userId: string; name: string; roleLabel: string | null; isPrimary: boolean }[];
+const openTopic = vi.fn().mockResolvedValue("c-new");
+const openDirect = vi.fn().mockResolvedValue("c-dm");
 
 vi.mock("@/lib/auth/auth-context", () => ({
   useAuth: () => ({ user: { id: "contact-1" }, displayName: "Rae Ortiz", signOut: vi.fn() }),
@@ -64,6 +72,14 @@ vi.mock("@/lib/data/use-channels", () => ({
   /* A partner contact gets nobody to mention until BES adds them, which the
      database decides — the portal simply renders what comes back. */
   useChannelMentionable: () => ({ data: [] }),
+}));
+vi.mock("@/lib/data/use-portal-conversations", () => ({
+  useMyPartnerServices: () => ({ data: liveServices, isLoading: false }),
+  useMyPartnerTeam: () => ({ data: accountTeam, isLoading: false }),
+  usePartnerConversationActions: () => ({
+    openTopic: { mutateAsync: openTopic, isPending: false, error: null },
+    openDirect: { mutateAsync: openDirect, isPending: false, error: null },
+  }),
 }));
 vi.mock("@/lib/data/use-message-realtime", () => ({
   /* Realtime is proved against the live database; the screen tests only need
@@ -104,8 +120,8 @@ const PARTNER: AgencyPartner = {
 
 const CHANNEL: Channel = {
   id: "c1", organizationId: null, agencyId: null, partnerGroupId: "g1",
-  partnerServiceId: null, kind: "general", name: "General",
-  displayName: "General", purpose: "BES and Acme Fulfilment",
+  partnerServiceId: null, partnerTopic: "general", kind: "general", name: "General",
+  displayName: "General", directUserId: null, purpose: "BES and Acme Fulfilment",
   openToScope: true, archivedAt: null, sharedWithBes: false,
   auditOnly: false, isManager: false, unread: 0, lastMessageAt: null,
 };
@@ -118,7 +134,11 @@ beforeEach(() => {
   messages = [];
   portalClients = [];
   sharedFiles = [];
+  liveServices = [{ module: "creditops", status: "Active" }];
+  accountTeam = [];
   sendMutate.mockClear();
+  openTopic.mockClear();
+  openDirect.mockClear();
 });
 
 const CLIENT: PartnerPortalClient = {
@@ -134,17 +154,55 @@ const CLIENT: PartnerPortalClient = {
 
 describe("the partner portal conversation", () => {
   it("shows the conversation BES opened", () => {
-    render(<PortalConversation partnerGroupId="g1" />);
-    expect(screen.getByText("Messages")).toBeInTheDocument();
+    render(<PortalMessages partnerGroupId="g1" />);
     expect(screen.getByRole("heading", { name: /General/ })).toBeInTheDocument();
-    expect(screen.getByText("BES and Acme Fulfilment")).toBeInTheDocument();
+    /* Twice on purpose: once naming it in the rail, once above the composer. */
+    expect(screen.getAllByText("BES and Acme Fulfilment").length).toBeGreaterThan(0);
   });
 
-  it("says plainly when nobody has started one, rather than showing a dead composer", () => {
+  it("lets the partner start the first one rather than waiting to be called", async () => {
+    /* Dee, 2026-09-13: "the partner must be able to start the first
+       conversation." Before 0333 this screen said "your BES contact will open
+       one" and there was nothing the partner could press. */
     channels = [];
-    render(<PortalConversation partnerGroupId="g1" />);
-    expect(screen.getByText(/No conversation has been started yet/)).toBeInTheDocument();
-    expect(screen.queryByRole("textbox", { name: /Message/ })).not.toBeInTheDocument();
+    render(<PortalMessages partnerGroupId="g1" />);
+    expect(screen.getByText(/Start a conversation/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Support/ }));
+    expect(openTopic).toHaveBeenCalledWith("support");
+  });
+
+  it("offers CreditOps to a CreditOps partner and Marketing to nobody else", () => {
+    channels = [];
+    render(<PortalMessages partnerGroupId="g1" />);
+    expect(screen.getByRole("button", { name: /CreditOps/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Marketing/ })).not.toBeInTheDocument();
+  });
+
+  it("keeps a conversation that exists after its service ends", () => {
+    /* History is the record (rule 11). The engagement is over; the marketing
+       conversation and everything said in it are not. */
+    liveServices = [];
+    channels = [{ ...CHANNEL, id: "c-mkt", partnerTopic: "marketing", displayName: "Marketing" }];
+    render(<PortalMessages partnerGroupId="g1" />);
+    expect(screen.getByRole("button", { name: /Marketing/ })).toBeInTheDocument();
+  });
+
+  it("offers a direct message to each person on the account team", () => {
+    accountTeam = [{ userId: "bes-1", name: "Dana Lee", roleLabel: "Account manager", isPrimary: true }];
+    render(<PortalMessages partnerGroupId="g1" />);
+    fireEvent.click(screen.getByRole("button", { name: /Dana Lee/ }));
+    expect(openDirect).toHaveBeenCalledWith("bes-1");
+  });
+
+  it("pairs an existing direct message by id, never by display name", () => {
+    /* Two people called Dana is not an edge case worth getting wrong (0336). */
+    accountTeam = [{ userId: "bes-1", name: "Dana Lee", roleLabel: null, isPrimary: false }];
+    channels = [{ ...CHANNEL, id: "c-dm", kind: "direct", partnerTopic: null,
+                  directUserId: "bes-1", displayName: "Dana Lee", unread: 2 }];
+    render(<PortalMessages partnerGroupId="g1" />);
+    fireEvent.click(screen.getByRole("button", { name: /Dana Lee/ }));
+    /* It opened the one that exists instead of asking for another. */
+    expect(openDirect).not.toHaveBeenCalled();
   });
 
   it("labels a message from BES, so who is talking is never a guess", () => {
@@ -157,13 +215,13 @@ describe("the partner portal conversation", () => {
       replyToId: null, replyToText: null, replyToAuthor: null, replyCount: 0,
       lastReplyAt: null, pinned: false, reactions: [], attachments: [], mentions: [],
     }];
-    render(<PortalConversation partnerGroupId="g1" />);
+    render(<PortalMessages partnerGroupId="g1" />);
     expect(screen.getByText("BES team")).toBeInTheDocument();
     expect(screen.getByText(/round 2 letters went out today/)).toBeInTheDocument();
   });
 
   it("sends a reply into that same channel", () => {
-    render(<PortalConversation partnerGroupId="g1" />);
+    render(<PortalMessages partnerGroupId="g1" />);
     const box = screen.getByRole("textbox", { name: /Message General/ });
     fireEvent.change(box, { target: { value: "Thanks — any word on the third one?" } });
     fireEvent.keyDown(box, { key: "Enter" });
@@ -185,15 +243,15 @@ describe("the partner portal conversation", () => {
 describe("the portal shows one partner's conversations and no others", () => {
   it("ignores a conversation belonging to a different partner", () => {
     channels = [{ ...CHANNEL, id: "other", partnerGroupId: "g2", displayName: "Someone else" }];
-    render(<PortalConversation partnerGroupId="g1" />);
-    expect(screen.getByText(/No conversation has been started yet/)).toBeInTheDocument();
+    render(<PortalMessages partnerGroupId="g1" />);
+    expect(screen.getByText(/Start a conversation/)).toBeInTheDocument();
     expect(screen.queryByText("Someone else")).not.toBeInTheDocument();
   });
 
   it("ignores an archived one — history is kept, not offered as live", () => {
     channels = [{ ...CHANNEL, archivedAt: "2026-09-01T00:00:00Z" }];
-    render(<PortalConversation partnerGroupId="g1" />);
-    expect(screen.getByText(/No conversation has been started yet/)).toBeInTheDocument();
+    render(<PortalMessages partnerGroupId="g1" />);
+    expect(screen.getByText(/Start a conversation/)).toBeInTheDocument();
   });
 });
 

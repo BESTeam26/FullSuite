@@ -12,26 +12,11 @@
  * say about progress and nothing more: no work items, no internal assignee,
  * no health reason, no rates.
  */
-import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { ArrowRight, Briefcase, CalendarDays, Loader2, Workflow } from "lucide-react";
-import { useAuth } from "@/lib/auth/auth-context";
-import { requireSupabase } from "@/lib/supabase/client";
+import { useMyPartnerServices } from "@/lib/data/use-portal-conversations";
 import { formatDate } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
-
-interface PartnerService {
-  engagementId: string;
-  module: string;
-  moduleLabel: string;
-  serviceLabel: string;
-  status: string;
-  startedOn: string | null;
-  endsOn: string | null;
-  milestone: string | null;
-  openItems: number;
-  linkKind: string | null;
-}
 
 const MODULE_TONE: Record<string, string> = {
   creditops: "border-emerald-500/40 bg-emerald-500/10 text-emerald-900",
@@ -49,28 +34,9 @@ const STATUS_TONE: Record<string, string> = {
 };
 
 export function PortalServices() {
-  const auth = useAuth();
-  const services = useQuery({
-    queryKey: ["portal", "services"],
-    enabled: auth.mode === "live" && auth.status === "signed-in",
-    staleTime: 60_000,
-    queryFn: async (): Promise<PartnerService[]> => {
-      const { data, error } = await requireSupabase().rpc("my_partner_services" as never);
-      if (error) throw error;
-      return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
-        engagementId: r.engagement_id as string,
-        module: r.module as string,
-        moduleLabel: r.module_label as string,
-        serviceLabel: r.service_label as string,
-        status: r.status as string,
-        startedOn: (r.started_on as string) ?? null,
-        endsOn: (r.ends_on as string) ?? null,
-        milestone: (r.milestone as string) ?? null,
-        openItems: Number(r.open_items ?? 0),
-        linkKind: (r.link_kind as string) ?? null,
-      }));
-    },
-  });
+  /* The same query Messages reads to decide which channels to offer. One key,
+     one request, whichever page the partner opens first (rule 14). */
+  const services = useMyPartnerServices();
 
   if (services.isLoading) {
     return <p className="py-10 text-center"><Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" /></p>;

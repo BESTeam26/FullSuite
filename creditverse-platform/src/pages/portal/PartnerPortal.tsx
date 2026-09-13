@@ -39,10 +39,11 @@ import { PortalClientDetail } from "@/pages/portal/pages/PortalClientDetail";
 import { PortalServices } from "@/pages/portal/pages/PortalServices";
 import { PortalUpdates } from "@/pages/portal/pages/PortalUpdates";
 import { PortalActionNeeded } from "@/components/portal/PortalActionNeeded";
+import { PortalMessages } from "@/pages/portal/pages/PortalMessages";
 import { PortalBilling } from "@/components/portal/PortalBilling";
 import { PartnerInformation } from "@/components/portal/PartnerInformation";
 import {
-  PortalConversation, PortalFiles,
+  PortalFiles,
 } from "@/components/portal/PortalSections";
 import { useMyPartner, usePartnerContacts } from "@/lib/data/use-agency-partners";
 
@@ -107,7 +108,7 @@ export const PartnerPortal = () => {
       <Route path="clients/:publicId" element={page("clients", <PortalClientDetail />)} />
       <Route path="services" element={page("services", <PortalServices />)} />
       <Route path="actions" element={page("actions", <PortalActionNeeded />)} />
-      <Route path="messages" element={page("messages", <PortalMessages />)} />
+      <Route path="messages" element={page("messages", <PortalMessagesPage />)} />
       <Route path="billing" element={page("billing", <PortalBilling />)} />
       <Route path="agreements" element={page("agreements", <PortalAgreements />)} />
       <Route path="files" element={page("files", <PortalFilesPage />)} />
@@ -125,10 +126,10 @@ export const PartnerPortal = () => {
    Each asks for it separately so a partner reading Billing never pays for the
    contacts query (rule 14). */
 
-function PortalMessages() {
+function PortalMessagesPage() {
   const partner = useMyPartner();
   if (!partner.data) return null;
-  return <PortalConversation partnerGroupId={partner.data.id} />;
+  return <PortalMessages partnerGroupId={partner.data.id} />;
 }
 
 function PortalFilesPage() {

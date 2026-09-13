@@ -116,49 +116,6 @@ export function PortalProjects() {
 
 
 /**
- * The partner's half of the conversation with BES.
- *
- * BES opens it — `channels_insert` asks `can_see_partner`, which is staff
- * only. A partner contact reads and replies; they do not start conversations
- * or decide who is in one, the same way portal access itself is BES's to
- * grant. When none has been started the section says so rather than showing
- * an empty composer that looks broken.
- */
-export function PortalConversation({ partnerGroupId }: { partnerGroupId: string }) {
-  /* The same call the agency's Communication screen makes. A partner contact
-     gets back their own partner's conversations and nothing else, because
-     `channel_visible` says so — not because this asked a narrower question
-     (0192, §1). */
-  const channels = useChannels();
-  const conversation = (channels.data ?? [])
-    .find((c) => c.partnerGroupId === partnerGroupId && !c.archivedAt) ?? null;
-
-  return (
-    <section className="flex max-h-[32rem] min-h-[16rem] flex-col overflow-hidden rounded-xl border border-border bg-card">
-      <p className="flex items-center gap-2 border-b border-border px-4 pb-2 pt-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-        <MessagesSquare className="h-3.5 w-3.5" /> Messages
-      </p>
-      {channels.isLoading ? (
-        <p className="p-4"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></p>
-      ) : !conversation ? (
-        <p className="p-4 text-sm text-muted-foreground">
-          No conversation has been started yet. Your BES contact will open one, and it will
-          appear here.
-        </p>
-      ) : (
-        <ConversationPane
-          channelId={conversation.id}
-          name={conversation.name}
-          purpose={conversation.purpose}
-          emptyLabel="No messages yet. Write to your BES team here."
-        />
-      )}
-    </section>
-  );
-}
-
-
-/**
  * The partner's own clients — the canonical BES records, not a copy.
  *
  * What each row shows is exactly what `my_partner_clients()` returns:

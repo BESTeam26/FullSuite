@@ -17,7 +17,7 @@ import type { Channel } from "@/lib/data/channels";
 
 const ch = (over: Partial<Channel>): Channel => ({
   id: "c1", organizationId: null, agencyId: "a1", partnerGroupId: null,
-  partnerServiceId: null, kind: "topic", name: "general", displayName: "general",
+  partnerServiceId: null, partnerTopic: null, kind: "topic", name: "general", displayName: "general", directUserId: null,
   purpose: null, openToScope: false, archivedAt: null, sharedWithBes: false,
   auditOnly: false, isManager: false, unread: 0, lastMessageAt: null, ...over,
 });

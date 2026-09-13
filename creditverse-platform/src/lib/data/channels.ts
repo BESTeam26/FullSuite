@@ -23,6 +23,8 @@ export interface Channel {
   partnerGroupId: string | null;
   /** Scopes a partner conversation to one service engagement (0192, §19). */
   partnerServiceId: string | null;
+  /** Which of the four standing partner conversations this is (0333). */
+  partnerTopic: "general" | "creditops" | "marketing" | "support" | null;
   /** Whose channel it is, for the label. */
   organizationName?: string | null;
   partnerName?: string | null;
@@ -31,6 +33,8 @@ export interface Channel {
   name: string;
   /** What to call it HERE. A direct message shows the other person. */
   displayName: string;
+  /** WHO a direct message is with, by id — never paired on the name (0336). */
+  directUserId: string | null;
   purpose: string | null;
   /** A deliberate all-hands conversation rather than a members-only one. */
   openToScope: boolean;
@@ -98,12 +102,14 @@ export async function fetchChannels(): Promise<Channel[]> {
       agencyId: (c.agency_id as string) ?? null,
       partnerGroupId: (c.partner_group_id as string) ?? null,
       partnerServiceId: (c.partner_service_id as string) ?? null,
+      partnerTopic: (c.partner_topic as Channel["partnerTopic"]) ?? null,
       organizationName: (c.organization_name as string) ?? null,
       partnerName: (c.partner_name as string) ?? null,
       serviceName: (c.service_name as string) ?? null,
       kind: c.kind as Channel["kind"],
       name: c.name as string,
       displayName: (c.display_name as string) || (c.name as string),
+      directUserId: (c.direct_user_id as string) ?? null,
       purpose: (c.purpose as string) ?? null,
       openToScope: !!c.open_to_scope,
       archivedAt: (c.archived_at as string) ?? null,
