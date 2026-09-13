@@ -487,3 +487,163 @@ exactly how the scope got here.
 
 **Nothing in this file is to be deleted either.** A documented deferral is
 cheaper to keep than to rediscover.
+
+---
+
+## D-013 · TalentOps as a real project-management module (specified, NOT started)
+
+**Dee, 2026-09-13**, in full. Recorded so it never has to be re-explained.
+
+**Classification: major feature expansion + UI redesign.** It arrived during the
+pre-handoff stabilization phase and the feature freeze, and Dee's own spec
+(§24) asks for an inspection before any building. The inspection is below; the
+build awaits her sequencing decision.
+
+### What she asked for
+
+TalentOps should stop being a passive dashboard of shared workspaces and become
+**the operating system for BES human-delivered outsourcing work outside
+CreditOps** — Virtual Assistants, Executive Assistants, Client Success /
+Support, Appointment Setting, Sales Support, Back Office, Admin Support,
+Operations Management, Voice / Non-Voice, Managed Departments.
+
+**Not a separate Ops module per service type.** All of them live under TalentOps
+as Partner workspaces and projects.
+
+The mental model is ClickUp:
+
+```
+ClickUp Space → Partner Folder → Project / List → Tasks
+FullSuite:  TalentOps → Partner → Project / Work List → Task (work_items)
+```
+
+Full requested scope, condensed from her 24 numbered points:
+
+1. **Second sidebar** inside TalentOps: Dashboard · My Tasks · All Tasks ·
+   Calendar · Workload, then PARTNERS A→Z — driven by live service engagement,
+   never hand-maintained.
+2. **Partner as folder** — opens that Partner's workspace: Overview · Projects ·
+   Tasks · Calendar · Files · Activity · Team.
+3. **Projects / Lists**, configurable per Partner (e.g. BMF: Client Success,
+   Admin & Operations, Appointment Setting, Marketing Support, Daily Recurring;
+   Selena: Executive Assistance, Calendar & Scheduling, Inbox Management,
+   Follow-Ups, Research / Admin). **Not hard-coded globally.**
+4. **Tasks** on canonical `work_items`: title, description, partner, project,
+   assignee, status, priority, start date, due date, recurrence, checklist,
+   comments, @mentions, screenshots, attachments, activity, estimated time,
+   actual time. **Never `talentops_tasks`.**
+5. **Views**: List, Board, Calendar; Timeline later. Same records, no duplicates.
+6. **Statuses**: Backlog · To Do · In Progress · Waiting / Blocked · For Review ·
+   Completed · Archived — configurable per workspace, **not hard-coded in React**.
+7. **My Tasks** — only work assigned to the signed-in employee, across partners.
+8. **All Tasks** for leads/management, filterable by partner, project, assignee,
+   status, priority, due date, overdue; agents see only their authorized scope.
+9. **Recurring tasks** — daily inbox review, weekly client report, Friday EOD.
+   Reuse if the engine supports it; otherwise add the **smallest canonical**
+   recurrence model.
+10. **Workload** per employee: open, overdue, due today, estimated hours, actual
+    hours, partners assigned.
+11. **Team / assignments** on canonical `partner_assignments` — assignment says
+    who is *eligible*; task assignee says who *owns that task*.
+12. **Lead / Project Manager** may create, assign, reprioritise, change due
+    dates, review and see workload; agents work their tasks without management
+    permissions.
+13. **Files** on canonical `files`, attachable to partner, project, task or
+    comment; upload, drag-drop, screenshot paste, preview, download.
+14. **Comments / activity** on the canonical systems.
+15. **Checklists**, persisted and auditing who completed each item.
+16. **Time tracking** — Start Timer on a task, linked to employee, partner,
+    project and task. **No second timer engine.** Answers "how many hours are we
+    spending on BMF?" and "how many hours is Alliana working for Selena?"
+17. **Dashboard** in business language: Active Partners · Active Agents · Open
+    Tasks · Due Today · Overdue · Waiting/Blocked, then Work by Partner, Work by
+    Agent, Upcoming Deadlines, Recent Activity.
+18. **Remove the database-administration wording** — "Shared workspaces", "Open
+    shared items", "Distinct assignees" become Active Partners, Open Tasks,
+    Active Agents, Overdue / Due Today.
+19. **Partner workspace header** — name, active agents, open tasks, due today,
+    then the tabs.
+20. **Board view** with drag between columns updating canonical status,
+    permissions respected.
+21. **Project detail** — name, partner, lead, members, status, dates, progress
+    **derived from tasks, never typed**; then List · Board · Calendar · Files ·
+    Activity.
+22. **Partner Portal visibility is selective.** Internal TalentOps work stays
+    BES-only unless explicitly made partner-visible.
+23. **Do not duplicate Sales & Marketing.** Same engine; different configuration
+    and UI. Marketing is campaign/content/calendar oriented, TalentOps is
+    partner/project/task/workload/time oriented.
+
+### Inspection — what already exists (§24)
+
+Carried out 2026-09-13 against the live database. **Most of this is already
+built.**
+
+| Requirement | Canonical support today | Verdict |
+|---|---|---|
+| Partner folder | `workspaces.partner_group_id`, `.partner_service_id`, `.module` | **Reuse** |
+| Project / List | `workspace_boards` | **Reuse** |
+| Task | `work_items` — title, description, stage, priority, `assigned_to`, `due_at`, `workspace_id`, `board_id`, `status_id`, `item_type_id`, `partner_group_id`, `partner_service_id`, `team_id`, `division`, `completed_at`, `archived_at`, `previous_assigned_to` | **Reuse** |
+| Waiting / Blocked **with a reason** | `work_items.waiting_on`, `.waiting_note`, `.waiting_since`, plus `work_item_blockers` | **Reuse** |
+| Configurable statuses | `workspace_statuses` — `key`, `label`, `colour`, `position`, `canonical_stage`, `is_terminal`. Proven by Marketing's 11-status ladder | **Reuse** |
+| Custom fields | `workspace_fields` + `work_item_field_values` | **Reuse** |
+| Checklists **auditing who completed** | `work_checklist_items` — `done`, `done_by`, `done_at`, `position` | **Reuse** |
+| Files | canonical `files`, plus the new `FilePreviewGrid` / `useFilePreviews` | **Reuse** |
+| Comments, @mentions, screenshots | Communication + the rich-text mention model | **Reuse** |
+| Activity | `activity_events`, append-only, trigger-written | **Reuse** |
+| Who is eligible on a partner | `partner_assignments` (person **or** team, live-dated) | **Reuse** |
+| **Time per task AND per partner** | **`time_entries` already carries `work_item_id` AND `partner_group_id`** | **Reuse — the "hours on BMF" question is already answerable** |
+| Partner-facing selectivity | the portal's definer projections | **Reuse** |
+
+**Genuine gaps — four, and only one is structural:**
+
+1. **No `start_date` on `work_items`.** Only `due_at`. One nullable column.
+2. **No estimated time.** *Actual* time is already derivable
+   (`sum(duration_minutes) where work_item_id = …`). Estimated needs one column
+   or a `workspace_fields` row.
+3. **No recurrence model anywhere.** `partner_billing_models.recurring` is
+   billing-only. This is the one real design task: a small canonical
+   recurrence table plus a sweep that generates the next instance, following the
+   `billing_recurring_sweep` pattern — **including its hard-won lesson that a
+   generated record must never be born already overdue** (`docs/KNOWN-ISSUES.md`
+   §3).
+4. **No TalentOps workspaces exist.** Only `module = 'sales_marketing'` ones.
+   Provisioning from a live engagement is the same pattern Marketing already
+   uses.
+
+**Live TalentOps-family engagements today — three:**
+
+| Partner | Service | Type |
+|---|---|---|
+| Business Made Fair | Operations Management | `OPERATIONS_MANAGEMENT` |
+| Credit by Nainoa | TalentOps | `TALENTOPS` |
+| K&A Consulting Group | Client Support | `CLIENT_SUPPORT` |
+
+**Selena Alexander and BizHub, named in Dee's examples, have no TalentOps-family
+service record.** The partner sidebar is engagement-driven by design, so they
+will not appear until one exists. That is a data question for Dee, not a code
+change.
+
+### Shape of the work, if approved
+
+- **Backend: small.** Two nullable columns on `work_items`, one recurrence
+  table plus a sweep, workspace provisioning from live engagements, and status
+  seeds. No new task engine, no new file/comment/activity/time system.
+- **Frontend: large.** A second sidebar, partner workspace with seven tabs,
+  project detail with five views, board view with drag-and-drop, calendar,
+  workload, My Tasks, All Tasks with filters, and a rewritten dashboard.
+
+### Why it is deferred
+
+Dee set the current phase minutes before sending this spec: *"Feature freeze
+stays in place. No new modules. No new major features. No UI redesigns unless an
+existing workflow is unusable. This is a stabilization phase."*
+
+TalentOps renders and is usable; it is passive, not broken. Building this now
+would reopen the feature → change → fix → redesign cycle the freeze exists to
+end, and would do it while fourteen employees are being activated for UAT.
+
+**It waits for Dee's explicit sequencing decision.** The three candidates:
+after UAT and before handoff; after handoff, as the new technical lead's first
+substantial epic; or as part of the Product Charter's module classification,
+where TalentOps' place in the product is settled before its UI is built.
