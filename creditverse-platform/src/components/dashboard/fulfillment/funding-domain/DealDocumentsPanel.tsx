@@ -14,6 +14,7 @@ import { FileCheck2, FileText, Loader2, Share2 } from "lucide-react";
 import { formatDate } from "@/lib/format-date";
 import { documentTypeLabel } from "@/lib/funding/document-vocabulary";
 import { fetchDealDocuments } from "@/lib/data/funding-domain";
+import { sizeLabel } from "@/lib/data/use-file-previews";
 
 const DISPOSITION_TONE: Record<string, string> = {
   accepted: "border-emerald-600/30 bg-emerald-500/10 text-status-success",
@@ -21,9 +22,6 @@ const DISPOSITION_TONE: Record<string, string> = {
   rejected: "border-red-500/30 bg-red-500/10 text-status-danger",
   superseded: "border-border bg-muted text-muted-foreground",
 };
-
-const sizeLabel = (bytes: number | null) =>
-  bytes === null ? "" : bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / 1048576).toFixed(1)} MB`;
 
 export function DealDocumentsPanel({ dealId, fileId }: { dealId: string; fileId: string }) {
   const docs = useQuery({

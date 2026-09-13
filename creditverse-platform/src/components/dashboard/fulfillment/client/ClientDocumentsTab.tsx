@@ -11,7 +11,9 @@
  * and an uploaded one need no code to tell them apart.
  */
 import { useRef, useState } from "react";
-import { FileText, Loader2, Upload } from "lucide-react";
+import { Loader2, Upload } from "lucide-react";
+import { FilePreviewCard, FilePreviewGrid } from "@/components/common/FilePreviewCard";
+import { useFilePreviews } from "@/lib/data/use-file-previews";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/format-date";
@@ -19,13 +21,6 @@ import { cn } from "@/lib/utils";
 import { useClientDocuments } from "@/lib/data/use-client-work-detail";
 import { requireSupabase } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth/auth-context";
-
-const sizeLabel = (bytes: number | null) => {
-  if (!bytes) return "";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-};
 
 /** What kind of thing this is, for somebody scanning a long list. */
 const categoryOf = (name: string, mime: string | null) => {
@@ -89,6 +84,10 @@ export function ClientDocumentsTab({ clientId }: { clientId: string }) {
   };
 
   const rows = docs.data ?? [];
+  /* One request for every thumbnail on the page, not one per document. */
+  const previews = useFilePreviews(
+    rows.map((d) => ({ bucket: d.bucket, path: d.path })),
+  );
 
   return (
     <div className="space-y-3">
@@ -122,26 +121,25 @@ export function ClientDocumentsTab({ clientId }: { clientId: string }) {
       {docs.isLoading ? (
         <p className="py-8 text-center text-xs text-muted-foreground">Loading…</p>
       ) : rows.length > 0 && (
-        <ul className="divide-y divide-border rounded-xl border border-border">
+        /* Previews, not filenames. Dee, 2026-09-13: "I wanna see exactly what
+           that document w/o clicking the file" — and five rows all called
+           `Screenshot 2026-09-08 at 3.42.02 AM.png` are five rows nobody can
+           tell apart. */
+        <FilePreviewGrid>
           {rows.map((d) => (
-            <li key={d.id} className="flex items-center gap-3 px-3 py-2.5">
-              <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-              <button
-                type="button"
-                onClick={() => void open(d.bucket, d.path)}
-                className="min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <span className="block truncate text-xs font-medium text-foreground hover:underline">{d.name}</span>
-                <span className="block text-[11px] text-muted-foreground">
-                  {categoryOf(d.name, d.mimeType)}
-                  {sizeLabel(d.sizeBytes) ? ` · ${sizeLabel(d.sizeBytes)}` : ""}
-                  {` · ${formatDate(d.createdAt)}`}
-                  {d.sharedWithPartner ? " · shared with the partner" : ""}
-                </span>
-              </button>
-            </li>
+            <FilePreviewCard
+              key={d.id}
+              file={{
+                id: d.id, name: d.name, mimeType: d.mimeType, sizeBytes: d.sizeBytes,
+                caption: [categoryOf(d.name, d.mimeType), formatDate(d.createdAt),
+                  d.sharedWithPartner ? "shared with the partner" : null]
+                  .filter(Boolean).join(" · "),
+              }}
+              url={previews.data?.[`${d.bucket}/${d.path}`]}
+              onOpen={() => void open(d.bucket, d.path)}
+            />
           ))}
-        </ul>
+        </FilePreviewGrid>
       )}
     </div>
   );

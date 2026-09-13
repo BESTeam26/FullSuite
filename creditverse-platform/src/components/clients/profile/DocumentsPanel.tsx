@@ -17,6 +17,8 @@ import { FileText, Loader2, Trash2, Upload, UserRound, Briefcase } from "lucide-
 import type { UseQueryResult } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/format-date";
+import { FilePreviewCard, FilePreviewGrid } from "@/components/common/FilePreviewCard";
+import { useFilePreviews, sizeLabel } from "@/lib/data/use-file-previews";
 import { errorMessage } from "@/lib/data/error-message";
 import type { ClientDocument } from "@/lib/data/clients";
 import {
@@ -32,37 +34,6 @@ const SOURCE_LABEL: Record<string, string> = {
   fulfillment_client: "CreditOps",
   funding_client: "FundingOps",
 };
-
-const sizeLabel = (bytes: number | null) => {
-  if (bytes === null) return "";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-};
-
-function DocumentLink({ path, name }: { path: string; name: string }) {
-  const [busy, setBusy] = useState(false);
-  /* The bucket is private, so a link is minted for one download rather than
-     the path being exposed. */
-  const open = async () => {
-    setBusy(true);
-    try {
-      window.open(await signDocumentUrl(path), "_blank", "noopener");
-    } finally {
-      setBusy(false);
-    }
-  };
-  return (
-    <button
-      type="button"
-      onClick={() => void open()}
-      disabled={busy}
-      className="text-left text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
-    >
-      {name}
-    </button>
-  );
-}
 
 export const DocumentsPanel = ({
   clientId,
@@ -112,6 +83,17 @@ export const DocumentsPanel = ({
 
   const clientDocs: ClientDocumentRow[] = own.data ?? [];
   const workDocs = documents.data ?? [];
+  /* The bucket is private, so a link is minted rather than the path exposed —
+     once for the whole grid instead of once per thumbnail. */
+  const previews = useFilePreviews(clientDocs.map((d) => ({ bucket: "bes-files", path: d.path })));
+
+  const openDocument = async (path: string) => {
+    try {
+      window.open(await signDocumentUrl(path), "_blank", "noopener");
+    } catch (e) {
+      setError(errorMessage(e, "That document could not be opened."));
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -154,34 +136,44 @@ export const DocumentsPanel = ({
             address, signed agreements — and they follow them between services.
           </p>
         ) : (
-          <ul className="divide-y divide-border/60">
+          <FilePreviewGrid className="p-5">
             {clientDocs.map((d) => (
-              <li key={d.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-5 py-3">
-                <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <DocumentLink path={d.path} name={d.name} />
-                {d.byClient && (
-                  <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold text-status-info">
-                    Sent by the client
+              <FilePreviewCard
+                key={d.id}
+                file={{
+                  id: d.id, name: d.name, mimeType: d.mimeType, sizeBytes: d.sizeBytes,
+                  caption: [
+                    d.byClient ? "Sent by the client" : d.uploadedByName,
+                    formatDate(d.createdAt),
+                  ].filter(Boolean).join(" · "),
+                }}
+                url={previews.data?.[`bes-files/${d.path}`]}
+                onOpen={() => void openDocument(d.path)}
+                actions={
+                  <span className="flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void openDocument(d.path)}
+                      className="text-[11px] font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      Open
+                    </button>
+                    {canEdit && (
+                      <button
+                        type="button"
+                        disabled={remove.isPending}
+                        onClick={() => remove.mutate(d.id)}
+                        title="Remove this document"
+                        className="rounded p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive disabled:opacity-60"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </span>
-                )}
-                <span className="ml-auto text-xs text-muted-foreground">
-                  {sizeLabel(d.sizeBytes)}
-                  {d.uploadedByName ? ` · ${d.uploadedByName}` : ""} · {formatDate(d.createdAt)}
-                </span>
-                {canEdit && (
-                  <button
-                    type="button"
-                    disabled={remove.isPending}
-                    onClick={() => remove.mutate(d.id)}
-                    title="Remove this document"
-                    className="rounded p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive disabled:opacity-60"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </li>
+                }
+              />
             ))}
-          </ul>
+          </FilePreviewGrid>
         )}
       </div>
 

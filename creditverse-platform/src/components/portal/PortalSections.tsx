@@ -13,6 +13,8 @@ import {
   useMyPartnerClients, useMyPartnerProjects, useMyPartnerRequirements, useMySharedFiles,
 } from "@/lib/data/use-agency-partners";
 import { partnerFileUrl } from "@/lib/data/agency-partners";
+import { FilePreviewCard, FilePreviewGrid } from "@/components/common/FilePreviewCard";
+import { useFilePreviews } from "@/lib/data/use-file-previews";
 import { JOURNEY_LABEL, type JourneyStage } from "@/lib/crm/crm-domain";
 import { useChannels } from "@/lib/data/use-channels";
 import { ConversationPane } from "@/components/communication/ConversationPane";
@@ -265,6 +267,10 @@ export function PortalClients() {
 export function PortalFiles({ partnerGroupId }: { partnerGroupId: string }) {
   const files = useMySharedFiles(partnerGroupId);
   const [failedId, setFailedId] = useState<string | null>(null);
+  /* One signing request for the whole page of thumbnails, not one per file. */
+  const previews = useFilePreviews(
+    (files.data ?? []).map((f) => ({ bucket: "bes-files", path: f.path })),
+  );
 
   const open = async (id: string, path: string) => {
     try {
@@ -288,23 +294,30 @@ export function PortalFiles({ partnerGroupId }: { partnerGroupId: string }) {
           Nothing has been shared yet. Documents BES shares with you will appear here.
         </p>
       ) : (
-        <ul className="divide-y divide-border/50">
+        <FilePreviewGrid>
           {(files.data ?? []).map((f) => (
-            <li key={f.id} className="flex items-center justify-between gap-2 py-2">
-              <span className="min-w-0">
-                <span className="block truncate text-sm text-foreground">{f.name}</span>
-                <span className="block text-[11px] text-muted-foreground">
-                  {f.sharedAt ? `Shared ${formatDate(f.sharedAt)}` : formatDate(f.createdAt)}
-                  {failedId === f.id && <span className="text-destructive"> · could not open — try again</span>}
+            <FilePreviewCard
+              key={f.id}
+              file={{
+                id: f.id, name: f.name, mimeType: f.mimeType, sizeBytes: f.sizeBytes,
+                caption: f.sharedAt ? `Shared ${formatDate(f.sharedAt)}` : formatDate(f.createdAt),
+              }}
+              url={previews.data?.[`bes-files/${f.path}`]}
+              onOpen={() => void open(f.id, f.path)}
+              actions={
+                <span className="flex items-center justify-between gap-2">
+                  <span className="truncate text-[11px] text-destructive">
+                    {failedId === f.id ? "Could not open — try again" : ""}
+                  </span>
+                  <button type="button" onClick={() => void open(f.id, f.path)}
+                    className="inline-flex shrink-0 items-center gap-1 text-[11px] font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    <Download className="h-3 w-3" /> Download
+                  </button>
                 </span>
-              </span>
-              <button type="button" onClick={() => void open(f.id, f.path)}
-                className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted">
-                <Download className="h-3.5 w-3.5" /> Download
-              </button>
-            </li>
+              }
+            />
           ))}
-        </ul>
+        </FilePreviewGrid>
       )}
     </section>
   );
