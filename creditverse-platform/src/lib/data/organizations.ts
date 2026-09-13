@@ -222,13 +222,6 @@ export async function createOrganization(
   const { error: entErr } = await sb.from("product_entitlements").insert(rows);
   if (entErr) throw entErr;
 
-  await sb.rpc("log_audit", {
-    p_action: "organization.created",
-    p_entity_type: "organization",
-    p_entity_id: data.id,
-    p_org: data.id,
-    p_after: { name: input.name, code: input.code } as Json,
-  });
   return data.id;
 }
 
@@ -248,13 +241,6 @@ export async function updateOrganization(
   const sb = requireSupabase();
   const { error } = await sb.from("organizations").update(patch).eq("id", id);
   if (error) throw error;
-  await sb.rpc("log_audit", {
-    p_action: "organization.updated",
-    p_entity_type: "organization",
-    p_entity_id: id,
-    p_org: id,
-    p_after: patch as Json,
-  });
 }
 
 /**
@@ -310,13 +296,6 @@ export async function setEntitlement(
       { onConflict: "organization_id,product" },
     );
   if (error) throw error;
-  await sb.rpc("log_audit", {
-    p_action: enabled ? "entitlement.enabled" : "entitlement.disabled",
-    p_entity_type: "product_entitlement",
-    p_entity_id: `${orgId}:${product}`,
-    p_org: orgId,
-    p_after: { product, enabled } as Json,
-  });
 }
 
 export async function togglePinnedOrg(userId: string, orgId: string) {

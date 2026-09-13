@@ -21,10 +21,20 @@
  * Deliberately narrow. It covers the failure class that bit, not testing in
  * general, and it runs in seconds.
  *
+ * ── WHY IT READS ALL OF `src`, NOT JUST THE DATA LAYER ──────────────────────
+ *
+ * The first version walked `src/lib/data` alone, on the reasonable assumption
+ * that queries live in the data layer. They mostly do — but `auth-context`
+ * resolves memberships in one embedded batch, several pages query directly,
+ * and those are exactly the reads whose failure is most visible and least
+ * covered. A probe that only looks where the rule says code should be will
+ * miss the code that broke the rule (Dee, 2026-09-13: cover the failure
+ * CLASS, not the one instance).
+ *
  * Run: node supabase/scripts/postgrest-shapes-probe.mjs
  */
-import { readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join, relative } from "node:path";
 
 const ROOT = new URL("../../", import.meta.url).pathname;
 const env = readFileSync(join(ROOT, ".env.local"), "utf8");
@@ -63,10 +73,25 @@ function extractShapes(source, file) {
   return shapes;
 }
 
-const dir = join(ROOT, "src/lib/data");
-const shapes = readdirSync(dir)
-  .filter((f) => f.endsWith(".ts") && !f.endsWith(".test.ts"))
-  .flatMap((f) => extractShapes(readFileSync(join(dir, f), "utf8"), f));
+/** Every source file that could hold a query — tests and the archive aside. */
+function sourceFiles(dir) {
+  const out = [];
+  for (const entry of readdirSync(dir)) {
+    /* `_archive` is unrouted legacy kept deliberately (rule 6); its shapes are
+       not served to anybody and a failure there is not a defect. */
+    if (entry === "_archive" || entry === "node_modules") continue;
+    const full = join(dir, entry);
+    if (statSync(full).isDirectory()) { out.push(...sourceFiles(full)); continue; }
+    if (!/\.tsx?$/.test(entry)) continue;
+    if (/\.test\.tsx?$/.test(entry)) continue;
+    out.push(full);
+  }
+  return out;
+}
+
+const SRC = join(ROOT, "src");
+const shapes = sourceFiles(SRC)
+  .flatMap((f) => extractShapes(readFileSync(f, "utf8"), relative(SRC, f)));
 
 /* A constant-select used by several functions is one shape, asked once. */
 const unique = [...new Map(shapes.map((s) => [`${s.table}::${s.select}`, s])).values()];
