@@ -22,6 +22,9 @@ import { Loader2, Download, Search, ShieldCheck, FileText, MessagesSquare, Users
 import { useMyPartner, useMyPartnerClients, useMyPartnerProjects, useMyPartnerRequirements, useMySharedFiles, usePartnerContacts } from "@/lib/data/use-agency-partners";
 import { PortalActionNeeded } from "@/components/portal/PortalActionNeeded";
 import { PortalRecentUpdates } from "@/components/portal/PortalRecentUpdates";
+import { PortalBilling } from "@/components/portal/PortalBilling";
+import { useQuery } from "@tanstack/react-query";
+import { fetchPortalBilling } from "@/lib/data/portal-billing";
 import { PartnerInformation } from "@/components/portal/PartnerInformation";
 import { JOURNEY_LABEL, type JourneyStage } from "@/lib/crm/crm-domain";
 import { partnerFileUrl } from "@/lib/data/agency-partners";
@@ -39,9 +42,64 @@ const STATUS_NOTE: Record<string, string> = {
   Archived: "This account is closed.",
 };
 
+/**
+ * What a suspended partner sees: the balance, the invoices, how to pay, and
+ * who to talk to. Nothing else — the work is stopped, which is the point — but
+ * everything they need to start it again.
+ */
+function SuspendedBillingPortal({
+  summary, displayName, onSignOut,
+}: {
+  summary: NonNullable<Awaited<ReturnType<typeof fetchPortalBilling>>>;
+  displayName: string;
+  onSignOut: () => void;
+}) {
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="border-b border-border bg-card">
+        <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-2 px-6 py-4">
+          <div className="flex items-center gap-3">
+            <img src="/bes-logo.png" alt="BES" className="h-10 w-10 shrink-0 object-contain"
+              onError={(e) => { e.currentTarget.hidden = true; }} />
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">BES Partner Portal</p>
+              <h1 className="text-lg font-bold text-foreground">{summary.partnerName}</h1>
+            </div>
+          </div>
+          <div className="text-right">
+            <p className="text-sm text-foreground">{displayName}</p>
+            <button type="button" onClick={onSignOut}
+              className="text-xs text-muted-foreground hover:text-foreground hover:underline">
+              Sign out
+            </button>
+          </div>
+        </div>
+      </header>
+      <main className="mx-auto max-w-4xl space-y-4 p-6">
+        <PortalBilling />
+        <section className="rounded-xl border border-border bg-card p-4">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Contact BES</h2>
+          <p className="mt-1 text-sm text-foreground">
+            Your usual BES contact can answer any question about these invoices, and the rest of your
+            portal returns as soon as the balance is settled. Nothing has been removed in the meantime.
+          </p>
+        </section>
+      </main>
+    </div>
+  );
+}
+
 export const PartnerPortal = () => {
   const { displayName, signOut, user } = useAuth();
   const partner = useMyPartner();
+  /* Only asked when the service resolver came back empty — a partner whose
+     portal works normally never pays for this query. */
+  const billingOnly = useQuery({
+    queryKey: ["portal", "billing", "fallback"],
+    queryFn: fetchPortalBilling,
+    enabled: partner.isFetched && !partner.data,
+    staleTime: 60_000,
+  });
   /* The signed-in contact's own row: what onboarding fills and Partner
      Information edits. The contacts policy already lets a contact read their
      partner's contacts, so this is the same bounded read the Contacts tab does. */
@@ -56,9 +114,23 @@ export const PartnerPortal = () => {
     );
   }
 
-  /* No partner resolves for this account — including a suspended contact,
-     whose group deliberately resolves to nothing. Says nothing about what
-     exists. */
+  /* No partner resolves for this account — including a SUSPENDED contact,
+     whose group deliberately resolves to nothing through the service
+     chokepoint.
+     
+     That is right for their clients, their files and their projects, and
+     wrong for their billing: Dee, 2026-09-13, "Do NOT completely lock them
+     out of the one place they need to pay." So before concluding they have no
+     portal, ask the billing resolver — which admits a suspended partner and
+     nobody else the service resolver would have refused. */
+  if (!partner.data && billingOnly.data) {
+    return <SuspendedBillingPortal
+      summary={billingOnly.data}
+      displayName={displayName}
+      onSignOut={() => void signOut()}
+    />;
+  }
+
   if (!partner.data) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-3 p-8 text-center">
@@ -128,6 +200,12 @@ export const PartnerPortal = () => {
             not as a wall — and the business information lives in Account
             settings, where somebody goes to CHANGE something. */}
         <PortalActionNeeded />
+
+        {/* Billing sits high, and above the service sections, because a
+            suspended partner is here to settle a balance — and because it is
+            the one section they keep when everything else stops (Dee,
+            2026-09-13). */}
+        <PortalBilling />
 
         <PortalClients />
 
