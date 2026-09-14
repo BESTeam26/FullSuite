@@ -110,6 +110,26 @@ export interface PersonViewScope {
 }
 
 /**
+ * A department queue this person may INSPECT but does not belong to.
+ *
+ * Dee, 2026-09-13: *"If a Team Lead / Operations Manager needs broader
+ * visibility, do not fake it by putting every department under `My
+ * Department`… `My Department` should still represent their actual
+ * organizational assignment."*
+ *
+ * So management's extra reach is a separate band with its own honest label,
+ * not a quietly widened one. A manager who is on the Dispute team sees Dispute
+ * under MY DEPARTMENT and the other four under ALL QUEUES.
+ */
+export function creditOpsQueuesToInspect(scope: PersonViewScope): PartnerViewId[] {
+  if (scope.canAccessManagement !== true) return [];
+  const mine = new Set(scope.departments ?? []);
+  return PARTNER_VIEWS
+    .filter((v) => v.scope === "department" && !mine.has(v.department))
+    .map((v) => v.id);
+}
+
+/**
  * The CreditOps views this person's job includes, in workspace order.
  *
  * Dee, 2026-09-11: *"Every authorized CreditOps team member should have:
@@ -129,9 +149,11 @@ export function creditOpsViewsForPerson(scope: PersonViewScope): PartnerViewId[]
   return PARTNER_VIEWS.filter((v) => {
     if (v.scope === "universal") return true;
     if (v.scope === "management") return scope.canAccessManagement === true;
-    /* Management sees every department queue: running the operation means
-       seeing the work in it. */
-    return scope.canAccessManagement === true || departments.includes(v.department);
+    /* A department queue belongs to the people IN that department. Management
+       still reaches every queue — through `creditOpsQueuesToInspect`, under a
+       band that says so — because "running the operation means seeing the work
+       in it" was true, and "…so call it My Department" never was. */
+    return departments.includes(v.department);
   }).map((v) => v.id);
 }
 
@@ -160,17 +182,20 @@ export interface CreditOpsNavItem {
 export function creditOpsNavForPerson(scope: PersonViewScope): {
   universal: CreditOpsNavItem[];
   department: CreditOpsNavItem[];
+  /** Queues a manager may inspect but is not a member of. Empty for everyone else. */
+  allQueues: CreditOpsNavItem[];
   management: CreditOpsNavItem[];
 } {
   const visible = new Set<string>(creditOpsViewsForPerson(scope));
-  const items = PARTNER_VIEWS.filter((v) => visible.has(v.id)).map((v) => ({
-    id: v.id,
-    label: v.label,
-    scope: v.scope as CreditOpsViewScope,
-  }));
+  const asItem = (v: (typeof PARTNER_VIEWS)[number]) => ({
+    id: v.id, label: v.label, scope: v.scope as CreditOpsViewScope,
+  });
+  const items = PARTNER_VIEWS.filter((v) => visible.has(v.id)).map(asItem);
+  const inspect = new Set<string>(creditOpsQueuesToInspect(scope));
   return {
     universal: items.filter((v) => v.scope === "universal"),
     department: items.filter((v) => v.scope === "department"),
+    allQueues: PARTNER_VIEWS.filter((v) => inspect.has(v.id)).map(asItem),
     management: items.filter((v) => v.scope === "management"),
   };
 }

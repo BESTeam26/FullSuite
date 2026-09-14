@@ -11,17 +11,27 @@
  *   useTeams()          each team's department_id (cached, agency-scoped)
  *   useDepartments()    each department's key and division (cached)
  *
- * ── WHY A PERSON WITH NO DEPARTMENT TEAM IS NOT LOCKED OUT ─────────────────
+ * ── SILENCE AND REFUSAL ARE DIFFERENT ANSWERS ──────────────────────────────
  *
- * Most of the BES roster is not yet in a department-bearing team. Deriving
- * strictly would hand those people a workspace with no queue at all, which is
- * a worse failure than the one being fixed — an operator who cannot work is
- * not "securely scoped", and the database would have let them work.
+ * This originally reported one thing — the departments found — and the access
+ * layer read an empty list as "no opinion", falling back to every department
+ * the role allowed. That was a defensible bet while almost nobody was on a
+ * team: deriving strictly would have handed the roster a workspace with no
+ * queue at all.
  *
- * So this reports what team membership SAYS, and the access layer treats
- * "says nothing" as "no opinion" and falls back to the role's departments.
- * Putting somebody in a Complaints team is what narrows their workspace, and
- * that is a deliberate act by Dee rather than a silent inference.
+ * It became a real bug the moment somebody joined a team that is NOT a
+ * CreditOps department. Alliana is on the TalentOps Team; her department is
+ * Dedicated Support; she found no CreditOps department — and was handed all
+ * five CreditOps queues under MY DEPARTMENT (Dee, 2026-09-13).
+ *
+ * The distinction the code was missing:
+ *
+ *   on NO team at all              → genuinely no opinion. Fall back.
+ *   on teams, none of them here    → a definite NO. This is not their module.
+ *
+ * So `onAnyTeam` is reported alongside the departments, and the access layer
+ * can tell the two apart. Nothing about Alliana appears anywhere: the rule is
+ * about the shape of the membership, not about who holds it.
  */
 import { useMemo } from "react";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -33,6 +43,12 @@ import type { CreditOpsDepartment } from "@/lib/fulfillment/creditops-access";
 export interface MyDepartments {
   /** The CreditOps departments this person's teams put them in. */
   departments: CreditOpsDepartment[];
+  /**
+   * Whether they belong to ANY live team. Distinguishes "nobody has placed
+   * this person yet" from "they are placed, elsewhere" — which are opposite
+   * answers to "should they see CreditOps queues?".
+   */
+  onAnyTeam: boolean;
   /** False while the teams or departments are still loading. */
   resolved: boolean;
 }
@@ -46,7 +62,7 @@ export function useMyCreditOpsDepartments(): MyDepartments {
     const teamRows = teams.teams ?? [];
     const deptRows = departments.data ?? [];
     if (teamRows.length === 0 || deptRows.length === 0) {
-      return { departments: [], resolved: false };
+      return { departments: [], onAnyTeam: false, resolved: false };
     }
     const keyById = new Map(deptRows.map((d) => [d.id, d.key]));
     const mine = new Set(auth.teamIds);
@@ -56,6 +72,9 @@ export function useMyCreditOpsDepartments(): MyDepartments {
       const dept = creditOpsDepartmentForKey(keyById.get(t.departmentId));
       if (dept) found.add(dept);
     }
-    return { departments: [...found], resolved: true };
+    /* Any live team at all, whatever its department — the "placed elsewhere"
+       signal. A team with no department still counts as being placed. */
+    const onAnyTeam = teamRows.some((t) => mine.has(t.id));
+    return { departments: [...found], onAnyTeam, resolved: true };
   }, [auth.teamIds, teams.teams, departments.data]);
 }

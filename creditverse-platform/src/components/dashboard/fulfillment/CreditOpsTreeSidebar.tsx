@@ -474,12 +474,30 @@ export function CreditOpsTreeSidebar({
         </div>
 
         {/* ── The queues this person actually works ────────────────────
-            From the canonical team → department assignment, not from a
-            second role system. Somebody in no department team keeps their
-            role's departments rather than being left with no queue. */}
+            Division → Department → Team → Person, from the canonical rows.
+            MY DEPARTMENT is the departments they are IN — never "every
+            department in this module", which is how a TalentOps agent came to
+            be shown all five CreditOps queues (Dee, 2026-09-13). */}
         {nav.department.length > 0 && (
           <OpsTreeGroup label="MY DEPARTMENT">
             {nav.department.map((v) => (
+              <OpsTreeNavItem
+                key={v.id}
+                label={v.label}
+                icon={BarChart3}
+                active={isMgmtViewActive(mgmtId(v.id))}
+                onSelect={() => onSelect({ kind: "management", view: mgmtId(v.id) })}
+              />
+            ))}
+          </OpsTreeGroup>
+        )}
+
+        {/* ── Queues a manager may inspect but is not a member of ───────
+            Management's broader reach, under a label that says what it is.
+            Empty for everyone else. */}
+        {nav.allQueues.length > 0 && (
+          <OpsTreeGroup label="ALL QUEUES">
+            {nav.allQueues.map((v) => (
               <OpsTreeNavItem
                 key={v.id}
                 label={v.label}

@@ -16,6 +16,7 @@ import { useOrganizationRoleAccess } from "@/lib/data/use-role-access";
 import { roleAccessKey } from "@/lib/data/role-access";
 import { ORG_ROLE_LABELS } from "@/lib/fulfillment/role-access-defaults";
 import { useMyCreditOpsDepartments } from "@/lib/data/use-my-departments";
+import { departmentScopeOf } from "@/lib/data/my-departments-domain";
 
 /* ------------------------------------------------------------------ */
 /* Departments                                                         */
@@ -410,7 +411,7 @@ export function CreditOpsAccessProvider({ children }: { children: ReactNode }) {
   const { activeOrganization } = useAgency();
   const live = auth.mode === "live";
   /* Canonical team → department assignment. Reused, not re-invented. */
-  const { departments: teamDepartments } = useMyCreditOpsDepartments();
+  const { departments: teamDepartments, onAnyTeam } = useMyCreditOpsDepartments();
   const [previewRole, setPreviewRole] = useState<CreditOpsRoleKey>("admin");
   const agencyRole = auth.agencyMembership?.role ?? null;
   const orgRole =
@@ -454,12 +455,27 @@ export function CreditOpsAccessProvider({ children }: { children: ReactNode }) {
       }
     : preview;
 
-  /* Team membership narrows the role, it never widens it: the intersection,
-     and only when membership actually says something. */
-  const myDepartments =
-    roleDef.canAccessManagement || teamDepartments.length === 0
-      ? allowedDepartments
-      : allowedDepartments.filter((d) => teamDepartments.includes(d));
+  /*
+   * MY DEPARTMENT means the departments this person is actually in.
+   *
+   * Team membership narrows the role and never widens it, and an empty result
+   * is read two different ways depending on WHY it is empty:
+   *
+   *   on teams, none of them CreditOps  → they are placed elsewhere. Nothing.
+   *   on no team at all                 → nobody has placed them. Fall back to
+   *                                       the role, so a real operator is
+   *                                       never left with no queue to work.
+   *
+   * Management is deliberately NOT a widening here any more. A manager on the
+   * Dispute team has Dispute as their department; the other queues reach them
+   * through ALL QUEUES, which says what it is (Dee, 2026-09-13).
+   */
+  const myDepartments = departmentScopeOf({
+    teamDepartments,
+    onAnyTeam,
+    roleDepartments: allowedDepartments,
+    canAccessManagement: roleDef.canAccessManagement,
+  });
 
   const allowedWorkItems = WORK_ITEMS.filter((w) =>
     myDepartments.includes(w.department),

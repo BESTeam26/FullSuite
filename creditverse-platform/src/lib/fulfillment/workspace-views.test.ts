@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  creditOpsQueuesToInspect,
   creditOpsViewsForPerson,
   hiddenViews,
   toggleHiddenView,
@@ -97,11 +98,39 @@ describe("a CreditOps member sees their own workspace, not everybody's", () => {
     expect(creditOpsViewsForPerson(lead)).toContain("escalation-queue");
   });
 
-  it("management sees every department queue", () => {
-    const views = creditOpsViewsForPerson(lead);
+  it("management still reaches every department queue — but not as MY DEPARTMENT", () => {
+    /* The reach is unchanged; the LABEL is the fix. Dee, 2026-09-13: "If a
+       Team Lead / Operations Manager needs broader visibility, do not fake it
+       by putting every department under My Department." So a queue a manager
+       is not a member of arrives through `creditOpsQueuesToInspect`, under a
+       band that says ALL QUEUES. */
+    const mine = creditOpsViewsForPerson(lead);
+    const inspect = creditOpsQueuesToInspect(lead);
+    const reachable = new Set<string>([...mine, ...inspect]);
     for (const q of ["onboarding-queue", "dispute-queue", "support-queue", "complaints-queue", "bureau-queue"]) {
-      expect(views).toContain(q);
+      expect(reachable.has(q)).toBe(true);
     }
+    /* And the ones they merely inspect are NOT in their own department band. */
+    for (const q of inspect) expect(mine).not.toContain(q);
+  });
+
+  it("a manager's own department is the one their team is in", () => {
+    const disputeLead = { departments: ["Dispute"], canAccessManagement: true };
+    expect(creditOpsViewsForPerson(disputeLead)).toContain("dispute-queue");
+    expect(creditOpsQueuesToInspect(disputeLead)).not.toContain("dispute-queue");
+    expect(creditOpsQueuesToInspect(disputeLead)).toContain("support-queue");
+  });
+
+  it("somebody placed in another division gets no CreditOps queue at all", () => {
+    /* The defect this fixed: a TalentOps agent was shown all five CreditOps
+       queues under MY DEPARTMENT. Asserted by SHAPE — no department, no
+       management — so it holds for anybody, not for one person. */
+    const elsewhere = { departments: [], canAccessManagement: false };
+    const views = creditOpsViewsForPerson(elsewhere);
+    for (const q of ["onboarding-queue", "dispute-queue", "support-queue", "complaints-queue", "bureau-queue"]) {
+      expect(views).not.toContain(q);
+    }
+    expect(creditOpsQueuesToInspect(elsewhere)).toEqual([]);
   });
 
   it("somebody with no department still has the shared directory", () => {
@@ -148,9 +177,13 @@ describe("a department queue exists once, globally", () => {
   it("every queue is still reachable globally — consolidated, not removed", () => {
     /* The functionality Dee kept: one source of truth per department, narrowed
        with a partner filter rather than rebuilt per partner. */
-    const everything = creditOpsViewsForPerson({ departments: [], canAccessManagement: true });
+    const scope = { departments: [], canAccessManagement: true };
+    const everything = new Set<string>([
+      ...creditOpsViewsForPerson(scope),
+      ...creditOpsQueuesToInspect(scope),
+    ]);
     for (const q of ["onboarding-queue", "dispute-queue", "support-queue", "complaints-queue", "bureau-queue", "escalation-queue"]) {
-      expect(everything).toContain(q);
+      expect(everything.has(q)).toBe(true);
     }
   });
 });
