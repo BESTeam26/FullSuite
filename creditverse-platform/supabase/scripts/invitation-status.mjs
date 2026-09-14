@@ -26,6 +26,12 @@ const rows = q.query(`
          i.access_profile::text   as profile,
          i.accepted_at is not null as accepted,
          i.expires_at < now()     as expired,
+         /* The invitations table records no send. The audit log does, and it
+            is the only evidence that an email actually left — the difference
+            between "waiting on them" and "waiting on us". */
+         (select max(a.created_at)::date from public.audit_log a
+           where a.entity_id = i.id::text
+             and a.action = 'agency_invitation.sent')  as last_sent,
          (m.user_id is not null and m.status = 'active') as active_member
     from public.invitations i
     left join public.teams t              on t.id = i.team_id
@@ -39,7 +45,8 @@ const bucket = (r) =>
   r.accepted && r.active_member ? "ACCEPTED"
   : r.accepted ? "accepted, no active membership"
   : r.expired ? "EXPIRED"
-  : "PENDING";
+  : r.last_sent ? "SENT, awaiting acceptance"
+  : "NEVER SENT";
 
 const counts = {};
 for (const r of rows) counts[bucket(r)] = (counts[bucket(r)] ?? 0) + 1;
@@ -49,12 +56,23 @@ let team = null;
 for (const r of rows) {
   if (r.team !== team) { team = r.team; console.log(`  ${team || "— no team —"}`); }
   const state = bucket(r);
-  const mark = state === "ACCEPTED" ? "  ok  " : state === "PENDING" ? " wait " : " !!   ";
+  const mark = state === "ACCEPTED" ? "  ok  "
+    : state === "SENT, awaiting acceptance" ? " wait "
+    : state === "NEVER SENT" ? " --   " : " !!   ";
   console.log(`   ${mark} ${r.email.padEnd(34)} ${(r.name || "").padEnd(22)}` +
-    `${r.is_lead ? "TEAM LEAD  " : "           "}${state}`);
+    `${r.is_lead ? "TEAM LEAD  " : "           "}${state}` +
+    `${r.last_sent ? `  (sent ${r.last_sent})` : ""}`);
 }
 
 console.log("\n  " + Object.entries(counts).map(([k, v]) => `${k}: ${v}`).join("   ") + "\n");
+
+/* Said plainly, because "14 pending" reads as "they have not replied yet" when
+   the truth may be that nothing was ever sent to them. */
+const neverSent = rows.filter((r) => bucket(r) === "NEVER SENT").length;
+if (neverSent > 0) {
+  console.log(`  ${neverSent} invitation${neverSent === 1 ? " has" : "s have"} NEVER BEEN SENT — no email has gone out.`);
+  console.log("  Send them from People & Access; this script cannot, and should not.\n");
+}
 
 /* A team the platform thinks nobody is on is worth naming, because an empty
    queue during UAT reads as a broken screen rather than as missing people. */
