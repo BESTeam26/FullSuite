@@ -16,6 +16,7 @@
     "probe:work": "node supabase/scripts/work-extensions-probe.mjs",
     "probe:people": "node supabase/scripts/person-independence-probe.mjs",
     "probe:talentops": "node supabase/scripts/talentops-probe.mjs",
+    "probe:directory": "node supabase/scripts/directory-vs-queues-probe.mjs",
     "probe": "npm run probe:shapes && npm run probe:sql && npm run probe:work && npm run probe:people",
     "verify:live": "node supabase/scripts/verify-live.mjs",
     "db:push": "npx supabase db push",
