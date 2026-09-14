@@ -205,5 +205,26 @@ Deno.serve(async (req) => {
       code: result.status === 401 ? "bad_api_key" : result.status === 403 ? "sender_not_verified" : "provider_refused",
     });
   }
+  /*
+   * Record that the email actually LEFT.
+   *
+   * Nothing did, before. `agency_invitation.sent` is written by
+   * `invite_agency_member()` — the function that CREATES an invitation — so
+   * despite its name it means "an invitation exists", not "an email went out".
+   * This function wrote nothing at all.
+   *
+   * The cost of that showed up during activation: Dee pressed Send, and
+   * neither of us could tell from the data whether fourteen people had been
+   * emailed. Blind on the single step gating the whole team.
+   *
+   * Written with the caller's own session, so the row carries WHO sent it, and
+   * failures are swallowed deliberately — a missing audit line must never turn
+   * a delivered email into an error the operator sees.
+   */
+  try {
+    await asUser.rpc("log_invitation_emailed", { p_invitation: invitationId });
+  } catch {
+    /* The mail went. The bookkeeping is best-effort. */
+  }
   return json(200, { sent: true });
 });

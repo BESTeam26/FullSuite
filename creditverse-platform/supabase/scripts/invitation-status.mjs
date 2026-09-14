@@ -26,12 +26,17 @@ const rows = q.query(`
          i.access_profile::text   as profile,
          i.accepted_at is not null as accepted,
          i.expires_at < now()     as expired,
-         /* The invitations table records no send. The audit log does, and it
-            is the only evidence that an email actually left — the difference
-            between "waiting on them" and "waiting on us". */
+         /* The one action that means an email actually LEFT (0351).
+            agency_invitation.sent is NOT it: despite the name, that is
+            written when an invitation is CREATED, which is a different fact
+            and reading it as a send is a mistake this script already made
+            once. */
          (select max(a.created_at)::date from public.audit_log a
            where a.entity_id = i.id::text
-             and a.action = 'agency_invitation.sent')  as last_sent,
+             and a.action = 'invitation.emailed')      as last_sent,
+         (select max(a.created_at)::date from public.audit_log a
+           where a.entity_id = i.id::text
+             and a.action = 'agency_invitation.sent')  as created_log,
          (m.user_id is not null and m.status = 'active') as active_member
     from public.invitations i
     left join public.teams t              on t.id = i.team_id
@@ -45,8 +50,8 @@ const bucket = (r) =>
   r.accepted && r.active_member ? "ACCEPTED"
   : r.accepted ? "accepted, no active membership"
   : r.expired ? "EXPIRED"
-  : r.last_sent ? "SENT, awaiting acceptance"
-  : "NEVER SENT";
+  : r.last_sent ? "EMAILED, awaiting acceptance"
+  : "no send recorded";
 
 const counts = {};
 for (const r of rows) counts[bucket(r)] = (counts[bucket(r)] ?? 0) + 1;
@@ -58,7 +63,7 @@ for (const r of rows) {
   const state = bucket(r);
   const mark = state === "ACCEPTED" ? "  ok  "
     : state === "SENT, awaiting acceptance" ? " wait "
-    : state === "NEVER SENT" ? " --   " : " !!   ";
+    : state === "no send recorded" ? " ?    " : " !!   ";
   console.log(`   ${mark} ${r.email.padEnd(34)} ${(r.name || "").padEnd(22)}` +
     `${r.is_lead ? "TEAM LEAD  " : "           "}${state}` +
     `${r.last_sent ? `  (sent ${r.last_sent})` : ""}`);
@@ -66,12 +71,15 @@ for (const r of rows) {
 
 console.log("\n  " + Object.entries(counts).map(([k, v]) => `${k}: ${v}`).join("   ") + "\n");
 
-/* Said plainly, because "14 pending" reads as "they have not replied yet" when
-   the truth may be that nothing was ever sent to them. */
-const neverSent = rows.filter((r) => bucket(r) === "NEVER SENT").length;
-if (neverSent > 0) {
-  console.log(`  ${neverSent} invitation${neverSent === 1 ? " has" : "s have"} NEVER BEEN SENT — no email has gone out.`);
-  console.log("  Send them from People & Access; this script cannot, and should not.\n");
+/* Honest about what is and is not knowable. Send recording only began with
+   migration 0351 — anything emailed before that left no trace, so "no send
+   recorded" means exactly that and NOT "no email was sent". */
+const unrecorded = rows.filter((r) => bucket(r) === "no send recorded").length;
+if (unrecorded > 0) {
+  console.log(`  ${unrecorded} invitation${unrecorded === 1 ? " has" : "s have"} no send on record.`);
+  console.log("  Sends are only recorded from 2026-09-14 (migration 0351). Before that");
+  console.log("  nothing logged them, so this means UNKNOWN, not \"never sent\".");
+  console.log("  Press Send again and this column becomes trustworthy.\n");
 }
 
 /* A team the platform thinks nobody is on is worth naming, because an empty
