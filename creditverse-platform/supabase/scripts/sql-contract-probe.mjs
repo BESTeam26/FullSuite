@@ -283,6 +283,37 @@ console.log("\nEvery SECURITY DEFINER function pins its search_path");
   else fail("unpinned SECURITY DEFINER", `${unpinned.length}: ${unpinned.map((u) => u.name).join(", ")}`);
 }
 
+console.log("\nNo authorization path reads a deprecated scope column");
+{
+  /*
+   * Phase 3 stopped authorization reading `agency_memberships.scope`,
+   * `.scope_division` and `.scope_department_id`; Phase 4 drops them. This
+   * guards the gap between the two — a new policy or function that starts
+   * reading them again would make the drop a breaking change, silently.
+   *
+   * `access_profile_for_user` is the one permitted reader: it DISPLAYS the
+   * stored value in the access-preview panel and decides nothing. Phase 4
+   * removes that field from the payload.
+   */
+  const pols = q.query(`
+    select tablename || '.' || policyname as name from pg_policies
+     where schemaname = 'public'
+       and (coalesce(qual,'') || coalesce(with_check,'')) ~ '(scope_division|scope_department_id|am\\.scope|m\\.scope)'
+     order by 1`);
+  if (pols.length === 0) ok("no policy reads a deprecated scope column");
+  else fail("policy reads a deprecated scope column", pols.map((p) => p.name).join(", "));
+
+  const DISPLAY_ONLY = new Set(["access_profile_for_user"]);
+  const fns = q.query(`
+    select p.proname as name from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public'
+       and p.prosrc ~ '(scope_division|scope_department_id|am\\.scope[^_]|m\\.scope[^_])'
+       and p.prosrc !~ 'a column nobody maintains'
+     order by 1`).map((f) => f.name).filter((n) => !DISPLAY_ONLY.has(n));
+  if (fns.length === 0) ok("no function reads one for an authorization decision");
+  else fail("function reads a deprecated scope column", fns.join(", "));
+}
+
 console.log(`\n${pass} passed, ${failures.length} failed` +
   (skipped.length ? `, ${skipped.length} skipped because their arguments are assembled elsewhere` : ""));
 if (failures.length) process.exitCode = 1;
