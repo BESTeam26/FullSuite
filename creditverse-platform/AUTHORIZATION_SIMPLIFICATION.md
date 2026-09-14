@@ -106,6 +106,24 @@ signature, so none of those 25 call sites are touched.
 | **What capabilities?** | `resolve_agency_capability()` over `permission_keys` | ✅ exists |
 | **Is this record yours?** | `p_assignee` / `p_creator` / `is_team_lead_of` | ✅ exists |
 
+### An executive needs nothing extra
+
+Worth stating plainly, because it is the model's best evidence. Rowell oversees
+overall operations. His reach comes from **role**, his placement from **teams**,
+and his limits from **capability** — three independent answers, exactly as you
+described:
+
+| Question | Answer | Result |
+|---|---|---|
+| What kind of employee? | `agency_admin` | broad operational oversight |
+| Where does he work? | Team Leads · CRM Team → `bes_crm`, `talentops` | where he sits |
+| What may he do? | `ops.manage` ✅ · `creditops.clients.view` ✅ | management tooling |
+| Money? | `partners.invoices.view` ❌ · `payroll.view` ❌ | **owner-gated, correctly refused** |
+
+**Admin is not financial access**, and that boundary holds for him today without
+a single line about executives, seniority or oversight anywhere in the model.
+"Executive" is not a tier to build — it is `agency_admin` plus capabilities.
+
 **Nothing new is required.** One helper is worth adding, because it is asked
 everywhere and derived nowhere:
 
@@ -220,7 +238,7 @@ wait until after UAT.
 |---|---|
 | **Widening** | Phase 2 is additive by construction. Phase 3 must be proven equivalent per person before it lands — the Phase 1 probe is what proves it |
 | **Narrowing** | The four admins are carried by line 1, not by `scope`. Verified |
-| **Multi-placement** | Rowell already derives two divisions. The enum could only hold one — the derived model is *more* correct, and slightly wider for him. Worth your explicit sign-off |
+| **Multi-placement** | **Resolved, 2026-09-13.** Rowell is an executive over overall operations, and his access comes entirely from `agency_admin` — verified by neutering his `scope` to the narrowest value, after which he lost nothing, because `is_admin_of()` answers before `scope` is read. His two derived divisions describe **where he sits**, not what he reaches. No sign-off needed and nothing widens |
 | **People on no team** | Dee and Bryan derive nothing. Both are admins, so line 1 carries them. **A non-admin on no team would derive nothing and see nothing** — which is correct, and is why teams must be set before invitations go out |
 | **Blast radius** | 13 policies + 12 functions, none of which need editing if the signature holds |
 
