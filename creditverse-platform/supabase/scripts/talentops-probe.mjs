@@ -132,14 +132,33 @@ console.log("\nAn assignment that has ENDED takes the access with it");
   check("K&A disappears once the assignment ends", r.ok ? r.rows[0]?.n : "error", 0);
 }
 
-console.log("\nWithout the capability, nothing");
+console.log("\nWithout a TalentOps capability, nothing");
 {
-  const r = as(ALLIANA, `${SETUP}
+  /* BOTH keys, because `may_reach_talentops` reads either one for a read:
+     somebody who may WORK in the module can obviously see it. Revoking only
+     `talentops.view` stopped closing the door the moment real people were
+     granted `talentops.tasks.manage` — the probe was asserting a precondition,
+     not the rule. */
+  const revokeAll = `
     update agency_member_permissions set allowed = false
-     where key = 'talentops.view'
-       and membership_id in (select id from agency_memberships where user_id = '${ALLIANA}');`,
+     where key in ('talentops.view', 'talentops.tasks.manage')
+       and membership_id in (select id from agency_memberships where user_id = '${ALLIANA}');`;
+  const r = as(ALLIANA, `${SETUP} ${revokeAll}`,
     `select (select count(*)::int from workspaces w where w.module='talentops') as ws;`);
-  check("no talentops.view means no workspace", r.ok ? r.rows[0]?.ws : "error", 0);
+  check("no TalentOps capability at all means no workspace", r.ok ? r.rows[0]?.ws : "error", 0);
+
+  /* And the half that matters for a working agent: view alone lets you read
+     the module, but not create work in it. */
+  const readOnly = as(ALLIANA, `${SETUP} ${revokeAll}
+    insert into agency_member_permissions (membership_id, key, allowed)
+    select m.id, 'talentops.view', true from agency_memberships m where m.user_id = '${ALLIANA}'
+    on conflict (membership_id, key) do update set allowed = true;`,
+    `select public.may_reach_talentops(
+       (select id from workspaces where module='talentops' and partner_group_id='${BMF}'), false) as may_read,
+     public.may_reach_talentops(
+       (select id from workspaces where module='talentops' and partner_group_id='${BMF}'), true) as may_work;`);
+  check("view alone: may read", readOnly.ok ? readOnly.rows[0]?.may_read : "error", true);
+  check("view alone: may NOT work", readOnly.ok ? readOnly.rows[0]?.may_work : "error", false);
 }
 
 console.log("\nProvisioning is idempotent");
