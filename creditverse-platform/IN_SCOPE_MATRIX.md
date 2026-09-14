@@ -18,8 +18,8 @@ Reproduce with `node supabase/scripts/in-scope-matrix.mjs`.
 | # | Shape | Old | New | Expected | Changed |
 |---|---|---|---|---|---|
 | 1 | Agency Admin | `true` | `true` | `true` | — |
-| 2 | User, one Division | `false` | **`true`** | `true` | **CHANGED** |
-| 3 | User, two Divisions | `false` | **`true`** | `true` | **CHANGED** |
+| 2 | User, one Division — division **alone** | `false` | `false` | `false` | — |
+| 3 | User, two Divisions — division **alone** | `false` | `false` | `false` | — |
 | 4 | User, one Department | `false` | **`true`** | `true` | **CHANGED** |
 | 5 | User, multiple Departments | `false` | **`true`** | `true` | **CHANGED** |
 | 6 | User, one Team | `false` | **`true`** | `true` | **CHANGED** |
@@ -38,7 +38,14 @@ Reproduce with `node supabase/scripts/in-scope-matrix.mjs`.
 | **19** | **Placed, record has no division or team** | `false` | `false` | `false` | — |
 | **20** | **Record assigned to somebody else** | `false` | `false` | `false` | — |
 
-**Every change is a widening (2–7), and every denial holds (12–20).**
+**Four shapes change (4–7), all widenings within the person's real placement, and every denial holds (2–3, 12–20).**
+
+> **Narrowed on Dee's instruction, 2026-09-13.** Rows 2 and 3 originally showed
+> `false → true`: division membership alone granted generic work. She refused
+> it — *"Division membership should NOT mean: can read every work item anywhere
+> inside this division."* The division branch was removed. Division still
+> decides module access and the directory rules that name it explicitly;
+> neither goes through `in_scope`.
 
 Rows 16–20 are the ones that matter. Since all six changes grant, the real
 question is not whether the new model grants — it is whether it grants anything
@@ -90,16 +97,22 @@ back**, then every real person was measured across five gated surfaces.
 | Bryan Breva | admin | 19 | 30 | 23 | 38 | 3 |
 | Dee Gallardo | admin | 19 | 30 | 23 | 38 | 3 |
 | Dian Gallardo | admin | 19 | 30 | 23 | 38 | 3 |
-| **Ivan L. Olympia** | user | 19 | 5 | **0 → 2** | 0 | 0 |
+| **Ivan L. Olympia** | user | 19 | 5 | **0** | 0 | 0 |
 | Rowell Christian Pena | admin | 19 | 30 | 23 | 38 | 3 |
 
-> ### One cell changes out of thirty.
+> ### Zero cells change out of thirty.
 
 **Alliana unchanged at zero everywhere.** **Every admin unchanged.** **Rowell's
 oversight unchanged, and finance still refused.** Ivan's client list and
 department queue — the two Phase 2 stabilised — **unchanged at 19 and 5**.
 
-### The single delta, examined
+### The single delta — removed
+
+**Superseded.** The two work items below are what Dee narrowed. After removing
+the division branch, **zero cells change across six people and five surfaces**,
+and Ivan's work items stay at 0.
+
+<details><summary>What it was, kept for the record</summary>
 
 Ivan gains **two work items**, both `[TEST]` fixtures, both `division =
 creditops`:
@@ -127,18 +140,29 @@ grant to a real person. Two readings are defensible:
    work items, the division branch comes out and department/team/assignee carry
    it. Ivan would go back to 0.
 
-**Recommendation: keep it.** Your own layering names Division as a level of
-access, the department queue is separately and correctly narrow, and the only
-rows affected today are two fixtures.
+I recommended keeping it. Dee narrowed it, and she was right: the Main Client
+List is a deliberate exception so CreditOps staff can report on any client when
+another department is unavailable — and that exception must not silently become
+the rule for every record.
+
+</details>
 
 ---
 
-## Status
+## Status — PROMOTED (0348)
 
-- `in_scope_next()` deployed, **called by nothing**
-- `in_scope()` **unchanged** — the 25 callers see no difference
-- `scope`, `scope_division`, `scope_department_id` **untouched**, deprecated in
-  documentation only
-- Full gate green
+- `in_scope()` now **derives** from live team membership; the enum is no longer
+  read by any authorization path
+- The shadow `in_scope_next()` is **dropped**
+- All **25 callers** untouched — the signature never changed
+- `scope`, `scope_division`, `scope_department_id` **remain**, marked
+  DEPRECATED on the columns themselves. Phase 3 is reversible by one
+  `create or replace` for the whole of UAT
+- Phase 4 (dropping the columns) stays deferred until after UAT
 
-**Nothing is promoted. Awaiting your word on the one delta.**
+**Live after promotion:** Alliana 0/0 · Ivan 19/5 · admins 19/30 · Rowell's
+finance still refused.
+
+**Gate:** 1797 tests · build clean · shapes 53/0 · SQL contracts 205/205 ·
+work 10/10 · person independence 12/12 · directory 19/19 · CreditOps routing
+45/45 · TalentOps 18/18 · billing 85/85 · marketing 48/48 · messages 14/14.

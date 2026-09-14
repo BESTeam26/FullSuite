@@ -73,10 +73,15 @@ const lead = (user, team) =>
 
 shape(1, "Agency Admin", ADMIN, "", { division: "creditops" }, true,
   "is_admin_of, first branch, untouched");
-shape(2, "User, one Division", AGENT, place(AGENT, CO_TEAM.id), { division: "creditops" }, true,
-  "old needed scope='division'+scope_division; new derives it");
-shape(3, "User, two Divisions", AGENT, place(AGENT, CO_TEAM.id, TO_TEAM), { division: "talentops" }, true,
-  "the enum could hold ONE division; derivation holds both");
+/* Division alone no longer grants generic work (0347). It still decides
+   module access and the directory rules that name it explicitly — neither of
+   which goes through in_scope. */
+shape(2, "User, one Division — division ALONE", AGENT, place(AGENT, CO_TEAM.id),
+  { division: "creditops" }, false,
+  "division gets you into the building, not into every room");
+shape(3, "User, two Divisions — division ALONE", AGENT, place(AGENT, CO_TEAM.id, TO_TEAM),
+  { division: "talentops" }, false,
+  "same: placement is not a work grant");
 shape(4, "User, one Department", AGENT, place(AGENT, CO_TEAM.id), { team: CO_TEAM.id }, true,
   "record's team is in a department they belong to");
 shape(5, "User, multiple Departments", AGENT, place(AGENT, CO_TEAM.id, TO_TEAM), { team: TO_TEAM }, true,
