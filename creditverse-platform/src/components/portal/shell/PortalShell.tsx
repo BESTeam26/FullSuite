@@ -64,7 +64,7 @@ export function PortalShell({
               aria-current={active ? "page" : undefined}
               className={cn(
                 "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar-background",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar",
                 active
                   ? "bg-sidebar-accent font-semibold text-sidebar-accent-foreground"
                   : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
@@ -94,7 +94,7 @@ export function PortalShell({
       {/* ── Sidebar ─────────────────────────────────────────────────────── */}
       <aside
         data-bes-chrome="dark"
-        className="hidden w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar-background lg:flex"
+        className="hidden w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:flex"
       >
         <div className="flex items-center gap-2.5 border-b border-sidebar-border px-4 py-4">
           <img src="/bes-logo.png" alt="BES" className="h-8 w-8 shrink-0 object-contain"
@@ -180,7 +180,7 @@ export function PortalShell({
           <nav
             aria-label="Partner Portal"
             data-bes-chrome="dark"
-            className="border-b border-sidebar-border bg-sidebar-background p-2 lg:hidden"
+            className="border-b border-sidebar-border bg-sidebar text-sidebar-foreground p-2 lg:hidden"
           >
             {links(() => setMenuOpen(false))}
           </nav>
