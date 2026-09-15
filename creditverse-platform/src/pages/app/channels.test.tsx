@@ -18,7 +18,7 @@
  *      wrong place (§24).
  */
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { fireEvent, render as rtlRender, screen } from "@testing-library/react";
+import { fireEvent, render as rtlRender, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import Channels from "@/pages/app/Channels";
 import type { Channel, MessageHit } from "@/lib/data/channels";
@@ -344,3 +344,41 @@ function richMessage(over: Partial<RichMessage> = {}): RichMessage {
     ...over,
   };
 }
+
+describe("partner channels group under each partner", () => {
+  /* Dee, 2026-09-15, from a screenshot of three rows each subtitled "Test
+     Partner": "I want to have the channels grouped per Partner if there's
+     multiple partners." The domain decides WHEN to split; this checks the rail
+     actually renders it, and that the subtitle stops repeating what the
+     heading now says. */
+  const forPartner = (id: string, name: string, channel_: string) =>
+    channel({ id: `${id}-${channel_}`, organizationId: null, partnerGroupId: id,
+              partnerName: name, kind: "topic", name: channel_, displayName: channel_ });
+
+  it("one partner: no sub-heading, and the row still names them", () => {
+    channels = [forPartner("p1", "Test Partner", "General"),
+                forPartner("p1", "Test Partner", "Support")];
+    render();
+    const rail = within(screen.getByRole("complementary", { name: "Conversations" }));
+    /* Named on each ROW, because there is no heading doing it — the flat list
+       is unchanged for a single-partner agency. */
+    expect(rail.getAllByText("Test Partner")).toHaveLength(2);
+  });
+
+  it("two partners: a heading each, and the rows stop repeating it", () => {
+    channels = [forPartner("p1", "Acme Fulfilment", "General"),
+                forPartner("p2", "Prime Capital Group", "General"),
+                forPartner("p2", "Prime Capital Group", "Marketing")];
+    render();
+    /* Scoped to the rail: the OPEN conversation names its owner in its own
+       header too, which is right and not what this is about. */
+    const rail = within(screen.getByRole("complementary", { name: "Conversations" }));
+    /* Each partner named ONCE in the rail — as the section heading, with no
+       row repeating it underneath. */
+    expect(rail.getAllByText("Acme Fulfilment")).toHaveLength(1);
+    expect(rail.getAllByText("Prime Capital Group")).toHaveLength(1);
+    /* And every channel is still reachable. */
+    expect(rail.getAllByText("General")).toHaveLength(2);
+    expect(rail.getByText("Marketing")).toBeInTheDocument();
+  });
+});

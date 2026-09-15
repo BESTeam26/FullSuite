@@ -107,3 +107,84 @@ describe("ordering", () => {
     expect(out.map((c) => c.id)).toEqual(["a", "b"]);
   });
 });
+
+describe("partner channels group under each partner", () => {
+  /* Dee, 2026-09-15: "I want to have the channels grouped per Partner if
+     there's multiple partners." */
+  const partnerChannel = (partner: string, name: string, over: Partial<Channel> = {}) =>
+    ch({ id: `${partner}-${name}`, agencyId: null, partnerGroupId: partner,
+         partnerName: partner === "p1" ? "Acme Fulfilment" : "Prime Capital Group",
+         kind: "topic", name, displayName: name, ...over });
+
+  const partnersGroup = (channels: Channel[]) =>
+    groupChannels(channels).find((g) => g.key === "partners");
+
+  it("one partner stays a flat list — a heading would just repeat the row", () => {
+    const g = partnersGroup([
+      partnerChannel("p1", "General"), partnerChannel("p1", "Marketing"),
+    ]);
+    expect(g?.sections).toBeUndefined();
+    expect(g?.channels).toHaveLength(2);
+  });
+
+  it("two partners split into a section each", () => {
+    const g = partnersGroup([
+      partnerChannel("p1", "General"), partnerChannel("p2", "General"),
+      partnerChannel("p1", "Support"),
+    ]);
+    expect(g?.sections?.map((s) => s.label))
+      .toEqual(["Acme Fulfilment", "Prime Capital Group"]);
+    expect(g?.sections?.find((s) => s.key === "p1")?.channels).toHaveLength(2);
+    expect(g?.sections?.find((s) => s.key === "p2")?.channels).toHaveLength(1);
+  });
+
+  it("every channel appears exactly once, and the flat list still holds them all", () => {
+    const channels = [
+      partnerChannel("p1", "General"), partnerChannel("p2", "General"),
+      partnerChannel("p2", "Marketing"),
+    ];
+    const g = partnersGroup(channels)!;
+    const inSections = g.sections!.flatMap((s) => s.channels.map((c) => c.id));
+    expect(inSections).toHaveLength(channels.length);
+    expect(new Set(inSections).size).toBe(channels.length);
+    expect(g.channels.map((c) => c.id).sort()).toEqual([...inSections].sort());
+  });
+
+  it("sections are keyed by ID, so two partners sharing a name stay apart", () => {
+    /* Rule 4: never infer a relationship from a display name. */
+    const g = partnersGroup([
+      partnerChannel("p1", "General", { partnerName: "Same Name Ltd" }),
+      partnerChannel("p2", "General", { partnerName: "Same Name Ltd" }),
+    ]);
+    expect(g?.sections).toHaveLength(2);
+    expect(g?.sections?.map((s) => s.key)).toEqual(["p1", "p2"]);
+  });
+
+  it("the most recently spoken-to partner leads", () => {
+    const g = partnersGroup([
+      partnerChannel("p1", "General", { lastMessageAt: "2026-09-01T00:00:00Z" }),
+      partnerChannel("p2", "General", { lastMessageAt: "2026-09-14T00:00:00Z" }),
+    ]);
+    expect(g?.sections?.[0].key).toBe("p2");
+  });
+
+  it("an archived partner conversation is not sectioned into Partners at all", () => {
+    /* It belongs to Archived, and that group is never split. */
+    const groups = groupChannels([
+      partnerChannel("p1", "General"),
+      partnerChannel("p2", "Old", { archivedAt: "2026-01-01T00:00:00Z" }),
+    ]);
+    expect(groups.find((g) => g.key === "partners")?.sections).toBeUndefined();
+    expect(groups.find((g) => g.key === "archived")?.sections).toBeUndefined();
+  });
+
+  it("groups that are not owner-scoped are never sectioned", () => {
+    const groups = groupChannels([
+      ch({ id: "i1", kind: "topic", name: "general", displayName: "general" }),
+      ch({ id: "i2", kind: "topic", name: "random", displayName: "random" }),
+      ch({ id: "d1", kind: "direct", displayName: "Someone" }),
+      ch({ id: "d2", kind: "direct", displayName: "Somebody" }),
+    ]);
+    for (const g of groups) expect(g.sections).toBeUndefined();
+  });
+});

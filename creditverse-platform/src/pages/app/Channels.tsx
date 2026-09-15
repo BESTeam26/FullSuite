@@ -116,7 +116,8 @@ export default function Channels() {
     <div className="mx-auto flex h-[calc(100vh-4rem)] max-w-[1600px] flex-col gap-4 p-4 md:flex-row md:p-6">
       {/* Phone: the list OR the conversation, never both squeezed side by side
           (Dee's mobile standard §26). Tablet and up: the two panes. */}
-      <aside className={cn("w-full shrink-0 flex-col md:flex md:w-72", current ? "hidden" : "flex")}>
+      <aside aria-label="Conversations"
+        className={cn("w-full shrink-0 flex-col md:flex md:w-72", current ? "hidden" : "flex")}>
         <div className="mb-3 flex items-center justify-between gap-2">
           <h1 className="text-sm font-bold text-foreground">Communication</h1>
           {canCreate && (
@@ -170,14 +171,35 @@ export default function Channels() {
                       You can read these for administration. You are not in them and cannot reply.
                     </p>
                   )}
-                  <ul className="space-y-0.5">
-                    {group.channels.map((c) => (
-                      <li key={c.id}>
-                        <ChannelRow channel={c} active={current?.id === c.id}
-                          onOpen={() => setOpenId(c.id)} />
-                      </li>
-                    ))}
-                  </ul>
+                  {group.sections ? (
+                    /* One partner (or organization) per sub-heading. The rows
+                       beneath drop the owner subtitle — the heading is already
+                       saying it, and repeating it is the noise this replaces. */
+                    group.sections.map((section) => (
+                      <div key={section.key} className="mb-2 last:mb-0">
+                        <p className="mb-0.5 px-1 text-[11px] font-semibold text-foreground">
+                          {section.label}
+                        </p>
+                        <ul className="space-y-0.5 border-l border-border/70 pl-2">
+                          {section.channels.map((c) => (
+                            <li key={c.id}>
+                              <ChannelRow channel={c} active={current?.id === c.id}
+                                hideOwner onOpen={() => setOpenId(c.id)} />
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))
+                  ) : (
+                    <ul className="space-y-0.5">
+                      {group.channels.map((c) => (
+                        <li key={c.id}>
+                          <ChannelRow channel={c} active={current?.id === c.id}
+                            onOpen={() => setOpenId(c.id)} />
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               ))}
               {list.length === 0 && (
@@ -321,9 +343,15 @@ function AuditOnlyView({ channel }: { channel: Channel }) {
 }
 
 function ChannelRow({
-  channel, active, onOpen,
-}: { channel: Channel; active: boolean; onOpen: () => void }) {
-  const context = channel.partnerName ?? channel.organizationName;
+  channel, active, onOpen, hideOwner = false,
+}: {
+  channel: Channel;
+  active: boolean;
+  onOpen: () => void;
+  /** True when a section heading above already names the owner. */
+  hideOwner?: boolean;
+}) {
+  const context = hideOwner ? null : (channel.partnerName ?? channel.organizationName);
   return (
     <button
       type="button"

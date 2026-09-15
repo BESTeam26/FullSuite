@@ -24,10 +24,32 @@ export type ChannelGroupKey =
   | "unread" | "internal" | "partners" | "organizations"
   | "direct" | "administration" | "archived";
 
+/**
+ * One owner's channels inside a group.
+ *
+ * Dee, 2026-09-15: *"I want to have the channels grouped per Partner if
+ * there's multiple partners."* With several partners a flat list makes the
+ * reader match each row against a subtitle to work out whose it is; with one
+ * partner a heading naming them above three rows that already say so is just
+ * the name twice. So sections appear only when there is something to separate.
+ */
+export interface ChannelSection {
+  /** The owning partner or organization id — stable, unlike the name. */
+  key: string;
+  label: string;
+  channels: Channel[];
+}
+
 export interface ChannelGroup {
   key: ChannelGroupKey;
   label: string;
   channels: Channel[];
+  /**
+   * Present only when the group has MORE THAN ONE owner. When it is set, the
+   * interface renders these instead of `channels`; `channels` stays populated
+   * either way so counts and anything else reading the group are unaffected.
+   */
+  sections?: ChannelSection[];
 }
 
 const LABELS: Record<ChannelGroupKey, string> = {
@@ -76,8 +98,53 @@ export function groupChannels(channels: readonly Channel[]): ChannelGroup[] {
     "direct", "administration", "archived",
   ];
   return order
-    .map((key) => ({ key, label: LABELS[key], channels: sortChannels(buckets.get(key) ?? []) }))
+    .map((key) => {
+      const channels = sortChannels(buckets.get(key) ?? []);
+      const sections = key === "partners" ? sectionsBy(channels, "partner")
+        : key === "organizations" ? sectionsBy(channels, "organization")
+        : undefined;
+      return sections ? { key, label: LABELS[key], channels, sections }
+                      : { key, label: LABELS[key], channels };
+    })
     .filter((g) => g.channels.length > 0);
+}
+
+/**
+ * Split a group by its owner, or don't.
+ *
+ * Returns `undefined` for nought or one owner — the caller then renders the
+ * flat list it already had, so a single-partner agency sees no change at all.
+ *
+ * Owners are keyed by ID and only LABELLED by name: two partners could be
+ * renamed to the same thing and would still be two sections, which is what
+ * rule 4 asks for. Sections follow the order the channels are already in, so
+ * the partner spoken to most recently leads — the same rule as the rows.
+ */
+function sectionsBy(
+  channels: readonly Channel[],
+  owner: "partner" | "organization",
+): ChannelSection[] | undefined {
+  const idOf = (c: Channel) => (owner === "partner" ? c.partnerGroupId : c.organizationId);
+  const nameOf = (c: Channel) => (owner === "partner" ? c.partnerName : c.organizationName);
+
+  const sections: ChannelSection[] = [];
+  const byKey = new Map<string, ChannelSection>();
+  for (const c of channels) {
+    /* A channel whose owner did not come back — the caller may see the
+       conversation without seeing the account — keeps its own bucket rather
+       than being merged with every other unnamed one. */
+    const key = idOf(c) ?? `unknown:${c.id}`;
+    const existing = byKey.get(key);
+    if (existing) { existing.channels.push(c); continue; }
+    const section: ChannelSection = {
+      key,
+      label: nameOf(c) ?? (owner === "partner" ? "Partner" : "Organization"),
+      channels: [c],
+    };
+    byKey.set(key, section);
+    sections.push(section);
+  }
+  return sections.length > 1 ? sections : undefined;
 }
 
 /**
