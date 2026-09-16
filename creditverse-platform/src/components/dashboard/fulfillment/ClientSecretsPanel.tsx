@@ -134,6 +134,18 @@ export function ClientSecretsPanel({ clientId }: { clientId: string }) {
   if (q.isLoading) {
     return <ContentCard title="Identity &amp; Access"><p className="text-xs text-muted-foreground">Loading…</p></ContentCard>;
   }
+  /* Identity records. A false "none recorded" is what somebody re-enters a
+     social security number over, which is the last thing to duplicate. */
+  if (q.isError) {
+    return (
+      <ContentCard title="Identity &amp; Access">
+        <p className="text-xs text-muted-foreground">
+          These could not be loaded. This is a problem reaching BES, not a statement
+          about this client — refresh before entering anything.
+        </p>
+      </ContentCard>
+    );
+  }
   if (secrets.length === 0) {
     return (
       <ContentCard title="Identity &amp; Access">

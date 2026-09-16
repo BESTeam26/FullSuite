@@ -246,6 +246,16 @@ function Checklist({
   const [adding, setAdding] = useState("");
   const rows = items.data ?? [];
 
+  /* Vanishing on a failed load tells an agent this client has no checklist. */
+  if (items.isError) {
+    return (
+      <ContentCard title="Checklist">
+        <p className="text-xs text-muted-foreground">
+          The checklist could not be loaded. Refresh before assuming there is none.
+        </p>
+      </ContentCard>
+    );
+  }
   if (rows.length === 0 && !canWork) return null;
 
   const done = rows.filter((r) => r.done).length;

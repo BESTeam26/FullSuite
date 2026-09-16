@@ -58,16 +58,18 @@ const claimsEmptiness = (t: string) =>
  *
  * Four spellings are legitimate and all appear in this codebase:
  *   a query object          `q.isError`, or the helpers built on it
- *   a destructured error    `const { error } = useX()`  (ClientHistoryTab)
+ *   a destructured error    `const { error } = useX()`  (ClientHistoryTab),
+ *                           possibly PREFIXED — `wsError` in TalentOps
  *   a PROP carrying it      `servicesFailed`, `failed`  — the only way a
  *                           presentational component handed its rows can know
  *
- * The prop spelling is why this is case-insensitive on "failed": missing
- * `servicesFailed` made the guard report three files as broken that handle the
- * case correctly.
+ * Both the prefix and the case matter. Missing `servicesFailed` made the guard
+ * report three correct files as broken; missing `wsError` did the same to
+ * TalentOps. A guard that cries wolf gets switched off, so it recognises every
+ * spelling this codebase actually uses.
  */
 const knowsAboutFailure = (t: string) =>
-  /hasRows|PanelState|PageLoadError|isError|\berror \?|\berror &&|\w*[Ff]ailed\s*\?/.test(t);
+  /hasRows|PanelState|PageLoadError|isError|\w*[Ee]rror\s*(\?|&&)|\w*[Ff]ailed\s*(\?|&&)/.test(t);
 
 describe("no surface reports a failed request as an empty one", () => {
   it("finds the sources to check", () => {

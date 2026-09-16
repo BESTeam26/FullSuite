@@ -52,7 +52,12 @@ export function BlockersPanel({
         <CircleSlash className="h-3.5 w-3.5" /> Blocked by
       </h4>
 
-      {open.length === 0 ? (
+      {q.isError ? (
+        /* "Nothing is blocking this task" is a statement somebody proceeds on. */
+        <p className="mt-1.5 text-xs text-muted-foreground">
+          Blockers could not be loaded — refresh before assuming there are none.
+        </p>
+      ) : open.length === 0 ? (
         <p className="mt-1.5 text-xs text-muted-foreground">Nothing is blocking this task.</p>
       ) : (
         <ul className="mt-1.5 space-y-1.5">

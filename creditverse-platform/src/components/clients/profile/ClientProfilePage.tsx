@@ -92,6 +92,25 @@ export function ClientProfilePage() {
       </div>
     );
   }
+  /* A FAILED fetch is not a missing client. The branch below says "does not
+     exist, or you are not authorized" — an existence AND authorization verdict,
+     which on a network blip sends somebody to ask why their access was removed.
+     The same shape as the Partner Portal's "No portal access" (2026-09-16). */
+  if (profile.isError) {
+    return (
+      <div className="p-8">
+        <p className="text-sm font-semibold text-foreground">This client could not be loaded</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          This is a problem reaching BES, not a change to the client or to your access.
+          Refresh to try again.
+        </p>
+        <Link to="/app/clients" className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline">
+          <ArrowLeft className="h-4 w-4" /> Back to Clients
+        </Link>
+      </div>
+    );
+  }
+
   if (!client) {
     return (
       <div className="p-8">

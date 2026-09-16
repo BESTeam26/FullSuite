@@ -14,6 +14,15 @@ export function CompanyFeedCard({ organizationId, active }: { organizationId: st
   if (!active) return null;
   const published = board.announcements.filter((a) => a.publishedAt).slice(0, 3);
   if (board.isLoading) return <div className="h-32 rounded-xl border border-border bg-card" aria-busy="true" />;
+  /* Vanishing is itself a claim — the reader concludes there are no
+     announcements. On a failure the card stays and says which it is. */
+  if (board.error) {
+    return (
+      <section className="rounded-xl border border-border bg-card p-4 text-xs text-muted-foreground">
+        Announcements could not be loaded. Refresh to try again.
+      </section>
+    );
+  }
   if (published.length === 0) return null;
 
   return (

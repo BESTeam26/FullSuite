@@ -132,6 +132,10 @@ export const AgencyHome = () => {
             >
               {announcements.isLoading ? (
                 <p className="py-3 text-center text-xs text-muted-foreground">Loading…</p>
+              ) : announcements.error ? (
+                <p className="py-3 text-center text-xs text-muted-foreground">
+                  Announcements could not be loaded.
+                </p>
               ) : announcements.announcements.length === 0 ? (
                 <p className="py-3 text-center text-xs text-muted-foreground">Nothing new.</p>
               ) : (

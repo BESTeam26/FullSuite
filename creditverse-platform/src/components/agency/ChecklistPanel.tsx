@@ -91,9 +91,13 @@ export function ChecklistPanel({ workItemId, readOnly }: { workItemId: string; r
         </div>
       )}
 
-      {items.length === 0 && readOnly && (
+      {q.isError ? (
+        <p className="mt-1 text-xs text-muted-foreground">
+          The checklist could not be loaded. Refresh to try again.
+        </p>
+      ) : items.length === 0 && readOnly ? (
         <p className="mt-1 text-xs text-muted-foreground">No checklist on this task.</p>
-      )}
+      ) : null}
     </section>
   );
 }
