@@ -28,6 +28,7 @@ import { useMessageRealtime } from "@/lib/data/use-message-realtime";
 import type { MentionAttrs } from "@/lib/activity/mentions";
 import { attachToMessage, type RichMessage } from "@/lib/data/messages";
 import { PageLoadError } from "@/components/common/QueryState";
+import { useSavedMessages, useToggleSaved } from "@/lib/data/communication-home";
 import { Avatar } from "@/components/common/Avatar";
 import { MessageRow } from "./MessageRow";
 import { MeetingPanel } from "./MeetingButton";
@@ -85,6 +86,15 @@ export function ConversationPane({
   const [showMeeting, setShowMeeting] = useState(false);
   const pendingFiles = useRef<Map<string, File[]>>(new Map());
   const retryMentions = useRef<Map<string, MentionAttrs[]>>(new Map());
+
+  /* Saved is per-reader and private. The list is small and already cached for
+     the Saved view, so knowing whether a row is in it costs no request. */
+  const savedList = useSavedMessages();
+  const toggleSaved = useToggleSaved();
+  const savedIds = useMemo(
+    () => new Set((savedList.data ?? []).map((x) => x.messageId)),
+    [savedList.data],
+  );
 
   const sender = useSendMessage(channelId);
   /* Who may be mentioned here — the set form of the predicate the notifier
@@ -225,6 +235,8 @@ export function ConversationPane({
               isMine={m.authorId === auth.user?.id}
               meUserId={auth.user?.id ?? null}
               canPin={canPin}
+              saved={savedIds.has(m.id)}
+              onToggleSave={() => toggleSaved.mutate({ messageId: m.id, saved: savedIds.has(m.id) })}
               onReact={(emoji, mine) => actions.react.mutate({ messageId: m.id, emoji, mine })}
               onReply={() => setReplyTo(m)}
               onOpenThread={() => setThreadRoot(m.id)}
@@ -316,6 +328,15 @@ function ThreadPanel({
   const auth = useAuth();
   const replies = useThread(rootId);
   const actions = useMessageActions(channelId);
+  /* Saved is per-reader and private. The list is small and already cached for
+     the Saved view, so knowing whether a row is in it costs no request. */
+  const savedList = useSavedMessages();
+  const toggleSaved = useToggleSaved();
+  const savedIds = useMemo(
+    () => new Set((savedList.data ?? []).map((x) => x.messageId)),
+    [savedList.data],
+  );
+
   const sender = useSendMessage(channelId);
   /* Same channel, same list — a thread has no membership of its own (§22). */
   const mentionable = useChannelMentionable(channelId);

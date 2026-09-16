@@ -34,7 +34,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
-  Archive, ArchiveRestore, Hash, Loader2, Lock, Plus, Search, Settings2,
+  Archive, ArchiveRestore, Hash, Loader2, Lock, MessagesSquare, Plus, Search, Settings2,
   ShieldAlert, Users, X,
   ArrowLeft,
 } from "lucide-react";
@@ -52,7 +52,10 @@ import { ConversationPane } from "@/components/communication/ConversationPane";
 import { ChannelPeoplePanel } from "@/components/communication/ChannelPeoplePanel";
 import { NewChannelForm } from "@/components/communication/NewChannelForm";
 import { StartDirectMessage } from "@/components/communication/StartDirectMessage";
-import { glyphFor, groupChannels } from "@/lib/communication/channel-groups";
+import { glyphFor, groupChannels, totalUnread } from "@/lib/communication/channel-groups";
+import {
+  CommunicationHome, HOME_ITEMS, type HomeView,
+} from "@/components/communication/CommunicationHome";
 import { ConversationGroup } from "@/components/communication/ConversationRail";
 import { useFoldedSections } from "@/lib/communication/use-folded-sections";
 import { cn } from "@/lib/utils";
@@ -81,13 +84,21 @@ export default function Channels() {
   }, [params, setParams]);
 
   const { folded, toggle: toggleSection } = useFoldedSections();
+  /* HOME and a conversation are the same slot. Opening either closes the
+     other, so the main pane always has exactly one occupant. */
+  const [homeView, setHomeView] = useState<HomeView | null>(null);
+  const openChannel = (id: string) => { setHomeView(null); setOpenId(id); };
   const [creating, setCreating] = useState(false);
   const [showPeople, setShowPeople] = useState(false);
   const [query, setQuery] = useState("");
   const search = useMessageSearch(query);
 
-  const list = channels.data ?? [];
+  /* Its own memo: `channels.data ?? []` is a new array on every render, so
+     three separate useMemos downstream recomputed every time and none of them
+     could ever hit. */
+  const list = useMemo(() => channels.data ?? [], [channels.data]);
   const groups = useMemo(() => groupChannels(list), [list]);
+  const waiting = useMemo(() => totalUnread(list), [list]);
 
   const current = useMemo(() => {
     const live = list.filter((c) => !c.archivedAt);
@@ -159,14 +170,52 @@ export default function Channels() {
         )}
 
         <div className="min-h-0 flex-1 overflow-y-auto">
+          {query.trim().length < 2 && (
+            <nav aria-label="Home" className="mb-3">
+              <p className="mb-1 px-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Home
+              </p>
+              <ul className="space-y-0.5">
+                {HOME_ITEMS.map((item) => (
+                  <li key={item.key}>
+                    <button
+                      type="button"
+                      onClick={() => setHomeView(item.key)}
+                      aria-current={homeView === item.key ? "page" : undefined}
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition-colors",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                        homeView === item.key
+                          ? "bg-primary/10 font-semibold text-foreground"
+                          : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                      )}
+                    >
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted/70">
+                        <item.icon className="h-3.5 w-3.5" />
+                      </span>
+                      <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                      {/* Only Inbox carries a count — it is the only one whose
+                          number is already known without another request. */}
+                      {item.key === "inbox" && waiting > 0 && (
+                        <span aria-label={`${waiting} unread`}
+                          className="shrink-0 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold leading-none text-primary-foreground">
+                          {waiting > 99 ? "99+" : waiting}
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          )}
           {agencyView && query.trim().length < 2 && (
-            <StartDirectMessage onOpened={setOpenId} />
+            <StartDirectMessage onOpened={openChannel} />
           )}
           {query.trim().length >= 2 ? (
             <SearchResults
               loading={search.isLoading}
               hits={search.data ?? []}
-              onOpen={(channelId) => { setOpenId(channelId); setQuery(""); }}
+              onOpen={(channelId) => { openChannel(channelId); setQuery(""); }}
             />
           ) : (
             <>
@@ -177,7 +226,7 @@ export default function Channels() {
                   activeId={current?.id ?? null}
                   folded={folded}
                   onToggleSection={toggleSection}
-                  onOpen={setOpenId}
+                  onOpen={openChannel}
                 />
               ))}
               {list.length === 0 && (
@@ -190,15 +239,41 @@ export default function Channels() {
         </div>
       </aside>
 
-      <section className={cn("min-h-0 flex-1 flex-col rounded-xl border border-border bg-card md:flex", current ? "flex" : "hidden")}>
-        {current && (
+      <section className={cn("min-h-0 flex-1 flex-col rounded-xl border border-border bg-card md:flex",
+        current || homeView ? "flex" : "hidden")}>
+        {/* HOME occupies the same slot as a conversation. Its own heading and a
+            way back, because on a phone this IS the whole screen. */}
+        {homeView && (
+          <>
+            <header className="flex h-11 shrink-0 items-center gap-1.5 border-b border-border px-3">
+              <button type="button" onClick={() => setHomeView(null)}
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground md:hidden">
+                <ArrowLeft className="h-4 w-4" /> Back
+              </button>
+              <h2 className="text-sm font-bold text-foreground">
+                {HOME_ITEMS.find((i) => i.key === homeView)?.label}
+              </h2>
+            </header>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <CommunicationHome view={homeView} channels={list} onOpenChannel={openChannel} />
+            </div>
+          </>
+        )}
+        {!homeView && current && (
           <button type="button" onClick={() => setOpenId(null)}
             className="flex h-11 items-center gap-1.5 border-b border-border px-3 text-sm font-medium text-foreground md:hidden">
             <ArrowLeft className="h-4 w-4" /> All conversations
           </button>
         )}
-        {!current ? (
-          <p className="p-6 text-sm text-muted-foreground">Pick a conversation.</p>
+        {homeView ? null : !current ? (
+          /* Dee, §"EMPTY STATES": not a large blank white area. */
+          <div className="flex h-full flex-col items-center justify-center gap-1 p-8 text-center">
+            <MessagesSquare className="h-6 w-6 text-muted-foreground/60" aria-hidden />
+            <p className="text-sm font-semibold text-foreground">Pick a conversation</p>
+            <p className="max-w-xs text-xs text-muted-foreground">
+              Choose one from the list, or open your Inbox to see what is waiting.
+            </p>
+          </div>
         ) : current.auditOnly ? (
           <AuditOnlyView channel={current} />
         ) : (

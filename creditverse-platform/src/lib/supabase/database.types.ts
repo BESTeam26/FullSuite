@@ -1291,6 +1291,143 @@ export type Database = {
           },
         ]
       }
+      billing_email_outbox: {
+        Row: {
+          agency_id: string
+          attempts: number
+          created_at: string
+          dedupe_key: string
+          group_id: string
+          id: string
+          invoice_id: string | null
+          kind: string
+          last_error: string | null
+          payload: Json
+          payment_id: string | null
+          reminder_id: string | null
+          sent_at: string | null
+          state: string
+          subject: string
+          to_email: string | null
+          to_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          attempts?: number
+          created_at?: string
+          dedupe_key: string
+          group_id: string
+          id?: string
+          invoice_id?: string | null
+          kind: string
+          last_error?: string | null
+          payload?: Json
+          payment_id?: string | null
+          reminder_id?: string | null
+          sent_at?: string | null
+          state?: string
+          subject: string
+          to_email?: string | null
+          to_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          attempts?: number
+          created_at?: string
+          dedupe_key?: string
+          group_id?: string
+          id?: string
+          invoice_id?: string | null
+          kind?: string
+          last_error?: string | null
+          payload?: Json
+          payment_id?: string | null
+          reminder_id?: string | null
+          sent_at?: string | null
+          state?: string
+          subject?: string
+          to_email?: string | null
+          to_name?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_email_outbox_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billing_email_outbox_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billing_email_outbox_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "outsourcing_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billing_email_outbox_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "partner_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billing_email_outbox_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "partner_payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billing_email_outbox_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payment_matching_review"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billing_email_outbox_reminder_id_fkey"
+            columns: ["reminder_id"]
+            isOneToOne: false
+            referencedRelation: "partner_invoice_reminders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      billing_reminder_schedule: {
+        Row: {
+          day_offset: number
+          is_final: boolean
+          label: string
+          sort: number
+          stage: string
+        }
+        Insert: {
+          day_offset: number
+          is_final?: boolean
+          label: string
+          sort: number
+          stage: string
+        }
+        Update: {
+          day_offset?: number
+          is_final?: boolean
+          label?: string
+          sort?: number
+          stage?: string
+        }
+        Relationships: []
+      }
       blocked_email_domains: {
         Row: {
           domain: string
@@ -1645,6 +1782,7 @@ export type Database = {
           organization_id: string | null
           partner_group_id: string | null
           partner_service_id: string | null
+          partner_topic: string | null
           purpose: string | null
           system_key: string | null
         }
@@ -1661,6 +1799,7 @@ export type Database = {
           organization_id?: string | null
           partner_group_id?: string | null
           partner_service_id?: string | null
+          partner_topic?: string | null
           purpose?: string | null
           system_key?: string | null
         }
@@ -1677,6 +1816,7 @@ export type Database = {
           organization_id?: string | null
           partner_group_id?: string | null
           partner_service_id?: string | null
+          partner_topic?: string | null
           purpose?: string | null
           system_key?: string | null
         }
@@ -7964,7 +8104,7 @@ export type Database = {
           created_at?: string
           emoji: string
           message_id: number
-          user_id: string
+          user_id?: string
         }
         Update: {
           created_at?: string
@@ -9245,6 +9385,115 @@ export type Database = {
           },
         ]
       }
+      partner_account_credit_ledger: {
+        Row: {
+          agency_id: string
+          amount_cents: number
+          applied_invoice_id: string | null
+          applied_payment_id: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          description: string | null
+          group_id: string
+          id: string
+          kind: string
+          source_payment_id: string | null
+        }
+        Insert: {
+          agency_id: string
+          amount_cents: number
+          applied_invoice_id?: string | null
+          applied_payment_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          description?: string | null
+          group_id: string
+          id?: string
+          kind: string
+          source_payment_id?: string | null
+        }
+        Update: {
+          agency_id?: string
+          amount_cents?: number
+          applied_invoice_id?: string | null
+          applied_payment_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          description?: string | null
+          group_id?: string
+          id?: string
+          kind?: string
+          source_payment_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_account_credit_ledger_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_account_credit_ledger_applied_invoice_id_fkey"
+            columns: ["applied_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "partner_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_account_credit_ledger_applied_payment_id_fkey"
+            columns: ["applied_payment_id"]
+            isOneToOne: false
+            referencedRelation: "partner_payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_account_credit_ledger_applied_payment_id_fkey"
+            columns: ["applied_payment_id"]
+            isOneToOne: false
+            referencedRelation: "payment_matching_review"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_account_credit_ledger_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_account_credit_ledger_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_account_credit_ledger_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "outsourcing_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_account_credit_ledger_source_payment_id_fkey"
+            columns: ["source_payment_id"]
+            isOneToOne: false
+            referencedRelation: "partner_payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_account_credit_ledger_source_payment_id_fkey"
+            columns: ["source_payment_id"]
+            isOneToOne: false
+            referencedRelation: "payment_matching_review"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       partner_action_items: {
         Row: {
           agency_id: string
@@ -10057,10 +10306,88 @@ export type Database = {
           },
         ]
       }
+      partner_invoice_reminders: {
+        Row: {
+          agency_id: string
+          balance_cents: number
+          channels: string[]
+          created_at: string
+          days_overdue: number
+          email_sent_at: string | null
+          email_state: string | null
+          email_to: string | null
+          group_id: string
+          id: string
+          invoice_id: string
+          sent_at: string
+          stage: string
+        }
+        Insert: {
+          agency_id: string
+          balance_cents: number
+          channels?: string[]
+          created_at?: string
+          days_overdue: number
+          email_sent_at?: string | null
+          email_state?: string | null
+          email_to?: string | null
+          group_id: string
+          id?: string
+          invoice_id: string
+          sent_at?: string
+          stage: string
+        }
+        Update: {
+          agency_id?: string
+          balance_cents?: number
+          channels?: string[]
+          created_at?: string
+          days_overdue?: number
+          email_sent_at?: string | null
+          email_state?: string | null
+          email_to?: string | null
+          group_id?: string
+          id?: string
+          invoice_id?: string
+          sent_at?: string
+          stage?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_invoice_reminders_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_invoice_reminders_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_invoice_reminders_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "outsourcing_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_invoice_reminders_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "partner_invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       partner_invoices: {
         Row: {
           agency_id: string
           amount_paid_cents: number
+          billing_id: string | null
           created_at: string
           created_by: string | null
           currency: string
@@ -10076,6 +10403,7 @@ export type Database = {
           payment_provider:
             | Database["public"]["Enums"]["partner_payment_provider"]
             | null
+          period_key: string | null
           sent_at: string | null
           status: Database["public"]["Enums"]["partner_invoice_status"]
           subtotal_cents: number
@@ -10088,6 +10416,7 @@ export type Database = {
         Insert: {
           agency_id: string
           amount_paid_cents?: number
+          billing_id?: string | null
           created_at?: string
           created_by?: string | null
           currency?: string
@@ -10103,6 +10432,7 @@ export type Database = {
           payment_provider?:
             | Database["public"]["Enums"]["partner_payment_provider"]
             | null
+          period_key?: string | null
           sent_at?: string | null
           status?: Database["public"]["Enums"]["partner_invoice_status"]
           subtotal_cents?: number
@@ -10115,6 +10445,7 @@ export type Database = {
         Update: {
           agency_id?: string
           amount_paid_cents?: number
+          billing_id?: string | null
           created_at?: string
           created_by?: string | null
           currency?: string
@@ -10130,6 +10461,7 @@ export type Database = {
           payment_provider?:
             | Database["public"]["Enums"]["partner_payment_provider"]
             | null
+          period_key?: string | null
           sent_at?: string | null
           status?: Database["public"]["Enums"]["partner_invoice_status"]
           subtotal_cents?: number
@@ -10145,6 +10477,20 @@ export type Database = {
             columns: ["agency_id"]
             isOneToOne: false
             referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_invoices_billing_id_fkey"
+            columns: ["billing_id"]
+            isOneToOne: false
+            referencedRelation: "billing_terms_needing_rate"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_invoices_billing_id_fkey"
+            columns: ["billing_id"]
+            isOneToOne: false
+            referencedRelation: "partner_service_billing"
             referencedColumns: ["id"]
           },
           {
@@ -10283,6 +10629,80 @@ export type Database = {
           sort?: number
         }
         Relationships: []
+      }
+      partner_payment_methods: {
+        Row: {
+          agency_id: string
+          created_at: string
+          display_label: string | null
+          enabled: boolean
+          group_id: string
+          id: string
+          instructions: string | null
+          method: string
+          pay_url: string | null
+          sort: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          display_label?: string | null
+          enabled?: boolean
+          group_id: string
+          id?: string
+          instructions?: string | null
+          method: string
+          pay_url?: string | null
+          sort?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          display_label?: string | null
+          enabled?: boolean
+          group_id?: string
+          id?: string
+          instructions?: string | null
+          method?: string
+          pay_url?: string | null
+          sort?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_payment_methods_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_payment_methods_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_payment_methods_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "outsourcing_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_payment_methods_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       partner_payments: {
         Row: {
@@ -10628,6 +11048,13 @@ export type Database = {
             columns: ["service_id"]
             isOneToOne: false
             referencedRelation: "partner_services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_service_billing_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "billing_terms_needing_rate"
             referencedColumns: ["id"]
           },
           {
@@ -13007,6 +13434,39 @@ export type Database = {
           },
         ]
       }
+      saved_messages: {
+        Row: {
+          message_id: number
+          saved_at: string
+          user_id: string
+        }
+        Insert: {
+          message_id: number
+          saved_at?: string
+          user_id?: string
+        }
+        Update: {
+          message_id?: number
+          saved_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_messages_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saved_messages_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       signature_requests: {
         Row: {
           agency_id: string
@@ -13946,6 +14406,63 @@ export type Database = {
           },
         ]
       }
+      work_item_labels: {
+        Row: {
+          added_at: string
+          added_by: string | null
+          label_id: string
+          work_item_id: string
+        }
+        Insert: {
+          added_at?: string
+          added_by?: string | null
+          label_id: string
+          work_item_id: string
+        }
+        Update: {
+          added_at?: string
+          added_by?: string | null
+          label_id?: string
+          work_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_item_labels_added_by_fkey"
+            columns: ["added_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_item_labels_label_id_fkey"
+            columns: ["label_id"]
+            isOneToOne: false
+            referencedRelation: "work_labels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_item_labels_work_item_id_fkey"
+            columns: ["work_item_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_work"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_item_labels_work_item_id_fkey"
+            columns: ["work_item_id"]
+            isOneToOne: false
+            referencedRelation: "work_attention"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_item_labels_work_item_id_fkey"
+            columns: ["work_item_id"]
+            isOneToOne: false
+            referencedRelation: "work_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       work_items: {
         Row: {
           agency_id: string
@@ -13963,6 +14480,7 @@ export type Database = {
           description: string | null
           division: Database["public"]["Enums"]["fulfillment_service"] | null
           due_at: string | null
+          estimated_minutes: number | null
           external_ref: string | null
           held_at: string | null
           held_reason: string | null
@@ -13982,6 +14500,7 @@ export type Database = {
           related_type: Database["public"]["Enums"]["work_related_type"]
           scope: Database["public"]["Enums"]["work_scope"]
           stage: Database["public"]["Enums"]["work_stage"]
+          start_at: string | null
           status_id: string | null
           subject_organization_id: string | null
           team_id: string | null
@@ -14008,6 +14527,7 @@ export type Database = {
           description?: string | null
           division?: Database["public"]["Enums"]["fulfillment_service"] | null
           due_at?: string | null
+          estimated_minutes?: number | null
           external_ref?: string | null
           held_at?: string | null
           held_reason?: string | null
@@ -14027,6 +14547,7 @@ export type Database = {
           related_type: Database["public"]["Enums"]["work_related_type"]
           scope: Database["public"]["Enums"]["work_scope"]
           stage?: Database["public"]["Enums"]["work_stage"]
+          start_at?: string | null
           status_id?: string | null
           subject_organization_id?: string | null
           team_id?: string | null
@@ -14053,6 +14574,7 @@ export type Database = {
           description?: string | null
           division?: Database["public"]["Enums"]["fulfillment_service"] | null
           due_at?: string | null
+          estimated_minutes?: number | null
           external_ref?: string | null
           held_at?: string | null
           held_reason?: string | null
@@ -14072,6 +14594,7 @@ export type Database = {
           related_type?: Database["public"]["Enums"]["work_related_type"]
           scope?: Database["public"]["Enums"]["work_scope"]
           stage?: Database["public"]["Enums"]["work_stage"]
+          start_at?: string | null
           status_id?: string | null
           subject_organization_id?: string | null
           team_id?: string | null
@@ -14214,6 +14737,54 @@ export type Database = {
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      work_labels: {
+        Row: {
+          agency_id: string
+          archived_at: string | null
+          colour: string
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          sort: number
+        }
+        Insert: {
+          agency_id: string
+          archived_at?: string | null
+          colour?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          sort?: number
+        }
+        Update: {
+          agency_id?: string
+          archived_at?: string | null
+          colour?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          sort?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_labels_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_labels_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -14601,6 +15172,41 @@ export type Database = {
       }
     }
     Views: {
+      billing_attention: {
+        Row: {
+          agency_id: string | null
+          amount_cents: number | null
+          detail: string | null
+          group_id: string | null
+          invoice_id: string | null
+          invoice_number: string | null
+          kind: string | null
+          label: string | null
+          partner_name: string | null
+          severity: string | null
+          since: string | null
+        }
+        Relationships: []
+      }
+      billing_terms_needing_rate: {
+        Row: {
+          billing_model: string | null
+          currency: string | null
+          effective_from: string | null
+          id: string | null
+          partner_name: string | null
+          payment_frequency: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_service_billing_billing_model_fkey"
+            columns: ["billing_model"]
+            isOneToOne: false
+            referencedRelation: "partner_billing_models"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
       borrower_funding_files: {
         Row: {
           agency_id: string | null
@@ -15041,6 +15647,32 @@ export type Database = {
           },
         ]
       }
+      partner_account_credit_balance: {
+        Row: {
+          added_cents: number | null
+          available_cents: number | null
+          currency: string | null
+          group_id: string | null
+          last_movement: string | null
+          used_cents: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_account_credit_ledger_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_account_credit_ledger_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "outsourcing_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       partner_credentials_with_actor: {
         Row: {
           account_name: string | null
@@ -15134,6 +15766,49 @@ export type Database = {
           },
           {
             foreignKeyName: "partner_credit_ledger_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "outsourcing_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_matching_review: {
+        Row: {
+          agency_id: string | null
+          amount_cents: number | null
+          candidate_invoices: Json | null
+          created_at: string | null
+          currency: string | null
+          group_id: string | null
+          id: string | null
+          notes: string | null
+          paid_on: string | null
+          partner_name: string | null
+          provider:
+            | Database["public"]["Enums"]["partner_payment_provider"]
+            | null
+          provider_transaction_id: string | null
+          recorded_by_name: string | null
+          source: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_payments_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_payments_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_payments_group_id_fkey"
             columns: ["group_id"]
             isOneToOne: false
             referencedRelation: "outsourcing_groups"
@@ -15523,6 +16198,10 @@ export type Database = {
         Args: { p_announcement: string; p_user: string }
         Returns: boolean
       }
+      apply_account_credit: {
+        Args: { p_amount_cents?: number; p_group: string; p_invoice: string }
+        Returns: string
+      }
       approve_dispute_letter: { Args: { p_letter: string }; Returns: undefined }
       archive_announcement: { Args: { p_id: string }; Returns: undefined }
       archive_knowledge_article: { Args: { p_id: string }; Returns: undefined }
@@ -15606,6 +16285,41 @@ export type Database = {
         Returns: boolean
       }
       bes_may_inspect_seats: { Args: { p_org: string }; Returns: boolean }
+      billing_email_dispatch: { Args: never; Returns: undefined }
+      billing_email_supersede_settled: { Args: never; Returns: number }
+      billing_period_due: {
+        Args: {
+          p_invoice_day: string
+          p_issued?: string
+          p_model: string
+          p_start: string
+        }
+        Returns: string
+      }
+      billing_period_key: {
+        Args: { p_model: string; p_on: string }
+        Returns: string
+      }
+      billing_period_start: {
+        Args: { p_model: string; p_on: string }
+        Returns: string
+      }
+      billing_reactivation_sweep: { Args: never; Returns: number }
+      billing_recurring_sweep: {
+        Args: never
+        Returns: {
+          invoices_created: number
+          terms_without_rate: number
+        }[]
+      }
+      billing_reminder_sweep: {
+        Args: never
+        Returns: {
+          invoices_marked_overdue: number
+          reminders_sent: number
+          suspensions: number
+        }[]
+      }
       bootstrap_agency_owner: {
         Args: { p_agency_slug?: string; p_email: string }
         Returns: string
@@ -16108,6 +16822,10 @@ export type Database = {
         }
         Returns: string[]
       }
+      creditops_directory_visible: {
+        Args: { p_agency: string }
+        Returns: boolean
+      }
       creditops_finalize_checklist: {
         Args: {
           p_client: string
@@ -16381,6 +17099,7 @@ export type Database = {
         Args: { p_agency: string; p_departments: string[] }
         Returns: string[]
       }
+      departments_of: { Args: { p_user: string }; Returns: string[] }
       derive_engagement_category: {
         Args: { p_engagement: string }
         Returns: string
@@ -16459,6 +17178,10 @@ export type Database = {
       ensure_general_channel: { Args: { p_org: string }; Returns: string }
       ensure_marketing_workspace: {
         Args: { p_agency: string; p_group?: string; p_name?: string }
+        Returns: string
+      }
+      ensure_talentops_workspace: {
+        Args: { p_agency: string; p_group: string; p_name?: string }
         Returns: string
       }
       enter_department_queue: {
@@ -16604,8 +17327,8 @@ export type Database = {
       in_scope: {
         Args: {
           p_agency: string
-          p_assignee: string
-          p_creator: string
+          p_assignee?: string
+          p_creator?: string
           p_division: Database["public"]["Enums"]["fulfillment_service"]
           p_team: string
         }
@@ -16642,6 +17365,7 @@ export type Database = {
         }
         Returns: string
       }
+      invoice_balance_cents: { Args: { p_invoice: string }; Returns: number }
       is_admin_of: { Args: { p_agency: string }; Returns: boolean }
       is_agency_admin: { Args: never; Returns: boolean }
       is_agency_manager_or_above: { Args: never; Returns: boolean }
@@ -16693,6 +17417,10 @@ export type Database = {
         Args: { p_action: string; p_detail: string; p_project: string }
         Returns: undefined
       }
+      log_invitation_emailed: {
+        Args: { p_invitation: string }
+        Returns: undefined
+      }
       looks_like_a_secret: { Args: { p_text: string }; Returns: boolean }
       manager_of: { Args: { p_user: string }; Returns: string }
       map_ghl_location: {
@@ -16722,6 +17450,10 @@ export type Database = {
       }
       mark_overdue_expenses: { Args: never; Returns: number }
       mark_overdue_invoices: { Args: never; Returns: number }
+      match_partner_payment: {
+        Args: { p_invoice: string; p_note?: string; p_payment: string }
+        Returns: undefined
+      }
       may_notify_mention: {
         Args: {
           p_agency: string
@@ -16733,6 +17465,10 @@ export type Database = {
       }
       may_reach_marketing: {
         Args: { p_need_work?: boolean; p_workspace: string }
+        Returns: boolean
+      }
+      may_reach_talentops: {
+        Args: { p_need_work: boolean; p_workspace: string }
         Returns: boolean
       }
       may_work_client: { Args: { p_client: string }; Returns: boolean }
@@ -16784,7 +17520,40 @@ export type Database = {
       }
       my_agency_id: { Args: never; Returns: string }
       my_client_ids: { Args: never; Returns: string[] }
+      my_communication_activity: {
+        Args: { p_limit?: number }
+        Returns: {
+          actor_id: string
+          actor_name: string
+          body_text: string
+          channel_id: string
+          channel_name: string
+          emoji: string
+          happened_at: string
+          kind: string
+          message_id: number
+        }[]
+      }
+      my_creditops_departments: {
+        Args: never
+        Returns: Database["public"]["Enums"]["fulfillment_department"][]
+      }
+      my_departments: { Args: never; Returns: string[] }
+      my_divisions: {
+        Args: never
+        Returns: Database["public"]["Enums"]["fulfillment_service"][]
+      }
       my_org_ids: { Args: never; Returns: string[] }
+      my_partner_account_credit: {
+        Args: never
+        Returns: {
+          added_cents: number
+          available_cents: number
+          currency: string
+          history: Json
+          used_cents: number
+        }[]
+      }
       my_partner_action_respond: {
         Args: { p_action: string; p_response: string }
         Returns: undefined
@@ -16804,10 +17573,102 @@ export type Database = {
           title: string
         }[]
       }
+      my_partner_agreements: {
+        Args: never
+        Returns: {
+          expires_at: string
+          id: string
+          sent_at: string
+          service: string
+          signature_name: string
+          signed_at: string
+          signer_name: string
+          status: string
+          title: string
+          token: string
+          viewed_at: string
+        }[]
+      }
+      my_partner_announcements: {
+        Args: { p_limit?: number }
+        Returns: {
+          body: string
+          id: string
+          pinned: boolean
+          published_at: string
+          tag: string
+          title: string
+        }[]
+      }
+      my_partner_billing: {
+        Args: never
+        Returns: {
+          balance_cents: number
+          group_id: string
+          next_billing_cents: number
+          next_billing_on: string
+          overdue_cents: number
+          overdue_invoices: number
+          partner_name: string
+          payment_methods: string
+          suspended: boolean
+          suspended_at: string
+          suspension_detail: string
+        }[]
+      }
+      my_partner_client: {
+        Args: { p_public_id: string }
+        Returns: {
+          action_detail: string
+          action_id: string
+          action_kind: string
+          action_needed: boolean
+          action_title: string
+          created_at: string
+          current_department: string
+          current_work: string
+          email: string
+          last_activity_at: string
+          lifecycle: string
+          name: string
+          open_items: number
+          phone: string
+          processed_on: string
+          public_id: string
+          round: string
+          status: string
+          waiting: boolean
+        }[]
+      }
+      my_partner_client_files: {
+        Args: { p_public_id: string }
+        Returns: {
+          id: string
+          mime_type: string
+          name: string
+          path: string
+          shared_at: string
+          size_bytes: number
+        }[]
+      }
+      my_partner_client_timeline: {
+        Args: { p_limit?: number; p_public_id: string }
+        Returns: {
+          action: string
+          actor_name: string
+          detail: string
+          happened_at: string
+          id: number
+        }[]
+      }
       my_partner_clients: {
         Args: { p_include_closed?: boolean }
         Returns: {
+          action_needed: boolean
+          action_title: string
           created_at: string
+          current_department: string
+          current_work: string
           email: string
           last_activity_at: string
           lifecycle: string
@@ -16817,6 +17678,7 @@ export type Database = {
           public_id: string
           round: string
           status: string
+          waiting: boolean
         }[]
       }
       my_partner_credential_archive: {
@@ -16866,9 +17728,76 @@ export type Database = {
           username: string
         }[]
       }
+      my_partner_credits: {
+        Args: never
+        Returns: {
+          added: number
+          available: number
+          history: Json
+          unit: string
+          used: number
+        }[]
+      }
+      my_partner_invoices: {
+        Args: never
+        Returns: {
+          amount_paid_cents: number
+          balance_cents: number
+          currency: string
+          due_date: string
+          id: string
+          invoice_number: string
+          issue_date: string
+          notes: string
+          period_key: string
+          status: string
+          total_cents: number
+        }[]
+      }
       my_partner_onboarding_complete: {
         Args: { p_confirm: boolean }
         Returns: string
+      }
+      my_partner_payment_methods: {
+        Args: never
+        Returns: {
+          instructions: string
+          label: string
+          method: string
+          pay_url: string
+          sort: number
+        }[]
+      }
+      my_partner_payments: {
+        Args: never
+        Returns: {
+          amount_cents: number
+          currency: string
+          id: string
+          invoice_number: string
+          method: string
+          paid_on: string
+          reference: string
+          status: string
+        }[]
+      }
+      my_partner_portal_summary: {
+        Args: never
+        Returns: {
+          actions_needed: number
+          active_clients: number
+          active_services: number
+          balance_cents: number
+          group_id: string
+          has_account_credit: boolean
+          has_agreements: boolean
+          has_processing_credits: boolean
+          has_referrals: boolean
+          overdue_invoices: number
+          partner_name: string
+          suspended: boolean
+          unread_messages: number
+        }[]
       }
       my_partner_profile_save: { Args: { p: Json }; Returns: undefined }
       my_partner_projects: {
@@ -16900,6 +17829,32 @@ export type Database = {
         Args: { p_action: string; p_approved: boolean; p_comment?: string }
         Returns: undefined
       }
+      my_partner_services: {
+        Args: never
+        Returns: {
+          detail: string
+          ends_on: string
+          engagement_id: string
+          link_id: string
+          link_kind: string
+          milestone: string
+          module: string
+          module_label: string
+          open_items: number
+          service_label: string
+          started_on: string
+          status: string
+        }[]
+      }
+      my_partner_team: {
+        Args: never
+        Returns: {
+          is_primary: boolean
+          name: string
+          role_label: string
+          user_id: string
+        }[]
+      }
       my_partner_updates: {
         Args: { p_limit?: number }
         Returns: {
@@ -16915,6 +17870,19 @@ export type Database = {
         Returns: {
           allowed: boolean
           key: string
+        }[]
+      }
+      my_saved_messages: {
+        Args: { p_limit?: number }
+        Returns: {
+          author_id: string
+          author_name: string
+          body_text: string
+          channel_id: string
+          channel_name: string
+          created_at: string
+          message_id: number
+          saved_at: string
         }[]
       }
       next_dst_transitions: {
@@ -17052,6 +18020,14 @@ export type Database = {
         Args: { p_id: string; p_reason?: string; p_table: string }
         Returns: Json
       }
+      partner_billing_email: {
+        Args: { p_group: string }
+        Returns: {
+          email: string
+          name: string
+        }[]
+      }
+      partner_billing_group_of_user: { Args: never; Returns: string }
       partner_client_counts: {
         Args: never
         Returns: {
@@ -17112,6 +18088,10 @@ export type Database = {
         }
         Returns: string
       }
+      partner_direct_channel: {
+        Args: { p_group: string; p_other: string }
+        Returns: string
+      }
       partner_group_of_user: { Args: never; Returns: string }
       partner_invoice_recompute: {
         Args: { p_invoice: string }
@@ -17119,6 +18099,10 @@ export type Database = {
       }
       partner_is_suspended: { Args: { p_group: string }; Returns: boolean }
       partner_portal_eligible: { Args: { p_group: string }; Returns: boolean }
+      partner_topic_channel: {
+        Args: { p_group: string; p_topic: string }
+        Returns: string
+      }
       partners_visible_to_user: {
         Args: { p_user: string }
         Returns: {
@@ -17143,6 +18127,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      queue_reminder_email: { Args: { p_reminder: string }; Returns: undefined }
       raise_partner_action: {
         Args: {
           p_client: string
@@ -17186,6 +18171,19 @@ export type Database = {
       record_owner: {
         Args: { p_entity_id: string; p_entity_type: string }
         Returns: Record<string, unknown>
+      }
+      record_partner_payment: {
+        Args: {
+          p_amount_cents: number
+          p_currency?: string
+          p_group: string
+          p_invoice?: string
+          p_note?: string
+          p_paid_on?: string
+          p_provider: Database["public"]["Enums"]["partner_payment_provider"]
+          p_reference?: string
+        }
+        Returns: string
       }
       record_payment_method: {
         Args: {
@@ -17716,6 +18714,18 @@ export type Database = {
         }
         Returns: string
       }
+      talentops_partners: {
+        Args: never
+        Returns: {
+          agents: number
+          due_today: number
+          group_id: string
+          open_tasks: number
+          overdue: number
+          partner_name: string
+          workspace_id: string
+        }[]
+      }
       team_birthdays: {
         Args: { p_org: string; p_within_days?: number }
         Returns: {
@@ -17763,6 +18773,7 @@ export type Database = {
           agency_id: string
           archived_at: string
           audit_only: boolean
+          direct_user_id: string
           display_name: string
           id: string
           is_manager: boolean
@@ -17775,6 +18786,7 @@ export type Database = {
           partner_group_id: string
           partner_name: string
           partner_service_id: string
+          partner_topic: string
           purpose: string
           service_name: string
           shared_with_bes: boolean
@@ -17782,6 +18794,14 @@ export type Database = {
         }[]
       }
       void_signature_request: { Args: { p_id: string }; Returns: undefined }
+      work_item_readable: { Args: { p_item: string }; Returns: boolean }
+      work_item_time: {
+        Args: { p_item: string }
+        Returns: {
+          actual_minutes: number
+          estimated_minutes: number
+        }[]
+      }
       workspace_reach: {
         Args: {
           p_assignee?: string
@@ -17827,6 +18847,7 @@ export type Database = {
         | "organization"
         | "all_organizations"
         | "bes_internal"
+        | "partners"
       automated_review_status:
         | "no_issue_detected"
         | "review_recommended"
@@ -18556,6 +19577,7 @@ export const Constants = {
         "organization",
         "all_organizations",
         "bes_internal",
+        "partners",
       ],
       automated_review_status: [
         "no_issue_detected",

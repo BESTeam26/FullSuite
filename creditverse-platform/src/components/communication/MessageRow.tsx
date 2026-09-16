@@ -14,6 +14,7 @@
  */
 import { useEffect, useState } from "react";
 import {
+  Bookmark, BookmarkCheck,
   Check, CornerUpLeft, Download, History, MessageSquare, Megaphone,
   MoreHorizontal, Paperclip, Pencil, Pin, PinOff, SmilePlus, Trash2, X,
 } from "lucide-react";
@@ -35,6 +36,12 @@ export interface MessageRowProps {
   onReply: () => void;
   onOpenThread: () => void;
   onPin: () => void;
+  /* Saving is private to the reader, so it is state the CONTAINER owns and
+     this component is handed — the same shape as every other action here.
+     It briefly fetched its own, which made a presentational component require
+     a QueryClient and broke seven tests that had no reason to provide one. */
+  saved?: boolean;
+  onToggleSave?: () => void;
   onDelete: () => void;
   /** §56 — your OWN message only. The policy refuses everybody else. */
   onEdit?: (bodyText: string) => void;
@@ -46,7 +53,7 @@ export interface MessageRowProps {
 
 export function MessageRow({
   message: m, isMine, meUserId, canPin, onReact, onReply, onOpenThread, onPin, onDelete,
-  onEdit, onRetry, onDismissFailed, compact = false,
+  onEdit, onRetry, onDismissFailed, compact = false, saved = false, onToggleSave,
 }: MessageRowProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -241,6 +248,12 @@ export function MessageRow({
 
       {menuOpen && (
         <div className="absolute right-1 top-8 z-10 min-w-[10rem] rounded-md border border-border bg-card p-1 shadow-md">
+          {/* Saving is private and available to everyone — pinning is a channel
+              manager's act on everyone's behalf; saving is yours alone. */}
+          {onToggleSave && (
+            <MenuItem icon={saved ? BookmarkCheck : Bookmark} label={saved ? "Remove from Saved" : "Save"}
+              onClick={() => { onToggleSave(); setMenuOpen(false); }} />
+          )}
           {canPin && (
             <MenuItem icon={m.pinned ? PinOff : Pin} label={m.pinned ? "Unpin" : "Pin to channel"}
               onClick={() => { onPin(); setMenuOpen(false); }} />
@@ -253,9 +266,6 @@ export function MessageRow({
           {isMine && (
             <MenuItem icon={Trash2} label="Delete" tone="danger"
               onClick={() => { onDelete(); setMenuOpen(false); }} />
-          )}
-          {!canPin && !isMine && (
-            <p className="px-2 py-1.5 text-[11px] text-muted-foreground">Nothing else to do here.</p>
           )}
         </div>
       )}

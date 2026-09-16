@@ -86,6 +86,12 @@ vi.mock("@/lib/data/use-message-realtime", () => ({
      it not to open a socket. */
   useMessageRealtime: () => undefined,
 }));
+vi.mock("@/lib/data/communication-home", () => ({
+  /* Saved is per-reader state the pane fetches; these tests are about what the
+     screen does with messages, not about the saved list. */
+  useSavedMessages: () => ({ data: [], isPending: false, isError: false }),
+  useToggleSaved: () => ({ mutate: vi.fn() }),
+}));
 vi.mock("@/lib/data/use-messages", () => ({
   useRichMessages: () => ({ data: messages, isLoading: false, refetch: vi.fn() }),
   useThread: () => ({ data: [], isLoading: false }),

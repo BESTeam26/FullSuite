@@ -50,6 +50,12 @@ vi.mock("@/lib/data/use-message-realtime", () => ({
      it not to open a socket. */
   useMessageRealtime: () => undefined,
 }));
+vi.mock("@/lib/data/communication-home", () => ({
+  /* Saved is per-reader state the pane fetches; these tests are about what the
+     screen does with messages, not about the saved list. */
+  useSavedMessages: () => ({ data: [], isPending: false, isError: false }),
+  useToggleSaved: () => ({ mutate: vi.fn() }),
+}));
 vi.mock("@/lib/data/use-messages", () => ({
   useRichMessages: () => ({ data: messages, isLoading: false, refetch: vi.fn() }),
   useThread: () => ({ data: [], isLoading: false }),
@@ -181,7 +187,11 @@ describe("archived conversations keep their history and take no more (§30)", ()
     channels = [channel({ archivedAt: "2026-09-01T00:00:00Z" })];
     render();
     expect(screen.getByText("Archived")).toBeInTheDocument();
-    expect(screen.getByText("Pick a conversation.")).toBeInTheDocument();
+    /* The rule is that nothing is opened — asserted by the absence of a
+       composer rather than by the exact words of the placeholder, which
+       changed when the empty state stopped being a bare sentence. */
+    expect(screen.queryByRole("textbox", { name: /Message/ })).not.toBeInTheDocument();
+    expect(screen.getByText(/Pick a conversation/)).toBeInTheDocument();
   });
 
   it("opens read-only when you ask for it, and says why", () => {
