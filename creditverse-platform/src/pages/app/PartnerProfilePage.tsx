@@ -220,7 +220,7 @@ export const PartnerProfilePage = () => {
         </TabsList>
 
         <TabsContent value="overview" className="mt-3">
-          <PartnerOverviewTab partner={p} services={serviceRows} people={people} teams={teams}
+          <PartnerOverviewTab partner={p} services={serviceRows} servicesFailed={services.isError} people={people} teams={teams}
             clientCount={clientCount} catalogue={typeLabels} />
         </TabsContent>
         <TabsContent value="services" className="mt-3">
@@ -236,7 +236,7 @@ export const PartnerProfilePage = () => {
           <PartnerContactsTab groupId={p.id} />
         </TabsContent>
         <TabsContent value="team" className="mt-3">
-          <PartnerTeamTab partner={p} services={serviceRows} people={people} teams={teams} />
+          <PartnerTeamTab partner={p} services={serviceRows} servicesFailed={services.isError} people={people} teams={teams} />
         </TabsContent>
         {perms.can("partners.files.view") && (
           <TabsContent value="files" className="mt-3">

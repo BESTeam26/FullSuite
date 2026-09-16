@@ -800,8 +800,7 @@ designed together and built in sequence so the shared extensions are made once.
 
 ## D-015 — Internal surfaces still report a failed load as an empty one
 
-**Raised:** 2026-09-16, during production release certification.
-**Classification:** P2. **Status:** DEFERRED — portal half is DONE and guarded.
+**Raised:** 2026-09-16. **Status:** PARTIALLY DONE — 32 remain, down from 39.
 
 ### The defect
 
@@ -813,44 +812,46 @@ if (rows.length === 0) return <p>Nothing yet.</p>;
 ```
 
 `data` is undefined **while the request is in flight and after it fails**, so a
-failed query renders as a confident factual claim: *you have none*. This has
-shipped before — it is the Partner-folder PostgREST error that appeared as empty
-folders.
+failure renders as a confident factual claim: *you have none*. This has shipped
+before — it is the Partner-folder PostgREST error that appeared as empty folders.
 
-### What was fixed now, and why only that
+### I OVER-REPORTED THIS TWICE, AND THE CORRECTION MATTERS
 
-Dee, 2026-09-16: *"A failed API call must not render as '0 results' unless zero
-is actually known. This is especially important because the Partner-folder
-PostgREST bug previously rendered a backend error as empty folders."*
+It was first written up as 89, then 79. Both were wrong. The detector looked only
+for `isError`, so it counted every file that handles the failure by a
+**destructured `error`** — `ClientHistoryTab` does exactly that and gets it
+perfectly right — and later every file using a **`somethingFailed` prop**, which
+is the only way a presentational component handed its rows can know.
 
-**Every Partner Portal surface is fixed** — Overview, Clients, Client detail,
-Services, Agreements, Updates, Messages, Billing, Action Needed, Recent Updates,
-Partner Information, and the shared Portal sections. Plus the two finance panels
-(Expenses, Payroll) that had no error branch. `AllInvoicesPanel` already had one.
+With all four spellings recognised the real figure was **39**, and it is now
+**32**. A backlog inflated to nearly three times its size sends somebody
+chasing files that are already correct.
 
-The tools are `hasRows()` in `src/lib/ui/query-rows.ts` and `<PanelState>` /
-`<PageLoadError>` in `src/components/common/QueryState.tsx`, and
-`src/pages/portal/portal-states.test.ts` reads the source so a new portal page
-written the old way fails the suite rather than shipping.
+### Done
 
-### What remains
+Every Partner Portal surface. Communication. `ClientDocumentsTab` — Dee's own
+example, *"No blank Documents 0 when canonical files exist"*. The money and
+credential surfaces, where a false "none" is acted on: partner invoices,
+expenses, payroll, credentials, contacts, services, files, activity, billing
+terms, overview and team.
 
-**89 query-backed internal surfaces** still make an empty claim with no error
-branch — agency dashboards, team workspaces, EOD, partner tabs, workspace lists.
+Three of those are presentational and take a `servicesFailed` / `failed` prop
+from the parent that owns the query — the same shape as `MessageRow`, because a
+component handed an array genuinely cannot tell empty from broken.
 
-Deferred rather than fixed because the blast radius is different: a BES employee
-who sees "no rows" on an internal panel is momentarily confused, and can refresh.
-A partner told they have no invoices, no actions and no clients is being told
-something false about their own account, by the company they pay.
+`src/pages/portal/portal-states.test.ts` reads the source of five directories and
+fails a new surface written the old way.
 
-### How to finish it
+### What remains, and the honest reason
 
-Not by hand, 89 times. Several of these read custom hooks that return
-`{ rows, isLoading }` and **never expose `isError` at all** — the hook drops it,
-so the page could not report a failure even if it wanted to. That is the real
-work: widen those hook return types first, then apply `hasRows` / `<PanelState>`,
-then widen `portal-states.test.ts` to cover `src/pages/app` and
-`src/components/agency` so the guard holds everywhere.
+32 files, mostly FundingOps workspaces, client profile panels and settings
+sections. They are lower-harm than what is fixed: a BES employee seeing "none"
+on an internal panel refreshes; a partner told they have no invoices believes it.
 
-Re-measure with the heuristic in the certification notes; do not trust a file
+Several read hooks that return `{ rows, isLoading }` and **never expose
+`isError`**, so the page could not report a failure even if it wanted to. That
+hook widening is the real remaining work, not 32 more component edits.
+
+Re-measure with the detector in `portal-states.test.ts`; do not trust a file
+that merely mentions `isError` somewhere.
 that merely mentions `isError` somewhere.

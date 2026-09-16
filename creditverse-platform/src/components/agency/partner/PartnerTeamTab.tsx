@@ -39,9 +39,12 @@ import type { AgencyPartner } from "@/lib/data/agency-partners";
 import type { PartnerService } from "@/lib/data/partner-services";
 import type { AgencyPerson, AgencyTeam } from "@/lib/data/agency-workforce";
 
-export function PartnerTeamTab({ partner, services, people, teams }: {
+export function PartnerTeamTab({ partner, services, servicesFailed = false, people, teams }: {
   partner: AgencyPartner;
   services: PartnerService[];
+  /* Whether the services FETCH failed. Passed in, because this component is
+     handed its rows and only its parent can tell empty from broken. */
+  servicesFailed?: boolean;
   people: AgencyPerson[];
   teams: AgencyTeam[];
 }) {
@@ -98,7 +101,14 @@ export function PartnerTeamTab({ partner, services, people, teams }: {
       </ContentCard>
 
       <ContentCard title="Who runs each service">
-        {services.length === 0 ? (
+        {servicesFailed ? (
+          /* The services list did not load. "No services yet" here would be a
+             statement about the account, and somebody adds a duplicate over it. */
+          <p className="py-4 text-sm text-muted-foreground">
+            The services could not be loaded. This is a problem reaching BES, not a
+            statement about this partner. Refresh to try again.
+          </p>
+        ) : services.length === 0 ? (
           <p className="py-4 text-sm text-muted-foreground">
             No services yet, so nothing to staff. Assignment per engagement is set on the
             Services tab.

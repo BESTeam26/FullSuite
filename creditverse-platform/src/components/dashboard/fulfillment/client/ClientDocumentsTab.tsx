@@ -101,9 +101,17 @@ export function ClientDocumentsTab({ clientId }: { clientId: string }) {
         )}
       >
         <p className="text-xs text-muted-foreground">
-          {rows.length === 0
-            ? "No documents on this client yet."
-            : `${rows.length} ${rows.length === 1 ? "document" : "documents"} · drop files here to add more`}
+          {/* Dee, 2026-09-16: "No blank Documents 0 when canonical files
+              exist." `rows` is `data ?? []`, so a failed fetch used to say a
+              client had no documents — which is a claim about the client, and
+              the sort of thing somebody re-uploads a file over. */}
+          {docs.isError
+            ? "Documents could not be loaded. This is a problem reaching BES, not a change to this client."
+            : docs.isPending
+              ? "Loading documents…"
+              : rows.length === 0
+                ? "No documents on this client yet."
+                : `${rows.length} ${rows.length === 1 ? "document" : "documents"} · drop files here to add more`}
         </p>
         <input
           ref={inputRef}

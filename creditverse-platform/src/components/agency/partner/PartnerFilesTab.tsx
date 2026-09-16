@@ -103,6 +103,11 @@ export function PartnerFilesTab({ groupId }: { groupId: string }) {
         <p className="py-6 text-center text-sm text-muted-foreground">
           <Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Loading…
         </p>
+      ) : files.isError ? (
+        /* Never the empty state on a failed load: it reads as a fact about
+           this partner, and somebody acts on it. */
+        <Empty title="The file list could not be loaded"
+          hint="This is a problem reaching BES, not a statement about this partner. Refresh to try again." />
       ) : rows.length === 0 ? (
         <Empty title="No documents filed against this partner"
           hint="Files here are private to BES. Sharing one to the partner's portal is a separate, deliberate step." />

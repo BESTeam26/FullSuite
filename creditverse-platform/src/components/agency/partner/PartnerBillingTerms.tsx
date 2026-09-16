@@ -37,9 +37,12 @@ const STATUS_TONE: Record<string, string> = {
 const money = (cents: number | null | undefined) =>
   cents === null || cents === undefined ? "—" : formatMoney(cents / 100);
 
-export function PartnerBillingTerms({ groupId, services, billing, canEdit }: {
+export function PartnerBillingTerms({ groupId, services, servicesFailed = false, billing, canEdit }: {
   groupId: string;
   services: PartnerService[];
+  /* Whether the services FETCH failed. Passed in, because this component is
+     handed its rows and only its parent can tell empty from broken. */
+  servicesFailed?: boolean;
   billing: Record<string, PartnerBilling>;
   canEdit: boolean;
 }) {
@@ -51,7 +54,14 @@ export function PartnerBillingTerms({ groupId, services, billing, canEdit }: {
 
   return (
     <ContentCard title="Billing terms">
-      {services.length === 0 ? (
+      {servicesFailed ? (
+        /* The services list did not load. "No services yet" here would be a
+           statement about the account, and somebody adds a duplicate over it. */
+        <p className="py-4 text-sm text-muted-foreground">
+          The services could not be loaded. This is a problem reaching BES, not a
+          statement about this partner. Refresh to try again.
+        </p>
+      ) : services.length === 0 ? (
         <Empty title="Add a service first"
           hint="Terms hang off a service engagement, because a partner with three services has three sets of terms and one of them may be a fixed-price build." />
       ) : (

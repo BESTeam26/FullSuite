@@ -29,6 +29,11 @@ export function PartnerActivityTab({ groupId }: { groupId: string }) {
         <p className="py-6 text-center text-sm text-muted-foreground">
           <Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Loading…
         </p>
+      ) : timeline.isError ? (
+        /* Never the empty state on a failed load: it reads as a fact about
+           this partner, and somebody acts on it. */
+        <Empty title="The activity could not be loaded"
+          hint="This is a problem reaching BES, not a statement about this partner. Refresh to try again." />
       ) : (timeline.data ?? []).length === 0 ? (
         <Empty title="Nothing recorded yet"
           hint="Lifecycle changes, health judgements and financial events are written here automatically as they happen." />

@@ -39,11 +39,15 @@ const STATUS_TONE: Record<string, string> = {
   cancelled: "border-border bg-muted text-muted-foreground",
 };
 
-export function PartnerInvoiceList({ groupId, services, invoices, loading, canManage }: {
+export function PartnerInvoiceList({ groupId, services, invoices, loading, failed = false, canManage }: {
   groupId: string;
   services: PartnerService[];
   invoices: PartnerInvoice[];
   loading: boolean;
+  /* Whether the FETCH failed, which is not the same as there being none.
+     Passed in rather than fetched here: this component is handed its rows, so
+     only its parent can tell the difference (the same shape as MessageRow). */
+  failed?: boolean;
   canManage: boolean;
   canRecordPayment: boolean;
 }) {
@@ -74,6 +78,11 @@ export function PartnerInvoiceList({ groupId, services, invoices, loading, canMa
         <p className="py-4 text-center text-sm text-muted-foreground">
           <Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Loading…
         </p>
+      ) : failed ? (
+        /* Never "No invoices yet" on a failed load. On a money page that reads
+           as "this partner owes nothing", which somebody acts on. */
+        <Empty title="Invoices could not be loaded"
+          hint="This is a problem reaching BES, not a statement about this partner's billing. Refresh to try again." />
       ) : invoices.length === 0 ? (
         <Empty title="No invoices yet"
           hint="BES owns the obligation; a payment provider only executes it. Raising the invoice here is what makes the money owed visible on the dashboard." />

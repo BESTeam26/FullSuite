@@ -106,6 +106,11 @@ export function PartnerContactsTab({ groupId }: { groupId: string }) {
         <p className="py-6 text-center text-sm text-muted-foreground">
           <Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Loading…
         </p>
+      ) : contacts.isError ? (
+        /* "Nobody recorded yet" on a failed load invites somebody to add a
+           contact who already exists, and then to invite them twice. */
+        <Empty title="Contacts could not be loaded"
+          hint="This is a problem reaching BES, not a statement about this partner. Refresh before adding anybody." />
       ) : rows.length === 0 ? (
         <Empty title="Nobody recorded yet"
           hint="Add a contact to invite them to the partner portal. A contact exists before they activate, and cannot sign in until they do." />

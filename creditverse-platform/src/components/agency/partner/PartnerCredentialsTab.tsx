@@ -107,7 +107,20 @@ export const PartnerCredentialsTab = ({ groupId, partner }: { groupId: string; p
         </div>
       )}
 
-      {!credentials.isLoading && rows.length === 0 && (
+      {/* A failed load must never read as "no logins recorded" — that is the
+          claim somebody acts on by creating a second credential for an account
+          that already has one. */}
+      {credentials.isError && (
+        <Card className="p-8 text-center">
+          <KeyRound className="mx-auto mb-2 h-8 w-8 stroke-1 text-amber-600 opacity-70" />
+          <p className="text-sm font-semibold text-foreground">Logins could not be loaded</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            This is a problem reaching BES, not a statement about this partner.
+            Refresh before adding anything, so you do not create a second copy.
+          </p>
+        </Card>
+      )}
+      {!credentials.isLoading && !credentials.isError && rows.length === 0 && (
         <Card className="p-8 text-center">
           <KeyRound className="mx-auto mb-2 h-8 w-8 stroke-1 text-muted-foreground opacity-50" />
           <p className="text-sm font-semibold text-foreground">No logins recorded</p>
@@ -334,9 +347,13 @@ const CredentialHistory = ({ credentialId }: { credentialId: string }) => {
       {events.isLoading && (
         <p className="text-[11px] text-muted-foreground">Loading the access record…</p>
       )}
-      {!events.isLoading && (events.data ?? []).length === 0 && (
+      {events.isError ? (
+        <p className="text-[11px] text-muted-foreground">
+          The history could not be loaded. Refresh to try again.
+        </p>
+      ) : !events.isLoading && (events.data ?? []).length === 0 ? (
         <p className="text-[11px] text-muted-foreground">Nothing recorded yet.</p>
-      )}
+      ) : null}
       <ul className="space-y-1">
         {(events.data ?? []).map((e) => (
           <li key={e.id} className="flex flex-wrap items-baseline gap-x-1.5 text-[11px]">

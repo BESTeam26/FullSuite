@@ -98,6 +98,11 @@ export function PartnerServicesTab({ groupId, people, teams }: {
           <p className="py-6 text-center text-sm text-muted-foreground">
             <Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Loading…
           </p>
+        ) : services.isError ? (
+          /* Never the empty state on a failed load: it reads as a fact about
+             this partner, and somebody acts on it. */
+          <Empty title="The services could not be loaded"
+            hint="This is a problem reaching BES, not a statement about this partner. Refresh to try again." />
         ) : rows.length === 0 ? (
           <Empty
             title="No services recorded yet"

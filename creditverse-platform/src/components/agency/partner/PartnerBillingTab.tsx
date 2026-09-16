@@ -112,6 +112,7 @@ export function PartnerBillingTab({ groupId, people }: { groupId: string; people
         services={services.data ?? []}
         invoices={invoices.data ?? []}
         loading={invoices.isLoading}
+        failed={invoices.isError}
         canManage={perms.can("partners.invoices.manage")}
         canRecordPayment={perms.can("partners.payments.record")}
       />
