@@ -46,6 +46,7 @@ import {
   PortalFiles,
 } from "@/components/portal/PortalSections";
 import { useMyPartner, usePartnerContacts } from "@/lib/data/use-agency-partners";
+import { PageLoadError } from "@/components/common/QueryState";
 
 /** Copy for each page's heading, in one place so the shell stays generic. */
 const HEADINGS: Record<PortalPageId, { title: string; description?: string }> = {
@@ -82,6 +83,36 @@ export const PartnerPortal = () => {
   const summary = usePortalSummary();
 
   if (summary.isLoading) return <PortalShellLoading />;
+  /*
+   * A FAILED SUMMARY IS NOT A REVOKED ACCOUNT.
+   *
+   * This read `if (!summary.data)` and showed "This account does not have
+   * partner portal access" — an authorization verdict — whenever the request
+   * merely failed. Seen in production on 2026-09-16: a handful of 403s from
+   * Vercel's bot protection, and a partner whose access was demonstrably
+   * intact was told she had none. She would have rung BES to be let back in.
+   *
+   * `isError` first, and the wording says whose problem it is.
+   */
+  if (summary.isError) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-6">
+        <div className="w-full max-w-md">
+          <PageLoadError what="Your account" />
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+            <button type="button" onClick={() => window.location.reload()}
+              className="rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              Reload
+            </button>
+            <button type="button" onClick={() => void signOut()}
+              className="rounded-lg border border-border px-3 py-1.5 text-sm font-semibold text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              Sign out
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
   if (!summary.data) return <NoAccess onSignOut={() => void signOut()} />;
 
   const s = summary.data;

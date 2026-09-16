@@ -28,6 +28,47 @@ export const FullScreenSpinner = () => (
   </div>
 );
 
+/**
+ * We could not read what this person may do — which is NOT the same as their
+ * having no access, and must never be worded as if it were.
+ *
+ * Dee, 2026-09-16, from production: a few 403s from Vercel's bot protection
+ * were enough to show an authorized partner "This account does not have
+ * partner portal access". Reloading is the correct remedy, so the button says
+ * so instead of offering Sign out — signing out is the one action that makes a
+ * transient failure harder to recover from.
+ */
+const AccessUnavailable = () => {
+  const { displayName, identityError, signOut } = useAuth();
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background p-6">
+      <div className="max-w-md rounded-2xl border border-border bg-card p-8 text-center shadow-sm">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10 text-status-warning">
+          <ShieldAlert className="h-6 w-6" />
+        </div>
+        <h1 className="text-lg font-bold text-foreground">
+          We could not load your access
+        </h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          You are signed in as{" "}
+          <span className="font-medium text-foreground">{displayName}</span>.
+          This is a problem reaching BES, not a change to your account — nothing
+          has been removed. Reload to try again.
+        </p>
+        {identityError && (
+          <p className="mt-2 text-xs text-muted-foreground">{identityError}</p>
+        )}
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+          <Button onClick={() => window.location.reload()}>Reload</Button>
+          <Button variant="outline" onClick={() => void signOut()}>
+            <LogOut className="mr-2 h-4 w-4" /> Sign out
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const NoAccess = () => {
   const { displayName, signOut } = useAuth();
   return (
@@ -75,6 +116,9 @@ export const RequireAuth = ({ children }: { children: ReactNode }) => {
   if (status === "signed-out") {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
+  /* Before the access verdict, because "we could not read it" outranks
+     "you do not have it" — the second is a claim we have not earned. */
+  if (status === "unavailable") return <AccessUnavailable />;
   if (mode === "live" && !hasAnyAccess) return <NoAccess />;
 
   /* ── WHERE AN AUTHENTICATED PERSON ACTUALLY BELONGS ──────────────────────

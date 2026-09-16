@@ -45,7 +45,12 @@ export type TeamMembership = Tables<"team_memberships">;
 export type AgencyRole = Enums<"agency_role">;
 export type AccessScope = Enums<"access_scope">;
 
-export type AuthStatus = "loading" | "signed-out" | "signed-in";
+/*
+ * "unavailable" = we know who they are, but we could NOT read what they may
+ * do. It exists so that failure has somewhere to go other than "signed-in with
+ * no access", which is a statement about the person rather than the request.
+ */
+export type AuthStatus = "loading" | "signed-out" | "signed-in" | "unavailable";
 
 export interface SignUpOptions {
   /** Present only for self-serve sign-up: the organization and its trial are
@@ -91,6 +96,8 @@ export interface AuthContextValue {
   teamIds: string[];
   ledTeamIds: string[];
   hasAnyAccess: boolean;
+  /** Set only when status is "unavailable": why their access could not be read. */
+  identityError: string | null;
   displayName: string;
   /** Actions */
   signInWithPassword: (
@@ -191,6 +198,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
    * partner met "No workspace access" (Dee's live test, 2026-09-12).
    */
   const [partnerContacts, setPartnerContacts] = useState<PartnerContact[]>([]);
+  /** Why identity could not be read, when it could not. */
+  const [identityError, setIdentityError] = useState<string | null>(null);
 
   const readIdentity = useCallback(async (userId: string) => {
     if (!supabase) return;
@@ -216,6 +225,37 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .eq("user_id", userId)
         .eq("status", "active"),
     ]);
+    /*
+     * A FAILED QUERY IS NOT AN EMPTY ONE.
+     *
+     * Dee hit this in production on 2026-09-16: Vercel bot protection answered
+     * 403 to a few requests, and a fully authorized partner contact was shown
+     * "This account does not have partner portal access".
+     *
+     * The cause is `?? []`. Every line below used to take the data and ignore
+     * the error, so one failed membership read became an empty array, and
+     * `hasAnyAccess` — which is just "are all these arrays empty?" — computed
+     * false. The person was then told they had never been added to the agency.
+     * That is the same sentence 95a6653 fixed for a missing READ; this is the
+     * same sentence caused by a failed one.
+     *
+     * So the errors are collected and re-thrown. `loadIdentity` already
+     * refuses to cache a rejection, so the next attempt retries cleanly, and
+     * the boot path below turns it into "we could not load this" rather than a
+     * verdict about who they are.
+     */
+    const failed = [
+      ["profile", p.error], ["agency membership", am.error],
+      ["organization memberships", om.error], ["external memberships", em.error],
+      ["team memberships", tm.error], ["partner contacts", pc.error],
+    ].filter(([, e]) => e);
+    if (failed.length > 0) {
+      throw new Error(
+        `Could not read your access (${failed.map(([n]) => n).join(", ")}). ` +
+        `This is a problem reaching BES, not a change to your account.`,
+      );
+    }
+
     setProfile(p.data ?? null);
     setAgencyMembership(am.data ?? null);
     setOrgMemberships(om.data ?? []);
@@ -269,8 +309,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (cancelled) return;
       setSession(data.session);
       if (data.session?.user) {
-        await loadIdentity(data.session.user.id);
-        if (!cancelled) setStatus("signed-in");
+        try {
+          await loadIdentity(data.session.user.id);
+          if (!cancelled) setStatus("signed-in");
+        } catch (err) {
+          /* Not signed-out — they are signed in, we just cannot tell what they
+             may reach. Without this the promise rejected unhandled and the app
+             sat on a spinner for ever. */
+          if (!cancelled) { setIdentityError((err as Error).message); setStatus("unavailable"); }
+        }
       } else {
         setStatus("signed-out");
       }
@@ -280,8 +327,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       async (_event, newSession) => {
         setSession(newSession);
         if (newSession?.user) {
-          await loadIdentity(newSession.user.id);
-          setStatus("signed-in");
+          try {
+            await loadIdentity(newSession.user.id);
+            setIdentityError(null);
+            setStatus("signed-in");
+          } catch (err) {
+            setIdentityError((err as Error).message);
+            setStatus("unavailable");
+          }
         } else {
           identityRef.current = null;
           setProfile(null);
@@ -426,6 +479,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       teamIds: teamMemberships.map((t) => t.team_id),
       ledTeamIds: teamMemberships.filter((t) => t.is_lead).map((t) => t.team_id),
       partnerContacts,
+      identityError,
       hasAnyAccess:
         isAgencyStaff ||
         orgMemberships.length > 0 ||
@@ -455,6 +509,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     orgMemberships,
     externalMemberships,
     teamMemberships,
+    /* Both were read by the memo without being declared: `partnerContacts`
+       decides `hasAnyAccess` for every portal user, so a stale closure here is
+       exactly the "authorized person told they have no access" bug again. */
+    partnerContacts,
+    identityError,
     signInWithPassword,
     signInWithMagicLink,
     signInWithGoogle,
