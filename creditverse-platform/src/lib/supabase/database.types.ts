@@ -17297,6 +17297,23 @@ export type Database = {
         Returns: Json
       }
       eod_email_dispatch: { Args: never; Returns: undefined }
+      eod_org_rollup: {
+        Args: { p_date: string }
+        Returns: {
+          completed: number
+          department: string
+          lead_name: string
+          members: number
+          minutes_logged: number
+          missing: number
+          needs_review: number
+          production: number
+          submitted: number
+          team_id: string
+          team_name: string
+          with_blockers: number
+        }[]
+      }
       eod_route_for: {
         Args: { p_employee: string }
         Returns: {

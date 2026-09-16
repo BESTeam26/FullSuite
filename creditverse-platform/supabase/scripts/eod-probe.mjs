@@ -478,6 +478,46 @@ console.log("\nA lead's email carries their team; everybody else's does not");
   }
 }
 
+console.log("\nManagement rolls the organisation up without joining a single team");
+{
+  const owner = one("select user_id from agency_memberships where is_owner and status='active' limit 1").user_id;
+  const agent = one(`select m.user_id from agency_memberships m
+      join profiles p on p.id = m.user_id and coalesce(p.is_fixture,false) = false
+     where m.role = 'agency_user' and m.status = 'active'
+       and not exists (select 1 from agency_member_permissions amp
+                        where amp.membership_id = m.id and amp.key = 'ops.manage' and amp.allowed)
+     limit 1`)?.user_id;
+
+  const org = as(owner, "", `select team_name, lead_name, members from public.eod_org_rollup(current_date);`);
+  check("management sees every team", org.ok && org.rows.length > 0, true);
+
+  /* The constraint Dee stated outright: no fake membership. Whoever reads this
+     must not have had to be added to a team to do it. */
+  const onTeams = one(`select count(*)::int as n from team_memberships tm
+      join teams t on t.id = tm.team_id and t.archived_at is null
+     where tm.user_id = '${owner}'`).n;
+  check("…without being a member of every team", onTeams < org.rows.length, true);
+
+  /* Everybody is accounted for, including people on no team — leaving them out
+     would make the organisation's totals quietly wrong. */
+  const staff = one(`select count(*)::int as n from agency_memberships m
+      join profiles p on p.id = m.user_id and coalesce(p.is_fixture,false) = false
+     where m.status = 'active'`).n;
+  const counted = org.ok ? org.rows.reduce((t, r) => t + Number(r.members), 0) : 0;
+  check("…and nobody is missing from the rollup", counted >= staff, true);
+
+  if (agent) {
+    const theirs = as(agent, "", "select count(*)::int as n from public.eod_org_rollup(current_date);");
+    check("an ordinary agent gets no organisation rollup at all",
+      theirs.ok ? theirs.rows[0].n : "error", 0);
+  }
+
+  /* A team with no lead is a real state and must be reported as one rather than
+     omitted — an unled team's reports route nowhere. */
+  check("a team with no lead still appears, with its lead null",
+    org.ok && org.rows.some((r) => r.lead_name === null), true);
+}
+
 console.log("\nThe figures come from the frozen snapshot");
 {
   const src = one(`select proname, prosrc from pg_proc p join pg_namespace n on n.oid = p.pronamespace
