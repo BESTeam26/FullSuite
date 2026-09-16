@@ -18,7 +18,7 @@
  * sending a message must not reload the application.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Hash, Loader2, MessagesSquare, Pin, Undo2, X } from "lucide-react";
+import { Building2, Hash, Loader2, Lock, MessagesSquare, Pin, ShieldAlert, Undo2, X } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useTypingPresence } from "@/lib/data/use-typing-presence";
 import { TypingIndicator } from "./TypingIndicator";
@@ -28,6 +28,7 @@ import { useMessageRealtime } from "@/lib/data/use-message-realtime";
 import type { MentionAttrs } from "@/lib/activity/mentions";
 import { attachToMessage, type RichMessage } from "@/lib/data/messages";
 import { PageLoadError } from "@/components/common/QueryState";
+import { Avatar } from "@/components/common/Avatar";
 import { MessageRow } from "./MessageRow";
 import { MeetingPanel } from "./MeetingButton";
 import { Composer } from "./Composer";
@@ -39,6 +40,17 @@ export interface ConversationPaneProps {
   purpose?: string | null;
   /** Said above the conversation: who else can read what you are about to type. */
   notice?: ReactNode;
+  /**
+   * Which glyph the heading wears, so a direct message stops announcing itself
+   * with a hash the way the rail used to (Dee, 2026-09-16).
+   */
+  glyph?: "hash" | "person" | "private" | "audit";
+  /**
+   * Whose conversation this is — partner or organization, and the engagement
+   * it is scoped to. Read off the channel the caller already has, so the
+   * header costs no extra request (rule 14).
+   */
+  owner?: { name: string; service?: string | null } | null;
   emptyLabel?: string;
   readOnly?: boolean;
   readOnlyReason?: string;
@@ -51,7 +63,8 @@ export interface ConversationPaneProps {
 }
 
 export function ConversationPane({
-  channelId, name, purpose, notice, emptyLabel = "Start the conversation with your team.",
+  channelId, name, purpose, notice, glyph = "hash", owner = null,
+  emptyLabel = "Start the conversation with your team.",
   readOnly = false, readOnlyReason, hideHeader = false, canPin = false,
   organizationId = null, onMeeting,
 }: ConversationPaneProps) {
@@ -133,11 +146,30 @@ export function ConversationPane({
       {!hideHeader && (
         <header className="border-b border-border px-4 py-3">
           <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <h2 className="flex items-center gap-2 text-sm font-bold text-foreground">
-                <Hash className="h-4 w-4 text-muted-foreground" /> {name}
-              </h2>
-              {purpose && <p className="text-xs text-muted-foreground">{purpose}</p>}
+            <div className="flex min-w-0 items-start gap-2.5">
+              {glyph === "person"
+                ? <Avatar name={name} size="sm" className="mt-0.5" />
+                : (
+                  <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted">
+                    {glyph === "audit" ? <ShieldAlert className="h-4 w-4 text-amber-600" />
+                      : glyph === "private" ? <Lock className="h-4 w-4 text-muted-foreground" />
+                      : <Hash className="h-4 w-4 text-muted-foreground" />}
+                  </span>
+                )}
+              <div className="min-w-0">
+                <h2 className="truncate text-sm font-bold text-foreground">{name}</h2>
+                {/* Whose account this belongs to, and which engagement it is
+                    scoped to — the two facts somebody needs before they type
+                    into a partner conversation. */}
+                {owner && (
+                  <p className="flex flex-wrap items-center gap-x-1.5 text-[11px] text-muted-foreground">
+                    <Building2 className="h-3 w-3 shrink-0" aria-hidden />
+                    <span className="font-medium text-foreground">{owner.name}</span>
+                    {owner.service && <><span aria-hidden>·</span><span>{owner.service}</span></>}
+                  </p>
+                )}
+                {purpose && <p className="truncate text-xs text-muted-foreground">{purpose}</p>}
+              </div>
             </div>
             {pinned.length > 0 && (
               <button type="button" onClick={() => setShowPinned((v) => !v)}

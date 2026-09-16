@@ -52,7 +52,7 @@ import { ConversationPane } from "@/components/communication/ConversationPane";
 import { ChannelPeoplePanel } from "@/components/communication/ChannelPeoplePanel";
 import { NewChannelForm } from "@/components/communication/NewChannelForm";
 import { StartDirectMessage } from "@/components/communication/StartDirectMessage";
-import { groupChannels } from "@/lib/communication/channel-groups";
+import { glyphFor, groupChannels } from "@/lib/communication/channel-groups";
 import { ConversationGroup } from "@/components/communication/ConversationRail";
 import { useFoldedSections } from "@/lib/communication/use-folded-sections";
 import { cn } from "@/lib/utils";
@@ -238,6 +238,10 @@ export default function Channels() {
               channelId={current.id}
               name={current.displayName}
               purpose={current.purpose}
+              glyph={glyphFor(current)}
+              owner={current.partnerName || current.organizationName
+                ? { name: (current.partnerName ?? current.organizationName)!, service: current.serviceName }
+                : null}
               canPin={current.isManager}
               organizationId={current.organizationId}
               readOnly={!!current.archivedAt}

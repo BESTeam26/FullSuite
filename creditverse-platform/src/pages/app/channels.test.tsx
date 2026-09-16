@@ -388,3 +388,32 @@ describe("partner channels group under each partner", () => {
     expect(rail.getByText("Marketing")).toBeInTheDocument();
   });
 });
+
+describe("the conversation header says whose it is (2026-09-16)", () => {
+  it("names the partner above a partner conversation", () => {
+    channels = [channel({
+      organizationId: null, partnerGroupId: "g1", partnerName: "Acme Fulfilment",
+      serviceName: "CreditOps Fulfillment", displayName: "support",
+    })];
+    render();
+    expect(screen.getAllByText("Acme Fulfilment").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("CreditOps Fulfillment").length).toBeGreaterThan(0);
+  });
+
+  it("says nothing about an owner on an internal channel", () => {
+    channels = [channel({ organizationId: null, agencyId: "a1", displayName: "general" })];
+    render();
+    expect(screen.queryByText(/Fulfilment/)).not.toBeInTheDocument();
+  });
+
+  it("shows a person rather than a hash on a direct message", () => {
+    /* The avatar falls back to initials, which is how the header proves it is
+       not drawing the hash it drew for everything before. */
+    channels = [channel({
+      kind: "direct", displayName: "Rowell Pena", directUserId: "u2",
+      organizationId: null, agencyId: "a1",
+    })];
+    const { container } = render();
+    expect(container.querySelector("header .lucide-hash")).toBeFalsy();
+  });
+});
