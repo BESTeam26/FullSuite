@@ -34,7 +34,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
-  Archive, ArchiveRestore, Hash, Loader2, Lock, MessagesSquare, Plus, Search, Settings2,
+  Archive, ArchiveRestore, Building2, Hash, Loader2, Lock, MessagesSquare, Plus, Search, Settings2,
   ShieldAlert, Users, X,
   ArrowLeft,
 } from "lucide-react";
@@ -57,6 +57,7 @@ import {
   CommunicationHome, HOME_ITEMS, type HomeView,
 } from "@/components/communication/CommunicationHome";
 import { ConversationGroup } from "@/components/communication/ConversationRail";
+import { PartnerContextPanel } from "@/components/communication/PartnerContextPanel";
 import { useFoldedSections } from "@/lib/communication/use-folded-sections";
 import { cn } from "@/lib/utils";
 
@@ -87,6 +88,9 @@ export default function Channels() {
   /* HOME and a conversation are the same slot. Opening either closes the
      other, so the main pane always has exactly one occupant. */
   const [homeView, setHomeView] = useState<HomeView | null>(null);
+  /* Column 4. Off by default — Dee asked for it "optional", and a panel that
+     is always there costs width on every conversation that has no partner. */
+  const [showContext, setShowContext] = useState(false);
   const openChannel = (id: string) => { setHomeView(null); setOpenId(id); };
   const [creating, setCreating] = useState(false);
   const [showPeople, setShowPeople] = useState(false);
@@ -283,6 +287,15 @@ export default function Channels() {
                 <ConversationHeaderExtras channel={current} />
               </div>
               <div className="flex shrink-0 items-center gap-1 pb-2">
+                {/* Only where there IS a partner to describe, and only on a
+                    screen wide enough for a fourth column. */}
+                {current.partnerGroupId && (
+                  <Button size="sm" variant="ghost" className="hidden h-7 px-2 text-xs lg:inline-flex"
+                    aria-pressed={showContext}
+                    onClick={() => setShowContext((v) => !v)}>
+                    <Building2 className="mr-1 h-3.5 w-3.5" /> Partner
+                  </Button>
+                )}
                 {current.isManager && !current.archivedAt && (
                   <>
                     <Button size="sm" variant="ghost" className="h-7 px-2 text-xs"
@@ -333,6 +346,18 @@ export default function Channels() {
           </>
         )}
       </section>
+
+      {/* Column 4. Only for a partner conversation, only when asked for, and
+          hidden on a phone where three columns already do not fit. */}
+      {!homeView && current?.partnerGroupId && showContext && (
+        <div className="hidden lg:flex">
+          <PartnerContextPanel
+            groupId={current.partnerGroupId}
+            partnerId={current.partnerGroupId}
+            onClose={() => setShowContext(false)}
+          />
+        </div>
+      )}
     </div>
   );
 }

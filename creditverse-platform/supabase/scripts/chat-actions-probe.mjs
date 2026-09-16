@@ -159,6 +159,58 @@ console.log("Realtime can actually carry each of these");
     /message_id/.test(pk) && /emoji/.test(pk), true);
 }
 
+console.log("The partner context panel shows context, never new access");
+{
+  const g = one(`select g.id from outsourcing_groups g
+                  join partner_services ps on ps.group_id = g.id and ps.status in ('active','onboarding')
+                 where g.archived_at is null limit 1`);
+  if (g) {
+    /* Somebody assigned to this partner, and somebody who is not. By shape. */
+    const assigned = one(`select a.user_id from partner_assignments a
+        join agency_memberships m on m.user_id = a.user_id and m.role = 'agency_user' and m.status = 'active'
+        join profiles p on p.id = a.user_id and coalesce(p.is_fixture,false) = false
+       where a.group_id = '${g.id}' and a.ended_on is null limit 1`)?.user_id;
+    const stranger = one(`select m.user_id from agency_memberships m
+        join profiles p on p.id = m.user_id and coalesce(p.is_fixture,false) = false
+       where m.role = 'agency_user' and m.status = 'active'
+         and not exists (select 1 from partner_assignments a
+                          where a.group_id = '${g.id}' and a.user_id = m.user_id and a.ended_on is null)
+       limit 1`)?.user_id;
+
+    /* `as` here takes (user, sql) — the certification probe's takes a setup
+       argument in the middle, and passing that shape sent an empty string as
+       the query and quietly measured nothing. */
+    const rows = (u) => as(u, `select * from public.partner_conversation_context('${g.id}');`);
+
+    const owner = rows(OWNER);
+    check("the owner sees the partner's context", owner.ok && owner.rows.length === 1, true);
+    check("…including the money, which is theirs to see",
+      owner.ok && owner.rows[0].balance_visible, true);
+
+    if (assigned) {
+      const r = rows(assigned);
+      check("an assigned agent sees the context", r.ok && r.rows.length === 1, true);
+      /* The whole point of the second half of Dee's sentence: context, not
+         authorization. Money stays behind its own gate. */
+      check("…but not the balance, which is owner-gated",
+        r.ok && r.rows[0].balance_visible, false);
+      check("…and a withheld balance is NULL, never zero",
+        r.ok && r.rows[0].balance_cents, null);
+    }
+    if (stranger) {
+      const r = rows(stranger);
+      check("an agent not assigned to this partner gets no context at all",
+        r.ok ? r.rows.length : "error", 0);
+    }
+    const contact = one(`select user_id from partner_contacts where user_id is not null and status = 'active' limit 1`);
+    if (contact) {
+      const r = rows(contact.user_id);
+      check("a partner contact gets none of it — this is a BES-side panel",
+        r.ok ? r.rows.length : "error", 0);
+    }
+  }
+}
+
 console.log("The rules that must survive the fix");
 {
   const other = one(`select id from profiles where id <> '${AGENT}' and id <> '${OWNER}' limit 1`).id;

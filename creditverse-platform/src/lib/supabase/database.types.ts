@@ -18036,6 +18036,20 @@ export type Database = {
           total_clients: number
         }[]
       }
+      partner_conversation_context: {
+        Args: { p_group: string }
+        Returns: {
+          active_clients: number
+          assigned_team: string[]
+          balance_cents: number
+          balance_visible: boolean
+          lifecycle: string
+          open_actions: number
+          partner_name: string
+          primary_contact: string
+          services: string[]
+        }[]
+      }
       partner_credential_archive: {
         Args: { p_id: string; p_reason: string }
         Returns: undefined
