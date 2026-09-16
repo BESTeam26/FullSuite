@@ -63,6 +63,11 @@ export const TeamEodPage = () => {
   const missing = rows.filter((r) => !r.submittedAt);
   const auto = rows.filter((r) => r.autoSubmitted);
   const blocked = rows.filter((r) => (r.blockers ?? "").trim().length > 0);
+  const submitted = rows.filter((r) => r.submittedAt);
+  /* Submitted and not yet read. Review is a separate axis from submission, so
+     these are counted separately rather than folded into one number. */
+  const awaiting = submitted.filter((r) => !r.reviewedAt && r.state !== "needs_clarification");
+  const followUp = rows.filter((r) => r.state === "needs_clarification");
 
   return (
     <HqPageShell
@@ -74,12 +79,27 @@ export const TeamEodPage = () => {
           aria-label="Day" className="h-8 w-40" />
       }
     >
-      <div className="mb-4 grid gap-3 sm:grid-cols-3">
+      <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-xl border border-border bg-card p-4">
+          <p className="flex items-center gap-1.5 text-2xl font-black text-foreground">
+            <ClipboardCheck className="h-5 w-5 text-status-success" /> {submitted.length}
+          </p>
+          <p className="text-sm font-semibold">Submitted</p>
+        </div>
         <div className="rounded-xl border border-border bg-card p-4">
           <p className="flex items-center gap-1.5 text-2xl font-black text-foreground">
             <UserX className="h-5 w-5 text-status-danger" /> {missing.length}
           </p>
           <p className="text-sm font-semibold">Missing EOD</p>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-4">
+          <p className="flex items-center gap-1.5 text-2xl font-black text-foreground">
+            <ClipboardCheck className="h-5 w-5 text-muted-foreground" /> {awaiting.length}
+          </p>
+          <p className="text-sm font-semibold">Awaiting review</p>
+          {followUp.length > 0 && (
+            <p className="text-[11px] text-amber-700">{followUp.length} needs follow-up</p>
+          )}
         </div>
         <div className="rounded-xl border border-border bg-card p-4">
           <p className="flex items-center gap-1.5 text-2xl font-black text-foreground">
