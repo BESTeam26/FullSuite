@@ -25,7 +25,8 @@
     "db:types": "npx supabase gen types typescript --linked --schema public --schema graphql_public > src/lib/supabase/database.types.ts",
     "db:authmap": "node supabase/scripts/authorization-map.mjs",
     "probe:chat": "node supabase/scripts/chat-actions-probe.mjs",
-    "probe:release": "node supabase/scripts/release-certification-probe.mjs"
+    "probe:release": "node supabase/scripts/release-certification-probe.mjs",
+    "probe:eod": "node supabase/scripts/eod-probe.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
