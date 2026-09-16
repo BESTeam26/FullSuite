@@ -872,6 +872,33 @@ check("85. a receipt is never stood down — the money did arrive",
      select state from billing_email_outbox where group_id='${PARTNER}' and kind='receipt';`).rows,
   [{ state: "pending" }]);
 
+if (OUTSIDER_PORTAL) check("86. a voided invoice stays listed but owes nothing",
+  /* Found on the live portal, 2026-09-16: the Balance column showed the full
+     amount against an invoice marked Void. The totals were always right — every
+     aggregating function filters void by status — but the ROW put $125.00 in a
+     Balance column on a money page. It stays in the list, deliberately, so the
+     partner can see it was cancelled. */
+  /* The void happens in SETUP, before the session becomes the partner. Done in
+     the action it silently affects zero rows — a portal contact has no write
+     policy on partner_invoices, and RLS refuses by matching nothing, not by
+     raising. The first version of this check passed a "sent" invoice and I read
+     it as the fix failing. */
+  as(OUTSIDER_PORTAL,
+    SETUP + CONTACT + invoice(3) +
+      `update partner_invoices set status = 'void', voided_at = now() where id = '${INVOICE}';`,
+    `select invoice_number, total_cents::int as total, balance_cents::int as balance, status
+       from my_partner_invoices();`).rows,
+  [{ invoice_number: "INV-PROBE", total: 42500, balance: 0, status: "void" }]);
+
+if (OUTSIDER_PORTAL) check("87. …and the raw arithmetic underneath is untouched",
+  /* `invoice_balance_cents` stays total-minus-paid for everybody else —
+     record_partner_payment needs the true figure, not a status-aware one. */
+  as(OWNER,
+    SETUP + invoice(3) +
+      `update partner_invoices set status = 'void', voided_at = now() where id = '${INVOICE}';`,
+    `select public.invoice_balance_cents('${INVOICE}')::int as raw;`).rows,
+  [{ raw: 42500 }]);
+
 console.log(`\n${pass} passed, ${failures.length} failed`);
 if (failures.length) { failures.forEach((f) => console.log(`  - ${f}`)); process.exitCode = 1; }
 q.close();

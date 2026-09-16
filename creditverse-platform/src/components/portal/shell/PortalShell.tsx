@@ -20,6 +20,7 @@ import {
 import { useAuth } from "@/lib/auth/auth-context";
 import { cn } from "@/lib/utils";
 import { activePage, badgeFor, navFor, type PortalSummary } from "@/lib/portal/portal-nav";
+import { useSeo } from "@/lib/use-seo";
 
 const ICONS: Record<string, typeof Users> = {
   LayoutDashboard, Users, Workflow, ClipboardList, MessagesSquare,
@@ -46,6 +47,19 @@ export function PortalShell({
 }) {
   const { displayName, signOut } = useAuth();
   const { pathname } = useLocation();
+  /*
+   * The portal never set a document title, so a partner who arrived through
+   * /login kept a tab reading "Sign in — BES" for the whole session. The agency
+   * app does this in DashboardLayout; the portal simply had no equivalent.
+   *
+   * noindex because a signed-in partner's account pages are not for crawlers.
+   */
+  useSeo({
+    title: `${title} — ${summary.partnerName}`,
+    description: description ?? "Your BES partner account.",
+    canonical: pathname,
+    noindex: true,
+  });
   const [menuOpen, setMenuOpen] = useState(false);
   const nav = useMemo(() => navFor(summary), [summary]);
   const current = activePage(pathname);
