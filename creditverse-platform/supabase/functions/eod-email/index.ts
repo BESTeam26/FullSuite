@@ -119,6 +119,47 @@ function compose(row: OutboxRow, brand: EmailBrand, appUrl: string) {
     `Time Logged: ${duration(snap.minutes_logged)}`,
   ].join("\n");
 
+  /* The team half, for a lead. Absent entirely for everybody else — an "your
+     team" section reading "0 members" on an agent's email is a question about
+     why it is there. */
+  const team = p.team as Record<string, unknown> | null | undefined;
+  const teamBlocks: string[] = [];
+  if (team) {
+    teamBlocks.push([
+      "TEAM / DEPARTMENT PRODUCTIVITY",
+      `Team Members: ${count(team.members)}`,
+      `Submitted: ${count(team.submitted)}`,
+      `Missing: ${count(team.missing)}`,
+      `Production Units: ${count(team.production)}`,
+      `Tasks Completed: ${count(team.completed)}`,
+      `Blocked: ${count(team.blocked)}`,
+      `Total Time Logged: ${duration(team.minutes)}`,
+    ].join("\n"));
+
+    const people = Array.isArray(team.people) ? team.people as Record<string, unknown>[] : [];
+    if (people.length > 0) {
+      teamBlocks.push(people.map((m) => [
+        `${String(m.name ?? "Unknown")}`,
+        m.submitted ? "Submitted ✓" : "Not submitted",
+        `Production: ${count(m.production)}`,
+        `Completed: ${count(m.completed)}`,
+        `Blocked: ${count(m.blocked)}`,
+        `Time: ${duration(m.minutes)}`,
+      ].join("\n")).join("\n\n"));
+    }
+
+    /* Dee asked for this as its own section: a lead reading on a phone should
+       not have to scan every line to find who is stuck. */
+    const attention = Array.isArray(team.attention) ? team.attention as Record<string, unknown>[] : [];
+    if (attention.length > 0) {
+      teamBlocks.push([
+        "TEAM BLOCKERS / ATTENTION NEEDED",
+        ...attention.map((a) => `${String(a.name ?? "Someone")}: ` +
+          [a.blockers, a.help_needed].filter(Boolean).join(" · ")),
+      ].join("\n"));
+    }
+  }
+
   const written = [
     section("ACCOMPLISHMENTS", p.accomplishments),
     section("BLOCKERS & ISSUES", p.blockers),
@@ -131,8 +172,11 @@ function compose(row: OutboxRow, brand: EmailBrand, appUrl: string) {
     heading: "End of Day Productivity Report",
     paragraphs: [
       `${employee}\n${day(p.work_date)}`,
-      `PRODUCTIVITY REPORT\n${productivity}`,
+      /* Dee's order: the individual day first, always, then the team. A lead's
+         own report is never replaced by their department's. */
+      `${team ? "INDIVIDUAL PRODUCTIVITY" : "PRODUCTIVITY REPORT"}\n${productivity}`,
       ...written,
+      ...teamBlocks,
     ],
     action: { label: "View EOD Report", url: `${appUrl}/app/team-eod` },
     security: [

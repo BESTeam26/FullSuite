@@ -437,6 +437,47 @@ console.log("\nA failed email is reported, and retrying it is a permission");
   }
 }
 
+console.log("\nA lead's email carries their team; everybody else's does not");
+{
+  const agency = one("select id from agencies order by created_at limit 1").id;
+  const lead = one(`select distinct tm.user_id from team_memberships tm
+      join teams t on t.id = tm.team_id and t.archived_at is null
+     where tm.is_lead
+       and exists (select 1 from team_memberships o where o.team_id = tm.team_id and o.user_id <> tm.user_id)
+     limit 1`)?.user_id;
+  const plain = one(`select m.user_id from agency_memberships m
+      join profiles p on p.id = m.user_id and coalesce(p.is_fixture,false) = false
+     where m.status = 'active'
+       and not exists (select 1 from team_memberships tm
+                        join teams t on t.id = tm.team_id and t.archived_at is null
+                       where tm.user_id = m.user_id and tm.is_lead)
+     limit 1`)?.user_id;
+
+  const payload = (person, day) => {
+    const r = shaped(`
+      insert into eod_submissions (agency_id, employee_id, work_date, state, submitted_at, submitted_by)
+        values ('${agency}', '${person}', current_date - ${day}, 'submitted', now(), '${person}');`,
+      `select o.payload -> 'team' as team from eod_email_outbox o
+         join eod_submissions e on e.id = o.eod_id
+        where e.employee_id = '${person}' and e.work_date = current_date - ${day};`);
+    return r.ok ? r.rows[0]?.team : { error: r.message };
+  };
+
+  if (lead) {
+    const t = payload(lead, 70);
+    check("a lead's email carries a team section", t !== null && t !== undefined, true);
+    check("…naming the people on it", Array.isArray(t?.people) && t.people.length > 0, true);
+    /* Dee asked for this as its own section so a lead reading on a phone does
+       not have to scan every line to find who is stuck. */
+    check("…and a separate attention list", Array.isArray(t?.attention), true);
+  }
+  if (plain) {
+    /* An "your team" section reading "0 members" on an agent's email is a
+       question about why it is there. */
+    check("somebody who leads nobody gets no team section at all", payload(plain, 71), null);
+  }
+}
+
 console.log("\nThe figures come from the frozen snapshot");
 {
   const src = one(`select proname, prosrc from pg_proc p join pg_namespace n on n.oid = p.pronamespace
