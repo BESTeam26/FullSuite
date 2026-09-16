@@ -23,6 +23,8 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { formatDate } from "@/lib/format-date";
 import { formatMoneyIn } from "@/lib/format-money";
 import { cn } from "@/lib/utils";
+import { PageLoadError, PanelState } from "@/components/common/QueryState";
+import { hasRows } from "@/lib/ui/query-rows";
 import {
   creditUnitLabel, fetchPortalAccountCredit, fetchPortalBilling, fetchPortalInvoices,
   fetchPortalPaymentMethods, fetchPortalPayments, fetchPortalProcessingCredits,
@@ -78,6 +80,15 @@ export function PortalBilling({ onContactBes }: { onContactBes?: () => void }) {
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" /> Loading your billing…
         </p>
+      </section>
+    );
+  }
+
+  /* Money is the worst place to report a failed request as "nothing owed". */
+  if (summary.isError) {
+    return (
+      <section className="rounded-xl border border-border bg-card p-4">
+        <PageLoadError what="Your billing" />
       </section>
     );
   }
@@ -253,10 +264,9 @@ export function PortalBilling({ onContactBes }: { onContactBes?: () => void }) {
 
       {tab === "invoices" && (
       <Panel icon={FileText} title="Invoices">
-        {invoices.isLoading ? (
-          <p className="py-4"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></p>
-        ) : (invoices.data ?? []).length === 0 ? (
-          <p className="py-4 text-center text-sm text-muted-foreground">No invoices yet.</p>
+        {!hasRows(invoices) ? (
+          <PanelState query={invoices}
+            empty={<p className="py-4 text-center text-sm text-muted-foreground">No invoices yet.</p>} />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[36rem] text-left text-xs">
@@ -303,10 +313,11 @@ export function PortalBilling({ onContactBes }: { onContactBes?: () => void }) {
 
       {tab === "payments" && (
       <Panel icon={Wallet} title="Payments received">
-        {(payments.data ?? []).length === 0 ? (
-          <p className="py-4 text-center text-sm text-muted-foreground">
-            No payments recorded yet. Once BES receives and matches a payment it appears here.
-          </p>
+        {!hasRows(payments) ? (
+          <PanelState query={payments} empty={
+            <p className="py-4 text-center text-sm text-muted-foreground">
+              No payments recorded yet. Once BES receives and matches a payment it appears here.
+            </p>} />
         ) : (
           <ul className="divide-y divide-border/50">
             {(payments.data ?? []).map((p) => (

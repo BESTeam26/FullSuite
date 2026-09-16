@@ -18,6 +18,8 @@ import { cn } from "@/lib/utils";
 import { useMyPartnerActions, useMyPartnerUpdates } from "@/lib/data/use-partner-portal-actions";
 import { useMyPartnerClients } from "@/lib/data/use-agency-partners";
 import { useChannels } from "@/lib/data/use-channels";
+import { PanelState } from "@/components/common/QueryState";
+import { hasRows } from "@/lib/ui/query-rows";
 import type { PortalSummary } from "@/lib/portal/portal-nav";
 
 const Card = ({ label, value, tone, to, icon: Icon }: {
@@ -59,6 +61,11 @@ export function PortalOverview({ summary }: { summary: PortalSummary }) {
   const open = (actions.data ?? []).filter((a) => a.status === "open");
   const someClients = (clients.data ?? []).slice(0, 5);
   const conversations = (channels.data ?? []).slice(0, 3);
+  const caughtUp = (
+    <p className="flex items-center gap-2 py-2 text-sm text-foreground">
+      <CheckCircle2 className="h-4 w-4 text-status-success" /> You&apos;re all caught up.
+    </p>
+  );
 
   return (
     <div className="space-y-4">
@@ -98,11 +105,10 @@ export function PortalOverview({ summary }: { summary: PortalSummary }) {
       </div>
 
       <Panel title="Action needed" to="/partner/actions">
-        {open.length === 0 ? (
-          <p className="flex items-center gap-2 py-2 text-sm text-foreground">
-            <CheckCircle2 className="h-4 w-4 text-status-success" /> You&apos;re all caught up.
-          </p>
-        ) : (
+        {/* Two ways to be caught up — no actions at all, or none still open —
+            and both say the same thing, so the node is written once. */}
+        {!hasRows(actions) ? <PanelState query={actions} empty={caughtUp} />
+          : open.length === 0 ? caughtUp : (
           <ul className="divide-y divide-border/50">
             {open.slice(0, 4).map((a) => (
               <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
@@ -126,9 +132,9 @@ export function PortalOverview({ summary }: { summary: PortalSummary }) {
 
       {!summary.suspended && (
         <Panel title="Your clients" to="/partner/clients" linkLabel="View all clients">
-          {someClients.length === 0 ? (
-            <p className="py-2 text-sm text-muted-foreground">No clients yet.</p>
-          ) : (
+          {!hasRows(clients)
+            ? <PanelState query={clients} empty={<p className="py-2 text-sm text-muted-foreground">No clients yet.</p>} />
+            : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[32rem] text-left text-xs">
                 <thead>
@@ -161,9 +167,9 @@ export function PortalOverview({ summary }: { summary: PortalSummary }) {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel title="Recent updates" to="/partner/updates">
-          {(updates.data ?? []).length === 0 ? (
-            <p className="py-2 text-sm text-muted-foreground">Nothing new.</p>
-          ) : (
+          {!hasRows(updates)
+            ? <PanelState query={updates} empty={<p className="py-2 text-sm text-muted-foreground">Nothing new.</p>} />
+            : (
             <ul className="divide-y divide-border/50">
               {(updates.data ?? []).slice(0, 5).map((u) => (
                 <li key={u.id} className="py-1.5">
@@ -178,10 +184,11 @@ export function PortalOverview({ summary }: { summary: PortalSummary }) {
         </Panel>
 
         <Panel title="Messages" to="/partner/messages" linkLabel="Open messages">
-          {conversations.length === 0 ? (
-            <p className="py-2 text-sm text-muted-foreground">
-              No conversation yet. You can start one — you do not have to wait for BES.
-            </p>
+          {!hasRows(channels) ? (
+            <PanelState query={channels} empty={
+              <p className="py-2 text-sm text-muted-foreground">
+                No conversation yet. You can start one — you do not have to wait for BES.
+              </p>} />
           ) : (
             <ul className="divide-y divide-border/50">
               {conversations.map((c) => (

@@ -34,6 +34,7 @@ import {
 import { topicsToShow, type PortalTopicKey } from "@/lib/portal/portal-conversations";
 import { serviceIsLive, type ServiceStatus } from "@/lib/partners/partner-account";
 import { cn } from "@/lib/utils";
+import { PageLoadError } from "@/components/common/QueryState";
 
 /** A row in the left rail, whether or not it exists in the database yet. */
 interface Entry {
@@ -192,6 +193,9 @@ export function PortalMessages({ partnerGroupId }: { partnerGroupId: string }) {
   if (channels.isLoading) {
     return <p className="py-10 text-center"><Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" /></p>;
   }
+  /* Without this the rail draws its "no conversation yet" copy over a failed
+     load, inviting a partner to start a conversation they may already have. */
+  if (channels.isError) return <PageLoadError what="Your conversations" />;
 
   const failure = actions.openTopic.error ?? actions.openDirect.error;
 

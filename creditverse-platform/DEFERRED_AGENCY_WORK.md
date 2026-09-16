@@ -795,3 +795,62 @@ Sales & Marketing  Partner → Campaign → Content → Calendar → Approval �
 
 **One engine, three operating experiences.** If both are approved they should be
 designed together and built in sequence so the shared extensions are made once.
+
+---
+
+## D-015 — Internal surfaces still report a failed load as an empty one
+
+**Raised:** 2026-09-16, during production release certification.
+**Classification:** P2. **Status:** DEFERRED — portal half is DONE and guarded.
+
+### The defect
+
+One line, and it reads as harmless:
+
+```tsx
+const rows = query.data ?? [];
+if (rows.length === 0) return <p>Nothing yet.</p>;
+```
+
+`data` is undefined **while the request is in flight and after it fails**, so a
+failed query renders as a confident factual claim: *you have none*. This has
+shipped before — it is the Partner-folder PostgREST error that appeared as empty
+folders.
+
+### What was fixed now, and why only that
+
+Dee, 2026-09-16: *"A failed API call must not render as '0 results' unless zero
+is actually known. This is especially important because the Partner-folder
+PostgREST bug previously rendered a backend error as empty folders."*
+
+**Every Partner Portal surface is fixed** — Overview, Clients, Client detail,
+Services, Agreements, Updates, Messages, Billing, Action Needed, Recent Updates,
+Partner Information, and the shared Portal sections. Plus the two finance panels
+(Expenses, Payroll) that had no error branch. `AllInvoicesPanel` already had one.
+
+The tools are `hasRows()` in `src/lib/ui/query-rows.ts` and `<PanelState>` /
+`<PageLoadError>` in `src/components/common/QueryState.tsx`, and
+`src/pages/portal/portal-states.test.ts` reads the source so a new portal page
+written the old way fails the suite rather than shipping.
+
+### What remains
+
+**89 query-backed internal surfaces** still make an empty claim with no error
+branch — agency dashboards, team workspaces, EOD, partner tabs, workspace lists.
+
+Deferred rather than fixed because the blast radius is different: a BES employee
+who sees "no rows" on an internal panel is momentarily confused, and can refresh.
+A partner told they have no invoices, no actions and no clients is being told
+something false about their own account, by the company they pay.
+
+### How to finish it
+
+Not by hand, 89 times. Several of these read custom hooks that return
+`{ rows, isLoading }` and **never expose `isError` at all** — the hook drops it,
+so the page could not report a failure even if it wanted to. That is the real
+work: widen those hook return types first, then apply `hasRows` / `<PanelState>`,
+then widen `portal-states.test.ts` to cover `src/pages/app` and
+`src/components/agency` so the guard holds everywhere.
+
+Re-measure with the heuristic in the certification notes; do not trust a file
+that merely mentions `isError` somewhere.

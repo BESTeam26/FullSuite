@@ -22,6 +22,8 @@ import { useState } from "react";
 import { partnerFileUrl } from "@/lib/data/agency-partners";
 import { formatDate, formatDateTime } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
+import { PanelState } from "@/components/common/QueryState";
+import { hasRows } from "@/lib/ui/query-rows";
 import {
   usePortalClient, usePortalClientFiles, usePortalClientTimeline,
 } from "@/lib/data/use-portal-client";
@@ -125,12 +127,11 @@ export function PortalClientDetail() {
       </section>
 
       <Panel title="Updates">
-        {timeline.isLoading ? (
-          <p className="py-3"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></p>
-        ) : (timeline.data ?? []).length === 0 ? (
-          <p className="py-2 text-sm text-muted-foreground">
-            No updates have been shared yet. What BES shares about this client appears here.
-          </p>
+        {!hasRows(timeline) ? (
+          <PanelState query={timeline} empty={
+            <p className="py-2 text-sm text-muted-foreground">
+              No updates have been shared yet. What BES shares about this client appears here.
+            </p>} />
         ) : (
           <ul className="divide-y divide-border/50">
             {(timeline.data ?? []).map((e) => (
@@ -147,10 +148,11 @@ export function PortalClientDetail() {
       </Panel>
 
       <Panel title="Shared documents">
-        {(files.data ?? []).length === 0 ? (
-          <p className="py-2 text-sm text-muted-foreground">
-            Nothing has been shared for this client yet.
-          </p>
+        {!hasRows(files) ? (
+          <PanelState query={files} empty={
+            <p className="py-2 text-sm text-muted-foreground">
+              Nothing has been shared for this client yet.
+            </p>} />
         ) : (
           /* Previews rather than filenames, for the same reason as the
              internal document tab: a partner scanning "Screenshot 2026-09-08"

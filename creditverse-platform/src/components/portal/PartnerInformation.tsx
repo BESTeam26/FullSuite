@@ -25,6 +25,7 @@ import { useArchiveCredential, useCredentialPlatforms, useMyPartnerCredentials }
 import { byCategory, CREDENTIAL_CATEGORIES } from "@/lib/partners/credential-domain";
 import { formatDate } from "@/lib/format-date";
 import { useToast } from "@/hooks/use-toast";
+import { PanelState } from "@/components/common/QueryState";
 
 export function PartnerInformation({ partner, contactName, contactTitle, contactPhone, contactEmail }: {
   partner: AgencyPartner; contactName: string | null; contactTitle: string | null; contactPhone: string | null; contactEmail: string | null;
@@ -171,8 +172,9 @@ export function PartnerInformation({ partner, contactName, contactTitle, contact
                 <Plus className="mr-1 h-3 w-3" /> Add
               </Button>
             </div>
-            {credentials.isLoading ? (
-              <p className="text-xs text-muted-foreground"><Loader2 className="mr-1 inline h-3 w-3 animate-spin" /> Loading…</p>
+            {credentials.isPending || credentials.isError ? (
+              <PanelState query={credentials}
+                empty={<p className="text-xs text-muted-foreground">Nothing recorded.</p>} />
             ) : items.length === 0 ? (
               <p className="text-xs text-muted-foreground">Nothing recorded.</p>
             ) : (

@@ -28,7 +28,7 @@ export const AGENCY_PERMISSIONS = [
   "payroll.view", "payroll.manage",
   "org.structure.view", "org.structure.manage",
   "hub.files.manage", "ops.manage",
-  "communication.audit", "communication.manage",
+  "communication.audit", "communication.channels.manage", "communication.channels.create",
   "reports.view",
   /* Module ENTRY keys (§59): the named door into each operational module,
      granted per person — never through ops.manage, never by a preset. */

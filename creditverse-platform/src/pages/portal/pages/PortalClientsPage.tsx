@@ -20,6 +20,7 @@ import { OpsSelect } from "@/components/ui/ops-select";
 import { useMyPartnerClients } from "@/lib/data/use-agency-partners";
 import { formatDate } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
+import { PageLoadError } from "@/components/common/QueryState";
 import {
   BUCKET_LABEL, bucketCounts, filterClients, optionsIn,
   type ClientBucket, type ClientFilters,
@@ -53,6 +54,9 @@ export function PortalClientsPage() {
   if (clients.isLoading) {
     return <p className="py-10 text-center"><Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" /></p>;
   }
+  /* Before the filter chips, because a failed load has no counts to filter and
+     "No clients yet" would be a claim about their account, not about the request. */
+  if (clients.isError) return <PageLoadError what="Your clients" />;
 
   return (
     <div className="space-y-4">

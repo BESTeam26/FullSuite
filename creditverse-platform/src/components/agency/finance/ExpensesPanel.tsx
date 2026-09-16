@@ -20,6 +20,7 @@ import { useAgencyPermissions } from "@/lib/data/agency-permissions";
 import type { Month } from "@/lib/partners/billing-engine";
 import { formatCentsIn } from "@/lib/format-money";
 import { formatDate } from "@/lib/format-date";
+import { PageLoadError } from "@/components/common/QueryState";
 
 /* Expenses carry their own currency — a released PHP payroll writes a peso
    expense, and a dollar sign on it would be wrong by a factor of sixty. */
@@ -79,7 +80,9 @@ export function ExpensesPanel({ month }: { month: Month }) {
             onSave={async (v) => { await actions.save.mutateAsync(v); setAdding(false); }} />
         )}
 
-        {expenses.isLoading ? (
+        {expenses.isError ? (
+          <PageLoadError what="Expenses" />
+        ) : expenses.isLoading ? (
           <p className="py-6 text-center text-sm text-muted-foreground">
             <Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Loading…
           </p>

@@ -11,6 +11,8 @@
  */
 import { formatDate } from "@/lib/format-date";
 import { useMyPartnerUpdates } from "@/lib/data/use-partner-portal-actions";
+import { PanelState } from "@/components/common/QueryState";
+import { hasRows } from "@/lib/ui/query-rows";
 
 export function PortalRecentUpdates() {
   const updates = useMyPartnerUpdates();
@@ -19,12 +21,11 @@ export function PortalRecentUpdates() {
   return (
     <section className="rounded-xl border border-border bg-card p-4">
       <h2 className="text-sm font-bold text-foreground">Recent updates</h2>
-      {updates.isLoading ? (
-        <p className="mt-2 text-sm text-muted-foreground">Loading…</p>
-      ) : rows.length === 0 ? (
-        <p className="mt-2 text-sm text-muted-foreground">
-          Nothing to report yet. Updates appear here as BES works your clients.
-        </p>
+      {!hasRows(updates) ? (
+        <PanelState query={updates} empty={
+          <p className="mt-2 text-sm text-muted-foreground">
+            Nothing to report yet. Updates appear here as BES works your clients.
+          </p>} />
       ) : (
         <ul className="mt-3 space-y-2">
           {rows.map((u) => (

@@ -27,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/format-date";
+import { PageLoadError } from "@/components/common/QueryState";
 import {
   isReview,
   useMyPartnerActions,
@@ -49,6 +50,16 @@ export function PortalActionNeeded() {
     return (
       <section className="rounded-xl border border-border bg-card p-4">
         <p className="text-sm text-muted-foreground">Checking what needs your attention…</p>
+      </section>
+    );
+  }
+
+  /* A failed load has no actions to count, and "all caught up" would be a
+     claim about their account rather than about the request (rule: §21). */
+  if (actions.isError) {
+    return (
+      <section className="rounded-xl border border-border bg-card p-4">
+        <PageLoadError what="What needs your attention" />
       </section>
     );
   }

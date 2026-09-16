@@ -22,6 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/format-date";
 import { formatCentsIn } from "@/lib/format-money";
 import { formatDuration } from "@/lib/time-domain";
+import { PageLoadError } from "@/components/common/QueryState";
 
 /* The shared formatter: the symbol comes from the currency on the record, so
    a peso salary never renders with a dollar sign. */
@@ -70,7 +71,9 @@ export function PayrollPanel() {
       )}
 
       <ContentCard title="Cutoffs">
-        {cutoffs.isLoading ? (
+        {cutoffs.isError ? (
+          <PageLoadError what="Payroll periods" />
+        ) : cutoffs.isLoading ? (
           <p className="py-3 text-xs text-muted-foreground"><Loader2 className="mr-1.5 inline h-3 w-3 animate-spin" /> Loading…</p>
         ) : rows.length === 0 ? (
           <p className="py-4 text-center text-xs text-muted-foreground">

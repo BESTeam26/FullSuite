@@ -17,6 +17,7 @@ import { ArrowRight, Briefcase, CalendarDays, Loader2, Workflow } from "lucide-r
 import { useMyPartnerServices } from "@/lib/data/use-portal-conversations";
 import { formatDate } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
+import { PageLoadError } from "@/components/common/QueryState";
 
 const MODULE_TONE: Record<string, string> = {
   creditops: "border-emerald-500/40 bg-emerald-500/10 text-emerald-900",
@@ -41,6 +42,8 @@ export function PortalServices() {
   if (services.isLoading) {
     return <p className="py-10 text-center"><Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" /></p>;
   }
+
+  if (services.isError) return <PageLoadError what="Your services" />;
 
   const rows = services.data ?? [];
   if (rows.length === 0) {

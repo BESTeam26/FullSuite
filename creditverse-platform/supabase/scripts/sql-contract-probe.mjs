@@ -314,6 +314,42 @@ console.log("\nNo authorization path reads a deprecated scope column");
   else fail("function reads a deprecated scope column", fns.join(", "));
 }
 
+console.log("\nEvery capability the interface asks for still exists");
+{
+  /*
+   * A renamed key does not fail loudly — it fails OPEN for administrators and
+   * SHUT for everybody else, permanently.
+   *
+   * `resolve_agency_capability` looks the key up in `permission_keys` only to
+   * ask whether it is owner-gated. An unknown key is not owner-gated, so the
+   * next branch — "owner or administrator by role" — answers true, and every
+   * agent falls through to a per-member grant that can never be made, because
+   * there is no key to grant.
+   *
+   * Found on 2026-09-16: 0209 renamed `communication.manage` to
+   * `communication.channels.manage` / `.create` and deleted the old row, but
+   * `Channels.tsx` kept asking for the deleted name. New conversation had been
+   * silently owner-and-admin-only ever since, and no grant could have opened it.
+   * Exactly Dee's §20: "No capabilities that work only for Owner/Admin but fail
+   * for real agents."
+   */
+  const referenced = new Set();
+  for (const file of sourceFiles(SRC)) {
+    const text = readFileSync(file, "utf8");
+    for (const m of text.matchAll(/permission:\s*"([a-z0-9_.]+)"/g)) referenced.add(m[1]);
+    for (const m of text.matchAll(/permission:\s*\[([^\]]+)\]/g))
+      for (const k of m[1].matchAll(/"([a-z0-9_.]+)"/g)) referenced.add(k[1]);
+    for (const m of text.matchAll(/agencyCan\(\s*"([a-z0-9_.]+)"/g)) referenced.add(m[1]);
+    for (const m of text.matchAll(/\bcan\(\s*"([a-z0-9_.]+)"\s*\)/g)) referenced.add(m[1]);
+  }
+  const defined = new Set(q.query("select key from permission_keys").map((r) => r.key));
+  const orphans = [...referenced].filter((k) => !defined.has(k)).sort();
+  if (referenced.size < 20) fail("capability scan found almost nothing", `only ${referenced.size} keys — the patterns have drifted`);
+  else ok(`${referenced.size} capability keys referenced in the interface`);
+  if (orphans.length === 0) ok("every one of them is defined in permission_keys");
+  else fail("interface asks for a capability that does not exist", orphans.join(", "));
+}
+
 console.log(`\n${pass} passed, ${failures.length} failed` +
   (skipped.length ? `, ${skipped.length} skipped because their arguments are assembled elsewhere` : ""));
 if (failures.length) process.exitCode = 1;

@@ -71,14 +71,27 @@ for (const r of rows) {
 
 console.log("\n  " + Object.entries(counts).map(([k, v]) => `${k}: ${v}`).join("   ") + "\n");
 
-/* Honest about what is and is not knowable. Send recording only began with
-   migration 0351 — anything emailed before that left no trace, so "no send
-   recorded" means exactly that and NOT "no email was sent". */
+/*
+ * Honest about what is and is not knowable — corrected 2026-09-16.
+ *
+ * This used to say recording began on 2026-09-14 with migration 0351. That was
+ * wrong in the way that matters: 0351 created `log_invitation_emailed()`, but
+ * the Edge Function that CALLS it was still running its pre-0351 build in
+ * production. The migration landed; the caller never shipped. So every Send and
+ * Resend between the 14th and the 16th also recorded nothing, and reading this
+ * column as "she never pressed Send" would have been wrong twice over.
+ *
+ * `send-invitation` was deployed on 2026-09-16. From that deploy onward a blank
+ * here means no email left. Before it, it means nobody was watching.
+ */
+const RECORDING_LIVE_FROM = "2026-09-16";
 const unrecorded = rows.filter((r) => bucket(r) === "no send recorded").length;
 if (unrecorded > 0) {
   console.log(`  ${unrecorded} invitation${unrecorded === 1 ? " has" : "s have"} no send on record.`);
-  console.log("  Sends are only recorded from 2026-09-14 (migration 0351). Before that");
-  console.log("  nothing logged them, so this means UNKNOWN, not \"never sent\".");
+  console.log(`  Sends are only recorded from ${RECORDING_LIVE_FROM}, when the send-invitation`);
+  console.log("  function was actually DEPLOYED. The migration that logs them landed on the");
+  console.log("  14th, but its caller did not ship until the 16th, so anything before then");
+  console.log("  means UNKNOWN, not \"never sent\".");
   console.log("  Press Send again and this column becomes trustworthy.\n");
 }
 

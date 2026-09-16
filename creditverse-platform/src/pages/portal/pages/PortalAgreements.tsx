@@ -12,6 +12,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { requireSupabase } from "@/lib/supabase/client";
 import { formatDate } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
+import { PageLoadError } from "@/components/common/QueryState";
 
 interface Agreement {
   id: string; title: string; status: string; service: string | null;
@@ -55,6 +56,8 @@ export function PortalAgreements() {
   if (agreements.isLoading) {
     return <p className="py-8 text-center text-sm text-muted-foreground"><Loader2 className="mx-auto h-4 w-4 animate-spin" /></p>;
   }
+
+  if (agreements.isError) return <PageLoadError what="Your agreements" />;
 
   const rows = agreements.data ?? [];
   if (rows.length === 0) {

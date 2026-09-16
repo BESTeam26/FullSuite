@@ -110,7 +110,16 @@ export default function Channels() {
   const owner = agencyView
     ? { agencyId: auth.agencyId ?? null, organizationId: null }
     : { agencyId: null, organizationId: activeOrganization?.id ?? null };
-  const canCreate = agencyView ? perms.can("communication.manage") : true;
+  /*
+   * `communication.channels.create`, not `communication.manage`.
+   *
+   * 0209 renamed the key and deleted the old one; this line kept asking for the
+   * deleted name. An unknown key is not refused by the resolver — it falls
+   * through to "owner or administrator by role", so New conversation has been
+   * permanently admin-only and could not be granted to anybody, because the key
+   * it asked for no longer existed to grant.
+   */
+  const canCreate = agencyView ? perms.can("communication.channels.create") : true;
 
   return (
     <div className="mx-auto flex h-[calc(100vh-4rem)] max-w-[1600px] flex-col gap-4 p-4 md:flex-row md:p-6">

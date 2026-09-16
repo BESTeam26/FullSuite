@@ -21,6 +21,8 @@ import { ConversationPane } from "@/components/communication/ConversationPane";
 import { useAuth } from "@/lib/auth/auth-context";
 import { formatDate } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
+import { PanelState } from "@/components/common/QueryState";
+import { hasRows } from "@/lib/ui/query-rows";
 
 /**
  * The partner's BES CRM builds, and what BES is waiting on them for.
@@ -38,7 +40,9 @@ export function PortalProjects() {
   const requirements = useMyPartnerRequirements();
   const list = projects.data ?? [];
   const asks = requirements.data ?? [];
-  if (!projects.isLoading && list.length === 0) return null;
+  /* Hidden only when the answer really is "no builds". A failed request must
+     not make the section vanish — that reads as "you have none". */
+  if (!projects.isPending && !projects.isError && list.length === 0) return null;
 
   const engineLabel = (key: string) => key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
@@ -48,8 +52,9 @@ export function PortalProjects() {
         <Workflow className="h-3.5 w-3.5" /> Your BES CRM builds
         {projects.data && <span className="font-normal normal-case">— {list.length}</span>}
       </h2>
-      {projects.isLoading ? (
-        <p className="py-3 text-xs text-muted-foreground"><Loader2 className="mr-1.5 inline h-3 w-3 animate-spin" /> Loading…</p>
+      {!hasRows(projects) ? (
+        <PanelState query={projects} empty={
+          <p className="py-3 text-xs text-muted-foreground">No builds running right now.</p>} />
       ) : (
         <ul className="space-y-2">
           {list.map((pr) => (
@@ -90,10 +95,9 @@ export function PortalProjects() {
       <h3 className="mb-2 mt-4 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
         <ClipboardList className="h-3.5 w-3.5" /> What BES needs from you
       </h3>
-      {requirements.isLoading ? (
-        <p className="text-xs text-muted-foreground"><Loader2 className="mr-1.5 inline h-3 w-3 animate-spin" /> Loading…</p>
-      ) : asks.length === 0 ? (
-        <p className="text-xs text-muted-foreground">Nothing outstanding — BES has everything it asked you for.</p>
+      {!hasRows(requirements) ? (
+        <PanelState query={requirements} empty={
+          <p className="text-xs text-muted-foreground">Nothing outstanding — BES has everything it asked you for.</p>} />
       ) : (
         <ul className="divide-y divide-border/50 text-xs">
           {asks.map((a) => (
@@ -150,14 +154,11 @@ export function PortalClients() {
         </label>
       </div>
 
-      {clients.isLoading ? (
-        <p className="py-6 text-center text-sm text-muted-foreground">
-          <Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Loading your clients…
-        </p>
-      ) : (clients.data ?? []).length === 0 ? (
-        <p className="py-4 text-center text-sm text-muted-foreground">
-          No client files yet. When BES opens files for your clients, their progress appears here.
-        </p>
+      {!hasRows(clients) ? (
+        <PanelState query={clients} empty={
+          <p className="py-4 text-center text-sm text-muted-foreground">
+            No client files yet. When BES opens files for your clients, their progress appears here.
+          </p>} />
       ) : (
         <>
           <div className="relative mb-2 max-w-xs">
@@ -244,12 +245,11 @@ export function PortalFiles({ partnerGroupId }: { partnerGroupId: string }) {
       <h2 className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
         <FileText className="h-3.5 w-3.5" /> Shared with you
       </h2>
-      {files.isLoading ? (
-        <p className="py-4"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></p>
-      ) : (files.data ?? []).length === 0 ? (
-        <p className="py-4 text-center text-sm text-muted-foreground">
-          Nothing has been shared yet. Documents BES shares with you will appear here.
-        </p>
+      {!hasRows(files) ? (
+        <PanelState query={files} empty={
+          <p className="py-4 text-center text-sm text-muted-foreground">
+            Nothing has been shared yet. Documents BES shares with you will appear here.
+          </p>} />
       ) : (
         <FilePreviewGrid>
           {(files.data ?? []).map((f) => (

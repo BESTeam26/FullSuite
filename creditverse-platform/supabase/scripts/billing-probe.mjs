@@ -450,12 +450,26 @@ check("39. an ISO week keeps its meaning across a year boundary",
                   billing_period_key('RECURRING_WEEKLY', date '2027-01-01') as b`),
   [{ a: "2026-W53", b: "2026-W53" }]);
 
+/*
+ * PIN THE ISSUE DATE. `billing_period_due` takes `p_issued` and defaults it to
+ * CURRENT_DATE, so leaving it off made every expectation below true only on the
+ * day this was written — the 'Monday' case passed for a whole week because the
+ * clamp below happened to land on the same date. Pass the fourth argument.
+ */
 check("40. the due date reads the day somebody typed, and falls back rather than guessing",
-  q.query(`select billing_period_due('RECURRING_WEEKLY', 'Every Friday', date '2026-09-14')::text as friday,
-                  billing_period_due('RECURRING_WEEKLY', 'Monday', date '2026-09-14')::text as monday,
-                  billing_period_due('RECURRING_MONTHLY', 'End of the month', date '2026-09-01')::text as eom,
-                  billing_period_due('RECURRING_MONTHLY', 'whenever', date '2026-09-01')::text as unreadable`),
+  q.query(`select billing_period_due('RECURRING_WEEKLY', 'Every Friday', date '2026-09-14', date '2026-09-14')::text as friday,
+                  billing_period_due('RECURRING_WEEKLY', 'Monday', date '2026-09-14', date '2026-09-14')::text as monday,
+                  billing_period_due('RECURRING_MONTHLY', 'End of the month', date '2026-09-01', date '2026-09-01')::text as eom,
+                  billing_period_due('RECURRING_MONTHLY', 'whenever', date '2026-09-01', date '2026-09-01')::text as unreadable`),
   [{ friday: "2026-09-18", monday: "2026-09-14", eom: "2026-09-30", unreadable: "2026-09-30" }]);
+
+check("40b. and it never hands back a due date that is already past on the day of issue",
+  /* The rule the missing argument was hiding: a cycle day earlier than the day
+     the invoice exists would be born overdue, so the issue date wins. Asserted
+     against an invented issue date, not today's, so it stays true tomorrow. */
+  q.query(`select billing_period_due('RECURRING_WEEKLY', 'Monday', date '2026-09-14', date '2026-09-16')::text as clamped,
+                  billing_period_due('RECURRING_WEEKLY', 'Friday', date '2026-09-14', date '2026-09-16')::text as untouched`),
+  [{ clamped: "2026-09-16", untouched: "2026-09-18" }]);
 
 const TERMS = `
   insert into partner_services (id, group_id, agency_id, service_type, name, status)

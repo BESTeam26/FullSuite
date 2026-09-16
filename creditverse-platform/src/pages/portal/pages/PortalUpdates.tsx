@@ -7,11 +7,13 @@
  * partner something written for BES staff.
  */
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Megaphone, Pin } from "lucide-react";
+import { Megaphone, Pin } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-context";
 import { requireSupabase } from "@/lib/supabase/client";
 import { useMyPartnerUpdates } from "@/lib/data/use-partner-portal-actions";
 import { formatDate } from "@/lib/format-date";
+import { PanelState } from "@/components/common/QueryState";
+import { hasRows } from "@/lib/ui/query-rows";
 
 interface Announcement {
   id: string; title: string; body: string | null; tag: string | null;
@@ -43,12 +45,11 @@ export function PortalUpdates() {
         <h2 className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
           <Megaphone className="h-3.5 w-3.5" /> From BES
         </h2>
-        {announcements.isLoading ? (
-          <p className="py-3"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></p>
-        ) : (announcements.data ?? []).length === 0 ? (
-          <p className="py-2 text-sm text-muted-foreground">
-            No notices right now. Service updates, maintenance windows and holiday schedules appear here.
-          </p>
+        {!hasRows(announcements) ? (
+          <PanelState query={announcements} empty={
+            <p className="py-2 text-sm text-muted-foreground">
+              No notices right now. Service updates, maintenance windows and holiday schedules appear here.
+            </p>} />
         ) : (
           <ul className="divide-y divide-border/50">
             {(announcements.data ?? []).map((a) => (
@@ -72,8 +73,8 @@ export function PortalUpdates() {
 
       <section className="rounded-xl border border-border bg-card p-4">
         <h2 className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">On your account</h2>
-        {(updates.data ?? []).length === 0 ? (
-          <p className="py-2 text-sm text-muted-foreground">Nothing has moved yet.</p>
+        {!hasRows(updates) ? (
+          <PanelState query={updates} empty={<p className="py-2 text-sm text-muted-foreground">Nothing has moved yet.</p>} />
         ) : (
           <ul className="divide-y divide-border/50">
             {(updates.data ?? []).map((u) => (
