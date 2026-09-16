@@ -111,6 +111,14 @@ export interface EodSubmissionRow {
   escalations: string | null;
   additionalNotes: string | null;
   nextWorkdayPriority: string | null;
+  /* The review axis, separate from submission throughout (Dee, 2026-09-16). */
+  reviewedAt: string | null;
+  reviewedBy: string | null;
+  reviewNote: string | null;
+  /* Where the report went, resolved and frozen at submission. A null reason on
+     an older report means "not recorded", never "nobody". */
+  routedTo: string | null;
+  routingReason: string | null;
 }
 
 /** How a report reached its submitted state — the distinction that matters. */
@@ -143,6 +151,11 @@ const shape = (r: Record<string, unknown>, name: string): EodSubmissionRow => ({
   escalations: (r.escalations as string) ?? null,
   additionalNotes: (r.additional_notes as string) ?? null,
   nextWorkdayPriority: (r.next_workday_priority as string) ?? null,
+  reviewedAt: (r.reviewed_at as string) ?? null,
+  reviewedBy: (r.reviewed_by as string) ?? null,
+  reviewNote: (r.review_note as string) ?? null,
+  routedTo: (r.routed_to as string) ?? null,
+  routingReason: (r.routing_reason as string) ?? null,
 });
 
 export interface EodNotes {
@@ -253,6 +266,8 @@ export async function fetchTeamEod(agencyId: string, workDate: string): Promise<
       submittedAt: null, submittedBy: null, autoSubmitted: false,
       unfinishedWork: null, blockers: null, escalations: null,
       additionalNotes: null, nextWorkdayPriority: null, activity: null,
+      reviewedAt: null, reviewedBy: null, reviewNote: null,
+      routedTo: null, routingReason: null,
     };
   }).sort((a, b) => a.employeeName.localeCompare(b.employeeName));
 }
@@ -270,4 +285,32 @@ export async function runEodCutoff(agencyId: string): Promise<number> {
   const { data, error } = await sb.rpc("eod_run_cutoff", { p_agency: agencyId });
   if (error) throw error;
   return typeof data === "number" ? data : 0;
+}
+
+/* ── The Team Lead's review ───────────────────────────────────────────────
+ *
+ * Dee, 2026-09-16: *"Actions: Mark Reviewed, Needs Follow-up, Add TL Note. Do
+ * not make the employee wait for TL approval before the submission itself
+ * counts as submitted. Review is a separate state."*
+ *
+ * So these never touch `submitted_at` or `state`'s submitted-ness — they move
+ * the report along the REVIEW axis only. A submitted report is submitted the
+ * moment it is submitted, whatever a lead does or does not do afterwards.
+ */
+export type ReviewDecision = "reviewed" | "needs_clarification";
+
+export async function reviewEod(
+  eodId: string, decision: ReviewDecision, note: string | null,
+): Promise<void> {
+  const sb = requireSupabase();
+  const { error } = await sb.from("eod_submissions").update({
+    state: decision,
+    reviewed_at: new Date().toISOString(),
+    /* Who reviewed it, from the session rather than from anything the client
+       chose to send. RLS refuses anybody who may not, so this is the record
+       rather than the permission. */
+    reviewed_by: (await sb.auth.getUser()).data.user?.id ?? null,
+    review_note: note?.trim() || null,
+  } as never).eq("id", eodId);
+  if (error) throw error;
 }

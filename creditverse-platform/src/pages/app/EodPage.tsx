@@ -25,6 +25,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { useEodActivity, useEodDay, useSaveEod, todayLocal } from "@/lib/data/use-eod-day";
 import { SUBMISSION_LABEL, submissionKind, type EodNotes } from "@/lib/data/eod-day";
 import { formatDate } from "@/lib/format-date";
+import { eodReportName } from "@/lib/eod/report-name";
 import { cn } from "@/lib/utils";
 
 const NOTE_FIELDS: { key: keyof EodNotes; label: string; placeholder: string }[] = [
@@ -48,7 +49,7 @@ function Count({ icon: Icon, label, value, tone }: { icon: typeof Clock; label: 
 }
 
 export const EodPage = () => {
-  const { user } = useAuth();
+  const { user, displayName } = useAuth();
   const date = todayLocal();
   const activity = useEodActivity(date);
   const day = useEodDay(date);
@@ -75,7 +76,9 @@ export const EodPage = () => {
 
   return (
     <HqPageShell
-      title="End of Day"
+      /* Dee's naming convention, composed in one place so the heading, the
+         email subject and the notification cannot drift apart. */
+      title={eodReportName(displayName ?? "", date)}
       description="Built from today's work. Add what the system cannot see, then submit."
       icon={Timer}
     >

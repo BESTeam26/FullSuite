@@ -2,7 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth/auth-context";
 import {
   fetchEodActivity, fetchEodDay, fetchTeamEod, runEodCutoff, saveEodDay,
-  type EodNotes,
+  reviewEod,
+  type EodNotes, type ReviewDecision,
 } from "@/lib/data/eod-day";
 
 export const todayLocal = () => {
@@ -76,5 +77,26 @@ export function useTeamEod(date: string) {
     },
     enabled: live && !!agencyId,
     staleTime: 30_000,
+  });
+}
+
+/**
+ * A Team Lead marking a report reviewed, or asking about it.
+ *
+ * Review is a SEPARATE axis from submission (Dee: "Do not make the employee
+ * wait for TL approval before the submission itself counts as submitted"), so
+ * this invalidates the team list and the author's own day without touching
+ * either one's submitted-ness.
+ */
+export function useReviewEod(date: string) {
+  const qc = useQueryClient();
+  const { agencyId } = useCtx();
+  return useMutation({
+    mutationFn: (v: { eodId: string; employeeId: string; decision: ReviewDecision; note: string | null }) =>
+      reviewEod(v.eodId, v.decision, v.note),
+    onSuccess: (_r, v) => {
+      qc.invalidateQueries({ queryKey: teamEodKey(agencyId ?? "", date) });
+      qc.invalidateQueries({ queryKey: eodDayKey(v.employeeId, date) });
+    },
   });
 }

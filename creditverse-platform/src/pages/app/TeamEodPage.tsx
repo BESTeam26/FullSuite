@@ -24,6 +24,7 @@ import { formatDateTime } from "@/lib/format-date";
 import { ContentCard } from "@/components/dashboard/DivisionLayout";
 import { Input } from "@/components/ui/input";
 import { EodProductionSummary } from "@/components/agency/EodProductionSummary";
+import { EodReviewActions } from "@/components/agency/EodReviewActions";
 import { useTeamEod, useEodActivity, todayLocal } from "@/lib/data/use-eod-day";
 import { SUBMISSION_LABEL, submissionKind } from "@/lib/data/eod-day";
 import { formatDate } from "@/lib/format-date";
@@ -56,6 +57,9 @@ export const TeamEodPage = () => {
   const [open, setOpen] = useState<string | null>(null);
 
   const rows = team.data ?? [];
+  /* Reviewer ids to names, from the roster already loaded — a reviewer is
+     always somebody on it, so this costs no request. */
+  const names = new Map(rows.map((r) => [r.employeeId, r.employeeName]));
   const missing = rows.filter((r) => !r.submittedAt);
   const auto = rows.filter((r) => r.autoSubmitted);
   const blocked = rows.filter((r) => (r.blockers ?? "").trim().length > 0);
@@ -123,12 +127,40 @@ export const TeamEodPage = () => {
                       {r.submittedAt && (
                         <span className="text-xs text-muted-foreground">{formatDate(r.submittedAt)}</span>
                       )}
+                      {/* Review is a SEPARATE axis from submission, so it gets
+                          its own badge rather than overwriting the first one. */}
+                      {r.submittedAt && (
+                        <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-bold",
+                          r.state === "needs_clarification"
+                            ? "border-amber-500/40 bg-amber-500/10 text-amber-700"
+                            : r.reviewedAt
+                              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
+                              : "border-border bg-muted text-muted-foreground")}>
+                          {r.state === "needs_clarification" ? "Needs follow-up"
+                            : r.reviewedAt ? "Reviewed" : "Awaiting review"}
+                        </span>
+                      )}
                       <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-bold", KIND_TONE[kind])}>
                         {SUBMISSION_LABEL[kind]}
                       </span>
                     </span>
                   </button>
                   {isOpen && <PersonRow employeeId={r.employeeId} date={date} name={r.employeeName} />}
+                  {/* Review is offered only on a report that EXISTS and has
+                      actually been submitted. There is nothing to review on a
+                      day somebody has not reported. */}
+                  {isOpen && r.id && r.submittedAt && (
+                    <EodReviewActions
+                      eodId={r.id}
+                      employeeId={r.employeeId}
+                      employeeName={r.employeeName}
+                      date={date}
+                      state={r.state}
+                      reviewedAt={r.reviewedAt}
+                      reviewerName={names.get(r.reviewedBy ?? "") ?? null}
+                      reviewNote={r.reviewNote}
+                    />
+                  )}
                 </li>
               );
             })}
