@@ -55,9 +55,35 @@ const AGENT = one(`select p.id from agency_memberships m
     join profiles p on p.id = m.user_id
    where m.role = 'agency_user' and m.status = 'active' and coalesce(p.is_fixture,false) = false
    limit 1`).id;
-/* A channel with traffic, and a message in it. */
-const CH = one(`select m.channel_id as id, count(*) n from messages m
-   where m.deleted_at is null group by m.channel_id order by n desc limit 1`).id;
+/*
+ * A channel BOTH test users can actually read, with traffic in it.
+ *
+ * This used to pick "the channel with the most messages", full stop. That is a
+ * fixture that decays: as the team actually uses the product, the busiest
+ * conversation became a DIRECT MESSAGE between two other people — which the
+ * owner correctly cannot read — and twelve checks failed reporting 42501 on
+ * every write, as though the product had broken. It had not; the probe had
+ * pointed itself at a private conversation.
+ *
+ * So visibility is part of the selection, asked of the database as each user
+ * rather than assumed from the channel's kind.
+ */
+const readableBy = (user) => q.query(`begin;
+  set local role authenticated;
+  do $c$ begin perform set_config('request.jwt.claims', '{"sub":"${user}","role":"authenticated"}', true); end $c$;
+  select m.channel_id as id, count(*) as n
+    from messages m
+   where m.deleted_at is null and public.channel_visible(m.channel_id)
+   group by m.channel_id order by n desc;
+  rollback;`).map((r) => r.id);
+
+const ownerCan = readableBy(OWNER);
+const agentCan = new Set(readableBy(AGENT));
+const CH = ownerCan.find((id) => agentCan.has(id));
+if (!CH) {
+  console.log("\n  SKIPPED — no conversation both the owner and an agent can read.\n");
+  process.exit(0);
+}
 /* A ROOT message. The newest message in a busy channel is often itself a
    thread reply, and "Reply to the thread, not to a reply inside it" is a rule
    this product deliberately enforces — picking one would test the guard, not
@@ -209,6 +235,38 @@ console.log("The partner context panel shows context, never new access");
         r.ok ? r.rows.length : "error", 0);
     }
   }
+}
+
+console.log("Search finds exactly what the searcher could already open");
+{
+  /* SECURITY INVOKER is the whole design: five tables, five policies, each
+     answering for itself. The test of that is not the counts — it is that a
+     narrower person never finds MORE than a broader one. */
+  const kinds = (u, term) => {
+    const r = as(u, `select kind, count(*)::int as n from public.search_communication('${term}', 40) group by 1;`);
+    return r.ok ? Object.fromEntries(r.rows.map((x) => [x.kind, x.n])) : { error: 1 };
+  };
+  const at = (m, k) => m[k] ?? 0;
+
+  const owner = kinds(OWNER, "Test");
+  const agent = kinds(AGENT, "Test");
+  check("the owner finds things", Object.keys(owner).length > 0, true);
+  check("an agent never finds more messages than the owner", at(agent, "message") <= at(owner, "message"), true);
+  check("…nor more partners", at(agent, "partner") <= at(owner, "partner"), true);
+  check("…nor more people", at(agent, "person") <= at(owner, "person"), true);
+
+  const contact = one(`select user_id from partner_contacts where user_id is not null and status = 'active' limit 1`);
+  if (contact) {
+    const theirs = kinds(contact.user_id, "Test");
+    /* The one that would matter most if the composition were wrong: a partner
+       must not be able to enumerate BES staff through a search box. */
+    check("a partner contact finds no BES people at all", at(theirs, "person"), 0);
+    check("…and no BES-internal messages", at(theirs, "message") <= at(owner, "message"), true);
+  }
+
+  const short = as(OWNER, "select count(*)::int as n from public.search_communication('a', 40);");
+  check("a one-character query returns nothing rather than everything",
+    short.ok ? short.rows[0].n : "error", 0);
 }
 
 console.log("The rules that must survive the fix");

@@ -21,12 +21,13 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { fireEvent, render as rtlRender, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import Channels from "@/pages/app/Channels";
-import type { Channel, MessageHit } from "@/lib/data/channels";
+import type { Channel } from "@/lib/data/channels";
+import type { SearchHit } from "@/lib/data/communication-home";
 import type { RichMessage } from "@/lib/data/messages";
 
 let channels: Channel[];
 let messages: RichMessage[];
-let hits: MessageHit[];
+let hits: SearchHit[];
 let mentionable: { userId: string; name: string; email?: string | null; hint?: string | null }[];
 const sendMutate = vi.fn().mockResolvedValue({ id: 1 });
 const reactMutate = vi.fn();
@@ -55,6 +56,10 @@ vi.mock("@/lib/data/communication-home", () => ({
      screen does with messages, not about the saved list. */
   useSavedMessages: () => ({ data: [], isPending: false, isError: false }),
   useToggleSaved: () => ({ mutate: vi.fn() }),
+  useCommunicationActivity: () => ({ data: [], isPending: false, isError: false }),
+  /* Search now spans messages, channels, people, partners and files, so the
+     screen tests drive it through `hits` the way they drove the old one. */
+  useCommunicationSearch: () => ({ data: hits, isPending: false, isError: false }),
 }));
 vi.mock("@/lib/data/use-messages", () => ({
   useRichMessages: () => ({ data: messages, isLoading: false, refetch: vi.fn() }),
@@ -204,22 +209,51 @@ describe("archived conversations keep their history and take no more (§30)", ()
 });
 
 describe("search shows what came back, and does no filtering of its own (§24)", () => {
+  const SEARCH = "Search conversations, people, files";
+  const find = (term: string) =>
+    fireEvent.change(screen.getByLabelText(SEARCH), { target: { value: term } });
+
   it("renders the hits it is given", () => {
-    hits = [{ messageId: 1, channelId: "c9", channelName: "Acme · General",
-              authorName: "Dana", bodyText: "the letters went out",
-              createdAt: "2026-09-06T00:00:00Z" }];
+    hits = [{ kind: "message", refId: "1", channelId: "c9", title: "Dana",
+              subtitle: "the letters went out", happenedAt: "2026-09-06T00:00:00Z" }];
     render();
-    fireEvent.change(screen.getByLabelText("Search messages"), { target: { value: "letters" } });
-    expect(screen.getByText("Acme · General")).toBeInTheDocument();
+    find("letters");
     expect(screen.getByText(/the letters went out/)).toBeInTheDocument();
+  });
+
+  it("groups results by what they are", () => {
+    /* Five kinds now, and a reader scanning for a person should not have to
+       pick them out of a list of messages. */
+    hits = [
+      { kind: "message", refId: "1", channelId: "c9", title: "Dana", subtitle: "letters went out", happenedAt: "2026-09-06T00:00:00Z" },
+      { kind: "person", refId: "u9", channelId: null, title: "Rowell Pena", subtitle: "rowell@bes.test", happenedAt: "2026-09-06T00:00:00Z" },
+      { kind: "partner", refId: "g9", channelId: null, title: "Acme Fulfilment", subtitle: "active", happenedAt: "2026-09-06T00:00:00Z" },
+    ];
+    render();
+    /* Two characters minimum — the rail does not search below that, so a
+       one-character term renders the conversation list, not results. */
+    find("ac");
+    expect(screen.getByText("Messages")).toBeInTheDocument();
+    expect(screen.getByText("People")).toBeInTheDocument();
+    expect(screen.getByText("Partners")).toBeInTheDocument();
+  });
+
+  it("does not offer to open something that is not a conversation", () => {
+    /* A person has no channel to jump to. A row that looks clickable and goes
+       nowhere is worse than a row that is plainly an answer. */
+    hits = [{ kind: "person", refId: "u9", channelId: null, title: "Rowell Pena",
+              subtitle: "rowell@bes.test", happenedAt: "2026-09-06T00:00:00Z" }];
+    render();
+    find("rowell");
+    expect(screen.queryByRole("button", { name: /Rowell Pena/ })).not.toBeInTheDocument();
+    expect(screen.getByText("Rowell Pena")).toBeInTheDocument();
   });
 
   it("says plainly when there is nothing, rather than implying nothing exists", () => {
     hits = [];
-  mentionable = [{ userId: "u2", name: "Rowell Cruz", email: "rowell@bes.test", hint: "Agent" }];
     render();
-    fireEvent.change(screen.getByLabelText("Search messages"), { target: { value: "zebra" } });
-    expect(screen.getByText("Nothing in the conversations you can see.")).toBeInTheDocument();
+    find("zebra");
+    expect(screen.getByText("Nothing you can see matches that.")).toBeInTheDocument();
   });
 });
 

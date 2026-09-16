@@ -18400,6 +18400,17 @@ export type Database = {
         }
         Returns: string
       }
+      search_communication: {
+        Args: { p_limit?: number; p_query: string }
+        Returns: {
+          channel_id: string
+          happened_at: string
+          kind: string
+          ref_id: string
+          subtitle: string
+          title: string
+        }[]
+      }
       search_messages: {
         Args: { p_limit?: number; p_query: string }
         Returns: {

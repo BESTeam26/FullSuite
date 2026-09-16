@@ -108,3 +108,45 @@ export function useToggleSaved() {
     onSuccess: () => { void qc.invalidateQueries({ queryKey: savedKey }); },
   });
 }
+
+/* ── Search, across everything Communication touches ───────────────────────
+ *
+ * Dee: "Search should support messages, people, channels, Partners,
+ * attachments." One RPC, SECURITY INVOKER, so each table decides for itself
+ * what this searcher may find — a partner contact searching gets their own
+ * conversations and none of the BES roster, because `profiles` refuses them,
+ * not because this asks who they are.
+ */
+export type SearchKind = "message" | "channel" | "person" | "partner" | "file";
+
+export interface SearchHit {
+  kind: SearchKind;
+  refId: string;
+  /** Where the result opens. Null for a person or a partner, which are not conversations. */
+  channelId: string | null;
+  title: string;
+  subtitle: string | null;
+  happenedAt: string;
+}
+
+export function useCommunicationSearch(term: string) {
+  const ready = term.trim().length >= 2;
+  return useQuery({
+    queryKey: ["communication", "search", term.trim()],
+    enabled: ready,
+    staleTime: 15_000,
+    queryFn: async (): Promise<SearchHit[]> => {
+      const { data, error } = await requireSupabase()
+        .rpc("search_communication", { p_query: term.trim(), p_limit: 40 });
+      if (error) throw error;
+      return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+        kind: r.kind as SearchKind,
+        refId: r.ref_id as string,
+        channelId: (r.channel_id as string) ?? null,
+        title: r.title as string,
+        subtitle: (r.subtitle as string) ?? null,
+        happenedAt: r.happened_at as string,
+      }));
+    },
+  });
+}
