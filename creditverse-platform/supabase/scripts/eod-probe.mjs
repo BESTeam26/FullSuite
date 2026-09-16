@@ -163,16 +163,28 @@ console.log("\nThe team rollup is the lead's, and management's");
     const mgmt = as(owner, "", `select count(*)::int as n from public.eod_team_rollup('${lead}', current_date);`);
     check("management can read it too", mgmt.ok && mgmt.rows[0].n > 0, true);
 
+    /* A peer WITHOUT management capability. Once Bryan took over Team Leads its
+       members became the other leads, who hold ops.manage and can legitimately
+       read a rollup — so the first version of this check picked one of them and
+       reported correct behaviour as a leak. The rule is about an ordinary
+       colleague, so the query now says so. */
     const peer = one(`select tm.user_id from team_memberships tm
         join teams t on t.id = tm.team_id and t.archived_at is null
         join team_memberships l on l.team_id = t.id and l.user_id = '${lead}' and l.is_lead
-       where tm.user_id <> '${lead}' limit 1`)?.user_id;
+        join agency_memberships m on m.user_id = tm.user_id
+                                 and m.role = 'agency_user' and m.status = 'active'
+       where tm.user_id <> '${lead}'
+         and not exists (select 1 from agency_member_permissions amp
+                          where amp.membership_id = m.id and amp.key = 'ops.manage' and amp.allowed)
+       limit 1`)?.user_id;
     if (peer) {
       const theirs = as(peer, "", `select count(*)::int as n from public.eod_team_rollup('${lead}', current_date);`);
-      /* The person being rolled up must not be able to read the rollup — it
-         contains their colleagues' days. */
-      check("somebody ON the team cannot read their lead's rollup of it",
+      /* The people being rolled up must not read the rollup: it contains their
+         colleagues' days, blockers and what they could not finish. */
+      check("an ordinary colleague on the team cannot read their lead's rollup of it",
         theirs.ok ? theirs.rows[0].n : "error", 0);
+    } else {
+      console.log("  ..   no non-management member on that team to test the peer rule with");
     }
   }
 }
