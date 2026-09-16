@@ -175,6 +175,14 @@ export interface SendResult {
   ok: boolean;
   status: number;
   detail?: string;
+  /**
+   * The provider's own id for the accepted message.
+   *
+   * Worth recording: it is the only handle that ties a row in our outbox to a
+   * message in Resend's dashboard when somebody asks "did that actually go?".
+   * Absent when the provider refused, or when it answered without one.
+   */
+  providerMessageId?: string;
 }
 
 /**
@@ -194,6 +202,13 @@ export async function sendEmail(params: {
   from: string;
   fromName: string;
   to: string;
+  /**
+   * Copied recipients. BES keeps a permanent operational record of some mail
+   * — an EOD report is copied to support@ — and a CC is the honest way to do
+   * that: the primary recipient can SEE who else received it, which a silent
+   * BCC hides.
+   */
+  cc?: string[];
   subject: string;
   content: EmailContent;
   /** A monitored mailbox for replies. Omitted when the caller has none. */
@@ -215,13 +230,19 @@ export async function sendEmail(params: {
     body: JSON.stringify({
       from: name ? `${name} <${from.email}>` : from.email,
       to: [params.to],
+      ...(params.cc?.length ? { cc: params.cc } : {}),
       subject: params.subject,
       html: renderEmail(params.content),
       text: renderEmailText(params.content),
       ...(replyTo ? { reply_to: replyTo } : {}),
     }),
   });
-  if (res.ok) return { ok: true, status: res.status };
+  if (res.ok) {
+    /* Resend answers `{ "id": "..." }`. A body we cannot parse is not a
+       failure — the message was accepted — so the id is simply absent. */
+    const body = await res.json().catch(() => null) as { id?: string } | null;
+    return { ok: true, status: res.status, providerMessageId: body?.id };
+  }
   const detail = await res.text().catch(() => "");
   /* The key itself is never logged — only the status and Resend's message. */
   console.error("resend error", res.status, detail.slice(0, 500));

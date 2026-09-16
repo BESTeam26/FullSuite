@@ -177,6 +177,82 @@ console.log("\nThe team rollup is the lead's, and management's");
   }
 }
 
+console.log("\nSubmitting queues one email, and never sends from inside the transaction");
+{
+  const agency = one("select id from agencies order by created_at limit 1").id;
+  /* Somebody whose routing resolves to a real lead, so there is an address. */
+  const routed = one(`select e.employee_id from eod_submissions e
+                       where e.routing_reason = 'team_lead' and e.routed_to is not null limit 1`)?.employee_id;
+  const unrouted = one(`select m.user_id from agency_memberships m
+      join profiles p on p.id = m.user_id and coalesce(p.is_fixture,false) = false
+      cross join lateral public.eod_route_for(m.user_id) r
+     where m.status = 'active' and r.reason = 'no_lead' limit 1`)?.user_id;
+
+  const submit = (who, day, extra = "") => `
+    insert into eod_submissions (agency_id, employee_id, work_date, state, submitted_at, submitted_by)
+      values ('${agency}', '${who}', current_date - ${day}, 'submitted', now(), '${who}');
+    ${extra}`;
+  const outbox = (who, day) => `
+    select count(*)::int as queued,
+           max(o.to_email) as recipient, max(o.cc_email) as cc,
+           max(o.state) as state, max(o.subject) as subject
+      from eod_email_outbox o
+      join eod_submissions e on e.id = o.eod_id
+     where e.employee_id = '${who}' and e.work_date = current_date - ${day};`;
+
+  if (routed) {
+    const r = shaped(submit(routed, 31), outbox(routed, 31)).rows?.[0];
+    check("one email is queued", r?.queued, 1);
+    check("…to a resolved address, never an invented one", !!r?.recipient, true);
+    check("…copied to the permanent record", r?.cc, "support@blessedempireservices.com");
+    /* Dee's exact format: {{Agent Name}} - EOD Report - {{Month Day, Year}} */
+    check("…with the subject Dee specified",
+      /^.+ - EOD Report - [A-Z][a-z]+ \d{1,2}, \d{4}$/.test(r?.subject ?? ""), true);
+
+    const twice = shaped(
+      submit(routed, 32, `update eod_submissions set blockers = 'edited'
+                           where employee_id = '${routed}' and work_date = current_date - 32;
+                          update eod_submissions set blockers = 'edited again'
+                           where employee_id = '${routed}' and work_date = current_date - 32;`),
+      outbox(routed, 32)).rows?.[0];
+    check("re-submitting does not queue a second email", twice?.queued, 1);
+  }
+
+  if (unrouted) {
+    const r = shaped(submit(unrouted, 33), outbox(unrouted, 33)).rows?.[0];
+    /* The row still exists, as 'unavailable'. A silent absence would leave
+       nobody able to tell "nobody to send to" from "the sweep has not run". */
+    check("a report with no lead still records the attempt", r?.queued, 1);
+    check("…marked unavailable rather than pending for ever", r?.state, "unavailable");
+    check("…and invents no recipient", r?.recipient, null);
+  }
+
+  const draft = shaped(`
+    insert into eod_submissions (agency_id, employee_id, work_date, state)
+      values ('${agency}', '${routed ?? unrouted}', current_date - 34, 'draft');`,
+    outbox(routed ?? unrouted, 34)).rows?.[0];
+  check("a draft queues nothing", draft?.queued, 0);
+}
+
+console.log("\nThe email cannot take the submission down with it");
+{
+  const src = one(`select prosrc from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                    where n.nspname = 'public' and p.proname = 'eod_queue_email'`).prosrc;
+  /* Dee: "Email failure must NOT undo a valid EOD submission." The trigger must
+     QUEUE and nothing else — an http call here would put a provider outage on
+     the same transaction as somebody's day of work. */
+  check("the submit trigger makes no network call", /net\.http_post/.test(src), false);
+  check("…it only writes to the outbox", /insert into public\.eod_email_outbox/.test(src), true);
+
+  const dedupe = one(`select indexdef from pg_indexes
+                       where tablename = 'eod_email_outbox' and indexname = 'eod_email_outbox_once'`);
+  check("one email per report is enforced by an index, not by a check in code",
+    /UNIQUE/i.test(dedupe?.indexdef ?? ""), true);
+
+  const job = one(`select active from cron.job where jobname = 'eod-email-dispatch'`);
+  check("the sweep is actually scheduled", job?.active, true);
+}
+
 console.log("\nThe figures come from the frozen snapshot");
 {
   const src = one(`select proname, prosrc from pg_proc p join pg_namespace n on n.oid = p.pronamespace
