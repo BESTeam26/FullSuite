@@ -800,11 +800,9 @@ designed together and built in sequence so the shared extensions are made once.
 
 ## D-015 — Internal surfaces still report a failed load as an empty one
 
-**Raised:** 2026-09-16. **Status:** PARTIALLY DONE — 32 remain, down from 39.
+**Raised:** 2026-09-16. **Status:** PARTIALLY DONE — **22 remain**.
 
 ### The defect
-
-One line, and it reads as harmless:
 
 ```tsx
 const rows = query.data ?? [];
@@ -815,43 +813,53 @@ if (rows.length === 0) return <p>Nothing yet.</p>;
 failure renders as a confident factual claim: *you have none*. This has shipped
 before — it is the Partner-folder PostgREST error that appeared as empty folders.
 
-### I OVER-REPORTED THIS TWICE, AND THE CORRECTION MATTERS
+### THE COUNT WAS WRONG FOUR TIMES
 
-It was first written up as 89, then 79. Both were wrong. The detector looked only
-for `isError`, so it counted every file that handles the failure by a
-**destructured `error`** — `ClientHistoryTab` does exactly that and gets it
-perfectly right — and later every file using a **`somethingFailed` prop**, which
-is the only way a presentational component handed its rows can know.
+Reported as 89, then 79, then 39, then 32. It is **22**. Every correction was
+the same mistake: the detector did not know a spelling this codebase already
+uses.
 
-With all four spellings recognised the real figure was **39**, and it is now
-**32**. A backlog inflated to nearly three times its size sends somebody
-chasing files that are already correct.
+| spelling | example | missed until |
+|---|---|---|
+| `isError` | the query object | — |
+| destructured `error` | `ClientHistoryTab` | third count |
+| a `somethingFailed` prop | `PartnerInvoiceList` | third count |
+| a **prefixed** error | `wsError` in `TalentOps` | fourth count |
+
+Each gap made *correct* files look broken. A backlog inflated to four times its
+real size sends somebody chasing work that is already done.
+
+### THE BLOCKER THIS ENTRY PREVIOUSLY CLAIMED DOES NOT EXIST
+
+An earlier version said several read hooks never expose `isError`, so those
+pages could not report a failure. Measured properly — brace-balanced extraction
+rather than a fixed character window — of the 63 hooks the remaining surfaces
+call:
+
+- **39** return the query itself, handing over `isError` for free
+- **12** reshape but pass a failure through
+- **12** hide it, and **eight of those are mutation bundles** with no empty state
+
+So nothing is meaningfully blocked. The remaining 22 are ordinary component
+edits, not a refactor.
 
 ### Done
 
-Every Partner Portal surface. Communication. `ClientDocumentsTab` — Dee's own
-example, *"No blank Documents 0 when canonical files exist"*. The money and
-credential surfaces, where a false "none" is acted on: partner invoices,
-expenses, payroll, credentials, contacts, services, files, activity, billing
-terms, overview and team.
+Every Partner Portal surface · Communication · the partner tabs · the finance
+panels · `ClientDocumentsTab` (Dee's own example) · `ClientSecretsPanel` ·
+`ClientProfilePage` · `BlockersPanel` · `ChecklistPanel` · `ClientWorkTab` ·
+`CompanyFeedCard` · `AgencyHome`.
 
-Three of those are presentational and take a `servicesFailed` / `failed` prop
-from the parent that owns the query — the same shape as `MessageRow`, because a
-component handed an array genuinely cannot tell empty from broken.
+Chosen by harm rather than by count: the test is whether the empty state is a
+claim somebody **acts on**. `ClientProfilePage` was the worst — on a failed
+fetch it said *"This client does not exist, or you are not authorized to see
+them"*, an existence and authorization verdict produced by a network blip.
 
-`src/pages/portal/portal-states.test.ts` reads the source of five directories and
-fails a new surface written the old way.
+### What remains
 
-### What remains, and the honest reason
+22 files, mostly FundingOps workspaces, reporting cards and settings sections.
+Lower harm: a BES employee seeing "none" on an internal panel refreshes; a
+partner told they have no invoices believes it.
 
-32 files, mostly FundingOps workspaces, client profile panels and settings
-sections. They are lower-harm than what is fixed: a BES employee seeing "none"
-on an internal panel refreshes; a partner told they have no invoices believes it.
-
-Several read hooks that return `{ rows, isLoading }` and **never expose
-`isError`**, so the page could not report a failure even if it wanted to. That
-hook widening is the real remaining work, not 32 more component edits.
-
-Re-measure with the detector in `portal-states.test.ts`; do not trust a file
-that merely mentions `isError` somewhere.
-that merely mentions `isError` somewhere.
+Re-measure with the detector in `src/pages/portal/portal-states.test.ts`, which
+knows all four spellings. Do not write a new one.
