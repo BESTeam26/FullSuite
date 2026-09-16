@@ -26,6 +26,7 @@ import { useEodActivity, useEodDay, useSaveEod, todayLocal } from "@/lib/data/us
 import { SUBMISSION_LABEL, submissionKind, type EodNotes } from "@/lib/data/eod-day";
 import { formatDate } from "@/lib/format-date";
 import { eodReportName } from "@/lib/eod/report-name";
+import { EodTeamRollup } from "@/components/agency/EodTeamRollup";
 import { cn } from "@/lib/utils";
 
 const NOTE_FIELDS: { key: keyof EodNotes; label: string; placeholder: string }[] = [
@@ -183,6 +184,9 @@ export const EodPage = () => {
           </ContentCard>
         </div>
       )}
-    </HqPageShell>
+          {/* PART 2, for whoever leads somebody. Renders nothing otherwise. */}
+      <EodTeamRollup date={date} />
+
+</HqPageShell>
   );
 };

@@ -5034,6 +5034,78 @@ export type Database = {
           },
         ]
       }
+      eod_email_outbox: {
+        Row: {
+          agency_id: string
+          attempts: number
+          cc_email: string | null
+          created_at: string
+          eod_id: string
+          id: string
+          kind: string
+          last_error: string | null
+          payload: Json
+          provider_message_id: string | null
+          sent_at: string | null
+          state: string
+          subject: string
+          to_email: string | null
+          to_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          attempts?: number
+          cc_email?: string | null
+          created_at?: string
+          eod_id: string
+          id?: string
+          kind?: string
+          last_error?: string | null
+          payload?: Json
+          provider_message_id?: string | null
+          sent_at?: string | null
+          state?: string
+          subject: string
+          to_email?: string | null
+          to_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          attempts?: number
+          cc_email?: string | null
+          created_at?: string
+          eod_id?: string
+          id?: string
+          kind?: string
+          last_error?: string | null
+          payload?: Json
+          provider_message_id?: string | null
+          sent_at?: string | null
+          state?: string
+          subject?: string
+          to_email?: string | null
+          to_name?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eod_email_outbox_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eod_email_outbox_eod_id_fkey"
+            columns: ["eod_id"]
+            isOneToOne: false
+            referencedRelation: "eod_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       eod_revisions: {
         Row: {
           eod_id: string
@@ -5090,6 +5162,9 @@ export type Database = {
           review_note: string | null
           reviewed_at: string | null
           reviewed_by: string | null
+          routed_team_id: string | null
+          routed_to: string | null
+          routing_reason: string | null
           snapshot: Json | null
           state: Database["public"]["Enums"]["eod_state"]
           submitted_at: string | null
@@ -5111,6 +5186,9 @@ export type Database = {
           review_note?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          routed_team_id?: string | null
+          routed_to?: string | null
+          routing_reason?: string | null
           snapshot?: Json | null
           state?: Database["public"]["Enums"]["eod_state"]
           submitted_at?: string | null
@@ -5132,6 +5210,9 @@ export type Database = {
           review_note?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          routed_team_id?: string | null
+          routed_to?: string | null
+          routing_reason?: string | null
           snapshot?: Json | null
           state?: Database["public"]["Enums"]["eod_state"]
           submitted_at?: string | null
@@ -5158,6 +5239,20 @@ export type Database = {
           {
             foreignKeyName: "eod_submissions_reviewed_by_fkey"
             columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eod_submissions_routed_team_id_fkey"
+            columns: ["routed_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eod_submissions_routed_to_fkey"
+            columns: ["routed_to"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -17201,7 +17296,44 @@ export type Database = {
         Args: { p_date: string; p_employee: string }
         Returns: Json
       }
+      eod_email_dispatch: { Args: never; Returns: undefined }
+      eod_route_for: {
+        Args: { p_employee: string }
+        Returns: {
+          lead_id: string
+          reason: string
+          team_id: string
+          team_name: string
+        }[]
+      }
       eod_run_cutoff: { Args: { p_agency: string }; Returns: number }
+      eod_team_rollup: {
+        Args: { p_date: string; p_lead: string }
+        Returns: {
+          auto_submitted: boolean
+          blocked: number
+          blockers: string
+          completed: number
+          employee_id: string
+          employee_name: string
+          help_needed: string
+          in_progress: number
+          minutes_logged: number
+          production: number
+          state: string
+          submitted: boolean
+          team_name: string
+        }[]
+      }
+      eod_visible_people: {
+        Args: never
+        Returns: {
+          employee_id: string
+          employee_name: string
+          relationship: string
+          team_name: string
+        }[]
+      }
       file_bes_in_scope: { Args: { p_file: string }; Returns: boolean }
       file_org_admin: { Args: { p_file: string }; Returns: boolean }
       file_reviewer: { Args: { p_file: string }; Returns: boolean }
