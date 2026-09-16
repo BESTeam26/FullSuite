@@ -102,9 +102,14 @@ describe("what a row repeats", () => {
     expect(within(container).getAllByText("Acme")).toHaveLength(1);
   });
 
-  it("keeps it when there is no heading to carry it", () => {
-    draw(groupFor([ch({ id: "a1", partnerGroupId: "p1", partnerName: "Acme", displayName: "general" })], "partners"));
-    expect(screen.getByText("Acme")).toBeInTheDocument();
+  it("names a single partner once, on its heading, not under every row", () => {
+    /* The live screen showed "Test Partner" three times, once beneath each of
+       its three channels, because a lone owner used to skip the heading. */
+    const { container } = draw(groupFor([
+      ch({ id: "a1", partnerGroupId: "p1", partnerName: "Acme", displayName: "general" }),
+      ch({ id: "a2", partnerGroupId: "p1", partnerName: "Acme", displayName: "support" }),
+    ], "partners"));
+    expect(within(container).getAllByText("Acme")).toHaveLength(1);
   });
 });
 

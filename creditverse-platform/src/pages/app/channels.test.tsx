@@ -371,14 +371,16 @@ describe("partner channels group under each partner", () => {
     channel({ id: `${id}-${channel_}`, organizationId: null, partnerGroupId: id,
               partnerName: name, kind: "topic", name: channel_, displayName: channel_ });
 
-  it("one partner: no sub-heading, and the row still names them", () => {
+  it("one partner: named once on a heading, not under every row", () => {
     channels = [forPartner("p1", "Test Partner", "General"),
                 forPartner("p1", "Test Partner", "Support")];
     render();
     const rail = within(screen.getByRole("complementary", { name: "Conversations" }));
-    /* Named on each ROW, because there is no heading doing it — the flat list
-       is unchanged for a single-partner agency. */
-    expect(rail.getAllByText("Test Partner")).toHaveLength(2);
+    /* Changed 2026-09-16 after seeing production: a lone partner used to skip
+       the heading, so its name appeared beneath each of its channels instead
+       of once above them. */
+    expect(rail.getAllByText("Test Partner")).toHaveLength(1);
+    expect(rail.getByRole("button", { name: /Test Partner/ })).toHaveAttribute("aria-expanded", "true");
   });
 
   it("two partners: a heading each, and the rows stop repeating it", () => {

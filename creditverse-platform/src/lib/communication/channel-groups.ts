@@ -110,10 +110,24 @@ export function groupChannels(channels: readonly Channel[]): ChannelGroup[] {
 }
 
 /**
- * Split a group by its owner, or don't.
+ * Split a group by its owner.
  *
- * Returns `undefined` for nought or one owner — the caller then renders the
- * flat list it already had, so a single-partner agency sees no change at all.
+ * CHANGED 2026-09-16, from seeing it live. This used to return `undefined` for
+ * a single owner, on the reasoning that a heading naming the one partner above
+ * three rows that already say so is the name twice. On screen it was worse than
+ * that: with one partner the group heading says "Partners", so the name
+ * appeared three times, once under every row —
+ *
+ *   PARTNERS
+ *     # General    Test Partner
+ *     # Marketing  Test Partner
+ *     # Support    Test Partner
+ *
+ * — which is precisely what Dee then asked to stop: "Do NOT repeat the Partner
+ * name as a subtitle under every channel once grouped." One heading and three
+ * clean rows says it once. So a single owner sections too.
+ *
+ * Returns `undefined` only when there is no owner to name at all.
  *
  * Owners are keyed by ID and only LABELLED by name: two partners could be
  * renamed to the same thing and would still be two sections, which is what
@@ -144,7 +158,7 @@ function sectionsBy(
     byKey.set(key, section);
     sections.push(section);
   }
-  return sections.length > 1 ? sections : undefined;
+  return sections.length > 0 ? sections : undefined;
 }
 
 /**

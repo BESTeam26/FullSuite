@@ -119,11 +119,16 @@ describe("partner channels group under each partner", () => {
   const partnersGroup = (channels: Channel[]) =>
     groupChannels(channels).find((g) => g.key === "partners");
 
-  it("one partner stays a flat list — a heading would just repeat the row", () => {
+  it("one partner gets a heading too, so the rows can stop repeating the name", () => {
+    /* Changed 2026-09-16 from seeing it live: with a single partner the GROUP
+       heading says "Partners", so the partner's name appeared once under every
+       row instead of once above them. Dee: "Do NOT repeat the Partner name as
+       a subtitle under every channel once grouped." */
     const g = partnersGroup([
       partnerChannel("p1", "General"), partnerChannel("p1", "Marketing"),
     ]);
-    expect(g?.sections).toBeUndefined();
+    expect(g?.sections).toHaveLength(1);
+    expect(g?.sections?.[0].channels).toHaveLength(2);
     expect(g?.channels).toHaveLength(2);
   });
 
@@ -174,7 +179,9 @@ describe("partner channels group under each partner", () => {
       partnerChannel("p1", "General"),
       partnerChannel("p2", "Old", { archivedAt: "2026-01-01T00:00:00Z" }),
     ]);
-    expect(groups.find((g) => g.key === "partners")?.sections).toBeUndefined();
+    /* The live partner is sectioned; the archived one is in Archived, and that
+       group is never split by owner however many owners it holds. */
+    expect(groups.find((g) => g.key === "partners")?.sections).toHaveLength(1);
     expect(groups.find((g) => g.key === "archived")?.sections).toBeUndefined();
   });
 
