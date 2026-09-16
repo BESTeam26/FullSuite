@@ -16,6 +16,9 @@ import { Button } from "@/components/ui/button";
 import { MentionPicker, type MentionCandidate } from "@/components/composer/MentionPicker";
 import { mentionQueryAt, mentionText, type MentionAttrs } from "@/lib/activity/mentions";
 import { effectiveMentions } from "@/lib/communication/message-body";
+import {
+  clearDraft, readDraft as readStoredDraft, saveDraft,
+} from "@/lib/communication/drafts";
 
 /** As many as one message carries. The file input enforced this; now everything does. */
 const MAX_ATTACHMENTS = 5;
@@ -30,9 +33,6 @@ export interface ComposerProps {
   name: string;
   disabled?: boolean;
   sending?: boolean;
-  /** Set while replying to a specific message. */
-  replyingTo?: { id: number; author: string; text: string } | null;
-  onCancelReply?: () => void;
   /**
    * Returns whether the message was accepted. FALSE puts the draft back —
    * §38: "Keep the user's draft in the composer so they can edit it. Do not
@@ -40,6 +40,12 @@ export interface ComposerProps {
    * keeps the common case instant without costing anybody their paragraph.
    */
   onSend: (text: string, files: File[], mentions: MentionAttrs[]) => Promise<boolean>;
+  /**
+   * Where an unsent draft is kept, or null not to keep one. The conversation's
+   * id for a channel; `thread:<rootId>` for a thread, so the two composers on
+   * screen at once never overwrite each other.
+   */
+  draftKey?: string | null;
   /**
    * Who may be mentioned here. Comes from `channel_mentionable()`, which is
    * the set form of the predicate the notifier asks — so the picker cannot
@@ -60,10 +66,12 @@ export interface ComposerProps {
 }
 
 export function Composer({
-  name, disabled, sending, replyingTo, onCancelReply, onSend, onMeeting, error,
-  mentionable = [], onTyping, onStopTyping,
+  name, disabled, sending, onSend, onMeeting, error,
+  mentionable = [], onTyping, onStopTyping, draftKey = null,
 }: ComposerProps) {
-  const [draft, setDraft] = useState("");
+  /* Seeded from storage so switching conversations and coming back does not
+     lose what somebody had typed. */
+  const [draft, setDraft] = useState(() => (draftKey ? readStoredDraft(draftKey) : ""));
   const [files, setFiles] = useState<File[]>([]);
   /* Counted, not toggled — see the handlers below. */
   const [dragDepth, setDragDepth] = useState(0);
@@ -81,7 +89,14 @@ export function Composer({
      press Enter rather than after. */
   const willNotify = useMemo(() => effectiveMentions(draft, picked), [draft, picked]);
 
+  /* Every keystroke already passes through here, so this is the one place a
+     draft can be persisted without a second listener that could disagree. */
+  const rememberDraft = (value: string) => {
+    if (draftKey) saveDraft(draftKey, value);
+  };
+
   const readDraft = (value: string, caret: number) => {
+    rememberDraft(value);
     setDraft(value);
     setMentionQuery(mentionable.length > 0 ? mentionQueryAt(value, caret) : null);
     /* Emptying the box is not typing — it is giving up on the sentence. */
@@ -123,8 +138,14 @@ export function Composer({
     setPicked([]);
     setMentionQuery(null);
     onStopTyping?.();
+    if (draftKey) clearDraft(draftKey);
     void onSend(text, keptFiles, mentions).then((accepted) => {
-      if (!accepted) { setDraft(keptDraft); setFiles(keptFiles); setPicked(keptPicked); }
+      /* Refused — put it back, in the box AND in storage, or a rejected send
+         would quietly destroy what somebody wrote. */
+      if (!accepted) {
+        setDraft(keptDraft); setFiles(keptFiles); setPicked(keptPicked);
+        if (draftKey) saveDraft(draftKey, keptDraft);
+      }
     });
   };
 
@@ -187,18 +208,6 @@ export function Composer({
         <p className="mb-1.5 rounded-lg border border-dashed border-primary/50 bg-primary/5 px-2.5 py-1.5 text-center text-[11px] font-medium text-primary">
           Drop to attach
         </p>
-      )}
-      {replyingTo && (
-        <div className="mb-1.5 flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-2.5 py-1.5 text-[11px]">
-          <CornerUpLeft className="h-3 w-3 shrink-0 text-muted-foreground" />
-          <span className="min-w-0 flex-1 truncate text-muted-foreground">
-            Replying to <span className="font-semibold text-foreground">{replyingTo.author}</span>: {replyingTo.text}
-          </span>
-          <button type="button" onClick={onCancelReply} aria-label="Cancel reply"
-            className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
-            <X className="h-3 w-3" />
-          </button>
-        </div>
       )}
 
       {files.length > 0 && (

@@ -80,7 +80,6 @@ export function ConversationPane({
     auth.user?.id ? { userId: auth.user.id, name: auth.displayName || "Someone" } : null,
   );
   const [threadRoot, setThreadRoot] = useState<number | null>(null);
-  const [replyTo, setReplyTo] = useState<RichMessage | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
   const [showPinned, setShowPinned] = useState(false);
   const [showMeeting, setShowMeeting] = useState(false);
@@ -109,11 +108,13 @@ export function ConversationPane({
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [atBottom, setAtBottom] = useState(true);
-  const rows = messages.data ?? [];
+  /* Its own memo: `data ?? []` is a new array each render, so the pinned memo
+     below recomputed every time and could never hit. */
+  const rows = useMemo(() => messages.data ?? [], [messages.data]);
   useEffect(() => {
     if (atBottom) bottomRef.current?.scrollIntoView?.({ block: "end" });
   }, [rows.length, atBottom]);
-  useEffect(() => { setAtBottom(true); setReplyTo(null); setThreadRoot(null); }, [channelId]);
+  useEffect(() => { setAtBottom(true); setThreadRoot(null); }, [channelId]);
 
   const pinned = useMemo(() => rows.filter((m) => m.pinned && !m.deleted), [rows]);
 
@@ -126,9 +127,8 @@ export function ConversationPane({
     try {
       const result = await sender.send.mutateAsync({
         clientMessageId, bodyText: text || "(attachment)",
-        parentMessageId: null, replyToId: replyTo?.id ?? null, mentions,
+        parentMessageId: null, replyToId: null, mentions,
       });
-      setReplyTo(null);
       const queued = pendingFiles.current.get(clientMessageId);
       if (queued && result.id) {
         for (const file of queued) {
@@ -238,7 +238,7 @@ export function ConversationPane({
               saved={savedIds.has(m.id)}
               onToggleSave={() => toggleSaved.mutate({ messageId: m.id, saved: savedIds.has(m.id) })}
               onReact={(emoji, mine) => actions.react.mutate({ messageId: m.id, emoji, mine })}
-              onReply={() => setReplyTo(m)}
+              onReply={() => setThreadRoot(m.id)}
               onOpenThread={() => setThreadRoot(m.id)}
               onPin={() => actions.pin.mutate({ messageId: m.id, pinned: m.pinned })}
               onDelete={() => actions.remove.mutate(m.id)}
@@ -291,9 +291,7 @@ export function ConversationPane({
           {/* Above the composer, below the messages — where Dee's reference
               puts it, and where it cannot push the conversation around. */}
           <TypingIndicator people={typing} className="border-t border-border pt-1" />
-          <Composer name={name} sending={sender.send.isPending} error={sendError}
-            replyingTo={replyTo ? { id: replyTo.id, author: replyTo.authorName, text: replyTo.bodyText ?? "" } : null}
-            onCancelReply={() => setReplyTo(null)}
+          <Composer name={name} draftKey={channelId} sending={sender.send.isPending} error={sendError}
             onSend={send}
             mentionable={mentionable.data ?? []}
             onTyping={onTyping}
@@ -382,7 +380,7 @@ function ThreadPanel({
         )}
       </div>
 
-      <Composer name="this thread" sending={sender.send.isPending} error={error}
+      <Composer name="this thread" draftKey={`thread:${rootId}`} sending={sender.send.isPending} error={error}
         mentionable={mentionable.data ?? []}
         onSend={async (text, _files, mentions) => {
           setError(null);

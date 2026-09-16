@@ -1,16 +1,17 @@
 /**
- * HOME — Inbox, Mentions & Reactions, Saved.
+ * HOME — Inbox, Mentions & Reactions, Saved, Drafts.
  *
- * Dee, 2026-09-16, asked for four items here. Three are built. DRAFTS IS NOT,
- * and is deliberately absent rather than present and empty: the composer keeps
- * a draft in memory but persists it nowhere, so a Drafts item today would open
- * on nothing, every time, for everybody. Dee's own standing rule — "No buttons
- * that do nothing" — makes an honest gap better than a dead entry.
+ * All four, now that the composer persists what you were typing. Drafts was
+ * held back in the first pass because the composer lost its text the moment
+ * you clicked another conversation, and an item that opens on nothing every
+ * time is worse than an absent one.
  *
- * None of these is a new store. Inbox is computed from the channel list the
- * rail already holds; the other two are reads over canonical messages.
+ * None of these is a new store, and only one touches the database. Inbox is
+ * computed from the channel list the rail already holds; Mentions and Saved
+ * are reads over canonical messages; Drafts is this browser's localStorage,
+ * because unsent typing on one device is nobody else's record.
  */
-import { Bookmark, Inbox as InboxIcon, AtSign, MessageSquare } from "lucide-react";
+import { Bookmark, FileEdit, Inbox as InboxIcon, AtSign, MessageSquare } from "lucide-react";
 import { formatDate } from "@/lib/format-date";
 import { Avatar } from "@/components/common/Avatar";
 import { PanelState } from "@/components/common/QueryState";
@@ -19,15 +20,17 @@ import {
   useCommunicationActivity, useSavedMessages, useToggleSaved,
 } from "@/lib/data/communication-home";
 import { inboxBuckets } from "@/lib/communication/inbox";
+import { listDrafts } from "@/lib/communication/drafts";
 import type { Channel } from "@/lib/data/channels";
 import { cn } from "@/lib/utils";
 
-export type HomeView = "inbox" | "activity" | "saved";
+export type HomeView = "inbox" | "activity" | "saved" | "drafts";
 
 export const HOME_ITEMS: { key: HomeView; label: string; icon: typeof InboxIcon }[] = [
   { key: "inbox", label: "Inbox", icon: InboxIcon },
   { key: "activity", label: "Mentions & reactions", icon: AtSign },
   { key: "saved", label: "Saved", icon: Bookmark },
+  { key: "drafts", label: "Drafts", icon: FileEdit },
 ];
 
 const Empty = ({ icon: Icon, title, detail }: { icon: typeof InboxIcon; title: string; detail: string }) => (
@@ -137,6 +140,36 @@ export function CommunicationHome({
                 )}
                 <span className="block text-[10px] text-muted-foreground">
                   {formatDate(a.happenedAt.slice(0, 10))}
+                </span>
+              </span>
+            </Line>
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  if (view === "drafts") {
+    const drafts = listDrafts();
+    if (drafts.length === 0) {
+      return <Empty icon={FileEdit} title="No drafts"
+        detail="Anything you start typing and leave unsent is kept here, on this device." />;
+    }
+    const nameOf = (id: string) =>
+      channels.find((c) => c.id === id)?.displayName ?? "A conversation you can no longer open";
+    return (
+      <ul className="space-y-0.5 p-3">
+        {drafts.map((d) => (
+          <li key={d.channelId}>
+            <Line onClick={() => onOpenChannel(d.channelId)}>
+              <FileEdit className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-semibold text-foreground">
+                  {nameOf(d.channelId)}
+                </span>
+                <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">{d.text}</span>
+                <span className="block text-[10px] text-muted-foreground">
+                  Saved {formatDate(d.savedAt.slice(0, 10))}
                 </span>
               </span>
             </Line>

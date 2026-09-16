@@ -73,14 +73,6 @@ export function MessageRow({
     <article className={cn("group relative rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-muted/40",
                             m.pinned && "bg-amber-500/5",
                             namesMe && "border-l-2 border-primary bg-primary/5 pl-2.5")}>
-      {m.replyToId && m.replyToText && (
-        /* §23 — the quote is context, not a second copy of the record. */
-        <p className="mb-0.5 flex items-center gap-1.5 truncate border-l-2 border-border pl-2 text-[11px] text-muted-foreground">
-          <CornerUpLeft className="h-3 w-3 shrink-0" />
-          <span className="font-semibold">{m.replyToAuthor}</span>
-          <span className="truncate">{m.replyToText}</span>
-        </p>
-      )}
 
       <p className="flex flex-wrap items-baseline gap-2">
         <span className="font-semibold text-foreground">{m.authorName}</span>
@@ -215,10 +207,13 @@ export function MessageRow({
             className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
             <SmilePlus className="h-3.5 w-3.5" />
           </button>
-          <button type="button" aria-label="Reply" onClick={onReply}
-            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
-            <CornerUpLeft className="h-3.5 w-3.5" />
-          </button>
+          {/* ONE way to reply, and it opens the thread.
+              Dee, 2026-09-16: "I want the reply drawer instead of just the
+              quote, reply to a thread. As simple as that, JUST LIKE SLACK."
+              There used to be two — a quote-reply that pasted the original
+              into the feed, and a thread reply — which is why the feed read
+              like Messenger. Inside a thread there is nothing further to open,
+              so the button is absent there rather than disabled. */}
           {!compact && (
             <button type="button" aria-label="Reply in thread" onClick={onOpenThread}
               className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">

@@ -429,3 +429,46 @@ describe("the conversation header says whose it is (2026-09-16)", () => {
     expect(container.querySelector("header .lucide-hash")).toBeFalsy();
   });
 });
+
+describe("one way to reply, and it opens the thread (2026-09-16)", () => {
+  /* Dee: "I want the reply drawer instead of just the quote, reply to a
+     thread. As simple as that, JUST LIKE SLACK."
+
+     There used to be two mechanisms — a quote-reply that pasted the original
+     into the feed, and a thread reply — and the first is why the conversation
+     read like Messenger. Neither was ever covered by a test, which is how two
+     overlapping ways to do one thing survived this long. */
+
+  it("offers Reply in thread, and no separate quote-reply", () => {
+    messages = [richMessage({ id: 7, bodyText: "Good morning" })];
+    render();
+    fireEvent.mouseOver(screen.getByText("Good morning"));
+    expect(screen.getByRole("button", { name: "Reply in thread" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reply" })).not.toBeInTheDocument();
+  });
+
+  it("never renders a quoted original inside the feed", () => {
+    /* Even for a message that still CARRIES a quote from before the change:
+       the data is kept, the Messenger-style block is not drawn. */
+    messages = [richMessage({
+      id: 8, bodyText: "happy po",
+      replyToId: 7, replyToText: "Good morning", replyToAuthor: "Rowell",
+    })];
+    render();
+    expect(screen.getByText("happy po")).toBeInTheDocument();
+    expect(screen.queryByText("Good morning")).not.toBeInTheDocument();
+  });
+
+  it("shows the thread as a count, not as repeated replies", () => {
+    messages = [richMessage({ id: 9, bodyText: "Standup?", replyCount: 3,
+                              lastReplyAt: "2026-09-16T10:02:00Z" })];
+    render();
+    expect(screen.getByRole("button", { name: /3 replies/ })).toBeInTheDocument();
+  });
+
+  it("gives the composer no quoted-message banner to cancel", () => {
+    messages = [richMessage({ id: 10, bodyText: "Good morning" })];
+    render();
+    expect(screen.queryByLabelText("Cancel reply")).not.toBeInTheDocument();
+  });
+});
