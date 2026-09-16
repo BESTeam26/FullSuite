@@ -1,0 +1,26 @@
+-- A reaction nobody else sees is half a feature.
+--
+-- Dee, 2026-09-16: *"Verify realtime behavior: new messages, reactions, edits,
+-- deletion, thread replies, unread counts. They should update without
+-- refresh."*
+--
+-- `use-message-realtime` subscribes to INSERT and UPDATE on `messages` and
+-- nothing else, and the publication carried only `public.messages` — so a
+-- reaction was invisible to everyone but the person who clicked it, whose own
+-- copy came from the optimistic update rather than from the database. Two
+-- people reacting to the same message could not see each other until one of
+-- them reloaded.
+--
+-- REPLICA IDENTITY IS ALREADY RIGHT, and it is worth saying why rather than
+-- changing it. Removing a reaction is a DELETE, and a DELETE payload carries
+-- only the replica identity. The default is the primary key — and here the
+-- primary key is (message_id, user_id, emoji), which is the whole row bar its
+-- timestamp. So the client learns exactly which reaction left which message,
+-- from which person, with no need for REPLICA IDENTITY FULL and the extra WAL
+-- volume that would cost.
+--
+-- RLS still decides delivery: `message_reactions_select` requires
+-- `channel_visible(...)` on the parent message, so these events reach only the
+-- people who can already read the conversation.
+
+alter publication supabase_realtime add table public.message_reactions;

@@ -106,6 +106,29 @@ export function useMessageRealtime(channelId: string | null): void {
           void fetchMessageById(id).then((m) => { if (m && !cancelled) upsert(m); });
         },
       )
+      /*
+       * REACTIONS, which used to arrive only on a reload.
+       *
+       * The row itself is not worth trusting into the cache — a reaction's
+       * rendered shape is {emoji, count, mine}, an aggregate over everybody's
+       * rows that this client cannot compute from one event. So the event is
+       * a nudge: re-read that one message and let the server do the counting.
+       *
+       * DELETE carries only the replica identity, which here is the whole
+       * primary key (message_id, user_id, emoji) — so removals name their
+       * message just as clearly as additions do.
+       */
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "message_reactions" },
+        (payload) => {
+          if (cancelled) return;
+          const row = (payload.new ?? payload.old) as { message_id?: number } | null;
+          const id = Number(row?.message_id);
+          if (!Number.isFinite(id)) return;
+          void fetchMessageById(id).then((m) => { if (m && !cancelled) upsert(m); });
+        },
+      )
       .subscribe((status) => {
         if (status !== "SUBSCRIBED" || cancelled) return;
         /* The first subscribe closes no gap: the list was just fetched. Every

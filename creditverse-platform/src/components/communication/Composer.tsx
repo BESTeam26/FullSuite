@@ -10,12 +10,18 @@
  * STAYS. "Do not erase what they typed" — losing somebody's paragraph because
  * one word in it was blocked would teach them to write it somewhere else.
  */
-import { useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useMemo, useRef, useState, type ChangeEvent, type ClipboardEvent, type DragEvent } from "react";
 import { AtSign, CornerUpLeft, Loader2, Paperclip, Send, Smile, Video, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MentionPicker, type MentionCandidate } from "@/components/composer/MentionPicker";
 import { mentionQueryAt, mentionText, type MentionAttrs } from "@/lib/activity/mentions";
 import { effectiveMentions } from "@/lib/communication/message-body";
+
+/** As many as one message carries. The file input enforced this; now everything does. */
+const MAX_ATTACHMENTS = 5;
+
+/** A drag carrying files, as opposed to one carrying selected text. */
+const hasFiles = (e: DragEvent) => Array.from(e.dataTransfer?.types ?? []).includes("Files");
 import { EMOJI_GROUPS } from "@/lib/communication/emoji";
 import { cn } from "@/lib/utils";
 
@@ -59,6 +65,9 @@ export function Composer({
 }: ComposerProps) {
   const [draft, setDraft] = useState("");
   const [files, setFiles] = useState<File[]>([]);
+  /* Counted, not toggled — see the handlers below. */
+  const [dragDepth, setDragDepth] = useState(0);
+  const dragging = dragDepth > 0;
   const [emojiOpen, setEmojiOpen] = useState(false);
   /* Everybody picked from the "@" list so far. Whether each is ACTUALLY
      mentioned is decided from the text at send time, so deleting the label
@@ -119,13 +128,66 @@ export function Composer({
     });
   };
 
+  /** The one place files enter the composer, whoever chose them. */
+  const takeFiles = (incoming: File[]) => {
+    if (incoming.length === 0) return;
+    setFiles((f) => [...f, ...incoming].slice(0, MAX_ATTACHMENTS));
+  };
+
   const addFiles = (e: ChangeEvent<HTMLInputElement>) => {
-    setFiles((f) => [...f, ...Array.from(e.target.files ?? [])].slice(0, 5));
+    takeFiles(Array.from(e.target.files ?? []));
     e.target.value = "";
   };
 
+  /*
+   * PASTE A SCREENSHOT.
+   *
+   * Dee, 2026-09-16: "screenshots / pasted images". Cmd-Shift-4 then Cmd-V is
+   * how most of what BES files gets filed, and it did nothing here.
+   *
+   * A pasted image arrives as a clipboard item with no name — `image.png` for
+   * every one of them, which is unreadable in a list. Naming it by the moment
+   * it was pasted at least distinguishes two in the same conversation.
+   *
+   * Only images are intercepted. Pasting TEXT must keep working normally, so
+   * anything that is not a file falls through untouched.
+   */
+  const onPaste = (e: ClipboardEvent<HTMLTextAreaElement>) => {
+    const images = Array.from(e.clipboardData?.items ?? [])
+      .filter((i) => i.kind === "file" && i.type.startsWith("image/"))
+      .map((i) => i.getAsFile())
+      .filter((f): f is File => f !== null)
+      .map((f) => new File([f], f.name && f.name !== "image.png"
+        ? f.name
+        : `Screenshot ${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.png`,
+        { type: f.type }));
+    if (images.length === 0) return;
+    e.preventDefault();
+    takeFiles(images);
+  };
+
   return (
-    <div className="border-t border-border p-3">
+    <div
+      className={cn("border-t border-border p-3 transition-colors",
+        dragging && "bg-primary/5 ring-2 ring-inset ring-primary/40")}
+      /* Drag-and-drop. `dragging` is counted rather than toggled: dragging
+         over a child fires dragleave on the parent, so a boolean flickers the
+         highlight off while the pointer is still inside. */
+      onDragEnter={(e) => { if (hasFiles(e)) { e.preventDefault(); setDragDepth((d) => d + 1); } }}
+      onDragOver={(e) => { if (hasFiles(e)) e.preventDefault(); }}
+      onDragLeave={(e) => { if (hasFiles(e)) setDragDepth((d) => Math.max(0, d - 1)); }}
+      onDrop={(e) => {
+        if (!hasFiles(e)) return;
+        e.preventDefault();
+        setDragDepth(0);
+        if (!disabled) takeFiles(Array.from(e.dataTransfer.files));
+      }}
+    >
+      {dragging && (
+        <p className="mb-1.5 rounded-lg border border-dashed border-primary/50 bg-primary/5 px-2.5 py-1.5 text-center text-[11px] font-medium text-primary">
+          Drop to attach
+        </p>
+      )}
       {replyingTo && (
         <div className="mb-1.5 flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-2.5 py-1.5 text-[11px]">
           <CornerUpLeft className="h-3 w-3 shrink-0 text-muted-foreground" />
@@ -205,6 +267,7 @@ export function Composer({
           value={draft}
           disabled={disabled}
           onChange={(e) => readDraft(e.target.value, e.target.selectionStart ?? e.target.value.length)}
+          onPaste={onPaste}
           onClick={(e) => readDraft(draft, (e.target as HTMLTextAreaElement).selectionStart ?? draft.length)}
           onKeyUp={(e) => {
             /* The caret moves without the value changing — arrow keys, Home.

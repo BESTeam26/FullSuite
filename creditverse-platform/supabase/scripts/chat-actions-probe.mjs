@@ -140,6 +140,25 @@ for (const [label, user] of [["owner", OWNER], ["agent", AGENT]]) {
   console.log("");
 }
 
+console.log("Realtime can actually carry each of these");
+{
+  /* A feature that only the clicker can see is half a feature. The publication
+     is the gate: `use-message-realtime` can subscribe to whatever it likes,
+     but nothing is delivered for a table Postgres is not publishing. */
+  const published = q.query(`select tablename from pg_publication_tables
+     where pubname = 'supabase_realtime' and schemaname = 'public'`).map((r) => r.tablename);
+  check("messages are published for realtime", published.includes("messages"), true);
+  check("so are reactions — they used to need a reload", published.includes("message_reactions"), true);
+
+  /* Removing a reaction is a DELETE, and a DELETE payload carries only the
+     replica identity. The default is the primary key, which here is the whole
+     (message_id, user_id, emoji) triple — so a removal names its message. */
+  const pk = one(`select pg_get_constraintdef(oid) as d from pg_constraint
+                   where conrelid = 'message_reactions'::regclass and contype = 'p'`).d;
+  check("a reaction's key identifies its message, so removals can be applied",
+    /message_id/.test(pk) && /emoji/.test(pk), true);
+}
+
 console.log("The rules that must survive the fix");
 {
   const other = one(`select id from profiles where id <> '${AGENT}' and id <> '${OWNER}' limit 1`).id;
