@@ -96,7 +96,8 @@ export function MessageRow({
 
       {m.deleted ? (
         /* §32 — the row survives so the thread keeps its shape. */
-        <p className="italic text-muted-foreground">Message removed</p>
+        /* Dee, §"MESSAGE STATES": subtle, muted, no giant interruption. */
+        <p className="text-sm italic text-muted-foreground/80">This message was removed</p>
       ) : editing ? (
         <div className="mt-0.5 space-y-1.5">
           <textarea

@@ -91,7 +91,11 @@ export function ChannelPeoplePanel({
                 </button>
               </li>
             ))}
-            {(members.data ?? []).length === 0 && (
+            {members.isError ? (
+              <li className="px-1.5 text-xs text-muted-foreground">
+                The member list could not be loaded. Refresh to try again.
+              </li>
+            ) : !members.isPending && (members.data ?? []).length === 0 && (
               <li className="px-1.5 text-xs text-muted-foreground">Nobody named yet.</li>
             )}
           </ul>
@@ -127,7 +131,11 @@ export function ChannelPeoplePanel({
                 </button>
               </li>
             ))}
-            {(teams.data ?? []).length === 0 && (
+            {teams.isError ? (
+              <li className="px-1.5 text-xs text-muted-foreground">
+                The team list could not be loaded. Refresh to try again.
+              </li>
+            ) : !teams.isPending && (teams.data ?? []).length === 0 && (
               <li className="px-1.5 text-xs text-muted-foreground">No team on this conversation.</li>
             )}
           </ul>

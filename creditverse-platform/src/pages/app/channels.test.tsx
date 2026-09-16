@@ -296,9 +296,15 @@ describe("message actions respect who wrote it (§71)", () => {
   });
 
   it("shows a tombstone rather than the words that were removed (§32)", () => {
-    messages = [richMessage({ deleted: true, bodyText: null })];
+    /* The rule is that a tombstone stands where the message was, so the thread
+       keeps its shape and nobody wonders what vanished. Asserted by SHAPE
+       rather than by the exact sentence — the wording changed on 2026-09-16
+       when Dee asked for it to read more quietly, and a test pinned to the old
+       string failed while the behaviour it defends was untouched. */
+    messages = [richMessage({ deleted: true, bodyText: "the secret", authorName: "Rowell" })];
     render();
-    expect(screen.getByText("Message removed")).toBeInTheDocument();
+    expect(screen.getByText(/was removed|removed/i)).toBeInTheDocument();
+    expect(screen.queryByText(/the secret/)).not.toBeInTheDocument();
   });
 
   it("toggles a reaction without a round trip to find out (§20)", () => {

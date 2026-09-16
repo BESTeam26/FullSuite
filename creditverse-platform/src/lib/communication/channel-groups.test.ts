@@ -12,7 +12,7 @@
  *   reply is exactly that.
  */
 import { describe, expect, it } from "vitest";
-import { groupChannels, sortChannels, totalUnread } from "./channel-groups";
+import { glyphFor, groupChannels, sortChannels, summariseSection, totalUnread } from "./channel-groups";
 import type { Channel } from "@/lib/data/channels";
 
 const ch = (over: Partial<Channel>): Channel => ({
@@ -186,5 +186,53 @@ describe("partner channels group under each partner", () => {
       ch({ id: "d2", kind: "direct", displayName: "Somebody" }),
     ]);
     for (const g of groups) expect(g.sections).toBeUndefined();
+  });
+});
+
+describe("a collapsed section still tells you what is waiting", () => {
+  /* Collapsing hides the rows, so whatever they were saying has to survive on
+     the heading — or folding a partner away becomes a way to miss them. */
+  const row = (id: string, unread: number, last: string | null, over: Partial<Channel> = {}) =>
+    ch({ id, unread, lastMessageAt: last, partnerGroupId: "p1", partnerName: "Acme", ...over });
+
+  it("adds up the unread behind the heading", () => {
+    expect(summariseSection({ key: "p1", label: "Acme",
+      channels: [row("a", 2, null), row("b", 3, null)] }).unread).toBe(5);
+  });
+
+  it("reports the most recent activity, not the first row's", () => {
+    expect(summariseSection({ key: "p1", label: "Acme", channels: [
+      row("a", 0, "2026-09-01T00:00:00Z"),
+      row("b", 0, "2026-09-15T00:00:00Z"),
+      row("c", 0, "2026-09-09T00:00:00Z"),
+    ] }).lastMessageAt).toBe("2026-09-15T00:00:00Z");
+  });
+
+  it("says nothing rather than zero when nobody has spoken", () => {
+    expect(summariseSection({ key: "p1", label: "Acme",
+      channels: [row("a", 0, null)] }).lastMessageAt).toBeNull();
+  });
+
+  it("never counts an archived row as waiting", () => {
+    expect(summariseSection({ key: "p1", label: "Acme",
+      channels: [row("a", 4, null, { archivedAt: "2026-09-01T00:00:00Z" })] }).unread).toBe(0);
+  });
+});
+
+describe("a person does not look like a topic", () => {
+  it("a direct message is a person, not a hash", () => {
+    expect(glyphFor(ch({ kind: "direct" }))).toBe("person");
+  });
+
+  it("an all-hands channel is a hash", () => {
+    expect(glyphFor(ch({ kind: "general", openToScope: true }))).toBe("hash");
+  });
+
+  it("a members-only channel says so", () => {
+    expect(glyphFor(ch({ kind: "general", openToScope: false }))).toBe("private");
+  });
+
+  it("an audit row outranks everything else it might look like", () => {
+    expect(glyphFor(ch({ kind: "direct", auditOnly: true }))).toBe("audit");
   });
 });

@@ -168,3 +168,48 @@ export function totalUnread(channels: readonly Channel[]): number {
     0,
   );
 }
+
+/**
+ * What a collapsed heading has to carry.
+ *
+ * Dee, 2026-09-16: *"Partner heading should be collapsible … use unread
+ * badges, last activity."* Collapsing a section hides its rows, so whatever
+ * those rows were telling you has to survive on the heading — otherwise
+ * folding a partner away silently hides the fact that they are waiting for a
+ * reply, and the control becomes a way to miss things.
+ */
+export interface SectionSummary {
+  /** Unread across the section, audit and archived rows excluded as ever. */
+  unread: number;
+  /** The most recent activity in the section, or null if nobody has spoken. */
+  lastMessageAt: string | null;
+}
+
+export function summariseSection(section: ChannelSection): SectionSummary {
+  return {
+    unread: totalUnread(section.channels),
+    lastMessageAt: section.channels.reduce<string | null>(
+      (latest, c) => (c.lastMessageAt && (!latest || c.lastMessageAt > latest) ? c.lastMessageAt : latest),
+      null,
+    ),
+  };
+}
+
+/**
+ * A conversation's icon, as a kind rather than a component — the rule is
+ * testable here; the drawing belongs to the rail.
+ *
+ * Dee, 2026-09-16: *"Do not prefix DMs with `#`. DMs should visually look
+ * different from channels."* Every row used to carry the same hash, so a
+ * person and a topic were indistinguishable at a glance.
+ */
+export type ChannelGlyph = "audit" | "person" | "private" | "hash";
+
+export function glyphFor(channel: Channel): ChannelGlyph {
+  if (channel.auditOnly) return "audit";
+  if (channel.kind === "direct") return "person";
+  /* Members-only. `openToScope` is the deliberate all-hands flag, so its
+     absence is what "not everyone can walk in" actually means here. */
+  if (!channel.openToScope) return "private";
+  return "hash";
+}

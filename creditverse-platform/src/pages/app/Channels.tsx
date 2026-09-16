@@ -53,6 +53,8 @@ import { ChannelPeoplePanel } from "@/components/communication/ChannelPeoplePane
 import { NewChannelForm } from "@/components/communication/NewChannelForm";
 import { StartDirectMessage } from "@/components/communication/StartDirectMessage";
 import { groupChannels } from "@/lib/communication/channel-groups";
+import { ConversationGroup } from "@/components/communication/ConversationRail";
+import { useFoldedSections } from "@/lib/communication/use-folded-sections";
 import { cn } from "@/lib/utils";
 
 export default function Channels() {
@@ -78,6 +80,7 @@ export default function Channels() {
     setParams(next, { replace: true });
   }, [params, setParams]);
 
+  const { folded, toggle: toggleSection } = useFoldedSections();
   const [creating, setCreating] = useState(false);
   const [showPeople, setShowPeople] = useState(false);
   const [query, setQuery] = useState("");
@@ -168,48 +171,14 @@ export default function Channels() {
           ) : (
             <>
               {groups.map((group) => (
-                <div key={group.label} className="mb-3">
-                  <p className="mb-1 flex items-center gap-1.5 px-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                    {group.key === "administration" && <ShieldAlert className="h-3 w-3 text-amber-600" />}
-                    {group.label}
-                  </p>
-                  {group.key === "administration" && (
-                    /* Said once, at the top of the group, rather than implied.
-                       These are not this person's conversations. */
-                    <p className="mb-1 px-1 text-[10px] leading-snug text-muted-foreground">
-                      You can read these for administration. You are not in them and cannot reply.
-                    </p>
-                  )}
-                  {group.sections ? (
-                    /* One partner (or organization) per sub-heading. The rows
-                       beneath drop the owner subtitle — the heading is already
-                       saying it, and repeating it is the noise this replaces. */
-                    group.sections.map((section) => (
-                      <div key={section.key} className="mb-2 last:mb-0">
-                        <p className="mb-0.5 px-1 text-[11px] font-semibold text-foreground">
-                          {section.label}
-                        </p>
-                        <ul className="space-y-0.5 border-l border-border/70 pl-2">
-                          {section.channels.map((c) => (
-                            <li key={c.id}>
-                              <ChannelRow channel={c} active={current?.id === c.id}
-                                hideOwner onOpen={() => setOpenId(c.id)} />
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ))
-                  ) : (
-                    <ul className="space-y-0.5">
-                      {group.channels.map((c) => (
-                        <li key={c.id}>
-                          <ChannelRow channel={c} active={current?.id === c.id}
-                            onOpen={() => setOpenId(c.id)} />
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
+                <ConversationGroup
+                  key={group.key}
+                  group={group}
+                  activeId={current?.id ?? null}
+                  folded={folded}
+                  onToggleSection={toggleSection}
+                  onOpen={setOpenId}
+                />
               ))}
               {list.length === 0 && (
                 <p className="px-1 text-xs text-muted-foreground">
@@ -351,59 +320,6 @@ function AuditOnlyView({ channel }: { channel: Channel }) {
   );
 }
 
-function ChannelRow({
-  channel, active, onOpen, hideOwner = false,
-}: {
-  channel: Channel;
-  active: boolean;
-  onOpen: () => void;
-  /** True when a section heading above already names the owner. */
-  hideOwner?: boolean;
-}) {
-  const context = hideOwner ? null : (channel.partnerName ?? channel.organizationName);
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      aria-current={active ? "page" : undefined}
-      className={cn(
-        "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-        active
-          ? "bg-primary/10 font-semibold text-foreground"
-          : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-        channel.archivedAt && "opacity-70",
-      )}
-    >
-      {channel.auditOnly
-        ? <ShieldAlert className="h-4 w-4 shrink-0 text-amber-600" />
-        : <Hash className="h-4 w-4 shrink-0" />}
-      <span className="min-w-0 flex-1">
-        <span className={cn("block truncate", channel.unread > 0 && !active && "font-bold text-foreground")}>
-          {channel.displayName}
-        </span>
-        {/* Whose conversation it is. The same row appears in their portal or
-            their workspace — naming the owner here is what stops it reading as
-            a BES channel that happens to mention them. */}
-        {(context || channel.serviceName) && (
-          <span className="block truncate text-[10px] text-muted-foreground">
-            {[context, channel.serviceName].filter(Boolean).join(" · ")}
-          </span>
-        )}
-      </span>
-      {channel.sharedWithBes && (
-        <span className="shrink-0 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">
-          BES
-        </span>
-      )}
-      {channel.unread > 0 && !channel.auditOnly && (
-        <span aria-label={`${channel.unread} unread`}
-          className="shrink-0 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground">
-          {channel.unread}
-        </span>
-      )}
-    </button>
-  );
-}
 
 /**
  * Search results.

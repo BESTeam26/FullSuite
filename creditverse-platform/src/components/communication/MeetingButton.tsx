@@ -66,6 +66,12 @@ export function MeetingPanel({ onClose }: { onClose: () => void }) {
 
       {providers.isLoading ? (
         <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+      ) : providers.isError ? (
+        /* "No meeting provider is connected" is a statement about the agency's
+           integrations. A failed lookup has not established it. */
+        <p className="text-sm text-muted-foreground">
+          Meeting providers could not be loaded. Refresh to try again.
+        </p>
       ) : connected.length === 0 ? (
         <div className="space-y-2">
           <p className="text-sm text-foreground">No meeting provider is connected.</p>

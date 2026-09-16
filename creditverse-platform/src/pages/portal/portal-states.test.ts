@@ -10,7 +10,10 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const DIRS = ["src/pages/portal/pages", "src/components/portal"];
+/* Communication joined the list on 2026-09-16: ConversationPane had exactly
+   the same `data ?? []` then length-check, so a failed fetch told somebody a
+   conversation with hundreds of messages had never been started. */
+const DIRS = ["src/pages/portal/pages", "src/components/portal", "src/components/communication"];
 
 const sources = DIRS.flatMap((dir) =>
   readdirSync(dir)
@@ -18,15 +21,24 @@ const sources = DIRS.flatMap((dir) =>
     .map((f) => ({ file: `${dir}/${f}`, text: readFileSync(`${dir}/${f}`, "utf8") })),
 );
 
-/** A page makes a claim about the account when it renders an "it is empty" branch. */
+/**
+ * A file is in scope when it renders an "it is empty" branch ABOUT DATA IT
+ * FETCHED. A component handed an already-resolved array as a prop cannot tell
+ * a failure from an empty list and is not the place to try — the fetcher above
+ * it is. Without this second half the guard flags Composer and MessageRow,
+ * which render props and nothing else.
+ */
+const readsAQuery = (t: string) => /\.data\b|isLoading|isPending/.test(t);
 const claimsEmptiness = (t: string) =>
-  /length === 0|length \? |\.length\s*\?/.test(t) && /No |Nothing |none|caught up/i.test(t);
+  /length === 0|length \? |\.length\s*\?/.test(t)
+  && /No |Nothing |none|caught up/i.test(t)
+  && readsAQuery(t);
 
 /** …and is allowed to, only if it can distinguish a failure from an empty answer. */
 const knowsAboutFailure = (t: string) =>
   /hasRows|PanelState|PageLoadError|isError/.test(t);
 
-describe("the portal never reports a failed request as an empty account", () => {
+describe("no conversation surface reports a failed request as an empty one", () => {
   it("finds the portal sources to check", () => {
     expect(sources.length).toBeGreaterThan(5);
   });

@@ -18,7 +18,7 @@
  * sending a message must not reload the application.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Hash, Loader2, Pin, Undo2, X } from "lucide-react";
+import { Hash, Loader2, MessagesSquare, Pin, Undo2, X } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useTypingPresence } from "@/lib/data/use-typing-presence";
 import { TypingIndicator } from "./TypingIndicator";
@@ -27,6 +27,7 @@ import { useChannelMentionable } from "@/lib/data/use-channels";
 import { useMessageRealtime } from "@/lib/data/use-message-realtime";
 import type { MentionAttrs } from "@/lib/activity/mentions";
 import { attachToMessage, type RichMessage } from "@/lib/data/messages";
+import { PageLoadError } from "@/components/common/QueryState";
 import { MessageRow } from "./MessageRow";
 import { MeetingPanel } from "./MeetingButton";
 import { Composer } from "./Composer";
@@ -50,7 +51,7 @@ export interface ConversationPaneProps {
 }
 
 export function ConversationPane({
-  channelId, name, purpose, notice, emptyLabel = "Nothing here yet. Say something.",
+  channelId, name, purpose, notice, emptyLabel = "Start the conversation with your team.",
   readOnly = false, readOnlyReason, hideHeader = false, canPin = false,
   organizationId = null, onMeeting,
 }: ConversationPaneProps) {
@@ -171,8 +172,21 @@ export function ConversationPane({
         className="min-h-0 flex-1 space-y-1 overflow-y-auto p-3">
         {messages.isLoading ? (
           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        ) : messages.isError ? (
+          /* `rows` is `data ?? []`, so a failed fetch used to render the empty
+             state — telling somebody a conversation with five hundred messages
+             in it had never been started. The same shape as the Partner-folder
+             bug, in the place people would notice it least. */
+          <div className="flex h-full items-center justify-center p-6">
+            <PageLoadError what="These messages" />
+          </div>
         ) : rows.length === 0 ? (
-          <p className="p-1 text-sm text-muted-foreground">{emptyLabel}</p>
+          /* Dee, §"EMPTY STATES": not a large blank white area. */
+          <div className="flex h-full flex-col items-center justify-center gap-1 p-6 text-center">
+            <MessagesSquare className="h-6 w-6 text-muted-foreground/60" aria-hidden />
+            <p className="text-sm font-semibold text-foreground">No messages yet</p>
+            <p className="max-w-xs text-xs text-muted-foreground">{emptyLabel}</p>
+          </div>
         ) : (
           rows.map((m) => (
             <MessageRow key={m.clientMessageId ?? m.id} message={m}
