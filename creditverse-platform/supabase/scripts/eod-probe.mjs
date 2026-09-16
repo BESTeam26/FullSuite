@@ -253,6 +253,89 @@ console.log("\nThe email cannot take the submission down with it");
   check("the sweep is actually scheduled", job?.active, true);
 }
 
+console.log("\nSubmitting tells the right people, and claims nothing extra");
+{
+  const agency = one("select id from agencies order by created_at limit 1").id;
+  const routed = one(`select e.employee_id from eod_submissions e
+                       where e.routing_reason = 'team_lead' and e.routed_to is not null limit 1`)?.employee_id;
+
+  if (routed) {
+    const notes = (day, extra) => shaped(`
+      insert into eod_submissions (agency_id, employee_id, work_date, state, submitted_at, submitted_by${extra ? ", blockers" : ""})
+        values ('${agency}', '${routed}', current_date - ${day}, 'submitted', now(), '${routed}'${extra ? `, '${extra}'` : ""});`,
+      `select n.recipient_id::text as who, n.title, n.detail, n.visibility::text as vis
+         from notifications n
+        where n.kind = 'eod'
+          and n.entity_id = (select id::text from eod_submissions
+                              where employee_id = '${routed}' and work_date = current_date - ${day});`);
+
+    const withBlockers = notes(41, "Waiting on access");
+    check("two people are told: the author and their lead",
+      withBlockers.ok ? withBlockers.rows.length : "error", 2);
+    check("…and a report with blockers says so, so a list can prioritise it",
+      withBlockers.rows?.some((r) => /blockers or help needed/.test(r.detail)), true);
+
+    /* An EOD names internal blockers and what somebody could not finish. It is
+       BES's own record; `shared_with_partner` here would be a leak wearing a
+       sensible-looking enum value. */
+    check("…and every EOD notification is BES-internal",
+      withBlockers.rows?.every((r) => r.vis === "bes_internal"), true);
+
+    const quiet = notes(42, null);
+    check("a report with no blockers does not claim urgency",
+      quiet.rows?.some((r) => /blockers or help needed/.test(r.detail)), false);
+  }
+
+  /* The bug this pair exists to catch: `notifications.visibility` is NOT NULL
+     with no default, and the first version of the trigger omitted it — which
+     made EVERY submission fail with 23502 rather than merely skipping a
+     notification. A notification must never be able to refuse a submission. */
+  const vis = one(`select is_nullable, column_default from information_schema.columns
+                    where table_name = 'notifications' and column_name = 'visibility'`);
+  check("notifications.visibility still has no default, so the trigger must pass one",
+    vis.is_nullable === "NO" && vis.column_default === null, true);
+  const src = one(`select prosrc from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                    where n.nspname = 'public' and p.proname = 'eod_notify'`).prosrc;
+  check("…and it does, on every insert",
+    (src.match(/insert into public\.notifications/g) ?? []).length ===
+    (src.match(/'bes_internal'/g) ?? []).length, true);
+}
+
+console.log("\nEach person sees the right people, and no more");
+{
+  const owner = one("select user_id from agency_memberships where is_owner and status='active' limit 1").user_id;
+  const agent = one(`select m.user_id from agency_memberships m
+      join profiles p on p.id = m.user_id and coalesce(p.is_fixture,false) = false
+      cross join lateral public.eod_route_for(m.user_id) r
+     where m.role = 'agency_user' and m.status = 'active' and r.reason = 'team_lead' limit 1`)?.user_id;
+
+  const seen = (u) => {
+    const r = as(u, "", "select relationship, count(*)::int as n from public.eod_visible_people() group by 1;");
+    return r.ok ? Object.fromEntries(r.rows.map((x) => [x.relationship, x.n])) : { error: 1 };
+  };
+
+  const mgmt = seen(owner);
+  check("management sees the organisation", (mgmt.managed ?? 0) > 0, true);
+  check("…and themselves", mgmt.self, 1);
+
+  if (agent) {
+    const theirs = seen(agent);
+    /* The whole point: an ordinary agent's EOD history is their own. */
+    check("an ordinary agent sees exactly one person — themselves", theirs.self, 1);
+    check("…and leads nobody", theirs.led ?? 0, 0);
+    check("…and manages nobody", theirs.managed ?? 0, 0);
+  }
+
+  const lead = one(`select distinct tm.user_id from team_memberships tm
+      join teams t on t.id = tm.team_id and t.archived_at is null
+     where tm.is_lead
+       and exists (select 1 from team_memberships o where o.team_id = tm.team_id and o.user_id <> tm.user_id)
+     limit 1`)?.user_id;
+  if (lead) {
+    check("a lead sees their team", (seen(lead).led ?? 0) > 0, true);
+  }
+}
+
 console.log("\nThe figures come from the frozen snapshot");
 {
   const src = one(`select proname, prosrc from pg_proc p join pg_namespace n on n.oid = p.pronamespace
