@@ -376,6 +376,67 @@ console.log("\nAn EOD is private to its author and their management");
   check("management reads the organisation's", mgmt.ok && mgmt.rows[0].n > 0, true);
 }
 
+console.log("\nA failed email is reported, and retrying it is a permission");
+{
+  const agency = one("select id from agencies order by created_at limit 1").id;
+  const routed = one(`select e.employee_id, e.routed_to from eod_submissions e
+                       where e.routing_reason = 'team_lead' and e.routed_to is not null limit 1`);
+  const stranger = one(`select m.user_id from agency_memberships m
+      join profiles p on p.id = m.user_id and coalesce(p.is_fixture,false) = false
+     where m.role = 'agency_user' and m.status = 'active'
+       and m.user_id <> '${routed?.employee_id ?? "00000000-0000-0000-0000-000000000000"}'
+       and not exists (select 1 from agency_member_permissions amp
+                        where amp.membership_id = m.id and amp.key = 'ops.manage' and amp.allowed)
+     limit 1`)?.user_id;
+
+  if (routed) {
+    const EOD = "33333333-4444-4555-8666-777788889999";
+    const failed = `
+      insert into eod_submissions (id, agency_id, employee_id, work_date, state, submitted_at, submitted_by)
+        values ('${EOD}', '${agency}', '${routed.employee_id}', current_date - 60, 'submitted', now(), '${routed.employee_id}');
+      update eod_email_outbox set state = 'failed', attempts = 2, last_error = '550 mailbox unavailable'
+       where eod_id = '${EOD}';`;
+    const status = (u) => {
+      const r = as(u, failed, `select state, recipient, last_error, may_retry
+                                 from public.my_eod_email_status('${EOD}');`);
+      return r.ok ? (r.rows[0] ?? null) : { error: r.message };
+    };
+
+    const author = status(routed.employee_id);
+    check("the author is told their email failed", author?.state, "failed");
+    /* The lead's NAME, never their address — an author does not need their
+       manager's inbox handed back by an API call. */
+    check("…and told who it was for, by name", /@/.test(author?.recipient ?? ""), false);
+    /* The provider's words go to somebody who can act on them. "550 mailbox
+       unavailable" teaches an author nothing except that something is wrong. */
+    check("…but not the provider's error, which they cannot act on", author?.last_error, null);
+    check("…and may try again", author?.may_retry, true);
+
+    const owner = one("select user_id from agency_memberships where is_owner and status='active' limit 1").user_id;
+    check("management DOES see the provider's error", status(owner)?.last_error, "550 mailbox unavailable");
+
+    if (stranger) {
+      check("an unrelated agent is told nothing at all", status(stranger), null);
+      const refused = as(stranger, failed, `select public.retry_eod_email('${EOD}');`);
+      check("…and cannot retry it", refused.ok ? "ALLOWED" : /not yours to retry/i.test(refused.message), true);
+    }
+
+    /* Five tries is five tries however they are spread out, or the button
+       becomes an unbounded way to hammer the provider. */
+    const after = as(routed.employee_id, failed,
+      `select public.retry_eod_email('${EOD}'); reset role;
+       select state, attempts from eod_email_outbox where eod_id = '${EOD}';`);
+    check("retrying re-queues it", after.ok ? after.rows[0].state : "error", "pending");
+    check("…without resetting the attempt count", after.ok ? after.rows[0].attempts : "error", 2);
+
+    const exhausted = as(routed.employee_id,
+      failed + `update eod_email_outbox set attempts = 5 where eod_id = '${EOD}';`,
+      `select may_retry from public.my_eod_email_status('${EOD}');`);
+    check("after five attempts there is no retry left to offer",
+      exhausted.ok ? exhausted.rows[0].may_retry : "error", false);
+  }
+}
+
 console.log("\nThe figures come from the frozen snapshot");
 {
   const src = one(`select proname, prosrc from pg_proc p join pg_namespace n on n.oid = p.pronamespace

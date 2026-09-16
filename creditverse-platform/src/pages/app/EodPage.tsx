@@ -27,6 +27,7 @@ import { SUBMISSION_LABEL, submissionKind, type EodNotes } from "@/lib/data/eod-
 import { formatDate } from "@/lib/format-date";
 import { eodReportName } from "@/lib/eod/report-name";
 import { EodTeamRollup } from "@/components/agency/EodTeamRollup";
+import { EodEmailStatus } from "@/components/agency/EodEmailStatus";
 import { cn } from "@/lib/utils";
 
 const NOTE_FIELDS: { key: keyof EodNotes; label: string; placeholder: string }[] = [
@@ -103,6 +104,9 @@ export const EodPage = () => {
           {day.data?.submittedAt && (
             <p className="text-xs text-muted-foreground">Submitted {formatDate(day.data.submittedAt)}</p>
           )}
+          {/* The email is a SEPARATE fact from the submission, and says so.
+              Silent unless there is something to tell. */}
+          {day.data?.id && <EodEmailStatus eodId={day.data.id} />}
         </div>
         <Button
           onClick={() => { void save.mutateAsync({ notes, submit: true }).then(() => setDirty(false)); }}

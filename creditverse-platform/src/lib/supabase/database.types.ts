@@ -17675,6 +17675,17 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["fulfillment_service"][]
       }
+      my_eod_email_status: {
+        Args: { p_eod: string }
+        Returns: {
+          attempts: number
+          last_error: string
+          may_retry: boolean
+          recipient: string
+          sent_at: string
+          state: string
+        }[]
+      }
       my_org_ids: { Args: never; Returns: string[] }
       my_partner_account_credit: {
         Args: never
@@ -18455,6 +18466,7 @@ export type Database = {
       }
       restore_partner: { Args: { p_group: string }; Returns: Json }
       resume_work: { Args: never; Returns: string }
+      retry_eod_email: { Args: { p_eod: string }; Returns: boolean }
       reverse_commission: {
         Args: { p_commission: string; p_reason: string }
         Returns: undefined
