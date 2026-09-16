@@ -170,13 +170,35 @@ if (!crmAgents.length || !crmAdmin) {
   check("management sees the CRM projects", mgmt.n > 0, true);
 
   if (project && crmTeam) {
-    /* The builder's reach comes from the project carrying their team — the
-       assignment, not their name. Proven by adding it inside a rollback. */
-    const before = row(builder.id, "select count(*)::int as n from crm_projects;");
-    const after  = row(builder.id, "select count(*)::int as n from crm_projects;",
-      `update crm_projects set team_id = '${crmTeam.id}' where id = '${project.id}';`);
-    check("an unassigned project is invisible to the builder", before.n, 0);
-    check("give the project their team and the builder sees it", after.n, 1);
+    /*
+     * The builder's reach comes from the project carrying their team — the
+     * assignment, not their name.
+     *
+     * Asserted on a project this probe CREATES, not on whatever production
+     * happens to hold. The first version counted real projects and expected
+     * zero, which was true only while none of them had been given a team. The
+     * moment the two live projects were assigned to the CRM Team — the correct
+     * configuration — the check failed while the rule it was defending had not
+     * changed at all. Same trap as the routing probe: a premise went stale and
+     * looked like a regression.
+     */
+    const ORPHAN = "3f7c1a90-2b44-4c55-8d66-777788889999";
+    /* `crm_projects_owner_ck` requires a partner or an organization, so the
+       fixture gets a partner. Which one is irrelevant — the check is about the
+       TEAM, and partner assignment grants no CRM project visibility. */
+    const anyPartner = one("select id from outsourcing_groups where archived_at is null limit 1").id;
+    const makeOrphan = `insert into crm_projects (id, agency_id, partner_group_id, name, created_by)
+      values ('${ORPHAN}', '${AGENCY}', '${anyPartner}', '[cert] nobody''s project', '${OWNER}');`;
+    const mine = (n) => row(builder.id,
+      `select count(*)::int as n from crm_projects where id = '${ORPHAN}';`, n);
+
+    check("a project with no team, no lead and another author is invisible to the builder",
+      mine(makeOrphan).n, 0);
+    check("give that same project their team and the builder sees it",
+      mine(`${makeOrphan}
+            update crm_projects set team_id = '${crmTeam.id}' where id = '${ORPHAN}';`).n, 1);
+    check("the two live projects are configured so the builder can reach them",
+      row(builder.id, "select count(*)::int as n from crm_projects;").n > 0, true);
 
     /* Lifecycle, as the builder, on a project that is theirs. */
     const life = row(builder.id, `
