@@ -336,6 +336,34 @@ console.log("\nEach person sees the right people, and no more");
   }
 }
 
+console.log("\nAn EOD is private to its author and their management");
+{
+  /* The Team EOD PAGE is reachable by any staff member — it is gated on
+     RequireAgencyStaff, not on a capability. That is only safe because the
+     DATABASE refuses, which is the layer that has to be right (rule 1: never
+     rely on hidden UI). These assert the refusal, not the hiding. */
+  const owner = one("select user_id from agency_memberships where is_owner and status='active' limit 1").user_id;
+  const agent = one(`select m.user_id from agency_memberships m
+      join profiles p on p.id = m.user_id and coalesce(p.is_fixture,false) = false
+     where m.role = 'agency_user' and m.status = 'active' limit 1`)?.user_id;
+
+  if (agent) {
+    const theirs = as(agent, "", `select
+      count(*) filter (where employee_id <> auth.uid())::int as other_peoples,
+      count(*) filter (where employee_id <> auth.uid() and blockers is not null)::int as other_blockers
+        from eod_submissions;`);
+    check("an agent reads nobody else's EOD",
+      theirs.ok ? theirs.rows[0].other_peoples : "error", 0);
+    /* Blockers and escalations are the most sensitive thing in the report —
+       what somebody could not do, and who they needed help from. */
+    check("…and none of their blockers",
+      theirs.ok ? theirs.rows[0].other_blockers : "error", 0);
+  }
+
+  const mgmt = as(owner, "", "select count(distinct employee_id)::int as n from eod_submissions;");
+  check("management reads the organisation's", mgmt.ok && mgmt.rows[0].n > 0, true);
+}
+
 console.log("\nThe figures come from the frozen snapshot");
 {
   const src = one(`select proname, prosrc from pg_proc p join pg_namespace n on n.oid = p.pronamespace
