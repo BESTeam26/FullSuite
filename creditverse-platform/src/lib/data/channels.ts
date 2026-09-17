@@ -516,6 +516,12 @@ export interface ChannelDetails {
   /** The tab strip's numbers, from this same call — no second round trip. */
   files: number;
   pins: number;
+  /**
+   * Which clock this conversation's timestamps are read on: Eastern inside
+   * BES, the partner's own zone in their channels and group chats. A property
+   * of the conversation, never of the reader — `channel_timezone()` decides.
+   */
+  timezone: string;
   members: { id: string; name: string }[];
 }
 
@@ -531,6 +537,7 @@ export async function fetchChannelDetails(channelId: string): Promise<ChannelDet
     canRename: d.can_rename === true,
     files: Number(d.files ?? 0),
     pins: Number(d.pins ?? 0),
+    timezone: typeof d.timezone === "string" && d.timezone ? d.timezone : "America/New_York",
     purpose: (d.purpose as string) ?? null,
     kind: (d.kind as string) ?? "topic",
     openToScope: d.open_to_scope === true,

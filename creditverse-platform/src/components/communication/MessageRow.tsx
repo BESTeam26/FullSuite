@@ -21,6 +21,7 @@ import {
 import { Avatar } from "@/components/common/Avatar";
 import { AttachmentView } from "@/components/communication/AttachmentView";
 import { formatDate } from "@/lib/format-date";
+import { BES_TIMEZONE, stampIn } from "@/lib/communication/conversation-clock";
 import {
   fetchMessageRevisions, signedAttachmentUrl, type Attachment, type RichMessage,
 } from "@/lib/data/messages";
@@ -30,6 +31,8 @@ import { cn } from "@/lib/utils";
 
 export interface MessageRowProps {
   message: RichMessage;
+  /** The conversation's clock — Eastern inside BES, the partner's in theirs. */
+  timeZone?: string;
   isMine: boolean;
   /** So a mention of the reader can look different from a mention of anybody. */
   meUserId?: string | null;
@@ -56,6 +59,7 @@ export interface MessageRowProps {
 export function MessageRow({
   message: m, isMine, meUserId, canPin, onReact, onReply, onOpenThread, onPin, onDelete,
   onEdit, onRetry, onDismissFailed, compact = false, saved = false, onToggleSave,
+  timeZone = BES_TIMEZONE,
 }: MessageRowProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -112,7 +116,7 @@ export function MessageRow({
             BES team
           </span>
         )}
-        <span className="text-[11px] text-muted-foreground">{formatDate(m.createdAt)}</span>
+        <span className="text-[11px] text-muted-foreground">{stampIn(m.createdAt, timeZone)}</span>
         {m.editedAt && (
           <button type="button" onClick={() => setShowHistory((v) => !v)}
             aria-expanded={showHistory}

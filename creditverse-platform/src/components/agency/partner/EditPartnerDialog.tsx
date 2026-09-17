@@ -7,7 +7,7 @@
  * person. Lifecycle has its own control on the header; archiving has its own
  * dialog — this edits facts, not state.
  */
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Loader2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,7 @@ import { usePartnerActions } from "@/lib/data/use-agency-partners";
 import type { AgencyPartner } from "@/lib/data/agency-partners";
 import type { AgencyPerson, AgencyTeam } from "@/lib/data/agency-workforce";
 import { useToast } from "@/hooks/use-toast";
+import { timeZoneOptions } from "@/lib/time-zones";
 
 const NONE = "__none__";
 
@@ -48,11 +49,16 @@ export function EditPartnerDialog({ partner, people, teams }: {
   const [state, setState] = useState(partner.addressState ?? "");
   const [zip, setZip] = useState(partner.addressZip ?? "");
   const [website, setWebsite] = useState(partner.website ?? "");
+  const [timezone, setTimezone] = useState(partner.timezone);
+  /* Built once: the full IANA list is several hundred entries, and rebuilding
+     it on every keystroke elsewhere in the form is work for nothing. */
+  const zones = useMemo(() => timeZoneOptions(), []);
 
   const reset = () => {
     setLegal(partner.legalBusinessName ?? ""); setDba(partner.dbaName ?? "");
     setStreet(partner.addressStreet ?? ""); setCity(partner.addressCity ?? ""); setState(partner.addressState ?? ""); setZip(partner.addressZip ?? "");
     setWebsite(partner.website ?? "");
+    setTimezone(partner.timezone);
     setCompany(partner.name);
     setPerson(partner.primaryContact ?? "");
     setEmail(partner.contactEmail);
@@ -82,6 +88,7 @@ export function EditPartnerDialog({ partner, people, teams }: {
           teamId: team === NONE ? null : team,
           notes,
           legalBusinessName: legal, dbaName: dba, addressStreet: street, addressCity: city, addressState: state, addressZip: zip, website,
+          timezone,
           address: [street, city, [state, zip].filter(Boolean).join(" ")].filter((x) => x && x.trim()).join(", "),
         },
       },
@@ -153,6 +160,17 @@ export function EditPartnerDialog({ partner, people, teams }: {
               <Input id="ep-plan" value={saasPlan} onChange={(e) => setSaasPlan(e.target.value)}
                 placeholder="e.g. Grow" />
             </div>
+          </div>
+          <div>
+            {/* Dee, 2026-09-17: timestamps in this partner's channels and
+                group chats are read on THEIR clock, not on BES's. A list
+                rather than a text box — the database refuses a name it cannot
+                resolve, and a person should never have to discover that. */}
+            <Label>Time zone</Label>
+            <OpsSelect size="field" value={timezone} onValueChange={setTimezone} options={zones} />
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Messages in this partner's channels and group chats show this time.
+            </p>
           </div>
           <div>
             <Label htmlFor="ep-contract">Contract reference</Label>

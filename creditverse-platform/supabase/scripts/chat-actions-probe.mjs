@@ -316,6 +316,116 @@ console.log("Opening a conversation costs one call");
           where proname = 'channel_tab_counts' and pronamespace = 'public'::regnamespace`).n, 0);
 }
 
+/*
+ * Whose clock a conversation is read on.
+ *
+ * Dee, 2026-09-17: *"for all internal BES, time should be EST. For partners,
+ * time will follow their Time Zone on all partner GC and Partner Channels."*
+ * The zone is a property of the CHANNEL, resolved in the database, because the
+ * browser only knows the reader's own.
+ */
+console.log("Whose clock a conversation is read on");
+{
+  check("a BES conversation reads on the agency's clock",
+    one(`select public.channel_timezone('${CH}') as tz`).tz,
+    one(`select coalesce(a.eod_timezone, 'America/New_York') as tz from public.agencies a
+          join public.channels c on c.agency_id = a.id where c.id = '${CH}'`).tz);
+
+  const partnerCh = one(`select c.id, g.timezone from public.channels c
+      join public.outsourcing_groups g on g.id = c.partner_group_id limit 1`);
+  if (partnerCh) {
+    check("a partner conversation reads on the partner's clock",
+      one(`select public.channel_timezone('${partnerCh.id}') as tz`).tz, partnerCh.timezone);
+  }
+
+  check("every conversation resolves to a zone Postgres actually knows",
+    one(`select count(*)::int as n from public.channels c
+          where not exists (select 1 from pg_timezone_names t
+                             where t.name = public.channel_timezone(c.id))`).n, 0);
+
+  /* A typo in the column is the failure that hides for months: `at time zone`
+     ignores what it cannot resolve, so the chat is quietly an hour out. */
+  let refused = false;
+  try { q.query(`begin; update public.outsourcing_groups set timezone = 'America/New York'
+                  where id = (select id from public.outsourcing_groups limit 1); rollback;`); }
+  catch { refused = true; try { q.query("rollback;"); } catch { /* gone */ } }
+  check("a misspelled timezone is refused rather than silently ignored", refused, true);
+
+  check("the timezone rides along on the call the pane already makes",
+    typeof (as(OWNER, `select public.channel_details('${CH}') as d;`).rows?.[0]?.d?.timezone), "string");
+
+  /* Moving a partner's clock must move their conversations, or the column is
+     decoration. Rolled back — this is a real partner row. */
+  /* `g.` on both sides on purpose: unqualified `id` inside the subquery binds
+     to `channels.id`, so the condition silently compares the wrong columns and
+     matches nothing — this check quietly measured zero partners until it did. */
+  const anyPartner = one(`select g.id from public.outsourcing_groups g
+                           where exists (select 1 from public.channels c where c.partner_group_id = g.id) limit 1`);
+  if (anyPartner) {
+    const moved = q.query(`begin;
+      update public.outsourcing_groups set timezone = 'Asia/Manila' where id = '${anyPartner.id}';
+      select public.channel_timezone(c.id) as tz from public.channels c
+       where c.partner_group_id = '${anyPartner.id}' limit 1;
+      rollback;`);
+    check("moving a partner's clock moves their channel with it", moved[0]?.tz, "Asia/Manila");
+  }
+
+  /*
+   * The half that was missing: a GROUP CHAT carries no `partner_group_id`, so
+   * the partner in the room has to be found through the membership.
+   *
+   * Nobody has started one yet, so the room is BUILT here and rolled back
+   * rather than waiting for real traffic to make the check meaningful — the
+   * shape is exactly what `open_group_conversation` produces: an
+   * agency-scoped `direct` channel whose members are the only record of who
+   * is in it.
+   */
+  const contacts = q.query(`select pc.user_id, pc.group_id from public.partner_contacts pc
+      join public.outsourcing_groups g on g.id = pc.group_id
+     where pc.user_id is not null and pc.status = 'active' and g.archived_at is null
+     order by pc.group_id`);
+  const bes = OWNER;
+  if (contacts.length > 0) {
+    const c0 = contacts[0];
+    /* Each step is its OWN statement. A data-modifying CTE's rows are not
+       visible to the rest of the statement that wrote them, so building the
+       room and asking about it in one `with` reported the agency's clock and
+       looked like a bug in the function. */
+    const gc = q.query(`begin;
+      update public.outsourcing_groups set timezone = 'Asia/Manila' where id = '${c0.group_id}';
+      create temp table probe_room on commit drop as
+        with made as (insert into public.channels (agency_id, kind, name, created_by)
+                           values ('${AGENCY}', 'direct', '[probe] group', '${bes}')
+                        returning id)
+        select id from made;
+      insert into public.channel_members (channel_id, user_id)
+           select r.id, u from probe_room r, unnest(array['${bes}'::uuid, '${c0.user_id}'::uuid]) u;
+      select public.channel_timezone((select id from probe_room)) as tz;
+      rollback;`);
+    check("a group chat with one partner in it reads on that partner's clock", gc[0]?.tz, "Asia/Manila");
+
+    /* A room with two partners in it has no single "their time". */
+    const other = contacts.find((c) => c.group_id !== c0.group_id);
+    if (other) {
+      const two = q.query(`begin;
+        update public.outsourcing_groups set timezone = 'Asia/Manila'
+         where id in ('${c0.group_id}', '${other.group_id}');
+        create temp table probe_room2 on commit drop as
+          with made as (insert into public.channels (agency_id, kind, name, created_by)
+                             values ('${AGENCY}', 'direct', '[probe] two partners', '${bes}')
+                          returning id)
+          select id from made;
+        insert into public.channel_members (channel_id, user_id)
+             select r.id, u from probe_room2 r,
+                    unnest(array['${bes}'::uuid, '${c0.user_id}'::uuid, '${other.user_id}'::uuid]) u;
+        select public.channel_timezone((select id from probe_room2)) as tz;
+        rollback;`);
+      check("two partners in one room falls back to BES's clock rather than picking one",
+        two[0]?.tz, one(`select coalesce(eod_timezone,'America/New_York') as tz from public.agencies where id = '${AGENCY}'`).tz);
+    }
+  }
+}
+
 console.log(`\n${pass} passed, ${failures.length} failed`);
 failures.forEach((f) => console.log(`  - ${f}`));
 process.exit(failures.length ? 1 : 0);

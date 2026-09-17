@@ -1597,6 +1597,39 @@ export type Database = {
           },
         ]
       }
+      channel_favourites: {
+        Row: {
+          channel_id: string
+          created_at: string
+          user_id: string
+        }
+        Insert: {
+          channel_id: string
+          created_at?: string
+          user_id: string
+        }
+        Update: {
+          channel_id?: string
+          created_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_favourites_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channel_favourites_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       channel_members: {
         Row: {
           channel_id: string
@@ -1626,6 +1659,42 @@ export type Database = {
           },
           {
             foreignKeyName: "channel_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      channel_notification_prefs: {
+        Row: {
+          channel_id: string
+          level: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          channel_id: string
+          level?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          channel_id?: string
+          level?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_notification_prefs_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channel_notification_prefs_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -1778,6 +1847,7 @@ export type Database = {
           id: string
           kind: Database["public"]["Enums"]["channel_kind"]
           name: string
+          named_at: string | null
           open_to_scope: boolean
           organization_id: string | null
           partner_group_id: string | null
@@ -1795,6 +1865,7 @@ export type Database = {
           id?: string
           kind?: Database["public"]["Enums"]["channel_kind"]
           name: string
+          named_at?: string | null
           open_to_scope?: boolean
           organization_id?: string | null
           partner_group_id?: string | null
@@ -1812,6 +1883,7 @@ export type Database = {
           id?: string
           kind?: Database["public"]["Enums"]["channel_kind"]
           name?: string
+          named_at?: string | null
           open_to_scope?: boolean
           organization_id?: string | null
           partner_group_id?: string | null
@@ -9303,6 +9375,7 @@ export type Database = {
           started_on: string | null
           status: Database["public"]["Enums"]["outsourcing_group_status"]
           team_id: string | null
+          timezone: string
           updated_at: string
           website: string | null
         }
@@ -9357,6 +9430,7 @@ export type Database = {
           started_on?: string | null
           status?: Database["public"]["Enums"]["outsourcing_group_status"]
           team_id?: string | null
+          timezone?: string
           updated_at?: string
           website?: string | null
         }
@@ -9411,6 +9485,7 @@ export type Database = {
           started_on?: string | null
           status?: Database["public"]["Enums"]["outsourcing_group_status"]
           team_id?: string | null
+          timezone?: string
           updated_at?: string
           website?: string | null
         }
@@ -9965,6 +10040,126 @@ export type Database = {
             columns: ["service_id"]
             isOneToOne: false
             referencedRelation: "partner_services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_card_charges: {
+        Row: {
+          agency_id: string
+          amount_cents: number
+          created_at: string
+          currency: string
+          environment: string
+          group_id: string
+          id: string
+          idempotency_key: string
+          invoice_id: string | null
+          kind: string
+          payment_id: string | null
+          profile_id: string | null
+          provider_txn_id: string | null
+          response_code: string | null
+          response_text: string | null
+          started_by: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          amount_cents: number
+          created_at?: string
+          currency?: string
+          environment?: string
+          group_id: string
+          id?: string
+          idempotency_key: string
+          invoice_id?: string | null
+          kind: string
+          payment_id?: string | null
+          profile_id?: string | null
+          provider_txn_id?: string | null
+          response_code?: string | null
+          response_text?: string | null
+          started_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          amount_cents?: number
+          created_at?: string
+          currency?: string
+          environment?: string
+          group_id?: string
+          id?: string
+          idempotency_key?: string
+          invoice_id?: string | null
+          kind?: string
+          payment_id?: string | null
+          profile_id?: string | null
+          provider_txn_id?: string | null
+          response_code?: string | null
+          response_text?: string | null
+          started_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_card_charges_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_card_charges_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_card_charges_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "outsourcing_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_card_charges_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "partner_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_card_charges_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "partner_payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_card_charges_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payment_matching_review"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_card_charges_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "partner_payment_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_card_charges_started_by_fkey"
+            columns: ["started_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -10725,6 +10920,73 @@ export type Database = {
         }
         Relationships: []
       }
+      partner_payment_events: {
+        Row: {
+          charge_id: string | null
+          event_type: string
+          id: string
+          note: string | null
+          payload: Json | null
+          payment_id: string | null
+          processed_at: string | null
+          provider: string
+          provider_event_id: string
+          provider_txn_id: string | null
+          received_at: string
+          status: string
+        }
+        Insert: {
+          charge_id?: string | null
+          event_type: string
+          id?: string
+          note?: string | null
+          payload?: Json | null
+          payment_id?: string | null
+          processed_at?: string | null
+          provider?: string
+          provider_event_id: string
+          provider_txn_id?: string | null
+          received_at?: string
+          status?: string
+        }
+        Update: {
+          charge_id?: string | null
+          event_type?: string
+          id?: string
+          note?: string | null
+          payload?: Json | null
+          payment_id?: string | null
+          processed_at?: string | null
+          provider?: string
+          provider_event_id?: string
+          provider_txn_id?: string | null
+          received_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_payment_events_charge_id_fkey"
+            columns: ["charge_id"]
+            isOneToOne: false
+            referencedRelation: "partner_card_charges"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_payment_events_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "partner_payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_payment_events_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payment_matching_review"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       partner_payment_methods: {
         Row: {
           agency_id: string
@@ -10795,6 +11057,102 @@ export type Database = {
             columns: ["updated_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_payment_profiles: {
+        Row: {
+          added_by: string | null
+          agency_id: string
+          autopay_enabled: boolean
+          autopay_enabled_at: string | null
+          autopay_enabled_by: string | null
+          card_brand: string | null
+          created_at: string
+          customer_profile_id: string
+          exp_month: number | null
+          exp_year: number | null
+          group_id: string
+          id: string
+          is_default: boolean
+          last4: string | null
+          payment_profile_id: string
+          provider: string
+          updated_at: string
+        }
+        Insert: {
+          added_by?: string | null
+          agency_id: string
+          autopay_enabled?: boolean
+          autopay_enabled_at?: string | null
+          autopay_enabled_by?: string | null
+          card_brand?: string | null
+          created_at?: string
+          customer_profile_id: string
+          exp_month?: number | null
+          exp_year?: number | null
+          group_id: string
+          id?: string
+          is_default?: boolean
+          last4?: string | null
+          payment_profile_id: string
+          provider?: string
+          updated_at?: string
+        }
+        Update: {
+          added_by?: string | null
+          agency_id?: string
+          autopay_enabled?: boolean
+          autopay_enabled_at?: string | null
+          autopay_enabled_by?: string | null
+          card_brand?: string | null
+          created_at?: string
+          customer_profile_id?: string
+          exp_month?: number | null
+          exp_year?: number | null
+          group_id?: string
+          id?: string
+          is_default?: boolean
+          last4?: string | null
+          payment_profile_id?: string
+          provider?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_payment_profiles_added_by_fkey"
+            columns: ["added_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_payment_profiles_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_payment_profiles_autopay_enabled_by_fkey"
+            columns: ["autopay_enabled_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_payment_profiles_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_payment_profiles_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "outsourcing_groups"
             referencedColumns: ["id"]
           },
         ]
@@ -16369,6 +16727,18 @@ export type Database = {
         Args: { p_from: Json; p_letter: string; p_to: Json }
         Returns: string
       }
+      begin_partner_card_charge: {
+        Args: {
+          p_actor: string
+          p_amount_cents: number
+          p_environment?: string
+          p_group: string
+          p_idempotency_key: string
+          p_invoice: string
+          p_kind: string
+        }
+        Returns: Json
+      }
       bes_engaged_with: { Args: { p_org: string }; Returns: boolean }
       bes_holds_partner: { Args: { p_group: string }; Returns: boolean }
       bes_may_fulfil: {
@@ -16464,11 +16834,26 @@ export type Database = {
         Returns: undefined
       }
       channel_auditable: { Args: { p_channel: string }; Returns: boolean }
+      channel_details: { Args: { p_channel: string }; Returns: Json }
+      channel_files: {
+        Args: { p_channel: string; p_limit?: number }
+        Returns: {
+          author_name: string
+          created_at: string
+          id: string
+          message_id: number
+          mime_type: string
+          name: string
+          path: string
+          size_bytes: number
+        }[]
+      }
       channel_manager: { Args: { p_channel: string }; Returns: boolean }
       channel_member_of: { Args: { p_channel: string }; Returns: boolean }
       channel_mentionable: {
         Args: { p_channel: string }
         Returns: {
+          aliases: string[]
           email: string
           hint: string
           name: string
@@ -16528,6 +16913,7 @@ export type Database = {
           pinned: boolean
           reactions: Json
           reply_count: number
+          reply_participants: Json
           reply_to_author: string
           reply_to_id: number
           reply_to_text: string
@@ -16541,8 +16927,17 @@ export type Database = {
         Args: { p_channel: string; p_user: string }
         Returns: boolean
       }
+      channel_seen_by: {
+        Args: { p_channel: string }
+        Returns: {
+          last_read_at: string
+          name: string
+          user_id: string
+        }[]
+      }
       channel_service_ok: { Args: { p_channel: string }; Returns: boolean }
       channel_shared_with_bes: { Args: { p_channel: string }; Returns: boolean }
+      channel_timezone: { Args: { p_channel: string }; Returns: string }
       channel_visible: { Args: { p_channel: string }; Returns: boolean }
       channel_writable: { Args: { p_channel: string }; Returns: boolean }
       channels_visible_to_user: {
@@ -17354,6 +17749,28 @@ export type Database = {
       file_bes_in_scope: { Args: { p_file: string }; Returns: boolean }
       file_org_admin: { Args: { p_file: string }; Returns: boolean }
       file_reviewer: { Args: { p_file: string }; Returns: boolean }
+      finance_overview: { Args: { p_months?: number }; Returns: Json }
+      finance_payments: {
+        Args: { p_from?: string; p_limit?: number; p_to?: string }
+        Returns: {
+          amount_cents: number
+          currency: string
+          environment: string
+          group_id: string
+          id: string
+          invoice_id: string
+          invoice_number: string
+          method: string
+          paid_on: string
+          partner_name: string
+          provider: string
+          reconciliation_state: string
+          reference: string
+          refund_amount_cents: number
+          source: string
+          status: string
+        }[]
+      }
       find_client_across_divisions: {
         Args: { p_email: string; p_scope: string }
         Returns: {
@@ -17515,6 +17932,11 @@ export type Database = {
         Returns: string
       }
       invoice_balance_cents: { Args: { p_invoice: string }; Returns: number }
+      invoice_collection_method: {
+        Args: { p_invoice: string }
+        Returns: string
+      }
+      invoice_is_overdue: { Args: { p_invoice: string }; Returns: boolean }
       is_admin_of: { Args: { p_agency: string }; Returns: boolean }
       is_agency_admin: { Args: never; Returns: boolean }
       is_agency_manager_or_above: { Args: never; Returns: boolean }
@@ -17599,9 +18021,17 @@ export type Database = {
       }
       mark_overdue_expenses: { Args: never; Returns: number }
       mark_overdue_invoices: { Args: never; Returns: number }
+      mark_partner_card_charge_unknown: {
+        Args: { p_idempotency_key: string; p_note: string }
+        Returns: Json
+      }
       match_partner_payment: {
         Args: { p_invoice: string; p_note?: string; p_payment: string }
         Returns: undefined
+      }
+      may_act_on_partner_billing: {
+        Args: { p_actor: string; p_group: string }
+        Returns: boolean
       }
       may_notify_mention: {
         Args: {
@@ -17631,6 +18061,13 @@ export type Database = {
           preferred_name_set: boolean
         }[]
       }
+      mention_group_recipients: {
+        Args: { p_channel: string; p_token: string }
+        Returns: {
+          user_id: string
+        }[]
+      }
+      mentioned_group_targets: { Args: { p_body: Json }; Returns: string[] }
       mentioned_user_ids: { Args: { p_body: Json }; Returns: string[] }
       merge_agency_branding: {
         Args: { p_agency: string; p_patch: Json }
@@ -17760,6 +18197,17 @@ export type Database = {
           title: string
         }[]
       }
+      my_partner_autopay_schedule: {
+        Args: never
+        Returns: {
+          amount_cents: number
+          due_date: string
+          invoice_id: string
+          invoice_number: string
+          reason: string
+          will_charge: boolean
+        }[]
+      }
       my_partner_billing: {
         Args: never
         Returns: {
@@ -17774,6 +18222,20 @@ export type Database = {
           suspended: boolean
           suspended_at: string
           suspension_detail: string
+        }[]
+      }
+      my_partner_card: {
+        Args: never
+        Returns: {
+          added_at: string
+          autopay_enabled: boolean
+          autopay_enabled_at: string
+          autopay_enabled_by: string
+          card_brand: string
+          exp_month: number
+          exp_year: number
+          id: string
+          last4: string
         }[]
       }
       my_partner_client: {
@@ -18078,6 +18540,7 @@ export type Database = {
         }
         Returns: string
       }
+      open_group_conversation: { Args: { p_others: string[] }; Returns: string }
       open_support_case: {
         Args: { p_client: string; p_status?: string }
         Returns: string
@@ -18180,6 +18643,19 @@ export type Database = {
         Args: { p_id: string; p_reason?: string; p_table: string }
         Returns: Json
       }
+      partner_autopay_dispatch: { Args: never; Returns: undefined }
+      partner_autopay_due: {
+        Args: { p_environment?: string }
+        Returns: {
+          amount_cents: number
+          currency: string
+          group_id: string
+          idempotency_key: string
+          invoice_id: string
+          invoice_number: string
+        }[]
+      }
+      partner_autopay_is_armed: { Args: never; Returns: boolean }
       partner_billing_email: {
         Args: { p_group: string }
         Returns: {
@@ -18266,6 +18742,7 @@ export type Database = {
         Args: { p_group: string; p_other: string }
         Returns: string
       }
+      partner_group_of_profile: { Args: { p_user: string }; Returns: string }
       partner_group_of_user: { Args: never; Returns: string }
       partner_invoice_recompute: {
         Args: { p_invoice: string }
@@ -18300,6 +18777,10 @@ export type Database = {
           p_title: string
         }
         Returns: boolean
+      }
+      queue_invoice_email: {
+        Args: { p_attempt?: number; p_invoice: string }
+        Returns: string
       }
       queue_reminder_email: { Args: { p_reminder: string }; Returns: undefined }
       raise_partner_action: {
@@ -18424,6 +18905,10 @@ export type Database = {
         Returns: undefined
       }
       release_payroll: { Args: { p_cutoff: string }; Returns: string }
+      rename_channel: {
+        Args: { p_channel: string; p_name: string }
+        Returns: string
+      }
       render_document: {
         Args: { p_body: string; p_context: Json }
         Returns: string
@@ -18561,6 +19046,19 @@ export type Database = {
         }
         Returns: string
       }
+      save_partner_card_profile: {
+        Args: {
+          p_actor: string
+          p_brand: string
+          p_customer_profile: string
+          p_exp_month: number
+          p_exp_year: number
+          p_group: string
+          p_last4: string
+          p_payment_profile: string
+        }
+        Returns: string
+      }
       search_communication: {
         Args: { p_limit?: number; p_query: string }
         Returns: {
@@ -18634,6 +19132,14 @@ export type Database = {
           p_reason?: string
         }
         Returns: undefined
+      }
+      set_channel_favourite: {
+        Args: { p_channel: string; p_on: boolean }
+        Returns: boolean
+      }
+      set_channel_notifications: {
+        Args: { p_channel: string; p_level: string }
+        Returns: string
       }
       set_client_department_status: {
         Args: {
@@ -18741,6 +19247,10 @@ export type Database = {
         }
         Returns: Json
       }
+      set_partner_autopay: {
+        Args: { p_enabled: boolean; p_group: string }
+        Returns: boolean
+      }
       set_partner_file_shared: {
         Args: { p_file: string; p_shared: boolean }
         Returns: undefined
@@ -18795,6 +19305,16 @@ export type Database = {
           p_work_days: number[]
         }
         Returns: string
+      }
+      settle_partner_card_charge: {
+        Args: {
+          p_idempotency_key: string
+          p_provider_txn: string
+          p_response_code: string
+          p_response_text: string
+          p_status: string
+        }
+        Returns: Json
       }
       shares_scope_with: { Args: { p_user: string }; Returns: boolean }
       sign_document: {
@@ -18959,8 +19479,10 @@ export type Database = {
           agency_id: string
           archived_at: string
           audit_only: boolean
+          can_rename: boolean
           direct_user_id: string
           display_name: string
+          favourite: boolean
           id: string
           is_manager: boolean
           kind: string

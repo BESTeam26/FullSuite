@@ -17,7 +17,7 @@
  * opens a thread. Nothing else — rule 14, and §41–§43's requirement that
  * sending a message must not reload the application.
  */
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Building2, FileText, Hash, Loader2, Lock, MessagesSquare, PanelRight, Pin,
   ShieldAlert, Star, Undo2, X,
@@ -31,7 +31,7 @@ import {
 import { ChannelTabs, type ChannelTab } from "@/components/communication/ChannelTabs";
 import { SeenBy } from "@/components/communication/SeenBy";
 import { ChannelDetails } from "@/components/communication/ChannelDetails";
-import { dayBoundaries, dayLabel } from "@/lib/communication/day-groups";
+import { BES_TIMEZONE, groupByDay } from "@/lib/communication/conversation-clock";
 import { formatDate } from "@/lib/format-date";
 import {
   useChannelDetails, useChannelMembers, useChannelMentionable, useChannelPreferences,
@@ -176,9 +176,15 @@ export function ConversationPane({
   });
 
   const pinned = useMemo(() => rows.filter((m) => m.pinned && !m.deleted), [rows]);
-  /* Which rows start a new day, so the list stays flat and the divider is
-     drawn above the row rather than the rows being nested per day. */
-  const dividers = useMemo(() => dayBoundaries(rows.map((m) => m.createdAt)), [rows]);
+  /* The conversation's own clock, not the reader's: Eastern inside BES, the
+     partner's own zone in their channels and group chats. Eastern while
+     `channel_details` is in flight — it is the answer for every BES
+     conversation, and the two calls are issued together. */
+  const zone = details.data?.timezone ?? BES_TIMEZONE;
+  /* Real groups rather than "which rows start a day". Each day's divider is
+     sticky INSIDE its own section, so the next day's pill pushes the previous
+     one out instead of landing on top of it. */
+  const days = useMemo(() => groupByDay(rows, (m) => m.createdAt, zone), [rows, zone]);
 
   const send = async (text: string, files: File[], mentions: MentionAttrs[]): Promise<boolean> => {
     setSendError(null);
@@ -347,44 +353,47 @@ export function ConversationPane({
             <p className="max-w-xs text-xs text-muted-foreground">{emptyLabel}</p>
           </div>
         ) : (
-          rows.map((m, i) => (
-            <Fragment key={m.clientMessageId ?? m.id}>
-            {dividers.has(i) && (
-              /* "Today", as the reference shows. Sticky, so scrolling back
-                 through a long day still says which day you are in. */
+          days.map((day) => (
+            /* `relative` scopes the sticky pill to this day. Without a section
+               per day every divider pinned to the same pixel of the scroll
+               box, and yesterday's pill sat on top of today's — Dee,
+               2026-09-17: "the date and today or yesterday is overlapping." */
+            <section key={day.key} className="relative space-y-1">
               <div className="sticky top-0 z-10 flex items-center gap-2 py-1.5">
                 <span className="h-px flex-1 bg-border" />
                 <span className="rounded-full border border-border bg-card px-2.5 py-0.5 text-[11px] font-semibold text-muted-foreground shadow-sm">
-                  {dayLabel(dividers.get(i)!)}
+                  {day.label}
                 </span>
                 <span className="h-px flex-1 bg-border" />
               </div>
-            )}
-            <MessageRow message={m}
-              isMine={m.authorId === auth.user?.id}
-              meUserId={auth.user?.id ?? null}
-              canPin={canPin}
-              saved={savedIds.has(m.id)}
-              onToggleSave={() => toggleSaved.mutate({ messageId: m.id, saved: savedIds.has(m.id) })}
-              onReact={(emoji, mine) => actions.react.mutate({ messageId: m.id, emoji, mine })}
-              onReply={() => setThreadRoot(m.id)}
-              onOpenThread={() => setThreadRoot(m.id)}
-              onPin={() => actions.pin.mutate({ messageId: m.id, pinned: m.pinned })}
-              onDelete={() => actions.remove.mutate(m.id)}
-              onEdit={(bodyText) => actions.edit.mutate({ messageId: m.id, bodyText })}
-              onRetry={() => {
-                if (!m.clientMessageId) return;
-                /* Same idempotency key AND the same people, so a retry is
-                   the same message rather than a similar one (§45). */
-                void sender.send.mutateAsync({
-                  clientMessageId: m.clientMessageId, bodyText: m.bodyText ?? "",
-                  parentMessageId: null, replyToId: m.replyToId,
-                  mentions: retryMentions.current.get(m.clientMessageId),
-                }).catch(() => undefined);
-              }}
-              onDismissFailed={() => m.clientMessageId && sender.dismissFailed(m.clientMessageId)}
-            />
-            </Fragment>
+              {day.messages.map((m) => (
+                <MessageRow key={m.clientMessageId ?? m.id} message={m}
+                  timeZone={zone}
+                  isMine={m.authorId === auth.user?.id}
+                  meUserId={auth.user?.id ?? null}
+                  canPin={canPin}
+                  saved={savedIds.has(m.id)}
+                  onToggleSave={() => toggleSaved.mutate({ messageId: m.id, saved: savedIds.has(m.id) })}
+                  onReact={(emoji, mine) => actions.react.mutate({ messageId: m.id, emoji, mine })}
+                  onReply={() => setThreadRoot(m.id)}
+                  onOpenThread={() => setThreadRoot(m.id)}
+                  onPin={() => actions.pin.mutate({ messageId: m.id, pinned: m.pinned })}
+                  onDelete={() => actions.remove.mutate(m.id)}
+                  onEdit={(bodyText) => actions.edit.mutate({ messageId: m.id, bodyText })}
+                  onRetry={() => {
+                    if (!m.clientMessageId) return;
+                    /* Same idempotency key AND the same people, so a retry is
+                       the same message rather than a similar one (§45). */
+                    void sender.send.mutateAsync({
+                      clientMessageId: m.clientMessageId, bodyText: m.bodyText ?? "",
+                      parentMessageId: null, replyToId: m.replyToId,
+                      mentions: retryMentions.current.get(m.clientMessageId),
+                    }).catch(() => undefined);
+                  }}
+                  onDismissFailed={() => m.clientMessageId && sender.dismissFailed(m.clientMessageId)}
+                />
+              ))}
+            </section>
           ))
         )}
         {/* Attached to the LAST MESSAGE, not pinned to the bottom of the pane.
@@ -465,7 +474,7 @@ export function ConversationPane({
           {threadRoot !== null && (
             <ThreadPanel channelId={channelId} rootId={threadRoot}
               root={rows.find((m) => m.id === threadRoot) ?? null}
-              canPin={mayPin} onClose={() => setThreadRoot(null)} />
+              timeZone={zone} canPin={mayPin} onClose={() => setThreadRoot(null)} />
           )}
           {showDetails && <ChannelDetails channelId={channelId} />}
         </div>
@@ -475,7 +484,7 @@ export function ConversationPane({
         <div className="md:hidden">
           <ThreadPanel channelId={channelId} rootId={threadRoot}
             root={rows.find((m) => m.id === threadRoot) ?? null}
-            canPin={mayPin} onClose={() => setThreadRoot(null)} />
+            timeZone={zone} canPin={mayPin} onClose={() => setThreadRoot(null)} />
         </div>
       )}
     </div>
@@ -491,9 +500,11 @@ export function ConversationPane({
  * channel's, so a thread cannot be reachable when its channel is not.
  */
 function ThreadPanel({
-  channelId, rootId, root, canPin, onClose,
+  channelId, rootId, root, timeZone, canPin, onClose,
 }: {
   channelId: string; rootId: number; root: RichMessage | null;
+  /* A thread is read on the same clock as the conversation it belongs to. */
+  timeZone: string;
   canPin: boolean; onClose: () => void;
 }) {
   const auth = useAuth();
@@ -532,7 +543,7 @@ function ThreadPanel({
         {root && (
           <div className="mb-2 border-b border-border pb-2">
             <MessageRow message={root} isMine={root.authorId === auth.user?.id}
-              meUserId={auth.user?.id ?? null} canPin={canPin} compact
+              meUserId={auth.user?.id ?? null} canPin={canPin} compact timeZone={timeZone}
               onReact={(emoji, mine) => actions.react.mutate({ messageId: root.id, emoji, mine })}
               onReply={() => undefined} onOpenThread={() => undefined}
               onPin={() => actions.pin.mutate({ messageId: root.id, pinned: root.pinned })}
@@ -552,7 +563,7 @@ function ThreadPanel({
           </p>
           {(replies.data ?? []).map((m) => (
             <MessageRow key={m.id} message={m} isMine={m.authorId === auth.user?.id}
-              meUserId={auth.user?.id ?? null} canPin={false} compact
+              meUserId={auth.user?.id ?? null} canPin={false} compact timeZone={timeZone}
               onReact={(emoji, mine) => actions.react.mutate({ messageId: m.id, emoji, mine })}
               onReply={() => undefined} onOpenThread={() => undefined}
               onPin={() => undefined}
