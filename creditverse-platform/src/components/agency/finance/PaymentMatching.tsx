@@ -5,10 +5,11 @@
  * sometimes that reference is wrong or missing. This is where a person decides
  * which invoice it settles.
  *
- * The suggestion is arithmetic — same partner, still open, amount matches — and
- * it is never applied automatically. Dee: "Every manual match must be
- * audited." The database records the actor, the before and the after; this
- * screen only asks.
+ * The candidates come from the canonical `payment_matching_review` view,
+ * ranked by how close each invoice's balance is to the payment. They are
+ * SUGGESTIONS and are never applied automatically. Dee: "Every manual match
+ * must be audited." The database records the actor, the before and the after;
+ * this screen only asks.
  */
 import { useState } from "react";
 import { AlertCircle, CheckCircle2, Link2, Loader2 } from "lucide-react";
@@ -18,11 +19,8 @@ import { formatMoneyIn } from "@/lib/format-money";
 import { cn } from "@/lib/utils";
 import { useMatchPayment, useUnmatchedPayments } from "@/lib/data/use-finance-ledger";
 
-const CONFIDENCE: Record<string, string> = {
-  high: "border-emerald-500/40 bg-emerald-500/10 text-emerald-900",
-  medium: "border-amber-500/40 bg-amber-500/10 text-amber-900",
-  low: "border-border bg-muted text-muted-foreground",
-};
+/** An exact match on the amount is worth saying out loud; nothing else is. */
+const exactly = (balanceCents: number, amountCents: number) => balanceCents === amountCents;
 
 export function PaymentMatching() {
   const unmatched = useUnmatchedPayments();
@@ -59,7 +57,11 @@ export function PaymentMatching() {
   return (
     <div className="space-y-3">
       {rows.map((p) => {
-        const picked = chosen[p.id] ?? p.candidates.find((c) => c.confidence === "high")?.invoiceId ?? "";
+        /* Preselect only an EXACT amount match. Preselecting a near-miss is
+           how somebody clicks through and settles the wrong invoice. */
+        const picked = chosen[p.id]
+          ?? p.candidates.find((c) => exactly(c.balanceCents, p.amountCents))?.invoiceId
+          ?? "";
         return (
           <section key={p.id} className="grid gap-3 rounded-xl border border-border bg-card p-4 lg:grid-cols-[1fr_1.4fr]">
             {/* What arrived */}
@@ -75,6 +77,10 @@ export function PaymentMatching() {
                 {p.reference && (
                   <div className="flex gap-1.5"><dt className="font-semibold">Reference</dt>
                     <dd className="font-mono">{p.reference}</dd></div>
+                )}
+                {p.recordedByName && (
+                  <div className="flex gap-1.5"><dt className="font-semibold">Recorded by</dt>
+                    <dd>{p.recordedByName}</dd></div>
                 )}
                 {p.notes && <div className="pt-0.5">{p.notes}</div>}
               </dl>
@@ -113,10 +119,11 @@ export function PaymentMatching() {
                           <span className="tabular-nums font-semibold text-foreground">
                             {formatMoneyIn(c.balanceCents / 100, p.currency)}
                           </span>
-                          <span className={cn("rounded border px-1.5 py-0.5 text-[10px] font-medium capitalize",
-                            CONFIDENCE[c.confidence])}>
-                            {c.confidence}
-                          </span>
+                          {exactly(c.balanceCents, p.amountCents) && (
+                            <span className="rounded border border-emerald-500/40 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-900">
+                              Exact
+                            </span>
+                          )}
                         </label>
                       </li>
                     ))}

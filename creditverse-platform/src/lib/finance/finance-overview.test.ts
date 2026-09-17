@@ -108,28 +108,38 @@ describe("cash in against cash out", () => {
   });
 });
 
-describe("the attention queue", () => {
-  const base = {
-    invoices: [], today: TODAY, autopayFailedGroups: [], missingTermsGroups: [],
-    unmatchedPayments: 0, suspendedGroups: [], finalReminderInvoices: 0,
-  };
+describe("the attention tiles", () => {
+  const known = [
+    { kind: "past_due", label: "Past Due" },
+    { kind: "suspended_nonpayment", label: "Suspended" },
+  ];
 
   it("keeps a zero rather than hiding the category — 0 suspended is worth saying", () => {
-    const rows = attentionCounts(base);
-    expect(rows.find((r) => r.key === "suspended")).toMatchObject({ count: 0 });
-    expect(rows).toHaveLength(6);
+    const rows = attentionCounts([{ kind: "past_due", severity: "medium", count: 3, amountCents: 42_500 }], known);
+    expect(rows).toHaveLength(2);
+    expect(rows.find((r) => r.kind === "suspended_nonpayment")).toMatchObject({ count: 0 });
   });
 
-  it("counts only invoices that are actually late", () => {
-    const rows = attentionCounts({
-      ...base,
-      invoices: [
-        invoice({ id: "a", dueDate: "2026-09-10" }),
-        invoice({ id: "b", dueDate: "2026-09-30" }),
-        invoice({ id: "c", dueDate: "2026-01-01", status: "void" }),
-      ],
-    });
-    expect(rows.find((r) => r.key === "past-due")?.count).toBe(1);
+  it("does not recount anything — it reports what the view counted", () => {
+    /* The point of the rewrite: a tile shows the queue's number, so the
+       dashboard and the queue cannot disagree. */
+    const rows = attentionCounts([{ kind: "past_due", severity: "high", count: 7, amountCents: 1_000 }], known);
+    expect(rows.find((r) => r.kind === "past_due")).toMatchObject({ count: 7, amountCents: 1_000, tone: "bad" });
+  });
+
+  it("ignores a kind this build does not know how to label", () => {
+    /* A view that learns a new exception must not crash a dashboard that has
+       not been taught the word for it. */
+    const rows = attentionCounts([{ kind: "something_new", severity: "high", count: 2, amountCents: 0 }], known);
+    expect(rows.map((r) => r.kind)).toEqual(["past_due", "suspended_nonpayment"]);
+  });
+
+  it("maps severity to a tone, so critical and high both read as a problem", () => {
+    const rows = attentionCounts([
+      { kind: "past_due", severity: "critical", count: 1, amountCents: 0 },
+      { kind: "suspended_nonpayment", severity: "medium", count: 1, amountCents: 0 },
+    ], known);
+    expect(rows.map((r) => r.tone)).toEqual(["bad", "warn"]);
   });
 });
 

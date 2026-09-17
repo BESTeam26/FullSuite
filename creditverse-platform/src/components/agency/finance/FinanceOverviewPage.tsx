@@ -37,6 +37,7 @@ import {
   agingBuckets, agingTotalCents, attentionCounts, automaticCents,
   cashSeries, monthsEnding, upcomingCollections,
 } from "@/lib/finance/finance-overview";
+import { ATTENTION_KINDS } from "@/lib/finance/attention-kinds";
 
 const money = (cents: number) => formatMoneyIn(cents / 100, "USD");
 
@@ -113,9 +114,7 @@ export function FinanceOverviewPage() {
     return {
       buckets, outstanding, overdue, overdueCount, series, upcoming,
       automatic: automaticCents(upcoming),
-      attention: attentionCounts({
-        invoices: d.openInvoices, today: d.today, ...d.attention,
-      }),
+      attention: attentionCounts(d.attention, ATTENTION_KINDS),
       netCash: d.collectedThisMonthCents - d.expensesThisMonthCents,
     };
   }, [d]);
@@ -248,9 +247,9 @@ export function FinanceOverviewPage() {
       >
         <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
           {model.attention.map((a) => (
-            <li key={a.key}>
+            <li key={a.kind}>
               <Link
-                to={`/app/finance/attention?filter=${a.filter}`}
+                to={`/app/finance/attention?filter=${a.kind}`}
                 className={cn(
                   "flex items-center gap-2.5 rounded-lg border px-3 py-2 transition-colors",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -263,7 +262,9 @@ export function FinanceOverviewPage() {
               >
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-xs font-semibold text-foreground">{a.label}</span>
-                  <span className="block truncate text-[11px] text-muted-foreground">{a.detail}</span>
+                  <span className="block truncate text-[11px] text-muted-foreground">
+                    {a.amountCents > 0 ? `Total ${money(a.amountCents)}` : a.count === 0 ? "Nothing to do" : "Needs a person"}
+                  </span>
                 </span>
                 <span className={cn(
                   "shrink-0 text-lg font-bold tabular-nums",

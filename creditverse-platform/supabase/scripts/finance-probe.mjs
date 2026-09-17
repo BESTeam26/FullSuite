@@ -70,8 +70,12 @@ const value = (user, sql) => {
 const READS = [
   ["finance_overview", "select jsonb_typeof(finance_overview(9)) as t;"],
   ["finance_payments", "select count(*)::int as n from finance_payments(10, null, null);"],
-  ["finance_unmatched_payments", "select jsonb_array_length(finance_unmatched_payments()) as n;"],
 ];
+
+/* A definer function refuses outright. A `security_invoker` view has no way to
+   refuse — it simply returns nothing, because the policies underneath it do
+   not match. Both are correct; the probe asserts the right one for each. */
+const VIEWS = ["billing_attention", "payment_matching_review"];
 
 console.log("\nTHE FINANCE MODULE");
 
@@ -84,6 +88,16 @@ for (const [name, sql] of READS) {
 }
 for (const [name, sql] of READS) {
   check(`3 — an ordinary agent is refused ${name}`, refused(AGENT, sql), "refused");
+}
+for (const v of VIEWS) {
+  check(`3b — ${v} shows the owner rows and an agent none`,
+    (() => {
+      const owner = value(OWNER, `select count(*)::int as n from ${v};`);
+      const agent = value(AGENT, `select count(*)::int as n from ${v};`);
+      if (owner?.error || agent?.error) return `error: ${owner?.error ?? agent?.error}`;
+      return agent.n === 0 ? "agent sees nothing" : `AGENT SEES ${agent.n} ROWS`;
+    })(),
+    "agent sees nothing");
 }
 
 console.log("\n  Matching a payment");
@@ -140,6 +154,17 @@ check("8 — it returns the sections the screen needs",
   ["attention", "collected_this_month", "expenses_this_month", "months", "open_invoices",
    "partner_names", "recent_payments", "today"]);
 
+/* The dashboard tiles and the Billing Attention queue must be the same
+   numbers, because they are now the same projection. */
+check("8c — the overview's exception counts come from billing_attention itself",
+  (() => {
+    const fromView = q.query("select kind, count(*)::int n from billing_attention group by kind order by kind");
+    const fromOverview = (o?.attention ?? []).map((a) => ({ kind: a.kind, n: a.count }))
+      .sort((x, y) => x.kind.localeCompare(y.kind));
+    return JSON.stringify(fromOverview) === JSON.stringify(fromView) ? "identical" : "THEY DISAGREE";
+  })(),
+  "identical");
+
 /* The defect this catches: the attention lists returned bare group ids, so 22
    "a live service has no billing rate" rows rendered with "—" where the
    partner should be. A queue of problems nobody can pick up. */
@@ -195,10 +220,20 @@ const grants = (fn) => first(
 check("13 — finance_overview is reachable by a signed-in person, and gates itself",
   grants("finance_overview"), "authenticated");
 check("14 — finance_payments the same", grants("finance_payments"), "authenticated");
-check("15 — finance_unmatched_payments the same", grants("finance_unmatched_payments"), "authenticated");
+check("15 — the retired duplicate finance_unmatched_payments is gone",
+  q.query(`select proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+            where n.nspname = 'public' and p.proname = 'finance_unmatched_payments'`).length,
+  0);
+
+check("15c — and both exception views are security_invoker, so they answer per person",
+  VIEWS.filter((v) => first(`select coalesce((select option_value from pg_options_to_table(c.reloptions)
+      where option_name = 'security_invoker'), 'off') as i
+      from pg_class c join pg_namespace n on n.oid = c.relnamespace
+     where n.nspname = 'public' and c.relname = '${v}'`).i !== "true"),
+  []);
 check("16 — match_partner_payment the same", grants("match_partner_payment"), "authenticated");
 check("17 — none of them is reachable by anon or PUBLIC",
-  ["finance_overview", "finance_payments", "finance_unmatched_payments", "match_partner_payment"]
+  ["finance_overview", "finance_payments", "match_partner_payment"]
     .filter((f) => /anon|PUBLIC/.test(grants(f))),
   []);
 

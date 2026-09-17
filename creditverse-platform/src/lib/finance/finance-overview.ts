@@ -130,75 +130,41 @@ export function cashSeries(
 }
 
 export interface AttentionCount {
-  key: string;
+  kind: string;
   label: string;
-  detail: string;
   count: number;
-  /** Which filter the Billing Attention page should open with. */
-  filter: string;
+  amountCents: number;
   tone: "bad" | "warn" | "info";
 }
 
-export interface AttentionInputs {
-  invoices: InvoiceRecord[];
-  today: string;
-  /** Group ids whose most recent card charge failed. */
-  autopayFailedGroups: string[];
-  /** Group ids with a live service but no billing rate set. */
-  missingTermsGroups: string[];
-  /** Payments that arrived without an invoice to sit against. */
-  unmatchedPayments: number;
-  /** Group ids currently suspended for non-payment. */
-  suspendedGroups: string[];
-  /** Invoices whose final reminder has gone and which are still unpaid. */
-  finalReminderInvoices: number;
-}
-
 /**
- * The exception queue, counted.
+ * The exception tiles, from the counts the `billing_attention` view produced.
  *
- * A zero here is a real answer — "0 suspended" is worth saying — so these are
- * never filtered out. What must never happen is a zero standing in for a
- * failed query; the caller passes measured inputs or does not call this.
+ * This no longer DERIVES anything. It used to recount overdue invoices, failed
+ * cards and missing terms in the browser, which was a second definition of
+ * each — and the dashboard and the queue would have disagreed the first time
+ * one of them learned a new rule.
+ *
+ * A zero is kept, never filtered out: "0 suspended" is a real answer worth
+ * showing, and a tile that disappears when it is clear reads as a tile nobody
+ * checked.
  */
-export function attentionCounts(input: AttentionInputs): AttentionCount[] {
-  const pastDue = input.invoices.filter(
-    (i) => isOpen(i) && daysOverdue(i.dueDate, input.today) > 0,
-  );
-  const pastDueCents = pastDue.reduce((s, i) => s + invoiceBalanceCents(i), 0);
-
-  return [
-    {
-      key: "past-due", label: "Past Due Invoices",
-      detail: pastDueCents > 0 ? `Total ${(pastDueCents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" })}` : "Nothing overdue",
-      count: pastDue.length, filter: "past-due", tone: "bad",
-    },
-    {
-      key: "autopay-failed", label: "AutoPay Failed",
-      detail: "Card charge did not go through",
-      count: input.autopayFailedGroups.length, filter: "autopay-failed", tone: "bad",
-    },
-    {
-      key: "missing-terms", label: "Missing Billing Terms",
-      detail: "Live service with no rate",
-      count: input.missingTermsGroups.length, filter: "missing-terms", tone: "warn",
-    },
-    {
-      key: "matching", label: "Payment Matching Review",
-      detail: "Payment with no invoice",
-      count: input.unmatchedPayments, filter: "matching", tone: "warn",
-    },
-    {
-      key: "final-reminder", label: "Final Reminder Sent",
-      detail: "Awaiting response",
-      count: input.finalReminderInvoices, filter: "final-reminder", tone: "warn",
-    },
-    {
-      key: "suspended", label: "Suspended (Non-Payment)",
-      detail: "Work is stopped",
-      count: input.suspendedGroups.length, filter: "suspended", tone: "info",
-    },
-  ];
+export function attentionCounts(
+  counted: { kind: string; severity: string; count: number; amountCents: number }[],
+  known: { kind: string; label: string }[],
+): AttentionCount[] {
+  const byKind = new Map(counted.map((c) => [c.kind, c]));
+  return known.map((k) => {
+    const found = byKind.get(k.kind);
+    const severity = found?.severity ?? "medium";
+    return {
+      kind: k.kind,
+      label: k.label,
+      count: found?.count ?? 0,
+      amountCents: found?.amountCents ?? 0,
+      tone: severity === "critical" || severity === "high" ? "bad" : severity === "medium" ? "warn" : "info",
+    };
+  });
 }
 
 export type CollectionMethod = "autopay" | "card" | "paypal" | "wise" | "manual";

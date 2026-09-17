@@ -55,7 +55,7 @@ function timingSafeEqual(a: string, b: string): boolean {
 
 interface OutboxRow {
   id: string;
-  kind: "reminder" | "receipt" | "reactivated";
+  kind: "reminder" | "receipt" | "reactivated" | "invoice";
   to_email: string | null;
   to_name: string | null;
   subject: string;
@@ -82,6 +82,25 @@ const day = (value: unknown): string => {
     : d.toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
 };
 
+/** How a partner is told to pay, in a sentence rather than a code. */
+const howToPay = (method: unknown): string => {
+  switch (method) {
+    case "autopay":
+      return "This invoice will be charged automatically to your saved card on the due date. "
+           + "You can pay it earlier from the portal if you prefer — AutoPay will not then charge it again.";
+    case "card_on_file":
+      return "You can pay this from the portal with your saved card, or with a different one.";
+    case "card_one_time":
+      return "You can pay this by card from the portal. Your card is not stored unless you ask us to save it.";
+    case "paypal":
+      return "You can pay this by PayPal. Please quote the invoice number as the reference so we can match it.";
+    case "wise":
+      return "You can pay this by Wise. Please quote the invoice number as the reference so we can match it.";
+    default:
+      return "Please quote the invoice number as the payment reference so we can match it to this invoice.";
+  }
+};
+
 /**
  * What each message says.
  *
@@ -94,6 +113,32 @@ const day = (value: unknown): string => {
 function compose(row: OutboxRow, brand: EmailBrand, portalUrl: string) {
   const p = row.payload;
   const partner = String(p.partner_name ?? "your account");
+
+  /* THE INVOICE ITSELF. Until 20260917002200 this did not exist: an invoice
+     was marked sent and the first thing a partner heard about it was the Day 1
+     overdue reminder. */
+  if (row.kind === "invoice") {
+    const lines = Array.isArray(p.lines) ? p.lines as Record<string, unknown>[] : [];
+    return {
+      heading: `Invoice ${p.invoice_number}`,
+      paragraphs: [
+        `Here is invoice ${p.invoice_number} for ${partner}, for ${money(p.total_cents, p.currency)}, `
+          + `due ${day(p.due_date)}.`,
+        [
+          ...lines.map((l) => `${l.description} — ${money(l.amount_cents, p.currency)}`),
+          lines.length > 0 ? "" : null,
+          `Total: ${money(p.total_cents, p.currency)}`,
+          `Due: ${day(p.due_date)}`,
+        ].filter((x) => x !== null).join("\n"),
+        howToPay(p.collection_method),
+        "If anything on this invoice looks wrong, reply to this email before it falls due and we will check it.",
+      ],
+      action: { label: "View and pay", url: portalUrl },
+      security: [`Sent by ${brand.name}. This is an invoice, not a request for card details by email —`,
+                 "we will never ask you to send a card number in a reply."],
+      brand,
+    };
+  }
 
   if (row.kind === "receipt") {
     const balance = p.balance_cents === null || p.balance_cents === undefined

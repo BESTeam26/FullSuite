@@ -18,6 +18,7 @@ import { formatDate } from "@/lib/format-date";
 import { formatMoneyIn } from "@/lib/format-money";
 import { cn } from "@/lib/utils";
 import { useFinanceOverview } from "@/lib/data/use-finance-overview";
+import { useBillingAttention } from "@/lib/data/use-finance-ledger";
 import { daysOverdue } from "@/lib/finance/finance-overview";
 
 type Health = "healthy" | "attention" | "past-due" | "suspended" | "autopay-failed" | "missing-config";
@@ -35,10 +36,12 @@ const money = (cents: number) => formatMoneyIn(cents / 100, "USD");
 
 export function PartnerBillingHealth() {
   const overview = useFinanceOverview(9);
+  const attentionQuery = useBillingAttention();
   const d = overview.data;
 
   const rows = useMemo(() => {
     if (!d) return [];
+    const attention = attentionQuery.data ?? [];
     const byPartner = new Map<string, {
       groupId: string; name: string; owedCents: number; oldestDue: string | null;
       method: string; autopay: boolean; nextDue: string | null; nextCents: number;
@@ -59,13 +62,17 @@ export function PartnerBillingHealth() {
       byPartner.set(i.groupId, at);
     }
 
-    const failed = new Set(d.attention.autopayFailedGroups);
-    const missing = new Set(d.attention.missingTermsGroups);
-    const suspended = new Set(d.attention.suspendedGroups);
+    /* Health is read from the same exception projection the queue uses, so a
+       partner cannot be "Healthy" here and "AutoPay failed" one page over. */
+    const withKind = (kind: string) =>
+      new Set(attention.filter((a) => a.kind === kind).map((a) => a.groupId));
+    const failed = withKind("autopay_failed");
+    const missing = withKind("billing_terms_missing_rate");
+    const suspended = withKind("suspended_nonpayment");
 
     /* A partner with no open invoice still has a billing arrangement, and a
        broken one is exactly what nobody notices. Missing terms come in from
-       the attention list rather than from the invoices. */
+       the attention queue rather than from the invoices. */
     for (const g of missing) {
       if (!byPartner.has(g)) {
         byPartner.set(g, {
@@ -87,9 +94,9 @@ export function PartnerBillingHealth() {
         return { ...p, late, health };
       })
       .sort((a, b) => b.owedCents - a.owedCents || a.name.localeCompare(b.name));
-  }, [d]);
+  }, [d, attentionQuery.data]);
 
-  if (overview.isPending) {
+  if (overview.isPending || attentionQuery.isPending) {
     return <div className="h-64 animate-pulse rounded-xl border border-border bg-muted/40" />;
   }
   if (overview.isError || !d) {

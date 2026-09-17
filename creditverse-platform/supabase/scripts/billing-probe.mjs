@@ -561,16 +561,30 @@ check("52. a partial payment leaves the invoice Partially Paid, not Paid",
            invoice_balance_cents(id)::int as balance from partner_invoices where id='${INVOICE}';`).rows,
   [{ status: "partially_paid", paid: 10000, balance: 32500 }]);
 
-check("53. the invoice is never set to Paid without a payment behind it",
-  /* Dee: "Never simply change the invoice to Paid." The status is recomputed
-     from the ledger, so a hand-edited status is corrected the moment anything
-     touches the invoice — asserted here by recomputing it directly. */
-  as(OWNER, SETUP + invoice(3) + `
-      update partner_invoices set status = 'paid', amount_paid_cents = 42500 where id = '${INVOICE}';`,
-    `do $a$ begin perform partner_invoice_recompute('${INVOICE}'); end $a$;
-     reset role; select status::text as status, amount_paid_cents::int as paid
-       from partner_invoices where id='${INVOICE}';`).rows,
-  [{ status: "overdue", paid: 0 }]);
+check("53. the invoice cannot be set to Paid without a payment behind it",
+  /* Dee: "Never simply change the invoice to Paid."
+     This used to assert that a hand-edited status was CORRECTED the next time
+     anything recomputed the invoice — true, but it meant the wrong figure was
+     live in between, and every screen that read it in that window was wrong.
+     Since 20260917002100 the edit is REFUSED: `partner_invoice_recompute` is
+     the only writer of amount_paid_cents and of the payment statuses. */
+  (() => {
+    /* `as` returns {ok:false, error} rather than throwing. */
+    const r = as(OWNER, SETUP + invoice(3), `
+      update partner_invoices set amount_paid_cents = 42500 where id = '${INVOICE}';
+      select 1 as reached;`);
+    if (r.ok) return "ACCEPTED A HAND-EDITED PAID TOTAL";
+    return r.error.includes("derived from its payments") ? "refused"
+      : `OTHER: ${r.error.slice(0, 90)}`;
+  })(),
+  "refused");
+
+check("53b. and a real payment still moves it, because recompute is the writer",
+  as(OWNER, SETUP + invoice(3), `${record("wise", 42500)}
+    reset role;
+    select status::text as status, amount_paid_cents::int as paid
+      from partner_invoices where id='${INVOICE}';`).rows,
+  [{ status: "paid", paid: 42500 }]);
 
 check("54. money with no invoice is still recorded, and waits in review",
   as(OWNER, SETUP, `${record("wise", 42500, "null")}

@@ -1,14 +1,27 @@
 /**
- * Finance's own reads: the payment ledger across every partner, and the
- * payments that arrived without an invoice.
+ * Finance's own reads: the payment ledger across every partner, the exception
+ * queue, and the payments that arrived without an invoice.
  *
- * Both go through database functions that check a capability before they
- * return a row, so a person who cannot see money gets an error rather than an
- * empty list — which is the honest answer and also the one that cannot be
- * mistaken for "there is no money".
+ * ── THESE READ CANONICAL VIEWS, NOT THEIR OWN DERIVATIONS ─────────────────
+ *
+ * `billing_attention` and `payment_matching_review` already existed when the
+ * Finance module was built, and the first version of this file re-derived both
+ * — one in a new database function, one in the browser. Retired in
+ * 20260917002400. A screen that re-derives an exception is a second definition
+ * of that exception, and the two drift the first time somebody fixes one.
+ *
+ * Both views carry `security_invoker = true`, so they answer per person: an
+ * agent with no financial capability gets no rows rather than an error, and
+ * the definer functions beside them refuse outright. Neither is the security —
+ * the policies on the tables underneath are.
  */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { requireSupabase } from "@/lib/supabase/client";
+
+type Raw = Record<string, unknown>;
+const num = (v: unknown) => Number(v ?? 0);
+
+/* ── The payment ledger ─────────────────────────────────────────────────── */
 
 export interface LedgerPayment {
   id: string;
@@ -29,9 +42,6 @@ export interface LedgerPayment {
   environment: string | null;
   source: string;
 }
-
-type Raw = Record<string, unknown>;
-const num = (v: unknown) => Number(v ?? 0);
 
 export async function fetchFinancePayments(limit = 200): Promise<LedgerPayment[]> {
   const { data, error } = await requireSupabase()
@@ -60,12 +70,52 @@ export async function fetchFinancePayments(limit = 200): Promise<LedgerPayment[]
 export const useFinancePayments = (limit = 200) =>
   useQuery({ queryKey: ["finance", "payments", limit], queryFn: () => fetchFinancePayments(limit), staleTime: 60_000 });
 
+/* ── The exception queue ────────────────────────────────────────────────── */
+
+export interface AttentionRow {
+  kind: string;
+  label: string;
+  severity: "critical" | "high" | "medium";
+  groupId: string;
+  partnerName: string;
+  invoiceId: string | null;
+  invoiceNumber: string | null;
+  amountCents: number;
+  since: string | null;
+  detail: string;
+}
+
+export async function fetchBillingAttention(): Promise<AttentionRow[]> {
+  const { data, error } = await requireSupabase()
+    .from("billing_attention")
+    .select("kind, label, severity, group_id, partner_name, invoice_id, invoice_number, amount_cents, since, detail")
+    .order("severity")
+    .order("since", { ascending: true });
+  if (error) throw error;
+  return ((data as Raw[] | null) ?? []).map((r) => ({
+    kind: r.kind as string,
+    label: (r.label as string) ?? "Billing Attention Required",
+    severity: ((r.severity as AttentionRow["severity"]) ?? "medium"),
+    groupId: r.group_id as string,
+    partnerName: (r.partner_name as string) ?? "Unknown partner",
+    invoiceId: (r.invoice_id as string) ?? null,
+    invoiceNumber: (r.invoice_number as string) ?? null,
+    amountCents: num(r.amount_cents),
+    since: (r.since as string) ?? null,
+    detail: (r.detail as string) ?? "",
+  }));
+}
+
+export const useBillingAttention = () =>
+  useQuery({ queryKey: ["finance", "attention"], queryFn: fetchBillingAttention, staleTime: 30_000 });
+
+/* ── Payments with no invoice behind them ───────────────────────────────── */
+
 export interface MatchCandidate {
   invoiceId: string;
   invoiceNumber: string;
   dueDate: string;
   balanceCents: number;
-  confidence: "high" | "medium" | "low";
 }
 
 export interface UnmatchedPayment {
@@ -78,11 +128,16 @@ export interface UnmatchedPayment {
   method: string;
   reference: string | null;
   notes: string | null;
+  recordedByName: string | null;
+  /** Ranked by the view: closest balance first. */
   candidates: MatchCandidate[];
 }
 
 export async function fetchUnmatchedPayments(): Promise<UnmatchedPayment[]> {
-  const { data, error } = await requireSupabase().rpc("finance_unmatched_payments" as never);
+  const { data, error } = await requireSupabase()
+    .from("payment_matching_review")
+    .select("id, paid_on, group_id, partner_name, amount_cents, currency, provider, provider_transaction_id, notes, recorded_by_name, candidate_invoices")
+    .order("created_at", { ascending: false });
   if (error) throw error;
   return ((data as Raw[] | null) ?? []).map((p) => ({
     id: p.id as string,
@@ -91,15 +146,15 @@ export async function fetchUnmatchedPayments(): Promise<UnmatchedPayment[]> {
     partnerName: (p.partner_name as string) ?? "Unknown partner",
     amountCents: num(p.amount_cents),
     currency: (p.currency as string) ?? "USD",
-    method: (p.method as string) ?? "—",
-    reference: (p.reference as string) ?? null,
+    method: String(p.provider ?? "—").replace(/_/g, " "),
+    reference: (p.provider_transaction_id as string) ?? null,
     notes: (p.notes as string) ?? null,
-    candidates: (Array.isArray(p.candidates) ? (p.candidates as Raw[]) : []).map((c) => ({
+    recordedByName: (p.recorded_by_name as string) ?? null,
+    candidates: (Array.isArray(p.candidate_invoices) ? (p.candidate_invoices as Raw[]) : []).map((c) => ({
       invoiceId: c.invoice_id as string,
       invoiceNumber: (c.invoice_number as string) ?? "—",
       dueDate: c.due_date as string,
       balanceCents: num(c.balance_cents),
-      confidence: ((c.confidence as MatchCandidate["confidence"]) ?? "low"),
     })),
   }));
 }

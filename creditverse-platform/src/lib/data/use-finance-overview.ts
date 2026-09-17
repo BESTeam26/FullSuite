@@ -53,13 +53,9 @@ export interface FinanceOverviewData {
   months: { month: string; collectedCents: number; expensesCents: number }[];
   openInvoices: OverviewInvoice[];
   recentPayments: OverviewPayment[];
-  attention: {
-    autopayFailedGroups: string[];
-    missingTermsGroups: string[];
-    suspendedGroups: string[];
-    unmatchedPayments: number;
-    finalReminderInvoices: number;
-  };
+  /** Counted by `billing_attention`, the one exception projection. The
+   *  dashboard shows what the queue shows, because there is one source. */
+  attention: { kind: string; severity: string; count: number; amountCents: number }[];
   collectedThisMonthCents: number;
   expensesThisMonthCents: number;
 }
@@ -67,14 +63,12 @@ export interface FinanceOverviewData {
 type Raw = Record<string, unknown>;
 const num = (v: unknown) => Number(v ?? 0);
 const list = (v: unknown): Raw[] => (Array.isArray(v) ? (v as Raw[]) : []);
-const strings = (v: unknown): string[] => (Array.isArray(v) ? (v as string[]) : []);
 
 export async function fetchFinanceOverview(months = 9): Promise<FinanceOverviewData> {
   const { data, error } = await requireSupabase()
     .rpc("finance_overview" as never, { p_months: months } as never);
   if (error) throw error;
   const d = (data ?? {}) as Raw;
-  const attention = (d.attention ?? {}) as Raw;
 
   return {
     today: (d.today as string) ?? new Date().toISOString().slice(0, 10),
@@ -116,13 +110,12 @@ export async function fetchFinanceOverview(months = 9): Promise<FinanceOverviewD
       status: (p.status as string) ?? "succeeded",
       state: (p.state as string) ?? "unreconciled",
     })),
-    attention: {
-      autopayFailedGroups: strings(attention.autopay_failed),
-      missingTermsGroups: strings(attention.missing_terms),
-      suspendedGroups: strings(attention.suspended),
-      unmatchedPayments: num(attention.unmatched_payments),
-      finalReminderInvoices: num(attention.final_reminder),
-    },
+    attention: list(d.attention).map((a) => ({
+      kind: a.kind as string,
+      severity: (a.severity as string) ?? "medium",
+      count: num(a.count),
+      amountCents: num(a.amount_cents),
+    })),
     collectedThisMonthCents: num(d.collected_this_month),
     expensesThisMonthCents: num(d.expenses_this_month),
   };
