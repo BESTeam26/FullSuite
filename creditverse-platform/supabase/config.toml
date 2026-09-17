@@ -446,3 +446,9 @@ verify_jwt = false
 # The welcome email needs the service role to stamp the organization, which the
 # function holds; the caller still has to be a signed-in user who can see that
 # organization, so JWT verification stays on.
+
+# Authorize.Net signs its webhooks; the function verifies that signature itself
+# on the raw body. There is no Supabase JWT to check, and requiring one would
+# simply make the processor's deliveries fail.
+[functions.authnet-webhook]
+verify_jwt = false

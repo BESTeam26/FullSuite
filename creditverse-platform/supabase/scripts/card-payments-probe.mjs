@@ -90,8 +90,8 @@ const refuses = (opts, fragment) => {
   return msg.includes(fragment) ? "refused" : `NOT REFUSED: ${msg}`;
 };
 
-const begin = (amount, kind, key, actor = `'${PAYER}'`) =>
-  `select begin_partner_card_charge('${G}', '${INV}', ${amount}, '${kind}', '${key}', ${actor}) into temp t_${key.replace(/[^a-z0-9]/gi, "")};`;
+const begin = (amount, kind, key, actor = `'${PAYER}'`, environment = "sandbox") =>
+  `select begin_partner_card_charge('${G}', '${INV}', ${amount}, '${kind}', '${key}', ${actor}, '${environment}') into temp t_${key.replace(/[^a-z0-9]/gi, "")};`;
 const settle = (key, status, txn) =>
   `select settle_partner_card_charge('${key}', '${status}', ${txn ? `'${txn}'` : "null"}, '1', 'Approved') into temp s_${key.replace(/[^a-z0-9]/gi, "")};`;
 
@@ -140,9 +140,9 @@ check("6 — one provider transaction cannot be recorded against two attempts",
 
 check("7 — a second autopay sweep is a retry, because the key comes from the invoice",
   row({ card: true, autopay: true, action: `
-    select begin_partner_card_charge('${G}', d.invoice_id, d.amount_cents, 'autopay', d.idempotency_key, null)
+    select begin_partner_card_charge('${G}', d.invoice_id, d.amount_cents, 'autopay', d.idempotency_key, null, 'production')
       into temp a1 from partner_autopay_due() d where d.invoice_id = '${INV}';
-    select begin_partner_card_charge('${G}', d.invoice_id, d.amount_cents, 'autopay', d.idempotency_key, null)
+    select begin_partner_card_charge('${G}', d.invoice_id, d.amount_cents, 'autopay', d.idempotency_key, null, 'production')
       into temp a2 from partner_autopay_due() d where d.invoice_id = '${INV}';
     select count(*)::int as attempts from partner_card_charges where group_id = '${G}';` }),
   { attempts: 1 });
@@ -230,7 +230,7 @@ check("23 — autopay does not sweep a void invoice",
   { due: 0 });
 
 check("24 — an autopay charge is refused when autopay is off",
-  refuses({ card: true, autopay: false, action: begin(25000, "autopay", "p24", "null") }, "not switched on"), "refused");
+  refuses({ card: true, autopay: false, action: begin(25000, "autopay", "p24", "null", "production") }, "not switched on"), "refused");
 
 check("25 — autopay cannot be switched on without a card",
   refuses({ as: PAYER, action: `select set_partner_autopay('${G}', true) into temp t25;` }, "needs a card"), "refused");
@@ -343,6 +343,117 @@ check("41 — settling an attempt that was never started raises, rather than pay
     return msg.includes("No such charge attempt") ? "refused" : `NOT REFUSED: ${msg}`;
   })(),
   "refused");
+
+/* ── Dee's brief, 2026-09-17 ───────────────────────────────────────────── */
+
+console.log("\n  Timeout after the gateway accepted");
+check("42 — a lost answer is UNKNOWN, not failed, and credits nothing",
+  row({ action: `${begin(25000, "pay_now", "p42")}
+    select mark_partner_card_charge_unknown('p42', 'no answer') into temp u42;
+    select (select status from partner_card_charges where idempotency_key = 'p42') as charge,
+           (select count(*)::int from partner_payments where invoice_id = '${INV}') as payments,
+           (select status::text from partner_invoices where id = '${INV}') as invoice;` }),
+  { charge: "unknown", payments: 0, invoice: "sent" });
+
+check("43 — autopay will not touch an invoice with an UNKNOWN attempt against it",
+  row({ card: true, autopay: true, action: `${begin(25000, "card_on_file", "p43")}
+    select mark_partner_card_charge_unknown('p43', 'no answer') into temp u43;
+    select count(*)::int as due from partner_autopay_due() where invoice_id = '${INV}';` }),
+  { due: 0 });
+
+check("44 — autopay will not touch an invoice with an attempt still PENDING",
+  row({ card: true, autopay: true, action: `${begin(25000, "card_on_file", "p44")}
+    select count(*)::int as due from partner_autopay_due() where invoice_id = '${INV}';` }),
+  { due: 0 });
+
+check("45 — marking a settled charge unknown does not undo it",
+  row({ action: `${begin(25000, "pay_now", "p45")} ${settle("p45", "approved", "TXN-45")}
+    select (mark_partner_card_charge_unknown('p45', 'late timeout')->>'already_settled')::boolean as ignored,
+           (select status from partner_card_charges where idempotency_key = 'p45') as charge,
+           (select amount_paid_cents from partner_invoices where id = '${INV}') as paid;` }),
+  { ignored: true, charge: "approved", paid: 25000 });
+
+console.log("\n  Sandbox cannot charge unattended");
+check("46 — an autopay charge is refused outside production",
+  refuses({ card: true, autopay: true, action: begin(25000, "autopay", "p46", "null", "sandbox") },
+    "does not run outside production"),
+  "refused");
+
+check("47 — a charge must say which Authorize.Net it went to",
+  refuses({ action: begin(25000, "pay_now", "p47", `'${PAYER}'`, "whatever") }, "which Authorize.Net"), "refused");
+
+check("48 — a sandbox payment says so on its own record",
+  row({ action: `${begin(25000, "pay_now", "p48")} ${settle("p48", "approved", "TXN-48")}
+    select notes like '%SANDBOX TEST%' as flagged from partner_payments where invoice_id = '${INV}';` }),
+  { flagged: true });
+
+check("49 — a production payment carries no such warning",
+  row({ action: `${begin(25000, "pay_now", "p49", `'${PAYER}'`, "production")} ${settle("p49", "approved", "TXN-49")}
+    select notes like '%SANDBOX%' as flagged from partner_payments where invoice_id = '${INV}';` }),
+  { flagged: false });
+
+check("50 — autopay is not armed until Dee puts the approval in the vault",
+  first("select partner_autopay_is_armed() as armed"), { armed: false });
+
+console.log("\n  Consent");
+check("51 — switching autopay on records who did it and when",
+  row({ card: true, as: PAYER, action: `
+    select set_partner_autopay('${G}', true) into temp c51;
+    select autopay_enabled, autopay_enabled_by = '${PAYER}' as by_them,
+           autopay_enabled_at is not null as stamped
+      from partner_payment_profiles where group_id = '${G}';` }),
+  { autopay_enabled: true, by_them: true, stamped: true });
+
+check("52 — switching it off does not erase who once switched it on",
+  row({ card: true, as: PAYER, action: `
+    select set_partner_autopay('${G}', true) into temp c52a;
+    select set_partner_autopay('${G}', false) into temp c52b;
+    select autopay_enabled, autopay_enabled_by is not null as remembered
+      from partner_payment_profiles where group_id = '${G}';` }),
+  { autopay_enabled: false, remembered: true });
+
+console.log("\n  Paying early beats autopay");
+check("53 — an invoice paid before its due date is not swept",
+  row({ card: true, autopay: true, action: `${begin(25000, "card_on_file", "p53")} ${settle("p53", "approved", "TXN-53")}
+    select count(*)::int as due from partner_autopay_due() where invoice_id = '${INV}';` }),
+  { due: 0 });
+
+check("54 — a partially paid invoice is swept for the balance, not the total",
+  row({ card: true, autopay: true, action: `${begin(10000, "card_on_file", "p54")} ${settle("p54", "approved", "TXN-54")}
+    select amount_cents from partner_autopay_due() where invoice_id = '${INV}';` }),
+  { amount_cents: 15000 });
+
+console.log("\n  Webhook replay");
+check("55 — the same provider event cannot be recorded twice",
+  raises(`insert into partner_payment_events (provider_event_id, event_type)
+               values ('evt-probe-1', 'net.authorize.payment.authcapture.created'),
+                      ('evt-probe-1', 'net.authorize.payment.authcapture.created');`,
+    "partner_payment_events_once"),
+  "refused");
+
+check("56 — webhook events are not writable from a browser",
+  first(`select coalesce(string_agg(distinct privilege_type, ',' order by privilege_type), 'none') as p
+           from information_schema.table_privileges
+          where table_schema = 'public' and grantee = 'authenticated'
+            and table_name = 'partner_payment_events'`),
+  { p: "SELECT" });
+
+check("57 — only a delegated finance user can read them",
+  first(`select pg_get_expr(pol.polqual, pol.polrelid) as using_clause
+           from pg_policy pol where pol.polrelid = 'public.partner_payment_events'::regclass`)
+    .using_clause.includes("partners.payments.record") ? "owner-gated" : "NOT GATED",
+  "owner-gated");
+
+check("58 — mark_partner_card_charge_unknown is not callable from a browser",
+  grants("mark_partner_card_charge_unknown"), "nobody");
+check("59 — partner_autopay_is_armed is not callable from a browser",
+  grants("partner_autopay_is_armed"), "nobody");
+check("60 — partner_autopay_dispatch is not callable from a browser",
+  grants("partner_autopay_dispatch"), "nobody");
+
+check("61 — the autopay sweep is scheduled, and inert until it is armed",
+  first(`select schedule from cron.job where jobname = 'partner-autopay-sweep'`),
+  { schedule: "20 6 * * *" });
 
 console.log(`\n${failures.length ? "FAILURES" : "ALL PASS"} — ${pass} passed, ${failures.length} failed`);
 if (failures.length) { failures.forEach((f) => console.log(`  - ${f}`)); process.exit(1); }
