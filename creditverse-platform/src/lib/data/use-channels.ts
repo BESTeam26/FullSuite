@@ -20,6 +20,7 @@ import {
   fetchMessages,
   markChannelRead, openDirectChannel, openGroupConversation, openPartnerConversation, postMessage,
   fetchChannelDetails, fetchChannelSeenBy, setChannelFavourite, setChannelNotifications,
+  renameChannel,
   removeChannelMember, removeChannelTeam, restoreChannel, searchMessages,
 } from "@/lib/data/channels";
 import type { NotificationLevel } from "@/lib/data/channels";
@@ -230,6 +231,10 @@ export function useChannelPreferences(channelId: string | null) {
   return {
     setFavourite: useMutation({
       mutationFn: (on: boolean) => setChannelFavourite(channelId!, on),
+      onSuccess: refresh,
+    }),
+    rename: useMutation({
+      mutationFn: (name: string) => renameChannel(channelId!, name),
       onSuccess: refresh,
     }),
     setNotifications: useMutation({

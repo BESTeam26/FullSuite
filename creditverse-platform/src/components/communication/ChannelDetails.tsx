@@ -19,8 +19,10 @@
  * scope is in it. Counting the table would say nobody is here, under a list
  * of nine names. The count is who can actually be reached.
  */
-import { useState } from "react";
-import { BellRing, ChevronDown, ChevronUp, Clock, Info, Loader2, Star, Users } from "lucide-react";
+import { useEffect, useState } from "react";
+import {
+  BellRing, Check, ChevronDown, ChevronUp, Clock, Info, Loader2, Pencil, Star, Users, X,
+} from "lucide-react";
 import { Avatar } from "@/components/common/Avatar";
 import { formatDate } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
@@ -47,9 +49,25 @@ const Row = ({ icon: Icon, label, children }: {
 
 export function ChannelDetails({ channelId }: { channelId: string }) {
   const [open, setOpen] = useState(true);
+  const [renaming, setRenaming] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [error, setError] = useState<string | null>(null);
   const details = useChannelDetails(channelId);
   const prefs = useChannelPreferences(channelId);
   const d = details.data;
+
+  /* A rename in progress belongs to the conversation it was started in. */
+  useEffect(() => { setRenaming(false); setError(null); }, [channelId]);
+
+  const submit = async () => {
+    setError(null);
+    try {
+      await prefs.rename.mutateAsync(draft);
+      setRenaming(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "That name was not accepted.");
+    }
+  };
 
   return (
     <section className="rounded-xl border border-border bg-card">
@@ -78,11 +96,57 @@ export function ChannelDetails({ channelId }: { channelId: string }) {
                 #
               </span>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-bold text-foreground">{d.name}</p>
-                <p className="text-[11px] text-muted-foreground">
-                  {d.openToScope ? "Everyone with access" : "Members only"}
-                </p>
+                {renaming ? (
+                  <div className="space-y-1">
+                    <input
+                      autoFocus
+                      value={draft}
+                      maxLength={80}
+                      onChange={(e) => setDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") { setRenaming(false); setError(null); }
+                        if (e.key === "Enter") { e.preventDefault(); void submit(); }
+                      }}
+                      aria-label="Conversation name"
+                      className="w-full rounded-lg border border-border bg-background px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                    <p className="flex items-center gap-2 text-[11px]">
+                      <button type="button" onClick={() => void submit()}
+                        disabled={prefs.rename.isPending || !draft.trim()}
+                        className="inline-flex items-center gap-1 font-bold text-primary hover:underline disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                        {prefs.rename.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                        Save
+                      </button>
+                      <button type="button" onClick={() => { setRenaming(false); setError(null); }}
+                        className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                        <X className="h-3 w-3" /> Cancel
+                      </button>
+                    </p>
+                    {error && <p role="alert" className="text-[11px] text-status-danger">{error}</p>}
+                  </div>
+                ) : (
+                  <>
+                    <p className="truncate text-sm font-bold text-foreground">
+                      {/* An unnamed direct conversation is DESCRIBED by who is
+                          in it rather than named, so there is nothing to show
+                          here and nothing to rename. */}
+                      {d.name ?? "Named after who is in it"}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {d.openToScope ? "Everyone with access" : "Members only"}
+                    </p>
+                  </>
+                )}
               </div>
+              {d.canRename && !renaming && (
+                <button
+                  type="button"
+                  onClick={() => { setDraft(d.name ?? ""); setRenaming(true); }}
+                  aria-label="Rename this conversation"
+                  className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => prefs.setFavourite.mutate(!d.favourite)}

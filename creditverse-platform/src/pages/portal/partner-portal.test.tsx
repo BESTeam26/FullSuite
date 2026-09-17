@@ -71,6 +71,7 @@ vi.mock("@/lib/data/use-channels", () => ({
   useChannelDetails: () => ({ data: null, isPending: false, isError: false }),
   useChannelPreferences: () => ({
     setFavourite: { mutate: vi.fn(), isPending: false },
+    rename: { mutateAsync: vi.fn(), isPending: false },
     setNotifications: { mutate: vi.fn(), isPending: false },
   }),
   useChannelSeenBy: () => ({ data: [] }),
@@ -137,7 +138,7 @@ const CHANNEL: Channel = {
   partnerServiceId: null, partnerTopic: "general", kind: "general", name: "General",
   displayName: "General", directUserId: null, purpose: "BES and Acme Fulfilment",
   openToScope: true, archivedAt: null, sharedWithBes: false,
-  auditOnly: false, isManager: false, favourite: false, unread: 0, lastMessageAt: null,
+  auditOnly: false, isManager: false, favourite: false, canRename: false, unread: 0, lastMessageAt: null,
 };
 
 beforeEach(() => {

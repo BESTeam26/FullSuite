@@ -50,6 +50,8 @@ export interface Channel {
   isManager: boolean;
   /** Starred by the person reading. Per-person; it grants nothing. */
   favourite: boolean;
+  /** Whether THIS person may rename it. False on every two-person DM. */
+  canRename: boolean;
   unread: number;
   lastMessageAt: string | null;
 }
@@ -119,6 +121,7 @@ export async function fetchChannels(): Promise<Channel[]> {
       auditOnly: !!c.audit_only,
       isManager: !!c.is_manager,
       favourite: !!c.favourite,
+      canRename: !!c.can_rename,
       unread: Number(c.unread ?? 0),
       lastMessageAt: (c.last_message_at as string) ?? null,
     };
@@ -497,7 +500,9 @@ export async function fetchChannelSeenBy(channelId: string): Promise<SeenBy[]> {
 export type NotificationLevel = "all" | "mentions" | "none";
 
 export interface ChannelDetails {
-  name: string;
+  /** Null on an unnamed direct conversation: it is described, not named. */
+  name: string | null;
+  canRename: boolean;
   purpose: string | null;
   kind: string;
   openToScope: boolean;
@@ -519,7 +524,8 @@ export async function fetchChannelDetails(channelId: string): Promise<ChannelDet
   const d = data as Record<string, unknown> | null;
   if (!d) return null;
   return {
-    name: (d.name as string) ?? "",
+    name: (d.name as string) ?? null,
+    canRename: d.can_rename === true,
     purpose: (d.purpose as string) ?? null,
     kind: (d.kind as string) ?? "topic",
     openToScope: d.open_to_scope === true,
@@ -547,4 +553,12 @@ export async function setChannelNotifications(
   const { error } = await sb.rpc("set_channel_notifications" as never,
     { p_channel: channelId, p_level: level } as never);
   if (error) throw error;
+}
+
+export async function renameChannel(channelId: string, name: string): Promise<string> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("rename_channel" as never,
+    { p_channel: channelId, p_name: name } as never);
+  if (error) throw error;
+  return data as string;
 }

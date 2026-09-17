@@ -12,7 +12,7 @@ const ch = (over: Partial<Channel> & { id: string }): Channel => ({
   organizationId: null, agencyId: "a1", partnerGroupId: null, partnerServiceId: null,
   partnerTopic: null, kind: "topic", name: over.id, displayName: over.id,
   directUserId: null, purpose: null, openToScope: false, archivedAt: null,
-  sharedWithBes: false, auditOnly: false, isManager: false, favourite: false,
+  sharedWithBes: false, auditOnly: false, isManager: false, favourite: false, canRename: false,
   unread: 0, lastMessageAt: null, ...over,
 });
 
