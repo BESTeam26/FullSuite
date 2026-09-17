@@ -46,6 +46,10 @@ export interface OverviewPayment {
 
 export interface FinanceOverviewData {
   today: string;
+  /** Every partner the screen may need to NAME, including ones with no open
+   *  invoice — an attention row that cannot say whose problem it is cannot be
+   *  acted on. */
+  partnerNames: Record<string, string>;
   months: { month: string; collectedCents: number; expensesCents: number }[];
   openInvoices: OverviewInvoice[];
   recentPayments: OverviewPayment[];
@@ -74,6 +78,7 @@ export async function fetchFinanceOverview(months = 9): Promise<FinanceOverviewD
 
   return {
     today: (d.today as string) ?? new Date().toISOString().slice(0, 10),
+    partnerNames: (d.partner_names ?? {}) as Record<string, string>,
     months: list(d.months).map((m) => ({
       month: m.month as string,
       collectedCents: num(m.collected_cents),

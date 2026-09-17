@@ -137,7 +137,24 @@ console.log("\n  The overview is a projection, not a copy");
 const o = value(OWNER, "select finance_overview(9) as d;")?.d;
 check("8 — it returns the sections the screen needs",
   o ? Object.keys(o).sort() : null,
-  ["attention", "collected_this_month", "expenses_this_month", "months", "open_invoices", "recent_payments", "today"]);
+  ["attention", "collected_this_month", "expenses_this_month", "months", "open_invoices",
+   "partner_names", "recent_payments", "today"]);
+
+/* The defect this catches: the attention lists returned bare group ids, so 22
+   "a live service has no billing rate" rows rendered with "—" where the
+   partner should be. A queue of problems nobody can pick up. */
+check("8b — every partner the attention lists mention has a name to show",
+  (() => {
+    const names = o?.partner_names ?? {};
+    const mentioned = [
+      ...(o?.attention?.autopay_failed ?? []),
+      ...(o?.attention?.missing_terms ?? []),
+      ...(o?.attention?.suspended ?? []),
+      ...(o?.open_invoices ?? []).map((i) => i.group_id),
+    ];
+    return mentioned.filter((g) => !names[g]);
+  })(),
+  []);
 
 check("9 — the chart window has one point per month, none missing",
   o?.months?.length, 9);

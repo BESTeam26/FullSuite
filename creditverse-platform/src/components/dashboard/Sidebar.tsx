@@ -60,6 +60,7 @@ import { useAgencyPermissions, type AgencyPermission } from "@/lib/data/agency-p
 import { useHubNavigation } from "@/lib/data/use-hub";
 import { HUB_MODULE_ICONS } from "@/lib/hub/hub-icons";
 import { useSidebarState } from "@/components/dashboard/sidebar-state";
+import { GROUP_LABEL as FINANCE_GROUP_LABEL, visibleFinanceSections } from "@/lib/finance/finance-sections";
 
 const SETTINGS_KEYS: readonly PermissionKeyName[] = ["settings.manage", "team.manage", "team.permissions", "billing.view", "creditops.letters.templates"];
 
@@ -71,6 +72,15 @@ type NavItem = {
   show?: boolean;
   /** Hidden for members without any of these keys (interface mirror of member_can). */
   permission?: PermissionKeyName | readonly PermissionKeyName[];
+  /**
+   * Sections that nest UNDER this item, shown while the person is inside it.
+   *
+   * Dee, 2026-09-17, on the Finance redesign: the module's sections belong in
+   * the dark global sidebar under Finance, not on a second rail inside the
+   * page. Each child is already filtered by capability before it gets here —
+   * this type only carries them.
+   */
+  children?: { label: string; href: string; group?: string }[];
 };
 
 type NavGroup = {
@@ -165,6 +175,22 @@ export const Sidebar = () => {
      bare entry is active only when no view is selected. */
   const SEARCH_SCOPED = new Set(["/app/funding-deals"]);
 
+  /* Finance's own sections, filtered by the capabilities this person holds.
+     Presentation only: `finance_overview`, `finance_payments` and the rest
+     refuse the same person at the database, link or no link. */
+  const financeChildren = useMemo(
+    () =>
+      visibleFinanceSections((k) => agencyPermissions.can(k as never))
+        .map((s) => ({
+          label: s.label,
+          href: s.slug ? `/app/finance/${s.slug}` : "/app/finance",
+          /* Dee's brief groups them: the workspace, then ATTENTION, then
+             SETTINGS. The heading is drawn when the group changes. */
+          group: FINANCE_GROUP_LABEL[s.group] ?? undefined,
+        })),
+    [agencyPermissions],
+  );
+
   /* Agency HQ navigation — BES employees only */
   const agencyNavGroups: NavGroup[] = [
     {
@@ -250,7 +276,15 @@ export const Sidebar = () => {
            from "Organization billing", which is SaaS subscription metering for
            customers. Same word, two revenue streams; naming them apart is how
            somebody stops opening the wrong one. */
-        { label: "Finance", icon: Banknote, href: "/app/finance" },
+        {
+          label: "Finance",
+          icon: Banknote,
+          href: "/app/finance",
+          /* The same registry the Finance pages read, so the menu and the page
+             cannot offer different sections — and a section this person may
+             not open is not drawn here OR served there. */
+          children: financeChildren,
+        },
         { label: "Organization billing", icon: Receipt, href: "/app/billing" },
         /* Compliance & Legal and Access preview were removed from the
            navigation on Dee's word, 2026-09-12: "I don't need access preview,
@@ -563,12 +597,18 @@ export const Sidebar = () => {
                 {groupHeading(group.label)}
                 {visibleItems.map((n) => {
                   const active = isActive(n.href);
+                  /* A module's sections open when you are inside it and fold
+                     away when you leave, so the menu stays the short list it
+                     is everywhere else. In the rail there is no room for them
+                     and the page's own heading says where you are. */
+                  const openHere = !rail && !!n.children?.length && isActive(n.href);
                   return (
+                    <div key={n.href + n.label}>
                     <PrefetchLink
-                      key={n.href + n.label}
                       to={n.href}
                       title={rail ? n.label : undefined}
                       aria-label={rail ? n.label : undefined}
+                      aria-expanded={n.children?.length ? openHere : undefined}
                       className={itemClass(active)}
                     >
                       <n.icon className="h-4 w-4 shrink-0" />
@@ -594,6 +634,51 @@ export const Sidebar = () => {
                         </span>
                       )}
                     </PrefetchLink>
+                    {openHere && (
+                      /* Indented under the parent, with a rule running down
+                         the left so the branch reads as one thing. The parent
+                         keeps its filled pill; the current section gets a
+                         lighter fill, because two identical pills would make
+                         neither of them mean "you are here" (rule 15). */
+                      <ul className="relative ml-[1.4rem] mt-0.5 space-y-px border-l border-sidebar-border pl-2">
+                        {n.children!.map((c, ci) => {
+                          /* A module's own Overview shares the parent's href,
+                             and `isActive` matches by prefix — so it lit up on
+                             every sibling section and two children looked
+                             selected at once. The overview child is exact. */
+                          const here = c.href === n.href
+                            ? pathname === c.href
+                            : isActive(c.href);
+                          /* Only when it changes, so "Attention" is a heading
+                             over its two items rather than a label on each. */
+                          const heading = c.group && c.group !== n.children![ci - 1]?.group
+                            ? c.group : null;
+                          return (
+                            <li key={c.href}>
+                              {heading && (
+                                <p className="px-2.5 pb-1 pt-3 text-[10px] font-bold uppercase tracking-wider text-sidebar-foreground/45">
+                                  {heading}
+                                </p>
+                              )}
+                              <PrefetchLink
+                                to={c.href}
+                                aria-current={here ? "page" : undefined}
+                                className={cn(
+                                  "block rounded-md px-2.5 py-1.5 text-[13px] font-medium transition-colors",
+                                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+                                  here
+                                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                                    : "text-sidebar-foreground/60 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+                                )}
+                              >
+                                {c.label}
+                              </PrefetchLink>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                    </div>
                   );
                 })}
               </div>

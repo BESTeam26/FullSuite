@@ -69,7 +69,7 @@ export function PartnerBillingHealth() {
     for (const g of missing) {
       if (!byPartner.has(g)) {
         byPartner.set(g, {
-          groupId: g, name: "—", owedCents: 0, oldestDue: null,
+          groupId: g, name: d.partnerNames[g] ?? "Unknown partner", owedCents: 0, oldestDue: null,
           method: "manual", autopay: false, nextDue: null, nextCents: 0,
         });
       }

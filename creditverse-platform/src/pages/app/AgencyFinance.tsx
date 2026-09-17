@@ -142,9 +142,11 @@ export const AgencyFinance = () => {
         </div>
       }
     >
-      <div className="lg:flex lg:gap-5">
-        <FinanceNav sections={sections} />
-        <div className="min-w-0 flex-1">
+      {/* The sections live in the global sidebar under Finance. This is the
+          same list for small screens, where that sidebar is a drawer. */}
+      <FinanceNav sections={sections} />
+      <div>
+        <div className="min-w-0">
           {current.slug === "" && <FinanceOverviewPage />}
           {current.slug === "invoices" && (
             inputs.isLoading ? (

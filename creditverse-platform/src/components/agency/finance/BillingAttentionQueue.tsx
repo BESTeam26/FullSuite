@@ -43,7 +43,10 @@ export function BillingAttentionQueue() {
   const { rows, tabs } = useMemo(() => {
     if (!d) return { rows: [] as Row[], tabs: [] as { key: string; label: string; count: number }[] };
 
-    const nameOf = new Map(d.openInvoices.map((i) => [i.groupId, i.partnerName]));
+    /* Names for every partner the queue mentions, not only the ones that
+       happen to have an open invoice. A row reading "—" is a problem nobody
+       can pick up. */
+    const nameOf = (g: string) => d.partnerNames[g] ?? "Unknown partner";
     const out: Row[] = [];
 
     for (const i of d.openInvoices) {
@@ -63,7 +66,7 @@ export function BillingAttentionQueue() {
     for (const g of d.attention.autopayFailedGroups) {
       out.push({
         key: `autopay:${g}`, filter: "autopay-failed",
-        partner: nameOf.get(g) ?? "—", groupId: g,
+        partner: nameOf(g), groupId: g,
         problem: "The saved card was declined", amountCents: null,
         age: "Last attempt", nextAction: "Ask for another card", tone: "bad",
       });
@@ -71,7 +74,7 @@ export function BillingAttentionQueue() {
     for (const g of d.attention.missingTermsGroups) {
       out.push({
         key: `terms:${g}`, filter: "missing-terms",
-        partner: nameOf.get(g) ?? "—", groupId: g,
+        partner: nameOf(g), groupId: g,
         /* This one is quiet and expensive: the service runs and bills nothing,
            and nobody finds out until somebody reads the month's invoices. */
         problem: "A live service has no billing rate", amountCents: null,
@@ -81,7 +84,7 @@ export function BillingAttentionQueue() {
     for (const g of d.attention.suspendedGroups) {
       out.push({
         key: `susp:${g}`, filter: "suspended",
-        partner: nameOf.get(g) ?? "—", groupId: g,
+        partner: nameOf(g), groupId: g,
         problem: "Work is stopped for non-payment", amountCents: null,
         age: "Until settled", nextAction: "Collect, then lift", tone: "info",
       });
