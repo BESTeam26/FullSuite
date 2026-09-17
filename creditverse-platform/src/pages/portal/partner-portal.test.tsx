@@ -93,6 +93,8 @@ vi.mock("@/lib/data/communication-home", () => ({
   useToggleSaved: () => ({ mutate: vi.fn() }),
 }));
 vi.mock("@/lib/data/use-messages", () => ({
+  useChannelTabCounts: () => ({ data: { files: 0, pins: 0, members: 0 } }),
+  useChannelFiles: () => ({ data: [], isPending: false, isError: false }),
   useRichMessages: () => ({ data: messages, isLoading: false, refetch: vi.fn() }),
   useThread: () => ({ data: [], isLoading: false }),
   usePins: () => ({ data: [] }),
@@ -218,7 +220,7 @@ describe("the partner portal conversation", () => {
       createdAt: "2026-09-06T10:00:00Z", editedAt: null, deleted: false,
       messageType: "message", announcementId: null, announcementTitle: null,
       announcementBody: null, announcementPublishedAt: null, parentMessageId: null,
-      replyToId: null, replyToText: null, replyToAuthor: null, replyCount: 0,
+      replyToId: null, replyToText: null, replyToAuthor: null, replyCount: 0, replyParticipants: [],
       lastReplyAt: null, pinned: false, reactions: [], attachments: [], mentions: [],
     }];
     render(<PortalMessages partnerGroupId="g1" />);

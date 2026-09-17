@@ -18,12 +18,19 @@
  * sending a message must not reload the application.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Building2, Hash, Loader2, Lock, MessagesSquare, Pin, ShieldAlert, Undo2, X } from "lucide-react";
+import {
+  Building2, FileText, Hash, Loader2, Lock, MessagesSquare, Pin, ShieldAlert, Undo2, X,
+} from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useTypingPresence } from "@/lib/data/use-typing-presence";
 import { TypingIndicator } from "./TypingIndicator";
-import { useMessageActions, useRichMessages, useSendMessage, useThread } from "@/lib/data/use-messages";
-import { useChannelMentionable } from "@/lib/data/use-channels";
+import {
+  useChannelFiles, useChannelTabCounts, useMessageActions, useRichMessages,
+  useSendMessage, useThread,
+} from "@/lib/data/use-messages";
+import { ChannelTabs, type ChannelTab } from "@/components/communication/ChannelTabs";
+import { formatDate } from "@/lib/format-date";
+import { useChannelMembers, useChannelMentionable } from "@/lib/data/use-channels";
 import { useMessageRealtime } from "@/lib/data/use-message-realtime";
 import type { MentionAttrs } from "@/lib/activity/mentions";
 import { attachToMessage, type RichMessage } from "@/lib/data/messages";
@@ -56,6 +63,9 @@ export interface ConversationPaneProps {
   readOnly?: boolean;
   readOnlyReason?: string;
   hideHeader?: boolean;
+  /** An open conversation has no explicit members, so the tab says "Everyone"
+   *  rather than a count of zero, which would read as "nobody". */
+  openToScope?: boolean;
   /** A manager may pin; §29 keeps that separate from being an administrator. */
   canPin?: boolean;
   /** For attachments: which tenant's storage prefix the files belong under. */
@@ -66,7 +76,7 @@ export interface ConversationPaneProps {
 export function ConversationPane({
   channelId, name, purpose, notice, glyph = "hash", owner = null,
   emptyLabel = "Start the conversation with your team.",
-  readOnly = false, readOnlyReason, hideHeader = false, canPin = false,
+  readOnly = false, readOnlyReason, hideHeader = false, canPin = false, openToScope = false,
   organizationId = null, onMeeting,
 }: ConversationPaneProps) {
   const auth = useAuth();
@@ -82,6 +92,11 @@ export function ConversationPane({
   const [threadRoot, setThreadRoot] = useState<number | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
   const [showPinned, setShowPinned] = useState(false);
+  const [tab, setTab] = useState<ChannelTab>("messages");
+  const tabCounts = useChannelTabCounts(channelId);
+  /* Fetched only once the Files tab is opened — rule 14, do not preload a tab
+     nobody asked for. */
+  const files = useChannelFiles(channelId, tab === "files");
   const [showMeeting, setShowMeeting] = useState(false);
   const pendingFiles = useRef<Map<string, File[]>>(new Map());
   const retryMentions = useRef<Map<string, MentionAttrs[]>>(new Map());
@@ -114,7 +129,7 @@ export function ConversationPane({
   useEffect(() => {
     if (atBottom) bottomRef.current?.scrollIntoView?.({ block: "end" });
   }, [rows.length, atBottom]);
-  useEffect(() => { setAtBottom(true); setThreadRoot(null); }, [channelId]);
+  useEffect(() => { setAtBottom(true); setThreadRoot(null); setTab("messages"); }, [channelId]);
 
   const pinned = useMemo(() => rows.filter((m) => m.pinned && !m.deleted), [rows]);
 
@@ -200,6 +215,9 @@ export function ConversationPane({
         </header>
       )}
 
+      {/* Messages · Files · Pins · Members, from Dee's reference. */}
+      <ChannelTabs active={tab} onChange={setTab} counts={tabCounts.data} openToScope={openToScope} />
+
       {showPinned && pinned.length > 0 && (
         <div className="border-b border-border bg-amber-500/5 px-4 py-2">
           <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Pinned</p>
@@ -213,6 +231,11 @@ export function ConversationPane({
         </div>
       )}
 
+      {tab !== "messages" ? (
+        <ChannelTabPanel tab={tab} channelId={channelId} pinned={pinned}
+          files={files} openToScope={openToScope}
+          onOpenThread={(id) => { setTab("messages"); setThreadRoot(id); }} />
+      ) : (
       <div ref={scrollerRef}
         onScroll={(e) => {
           const el = e.currentTarget;
@@ -266,8 +289,9 @@ export function ConversationPane({
         )}
         <div ref={bottomRef} />
       </div>
+      )}
 
-      {!atBottom && rows.length > 0 && (
+      {tab === "messages" && !atBottom && rows.length > 0 && (
         /* §48 — never yank somebody who has scrolled up. Offer, don't jump. */
         <button type="button"
           onClick={() => { setAtBottom(true); bottomRef.current?.scrollIntoView?.({ behavior: "smooth", block: "end" }); }}
@@ -289,7 +313,7 @@ export function ConversationPane({
 
       {showMeeting && !readOnly && <MeetingPanel onClose={() => setShowMeeting(false)} />}
 
-      {readOnly ? (
+      {tab !== "messages" ? null : readOnly ? (
         <p className="border-t border-border px-4 py-3 text-xs text-muted-foreground">
           {readOnlyReason ?? "You cannot post in this conversation."}
         </p>
@@ -426,4 +450,122 @@ function ThreadPanel({
 function messageFor(error: Error, draft: string): string {
   const text = error.message || "Could not send.";
   return draft ? `${text} Your message is back in the box — edit it and send again.` : text;
+}
+
+/**
+ * What the Files, Pins and Members tabs show.
+ *
+ * Each is a view of the SAME conversation — no separate store, no second
+ * membership. Files are the attachments already on its messages, pins are the
+ * messages already pinned in it, and members are its members. Opening one of
+ * these and clicking a row takes you back to the message it came from, which
+ * is the point of having them: they are a way to find a message, not a place
+ * to keep things.
+ */
+function ChannelTabPanel({
+  tab, channelId, pinned, files, openToScope, onOpenThread,
+}: {
+  tab: Exclude<ChannelTab, "messages">;
+  channelId: string;
+  pinned: RichMessage[];
+  files: ReturnType<typeof useChannelFiles>;
+  openToScope: boolean;
+  onOpenThread: (messageId: number) => void;
+}) {
+  /* `channel_mentionable` IS the member list with names on it, and the
+     composer has already fetched and cached it — so the Members tab costs no
+     request at all (rule 14). `channel_members` carries ids only. */
+  const members = useChannelMentionable(channelId);
+  const managers = useChannelMembers(tab === "members" ? channelId : null);
+  const managerIds = new Set((managers.data ?? []).filter((m) => m.isManager).map((m) => m.userId));
+
+  const Empty = ({ children }: { children: ReactNode }) => (
+    <p className="py-10 text-center text-sm text-muted-foreground">{children}</p>
+  );
+
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto p-3">
+      {tab === "files" && (
+        files.isPending ? (
+          <Loader2 className="mx-auto h-4 w-4 animate-spin text-muted-foreground" />
+        ) : files.isError ? (
+          <p role="alert" className="py-10 text-center text-sm text-status-danger">
+            We couldn't load the files in this conversation.
+          </p>
+        ) : (files.data ?? []).length === 0 ? (
+          <Empty>Nothing has been shared here yet. Files attached to a message appear here.</Empty>
+        ) : (
+          <ul className="space-y-1">
+            {(files.data ?? []).map((f) => (
+              <li key={f.id}>
+                <button type="button" onClick={() => onOpenThread(f.messageId)}
+                  className="flex w-full items-center gap-2.5 rounded-lg border border-border px-3 py-2 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                  <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-foreground">{f.name}</span>
+                    <span className="block truncate text-[11px] text-muted-foreground">
+                      {f.authorName ?? "Someone"} · {formatDate(f.createdAt)}
+                      {f.sizeBytes ? ` · ${Math.max(Math.round(f.sizeBytes / 1024), 1)} KB` : ""}
+                    </span>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )
+      )}
+
+      {tab === "pins" && (
+        pinned.length === 0 ? (
+          <Empty>Nothing is pinned. Pin a message to keep it here.</Empty>
+        ) : (
+          <ul className="space-y-1">
+            {pinned.map((m) => (
+              <li key={m.id}>
+                <button type="button" onClick={() => onOpenThread(m.id)}
+                  className="flex w-full items-start gap-2.5 rounded-lg border border-border px-3 py-2 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                  <Pin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[11px] font-semibold text-foreground">
+                      {m.authorName} · {formatDate(m.createdAt)}
+                    </span>
+                    <span className="block truncate text-sm text-muted-foreground">{m.bodyText}</span>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )
+      )}
+
+      {tab === "members" && (
+        members.isPending ? (
+          <Loader2 className="mx-auto h-4 w-4 animate-spin text-muted-foreground" />
+        ) : (members.data ?? []).length === 0 ? (
+          <Empty>
+            {openToScope
+              /* Not "no members" — an open conversation has no member rows
+                 BECAUSE everybody in scope is already in it. */
+              ? "This conversation is open to everyone with access, so it has no member list."
+              : "Nobody has been added yet."}
+          </Empty>
+        ) : (
+          <ul className="space-y-1">
+            {(members.data ?? []).map((p) => (
+              <li key={p.userId}
+                className="flex items-center gap-2.5 rounded-lg px-2 py-1.5">
+                <Avatar name={p.name} size="sm" className="h-7 w-7" />
+                <span className="min-w-0 flex-1 truncate text-sm text-foreground">{p.name}</span>
+                {managerIds.has(p.userId) && (
+                  <span className="shrink-0 rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Manager
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )
+      )}
+    </div>
+  );
 }

@@ -18,6 +18,7 @@ import {
   Check, CornerUpLeft, Download, History, MessageSquare, Megaphone,
   MoreHorizontal, Paperclip, Pencil, Pin, PinOff, SmilePlus, Trash2, X,
 } from "lucide-react";
+import { Avatar } from "@/components/common/Avatar";
 import { formatDate } from "@/lib/format-date";
 import {
   fetchMessageRevisions, signedAttachmentUrl, type Attachment, type RichMessage,
@@ -176,8 +177,20 @@ export function MessageRow({
 
       {!compact && m.replyCount > 0 && (
         <button type="button" onClick={onOpenThread}
-          className="mt-1 inline-flex items-center gap-1.5 rounded px-1 text-[11px] font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
-          <MessageSquare className="h-3 w-3" />
+          aria-label={`Open thread, ${m.replyCount} ${m.replyCount === 1 ? "reply" : "replies"}`}
+          className="mt-1 inline-flex items-center gap-1.5 rounded-lg px-1 py-0.5 text-[11px] font-semibold text-primary transition-colors hover:bg-primary/5 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+          {/* The faces first, as the reference shows: who is in this thread is
+              what decides whether you open it, before how many they wrote. */}
+          {m.replyParticipants.length > 0 ? (
+            <span className="flex -space-x-1.5">
+              {m.replyParticipants.slice(0, 3).map((p) => (
+                <Avatar key={p.id} name={p.name} size="sm"
+                  className="h-4 w-4 text-[8px] ring-2 ring-card" />
+              ))}
+            </span>
+          ) : (
+            <MessageSquare className="h-3 w-3" />
+          )}
           {m.replyCount} {m.replyCount === 1 ? "reply" : "replies"}
           {m.lastReplyAt && <span className="font-normal text-muted-foreground">
             · last {formatDate(m.lastReplyAt)}

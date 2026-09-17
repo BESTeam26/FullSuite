@@ -340,6 +340,7 @@ export default function Channels() {
                 ? { name: (current.partnerName ?? current.organizationName)!, service: current.serviceName }
                 : null}
               canPin={current.isManager}
+              openToScope={current.openToScope}
               organizationId={current.organizationId}
               readOnly={!!current.archivedAt}
               readOnlyReason="This conversation is archived. Its history is kept; nobody can add to it."

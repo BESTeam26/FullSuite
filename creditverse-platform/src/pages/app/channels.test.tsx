@@ -65,6 +65,8 @@ vi.mock("@/lib/data/use-messages", () => ({
   useRichMessages: () => ({ data: messages, isLoading: false, refetch: vi.fn() }),
   useThread: () => ({ data: [], isLoading: false }),
   usePins: () => ({ data: [] }),
+  useChannelTabCounts: () => ({ data: { files: 0, pins: 0, members: 0 } }),
+  useChannelFiles: () => ({ data: [], isPending: false, isError: false }),
   useSendMessage: () => ({
     send: { mutateAsync: sendMutate, isPending: false },
     undo: { mutate: vi.fn() },
@@ -234,7 +236,11 @@ describe("search shows what came back, and does no filtering of its own (§24)",
     /* Two characters minimum — the rail does not search below that, so a
        one-character term renders the conversation list, not results. */
     find("ac");
-    expect(screen.getByText("Messages")).toBeInTheDocument();
+    /* Scoped to the results, because the conversation's own tab strip is also
+       on screen and also says "Messages" — two different things with the same
+       word, in two different regions. */
+    const results = screen.getByRole("complementary", { name: /conversations/i });
+    expect(within(results).getByText("Messages")).toBeInTheDocument();
     expect(screen.getByText("People")).toBeInTheDocument();
     expect(screen.getByText("Partners")).toBeInTheDocument();
   });
@@ -390,7 +396,7 @@ function richMessage(over: Partial<RichMessage> = {}): RichMessage {
     messageType: "message", announcementId: null, announcementTitle: null,
     announcementBody: null, announcementPublishedAt: null,
     parentMessageId: null, replyToId: null, replyToText: null, replyToAuthor: null,
-    replyCount: 0, lastReplyAt: null, pinned: false, reactions: [], attachments: [],
+    replyCount: 0, replyParticipants: [], lastReplyAt: null, pinned: false, reactions: [], attachments: [],
     mentions: [],
     ...over,
   };

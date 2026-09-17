@@ -26,7 +26,8 @@
 import { useCallback, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  attachToMessage, deleteOwnMessage, editOwnMessage, fetchChannelMessages, fetchPins,
+  attachToMessage, deleteOwnMessage, editOwnMessage, fetchChannelFiles,
+  fetchChannelMessages, fetchChannelTabCounts, fetchPins,
   fetchThread, pinMessage, sendMessage, toggleReaction, unpinMessage,
   type RichMessage,
 } from "@/lib/data/messages";
@@ -86,7 +87,8 @@ const optimistic = (input: {
   parentMessageId: input.parentMessageId,
   replyToId: input.replyToId,
   replyToText: null, replyToAuthor: null,
-  replyCount: 0, lastReplyAt: null, pinned: false,
+  replyCount: 0,
+  replyParticipants: [], lastReplyAt: null, pinned: false,
   reactions: [], attachments: [], mentions: [...input.mentions],
   pending: true,
   clientMessageId: input.clientMessageId,
@@ -149,6 +151,28 @@ export function useSendMessage(channelId: string | null, opts?: { onSent?: () =>
     onSuccess: ({ v, id }) => {
       if (v.parentMessageId) {
         void qc.invalidateQueries({ queryKey: threadKey(v.parentMessageId) });
+        /* And the PARENT in the conversation, which is what shows "2 replies".
+           Without this the indicator did not appear until the whole channel
+           was refetched — Dee posted two replies and the message above them
+           still looked like nobody had answered. Patched in place rather than
+           refetched: the answer is already known (rule 14). */
+        const me = auth.user?.id ?? null;
+        const myName = auth.displayName ?? "You";
+        put((prev) => prev.map((m) => {
+          if (m.id !== v.parentMessageId) return m;
+          /* One face per person, most recent first, five at most — the same
+             rule the database applies when the row is next read, so the
+             optimistic row and the real one agree. */
+          const already = m.replyParticipants.filter((p) => p.id !== me);
+          return {
+            ...m,
+            replyCount: m.replyCount + 1,
+            lastReplyAt: new Date().toISOString(),
+            replyParticipants: me
+              ? [{ id: me, name: myName }, ...already].slice(0, 5)
+              : m.replyParticipants,
+          };
+        }));
       } else {
         /* Reconcile the ONE row rather than refetching the conversation. */
         put((prev) => prev.map((m) =>
@@ -240,4 +264,24 @@ export function useMessageActions(channelId: string | null) {
       onSuccess: refresh,
     }),
   };
+}
+
+/** Files, pins and members for the tab strip — one query, not three. */
+export function useChannelTabCounts(channelId: string | null) {
+  return useQuery({
+    queryKey: ["messages", "tabs", channelId ?? ""],
+    queryFn: () => fetchChannelTabCounts(channelId!),
+    enabled: !!channelId,
+    staleTime: 30_000,
+  });
+}
+
+/** Only fetched when the Files tab is actually opened (rule 14). */
+export function useChannelFiles(channelId: string | null, enabled: boolean) {
+  return useQuery({
+    queryKey: ["messages", "files", channelId ?? ""],
+    queryFn: () => fetchChannelFiles(channelId!),
+    enabled: !!channelId && enabled,
+    staleTime: 30_000,
+  });
 }

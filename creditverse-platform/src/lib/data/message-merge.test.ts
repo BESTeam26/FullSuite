@@ -26,6 +26,7 @@ const msg = (over: Partial<RichMessage>): RichMessage => ({
   replyToText: null,
   replyToAuthor: null,
   replyCount: 0,
+  replyParticipants: [],
   lastReplyAt: null,
   pinned: false,
   reactions: [],

@@ -59,6 +59,9 @@ export interface RichMessage {
   replyToText: string | null;
   replyToAuthor: string | null;
   replyCount: number;
+  /** Who replied, most recent first, at most five — the faces on the
+   *  indicator, which is what tells you whether a thread is one you are in. */
+  replyParticipants: { id: string; name: string }[];
   lastReplyAt: string | null;
   pinned: boolean;
   reactions: Reaction[];
@@ -127,6 +130,8 @@ function toRich(row: Record<string, unknown>): RichMessage {
     replyToText: (row.reply_to_text as string) ?? null,
     replyToAuthor: (row.reply_to_author as string) ?? null,
     replyCount: Number(row.reply_count ?? 0),
+    replyParticipants: Array.isArray(row.reply_participants)
+      ? (row.reply_participants as { id: string; name: string }[]) : [],
     lastReplyAt: (row.last_reply_at as string) ?? null,
     pinned: !!row.pinned,
     reactions: toReactions(row.reactions),
@@ -339,5 +344,53 @@ export async function fetchMessageRevisions(messageId: number): Promise<MessageR
   return (data ?? []).map((r) => ({
     id: Number(r.id), bodyText: r.body_text,
     editedBy: r.edited_by ?? null, editedAt: r.edited_at,
+  }));
+}
+
+/* ── A conversation's tabs ─────────────────────────────────────────────── */
+
+export interface ChannelTabCounts { files: number; pins: number; members: number }
+
+export async function fetchChannelTabCounts(channelId: string): Promise<ChannelTabCounts> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("channel_tab_counts" as never,
+    { p_channel: channelId } as never);
+  if (error) throw error;
+  const row = (data as Record<string, unknown>[] | null)?.[0];
+  /* No row means the caller cannot see the conversation, which is not zero of
+     anything — but the tabs are only ever drawn beside a conversation they
+     already have open, so zero is the honest fallback here. */
+  return {
+    files: Number(row?.files ?? 0),
+    pins: Number(row?.pins ?? 0),
+    members: Number(row?.members ?? 0),
+  };
+}
+
+export interface ChannelFile {
+  id: string;
+  name: string;
+  path: string;
+  mimeType: string | null;
+  sizeBytes: number | null;
+  messageId: number;
+  authorName: string | null;
+  createdAt: string;
+}
+
+export async function fetchChannelFiles(channelId: string): Promise<ChannelFile[]> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("channel_files" as never,
+    { p_channel: channelId, p_limit: 200 } as never);
+  if (error) throw error;
+  return ((data as Record<string, unknown>[] | null) ?? []).map((f) => ({
+    id: f.id as string,
+    name: (f.name as string) ?? "Untitled",
+    path: f.path as string,
+    mimeType: (f.mime_type as string) ?? null,
+    sizeBytes: f.size_bytes === null || f.size_bytes === undefined ? null : Number(f.size_bytes),
+    messageId: Number(f.message_id),
+    authorName: (f.author_name as string) ?? null,
+    createdAt: f.created_at as string,
   }));
 }
