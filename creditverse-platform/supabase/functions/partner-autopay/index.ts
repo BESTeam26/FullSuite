@@ -9,14 +9,18 @@
  * ── THREE THINGS MUST BE TRUE BEFORE IT CHARGES ANYTHING ──────────────────
  *
  *   1. The dispatch secret matches. Nothing else can start it.
- *   2. AUTHNET_ENV is production. A sandbox approves without moving money, so
- *      a sandbox sweep would mark real invoices paid and email real receipts.
- *   3. `partner_autopay_is_armed()` — Dee's approval, in the vault.
+ *   2. In PRODUCTION, `partner_autopay_is_armed()` — Dee's approval, kept in
+ *      the vault so it is a thing that exists rather than a thing that was
+ *      said.
+ *   3. The environment decides WHICH partners are in scope, and the two sets
+ *      are disjoint: sandbox sweeps only [TEST] fixture partners, production
+ *      only real ones. A rehearsal therefore cannot mark a real invoice paid —
+ *      which is the actual risk, not the sandbox itself.
  *
- * The database enforces 2 and 3 as well, in `begin_partner_card_charge` and
- * `partner_autopay_dispatch`. Checked in both places on purpose: this one
- * gives a clear answer when somebody invokes the function by hand, and the
- * database one cannot be bypassed at all.
+ * The database enforces all of it too, in `partner_autopay_due(environment)`
+ * and `begin_partner_card_charge`. Checked in both places on purpose: this one
+ * gives a clear answer to somebody invoking it by hand, and the database one
+ * cannot be bypassed at all.
  *
  * ── ONE INVOICE AT A TIME, AND NEVER THE SAME ONE TWICE ───────────────────
  *
@@ -70,25 +74,21 @@ Deno.serve(async (req) => {
   if (req.headers.get("x-dispatch-secret") !== secret) return json(401, { error: "Not authorised" });
   if (!login || !txnKey) return json(409, { error: "Authorize.Net keys are not set" });
 
-  /* Gate 2. Stated plainly, because somebody running this by hand in sandbox
-     deserves to be told why nothing happened. */
-  if (!isProduction) {
-    return json(409, {
-      error: "Autopay does not run outside production: a sandbox charge is approved without moving money, "
-           + "and would mark real invoices paid.",
-      environment: env,
-    });
-  }
-
   const sb = createClient(url, service);
+  const environment = isProduction ? "production" : "sandbox";
 
-  /* Gate 3. Dee's approval, read from the vault rather than remembered. */
-  const { data: armed } = await sb.rpc("partner_autopay_is_armed");
-  if (armed !== true) {
-    return json(409, { error: "Autopay is not armed. Nothing was charged." });
+  /* Production needs Dee's approval, kept in the vault. A sandbox rehearsal
+     does not, because it cannot reach a real partner. */
+  if (isProduction) {
+    const { data: armed } = await sb.rpc("partner_autopay_is_armed");
+    if (armed !== true) {
+      return json(409, { error: "Autopay is not armed for production. Nothing was charged." });
+    }
   }
 
-  const { data: due, error: dueError } = await sb.rpc("partner_autopay_due");
+  /* The environment decides the scope, in the database: sandbox gets [TEST]
+     partners and production gets real ones, and neither can see the other's. */
+  const { data: due, error: dueError } = await sb.rpc("partner_autopay_due", { p_environment: environment });
   if (dueError) return json(500, { error: "Could not read what is due" });
 
   const results: { invoice: string; status: string; reason?: string }[] = [];
@@ -103,7 +103,7 @@ Deno.serve(async (req) => {
       p_kind: "autopay",
       p_idempotency_key: invoice.idempotency_key,
       p_actor: null,
-      p_environment: "production",
+      p_environment: environment,
     });
     if (beginError) { results.push({ invoice: invoice.invoice_number, status: "skipped", reason: beginError.message }); continue; }
     if (begun?.already === true) { results.push({ invoice: invoice.invoice_number, status: "already handled" }); continue; }
@@ -162,5 +162,5 @@ Deno.serve(async (req) => {
     results.push({ invoice: invoice.invoice_number, status, reason: status === "approved" ? undefined : said(result) });
   }
 
-  return json(200, { swept: results.length, results });
+  return json(200, { environment, swept: results.length, results });
 });

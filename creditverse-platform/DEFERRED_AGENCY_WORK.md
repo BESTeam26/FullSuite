@@ -863,3 +863,44 @@ partner told they have no invoices believes it.
 
 Re-measure with the detector in `src/pages/portal/portal-states.test.ts`, which
 knows all four spellings. Do not write a new one.
+
+---
+
+## D-016 — Evaluate the derived-`overdue` migration
+
+**Deferred by Dee, 2026-09-17, after approving the billing architecture:**
+
+> "Keep `overdue` stored for now. Do NOT refactor it to fully derived before
+> payment UAT… do not open a 15-function / 4-view refactor just for
+> architectural tidiness."
+
+**Problem.** `partner_invoices.status` carries two things at once: payment
+state (`paid`, `partially_paid`) and lateness (`overdue`). It cannot express
+both, so a part-paid late invoice reads `partially_paid` and its lateness is
+invisible in that column.
+
+**Why it is no longer urgent.** The real defect was two writers fighting over
+the value — the payment trigger and the hourly sweep each overwrote the other,
+so an invoice's status depended on which ran last. That is fixed:
+`partner_invoice_recompute` is the single writer and `mark_overdue_invoices`
+now asks it rather than writing.
+
+**Proposed architecture.** Stop storing `overdue`. Payment state stays stored;
+lateness is answered by `invoice_is_overdue(uuid)`, which already exists, is
+already correct for the part-paid case, and is already granted.
+
+**Measured cost, 2026-09-17.** 15 database functions and 4 views read
+`status = 'overdue'`: `billing_recurring_sweep`, `billing_reminder_sweep`,
+`due_date_sweep`, `finance_overview`, `my_partner_autopay_schedule`,
+`my_partner_billing`, `my_partner_portal_summary`, `partner_autopay_due`,
+`partner_invoice_recompute`, `queue_reminder_email`, `mark_overdue_invoices`,
+plus the `billing_attention` view, and the portal and Finance screens.
+
+**Dependencies.** None. It is a pure refactor.
+
+**Risk.** Every one of those is a money path, and the enum value must stay for
+history even after nothing writes it. A missed `status in (...)` list silently
+drops invoices out of a sweep — which is the failure mode that does not raise
+an error and is not visible until somebody is not chased for a bill.
+
+**Revisit:** after billing/payment UAT and production stabilization.

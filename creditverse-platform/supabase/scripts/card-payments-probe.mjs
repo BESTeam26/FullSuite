@@ -140,10 +140,10 @@ check("6 — one provider transaction cannot be recorded against two attempts",
 
 check("7 — a second autopay sweep is a retry, because the key comes from the invoice",
   row({ card: true, autopay: true, action: `
-    select begin_partner_card_charge('${G}', d.invoice_id, d.amount_cents, 'autopay', d.idempotency_key, null, 'production')
-      into temp a1 from partner_autopay_due() d where d.invoice_id = '${INV}';
-    select begin_partner_card_charge('${G}', d.invoice_id, d.amount_cents, 'autopay', d.idempotency_key, null, 'production')
-      into temp a2 from partner_autopay_due() d where d.invoice_id = '${INV}';
+    select begin_partner_card_charge('${G}', d.invoice_id, d.amount_cents, 'autopay', d.idempotency_key, null, 'sandbox')
+      into temp a1 from partner_autopay_due('sandbox') d where d.invoice_id = '${INV}';
+    select begin_partner_card_charge('${G}', d.invoice_id, d.amount_cents, 'autopay', d.idempotency_key, null, 'sandbox')
+      into temp a2 from partner_autopay_due('sandbox') d where d.invoice_id = '${INV}';
     select count(*)::int as attempts from partner_card_charges where group_id = '${G}';` }),
   { attempts: 1 });
 
@@ -214,23 +214,23 @@ check("19 — an already-paid invoice cannot be paid again",
 
 console.log("\n  Autopay");
 check("20 — a card on file is not autopay",
-  row({ card: true, autopay: false, action: `select count(*)::int as due from partner_autopay_due() where invoice_id = '${INV}';` }),
+  row({ card: true, autopay: false, action: `select count(*)::int as due from partner_autopay_due('sandbox') where invoice_id = '${INV}';` }),
   { due: 0 });
 
 check("21 — autopay on, with a card, makes a due invoice sweepable",
-  row({ card: true, autopay: true, action: `select amount_cents, idempotency_key from partner_autopay_due() where invoice_id = '${INV}';` }),
-  { amount_cents: 25000, idempotency_key: `autopay:${INV}:25000` });
+  row({ card: true, autopay: true, action: `select amount_cents, idempotency_key from partner_autopay_due('sandbox') where invoice_id = '${INV}';` }),
+  { amount_cents: 25000, idempotency_key: `autopay:sandbox:${INV}:25000` });
 
 check("22 — autopay does not sweep an invoice that is not yet due",
-  row({ card: true, autopay: true, due: "current_date + 7", action: `select count(*)::int as due from partner_autopay_due() where invoice_id = '${INV}';` }),
+  row({ card: true, autopay: true, due: "current_date + 7", action: `select count(*)::int as due from partner_autopay_due('sandbox') where invoice_id = '${INV}';` }),
   { due: 0 });
 
 check("23 — autopay does not sweep a void invoice",
-  row({ card: true, autopay: true, status: "void", action: `select count(*)::int as due from partner_autopay_due() where invoice_id = '${INV}';` }),
+  row({ card: true, autopay: true, status: "void", action: `select count(*)::int as due from partner_autopay_due('sandbox') where invoice_id = '${INV}';` }),
   { due: 0 });
 
 check("24 — an autopay charge is refused when autopay is off",
-  refuses({ card: true, autopay: false, action: begin(25000, "autopay", "p24", "null", "production") }, "not switched on"), "refused");
+  refuses({ card: true, autopay: false, action: begin(25000, "autopay", "p24", "null", "sandbox") }, "not switched on"), "refused");
 
 check("25 — autopay cannot be switched on without a card",
   refuses({ as: PAYER, action: `select set_partner_autopay('${G}', true) into temp t25;` }, "needs a card"), "refused");
@@ -258,7 +258,7 @@ check("27b — a partner whose portal access is OFF cannot pay by card",
 
 check("27c — a suspended partner is not autopaid",
   row({ card: true, autopay: true, lifecycle: "suspended",
-        action: `select count(*)::int as due from partner_autopay_due() where invoice_id = '${INV}';` }),
+        action: `select count(*)::int as due from partner_autopay_due('sandbox') where invoice_id = '${INV}';` }),
   { due: 0 });
 
 /* ── What is never stored ──────────────────────────────────────────────── */
@@ -358,12 +358,12 @@ check("42 — a lost answer is UNKNOWN, not failed, and credits nothing",
 check("43 — autopay will not touch an invoice with an UNKNOWN attempt against it",
   row({ card: true, autopay: true, action: `${begin(25000, "card_on_file", "p43")}
     select mark_partner_card_charge_unknown('p43', 'no answer') into temp u43;
-    select count(*)::int as due from partner_autopay_due() where invoice_id = '${INV}';` }),
+    select count(*)::int as due from partner_autopay_due('sandbox') where invoice_id = '${INV}';` }),
   { due: 0 });
 
 check("44 — autopay will not touch an invoice with an attempt still PENDING",
   row({ card: true, autopay: true, action: `${begin(25000, "card_on_file", "p44")}
-    select count(*)::int as due from partner_autopay_due() where invoice_id = '${INV}';` }),
+    select count(*)::int as due from partner_autopay_due('sandbox') where invoice_id = '${INV}';` }),
   { due: 0 });
 
 check("45 — marking a settled charge unknown does not undo it",
@@ -374,10 +374,67 @@ check("45 — marking a settled charge unknown does not undo it",
   { ignored: true, charge: "approved", paid: 25000 });
 
 console.log("\n  Sandbox cannot charge unattended");
-check("46 — an autopay charge is refused outside production",
-  refuses({ card: true, autopay: true, action: begin(25000, "autopay", "p46", "null", "sandbox") },
-    "does not run outside production"),
+/* The rule changed on 2026-09-17 so that AutoPay could be rehearsed at all.
+   It is not "sandbox is forbidden" — it is that the two environments see
+   DISJOINT sets of partners, which is the property that actually protects
+   real money. Both directions are asserted. */
+check("46 — a sandbox sweep cannot autopay a REAL partner",
+  (() => {
+    const msg = raised(() => q.query(`
+      begin;
+        insert into outsourcing_groups (id, agency_id, name, contact_email, status, is_fixture, portal_access_enabled, lifecycle)
+             values ('${G}', '${AGENCY}', '[PROBE] Real', 'real@bes.test', 'Active', false, true, 'active');
+        insert into partner_invoices (id, agency_id, group_id, invoice_number, issue_date, due_date, currency,
+             subtotal_cents, discount_cents, tax_cents, total_cents, amount_paid_cents, status)
+             values ('${INV}', '${AGENCY}', '${G}', 'PROBE-REAL', current_date - 10, current_date - 3, 'USD', 25000,0,0,25000,0,'sent');
+        insert into partner_payment_profiles (agency_id, group_id, customer_profile_id, payment_profile_id, is_default, autopay_enabled)
+             values ('${AGENCY}', '${G}', 'c', 'p', true, true);
+        select begin_partner_card_charge('${G}', '${INV}', 25000, 'autopay', 'p46', null, 'sandbox');
+      rollback;`));
+    return msg.includes("only rehearse against a [TEST] partner") ? "refused" : `NOT REFUSED: ${msg.slice(0, 80)}`;
+  })(),
   "refused");
+
+check("46b — and a production sweep cannot autopay a [TEST] partner",
+  refuses({ card: true, autopay: true, action: begin(25000, "autopay", "p46b", "null", "production") },
+    "does not charge a [TEST] partner in production"),
+  "refused");
+
+check("46c — the two environments see disjoint invoices, by construction",
+  (() => {
+    const r = q.query(`
+      begin;
+        insert into outsourcing_groups (id, agency_id, name, contact_email, status, is_fixture, portal_access_enabled, lifecycle)
+             values ('${G}', '${AGENCY}', '[PROBE] Test', 't@bes.test', 'Active', true, true, 'active');
+        insert into partner_invoices (id, agency_id, group_id, invoice_number, issue_date, due_date, currency,
+             subtotal_cents, discount_cents, tax_cents, total_cents, amount_paid_cents, status)
+             values ('${INV}', '${AGENCY}', '${G}', 'PROBE-TEST', current_date - 10, current_date - 3, 'USD', 25000,0,0,25000,0,'sent');
+        insert into partner_payment_profiles (agency_id, group_id, customer_profile_id, payment_profile_id, is_default, autopay_enabled)
+             values ('${AGENCY}', '${G}', 'c', 'p', true, true);
+        select (select count(*)::int from partner_autopay_due('sandbox') where invoice_id = '${INV}') as in_sandbox,
+               (select count(*)::int from partner_autopay_due('production') where invoice_id = '${INV}') as in_production;
+      rollback;`);
+    return JSON.stringify(r[0]);
+  })(),
+  JSON.stringify({ in_sandbox: 1, in_production: 0 }));
+
+check("46d — and a sandbox key can never collide with the production one",
+  (() => {
+    const r = q.query(`
+      begin;
+        insert into outsourcing_groups (id, agency_id, name, contact_email, status, is_fixture, portal_access_enabled, lifecycle)
+             values ('${G}', '${AGENCY}', '[PROBE] Test', 't@bes.test', 'Active', true, true, 'active');
+        insert into partner_invoices (id, agency_id, group_id, invoice_number, issue_date, due_date, currency,
+             subtotal_cents, discount_cents, tax_cents, total_cents, amount_paid_cents, status)
+             values ('${INV}', '${AGENCY}', '${G}', 'PROBE-TEST', current_date - 10, current_date - 3, 'USD', 25000,0,0,25000,0,'sent');
+        insert into partner_payment_profiles (agency_id, group_id, customer_profile_id, payment_profile_id, is_default, autopay_enabled)
+             values ('${AGENCY}', '${G}', 'c', 'p', true, true);
+        select idempotency_key like 'autopay:sandbox:%' as scoped
+          from partner_autopay_due('sandbox') where invoice_id = '${INV}';
+      rollback;`);
+    return r[0];
+  })(),
+  { scoped: true });
 
 check("47 — a charge must say which Authorize.Net it went to",
   refuses({ action: begin(25000, "pay_now", "p47", `'${PAYER}'`, "whatever") }, "which Authorize.Net"), "refused");
@@ -415,12 +472,12 @@ check("52 — switching it off does not erase who once switched it on",
 console.log("\n  Paying early beats autopay");
 check("53 — an invoice paid before its due date is not swept",
   row({ card: true, autopay: true, action: `${begin(25000, "card_on_file", "p53")} ${settle("p53", "approved", "TXN-53")}
-    select count(*)::int as due from partner_autopay_due() where invoice_id = '${INV}';` }),
+    select count(*)::int as due from partner_autopay_due('sandbox') where invoice_id = '${INV}';` }),
   { due: 0 });
 
 check("54 — a partially paid invoice is swept for the balance, not the total",
   row({ card: true, autopay: true, action: `${begin(10000, "card_on_file", "p54")} ${settle("p54", "approved", "TXN-54")}
-    select amount_cents from partner_autopay_due() where invoice_id = '${INV}';` }),
+    select amount_cents from partner_autopay_due('sandbox') where invoice_id = '${INV}';` }),
   { amount_cents: 15000 });
 
 console.log("\n  Webhook replay");

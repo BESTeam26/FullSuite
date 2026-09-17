@@ -64,15 +64,15 @@ const world = ({
   rate = 25000, model = "RECURRING_MONTHLY", serviceStatus = "active",
   billingStatus = "active", effectiveTo = "null",
   invoice = true, invoiceStatus = "sent", due = "current_date - 3", issue = "current_date - 10",
-  card = false, autopay = false, as = OWNER, action,
+  card = false, autopay = false, fixture = false, as = OWNER, action,
 }) => q.query(`
 begin;
   insert into outsourcing_groups (id, agency_id, name, contact_email, status, is_fixture, portal_access_enabled, lifecycle)
        /* is_fixture false on purpose: billing_recurring_sweep deliberately
           skips fixture partners, so a fixture-flagged probe would prove
           nothing about the generator. The whole transaction rolls back. */
-       values ('${G}',  '${AGENCY}', '[PROBE] Chain A', 'a@bes.test', 'Active', false, true, 'active'),
-              ('${G2}', '${AGENCY}', '[PROBE] Chain B', 'b@bes.test', 'Active', false, true, 'active');
+       values ('${G}',  '${AGENCY}', '[PROBE] Chain A', 'a@bes.test', 'Active', ${fixture}, true, 'active'),
+              ('${G2}', '${AGENCY}', '[PROBE] Chain B', 'b@bes.test', 'Active', ${fixture}, true, 'active');
   insert into partner_contacts (group_id, agency_id, full_name, email, user_id, status, is_primary)
        values ('${G}', '${AGENCY}', 'Probe Payer', 'probe-chain@bes.test', '${PAYER}', 'active', true);
   insert into partner_services (id, group_id, agency_id, name, service_type, status)
@@ -260,19 +260,19 @@ check("10a — unknown credits nothing",
   { payments: 0, owed: 25000 });
 
 check("10b — and takes the invoice out of the autopay sweep",
-  row({ card: true, autopay: true, as: null, action: `
+  row({ card: true, autopay: true, fixture: true, as: null, action: `
     select begin_partner_card_charge('${G}', '${INV}', 25000, 'card_on_file', 'chain-10b', '${PAYER}', 'sandbox') into temp c;
     select mark_partner_card_charge_unknown('chain-10b', 'no answer') into temp u;
-    select count(*)::int as due from partner_autopay_due() where invoice_id = '${INV}';` }),
+    select count(*)::int as due from partner_autopay_due('sandbox') where invoice_id = '${INV}';` }),
   { due: 0 });
 
 /* ── 7 ─────────────────────────────────────────────────────────────────── */
 console.log("\n  7. Paying before the due date prevents AutoPay");
 check("7 — a settled invoice is not swept",
-  row({ card: true, autopay: true, action: `
+  row({ card: true, autopay: true, fixture: true, action: `
     select record_partner_payment('${G}', 25000, 'wise', '${INV}', current_date, 'REF-7', null, 'USD') into temp p7;
     reset role;
-    select count(*)::int as due from partner_autopay_due() where invoice_id = '${INV}';` }),
+    select count(*)::int as due from partner_autopay_due('sandbox') where invoice_id = '${INV}';` }),
   { due: 0 });
 
 /* ── 11 ────────────────────────────────────────────────────────────────── */
@@ -284,8 +284,8 @@ check("11a — the card path refuses it",
   "refused");
 
 check("11b — and a void invoice is not swept by autopay",
-  row({ invoiceStatus: "void", card: true, autopay: true, as: null, action: `
-    select count(*)::int as due from partner_autopay_due() where invoice_id = '${INV}';` }),
+  row({ invoiceStatus: "void", card: true, autopay: true, fixture: true, as: null, action: `
+    select count(*)::int as due from partner_autopay_due('sandbox') where invoice_id = '${INV}';` }),
   { due: 0 });
 
 check("11c — GAP CHECK: does the manual path also refuse it?",

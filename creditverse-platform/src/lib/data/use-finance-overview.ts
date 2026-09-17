@@ -58,6 +58,9 @@ export interface FinanceOverviewData {
   attention: { kind: string; severity: string; count: number; amountCents: number }[];
   collectedThisMonthCents: number;
   expensesThisMonthCents: number;
+  /** How many [TEST] fixture partners exist. They are excluded from every
+   *  figure above; this is here so their absence is visible, not silent. */
+  testPartners: number;
 }
 
 type Raw = Record<string, unknown>;
@@ -118,6 +121,7 @@ export async function fetchFinanceOverview(months = 9): Promise<FinanceOverviewD
     })),
     collectedThisMonthCents: num(d.collected_this_month),
     expensesThisMonthCents: num(d.expenses_this_month),
+    testPartners: num(d.test_partners),
   };
 }
 

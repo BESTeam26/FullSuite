@@ -388,10 +388,18 @@ export function FinanceOverviewPage() {
         </Card>
       </div>
 
-      <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+      <p className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
         <Clock className="h-3 w-3" />
         Net cash is money collected minus expenses paid, in the month the money moved. It is an
         operating figure, not accounting: no accruals, no depreciation, no tax.
+        {d.testPartners > 0 && (
+          /* Said, not hidden. Their money is excluded from every figure above,
+             and somebody looking at a dashboard deserves to know that a test
+             world exists rather than wonder why a number looks low. */
+          <span className="rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 font-semibold text-amber-900">
+            {d.testPartners} [TEST] {d.testPartners === 1 ? "partner" : "partners"} excluded
+          </span>
+        )}
         <Banknote className="ml-auto h-3 w-3" />
       </p>
     </div>

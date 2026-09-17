@@ -152,7 +152,7 @@ const o = value(OWNER, "select finance_overview(9) as d;")?.d;
 check("8 — it returns the sections the screen needs",
   o ? Object.keys(o).sort() : null,
   ["attention", "collected_this_month", "expenses_this_month", "months", "open_invoices",
-   "partner_names", "recent_payments", "today"]);
+   "partner_names", "recent_payments", "test_partners", "today"]);
 
 /* The dashboard tiles and the Billing Attention queue must be the same
    numbers, because they are now the same projection. */
@@ -195,15 +195,37 @@ check("10 — every open invoice it reports really is open",
   })(),
   (o?.open_invoices ?? []).length === 0 ? "none open" : "all open");
 
-check("11 — outstanding equals the sum of the invoice balances, not their face value",
+check("11 — outstanding equals the sum of REAL invoice balances, not their face value",
   (() => {
     const reported = (o?.open_invoices ?? []).reduce((s, i) => s + Number(i.balance_cents), 0);
-    const actual = first(`select coalesce(sum(invoice_balance_cents(id)), 0)::bigint as n
-       from partner_invoices where status in ('sent','overdue','partially_paid')
-         and invoice_balance_cents(id) > 0`).n;
+    const actual = first(`select coalesce(sum(invoice_balance_cents(i.id)), 0)::bigint as n
+       from partner_invoices i join outsourcing_groups g on g.id = i.group_id
+      where i.status in ('sent','overdue','partially_paid')
+        and invoice_balance_cents(i.id) > 0 and not g.is_fixture`).n;
     return reported === Number(actual) ? "agrees with the ledger" : `${reported} vs ${actual}`;
   })(),
   "agrees with the ledger");
+
+/* The invariant that makes a [TEST] world safe to leave in place: not one
+   cent of it reaches a figure that claims to be real. */
+check("11b — no [TEST] partner's money appears in any Finance figure",
+  (() => {
+    const testOwed = first(`select coalesce(sum(invoice_balance_cents(i.id)), 0)::bigint as n
+       from partner_invoices i join outsourcing_groups g on g.id = i.group_id
+      where g.is_fixture and i.status in ('sent','overdue','partially_paid')`).n;
+    if (Number(testOwed) === 0) return "no test money to leak";
+    const leaked = (o?.open_invoices ?? []).filter((i) => String(i.partner_name).startsWith("[TEST]"));
+    const inAttention = q.query("select count(*)::int n from billing_attention a join outsourcing_groups g on g.id = a.group_id where g.is_fixture")[0].n;
+    return leaked.length === 0 && inAttention === 0
+      ? `${Number(testOwed) / 100} in test money, none of it counted`
+      : `LEAKED: ${leaked.length} invoices, ${inAttention} attention rows`;
+  })(),
+  (() => {
+    const t = first(`select coalesce(sum(invoice_balance_cents(i.id)), 0)::bigint as n
+       from partner_invoices i join outsourcing_groups g on g.id = i.group_id
+      where g.is_fixture and i.status in ('sent','overdue','partially_paid')`).n;
+    return Number(t) === 0 ? "no test money to leak" : `${Number(t) / 100} in test money, none of it counted`;
+  })());
 
 check("12 — it writes nothing: the function is STABLE",
   first(`select provolatile from pg_proc p join pg_namespace n on n.oid = p.pronamespace

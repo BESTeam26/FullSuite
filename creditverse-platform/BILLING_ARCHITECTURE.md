@@ -1,8 +1,9 @@
 # The canonical billing chain
 
-**Status: architecture locked, awaiting Dee's approval. Payment UAT has not started.**
-Production charging is off. Sandbox charging has not been exercised. Autopay is
-scheduled and inert.
+**Status: LOCKED. Approved by Dee, 2026-09-17.**
+
+Payment UAT has not started — it is blocked on one missing key (§7).
+Production charging is off. Sandbox charging has not been exercised.
 
 Dee's rule, 2026-09-17, which everything below serves:
 
@@ -181,19 +182,20 @@ money boundary 6 · sql-contract 225. 1974 unit tests.
 
 ---
 
-## 4. The one open decision
+## 4. Decided: `overdue` stays stored
 
-**§4 — should `overdue` remain a stored status, or become purely derived?**
+**Dee, 2026-09-17: "Keep `overdue` stored for now. Do NOT refactor it to fully
+derived before payment UAT."**
 
-Dee's stated preference is derived. The drift she predicted was real and is now
-fixed by having one writer, so nothing is broken either way.
+The correctness rule is satisfied — one authoritative writer controls invoice
+payment status. `invoice_is_overdue()` remains the canonical predicate for
+reads and logic where the derived answer is the right one, but no 15-function /
+4-view refactor is opened for tidiness.
 
-Going fully derived is a separate change with a measured cost: **15 database
-functions and 4 views** read `status = 'overdue'`, plus the portal and Finance
-screens. `invoice_is_overdue()` already exists and is correct — including for a
-part-paid late invoice, which the status column cannot express.
+**Deferred:** evaluate the derived-`overdue` migration after billing/payment
+UAT and production stabilization. Recorded in `DEFERRED_AGENCY_WORK.md`.
 
-Today's rule, stated plainly:
+The rule as it stands:
 
 - `paid` — nothing owed
 - `partially_paid` — something paid, something owed
@@ -204,9 +206,33 @@ So "partially paid" outranks "overdue" on the same invoice. Every query that
 looks for money owed reads all three together, and Finance's ageing is computed
 from `due_date`, never from this column.
 
-**Recommendation: leave it stored for now.** The drift is gone, the derived
-answer is available to anything that wants it, and a 19-place refactor buys
-tidiness rather than correctness.
+---
+
+## 4b. Permanent invariants (accepted)
+
+These are locked. A change to any of them is an architecture change, not a fix.
+
+| # | Invariant | Enforced by |
+|---|---|---|
+| 1 | A paused service generates no new invoices | `billing_recurring_sweep` |
+| 2 | A due date can never precede its issue date | `partner_invoices_due_after_issue_ck` |
+| 3 | A void invoice cannot collect, by any path | `begin_partner_card_charge`, `record_partner_payment` |
+| 4 | Payment state cannot be forged by editing `amount_paid_cents` | `partner_invoices_guard_derived` |
+| 5 | Issuing an invoice queues a real delivery | `queue_invoice_email` |
+| 6 | A missing billing contact surfaces before an email fails | `billing_attention` |
+| 7 | Collection method is explicit | `invoice_collection_method()` |
+| 8 | Suspension cannot bypass authorization with a null actor | `suspend_partner`, gated on `auth.uid()` |
+| 9 | One writer of invoice status | `partner_invoice_recompute` |
+| 10 | Applying account credit is not fresh collected revenue | `finance_overview` |
+| 11 | One Billing Attention projection | `billing_attention` view |
+| 12 | One Payment Matching projection | `payment_matching_review` view |
+| 13 | One `match_partner_payment` | 3-arg form only |
+| 14 | Signed-out callers cannot execute protected functions | explicit `revoke ... from public` |
+| 15 | **[TEST] data never enters a financial figure** | `is_fixture` honoured in reporting |
+| 16 | **Sandbox and production autopay see disjoint partners** | `partner_autopay_due(environment)` |
+
+15 and 16 were added after approval, to make UAT possible without risking real
+money. Both are asserted by probes.
 
 ---
 
@@ -221,13 +247,46 @@ tidiness rather than correctness.
 
 ---
 
-## 6. What still needs Dee
+## 7. UAT prerequisites — one item outstanding
 
-1. **Approve this architecture** before Authorize.Net sandbox UAT begins.
-2. **`AUTHNET_PUBLIC_CLIENT_KEY`** — from the Authorize.Net dashboard.
-3. **`AUTHNET_SIGNATURE_KEY`** — for the webhook. Without it the webhook refuses every event, which is the safe default.
-4. **Production charging** stays off until explicitly approved: `AUTHNET_ENV`, and separately `partner_autopay_enabled` in the vault for unattended charging.
+Measured against the live project, not assumed:
 
-**Caution for sandbox testing:** a sandbox charge is approved without money
-moving, and will mark that invoice paid and email a real receipt. Test with a
-throwaway invoice. Sandbox payments are labelled `Test` in the ledger.
+| Prerequisite | State |
+|---|---|
+| `AUTHNET_ENV` | **sandbox** ✓ |
+| `AUTHNET_API_LOGIN_ID` | set ✓ |
+| `AUTHNET_TRANSACTION_KEY` | set ✓ |
+| `AUTHNET_SIGNATURE_KEY` | set ✓ (was already there since 2026-09-05) |
+| **`AUTHNET_PUBLIC_CLIENT_KEY`** | **MISSING — this is the blocker** |
+| `AUTOPAY_DISPATCH_SECRET` | not set; needed only for the cron-driven sweep |
+| Production charging | OFF |
+| AutoPay production switch | OFF (`partner_autopay_enabled` absent from the vault) |
+
+Confirmed by asking the deployed function, which answers:
+
+```json
+{"connected": false, "environment": "sandbox",
+ "missing": ["AUTHNET_PUBLIC_CLIENT_KEY"]}
+```
+
+`AUTHNET_PUBLIC_CLIENT_KEY` is Dee's to fetch: Authorize.Net → Account →
+Settings → Security Settings → **Manage Public Client Key**. It is public by
+design — Accept.js puts it in the page — and it is the only thing standing
+between here and step 1 of UAT.
+
+## 8. The [TEST] world
+
+`node supabase/scripts/uat-fixtures.mjs create` builds five partners, each for
+one row of the UAT order. Every one is named `[TEST] …`, carries
+`is_fixture = true`, and uses a `bes.test` address, which is a reserved TLD that
+cannot receive mail.
+
+`is_fixture` is load-bearing: the recurring generator skips them, sandbox
+autopay sees only them, production autopay never does, and no figure in Finance
+counts them. `uat-fixtures.mjs destroy` removes them and only them, matched on
+three conditions.
+
+**Caution that still applies:** a sandbox charge is approved without money
+moving. Against a `[TEST]` invoice that is the point. Against a real one it
+would mark it paid and email a real receipt — which is why the fixtures exist
+and why sandbox autopay cannot reach a real partner.
