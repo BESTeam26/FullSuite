@@ -18,7 +18,7 @@ import {
   addChannelMember, addChannelTeam, archiveChannel, createChannel,
   fetchChannelMembers, fetchChannelMentionable, fetchChannels, fetchChannelTeams,
   fetchMessages,
-  markChannelRead, openDirectChannel, openPartnerConversation, postMessage,
+  markChannelRead, openDirectChannel, openGroupConversation, openPartnerConversation, postMessage,
   removeChannelMember, removeChannelTeam, restoreChannel, searchMessages,
 } from "@/lib/data/channels";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -133,6 +133,10 @@ export function useChannelActions() {
     }),
     openDirect: useMutation({
       mutationFn: (otherUserId: string) => openDirectChannel(otherUserId),
+      onSuccess: refresh,
+    }),
+    openGroup: useMutation({
+      mutationFn: (otherUserIds: string[]) => openGroupConversation(otherUserIds),
       onSuccess: refresh,
     }),
   };

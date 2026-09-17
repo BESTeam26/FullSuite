@@ -87,6 +87,7 @@ vi.mock("@/lib/data/use-channels", () => ({
     addMember: { mutate: vi.fn(), isPending: false }, removeMember: { mutate: vi.fn() },
     addTeam: { mutate: vi.fn(), isPending: false }, removeTeam: { mutate: vi.fn() },
     openDirect: { mutate: vi.fn() },
+    openGroup: { mutateAsync: vi.fn(), isPending: false },
   }),
   useChannelMembers: () => ({ data: [] }),
   useChannelTeams: () => ({ data: [] }),

@@ -386,6 +386,22 @@ export async function openDirectChannel(otherUserId: string): Promise<string> {
   return data as string;
 }
 
+/**
+ * Open the group chat for exactly these people, creating it only if it does
+ * not already exist.
+ *
+ * Two people is a direct message and the database delegates it to
+ * `open_direct_channel`, so this can be called with any number and the caller
+ * does not have to know where the line is.
+ */
+export async function openGroupConversation(otherUserIds: string[]): Promise<string> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("open_group_conversation" as never,
+    { p_others: otherUserIds } as never);
+  if (error) throw error;
+  return data as string;
+}
+
 export interface ChannelTeam {
   teamId: string;
 }

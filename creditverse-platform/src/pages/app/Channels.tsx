@@ -54,7 +54,7 @@ import type { Channel } from "@/lib/data/channels";
 import { ConversationPane } from "@/components/communication/ConversationPane";
 import { ChannelPeoplePanel } from "@/components/communication/ChannelPeoplePanel";
 import { NewChannelForm } from "@/components/communication/NewChannelForm";
-import { StartDirectMessage } from "@/components/communication/StartDirectMessage";
+import { NewConversationMenu } from "@/components/communication/NewConversationMenu";
 import { glyphFor, groupChannels, totalUnread } from "@/lib/communication/channel-groups";
 import {
   CommunicationHome, HOME_ITEMS, type HomeView,
@@ -150,7 +150,17 @@ export default function Channels() {
         className={cn("w-full shrink-0 flex-col md:flex md:w-72", current ? "hidden" : "flex")}>
         <div className="mb-3 flex items-center justify-between gap-2">
           <h1 className="text-sm font-bold text-foreground">Communication</h1>
-          {canCreate && (
+          {/* New asks WHAT kind first — a direct message, a group chat or a
+              channel. Starting a conversation is not gated; only creating a
+              CHANNEL needs communication.channels.create. */}
+          {agencyView && (
+            <NewConversationMenu
+              canCreateChannel={canCreate}
+              onChannel={() => setCreating(true)}
+              onOpened={openChannel}
+            />
+          )}
+          {!agencyView && canCreate && (
             <Button size="sm" variant="ghost" className="h-7 px-2 text-xs"
               onClick={() => setCreating((v) => !v)}>
               <Plus className="mr-1 h-3.5 w-3.5" /> New
@@ -214,9 +224,6 @@ export default function Channels() {
                 ))}
               </ul>
             </nav>
-          )}
-          {agencyView && query.trim().length < 2 && (
-            <StartDirectMessage onOpened={openChannel} />
           )}
           {query.trim().length >= 2 ? (
             <SearchResults
