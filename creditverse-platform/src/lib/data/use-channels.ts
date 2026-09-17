@@ -19,9 +19,10 @@ import {
   fetchChannelMembers, fetchChannelMentionable, fetchChannels, fetchChannelTeams,
   fetchMessages,
   markChannelRead, openDirectChannel, openGroupConversation, openPartnerConversation, postMessage,
-  fetchChannelSeenBy,
+  fetchChannelDetails, fetchChannelSeenBy, setChannelFavourite, setChannelNotifications,
   removeChannelMember, removeChannelTeam, restoreChannel, searchMessages,
 } from "@/lib/data/channels";
+import type { NotificationLevel } from "@/lib/data/channels";
 import { useAuth } from "@/lib/auth/auth-context";
 import type { Json } from "@/lib/supabase/database.types";
 
@@ -206,4 +207,34 @@ export function useChannelSeenBy(channelId: string | null) {
     staleTime: 15_000,
     refetchInterval: 30_000,
   });
+}
+
+/** Everything the Channel details panel shows, in one call. */
+export function useChannelDetails(channelId: string | null) {
+  return useQuery({
+    queryKey: ["channel-details", channelId ?? ""],
+    queryFn: () => fetchChannelDetails(channelId!),
+    enabled: !!channelId,
+    staleTime: 60_000,
+  });
+}
+
+/** Starring and notification level — both per-person, both instant. */
+export function useChannelPreferences(channelId: string | null) {
+  const qc = useQueryClient();
+  /* Starring changes the rail as well as the header, so both are refreshed. */
+  const refresh = () => {
+    void qc.invalidateQueries({ queryKey: ["channel-details", channelId ?? ""] });
+    void qc.invalidateQueries({ queryKey: ["channels"] });
+  };
+  return {
+    setFavourite: useMutation({
+      mutationFn: (on: boolean) => setChannelFavourite(channelId!, on),
+      onSuccess: refresh,
+    }),
+    setNotifications: useMutation({
+      mutationFn: (level: NotificationLevel) => setChannelNotifications(channelId!, level),
+      onSuccess: refresh,
+    }),
+  };
 }

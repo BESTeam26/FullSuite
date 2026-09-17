@@ -488,3 +488,60 @@ export async function fetchChannelSeenBy(channelId: string): Promise<SeenBy[]> {
     lastReadAt: r.last_read_at as string,
   }));
 }
+
+/* ── Channel details ───────────────────────────────────────────────────── */
+
+export type NotificationLevel = "all" | "mentions" | "none";
+
+export interface ChannelDetails {
+  name: string;
+  purpose: string | null;
+  kind: string;
+  openToScope: boolean;
+  createdAt: string;
+  createdBy: string | null;
+  archivedAt: string | null;
+  favourite: boolean;
+  notifications: NotificationLevel;
+  /** Who can actually be reached here, not how many member rows exist. */
+  memberCount: number;
+  members: { id: string; name: string }[];
+}
+
+export async function fetchChannelDetails(channelId: string): Promise<ChannelDetails | null> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("channel_details" as never,
+    { p_channel: channelId } as never);
+  if (error) throw error;
+  const d = data as Record<string, unknown> | null;
+  if (!d) return null;
+  return {
+    name: (d.name as string) ?? "",
+    purpose: (d.purpose as string) ?? null,
+    kind: (d.kind as string) ?? "topic",
+    openToScope: d.open_to_scope === true,
+    createdAt: d.created_at as string,
+    createdBy: (d.created_by as string) ?? null,
+    archivedAt: (d.archived_at as string) ?? null,
+    favourite: d.favourite === true,
+    notifications: ((d.notifications as NotificationLevel) ?? "all"),
+    memberCount: Number(d.member_count ?? 0),
+    members: Array.isArray(d.members) ? (d.members as { id: string; name: string }[]) : [],
+  };
+}
+
+export async function setChannelFavourite(channelId: string, on: boolean): Promise<void> {
+  const sb = requireSupabase();
+  const { error } = await sb.rpc("set_channel_favourite" as never,
+    { p_channel: channelId, p_on: on } as never);
+  if (error) throw error;
+}
+
+export async function setChannelNotifications(
+  channelId: string, level: NotificationLevel,
+): Promise<void> {
+  const sb = requireSupabase();
+  const { error } = await sb.rpc("set_channel_notifications" as never,
+    { p_channel: channelId, p_level: level } as never);
+  if (error) throw error;
+}

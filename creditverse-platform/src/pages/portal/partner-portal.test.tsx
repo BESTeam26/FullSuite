@@ -68,6 +68,11 @@ vi.mock("@/lib/data/use-partner-credentials", () => ({
   useSaveCredential: () => ({ mutateAsync: async () => "", isPending: false }),
 }));
 vi.mock("@/lib/data/use-channels", () => ({
+  useChannelDetails: () => ({ data: null, isPending: false, isError: false }),
+  useChannelPreferences: () => ({
+    setFavourite: { mutate: vi.fn(), isPending: false },
+    setNotifications: { mutate: vi.fn(), isPending: false },
+  }),
   useChannelSeenBy: () => ({ data: [] }),
   useChannels: () => ({ data: channels, isLoading: false }),
   /* A partner contact gets nobody to mention until BES adds them, which the

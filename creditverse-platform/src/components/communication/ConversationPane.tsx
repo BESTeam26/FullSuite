@@ -17,9 +17,10 @@
  * opens a thread. Nothing else — rule 14, and §41–§43's requirement that
  * sending a message must not reload the application.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Building2, FileText, Hash, Loader2, Lock, MessagesSquare, Pin, ShieldAlert, Undo2, X,
+  Building2, FileText, Hash, Loader2, Lock, MessagesSquare, PanelRight, Pin,
+  ShieldAlert, Star, Undo2, X,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useTypingPresence } from "@/lib/data/use-typing-presence";
@@ -30,9 +31,12 @@ import {
 } from "@/lib/data/use-messages";
 import { ChannelTabs, type ChannelTab } from "@/components/communication/ChannelTabs";
 import { SeenBy } from "@/components/communication/SeenBy";
+import { ChannelDetails } from "@/components/communication/ChannelDetails";
+import { dayBoundaries, dayLabel } from "@/lib/communication/day-groups";
 import { formatDate } from "@/lib/format-date";
 import {
-  useChannelMembers, useChannelMentionable, useChannelSeenBy, useChannels,
+  useChannelDetails, useChannelMembers, useChannelMentionable, useChannelPreferences,
+  useChannelSeenBy, useChannels,
 } from "@/lib/data/use-channels";
 import { useMessageRealtime } from "@/lib/data/use-message-realtime";
 import type { MentionAttrs } from "@/lib/activity/mentions";
@@ -40,6 +44,7 @@ import { attachToMessage, type RichMessage } from "@/lib/data/messages";
 import { PageLoadError } from "@/components/common/QueryState";
 import { useSavedMessages, useToggleSaved } from "@/lib/data/communication-home";
 import { Avatar } from "@/components/common/Avatar";
+import { cn } from "@/lib/utils";
 import { MessageRow } from "./MessageRow";
 import { MeetingPanel } from "./MeetingButton";
 import { Composer } from "./Composer";
@@ -105,6 +110,12 @@ export function ConversationPane({
   const [sendError, setSendError] = useState<string | null>(null);
   const [showPinned, setShowPinned] = useState(false);
   const [tab, setTab] = useState<ChannelTab>("messages");
+  /* Open by default, as the reference shows it — and remembered per person so
+     somebody who closes it is not given it back on every conversation. */
+  const [showDetails, setShowDetails] = useState(() => {
+    try { return window.localStorage.getItem("bes.communication.details") !== "off"; }
+    catch { return true; }
+  });
   const tabCounts = useChannelTabCounts(channelId);
   /* Fetched only once the Files tab is opened — rule 14, do not preload a tab
      nobody asked for. */
@@ -119,6 +130,8 @@ export function ConversationPane({
      costs nothing, and a socket per conversation to carry "somebody glanced at
      this" is not worth it. */
   const seenBy = useChannelSeenBy(channelId);
+  const details = useChannelDetails(channelId);
+  const prefs = useChannelPreferences(channelId);
   const [showMeeting, setShowMeeting] = useState(false);
   const pendingFiles = useRef<Map<string, File[]>>(new Map());
   const retryMentions = useRef<Map<string, MentionAttrs[]>>(new Map());
@@ -153,7 +166,16 @@ export function ConversationPane({
   }, [rows.length, atBottom]);
   useEffect(() => { setAtBottom(true); setThreadRoot(null); setTab("messages"); }, [channelId]);
 
+  const toggleDetails = () => setShowDetails((v) => {
+    const next = !v;
+    try { window.localStorage.setItem("bes.communication.details", next ? "on" : "off"); } catch { /* private window */ }
+    return next;
+  });
+
   const pinned = useMemo(() => rows.filter((m) => m.pinned && !m.deleted), [rows]);
+  /* Which rows start a new day, so the list stays flat and the divider is
+     drawn above the row rather than the rows being nested per day. */
+  const dividers = useMemo(() => dayBoundaries(rows.map((m) => m.createdAt)), [rows]);
 
   const send = async (text: string, files: File[], mentions: MentionAttrs[]): Promise<boolean> => {
     setSendError(null);
@@ -225,6 +247,43 @@ export function ConversationPane({
                 {purpose && <p className="truncate text-xs text-muted-foreground">{purpose}</p>}
               </div>
             </div>
+            {/* From the reference: the star and who is in here, beside the
+                name rather than buried in a panel. */}
+            <div className="flex shrink-0 items-center gap-1">
+              {details.data && (
+                <button
+                  type="button"
+                  onClick={() => prefs.setFavourite.mutate(!details.data!.favourite)}
+                  aria-pressed={details.data.favourite}
+                  aria-label={details.data.favourite ? "Remove star" : "Star this conversation"}
+                  className="rounded p-1 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                  <Star className={cn("h-4 w-4",
+                    details.data.favourite ? "fill-amber-400 text-amber-500" : "text-muted-foreground")} />
+                </button>
+              )}
+              {(details.data?.members.length ?? 0) > 0 && (
+                <button type="button" onClick={() => setTab("members")}
+                  aria-label={`${details.data!.memberCount} members`}
+                  className="flex items-center gap-1 rounded-lg px-1 py-0.5 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                  <span className="flex -space-x-1.5">
+                    {details.data!.members.slice(0, 4).map((m) => (
+                      <Avatar key={m.id} name={m.name} size="sm"
+                        className="h-6 w-6 text-[9px] ring-2 ring-card" />
+                    ))}
+                  </span>
+                  {details.data!.memberCount > 4 && (
+                    <span className="text-[11px] font-semibold text-muted-foreground">
+                      +{details.data!.memberCount - 4}
+                    </span>
+                  )}
+                </button>
+              )}
+              <button type="button" onClick={toggleDetails} aria-pressed={showDetails}
+                aria-label="Channel details"
+                className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                <PanelRight className="h-4 w-4" />
+              </button>
+            </div>
             {pinned.length > 0 && (
               <button type="button" onClick={() => setShowPinned((v) => !v)}
                 aria-pressed={showPinned}
@@ -282,8 +341,20 @@ export function ConversationPane({
             <p className="max-w-xs text-xs text-muted-foreground">{emptyLabel}</p>
           </div>
         ) : (
-          rows.map((m) => (
-            <MessageRow key={m.clientMessageId ?? m.id} message={m}
+          rows.map((m, i) => (
+            <Fragment key={m.clientMessageId ?? m.id}>
+            {dividers.has(i) && (
+              /* "Today", as the reference shows. Sticky, so scrolling back
+                 through a long day still says which day you are in. */
+              <div className="sticky top-0 z-10 flex items-center gap-2 py-1.5">
+                <span className="h-px flex-1 bg-border" />
+                <span className="rounded-full border border-border bg-card px-2.5 py-0.5 text-[11px] font-semibold text-muted-foreground shadow-sm">
+                  {dayLabel(dividers.get(i)!)}
+                </span>
+                <span className="h-px flex-1 bg-border" />
+              </div>
+            )}
+            <MessageRow message={m}
               isMine={m.authorId === auth.user?.id}
               meUserId={auth.user?.id ?? null}
               canPin={canPin}
@@ -307,6 +378,7 @@ export function ConversationPane({
               }}
               onDismissFailed={() => m.clientMessageId && sender.dismissFailed(m.clientMessageId)}
             />
+            </Fragment>
           ))
         )}
         <div ref={bottomRef} />
@@ -358,10 +430,27 @@ export function ConversationPane({
       )}
       </div>
 
+      {/* The right column. The thread when one is open, and the channel's
+          details under it — the arrangement in Dee's reference. On a phone the
+          thread is a full overlay and the details are reached from the
+          Members tab instead, because there is room for one column. */}
+      {(threadRoot !== null || showDetails) && (
+        <div className="hidden min-h-0 w-80 shrink-0 flex-col gap-3 overflow-y-auto border-l border-border p-3 md:flex lg:w-96">
+          {threadRoot !== null && (
+            <ThreadPanel channelId={channelId} rootId={threadRoot}
+              root={rows.find((m) => m.id === threadRoot) ?? null}
+              canPin={mayPin} onClose={() => setThreadRoot(null)} />
+          )}
+          {showDetails && <ChannelDetails channelId={channelId} />}
+        </div>
+      )}
+      {/* On a phone the thread still covers the conversation. */}
       {threadRoot !== null && (
-        <ThreadPanel channelId={channelId} rootId={threadRoot}
-          root={rows.find((m) => m.id === threadRoot) ?? null}
-          canPin={mayPin} onClose={() => setThreadRoot(null)} />
+        <div className="md:hidden">
+          <ThreadPanel channelId={channelId} rootId={threadRoot}
+            root={rows.find((m) => m.id === threadRoot) ?? null}
+            canPin={mayPin} onClose={() => setThreadRoot(null)} />
+        </div>
       )}
     </div>
   );
