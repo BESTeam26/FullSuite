@@ -31,7 +31,9 @@ import {
 import { ChannelTabs, type ChannelTab } from "@/components/communication/ChannelTabs";
 import { SeenBy } from "@/components/communication/SeenBy";
 import { formatDate } from "@/lib/format-date";
-import { useChannelMembers, useChannelMentionable, useChannelSeenBy } from "@/lib/data/use-channels";
+import {
+  useChannelMembers, useChannelMentionable, useChannelSeenBy, useChannels,
+} from "@/lib/data/use-channels";
 import { useMessageRealtime } from "@/lib/data/use-message-realtime";
 import type { MentionAttrs } from "@/lib/activity/mentions";
 import { attachToMessage, type RichMessage } from "@/lib/data/messages";
@@ -64,8 +66,17 @@ export interface ConversationPaneProps {
   readOnly?: boolean;
   readOnlyReason?: string;
   hideHeader?: boolean;
-  /** An open conversation has no explicit members, so the tab says "Everyone"
-   *  rather than a count of zero, which would read as "nobody". */
+  /**
+   * Both of these are READ FROM THE CHANNEL by default and are here only as an
+   * override.
+   *
+   * Dee, 2026-09-17: "All Changes should be applied to all chat groups or
+   * rooms, like the pins and the GIF and the seen/viewed." The partner portal
+   * renders this same pane and passed neither, so pinning was off and the
+   * Members tab said nobody — not because of a rule, but because a caller did
+   * not know there was a prop to pass. Deriving it means every conversation
+   * gets the same behaviour without anybody remembering.
+   */
   openToScope?: boolean;
   /** A manager may pin; §29 keeps that separate from being an administrator. */
   canPin?: boolean;
@@ -98,6 +109,12 @@ export function ConversationPane({
   /* Fetched only once the Files tab is opened — rule 14, do not preload a tab
      nobody asked for. */
   const files = useChannelFiles(channelId, tab === "files");
+  /* The conversation's own row, from the list every caller has already
+     fetched — so this costs no request and no caller has to pass it. */
+  const channels = useChannels();
+  const self = (channels.data ?? []).find((c) => c.id === channelId);
+  const mayPin = canPin || self?.isManager === true;
+  const openScope = openToScope || self?.openToScope === true;
   /* Read receipts. Polled rather than pushed: a receipt three seconds late
      costs nothing, and a socket per conversation to carry "somebody glanced at
      this" is not worth it. */
@@ -221,7 +238,7 @@ export function ConversationPane({
       )}
 
       {/* Messages · Files · Pins · Members, from Dee's reference. */}
-      <ChannelTabs active={tab} onChange={setTab} counts={tabCounts.data} openToScope={openToScope} />
+      <ChannelTabs active={tab} onChange={setTab} counts={tabCounts.data} openToScope={openScope} />
 
       {showPinned && pinned.length > 0 && (
         <div className="border-b border-border bg-amber-500/5 px-4 py-2">
@@ -238,7 +255,7 @@ export function ConversationPane({
 
       {tab !== "messages" ? (
         <ChannelTabPanel tab={tab} channelId={channelId} pinned={pinned}
-          files={files} openToScope={openToScope}
+          files={files} openToScope={openScope}
           onOpenThread={(id) => { setTab("messages"); setThreadRoot(id); }} />
       ) : (
       <div ref={scrollerRef}
@@ -344,7 +361,7 @@ export function ConversationPane({
       {threadRoot !== null && (
         <ThreadPanel channelId={channelId} rootId={threadRoot}
           root={rows.find((m) => m.id === threadRoot) ?? null}
-          canPin={canPin} onClose={() => setThreadRoot(null)} />
+          canPin={mayPin} onClose={() => setThreadRoot(null)} />
       )}
     </div>
   );

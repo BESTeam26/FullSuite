@@ -29,11 +29,14 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /**
  * A GROUP mention names a set of people rather than one person.
  *
- * Dee, 2026-09-17: "mention everyone, all, or channel, or certain team."
- * `channel` reaches everybody who can be notified in the conversation;
+ * Dee, 2026-09-17: "mention everyone, all, or channel, or certain team" — and
+ * then, seeing three menu rows for one thing: "Just keep @everyone, remove
+ * @all and @channel if they means the same."
+ *
+ * So there is one word, `@everyone`, carrying the token `channel`;
  * `team:<uuid>` reaches that team, still only where the conversation allows.
- * `@everyone` and `@all` are the same reach and carry the same token — three
- * words for one idea, rather than three behaviours nobody can remember.
+ * The token is not user-visible and messages already sent carry it, which is
+ * why the word changed and the token did not.
  */
 const GROUP = /^(channel|team:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
 
@@ -109,7 +112,9 @@ export function mentionQueryAt(text: string, caret: number): { query: string; fr
 }
 
 /** Ranks people for the picker: name start, then any part, then email. */
-export function rankMentionCandidates<T extends { name: string; email?: string | null }>(
+export function rankMentionCandidates<
+  T extends { name: string; email?: string | null; aliases?: readonly string[] | null },
+>(
   people: T[],
   query: string,
   limit = 6,
@@ -121,7 +126,12 @@ export function rankMentionCandidates<T extends { name: string; email?: string |
     const email = (p.email ?? "").toLowerCase();
     if (name.startsWith(q)) return 0;
     if (name.split(/\s+/).some((w) => w.startsWith(q))) return 1;
+    /* Other words for the SAME target. `@everyone` also answers to @channel
+       and @all — hidden, not offered, so a Slack habit finds the one option
+       rather than nothing. */
+    if ((p.aliases ?? []).some((a) => a.toLowerCase().startsWith(q))) return 1;
     if (name.includes(q)) return 2;
+    if ((p.aliases ?? []).some((a) => a.toLowerCase().includes(q))) return 2;
     if (email.startsWith(q)) return 3;
     if (email.includes(q)) return 4;
     return 99;

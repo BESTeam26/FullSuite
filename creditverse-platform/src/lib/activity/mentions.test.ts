@@ -90,3 +90,55 @@ describe("mentionText", () => {
     expect(mentionText("Piper Manager")).toBe("@Piper Manager");
   });
 });
+
+describe("one target, one word for it", () => {
+  /* Dee, 2026-09-17, on seeing the menu: "Why 2 channels?" — @channel,
+     @everyone and @all were three ROWS carrying one token, and the picker keys
+     its list by that token, so two rendered with the same label.
+
+     Then: "Just keep @everyone, remove @all and @channel if they means the
+     same." They do. One row, one word. The other two survive only as hidden
+     aliases so a Slack habit still finds it. */
+  const everyone = {
+    userId: "channel",
+    name: "@everyone",
+    aliases: ["@channel", "@all", "channel", "all"],
+  };
+  const person = { userId: "u1", name: "Alliana Catcha" };
+
+  it("finds it by the one word it is called", () => {
+    expect(rankMentionCandidates([everyone, person], "every").map((c) => c.name))
+      .toContain("@everyone");
+  });
+
+  it("a Slack habit still lands on it", () => {
+    for (const typed of ["channel", "@channel", "all", "@all"]) {
+      expect(rankMentionCandidates([everyone, person], typed).map((c) => c.userId))
+        .toContain("channel");
+    }
+  });
+
+  it("offers it ONCE, however it was found", () => {
+    /* The actual bug: the same target appearing twice in one menu. */
+    for (const typed of ["every", "channel", "all"]) {
+      const found = rankMentionCandidates([everyone, person], typed);
+      expect(found.filter((c) => c.userId === "channel")).toHaveLength(1);
+    }
+  });
+
+  it("is never labelled with a word Dee removed", () => {
+    const found = rankMentionCandidates([everyone], "channel");
+    expect(found[0].name).toBe("@everyone");
+  });
+
+  it("does not match a word that is neither its name nor an alias", () => {
+    expect(rankMentionCandidates([everyone], "invoice")).toEqual([]);
+  });
+
+  it("still ranks a real name above an alias match", () => {
+    /* Typing "all" should not bury Allyssa under @everyone. */
+    const allyssa = { userId: "u2", name: "Allyssa Cruz" };
+    const found = rankMentionCandidates([everyone, allyssa], "all");
+    expect(found[0].userId).toBe("u2");
+  });
+});

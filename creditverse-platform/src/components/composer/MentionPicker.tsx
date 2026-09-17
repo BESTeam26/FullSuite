@@ -19,6 +19,10 @@ export interface MentionCandidate {
   avatarPath?: string | null;
   /** e.g. "Processing" or "Credit Processor" — helps tell two Sams apart. */
   hint?: string | null;
+  /** Other words that find this same target. `@channel` answers to @everyone
+   *  and @all — one row, three ways to reach it, rather than three rows
+   *  carrying one token the list cannot tell apart. */
+  aliases?: readonly string[] | null;
 }
 
 export function MentionPicker({

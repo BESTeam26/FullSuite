@@ -464,6 +464,7 @@ export async function fetchChannelMentionable(channelId: string): Promise<Mentio
       name: (c.name as string) ?? "Someone",
       email: (c.email as string) ?? null,
       hint: (c.hint as string) ?? null,
+      aliases: Array.isArray(c.aliases) ? (c.aliases as string[]) : null,
     };
   });
 }

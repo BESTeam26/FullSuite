@@ -63,6 +63,20 @@ export function MessageRow({
   const [draft, setDraft] = useState(m.bodyText ?? "");
   const [showHistory, setShowHistory] = useState(false);
 
+  /* Escape and a click elsewhere dismiss the actions. A menu opened by a
+     right-click is easy to open by accident, so it must be easy to leave. */
+  useEffect(() => {
+    if (!menuOpen && !pickerOpen) return;
+    const close = () => { setMenuOpen(false); setPickerOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("click", close);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("click", close);
+    };
+  }, [menuOpen, pickerOpen]);
+
   if (m.messageType === "announcement") {
     return <AnnouncementCard message={m} />;
   }
@@ -72,11 +86,26 @@ export function MessageRow({
   const namesMe = !!meUserId && m.mentions.some((x) => x.userId === meUserId);
 
   return (
-    <article className={cn("group relative rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-muted/40",
+    <article
+      /* Dee, 2026-09-17: "RIGHT Click on messages should allow you to choose
+         options or actions like reply delete etc." The same menu the hover
+         `…` opens — one set of actions, two ways to reach it, rather than a
+         second menu that can drift from the first. */
+      onContextMenu={(e) => {
+        if (m.deleted || m.pending) return;
+        e.preventDefault();
+        setMenuOpen(true);
+      }}
+      className={cn("group relative rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-muted/40",
                             m.pinned && "bg-amber-500/5",
                             namesMe && "border-l-2 border-primary bg-primary/5 pl-2.5")}>
 
       <p className="flex flex-wrap items-baseline gap-2">
+        {/* The author's face, as the reference shows. A wall of bold names is
+            harder to scan than a column of faces. */}
+        {!compact && (
+          <Avatar name={m.authorName} size="sm" className="h-6 w-6 text-[9px]" />
+        )}
         <span className="font-semibold text-foreground">{m.authorName}</span>
         {m.fromBes && (
           <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary">
@@ -256,7 +285,16 @@ export function MessageRow({
       {showHistory && <MessageHistory messageId={m.id} />}
 
       {menuOpen && (
-        <div className="absolute right-1 top-8 z-10 min-w-[10rem] rounded-md border border-border bg-card p-1 shadow-md">
+        <div role="menu" className="absolute right-1 top-8 z-20 min-w-[11rem] rounded-md border border-border bg-card p-1 shadow-md">
+          {/* Reply and React are in here as well as on the hover strip, because
+              a right-click is somebody asking "what can I do with this?" and
+              the answer should be the whole list, not most of it. */}
+          {!compact && (
+            <MenuItem icon={MessageSquare} label="Reply in thread"
+              onClick={() => { onOpenThread(); setMenuOpen(false); }} />
+          )}
+          <MenuItem icon={SmilePlus} label="Add reaction"
+            onClick={() => { setMenuOpen(false); setPickerOpen(true); }} />
           {/* Saving is private and available to everyone — pinning is a channel
               manager's act on everyone's behalf; saving is yours alone. */}
           {onToggleSave && (
