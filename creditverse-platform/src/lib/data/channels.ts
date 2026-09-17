@@ -467,3 +467,23 @@ export async function fetchChannelMentionable(channelId: string): Promise<Mentio
     };
   });
 }
+
+/* ── Who has seen it ───────────────────────────────────────────────────── */
+
+export interface SeenBy {
+  userId: string;
+  name: string;
+  lastReadAt: string;
+}
+
+export async function fetchChannelSeenBy(channelId: string): Promise<SeenBy[]> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("channel_seen_by" as never,
+    { p_channel: channelId } as never);
+  if (error) throw error;
+  return ((data as Record<string, unknown>[] | null) ?? []).map((r) => ({
+    userId: r.user_id as string,
+    name: (r.name as string) ?? "Someone",
+    lastReadAt: r.last_read_at as string,
+  }));
+}

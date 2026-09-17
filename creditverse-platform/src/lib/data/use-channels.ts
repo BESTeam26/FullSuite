@@ -19,6 +19,7 @@ import {
   fetchChannelMembers, fetchChannelMentionable, fetchChannels, fetchChannelTeams,
   fetchMessages,
   markChannelRead, openDirectChannel, openGroupConversation, openPartnerConversation, postMessage,
+  fetchChannelSeenBy,
   removeChannelMember, removeChannelTeam, restoreChannel, searchMessages,
 } from "@/lib/data/channels";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -187,5 +188,22 @@ export function useChannelMentionable(channelId: string | null) {
     queryFn: () => fetchChannelMentionable(channelId!),
     enabled: !!channelId,
     staleTime: 300_000,
+  });
+}
+
+/**
+ * Who has read this conversation, and how far.
+ *
+ * Refetched on an interval rather than pushed: a receipt arriving three
+ * seconds late costs nothing, and a realtime channel per conversation to carry
+ * "somebody glanced at this" is not worth the socket.
+ */
+export function useChannelSeenBy(channelId: string | null) {
+  return useQuery({
+    queryKey: ["channel-seen-by", channelId ?? ""],
+    queryFn: () => fetchChannelSeenBy(channelId!),
+    enabled: !!channelId,
+    staleTime: 15_000,
+    refetchInterval: 30_000,
   });
 }

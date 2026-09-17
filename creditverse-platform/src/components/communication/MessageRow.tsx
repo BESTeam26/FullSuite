@@ -19,6 +19,7 @@ import {
   MoreHorizontal, Paperclip, Pencil, Pin, PinOff, SmilePlus, Trash2, X,
 } from "lucide-react";
 import { Avatar } from "@/components/common/Avatar";
+import { AttachmentView } from "@/components/communication/AttachmentView";
 import { formatDate } from "@/lib/format-date";
 import {
   fetchMessageRevisions, signedAttachmentUrl, type Attachment, type RichMessage,
@@ -151,7 +152,7 @@ export function MessageRow({
 
       {m.attachments.length > 0 && (
         <ul className="mt-1.5 space-y-1">
-          {m.attachments.map((a) => <li key={a.id}><AttachmentRow attachment={a} /></li>)}
+          {m.attachments.map((a) => <li key={a.id}><AttachmentView attachment={a} /></li>)}
         </ul>
       )}
 
@@ -328,38 +329,6 @@ function AnnouncementCard({ message: m }: { message: RichMessage }) {
 }
 
 /** A private object, opened through a short-lived signed link (§26). */
-function AttachmentRow({ attachment }: { attachment: Attachment }) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const kb = attachment.size ? Math.max(1, Math.round(attachment.size / 1024)) : null;
-
-  const open = async () => {
-    setBusy(true); setError(null);
-    try {
-      const url = await signedAttachmentUrl(attachment.path);
-      window.open(url, "_blank", "noopener,noreferrer");
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <>
-      <button type="button" onClick={() => void open()} disabled={busy}
-        className="flex w-full max-w-sm items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60">
-        <Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-        <span className="min-w-0 flex-1 truncate text-foreground">{attachment.name}</span>
-        {kb && <span className="shrink-0 text-[10px] text-muted-foreground">{kb} KB</span>}
-        <Download className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-      </button>
-      {error && <p role="alert" className="text-[11px] text-status-danger">{error}</p>}
-    </>
-  );
-}
-
-
 /**
  * What a message said before it was edited.
  *

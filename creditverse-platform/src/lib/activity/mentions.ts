@@ -26,12 +26,26 @@ export function mentionNode(userId: string, label: string): NoteNode {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** A node is a usable mention only with a real id and a label to show. */
+/**
+ * A GROUP mention names a set of people rather than one person.
+ *
+ * Dee, 2026-09-17: "mention everyone, all, or channel, or certain team."
+ * `channel` reaches everybody who can be notified in the conversation;
+ * `team:<uuid>` reaches that team, still only where the conversation allows.
+ * `@everyone` and `@all` are the same reach and carry the same token — three
+ * words for one idea, rather than three behaviours nobody can remember.
+ */
+const GROUP = /^(channel|team:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+
+/** Does this mention name a group rather than a person? */
+export const isGroupMention = (userId: string): boolean => GROUP.test(userId);
+
+/** A node is a usable mention only with a real target and a label to show. */
 export function readMention(node: NoteNode): MentionAttrs | null {
   if (node.type !== MENTION_NODE) return null;
   const userId = String(node.attrs?.userId ?? "");
   const label = String(node.attrs?.label ?? "").trim();
-  if (!UUID.test(userId) || !label) return null;
+  if (!(UUID.test(userId) || GROUP.test(userId)) || !label) return null;
   return { userId, label };
 }
 

@@ -80,6 +80,7 @@ vi.mock("@/lib/data/use-messages", () => ({
   }),
 }));
 vi.mock("@/lib/data/use-channels", () => ({
+  useChannelSeenBy: () => ({ data: [] }),
   useChannels: () => ({ data: channels, isLoading: false }),
   useMarkRead: () => ({ mutate: markRead }),
   useMessageSearch: () => ({ data: hits, isLoading: false }),

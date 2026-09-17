@@ -29,8 +29,9 @@ import {
   useSendMessage, useThread,
 } from "@/lib/data/use-messages";
 import { ChannelTabs, type ChannelTab } from "@/components/communication/ChannelTabs";
+import { SeenBy } from "@/components/communication/SeenBy";
 import { formatDate } from "@/lib/format-date";
-import { useChannelMembers, useChannelMentionable } from "@/lib/data/use-channels";
+import { useChannelMembers, useChannelMentionable, useChannelSeenBy } from "@/lib/data/use-channels";
 import { useMessageRealtime } from "@/lib/data/use-message-realtime";
 import type { MentionAttrs } from "@/lib/activity/mentions";
 import { attachToMessage, type RichMessage } from "@/lib/data/messages";
@@ -97,6 +98,10 @@ export function ConversationPane({
   /* Fetched only once the Files tab is opened — rule 14, do not preload a tab
      nobody asked for. */
   const files = useChannelFiles(channelId, tab === "files");
+  /* Read receipts. Polled rather than pushed: a receipt three seconds late
+     costs nothing, and a socket per conversation to carry "somebody glanced at
+     this" is not worth it. */
+  const seenBy = useChannelSeenBy(channelId);
   const [showMeeting, setShowMeeting] = useState(false);
   const pendingFiles = useRef<Map<string, File[]>>(new Map());
   const retryMentions = useRef<Map<string, MentionAttrs[]>>(new Map());
@@ -320,7 +325,11 @@ export function ConversationPane({
       ) : (
         <>
           {/* Above the composer, below the messages — where Dee's reference
-              puts it, and where it cannot push the conversation around. */}
+              puts it, and where it cannot push the conversation around. Read
+              receipts sit in the same strip, for the same reason: this is the
+              part of a conversation that is about right now. */}
+          <SeenBy readers={seenBy.data ?? []} className="border-t border-border pt-1"
+            lastMessageAt={rows.length > 0 ? rows[rows.length - 1].createdAt : null} />
           <TypingIndicator people={typing} className="border-t border-border pt-1" />
           <Composer name={name} draftKey={channelId} sending={sender.send.isPending} error={sendError}
             onSend={send}

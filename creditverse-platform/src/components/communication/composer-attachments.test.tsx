@@ -38,13 +38,26 @@ describe("pasting a screenshot", () => {
     expect(screen.getByLabelText(/^Remove /)).toBeInTheDocument();
   });
 
-  it("gives an unnamed screenshot a name you can tell apart", () => {
+  it("gives an unnamed paste a name you can tell apart", () => {
     /* Every clipboard image is called image.png. Two in one conversation are
        indistinguishable, which is the whole problem previews were meant to
-       solve. */
+       solve.
+
+       It used to be named "Screenshot …", which was wrong the moment a GIF
+       could be pasted — a GIF is not a screenshot, and the name decided the
+       extension too, so one arrived as .png and stopped animating. */
     composer();
     fireEvent.paste(box(), { clipboardData: imageClipboard(png()) });
-    expect(screen.getByLabelText(/Remove Screenshot /)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Remove Pasted .*\.png$/)).toBeInTheDocument();
+  });
+
+  it("names a pasted GIF .gif, so it still animates", () => {
+    /* Dee, 2026-09-17: "I pasted a GIF in the chat but it did not move… it was
+       converted into an image." The bytes were right; the name was not. */
+    composer();
+    const gif = new File([new Uint8Array([71, 73, 70])], "image.png", { type: "image/gif" });
+    fireEvent.paste(box(), { clipboardData: imageClipboard(gif) });
+    expect(screen.getByLabelText(/Remove Pasted .*\.gif$/)).toBeInTheDocument();
   });
 
   it("keeps a real filename when the clipboard supplies one", () => {

@@ -13,6 +13,7 @@
 import { useMemo, useRef, useState, type ChangeEvent, type ClipboardEvent, type DragEvent } from "react";
 import { AtSign, CornerUpLeft, Loader2, Paperclip, Send, Smile, Video, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { GifPicker } from "@/components/communication/GifPicker";
 import { MentionPicker, type MentionCandidate } from "@/components/composer/MentionPicker";
 import { mentionQueryAt, mentionText, type MentionAttrs } from "@/lib/activity/mentions";
 import { effectiveMentions } from "@/lib/communication/message-body";
@@ -176,18 +177,91 @@ export function Composer({
    * Only images are intercepted. Pasting TEXT must keep working normally, so
    * anything that is not a file falls through untouched.
    */
+  /** `image/gif` → `gif`. A pasted file kept the right MIME type and was then
+   *  named `.png` regardless, so a GIF arrived looking like a screenshot. */
+  const extensionFor = (mime: string): string => {
+    const known: Record<string, string> = {
+      "image/gif": "gif", "image/png": "png", "image/jpeg": "jpg",
+      "image/webp": "webp", "image/avif": "avif", "image/svg+xml": "svg",
+    };
+    return known[mime] ?? (mime.split("/")[1]?.replace(/[^a-z0-9]/gi, "") || "png");
+  };
+
+  const named = (file: File): File => {
+    if (file.name && !/^image\.(png|jpe?g)$/i.test(file.name)) return file;
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    return new File([file], `Pasted ${stamp}.${extensionFor(file.type)}`, { type: file.type });
+  };
+
+  /**
+   * A GIF copied from a web page.
+   *
+   * Dee, 2026-09-17: "I pasted a GIF in the chat but it did not move… It
+   * should be GIF and moving or animated still when i paste it."
+   *
+   * Two things were wrong. The file was renamed `.png` whatever it was, which
+   * is fixed above. And the deeper one: when you copy an image from a page,
+   * the browser puts a FLATTENED SNAPSHOT on the clipboard as image/png — one
+   * frame of the animation, because that is what a screenshot of it is.
+   *
+   * But it also puts the original markup on the clipboard as text/html. So
+   * when that names a .gif, the original is fetched and used instead, and the
+   * animation survives. If the fetch is refused — a site that blocks
+   * cross-origin reads — the pasted frame is used, which is what happened
+   * before and is better than nothing.
+   */
+  const gifFromClipboardHtml = async (html: string): Promise<File | null> => {
+    const src = /<img[^>]+src=["']([^"']+)["']/i.exec(html)?.[1];
+    if (!src) return null;
+    let url: URL;
+    try { url = new URL(src); } catch { return null; }
+    /* https only, and only something that claims to be a GIF. A paste is not
+       a reason to fetch an arbitrary address. */
+    if (url.protocol !== "https:") return null;
+    if (!/\.gif(\?|$)/i.test(url.pathname + url.search)) return null;
+    try {
+      const r = await fetch(url.toString());
+      if (!r.ok) return null;
+      const blob = await r.blob();
+      /* Verified from the response, not from the URL — a path ending .gif
+         proves nothing about what came back. Capped, because a paste should
+         not pull down 50MB. */
+      if (blob.type !== "image/gif" || blob.size > 20 * 1024 * 1024) return null;
+      const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+      return new File([blob], `Pasted ${stamp}.gif`, { type: "image/gif" });
+    } catch {
+      return null;
+    }
+  };
+
   const onPaste = (e: ClipboardEvent<HTMLTextAreaElement>) => {
     const images = Array.from(e.clipboardData?.items ?? [])
       .filter((i) => i.kind === "file" && i.type.startsWith("image/"))
       .map((i) => i.getAsFile())
       .filter((f): f is File => f !== null)
-      .map((f) => new File([f], f.name && f.name !== "image.png"
-        ? f.name
-        : `Screenshot ${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.png`,
-        { type: f.type }));
-    if (images.length === 0) return;
+      .map(named);
+    /* Guarded: a synthetic paste — and a jsdom one — may carry `items` and no
+       `getData` at all, and a crash in a paste handler loses what was typed. */
+    const html = typeof e.clipboardData?.getData === "function"
+      ? e.clipboardData.getData("text/html") ?? ""
+      : "";
+    if (images.length === 0 && !/<img/i.test(html)) return;
     e.preventDefault();
-    takeFiles(images);
+
+    /* The snapshot goes in immediately so the paste feels instant, and is
+       swapped for the real GIF if one can be fetched. */
+    if (images.length > 0) takeFiles(images);
+    if (/<img/i.test(html)) {
+      void gifFromClipboardHtml(html).then((gif) => {
+        if (!gif) return;
+        setFiles((prev) => {
+          const withoutSnapshot = images.length > 0
+            ? prev.filter((f) => !images.includes(f))
+            : prev;
+          return [...withoutSnapshot, gif];
+        });
+      });
+    }
   };
 
   return (
@@ -263,6 +337,9 @@ export function Composer({
             className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50">
             <Paperclip className="h-4 w-4" />
           </button>
+          {/* A GIF becomes an ordinary attachment through the same path a
+              dragged file takes — one attachment model, not two. */}
+          <GifPicker disabled={disabled} onPick={(file) => takeFiles([file])} />
           {onMeeting && (
             <button type="button" aria-label="Start or schedule a meeting" disabled={disabled}
               onClick={onMeeting}

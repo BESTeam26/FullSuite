@@ -68,6 +68,7 @@ vi.mock("@/lib/data/use-partner-credentials", () => ({
   useSaveCredential: () => ({ mutateAsync: async () => "", isPending: false }),
 }));
 vi.mock("@/lib/data/use-channels", () => ({
+  useChannelSeenBy: () => ({ data: [] }),
   useChannels: () => ({ data: channels, isLoading: false }),
   /* A partner contact gets nobody to mention until BES adds them, which the
      database decides — the portal simply renders what comes back. */
