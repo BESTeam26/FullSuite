@@ -452,3 +452,14 @@ verify_jwt = false
 # simply make the processor's deliveries fail.
 [functions.authnet-webhook]
 verify_jwt = false
+
+# Every action needs a signed-in partner contact or a delegated BES user, and
+# the function checks that itself. Verifying the JWT at the gateway as well
+# means an anonymous request never reaches the code at all.
+[functions.partner-payments]
+verify_jwt = true
+
+# The autopay sweep is started by cron with a shared dispatch secret, not by a
+# person, so there is no JWT to verify.
+[functions.partner-autopay]
+verify_jwt = false
