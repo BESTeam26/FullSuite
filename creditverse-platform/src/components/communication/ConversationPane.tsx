@@ -152,7 +152,14 @@ export function ConversationPane({
   };
 
   return (
-    <>
+    /* A ROW, not a column.
+       
+       The thread used to be the last child of the conversation's flex-COLUMN,
+       so `md:static` could only put it BELOW the composer — which is what Dee
+       screenshotted. A thread is a second conversation happening beside the
+       first, the way Slack shows it, so it has to be a SIBLING COLUMN. */
+    <div className="flex min-h-0 flex-1 overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col">
       {!hideHeader && (
         <header className="border-b border-border px-4 py-3">
           <div className="flex items-start justify-between gap-2">
@@ -299,13 +306,14 @@ export function ConversationPane({
             onMeeting={onMeeting ?? (() => setShowMeeting((v) => !v))} />
         </>
       )}
+      </div>
 
       {threadRoot !== null && (
         <ThreadPanel channelId={channelId} rootId={threadRoot}
           root={rows.find((m) => m.id === threadRoot) ?? null}
           canPin={canPin} onClose={() => setThreadRoot(null)} />
       )}
-    </>
+    </div>
   );
 }
 
@@ -342,7 +350,11 @@ function ThreadPanel({
 
   return (
     <aside role="dialog" aria-label="Thread"
-      className="fixed inset-y-0 right-0 z-40 flex w-full max-w-md flex-col border-l border-border bg-card shadow-xl md:static md:z-auto md:w-96 md:shadow-none">
+      /* Phone: it covers the conversation, because there is room for one.
+         From md up it is its own column beside it — `shrink-0` so the messages
+         give way rather than the thread being squeezed to nothing. */
+      className="fixed inset-y-0 right-0 z-40 flex w-full max-w-md flex-col border-l border-border bg-card shadow-xl
+                 md:static md:z-auto md:w-80 md:shrink-0 md:shadow-none lg:w-96">
       <header className="flex items-center justify-between border-b border-border px-4 py-3">
         <h2 className="text-sm font-bold text-foreground">Thread</h2>
         <button type="button" onClick={onClose} aria-label="Close thread"
@@ -367,8 +379,13 @@ function ThreadPanel({
           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
         ) : (replies.data ?? []).length === 0 ? (
           <p className="text-sm text-muted-foreground">No replies yet.</p>
-        ) : (
-          (replies.data ?? []).map((m) => (
+        ) : (<>
+          {/* Said above them, as the reference shows — you can see how much
+              conversation there is before scrolling through it. */}
+          <p className="pb-1 text-xs font-semibold text-muted-foreground">
+            {(replies.data ?? []).length} {(replies.data ?? []).length === 1 ? "reply" : "replies"}
+          </p>
+          {(replies.data ?? []).map((m) => (
             <MessageRow key={m.id} message={m} isMine={m.authorId === auth.user?.id}
               meUserId={auth.user?.id ?? null} canPin={false} compact
               onReact={(emoji, mine) => actions.react.mutate({ messageId: m.id, emoji, mine })}
@@ -376,11 +393,11 @@ function ThreadPanel({
               onPin={() => undefined}
               onDelete={() => actions.remove.mutate(m.id)}
               onEdit={(bodyText) => actions.edit.mutate({ messageId: m.id, bodyText })} />
-          ))
-        )}
+          ))}
+        </>)}
       </div>
 
-      <Composer name="this thread" draftKey={`thread:${rootId}`} sending={sender.send.isPending} error={error}
+      <Composer name="this thread" placeholder="Reply in thread…" draftKey={`thread:${rootId}`} sending={sender.send.isPending} error={error}
         mentionable={mentionable.data ?? []}
         onSend={async (text, _files, mentions) => {
           setError(null);

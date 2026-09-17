@@ -31,6 +31,9 @@ import { cn } from "@/lib/utils";
 export interface ComposerProps {
   /** What the placeholder calls this conversation. */
   name: string;
+  /** Replaces the whole placeholder, for a thread where "Message this thread"
+   *  reads like a instruction and "Reply in thread…" reads like the box it is. */
+  placeholder?: string;
   disabled?: boolean;
   sending?: boolean;
   /**
@@ -66,7 +69,7 @@ export interface ComposerProps {
 }
 
 export function Composer({
-  name, disabled, sending, onSend, onMeeting, error,
+  name, placeholder, disabled, sending, onSend, onMeeting, error,
   mentionable = [], onTyping, onStopTyping, draftKey = null,
 }: ComposerProps) {
   /* Seeded from storage so switching conversations and coming back does not
@@ -296,7 +299,7 @@ export function Composer({
             if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
           }}
           rows={2}
-          placeholder={`Message ${name}`}
+          placeholder={placeholder ?? `Message ${name}`}
           aria-label={`Message ${name}`}
           className="min-h-[44px] flex-1 resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-60"
         />
