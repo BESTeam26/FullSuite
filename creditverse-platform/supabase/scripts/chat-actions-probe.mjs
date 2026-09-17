@@ -310,6 +310,15 @@ console.log("Opening a conversation costs one call");
   /* The counts must be REAL, not zeroes standing in for a dropped subquery. */
   const members = one(`select count(*)::int as n from public.mention_group_recipients('${CH}', 'channel')`).n;
   check("member_count matches who can actually be reached", details?.member_count, members);
+  /* The list and the number sat side by side and disagreed: "MEMBERS · 1"
+     above "Nobody yet.", because the list came from the MENTION PICKER, which
+     leaves you out on purpose. Same source now, so they cannot drift. */
+  check("…and the list beside it is not empty when the number is not zero",
+    (details?.members?.length ?? 0) > 0, members > 0);
+  check("…and the list includes you, because you are in the room",
+    (details?.members ?? []).some((m) => m.id === OWNER),
+    one(`select exists (select 1 from public.mention_group_recipients('${CH}', 'channel')
+                         where user_id = '${OWNER}') as x`).x);
 
   check("the second per-conversation call no longer exists",
     one(`select count(*)::int as n from pg_proc
@@ -423,6 +432,49 @@ console.log("Whose clock a conversation is read on");
       check("two partners in one room falls back to BES's clock rather than picking one",
         two[0]?.tz, one(`select coalesce(eod_timezone,'America/New_York') as tz from public.agencies where id = '${AGENCY}'`).tz);
     }
+  }
+}
+
+/*
+ * The rooms BES works in.
+ *
+ * Dee, 2026-09-17: a default Great Results channel for all teams' reporting,
+ * and a room per team that Dee populates by hand.
+ */
+console.log("The rooms BES works in");
+{
+  const gr = one(`select c.id, c.open_to_scope, c.archived_at from public.channels c
+                   where c.agency_id = '${AGENCY}' and c.system_key = 'great_results'`);
+  check("Great Results exists", gr !== undefined && gr !== null, true);
+  check("…and reaches every active BES person without a membership list",
+    gr?.open_to_scope, true);
+  check("…and is not archived", gr?.archived_at, null);
+
+  /* A default that can be archived is not a default. */
+  let refused = false;
+  try { q.query(`begin; update public.channels set archived_at = now() where id = '${gr.id}'; rollback;`); }
+  catch { refused = true; try { q.query("rollback;"); } catch { /* gone */ } }
+  check("…and cannot be archived away by accident", refused, true);
+
+  /* Renaming stays allowed: the KEY is the identity, not the label. */
+  const renamed = q.query(`begin;
+    update public.channels set name = 'Great Wins' where id = '${gr.id}';
+    select name from public.channels where id = '${gr.id}'; rollback;`);
+  check("…but can still be renamed, because the key is the identity",
+    renamed[0]?.name, "Great Wins");
+
+  for (const name of ["Client Success Team", "Dispute Team", "Complaints & Mailing Team",
+                      "CRM Team", "BES Admin", "BES Managers / TL Room"]) {
+    const room = one(`select c.id, c.open_to_scope,
+        (select count(*)::int from public.channel_members m
+          where m.channel_id = c.id and m.is_manager) as managers
+       from public.channels c
+      where c.agency_id = '${AGENCY}' and lower(trim(c.name)) = lower('${name.replace(/'/g, "''")}')`);
+    /* A room with no manager is one nobody can add anybody to — the whole
+       point of these six is that Dee fills them. */
+    check(`${name} exists, is members-only, and has a manager who can fill it`,
+      room ? { scope: room.open_to_scope, managers: room.managers > 0 } : null,
+      { scope: false, managers: true });
   }
 }
 
