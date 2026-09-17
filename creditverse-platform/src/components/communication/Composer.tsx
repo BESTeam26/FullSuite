@@ -11,9 +11,8 @@
  * one word in it was blocked would teach them to write it somewhere else.
  */
 import { useMemo, useRef, useState, type ChangeEvent, type ClipboardEvent, type DragEvent } from "react";
-import { AtSign, CornerUpLeft, Loader2, Paperclip, Send, Smile, Video, X } from "lucide-react";
+import { AtSign, CornerUpLeft, Loader2, Paperclip, Send, Smile, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { GifPicker } from "@/components/communication/GifPicker";
 import { MentionPicker, type MentionCandidate } from "@/components/composer/MentionPicker";
 import { mentionQueryAt, mentionText, type MentionAttrs } from "@/lib/activity/mentions";
 import { effectiveMentions } from "@/lib/communication/message-body";
@@ -27,6 +26,7 @@ const MAX_ATTACHMENTS = 5;
 /** A drag carrying files, as opposed to one carrying selected text. */
 const hasFiles = (e: DragEvent) => Array.from(e.dataTransfer?.types ?? []).includes("Files");
 import { EMOJI_GROUPS } from "@/lib/communication/emoji";
+import { shrinkImage } from "@/lib/communication/shrink-image";
 import { cn } from "@/lib/utils";
 
 export interface ComposerProps {
@@ -57,7 +57,6 @@ export interface ComposerProps {
    */
   mentionable?: readonly MentionCandidate[];
   /** Shown when a meeting provider exists to talk to (§66). */
-  onMeeting?: () => void;
   error?: string | null;
   /**
    * Told on each keystroke, and told to stop when the message goes. The
@@ -70,7 +69,7 @@ export interface ComposerProps {
 }
 
 export function Composer({
-  name, placeholder, disabled, sending, onSend, onMeeting, error,
+  name, placeholder, disabled, sending, onSend, error,
   mentionable = [], onTyping, onStopTyping, draftKey = null,
 }: ComposerProps) {
   /* Seeded from storage so switching conversations and coming back does not
@@ -154,9 +153,29 @@ export function Composer({
   };
 
   /** The one place files enter the composer, whoever chose them. */
+  /**
+   * The one place a file enters the composer, whoever chose it.
+   *
+   * A big image is shrunk here rather than at upload, so the chip shows the
+   * size that will actually be stored. It goes in immediately at its original
+   * size and is swapped when the smaller version is ready — a 6MB screenshot
+   * takes a moment to re-encode, and nothing should feel like it hung.
+   *
+   * A GIF passes straight through: a canvas keeps one frame of it.
+   */
   const takeFiles = (incoming: File[]) => {
     if (incoming.length === 0) return;
-    setFiles((f) => [...f, ...incoming].slice(0, MAX_ATTACHMENTS));
+    const taken = incoming.slice(0, MAX_ATTACHMENTS);
+    setFiles((f) => [...f, ...taken].slice(0, MAX_ATTACHMENTS));
+
+    for (const original of taken) {
+      void shrinkImage(original).then((smaller) => {
+        if (smaller === original) return;
+        /* Matched by identity, so a file removed while it was being shrunk
+           does not reappear. */
+        setFiles((f) => (f.includes(original) ? f.map((x) => (x === original ? smaller : x)) : f));
+      });
+    }
   };
 
   const addFiles = (e: ChangeEvent<HTMLInputElement>) => {
@@ -337,16 +356,6 @@ export function Composer({
             className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50">
             <Paperclip className="h-4 w-4" />
           </button>
-          {/* A GIF becomes an ordinary attachment through the same path a
-              dragged file takes — one attachment model, not two. */}
-          <GifPicker disabled={disabled} onPick={(file) => takeFiles([file])} />
-          {onMeeting && (
-            <button type="button" aria-label="Start or schedule a meeting" disabled={disabled}
-              onClick={onMeeting}
-              className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50">
-              <Video className="h-4 w-4" />
-            </button>
-          )}
           <input ref={fileRef} type="file" multiple className="hidden" onChange={addFiles}
             aria-hidden tabIndex={-1} />
         </div>

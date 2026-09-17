@@ -8,9 +8,11 @@
  *
  * ── THE COUNTS COME FROM ONE QUERY ────────────────────────────────────────
  *
- * `channel_tab_counts` answers all three in one round trip. Three questions
- * asked separately, once per conversation opened, is the waterfall rule 14
- * names — and it would be paid on every click in the rail.
+ * The counts are not fetched here at all. They ride along on
+ * `channel_details`, which the pane already calls to open a conversation —
+ * so the tab strip costs zero extra round trips. Asking three questions
+ * separately, once per conversation opened, is the waterfall rule 14 names,
+ * and it would be paid on every click in the rail.
  *
  * ── AND A TAB ONLY FETCHES WHEN IT IS OPENED ──────────────────────────────
  *

@@ -288,6 +288,34 @@ console.log("The rules that must survive the fix");
   }
 }
 
+/*
+ * Opening a conversation costs ONE call.
+ *
+ * Dee, 2026-09-17: *"make sure we have running this communication as fast as
+ * we can, no delays."* The tab strip's three numbers used to be a second
+ * per-conversation round trip (`channel_tab_counts`) fired on every click in
+ * the rail — the waterfall rule 14 names. They now ride on `channel_details`,
+ * which the pane already calls. These checks are what stops the second call
+ * from quietly coming back.
+ */
+console.log("Opening a conversation costs one call");
+{
+  const d = as(OWNER, `select public.channel_details('${CH}') as d;`);
+  const details = d.ok ? d.rows[0].d : null;
+  check("channel_details answers at all", details !== null, true);
+  for (const key of ["files", "pins", "member_count"]) {
+    check(`…and carries ${key}, so the tab strip needs no second query`,
+      details !== null && typeof details[key] === "number", true);
+  }
+  /* The counts must be REAL, not zeroes standing in for a dropped subquery. */
+  const members = one(`select count(*)::int as n from public.mention_group_recipients('${CH}', 'channel')`).n;
+  check("member_count matches who can actually be reached", details?.member_count, members);
+
+  check("the second per-conversation call no longer exists",
+    one(`select count(*)::int as n from pg_proc
+          where proname = 'channel_tab_counts' and pronamespace = 'public'::regnamespace`).n, 0);
+}
+
 console.log(`\n${pass} passed, ${failures.length} failed`);
 failures.forEach((f) => console.log(`  - ${f}`));
 process.exit(failures.length ? 1 : 0);

@@ -463,9 +463,3 @@ verify_jwt = true
 # person, so there is no JWT to verify.
 [functions.partner-autopay]
 verify_jwt = false
-
-# The GIF picker is used by a signed-in person from the composer. Verifying the
-# JWT at the gateway means an anonymous caller never reaches the provider on
-# BES's API quota.
-[functions.gif-search]
-verify_jwt = true

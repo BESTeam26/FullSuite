@@ -27,7 +27,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   attachToMessage, deleteOwnMessage, editOwnMessage, fetchChannelFiles,
-  fetchChannelMessages, fetchChannelTabCounts, fetchPins,
+  fetchChannelMessages,
   fetchThread, pinMessage, sendMessage, toggleReaction, unpinMessage,
   type RichMessage,
 } from "@/lib/data/messages";
@@ -53,15 +53,6 @@ export function useThread(rootId: number | null) {
     queryFn: () => fetchThread(rootId!),
     enabled: !!rootId,
     staleTime: 10_000,
-  });
-}
-
-export function usePins(channelId: string | null) {
-  return useQuery({
-    queryKey: ["messages", "pins", channelId ?? ""],
-    queryFn: () => fetchPins(channelId!),
-    enabled: !!channelId,
-    staleTime: 30_000,
   });
 }
 
@@ -264,16 +255,6 @@ export function useMessageActions(channelId: string | null) {
       onSuccess: refresh,
     }),
   };
-}
-
-/** Files, pins and members for the tab strip — one query, not three. */
-export function useChannelTabCounts(channelId: string | null) {
-  return useQuery({
-    queryKey: ["messages", "tabs", channelId ?? ""],
-    queryFn: () => fetchChannelTabCounts(channelId!),
-    enabled: !!channelId,
-    staleTime: 30_000,
-  });
 }
 
 /** Only fetched when the Files tab is actually opened (rule 14). */

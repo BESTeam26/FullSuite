@@ -17,15 +17,20 @@
  * view and refreshed before it lapses, rather than a permanent link sitting in
  * the DOM. A thumbnail is not a reason to make a file public.
  *
- * ── AND IT STAYS A LINK ───────────────────────────────────────────────────
+ * ── AND IT OPENS IN THE APP ───────────────────────────────────────────────
  *
- * Clicking the preview opens the full image the same way the row always did.
- * Somebody who needs the original still gets it; they just do not have to
- * guess first.
+ * Clicking the preview opens it over the conversation, not in a new tab. Dee,
+ * 2026-09-17: "preview of the image on the app so it wont open another tab
+ * just to view the image." A tab loses your place and hands somebody a bare
+ * storage URL with no way back. Download is still one click inside it.
+ *
+ * A non-image still opens in a tab, because that is what a PDF or a
+ * spreadsheet wants.
  */
 import { useEffect, useRef, useState } from "react";
 import { Download, ImageOff, Paperclip } from "lucide-react";
 import { signedAttachmentUrl, type Attachment } from "@/lib/data/messages";
+import { ImageViewer } from "@/components/communication/ImageViewer";
 import { cn } from "@/lib/utils";
 
 /** How long a signed URL lasts, and when to renew it. */
@@ -46,6 +51,7 @@ export function AttachmentView({ attachment }: { attachment: Attachment }) {
   const image = isImage(attachment.mime, attachment.name);
   const [url, setUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
+  const [viewing, setViewing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const timer = useRef<number | undefined>(undefined);
@@ -88,9 +94,14 @@ export function AttachmentView({ attachment }: { attachment: Attachment }) {
   if (image && !failed) {
     return (
       <figure className="mt-1.5">
+        {viewing && url && (
+          <ImageViewer url={url} name={attachment.name} onClose={() => setViewing(false)} />
+        )}
         <button
           type="button"
-          onClick={() => void open()}
+          /* In the app. The signed URL is already loaded for the preview, so
+             opening it costs nothing and shows instantly. */
+          onClick={() => url && setViewing(true)}
           className="group block overflow-hidden rounded-xl border border-border bg-muted/40 transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
           {url ? (

@@ -513,6 +513,9 @@ export interface ChannelDetails {
   notifications: NotificationLevel;
   /** Who can actually be reached here, not how many member rows exist. */
   memberCount: number;
+  /** The tab strip's numbers, from this same call — no second round trip. */
+  files: number;
+  pins: number;
   members: { id: string; name: string }[];
 }
 
@@ -526,6 +529,8 @@ export async function fetchChannelDetails(channelId: string): Promise<ChannelDet
   return {
     name: (d.name as string) ?? null,
     canRename: d.can_rename === true,
+    files: Number(d.files ?? 0),
+    pins: Number(d.pins ?? 0),
     purpose: (d.purpose as string) ?? null,
     kind: (d.kind as string) ?? "topic",
     openToScope: d.open_to_scope === true,

@@ -65,7 +65,6 @@ vi.mock("@/lib/data/use-messages", () => ({
   useRichMessages: () => ({ data: messages, isLoading: false, refetch: vi.fn() }),
   useThread: () => ({ data: [], isLoading: false }),
   usePins: () => ({ data: [] }),
-  useChannelTabCounts: () => ({ data: { files: 0, pins: 0, members: 0 } }),
   useChannelFiles: () => ({ data: [], isPending: false, isError: false }),
   useSendMessage: () => ({
     send: { mutateAsync: sendMutate, isPending: false },

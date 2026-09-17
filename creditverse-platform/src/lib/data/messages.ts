@@ -298,18 +298,6 @@ export async function signedAttachmentUrl(path: string, seconds = 300): Promise<
   return data.signedUrl;
 }
 
-export interface PinnedMessage {
-  messageId: number;
-  pinnedAt: string;
-}
-
-export async function fetchPins(channelId: string): Promise<PinnedMessage[]> {
-  const sb = requireSupabase();
-  const { data, error } = await sb.from("message_pins")
-    .select("message_id, pinned_at").eq("channel_id", channelId).order("pinned_at", { ascending: false });
-  if (error) throw error;
-  return (data ?? []).map((p) => ({ messageId: Number(p.message_id), pinnedAt: p.pinned_at }));
-}
 
 /**
  * ONE message, in the same shape the list speaks.
@@ -345,26 +333,6 @@ export async function fetchMessageRevisions(messageId: number): Promise<MessageR
     id: Number(r.id), bodyText: r.body_text,
     editedBy: r.edited_by ?? null, editedAt: r.edited_at,
   }));
-}
-
-/* ── A conversation's tabs ─────────────────────────────────────────────── */
-
-export interface ChannelTabCounts { files: number; pins: number; members: number }
-
-export async function fetchChannelTabCounts(channelId: string): Promise<ChannelTabCounts> {
-  const sb = requireSupabase();
-  const { data, error } = await sb.rpc("channel_tab_counts" as never,
-    { p_channel: channelId } as never);
-  if (error) throw error;
-  const row = (data as Record<string, unknown>[] | null)?.[0];
-  /* No row means the caller cannot see the conversation, which is not zero of
-     anything — but the tabs are only ever drawn beside a conversation they
-     already have open, so zero is the honest fallback here. */
-  return {
-    files: Number(row?.files ?? 0),
-    pins: Number(row?.pins ?? 0),
-    members: Number(row?.members ?? 0),
-  };
 }
 
 export interface ChannelFile {

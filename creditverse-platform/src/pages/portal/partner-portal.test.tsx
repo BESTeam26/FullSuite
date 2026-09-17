@@ -100,7 +100,6 @@ vi.mock("@/lib/data/communication-home", () => ({
   useToggleSaved: () => ({ mutate: vi.fn() }),
 }));
 vi.mock("@/lib/data/use-messages", () => ({
-  useChannelTabCounts: () => ({ data: { files: 0, pins: 0, members: 0 } }),
   useChannelFiles: () => ({ data: [], isPending: false, isError: false }),
   useRichMessages: () => ({ data: messages, isLoading: false, refetch: vi.fn() }),
   useThread: () => ({ data: [], isLoading: false }),

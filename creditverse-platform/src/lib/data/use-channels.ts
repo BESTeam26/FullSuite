@@ -21,7 +21,7 @@ import {
   markChannelRead, openDirectChannel, openGroupConversation, openPartnerConversation, postMessage,
   fetchChannelDetails, fetchChannelSeenBy, setChannelFavourite, setChannelNotifications,
   renameChannel,
-  removeChannelMember, removeChannelTeam, restoreChannel, searchMessages,
+  removeChannelMember, removeChannelTeam, restoreChannel,
 } from "@/lib/data/channels";
 import type { NotificationLevel } from "@/lib/data/channels";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -83,16 +83,6 @@ export function useMarkRead() {
  * Search. Two characters minimum, and debouncing is the caller's business —
  * this hook simply does not run on a query too short to mean anything.
  */
-export function useMessageSearch(query: string) {
-  const trimmed = query.trim();
-  return useQuery({
-    queryKey: ["channels", "search", trimmed],
-    queryFn: () => searchMessages(trimmed),
-    enabled: trimmed.length >= 2,
-    staleTime: 15_000,
-  });
-}
-
 /** Creating, archiving, and staffing a conversation with people AND teams. */
 export function useChannelActions() {
   const qc = useQueryClient();

@@ -26,8 +26,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { useTypingPresence } from "@/lib/data/use-typing-presence";
 import { TypingIndicator } from "./TypingIndicator";
 import {
-  useChannelFiles, useChannelTabCounts, useMessageActions, useRichMessages,
-  useSendMessage, useThread,
+  useChannelFiles, useMessageActions, useRichMessages, useSendMessage, useThread,
 } from "@/lib/data/use-messages";
 import { ChannelTabs, type ChannelTab } from "@/components/communication/ChannelTabs";
 import { SeenBy } from "@/components/communication/SeenBy";
@@ -48,7 +47,6 @@ import { cn } from "@/lib/utils";
 import { usePanelWidth } from "@/lib/agency/use-panel-width";
 import { PanelResizer } from "@/components/dashboard/PanelResizer";
 import { MessageRow } from "./MessageRow";
-import { MeetingPanel } from "./MeetingButton";
 import { Composer } from "./Composer";
 import type { ReactNode } from "react";
 
@@ -89,14 +87,13 @@ export interface ConversationPaneProps {
   canPin?: boolean;
   /** For attachments: which tenant's storage prefix the files belong under. */
   organizationId?: string | null;
-  onMeeting?: () => void;
 }
 
 export function ConversationPane({
   channelId, name, purpose, notice, glyph = "hash", owner = null,
   emptyLabel = "Start the conversation with your team.",
   readOnly = false, readOnlyReason, hideHeader = false, canPin = false, openToScope = false,
-  organizationId = null, onMeeting,
+  organizationId = null,
 }: ConversationPaneProps) {
   const auth = useAuth();
   const messages = useRichMessages(channelId);
@@ -118,7 +115,6 @@ export function ConversationPane({
     try { return window.localStorage.getItem("bes.communication.details") !== "off"; }
     catch { return true; }
   });
-  const tabCounts = useChannelTabCounts(channelId);
   /* Fetched only once the Files tab is opened — rule 14, do not preload a tab
      nobody asked for. */
   const files = useChannelFiles(channelId, tab === "files");
@@ -140,7 +136,6 @@ export function ConversationPane({
     defaultWidth: 384, min: 280, max: 620, invert: true,
   });
   const prefs = useChannelPreferences(channelId);
-  const [showMeeting, setShowMeeting] = useState(false);
   const pendingFiles = useRef<Map<string, File[]>>(new Map());
   const retryMentions = useRef<Map<string, MentionAttrs[]>>(new Map());
 
@@ -305,7 +300,10 @@ export function ConversationPane({
       )}
 
       {/* Messages · Files · Pins · Members, from Dee's reference. */}
-      <ChannelTabs active={tab} onChange={setTab} counts={tabCounts.data} openToScope={openScope} />
+      <ChannelTabs active={tab} onChange={setTab} openToScope={openScope}
+        counts={details.data
+          ? { files: details.data.files, pins: details.data.pins, members: details.data.memberCount }
+          : undefined} />
 
       {showPinned && pinned.length > 0 && (
         <div className="border-b border-border bg-amber-500/5 px-4 py-2">
@@ -420,8 +418,6 @@ export function ConversationPane({
         </div>
       )}
 
-      {showMeeting && !readOnly && <MeetingPanel onClose={() => setShowMeeting(false)} />}
-
       {tab !== "messages" ? null : readOnly ? (
         <p className="border-t border-border px-4 py-3 text-xs text-muted-foreground">
           {readOnlyReason ?? "You cannot post in this conversation."}
@@ -436,7 +432,7 @@ export function ConversationPane({
             mentionable={mentionable.data ?? []}
             onTyping={onTyping}
             onStopTyping={stopTyping}
-            onMeeting={onMeeting ?? (() => setShowMeeting((v) => !v))} />
+            />
         </>
       )}
       </div>
