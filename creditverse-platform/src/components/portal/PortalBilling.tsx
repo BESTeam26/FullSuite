@@ -25,6 +25,7 @@ import { formatMoneyIn } from "@/lib/format-money";
 import { cn } from "@/lib/utils";
 import { PageLoadError, PanelState } from "@/components/common/QueryState";
 import { hasRows } from "@/lib/ui/query-rows";
+import { PayInvoicePanel } from "@/components/billing/PayInvoicePanel";
 import {
   creditUnitLabel, fetchPortalAccountCredit, fetchPortalBilling, fetchPortalInvoices,
   fetchPortalPaymentMethods, fetchPortalPayments, fetchPortalProcessingCredits,
@@ -61,6 +62,10 @@ export function PortalBilling({ onContactBes }: { onContactBes?: () => void }) {
   /* Four sections, one page. Dee: "Keep Billing as ONE main menu item… inside
      Billing use Invoices | Payments | Credits | Billing Settings." */
   const [tab, setTab] = useState<"invoices" | "payments" | "credits" | "settings">("invoices");
+  /* Which invoice the partner opened the pay panel for. One at a time, so the
+     idempotency key belongs to one checkout and cannot be reused for another
+     invoice. */
+  const [payingId, setPayingId] = useState<string | null>(null);
   const live = auth.mode === "live" && auth.status === "signed-in";
   const opts = { enabled: live, staleTime: 60_000 };
 
@@ -73,6 +78,10 @@ export function PortalBilling({ onContactBes }: { onContactBes?: () => void }) {
   const accountCredit = useQuery({ queryKey: ["portal", "billing", "account-credit"], queryFn: fetchPortalAccountCredit, ...opts });
   const credits = useQuery({ queryKey: ["portal", "billing", "processing-credits"], queryFn: fetchPortalProcessingCredits, ...opts });
   const methods = useQuery({ queryKey: ["portal", "billing", "methods"], queryFn: fetchPortalPaymentMethods, ...opts });
+
+  /* Resolved from the canonical list rather than held in state, so the amount
+     the panel charges is always the balance the ledger currently says. */
+  const payingInvoice = (invoices.data ?? []).find((i) => i.id === payingId) ?? null;
 
   if (summary.isLoading) {
     return (
@@ -226,8 +235,22 @@ export function PortalBilling({ onContactBes }: { onContactBes?: () => void }) {
           instructions they wrote. Wise and PayPal are Personal accounts with
           no API to generate a charge from, so these are instructions and a
           link rather than a button that would pretend to take money. */}
+      {payingInvoice && (
+        <PayInvoicePanel
+          groupId={s.groupId}
+          invoice={{
+            id: payingInvoice.id,
+            invoiceNumber: payingInvoice.invoiceNumber,
+            dueDate: payingInvoice.dueDate,
+            currency: payingInvoice.currency,
+            balanceCents: payingInvoice.balanceCents,
+          }}
+          otherWaysToPay={(methods.data ?? []).map((m) => ({ label: m.label, instructions: m.instructions }))}
+        />
+      )}
+
       {(methods.data ?? []).length > 0 && (
-        <Panel icon={CreditCard} title={s.balanceCents > 0 ? "Pay now" : "How to pay"}>
+        <Panel icon={CreditCard} title={s.balanceCents > 0 ? "Other ways to pay" : "How to pay"}>
           <ul className="space-y-2">
             {(methods.data ?? []).map((m) => (
               <li key={m.method} className="rounded-lg border border-border bg-muted/30 p-3">
@@ -278,6 +301,7 @@ export function PortalBilling({ onContactBes }: { onContactBes?: () => void }) {
                   <th className="py-1.5 pr-3 text-right font-semibold text-muted-foreground">Amount</th>
                   <th className="py-1.5 pr-3 text-right font-semibold text-muted-foreground">Balance</th>
                   <th className="py-1.5 font-semibold text-muted-foreground">Status</th>
+                  <th className="py-1.5 text-right font-semibold text-muted-foreground">Pay</th>
                 </tr>
               </thead>
               <tbody>
@@ -301,6 +325,26 @@ export function PortalBilling({ onContactBes }: { onContactBes?: () => void }) {
                         STATUS_TONE[i.status] ?? "border-border bg-muted text-foreground")}>
                         {STATUS_LABEL[i.status] ?? i.status}
                       </span>
+                    </td>
+                    <td className="py-1.5 text-right">
+                      {i.balanceCents > 0 && !["void", "cancelled", "draft", "scheduled"].includes(i.status) ? (
+                        <button
+                          type="button"
+                          onClick={() => setPayingId(payingId === i.id ? null : i.id)}
+                          aria-expanded={payingId === i.id}
+                          className={cn(
+                            "rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-colors",
+                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                            payingId === i.id
+                              ? "border border-primary bg-primary/10 text-primary"
+                              : "bg-primary text-primary-foreground hover:bg-primary/90",
+                          )}
+                        >
+                          {payingId === i.id ? "Close" : "Pay"}
+                        </button>
+                      ) : (
+                        <span className="text-[11px] text-muted-foreground">—</span>
+                      )}
                     </td>
                   </tr>
                 ))}

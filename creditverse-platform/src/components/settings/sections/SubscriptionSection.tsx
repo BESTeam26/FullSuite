@@ -33,7 +33,7 @@ import {
   fetchSubscription,
   saveCard,
 } from "@/lib/data/payments";
-import { AcceptJsCardField } from "@/components/settings/sections/AcceptJsCardField";
+import { AcceptJsCardField } from "@/components/billing/AcceptJsCardField";
 
 const money = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
