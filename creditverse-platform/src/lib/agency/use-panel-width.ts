@@ -19,6 +19,8 @@ export interface PanelWidthOptions {
   defaultWidth: number;
   min: number;
   max: number;
+  /** True for a panel pinned to the RIGHT, whose handle is on its left edge. */
+  invert?: boolean;
 }
 
 const key = (id: string, userId?: string | null) => `bes.panel.${id}.${userId ?? "anon"}`;
@@ -49,7 +51,9 @@ export interface PanelWidth {
   reset: () => void;
 }
 
-export function usePanelWidth({ id, userId, defaultWidth, min, max }: PanelWidthOptions): PanelWidth {
+export function usePanelWidth({
+  id, userId, defaultWidth, min, max, invert = false,
+}: PanelWidthOptions): PanelWidth {
   const storageKey = key(id, userId);
   const [width, setWidth] = useState(defaultWidth);
   const [dragging, setDragging] = useState(false);
@@ -65,15 +69,23 @@ export function usePanelWidth({ id, userId, defaultWidth, min, max }: PanelWidth
     try { window.localStorage.setItem(storageKey, String(Math.round(w))); } catch { /* layout is not worth an error */ }
   }, [storageKey]);
 
+  /* A panel on the LEFT grows as the pointer moves right; one on the RIGHT
+     grows as it moves left, because its handle is on its inner edge. Without
+     this a right-hand column shrinks when you drag it open. */
+  const delta = useCallback(
+    (x: number) => (invert ? start.current.x - x : x - start.current.x),
+    [invert],
+  );
+
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
     start.current = { x: e.clientX, w: width };
     setDragging(true);
     const move = (ev: PointerEvent) => {
-      setWidth(clamp(start.current.w + (ev.clientX - start.current.x), min, max));
+      setWidth(clamp(start.current.w + delta(ev.clientX), min, max));
     };
     const up = (ev: PointerEvent) => {
-      const final = clamp(start.current.w + (ev.clientX - start.current.x), min, max);
+      const final = clamp(start.current.w + delta(ev.clientX), min, max);
       setWidth(final);
       persist(final);
       setDragging(false);
@@ -86,7 +98,7 @@ export function usePanelWidth({ id, userId, defaultWidth, min, max }: PanelWidth
     /* A cancelled pointer (a system gesture, a lost capture) must end the drag
        too, or the handle keeps following the mouse with no button held. */
     window.addEventListener("pointercancel", up);
-  }, [width, min, max, persist]);
+  }, [width, min, max, persist, delta]);
 
   const reset = useCallback(() => {
     setWidth(defaultWidth);

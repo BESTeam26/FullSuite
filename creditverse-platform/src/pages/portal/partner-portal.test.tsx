@@ -137,7 +137,7 @@ const CHANNEL: Channel = {
   partnerServiceId: null, partnerTopic: "general", kind: "general", name: "General",
   displayName: "General", directUserId: null, purpose: "BES and Acme Fulfilment",
   openToScope: true, archivedAt: null, sharedWithBes: false,
-  auditOnly: false, isManager: false, unread: 0, lastMessageAt: null,
+  auditOnly: false, isManager: false, favourite: false, unread: 0, lastMessageAt: null,
 };
 
 beforeEach(() => {

@@ -48,6 +48,8 @@ export interface Channel {
    */
   auditOnly: boolean;
   isManager: boolean;
+  /** Starred by the person reading. Per-person; it grants nothing. */
+  favourite: boolean;
   unread: number;
   lastMessageAt: string | null;
 }
@@ -116,6 +118,7 @@ export async function fetchChannels(): Promise<Channel[]> {
       sharedWithBes: !!c.shared_with_bes,
       auditOnly: !!c.audit_only,
       isManager: !!c.is_manager,
+      favourite: !!c.favourite,
       unread: Number(c.unread ?? 0),
       lastMessageAt: (c.last_message_at as string) ?? null,
     };

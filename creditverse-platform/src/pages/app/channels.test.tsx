@@ -110,7 +110,7 @@ const channel = (over: Partial<Channel> = {}): Channel => ({
   partnerServiceId: null, partnerTopic: null, kind: "general", name: "General Chat",
   displayName: "General Chat", directUserId: null, purpose: "Everyone in the company.",
   openToScope: false, archivedAt: null, sharedWithBes: false, auditOnly: false,
-  isManager: false, unread: 0, lastMessageAt: "2026-09-07T00:00:00Z", ...over,
+  isManager: false, favourite: false, unread: 0, lastMessageAt: "2026-09-07T00:00:00Z", ...over,
 });
 
 beforeEach(() => {

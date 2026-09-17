@@ -21,7 +21,7 @@
 import type { Channel } from "@/lib/data/channels";
 
 export type ChannelGroupKey =
-  | "unread" | "internal" | "partners" | "organizations"
+  | "favourites" | "unread" | "internal" | "partners" | "organizations"
   | "direct" | "administration" | "archived";
 
 /**
@@ -53,6 +53,9 @@ export interface ChannelGroup {
 }
 
 const LABELS: Record<ChannelGroupKey, string> = {
+  /* Dee's word, and the one on the screen. The column and the table behind it
+     are spelled `favourite`; this is what a person reads. */
+  favourites: "Favorites",
   unread: "Unread",
   internal: "BES internal",
   partners: "Partners",
@@ -87,6 +90,13 @@ export function groupChannels(channels: readonly Channel[]): ChannelGroup[] {
   };
 
   for (const c of channels) {
+    /* Starred conversations are lifted to the top AND stay in their own
+       group, the way Slack does it: a shortcut, not a move. Somebody who
+       starred #general still expects to find it under BES internal.
+
+       An archived one is not lifted — starring is about what you are working
+       on, and an archived conversation is not. */
+    if (c.favourite && !c.archivedAt) push("favourites", c);
     /* An audit row is never unread. You do not owe a reply to a conversation
        you are not in (§17). */
     if (c.unread > 0 && !c.auditOnly && !c.archivedAt) push("unread", c);
@@ -94,7 +104,7 @@ export function groupChannels(channels: readonly Channel[]): ChannelGroup[] {
   }
 
   const order: ChannelGroupKey[] = [
-    "unread", "internal", "partners", "organizations",
+    "favourites", "unread", "internal", "partners", "organizations",
     "direct", "administration", "archived",
   ];
   return order

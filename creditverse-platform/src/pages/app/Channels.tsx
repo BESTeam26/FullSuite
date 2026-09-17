@@ -62,7 +62,16 @@ import {
 import { ConversationGroup } from "@/components/communication/ConversationRail";
 import { PartnerContextPanel } from "@/components/communication/PartnerContextPanel";
 import { useFoldedSections } from "@/lib/communication/use-folded-sections";
+import { usePanelWidth } from "@/lib/agency/use-panel-width";
+import { PanelResizer } from "@/components/dashboard/PanelResizer";
 import { cn } from "@/lib/utils";
+
+/* Both columns remember their width per person. The minimums are the "fixed
+   space" Dee asked for: a rail below 220px stops showing a conversation's
+   name, and a thread below 280px wraps every reply to three words — so
+   neither can be dragged out of existence, only made smaller. */
+const RAIL = { min: 220, max: 480, base: 288 };
+const ASIDE = { min: 280, max: 620, base: 384 };
 
 export default function Channels() {
   const { activeOrganization, viewMode } = useAgency();
@@ -96,6 +105,10 @@ export default function Channels() {
   const [showContext, setShowContext] = useState(false);
   const openChannel = (id: string) => { setHomeView(null); setOpenId(id); };
   const [creating, setCreating] = useState(false);
+  const railWidth = usePanelWidth({
+    id: "communication-rail", userId: auth.user?.id ?? null,
+    defaultWidth: RAIL.base, min: RAIL.min, max: RAIL.max,
+  });
   const [showPeople, setShowPeople] = useState(false);
   const [query, setQuery] = useState("");
   const search = useCommunicationSearch(query);
@@ -147,7 +160,29 @@ export default function Channels() {
       {/* Phone: the list OR the conversation, never both squeezed side by side
           (Dee's mobile standard §26). Tablet and up: the two panes. */}
       <aside aria-label="Conversations"
-        className={cn("w-full shrink-0 flex-col md:flex md:w-72", current ? "hidden" : "flex")}>
+        /* Dee, 2026-09-17: "allow the user to adjust the column just like how
+           we can adjust the menu sidebar size… leave a fix space so the entire
+           column wont be hidden." The minimum is that fixed space — the rail
+           cannot be dragged away, only narrowed to where it still reads. */
+        /* A CSS variable rather than an inline width, so the phone keeps
+           `w-full` and only md upwards uses the dragged size. */
+        style={{ "--rail-w": `${railWidth.width}px` } as React.CSSProperties}
+        className={cn(
+          "relative w-full shrink-0 flex-col md:flex md:w-[var(--rail-w)]",
+          railWidth.dragging ? "" : "transition-[width] duration-150",
+          current ? "hidden" : "flex",
+        )}>
+        {/* The handle sits on the rail's right edge, hidden on a phone where
+            the rail IS the screen. */}
+        <div className="absolute inset-y-0 right-0 hidden md:block">
+          <PanelResizer
+            label="Resize the conversation list"
+            dragging={railWidth.dragging}
+            onPointerDown={railWidth.onPointerDown}
+            onNudge={(d) => railWidth.setWidth(railWidth.width + d)}
+            onReset={railWidth.reset}
+          />
+        </div>
         <div className="mb-3 flex items-center justify-between gap-2">
           <h1 className="text-sm font-bold text-foreground">Communication</h1>
           {/* New asks WHAT kind first — a direct message, a group chat or a

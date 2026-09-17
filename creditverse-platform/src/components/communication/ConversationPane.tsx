@@ -45,6 +45,8 @@ import { PageLoadError } from "@/components/common/QueryState";
 import { useSavedMessages, useToggleSaved } from "@/lib/data/communication-home";
 import { Avatar } from "@/components/common/Avatar";
 import { cn } from "@/lib/utils";
+import { usePanelWidth } from "@/lib/agency/use-panel-width";
+import { PanelResizer } from "@/components/dashboard/PanelResizer";
 import { MessageRow } from "./MessageRow";
 import { MeetingPanel } from "./MeetingButton";
 import { Composer } from "./Composer";
@@ -131,6 +133,12 @@ export function ConversationPane({
      this" is not worth it. */
   const seenBy = useChannelSeenBy(channelId);
   const details = useChannelDetails(channelId);
+  /* Remembered per person, like the sidebar. The minimum is the fixed space
+     that stops the column being dragged away entirely. */
+  const asideWidth = usePanelWidth({
+    id: "communication-aside", userId: auth.user?.id ?? null,
+    defaultWidth: 384, min: 280, max: 620, invert: true,
+  });
   const prefs = useChannelPreferences(channelId);
   const [showMeeting, setShowMeeting] = useState(false);
   const pendingFiles = useRef<Map<string, File[]>>(new Map());
@@ -381,6 +389,13 @@ export function ConversationPane({
             </Fragment>
           ))
         )}
+        {/* Attached to the LAST MESSAGE, not pinned to the bottom of the pane.
+            Dee, 2026-09-17: "the SEEN by is showing at the very bottom" — a
+            strip above the composer sits alone at the foot of an empty panel
+            and reads as a property of the room. It belongs to the message it
+            is about, so it lives in the scroll flow under it. */}
+        <SeenBy readers={seenBy.data ?? []} className="pl-2"
+          lastMessageAt={rows.length > 0 ? rows[rows.length - 1].createdAt : null} />
         <div ref={bottomRef} />
       </div>
       )}
@@ -413,12 +428,8 @@ export function ConversationPane({
         </p>
       ) : (
         <>
-          {/* Above the composer, below the messages — where Dee's reference
-              puts it, and where it cannot push the conversation around. Read
-              receipts sit in the same strip, for the same reason: this is the
-              part of a conversation that is about right now. */}
-          <SeenBy readers={seenBy.data ?? []} className="border-t border-border pt-1"
-            lastMessageAt={rows.length > 0 ? rows[rows.length - 1].createdAt : null} />
+          {/* Typing stays pinned above the composer: it is about somebody
+              writing right now, and it must not move the conversation. */}
           <TypingIndicator people={typing} className="border-t border-border pt-1" />
           <Composer name={name} draftKey={channelId} sending={sender.send.isPending} error={sendError}
             onSend={send}
@@ -435,7 +446,26 @@ export function ConversationPane({
           thread is a full overlay and the details are reached from the
           Members tab instead, because there is room for one column. */}
       {(threadRoot !== null || showDetails) && (
-        <div className="hidden min-h-0 w-80 shrink-0 flex-col gap-3 overflow-y-auto border-l border-border p-3 md:flex lg:w-96">
+        <div
+          /* Resizable, with a minimum that keeps it readable — Dee, 2026-09-17:
+             "leave a fix space so the entire column wont be hidden or gone by
+             adjusting." Below ~280px a reply wraps to three words a line. */
+          style={{ "--aside-w": `${asideWidth.width}px` } as React.CSSProperties}
+          className={cn(
+            "relative hidden min-h-0 shrink-0 flex-col gap-3 overflow-y-auto border-l border-border p-3 md:flex md:w-[var(--aside-w)]",
+            asideWidth.dragging ? "" : "transition-[width] duration-150",
+          )}>
+          {/* The handle is on this column's LEFT edge, so the drag is
+              inverted: moving left makes it wider. */}
+          <div className="absolute inset-y-0 left-0">
+            <PanelResizer
+              label="Resize the thread and details column"
+              dragging={asideWidth.dragging}
+              onPointerDown={asideWidth.onPointerDown}
+              onNudge={(d) => asideWidth.setWidth(asideWidth.width + d)}
+              onReset={asideWidth.reset}
+            />
+          </div>
           {threadRoot !== null && (
             <ThreadPanel channelId={channelId} rootId={threadRoot}
               root={rows.find((m) => m.id === threadRoot) ?? null}
