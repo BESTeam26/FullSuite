@@ -25,6 +25,12 @@ export const AGENCY_PERMISSIONS = [
   "partners.financials.view", "partners.financials.edit", "partners.revenue.record",
   "partners.invoices.view", "partners.invoices.manage", "partners.payments.record",
   "finance.dashboard.view", "expenses.view", "expenses.manage",
+  /* The Finance module's own doors. Both are owner-gated in `permission_keys`
+     and both were missing from this list, which meant `can("billing.view")`
+     answered false for everybody — including the owner — because this file
+     reads the map THROUGH the list. A capability the database grants and the
+     front end does not know about is a capability nobody has. */
+  "billing.view", "billing.manage",
   "payroll.view", "payroll.manage",
   "org.structure.view", "org.structure.manage",
   "hub.files.manage", "ops.manage",

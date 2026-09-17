@@ -501,6 +501,10 @@ const AppRoutes = () => {
                 which reads the path and refuses on the
                 same spec the menu uses. */}
             <Route path="finance" element={<AgencyFinance />} />
+            {/* Finance has its own secondary navigation, so each section is a
+                real URL — bookmarkable, linkable from the Overview's attention
+                tiles, and shareable without losing context. */}
+            <Route path="finance/:section" element={<AgencyFinance />} />
             <Route
               path="billing"
               element={
