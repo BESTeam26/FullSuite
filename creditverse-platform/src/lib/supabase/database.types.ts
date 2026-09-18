@@ -1230,6 +1230,61 @@ export type Database = {
           },
         ]
       }
+      attendance_corrections: {
+        Row: {
+          agency_id: string
+          classification: string
+          decided_at: string
+          decided_by: string
+          id: string
+          reason: string
+          user_id: string
+          work_date: string
+        }
+        Insert: {
+          agency_id: string
+          classification: string
+          decided_at?: string
+          decided_by: string
+          id?: string
+          reason: string
+          user_id: string
+          work_date: string
+        }
+        Update: {
+          agency_id?: string
+          classification?: string
+          decided_at?: string
+          decided_by?: string
+          id?: string
+          reason?: string
+          user_id?: string
+          work_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_corrections_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_corrections_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_corrections_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_log: {
         Row: {
           action: string
@@ -18823,6 +18878,15 @@ export type Database = {
           p_kind?: string
           p_origin_status?: Database["public"]["Enums"]["fulfillment_client_status"]
           p_title?: string
+        }
+        Returns: string
+      }
+      record_attendance_correction: {
+        Args: {
+          p_classification: string
+          p_date: string
+          p_reason: string
+          p_user: string
         }
         Returns: string
       }

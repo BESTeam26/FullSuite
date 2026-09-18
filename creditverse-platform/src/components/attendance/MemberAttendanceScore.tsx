@@ -11,6 +11,7 @@ import { businessToday } from "@/lib/calendar/us-federal-holidays";
 import { factsFrom } from "@/lib/attendance/attendance-facts";
 import { quarterOf, scoreQuarter } from "@/lib/attendance/attendance-score";
 import { quarterRange } from "@/lib/attendance/use-attendance-score";
+import { latestPerDay, useAttendanceCorrections } from "@/lib/attendance/use-attendance-corrections";
 import { AttendanceSummary } from "./AttendanceSummary";
 
 export function MemberAttendanceScore({ userId }: { userId: string }) {
@@ -18,6 +19,7 @@ export function MemberAttendanceScore({ userId }: { userId: string }) {
   const { from, to } = quarterRange(today);
   const attendance = useAttendanceRange(from, to);
   const schedules = useSchedules();
+  const corrections = useAttendanceCorrections(from, to);
 
   const score = useMemo(() => {
     if (!attendance.data) return null;
@@ -25,8 +27,9 @@ export function MemberAttendanceScore({ userId }: { userId: string }) {
     const schedule = (schedules.data ?? []).find((s) => s.userId === userId);
     return scoreQuarter(factsFrom(theirs, schedule, { today }), {
       quarter: quarterOf(today), today,
+      corrections: latestPerDay(corrections.data ?? [], userId),
     });
-  }, [attendance.data, schedules.data, userId, today]);
+  }, [attendance.data, schedules.data, corrections.data, userId, today]);
 
   return (
     <div className="rounded-xl border border-border bg-card p-4">

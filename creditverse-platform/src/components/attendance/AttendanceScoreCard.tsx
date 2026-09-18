@@ -67,7 +67,9 @@ export function AttendanceScoreCard({ score }: { score: QuarterScore }) {
                 : <TrendingDown className="mt-0.5 h-3 w-3 shrink-0 text-status-warning" aria-hidden />}
               <span className="min-w-0">
                 <span className="block text-foreground">
-                  {l.label}{l.day && l.kind === "incident" ? ` · ${formatDate(l.day)}` : ""}
+                  {l.label}
+                  {l.day && (l.kind === "incident" || l.kind === "reversal")
+                    ? ` · ${formatDate(l.day)}` : ""}
                 </span>
                 {l.detail && <span className="block text-[11px] text-muted-foreground">{l.detail}</span>}
               </span>

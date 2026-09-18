@@ -49,8 +49,24 @@ export function AttendanceActivity({ rows, limit = 8 }: { rows: ActivityRow[]; l
                           clean ? "text-status-success" : "text-amber-600")} aria-hidden />
                         {TITLE[r.classification] ?? LABELS[r.classification]}
                       </span>
+                      {/* Dee: "Do not hide where the decision came from." */}
+                      {r.source === "corrected" && (
+                        <span className="mt-0.5 inline-block rounded-md bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-800">
+                          Corrected
+                        </span>
+                      )}
                     </td>
-                    <td className="py-2 pr-3 text-muted-foreground">{r.detail}</td>
+                    <td className="py-2 pr-3 text-muted-foreground">
+                      {r.detail}
+                      {/* Dee: "Do not make deductions disappear mysteriously."
+                          The original stands in the line above it. */}
+                      {r.correction && (
+                        <span className="block text-[11px]">
+                          Was {LABELS[r.originalClassification ?? "none"].toLowerCase()}
+                          {" · "}{r.correction.by} — “{r.correction.reason}”
+                        </span>
+                      )}
+                    </td>
                     <td className="py-2 text-right">
                       <span className={cn("rounded-md px-1.5 py-0.5 text-[11px] font-bold tabular-nums",
                         r.points < 0 ? "bg-amber-500/10 text-amber-900" : "text-muted-foreground")}>

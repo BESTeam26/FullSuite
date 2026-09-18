@@ -426,3 +426,47 @@ describe("the journey to the next achievement", () => {
     expect(r.nextAchievement?.detail).toContain("29 more");
   });
 });
+
+describe("where a classification came from", () => {
+  /* Dee, 2026-09-18: "Do not hide where the decision came from." */
+  const d = (day: string, over: Partial<AttendanceFact> = {}): AttendanceFact => ({
+    day, scheduled: true, approvedLeave: false, lateMinutes: 0,
+    workedMinutes: 480, scheduledMinutes: 480, notified: true, ...over,
+  });
+
+  it("marks a derived day automatic", () => {
+    const r = scoreQuarter([d("2026-09-08", { lateMinutes: 12, workedMinutes: 460 })], Q);
+    expect(r.activity[0]).toMatchObject({ source: "automatic", classification: "late" });
+    expect(r.activity[0].correction).toBeUndefined();
+  });
+
+  it("marks a changed day corrected, and keeps what it was", () => {
+    const r = scoreQuarter([d("2026-09-08", { workedMinutes: 0 })], {
+      ...Q,
+      corrections: [{
+        day: "2026-09-08", to: "approved_leave", reason: "Emergency approved",
+        by: "Bryan Breva", at: "2026-09-09T10:00:00.000Z",
+      }],
+    });
+    expect(r.activity[0]).toMatchObject({
+      source: "corrected", classification: "approved_leave", originalClassification: "absent",
+    });
+    expect(r.activity[0].correction?.by).toBe("Bryan Breva");
+  });
+
+  it("marks an escalation to NCNS as corrected too", () => {
+    /* Absent → NCNS is a manager's judgement, not something the records show,
+       and the row has to say so. */
+    const r = scoreQuarter([d("2026-09-08", { workedMinutes: 0 })], {
+      ...Q,
+      corrections: [{
+        day: "2026-09-08", to: "ncns", reason: "No contact all day",
+        by: "Bryan Breva", at: "2026-09-09T10:00:00.000Z",
+      }],
+    });
+    expect(r.activity[0]).toMatchObject({
+      source: "corrected", classification: "ncns", originalClassification: "absent",
+    });
+    expect(r.activity[0].points).toBe(-2);
+  });
+});

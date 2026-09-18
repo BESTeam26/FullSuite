@@ -22,6 +22,11 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { factsFrom } from "@/lib/attendance/attendance-facts";
 import { quarterOf, scoreQuarter } from "@/lib/attendance/attendance-score";
 import { quarterRange } from "@/lib/attendance/use-attendance-score";
+import {
+  latestPerDay, useAttendanceCorrections, useRecordCorrection,
+} from "@/lib/attendance/use-attendance-corrections";
+import { AttendanceReviewDrawer } from "@/components/attendance/AttendanceReviewDrawer";
+import { STANDING_BADGE, STANDING_LABEL } from "@/lib/attendance/attendance-score";
 import { businessToday } from "@/lib/calendar/us-federal-holidays";
 import { formatDuration } from "@/lib/time-domain";
 import { formatDate } from "@/lib/format-date";
@@ -31,12 +36,15 @@ import { cn } from "@/lib/utils";
 
 export function TeamManagement() {
   const [tab, setTab] = useState<TeamTab>("time");
+  const [reviewing, setReviewing] = useState<{ userId: string; name: string } | null>(null);
+  const record = useRecordCorrection();
   const workforce = useWorkforce();
   const auth = useAuth();
   const today = businessToday();
   const { from, to } = quarterRange(today);
   const attendance = useAttendanceRange(from, to);
   const schedules = useSchedules();
+  const corrections = useAttendanceCorrections(from, to);
 
   /*
    * Who this person may manage.
@@ -71,10 +79,11 @@ export function TeamManagement() {
       const schedule = (schedules.data ?? []).find((s) => s.userId === p.userId);
       out.set(p.userId, scoreQuarter(factsFrom(theirs, schedule, { today }), {
         quarter: quarterOf(today), today,
+        corrections: latestPerDay(corrections.data ?? [], p.userId),
       }));
     }
     return out;
-  }, [attendance.data, schedules.data, people, today]);
+  }, [attendance.data, schedules.data, corrections.data, people, today]);
 
   const todayRows = (attendance.data ?? []).filter((d) => d.day === today);
   const dayFor = (userId: string) => todayRows.find((d) => d.userId === userId);
@@ -141,33 +150,98 @@ export function TeamManagement() {
 
       {/* ── Attendance ────────────────────────────────────────────────── */}
       <TabsContent value="attendance" className="mt-3">
-        <ul className="space-y-3">
-          {people.map((p) => {
-            const score = attendanceByUser.get(p.userId);
-            return (
-              <li key={p.userId} className="rounded-2xl border border-border bg-card p-4">
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <Link to={`/app/people/${p.userId}`}
-                    className="text-sm font-bold text-foreground underline-offset-2 hover:underline">
-                    {p.name}
-                  </Link>
-                  {score && score.streakDays > 0 && (
-                    <span className="text-[11px] text-muted-foreground">
-                      {score.streakDays}-day streak
-                    </span>
-                  )}
-                </div>
-                {score
-                  ? <AttendanceSummary score={score} />
-                  : <p className="text-xs text-muted-foreground">Working it out…</p>}
-              </li>
-            );
-          })}
-        </ul>
+        <div className="overflow-x-auto rounded-2xl border border-border bg-card">
+          <table className="w-full text-left text-xs">
+            <thead className="border-b border-border text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              <tr>
+                <th className="px-3 py-2">Employee</th>
+                <th className="px-3 py-2 text-right">Score</th>
+                <th className="px-3 py-2">Standing</th>
+                <th className="px-3 py-2 text-right">Lates</th>
+                <th className="px-3 py-2 text-right">Half</th>
+                <th className="px-3 py-2 text-right">Absent</th>
+                <th className="px-3 py-2 text-right">NCNS</th>
+                <th className="px-3 py-2 text-right">Leave</th>
+                <th className="px-3 py-2 text-right">Streak</th>
+                <th className="px-3 py-2">Alerts</th>
+                <th className="px-3 py-2" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/60">
+              {people.map((p) => {
+                const sc = attendanceByUser.get(p.userId);
+                return (
+                  <tr key={p.userId}>
+                    <td className="px-3 py-2">
+                      <Link to={`/app/people/${p.userId}`}
+                        className="font-medium text-foreground underline-offset-2 hover:underline">
+                        {p.name}
+                      </Link>
+                    </td>
+                    <td className="px-3 py-2 text-right font-bold tabular-nums text-foreground">
+                      {sc ? sc.score.toFixed(2).replace(/\.00$/, "") : "—"}
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {sc ? `${STANDING_BADGE[sc.standing]} ${STANDING_LABEL[sc.standing]}` : "—"}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">{sc?.counts.late ?? 0}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{sc?.counts.half_day ?? 0}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{sc?.counts.absent ?? 0}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{sc?.counts.ncns ?? 0}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
+                      {sc?.counts.approved_leave ?? 0}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">{sc?.streakDays ?? 0}</td>
+                    <td className="px-3 py-2">
+                      {(sc?.alerts.length ?? 0) === 0 ? (
+                        <span className="text-muted-foreground">—</span>
+                      ) : (
+                        <span className="inline-flex flex-wrap gap-1">
+                          {sc!.alerts.map((a) => (
+                            <span key={a.kind} title={a.detail}
+                              className={cn("rounded-full border px-1.5 py-0.5 text-[10px] font-bold",
+                                a.kind === "management"
+                                  ? "border-destructive/30 bg-status-danger-tint text-status-danger"
+                                  : "border-amber-500/40 bg-amber-500/10 text-amber-900")}>
+                              {a.title}
+                            </span>
+                          ))}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <button type="button" disabled={!sc}
+                        onClick={() => setReviewing({ userId: p.userId, name: p.name })}
+                        className="rounded-lg border border-border bg-card px-2 py-1 text-[11px] font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50">
+                        Review attendance
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+              {people.length === 0 && (
+                <tr><td colSpan={11} className="px-3 py-8 text-center text-muted-foreground">
+                  Nobody is in your scope yet.
+                </td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
         <p className="mt-3 rounded-xl border border-border bg-card px-4 py-3 text-[11px] text-muted-foreground">
-          Scores are derived from the attendance record and cannot be edited by hand. A
-          correction is recorded as a reversal, with who made it and why.
+          Scores are derived and cannot be typed. Correcting a day records a reversal beside
+          the original — nothing is deleted, and the person is told.
         </p>
+
+        {reviewing && attendanceByUser.get(reviewing.userId) && (
+          <AttendanceReviewDrawer
+            name={reviewing.name}
+            score={attendanceByUser.get(reviewing.userId)!}
+            busy={record.isPending}
+            error={(record.error as Error | null)?.message ?? null}
+            onClose={() => { setReviewing(null); record.reset(); }}
+            onCorrect={(v) => record.mutate({ userId: reviewing.userId, ...v })}
+          />
+        )}
       </TabsContent>
 
       {/* ── Availability ──────────────────────────────────────────────── */}

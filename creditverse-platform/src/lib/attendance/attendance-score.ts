@@ -283,6 +283,18 @@ export interface ActivityRow {
   /** "12 minutes after shift start", "No violations". */
   detail: string;
   points: number;
+  /**
+   * Where the classification came from. Dee, 2026-09-18: "Every attendance
+   * event should clearly indicate its source… Do not hide where the decision
+   * came from."
+   *
+   *   automatic  derived from the schedule and the timesheet
+   *   corrected  a manager changed what the records said
+   */
+  source: "automatic" | "corrected";
+  /** What it was before a manager changed it. */
+  originalClassification?: Classification;
+  correction?: { reason: string; by: string; at: string };
 }
 
 export interface NextAchievement {
@@ -547,6 +559,8 @@ export function scoreQuarter(
     .slice().reverse()
     .map((f) => {
       const c = effective.get(f.day) ?? "none";
+      const fix = correctionFor.get(f.day);
+      const original = classifyDay(f);
       const detail =
         c === "late" ? `${f.lateMinutes} minute${f.lateMinutes === 1 ? "" : "s"} after the grace period`
         : c === "half_day" ? `${Math.round(f.workedMinutes / 60)}h of a ${Math.round(f.scheduledMinutes / 60)}h shift`
@@ -554,7 +568,14 @@ export function scoreQuarter(
         : c === "ncns" ? "Whole shift missed, no notice"
         : c === "approved_leave" ? "Approved leave — no deduction"
         : "No violations";
-      return { day: f.day, classification: c, detail, points: POINTS[c] };
+      return {
+        day: f.day, classification: c, detail, points: POINTS[c],
+        source: fix ? "corrected" as const : "automatic" as const,
+        ...(fix ? {
+          originalClassification: original,
+          correction: { reason: fix.reason, by: fix.by, at: fix.at },
+        } : {}),
+      };
     });
 
   return {

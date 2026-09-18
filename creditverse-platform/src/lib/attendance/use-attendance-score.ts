@@ -11,6 +11,7 @@ import { useAttendanceRange, useSchedules } from "@/lib/data/use-people";
 import { useAuth } from "@/lib/auth/auth-context";
 import { businessToday } from "@/lib/calendar/us-federal-holidays";
 import { factsFrom } from "./attendance-facts";
+import { latestPerDay, useAttendanceCorrections } from "./use-attendance-corrections";
 import { quarterOf, scoreQuarter, type QuarterScore } from "./attendance-score";
 
 /** First and last calendar day of the quarter a date falls in. */
@@ -29,6 +30,9 @@ export function useMyAttendanceScore(): { score: QuarterScore | null; isLoading:
   const { from, to } = quarterRange(today);
   const attendance = useAttendanceRange(from, to);
   const schedules = useSchedules();
+  /* Corrections change the score, so they are part of it — not an annotation
+     on top. A manager reversing an absence must move the number. */
+  const corrections = useAttendanceCorrections(from, to);
 
   const score = useMemo(() => {
     if (!attendance.data) return null;
@@ -36,8 +40,11 @@ export function useMyAttendanceScore(): { score: QuarterScore | null; isLoading:
     const schedule = (schedules.data ?? []).find((s) => s.userId === auth.user?.id)
       ?? (schedules.data ?? [])[0];
     const facts = factsFrom(mine, schedule, { today });
-    return scoreQuarter(facts, { quarter: quarterOf(today), today });
-  }, [attendance.data, schedules.data, auth.user?.id, today]);
+    return scoreQuarter(facts, {
+      quarter: quarterOf(today), today,
+      corrections: latestPerDay(corrections.data ?? [], auth.user?.id ?? ""),
+    });
+  }, [attendance.data, schedules.data, corrections.data, auth.user?.id, today]);
 
   return { score, isLoading: attendance.isPending || schedules.isPending };
 }
