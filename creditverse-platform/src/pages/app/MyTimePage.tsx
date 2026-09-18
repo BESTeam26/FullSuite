@@ -28,7 +28,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import {
-  AlertTriangle, CalendarDays, CalendarOff, Clock, Home, Users,
+  AlertTriangle, CalendarDays, CalendarOff, ChevronLeft, ChevronRight, Clock, Home, Users,
 } from "lucide-react";
 import { ContentCard, StatCard } from "@/components/dashboard/DivisionLayout";
 import { DataSourceBadge } from "@/components/dashboard/DataSourceBadge";
@@ -40,8 +40,8 @@ import { useAgencyPartners } from "@/lib/data/use-agency-partners";
 import { formatDate } from "@/lib/format-date";
 import type { TimeAdjustmentRequest, TimeEntry } from "@/lib/data/time-entries";
 import {
-  STALE_TIMER_HOURS, describeRunningFor, formatClock, formatDuration,
-  isStaleTimer, lateMinutesToday, liveDaySeconds, weekStart,
+  STALE_TIMER_HOURS, describeRunningFor, formatClock, formatDuration, humanDuration,
+  isStaleTimer, lateSecondsToday, liveDaySeconds, weekStart,
 } from "@/lib/time-domain";
 import {
   partnerSplit, recentWork, todayTimeline, weekBars, weekRangeLabel,
@@ -50,6 +50,8 @@ import { TimerCard } from "@/components/time/TimerCard";
 import { StartWorkCard, type StartRequest } from "@/components/time/StartWorkCard";
 import { WeekChart } from "@/components/time/WeekChart";
 import { TodayTimeline } from "@/components/time/TodayTimeline";
+import { RequestTimeOffDialog } from "@/components/time/RequestTimeOffDialog";
+import { businessDaysBetween, businessToday } from "@/lib/calendar/us-federal-holidays";
 
 /**
  * One shared heartbeat for every counter on the page. It beats only while a
@@ -98,7 +100,10 @@ export const MyTimePage = () => {
   const mySchedule = (schedules.data ?? [])[0];
   const overBreakSec = mySchedule ? Math.max(0, live.breakSeconds - mySchedule.breakMinutes * 60) : 0;
   const overLunchSec = mySchedule ? Math.max(0, live.lunchSeconds - mySchedule.lunchMinutes * 60) : 0;
-  const lateMin = mySchedule ? lateMinutesToday(entries, mySchedule, t.today, now) : 0;
+  /* Seconds, said in words. Dee, 2026-09-18: "387m late … i want it converted
+     easy to human to understand" — a number somebody has to divide by 60 in
+     their head is a number they will misread. */
+  const lateSec = mySchedule ? lateSecondsToday(entries, mySchedule, t.today, now) : 0;
   /* A timer left running overnight quietly corrupts production and End of Day,
      so it is said out loud. Stopping it stays the person's own act. */
   const stale = isStaleTimer(t.openEntry);
@@ -112,10 +117,35 @@ export const MyTimePage = () => {
       description="Start, stop, and keep moving."
       icon={Clock}
       actions={
-        <span className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground">
-          <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-          {weekRangeLabel(weekStart())}
-        </span>
+        /* The arrows are present and honest about what they do. `useTimesheet`
+           loads THIS week only, so stepping away would show an empty week and
+           look broken; they are disabled with the reason said out loud rather
+           than left out of the design or wired to nothing (rule 12: no
+           dishonest controls). The full history lives in Team Time. */
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1">
+            <button type="button" disabled aria-label="Previous week"
+              title="My Time shows the current week. Earlier weeks are in Team Time."
+              className="rounded-lg border border-border bg-card p-1.5 text-muted-foreground disabled:cursor-not-allowed disabled:opacity-40">
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </button>
+            <span className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground">
+              <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+              {weekRangeLabel(weekStart())}
+            </span>
+            <button type="button" disabled aria-label="Next week"
+              title="This is the current week."
+              className="rounded-lg border border-border bg-card p-1.5 text-muted-foreground disabled:cursor-not-allowed disabled:opacity-40">
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">This week</p>
+            <p className="text-lg font-extrabold tabular-nums leading-tight text-foreground">
+              {formatDuration(t.weekMinutes)}
+            </p>
+          </div>
+        </div>
       }
     >
       <div className="mb-4 flex items-center gap-2">
@@ -141,6 +171,10 @@ export const MyTimePage = () => {
         <StatCard label="Internal work" value={formatDuration(split.internalMinutes)} icon={Home} />
       </div>
 
+      {/* Dee, 2026-09-18: "I like the previous layout, quick timer on the
+          right and the history at the bottom." So: what is running fills the
+          row, what to start next sits beside it, and the record of the day
+          goes below — read far less often than either. */}
       <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         {t.openEntry ? (
           <TimerCard
@@ -158,7 +192,7 @@ export const MyTimePage = () => {
             <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Ready</span>
             <p className="mt-1 font-mono text-4xl font-extrabold tabular-nums text-muted-foreground">00:00:00</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              No timer running. Pick something on the right, or start one below.
+              No timer running. Pick something on the right to start one.
             </p>
           </div>
         )}
@@ -189,17 +223,17 @@ export const MyTimePage = () => {
         </div>
       )}
 
-      {mySchedule && (lateMin > 0 || overBreakSec > 0 || overLunchSec > 0) && (
+      {mySchedule && (lateSec > 0 || overBreakSec > 0 || overLunchSec > 0) && (
         <div role="status" className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-xs text-amber-900">
           <AlertTriangle className="h-4 w-4 shrink-0 text-status-warning" />
-          {lateMin > 0 && (
-            <span><strong>{lateMin}m late</strong> today (shift starts {mySchedule.shiftStart.slice(0, 5)} {mySchedule.timezone}, {mySchedule.graceMinutes}m grace).</span>
+          {lateSec > 0 && (
+            <span><strong>{humanDuration(lateSec)} late</strong> today — your shift starts at {mySchedule.shiftStart.slice(0, 5)} ({mySchedule.timezone}) with {humanDuration(mySchedule.graceMinutes * 60)} of grace.</span>
           )}
           {overBreakSec > 0 && (
-            <span><strong>Over break by {formatClock(overBreakSec)}</strong> — {mySchedule.breakMinutes}m of break is paid; over-break is not.</span>
+            <span><strong>Over break by {humanDuration(overBreakSec)}</strong> — {humanDuration(mySchedule.breakMinutes * 60)} of break is paid; over-break is not.</span>
           )}
           {overLunchSec > 0 && (
-            <span><strong>Over lunch by {formatClock(overLunchSec)}</strong> — the lunch allowance is {mySchedule.lunchMinutes}m.</span>
+            <span><strong>Over lunch by {humanDuration(overLunchSec)}</strong> — the lunch allowance is {humanDuration(mySchedule.lunchMinutes * 60)}.</span>
           )}
         </div>
       )}
@@ -250,26 +284,28 @@ export const MyTimePage = () => {
           <TimeOffCard />
         </div>
       </div>
+
     </HqPageShell>
   );
 };
 
 /**
- * Requesting time off, and where past requests stand. Submitting notifies the
- * team's leads; a lead or manager decides (never their own) and the decision
- * lands back here with who made it and why.
+ * Time off, as a summary rather than a form.
+ *
+ * Dee's mockup, 2026-09-18: a small card — "2 upcoming · 1 pending" — with the
+ * next few requests and a button. The form itself moved into a dialog, because
+ * a six-control form sitting permanently open on a page about the CLOCK is a
+ * form nobody reads and a page nobody can scan.
+ *
+ * Submitting notifies the team's leads; a lead or manager decides (never their
+ * own) and the decision lands back here with who made it and why.
  */
 const TimeOffCard = () => {
   const types = useLeaveTypes();
   const mine = useMyLeave();
   const actions = useLeaveActions();
-  const [typeId, setTypeId] = useState("");
-  const [startsOn, setStartsOn] = useState("");
-  const [endsOn, setEndsOn] = useState("");
-  const [reason, setReason] = useState("");
+  const [asking, setAsking] = useState(false);
 
-  const chosenType = typeId || (types.data?.[0]?.id ?? "");
-  const canSubmit = Boolean(chosenType && startsOn && endsOn && endsOn >= startsOn);
   const STATUS_TONE: Record<string, string> = {
     pending: "border-amber-500/40 bg-amber-500/10 text-amber-800",
     approved: "border-emerald-500/40 bg-emerald-500/10 text-emerald-800",
@@ -277,62 +313,60 @@ const TimeOffCard = () => {
     cancelled: "border-border bg-muted text-muted-foreground",
   };
 
+  const all = mine.data ?? [];
+  const today = businessToday();
+  const pending = all.filter((r) => r.status === "pending").length;
+  /* "Upcoming" is approved leave still ahead of them — what they are counting
+     down to, not everything ever requested. */
+  const upcoming = all.filter((r) => r.status === "approved" && r.endsOn >= today).length;
+  /* Newest first, and only a few: the card is a summary. */
+  const shown = [...all].sort((a, b) => (a.startsOn < b.startsOn ? 1 : -1)).slice(0, 3);
+
   return (
-    <ContentCard title={<span className="flex items-center gap-2"><CalendarOff className="h-4 w-4 text-muted-foreground" /> Time off</span>}>
-      <div className="flex flex-wrap items-end gap-2">
-        <label className="text-xs text-muted-foreground">
-          Type
-          <select value={chosenType} onChange={(e) => setTypeId(e.target.value)}
-            className="mt-0.5 block rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground">
-            {(types.data ?? []).map((ty) => (
-              <option key={ty.id} value={ty.id}>{ty.label}{ty.paid ? "" : " (unpaid)"}</option>
-            ))}
-          </select>
-        </label>
-        <label className="text-xs text-muted-foreground">
-          From
-          <input type="date" value={startsOn} onChange={(e) => setStartsOn(e.target.value)}
-            className="mt-0.5 block rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground" />
-        </label>
-        <label className="text-xs text-muted-foreground">
-          To
-          <input type="date" value={endsOn} onChange={(e) => setEndsOn(e.target.value)}
-            className="mt-0.5 block rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground" />
-        </label>
-        <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason (optional)"
-          className="min-w-[180px] flex-1 rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground" />
-        <button type="button" disabled={!canSubmit || actions.submit.isPending}
-          onClick={() => actions.submit.mutate(
-            { typeId: chosenType, startsOn, endsOn, reason: reason || undefined },
-            { onSuccess: () => { setStartsOn(""); setEndsOn(""); setReason(""); } },
-          )}
-          className="rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-800 disabled:opacity-50">
-          Request
-        </button>
-      </div>
-      {actions.submit.error && (
-        <p className="mt-2 text-xs font-semibold text-status-danger">{(actions.submit.error as Error).message}</p>
-      )}
-      {(mine.data ?? []).length > 0 && (
-        <ul className="mt-3 divide-y divide-border/50">
-          {(mine.data ?? []).map((r) => (
+    <ContentCard
+      title={
+        <span className="flex w-full flex-wrap items-center justify-between gap-2">
+          <span className="flex items-center gap-2">
+            <CalendarOff className="h-4 w-4 text-muted-foreground" aria-hidden /> Time off
+          </span>
+          <button type="button" onClick={() => setAsking(true)}
+            className="rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            Request time off
+          </button>
+        </span>
+      }
+    >
+      <p className="-mt-1 mb-2 text-[11px] text-muted-foreground">
+        {upcoming > 0 || pending > 0
+          ? [upcoming > 0 ? `${upcoming} upcoming` : null, pending > 0 ? `${pending} pending` : null]
+              .filter(Boolean).join(" · ")
+          : "Nothing booked."}
+      </p>
+
+      {shown.length > 0 && (
+        <ul className="divide-y divide-border/50">
+          {shown.map((r) => (
             <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-xs">
-              <span className="text-foreground">
-                {r.typeLabel} · {formatDate(r.startsOn)}{r.endsOn !== r.startsOn ? ` – ${formatDate(r.endsOn)}` : ""}
-                {r.reason ? <span className="text-muted-foreground"> · {r.reason}</span> : null}
-              </span>
-              <span className="flex items-center gap-2">
+              <span className="min-w-0">
+                <span className="block truncate font-medium text-foreground">{r.typeLabel}</span>
+                <span className="block truncate text-[11px] text-muted-foreground">
+                  {formatDate(r.startsOn)}{r.endsOn !== r.startsOn ? ` – ${formatDate(r.endsOn)}` : ""}
+                  {" · "}
+                  {businessDaysBetween(r.startsOn, r.endsOn)} working day{businessDaysBetween(r.startsOn, r.endsOn) === 1 ? "" : "s"}
+                </span>
                 {r.decidedByName && (
-                  <span className="text-[10px] text-muted-foreground">
+                  <span className="block truncate text-[10px] text-muted-foreground">
                     by {r.decidedByName}{r.decisionNote ? ` — "${r.decisionNote}"` : ""}
                   </span>
                 )}
+              </span>
+              <span className="flex shrink-0 items-center gap-2">
                 <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${STATUS_TONE[r.status]}`}>
                   {r.status}
                 </span>
                 {r.status === "pending" && (
                   <button type="button" onClick={() => actions.cancel.mutate(r.id)}
-                    className="text-[10px] text-muted-foreground underline-offset-2 hover:underline">
+                    className="text-[10px] text-muted-foreground underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                     Withdraw
                   </button>
                 )}
@@ -340,6 +374,16 @@ const TimeOffCard = () => {
             </li>
           ))}
         </ul>
+      )}
+
+      {asking && (
+        <RequestTimeOffDialog
+          types={(types.data ?? []).map((t) => ({ id: t.id, label: t.label, paid: t.paid }))}
+          busy={actions.submit.isPending}
+          error={(actions.submit.error as Error | null)?.message ?? null}
+          onClose={() => setAsking(false)}
+          onSubmit={(v) => actions.submit.mutate(v, { onSuccess: () => setAsking(false) })}
+        />
       )}
     </ContentCard>
   );

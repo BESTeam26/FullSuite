@@ -74,7 +74,7 @@ export function useLeaveActions() {
   };
   return {
     submit: useMutation({
-      mutationFn: (v: { typeId: string; startsOn: string; endsOn: string; reason?: string }) => {
+      mutationFn: (v: { typeId: string; startsOn: string; endsOn: string; reason?: string; coverageNote?: string }) => {
         if (!agencyId || !userId) return Promise.reject(new Error("No agency context."));
         return submitLeave({ agencyId, userId, ...v });
       },

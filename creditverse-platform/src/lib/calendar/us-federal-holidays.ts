@@ -259,6 +259,29 @@ export function addDays(date: string, days: number): string {
  * a holiday exists is an agency SOP decision, and quietly rescheduling client
  * work would be the software making it (Dee, §25).
  */
+/**
+ * Working days covered by a leave request, both ends included.
+ *
+ * Dee's mockup shows "5 working days" under the dates. It is NOT the number of
+ * calendar days: a Monday-to-Friday request is five, and the same five dates
+ * across a weekend are three. Derived from `isBusinessDay`, so a federal
+ * holiday inside the range does not get counted as leave somebody has to
+ * spend — the same calendar the rest of the product already uses (rule 2).
+ *
+ * Returns 0 for a backwards range rather than a negative count.
+ */
+export function businessDaysBetween(from: string, to: string): number {
+  if (!from || !to || to < from) return 0;
+  let days = 0;
+  for (let d = from; d <= to; d = addDays(d, 1)) {
+    if (isBusinessDay(d)) days += 1;
+    /* A request is capped at 62 days by the database; this guard is against a
+       malformed date silently spinning rather than against real input. */
+    if (days > 400) break;
+  }
+  return days;
+}
+
 export function deadlineWarning(dueDate: string): string | null {
   const [y, m, d] = dueDate.split("-").map(Number);
   const wd = weekdayOf(y, m, d);

@@ -96,13 +96,42 @@ function wallTime(at: Date, timezone: string): string {
 }
 
 /**
- * How late the first work clock-in is against the schedule, in minutes.
- * 0 when on time, not a scheduled day, or nothing recorded yet. Wall-clock
- * comparison in the SCHEDULE's own timezone — the same arithmetic
- * `attendance_for` runs in SQL, so the agent's warning and the manager's
- * mark can never disagree.
+ * The same span, spelled out: "6 hours 27 minutes".
+ *
+ * Dee, 2026-09-18: *"387m late … i want it converted easy to human to
+ * understand, state how many hours, mins, sec late instead of just minutes
+ * that needs to be converted by human mind."*
+ *
+ * `formatClock` ("6h 27m 12s") and `formatDuration` ("6h 27m") are for figures
+ * you SKIM — a tile, a table cell, a total. This is for a sentence somebody
+ * reads once and has to act on, where "387m" makes them do the division.
+ *
+ * Zero parts are dropped, so it never reads "0 hours 5 minutes". Seconds are
+ * dropped once there are hours: nobody needs them at that scale, and printing
+ * them implies a precision the schedule does not have.
  */
-export function lateMinutesToday(
+export function humanDuration(totalSeconds: number): string {
+  const s = Math.max(0, Math.round(totalSeconds));
+  if (s < 1) return "0 seconds";
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  const part = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  const parts: string[] = [];
+  if (h > 0) parts.push(part(h, "hour"));
+  if (m > 0) parts.push(part(m, "minute"));
+  if (sec > 0 && h === 0) parts.push(part(sec, "second"));
+  return parts.join(" ");
+}
+
+/**
+ * How late the first work clock-in is against the schedule, in SECONDS.
+ *
+ * The seconds were always computed and then thrown away by rounding up to a
+ * minute. Keeping them means "48 seconds late" can be said as 48 seconds
+ * rather than as "1m".
+ */
+export function lateSecondsToday(
   entries: TimeEntry[],
   schedule: { workDays: number[]; shiftStart: string; graceMinutes: number; timezone: string },
   today: string,
@@ -117,11 +146,28 @@ export function lateMinutesToday(
   if (!firstIn) return 0;
   const inWall = wallTime(firstIn, schedule.timezone);
   const [h, m] = schedule.shiftStart.split(":").map(Number);
-  const graceEnd = h * 60 + m + schedule.graceMinutes;
+  const graceEndSec = (h * 60 + m + schedule.graceMinutes) * 60;
   const [ih, im, is] = inWall.split(":").map(Number);
-  const inMinutes = ih * 60 + im + is / 60;
   void now;
-  return Math.max(0, Math.ceil(inMinutes - graceEnd));
+  return Math.max(0, Math.round(ih * 3600 + im * 60 + is - graceEndSec));
+}
+
+/**
+ * How late the first work clock-in is against the schedule, in minutes.
+ * 0 when on time, not a scheduled day, or nothing recorded yet. Wall-clock
+ * comparison in the SCHEDULE's own timezone — the same arithmetic
+ * `attendance_for` runs in SQL, so the agent's warning and the manager's
+ * mark can never disagree.
+ */
+export function lateMinutesToday(
+  entries: TimeEntry[],
+  schedule: { workDays: number[]; shiftStart: string; graceMinutes: number; timezone: string },
+  today: string,
+  now: Date = new Date(),
+): number {
+  /* Derived, not computed a second time: two copies of this arithmetic is how
+     the agent's warning and the manager's mark come to disagree. */
+  return Math.ceil(lateSecondsToday(entries, schedule, today, now) / 60);
 }
 
 /** Monday-based week start for a given date, as YYYY-MM-DD. */

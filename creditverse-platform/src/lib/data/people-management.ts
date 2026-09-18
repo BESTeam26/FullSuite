@@ -118,6 +118,8 @@ export interface LeaveRequest {
   startsOn: string;
   endsOn: string;
   reason: string | null;
+  /** How the work is covered while they are away — not why they are away. */
+  coverageNote: string | null;
   status: "pending" | "approved" | "declined" | "cancelled";
   decidedByName: string | null;
   decidedAt: string | null;
@@ -127,7 +129,7 @@ export interface LeaveRequest {
 }
 
 const LEAVE_SELECT =
-  "id, user_id, type_id, starts_on, ends_on, reason, status, decided_at, decision_note, created_at, " +
+  "id, user_id, type_id, starts_on, ends_on, reason, coverage_note, status, decided_at, decision_note, created_at, " +
   "leave_types(label), " +
   "decider:profiles!leave_requests_decided_by_fkey(full_name, email), " +
   "requester:profiles!leave_requests_user_id_fkey(full_name, email)";
@@ -144,6 +146,7 @@ const mapLeave = (r: Record<string, unknown>): LeaveRequest => {
     startsOn: r.starts_on as string,
     endsOn: r.ends_on as string,
     reason: (r.reason as string) ?? null,
+    coverageNote: (r.coverage_note as string) ?? null,
     status: r.status as LeaveRequest["status"],
     decidedByName: d?.full_name?.trim() || d?.email || null,
     decidedAt: (r.decided_at as string) ?? null,
@@ -177,7 +180,7 @@ export async function fetchPendingLeave(): Promise<LeaveRequest[]> {
 
 export async function submitLeave(input: {
   agencyId: string; userId: string; typeId: string;
-  startsOn: string; endsOn: string; reason?: string;
+  startsOn: string; endsOn: string; reason?: string; coverageNote?: string;
 }): Promise<void> {
   const sb = requireSupabase();
   const { error } = await sb.from("leave_requests").insert({
@@ -187,6 +190,7 @@ export async function submitLeave(input: {
     starts_on: input.startsOn,
     ends_on: input.endsOn,
     reason: input.reason?.trim() || null,
+    coverage_note: input.coverageNote?.trim() || null,
   });
   if (error) {
     if (error.code === "23P01") {

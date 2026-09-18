@@ -1855,6 +1855,8 @@ export type Database = {
           partner_topic: string | null
           purpose: string | null
           system_key: string | null
+          visibility_changed_at: string | null
+          visibility_changed_by: string | null
         }
         Insert: {
           agency_id?: string | null
@@ -1873,6 +1875,8 @@ export type Database = {
           partner_topic?: string | null
           purpose?: string | null
           system_key?: string | null
+          visibility_changed_at?: string | null
+          visibility_changed_by?: string | null
         }
         Update: {
           agency_id?: string | null
@@ -1891,6 +1895,8 @@ export type Database = {
           partner_topic?: string | null
           purpose?: string | null
           system_key?: string | null
+          visibility_changed_at?: string | null
+          visibility_changed_by?: string | null
         }
         Relationships: [
           {
@@ -1940,6 +1946,13 @@ export type Database = {
             columns: ["partner_service_id"]
             isOneToOne: false
             referencedRelation: "partner_services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channels_visibility_changed_by_fkey"
+            columns: ["visibility_changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -7194,6 +7207,7 @@ export type Database = {
       leave_requests: {
         Row: {
           agency_id: string
+          coverage_note: string | null
           created_at: string
           decided_at: string | null
           decided_by: string | null
@@ -7208,6 +7222,7 @@ export type Database = {
         }
         Insert: {
           agency_id: string
+          coverage_note?: string | null
           created_at?: string
           decided_at?: string | null
           decided_by?: string | null
@@ -7222,6 +7237,7 @@ export type Database = {
         }
         Update: {
           agency_id?: string
+          coverage_note?: string | null
           created_at?: string
           decided_at?: string | null
           decided_by?: string | null
@@ -16850,6 +16866,10 @@ export type Database = {
       }
       channel_manager: { Args: { p_channel: string }; Returns: boolean }
       channel_member_of: { Args: { p_channel: string }; Returns: boolean }
+      channel_member_still_active: {
+        Args: { p_channel: string; p_user: string }
+        Returns: boolean
+      }
       channel_mentionable: {
         Args: { p_channel: string }
         Returns: {
@@ -16926,6 +16946,16 @@ export type Database = {
       channel_notifiable: {
         Args: { p_channel: string; p_user: string }
         Returns: boolean
+      }
+      channel_roster: {
+        Args: { p_channel: string }
+        Returns: {
+          hint: string
+          id: string
+          is_manager: boolean
+          kind: string
+          name: string
+        }[]
       }
       channel_seen_by: {
         Args: { p_channel: string }
@@ -19140,6 +19170,10 @@ export type Database = {
       set_channel_notifications: {
         Args: { p_channel: string; p_level: string }
         Returns: string
+      }
+      set_channel_visibility: {
+        Args: { p_channel: string; p_public: boolean }
+        Returns: undefined
       }
       set_client_department_status: {
         Args: {

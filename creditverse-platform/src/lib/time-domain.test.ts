@@ -5,7 +5,9 @@ import {
   entrySeconds,
   formatClock,
   formatDuration,
+  humanDuration,
   lateMinutesToday,
+  lateSecondsToday,
   liveDaySeconds,
   stopwatch,
   summariseTime,
@@ -241,5 +243,60 @@ describe("the live stopwatch", () => {
 
   it("never shows a negative clock from a clock-skewed start", () => {
     expect(stopwatch(-5)).toBe("00:00:00");
+  });
+});
+
+describe("a duration a person reads rather than converts", () => {
+  /* Dee, 2026-09-18: "387m late … i want it converted easy to human to
+     understand, state how many hours, mins, sec late instead of just minutes
+     that needs to be converted by human mind." */
+  it("says the hours instead of leaving 387 minutes to be divided", () => {
+    expect(humanDuration(387 * 60)).toBe("6 hours 27 minutes");
+  });
+
+  it("uses seconds when that is the whole story", () => {
+    expect(humanDuration(48)).toBe("48 seconds");
+    expect(humanDuration(90)).toBe("1 minute 30 seconds");
+  });
+
+  it("drops the seconds once there are hours, rather than implying precision", () => {
+    expect(humanDuration(3600 + 60 + 12)).toBe("1 hour 1 minute");
+  });
+
+  it("never reads '0 hours'", () => {
+    expect(humanDuration(5 * 60)).toBe("5 minutes");
+    expect(humanDuration(3600)).toBe("1 hour");
+  });
+
+  it("gets the singular right", () => {
+    expect(humanDuration(1)).toBe("1 second");
+    expect(humanDuration(60)).toBe("1 minute");
+  });
+
+  it("says nothing dramatic for nothing", () => {
+    expect(humanDuration(0)).toBe("0 seconds");
+    expect(humanDuration(-10)).toBe("0 seconds");
+  });
+});
+
+describe("lateness keeps its seconds", () => {
+  const schedule = { workDays: [1, 2, 3, 4, 5], shiftStart: "09:00:00", graceMinutes: 5, timezone: "America/New_York" };
+  const late = (startedAt: string) =>
+    lateSecondsToday([entry({ workDate: "2026-09-18", startedAt, kind: "work" })], schedule, "2026-09-18");
+
+  it("counts from the end of grace, not from the shift start", () => {
+    /* 09:05:48 New York = 13:05:48 UTC. 48 seconds past grace. */
+    expect(late("2026-09-18T13:05:48.000Z")).toBe(48);
+  });
+
+  it("is nothing when inside the grace window", () => {
+    expect(late("2026-09-18T13:04:00.000Z")).toBe(0);
+  });
+
+  it("still agrees with the minute figure the manager's view uses", () => {
+    /* One rule, two units — the minute number is derived from this one, so
+       the agent's warning and the attendance mark cannot drift apart. */
+    const entries = [entry({ workDate: "2026-09-18", startedAt: "2026-09-18T13:05:48.000Z", kind: "work" })];
+    expect(lateMinutesToday(entries, schedule, "2026-09-18")).toBe(1);
   });
 });

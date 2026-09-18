@@ -3,6 +3,7 @@ import {
   addDays, businessToday, deadlineWarning, displayName, holidaysForYear,
   holidayToday, isBusinessDay, nextBusinessDay, statusOf, upcomingHolidays,
   weekdayOf,
+  businessDaysBetween,
 } from "./us-federal-holidays";
 
 const on = (year: number, key: string) => holidaysForYear(year).find((h) => h.key === key)!;
@@ -182,5 +183,41 @@ describe("display names are a policy choice, kept apart from the dates", () => {
 
   it("keeps Columbus Day's federal date accurate whatever it is called", () => {
     expect(on(2026, "columbus_day").date).toBe("2026-10-12");
+  });
+});
+
+describe("working days in a leave request", () => {
+  /* Dee's mockup: "5 working days" under the dates. Not calendar days — the
+     number somebody actually spends. */
+  it("counts both ends of a Monday-to-Friday week", () => {
+    expect(businessDaysBetween("2026-10-05", "2026-10-09")).toBe(5);
+  });
+
+  it("does not charge somebody for the weekend", () => {
+    /* Fri 18th to Mon 21st is four calendar days and two working ones. The
+       first draft of this used 9–12 October and expected 2; it is 1, because
+       Columbus Day is the second Monday. The code was right and the test was
+       wrong — which is the point of deriving holidays rather than listing
+       weekends. */
+    expect(businessDaysBetween("2026-09-18", "2026-09-21")).toBe(2);
+  });
+
+  it("does not charge somebody for a federal holiday", () => {
+    /* Thanksgiving 2026 is Thursday 26 November. Mon 23rd – Fri 27th is five
+       weekdays and four days of leave. */
+    expect(businessDaysBetween("2026-11-23", "2026-11-27")).toBe(4);
+  });
+
+  it("counts a single working day as one", () => {
+    expect(businessDaysBetween("2026-09-25", "2026-09-25")).toBe(1);
+  });
+
+  it("counts a single weekend day as none", () => {
+    expect(businessDaysBetween("2026-09-26", "2026-09-26")).toBe(0);
+  });
+
+  it("returns nothing for a backwards or empty range rather than a negative", () => {
+    expect(businessDaysBetween("2026-10-09", "2026-10-05")).toBe(0);
+    expect(businessDaysBetween("", "2026-10-05")).toBe(0);
   });
 });
