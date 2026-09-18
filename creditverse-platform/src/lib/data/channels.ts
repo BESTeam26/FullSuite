@@ -503,6 +503,10 @@ export interface ChannelDetails {
   /** Null on an unnamed direct conversation: it is described, not named. */
   name: string | null;
   canRename: boolean;
+  /** Whether this person may open or lock the conversation. False on a group chat. */
+  canSetVisibility: boolean;
+  /** A default channel. It may be renamed, but never made private. */
+  isDefault: boolean;
   purpose: string | null;
   kind: string;
   openToScope: boolean;
@@ -535,6 +539,8 @@ export async function fetchChannelDetails(channelId: string): Promise<ChannelDet
   return {
     name: (d.name as string) ?? null,
     canRename: d.can_rename === true,
+    canSetVisibility: d.can_set_visibility === true,
+    isDefault: d.is_default === true,
     files: Number(d.files ?? 0),
     pins: Number(d.pins ?? 0),
     timezone: typeof d.timezone === "string" && d.timezone ? d.timezone : "America/New_York",
@@ -564,6 +570,21 @@ export async function setChannelNotifications(
   const sb = requireSupabase();
   const { error } = await sb.rpc("set_channel_notifications" as never,
     { p_channel: channelId, p_level: level } as never);
+  if (error) throw error;
+}
+
+/**
+ * Public (everyone at BES) or private (named people and teams only).
+ *
+ * Through the RPC rather than a plain update because going private has to name
+ * the caller as a manager first, or the guard refuses — two writes that must
+ * not half-happen. The rules themselves are a trigger, so this is convenience,
+ * not the thing that enforces them.
+ */
+export async function setChannelVisibility(channelId: string, isPublic: boolean): Promise<void> {
+  const sb = requireSupabase();
+  const { error } = await sb.rpc("set_channel_visibility" as never,
+    { p_channel: channelId, p_public: isPublic } as never);
   if (error) throw error;
 }
 

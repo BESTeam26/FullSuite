@@ -21,12 +21,13 @@
  */
 import { useEffect, useState } from "react";
 import {
-  BellRing, Check, ChevronDown, ChevronUp, Clock, Info, Loader2, Pencil, Star, Users, X,
+  BellRing, Check, ChevronDown, ChevronUp, Clock, Globe, Info, Loader2, Lock, Pencil, Star,
+  Users, X,
 } from "lucide-react";
 import { Avatar } from "@/components/common/Avatar";
 import { formatDate } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
-import { useChannelDetails, useChannelPreferences } from "@/lib/data/use-channels";
+import { useChannelActions, useChannelDetails, useChannelPreferences } from "@/lib/data/use-channels";
 import type { NotificationLevel } from "@/lib/data/channels";
 
 const LEVELS: { value: NotificationLevel; label: string; hint: string }[] = [
@@ -162,6 +163,18 @@ export function ChannelDetails({ channelId }: { channelId: string }) {
 
             {d.purpose && <Row icon={Info} label="About">{d.purpose}</Row>}
 
+            {/* Dee, 2026-09-17: "capability to set the channel in private and
+                in public, private is locked and will be hidden automatically,
+                public will be automatically available and joined by all BES
+                team member." Exactly the two things `open_to_scope` already
+                means — what was missing was the switch. */}
+            {d.canSetVisibility && (
+              <Row icon={d.openToScope ? Globe : Lock} label="Who can see it">
+                <VisibilityChoice channelId={channelId} isPublic={d.openToScope}
+                  isDefault={d.isDefault} />
+              </Row>
+            )}
+
             <Row icon={Users} label={`Members · ${d.memberCount}`}>
               {d.members.length === 0 ? (
                 <span className="text-muted-foreground">Nobody yet.</span>
@@ -202,5 +215,73 @@ export function ChannelDetails({ channelId }: { channelId: string }) {
         )
       )}
     </section>
+  );
+}
+
+/**
+ * Public or private, said in what it DOES rather than in a word.
+ *
+ * "Private" and "public" are the labels Dee asked for, but the sentence under
+ * each is what stops the wrong one being picked: public is not merely visible,
+ * it puts every BES person in the room; private is not merely unlisted, it
+ * takes the conversation out of everyone else's search as well.
+ */
+function VisibilityChoice({ channelId, isPublic, isDefault }: {
+  channelId: string; isPublic: boolean; isDefault: boolean;
+}) {
+  const actions = useChannelActions();
+  const [error, setError] = useState<string | null>(null);
+  const busy = actions.setVisibility.isPending;
+
+  const choose = (next: boolean) => {
+    if (next === isPublic || busy) return;
+    setError(null);
+    actions.setVisibility.mutate({ channelId, isPublic: next },
+      { onError: (e) => setError((e as Error).message) });
+  };
+
+  const OPTIONS: { value: boolean; label: string; hint: string; icon: typeof Globe }[] = [
+    { value: true,  label: "Public",  icon: Globe,
+      hint: "Everyone at BES is in it, automatically." },
+    { value: false, label: "Private", icon: Lock,
+      hint: "Named people and teams only. Hidden from everybody else." },
+  ];
+
+  return (
+    <div className="space-y-0.5">
+      {OPTIONS.map((o) => {
+        /* A default channel is for the whole team by definition, so Private is
+           shown and explained rather than quietly missing — the database
+           refuses it either way (rule 12: no dishonest controls). */
+        const blocked = isDefault && o.value === false;
+        const on = o.value === isPublic;
+        return (
+          <button key={String(o.value)} type="button"
+            onClick={() => choose(o.value)}
+            disabled={busy || blocked}
+            aria-pressed={on}
+            className={cn(
+              "flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+              on ? "bg-primary/10" : "hover:bg-muted",
+              blocked && "cursor-not-allowed opacity-60 hover:bg-transparent",
+            )}>
+            <o.icon className={cn("mt-0.5 h-3.5 w-3.5 shrink-0",
+              on ? "text-primary" : "text-muted-foreground")} aria-hidden />
+            <span className="min-w-0 flex-1">
+              <span className={cn("block text-xs", on ? "font-bold text-foreground" : "text-foreground")}>
+                {o.label}
+              </span>
+              <span className="block text-[11px] leading-snug text-muted-foreground">
+                {blocked ? "A default channel is for everyone at BES." : o.hint}
+              </span>
+            </span>
+            {on && !busy && <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />}
+            {on && busy && <Loader2 className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin text-primary" aria-hidden />}
+          </button>
+        );
+      })}
+      {error && <p role="alert" className="px-2 text-[11px] text-status-danger">{error}</p>}
+    </div>
   );
 }

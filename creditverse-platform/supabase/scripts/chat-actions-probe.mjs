@@ -478,6 +478,132 @@ console.log("The rooms BES works in");
   }
 }
 
+/*
+ * Public or private.
+ *
+ * Dee, 2026-09-17: "private is locked and will be hidden automatically, public
+ * will be automatically available and joined by all BES team member."
+ *
+ * `channels_update` already lets any manager PATCH the row, so every rule
+ * below is asked of the TRIGGER — an RPC-only check would be a suggestion.
+ */
+console.log("Public or private");
+{
+  const priv = one(`select id, name from public.channels
+                     where agency_id = '${AGENCY}' and kind = 'department'
+                       and open_to_scope = false and system_key is null limit 1`);
+  const dflt = one(`select id from public.channels
+                     where agency_id = '${AGENCY}' and system_key = 'great_results'`);
+
+  /*
+   * Hidden means NOT SELECTABLE, not merely absent from the rail — but
+   * "hidden from everyone" was the wrong invariant to write, and this check
+   * failed until it said what the product actually promises.
+   *
+   * `communication.audit` deliberately lets an administrator READ any non-DM
+   * conversation for compliance (Dee, §17) — they cannot post in it, and it is
+   * presented to them as audit-only rather than as a room they are in. So the
+   * rule private enforces is: nobody WITHOUT that capability. Testing it
+   * against an agency admin was testing the audit feature and calling it a
+   * leak.
+   */
+  const outsider = one(`select p.id from public.profiles p
+      join public.agency_memberships m on m.user_id = p.id and m.status = 'active'
+     where coalesce(p.is_fixture,false) = false and p.id <> '${OWNER}'
+       and m.role = 'agency_user' and not m.is_owner
+       and not exists (select 1 from public.channel_members cm
+                        where cm.channel_id = '${priv.id}' and cm.user_id = p.id)
+     limit 1`);
+  if (outsider) {
+    const audits = as(outsider.id, `select public.agency_can('communication.audit') as p;`);
+    check("the person measured below genuinely has no audit capability",
+      audits.ok ? audits.rows[0].p : "error", false);
+    const sees = as(outsider.id, `select public.channel_visible('${priv.id}') as v;`);
+    check("a private conversation is invisible to somebody not named on it",
+      sees.ok ? sees.rows[0].v : "error", false);
+    const rows = as(outsider.id, `select count(*)::int as n from public.channels where id = '${priv.id}';`);
+    check("…and it is not merely hidden — the row itself is not selectable",
+      rows.ok ? rows.rows[0].n : "error", 0);
+    const msgs = as(outsider.id, `select count(*)::int as n from public.messages where channel_id = '${priv.id}';`);
+    check("…nor are its messages", msgs.ok ? msgs.rows[0].n : "error", 0);
+    const rail = as(outsider.id, `select count(*)::int as n from public.visible_channels() where id = '${priv.id}';`);
+    check("…and it is not in their rail", rail.ok ? rail.rows[0].n : "error", 0);
+  }
+
+  /* And the other half of that rule, stated once so it cannot be mistaken for
+     a leak again: an auditor reads it, and reads it as audit-only. */
+  const auditor = one(`select p.id from public.profiles p
+      join public.agency_memberships m on m.user_id = p.id and m.status = 'active'
+     where coalesce(p.is_fixture,false) = false
+       and not exists (select 1 from public.channel_members cm
+                        where cm.channel_id = '${priv.id}' and cm.user_id = p.id)
+       and exists (select 1 from public.channels c where c.id = '${priv.id}')
+       and m.role = 'agency_admin' limit 1`);
+  if (auditor) {
+    const a = as(auditor.id, `select public.channel_auditable('${priv.id}') as a,
+                                     public.channel_visible('${priv.id}') as v;`);
+    check("an administrator may INSPECT a private conversation (§17)",
+      a.ok ? a.rows[0].a : "error", true);
+    check("…but is not in it, so they cannot post",
+      a.ok ? a.rows[0].v : "error", false);
+  }
+
+  /* A public channel needs no membership row to reach everybody. */
+  const reach = one(`select (select count(*) from public.mention_group_recipients('${dflt.id}', 'channel')) as reached,
+                            (select count(*) from public.channel_members m where m.channel_id = '${dflt.id}') as rows`);
+  check("a public channel reaches people it has no membership rows for",
+    reach.reached > 0 && Number(reach.rows) === 0, true);
+
+  /* The switch, and the three refusals. Each asked of the trigger with a
+     direct update, which is the path an RPC cannot police. */
+  const flip = (id, to) => {
+    try { q.query(`begin; update public.channels set open_to_scope = ${to} where id = '${id}'; rollback;`); return true; }
+    catch (e) { try { q.query("rollback;"); } catch { /* gone */ }
+      return String(e.message ?? e).split("\n").find((l) => /ERROR|cannot|Name at least|default channel|direct message/i.test(l)) ?? "refused"; }
+  };
+
+  check("a default channel cannot be made private, even by a direct update",
+    flip(dflt.id, "false") !== true, true);
+  check("…and can still be made public, which is what it already is",
+    flip(dflt.id, "true"), true);
+
+  const gc = one(`select id from public.channels where kind = 'direct' and agency_id = '${AGENCY}' limit 1`);
+  check("a group chat cannot be opened to everybody — it IS its people",
+    flip(gc.id, "true") !== true, true);
+
+  /* The trap this guard exists for: a public channel has no members, so going
+     private could leave a room nobody at all can open. */
+  const orphan = q.query(`begin;
+    create temp table probe_pub on commit drop as
+      with made as (insert into public.channels (agency_id, kind, name, created_by, open_to_scope)
+                         values ('${AGENCY}', 'topic', '[probe] public', '${OWNER}', true)
+                      returning id)
+      select id from made;
+    select coalesce((
+      select 'allowed' from public.channels
+       where id = (select id from probe_pub)), 'missing') as made;
+    rollback;`);
+  check("a public channel with no members exists to be trapped by", orphan[0]?.made, "allowed");
+
+  let trapped = false;
+  try {
+    q.query(`begin;
+      create temp table probe_pub2 on commit drop as
+        with made as (insert into public.channels (agency_id, kind, name, created_by, open_to_scope)
+                           values ('${AGENCY}', 'topic', '[probe] public 2', '${OWNER}', true)
+                        returning id)
+        select id from made;
+      update public.channels set open_to_scope = false where id = (select id from probe_pub2);
+      rollback;`);
+  } catch { trapped = true; try { q.query("rollback;"); } catch { /* gone */ } }
+  check("…and making it private with nobody named on it is refused, not silently done",
+    trapped, true);
+
+  check("set_channel_visibility is not reachable by anonymous callers",
+    one(`select count(*)::int as n from information_schema.role_routine_grants
+          where routine_name = 'set_channel_visibility' and grantee in ('anon','PUBLIC')`).n, 0);
+}
+
 console.log(`\n${pass} passed, ${failures.length} failed`);
 failures.forEach((f) => console.log(`  - ${f}`));
 process.exit(failures.length ? 1 : 0);

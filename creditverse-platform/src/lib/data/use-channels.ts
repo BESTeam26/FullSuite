@@ -20,7 +20,7 @@ import {
   fetchMessages,
   markChannelRead, openDirectChannel, openGroupConversation, openPartnerConversation, postMessage,
   fetchChannelDetails, fetchChannelSeenBy, setChannelFavourite, setChannelNotifications,
-  renameChannel,
+  renameChannel, setChannelVisibility,
   removeChannelMember, removeChannelTeam, restoreChannel,
 } from "@/lib/data/channels";
 import type { NotificationLevel } from "@/lib/data/channels";
@@ -87,10 +87,28 @@ export function useMarkRead() {
 export function useChannelActions() {
   const qc = useQueryClient();
   const auth = useAuth();
+  /*
+   * Everything that describes WHO IS IN A CONVERSATION, not just the list the
+   * People panel happens to be looking at.
+   *
+   * Dee, 2026-09-17: "Adding a people or member in group chats and channels
+   * not working." The write always worked — the person was added, could see
+   * the conversation and was notifiable. What did not work is everything that
+   * shows it: the details panel kept saying "MEMBERS · 2" with the old faces,
+   * the Members tab kept the old number, and the mention picker would not
+   * offer the person just added. Add somebody, watch nothing change, and the
+   * button is broken as far as anyone using it is concerned.
+   *
+   * `channel-details` is the one that matters most now, because the member
+   * count, the faces, the files and pins counts and the conversation's clock
+   * all arrive together in it — so one missing key staled four things at once.
+   */
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: channelsKey });
     void qc.invalidateQueries({ queryKey: ["channel-members"] });
     void qc.invalidateQueries({ queryKey: ["channel-teams"] });
+    void qc.invalidateQueries({ queryKey: ["channel-details"] });
+    void qc.invalidateQueries({ queryKey: ["channel-mentionable"] });
   };
   return {
     create: useMutation({
@@ -104,6 +122,11 @@ export function useChannelActions() {
     }),
     archive: useMutation({ mutationFn: (id: string) => archiveChannel(id), onSuccess: refresh }),
     restore: useMutation({ mutationFn: (id: string) => restoreChannel(id), onSuccess: refresh }),
+    setVisibility: useMutation({
+      mutationFn: (v: { channelId: string; isPublic: boolean }) =>
+        setChannelVisibility(v.channelId, v.isPublic),
+      onSuccess: refresh,
+    }),
     addMember: useMutation({
       mutationFn: (v: { channelId: string; userId: string; isManager?: boolean }) =>
         addChannelMember(v.channelId, v.userId, v.isManager),
