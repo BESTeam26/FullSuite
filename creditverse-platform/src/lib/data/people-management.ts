@@ -99,15 +99,25 @@ export interface LeaveType {
   code: string;
   label: string;
   paid: boolean;
+  /**
+   * Days of warning this kind of leave needs before it can start (Dee,
+   * 2026-09-18). 0 for leave nobody can plan — sickness, emergencies,
+   * bereavement. The database enforces it; the form reads it so somebody is
+   * told the rule before they pick a date rather than after they submit.
+   */
+  minNoticeDays: number;
 }
 
 export async function fetchLeaveTypes(): Promise<LeaveType[]> {
   const sb = requireSupabase();
   const { data, error } = await sb
-    .from("leave_types").select("id, code, label, paid")
+    .from("leave_types").select("id, code, label, paid, min_notice_days")
     .eq("active", true).order("sort");
   if (error) throw error;
-  return (data ?? []).map((r) => ({ id: r.id, code: r.code, label: r.label, paid: r.paid }));
+  return (data ?? []).map((r) => ({
+    id: r.id, code: r.code, label: r.label, paid: r.paid,
+    minNoticeDays: Number(r.min_notice_days ?? 0),
+  }));
 }
 
 export interface LeaveRequest {

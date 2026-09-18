@@ -16,11 +16,15 @@
  */
 import { useMemo, useState } from "react";
 import { CalendarOff, Info, Loader2, X } from "lucide-react";
-import { businessDaysBetween } from "@/lib/calendar/us-federal-holidays";
+import { addDays, businessDaysBetween, businessToday } from "@/lib/calendar/us-federal-holidays";
 import { formatDate } from "@/lib/format-date";
 import { OpsSelect } from "@/components/ui/ops-select";
 
-export interface LeaveTypeOption { id: string; label: string; paid: boolean }
+export interface LeaveTypeOption {
+  id: string; label: string; paid: boolean;
+  /** Days of warning this kind of leave needs. 0 for the unplannable ones. */
+  minNoticeDays: number;
+}
 
 export function RequestTimeOffDialog({
   types, busy, error, onSubmit, onClose,
@@ -46,9 +50,27 @@ export function RequestTimeOffDialog({
 
   const workingDays = useMemo(() => businessDaysBetween(startsOn, endsOn), [startsOn, endsOn]);
   const datesChosen = Boolean(startsOn && endsOn && endsOn >= startsOn);
+
+  /*
+   * Dee, 2026-09-18: "DO NOT Allow Leave Submission 7 days before the leave
+   * request date." The database is the authority — this is so somebody is told
+   * the rule while they are picking a date, instead of being refused after
+   * filling the whole form in.
+   *
+   * The notice comes from the TYPE, because some leave cannot be planned:
+   * sickness, an emergency and bereavement carry 0 and can be filed same-day.
+   */
+  const chosenType = types.find((t) => t.id === typeId);
+  const notice = chosenType?.minNoticeDays ?? 0;
+  const earliest = useMemo(
+    () => (notice > 0 ? addDays(businessToday(), notice) : businessToday()),
+    [notice],
+  );
+  const tooSoon = Boolean(startsOn) && startsOn < earliest;
+
   /* A range of nothing but weekend is not a leave request — the database would
      take it and it would excuse no attendance at all. */
-  const canSubmit = Boolean(typeId) && datesChosen && workingDays > 0 && !busy;
+  const canSubmit = Boolean(typeId) && datesChosen && workingDays > 0 && !tooSoon && !busy;
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-charcoal/40 p-4 sm:items-center"
@@ -73,7 +95,8 @@ export function RequestTimeOffDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <Field label="From">
-              <input type="date" value={startsOn} onChange={(e) => setStart(e.target.value)}
+              <input type="date" value={startsOn} min={earliest}
+                onChange={(e) => setStart(e.target.value)}
                 aria-label="First day away"
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
             </Field>
@@ -84,6 +107,20 @@ export function RequestTimeOffDialog({
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
             </Field>
           </div>
+
+          {notice > 0 && (
+            <p className="rounded-lg border border-border bg-muted/50 px-3 py-2 text-[11px] text-muted-foreground">
+              {chosenType?.label} needs at least {notice} days&apos; notice, so the earliest
+              you can start is <strong className="text-foreground">{formatDate(earliest)}</strong>.
+            </p>
+          )}
+
+          {tooSoon && (
+            <p role="alert" className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] font-semibold text-amber-900">
+              That start date is inside the {notice}-day notice period. Pick {formatDate(earliest)}
+              {" "}or later, or talk to your lead.
+            </p>
+          )}
 
           <Field label="Duration">
             <p aria-live="polite"

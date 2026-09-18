@@ -378,7 +378,9 @@ const TimeOffCard = () => {
 
       {asking && (
         <RequestTimeOffDialog
-          types={(types.data ?? []).map((t) => ({ id: t.id, label: t.label, paid: t.paid }))}
+          types={(types.data ?? []).map((t) => ({
+            id: t.id, label: t.label, paid: t.paid, minNoticeDays: t.minNoticeDays,
+          }))}
           busy={actions.submit.isPending}
           error={(actions.submit.error as Error | null)?.message ?? null}
           onClose={() => setAsking(false)}

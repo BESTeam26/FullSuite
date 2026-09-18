@@ -7289,6 +7289,7 @@ export type Database = {
           created_at: string
           id: string
           label: string
+          min_notice_days: number
           paid: boolean
           sort: number
         }
@@ -7299,6 +7300,7 @@ export type Database = {
           created_at?: string
           id?: string
           label: string
+          min_notice_days?: number
           paid?: boolean
           sort?: number
         }
@@ -7309,6 +7311,7 @@ export type Database = {
           created_at?: string
           id?: string
           label?: string
+          min_notice_days?: number
           paid?: boolean
           sort?: number
         }
