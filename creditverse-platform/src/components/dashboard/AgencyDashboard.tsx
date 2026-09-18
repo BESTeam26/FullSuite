@@ -11,7 +11,7 @@
  * queue, the organizations BES actually has, metered invoicing, and the
  * announcements BES has actually published.
  */
-import { Building2, Briefcase, Landmark, Receipt, Sparkles, Users } from "lucide-react";
+import { Building2, Briefcase, Landmark, Receipt, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +19,6 @@ import { Crown } from "lucide-react";
 import { useAgency } from "@/lib/agency-context";
 import { useAttention } from "@/lib/data/use-work";
 import { useAuth } from "@/lib/auth/auth-context";
-import { useCopilot } from "@/lib/copilot-context";
 import { useOwnProfile } from "@/lib/data/use-account";
 import { useAgencyOverview } from "@/lib/data/use-agency-overview";
 import { dayGreeting } from "@/lib/greetings/day-greeting";
@@ -38,7 +37,6 @@ export const AgencyDashboard = () => {
   const overview = useAgencyOverview();
   const { subAccounts, switchToSubAccount } = useAgency();
   const navigate = useNavigate();
-  const copilot = useCopilot();
 
   const figures = overview.data;
   const value = (n: number | undefined) => (overview.isLoading ? "…" : (n ?? 0));
@@ -65,19 +63,17 @@ export const AgencyDashboard = () => {
           </p>
         </div>
 
+        {/* Ask Lina is NOT repeated here. Dee, 2026-09-18: "Ask Lina on home
+            view is redundant appearing twice." It lives in the top bar, which
+            is on every screen — so a copy in the page header is the same
+            button twice on one row, and the one that would go stale if the
+            launcher ever changes. */}
         <div className="flex gap-2">
           <Button
             onClick={() => navigate("/app/subaccounts")}
             className="bg-amber-500 font-bold text-charcoal shadow-sm hover:bg-amber-600"
           >
             <Building2 className="mr-1.5 h-4 w-4" /> Add Organization
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => copilot.setOpen(true)}
-            className="border-emerald-500/30 font-semibold text-status-success hover:bg-emerald-500/10"
-          >
-            <Sparkles className="mr-1.5 h-4 w-4" /> Ask Lina
           </Button>
         </div>
       </div>
