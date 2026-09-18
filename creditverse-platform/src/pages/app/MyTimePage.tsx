@@ -51,6 +51,8 @@ import { StartWorkCard, type StartRequest } from "@/components/time/StartWorkCar
 import { WeekChart } from "@/components/time/WeekChart";
 import { TodayTimeline } from "@/components/time/TodayTimeline";
 import { RequestTimeOffDialog } from "@/components/time/RequestTimeOffDialog";
+import { AttendanceScoreCard } from "@/components/attendance/AttendanceScoreCard";
+import { useMyAttendanceScore } from "@/lib/attendance/use-attendance-score";
 import { businessDaysBetween, businessToday } from "@/lib/calendar/us-federal-holidays";
 
 /**
@@ -281,12 +283,24 @@ export const MyTimePage = () => {
             <WeekChart bars={bars} today={t.today} />
           </ContentCard>
 
+          {/* Dee's attendance policy, 2026-09-18. Derived from the same
+              attendance record the manager's view reads, so the two can never
+              show different numbers, and no bonus is hand-awarded. */}
+          <AttendanceScoreBlock />
+
           <TimeOffCard />
         </div>
       </div>
 
     </HqPageShell>
   );
+};
+
+/** The quarter's attendance score, or nothing while it is still loading. */
+const AttendanceScoreBlock = () => {
+  const { score, isLoading } = useMyAttendanceScore();
+  if (isLoading || !score) return null;
+  return <AttendanceScoreCard score={score} />;
 };
 
 /**

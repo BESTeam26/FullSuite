@@ -16,6 +16,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Loader2, UserRound } from "lucide-react";
 import { HqPageShell } from "@/pages/app/HqPages";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MemberAttendanceScore } from "@/components/attendance/MemberAttendanceScore";
 import { Button } from "@/components/ui/button";
 import { Pill } from "@/components/agency/partner/partner-ui";
 import { AgencyAccessPanel } from "@/components/agency/AgencyAccessPanel";
@@ -251,6 +252,9 @@ export default function TeamMemberProfilePage() {
         )}
         {(mayManage || leadsThisPerson || isSelf) && (
           <TabsContent value="time" className="mt-3 space-y-3">
+            {/* Dee's attendance policy, 2026-09-18: "Score + violations +
+                patterns, not a complicated analytics dashboard." */}
+            <MemberAttendanceScore userId={member.userId} />
             <ScheduleTimeTab member={member} />
             {canMoney && <CompensationTab member={member} />}
           </TabsContent>
