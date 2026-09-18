@@ -18,16 +18,16 @@ import { CalendarCheck, TrendingDown, TrendingUp } from "lucide-react";
 import { formatDate } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
 import {
-  QUARTER_MAX_POINTS, STANDING_ACTION, STANDING_LABEL,
+  QUARTER_MAX_POINTS, STANDING_ACTION, STANDING_BADGE, STANDING_LABEL,
   type QuarterScore, type Standing,
 } from "@/lib/attendance/attendance-score";
 
 const TONE: Record<Standing, string> = {
+  champion: "border-amber-500/50 bg-amber-500/15 text-amber-900",
   excellent: "border-emerald-500/40 bg-emerald-500/10 text-emerald-800",
   good: "border-emerald-500/30 bg-emerald-500/5 text-emerald-800",
   coaching: "border-amber-500/40 bg-amber-500/10 text-amber-900",
-  improvement_required: "border-amber-500/50 bg-amber-500/15 text-amber-900",
-  management_review: "border-destructive/30 bg-status-danger-tint text-status-danger",
+  improvement: "border-destructive/30 bg-status-danger-tint text-status-danger",
 };
 
 const signed = (n: number) => `${n > 0 ? "+" : ""}${n.toFixed(2)}`;
@@ -48,7 +48,7 @@ export function AttendanceScoreCard({ score }: { score: QuarterScore }) {
           </p>
         </div>
         <span className={cn("rounded-full border px-2.5 py-1 text-xs font-bold", TONE[score.standing])}>
-          {STANDING_LABEL[score.standing]}
+          {STANDING_BADGE[score.standing]} {STANDING_LABEL[score.standing]}
         </span>
       </div>
       <p className="mt-1 text-[11px] text-muted-foreground">{STANDING_ACTION[score.standing]}</p>

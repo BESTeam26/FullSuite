@@ -95,7 +95,7 @@ export const timeSectionFor = (
 
 /** The tabs inside Team Management. Four tabs, not four sidebar entries. */
 export const TEAM_TABS = [
-  { key: "time", label: "Team Time" },
+  { key: "time", label: "Teams & Members" },
   { key: "leave", label: "Leave Requests" },
   { key: "attendance", label: "Attendance" },
   { key: "availability", label: "Availability" },

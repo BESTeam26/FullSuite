@@ -22,7 +22,10 @@ export async function fetchWorkforce(now: Date = new Date()): Promise<Workforce>
        the matrix's @bes.test accounts are real memberships, and a beta tester
        should not find them in the roster or be able to assign work to them. */
     sb.from("agency_memberships").select("user_id, role, created_at, profiles!user_id!inner(full_name, email, is_fixture)").eq("profiles.is_fixture", false).order("created_at").limit(500),
-    sb.from("teams").select("id, name, archived_at, organization_id, department_id, departments(name, division), team_memberships(user_id, is_lead)").is("organization_id", null).limit(200),
+    /* `is_fixture` excluded here for the same reason the member query excludes
+       fixture profiles: the matrix's teams are real rows, and a beta tester
+       should not find "[TEST] Team A" in their roster. */
+    sb.from("teams").select("id, name, archived_at, organization_id, department_id, is_fixture, departments(name, division), team_memberships(user_id, is_lead)").is("organization_id", null).eq("is_fixture", false).limit(200),
     sb.from("time_entries").select("employee_id, duration_minutes, ended_at").gte("work_date", weekStart.toISOString().slice(0, 10)).limit(5000),
   ]);
   for (const r of [members, teams, time]) if (r.error) throw r.error;

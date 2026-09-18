@@ -11,11 +11,12 @@
  */
 import { Trophy } from "lucide-react";
 import { AttendanceScoreCard } from "@/components/attendance/AttendanceScoreCard";
+import { AttendanceProgress } from "@/components/attendance/AttendanceProgress";
 import { useMyAttendanceScore } from "@/lib/attendance/use-attendance-score";
 import {
   LATES_FOR_COACHING, LATE_WINDOW_DAYS, NCNS_FOR_MANAGEMENT, POINTS,
-  PERFECT_MONTH_BONUS, PERFECT_QUARTER_BONUS, QUARTER_MAX_POINTS,
-  QUARTER_START_POINTS, STANDING_LABEL, standingFor,
+  PERFECT_MONTH_BONUS, QUARTER_MAX_POINTS, QUARTER_START_POINTS,
+  STANDING_ACTION, STANDING_BADGE, STANDING_BANDS, STANDING_LABEL, STREAK_BONUSES,
 } from "@/lib/attendance/attendance-score";
 import { cn } from "@/lib/utils";
 
@@ -39,7 +40,11 @@ const RULES: { label: string; points: string; note: string }[] = [
   { label: "Absent", points: POINTS.absent.toFixed(2), note: "Whole shift missed, with proper notice." },
   { label: "No call, no show", points: POINTS.ncns.toFixed(2), note: "Whole shift missed, without notice." },
   { label: "Perfect month", points: `+${PERFECT_MONTH_BONUS.toFixed(2)}`, note: "No violations in the month." },
-  { label: "Perfect quarter", points: `+${PERFECT_QUARTER_BONUS.toFixed(2)}`, note: "No violations all quarter." },
+  ...STREAK_BONUSES.map((t) => ({
+    label: t.badge,
+    points: `+${t.points.toFixed(2)}`,
+    note: `${t.days} scheduled days in a row without a violation.`,
+  })),
 ];
 
 export function AttendancePage() {
@@ -52,6 +57,9 @@ export function AttendancePage() {
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
       <div className="space-y-4">
+        {/* Dee, 2026-09-18: "letting employees see themselves getting closer
+            to it" — the journey above the ledger, not instead of it. */}
+        <AttendanceProgress score={score} />
         <AttendanceScoreCard score={score} />
 
         <div className="rounded-2xl border border-border bg-card p-5">
@@ -125,17 +133,25 @@ export function AttendancePage() {
         </div>
 
         <div className="rounded-2xl border border-border bg-card p-5">
-          <h2 className="text-sm font-bold text-foreground">Standing</h2>
+          <h2 className="text-sm font-bold text-foreground">What you can earn</h2>
           <ul className="mt-2 space-y-1">
-            {[[18, 20], [15, 17.75], [12, 14.75], [9, 11.75], [0, 8.75]].map(([lo, hi]) => {
-              const band = standingFor(lo);
-              const mine = score.standing === band;
+            {STANDING_BANDS.map((b) => {
+              const mine = score.standing === b.standing;
               return (
-                <li key={band}
-                  className={cn("flex items-center justify-between gap-3 rounded-lg px-2.5 py-1.5 text-xs",
-                    mine ? "bg-primary/10 font-bold text-foreground" : "text-muted-foreground")}>
-                  <span>{STANDING_LABEL[band]}</span>
-                  <span className="tabular-nums">{lo} – {hi}</span>
+                <li key={b.standing}
+                  className={cn("rounded-lg px-2.5 py-2 text-xs",
+                    mine ? "bg-primary/10 text-foreground" : "text-muted-foreground")}>
+                  <span className="flex items-center justify-between gap-3">
+                    <span className={cn(mine && "font-bold")}>
+                      {STANDING_BADGE[b.standing]} {STANDING_LABEL[b.standing]}
+                    </span>
+                    <span className="shrink-0 tabular-nums">
+                      {b.from === b.to ? b.from : `${b.from} – ${b.to}`}
+                    </span>
+                  </span>
+                  <span className="mt-0.5 block text-[11px] leading-snug">
+                    {STANDING_ACTION[b.standing]}
+                  </span>
                 </li>
               );
             })}

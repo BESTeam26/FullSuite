@@ -26,6 +26,7 @@ import { businessToday } from "@/lib/calendar/us-federal-holidays";
 import { formatDuration } from "@/lib/time-domain";
 import { formatDate } from "@/lib/format-date";
 import { TEAM_TABS, type TeamTab } from "@/lib/time/time-sections";
+import { TeamsAndMembers, statusOf } from "@/components/time/TeamsAndMembers";
 import { cn } from "@/lib/utils";
 
 export function TeamManagement() {
@@ -55,6 +56,13 @@ export function TeamManagement() {
   }, [workforce.data, auth.user?.id]);
 
   const weekTime = new Map((workforce.data?.time ?? []).map((t) => [t.employeeId, t]));
+  /* Who is on the clock, and of those, who is resting. The workforce batch
+     already knows a timer is open; `attendance_for` says whether the day is
+     leave. Break is the one thing neither carries, so it is read from the
+     open entry's kind where the batch exposes it — and shown as Working
+     rather than invented when it does not. */
+  const running = new Set((workforce.data?.time ?? []).filter((t) => t.running).map((t) => t.employeeId));
+  const onBreak = new Set<string>();
   const attendanceByUser = useMemo(() => {
     const out = new Map<string, ReturnType<typeof scoreQuarter>>();
     if (!attendance.data) return out;
@@ -69,71 +77,57 @@ export function TeamManagement() {
   }, [attendance.data, schedules.data, people, today]);
 
   const todayRows = (attendance.data ?? []).filter((d) => d.day === today);
-  const statusOf = (userId: string) => todayRows.find((d) => d.userId === userId);
+  const dayFor = (userId: string) => todayRows.find((d) => d.userId === userId);
+
+  const todayRowsForTiles = (attendance.data ?? []).filter((d) => d.day === today);
+  const tiles = (() => {
+    const statuses = people.map((p) => statusOf(
+      p.userId,
+      todayRowsForTiles.find((d) => d.userId === p.userId),
+      running.has(p.userId),
+      onBreak.has(p.userId),
+    ));
+    const n = (s: string) => statuses.filter((x) => x === s).length;
+    const teams = (workforce.data?.teams ?? []).filter((t) => !t.archived);
+    return [
+      { label: "Teams", value: teams.length, note: "Live teams in your scope" },
+      { label: "Team members", value: people.length, note: "People you manage" },
+      { label: "On leave today", value: n("on_leave"), note: "Approved and away" },
+      { label: "Working now", value: n("working"), note: "A timer is running" },
+      { label: "Offline", value: n("offline"), note: "No timer running" },
+    ];
+  })();
 
   return (
     <Tabs value={tab} onValueChange={(v) => setTab(v as TeamTab)}>
+      {/* Dee's mockup puts the shape of the team above the tabs, so the
+          numbers do not change as you move between them. */}
+      <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+        {tiles.map((t) => (
+          <div key={t.label} className="rounded-xl border border-border bg-card px-3 py-2.5">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t.label}</p>
+            <p className="text-xl font-extrabold tabular-nums text-foreground">{t.value}</p>
+            <p className="truncate text-[11px] text-muted-foreground">{t.note}</p>
+          </div>
+        ))}
+      </div>
+
       <TabsList className="h-8 flex-wrap bg-muted/60">
         {TEAM_TABS.map((t) => (
           <TabsTrigger key={t.key} value={t.key} className="text-[11px]">{t.label}</TabsTrigger>
         ))}
       </TabsList>
 
-      {/* ── Team Time ─────────────────────────────────────────────────── */}
+      {/* ── Teams & Members ───────────────────────────────────────────── */}
       <TabsContent value="time" className="mt-3">
-        <div className="overflow-x-auto rounded-2xl border border-border bg-card">
-          <table className="w-full text-left text-xs">
-            <thead className="border-b border-border text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-              <tr>
-                <th className="px-3 py-2">Employee</th>
-                <th className="px-3 py-2">Now</th>
-                <th className="px-3 py-2">Clocked in</th>
-                <th className="px-3 py-2 text-right">Today</th>
-                <th className="px-3 py-2 text-right">This week</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/60">
-              {people.map((p) => {
-                const day = statusOf(p.userId);
-                const week = weekTime.get(p.userId);
-                const working = week?.running ?? false;
-                return (
-                  <tr key={p.userId}>
-                    <td className="px-3 py-2">
-                      <Link to={`/app/people/${p.userId}`}
-                        className="font-medium text-foreground underline-offset-2 hover:underline">
-                        {p.name}
-                      </Link>
-                    </td>
-                    <td className="px-3 py-2">
-                      <span className={cn("inline-flex items-center gap-1.5 text-[11px] font-semibold",
-                        working ? "text-status-success" : "text-muted-foreground")}>
-                        <CircleDot className="h-3 w-3" aria-hidden />
-                        {working ? "Working" : day?.onLeave ? "On leave" : "Offline"}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-muted-foreground">
-                      {day?.firstIn
-                        ? new Date(day.firstIn).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
-                        : "—"}
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums text-foreground">
-                      {day?.workMinutes ? formatDuration(day.workMinutes) : "—"}
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums text-foreground">
-                      {week?.minutes ? formatDuration(week.minutes) : "—"}
-                    </td>
-                  </tr>
-                );
-              })}
-              {people.length === 0 && (
-                <tr><td colSpan={5} className="px-3 py-8 text-center text-muted-foreground">
-                  Nobody is in your scope yet.
-                </td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <TeamsAndMembers
+          teams={(workforce.data?.teams ?? [])}
+          people={people}
+          attendanceToday={todayRows}
+          schedules={schedules.data ?? []}
+          running={running}
+          onBreak={onBreak}
+        />
       </TabsContent>
 
       {/* ── Leave Requests ────────────────────────────────────────────── */}

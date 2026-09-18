@@ -71,7 +71,28 @@ export const QUARTER_START_POINTS = 15;
 export const QUARTER_MAX_POINTS = 20;
 export const QUARTER_MIN_POINTS = 0;
 export const PERFECT_MONTH_BONUS = 1;
-export const PERFECT_QUARTER_BONUS = 2;
+
+/**
+ * Reliability streaks, and why the perfect-quarter bonus went away.
+ *
+ * Dee, 2026-09-18: "I would NOT give +2 for a perfect quarter on top of three
+ * +1 perfect months if that makes 20/20 attainable only through perfect
+ * attendance. You wanted a system where employees can make mistakes, get
+ * coached, and EARN THEIR WAY BACK."
+ *
+ * With 3 × +1 and a +2 quarterly bonus, the only route to 20 was a flawless
+ * quarter — one late in July and the top was mathematically out of reach in
+ * week two, which is when somebody stops trying. Streaks replace it: they are
+ * earned by what you do NEXT, so a bad start can still be recovered.
+ *
+ *   15 start + 3 perfect months + 0.5 + 0.5 + 1 = 20, and there is more than
+ *   one way to get there.
+ */
+export const STREAK_BONUSES: { days: number; points: number; badge: string }[] = [
+  { days: 30, points: 0.5, badge: "30-Day Reliability" },
+  { days: 60, points: 0.5, badge: "60-Day Reliability" },
+  { days: 90, points: 1, badge: "90-Day Reliability" },
+];
 
 /**
  * A day, as the rest of the product already derives it.
@@ -143,37 +164,61 @@ export interface LedgerLine {
   day: string;
   label: string;
   points: number;
-  kind: "opening" | "incident" | "reversal" | "perfect_month" | "perfect_quarter";
+  kind: "opening" | "incident" | "reversal" | "perfect_month" | "streak";
   detail?: string;
 }
 
 export type Standing =
-  | "excellent" | "good" | "coaching" | "improvement_required" | "management_review";
+  | "champion" | "excellent" | "good" | "coaching" | "improvement";
 
+/**
+ * Dee's achievement ladder, 2026-09-18.
+ *
+ * "I would make the reward feel like an achievement employees unlock, not just
+ * 'you got +2 points.' The points determine the achievement, and the
+ * achievement determines the reward."
+ *
+ * The REWARD is recorded here beside the band because it is the thing that
+ * changes behaviour — a band with no stated prize is a label. Paying it is a
+ * human act; this only says what was earned.
+ */
 export const STANDING_LABEL: Record<Standing, string> = {
-  excellent: "Excellent",
+  champion: "Perfect Attendance Champion",
+  excellent: "Attendance Excellence",
   good: "Good standing",
   coaching: "Coaching",
-  improvement_required: "Improvement required",
-  management_review: "Management review",
+  improvement: "Attendance improvement",
+};
+
+export const STANDING_BADGE: Record<Standing, string> = {
+  champion: "🏆", excellent: "⭐", good: "✅", coaching: "🟠", improvement: "🔴",
 };
 
 export const STANDING_ACTION: Record<Standing, string> = {
-  excellent: "Reward / recognition eligible",
-  good: "No action needed",
-  coaching: "Team lead coaching",
-  improvement_required: "Attendance improvement plan",
-  management_review: "Management review required",
+  champion: "₱2,000 bonus + 1 paid Reward Day + permanent quarterly badge",
+  excellent: "₱1,000 bonus + priority schedule and leave preference",
+  good: "Recognition, and eligibility maintained",
+  coaching: "Coaching. No quarterly attendance reward.",
+  improvement: "Attendance improvement review",
 };
 
-/** Dee's bands. Read top-down; the first that fits wins. */
+/** The bands, top-down. The first that fits wins. */
 export function standingFor(score: number): Standing {
+  if (score >= QUARTER_MAX_POINTS) return "champion";
   if (score >= 18) return "excellent";
   if (score >= 15) return "good";
   if (score >= 12) return "coaching";
-  if (score >= 9) return "improvement_required";
-  return "management_review";
+  return "improvement";
 }
+
+/** Every band, in order, for the ladder on screen. */
+export const STANDING_BANDS: { standing: Standing; from: number; to: number }[] = [
+  { standing: "champion", from: 20, to: 20 },
+  { standing: "excellent", from: 18, to: 19.75 },
+  { standing: "good", from: 15, to: 17.75 },
+  { standing: "coaching", from: 12, to: 14.75 },
+  { standing: "improvement", from: 0, to: 11.75 },
+];
 
 /** Patterns trigger coaching. They never change the points. */
 export interface PatternAlert {
@@ -195,6 +240,45 @@ export interface MonthBreakdown {
   bonus: "earned" | "pending" | "lost" | "none";
 }
 
+/**
+ * A badge is CUMULATIVE — it survives the quarterly reset.
+ *
+ * Dee: "That makes the system cumulative even though the score resets every
+ * quarter." So a badge is a fact about what somebody achieved, kept on the
+ * profile, not a number that gets wiped in January.
+ *
+ * `perfect_attendance` is deliberately separate from `champion`: one is zero
+ * violations, the other is reaching 20 — Dee, "those are slightly different
+ * accomplishments." Somebody can reach 20 after an early late by building
+ * streaks, and that is the point of the redesign.
+ */
+export type BadgeKey =
+  | "reliability_30" | "reliability_60" | "reliability_90"
+  | "perfect_month" | "perfect_attendance" | "champion";
+
+export interface Badge {
+  key: BadgeKey;
+  icon: string;
+  label: string;
+  detail: string;
+}
+
+export const BADGE_META: Record<BadgeKey, { icon: string; label: string; detail: string }> = {
+  reliability_30: { icon: "🥉", label: "30-Day Reliability", detail: "30 scheduled workdays without a violation" },
+  reliability_60: { icon: "🥈", label: "60-Day Reliability", detail: "60 scheduled workdays without a violation" },
+  reliability_90: { icon: "🥇", label: "90-Day Reliability", detail: "90 scheduled workdays without a violation" },
+  perfect_month: { icon: "🔥", label: "Perfect Month", detail: "A full month with no attendance violation" },
+  perfect_attendance: { icon: "✨", label: "Perfect Attendance", detail: "A whole quarter with no violation at all" },
+  champion: { icon: "🏆", label: "Attendance Champion", detail: "A perfect 20 / 20 for the quarter" },
+};
+
+export interface NextAchievement {
+  label: string;
+  detail: string;
+  /** Points it is worth, when it is worth points. */
+  points?: number;
+}
+
 export interface QuarterScore {
   /** e.g. "2026-Q3". */
   quarter: string;
@@ -211,6 +295,12 @@ export interface QuarterScore {
   clamped: boolean;
   /** Month by month, for the breakdown on the Attendance page. */
   months: MonthBreakdown[];
+  /** Earned this quarter. Badges are kept permanently on the profile. */
+  badges: Badge[];
+  /** Points still needed to reach the next band, or null at the top. */
+  toNextStanding: { standing: Standing; points: number } | null;
+  /** The single clearest thing they can still do, for the progress panel. */
+  nextAchievement: NextAchievement | null;
   /**
    * Consecutive scheduled days, most recent first, with no violation.
    *
@@ -308,15 +398,31 @@ export function scoreQuarter(
     });
   }
 
-  /* ── The quarterly bonus, once the quarter itself is over. */
-  const quarterEnded = quarterOf(today) !== quarter && today > (inQuarter[inQuarter.length - 1]?.day ?? "");
-  const anyScheduled = inQuarter.some((f) => f.scheduled);
-  const quarterClean = anyScheduled
-    && inQuarter.filter((f) => f.scheduled).every((f) => !isViolation(effective.get(f.day) ?? "none"));
-  if (quarterClean && quarterEnded) {
-    ledger.push({
-      day: "", label: "Perfect quarter", points: PERFECT_QUARTER_BONUS, kind: "perfect_quarter",
-    });
+  /* ── The streak, computed before the total because it now EARNS points.
+        Consecutive scheduled days, newest first, with no violation. Approved
+        leave does not break it: Dee, 2026-09-18 — "approved leave should not
+        break the streak or disqualify the achievement. If the employee
+        followed the leave policy, the reward system shouldn't encourage them
+        to avoid legitimate approved leave just to preserve a badge." */
+  let streakDays = 0;
+  for (let i = inQuarter.length - 1; i >= 0; i -= 1) {
+    const f = inQuarter[i];
+    if (!f.scheduled) continue;
+    const c = effective.get(f.day) ?? "none";
+    if (isViolation(c)) break;
+    if (c === "approved_leave") continue;
+    streakDays += 1;
+  }
+
+  /* Each reliability milestone the streak has passed. Cumulative within the
+     quarter: reaching 60 days means 30 was passed on the way. */
+  for (const tier of STREAK_BONUSES) {
+    if (streakDays >= tier.days) {
+      ledger.push({
+        day: "", label: `${tier.badge} · ${tier.days} scheduled days without a violation`,
+        points: tier.points, kind: "streak",
+      });
+    }
   }
 
   const raw = round2(ledger.reduce((sum, l) => sum + l.points, 0));
@@ -375,23 +481,54 @@ export function scoreQuarter(
     };
   });
 
-  /* ── The streak: consecutive scheduled days, newest first, with no
-        violation. Approved leave does not break it — somebody on booked
-        holiday has not stopped turning up. */
-  let streakDays = 0;
-  for (let i = inQuarter.length - 1; i >= 0; i -= 1) {
-    const f = inQuarter[i];
-    if (!f.scheduled) continue;
-    const c = effective.get(f.day) ?? "none";
-    if (isViolation(c)) break;
-    if (c === "approved_leave") continue;
-    streakDays += 1;
+  /* ── Badges. Earned facts, kept beyond the quarter. */
+  const standing = standingFor(score);
+  const perfectQuarter = inQuarter.some((f) => f.scheduled)
+    && inQuarter.filter((f) => f.scheduled)
+      .every((f) => !isViolation(effective.get(f.day) ?? "none"));
+  const badges: Badge[] = [];
+  for (const tier of STREAK_BONUSES) {
+    if (streakDays >= tier.days) {
+      const key = `reliability_${tier.days}` as BadgeKey;
+      badges.push({ key, ...BADGE_META[key] });
+    }
   }
+  if (perfectMonths.length > 0) badges.push({ key: "perfect_month", ...BADGE_META.perfect_month });
+  if (perfectQuarter) badges.push({ key: "perfect_attendance", ...BADGE_META.perfect_attendance });
+  if (standing === "champion") badges.push({ key: "champion", ...BADGE_META.champion });
+
+  /* ── How far to the next band, so the score reads as a goal. */
+  const higher = STANDING_BANDS.filter((b) => b.from > score).sort((a, b) => a.from - b.from)[0];
+  const toNextStanding = higher
+    ? { standing: higher.standing, points: round2(higher.from - score) }
+    : null;
+
+  /* ── And the clearest single thing still available. A month that is still
+        running beats a streak milestone: it is nearer and it is certain. */
+  const nextAchievement: NextAchievement | null = (() => {
+    if (quarterOf(today) !== quarter) return null;
+    if (currentClean) {
+      return {
+        label: `Perfect ${monthName(currentMonth)}`,
+        detail: "Finish the month without an attendance violation",
+        points: PERFECT_MONTH_BONUS,
+      };
+    }
+    const tier = STREAK_BONUSES.find((t) => streakDays < t.days);
+    if (tier) {
+      return {
+        label: tier.badge,
+        detail: `${tier.days - streakDays} more scheduled days without a violation`,
+        points: tier.points,
+      };
+    }
+    return null;
+  })();
 
   return {
-    quarter, score, standing: standingFor(score), ledger, counts, alerts,
+    quarter, score, standing, ledger, counts, alerts,
     latesInWindow, nextOpportunity, clamped: raw !== score,
-    months: monthRows, streakDays,
+    months: monthRows, streakDays, badges, toNextStanding, nextAchievement,
   };
 }
 

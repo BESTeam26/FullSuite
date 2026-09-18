@@ -120,18 +120,46 @@ describe("the quarter", () => {
     expect(scoreQuarter(facts, Q).score).toBe(16);
   });
 
-  it("reaches exactly 20 on a perfect quarter and no further", () => {
-    /* 15 + 3 monthly + 2 quarterly = 20. */
+  it("no longer pays a perfect-quarter bonus", () => {
+    /* Dee, 2026-09-18: "I would NOT give +2 for a perfect quarter on top of
+       three +1 perfect months if that makes 20/20 attainable only through
+       perfect attendance." Three clean months is 18, not 20. */
     const facts = clean(["2026-07-06", "2026-08-03", "2026-09-07"]);
     const r = scoreQuarter(facts, { quarter: "2026-Q3", today: "2026-10-05" });
+    expect(r.score).toBe(18);
+    expect(r.ledger.some((l) => l.kind === "streak")).toBe(false);
+  });
+
+  it("reaches 20 through perfect months AND reliability streaks", () => {
+    /* 15 + 3 monthly + 0.5 + 0.5 + 1 = 20. */
+    const days = Array.from({ length: 92 }, (_, i) => {
+      const d = new Date(Date.UTC(2026, 6, 1 + i)).toISOString().slice(0, 10);
+      return day({ day: d });
+    });
+    const r = scoreQuarter(days, { quarter: "2026-Q3", today: "2026-10-05" });
     expect(r.score).toBe(20);
-    expect(r.standing).toBe("excellent");
+    expect(r.standing).toBe("champion");
   });
 
   it("does not bank points above the ceiling", () => {
-    const facts = clean(["2026-07-06", "2026-08-03", "2026-09-07"]);
-    const r = scoreQuarter(facts, { quarter: "2026-Q3", today: "2026-10-05" });
+    const days = Array.from({ length: 92 }, (_, i) =>
+      day({ day: new Date(Date.UTC(2026, 6, 1 + i)).toISOString().slice(0, 10) }));
+    const r = scoreQuarter(days, { quarter: "2026-Q3", today: "2026-10-05" });
     expect(r.score).toBeLessThanOrEqual(20);
+  });
+
+  it("lets somebody earn their way back after an early mistake", () => {
+    /* The whole reason the quarterly bonus went away. One late in week one
+       used to put the top mathematically out of reach; now a long clean run
+       still pays. */
+    const days = [
+      day({ day: "2026-07-02", lateMinutes: 15, workedMinutes: 460 }),
+      ...Array.from({ length: 80 }, (_, i) =>
+        day({ day: new Date(Date.UTC(2026, 6, 10 + i)).toISOString().slice(0, 10) })),
+    ];
+    const r = scoreQuarter(days, { quarter: "2026-Q3", today: "2026-10-05" });
+    expect(r.ledger.filter((l) => l.kind === "streak").map((l) => l.points)).toEqual([0.5, 0.5]);
+    expect(r.score).toBeGreaterThan(15);
   });
 
   it("never goes below zero", () => {
@@ -140,7 +168,7 @@ describe("the quarter", () => {
     const r = scoreQuarter(facts, Q);
     expect(r.score).toBe(0);
     expect(r.clamped).toBe(true);
-    expect(r.standing).toBe("management_review");
+    expect(r.standing).toBe("improvement");
   });
 
   it("does not award a bonus for a month that is still running", () => {
@@ -166,17 +194,20 @@ describe("the quarter", () => {
 });
 
 describe("standing bands", () => {
-  it("matches Dee's table at every boundary", () => {
-    expect(standingFor(20)).toBe("excellent");
+  it("matches Dee's achievement table at every boundary", () => {
+    expect(standingFor(20)).toBe("champion");
+    expect(standingFor(19.75)).toBe("excellent");
     expect(standingFor(18)).toBe("excellent");
     expect(standingFor(17.75)).toBe("good");
     expect(standingFor(15)).toBe("good");
     expect(standingFor(14.75)).toBe("coaching");
     expect(standingFor(12)).toBe("coaching");
-    expect(standingFor(11.75)).toBe("improvement_required");
-    expect(standingFor(9)).toBe("improvement_required");
-    expect(standingFor(8.75)).toBe("management_review");
-    expect(standingFor(0)).toBe("management_review");
+    expect(standingFor(11.75)).toBe("improvement");
+    expect(standingFor(0)).toBe("improvement");
+  });
+
+  it("reserves Champion for a full 20, not merely a high score", () => {
+    expect(standingFor(19.75)).not.toBe("champion");
   });
 
   it("puts a fresh quarter in Good standing, not on a watch list", () => {
@@ -322,5 +353,74 @@ describe("the current streak", () => {
   it("is zero right after a violation", () => {
     const r = scoreQuarter([d("2026-09-01"), d("2026-09-02", { workedMinutes: 0 })], Q);
     expect(r.streakDays).toBe(0);
+  });
+});
+
+describe("badges are cumulative, the score is not", () => {
+  const d = (day: string, over: Partial<AttendanceFact> = {}): AttendanceFact => ({
+    day, scheduled: true, approvedLeave: false, lateMinutes: 0,
+    workedMinutes: 480, scheduledMinutes: 480, notified: true, ...over,
+  });
+  const run = (n: number, from = 0) => Array.from({ length: n }, (_, i) =>
+    d(new Date(Date.UTC(2026, 6, 1 + from + i)).toISOString().slice(0, 10)));
+
+  it("awards a reliability badge at each milestone the streak passed", () => {
+    const r = scoreQuarter(run(65), { quarter: "2026-Q3", today: "2026-10-05" });
+    expect(r.badges.map((b) => b.key)).toEqual(
+      expect.arrayContaining(["reliability_30", "reliability_60"]));
+    expect(r.badges.map((b) => b.key)).not.toContain("reliability_90");
+  });
+
+  it("separates Perfect Attendance from Champion", () => {
+    /* Dee: "those are slightly different accomplishments." A clean quarter
+       that does not reach 20 still earns the perfect-attendance badge. */
+    const r = scoreQuarter(run(10), { quarter: "2026-Q3", today: "2026-10-05" });
+    expect(r.badges.map((b) => b.key)).toContain("perfect_attendance");
+    expect(r.badges.map((b) => b.key)).not.toContain("champion");
+    expect(r.standing).not.toBe("champion");
+  });
+
+  it("does not let approved leave cost somebody a badge", () => {
+    /* Dee: "the reward system shouldn't encourage them to avoid legitimate
+       approved leave just to preserve a badge." */
+    const withLeave = [
+      ...run(20),
+      d("2026-07-21", { approvedLeave: true, workedMinutes: 0 }),
+      ...run(15, 21),
+    ];
+    const r = scoreQuarter(withLeave, { quarter: "2026-Q3", today: "2026-10-05" });
+    expect(r.badges.map((b) => b.key)).toContain("reliability_30");
+  });
+});
+
+describe("the journey to the next achievement", () => {
+  const d = (day: string, over: Partial<AttendanceFact> = {}): AttendanceFact => ({
+    day, scheduled: true, approvedLeave: false, lateMinutes: 0,
+    workedMinutes: 480, scheduledMinutes: 480, notified: true, ...over,
+  });
+
+  it("says how far the next band is", () => {
+    const r = scoreQuarter([d("2026-09-01")], Q);
+    expect(r.toNextStanding).toEqual({ standing: "excellent", points: 3 });
+  });
+
+  it("says nothing further once at the top", () => {
+    const days = Array.from({ length: 92 }, (_, i) =>
+      d(new Date(Date.UTC(2026, 6, 1 + i)).toISOString().slice(0, 10)));
+    expect(scoreQuarter(days, { quarter: "2026-Q3", today: "2026-10-05" }).toNextStanding).toBeNull();
+  });
+
+  it("points at the running month while it is still clean", () => {
+    const r = scoreQuarter([d("2026-09-01")], { quarter: "2026-Q3", today: "2026-09-18" });
+    expect(r.nextAchievement?.label).toBe("Perfect September");
+    expect(r.nextAchievement?.points).toBe(1);
+  });
+
+  it("points at the next streak milestone once the month is spoilt", () => {
+    const r = scoreQuarter([
+      d("2026-09-01", { lateMinutes: 15, workedMinutes: 460 }), d("2026-09-02"),
+    ], { quarter: "2026-Q3", today: "2026-09-18" });
+    expect(r.nextAchievement?.label).toBe("30-Day Reliability");
+    expect(r.nextAchievement?.detail).toContain("29 more");
   });
 });
