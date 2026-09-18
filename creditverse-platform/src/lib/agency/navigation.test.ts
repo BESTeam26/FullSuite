@@ -24,7 +24,7 @@ const OPS = ctx("agency_user", ["ops.manage"]);
 const ADMIN = ctx("agency_admin");
 
 const STAFF_MENU = [
-  "/app", "/app/my-work", "/app/team-workspace", "/app/my-time",
+  "/app", "/app/my-work", "/app/team-workspace", "/app/time",
   "/app/eod", "/app/calendar", "/app/announcements", "/app/education", "/app/files",
   /* The Topbar bell links here unconditionally, so this route being openable
      by every staff member is a requirement, not a preference. */

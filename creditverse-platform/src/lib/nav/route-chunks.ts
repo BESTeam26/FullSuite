@@ -55,7 +55,11 @@ export const ROUTE_CHUNKS: Record<string, Loader> = {
   "/app/attention": named(hq, "AttentionCenter"),
   "/app/my-work": named(hq, "MyWorkPage"),
   "/app/notifications": named(hq, "NotificationsPage"),
-  "/app/my-time": named(() => import("@/pages/app/MyTimePage"), "MyTimePage"),
+  /* Time & Attendance is one module with child routes (Dee, 2026-09-18), so
+     every section warms the same chunk. /app/my-time is kept as a redirect
+     so saved links do not break. */
+  "/app/time": named(() => import("@/pages/app/TimeAttendancePage"), "TimeAttendancePage"),
+  "/app/time/:section": named(() => import("@/pages/app/TimeAttendancePage"), "TimeAttendancePage"),
   "/app/eod": named(() => import("@/pages/app/EodPage"), "EodPage"),
   "/app/team-eod": named(() => import("@/pages/app/TeamEodPage"), "TeamEodPage"),
   "/app/team-workspace": named(

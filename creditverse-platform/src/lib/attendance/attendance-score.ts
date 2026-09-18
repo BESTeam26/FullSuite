@@ -186,6 +186,15 @@ export const LATES_FOR_COACHING = 3;
 export const LATE_WINDOW_DAYS = 30;
 export const NCNS_FOR_MANAGEMENT = 2;
 
+export interface MonthBreakdown {
+  /** `YYYY-MM`. */
+  month: string;
+  label: string;
+  counts: Record<Classification, number>;
+  /** Earned, or still earnable, or lost. */
+  bonus: "earned" | "pending" | "lost" | "none";
+}
+
 export interface QuarterScore {
   /** e.g. "2026-Q3". */
   quarter: string;
@@ -200,6 +209,15 @@ export interface QuarterScore {
   nextOpportunity: string | null;
   /** True when the arithmetic was clipped by the 0 or 20 bound. */
   clamped: boolean;
+  /** Month by month, for the breakdown on the Attendance page. */
+  months: MonthBreakdown[];
+  /**
+   * Consecutive scheduled days, most recent first, with no violation.
+   *
+   * Approved leave and days off do not break it — somebody on booked holiday
+   * has not broken a streak of turning up. Only a violation does.
+   */
+  streakDays: number;
 }
 
 export const quarterOf = (day: string): string => {
@@ -337,9 +355,43 @@ export function scoreQuarter(
       ? `Finish ${monthName(currentMonth)} with perfect attendance → +1`
       : `${monthName(currentMonth)}'s bonus is gone. A clean month next month → +1`;
 
+  /* ── Month by month, for the breakdown on the Attendance page. */
+  const monthRows: MonthBreakdown[] = months.map((month) => {
+    const days = inQuarter.filter((f) => monthOf(f.day) === month);
+    const scheduled = days.filter((f) => f.scheduled);
+    const mCounts = Object.fromEntries(
+      Object.keys(POINTS).map((k) => [k, 0]),
+    ) as Record<Classification, number>;
+    for (const f of days) mCounts[effective.get(f.day) ?? "none"] += 1;
+    const clean = scheduled.length > 0
+      && scheduled.every((f) => !isViolation(effective.get(f.day) ?? "none"));
+    return {
+      month,
+      label: monthName(month),
+      counts: mCounts,
+      bonus: scheduled.length === 0 ? "none"
+        : !clean ? "lost"
+        : monthEnded(month) ? "earned" : "pending",
+    };
+  });
+
+  /* ── The streak: consecutive scheduled days, newest first, with no
+        violation. Approved leave does not break it — somebody on booked
+        holiday has not stopped turning up. */
+  let streakDays = 0;
+  for (let i = inQuarter.length - 1; i >= 0; i -= 1) {
+    const f = inQuarter[i];
+    if (!f.scheduled) continue;
+    const c = effective.get(f.day) ?? "none";
+    if (isViolation(c)) break;
+    if (c === "approved_leave") continue;
+    streakDays += 1;
+  }
+
   return {
     quarter, score, standing: standingFor(score), ledger, counts, alerts,
     latesInWindow, nextOpportunity, clamped: raw !== score,
+    months: monthRows, streakDays,
   };
 }
 

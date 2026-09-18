@@ -113,7 +113,7 @@ const AttentionCenter = lazy(chunkFor("/app/attention"));
 const MyWorkPage = lazy(chunkFor("/app/my-work"));
 // Time and EOD now load real data, so they live in their own modules and
 // lazy-load independently of the other HQ pages.
-const MyTimePage = lazy(chunkFor("/app/my-time"));
+const TimeAttendancePage = lazy(chunkFor("/app/time"));
 const EodPage = lazy(chunkFor("/app/eod"));
 const AgencyOrOrgCalendar = lazy(chunkFor("/app/calendar"));
 const PartnerProfilePage = lazy(chunkFor("/app/bes-partners/:id"));
@@ -373,10 +373,12 @@ const AppRoutes = () => {
               path="my-work"
               element={<MyWorkPage />}
             />
-            <Route
-              path="my-time"
-              element={<MyTimePage />}
-            />
+            {/* Time & Attendance: one module, child routes (Dee, 2026-09-18).
+                The old top-level paths redirect so saved links and anything
+                already sent to somebody keep working — no dead links. */}
+            <Route path="time" element={<TimeAttendancePage />} />
+            <Route path="time/:section" element={<TimeAttendancePage />} />
+            <Route path="my-time" element={<Navigate to="/app/time/my-time" replace />} />
             <Route path="eod" element={<EodPage />} />
             <Route
               path="team-eod"

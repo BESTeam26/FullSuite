@@ -75,7 +75,10 @@ export const AGENCY_ROUTES: AgencyRouteSpec[] = [
   { key: "home", label: "Home", path: "/app", readiness: "ready", access: "user" },
   { key: "my_work", label: "My Work", path: "/app/my-work", readiness: "ready", access: "user" },
   { key: "team_workspace", label: "Team Workspace", path: "/app/team-workspace", readiness: "ready", access: "user" },
-  { key: "my_time", label: "My Time", path: "/app/my-time", readiness: "ready", access: "user" },
+  /* One module with child routes (Dee, 2026-09-18). The sections resolve
+     their own audience in `time-sections.ts`; the module itself is open to
+     anybody who works here, because everybody has their own time. */
+  { key: "time", label: "Time & Attendance", path: "/app/time", readiness: "ready", access: "user" },
   { key: "eod", label: "End of Day", path: "/app/eod", readiness: "ready", access: "user" },
   { key: "calendar", label: "Calendar", path: "/app/calendar", readiness: "ready", access: "user" },
   { key: "announcements", label: "Announcements", path: "/app/announcements", readiness: "ready", access: "user" },

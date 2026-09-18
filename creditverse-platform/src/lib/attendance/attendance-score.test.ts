@@ -270,3 +270,57 @@ describe("which quarter a day belongs to", () => {
       .toEqual(["2026-Q1", "2026-Q2", "2026-Q3", "2026-Q4"]);
   });
 });
+
+describe("the month-by-month breakdown", () => {
+  const day2 = (d: string, over: Partial<AttendanceFact> = {}): AttendanceFact => ({
+    day: d, scheduled: true, approvedLeave: false, lateMinutes: 0,
+    workedMinutes: 480, scheduledMinutes: 480, notified: true, ...over,
+  });
+
+  it("marks a finished clean month earned and a spoilt one lost", () => {
+    const r = scoreQuarter([
+      day2("2026-07-06"),
+      day2("2026-08-03", { lateMinutes: 15, workedMinutes: 460 }),
+    ], { quarter: "2026-Q3", today: "2026-09-18" });
+    expect(r.months.map((m) => [m.label, m.bonus]))
+      .toEqual([["July", "earned"], ["August", "lost"]]);
+  });
+
+  it("marks the month still running as pending, not earned", () => {
+    const r = scoreQuarter([day2("2026-09-01")], { quarter: "2026-Q3", today: "2026-09-18" });
+    expect(r.months[0].bonus).toBe("pending");
+  });
+});
+
+describe("the current streak", () => {
+  const d = (day: string, over: Partial<AttendanceFact> = {}): AttendanceFact => ({
+    day, scheduled: true, approvedLeave: false, lateMinutes: 0,
+    workedMinutes: 480, scheduledMinutes: 480, notified: true, ...over,
+  });
+
+  it("counts consecutive clean scheduled days", () => {
+    const r = scoreQuarter([d("2026-09-01"), d("2026-09-02"), d("2026-09-03")], Q);
+    expect(r.streakDays).toBe(3);
+  });
+
+  it("stops at the most recent violation, not at the first", () => {
+    const r = scoreQuarter([
+      d("2026-09-01", { lateMinutes: 20, workedMinutes: 460 }),
+      d("2026-09-02"), d("2026-09-03"),
+    ], Q);
+    expect(r.streakDays).toBe(2);
+  });
+
+  it("is not broken by approved leave", () => {
+    /* Somebody on booked holiday has not stopped turning up. */
+    const r = scoreQuarter([
+      d("2026-09-01"), d("2026-09-02", { approvedLeave: true, workedMinutes: 0 }), d("2026-09-03"),
+    ], Q);
+    expect(r.streakDays).toBe(2);
+  });
+
+  it("is zero right after a violation", () => {
+    const r = scoreQuarter([d("2026-09-01"), d("2026-09-02", { workedMinutes: 0 })], Q);
+    expect(r.streakDays).toBe(0);
+  });
+});

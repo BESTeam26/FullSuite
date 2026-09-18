@@ -20,7 +20,10 @@ const MODULES = ["CreditOps", "FundingOps", "BES CRM", "TalentOps"];
    past. */
 const MANAGEMENT = ["Team Members", "Teams", "Reports", "BES Partners"];
 const ADMIN_ONLY = ["Finance", "Agency Settings", "Organizations", "Organization billing", "Compliance & Legal"];
-const PERSONAL = ["Home", "My Work", "My Time", "End of Day", "Notifications"];
+/* "My Time" is a SECTION of the Time & Attendance module now, not a top-level
+   tab (Dee, 2026-09-18) — so the menu promises the module, and
+   `time-sections.test.ts` covers which sections each audience is offered. */
+const PERSONAL = ["Home", "My Work", "Time & Attendance", "End of Day", "Notifications"];
 
 describe("an Agent with no module", () => {
   const menu = labels(ctx([]));

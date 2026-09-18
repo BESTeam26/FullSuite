@@ -32,7 +32,6 @@ import {
 } from "lucide-react";
 import { ContentCard, StatCard } from "@/components/dashboard/DivisionLayout";
 import { DataSourceBadge } from "@/components/dashboard/DataSourceBadge";
-import { HqPageShell } from "@/pages/app/HqPages";
 import { useTimesheet } from "@/lib/data/use-time";
 import { useMyTimeAdjustments, useRequestTimeAdjustment } from "@/lib/data/use-time-adjustments";
 import { useLeaveActions, useLeaveTypes, useMyLeave, useSchedules } from "@/lib/data/use-people";
@@ -51,8 +50,6 @@ import { StartWorkCard, type StartRequest } from "@/components/time/StartWorkCar
 import { WeekChart } from "@/components/time/WeekChart";
 import { TodayTimeline } from "@/components/time/TodayTimeline";
 import { RequestTimeOffDialog } from "@/components/time/RequestTimeOffDialog";
-import { AttendanceScoreCard } from "@/components/attendance/AttendanceScoreCard";
-import { useMyAttendanceScore } from "@/lib/attendance/use-attendance-score";
 import { businessDaysBetween, businessToday } from "@/lib/calendar/us-federal-holidays";
 
 /**
@@ -69,7 +66,7 @@ function useNowTick(running: boolean): Date {
   return now;
 }
 
-export const MyTimePage = () => {
+export const MyTimeSection = () => {
   const t = useTimesheet();
   const myAdjustments = useMyTimeAdjustments();
   const partners = useAgencyPartners();
@@ -114,42 +111,37 @@ export const MyTimePage = () => {
   const start = (r: StartRequest) => t.clockIn(r.divisionId, r.taskNote, r.partnerGroupId);
 
   return (
-    <HqPageShell
-      title="My Time"
-      description="Start, stop, and keep moving."
-      icon={Clock}
-      actions={
-        /* The arrows are present and honest about what they do. `useTimesheet`
-           loads THIS week only, so stepping away would show an empty week and
-           look broken; they are disabled with the reason said out loud rather
-           than left out of the design or wired to nothing (rule 12: no
-           dishonest controls). The full history lives in Team Time. */
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1">
-            <button type="button" disabled aria-label="Previous week"
-              title="My Time shows the current week. Earlier weeks are in Team Time."
-              className="rounded-lg border border-border bg-card p-1.5 text-muted-foreground disabled:cursor-not-allowed disabled:opacity-40">
-              <ChevronLeft className="h-3.5 w-3.5" />
-            </button>
-            <span className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground">
-              <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-              {weekRangeLabel(weekStart())}
-            </span>
-            <button type="button" disabled aria-label="Next week"
-              title="This is the current week."
-              className="rounded-lg border border-border bg-card p-1.5 text-muted-foreground disabled:cursor-not-allowed disabled:opacity-40">
-              <ChevronRight className="h-3.5 w-3.5" />
-            </button>
-          </div>
-          <div className="text-right">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">This week</p>
-            <p className="text-lg font-extrabold tabular-nums leading-tight text-foreground">
-              {formatDuration(t.weekMinutes)}
-            </p>
-          </div>
+    <>
+      {/* The week, and the week's total. The module shell owns the page
+          heading now, so this sits at the top of the section instead of in
+          the shell's actions slot. */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-1">
+          {/* Present and honest: `useTimesheet` loads THIS week only, so
+              stepping away would show an empty week and look broken. Disabled
+              with the reason in the tooltip rather than wired to nothing. */}
+          <button type="button" disabled aria-label="Previous week"
+            title="My Time shows the current week. Earlier weeks are in Team Management."
+            className="rounded-lg border border-border bg-card p-1.5 text-muted-foreground disabled:cursor-not-allowed disabled:opacity-40">
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </button>
+          <span className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground">
+            <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+            {weekRangeLabel(weekStart())}
+          </span>
+          <button type="button" disabled aria-label="Next week" title="This is the current week."
+            className="rounded-lg border border-border bg-card p-1.5 text-muted-foreground disabled:cursor-not-allowed disabled:opacity-40">
+            <ChevronRight className="h-3.5 w-3.5" />
+          </button>
         </div>
-      }
-    >
+        <div className="text-right">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">This week</p>
+          <p className="text-lg font-extrabold tabular-nums leading-tight text-foreground">
+            {formatDuration(t.weekMinutes)}
+          </p>
+        </div>
+      </div>
+
       <div className="mb-4 flex items-center gap-2">
         <DataSourceBadge source={t.source} />
         {t.source === "demo" && (
@@ -283,24 +275,12 @@ export const MyTimePage = () => {
             <WeekChart bars={bars} today={t.today} />
           </ContentCard>
 
-          {/* Dee's attendance policy, 2026-09-18. Derived from the same
-              attendance record the manager's view reads, so the two can never
-              show different numbers, and no bonus is hand-awarded. */}
-          <AttendanceScoreBlock />
-
           <TimeOffCard />
         </div>
       </div>
 
-    </HqPageShell>
+    </>
   );
-};
-
-/** The quarter's attendance score, or nothing while it is still loading. */
-const AttendanceScoreBlock = () => {
-  const { score, isLoading } = useMyAttendanceScore();
-  if (isLoading || !score) return null;
-  return <AttendanceScoreCard score={score} />;
 };
 
 /**

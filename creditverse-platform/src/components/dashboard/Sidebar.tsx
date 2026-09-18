@@ -55,6 +55,7 @@ import { useUnreadNotificationCount } from "@/lib/data/use-notifications";
 import { useAuth } from "@/lib/auth/auth-context";
 import { usePermissions, type PermissionKeyName } from "@/lib/auth/use-permission";
 import { accessTo, routeFor } from "@/lib/agency/navigation";
+import { visibleTimeSections } from "@/lib/time/time-sections";
 import { Eye } from "lucide-react";
 import { useAgencyAccessContext } from "@/lib/agency/use-access-context";
 import { useAgencyPermissions, type AgencyPermission } from "@/lib/data/agency-permissions";
@@ -192,6 +193,21 @@ export const Sidebar = () => {
     [agencyPermissions],
   );
 
+  /* The Time & Attendance sections this person may open. Team Management is
+     gated on a real team-lead relationship or management capability — never
+     on the role name alone (Dee, 2026-09-18). */
+  const timeChildren = useMemo(
+    () =>
+      visibleTimeSections({
+        manages: navContext.role === "agency_admin" || navContext.can("ops.manage"),
+        leadsTeam: navContext.leadsTeam,
+      }).map((s) => ({
+        label: s.label,
+        href: s.slug ? `/app/time/${s.slug}` : "/app/time",
+      })),
+    [navContext],
+  );
+
   /* Agency HQ navigation — BES employees only */
   const agencyNavGroups: NavGroup[] = [
     {
@@ -239,7 +255,6 @@ export const Sidebar = () => {
           href: "/app/my-work",
           badge: myWorkCount,
         },
-        { label: "My Time", icon: Clock, href: "/app/my-time" },
         { label: "End of Day", icon: Timer, href: "/app/eod" },
         /* Team EOD was declared in `navigation.ts`, routed, guarded and linked
            from the Home "Missing EOD" tile — and was in no menu anywhere. It
@@ -270,6 +285,23 @@ export const Sidebar = () => {
     {
       label: "Workforce",
       items: [
+        /*
+         * Dee, 2026-09-18: "Consolidate My Time, Attendance, Time Off, Team
+         * Time and Leave Management into one collapsible FullSuite module…
+         * Do not keep My Time, Attendance and Time Off as unrelated top-level
+         * navigation items."
+         *
+         * Same interaction as Finance: the sections nest under the parent in
+         * this sidebar rather than on a second rail inside the page. Which
+         * sections appear is decided by `visibleTimeSections` from the SAME
+         * authority the route guard reads, so the menu and the door agree.
+         */
+        {
+          label: "Time & Attendance",
+          icon: Clock,
+          href: "/app/time",
+          children: timeChildren,
+        },
         /* Two doors, deliberately (Dee's People Hub doctrine): People is the
            person — profile, access, schedule, compensation, insights — and
            Teams is the structure. Workforce and HR dissolved into them. */
@@ -427,7 +459,9 @@ export const Sidebar = () => {
     {
       label: "Production",
       items: [
-        { label: "Time Tracking", icon: Clock, href: "/app/my-time" },
+        /* The organization view points at the same module. /app/my-time still
+           redirects, but a menu should link to where a page actually lives. */
+        { label: "Time Tracking", icon: Clock, href: "/app/time/my-time" },
         { label: "End of Day", icon: Timer, href: "/app/eod" },
       ],
     },
