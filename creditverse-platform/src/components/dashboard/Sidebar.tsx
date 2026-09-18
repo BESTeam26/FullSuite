@@ -10,6 +10,7 @@ import {
   Building2,
   AlertTriangle,
   ListTodo,
+  ClipboardCheck,
   Clock,
   Timer,
   Bell,
@@ -240,6 +241,14 @@ export const Sidebar = () => {
         },
         { label: "My Time", icon: Clock, href: "/app/my-time" },
         { label: "End of Day", icon: Timer, href: "/app/eod" },
+        /* Team EOD was declared in `navigation.ts`, routed, guarded and linked
+           from the Home "Missing EOD" tile — and was in no menu anywhere. It
+           is also where a LEAVE REQUEST is decided, and the notification a
+           lead receives says in so many words "Decide it from Team EOD", so
+           the one instruction the product gives pointed at a page with no way
+           to reach it. The group filter below hides it from anyone who is
+           neither a lead nor management. */
+        { label: "Team EOD", icon: ClipboardCheck, href: "/app/team-eod" },
         {
           label: "Notifications",
           icon: Bell,

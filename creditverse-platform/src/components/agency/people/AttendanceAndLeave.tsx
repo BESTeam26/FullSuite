@@ -11,6 +11,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { useAttendanceRange, useLeaveActions, usePendingLeave } from "@/lib/data/use-people";
 import { formatDuration } from "@/lib/time-domain";
 import { formatDate } from "@/lib/format-date";
+import { businessDaysBetween } from "@/lib/calendar/us-federal-holidays";
 import { cn } from "@/lib/utils";
 
 /**
@@ -33,10 +34,23 @@ export const LeaveQueue = () => {
         {rows.map((r) => (
           <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-xs">
             <span className="min-w-0 text-foreground">
-              <span className="font-semibold">{r.requesterName ?? "Someone"}</span>
-              {" "}· {r.typeLabel} · {formatDate(r.startsOn)}
-              {r.endsOn !== r.startsOn ? ` – ${formatDate(r.endsOn)}` : ""}
-              {r.reason && <span className="text-muted-foreground"> · "{r.reason}"</span>}
+              <span className="block">
+                <span className="font-semibold">{r.requesterName ?? "Someone"}</span>
+                {" "}· {r.typeLabel} · {formatDate(r.startsOn)}
+                {r.endsOn !== r.startsOn ? ` – ${formatDate(r.endsOn)}` : ""}
+                {" · "}
+                {/* The number the decision actually turns on. "Oct 5 – Oct 9"
+                    is five calendar days and could be three working ones. */}
+                {businessDaysBetween(r.startsOn, r.endsOn)} working day
+                {businessDaysBetween(r.startsOn, r.endsOn) === 1 ? "" : "s"}
+              </span>
+              {r.reason && <span className="block text-muted-foreground">Reason: {r.reason}</span>}
+              {/* Coverage is usually what a lead is really deciding — "may they
+                  have the days" is rarely the question; "what happens to the
+                  work" is. It had nowhere to be read until now. */}
+              {r.coverageNote && (
+                <span className="block text-muted-foreground">Coverage: {r.coverageNote}</span>
+              )}
             </span>
             <span className="flex items-center gap-1.5">
               <Input
