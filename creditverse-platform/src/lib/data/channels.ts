@@ -499,6 +499,36 @@ export async function fetchChannelSeenBy(channelId: string): Promise<SeenBy[]> {
 
 export type NotificationLevel = "all" | "mentions" | "none";
 
+/** One line of a conversation's roster: a team on it, or a person in it. */
+export interface RosterEntry {
+  kind: "team" | "person";
+  id: string;
+  name: string;
+  hint: string | null;
+  isManager: boolean;
+}
+
+/**
+ * Who is in a conversation.
+ *
+ * Deliberately not `channel_mentionable`, which answers what you may type
+ * after an @ — it offers @everyone and any team with one person here, and
+ * leaves you out because you cannot mention yourself.
+ */
+export async function fetchChannelRoster(channelId: string): Promise<RosterEntry[]> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("channel_roster" as never,
+    { p_channel: channelId } as never);
+  if (error) throw error;
+  return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+    kind: r.kind === "team" ? "team" : "person",
+    id: String(r.id),
+    name: String(r.name ?? ""),
+    hint: (r.hint as string) ?? null,
+    isManager: r.is_manager === true,
+  }));
+}
+
 export interface ChannelDetails {
   /** Null on an unnamed direct conversation: it is described, not named. */
   name: string | null;

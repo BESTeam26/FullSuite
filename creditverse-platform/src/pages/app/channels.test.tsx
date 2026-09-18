@@ -28,6 +28,7 @@ import type { RichMessage } from "@/lib/data/messages";
 let channels: Channel[];
 let messages: RichMessage[];
 let hits: SearchHit[];
+let roster: { kind: "person" | "team"; id: string; name: string; hint: string | null; isManager: boolean }[];
 let mentionable: { userId: string; name: string; email?: string | null; hint?: string | null }[];
 const sendMutate = vi.fn().mockResolvedValue({ id: 1 });
 const reactMutate = vi.fn();
@@ -96,10 +97,12 @@ vi.mock("@/lib/data/use-channels", () => ({
     addTeam: { mutate: vi.fn(), isPending: false }, removeTeam: { mutate: vi.fn() },
     openDirect: { mutate: vi.fn() },
     openGroup: { mutateAsync: vi.fn(), isPending: false },
+    setVisibility: { mutate: vi.fn(), isPending: false },
   }),
   useChannelMembers: () => ({ data: [] }),
   useChannelTeams: () => ({ data: [] }),
   useChannelMentionable: () => ({ data: mentionable }),
+  useChannelRoster: () => ({ data: roster, isPending: false, isError: false }),
 }));
 
 const render = (path = "/app/channels") =>
@@ -118,6 +121,10 @@ beforeEach(() => {
   messages = [];
   hits = [];
   mentionable = [{ userId: "u2", name: "Rowell Cruz", email: "rowell@bes.test", hint: "Agent" }];
+  roster = [
+    { kind: "person" as const, id: "u1", name: "Dee Gallardo", hint: "Admin", isManager: true },
+    { kind: "person" as const, id: "u2", name: "Rowell Cruz", hint: "Agent", isManager: false },
+  ];
   sendMutate.mockClear();
   reactMutate.mockClear();
   deleteMutate.mockClear();
@@ -517,5 +524,59 @@ describe("one way to reply, and it opens the thread (2026-09-16)", () => {
     messages = [richMessage({ id: 10, bodyText: "Good morning" })];
     render();
     expect(screen.queryByLabelText("Cancel reply")).not.toBeInTheDocument();
+  });
+});
+
+describe("the Members tab is a roster, not the mention picker", () => {
+  /* Dee, 2026-09-18, on BES Managers / TL Room: "Do not automatically add the
+     teams on all Channel Unless it's their team."
+
+     No team had been added — the tab rendered `channel_mentionable`, which
+     offers @everyone and any team with one person in the room, so three teams
+     appeared to be members of a conversation they had never been added to. It
+     also leaves the reader out, because you cannot mention yourself, so the
+     count above the list did not match the list. */
+  const openMembers = () => {
+    render();
+    fireEvent.click(screen.getByRole("button", { name: /General Chat/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Members/ }));
+  };
+
+  it("names no group targets", () => {
+    /* The mention picker's own rows would put an @ in this list. */
+    mentionable = [
+      { userId: "channel", name: "@everyone", email: null, hint: "Notify everyone here" },
+      { userId: "team:t1", name: "@CRM Team", email: null, hint: "Notify the team" },
+      { userId: "u2", name: "Rowell Cruz", email: "rowell@bes.test", hint: "Agent" },
+    ] as never;
+    openMembers();
+    expect(screen.queryByText(/^@/)).not.toBeInTheDocument();
+  });
+
+  it("includes you, which the mention picker deliberately does not", () => {
+    openMembers();
+    expect(screen.getByText("Dee Gallardo")).toBeInTheDocument();
+  });
+
+  it("marks a manager as one", () => {
+    openMembers();
+    expect(screen.getByText("Manager")).toBeInTheDocument();
+  });
+
+  it("shows a team only when it is genuinely on the conversation", () => {
+    roster = [
+      { kind: "team", id: "t1", name: "CRM Team", hint: "4 on this team", isManager: false },
+      { kind: "person", id: "u1", name: "Dee Gallardo", hint: "Admin", isManager: true },
+    ];
+    openMembers();
+    expect(screen.getByText("CRM Team")).toBeInTheDocument();
+    expect(screen.getByText("Team")).toBeInTheDocument();
+  });
+
+  it("says an open conversation has no member list rather than 'nobody'", () => {
+    roster = [];
+    channels = [channel({ openToScope: true })];
+    openMembers();
+    expect(screen.getByText(/open to everyone with access/)).toBeInTheDocument();
   });
 });

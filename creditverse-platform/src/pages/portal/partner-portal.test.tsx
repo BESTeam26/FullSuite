@@ -79,6 +79,9 @@ vi.mock("@/lib/data/use-channels", () => ({
   /* A partner contact gets nobody to mention until BES adds them, which the
      database decides — the portal simply renders what comes back. */
   useChannelMentionable: () => ({ data: [] }),
+  /* The Members tab reads the roster, not the mention picker. Mocked here
+     because a partner opening a conversation renders the same pane. */
+  useChannelRoster: () => ({ data: [], isPending: false, isError: false }),
 }));
 vi.mock("@/lib/data/use-portal-conversations", () => ({
   useMyPartnerServices: () => ({ data: liveServices, isLoading: false }),

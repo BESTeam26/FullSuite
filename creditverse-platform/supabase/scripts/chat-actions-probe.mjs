@@ -604,6 +604,92 @@ console.log("Public or private");
           where routine_name = 'set_channel_visibility' and grantee in ('anon','PUBLIC')`).n, 0);
 }
 
+/*
+ * Deactivating somebody ends their conversations.
+ *
+ * Dee, 2026-09-18: "once we deactivate the agent, team member, they will be
+ * automatically removed from all channels and all access revoke."
+ *
+ * Access was already revoked. Being COUNTED, listed and notified was not, and
+ * that is what these measure — all inside a rolled-back transaction against a
+ * real account, because a deactivation that only works in theory is the whole
+ * failure mode.
+ */
+console.log("Deactivating somebody ends their conversations");
+{
+  const room = one(`select id, name from public.channels
+                     where agency_id = '${AGENCY}' and open_to_scope = false
+                       and kind = 'department' limit 1`);
+  const subject = one(`select m.user_id from public.channel_members m
+      join public.profiles p on p.id = m.user_id
+     where m.channel_id = '${room.id}' and coalesce(p.is_fixture,false) = false
+       and not m.is_manager limit 1`)
+    ?? one(`select p.id as user_id from public.profiles p
+      join public.agency_memberships am on am.user_id = p.id and am.status = 'active'
+     where coalesce(p.is_fixture,false) = false and p.id <> '${OWNER}' limit 1`);
+
+  /* Named on the room for the duration of the test, then rolled back. */
+  const measure = (deactivate) => q.query(`begin;
+    insert into public.channel_members (channel_id, user_id)
+         values ('${room.id}', '${subject.user_id}') on conflict do nothing;
+    ${deactivate ? `update public.agency_memberships set status = 'inactive'
+                     where user_id = '${subject.user_id}' and agency_id = '${AGENCY}';` : ""}
+    select public.channel_notifiable('${room.id}', '${subject.user_id}') as notifiable,
+           (select count(*)::int from public.mention_group_recipients('${room.id}', 'channel') r
+             where r.user_id = '${subject.user_id}') as counted,
+           (select count(*)::int from public.channel_members
+             where channel_id = '${room.id}' and user_id = '${subject.user_id}') as row_kept;
+    rollback;`)[0];
+
+  const on = measure(false);
+  check("an active member is notifiable and counted", { n: on.notifiable, c: on.counted },
+    { n: true, c: 1 });
+
+  const off = measure(true);
+  check("a deactivated person is no longer notifiable", off.notifiable, false);
+  check("…no longer counted in Members · N", off.counted, 0);
+  /* Deliberate: the record that they were there survives, so somebody back
+     from leave is not re-added to fifteen rooms by hand. */
+  check("…but the record that they were in the room is kept", off.row_kept, 1);
+
+  /* The partner branch the first draft of this broke: assignment BY TEAM. */
+  const byTeam = one(`select count(*)::int as n from public.partner_assignments
+                       where team_id is not null and ended_on is null`);
+  check("assignment to a partner by TEAM still exists to be honoured", byTeam.n >= 0, true);
+  const def = one(`select pg_get_functiondef(oid) as d from pg_proc
+                    where proname = 'channel_notifiable' and pronamespace = 'public'::regnamespace`).d;
+  check("…and the function still contains the team-assignment path",
+    def.includes("a.team_id is not null"), true);
+  check("…and the service scope that goes with it",
+    def.includes("a.service_id = c.partner_service_id"), true);
+}
+
+/*
+ * The Members tab is a ROSTER, not the mention picker.
+ *
+ * Dee, 2026-09-18: "Do not automatically add the teams on all Channel Unless
+ * it's their team." Nothing had been added — the tab was drawing
+ * `channel_mentionable`, which offers @everyone and any team with one person
+ * in the room.
+ */
+console.log("The Members tab is a roster");
+{
+  const room = one(`select id from public.channels
+                     where agency_id = '${AGENCY}' and open_to_scope = false
+                       and kind = 'department' limit 1`);
+  const roster = as(OWNER, `select kind, id, name from public.channel_roster('${room.id}');`);
+  const rows = roster.ok ? roster.rows : [];
+  check("the roster names no group targets", rows.filter((r) => r.name?.startsWith("@")).length, 0);
+  check("…and lists only teams actually attached to the conversation",
+    rows.filter((r) => r.kind === "team").length,
+    one(`select count(*)::int as n from public.channel_teams where channel_id = '${room.id}'`).n);
+  check("…and counts the same people the header does",
+    rows.filter((r) => r.kind === "person").length,
+    one(`select count(*)::int as n from public.mention_group_recipients('${room.id}', 'channel')`).n);
+  check("…including you, unlike the mention picker",
+    rows.some((r) => r.id === OWNER), true);
+}
+
 console.log(`\n${pass} passed, ${failures.length} failed`);
 failures.forEach((f) => console.log(`  - ${f}`));
 process.exit(failures.length ? 1 : 0);

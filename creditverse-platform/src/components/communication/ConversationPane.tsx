@@ -20,7 +20,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Building2, FileText, Hash, Loader2, Lock, MessagesSquare, PanelRight, Pin,
-  ShieldAlert, Star, Undo2, X,
+  ShieldAlert, Star, Undo2, Users, X,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useTypingPresence } from "@/lib/data/use-typing-presence";
@@ -34,8 +34,8 @@ import { ChannelDetails } from "@/components/communication/ChannelDetails";
 import { BES_TIMEZONE, groupByDay } from "@/lib/communication/conversation-clock";
 import { formatDate } from "@/lib/format-date";
 import {
-  useChannelDetails, useChannelMembers, useChannelMentionable, useChannelPreferences,
-  useChannelSeenBy, useChannels,
+  useChannelDetails, useChannelMentionable, useChannelPreferences,
+  useChannelRoster, useChannelSeenBy, useChannels,
 } from "@/lib/data/use-channels";
 import { useMessageRealtime } from "@/lib/data/use-message-realtime";
 import type { MentionAttrs } from "@/lib/activity/mentions";
@@ -624,12 +624,21 @@ function ChannelTabPanel({
   openToScope: boolean;
   onOpenThread: (messageId: number) => void;
 }) {
-  /* `channel_mentionable` IS the member list with names on it, and the
-     composer has already fetched and cached it — so the Members tab costs no
-     request at all (rule 14). `channel_members` carries ids only. */
-  const members = useChannelMentionable(channelId);
-  const managers = useChannelMembers(tab === "members" ? channelId : null);
-  const managerIds = new Set((managers.data ?? []).filter((m) => m.isManager).map((m) => m.userId));
+  /*
+   * The roster, and only while the tab is open (rule 14: do not load a tab
+   * nobody asked for).
+   *
+   * This used to reuse `channel_mentionable` because the composer had already
+   * cached it — one fewer request, and the wrong list. That function answers
+   * what you may type after an @: it offers @everyone, and it offers @CRM Team
+   * whenever a single person in the room happens to be on that team. Drawn as
+   * a roster it announced teams that had never been added to the conversation
+   * (Dee, 2026-09-18), above a count that did not match it — because it also
+   * leaves YOU out, since you cannot mention yourself.
+   */
+  const roster = useChannelRoster(tab === "members" ? channelId : null);
+  const rosterTeams = (roster.data ?? []).filter((r) => r.kind === "team");
+  const rosterPeople = (roster.data ?? []).filter((r) => r.kind === "person");
 
   const Empty = ({ children }: { children: ReactNode }) => (
     <p className="py-10 text-center text-sm text-muted-foreground">{children}</p>
@@ -691,9 +700,13 @@ function ChannelTabPanel({
       )}
 
       {tab === "members" && (
-        members.isPending ? (
+        roster.isPending ? (
           <Loader2 className="mx-auto h-4 w-4 animate-spin text-muted-foreground" />
-        ) : (members.data ?? []).length === 0 ? (
+        ) : roster.isError ? (
+          <p role="alert" className="py-10 text-center text-sm text-status-danger">
+            We couldn't load who is in this conversation.
+          </p>
+        ) : rosterPeople.length === 0 && rosterTeams.length === 0 ? (
           <Empty>
             {openToScope
               /* Not "no members" — an open conversation has no member rows
@@ -702,20 +715,48 @@ function ChannelTabPanel({
               : "Nobody has been added yet."}
           </Empty>
         ) : (
-          <ul className="space-y-1">
-            {(members.data ?? []).map((p) => (
-              <li key={p.userId}
-                className="flex items-center gap-2.5 rounded-lg px-2 py-1.5">
-                <Avatar name={p.name} size="sm" className="h-7 w-7" />
-                <span className="min-w-0 flex-1 truncate text-sm text-foreground">{p.name}</span>
-                {managerIds.has(p.userId) && (
-                  <span className="shrink-0 rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Manager
+          <>
+            {rosterTeams.length > 0 && (
+              /* Only teams somebody attached on purpose. A team here means
+                 whoever is on it, now and later. */
+              <ul className="mb-3 space-y-1">
+                {rosterTeams.map((t) => (
+                  <li key={`team-${t.id}`} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5">
+                    <span aria-hidden className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted">
+                      <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm text-foreground">{t.name}</span>
+                      {t.hint && (
+                        <span className="block truncate text-[11px] text-muted-foreground">{t.hint}</span>
+                      )}
+                    </span>
+                    <span className="shrink-0 rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Team
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <ul className="space-y-1">
+              {rosterPeople.map((p) => (
+                <li key={`person-${p.id}`} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5">
+                  <Avatar name={p.name} size="sm" className="h-7 w-7" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm text-foreground">{p.name}</span>
+                    {p.hint && (
+                      <span className="block truncate text-[11px] text-muted-foreground">{p.hint}</span>
+                    )}
                   </span>
-                )}
-              </li>
-            ))}
-          </ul>
+                  {p.isManager && (
+                    <span className="shrink-0 rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Manager
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </>
         )
       )}
     </div>

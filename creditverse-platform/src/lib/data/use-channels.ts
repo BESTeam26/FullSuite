@@ -20,7 +20,7 @@ import {
   fetchMessages,
   markChannelRead, openDirectChannel, openGroupConversation, openPartnerConversation, postMessage,
   fetchChannelDetails, fetchChannelSeenBy, setChannelFavourite, setChannelNotifications,
-  renameChannel, setChannelVisibility,
+  fetchChannelRoster, renameChannel, setChannelVisibility,
   removeChannelMember, removeChannelTeam, restoreChannel,
 } from "@/lib/data/channels";
 import type { NotificationLevel } from "@/lib/data/channels";
@@ -109,6 +109,7 @@ export function useChannelActions() {
     void qc.invalidateQueries({ queryKey: ["channel-teams"] });
     void qc.invalidateQueries({ queryKey: ["channel-details"] });
     void qc.invalidateQueries({ queryKey: ["channel-mentionable"] });
+    void qc.invalidateQueries({ queryKey: ["channel-roster"] });
   };
   return {
     create: useMutation({
@@ -224,6 +225,17 @@ export function useChannelSeenBy(channelId: string | null) {
 }
 
 /** Everything the Channel details panel shows, in one call. */
+/** Who is in a conversation — people and the teams actually on it. */
+export function useChannelRoster(channelId: string | null) {
+  const auth = useAuth();
+  return useQuery({
+    queryKey: ["channel-roster", channelId ?? ""],
+    queryFn: () => fetchChannelRoster(channelId as string),
+    enabled: !!channelId && auth.mode === "live" && auth.status === "signed-in",
+    staleTime: 30_000,
+  });
+}
+
 export function useChannelDetails(channelId: string | null) {
   return useQuery({
     queryKey: ["channel-details", channelId ?? ""],
