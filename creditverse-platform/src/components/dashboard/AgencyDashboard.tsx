@@ -12,8 +12,6 @@
  * announcements BES has actually published.
  */
 import { Building2, Briefcase, Landmark, Receipt, Users } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Crown } from "lucide-react";
 import { useAgency } from "@/lib/agency-context";
@@ -36,7 +34,6 @@ export const AgencyDashboard = () => {
   const attention = useAttention();
   const overview = useAgencyOverview();
   const { subAccounts, switchToSubAccount } = useAgency();
-  const navigate = useNavigate();
 
   const figures = overview.data;
   const value = (n: number | undefined) => (overview.isLoading ? "…" : (n ?? 0));
@@ -63,19 +60,13 @@ export const AgencyDashboard = () => {
           </p>
         </div>
 
-        {/* Ask Lina is NOT repeated here. Dee, 2026-09-18: "Ask Lina on home
-            view is redundant appearing twice." It lives in the top bar, which
-            is on every screen — so a copy in the page header is the same
-            button twice on one row, and the one that would go stale if the
-            launcher ever changes. */}
-        <div className="flex gap-2">
-          <Button
-            onClick={() => navigate("/app/subaccounts")}
-            className="bg-amber-500 font-bold text-charcoal shadow-sm hover:bg-amber-600"
-          >
-            <Building2 className="mr-1.5 h-4 w-4" /> Add Organization
-          </Button>
-        </div>
+        {/* No action buttons here, deliberately. Dee, 2026-09-18: "Ask Lina
+            on home view is redundant appearing twice" and "Remove duplicate
+            Add Organization." Both live in the top bar, which is on every
+            screen and does exactly the same thing — Add Organization navigated
+            to /app/subaccounts from both places. A page header that repeats
+            the global bar puts the same button twice on one row, and the copy
+            is the one that goes stale when the real control changes. */}
       </div>
 
       {/* Counted in the database, bounded by what this user may see. */}
