@@ -289,6 +289,18 @@ summary:focus-visible,
 .bg-status-info-tint    { background-color: color-mix(in srgb, hsl(var(--status-info))    12%, hsl(var(--card))); }
 .bg-status-accent-tint  { background-color: color-mix(in srgb, hsl(var(--status-accent))  12%, hsl(var(--card))); }
 
+/* A SOLID danger surface, for the one control that has to be unmissable: Stop
+   timer. `bg-destructive` is the lighter --destructive (0 63% 55%), which
+   carries white text at 4.44:1 — under AA for 14px bold. --status-danger is
+   the darker red already used for danger text and reaches 7.4:1, so the same
+   button is both louder and readable. Pair it with `text-white`.
+
+   Tailwind's own red-500/600/700 are NOT available: tailwind.config.ts maps
+   `red` to a single token, which replaces the default scale. `bg-red-600`
+   therefore silently produces no background at all. */
+.bg-status-danger { background-color: hsl(var(--status-danger)); }
+.hover\:bg-status-danger-strong:hover { background-color: color-mix(in srgb, hsl(var(--status-danger)) 88%, black); }
+
 /* Hover deepens the same hue — contrast rises, never falls. */
 .hover\:bg-status-success-tint-strong:hover { background-color: color-mix(in srgb, hsl(var(--status-success)) 20%, hsl(var(--card))); }
 .hover\:bg-status-warning-tint-strong:hover { background-color: color-mix(in srgb, hsl(var(--status-warning)) 22%, hsl(var(--card))); }

@@ -1,22 +1,37 @@
 /**
- * My Time — clock in/out and the current week's timesheet.
+ * My Time — the clock, and the day around it.
  *
- * Renders only. Every figure comes from `useTimesheet`, which sums through the
- * `time-domain` rules; nothing here computes elapsed time (rules 5 and 9).
+ * Dee, 2026-09-18, with a mockup: "Let's redesign My Time with this." It was a
+ * strip of buttons above a seven-column table of the whole week. It is now a
+ * workspace — what is running, what to start next, today as it happened, the
+ * week as a chart, and time off.
  *
- * Extracted from HqPages when it was wired to real data: that file already held
- * six unrelated pages, and adding data loading to one of them would have made a
- * 520-line module worse (rule 13).
+ * ── WHAT DID NOT CHANGE, DELIBERATELY ──────────────────────────────────────
+ *
+ * Every rule that governs recorded time survived the redesign, because a
+ * prettier page that loosens them would be a worse page:
+ *
+ *   · An agent NEVER writes or edits their own time. The mockup's "+ Add time"
+ *     is not built. Correcting an entry is still "Request adjustment", which a
+ *     lead approves.
+ *   · Break and lunch are the day's REST and are never summed into worked
+ *     time — in the tiles, the bars or the timeline.
+ *   · The 10-hour stale-timer warning, the auto-stopped badge and the
+ *     schedule warnings (late, over break, over lunch) are all still here.
+ *   · Starting is refused, visibly, when the timesheet is unavailable or in
+ *     demo mode. A clock-in that silently does nothing is worse than a
+ *     disabled button.
+ *
+ * Renders only. Every figure comes from `useTimesheet` and the pure functions
+ * in `time-domain` and `time/my-time-view`; nothing here computes elapsed time
+ * (rules 5 and 9).
  */
-import { useEffect, useState } from "react";
-import { CalendarOff, Coffee, Clock, PlayCircle, PauseCircle, AlertTriangle, UtensilsCrossed } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  ContentCard,
-  DivisionTable,
-  StatCard,
-} from "@/components/dashboard/DivisionLayout";
+  AlertTriangle, CalendarDays, CalendarOff, Clock, Home, Users,
+} from "lucide-react";
+import { ContentCard, StatCard } from "@/components/dashboard/DivisionLayout";
 import { DataSourceBadge } from "@/components/dashboard/DataSourceBadge";
-import { OpsSelect } from "@/components/ui/ops-select";
 import { HqPageShell } from "@/pages/app/HqPages";
 import { useTimesheet } from "@/lib/data/use-time";
 import { useMyTimeAdjustments, useRequestTimeAdjustment } from "@/lib/data/use-time-adjustments";
@@ -24,17 +39,17 @@ import { useLeaveActions, useLeaveTypes, useMyLeave, useSchedules } from "@/lib/
 import { useAgencyPartners } from "@/lib/data/use-agency-partners";
 import { formatDate } from "@/lib/format-date";
 import type { TimeAdjustmentRequest, TimeEntry } from "@/lib/data/time-entries";
-import { STALE_TIMER_HOURS, describeRunningFor, isStaleTimer } from "@/lib/time-domain";
 import {
-  DIVISION_LABELS,
-  divisionLabel,
-  TIMER_DIVISIONS,
-  entrySeconds,
-  formatClock,
-  formatDuration,
-  lateMinutesToday,
-  liveDaySeconds,
+  STALE_TIMER_HOURS, describeRunningFor, formatClock, formatDuration,
+  isStaleTimer, lateMinutesToday, liveDaySeconds, weekStart,
 } from "@/lib/time-domain";
+import {
+  partnerSplit, recentWork, todayTimeline, weekBars, weekRangeLabel,
+} from "@/lib/time/my-time-view";
+import { TimerCard } from "@/components/time/TimerCard";
+import { StartWorkCard, type StartRequest } from "@/components/time/StartWorkCard";
+import { WeekChart } from "@/components/time/WeekChart";
+import { TodayTimeline } from "@/components/time/TodayTimeline";
 
 /**
  * One shared heartbeat for every counter on the page. It beats only while a
@@ -50,205 +65,116 @@ function useNowTick(running: boolean): Date {
   return now;
 }
 
-/* Built from TIMER_DIVISIONS, not from the label map: the map also holds the
-   retired "general" so an old row still reads, and offering a retired bucket
-   would put it back into use. */
-const DIVISION_OPTIONS = TIMER_DIVISIONS.map((value) => ({ value, label: DIVISION_LABELS[value] }));
-
-const NO_PARTNER = "__none";
-
-const clockTime = (iso: string) =>
-  new Date(iso).toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  });
-
 export const MyTimePage = () => {
   const t = useTimesheet();
   const myAdjustments = useMyTimeAdjustments();
-  const [division, setDivision] = useState("creditops");
-  const [partner, setPartner] = useState(NO_PARTNER);
-  /* Their partners, not every partner (Dee: "only the assigned one so it's
-     not too chaotic"). RLS already narrows this list to what they may see. */
   const partners = useAgencyPartners();
-  const myPartners = (partners.data ?? []).filter((p) => p.lifecycle !== "archived");
-  const partnerName = new Map((partners.data ?? []).map((p) => [p.id, p.name]));
-  /* Hours per partner this week — the question a partner who pays for tracked
-     time actually asks, answered from the entries already loaded. */
-  const byPartner = (() => {
-    const totals = new Map<string, number>();
-    for (const e of t.entries ?? []) {
-      if (e.kind !== "work" || !e.partnerGroupId || !e.durationMinutes) continue;
-      totals.set(e.partnerGroupId, (totals.get(e.partnerGroupId) ?? 0) + e.durationMinutes);
-    }
-    return [...totals.entries()]
-      .map(([id, minutes]) => ({ id, name: partnerName.get(id) ?? "Partner", minutes }))
-      .sort((a, b) => b.minutes - a.minutes);
-  })();
-  const [taskNote, setTaskNote] = useState("");
+  const schedules = useSchedules();
 
   const running = Boolean(t.openEntry);
   const now = useNowTick(running);
   const live = liveDaySeconds(t.entries, t.today, now);
-  const openSeconds = t.openEntry ? entrySeconds(t.openEntry, now) : 0;
+
+  /* Their partners, not every partner (Dee: "only the assigned one so it's not
+     too chaotic"). RLS already narrows this list to what they may see. */
+  const myPartners = useMemo(
+    () => (partners.data ?? []).filter((p) => p.lifecycle !== "archived").map((p) => ({ id: p.id, name: p.name })),
+    [partners.data],
+  );
+  const partnerName = useMemo(
+    () => new Map((partners.data ?? []).map((p) => [p.id, p.name])),
+    [partners.data],
+  );
+  const partnerNameOf = (id: string | null) => (id ? partnerName.get(id) ?? "Partner" : null);
+
+  const entries = t.entries ?? [];
+  const split = partnerSplit(entries, now);
+  const bars = weekBars(entries, weekStart(), t.today, now);
+  const recent = recentWork(entries);
+  const timeline = todayTimeline(entries, t.today, now);
 
   /* The agent's own schedule; the same numbers a manager's attendance view
-     derives, said to the person themselves while they can still act on them
-     (Dee: "signal to the agents that they're already over break/lunch, or
-     even late"). */
-  const schedules = useSchedules();
+     derives, said to the person themselves while they can still act on them. */
   const mySchedule = (schedules.data ?? [])[0];
   const overBreakSec = mySchedule ? Math.max(0, live.breakSeconds - mySchedule.breakMinutes * 60) : 0;
   const overLunchSec = mySchedule ? Math.max(0, live.lunchSeconds - mySchedule.lunchMinutes * 60) : 0;
-  const lateMin = mySchedule ? lateMinutesToday(t.entries, mySchedule, t.today, now) : 0;
+  const lateMin = mySchedule ? lateMinutesToday(entries, mySchedule, t.today, now) : 0;
   /* A timer left running overnight quietly corrupts production and End of Day,
      so it is said out loud. Stopping it stays the person's own act. */
   const stale = isStaleTimer(t.openEntry);
 
-  // Only the two busiest divisions get a card; the rest are in the table. Four
-  // fixed division cards would show three zeroes for most people.
-  const topDivisions = t.byDivision.slice(0, 2);
+  const cannotStart = t.isMutating || !t.entries || t.source === "demo";
+  const start = (r: StartRequest) => t.clockIn(r.divisionId, r.taskNote, r.partnerGroupId);
 
   return (
     <HqPageShell
       title="My Time"
-      description="Track your hours across divisions and tasks"
+      description="Start, stop, and keep moving."
       icon={Clock}
+      actions={
+        <span className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground">
+          <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+          {weekRangeLabel(weekStart())}
+        </span>
+      }
     >
       <div className="mb-4 flex items-center gap-2">
         <DataSourceBadge source={t.source} />
         {t.source === "demo" && (
-          <span className="text-xs text-muted-foreground">
-            Sign in to track real time.
-          </span>
+          <span className="text-xs text-muted-foreground">Sign in to track real time.</span>
         )}
       </div>
 
       {t.error && (
-        <div className="mb-4 flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3.5 py-2 text-xs font-semibold text-red-700">
+        <div className="mb-4 flex items-center gap-2 rounded-xl border border-destructive/30 bg-status-danger-tint px-3.5 py-2 text-xs font-semibold text-status-danger">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           {t.error}
         </div>
       )}
 
+      {/* Today · This week · for a partner · for BES itself. The last two add
+          up to the second: every worked minute is one or the other. */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatCard
-          label="Today"
-          value={live.workSeconds > 0 ? formatClock(live.workSeconds) : "—"}
-          icon={Clock}
-        />
-        <StatCard
-          label="This Week"
-          value={formatDuration(t.weekMinutes)}
-          icon={Clock}
-        />
-        {topDivisions.map((d) => (
-          <StatCard
-            key={d.divisionId}
-            label={divisionLabel(d.divisionId)}
-            value={formatDuration(d.minutes)}
-            icon={Clock}
-          />
-        ))}
+        <StatCard label="Today" value={live.workSeconds > 0 ? formatClock(live.workSeconds) : "—"} icon={Clock} />
+        <StatCard label="This week" value={formatDuration(t.weekMinutes)} icon={CalendarDays} />
+        <StatCard label="Partner work" value={formatDuration(split.partnerMinutes)} icon={Users} />
+        <StatCard label="Internal work" value={formatDuration(split.internalMinutes)} icon={Home} />
       </div>
 
-      <div className="mt-5 flex flex-wrap items-center gap-3">
-        {running && t.openEntry?.kind !== "work" ? (
-          <>
-            <button
-              onClick={() => t.resumeWork()}
-              disabled={t.isMutating}
-              className="flex items-center gap-2 rounded-xl bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <PlayCircle className="h-4 w-4" /> Back to work
-            </button>
-            <button
-              onClick={() => t.clockOut()}
-              disabled={t.isMutating}
-              className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <PauseCircle className="h-4 w-4" /> Clock Out
-            </button>
-          </>
-        ) : running ? (
-          <>
-            <button
-              onClick={() => t.clockOut()}
-              disabled={t.isMutating}
-              className="flex items-center gap-2 rounded-xl border border-border bg-card px-5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <PauseCircle className="h-4 w-4" /> Clock Out
-            </button>
-            <button
-              onClick={() => t.startBreak("break")}
-              disabled={t.isMutating}
-              className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <Coffee className="h-4 w-4" /> Break
-            </button>
-            <button
-              onClick={() => t.startBreak("lunch")}
-              disabled={t.isMutating}
-              className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <UtensilsCrossed className="h-4 w-4" /> Lunch
-            </button>
-          </>
+      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+        {t.openEntry ? (
+          <TimerCard
+            entry={t.openEntry}
+            now={now}
+            partnerName={partnerNameOf(t.openEntry.partnerGroupId ?? null)}
+            busy={t.isMutating}
+            onStop={t.clockOut}
+            onBreak={() => t.startBreak("break")}
+            onLunch={() => t.startBreak("lunch")}
+            onResume={t.resumeWork}
+          />
         ) : (
-          <>
-            <button
-              onClick={() => t.clockIn(division, taskNote || undefined, partner === NO_PARTNER ? null : partner)}
-              disabled={t.isMutating || !t.entries || t.source === "demo"}
-              className="flex items-center gap-2 rounded-xl bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <PlayCircle className="h-4 w-4" /> Clock In
-            </button>
-            <OpsSelect
-              value={division}
-              onValueChange={setDivision}
-              options={DIVISION_OPTIONS}
-              aria-label="Division"
-            />
-            {/* Only the partners assigned to this person: the list is already
-                scoped by `can_see_partner`, so an agent is offered their own
-                partners and nobody else's — and the database refuses a
-                partner they cannot see even if the value were forged. */}
-            <OpsSelect
-              value={partner}
-              onValueChange={setPartner}
-              options={[
-                { value: NO_PARTNER, label: myPartners.length > 0 ? "No partner (admin/internal)" : "No partner" },
-                ...myPartners.map((p) => ({ value: p.id, label: p.name })),
-              ]}
-              aria-label="Partner this time is for"
-            />
-            <input
-              value={taskNote}
-              onChange={(e) => setTaskNote(e.target.value)}
-              placeholder="What are you working on? (optional)"
-              className="min-w-[240px] flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-          </>
+          <div className="flex flex-col items-start justify-center rounded-2xl border border-dashed border-border bg-muted/30 p-8">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Ready</span>
+            <p className="mt-1 font-mono text-4xl font-extrabold tabular-nums text-muted-foreground">00:00:00</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              No timer running. Pick something on the right, or start one below.
+            </p>
+          </div>
         )}
-        {running && t.openEntry && (
-          <span className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span className={`rounded-lg border px-2.5 py-1 font-mono text-sm font-bold tabular-nums ${t.openEntry.kind === "work" ? "border-emerald-600/40 bg-emerald-500/10 text-emerald-800" : "border-amber-500/40 bg-amber-500/10 text-amber-800"}`}>
-              {formatClock(openSeconds)}
-            </span>
-            {t.openEntry.kind === "work"
-              ? `since ${clockTime(t.openEntry.startedAt)} · ${divisionLabel(t.openEntry.divisionId)}${t.openEntry.taskNote ? ` · ${t.openEntry.taskNote}` : ""}`
-              : `on ${t.openEntry.kind} since ${clockTime(t.openEntry.startedAt)} — counted as rest`}
-          </span>
-        )}
-        {live.restSeconds > 0 && (
-          <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] tabular-nums text-muted-foreground">
-            Rest today: {formatClock(live.restSeconds)}
-          </span>
-        )}
+
+        <StartWorkCard
+          recent={recent}
+          partners={myPartners}
+          partnerNameOf={partnerNameOf}
+          disabled={cannotStart}
+          busy={t.isMutating}
+          onStart={start}
+        />
       </div>
 
       {stale && t.openEntry && (
-        <div role="status" className="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-xs text-foreground">
+        <div role="status" className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-xs text-foreground">
           <AlertTriangle className="h-4 w-4 shrink-0 text-status-warning" />
           <p className="min-w-0 flex-1">
             This timer has been running for {describeRunningFor(t.openEntry)} — longer than the
@@ -256,12 +182,8 @@ export const MyTimePage = () => {
             (the system also stops forgotten timers on its own and tells you and your lead). If the
             real time differs, request an adjustment on the entry below — your lead approves it.
           </p>
-          <button
-            type="button"
-            onClick={t.clockOut}
-            disabled={t.isMutating}
-            className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
+          <button type="button" onClick={t.clockOut} disabled={t.isMutating}
+            className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             Clock out
           </button>
         </div>
@@ -281,92 +203,53 @@ export const MyTimePage = () => {
           )}
         </div>
       )}
-      {mySchedule && t.openEntry?.kind === "break" && overBreakSec === 0 && (
-        <p className="mt-2 text-[11px] tabular-nums text-muted-foreground">
-          Break used {formatClock(live.breakSeconds)} of {mySchedule.breakMinutes}m paid.
-        </p>
-      )}
-      {mySchedule && t.openEntry?.kind === "lunch" && overLunchSec === 0 && (
-        <p className="mt-2 text-[11px] tabular-nums text-muted-foreground">
-          Lunch used {formatClock(live.lunchSeconds)} of {mySchedule.lunchMinutes}m.
-        </p>
-      )}
 
       {t.actionError && (
-        <p className="mt-2 text-xs font-semibold text-status-danger">
-          {t.actionError}
-        </p>
+        <p className="mt-2 text-xs font-semibold text-status-danger">{t.actionError}</p>
       )}
 
-      {byPartner.length > 0 && (
-        <ContentCard title="Hours by partner, this week">
-          <ul className="divide-y divide-border/50">
-            {byPartner.map((p) => (
-              <li key={p.id} className="flex items-center justify-between py-1.5 text-sm">
-                <span className="text-foreground">{p.name}</span>
-                <span className="font-semibold tabular-nums text-foreground">{formatDuration(p.minutes)}</span>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-2 text-[11px] text-muted-foreground">
-            Work time only — breaks and lunch are the day&apos;s rest, and admin hours belong to no partner.
-          </p>
+      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+        <ContentCard
+          title={
+            <span className="flex w-full items-center justify-between gap-3">
+              <span>Today</span>
+              <span className="text-xs font-semibold tabular-nums text-muted-foreground">
+                Total {live.workSeconds > 0 ? formatClock(live.workSeconds) : "—"}
+              </span>
+            </span>
+          }
+        >
+          {t.isLoading ? (
+            <p className="py-10 text-center text-xs text-muted-foreground">Loading…</p>
+          ) : (
+            <TodayTimeline
+              rows={timeline}
+              partnerNameOf={partnerNameOf}
+              action={({ entry, running: isRunning }) =>
+                isRunning || entry.kind !== "work"
+                  ? null
+                  : <AdjustmentCell entry={entry} mine={myAdjustments.data ?? []} />}
+            />
+          )}
         </ContentCard>
-      )}
 
-      <ContentCard title="This Week's Time Entries">
-        {t.isLoading ? (
-          <p className="py-4 text-center text-xs text-muted-foreground">
-            Loading…
-          </p>
-        ) : t.entries.length === 0 ? (
-          <p className="py-4 text-center text-xs italic text-muted-foreground">
-            {t.source === "demo"
-              ? "No sample entries — sign in to track time."
-              : "No time recorded this week yet."}
-          </p>
-        ) : (
-          <DivisionTable
-            columns={["Date", "Started", "Division", "Partner", "Task", "Duration", ""]}
-            rows={t.entries.map((e) => [
-              e.workDate,
-              clockTime(e.startedAt),
-              e.kind === "work" ? divisionLabel(e.divisionId) : (
-                <span key="k" className="inline-flex items-center gap-1 text-muted-foreground">
-                  {e.kind === "lunch" ? <UtensilsCrossed className="h-3 w-3" /> : <Coffee className="h-3 w-3" />}
-                  {e.kind === "lunch" ? "Lunch" : "Break"}
+        <div className="space-y-4">
+          <ContentCard
+            title={
+              <span className="flex w-full items-center justify-between gap-3">
+                <span>This week</span>
+                <span className="text-xs font-semibold tabular-nums text-muted-foreground">
+                  {formatDuration(t.weekMinutes)}
                 </span>
-              ),
-              e.partnerGroupId ? (partnerName.get(e.partnerGroupId) ?? "—") : "—",
-              e.taskNote ?? "—",
-              e.endedAt ? (
-                <span key="d" className="inline-flex items-center gap-1.5">
-                  {formatDuration(e.durationMinutes)}
-                  {/* The system stopped this one at the cap — the agent may
-                      not have been working the whole span, and the row says
-                      so instead of passing the cap off as a shift. */}
-                  {e.autoStopped && (
-                    <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-status-warning">
-                      auto-stopped
-                    </span>
-                  )}
-                </span>
-              ) : (
-                <span key="run" className="font-mono text-xs font-semibold tabular-nums text-emerald-800">
-                  {formatClock(entrySeconds(e, now))} · running
-                </span>
-              ),
-              e.endedAt ? (
-                <AdjustmentCell key="a" entry={e} mine={myAdjustments.data ?? []} />
-              ) : (
-                ""
-              ),
-            ])}
-          />
-        )}
-      </ContentCard>
+              </span>
+            }
+          >
+            <WeekChart bars={bars} today={t.today} />
+          </ContentCard>
 
-      <TimeOffCard />
+          <TimeOffCard />
+        </div>
+      </div>
     </HqPageShell>
   );
 };
@@ -390,7 +273,7 @@ const TimeOffCard = () => {
   const STATUS_TONE: Record<string, string> = {
     pending: "border-amber-500/40 bg-amber-500/10 text-amber-800",
     approved: "border-emerald-500/40 bg-emerald-500/10 text-emerald-800",
-    declined: "border-red-500/30 bg-red-500/10 text-red-700",
+    declined: "border-destructive/30 bg-status-danger-tint text-status-danger",
     cancelled: "border-border bg-muted text-muted-foreground",
   };
 

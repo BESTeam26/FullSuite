@@ -7,6 +7,7 @@ import {
   formatDuration,
   lateMinutesToday,
   liveDaySeconds,
+  stopwatch,
   summariseTime,
   weekStart,
 } from "@/lib/time-domain";
@@ -221,5 +222,24 @@ describe("the agent's own warnings", () => {
     expect(lateMinutesToday([entry({ startedAt: "2026-09-04T12:00:00.000Z", workDate: "2026-09-04" })],
       SCHEDULE, "2026-09-04")).toBe(0); // Friday not in workDays
     expect(lateMinutesToday([], SCHEDULE, "2026-09-03")).toBe(0);
+  });
+});
+
+describe("the live stopwatch", () => {
+  /* A TOTAL is skimmed ("1h 24m 18s"); a running clock is watched, and a
+     fixed-width HH:MM:SS does not reflow as the digits change. */
+  it("is fixed width, so a running clock does not jiggle", () => {
+    expect(stopwatch(0)).toBe("00:00:00");
+    expect(stopwatch(59)).toBe("00:00:59");
+    expect(stopwatch(16 * 60)).toBe("00:16:00");
+    expect(stopwatch(5058)).toBe("01:24:18");
+  });
+
+  it("keeps counting past a day rather than wrapping to zero", () => {
+    expect(stopwatch(36 * 3600)).toBe("36:00:00");
+  });
+
+  it("never shows a negative clock from a clock-skewed start", () => {
+    expect(stopwatch(-5)).toBe("00:00:00");
   });
 });

@@ -56,6 +56,19 @@ export function formatClock(totalSeconds: number): string {
 }
 
 /**
+ * A live stopwatch: "01:24:18".
+ *
+ * Deliberately not `formatClock`, which reads "1h 24m 18s" and is right for a
+ * TOTAL — you skim it. A running clock is watched, and a fixed-width
+ * HH:MM:SS does not reflow as the digits change (Dee's mockup, 2026-09-18).
+ */
+export function stopwatch(totalSeconds: number): string {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(Math.floor(s / 3600))}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`;
+}
+
+/**
  * The day's ticking totals: work and rest as SECONDS, the open entry's live
  * span included on whichever side it belongs to.
  */
