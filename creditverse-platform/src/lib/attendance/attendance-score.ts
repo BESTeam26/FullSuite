@@ -169,7 +169,7 @@ export interface LedgerLine {
 }
 
 export type Standing =
-  | "champion" | "excellent" | "good" | "coaching" | "improvement";
+  | "champion" | "excellent" | "good" | "coaching" | "improvement" | "review";
 
 /**
  * Dee's achievement ladder, 2026-09-18.
@@ -187,19 +187,22 @@ export const STANDING_LABEL: Record<Standing, string> = {
   excellent: "Attendance Excellence",
   good: "Good standing",
   coaching: "Coaching",
-  improvement: "Attendance improvement",
+  improvement: "Improvement required",
+  review: "Management review",
 };
 
 export const STANDING_BADGE: Record<Standing, string> = {
-  champion: "🏆", excellent: "⭐", good: "✅", coaching: "🟠", improvement: "🔴",
+  champion: "🏆", excellent: "⭐", good: "✅", coaching: "🟠",
+  improvement: "🔺", review: "🔴",
 };
 
 export const STANDING_ACTION: Record<Standing, string> = {
   champion: "₱2,000 bonus + 1 paid Reward Day + permanent quarterly badge",
   excellent: "₱1,000 bonus + priority schedule and leave preference",
   good: "Recognition, and eligibility maintained",
-  coaching: "Coaching. No quarterly attendance reward.",
-  improvement: "Attendance improvement review",
+  coaching: "Manager discussion. No quarterly attendance reward.",
+  improvement: "Attendance improvement plan",
+  review: "Management review required",
 };
 
 /** The bands, top-down. The first that fits wins. */
@@ -208,7 +211,8 @@ export function standingFor(score: number): Standing {
   if (score >= 18) return "excellent";
   if (score >= 15) return "good";
   if (score >= 12) return "coaching";
-  return "improvement";
+  if (score >= 9) return "improvement";
+  return "review";
 }
 
 /** Every band, in order, for the ladder on screen. */
@@ -217,7 +221,8 @@ export const STANDING_BANDS: { standing: Standing; from: number; to: number }[] 
   { standing: "excellent", from: 18, to: 19.75 },
   { standing: "good", from: 15, to: 17.75 },
   { standing: "coaching", from: 12, to: 14.75 },
-  { standing: "improvement", from: 0, to: 11.75 },
+  { standing: "improvement", from: 9, to: 11.75 },
+  { standing: "review", from: 0, to: 8.75 },
 ];
 
 /** Patterns trigger coaching. They never change the points. */
@@ -272,6 +277,14 @@ export const BADGE_META: Record<BadgeKey, { icon: string; label: string; detail:
   champion: { icon: "🏆", label: "Attendance Champion", detail: "A perfect 20 / 20 for the quarter" },
 };
 
+export interface ActivityRow {
+  day: string;
+  classification: Classification;
+  /** "12 minutes after shift start", "No violations". */
+  detail: string;
+  points: number;
+}
+
 export interface NextAchievement {
   label: string;
   detail: string;
@@ -301,6 +314,8 @@ export interface QuarterScore {
   toNextStanding: { standing: Standing; points: number } | null;
   /** The single clearest thing they can still do, for the progress panel. */
   nextAchievement: NextAchievement | null;
+  /** What happened, newest first — the activity table. */
+  activity: ActivityRow[];
   /**
    * Consecutive scheduled days, most recent first, with no violation.
    *
@@ -525,8 +540,25 @@ export function scoreQuarter(
     return null;
   })();
 
+  /* ── What happened, newest first. Every scheduled day, not only the bad
+        ones: a run of clean days is the evidence a streak is real. */
+  const activity: ActivityRow[] = inQuarter
+    .filter((f) => f.scheduled)
+    .slice().reverse()
+    .map((f) => {
+      const c = effective.get(f.day) ?? "none";
+      const detail =
+        c === "late" ? `${f.lateMinutes} minute${f.lateMinutes === 1 ? "" : "s"} after the grace period`
+        : c === "half_day" ? `${Math.round(f.workedMinutes / 60)}h of a ${Math.round(f.scheduledMinutes / 60)}h shift`
+        : c === "absent" ? "Whole shift missed, with notice"
+        : c === "ncns" ? "Whole shift missed, no notice"
+        : c === "approved_leave" ? "Approved leave — no deduction"
+        : "No violations";
+      return { day: f.day, classification: c, detail, points: POINTS[c] };
+    });
+
   return {
-    quarter, score, standing, ledger, counts, alerts,
+    quarter, score, standing, ledger, counts, alerts, activity,
     latesInWindow, nextOpportunity, clamped: raw !== score,
     months: monthRows, streakDays, badges, toNextStanding, nextAchievement,
   };

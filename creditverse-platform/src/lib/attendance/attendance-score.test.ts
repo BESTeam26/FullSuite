@@ -168,7 +168,7 @@ describe("the quarter", () => {
     const r = scoreQuarter(facts, Q);
     expect(r.score).toBe(0);
     expect(r.clamped).toBe(true);
-    expect(r.standing).toBe("improvement");
+    expect(r.standing).toBe("review");
   });
 
   it("does not award a bonus for a month that is still running", () => {
@@ -203,7 +203,9 @@ describe("standing bands", () => {
     expect(standingFor(14.75)).toBe("coaching");
     expect(standingFor(12)).toBe("coaching");
     expect(standingFor(11.75)).toBe("improvement");
-    expect(standingFor(0)).toBe("improvement");
+    expect(standingFor(9)).toBe("improvement");
+    expect(standingFor(8.75)).toBe("review");
+    expect(standingFor(0)).toBe("review");
   });
 
   it("reserves Champion for a full 20, not merely a high score", () => {

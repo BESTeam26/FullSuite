@@ -1,50 +1,52 @@
 /**
  * Your attendance, and how it got that way.
  *
- * Dee, 2026-09-18: "Score, Standing, Activity, Monthly breakdown, Current
- * streak, Policy summary. Do not make Team Lead attendance management appear
- * on the employee page."
+ * Dee, 2026-09-18, with a mockup: "I want to make it look like this, VISUALLY
+ * Improved." The arithmetic did not change — it is the same engine, with the
+ * same tests. What changed is that the page now reads as a goal rather than a
+ * charge sheet: the score with the gap to the next rung, the prize, the streak,
+ * what happened, the month's shape, the rules, and the badges kept.
  *
- * So there is nothing on this page a lead can act on — no marking, no
- * overriding, no approving. It is a person's own record and the rules that
- * produced it.
+ * Dee's earlier rule still holds: "Do not make Team Lead attendance management
+ * appear on the employee page." There is nothing here anybody can act on — no
+ * marking, no overriding, no approving. It is a person's own record.
  */
-import { Trophy } from "lucide-react";
+import { Flame, Trophy } from "lucide-react";
+import { AttendanceHero } from "@/components/attendance/AttendanceHero";
+import { AttendanceBreakdown } from "@/components/attendance/AttendanceBreakdown";
+import { AttendanceActivity } from "@/components/attendance/AttendanceActivity";
+import { AttendanceRewardTiers } from "@/components/attendance/AttendanceRewardTiers";
+import { AttendanceMonth } from "@/components/attendance/AttendanceMonth";
 import { AttendanceScoreCard } from "@/components/attendance/AttendanceScoreCard";
-import { AttendanceProgress } from "@/components/attendance/AttendanceProgress";
 import { useMyAttendanceScore } from "@/lib/attendance/use-attendance-score";
+import { businessToday } from "@/lib/calendar/us-federal-holidays";
 import {
-  LATES_FOR_COACHING, LATE_WINDOW_DAYS, NCNS_FOR_MANAGEMENT, POINTS,
-  PERFECT_MONTH_BONUS, QUARTER_MAX_POINTS, QUARTER_START_POINTS,
-  STANDING_ACTION, STANDING_BADGE, STANDING_BANDS, STANDING_LABEL, STREAK_BONUSES,
+  BADGE_META, LATES_FOR_COACHING, LATE_WINDOW_DAYS, NCNS_FOR_MANAGEMENT,
+  POINTS, PERFECT_MONTH_BONUS, STREAK_BONUSES, type BadgeKey,
 } from "@/lib/attendance/attendance-score";
 import { cn } from "@/lib/utils";
 
-const BONUS_TONE: Record<string, string> = {
-  earned: "border-emerald-500/40 bg-emerald-500/10 text-emerald-800",
-  pending: "border-border bg-muted text-muted-foreground",
-  lost: "border-amber-500/40 bg-amber-500/10 text-amber-900",
-  none: "border-border bg-muted text-muted-foreground",
-};
-const BONUS_LABEL: Record<string, string> = {
-  earned: "+1 earned", pending: "still winnable", lost: "no bonus", none: "no scheduled days",
-};
-
-/* The policy, said in the same words Dee wrote it in, so an employee can
-   check the arithmetic against the rule rather than trusting the number. */
-const RULES: { label: string; points: string; note: string }[] = [
-  { label: "Within the grace period", points: "0", note: "Not a violation, and never shown as one." },
-  { label: "Approved leave", points: "0", note: "Does not reduce your score or spoil a perfect month." },
-  { label: "Late", points: POINTS.late.toFixed(2), note: "Past grace, but more than half the shift worked." },
+/* The policy in Dee's own words, so somebody can check the arithmetic against
+   the rule rather than trusting the number. */
+const RULES: { label: string; points: string; note: string; good?: boolean }[] = [
+  { label: "Grace period", points: "No deduction", note: "Arriving inside the allowed grace.", good: true },
+  { label: "Late", points: POINTS.late.toFixed(2), note: "Past grace, more than half the shift worked." },
   { label: "Half day", points: POINTS.half_day.toFixed(2), note: "Half the scheduled shift or less." },
   { label: "Absent", points: POINTS.absent.toFixed(2), note: "Whole shift missed, with proper notice." },
-  { label: "No call, no show", points: POINTS.ncns.toFixed(2), note: "Whole shift missed, without notice." },
-  { label: "Perfect month", points: `+${PERFECT_MONTH_BONUS.toFixed(2)}`, note: "No violations in the month." },
+  { label: "NCNS", points: POINTS.ncns.toFixed(2), note: "Whole shift missed, without notice." },
+  { label: "Approved leave", points: "No deduction", note: "Vacation, approved sick leave, emergency leave.", good: true },
+  { label: "Perfect month", points: `+${PERFECT_MONTH_BONUS.toFixed(2)}`, note: "No violations in the month.", good: true },
   ...STREAK_BONUSES.map((t) => ({
-    label: t.badge,
-    points: `+${t.points.toFixed(2)}`,
-    note: `${t.days} scheduled days in a row without a violation.`,
+    label: t.badge, points: `+${t.points.toFixed(2)}`,
+    note: `${t.days} scheduled days in a row without a violation.`, good: true,
   })),
+];
+
+/* Every badge, so the ones not yet earned read as something to chase rather
+   than being invisible. */
+const ALL_BADGES: BadgeKey[] = [
+  "perfect_month", "reliability_30", "reliability_60", "reliability_90",
+  "perfect_attendance", "champion",
 ];
 
 export function AttendancePage() {
@@ -54,108 +56,108 @@ export function AttendancePage() {
     return <p className="py-10 text-center text-sm text-muted-foreground">Working out your score…</p>;
   }
 
+  const today = businessToday();
+  const month = today.slice(0, 7);
+  const monthLabel = new Date(`${month}-15T12:00:00Z`)
+    .toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+  const quarterLabel = score.quarter.replace("-Q", " · Quarter ");
+  const earned = new Set(score.badges.map((b) => b.key));
+
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
-      <div className="space-y-4">
-        {/* Dee, 2026-09-18: "letting employees see themselves getting closer
-            to it" — the journey above the ledger, not instead of it. */}
-        <AttendanceProgress score={score} />
-        <AttendanceScoreCard score={score} />
+    <div className="space-y-4">
+      <AttendanceHero score={score} quarterLabel={quarterLabel} />
 
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <h2 className="text-sm font-bold text-foreground">Month by month</h2>
-          <ul className="mt-3 space-y-2">
-            {score.months.length === 0 && (
-              <li className="text-xs text-muted-foreground">No attendance recorded this quarter yet.</li>
-            )}
-            {score.months.map((m) => (
-              <li key={m.month} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border px-3 py-2">
-                <span className="min-w-0">
-                  <span className="block text-sm font-semibold text-foreground">{m.label}</span>
-                  <span className="block text-[11px] text-muted-foreground">
-                    {m.counts.late} late · {m.counts.half_day} half · {m.counts.absent} absent
-                    {" · "}{m.counts.ncns} NCNS · {m.counts.approved_leave} leave
-                  </span>
-                </span>
-                <span className={cn("shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold", BONUS_TONE[m.bonus])}>
-                  {BONUS_LABEL[m.bonus]}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+        <div className="space-y-4">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+            <AttendanceBreakdown score={score} />
 
-      <div className="space-y-4">
-        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-5">
-          <span className="flex items-center gap-3">
-            <Trophy className="h-6 w-6 shrink-0 text-emerald-700" aria-hidden />
-            <span>
-              <span className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-5 text-center">
+              <Flame className="mx-auto h-7 w-7 text-amber-600" aria-hidden />
+              <p className="mt-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                 Current streak
-              </span>
-              <span className="block text-2xl font-extrabold tabular-nums text-foreground">
-                {score.streakDays} {score.streakDays === 1 ? "day" : "days"}
-              </span>
-              <span className="block text-[11px] text-muted-foreground">
-                {score.streakDays > 0
-                  ? "Scheduled days in a row with no violation. Approved leave does not break it."
-                  : "Starts again at your next clean scheduled day."}
-              </span>
-            </span>
-          </span>
-        </div>
-
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <h2 className="text-sm font-bold text-foreground">How the score works</h2>
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            Everyone starts each quarter on {QUARTER_START_POINTS}. The most it can reach is
-            {" "}{QUARTER_MAX_POINTS}, and nothing carries into the next quarter.
-          </p>
-          <ul className="mt-3 divide-y divide-border/60">
-            {RULES.map((r) => (
-              <li key={r.label} className="flex items-start justify-between gap-3 py-2">
-                <span className="min-w-0">
-                  <span className="block text-xs font-medium text-foreground">{r.label}</span>
-                  <span className="block text-[11px] text-muted-foreground">{r.note}</span>
+              </p>
+              <p className="text-3xl font-extrabold tabular-nums text-foreground">
+                {score.streakDays}
+                <span className="ml-1 text-sm font-bold text-muted-foreground">
+                  scheduled {score.streakDays === 1 ? "day" : "days"}
                 </span>
-                <span className="shrink-0 text-xs font-bold tabular-nums text-foreground">{r.points}</span>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-3 rounded-lg border border-border bg-muted/50 px-3 py-2 text-[11px] text-muted-foreground">
-            <strong className="text-foreground">One incident, one deduction.</strong> The highest
-            applicable only — arriving late enough to lose half a shift is −0.50, not −0.25 as
-            well. Repeating something never deepens it: {LATES_FOR_COACHING} lates in
-            {" "}{LATE_WINDOW_DAYS} days, or {NCNS_FOR_MANAGEMENT} no-shows in a quarter, raise a
-            conversation rather than a bigger penalty.
-          </p>
+              </p>
+              {score.streakDays > 0 && (
+                <span className="mt-2 inline-block rounded-full bg-emerald-500/15 px-3 py-1 text-[11px] font-bold text-emerald-800">
+                  Keep it up!
+                </span>
+              )}
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Approved leave does not break your streak.
+              </p>
+            </div>
+          </div>
+
+          <AttendanceActivity rows={score.activity} />
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <AttendanceMonth rows={score.activity} month={month} label={monthLabel} />
+
+            <div className="rounded-2xl border border-border bg-card p-5">
+              <h2 className="text-sm font-bold text-foreground">Attendance policy</h2>
+              <ul className="mt-3 divide-y divide-border/60">
+                {RULES.map((r) => (
+                  <li key={r.label} className="flex items-start justify-between gap-3 py-2">
+                    <span className="min-w-0">
+                      <span className="block text-xs font-medium text-foreground">{r.label}</span>
+                      <span className="block text-[11px] text-muted-foreground">{r.note}</span>
+                    </span>
+                    <span className={cn("shrink-0 text-xs font-bold tabular-nums",
+                      r.good ? "text-status-success" : "text-foreground")}>
+                      {r.points}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-3 rounded-lg border border-border bg-muted/50 px-3 py-2 text-[11px] text-muted-foreground">
+                <strong className="text-foreground">One incident, one deduction.</strong> The highest
+                applicable only. Repeating something never deepens it:
+                {" "}{LATES_FOR_COACHING} lates in {LATE_WINDOW_DAYS} days, or
+                {" "}{NCNS_FOR_MANAGEMENT} no-shows in a quarter, raise a conversation rather than a
+                bigger penalty.
+              </p>
+            </div>
+          </div>
         </div>
 
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <h2 className="text-sm font-bold text-foreground">What you can earn</h2>
-          <ul className="mt-2 space-y-1">
-            {STANDING_BANDS.map((b) => {
-              const mine = score.standing === b.standing;
-              return (
-                <li key={b.standing}
-                  className={cn("rounded-lg px-2.5 py-2 text-xs",
-                    mine ? "bg-primary/10 text-foreground" : "text-muted-foreground")}>
-                  <span className="flex items-center justify-between gap-3">
-                    <span className={cn(mine && "font-bold")}>
-                      {STANDING_BADGE[b.standing]} {STANDING_LABEL[b.standing]}
+        <div className="space-y-4">
+          <AttendanceRewardTiers current={score.standing} />
+
+          <div className="rounded-2xl border border-border bg-card p-5">
+            <h2 className="flex items-center gap-2 text-sm font-bold text-foreground">
+              <Trophy className="h-4 w-4 text-amber-600" aria-hidden /> Achievements
+            </h2>
+            <ul className="mt-3 grid grid-cols-3 gap-2">
+              {ALL_BADGES.map((key) => {
+                const meta = BADGE_META[key];
+                const got = earned.has(key);
+                return (
+                  <li key={key} title={meta.detail}
+                    className={cn("rounded-xl border px-2 py-3 text-center",
+                      got ? "border-amber-500/40 bg-amber-500/10" : "border-border bg-muted/30 opacity-60")}>
+                    <span aria-hidden className={cn("block text-2xl", !got && "grayscale")}>{meta.icon}</span>
+                    <span className="mt-1 block text-[11px] font-bold leading-tight text-foreground">
+                      {meta.label}
                     </span>
-                    <span className="shrink-0 tabular-nums">
-                      {b.from === b.to ? b.from : `${b.from} – ${b.to}`}
+                    <span className="block text-[10px] text-muted-foreground">
+                      {got ? "Earned" : "In progress"}
                     </span>
-                  </span>
-                  <span className="mt-0.5 block text-[11px] leading-snug">
-                    {STANDING_ACTION[b.standing]}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
+                  </li>
+                );
+              })}
+            </ul>
+            <p className="mt-3 text-[11px] text-muted-foreground">
+              Badges are kept. The score starts again each quarter; what you earned does not.
+            </p>
+          </div>
+
+          <AttendanceScoreCard score={score} />
         </div>
       </div>
     </div>

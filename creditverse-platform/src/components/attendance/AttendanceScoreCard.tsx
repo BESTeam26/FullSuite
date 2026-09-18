@@ -27,7 +27,8 @@ const TONE: Record<Standing, string> = {
   excellent: "border-emerald-500/40 bg-emerald-500/10 text-emerald-800",
   good: "border-emerald-500/30 bg-emerald-500/5 text-emerald-800",
   coaching: "border-amber-500/40 bg-amber-500/10 text-amber-900",
-  improvement: "border-destructive/30 bg-status-danger-tint text-status-danger",
+  improvement: "border-amber-500/50 bg-amber-500/15 text-amber-900",
+  review: "border-destructive/30 bg-status-danger-tint text-status-danger",
 };
 
 const signed = (n: number) => `${n > 0 ? "+" : ""}${n.toFixed(2)}`;
