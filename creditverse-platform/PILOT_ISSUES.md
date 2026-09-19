@@ -60,6 +60,21 @@ Measured as a REAL Agency User authorization context (`complaints-agent-matrix-p
 
 8/11 → 11/11. Root cause at the database: the directory arm of the client policy granted every client to any CreditOps user with `creditops.clients.view`; it now intersects with `can_see_partner()` (unchanged), so queues, checklists and production writes — which all check the client row — narrowed with it. Rendering: the CreditOps space now reads the previewed person's role and team placement; the Dashboard is a management view; department and agent filters follow the person's scope; the title reads "CreditOps" for non-management. Live retest: preview or sign in as a department agent and open CreditOps.
 
+### P-013 · An agent could not see the client assigned to them
+
+**2026-09-19 · reporter: the full RLS gate (phase 3 production insert
+refused), confirmed on live data · module: CreditOps client visibility ·
+class C authorization regression · severity: P0, live.** Actual: Ivan
+Olympia is the assigned agent of a real client (partner Kevin Hernandez);
+neither he nor his team is assigned that partner, so under AD-004 (016000)
+the client was invisible to him, and any production he logged on it would
+be refused. Expected: your own assignment is always yours to see. Fix:
+migration 20260919026000 adds one arm to `fulfillment_clients_select` —
+assigned agent and BES staff of the agency — and widens nothing else
+(`can_see_partner` and `in_scope` untouched, as Dee asked). Verified live:
+Ivan reads and may update the record. Status: DEPLOYED · FIXED AWAITING
+LIVE RETEST — Ivan opens CreditOps and finds the file.
+
 ### P-012 · An organization's own staff could not read their own CreditOps clients
 
 **2026-09-19 · reporter: the full RLS gate (org.owner fclients=0, want 2) ·
@@ -75,25 +90,61 @@ restores the arm exactly as 0907 wrote it, beside the unchanged 016100 arms.
 Status: DEPLOYED to the database; the organization platform is paused (rule
 16b) so the live retest waits for its first real user.
 
-### P-011 · The RLS matrix base checks have been stale since Sep 13
+### P-015 · Team Lead invitations lost their two validations
 
-**2026-09-19 · reporter: Claude, running the full gate before a push ·
-module: test harness · class A (harness defect), not a product defect ·
-severity: blocks honest gate reporting.** Actual: `--phase=75` base checks
-read 58/77; `bes.restricted` sees and can update the Cedar fixture client,
-`bes.manager` sees 0 clients and 1 work item, `bes.lead` sees one more work
-item than the harness expects. Root causes, each verified live: (1) the
-fixture `[TEST] Gus Restricted` was put on `[TEST] Team B` by
-20260907001100 and the Cedar client is **assigned to him** — the harness
-still calls him "assigned nothing"; (2) `in_scope` derives team reach since
-20260913004800, after the last full gate (2026-09-10); (3) the Main Client
-List became directory ∩ partner scope (AD-004). None of the three is a
-regression of the 2026-09-19 work; the harness file was last edited
-2026-09-11. Fix: rewrite the base expectations to derive from the helper
-functions the policies actually use (`in_scope`, `can_see_partner`,
-`creditops_directory_visible`) as the phase probes already do, and settle
-D-021 for the manager row. Status: OPEN. The full run result is recorded
-under this entry when it finishes.
+**2026-09-19 · reporter: the full RLS gate (phase 37) · module: Invite Users ·
+class A · severity: minor.** A Team Lead invitation with no team, and a led
+team on a non-lead invitation, were refused (22023) until the 0912 rewrite of
+`invite_agency_member` dropped both checks. Restored in migration 029000,
+generated from the live definition. Status: DEPLOYED.
+
+### P-014 · The client portal could not read borrower funding files
+
+**2026-09-19 · reporter: the full RLS gate (phase 27) · module: Client Portal
+· class C · severity: P0 for the portal, no live impact (portal not in
+pilot).** `borrower_funding_files` — a definer view already filtered by
+`portal_user_id = auth.uid()` — had no SELECT grant for authenticated, so a
+borrower got 42501 on their own file. Grant restored in 029000. Status:
+DEPLOYED.
+
+### P-011 · The RLS matrix: first full run since Sep 10 — 1435/1587, classified
+
+**2026-09-19 · reporter: Claude, running the full gate before a push · module:
+test harness and authorization · severity: gate reporting.** The 141
+failures fall into five kinds, each verified live rather than assumed:
+
+1. **Real regressions, fixed today:** P-012 (organization staff could not
+   read their own clients, 025000), P-013 (an agent could not see the client
+   assigned to them, 026000), P-014 (borrower view grant, 029000), P-015
+   (lead invitation rules, 029000), phase 47 (two derivation helpers ran
+   under caller RLS, 027000), phase 37 (existing teammate re-invited, 028000).
+2. **Deliberate rule changes the harness never learnt:** `in_scope` derives
+   team and department reach (0913) and the directory is partner-scoped
+   (AD-004). Base checks now use an independent reach oracle; the phase 2
+   "restricted sees nothing" and "credit sees exactly own clients" checks
+   still encode the old rule and are the next rewrite.
+3. **Fixture drift:** `Gus Restricted` sits on Team B and is assigned the
+   Cedar client (0170 + the 0912 backfill); fixture organizations and the
+   BES organization row had no General channel (created through
+   `ensure_general_channel`); the credit fixture's first assigned client is
+   partner-held; fixture recipients hold 34 notifications, so a blanket
+   "mark read" touches rows the probe assumed did not exist.
+4. **D-021 — the division-manager question:** `bes.manager` (ops.manage,
+   division scope, no team, no assignment) reaches nothing under the current
+   rules. Phases 5, 6, 7, 19, 26, 28, 41, 62 act as that fixture and fail
+   for that one reason. Not a defect until Dee decides what a division
+   manager's reach is.
+5. **Fixtures never receive work (0912):** the routing trigger clears a
+   fixture assignee on insert, so phase 37's "agent sees their ASSIGNED
+   client" can no longer assign at insert time; phase 3's production probe
+   picks whichever assigned client comes first.
+
+Also seen and not yet examined: phase 70 (payroll adjustments hit an
+exclusion violation, 23P01 — a real draft cutoff now overlaps the fixture
+period), phase 72 (engagement placement moves), phases 55/60/61 (partner
+portal contact sessions, realtime publication, a missing function 42883).
+Status: OPEN for the harness rewrite; every product regression it exposed is
+DEPLOYED. The final full-run number is recorded below when it finishes.
 
 ### P-010 · Notifications page crashed for anyone holding an End of Day notice
 
