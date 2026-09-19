@@ -246,6 +246,7 @@ export async function impactOfDivision(id: string): Promise<StructureImpact> {
 export async function setMemberPlacement(membershipId: string, patch: {
   jobTitle?: string | null;
   engagementType?: EngagementType | null;
+  hiredOn?: string | null;
   managerId?: string | null;
   primaryDivisionId?: string | null;
   primaryDepartmentId?: string | null;
@@ -255,6 +256,7 @@ export async function setMemberPlacement(membershipId: string, patch: {
   const row: Record<string, unknown> = {};
   if (patch.jobTitle !== undefined) row.job_title = patch.jobTitle?.trim() || null;
   if (patch.engagementType !== undefined) row.engagement_type = patch.engagementType;
+  if (patch.hiredOn !== undefined) row.hired_on = patch.hiredOn || null;
   if (patch.managerId !== undefined) row.manager_id = patch.managerId;
   if (patch.primaryDivisionId !== undefined) row.primary_division_id = patch.primaryDivisionId;
   if (patch.primaryDepartmentId !== undefined) row.primary_department_id = patch.primaryDepartmentId;

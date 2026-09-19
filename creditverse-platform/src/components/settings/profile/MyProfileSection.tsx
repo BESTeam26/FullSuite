@@ -25,6 +25,7 @@ import { useWorkforce } from "@/lib/data/use-workforce";
 import { usePositions } from "@/lib/data/use-positions";
 import { useMemberDocuments } from "@/lib/data/member-documents";
 import { useMyRewards } from "@/lib/leave/use-rewards";
+import { useMemberPrivateRecord } from "@/lib/data/member-private-records";
 import { orgDivisionLabel } from "@/lib/agency/division-label";
 import { engagementTypeLabel } from "@/lib/agency/engagement-type";
 import { formatDate } from "@/lib/format-date";
@@ -51,6 +52,8 @@ export function MyProfileSection() {
   const workforce = useWorkforce();
   const positions = usePositions();
   const [editing, setEditing] = useState<Editing>("none");
+  /* The person reads their own private record; management writes the date. */
+  const privateRecord = useMemberPrivateRecord(auth.user?.id ?? null);
 
   const me = (members.data ?? []).find((m) => m.userId === auth.user?.id) ?? null;
   const profile = account.profile;
@@ -125,7 +128,8 @@ export function MyProfileSection() {
             {row("Preferred Name", profile?.preferredName)}
             {row("Work Email", profile?.email)}
             {row("Phone", profile?.phone)}
-            {row("Birthday", profile?.birthMonth && profile?.birthDay ? `${MONTHS[profile.birthMonth - 1]} ${profile.birthDay}` : null)}
+            {row("Birthday", privateRecord.data?.dateOfBirth ? formatDate(privateRecord.data.dateOfBirth)
+              : profile?.birthMonth && profile?.birthDay ? `${MONTHS[profile.birthMonth - 1]} ${profile.birthDay}` : null)}
             {row("Tagline / Quote", profile?.tagline)}
           </dl>
         </Card>
@@ -138,7 +142,7 @@ export function MyProfileSection() {
             {row("Department", team?.department ?? null)}
             {row("Team", myTeams.map((t) => t.name).join(", ") || null)}
             {row("Reports To", nameOf(leadId))}
-            {row("Start Date", me ? formatDate(me.since) : null)}
+            {row("Start Date", me ? formatDate(me.hiredOn ?? me.since) : null)}
             {row("Engagement Type", engagementTypeLabel(me?.engagementType))}
             {row("Status", me ? <Pill tone={me.status === "active" ? ACTIVE : INACTIVE}>{me.status === "active" ? "Active" : "Inactive"}</Pill> : null)}
           </dl>

@@ -69,7 +69,7 @@ export function ProfileHeader({ member, position, division, team, leadName, isSe
           <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
             {division && <span>{orgDivisionLabel(division)}</span>}
             {division && <span aria-hidden>|</span>}
-            <span>Joined {formatDate(member.since)}</span>
+            <span>Joined {formatDate(member.hiredOn ?? member.since)}</span>
             {member.employeeCode && <><span aria-hidden>|</span><span className="inline-flex items-center gap-1"><BadgeCheck className="h-3.5 w-3.5" aria-hidden /> Employee ID: <span className="font-semibold text-foreground">{member.employeeCode}</span></span></>}
           </p>
           <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">

@@ -174,6 +174,8 @@ export interface AgencyMember {
   jobTitle: string | null;
   /** employee | contractor — see lib/agency/engagement-type.ts; null = not recorded. */
   engagementType: EngagementType | null;
+  /** The true join date (YYYY-MM-DD); null until management records it. `since` is when the account was made. */
+  hiredOn: string | null;
   managerId: string | null;
   /** From the profile; a colleague's contact, shown on the person's card. */
   phone: string | null;
@@ -206,7 +208,7 @@ export async function fetchAgencyMembers(agencyId: string): Promise<AgencyMember
   const { data, error } = await sb
     .from("agency_memberships")
     // prettier-ignore
-    .select("id, user_id, role, access_profile, is_owner, scope, status, created_at, deactivated_at, job_title, manager_id, employee_code, engagement_type, profiles!user_id!inner(full_name, email, phone, preferred_name, title, tagline, avatar_path, is_fixture)")
+    .select("id, user_id, role, access_profile, is_owner, scope, status, created_at, deactivated_at, job_title, manager_id, employee_code, engagement_type, hired_on, profiles!user_id!inner(full_name, email, phone, preferred_name, title, tagline, avatar_path, is_fixture)")
     .eq("agency_id", agencyId)
     .eq("profiles.is_fixture", false)
     .order("created_at");
@@ -228,6 +230,7 @@ export async function fetchAgencyMembers(agencyId: string): Promise<AgencyMember
       deactivatedAt: (r.deactivated_at as string) ?? null,
       jobTitle: (r.job_title as string) ?? null,
       engagementType: (r.engagement_type as EngagementType) ?? null,
+      hiredOn: (r.hired_on as string) ?? null,
       managerId: (r.manager_id as string) ?? null,
       phone: (p.phone as string | null) ?? null,
       preferredName: p.preferred_name ?? null,

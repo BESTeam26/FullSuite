@@ -24,6 +24,8 @@ import { HqPageShell } from "@/pages/app/HqPages";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProfileHeader } from "@/components/people/profile/ProfileHeader";
 import { ProfileOverview } from "@/components/people/profile/ProfileOverview";
+import { PersonalRecordsCard } from "@/components/people/profile/PersonalRecordsCard";
+import { PayoutAccountCard } from "@/components/people/profile/PayoutAccountCard";
 import {
   FeedbackTab, GoalsTab, PersonPerformanceTab, ProductionPeriodCard, QaReviewsTab, TrainingTab,
 } from "@/components/people/profile/ProfileTabs";
@@ -242,8 +244,8 @@ export default function TeamMemberProfilePage() {
                   <dd className="text-foreground">{leadOf.map((t) => t.name).join(", ") || "—"}</dd></div>
                 <div><dt className="font-bold uppercase tracking-wider text-[10px] text-muted-foreground">Reports to</dt>
                   <dd className="text-foreground">{people.find((p) => p.userId === member.managerId)?.name ?? "Nobody"}</dd></div>
-                <div><dt className="font-bold uppercase tracking-wider text-[10px] text-muted-foreground">Since</dt>
-                  <dd className="text-foreground">{formatDate(member.since)}</dd></div>
+                <div><dt className="font-bold uppercase tracking-wider text-[10px] text-muted-foreground">Joined</dt>
+                  <dd className="text-foreground">{formatDate(member.hiredOn ?? member.since)}{!member.hiredOn && <span className="block text-[10px] text-muted-foreground">account date — no hire date recorded</span>}</dd></div>
                 <div><dt className="font-bold uppercase tracking-wider text-[10px] text-muted-foreground">This week</dt>
                   <dd className="text-foreground">
                     {week ? `${Math.floor(week.minutes / 60)}h ${week.minutes % 60}m${week.running ? " · clocked in" : ""}` : "No time yet"}
@@ -269,7 +271,10 @@ export default function TeamMemberProfilePage() {
         <TabsContent value="organization" className="mt-3 space-y-3">
           {/* Management places people; a lead reads where their person sits. */}
           {mayManage ? (
-            <WorkOrgTab member={member} people={people} teams={teams} />
+            <>
+              <WorkOrgTab member={member} people={people} teams={teams} />
+              <PersonalRecordsCard userId={member.userId} />
+            </>
           ) : (
             <div className="rounded-xl border border-border bg-card p-4">
               <h3 className="text-sm font-semibold text-foreground">Organization</h3>
@@ -319,7 +324,10 @@ export default function TeamMemberProfilePage() {
         </TabsContent>
         <TabsContent value="training" className="mt-3"><TrainingTab member={member} /></TabsContent>
         {canMoney && (
-          <TabsContent value="compensation" className="mt-3"><CompensationTab member={member} /></TabsContent>
+          <TabsContent value="compensation" className="mt-3 space-y-3">
+            <CompensationTab member={member} />
+            <PayoutAccountCard userId={member.userId} />
+          </TabsContent>
         )}
         {(canDocs || seesOwnDocs) && (
           <TabsContent value="documents" className="mt-3">

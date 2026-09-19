@@ -16,7 +16,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { OpsSelect } from "@/components/ui/ops-select";
 import { Pill } from "@/components/agency/partner/partner-ui";
-import { SchedulesAndRates } from "@/components/agency/people/SchedulesAndRates";
+import { Schedules } from "@/components/agency/people/Schedules";
+import { PayRateEditor, RateBasisLine } from "@/components/agency/people/PayRateEditor";
 import { describeRateBasis, rateSuffix } from "@/lib/payroll/rate-label";
 import { useTeamActions } from "@/lib/data/use-agency-teams";
 import { useAgencyPartners } from "@/lib/data/use-agency-partners";
@@ -56,6 +57,7 @@ export function WorkOrgTab({ member, people, teams }: {
   const teamActions = useTeamActions();
   const tree = useOrganizationTree();
   const [title, setTitle] = useState<string | null>(null);
+  const [hired, setHired] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [addTeam, setAddTeam] = useState(NONE);
 
@@ -113,6 +115,16 @@ export function WorkOrgTab({ member, people, teams }: {
                 options={[{ value: NONE, label: "Not recorded" }, ...ENGAGEMENT_TYPES.map((t) => ({ value: t.value, label: t.label }))]} />
             </div>
             <span className="mt-1 block text-[11px] text-muted-foreground">Employee or contractor. Shown on the person's own profile.</span>
+          </label>
+          <label className="text-sm">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Hire date</span>
+            <div className="mt-1 flex gap-2">
+              <Input type="date" value={hired ?? member.hiredOn ?? ""} onChange={(e) => setHired(e.target.value)} className="h-8 text-xs" />
+              <Button size="sm" variant="outline" disabled={saving || hired === null} onClick={() => void place({ hiredOn: hired })}>
+                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
+              </Button>
+            </div>
+            <span className="mt-1 block text-[11px] text-muted-foreground">The true join date. Employee IDs take their month and sequence from it.</span>
           </label>
         </div>
       </ContentCard>
@@ -302,7 +314,7 @@ const isoDaysAgo = (n: number) => {
 export function ScheduleTimeTab({ member }: { member: AgencyMember }) {
   return (
     <div className="space-y-3">
-      <SchedulesAndRates onlyUserId={member.userId} />
+      <Schedules onlyUserId={member.userId} />
       <RecentAttendanceList userId={member.userId} />
     </div>
   );
@@ -367,15 +379,20 @@ export function CompensationTab({ member }: { member: AgencyMember }) {
             {formatCentsIn(rate.rateCents, rate.currency)} {rateSuffix(rate.rateType)}
           </p>
           {basisLine && <p className="mt-0.5 text-xs text-muted-foreground">{basisLine}</p>}
+          <RateBasisLine userId={member.userId} rateType={rate.rateType} currency={rate.currency} />
           <p className="mt-1 text-xs text-muted-foreground">
-            Effective {formatDate(rate.effectiveFrom)}. Rate changes are made on the Time &amp; Attendance tab and
-            keep their history; payslips live under Finance → Payroll.
+            Effective {formatDate(rate.effectiveFrom)}. Rate changes keep their history; payslips live under Finance → Payroll.
           </p>
         </div>
       ) : (
         <p className="py-3 text-xs text-muted-foreground">
-          No rate on file — payroll will skip this person until one is set on the Time &amp; Attendance tab.
+          No rate on file — payroll will skip this person until one is set here.
         </p>
+      )}
+      {perms.can("payroll.manage") && (
+        <div className="mt-3 border-t border-border/60 pt-3">
+          <PayRateEditor userId={member.userId} rate={rate ? { rateType: rate.rateType, rateCents: rate.rateCents, currency: rate.currency } : undefined} />
+        </div>
       )}
     </ContentCard>
   );

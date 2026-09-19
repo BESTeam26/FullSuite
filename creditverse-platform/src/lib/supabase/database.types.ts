@@ -563,6 +563,7 @@ export type Database = {
           deactivated_by: string | null
           employee_code: string | null
           engagement_type: string | null
+          hired_on: string | null
           id: string
           is_owner: boolean
           job_title: string | null
@@ -587,6 +588,7 @@ export type Database = {
           deactivated_by?: string | null
           employee_code?: string | null
           engagement_type?: string | null
+          hired_on?: string | null
           id?: string
           is_owner?: boolean
           job_title?: string | null
@@ -611,6 +613,7 @@ export type Database = {
           deactivated_by?: string | null
           employee_code?: string | null
           engagement_type?: string | null
+          hired_on?: string | null
           id?: string
           is_owner?: boolean
           job_title?: string | null
@@ -8346,6 +8349,87 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      member_payout_accounts: {
+        Row: {
+          account_name: string | null
+          account_number: string | null
+          agency_id: string
+          method: string
+          notes: string | null
+          notification_email: string | null
+          provider: string | null
+          updated_at: string
+          updated_by: string | null
+          user_id: string
+        }
+        Insert: {
+          account_name?: string | null
+          account_number?: string | null
+          agency_id: string
+          method: string
+          notes?: string | null
+          notification_email?: string | null
+          provider?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          user_id: string
+        }
+        Update: {
+          account_name?: string | null
+          account_number?: string | null
+          agency_id?: string
+          method?: string
+          notes?: string | null
+          notification_email?: string | null
+          provider?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      member_private_records: {
+        Row: {
+          agency_id: string
+          date_of_birth: string | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
+          emergency_contact_relationship: string | null
+          home_address: string | null
+          updated_at: string
+          updated_by: string | null
+          user_id: string
+          whatsapp_phone: string | null
+          working_location: string | null
+        }
+        Insert: {
+          agency_id: string
+          date_of_birth?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          emergency_contact_relationship?: string | null
+          home_address?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          user_id: string
+          whatsapp_phone?: string | null
+          working_location?: string | null
+        }
+        Update: {
+          agency_id?: string
+          date_of_birth?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          emergency_contact_relationship?: string | null
+          home_address?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          user_id?: string
+          whatsapp_phone?: string | null
+          working_location?: string | null
+        }
+        Relationships: []
       }
       member_pay_rates: {
         Row: {

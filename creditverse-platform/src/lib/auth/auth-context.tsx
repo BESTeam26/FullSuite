@@ -158,6 +158,7 @@ const demoAgencyMembership: AgencyMembership = {
   scope_department_id: null,
   employee_code: null,
   engagement_type: null,
+  hired_on: null,
   status: "active",
   deactivated_at: null,
   deactivated_by: null,
