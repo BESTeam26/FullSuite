@@ -27,6 +27,7 @@ import {
 } from "@/lib/attendance/use-attendance-corrections";
 import { useAttendancePolicy } from "@/lib/attendance/use-attendance-policy";
 import { AttendanceReviewDrawer } from "@/components/attendance/AttendanceReviewDrawer";
+import { EXCEPTION_TITLE, useRewardExceptions } from "@/lib/leave/use-reward-exceptions";
 import { STANDING_BADGE, STANDING_LABEL } from "@/lib/attendance/attendance-score";
 import { businessToday } from "@/lib/calendar/us-federal-holidays";
 import { formatDuration } from "@/lib/time-domain";
@@ -39,6 +40,7 @@ export function TeamManagement() {
   const [tab, setTab] = useState<TeamTab>("time");
   const [reviewing, setReviewing] = useState<{ userId: string; name: string } | null>(null);
   const record = useRecordCorrection();
+  const exceptions = useRewardExceptions();
   const workforce = useWorkforce();
   const auth = useAuth();
   const today = businessToday();
@@ -89,6 +91,7 @@ export function TeamManagement() {
 
   const todayRows = (attendance.data ?? []).filter((d) => d.day === today);
   const dayFor = (userId: string) => todayRows.find((d) => d.userId === userId);
+
 
   const todayRowsForTiles = (attendance.data ?? []).filter((d) => d.day === today);
   const tiles = (() => {
@@ -212,11 +215,24 @@ export function TeamManagement() {
                       )}
                     </td>
                     <td className="px-3 py-2 text-right">
-                      <button type="button" disabled={!sc}
-                        onClick={() => setReviewing({ userId: p.userId, name: p.name })}
-                        className="rounded-lg border border-border bg-card px-2 py-1 text-[11px] font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50">
-                        Review attendance
-                      </button>
+                      <span className="inline-flex items-center gap-1.5">
+                        {/* No "issue reward" here. This table shows the RUNNING
+                            quarter, and Dee's rule is that a reward is earned
+                            at quarter CLOSE — the database refuses an open one,
+                            so a button here could only ever fail. What it shows
+                            instead is whether the score is at the top. */}
+                        {sc?.standing === "champion" && (
+                          <span className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[11px] font-semibold text-amber-900"
+                            title="A Reward Day is issued once the quarter closes">
+                            🏆 On track
+                          </span>
+                        )}
+                        <button type="button" disabled={!sc}
+                          onClick={() => setReviewing({ userId: p.userId, name: p.name })}
+                          className="rounded-lg border border-border bg-card px-2 py-1 text-[11px] font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50">
+                          Review attendance
+                        </button>
+                      </span>
                     </td>
                   </tr>
                 );
@@ -229,9 +245,30 @@ export function TeamManagement() {
             </tbody>
           </table>
         </div>
+        {(exceptions.data ?? []).length > 0 && (
+          <div className="mt-3 rounded-2xl border border-amber-500/40 bg-amber-500/5 p-4">
+            <h3 className="text-sm font-bold text-foreground">Needs your attention</h3>
+            <ul className="mt-2 space-y-1.5">
+              {(exceptions.data ?? []).map((x, i) => (
+                <li key={`${x.kind}-${x.userId}-${i}`}
+                  className={cn("rounded-xl border px-3 py-2 text-[11px]",
+                    x.severity === "danger"
+                      ? "border-destructive/30 bg-status-danger-tint text-status-danger"
+                      : x.severity === "warning"
+                        ? "border-amber-500/40 bg-amber-500/10 text-amber-900"
+                        : "border-border bg-card text-muted-foreground")}>
+                  <strong>{EXCEPTION_TITLE[x.kind]} · {x.person}</strong>
+                  <span className="block">{x.detail}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         <p className="mt-3 rounded-xl border border-border bg-card px-4 py-3 text-[11px] text-muted-foreground">
           Scores are derived and cannot be typed. Correcting a day records a reversal beside
-          the original — nothing is deleted, and the person is told.
+          the original — nothing is deleted, and the person is told. A Reward Day is earned at
+          quarter close, never during it, and a correction to a closed quarter raises a review
+          rather than removing a reward somebody may already have used.
         </p>
 
         {reviewing && attendanceByUser.get(reviewing.userId) && (

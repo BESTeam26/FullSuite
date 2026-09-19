@@ -110,13 +110,42 @@ console.log("\nRewards expire, and nobody mints their own");
   check("an agent cannot insert a reward for themselves",
     asUser(AGENT, `insert into public.reward_credits (agency_id, user_id, kind, label, expires_on)
       values ('${AGENCY}', '${AGENT}', 'attendance', 'Self-awarded', '${TODAY}'::date + 90);`).ok, false);
+  /* A CLOSED quarter. Dee, 2026-09-19: "Do NOT grant continuously during the
+     quarter. Evaluate at quarter close." */
+  const CLOSED = one(`select (extract(year from (now() at time zone 'America/New_York') - interval '6 months'))::text
+    || '-Q' || (floor((extract(month from (now() at time zone 'America/New_York') - interval '6 months')::int - 1) / 3) + 1)::text as q`).q;
+  const RUNNING = one(`select (extract(year from (now() at time zone 'America/New_York')))::text
+    || '-Q' || (floor((extract(month from (now() at time zone 'America/New_York'))::int - 1) / 3) + 1)::text as q`).q;
+
+  check("a quarter still running cannot be rewarded",
+    asUser(EXEC, `select public.grant_attendance_reward('${AGENT}', '${RUNNING}');`).ok, false);
   check("an agent cannot issue an attendance reward",
-    asUser(AGENT, `select public.grant_attendance_reward('${AGENT}', '2026-Q3');`).ok, false);
-  check("an executive can",
-    asUser(EXEC, `select public.grant_attendance_reward('${AGENT}', '2026-Q3');`).ok, true);
-  check("…but not the same quarter twice",
-    asUser(EXEC, `select public.grant_attendance_reward('${AGENT}', '2026-Q3');
-                  select public.grant_attendance_reward('${AGENT}', '2026-Q3');`).ok, false);
+    asUser(AGENT, `select public.grant_attendance_reward('${AGENT}', '${CLOSED}');`).ok, false);
+  check("an executive can, once the quarter has closed",
+    asUser(EXEC, `select public.grant_attendance_reward('${AGENT}', '${CLOSED}');`).ok, true);
+  check("…and a re-run grants nothing rather than erroring",
+    asUser(EXEC, `select public.grant_attendance_reward('${AGENT}', '${CLOSED}');
+      select public.grant_attendance_reward('${AGENT}', '${CLOSED}') is null as second;`)
+      .rows?.[0]?.second, true);
+  check("a nonsense quarter is refused",
+    asUser(EXEC, `select public.grant_attendance_reward('${AGENT}', 'last year');`).ok, false);
+
+  /* Correcting a CLOSED, rewarded quarter must flag the reward, never remove
+     it — "a spent reward is a payment that happened". */
+  const flagged = q.query(`begin;
+    set local role authenticated;
+    do $c$ begin perform set_config('request.jwt.claims', '{"sub":"${EXEC}","role":"authenticated"}', true); end $c$;
+    select public.grant_attendance_reward('${AGENT}', '${CLOSED}');
+    select public.record_attendance_correction('${AGENT}',
+      (date_trunc('quarter', (now() at time zone 'America/New_York') - interval '6 months')::date + 10),
+      'ncns', 'Found after the quarter closed');
+    select needs_review, (review_reason is not null) as explained,
+           (consumed_at is null) as still_unspent
+      from public.reward_credits where user_id='${AGENT}' and kind='attendance';
+    rollback;`);
+  check("a late correction flags the reward for review", flagged[0]?.needs_review, true);
+  check("…with a reason a manager can act on", flagged[0]?.explained, true);
+  check("…and does not delete it", flagged[0]?.still_unspent, true);
 }
 
 console.log("\nThe birthday grant is automatic and idempotent");
