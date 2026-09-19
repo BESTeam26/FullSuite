@@ -127,6 +127,8 @@ is the reason the engine is generic and the CreditOps cards are data.
 qa_reviews          id, agency_id, template_id, subject_kind ('dispute_round'|'work_item'),
                     subject_id, reviewee_id, department, reviewer_id,
                     status ('draft'|'completed'), completed_at, feedback,
+                    -- what the PERSON may see, separately from what management scores:
+                    released_feedback text, released_by, released_at, acknowledged_at,
                     -- frozen at completion (evidence, never recomputed):
                     workmanship_score numeric, deletion_rate numeric,
                     positive_outcome_rate numeric, final_quality numeric,
@@ -134,6 +136,18 @@ qa_reviews          id, agency_id, template_id, subject_kind ('dispute_round'|'w
 qa_review_items     review_id, item_id, grade ('pass'|'minor'|'major'|'na'), note
 qa_critical_errors  review_id, error_type, note, corrective_action, confirmed_by, confirmed_at
 ```
+
+**Scoring is management-only; feedback is released (Dee, 2026-09-19).** A
+completed review is a management record — grades, Workmanship, Final Quality,
+critical errors, the reviewer's working notes. None of it reaches the reviewee
+by default. The Team Lead *releases* feedback deliberately: `released_feedback`
+is the text written for the person ("what to keep doing, what to change on the
+next round"), stamped `released_by` / `released_at`; the person acknowledges
+it (`acknowledged_at`). RLS gives the reviewee exactly the released columns of
+their own reviews and nothing else — never `qa_review_items`, never the frozen
+scores, never a draft. The same rule the profile split already applies:
+`holds_management_view()` for the intelligence, the released row for the
+person (migration 20260919017000).
 
 `work_items.qa_result` stays as the simple verdict for departments without a
 scorecard (BES CRM units today) and becomes a **projection** when a scorecard
@@ -324,7 +338,8 @@ fulfillment_clients ──< dispute_rounds (EXISTING, extended)
                              ├──< client_round_outcomes            EXISTING, extended  per bureau: items_disputed, deleted, updated,
                              │                                       verified, + partial_improvement, pending, reinserted, unable_to_determine
                              └──< qa_reviews                       NEW  template_id, department, reviewee_id, reviewer_id, status,
-                                      │                                 workmanship_score (frozen), critical, feedback, completed_at
+                                      │                                 workmanship_score (frozen), critical, feedback, completed_at,
+                                      │                                 released_feedback, released_by, released_at, acknowledged_at
                                       ├──< qa_review_items         NEW  item_id, grade pass|minor|major|na, note, upstream_defect bool
                                       └──< qa_critical_errors      NEW  error_type, note, corrective_action, confirmed_by, confirmed_at
 
@@ -450,11 +465,22 @@ recorded separately, when they arrive, on the round (existing panel).
 
 ### 7.7 Agent view
 
-Own completed reviews only (never drafts), each with items, grades, feedback,
-critical errors and corrective actions; own monthly W / D / Quality with
-denominators and Provisional state; own Results Attention flags; cannot open
-the queue, create or grade a review (RLS and RPC). Lives on their Profile →
-QA Reviews / Dispute Results / Feedback.
+**Released feedback only.** The person sees, for their own reviews, what their
+Team Lead released: the feedback text, who released it, when, and a place to
+acknowledge it. They do **not** see item grades, Workmanship, Deletion Rate,
+Final Quality, critical-error records, sampling tier, the queue, drafts, or
+anyone else's reviews — denied by RLS and RPC, not by hiding tabs (Dee,
+2026-09-19: "The Agent must also be unable to retrieve these management
+records through direct URL, RPC/API, or database policy."). Their own
+Attendance-style score for Quality stays a management figure until Dee decides
+otherwise.
+
+Where it lives: **not** Settings › My Profile, which is identity only, and not
+the management Team Member Profile, which redirects the person to Settings.
+Released feedback and training belong to an employee-facing development
+surface — a future decision, recorded here so it is not re-asked. Until it
+exists, releasing feedback notifies the person and the acknowledgment happens
+from the notification.
 
 ### 7.8 Team Lead view
 

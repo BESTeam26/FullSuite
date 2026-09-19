@@ -13,8 +13,6 @@ import { Button } from "@/components/ui/button";
 import { SectionCard } from "@/components/settings/shared";
 import { Avatar } from "@/components/common/Avatar";
 import { useAuth } from "@/lib/auth/auth-context";
-import { Link } from "react-router-dom";
-import { isAdminRole } from "@/lib/agency/navigation";
 import { errorMessage } from "@/lib/data/error-message";
 import {
   MIN_PASSWORD_LENGTH,
@@ -33,7 +31,12 @@ const labelCls = "block text-[10px] font-bold uppercase tracking-wider text-mute
 
 const EMPTY: ProfileEdits = { fullName: "", preferredName: "", title: "", phone: "", birthMonth: null, birthDay: null, birthdayVisible: false, tagline: "" };
 
-export function AccountSection() {
+/**
+ * `mode` lets My Profile open exactly one editor at a time — the personal
+ * details, or the password — instead of the whole stack. "all" is the
+ * historical page and stays the default.
+ */
+export function AccountSection({ mode = "all" }: { mode?: "all" | "profile" | "password" } = {}) {
   const auth = useAuth();
   const account = useOwnProfile();
   const avatars = useAvatarUrls([account.profile?.avatarPath]);
@@ -94,16 +97,8 @@ export function AccountSection() {
 
   return (
     <div className="space-y-4">
-      <SectionCard icon={UserRound} title="My Profile" description="How you appear to your team, and how they reach you.">
-        {/* The performance profile is a manager's view (Dee, 2026-09-19); only
-            those who may open it are pointed at it. */}
-        {auth.user?.id && (isAdminRole(auth.agencyMembership?.role) || (auth.ledTeamIds?.length ?? 0) > 0) && (
-          <p className="mb-3 text-xs">
-            <Link to={`/app/people/${auth.user.id}`} className="font-semibold text-primary underline-offset-2 hover:underline">
-              Open my profile page →
-            </Link>
-          </p>
-        )}
+      {mode !== "password" && (
+      <SectionCard icon={UserRound} title="Personal Information" description="How you appear to your team, and how they reach you.">
         {account.isLoading ? (
           <div className="h-40 animate-pulse rounded-lg bg-muted/40" aria-busy="true" />
         ) : (
@@ -195,8 +190,9 @@ export function AccountSection() {
           </form>
         )}
       </SectionCard>
+      )}
 
-      <PasswordCard email={auth.user?.email ?? ""} />
+      {mode !== "profile" && <PasswordCard email={auth.user?.email ?? ""} />}
     </div>
   );
 }

@@ -39,8 +39,10 @@ export const TimeAttendancePage = () => {
   /* An unknown segment falls back to the module root rather than to a dead page. */
   if (!section) return <Navigate to="/app/time" replace />;
 
+  /* Dee, 2026-09-19: the header names the SECTION — My Time, My Attendance,
+     My Time Off — not the module. The module name is the sidebar's job. */
   return (
-    <HqPageShell title="Time & Attendance" description={section.description} icon={Clock}>
+    <HqPageShell title={section.slug ? section.label : "Time & Attendance"} description={section.description} icon={Clock}>
       {section.slug === "" && <TimeOverview />}
       {section.slug === "my-time" && <MyTimeSection />}
       {section.slug === "attendance" && <AttendancePage />}

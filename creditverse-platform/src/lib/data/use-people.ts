@@ -64,6 +64,22 @@ export function useMyLeave() {
 }
 
 /**
+ * One person's requests for the management profile. Same fetcher as the
+ * person's own list; RLS decides whether the caller may see them at all
+ * (self, their lead, management in scope), so a lead outside the team
+ * receives nothing rather than a filtered copy.
+ */
+export function useMemberLeave(userId: string | null) {
+  const { live } = useLive();
+  return useQuery({
+    queryKey: ["people", "leave", "member", userId],
+    queryFn: () => fetchMyLeave(userId!),
+    enabled: live && !!userId,
+    staleTime: 30_000,
+  });
+}
+
+/**
  * Approved leave ending on or after `fromDate` (today by default). The
  * Schedule tab passes the Monday it is showing, so a week already begun still
  * shows who was away on Monday.

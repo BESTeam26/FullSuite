@@ -18,10 +18,10 @@ const session = (u) => `set local role authenticated; do $c$ begin perform set_c
 const tryAs = (u, sql) => q.query(`begin; ${session(u)} do $c$ begin ${sql}; perform set_config('probe.r','ok',true); exception when others then perform set_config('probe.r', sqlstate, true); end $c$; select current_setting('probe.r', true) as r; rollback;`)[0].r;
 
 console.log("\nEmployee IDs\n");
-check("every membership has a code shaped INITIALS-MMYY-NN", one("select count(*)::int as n from agency_memberships where employee_code !~ '^[A-Z]{2}-[0-9]{4}-[0-9]{2,}$' or employee_code is null").n, 0);
+check("every membership has a code shaped INITIALS + MMYYYY-NNN", one("select count(*)::int as n from agency_memberships where employee_code !~ '^[A-Z]{2}[0-9]{6}-[0-9]{3,}$' or employee_code is null").n, 0);
 check("codes are unique within the agency", one("select count(*)::int as n from (select agency_id, employee_code from agency_memberships group by 1,2 having count(*)>1) d").n, 0);
-check("real people are numbered among real people (the first is 01)", one(`select employee_code from agency_memberships m join profiles p on p.id=m.user_id where coalesce(p.is_fixture,false)=false and m.agency_id='${AGENCY}' order by m.created_at, m.id limit 1`).employee_code.endsWith("-01"), true);
-check("fixtures carry the FX prefix", one("select count(*)::int as n from agency_memberships m join profiles p on p.id=m.user_id where p.is_fixture and employee_code not like 'FX-%'").n, 0);
+check("real people are numbered among real people (the first is 001)", one(`select employee_code from agency_memberships m join profiles p on p.id=m.user_id where coalesce(p.is_fixture,false)=false and m.agency_id='${AGENCY}' order by m.created_at, m.id limit 1`).employee_code.endsWith("-001"), true);
+check("fixtures carry the FX prefix", one("select count(*)::int as n from agency_memberships m join profiles p on p.id=m.user_id where p.is_fixture and employee_code not like 'FX%'").n, 0);
 check("a new membership is coded on insert (rolled back)", q.query(`begin; insert into public.agency_memberships (user_id, agency_id, role) values ('${OTHER}', '${AGENCY}', 'agency_user') on conflict do nothing; select count(*)::int as n from agency_memberships where user_id='${OTHER}' and employee_code is null; rollback;`)[0].n, 0);
 
 console.log("\nWho may edit a profile\n");

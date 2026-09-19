@@ -18,7 +18,7 @@
  * rendered (§40).
  */
 import { useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, ChevronRight, Loader2, UserRound } from "lucide-react";
 import { HqPageShell } from "@/pages/app/HqPages";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -36,7 +36,7 @@ import {
   ActivityTab, AssignmentsTab, CompensationTab, DocumentsTab, EodTab, ScheduleTimeTab, WorkOrgTab, WorkPerformanceTab,
 } from "@/components/agency/people/MemberProfileTabs";
 import { useAgencyMembers, useMemberActions } from "@/lib/data/use-agency-teams";
-import { usePayRates, useSchedules } from "@/lib/data/use-people";
+import { useMemberLeave, usePayRates, useSchedules } from "@/lib/data/use-people";
 import { useAgencyAccessContext } from "@/lib/agency/use-access-context";
 
 /* The four doors into operational work. */
@@ -196,25 +196,32 @@ export default function TeamMemberProfilePage() {
       )}
 
       <Tabs value={tab} onValueChange={setTab} className="mt-3">
-        {/* Dee's mockup order, then the management tabs. The person, their lead
-            and management see the person's own tabs; Access, Documents and
-            Activity keep their existing gates. */}
+        {/* Dee's list, 2026-09-19. Whoever may OPEN this page (management in
+            scope, or the lead of one of this person's teams) sees the
+            person's own tabs; Compensation, Documents, Access and Activity
+            keep their capability gates. A person opening themselves never
+            reaches here — Settings › My Profile is their door. */}
         <TabsList className="h-8 flex-wrap bg-muted/60">
           <TabsTrigger value="overview" className="text-[11px]">Overview</TabsTrigger>
+          <TabsTrigger value="organization" className="text-[11px]">Organization</TabsTrigger>
+          <TabsTrigger value="assignments" className="text-[11px]">Assignments</TabsTrigger>
+          <TabsTrigger value="attendance" className="text-[11px]">Time &amp; Attendance</TabsTrigger>
+          <TabsTrigger value="time-off" className="text-[11px]">Time Off</TabsTrigger>
+          <TabsTrigger value="eod" className="text-[11px]">EOD</TabsTrigger>
           <TabsTrigger value="performance" className="text-[11px]">Performance</TabsTrigger>
           <TabsTrigger value="qa" className="text-[11px]">QA Reviews</TabsTrigger>
           <TabsTrigger value="production" className="text-[11px]">Production</TabsTrigger>
-          <TabsTrigger value="feedback" className="text-[11px]">Feedback</TabsTrigger>
-          <TabsTrigger value="goals" className="text-[11px]">Goals</TabsTrigger>
+          <TabsTrigger value="feedback" className="text-[11px]">Feedback &amp; Coaching</TabsTrigger>
           <TabsTrigger value="training" className="text-[11px]">Training</TabsTrigger>
-          {(isAdmin || mayManage || leadsThisPerson) && <TabsTrigger value="access" className="text-[11px]">Access &amp; Assignments</TabsTrigger>}
-          <TabsTrigger value="time" className="text-[11px]">Time &amp; Pay</TabsTrigger>
+          {canMoney && <TabsTrigger value="compensation" className="text-[11px]">Compensation</TabsTrigger>}
           {(canDocs || seesOwnDocs) && <TabsTrigger value="documents" className="text-[11px]">Documents</TabsTrigger>}
-          {mayManage && <TabsTrigger value="activity" className="text-[11px]">Activity Log</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="access" className="text-[11px]">Access</TabsTrigger>}
+          {mayManage && <TabsTrigger value="activity" className="text-[11px]">Activity</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="overview" className="mt-3 space-y-3">
-          <ProfileOverview member={member} nameOf={nameOf} canEditGoals={canEditGoals} onOpenTab={setTab}
+          <ProfileOverview member={member} nameOf={nameOf} canEditGoals={canEditGoals}
+            onOpenTab={(t) => setTab(t === "goals" ? "feedback" : t)}
             lead={leadMember ? { userId: leadMember.userId, name: leadMember.name, title: positionTitle(leadMember.userId) ?? leadMember.jobTitle, avatarPath: leadMember.avatarPath } : null} />
           <div className="grid gap-3 lg:grid-cols-3">
             <div className="rounded-xl border border-border bg-card p-4 lg:col-span-2">
@@ -254,19 +261,47 @@ export default function TeamMemberProfilePage() {
               </ul>
             </div>
           </div>
-          {mayManage && (
-            <div className="mt-3">
-              <WorkOrgTab member={member} people={people} teams={teams} />
+        </TabsContent>
+
+        <TabsContent value="organization" className="mt-3 space-y-3">
+          {/* Management places people; a lead reads where their person sits. */}
+          {mayManage ? (
+            <WorkOrgTab member={member} people={people} teams={teams} />
+          ) : (
+            <div className="rounded-xl border border-border bg-card p-4">
+              <h3 className="text-sm font-semibold text-foreground">Organization</h3>
+              <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-3">
+                <div><dt className="font-bold uppercase tracking-wider text-[10px] text-muted-foreground">Position</dt>
+                  <dd className="text-foreground">{positionTitle(member.userId) ?? member.jobTitle ?? "Not recorded"}</dd></div>
+                <div><dt className="font-bold uppercase tracking-wider text-[10px] text-muted-foreground">Division</dt>
+                  <dd className="text-foreground">{divisionLabel(myTeams[0]?.division ?? null) ?? "—"}</dd></div>
+                <div><dt className="font-bold uppercase tracking-wider text-[10px] text-muted-foreground">Teams</dt>
+                  <dd className="text-foreground">{myTeams.map((t) => t.name).join(", ") || "None"}</dd></div>
+                <div><dt className="font-bold uppercase tracking-wider text-[10px] text-muted-foreground">Reports to</dt>
+                  <dd className="text-foreground">{leadMember?.name ?? people.find((p) => p.userId === member.managerId)?.name ?? "Nobody"}</dd></div>
+              </dl>
+              <p className="mt-3 text-[10px] text-muted-foreground">Placement is changed by management from People &amp; Teams.</p>
             </div>
           )}
         </TabsContent>
 
-        {(isAdmin || mayManage || leadsThisPerson) && (
-          <TabsContent value="access" className="mt-3 space-y-3">
-            {isAdmin && <AgencyAccessPanel lockedUserId={member.userId} />}
-            <AssignmentsTab member={member} teams={teams} />
-          </TabsContent>
-        )}
+        <TabsContent value="assignments" className="mt-3 space-y-3">
+          <AssignmentsTab member={member} teams={teams} />
+        </TabsContent>
+
+        <TabsContent value="attendance" className="mt-3 space-y-3">
+          {/* Dee's attendance policy, 2026-09-18: "Score + violations +
+              patterns, not a complicated analytics dashboard." */}
+          <MemberAttendanceScore userId={member.userId} />
+          <ScheduleTimeTab member={member} />
+        </TabsContent>
+
+        <TabsContent value="time-off" className="mt-3">
+          <MemberTimeOff userId={member.userId} />
+        </TabsContent>
+
+        <TabsContent value="eod" className="mt-3"><EodTab member={member} /></TabsContent>
+
         <TabsContent value="performance" className="mt-3">
           <PersonPerformanceTab member={member} title={positionTitle(member.userId) ?? member.jobTitle} teamName={myTeams[0]?.name ?? null} nameOf={nameOf} />
         </TabsContent>
@@ -274,23 +309,23 @@ export default function TeamMemberProfilePage() {
         <TabsContent value="production" className="mt-3 space-y-3">
           <ProductionPeriodCard member={member} />
           <WorkPerformanceTab member={member} />
-          <EodTab member={member} />
         </TabsContent>
-        <TabsContent value="feedback" className="mt-3"><FeedbackTab member={member} nameOf={nameOf} /></TabsContent>
-        <TabsContent value="goals" className="mt-3"><GoalsTab member={member} canEdit={canEditGoals} /></TabsContent>
+        <TabsContent value="feedback" className="mt-3 space-y-3">
+          <FeedbackTab member={member} nameOf={nameOf} />
+          <GoalsTab member={member} canEdit={canEditGoals} />
+        </TabsContent>
         <TabsContent value="training" className="mt-3"><TrainingTab member={member} /></TabsContent>
-        {(mayManage || leadsThisPerson || isSelf) && (
-          <TabsContent value="time" className="mt-3 space-y-3">
-            {/* Dee's attendance policy, 2026-09-18: "Score + violations +
-                patterns, not a complicated analytics dashboard." */}
-            <MemberAttendanceScore userId={member.userId} />
-            <ScheduleTimeTab member={member} />
-            {canMoney && <CompensationTab member={member} />}
-          </TabsContent>
+        {canMoney && (
+          <TabsContent value="compensation" className="mt-3"><CompensationTab member={member} /></TabsContent>
         )}
         {(canDocs || seesOwnDocs) && (
           <TabsContent value="documents" className="mt-3">
             <DocumentsTab member={member} agencyId={auth.agencyId ?? ""} />
+          </TabsContent>
+        )}
+        {isAdmin && (
+          <TabsContent value="access" className="mt-3">
+            <AgencyAccessPanel lockedUserId={member.userId} />
           </TabsContent>
         )}
         {mayManage && (
@@ -299,6 +334,40 @@ export default function TeamMemberProfilePage() {
           </TabsContent>
         )}
       </Tabs>
+    </div>
+  );
+}
+
+/** One person's time-off history, as management sees it. RLS scopes the rows. */
+function MemberTimeOff({ userId }: { userId: string }) {
+  const leave = useMemberLeave(userId);
+  const tone = (status: string) =>
+    status === "approved" ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-800"
+      : status === "pending" ? "border-amber-500/40 bg-amber-500/10 text-amber-900"
+        : "border-border bg-muted text-muted-foreground";
+  return (
+    <div className="rounded-xl border border-border bg-card p-4">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold text-foreground">Time Off</h3>
+        <Link to="/app/people/time-off" className="text-[11px] font-semibold text-primary hover:underline">Open Time Off</Link>
+      </div>
+      {leave.isLoading ? (
+        <p className="py-4 text-xs text-muted-foreground"><Loader2 className="mr-1.5 inline h-3 w-3 animate-spin" /> Loading…</p>
+      ) : (leave.data ?? []).length === 0 ? (
+        <p className="py-3 text-xs text-muted-foreground">No time-off requests on file.</p>
+      ) : (
+        <ul className="mt-2 divide-y divide-border/60 text-xs">
+          {(leave.data ?? []).map((r) => (
+            <li key={r.id} className="flex items-center justify-between gap-2 py-2">
+              <span>
+                <span className="block font-medium text-foreground">{r.typeLabel}</span>
+                <span className="block text-muted-foreground">{formatDate(r.startsOn)}{r.endsOn !== r.startsOn ? ` – ${formatDate(r.endsOn)}` : ""}</span>
+              </span>
+              <Pill tone={tone(r.status)}>{r.status}</Pill>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
@@ -321,7 +390,7 @@ function ReactivateConfirm({ member, teams, onCancel, onConfirm }: {
         <p className="mt-1 text-xs text-muted-foreground">
           Their sign-in and access come back exactly as they were left: <span className="text-foreground">{memberAccessLabel(member.role as never, member.accessProfile as never)}</span>
           {teams.length > 0 ? <>, on {teams.join(", ")}</> : ", on no team"}. Partner assignments and module access that were never
-          ended are still in place. Check the Access &amp; Assignments tab after reactivating if anything should have ended.
+          ended are still in place. Check the Assignments and Access tabs after reactivating if anything should have ended.
         </p>
         <div className="mt-3 flex justify-end gap-2">
           <Button size="sm" variant="ghost" onClick={onCancel}>Cancel</Button>

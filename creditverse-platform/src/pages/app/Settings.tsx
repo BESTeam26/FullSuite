@@ -81,6 +81,7 @@ import { GhlBridgeSection } from "@/components/settings/sections/GhlBridgeSectio
 import { useAgency } from "@/lib/agency-context";
 import { useAuth } from "@/lib/auth/auth-context";
 import { usePermissions } from "@/lib/auth/use-permission";
+import { MyProfileSection } from "@/components/settings/profile/MyProfileSection";
 import { useAgencyAccessContext } from "@/lib/agency/use-access-context";
 
 /** Where a retired Settings section now lives (Dee §58). Pure, so it is testable. */
@@ -223,7 +224,7 @@ const SettingsContent = () => {
   if (legacy) return <Navigate to={legacy} replace />;
 
   const render = () => {
-    if (active === "account") return <AccountSection />;
+    if (active === "account") return <MyProfileSection />;
     if (isOrganizationView) {
       if (active === "profile") return <OrganizationProfileSection canEdit={canEditKpis} />;
       if (active === "plan") return <OrganizationPlanSection />;

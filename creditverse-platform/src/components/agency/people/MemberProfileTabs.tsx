@@ -290,36 +290,48 @@ const isoDaysAgo = (n: number) => {
 };
 
 export function ScheduleTimeTab({ member }: { member: AgencyMember }) {
-  const from = isoDaysAgo(6);
-  const to = isoDaysAgo(0);
-  const attendance = useAttendanceRange(from, to);
-  const mine = (attendance.data ?? []).filter((a) => a.userId === member.userId);
-
   return (
     <div className="space-y-3">
       <SchedulesAndRates onlyUserId={member.userId} />
-      <ContentCard title="Attendance — last 7 days">
-        {attendance.isLoading ? (
-          <p className="py-4 text-xs text-muted-foreground"><Loader2 className="mr-1.5 inline h-3 w-3 animate-spin" /> Loading…</p>
-        ) : mine.length === 0 ? (
-          <p className="py-3 text-xs text-muted-foreground">
-            Nothing derived yet — attendance appears once a schedule exists and days pass.
-          </p>
-        ) : (
-          <ul className="divide-y divide-border/50">
-            {mine.map((a) => (
-              <li key={a.day} className="flex items-center justify-between py-1.5 text-xs">
-                <span className="text-foreground">{formatDate(a.day)}</span>
-                <span className="text-muted-foreground">
-                  {a.status.replace(/_/g, " ")}{a.lateMinutes ? ` · ${a.lateMinutes}m late` : ""}
-                  {a.workMinutes ? ` · ${Math.floor(a.workMinutes / 60)}h ${a.workMinutes % 60}m worked` : ""}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </ContentCard>
+      <RecentAttendanceList userId={member.userId} />
     </div>
+  );
+}
+
+/**
+ * The last seven derived attendance days for one person. Shared with the
+ * agent's own My Profile (Settings), which must never see the rate and the
+ * schedule editor that sit above it in the management tab — so the list is
+ * its own piece, not a flag on the tab.
+ */
+export function RecentAttendanceList({ userId }: { userId: string }) {
+  const from = isoDaysAgo(6);
+  const to = isoDaysAgo(0);
+  const attendance = useAttendanceRange(from, to);
+  const mine = (attendance.data ?? []).filter((a) => a.userId === userId);
+
+  return (
+    <ContentCard title="Attendance — last 7 days">
+      {attendance.isLoading ? (
+        <p className="py-4 text-xs text-muted-foreground"><Loader2 className="mr-1.5 inline h-3 w-3 animate-spin" /> Loading…</p>
+      ) : mine.length === 0 ? (
+        <p className="py-3 text-xs text-muted-foreground">
+          Nothing derived yet — attendance appears once a schedule exists and days pass.
+        </p>
+      ) : (
+        <ul className="divide-y divide-border/50">
+          {mine.map((a) => (
+            <li key={a.day} className="flex items-center justify-between py-1.5 text-xs">
+              <span className="text-foreground">{formatDate(a.day)}</span>
+              <span className="text-muted-foreground">
+                {a.status.replace(/_/g, " ")}{a.lateMinutes ? ` · ${a.lateMinutes}m late` : ""}
+                {a.workMinutes ? ` · ${Math.floor(a.workMinutes / 60)}h ${a.workMinutes % 60}m worked` : ""}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </ContentCard>
   );
 }
 
@@ -346,13 +358,13 @@ export function CompensationTab({ member }: { member: AgencyMember }) {
           </p>
           {basisLine && <p className="mt-0.5 text-xs text-muted-foreground">{basisLine}</p>}
           <p className="mt-1 text-xs text-muted-foreground">
-            Effective {formatDate(rate.effectiveFrom)}. Rate changes are made on the Schedule &amp; Time tab and
+            Effective {formatDate(rate.effectiveFrom)}. Rate changes are made on the Time &amp; Attendance tab and
             keep their history; payslips live under Finance → Payroll.
           </p>
         </div>
       ) : (
         <p className="py-3 text-xs text-muted-foreground">
-          No rate on file — payroll will skip this person until one is set on the Schedule &amp; Time tab.
+          No rate on file — payroll will skip this person until one is set on the Time &amp; Attendance tab.
         </p>
       )}
     </ContentCard>
