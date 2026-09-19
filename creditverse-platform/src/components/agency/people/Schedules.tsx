@@ -41,11 +41,6 @@ export function Schedules({ onlyUserId }: { onlyUserId?: string } = {}) {
                   <span className="min-w-0">
                     {!onlyUserId && <span className="block font-medium text-foreground">{p.name}</span>}
                     <span className="block text-foreground">{describeSchedule(s)}</span>
-                    {s && (
-                      <span className="block text-muted-foreground">
-                        {s.timezone} · Lunch {s.lunchMinutes}m · Breaks {s.breakMinutes}m · Grace {s.graceMinutes}m
-                      </span>
-                    )}
                   </span>
                   <Button size="sm" variant="outline" className="h-7 text-xs"
                     onClick={() => setEditing(editing === p.userId ? null : p.userId)}>

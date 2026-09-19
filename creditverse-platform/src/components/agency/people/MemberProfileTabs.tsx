@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { OpsSelect } from "@/components/ui/ops-select";
 import { Pill } from "@/components/agency/partner/partner-ui";
 import { Schedules } from "@/components/agency/people/Schedules";
-import { PayRateEditor, RateBasisLine } from "@/components/agency/people/PayRateEditor";
+import { PayRateEditor } from "@/components/agency/people/PayRateEditor";
 import { describeRateBasis, rateSuffix } from "@/lib/payroll/rate-label";
 import { useTeamActions } from "@/lib/data/use-agency-teams";
 import { useAgencyPartners } from "@/lib/data/use-agency-partners";
@@ -379,7 +379,6 @@ export function CompensationTab({ member }: { member: AgencyMember }) {
             {formatCentsIn(rate.rateCents, rate.currency)} {rateSuffix(rate.rateType)}
           </p>
           {basisLine && <p className="mt-0.5 text-xs text-muted-foreground">{basisLine}</p>}
-          <RateBasisLine userId={member.userId} rateType={rate.rateType} currency={rate.currency} />
           <p className="mt-1 text-xs text-muted-foreground">
             Effective {formatDate(rate.effectiveFrom)}. Rate changes keep their history; payslips live under Finance → Payroll.
           </p>
