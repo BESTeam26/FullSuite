@@ -322,7 +322,7 @@ const users = Object.fromEntries(q(`select email, id from public.profiles where 
 const T = q(`select
   -- Agency scope is not admin bypass: engagement still gates. The oracle mirrors that,
   -- so it would catch an engagement bypass rather than expect one.
-  (select count(*) from public.work_items w where (w.workspace_id is null or exists (select 1 from public.workspace_shares s join public.fulfillment_engagements e on e.id=s.engagement_id where s.workspace_id=w.workspace_id and s.revoked_at is null and (s.board_id is null or s.board_id=w.board_id) and e.service='talentops' and public.engagement_is_live(e.status,e.effective_from,e.effective_to))) and (w.scope='AGENCY' or exists (select 1 from public.fulfillment_engagements e where e.organization_id=w.organization_id and public.engagement_is_live(e.status,e.effective_from,e.effective_to))))::int as work_total,
+  (select count(*) from public.work_items w where (w.workspace_id is null or exists (select 1 from public.workspaces ws where ws.id=w.workspace_id and ws.organization_id is null) /* agency-owned marketing workspaces: admins reach them (may_reach_marketing) */ or exists (select 1 from public.workspace_shares s join public.fulfillment_engagements e on e.id=s.engagement_id where s.workspace_id=w.workspace_id and s.revoked_at is null and (s.board_id is null or s.board_id=w.board_id) and e.service='talentops' and public.engagement_is_live(e.status,e.effective_from,e.effective_to))) and (w.scope='AGENCY' or exists (select 1 from public.fulfillment_engagements e where e.organization_id=w.organization_id and public.engagement_is_live(e.status,e.effective_from,e.effective_to))))::int as work_total,
   (select count(*) from public.work_attention a join public.work_items w on w.id=a.id where (w.workspace_id is null or exists (select 1 from public.workspace_shares s join public.fulfillment_engagements e on e.id=s.engagement_id where s.workspace_id=w.workspace_id and s.revoked_at is null and (s.board_id is null or s.board_id=w.board_id) and e.service='talentops' and public.engagement_is_live(e.status,e.effective_from,e.effective_to))) and (w.scope='AGENCY' or exists (select 1 from public.fulfillment_engagements e where e.organization_id=w.organization_id and public.engagement_is_live(e.status,e.effective_from,e.effective_to))))::int as attention_total,
   -- Two ways a client is reachable, and they are different rules (0165).
   -- ORGANIZATION-owned: a live engagement, always — that is a customer's own
@@ -392,22 +392,78 @@ const UPD = `
 const asUserUpdate = (uid) =>
   q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${UPD}; rollback;`)[0];
 
+/*
+ * An INDEPENDENT oracle for what a non-admin BES person may reach — the rule
+ * in plain SQL, not a call to `in_scope`, so a policy that drifts from the
+ * rule fails here:
+ *   own assignments
+ *   ∪ records on a team I am on
+ *   ∪ records on a team in a department one of my teams belongs to
+ *   ∪ records on a team I lead
+ * A partner-owned client additionally needs the partner assigned to me or to
+ * a team of mine (AD-004: directory ∩ partner scope). Division alone grants
+ * nothing (0913). Updating an organization-model client follows the same
+ * reach; a partner-owned one also needs `partners.clients`, which no fixture
+ * below holds.
+ *
+ * Until 2026-09-13 `bes.restricted` was the negative control ("assigned
+ * nothing → sees nothing"). He has been on `[TEST] Team B` since 0170 and
+ * the Cedar client is assigned to him, so under the derived rule he reaches
+ * Team B's queue — as a real team member would. The negative control is now
+ * `probe.agent@bes.test`, who truly has nothing (P-011).
+ */
+const reach = (uid) => q(`
+  with me as (select '${uid}'::uuid as id),
+       mine as (select tm.team_id from public.team_memberships tm, me where tm.user_id = me.id),
+       my_depts as (select t.department_id from public.teams t join mine on mine.team_id = t.id
+                     where t.archived_at is null and t.department_id is not null),
+       reach_teams as (
+         select t.id from public.teams t
+          where t.archived_at is null
+            and (t.id in (select team_id from mine)
+                 or t.department_id in (select department_id from my_depts)
+                 or exists (select 1 from public.team_memberships l, me where l.team_id = t.id and l.user_id = me.id and l.is_lead))),
+       my_groups as (select a.group_id from public.partner_assignments a, me
+                      where a.ended_on is null and (a.user_id = me.id or a.team_id in (select team_id from mine))),
+       live_orgs as (select e.organization_id from public.fulfillment_engagements e
+                      where e.service = 'creditops' and public.engagement_is_live(e.status, e.effective_from, e.effective_to)),
+       w as (select wi.id from public.work_items wi, me
+              where wi.workspace_id is null
+                and (wi.scope = 'AGENCY' or wi.organization_id in (select organization_id from live_orgs))
+                and (wi.assigned_to = me.id or wi.team_id in (select id from reach_teams))),
+       fc as (select c.id, c.outsourcing_group_id from public.fulfillment_clients c, me
+               where c.archived_at is null
+                 and (c.assigned_agent_id = me.id
+                      or (c.team_id in (select id from reach_teams)
+                          and (c.outsourcing_group_id in (select group_id from my_groups)
+                               or (c.outsourcing_group_id is null and c.organization_id in (select organization_id from live_orgs))
+                               or (c.outsourcing_group_id is null and c.organization_id is null)))))
+  select (select count(*) from w)::int as work,
+         (select count(*) from public.work_attention a where a.id in (select id from w))::int as attention,
+         (select count(*) from fc)::int as fclients,
+         (select count(*) from fc where id = '${T.lakeside_client}')::int as lakeside_by_id,
+         (select count(*) from fc where id = '${T.cedar_client}')::int as cedar_by_id,
+         (select count(*) from fc where id = '${T.lakeside_client}' and outsourcing_group_id is null)::int as can_update_lakeside,
+         (select count(*) from fc where id = '${T.cedar_client}' and outsourcing_group_id is null)::int as can_update_cedar
+`)[0];
+
 const E = batched(() => ({
   // BES, agency scope: everything
   "bes.owner@bes.test":  { work: T.work_total, attention: T.attention_total, fclients: T.fclients_total, fund: T.fund_total, lakeside_by_id: 1, cedar_by_id: 1, can_update_lakeside: 1, can_update_cedar: 1 },
   "bes.admin@bes.test":  { work: T.work_total, attention: T.attention_total, fclients: T.fclients_total, fund: T.fund_total, lakeside_by_id: 1, cedar_by_id: 1, can_update_lakeside: 1, can_update_cedar: 1 },
-  // BES manager, DIVISION creditops (fixture): all credit, no funding, creditops work only
-  "bes.manager@bes.test": { work: T.work_creditops, attention: T.attention_creditops, fclients: T.fclients_total, fund: 0, lakeside_by_id: 1, cedar_by_id: 1, can_update_lakeside: 1, can_update_cedar: 1 },
-  // BES team lead, TEAM A: team A records (incl. unassigned) + own assignments
-  "bes.lead@bes.test":   { work: teamOrAssigned(T.team_a, U["bes.lead@bes.test"], "work_items", "assigned_to"), attention: attnTeamOrAssigned(T.team_a, U["bes.lead@bes.test"]), fclients: teamOrAssigned(T.team_a, U["bes.lead@bes.test"], "fulfillment_clients", "assigned_agent_id"), fund: 0, lakeside_by_id: 1, cedar_by_id: 0, can_update_lakeside: 1, can_update_cedar: 0 },
-  // BES agents, ASSIGNED scope: exactly their assignments
-  "bes.credit@bes.test": { work: per(U["bes.credit@bes.test"], "assigned_to", "work_items"), attention: per(U["bes.credit@bes.test"], "assigned_to", "work_attention"), fclients: per(U["bes.credit@bes.test"], "assigned_agent_id", "fulfillment_clients"), fund: 0, cedar_by_id: 0, can_update_cedar: 0 },
+  // BES manager, DIVISION creditops, on no team, assigned nothing: division alone grants nothing (0913; D-021 holds the open question)
+  "bes.manager@bes.test": { ...reach(U["bes.manager@bes.test"]), fund: 0 },
+  // BES team lead, TEAM A: Team A, Team A's department, own assignments
+  "bes.lead@bes.test":   { ...reach(U["bes.lead@bes.test"]), fund: 0 },
+  // BES agents: own assignments plus their team's and department's queue
+  "bes.credit@bes.test": { ...reach(U["bes.credit@bes.test"]), fund: 0 },
   "bes.funding@bes.test":{ work: per(U["bes.funding@bes.test"], "assigned_to", "work_items"), attention: 0, fclients: 0, fund: per(U["bes.funding@bes.test"], "assigned_agent_id", "funding_clients"), lakeside_by_id: 0, cedar_by_id: 0, can_update_lakeside: 0, can_update_cedar: 0 },
-  // THE key negative control: BES staff, assigned nothing → sees nothing operational
-  "bes.restricted@bes.test": { work: 0, attention: 0, fclients: 0, fund: 0, lakeside_by_id: 0, cedar_by_id: 0, can_update_lakeside: 0, can_update_cedar: 0 },
+  // On Team B, assigned the Cedar client: Team B's queue and nothing else
+  "bes.restricted@bes.test": { ...reach(U["bes.restricted@bes.test"]), fund: 0 },
   // Organization users: tenant only, unchanged by BES scope
   "org.owner@bes.test":  { work: T.lakeside_org_work, /* every ORGANIZATION item of Lakeside + its entitled BES CRM projects; the BES support task about Lakeside is not theirs (0031) */ attention: T.lakeside_org_attention, fclients: 2, fund: 1, lakeside_by_id: 1, cedar_by_id: 0, can_update_cedar: 0 },
   "org2.owner@bes.test": { work: T.northgate_org_work, attention: T.northgate_org_attention, fclients: 2, fund: 0, lakeside_by_id: 0, cedar_by_id: 0, can_update_lakeside: 0, can_update_cedar: 0 },
+  // THE negative control: BES staff on no team, assigned nothing, granted nothing → sees nothing operational
   "probe.agent@bes.test":{ work: 0, attention: 0, fclients: 0, fund: 0, lakeside_by_id: 0, cedar_by_id: 0, can_update_lakeside: 0, can_update_cedar: 0 },
 }));
 

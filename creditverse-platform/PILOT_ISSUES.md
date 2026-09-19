@@ -60,6 +60,41 @@ Measured as a REAL Agency User authorization context (`complaints-agent-matrix-p
 
 8/11 → 11/11. Root cause at the database: the directory arm of the client policy granted every client to any CreditOps user with `creditops.clients.view`; it now intersects with `can_see_partner()` (unchanged), so queues, checklists and production writes — which all check the client row — narrowed with it. Rendering: the CreditOps space now reads the previewed person's role and team placement; the Dashboard is a management view; department and agent filters follow the person's scope; the title reads "CreditOps" for non-management. Live retest: preview or sign in as a department agent and open CreditOps.
 
+### P-012 · An organization's own staff could not read their own CreditOps clients
+
+**2026-09-19 · reporter: the full RLS gate (org.owner fclients=0, want 2) ·
+module: Organization platform / CreditOps clients · class C authorization
+regression · severity: P0 in principle, no live impact (zero real
+organization users exist).** Actual: since 20260913004300 rewrote
+`fulfillment_clients_select` around the shared directory, the arm "the
+customer's own staff, in their own workspace" (0907) was gone; 0919's
+rewrite inherited the omission. Every organization-side probe downstream
+(create client, department status, rounds, letters, mailing, archive) failed
+with 42501 because the record was invisible. Fix: migration 20260919025000
+restores the arm exactly as 0907 wrote it, beside the unchanged 016100 arms.
+Status: DEPLOYED to the database; the organization platform is paused (rule
+16b) so the live retest waits for its first real user.
+
+### P-011 · The RLS matrix base checks have been stale since Sep 13
+
+**2026-09-19 · reporter: Claude, running the full gate before a push ·
+module: test harness · class A (harness defect), not a product defect ·
+severity: blocks honest gate reporting.** Actual: `--phase=75` base checks
+read 58/77; `bes.restricted` sees and can update the Cedar fixture client,
+`bes.manager` sees 0 clients and 1 work item, `bes.lead` sees one more work
+item than the harness expects. Root causes, each verified live: (1) the
+fixture `[TEST] Gus Restricted` was put on `[TEST] Team B` by
+20260907001100 and the Cedar client is **assigned to him** — the harness
+still calls him "assigned nothing"; (2) `in_scope` derives team reach since
+20260913004800, after the last full gate (2026-09-10); (3) the Main Client
+List became directory ∩ partner scope (AD-004). None of the three is a
+regression of the 2026-09-19 work; the harness file was last edited
+2026-09-11. Fix: rewrite the base expectations to derive from the helper
+functions the policies actually use (`in_scope`, `can_see_partner`,
+`creditops_directory_visible`) as the phase probes already do, and settle
+D-021 for the manager row. Status: OPEN. The full run result is recorded
+under this entry when it finishes.
+
 ### P-010 · Notifications page crashed for anyone holding an End of Day notice
 
 **2026-09-19 · reporter: console during Dee's session · module: Notifications ·

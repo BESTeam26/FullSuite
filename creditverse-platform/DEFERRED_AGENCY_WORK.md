@@ -985,6 +985,36 @@ labour-counsel read on what a contractor verification letter may state.
 
 **Dependencies.** BES CRM QA gate; document builder templates; Dee's decision.
 
+## D-021 — Division manager scope in CreditOps: two decisions to reconcile
+
+**Recorded by Claude, 2026-09-19, from the RLS matrix base checks.** The
+fixture division manager (`ops.manage`, `scope_division = creditops`, no
+team, no department, no partner assignment) sees **zero** CreditOps clients
+and one work item. That is the literal result of two deliberate rules:
+`in_scope` grants nothing for division alone (Dee, 2026-09-13: "division
+says which building you are in, not which rooms you may enter") and the
+Main Client List is directory ∩ partner scope (AD-004, 2026-09-19). §20b of
+CLAUDE.md meanwhile says a Division Manager "sees one division". Both cannot
+be true for a manager who manages no department and holds no assignment.
+**Proposed:** a division manager's reach is the departments whose
+`manager_id` is them plus their explicit partner assignments; if Dee wants
+"the division" instead, `can_see_partner`/`in_scope` need a division arm,
+which AD-004 forbids broadening without her word. **Why deferred:** doctrine
+question, not a defect; no real division manager exists yet (Rowell and
+Bryan are admins). **Dependency:** the matrix base expectations (P-011).
+
+## D-020 — Management placement writes are admin-only
+
+**Recorded by Claude, 2026-09-19.** `agency_memberships_update` is
+`is_agency_admin()` only, so the Organization tab's Position, Reports To,
+Engagement type and Hire date editors render for `ops.manage` managers but
+the database refuses their save. Nobody holds `ops.manage` without admin
+today, so nothing broke; it will the day a division manager is placed.
+**Proposed:** a definer RPC `set_member_placement` limited to those four
+columns, allowed for `is_manager_of` ∧ `may_view_workforce_record`, audited;
+role, owner flag, scope and status stay admin-only. Also decide whether
+`hired_on` (it moves Employee IDs) is admin-only regardless.
+
 ## D-019 — Per-position Output targets, KPI catalogue and the two minimum thresholds
 
 **Deferred by Claude, 2026-09-19, when Dee locked the performance weighting**

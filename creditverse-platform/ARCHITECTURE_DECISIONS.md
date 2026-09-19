@@ -50,6 +50,43 @@ Journey, engine state, unit state, health are computed
 disagree. `test the rule, not the example` applies to their vocabularies
 (crm-domain tests read the migrations).
 
+## AD-007 · 2026-09-19 — Hire date drives the Employee ID; owner first on a tie
+
+`agency_memberships.hired_on` is the true join date. `employee_code_for`
+takes its month and its sequence from `coalesce(hired_on, created_at)`, the
+owner sorts first on a same-day tie, and any hire-date change recomputes the
+whole agency in one audited pass (`recompute_employee_codes_internal`, two
+passes because the codes are unique). The approved format stays
+`INITIALS + MMYYYY + '-' + NNN`. Dee's roster IDs (`IO2023-0105`,
+`DM2025-0615`) were read as join dates, not adopted as codes.
+
+## AD-006 · 2026-09-19 — Private HR record, payout account, staged onboarding
+
+Three protected tables beside the open `profiles` row, never on it:
+`member_private_records` (full date of birth — Dee: kept internally to check
+age, reversing 0073's month-and-day-only rule; address; WhatsApp; emergency
+contact) read by the person and management in scope, date of birth written
+by management only; `member_payout_accounts` (where payroll pays) read by
+the person and payroll capability, audited with the last four digits only;
+`invitation_onboarding` (HR facts staged against an OPEN invitation) that no
+role may read — `accept_agency_invitation` applies it to the canonical rows
+and deletes it. Age is derived (`lib/people/age.ts`), never stored. A session
+flag that gates a guard defaults to `off` (`coalesce(current_setting(…),
+'off')`); the unset-flag NULL let a person write their own date of birth
+once (022000).
+
+## AD-005 · 2026-09-19 — Two experiences of one person record
+
+Settings › My Profile is identity and account only (header, Personal
+Information, BES Profile read-only, Account & Security, Training, Rewards);
+People & Teams › Team Member Profile is management (fifteen capability-gated
+tabs). Same rows, no copies. Management intelligence is denied in the
+database (`holds_management_view()`, `performance_policy` read restricted),
+not hidden in the interface; opening your own management profile redirects
+to Settings. Schedule is operational (a team lead may read and set it);
+compensation is financial (payroll capability only) — the two never share a
+card again.
+
 ## AD-004 · 2026-09-19 — The Main Client List respects Partner scope
 
 Dee, after previewing a Complaints & Mailing agent who was offered every
