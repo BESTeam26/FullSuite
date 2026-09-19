@@ -60,12 +60,17 @@ export function useMyLeave() {
   });
 }
 
-export function useTeamUpcomingLeave() {
+/**
+ * Approved leave ending on or after `fromDate` (today by default). The
+ * Schedule tab passes the Monday it is showing, so a week already begun still
+ * shows who was away on Monday.
+ */
+export function useTeamUpcomingLeave(fromDate?: string) {
   const { live } = useLive();
-  const today = new Date().toISOString().slice(0, 10);
+  const from = fromDate ?? new Date().toISOString().slice(0, 10);
   return useQuery({
-    queryKey: ["people", "leave", "team-upcoming", today],
-    queryFn: () => fetchTeamUpcomingLeave(today),
+    queryKey: ["people", "leave", "team-upcoming", from],
+    queryFn: () => fetchTeamUpcomingLeave(from),
     enabled: live, staleTime: 60_000,
   });
 }

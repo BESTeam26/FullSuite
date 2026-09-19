@@ -1,5 +1,5 @@
 /**
- * Team Management — one manager workspace, four tabs.
+ * Team Management — one manager workspace, tabs added as each is proven.
  *
  * Dee, 2026-09-18: "Team Management is a single manager workspace with tabs:
  * Team Time, Leave Requests, Attendance, Availability. Do not create four
@@ -35,6 +35,8 @@ import { formatDuration } from "@/lib/time-domain";
 import { formatDate } from "@/lib/format-date";
 import { TEAM_TABS, type TeamTab } from "@/lib/time/time-sections";
 import { TeamsAndMembers, statusOf } from "@/components/time/TeamsAndMembers";
+import { TeamSchedule } from "@/components/time/TeamSchedule";
+import { useAgencyPermissions } from "@/lib/data/agency-permissions";
 import { cn } from "@/lib/utils";
 
 export function TeamManagement() {
@@ -50,6 +52,11 @@ export function TeamManagement() {
   const schedules = useSchedules();
   const corrections = useAttendanceCorrections(from, to);
   const policy = useAttendancePolicy();
+  const perms = useAgencyPermissions();
+  /* The same test the database applies in set_work_schedule: management
+     capability. Scope is already applied by `people`. A lead reads. */
+  const canSetSchedules = auth.agencyRole === "agency_admin" || perms.can("ops.manage");
+  const teamLeave = useTeamUpcomingLeave();
 
   /*
    * Who this person may manage — the DATABASE's answer.
@@ -121,6 +128,18 @@ export function TeamManagement() {
           schedules={schedules.data ?? []}
           running={running}
           onBreak={onBreak}
+        />
+      </TabsContent>
+
+      {/* ── Schedule ──────────────────────────────────────────────────── */}
+      <TabsContent value="schedule" className="mt-3">
+        <TeamSchedule
+          people={people}
+          teams={workforce.data?.teams ?? []}
+          schedules={schedules.data ?? []}
+          leave={teamLeave.data ?? []}
+          today={today}
+          canEdit={canSetSchedules}
         />
       </TabsContent>
 

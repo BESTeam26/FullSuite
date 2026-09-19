@@ -15,22 +15,15 @@ import { ContentCard } from "@/components/dashboard/DivisionLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { OpsSelect } from "@/components/ui/ops-select";
+import { ScheduleEditor } from "@/components/time/ScheduleEditor";
 import { useWorkforce } from "@/lib/data/use-workforce";
-import { usePayRates, useSchedules, useSetPayRate, useSetSchedule } from "@/lib/data/use-people";
+import { usePayRates, useSchedules, useSetPayRate } from "@/lib/data/use-people";
 import { useAgencyPermissions } from "@/lib/data/agency-permissions";
 import { PAY_CURRENCIES } from "@/lib/data/people-management";
 import { formatCentsIn } from "@/lib/format-money";
 import { useToast } from "@/hooks/use-toast";
 import type { WorkSchedule } from "@/lib/data/people-management";
-
-const DAY_LABELS = ["M", "T", "W", "T", "F", "S", "S"]; // ISO 1..7
-const hhmm = (t: string) => t.slice(0, 5);
-
-const describeSchedule = (s: WorkSchedule | undefined) =>
-  s
-    ? `${s.workDays.map((d) => DAY_LABELS[d - 1]).join("")} · ${hhmm(s.shiftStart)}–${hhmm(s.shiftEnd)} ${s.timezone}` +
-      ` · lunch ${s.lunchMinutes}m · breaks ${s.breakMinutes}m · grace ${s.graceMinutes}m`
-    : "No schedule — attendance says nothing about them";
+import { describeSchedule } from "@/lib/time/schedule-format";
 
 export function SchedulesAndRates({ onlyUserId }: { onlyUserId?: string } = {}) {
   const wf = useWorkforce();
@@ -96,34 +89,10 @@ function PersonEditor({ userId, schedule, rate, canPayroll, onDone }: {
   onDone: () => void;
 }) {
   const { toast } = useToast();
-  const setSchedule = useSetSchedule();
   const setRate = useSetPayRate();
-  const [days, setDays] = useState<number[]>(schedule?.workDays ?? [1, 2, 3, 4, 5]);
-  const [start, setStart] = useState(schedule ? hhmm(schedule.shiftStart) : "09:00");
-  const [end, setEnd] = useState(schedule ? hhmm(schedule.shiftEnd) : "18:00");
-  const [lunch, setLunch] = useState(String(schedule?.lunchMinutes ?? 60));
-  const [breaks, setBreaks] = useState(String(schedule?.breakMinutes ?? 30));
-  const [grace, setGrace] = useState(String(schedule?.graceMinutes ?? 5));
-  const [tz, setTz] = useState(schedule?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone);
   const [rateType, setRateType] = useState<"hourly" | "per_cutoff">(rate?.rateType ?? "hourly");
   const [amount, setAmount] = useState(rate ? String(rate.rateCents / 100) : "");
   const [currency, setCurrency] = useState(rate?.currency ?? "USD");
-
-  const toggleDay = (d: number) =>
-    setDays((v) => (v.includes(d) ? v.filter((x) => x !== d) : [...v, d].sort()));
-
-  const saveSchedule = () =>
-    setSchedule.mutate(
-      {
-        userId, workDays: days, shiftStart: start, shiftEnd: end,
-        lunchMinutes: Number(lunch), breakMinutes: Number(breaks),
-        graceMinutes: Number(grace), timezone: tz,
-      },
-      {
-        onSuccess: () => { toast({ title: "Schedule set", description: "Attendance judges each day by the schedule in force that day." }); onDone(); },
-        onError: (e) => toast({ title: "Could not set the schedule", description: (e as Error).message, variant: "destructive" }),
-      },
-    );
 
   const saveRate = () => {
     const cents = Math.round(Number(amount) * 100);
@@ -139,40 +108,8 @@ function PersonEditor({ userId, schedule, rate, canPayroll, onDone }: {
 
   return (
     <div className="mt-2 space-y-3 rounded-lg border border-border bg-muted/30 p-3">
-      <div className="flex flex-wrap items-end gap-2 text-xs">
-        <span>
-          <span className="block text-muted-foreground">Days</span>
-          <span className="mt-0.5 flex gap-1">
-            {DAY_LABELS.map((l, i) => (
-              <button key={i} type="button" onClick={() => toggleDay(i + 1)}
-                className={`h-7 w-7 rounded-md border text-[11px] font-semibold ${days.includes(i + 1) ? "border-emerald-600/50 bg-emerald-500/15 text-emerald-800" : "border-border bg-card text-muted-foreground"}`}>
-                {l}
-              </button>
-            ))}
-          </span>
-        </span>
-        <label className="text-muted-foreground">Start
-          <Input type="time" value={start} onChange={(e) => setStart(e.target.value)} className="mt-0.5 h-7 w-24 text-xs" />
-        </label>
-        <label className="text-muted-foreground">End
-          <Input type="time" value={end} onChange={(e) => setEnd(e.target.value)} className="mt-0.5 h-7 w-24 text-xs" />
-        </label>
-        <label className="text-muted-foreground">Lunch (m)
-          <Input type="number" value={lunch} onChange={(e) => setLunch(e.target.value)} className="mt-0.5 h-7 w-16 text-xs" />
-        </label>
-        <label className="text-muted-foreground">Breaks (m)
-          <Input type="number" value={breaks} onChange={(e) => setBreaks(e.target.value)} className="mt-0.5 h-7 w-16 text-xs" />
-        </label>
-        <label className="text-muted-foreground">Grace (m)
-          <Input type="number" value={grace} onChange={(e) => setGrace(e.target.value)} className="mt-0.5 h-7 w-16 text-xs" />
-        </label>
-        <label className="text-muted-foreground">Timezone
-          <Input value={tz} onChange={(e) => setTz(e.target.value)} className="mt-0.5 h-7 w-44 text-xs" />
-        </label>
-        <Button size="sm" className="h-7 text-xs" disabled={setSchedule.isPending || days.length === 0} onClick={saveSchedule}>
-          {setSchedule.isPending && <Loader2 className="mr-1 h-3 w-3 animate-spin" />} Save schedule
-        </Button>
-      </div>
+      {/* The same editor Team Management → Schedule uses: one edit path. */}
+      <ScheduleEditor userId={userId} schedule={schedule} onSaved={onDone} />
 
       {canPayroll && (
         <div className="flex flex-wrap items-end gap-2 border-t border-border/60 pt-2 text-xs">

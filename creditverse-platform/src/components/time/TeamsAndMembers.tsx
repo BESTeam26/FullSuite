@@ -18,6 +18,7 @@ import { formatDuration } from "@/lib/time-domain";
 import { orgDivisionLabel } from "@/lib/agency/division-label";
 import type { AgencyPerson, AgencyTeam } from "@/lib/data/agency-workforce";
 import type { AttendanceDay, WorkSchedule } from "@/lib/data/people-management";
+import { shiftLabel } from "@/lib/time/schedule-format";
 
 export type MemberStatus = "working" | "on_break" | "on_leave" | "offline";
 
@@ -43,16 +44,6 @@ export function statusOf(
   if (running) return "working";
   return "offline";
 }
-
-const shiftLabel = (s: WorkSchedule | undefined) => {
-  if (!s) return "No schedule";
-  const pretty = (t: string) => {
-    const [h, m] = t.split(":").map(Number);
-    const hour = h % 12 === 0 ? 12 : h % 12;
-    return `${hour}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
-  };
-  return `${pretty(s.shiftStart)} – ${pretty(s.shiftEnd)}`;
-};
 
 export function TeamsAndMembers({
   teams, people, attendanceToday, schedules, running, onBreak,

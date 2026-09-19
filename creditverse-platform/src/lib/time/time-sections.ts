@@ -106,6 +106,7 @@ export const timeSectionFor = (
 export const TEAM_TABS = [
   { key: "overview", label: "Overview" },
   { key: "members", label: "Members" },
+  { key: "schedule", label: "Schedule" },
   { key: "attendance", label: "Attendance" },
   { key: "time-off", label: "Time Off" },
 ] as const;
