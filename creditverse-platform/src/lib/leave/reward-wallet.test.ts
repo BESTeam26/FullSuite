@@ -7,7 +7,9 @@ const TODAY = "2026-09-19";
 const credit = (over: Partial<RewardCredit> & { id: string }): RewardCredit => ({
   userId: "u1", kind: "attendance", label: "Q3 2026 Attendance Champion", days: 1,
   issuedOn: "2026-09-01", expiresOn: "2026-11-30", election: null,
-  consumedAt: null, consumedFor: null, extendedFrom: null, extendReason: null, ...over,
+  consumedAt: null, consumedFor: null, extendedFrom: null, extendReason: null,
+  sourceQuarter: null, issuedAutomatically: false, finalScore: null,
+  needsReview: false, reviewReason: null, ...over,
 });
 
 describe("whether a credit can still be spent", () => {

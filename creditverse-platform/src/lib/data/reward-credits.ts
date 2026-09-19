@@ -20,6 +20,13 @@ export interface RewardCredit {
   consumedFor: string | null;
   extendedFrom: string | null;
   extendReason: string | null;
+  /** "2026-Q3" for an attendance reward. */
+  sourceQuarter: string | null;
+  issuedAutomatically: boolean;
+  /** Evidence frozen at the grant — never recomputed from. */
+  finalScore: number | null;
+  needsReview: boolean;
+  reviewReason: string | null;
 }
 
 const map = (r: Record<string, unknown>): RewardCredit => ({
@@ -35,6 +42,11 @@ const map = (r: Record<string, unknown>): RewardCredit => ({
   consumedFor: (r.consumed_for as string) ?? null,
   extendedFrom: (r.extended_from as string) ?? null,
   extendReason: (r.extend_reason as string) ?? null,
+  sourceQuarter: (r.source_quarter as string) ?? null,
+  issuedAutomatically: r.issued_automatically === true,
+  finalScore: r.final_score === null || r.final_score === undefined ? null : Number(r.final_score),
+  needsReview: r.needs_review === true,
+  reviewReason: (r.review_reason as string) ?? null,
 });
 
 /** Every credit the caller may see — RLS narrows to self / their team / all. */

@@ -14031,14 +14031,23 @@ export type Database = {
           days: number
           elected_at: string | null
           election: string | null
+          evaluated_at: string | null
           expires_on: string
           extend_reason: string | null
           extended_by: string | null
           extended_from: string | null
+          final_score: number | null
           id: string
+          issued_automatically: boolean
           issued_on: string
           kind: string
           label: string
+          needs_review: boolean
+          policy_snapshot: Json | null
+          review_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          source_quarter: string | null
           user_id: string
         }
         Insert: {
@@ -14050,14 +14059,23 @@ export type Database = {
           days?: number
           elected_at?: string | null
           election?: string | null
+          evaluated_at?: string | null
           expires_on: string
           extend_reason?: string | null
           extended_by?: string | null
           extended_from?: string | null
+          final_score?: number | null
           id?: string
+          issued_automatically?: boolean
           issued_on?: string
           kind: string
           label: string
+          needs_review?: boolean
+          policy_snapshot?: Json | null
+          review_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source_quarter?: string | null
           user_id: string
         }
         Update: {
@@ -14069,14 +14087,23 @@ export type Database = {
           days?: number
           elected_at?: string | null
           election?: string | null
+          evaluated_at?: string | null
           expires_on?: string
           extend_reason?: string | null
           extended_by?: string | null
           extended_from?: string | null
+          final_score?: number | null
           id?: string
+          issued_automatically?: boolean
           issued_on?: string
           kind?: string
           label?: string
+          needs_review?: boolean
+          policy_snapshot?: Json | null
+          review_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source_quarter?: string | null
           user_id?: string
         }
         Relationships: [
@@ -14102,7 +14129,72 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "reward_credits_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "reward_credits_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reward_sweep_exceptions: {
+        Row: {
+          agency_id: string
+          detail: string
+          id: string
+          kind: string
+          occurred_at: string
+          quarter: string
+          resolved_at: string | null
+          resolved_by: string | null
+          user_id: string | null
+        }
+        Insert: {
+          agency_id: string
+          detail: string
+          id?: string
+          kind: string
+          occurred_at?: string
+          quarter: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          agency_id?: string
+          detail?: string
+          id?: string
+          kind?: string
+          occurred_at?: string
+          quarter?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reward_sweep_exceptions_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reward_sweep_exceptions_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reward_sweep_exceptions_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -18131,7 +18223,13 @@ export type Database = {
         Returns: string
       }
       grant_attendance_reward: {
-        Args: { p_note?: string; p_quarter: string; p_user: string }
+        Args: {
+          p_final_score?: number
+          p_note?: string
+          p_policy?: Json
+          p_quarter: string
+          p_user: string
+        }
         Returns: string
       }
       grant_birthday_rewards: { Args: { p_on?: string }; Returns: number }
@@ -19262,6 +19360,10 @@ export type Database = {
         Args: { p_client: string; p_note?: string; p_outcome: string }
         Returns: undefined
       }
+      resolve_reward_review: {
+        Args: { p_credit: string; p_note: string }
+        Returns: undefined
+      }
       restore_partner: { Args: { p_group: string }; Returns: Json }
       resume_work: { Args: never; Returns: string }
       retry_eod_email: { Args: { p_eod: string }; Returns: boolean }
@@ -19272,6 +19374,17 @@ export type Database = {
       reverse_partner_credit: {
         Args: { p_entry: string; p_reason: string }
         Returns: string
+      }
+      reward_exceptions: {
+        Args: never
+        Returns: {
+          credit_id: string
+          detail: string
+          kind: string
+          person: string
+          severity: string
+          user_id: string
+        }[]
       }
       save_announcement: {
         Args: {

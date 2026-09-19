@@ -1123,6 +1123,38 @@ the reader to wonder whether it was considered.
 
 Report per view when reporting the change.
 
+## 20c. NAVIGATION IS LOCKED (Dee, 2026-09-19 — do not redesign without UAT evidence)
+
+> "Sidebar = major destinations. Tabs = functions inside a destination.
+> Role = experience. Placement = scope. Capability = action. The four views
+> must share the same architecture rather than becoming four independently
+> designed applications."
+
+1. **Time & Attendance stays collapsible for EVERY role** — Overview · My Time
+   · My Attendance · My Time Off nested under one parent. Never flattened into
+   separate Workforce entries. What changes by view is data scope and actions,
+   not the IA.
+2. **Team Management is ONE destination with internal tabs** — Overview |
+   Members | Schedule | Time | Attendance | Time Off | EOD | Performance, each
+   shown only when relevant and authorized. Never seven sidebar children.
+   Agent: none. Team Lead: assigned teams. Division Manager: their division.
+   Executive: organization-wide by capability.
+3. **Agent gets Notifications, not Attention Center.** Attention Center is for
+   operational exceptions needing management attention; Notifications are
+   personal events. Not interchangeable. Lead / Division Manager / Executive
+   see Attention Center when capability and scope permit.
+4. **The generated menu mockup is a concept, not the source of truth.** Ignore
+   its flat Workforce nav and its expanded Team Management children.
+5. **People & Teams stays management-oriented** — Team Members | Teams |
+   Positions | Access. Running the team is Team Management; structure and
+   administration is People & Teams. Not exposed merely for being a Team Lead.
+6. **Operational modules are untouched** by navigation cleanup; their
+   visibility derives from real module authorization.
+
+For every feature, verify all four views on: navigation visibility, page
+visibility, record/data scope, available actions, direct-route access,
+backend/RPC authorization, empty/denied states. "Works for Dee" is not done.
+
 ## 21. The active program: Live Operations Readiness (until Dee changes it)
 
 **Goal: the real BES team starts daily operations.** P0, in order: **Invite

@@ -3,7 +3,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import {
   fetchAttendanceCorrections, recordAttendanceCorrection,
 } from "@/lib/data/attendance-corrections";
-import type { Classification, Correction } from "@/lib/attendance/attendance-score";
+import type { Classification } from "@/lib/attendance/attendance-score";
 
 export function useAttendanceCorrections(fromDate: string, toDate: string) {
   const auth = useAuth();
@@ -29,25 +29,4 @@ export function useRecordCorrection() {
   });
 }
 
-/**
- * The latest correction per day, in the shape the engine takes.
- *
- * Append-only means a day can carry several; the most recent decision stands,
- * and the ones before it remain in the table as history.
- */
-export function latestPerDay(
-  rows: { userId: string; workDate: string; classification: Classification; reason: string; decidedByName: string | null; decidedAt: string }[],
-  userId: string,
-): Correction[] {
-  const byDay = new Map<string, Correction>();
-  for (const r of rows.filter((x) => x.userId === userId)) {
-    byDay.set(r.workDate, {
-      day: r.workDate,
-      to: r.classification,
-      reason: r.reason,
-      by: r.decidedByName ?? "a manager",
-      at: r.decidedAt,
-    });
-  }
-  return [...byDay.values()];
-}
+export { latestPerDay } from "./corrections-latest";

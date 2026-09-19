@@ -10,11 +10,28 @@
  * record every time, so it cannot drift from the timesheet it describes
  * (rule 2). The only thing that would ever be stored is a lead's correction.
  */
-import type { AttendanceDay, WorkSchedule } from "@/lib/data/people-management";
-import type { AttendanceFact } from "./attendance-score";
+import type { AttendanceFact } from "./attendance-score.ts";
+
+/*
+ * Structural shapes rather than the app's data types, so this file has NO
+ * runtime imports and no path alias. The quarter-close sweep is a Deno Edge
+ * Function that imports this same file — one adapter, not two — and Deno
+ * resolves neither `@/` nor an extensionless specifier. A type-only import is
+ * erased before the module graph is built, so `./attendance-score.ts` costs
+ * nothing at runtime.
+ */
+export interface AttendanceDayLike {
+  userId: string;
+  day: string;
+  onLeave: boolean;
+  workMinutes: number;
+  lateMinutes: number;
+  status: "on_leave" | "no_schedule" | "off" | "absent" | "not_in_yet" | "late" | "present";
+}
+export interface ShiftLike { shiftStart: string; shiftEnd: string; lunchMinutes: number }
 
 /** Minutes between "09:00:00" and "18:00:00", lunch and breaks removed. */
-export function scheduledMinutes(schedule: Pick<WorkSchedule, "shiftStart" | "shiftEnd" | "lunchMinutes">): number {
+export function scheduledMinutes(schedule: ShiftLike): number {
   const mins = (t: string) => {
     const [h, m] = t.split(":").map(Number);
     return (h || 0) * 60 + (m || 0);
@@ -38,8 +55,8 @@ export function scheduledMinutes(schedule: Pick<WorkSchedule, "shiftStart" | "sh
  * marks; absence is what the records can actually show.
  */
 export function factsFrom(
-  days: readonly AttendanceDay[],
-  schedule: Pick<WorkSchedule, "shiftStart" | "shiftEnd" | "lunchMinutes"> | undefined,
+  days: readonly AttendanceDayLike[],
+  schedule: ShiftLike | undefined,
   options: { today: string },
 ): AttendanceFact[] {
   const shift = schedule ? scheduledMinutes(schedule) : 0;

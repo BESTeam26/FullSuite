@@ -52,7 +52,10 @@ export function RewardWalletPanel({ wallet, today }: { wallet: RewardWallet; tod
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-xs font-semibold text-foreground">{c.label}</span>
                   <span className="block text-[11px] text-muted-foreground">
-                    {c.days} paid {c.days === 1 ? "day" : "days"} · expires {formatDate(c.expiresOn)}
+                    {c.days} paid {c.days === 1 ? "day" : "days"}
+                    {/* Dee's employee UI: "Earned Q3 2026 · Expires Dec 29". */}
+                    {c.sourceQuarter && ` · earned ${c.sourceQuarter.replace("-Q", " Q")}`}
+                    {" · "}expires {formatDate(c.expiresOn)}
                     {c.extendedFrom && ` (extended from ${formatDate(c.extendedFrom)})`}
                   </span>
                 </span>
