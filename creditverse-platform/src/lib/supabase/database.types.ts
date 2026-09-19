@@ -12270,6 +12270,7 @@ export type Database = {
           paid_leave_minutes: number
           payout_cents: number | null
           payout_currency: string | null
+          rate_basis: Json | null
           rate_cents: number
           rate_type: string
           user_id: string
@@ -12290,6 +12291,7 @@ export type Database = {
           paid_leave_minutes?: number
           payout_cents?: number | null
           payout_currency?: string | null
+          rate_basis?: Json | null
           rate_cents: number
           rate_type: string
           user_id: string
@@ -12310,6 +12312,7 @@ export type Database = {
           paid_leave_minutes?: number
           payout_cents?: number | null
           payout_currency?: string | null
+          rate_basis?: Json | null
           rate_cents?: number
           rate_type?: string
           user_id?: string
@@ -18482,6 +18485,10 @@ export type Database = {
         Returns: string
       }
       message_mentions: { Args: { p_body: Json }; Returns: Json }
+      monthly_share_cents: {
+        Args: { p_end: string; p_monthly: number; p_start: string }
+        Returns: number
+      }
       move_document_request: {
         Args: {
           p_note?: string
@@ -19157,6 +19164,18 @@ export type Database = {
           partner_id: string
           partner_name: string
           reason: string
+        }[]
+      }
+      pay_rate_breakdown: {
+        Args: { p_on?: string; p_user: string }
+        Returns: {
+          currency: string
+          daily_cents: number
+          days_per_year: number
+          hourly_cents: number
+          paid_minutes_per_day: number
+          rate_cents: number
+          rate_type: string
         }[]
       }
       payroll_auto_sweep: { Args: never; Returns: undefined }

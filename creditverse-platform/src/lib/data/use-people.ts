@@ -14,6 +14,7 @@ import {
   addFxRate, releasePayroll, setPayRate, setPayrollSettings,
   setWorkSchedule, submitLeave,
   type PayRate, type PayrollSettings, type ScheduleInput,
+  fetchPayRateBreakdown,
 } from "@/lib/data/people-management";
 
 function useLive() {
@@ -39,6 +40,8 @@ export function useSetSchedule() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["people", "schedules"] });
       void qc.invalidateQueries({ queryKey: ["people", "attendance"] });
+      /* A schedule change re-prices a monthly package's day and hour. */
+      void qc.invalidateQueries({ queryKey: ["people", "pay-rate-breakdown"] });
     },
   });
 }
@@ -122,12 +125,26 @@ export function usePayRates() {
   return useQuery({ queryKey: ["people", "pay-rates"], queryFn: fetchPayRates, enabled: live, staleTime: 60_000 });
 }
 
+/** The database's daily/hourly derivation for one person; null when unpriced or not visible. */
+export function usePayRateBreakdown(userId: string | null) {
+  const { live } = useLive();
+  return useQuery({
+    queryKey: ["people", "pay-rate-breakdown", userId],
+    queryFn: () => fetchPayRateBreakdown(userId!),
+    enabled: live && !!userId,
+    staleTime: 60_000,
+  });
+}
+
 export function useSetPayRate() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: { userId: string; rateType: PayRate["rateType"]; rateCents: number; currency?: string }) =>
       setPayRate(input),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["people", "pay-rates"] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["people", "pay-rates"] });
+      void qc.invalidateQueries({ queryKey: ["people", "pay-rate-breakdown"] });
+    },
   });
 }
 

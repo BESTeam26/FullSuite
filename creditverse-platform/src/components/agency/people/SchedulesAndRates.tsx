@@ -17,13 +17,14 @@ import { Input } from "@/components/ui/input";
 import { OpsSelect } from "@/components/ui/ops-select";
 import { ScheduleEditor } from "@/components/time/ScheduleEditor";
 import { useWorkforce } from "@/lib/data/use-workforce";
-import { usePayRates, useSchedules, useSetPayRate } from "@/lib/data/use-people";
+import { usePayRateBreakdown, usePayRates, useSchedules, useSetPayRate } from "@/lib/data/use-people";
 import { useAgencyPermissions } from "@/lib/data/agency-permissions";
 import { PAY_CURRENCIES } from "@/lib/data/people-management";
 import { formatCentsIn } from "@/lib/format-money";
 import { useToast } from "@/hooks/use-toast";
 import type { WorkSchedule } from "@/lib/data/people-management";
 import { describeSchedule } from "@/lib/time/schedule-format";
+import { PAY_RATE_TYPES, describeRateBasis, rateSuffix, type PayRateType } from "@/lib/payroll/rate-label";
 
 export function SchedulesAndRates({ onlyUserId }: { onlyUserId?: string } = {}) {
   const wf = useWorkforce();
@@ -57,10 +58,11 @@ export function SchedulesAndRates({ onlyUserId }: { onlyUserId?: string } = {}) 
                     {canPayroll && (
                       <span className="block text-muted-foreground">
                         {r
-                          ? `Rate: ${formatCentsIn(r.rateCents, r.currency)} ${r.rateType === "hourly" ? "/ hour" : "/ cutoff"}`
+                          ? `Rate: ${formatCentsIn(r.rateCents, r.currency)} ${rateSuffix(r.rateType)}`
                           : "No rate — payroll will skip them until one is set"}
                       </span>
                     )}
+                    {canPayroll && r && <RateBasisLine userId={p.userId} rateType={r.rateType} currency={r.currency} />}
                   </span>
                   <Button size="sm" variant="outline" className="h-7 text-xs"
                     onClick={() => setEditing(editing === p.userId ? null : p.userId)}>
@@ -84,13 +86,13 @@ export function SchedulesAndRates({ onlyUserId }: { onlyUserId?: string } = {}) 
 function PersonEditor({ userId, schedule, rate, canPayroll, onDone }: {
   userId: string;
   schedule?: WorkSchedule;
-  rate?: { rateType: "hourly" | "per_cutoff"; rateCents: number; currency: string };
+  rate?: { rateType: PayRateType; rateCents: number; currency: string };
   canPayroll: boolean;
   onDone: () => void;
 }) {
   const { toast } = useToast();
   const setRate = useSetPayRate();
-  const [rateType, setRateType] = useState<"hourly" | "per_cutoff">(rate?.rateType ?? "hourly");
+  const [rateType, setRateType] = useState<PayRateType>(rate?.rateType ?? "hourly");
   const [amount, setAmount] = useState(rate ? String(rate.rateCents / 100) : "");
   const [currency, setCurrency] = useState(rate?.currency ?? "USD");
 
@@ -114,10 +116,9 @@ function PersonEditor({ userId, schedule, rate, canPayroll, onDone }: {
       {canPayroll && (
         <div className="flex flex-wrap items-end gap-2 border-t border-border/60 pt-2 text-xs">
           <label className="text-muted-foreground">Rate type
-            <select value={rateType} onChange={(e) => setRateType(e.target.value as "hourly" | "per_cutoff")}
+            <select value={rateType} onChange={(e) => setRateType(e.target.value as PayRateType)}
               className="mt-0.5 block h-7 rounded-lg border border-border bg-background px-2 text-xs text-foreground">
-              <option value="hourly">Per hour</option>
-              <option value="per_cutoff">Fixed per cutoff</option>
+              {PAY_RATE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
           </label>
           <label className="text-muted-foreground">Amount
@@ -138,10 +139,24 @@ function PersonEditor({ userId, schedule, rate, canPayroll, onDone }: {
             {setRate.isPending && <Loader2 className="mr-1 h-3 w-3 animate-spin" />} Save rate
           </Button>
           <span className="text-[10px] text-muted-foreground">
-            Hourly pays work + approved paid leave; fixed pays the amount each cutoff.
+            {rateType === "monthly"
+              ? "A monthly package pays half each cutoff; the daily and hourly rate are derived from the schedule (Mon–Fri → 261 paid days a year)."
+              : "Hourly pays work + approved paid leave; fixed pays the amount each cutoff."}
           </span>
         </div>
       )}
     </div>
   );
+}
+
+/**
+ * What the rate means per day and per hour — the database's derivation
+ * (`pay_rate_breakdown`), shown, never recomputed here. Dee, 2026-09-19: "I
+ * only calculate their hourly rate manually."
+ */
+function RateBasisLine({ userId, rateType, currency }: { userId: string; rateType: PayRateType; currency: string }) {
+  const basis = usePayRateBreakdown(rateType === "per_cutoff" ? null : userId);
+  const line = describeRateBasis(rateType, basis.data, (c) => formatCentsIn(c, currency));
+  if (!line) return null;
+  return <span className="block text-[11px] text-muted-foreground">{line}</span>;
 }

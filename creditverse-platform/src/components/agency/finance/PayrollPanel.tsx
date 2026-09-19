@@ -181,7 +181,9 @@ function CutoffDetail({ cutoffId, released, canManage }: { cutoffId: string; rel
                     {" "}· {formatDuration(p.workMinutes)} worked
                     {p.paidBreakMinutes > 0 ? ` + ${formatDuration(p.paidBreakMinutes)} paid breaks` : ""}
                     {p.paidLeaveMinutes > 0 ? ` + ${formatDuration(p.paidLeaveMinutes)} paid leave` : ""}
-                    {" "}· {p.rateType === "hourly" ? `${money(p.rateCents, p.currency)}/h` : `${money(p.rateCents, p.currency)}/cutoff`}
+                    {" "}· {money(p.rateCents, p.currency)}{p.rateType === "hourly" ? "/h" : p.rateType === "monthly" ? "/month" : "/cutoff"}
+                    {p.rateType === "monthly" && p.rateBasis?.hourlyCents !== null && p.rateBasis?.hourlyCents !== undefined
+                      ? ` (${money(p.rateBasis.hourlyCents, p.currency)}/h)` : ""}
                     {p.adjustmentCents !== 0 ? ` · adj ${money(p.adjustmentCents, p.currency)} (${p.adjustmentNote})` : ""}
                   </span>
                 </span>

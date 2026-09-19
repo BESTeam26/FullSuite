@@ -904,3 +904,51 @@ drops invoices out of a sweep — which is the failure mode that does not raise
 an error and is not visible until somebody is not chased for a bill.
 
 **Revisit:** after billing/payment UAT and production stabilization.
+
+## D-017 — Automatic deductions and proration for monthly packages
+
+**Deferred by Claude, 2026-09-19, when the monthly rate type shipped (migration
+`20260919009000_monthly_pay_rate.sql`, probe `monthly-rate-probe.mjs` 15/15).**
+Dee's ask was the rate: *"I have agents with monthly package and I only
+calculate their hourly rate manually, I need a way to enter their monthly
+package then the system will auto calculate that."* That is done — a rate may
+be `monthly`, and `pay_rate_breakdown` derives the day and the hour from the
+package and the schedule (Mon–Fri → 261 paid days a year; 6-day → 313; hour =
+day ÷ paid shift hours). What is **not** done is using those derived rates
+inside payroll automatically.
+
+**Problem.** A monthly payslip pays its half of the package
+(`monthly_share_cents`) regardless of attendance. Unpaid absences, late
+minutes and a mid-period start or end are still the payroll manager's manual
+`adjust_payslip`, priced by eye from the frozen `rate_basis` the payslip now
+carries.
+
+**Proposed architecture.** Inside `payroll_generate_internal`, for
+`rate_type = 'monthly'` only:
+- **Unpaid leave days** (approved `leave_requests` with `compensation =
+  'unpaid'` on scheduled days) × `daily_cents` → a deduction line.
+- **Absent scheduled days with no time and no approved leave** — the same
+  `absent` / `ncns` facts `attendance_for` already derives — × `daily_cents`.
+- **Late minutes** past grace × `hourly_cents ÷ 60`, if Dee wants lateness
+  priced at all (many monthly arrangements do not; **Dee decides**).
+- **Proration** for a person whose membership starts or ends inside the
+  period: share × scheduled days worked ÷ scheduled days in the period.
+Each as its own payslip line (new columns `deduction_cents`,
+`deduction_detail jsonb`), never folded into `base_cents`, so the payslip
+still reads as package − deductions + adjustment. The attendance facts must
+come from `attendance_for` / the corrections chain — **not a second
+derivation of lateness in payroll.**
+
+**Why deferred.** It changes what people are paid. Dee has not stated the
+policy (which absences deduct, whether lates deduct, rounding), and the
+Philippine contractor-classification review is still open — the app derives,
+it must not decide statutory treatment. Rule 20: expansions are documented,
+not built beside the active epic (Team Management tabs).
+
+**Dependencies.** `pay_rate_breakdown` (done), `attendance_for` +
+`attendance_corrections` (done), Dee's deduction policy (open).
+
+**Risk.** Low to build, high to get wrong: a deduction rule that disagrees
+with what Dee actually pays would be a payroll correction across every
+monthly person. Ship behind the same probe pattern with built fixtures.
+

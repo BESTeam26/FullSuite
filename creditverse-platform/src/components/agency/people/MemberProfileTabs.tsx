@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { OpsSelect } from "@/components/ui/ops-select";
 import { Pill } from "@/components/agency/partner/partner-ui";
 import { SchedulesAndRates } from "@/components/agency/people/SchedulesAndRates";
+import { describeRateBasis, rateSuffix } from "@/lib/payroll/rate-label";
 import { useTeamActions } from "@/lib/data/use-agency-teams";
 import { useAgencyPartners } from "@/lib/data/use-agency-partners";
 import { useMemberAssignmentActions } from "@/lib/data/use-partner-assignments";
@@ -25,7 +26,7 @@ import { useOrganizationTree } from "@/lib/data/use-organization-structure";
 import {
   useMemberActivity, useMemberEod, useMemberPartnerAssignments,
 } from "@/lib/data/team-member";
-import { useAttendanceRange, usePayRates } from "@/lib/data/use-people";
+import { useAttendanceRange, usePayRateBreakdown, usePayRates } from "@/lib/data/use-people";
 import { useEodActivity } from "@/lib/data/use-eod-day";
 import {
   MEMBER_DOCUMENT_KINDS, MEMBER_DOCUMENT_STATUSES, memberDocumentUrl,
@@ -303,7 +304,11 @@ export function CompensationTab({ member }: { member: AgencyMember }) {
   const perms = useAgencyPermissions();
   const rates = usePayRates();
   const rate = (rates.data ?? []).find((r) => r.userId === member.userId);
+  /* Hooks before the authorization return: the derivation query is disabled
+     (null user) whenever there is nothing to price, so it never fires early. */
+  const breakdown = usePayRateBreakdown(rate && rate.rateType !== "per_cutoff" ? rate.userId : null);
   if (!perms.can("payroll.view") && !perms.can("payroll.manage")) return null;
+  const basisLine = rate ? describeRateBasis(rate.rateType, breakdown.data, (c) => formatCentsIn(c, rate.currency)) : null;
 
   return (
     <ContentCard title="Compensation">
@@ -312,8 +317,9 @@ export function CompensationTab({ member }: { member: AgencyMember }) {
       ) : rate ? (
         <div className="text-sm text-foreground">
           <p className="font-semibold">
-            {formatCentsIn(rate.rateCents, rate.currency)} {rate.rateType === "hourly" ? "/ hour" : "/ cutoff"}
+            {formatCentsIn(rate.rateCents, rate.currency)} {rateSuffix(rate.rateType)}
           </p>
+          {basisLine && <p className="mt-0.5 text-xs text-muted-foreground">{basisLine}</p>}
           <p className="mt-1 text-xs text-muted-foreground">
             Effective {formatDate(rate.effectiveFrom)}. Rate changes are made on the Schedule &amp; Time tab and
             keep their history; payslips live under Finance → Payroll.

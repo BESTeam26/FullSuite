@@ -8,6 +8,7 @@
  * checks its own permission — the browser only asks.
  */
 import { requireSupabase } from "@/lib/supabase/client";
+import type { PayRateType } from "@/lib/payroll/rate-label";
 
 /* ── Schedules ─────────────────────────────────────────────────────────── */
 
@@ -303,7 +304,7 @@ export async function fetchAttendance(fromDate: string, toDate: string): Promise
 
 export interface PayRate {
   userId: string;
-  rateType: "hourly" | "per_cutoff";
+  rateType: PayRateType;
   rateCents: number;
   currency: string;
   effectiveFrom: string;
@@ -412,7 +413,7 @@ export async function fetchPayRates(): Promise<PayRate[]> {
 }
 
 export async function setPayRate(input: {
-  userId: string; rateType: "hourly" | "per_cutoff"; rateCents: number; currency?: string;
+  userId: string; rateType: PayRateType; rateCents: number; currency?: string;
 }): Promise<void> {
   /* Currency is the person's OWN — a Manila processor is paid in pesos and a
      US contractor in dollars; the payslip converts to the payout currency at
@@ -425,6 +426,39 @@ export async function setPayRate(input: {
     p_currency: input.currency ?? "USD",
   });
   if (error) throw error;
+}
+
+/**
+ * What a day and an hour are worth for one person on a date — derived by the
+ * database from the rate and schedule in force (`pay_rate_breakdown`), never
+ * here. Empty when the caller may not see the rate.
+ */
+export interface PayRateBreakdown {
+  rateType: PayRateType;
+  rateCents: number;
+  currency: string;
+  daysPerYear: number | null;
+  paidMinutesPerDay: number | null;
+  dailyCents: number | null;
+  hourlyCents: number | null;
+}
+
+export async function fetchPayRateBreakdown(userId: string): Promise<PayRateBreakdown | null> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("pay_rate_breakdown", { p_user: userId });
+  if (error) throw error;
+  const r = (data as Record<string, unknown>[] | null)?.[0];
+  if (!r) return null;
+  const num = (v: unknown) => (v === null || v === undefined ? null : Number(v));
+  return {
+    rateType: r.rate_type as PayRateType,
+    rateCents: Number(r.rate_cents),
+    currency: r.currency as string,
+    daysPerYear: num(r.days_per_year),
+    paidMinutesPerDay: num(r.paid_minutes_per_day),
+    dailyCents: num(r.daily_cents),
+    hourlyCents: num(r.hourly_cents),
+  };
 }
 
 export interface PayrollCutoff {
@@ -504,12 +538,14 @@ export interface Payslip {
   payoutCurrency: string | null;
   fxRate: number | null;
   payoutCents: number | null;
+  /** The daily/hourly basis this payslip was priced with, frozen at generation. */
+  rateBasis: { daysPerYear: number | null; paidMinutesPerDay: number | null; dailyCents: number | null; hourlyCents: number | null } | null;
 }
 
 const PAYSLIP_SELECT =
   "id, cutoff_id, user_id, rate_type, rate_cents, currency, work_minutes, " +
   "paid_leave_minutes, paid_break_minutes, base_cents, adjustment_cents, adjustment_note, gross_cents, " +
-  "payout_currency, fx_rate, payout_cents, " +
+  "payout_currency, fx_rate, payout_cents, rate_basis, " +
   "person:profiles!payslips_user_id_fkey(full_name, email)";
 
 const mapPayslip = (r: Record<string, unknown>): Payslip => {
@@ -532,6 +568,17 @@ const mapPayslip = (r: Record<string, unknown>): Payslip => {
     payoutCurrency: (r.payout_currency as string) ?? null,
     fxRate: r.fx_rate === null || r.fx_rate === undefined ? null : Number(r.fx_rate),
     payoutCents: r.payout_cents === null || r.payout_cents === undefined ? null : Number(r.payout_cents),
+    rateBasis: mapRateBasis(r.rate_basis),
+  };
+};
+
+const mapRateBasis = (v: unknown): Payslip["rateBasis"] => {
+  if (!v || typeof v !== "object") return null;
+  const b = v as Record<string, unknown>;
+  const num = (x: unknown) => (x === null || x === undefined ? null : Number(x));
+  return {
+    daysPerYear: num(b.days_per_year), paidMinutesPerDay: num(b.paid_minutes_per_day),
+    dailyCents: num(b.daily_cents), hourlyCents: num(b.hourly_cents),
   };
 };
 
