@@ -140,6 +140,7 @@ const demoProfile: Profile = {
   birthday_visible: false,
   avatar_url: null,
   avatar_path: null,
+  tagline: null,
   created_at: new Date(0).toISOString(),
   updated_at: new Date(0).toISOString(),
 };

@@ -8,7 +8,7 @@ const base: ProfileEdits = {
   phone: "",
   birthMonth: null,
   birthDay: null,
-  birthdayVisible: false,
+  birthdayVisible: false, tagline: "",
 };
 
 describe("passwordProblem", () => {

@@ -13,6 +13,7 @@
  * (agency_id, request_id) makes the insert exactly-once, and 23505 means an
  * earlier attempt already landed.
  */
+import { requireSupabase } from "@/lib/supabase/client";
 import { supabase } from "@/lib/supabase/client";
 import type { Enums } from "@/lib/supabase/database.types";
 
@@ -62,3 +63,24 @@ export async function logProduction(input: LogProductionInput): Promise<void> {
   if (error && error.code === "23505") return;
   if (error) throw error;
 }
+
+/** One person's production logs in a date range — dates and actions only, bounded. */
+export interface ProductionLogMark { workDate: string; actions: string[]; department: string | null }
+
+export async function fetchProductionMarks(employeeId: string, from: string, to: string): Promise<ProductionLogMark[]> {
+  const sb = requireSupabase();
+  const { data, error } = await sb
+    .from("production_logs")
+    .select("work_date, actions, department_key")
+    .eq("employee_id", employeeId).eq("is_voided", false)
+    .gte("work_date", from).lte("work_date", to)
+    .order("work_date", { ascending: false })
+    .limit(2000);
+  if (error) throw error;
+  return (data ?? []).map((r) => ({
+    workDate: r.work_date as string,
+    actions: ((r.actions as string[] | null) ?? []),
+    department: (r.department_key as string | null) ?? null,
+  }));
+}
+

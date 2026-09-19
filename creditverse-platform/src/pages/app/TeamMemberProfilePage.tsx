@@ -5,6 +5,12 @@
  * tab a view over the SAME canonical records the rest of the platform
  * writes. No employee table was created to serve this page.
  *
+ * Redrawn to Dee's Agent Profile mockup (2026-09-19): the header with photo,
+ * quote, position, team and lead; the five weighted performance tiles and the
+ * Overview cards; Performance, QA Reviews, Production, Feedback, Goals and
+ * Training beside the management tabs. Where a card's record does not exist
+ * yet (scorecard workmanship, dispute results, sampling) the card says so.
+ *
  * Who may open it: the person themselves, someone with management authority,
  * or a lead of one of their teams. The tabs then narrow further — and the
  * narrowing that matters is the database's: rates, payslips and attendance
@@ -13,9 +19,15 @@
  */
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Loader2, UserRound } from "lucide-react";
+import { ArrowLeft, ChevronRight, Loader2, UserRound } from "lucide-react";
 import { HqPageShell } from "@/pages/app/HqPages";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ProfileHeader } from "@/components/people/profile/ProfileHeader";
+import { ProfileOverview } from "@/components/people/profile/ProfileOverview";
+import {
+  FeedbackTab, GoalsTab, PersonPerformanceTab, ProductionPeriodCard, QaReviewsTab, TrainingTab,
+} from "@/components/people/profile/ProfileTabs";
+import { usePositions } from "@/lib/data/use-positions";
 import { MemberAttendanceScore } from "@/components/attendance/MemberAttendanceScore";
 import { Button } from "@/components/ui/button";
 import { Pill } from "@/components/agency/partner/partner-ui";
@@ -42,7 +54,10 @@ import { memberAccessLabel } from "@/lib/data/agency-invitations";
 import { formatDate } from "@/lib/format-date";
 
 export default function TeamMemberProfilePage() {
-  const { userId } = useParams<{ userId: string }>();
+  /* Mounted from /app/people/:key (PeopleKeyRoute decides section vs person)
+     and, historically, /app/people/:userId — accept either name. */
+  const params = useParams<{ key?: string; userId?: string }>();
+  const userId = params.userId ?? params.key;
   const navigate = useNavigate();
   const auth = useAuth();
   const perms = useAgencyPermissions();
@@ -85,6 +100,15 @@ export default function TeamMemberProfilePage() {
   const canMoney = perms.can("payroll.view") || perms.can("payroll.manage");
   const canDocs = perms.can("people.documents.manage");
   const seesOwnDocs = isSelf && !canDocs;
+  const positions = usePositions();
+  const positionTitle = (id: string) => (positions.data ?? []).find((p) => p.holders.some((h) => h.userId === id))?.title ?? null;
+  const nameOf = (id: string) => (members.data ?? []).find((m) => m.userId === id)?.name ?? "Someone";
+  /* The lead of the person's first team, other than themselves — a relationship, not a rank. */
+  const leadMember = useMemo(() => {
+    const leadId = myTeams.flatMap((t) => t.members).find((m) => m.isLead && m.userId !== userId)?.userId;
+    return leadId ? (members.data ?? []).find((m) => m.userId === leadId) ?? null : null;
+  }, [myTeams, members.data, userId]);
+  const canEditGoals = isSelf || mayManage || leadsThisPerson;
 
   if (members.isLoading || wf.isLoading || perms.loading) {
     return (
@@ -130,42 +154,29 @@ export default function TeamMemberProfilePage() {
   ];
 
   return (
-    <HqPageShell
-      title={member.name}
-      /* §44: one compact line — position · role · profile · division · department · team(s) — then tabs. */
-      description={[
-        member.jobTitle,
-        memberAccessLabel(member.role, member.accessProfile),
-        [divisionLabel(myTeams[0]?.division ?? null), myTeams[0]?.department ?? null].filter(Boolean).join(" · ") || null,
-        myTeams.map((t) => t.name).join(", ") || null,
-      ].filter(Boolean).join(" · ") || member.email}
-      icon={UserRound}
-      actions={
-        <div className="flex flex-wrap items-center gap-2">
-          <Pill tone="border-border bg-muted text-foreground">{memberAccessLabel(member.role, member.accessProfile)}</Pill>
-          {member.isOwner && <Pill tone="border-primary/40 bg-primary/10 text-foreground">Owner</Pill>}
-          <Pill tone={member.status === "active" ? "border-status-success/40 bg-status-success/10 text-foreground" : "border-border bg-muted text-muted-foreground"}>
-            {member.status === "active" ? "Active" : `Left ${member.deactivatedAt ? formatDate(member.deactivatedAt) : ""}`}
-          </Pill>
+    <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:p-6">
+      <nav aria-label="Breadcrumb" className="mb-3 flex items-center gap-1 text-xs text-muted-foreground">
+        <Link to="/app/people" className="hover:text-foreground hover:underline">People</Link>
+        <ChevronRight className="h-3 w-3" aria-hidden />
+        <Link to="/app/people/members" className="hover:text-foreground hover:underline">Team Members</Link>
+        <ChevronRight className="h-3 w-3" aria-hidden />
+        <span className="text-foreground">{member.name}</span>
+        <span className="ml-auto flex items-center gap-2">
           {mayManage && member.status === "active" && !isSelf && !member.isOwner && (
-            <Button size="sm" variant="outline"
+            <Button size="sm" variant="outline" className="h-7 text-xs"
               onClick={() => actions.setStatus.mutate({ membershipId: member.membershipId, status: "inactive" })}>
               Deactivate
             </Button>
           )}
           {mayManage && member.status === "inactive" && (
-            <Button size="sm" variant="outline" onClick={() => setConfirmReactivate(true)}>
-              Reactivate
-            </Button>
+            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setConfirmReactivate(true)}>Reactivate</Button>
           )}
-        </div>
-      }
-    >
-      <p className="mb-3 text-xs">
-        <Link to="/app/people" className="text-muted-foreground hover:text-foreground hover:underline">
-          ← Team Members
-        </Link>
-      </p>
+        </span>
+      </nav>
+
+      <ProfileHeader member={member} position={positionTitle(member.userId) ?? member.jobTitle}
+        division={myTeams[0]?.division ?? null} team={myTeams[0]?.name ?? null}
+        leadName={leadMember?.name ?? null} isSelf={isSelf} />
 
       {confirmReactivate && (
         <ReactivateConfirm
@@ -179,20 +190,27 @@ export default function TeamMemberProfilePage() {
         />
       )}
 
-      <Tabs value={tab} onValueChange={setTab}>
-        {/* Six tabs (Dee §9). Overview also edits placement; Access & Assignments
-            is everything about what the person can reach; Work & Performance and
-            Time & Pay aggregate canonical facts and never own a copy. */}
+      <Tabs value={tab} onValueChange={setTab} className="mt-3">
+        {/* Dee's mockup order, then the management tabs. The person, their lead
+            and management see the person's own tabs; Access, Documents and
+            Activity keep their existing gates. */}
         <TabsList className="h-8 flex-wrap bg-muted/60">
           <TabsTrigger value="overview" className="text-[11px]">Overview</TabsTrigger>
+          <TabsTrigger value="performance" className="text-[11px]">Performance</TabsTrigger>
+          <TabsTrigger value="qa" className="text-[11px]">QA Reviews</TabsTrigger>
+          <TabsTrigger value="production" className="text-[11px]">Production</TabsTrigger>
+          <TabsTrigger value="feedback" className="text-[11px]">Feedback</TabsTrigger>
+          <TabsTrigger value="goals" className="text-[11px]">Goals</TabsTrigger>
+          <TabsTrigger value="training" className="text-[11px]">Training</TabsTrigger>
           {(isAdmin || mayManage || leadsThisPerson) && <TabsTrigger value="access" className="text-[11px]">Access &amp; Assignments</TabsTrigger>}
-          {(mayManage || leadsThisPerson || isSelf) && <TabsTrigger value="performance" className="text-[11px]">Work &amp; Performance</TabsTrigger>}
-          {(mayManage || leadsThisPerson || isSelf) && <TabsTrigger value="time" className="text-[11px]">Time &amp; Pay</TabsTrigger>}
+          <TabsTrigger value="time" className="text-[11px]">Time &amp; Pay</TabsTrigger>
           {(canDocs || seesOwnDocs) && <TabsTrigger value="documents" className="text-[11px]">Documents</TabsTrigger>}
-          {mayManage && <TabsTrigger value="activity" className="text-[11px]">Activity</TabsTrigger>}
+          {mayManage && <TabsTrigger value="activity" className="text-[11px]">Activity Log</TabsTrigger>}
         </TabsList>
 
-        <TabsContent value="overview" className="mt-3">
+        <TabsContent value="overview" className="mt-3 space-y-3">
+          <ProfileOverview member={member} nameOf={nameOf} canEditGoals={canEditGoals} onOpenTab={setTab}
+            lead={leadMember ? { userId: leadMember.userId, name: leadMember.name, title: positionTitle(leadMember.userId) ?? leadMember.jobTitle, avatarPath: leadMember.avatarPath } : null} />
           <div className="grid gap-3 lg:grid-cols-3">
             <div className="rounded-xl border border-border bg-card p-4 lg:col-span-2">
               <h3 className="text-sm font-semibold text-foreground">Snapshot</h3>
@@ -244,12 +262,18 @@ export default function TeamMemberProfilePage() {
             <AssignmentsTab member={member} teams={teams} />
           </TabsContent>
         )}
-        {(mayManage || leadsThisPerson || isSelf) && (
-          <TabsContent value="performance" className="mt-3 space-y-3">
-            <WorkPerformanceTab member={member} />
-            <EodTab member={member} />
-          </TabsContent>
-        )}
+        <TabsContent value="performance" className="mt-3">
+          <PersonPerformanceTab member={member} title={positionTitle(member.userId) ?? member.jobTitle} teamName={myTeams[0]?.name ?? null} nameOf={nameOf} />
+        </TabsContent>
+        <TabsContent value="qa" className="mt-3"><QaReviewsTab member={member} nameOf={nameOf} /></TabsContent>
+        <TabsContent value="production" className="mt-3 space-y-3">
+          <ProductionPeriodCard member={member} />
+          <WorkPerformanceTab member={member} />
+          <EodTab member={member} />
+        </TabsContent>
+        <TabsContent value="feedback" className="mt-3"><FeedbackTab member={member} nameOf={nameOf} /></TabsContent>
+        <TabsContent value="goals" className="mt-3"><GoalsTab member={member} canEdit={canEditGoals} /></TabsContent>
+        <TabsContent value="training" className="mt-3"><TrainingTab member={member} /></TabsContent>
         {(mayManage || leadsThisPerson || isSelf) && (
           <TabsContent value="time" className="mt-3 space-y-3">
             {/* Dee's attendance policy, 2026-09-18: "Score + violations +
@@ -270,7 +294,7 @@ export default function TeamMemberProfilePage() {
           </TabsContent>
         )}
       </Tabs>
-    </HqPageShell>
+    </div>
   );
 }
 

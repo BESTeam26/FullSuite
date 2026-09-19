@@ -37,6 +37,8 @@ export function useOwnProfile() {
         birthDay: row.birth_day,
         birthdayVisible: row.birthday_visible,
         avatarPath: row.avatar_path,
+
+        tagline: (row as { tagline?: string | null }).tagline ?? null,
       }
     : null;
   const refresh = async () => {

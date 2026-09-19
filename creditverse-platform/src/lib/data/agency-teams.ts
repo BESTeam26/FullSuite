@@ -174,6 +174,12 @@ export interface AgencyMember {
   managerId: string | null;
   /** From the profile; a colleague's contact, shown on the person's card. */
   phone: string | null;
+  preferredName: string | null;
+  /** The profile's own title line (what they call their role), distinct from the membership job title. */
+  profileTitle: string | null;
+  /** Their own quote on the profile header. */
+  tagline: string | null;
+  avatarPath: string | null;
   /** Capability keys granted to this person specifically — the module doors
       among them decide whether they can work at all. */
   moduleGrants: string[];
@@ -195,14 +201,14 @@ export async function fetchAgencyMembers(agencyId: string): Promise<AgencyMember
   const { data, error } = await sb
     .from("agency_memberships")
     // prettier-ignore
-    .select("id, user_id, role, access_profile, is_owner, scope, status, created_at, deactivated_at, job_title, manager_id, profiles!user_id!inner(full_name, email, phone, is_fixture)")
+    .select("id, user_id, role, access_profile, is_owner, scope, status, created_at, deactivated_at, job_title, manager_id, profiles!user_id!inner(full_name, email, phone, preferred_name, title, tagline, avatar_path, is_fixture)")
     .eq("agency_id", agencyId)
     .eq("profiles.is_fixture", false)
     .order("created_at");
   if (error) throw error;
   return (data ?? []).map((row) => {
     const r = row as Record<string, unknown>;
-    const p = (r.profiles ?? {}) as { full_name?: string; email?: string; phone?: string | null };
+    const p = (r.profiles ?? {}) as { full_name?: string; email?: string; phone?: string | null; preferred_name?: string | null; title?: string | null; tagline?: string | null; avatar_path?: string | null };
     return {
       membershipId: r.id as string,
       userId: r.user_id as string,
@@ -218,6 +224,10 @@ export async function fetchAgencyMembers(agencyId: string): Promise<AgencyMember
       jobTitle: (r.job_title as string) ?? null,
       managerId: (r.manager_id as string) ?? null,
       phone: (p.phone as string | null) ?? null,
+      preferredName: p.preferred_name ?? null,
+      profileTitle: p.title ?? null,
+      tagline: p.tagline ?? null,
+      avatarPath: p.avatar_path ?? null,
       moduleGrants: grantsByMembership.get(r.id as string) ?? [],
     };
   });

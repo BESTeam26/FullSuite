@@ -17,6 +17,8 @@ export interface OwnProfile {
   birthDay: number | null;
   birthdayVisible: boolean;
   avatarPath: string | null;
+  /** Their own short quote on the profile header (Dee's Agent Profile, 2026-09-19). */
+  tagline: string | null;
 }
 
 export interface ProfileEdits {
@@ -27,12 +29,14 @@ export interface ProfileEdits {
   birthMonth: number | null;
   birthDay: number | null;
   birthdayVisible: boolean;
+  tagline: string;
 }
 
 export function profileProblem(edits: ProfileEdits): string | null {
   if (!edits.fullName.trim()) return "Your full name is needed so teammates know who you are.";
   if ((edits.birthMonth === null) !== (edits.birthDay === null)) return "Choose both a month and a day, or neither.";
   if (edits.phone.trim() && !/^[\d\s()+.-]{7,40}$/.test(edits.phone.trim())) return "That phone number does not look right.";
+  if (edits.tagline.trim().length > 200) return "Keep the quote under 200 characters.";
   return null;
 }
 
@@ -48,6 +52,7 @@ export async function updateOwnProfile(userId: string, edits: ProfileEdits): Pro
       birth_month: edits.birthMonth,
       birth_day: edits.birthDay,
       birthday_visible: edits.birthdayVisible,
+      tagline: edits.tagline.trim() || null,
     })
     .eq("id", userId);
   if (error) throw error;

@@ -29,7 +29,7 @@ import { MONTH_NAMES, daysInMonth } from "@/lib/greetings/birthday";
 const inputCls = "mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary";
 const labelCls = "block text-[10px] font-bold uppercase tracking-wider text-muted-foreground";
 
-const EMPTY: ProfileEdits = { fullName: "", preferredName: "", title: "", phone: "", birthMonth: null, birthDay: null, birthdayVisible: false };
+const EMPTY: ProfileEdits = { fullName: "", preferredName: "", title: "", phone: "", birthMonth: null, birthDay: null, birthdayVisible: false, tagline: "" };
 
 export function AccountSection() {
   const auth = useAuth();
@@ -50,6 +50,7 @@ export function AccountSection() {
       preferredName: account.profile.preferredName ?? "",
       title: account.profile.title ?? "",
       phone: account.profile.phone ?? "",
+      tagline: account.profile.tagline ?? "",
       birthMonth: account.profile.birthMonth,
       birthDay: account.profile.birthDay,
       birthdayVisible: account.profile.birthdayVisible,
@@ -127,6 +128,12 @@ export function AccountSection() {
               <label className="text-sm"><span className={labelCls}>What you like to be called</span>
                 <input value={edits.preferredName} onChange={(e) => set("preferredName", e.target.value)} className={inputCls} maxLength={60} placeholder={edits.fullName.split(" ")[0] || "Optional"} />
                 <span className="mt-1 block text-[11px] text-muted-foreground">Used in greetings and around the workspace.</span>
+              </label>
+              <label className={labelCls}>Quote on my profile
+                {/* Dee's Agent Profile, 2026-09-19: the person's own line under
+                    their name. Theirs to write; shown to whoever may open the profile. */}
+                <input value={edits.tagline} onChange={(e) => set("tagline", e.target.value)} className={inputCls} maxLength={200}
+                  placeholder="A line that sums up how you work — optional" />
               </label>
               <label className="text-sm"><span className={labelCls}>Job title</span>
                 <input value={edits.title} onChange={(e) => set("title", e.target.value)} className={inputCls} maxLength={80} placeholder="Optional" />

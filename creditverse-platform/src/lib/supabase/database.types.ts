@@ -8280,6 +8280,67 @@ export type Database = {
           },
         ]
       }
+      member_goals: {
+        Row: {
+          agency_id: string
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          due_on: string | null
+          id: string
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          agency_id: string
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          due_on?: string | null
+          id?: string
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          agency_id?: string
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          due_on?: string | null
+          id?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_goals_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_goals_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_goals_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       member_pay_rates: {
         Row: {
           agency_id: string
@@ -13083,6 +13144,7 @@ export type Database = {
           is_fixture: boolean
           phone: string | null
           preferred_name: string | null
+          tagline: string | null
           title: string | null
           updated_at: string
         }
@@ -13099,6 +13161,7 @@ export type Database = {
           is_fixture?: boolean
           phone?: string | null
           preferred_name?: string | null
+          tagline?: string | null
           title?: string | null
           updated_at?: string
         }
@@ -13115,6 +13178,7 @@ export type Database = {
           is_fixture?: boolean
           phone?: string | null
           preferred_name?: string | null
+          tagline?: string | null
           title?: string | null
           updated_at?: string
         }
