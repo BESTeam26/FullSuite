@@ -10,15 +10,22 @@
  * live. This file only draws the tree it is handed, so a structural rule can
  * never be true in the picture and false in the data.
  *
- * Lines are CSS borders rather than SVG: an indented tree with a left rule and
- * an elbow per node reads correctly at any depth, reflows on a phone, and
- * needs no measurement pass. A drawn-to-canvas chart looks better in a
- * screenshot and is unusable on the width Dee actually opens it at.
+ * Two views of the same tree (Dee, 2026-09-19: "view like an actual org
+ * chart like family tree, give me view options, like list or org chart"):
+ *
+ *   Chart — top-down, siblings side by side, connector lines between a seat
+ *           and what reports to it. Scrolls sideways on a narrow screen.
+ *   List  — the indented outline with a left rule and an elbow per node, which
+ *           reflows on a phone and reads at any depth.
+ *
+ * Lines are CSS borders rather than SVG or canvas in both: no measurement
+ * pass, no redraw on resize, and every node stays a real link. The choice of
+ * view is a per-viewer convenience kept in localStorage; it is never data.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  Building2, ChevronDown, ChevronRight, Crown, Layers, UserCheck, UserX, Users,
+  Building2, ChevronDown, ChevronRight, Crown, Layers, List, Network, UserCheck, UserX, Users,
 } from "lucide-react";
 import { buildOrgChart, countSeats, type OrgNode } from "@/lib/agency/org-chart";
 import { useOrganizationTree } from "@/lib/data/use-organization-structure";
@@ -67,6 +74,8 @@ export function OrgChart() {
   });
   const agencyName = brand.data?.name ?? "";
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [view, setView] = useState<ChartView>(readView);
+  const chooseView = (v: ChartView) => { setView(v); writeView(v); };
 
   const root = useMemo(
     () =>
@@ -80,6 +89,13 @@ export function OrgChart() {
     [tree.data, positions.data, agencyName],
   );
   const seats = useMemo(() => countSeats(positions.data ?? []), [positions.data]);
+  /* The chart is wider than the screen; open it on the company, not on the
+     leftmost branch. Runs when the chart first draws and when it is re-chosen. */
+  const chartRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = chartRef.current;
+    if (view === "chart" && el) el.scrollLeft = Math.max(0, (el.scrollWidth - el.clientWidth) / 2);
+  }, [view, root]);
 
   if (tree.isLoading || positions.isLoading) {
     return <p className="p-4 text-sm text-muted-foreground">Loading the company…</p>;
@@ -107,12 +123,142 @@ export function OrgChart() {
             A vacant seat is a real seat nobody is in — not a missing record.
           </span>
         )}
+        <span className="ml-auto inline-flex rounded-lg border border-border bg-muted/50 p-0.5" role="group" aria-label="View">
+          {VIEWS.map((v) => {
+            const Icon = v.icon;
+            const on = view === v.key;
+            return (
+              <button key={v.key} type="button" onClick={() => chooseView(v.key)} aria-pressed={on}
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  on ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                )}>
+                <Icon className="h-3.5 w-3.5" aria-hidden /> {v.label}
+              </button>
+            );
+          })}
+        </span>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-border bg-card p-3">
-        <Node node={root} depth={0} collapsed={collapsed} onToggle={(id) =>
-          setCollapsed((c) => ({ ...c, [id]: !c[id] }))} />
-      </div>
+      {view === "chart" ? (
+        <div ref={chartRef} className="overflow-x-auto rounded-xl border border-border bg-card p-4">
+          <div className="inline-flex min-w-full justify-center">
+            <TreeNode node={root} collapsed={collapsed} onToggle={(id) =>
+              setCollapsed((c) => ({ ...c, [id]: !c[id] }))} />
+          </div>
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-border bg-card p-3">
+          <Node node={root} depth={0} collapsed={collapsed} onToggle={(id) =>
+            setCollapsed((c) => ({ ...c, [id]: !c[id] }))} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+type ChartView = "chart" | "list";
+const VIEWS: { key: ChartView; label: string; icon: typeof List }[] = [
+  { key: "chart", label: "Org chart", icon: Network },
+  { key: "list", label: "List", icon: List },
+];
+const VIEW_KEY = "bes.org-chart.view";
+/* A per-viewer convenience. Storage may be unavailable (private window,
+   blocked site data); the chart must render either way. */
+const readView = (): ChartView => {
+  try { return localStorage.getItem(VIEW_KEY) === "list" ? "list" : "chart"; } catch { return "chart"; }
+};
+const writeView = (v: ChartView) => { try { localStorage.setItem(VIEW_KEY, v); } catch { /* fine */ } };
+
+/** Descendant count, for the badge on a collapsed branch. */
+const countBelow = (n: OrgNode): number => n.children.reduce((s, c) => s + 1 + countBelow(c), 0);
+
+/**
+ * One node of the top-down chart: the card, then its children side by side
+ * beneath it. Connectors are three rules — a stem down from the parent, a
+ * horizontal bar across the siblings (clipped to the first and last child's
+ * centre), and a stub up from each child — all CSS, all from `border`.
+ */
+function TreeNode({ node, collapsed, onToggle }: {
+  node: OrgNode;
+  collapsed: Record<string, boolean>;
+  onToggle: (id: string) => void;
+}) {
+  const hasChildren = node.children.length > 0;
+  const isOpen = !collapsed[node.id];
+  return (
+    <div className="flex flex-col items-center">
+      <NodeCard node={node} />
+      {hasChildren && (
+        <button type="button" onClick={() => onToggle(node.id)} aria-expanded={isOpen}
+          aria-label={`${isOpen ? "Collapse" : "Expand"} ${node.label}`}
+          className="z-10 -mt-2 inline-flex h-5 min-w-5 items-center justify-center gap-0.5 rounded-full border border-border bg-card px-1 text-[10px] font-bold text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          {isOpen ? <ChevronDown className="h-3 w-3" aria-hidden /> : <>{countBelow(node)} <ChevronRight className="h-3 w-3" aria-hidden /></>}
+        </button>
+      )}
+      {hasChildren && isOpen && (
+        <div className="relative pt-5">
+          {/* The stem from this node down to the siblings' bar. */}
+          <span aria-hidden className="absolute left-1/2 top-0 h-5 w-px -translate-x-1/2 bg-border" />
+          <ul className="flex items-start gap-4">
+            {node.children.map((child, i) => {
+              const first = i === 0, last = i === node.children.length - 1;
+              return (
+                <li key={child.id} className="relative flex flex-col items-center pt-5">
+                  {/* The bar across the siblings, clipped at the ends. */}
+                  {node.children.length > 1 && (
+                    <span aria-hidden className="absolute top-0 h-px bg-border"
+                      style={{ left: first ? "50%" : 0, right: last ? "50%" : 0 }} />
+                  )}
+                  {/* The stub up from this child to the bar. */}
+                  <span aria-hidden className="absolute left-1/2 top-0 h-5 w-px -translate-x-1/2 bg-border" />
+                  <TreeNode node={child} collapsed={collapsed} onToggle={onToggle} />
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** The card itself — the same facts and the same link as the list view. */
+function NodeCard({ node }: { node: OrgNode }) {
+  const Icon = ICON[node.kind];
+  const href = hrefFor(node);
+  const label = href ? (
+    <Link to={href}
+      className="text-xs font-semibold text-foreground hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+      {node.label}
+    </Link>
+  ) : (
+    <span className="text-xs font-bold text-foreground">{node.label}</span>
+  );
+  return (
+    <div className={cn(
+      "w-44 rounded-xl border px-3 py-2 text-center shadow-sm",
+      node.kind === "agency" && "border-primary/40 bg-primary/5",
+      node.kind === "leadership" && "border-amber-500/40 bg-amber-500/5",
+      node.kind === "division" && "border-border bg-muted/40",
+      (node.kind === "department" || node.kind === "team") && "border-border bg-card",
+      node.kind === "position" && node.state === "filled" && "border-status-success/40 bg-status-success/5",
+      node.kind === "position" && node.state === "covered" && "border-amber-500/40 bg-amber-500/5",
+      node.kind === "position" && node.state === "vacant" && "border-dashed border-border bg-card",
+    )}>
+      <Icon className={cn("mx-auto mb-1 h-4 w-4", node.kind === "leadership" ? "text-amber-600" : "text-muted-foreground")} aria-hidden />
+      <span className="block truncate" title={node.label}>{label}</span>
+      {node.detail && (
+        <span className={cn("block truncate text-[11px]",
+          node.state === "vacant" ? "font-semibold text-muted-foreground" : "text-muted-foreground")} title={node.detail}>
+          {node.detail}
+        </span>
+      )}
+      {node.coverage && (
+        <span className="mt-1 inline-block rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">
+          Acting: {node.coverage}
+        </span>
+      )}
     </div>
   );
 }
