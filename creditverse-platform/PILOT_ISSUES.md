@@ -144,7 +144,11 @@ exclusion violation, 23P01 — a real draft cutoff now overlaps the fixture
 period), phase 72 (engagement placement moves), phases 55/60/61 (partner
 portal contact sessions, realtime publication, a missing function 42883).
 Status: OPEN for the harness rewrite; every product regression it exposed is
-DEPLOYED. The final full-run number is recorded below when it finishes.
+DEPLOYED. **Final full run, same day, after the fixes: 1584/1661 (77 failing
+checks in 18 phases: 2, 5, 6, 7, 19, 26, 28, 37, 41, 55, 56, 57, 60, 61, 62,
+64, 70, 72).** Of those, phases 5, 6, 7, 19, 26, 28, 41 and 62 are the
+division-manager fixture (D-021); phase 2 is the pre-0913 reach model;
+phases 55, 60, 61, 70 and 72 are not yet examined. NOT a pass.
 
 ### P-010 · Notifications page crashed for anyone holding an End of Day notice
 
