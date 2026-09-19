@@ -32,6 +32,7 @@ operator who hit it does.
 
 | ID | Date | Reported by | Module | Actual | Expected | Class | Sev | Root cause | Fix commit | Live verified by | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| P-008 | 2026-09-19 | Dee, previewing a Complaints & Mailing agent | CreditOps / Authorization | A department agent saw every CreditOps client (18) and every department queue, the Management band and an Admin badge; production could be logged on a client of an unassigned partner | Directory limited to the partners assigned to them or their team; only their own department's queue; no management surfaces; filters within their scope | C — data scope (the directory and a mutation crossed partner scope); B for the rendering | S1 | RLS: the `creditops_directory_visible` arm of `fulfillment_clients_select` granted every client regardless of partner (Dee's own 2026-09-13 rule, superseded 2026-09-19). Rendering: the CreditOps space read the previewer's role and teams, not the previewed person's; Dashboard was universal; filters unscoped | `(this batch)` | — | FIXED AWAITING LIVE RETEST |
 | P-007 | 2026-09-19 | Claude, building People & Teams → Overview; visible to every lead on Attendance | Attendance / Team Management | Every person's quarterly attendance score read **15 · Good standing** with zero incidents — Rowell, absent on eight scheduled days, included | Scores derived from the real days: Rowell 7 · Management review | C — data integrity (scores and the quarter-close reward sweep read an empty quarter) | S1 | Two silent truncations: `attendance_for` returned no rows for a range ≥ 62 days (the app asks for 92), and PostgREST caps a response at 1,000 rows (a quarter is 1,472) | `7973a29` | — | DEPLOYED · FIXED AWAITING LIVE RETEST |
 | P-006 | 2026-09-11 | Dee | CreditOps / Complete Work | The credit status could only be changed in a separate control, away from the work being finished | Offer it inside Complete Work before submitting — keep the current status, or move to the new stage | B pilot UX correction | S3 — an extra step in the most-used P0 workflow | Design decision from 02xx deliberately removed the selector after an earlier one logged status changes it never wrote | `9fda507` | — | **FIXED AWAITING LIVE RETEST** |
 | P-004 | 2026-09-11 | Dee | Access / Finance | Bryan and every agency admin could open **Finance** and **Organization billing**, and read payroll data | Money is the owner's alone, and the owner can switch it on for one person (e.g. a billing specialist) | **C security / data-integrity** | S1 — agency financials exposed to all administrators | `resolve_agency_capability` opened with `role in ('agency_owner','agency_admin') then true`, so an admin resolved TRUE for every capability including money, and no override could take it back | `cae687d` | — | **FIXED AWAITING LIVE RETEST** |
@@ -39,6 +40,25 @@ operator who hit it does.
 | P-002 | 2026-09-11 | Dee (and Bryan Breva, first real invited user) | Invite Users / Login | After choosing a password, the page looked unchanged — only a small green line appeared inside the still-complete form. Bryan then wandered to `/app` and hit **"No workspace access"** | A clear "we sent you a confirmation email" state that says what to do next | A pilot defect | S1 — the first real invited user believed activation had failed | Sign-up sets a `notice` string rendered as one `text-xs` line between the password field and the button; the form stays fully visible, so nothing reads as progress | `18999b8` | — | **FIXED AWAITING LIVE RETEST** |
 | P-003 | 2026-09-11 | Dee | Invite Users / Login | The internal team invitation used generic copy and the platform tagline ("Credit + Funding Operations. One Connected Platform.") | BES's own branding and voice for internal team members, distinct from the partner emails | B pilot UX correction | S3 | The `isTeam` invitation shared a generic branch with customer-organization invites; only the two partner branches carried Dee's verbatim branded copy | `18999b8` | — | **FIXED AWAITING LIVE RETEST** |
 | P-001 | 2026-09-10 | Dee | Invite Users / Login | The activation email from `noreply@bescrm.net` landed in Gmail **Spam** | It reaches the inbox so a new team member can activate | A pilot defect | S1 — blocks the Invite Users P0 flow | See below | `bfd6f7c` (reply-to) + `app.bescrm.net` cut over 2026-09-11 | — | **FIXED AWAITING LIVE RETEST** — the next real invitation is the test |
+
+### P-008 · A department agent was offered all of CreditOps
+
+Measured as a REAL Agency User authorization context (`complaints-agent-matrix-probe.mjs`, the agent built onto the Complaints & Mailing team with Partner A assigned to the team and Partner B unrelated):
+
+| Check | Before | After |
+|---|---|---|
+| Directly / team-assigned Partner A | ALLOW | ALLOW |
+| Unrelated Partner B | DENY | DENY |
+| Clients under Partner A | ALLOW | ALLOW |
+| Clients under Partner B | **ALLOW (2 visible)** | DENY |
+| The list is not every CreditOps client | **FAIL (18 of 18)** | PASS |
+| Only the Complaints queue visible | PASS | PASS |
+| Queue rows only over Partner A's clients | PASS | PASS |
+| Onboarding / Dispute / Support / Bureau Calling queues | DENY | DENY |
+| Log Complaints work on a Partner A client | ALLOW | ALLOW |
+| Log work on a Partner B client | **ALLOW** | DENY |
+
+8/11 → 11/11. Root cause at the database: the directory arm of the client policy granted every client to any CreditOps user with `creditops.clients.view`; it now intersects with `can_see_partner()` (unchanged), so queues, checklists and production writes — which all check the client row — narrowed with it. Rendering: the CreditOps space now reads the previewed person's role and team placement; the Dashboard is a management view; department and agent filters follow the person's scope; the title reads "CreditOps" for non-management. Live retest: preview or sign in as a department agent and open CreditOps.
 
 ### P-007 · Every attendance score was a clean 15
 

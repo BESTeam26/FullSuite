@@ -22,6 +22,7 @@ import { ContentCard } from "@/components/dashboard/DivisionLayout";
 import { useCreditOpsStore } from "@/lib/fulfillment/creditops-client-store";
 import type { CreditOpsPartner } from "@/lib/fulfillment/creditops-partners";
 import { useAuth } from "@/lib/auth/auth-context";
+import { useCreditOpsAccess } from "@/lib/fulfillment/creditops-access";
 import {
   countActive,
   filterAndSortClients,
@@ -61,7 +62,14 @@ export function FulfillmentClientsPanel({
   partner,
   initialOpenClientId = null,
 }: FulfillmentClientsPanelProps) {
-  const { displayName } = useAuth();
+  const { displayName, ledTeamIds } = useAuth();
+  /* Filters follow the person's legitimate scope (Dee, 2026-09-19): one
+     authorized department needs no department filter; an unrestricted agent
+     filter belongs to management and team leads, not to an agent. */
+  const { myDepartments, canAccessManagement } = useCreditOpsAccess();
+  const departmentOptions = canAccessManagement ? [...CREDITOPS_DEPARTMENT_ORDER] : myDepartments;
+  const showDepartmentFilter = departmentOptions.length > 1;
+  const showAgentFilter = canAccessManagement || (ledTeamIds?.length ?? 0) > 0;
   const store = useCreditOpsStore();
   const [prefs, setPrefs] = useState<ViewPrefs>(() => loadPrefs());
   const [search, setSearch] = useState("");
@@ -261,14 +269,14 @@ export function FulfillmentClientsPanel({
         onSearchChange={setSearch}
         statusFilter={statusFilter}
         extraFilters={[
-          {
+          ...(showDepartmentFilter ? [{
             key: "department", label: "Filter by department", value: departmentFilter,
             onChange: setDepartmentFilter,
             options: [
               { value: "all", label: "All departments" },
-              ...CREDITOPS_DEPARTMENT_ORDER.map((d) => ({ value: d, label: d })),
+              ...departmentOptions.map((d) => ({ value: d, label: d })),
             ],
-          },
+          }] : []),
           {
             key: "round", label: "Filter by round", value: roundFilter,
             onChange: setRoundFilter,
@@ -278,7 +286,7 @@ export function FulfillmentClientsPanel({
                 .map((r) => ({ value: r, label: r })),
             ],
           },
-          {
+          ...(showAgentFilter ? [{
             key: "agent", label: "Filter by assigned agent", value: agentFilter,
             onChange: setAgentFilter,
             options: [
@@ -286,7 +294,7 @@ export function FulfillmentClientsPanel({
               { value: "__unassigned__", label: "Unassigned" },
               ...agentNames.map((n) => ({ value: n, label: n })),
             ],
-          },
+          }] : []),
         ]}
         onStatusFilterChange={setStatusFilter}
         statusOptions={STATUS_OPTIONS}

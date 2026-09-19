@@ -53,7 +53,13 @@ export interface MyDepartments {
   resolved: boolean;
 }
 
-export function useMyCreditOpsDepartments(): MyDepartments {
+/**
+ * @param teamIdsOverride the teams to resolve for somebody OTHER than the
+ * signed-in person — the View As preview passes the target's teams so the
+ * CreditOps space renders from the effective person's placement, not the
+ * previewer's (Dee, 2026-09-19).
+ */
+export function useMyCreditOpsDepartments(teamIdsOverride?: readonly string[]): MyDepartments {
   const auth = useAuth();
   const teams = useTeams();
   const departments = useDepartments();
@@ -65,7 +71,7 @@ export function useMyCreditOpsDepartments(): MyDepartments {
       return { departments: [], onAnyTeam: false, resolved: false };
     }
     const keyById = new Map(deptRows.map((d) => [d.id, d.key]));
-    const mine = new Set(auth.teamIds);
+    const mine = new Set(teamIdsOverride ?? auth.teamIds);
     const found = new Set<CreditOpsDepartment>();
     for (const t of teamRows) {
       if (!mine.has(t.id) || !t.departmentId) continue;
@@ -76,5 +82,5 @@ export function useMyCreditOpsDepartments(): MyDepartments {
        signal. A team with no department still counts as being placed. */
     const onAnyTeam = teamRows.some((t) => mine.has(t.id));
     return { departments: [...found], onAnyTeam, resolved: true };
-  }, [auth.teamIds, teams.teams, departments.data]);
+  }, [auth.teamIds, teams.teams, departments.data, teamIdsOverride]);
 }

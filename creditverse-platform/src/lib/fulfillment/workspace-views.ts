@@ -192,10 +192,13 @@ export function creditOpsNavForPerson(scope: PersonViewScope): {
   });
   const items = PARTNER_VIEWS.filter((v) => visible.has(v.id)).map(asItem);
   const inspect = new Set<string>(creditOpsQueuesToInspect(scope));
+  /* The Dashboard is management-scoped (Dee, 2026-09-19) but, for those who
+     have it, it sits with the universal pair at the top — it is where a
+     manager starts, not a tool in the MANAGEMENT band. */
   return {
-    universal: items.filter((v) => v.scope === "universal"),
+    universal: items.filter((v) => v.scope === "universal" || v.id === "dashboard"),
     department: items.filter((v) => v.scope === "department"),
     allQueues: PARTNER_VIEWS.filter((v) => inspect.has(v.id)).map(asItem),
-    management: items.filter((v) => v.scope === "management"),
+    management: items.filter((v) => v.scope === "management" && v.id !== "dashboard"),
   };
 }

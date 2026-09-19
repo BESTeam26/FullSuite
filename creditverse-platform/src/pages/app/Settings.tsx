@@ -81,6 +81,7 @@ import { GhlBridgeSection } from "@/components/settings/sections/GhlBridgeSectio
 import { useAgency } from "@/lib/agency-context";
 import { useAuth } from "@/lib/auth/auth-context";
 import { usePermissions } from "@/lib/auth/use-permission";
+import { useAgencyAccessContext } from "@/lib/agency/use-access-context";
 
 /** Where a retired Settings section now lives (Dee §58). Pure, so it is testable. */
 export const legacySettingsRedirect = (section: string | null): string | null => {
@@ -96,7 +97,7 @@ export const legacySettingsRedirect = (section: string | null): string | null =>
 const groups: SettingsGroup[] = [
   {
     label: "You",
-    items: [{ key: "account", label: "Your account", icon: UserRound }],
+    items: [{ key: "account", label: "My Profile", icon: UserRound }],
   },
   {
     label: "General",
@@ -162,7 +163,7 @@ const groups: SettingsGroup[] = [
 const organizationGroups: SettingsGroup[] = [
   {
     label: "You",
-    items: [{ key: "account", label: "Your account", icon: UserRound }],
+    items: [{ key: "account", label: "My Profile", icon: UserRound }],
   },
   {
     label: "Organization",
@@ -190,6 +191,16 @@ const SettingsContent = () => {
   const canEditAsMember = auth.orgMemberships.some((m) => m.organization_id === activeOrganization?.id && (m.role === "org_admin" || m.role === "org_manager"));
   const isOrganizationView = viewMode === "subaccount";
   const permissions = usePermissions();
+  /* Agency side (Dee, 2026-09-19: "Just create SETTINGS by default, no agency
+     settings, and the profile must be within that settings"): everyone gets
+     the YOU group — My Profile; the agency sections appear only with the
+     administration keys that used to guard the whole route. Read from the
+     access context, so a View As preview shows the previewed person's
+     Settings, not the previewer's. */
+  const { ctx: access } = useAgencyAccessContext();
+  const administersSettings = access.role === "agency_admin"
+    || ["settings.manage", "team.manage", "team.permissions", "billing.view", "creditops.letters.templates"].some((k) => access.can(k));
+  const visibleAgencyGroups = administersSettings ? groups : groups.filter((g) => g.label === "You");
   /* Members see only the sections their role may use; the same keys guard the
      writers in the database. The first visible section opens by default. */
   const visibleOrganizationGroups = organizationGroups.map((g) => ({
@@ -205,9 +216,9 @@ const SettingsContent = () => {
      to Team Members and structure to Teams, so their Settings sections
      redirect instead of becoming blank pages or duplicate editors. */
   const legacy = legacySettingsRedirect(requested);
-  const requestedVisible = !legacy && requested && (isOrganizationView ? visibleOrganizationGroups : groups).some((g) => g.items.some((i) => i.key === requested));
+  const requestedVisible = !legacy && requested && (isOrganizationView ? visibleOrganizationGroups : visibleAgencyGroups).some((g) => g.items.some((i) => i.key === requested));
   const [chosen, setActive] = useState<string | null>(null);
-  const active = chosen ?? (requestedVisible ? requested : isOrganizationView ? firstVisible : "branding");
+  const active = chosen ?? (requestedVisible ? requested : isOrganizationView ? firstVisible : administersSettings ? "branding" : "account");
 
   if (legacy) return <Navigate to={legacy} replace />;
 
@@ -300,7 +311,7 @@ const SettingsContent = () => {
   return (
     <div className="p-6 md:p-8">
       <AgencySettingsShell
-        groups={isOrganizationView ? visibleOrganizationGroups : groups}
+        groups={isOrganizationView ? visibleOrganizationGroups : visibleAgencyGroups}
         active={active}
         onSelect={setActive}
         {...(isOrganizationView
@@ -312,7 +323,9 @@ const SettingsContent = () => {
               description:
                 "Settings for this organization only. Changes here apply to everyone in it.",
             }
-          : {})}
+          : administersSettings
+            ? {}
+            : { eyebrow: "BES HQ", title: "Settings", description: "Your profile, photo, contact details and password." })}
       >
         {render()}
       </AgencySettingsShell>

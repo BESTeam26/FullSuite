@@ -154,7 +154,7 @@ export const Topbar = () => {
                 <Plus className="mr-2 h-4 w-4" /> {viewMode === "agency" ? "Add Organization" : "New Client"}
               </DropdownMenuItem>
               <DropdownMenuItem className="min-h-11" onClick={() => navigate("/app/settings?section=account")}>
-                <Building2 className="mr-2 h-4 w-4" /> My account
+                <Building2 className="mr-2 h-4 w-4" /> My Profile
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

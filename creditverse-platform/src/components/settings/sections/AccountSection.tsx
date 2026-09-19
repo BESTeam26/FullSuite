@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { SectionCard } from "@/components/settings/shared";
 import { Avatar } from "@/components/common/Avatar";
 import { useAuth } from "@/lib/auth/auth-context";
+import { Link } from "react-router-dom";
 import { errorMessage } from "@/lib/data/error-message";
 import {
   MIN_PASSWORD_LENGTH,
@@ -92,7 +93,14 @@ export function AccountSection() {
 
   return (
     <div className="space-y-4">
-      <SectionCard icon={UserRound} title="Your account" description="How you appear to your team, and how they reach you.">
+      <SectionCard icon={UserRound} title="My Profile" description="How you appear to your team, and how they reach you.">
+        {auth.user?.id && (
+          <p className="mb-3 text-xs">
+            <Link to={`/app/people/${auth.user.id}`} className="font-semibold text-primary underline-offset-2 hover:underline">
+              Open my profile page →
+            </Link>
+          </p>
+        )}
         {account.isLoading ? (
           <div className="h-40 animate-pulse rounded-lg bg-muted/40" aria-busy="true" />
         ) : (

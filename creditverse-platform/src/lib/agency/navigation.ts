@@ -138,7 +138,11 @@ export const AGENCY_ROUTES: AgencyRouteSpec[] = [
      "Financial dashboard" — governs both surfaces. */
   { key: "billing", label: "Organization billing", path: "/app/billing", readiness: "ready", access: "user", permission: "finance.dashboard.view" },
   { key: "compliance", label: "Compliance & Legal", path: "/app/compliance", readiness: "ready", access: "admin" },
-  { key: "settings", label: "Agency Settings", path: "/app/settings", readiness: "ready", access: "admin" },
+  /* Dee, 2026-09-19: "Just create SETTINGS by default, no agency settings, and
+     the profile must be within that settings." One door for every role; the
+     page shows My Profile to everyone and gates the agency sections by
+     permission. */
+  { key: "settings", label: "Settings", path: "/app/settings", readiness: "ready", access: "user" },
   { key: "support", label: "Support", path: "/app/support", readiness: "ready", access: "admin" },
 ];
 

@@ -50,6 +50,26 @@ Journey, engine state, unit state, health are computed
 disagree. `test the rule, not the example` applies to their vocabularies
 (crm-domain tests read the migrations).
 
+## AD-004 · 2026-09-19 — The Main Client List respects Partner scope
+
+Dee, after previewing a Complaints & Mailing agent who was offered every
+CreditOps client: *"creditops.clients.view may allow the CreditOps
+client-directory experience. It must NOT mean all CreditOps clients. Keep
+directory permission separate from record scope."* Supersedes the
+2026-09-13 rule that opened the directory to every CreditOps user.
+
+The rule, as the database enforces it (`fulfillment_clients_select`,
+migration `20260919016000`): a partner-held client is visible when the caller
+may see THAT partner (`can_see_partner` — direct assignment, a live team's
+assignment, a managed department; admins by role) AND either the record is in
+scope or the caller holds the CreditOps directory. Department queues,
+checklists and production writes check the client row under RLS, so the
+department ∩ partner intersection Dee asked for follows without a change of
+their own. `can_see_partner()` and `in_scope()` were not broadened.
+
+Evidence: `complaints-agent-matrix-probe.mjs` — before 8/11 (Partner B's
+clients visible, work loggable on them), after 11/11.
+
 ## AD-003 · 2026-09-08 — Partner credentials: pointer to Vault, audited reads
 
 `partner_credentials` has no password column; reveal is a capability off by

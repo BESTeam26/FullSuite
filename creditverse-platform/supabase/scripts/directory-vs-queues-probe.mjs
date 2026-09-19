@@ -1,14 +1,18 @@
 /**
- * The shared directory is broad. The department queues are narrow.
+ * The shared directory is PARTNER-SCOPED. The department queues are narrow.
  *
- * Dee, 2026-09-13: *"All authorized CreditOps users may see the Main Client
- * List… Do NOT require Partner assignment, Department assignment, Team
- * assignment or individual assignee for Main Client List visibility."* And in
- * the same breath: *"KEEP QUEUES NARROW."*
+ * Dee, 2026-09-13 opened the Main Client List to every CreditOps user; Dee,
+ * 2026-09-19, after seeing a Complaints agent offered every client, narrowed
+ * it: *"creditops.clients.view may allow the CreditOps client-directory
+ * experience. It must NOT mean all CreditOps clients… An Agent can see a
+ * client only when that client's Partner is visible through direct partner
+ * assignment OR partner assignment inherited through one of the user's active
+ * teams."* And still: *"KEEP QUEUES NARROW."*
  *
- * Those two rules pull in opposite directions, which is exactly why they need
- * a probe rather than a comment. Every scenario runs as a REAL authenticated
- * user inside a transaction that is rolled back.
+ * So the directory is what the capability OPENS, and partner scope is what
+ * fills it. Every scenario runs as a REAL authenticated user inside a
+ * transaction that is rolled back; the fuller matrix is
+ * complaints-agent-matrix-probe.mjs.
  *
  * Run: node supabase/scripts/directory-vs-queues-probe.mjs
  */
@@ -78,21 +82,24 @@ const counts = (user, setup = "") => {
   return r.ok ? r.rows[0] : { list: "error", queue: "error", depts: "error" };
 };
 
-console.log("\nThe directory is broad; the queues are narrow\n");
+console.log("\nThe directory is partner-scoped; the queues are narrow\n");
 
 console.log("An agent placed in a CreditOps department");
 {
   const c = counts(INSIDE);
-  check("sees the whole shared client directory", c.list > 0, true);
-  check("but only their own department's queue rows", c.queue > 0 && c.queue < 20, true);
+  /* What the directory SHOULD hold for this person: clients whose partner is
+     assigned to them by name or to a live team they are on — computed here
+     from the assignment rows, not from the policy under test. */
+  const expected = one(`select count(*)::int as n from fulfillment_clients fc
+     where fc.outsourcing_group_id in (
+       select a.group_id from partner_assignments a where a.ended_on is null
+         and (a.user_id = '${INSIDE}' or a.team_id in (
+           select tm.team_id from team_memberships tm join teams t on t.id = tm.team_id
+            where tm.user_id = '${INSIDE}' and t.archived_at is null)))`).n;
+  check("sees exactly the clients of the partners assigned to them or their teams", c.list, expected);
+  check("and never every client", c.list < one("select count(*)::int as n from fulfillment_clients").n, true);
+  check("only their own department's queue rows, over those clients", c.queue <= c.list * 6, true);
   check("and belongs to at least one CreditOps department", c.depts > 0, true);
-  /* The rule Dee wrote twice, stated correctly: the directory covers EVERY
-     client, the queue only their department's rows. Comparing the two counts
-     directly is meaningless — a client can carry several queue rows, so the
-     queue total can legitimately exceed the client total. What matters is
-     that the directory is not narrowed by department. */
-  const all = one("select count(*)::int as n from fulfillment_clients").n;
-  check("the directory is every client, not a filtered subset", c.list, all);
 }
 
 console.log("\nAn agent placed outside CreditOps");
@@ -124,7 +131,9 @@ console.log("\nRemove the placement and the directory closes");
   const after = directoryOpen(INSIDE, `delete from team_memberships where user_id = '${INSIDE}';`);
   check("the directory was open", before.open, true);
   check("no CreditOps division placement, no directory", after.open, false);
-  check("and what remains is strictly less", after.list < before.list, true);
+  /* Team-inherited partner scope leaves with the team too, so the list can
+     only shrink — and never grow. */
+  check("and what remains is no larger", after.list <= before.list, true);
 }
 
 console.log("\nRemove the capability and the directory closes");
@@ -134,8 +143,8 @@ console.log("\nRemove the capability and the directory closes");
     select m.id, 'creditops.clients.view', false from agency_memberships m where m.user_id = '${INSIDE}'
     on conflict (membership_id, key) do update set allowed = false;`);
   check("placement without creditops.clients.view closes the directory", after.open, false);
-  check("and the directory-scale view is gone with it",
-    after.list < one("select count(*)::int as n from fulfillment_clients").n, true);
+  check("and the list is no larger than with it",
+    after.list <= counts(INSIDE).list, true);
 }
 
 console.log("\nAnother CreditOps user works with no code change");
@@ -146,15 +155,25 @@ console.log("\nAnother CreditOps user works with no code change");
       join departments dp on dp.id = t.department_id
       join divisions dv on dv.id = dp.division_id and dv.service = 'creditops'
      where t.archived_at is null and coalesce(t.is_fixture,false) = false limit 1`).id;
+  /* A partner with clients, assigned to that team — partner scope is what fills the directory. */
+  const partner = one(`select og.id from outsourcing_groups og join fulfillment_clients fc on fc.outsourcing_group_id = og.id
+     where og.agency_id = '${AGENCY}' group by og.id order by count(*) desc limit 1`).id;
   const before = counts(OUTSIDE);
   const after = counts(OUTSIDE, `
     insert into team_memberships (team_id, user_id, is_lead) values ('${team}', '${OUTSIDE}', false);
+    insert into partner_assignments (agency_id, group_id, team_id, assignment_role) values ('${AGENCY}', '${partner}', '${team}', 'assigned');
     insert into agency_member_permissions (membership_id, key, allowed)
     select m.id, 'creditops.clients.view', true from agency_memberships m where m.user_id = '${OUTSIDE}'
     on conflict (membership_id, key) do update set allowed = true;`);
   check("before placement: nothing", before.list, 0);
-  check("after placement: the directory opens", after.list > 0, true);
-  check("and a queue appears, still narrow", after.queue > 0 && after.queue < 20, true);
+  /* Expected: the clients of every partner that reaches them through that team
+     (the one just assigned plus any the team already had) or by name. */
+  const expected = one(`select count(*)::int as n from fulfillment_clients fc
+     where fc.outsourcing_group_id = '${partner}'
+        or fc.outsourcing_group_id in (select a.group_id from partner_assignments a where a.ended_on is null
+             and (a.team_id = '${team}' or a.user_id = '${OUTSIDE}'))`).n;
+  check("after placement with a team partner: the directory is exactly the team's partners' clients", after.list, expected);
+  check("and any queue rows stay within those clients", after.queue <= after.list * 6, true);
 }
 
 console.log("\nAn administrator is unaffected by all of it");

@@ -143,7 +143,9 @@ export const PARTNER_VIEWS = [
      Dashboard comes after the client list." The work is the list; the
      dashboard is what you check afterwards. */
   { id: "main-list", label: "Main Client List", scope: "universal", partnerLevel: true },
-  { id: "dashboard", label: "Dashboard", scope: "universal", partnerLevel: true },
+  /* Dee, 2026-09-19: the Dashboard is a manager's surface — an agent's
+     CreditOps is the Main Client List and their own queue. */
+  { id: "dashboard", label: "Dashboard", scope: "management", partnerLevel: true },
   { id: "onboarding-queue", label: "Onboarding Queue", scope: "department", department: "Onboarding", partnerLevel: false },
   { id: "dispute-queue", label: "Dispute Queue", scope: "department", department: "Dispute", partnerLevel: false },
   { id: "support-queue", label: "Support Queue", scope: "department", department: "Support", partnerLevel: false },

@@ -8,8 +8,9 @@
  * server-side when the backend is connected.
  */
 
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useState, type ReactNode, useMemo } from "react";
 import { useAuth } from "@/lib/auth/auth-context";
+import { useViewAs } from "@/lib/agency/view-as-context";
 import { useAgency } from "@/lib/agency-context";
 import { resolveCreditOpsRole, resolveOpsAccess } from "@/lib/fulfillment/ops-role-resolver";
 import { useOrganizationRoleAccess } from "@/lib/data/use-role-access";
@@ -410,10 +411,19 @@ export function CreditOpsAccessProvider({ children }: { children: ReactNode }) {
   const auth = useAuth();
   const { activeOrganization } = useAgency();
   const live = auth.mode === "live";
+  /* The View As preview: this space renders from the EFFECTIVE person's role
+     and team placement, never the previewer's. Dee, 2026-09-19: "Do not leak
+     Dee's Admin/Owner UI into the simulated Agent workspace." The data
+     underneath is still the previewer's — the banner says so. */
+  const viewAs = useViewAs();
+  const previewTarget = viewAs.previewing && viewAs.access ? viewAs.access : null;
+  const previewTeamIds = useMemo(() => previewTarget?.profile.teams.map((t) => t.id), [previewTarget]);
   /* Canonical team → department assignment. Reused, not re-invented. */
-  const { departments: teamDepartments, onAnyTeam } = useMyCreditOpsDepartments();
+  const { departments: teamDepartments, onAnyTeam } = useMyCreditOpsDepartments(previewTeamIds);
   const [previewRole, setPreviewRole] = useState<CreditOpsRoleKey>("admin");
-  const agencyRole = auth.agencyMembership?.role ?? null;
+  const agencyRole = previewTarget
+    ? (viewAs.effectiveRole as NonNullable<typeof auth.agencyMembership>["role"] | null)
+    : (auth.agencyMembership?.role ?? null);
   const orgRole =
     auth.orgMemberships.find(
       (m) => m.organization_id === activeOrganization?.id,

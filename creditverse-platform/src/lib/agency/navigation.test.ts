@@ -25,6 +25,8 @@ const ADMIN = ctx("agency_admin");
 
 const STAFF_MENU = [
   "/app", "/app/my-work", "/app/team-workspace", "/app/time",
+  /* Settings — everyone's door to My Profile (Dee, 2026-09-19). */
+  "/app/settings",
   "/app/eod", "/app/calendar", "/app/announcements", "/app/education", "/app/files",
   /* The Topbar bell links here unconditionally, so this route being openable
      by every staff member is a requirement, not a preference. */
@@ -49,7 +51,7 @@ const MODULES: Record<string, string> = {
 const MODULE_PATHS = Object.keys(MODULES);
 
 const ADMIN_ONLY = [
-  "/app/subaccounts", "/app/billing", "/app/compliance", "/app/settings", "/app/support",
+  "/app/subaccounts", "/app/billing", "/app/compliance", "/app/support",
 ];
 
 describe("an Agency User with no grants", () => {
@@ -197,13 +199,13 @@ describe("legacy role values fail toward what they encoded", () => {
   it("an old agency_owner session behaves as an admin", () => {
     expect(isAdminRole("agency_owner")).toBe(true);
     // The route table answers through accessTo, which normalizes.
-    expect(allow(ctx("agency_owner" as AgencyRole), "/app/settings")).toBe(true);
+    expect(allow(ctx("agency_owner" as AgencyRole), "/app/subaccounts")).toBe(true);
   });
 
   it("old rank values behave as users — never wider", () => {
     for (const legacy of ["agency_manager", "agency_team_lead", "agency_agent"]) {
       expect(isAdminRole(legacy)).toBe(false);
-      expect(allow(ctx(legacy as AgencyRole), "/app/settings"), legacy).toBe(false);
+      expect(allow(ctx(legacy as AgencyRole), "/app/subaccounts"), legacy).toBe(false);
     }
   });
 });
@@ -224,7 +226,7 @@ describe("the route table itself", () => {
   });
 
   it("routeFor finds a spec the same way routeAllows does", () => {
-    expect(routeFor("/app/settings")?.access).toBe("admin");
+    expect(routeFor("/app/subaccounts")?.access).toBe("admin");
     expect(routeFor("/not-an-agency-route")).toBeUndefined();
     // A path outside the table is not governed here.
     expect(routeAllows("/not-an-agency-route", USER)).toBe(true);

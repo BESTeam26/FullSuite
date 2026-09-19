@@ -19,11 +19,12 @@ const MODULES = ["CreditOps", "FundingOps", "BES CRM", "TalentOps"];
    naming a route that no longer exists is how a test starts asserting the
    past. */
 const MANAGEMENT = ["People & Teams", "Reports", "BES Partners"];
-const ADMIN_ONLY = ["Finance", "Agency Settings", "Organizations", "Organization billing", "Compliance & Legal"];
+const ADMIN_ONLY = ["Finance", "Organizations", "Organization billing", "Compliance & Legal"];
 /* "My Time" is a SECTION of the Time & Attendance module now, not a top-level
    tab (Dee, 2026-09-18) — so the menu promises the module, and
    `time-sections.test.ts` covers which sections each audience is offered. */
-const PERSONAL = ["Home", "My Work", "Time & Attendance", "End of Day", "Notifications"];
+/* Settings is everyone's door to My Profile (Dee, 2026-09-19); the agency sections gate themselves inside. */
+const PERSONAL = ["Home", "My Work", "Time & Attendance", "End of Day", "Notifications", "Settings"];
 
 describe("an Agent with no module", () => {
   const menu = labels(ctx([]));

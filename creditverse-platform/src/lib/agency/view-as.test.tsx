@@ -46,7 +46,8 @@ beforeEach(() => {
   previewCan = () => false;
 });
 
-const settings = routeFor("/app/settings")!;
+/* Settings became everyone\'s door (Dee, 2026-09-19); Organizations stays admin-only. */
+const settings = routeFor("/app/subaccounts")!;
 const preview = routeFor("/app/access-preview")!;
 
 describe("the context the interface runs on", () => {
@@ -64,7 +65,7 @@ describe("the context the interface runs on", () => {
     const { result } = renderHook(() => useAgencyAccessContext());
     expect(result.current.previewing).toBe(true);
     expect(result.current.ctx.role).toBe("agency_user");
-    /* The owner could open Settings; the agent cannot — and the SAME
+    /* The owner could open Organizations; the agent cannot — and the SAME
        function answers, so the menu and the door agree. */
     expect(accessTo(settings, result.current.ctx)).not.toBe("allow");
   });

@@ -62,6 +62,13 @@ export function useMemberAssignmentActions(userId: string) {
       onSuccess: refresh,
     }),
     end: useMutation({ mutationFn: (id: string) => endAssignment(id), onSuccess: refresh }),
+    /* Every direct assignment at once (Dee, 2026-09-19: "Unassign All").
+       Sequential, like assignMany: each end is its own authorization check.
+       Team-inherited access is untouched — that is the team's fact. */
+    endMany: useMutation({
+      mutationFn: async (ids: string[]) => { for (const id of ids) await endAssignment(id); return ids.length; },
+      onSuccess: refresh,
+    }),
   };
 }
 

@@ -150,9 +150,11 @@ function CreditOpsWorkspace() {
       ).length
     : 0;
 
+  /* "CreditOps Management" is a manager's title (Dee, 2026-09-19); an agent
+     works in CreditOps. */
   const headerName =
     selection.kind === "management"
-      ? "CreditOps Management"
+      ? (canAccessManagement ? "CreditOps Management" : "CreditOps")
       : (partner?.name ?? "Select a Partner");
   const headerCount =
     selection.kind === "management" ? null : partnerActiveCount;

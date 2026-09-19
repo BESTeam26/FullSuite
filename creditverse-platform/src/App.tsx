@@ -539,7 +539,8 @@ const AppRoutes = () => {
                 none — a route that renders nothing is worse
                 than one that explains why. */}
             <Route path="access-preview" element={<AccessPreviewPage />} />
-            <Route path="settings" element={<RequirePermission permission={["settings.manage", "team.manage", "team.permissions", "billing.view", "creditops.letters.templates"]} label="Settings"><Settings /></RequirePermission>} />
+            {/* Everyone's: My Profile lives here; the agency sections gate themselves by permission (Dee, 2026-09-19). */}
+            <Route path="settings" element={<RequireAgencyStaff label="Settings"><Settings /></RequireAgencyStaff>} />
             <Route
               path="files"
               element={<RequireHubModule module="files" label="Files"><CompanyFiles /></RequireHubModule>}

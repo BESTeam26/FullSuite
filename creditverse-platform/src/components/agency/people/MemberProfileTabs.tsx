@@ -190,6 +190,16 @@ export function AssignmentsTab({ member, teams }: { member: AgencyMember; teams:
       onError: (e) => toast({ title: "Could not assign them all", description: (e as Error).message, variant: "destructive" }),
     });
   };
+  const directAssignments = (assignments.data ?? []).filter((a) => a.via === "direct");
+  const [confirmUnassignAll, setConfirmUnassignAll] = useState(false);
+  const unassignAll = () => {
+    const ids = directAssignments.map((a) => a.id);
+    if (ids.length === 0) return;
+    actions.endMany.mutate(ids, {
+      onSuccess: (n) => { setConfirmUnassignAll(false); toast({ title: `Ended ${n} direct assignment${n === 1 ? "" : "s"}`, description: "Future access is removed; the history stays. Team-inherited partners are unchanged." }); },
+      onError: (e) => toast({ title: "Could not end them all", description: (e as Error).message, variant: "destructive" }),
+    });
+  };
 
   return (
     <ContentCard title="Partner assignments">
@@ -214,6 +224,21 @@ export function AssignmentsTab({ member, teams }: { member: AgencyMember; teams:
             {actions.assignMany.isPending && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
             Assign all {assignable.length} remaining
           </Button>
+          {directAssignments.length > 0 && (
+            confirmUnassignAll ? (
+              <span className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-destructive/30 bg-status-danger-tint px-2 py-1 text-[11px] text-status-danger">
+                End all {directAssignments.length} direct assignment{directAssignments.length === 1 ? "" : "s"}?
+                <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px] text-status-danger" disabled={actions.endMany.isPending} onClick={unassignAll}>
+                  {actions.endMany.isPending && <Loader2 className="mr-1 h-3 w-3 animate-spin" />} Yes, unassign all
+                </Button>
+                <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px]" onClick={() => setConfirmUnassignAll(false)}>Keep</Button>
+              </span>
+            ) : (
+              <Button size="sm" variant="ghost" className="ml-auto h-7 text-[11px] text-status-danger" onClick={() => setConfirmUnassignAll(true)}>
+                Unassign all {directAssignments.length}
+              </Button>
+            )
+          )}
         </div>
       )}
       {assignments.isLoading ? (

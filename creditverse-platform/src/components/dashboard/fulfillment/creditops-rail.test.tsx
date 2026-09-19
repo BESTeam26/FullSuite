@@ -82,16 +82,18 @@ describe("the collapsed rail carries the same authorization as the tree", () => 
        assert that an agent saw NO cross-partner views at all. Dee reversed
        that on 2026-09-11 — "ALL authorized CreditOps members must be able to
        see ALL CreditOps clients in the Main Client List… This is our SHARED
-       CREDITOPS CLIENT DIRECTORY" — so the Dashboard and the directory are
-       universal now, and only the Escalation Queue and the CRM Signal Log
-       remain management tooling.
+       CREDITOPS CLIENT DIRECTORY" — and narrowed it again on 2026-09-19: the
+       directory is partner-scoped and the Dashboard is a manager's surface,
+       so an agent's rail is the Main Client List and their own queue; the
+       Dashboard, Escalation Queue and CRM Signal Log are management tooling.
 
        The invariant the file exists for is unchanged: whatever the rule is,
        the collapsed rail and the expanded tree apply the same one. */
     canAccessManagement = false;
     rail();
     fireEvent.click(screen.getByRole("button", { name: /Collapse/ }));
-    expect(screen.getByRole("button", { name: "Dashboard" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Dashboard" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Main Client List" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Main Client List" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Escalation Queue" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "CRM Signal Log" })).not.toBeInTheDocument();

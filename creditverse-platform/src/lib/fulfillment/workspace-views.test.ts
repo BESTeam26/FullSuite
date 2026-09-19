@@ -7,6 +7,7 @@ import {
   visibleCreditOpsViews,
   visibleFundingOpsViews,
   workspaceViewOptions,
+  creditOpsNavForPerson,
 } from "./workspace-views";
 import { PARTNER_VIEWS } from "@/lib/fulfillment/creditops-partners";
 
@@ -60,10 +61,11 @@ describe("a CreditOps member sees their own workspace, not everybody's", () => {
   const bothDesks = { departments: ["Support", "Complaints"], canAccessManagement: false };
   const lead = { departments: ["Dispute"], canAccessManagement: true };
 
-  it("gives every member the four universal views", () => {
+  it("gives every member the universal views — the directory and the SOPs; the Dashboard is management (Dee, 2026-09-19)", () => {
     for (const who of [complaints, processor, bothDesks, lead]) {
       const views = creditOpsViewsForPerson(who);
-      expect(views).toContain("dashboard");
+      /* Dashboard follows management capability, never membership alone. */
+      expect(views.includes("dashboard")).toBe(who.canAccessManagement);
       expect(views).toContain("main-list");
       expect(views).toContain("sops-logins");
     }
@@ -139,7 +141,7 @@ describe("a CreditOps member sees their own workspace, not everybody's", () => {
     const views = creditOpsViewsForPerson({ departments: [], canAccessManagement: false });
     /* The client list leads: CreditOps opens on the work, not on a summary
        of it (Dee, 2026-09-12). */
-    expect(views).toEqual(["main-list", "dashboard", "sops-logins"]);
+    expect(views).toEqual(["main-list", "sops-logins"]);
   });
 
   it("keeps the views in workspace order, not the order they were asked for", () => {
@@ -187,3 +189,23 @@ describe("a department queue exists once, globally", () => {
     }
   });
 });
+
+/* Dee, 2026-09-19 (UAT case, not a name): a Complaints & Mailing agent's
+   CreditOps navigation is Main Client List · Dashboard · their one queue —
+   and never management. Multi-placement keeps every department they are in. */
+describe("a department agent's CreditOps navigation", () => {
+  it("is the universal pair plus their own queue, with no management section", () => {
+    const nav = creditOpsNavForPerson({ departments: ["Complaints"], canAccessManagement: false });
+    expect(nav.universal.map((v) => v.label).sort()).toEqual(["Main Client List", "SOPs & Logins"].sort());
+    expect(nav.department.map((v) => v.label)).toEqual(["Complaints & Mailing"]);
+    expect(nav.management).toEqual([]);
+    expect(nav.allQueues).toEqual([]);
+  });
+
+  it("keeps both queues for somebody legitimately placed in two departments", () => {
+    const nav = creditOpsNavForPerson({ departments: ["Complaints", "Support"], canAccessManagement: false });
+    expect(nav.department.map((v) => v.label).sort()).toEqual(["Complaints & Mailing", "Support Queue"].sort());
+    expect(nav.management).toEqual([]);
+  });
+});
+
