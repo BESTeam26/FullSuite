@@ -32,12 +32,29 @@ operator who hit it does.
 
 | ID | Date | Reported by | Module | Actual | Expected | Class | Sev | Root cause | Fix commit | Live verified by | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| P-007 | 2026-09-19 | Claude, building People & Teams → Overview; visible to every lead on Attendance | Attendance / Team Management | Every person's quarterly attendance score read **15 · Good standing** with zero incidents — Rowell, absent on eight scheduled days, included | Scores derived from the real days: Rowell 7 · Management review | C — data integrity (scores and the quarter-close reward sweep read an empty quarter) | S1 | Two silent truncations: `attendance_for` returned no rows for a range ≥ 62 days (the app asks for 92), and PostgREST caps a response at 1,000 rows (a quarter is 1,472) | `7973a29` | — | FIXED AWAITING LIVE RETEST |
 | P-006 | 2026-09-11 | Dee | CreditOps / Complete Work | The credit status could only be changed in a separate control, away from the work being finished | Offer it inside Complete Work before submitting — keep the current status, or move to the new stage | B pilot UX correction | S3 — an extra step in the most-used P0 workflow | Design decision from 02xx deliberately removed the selector after an earlier one logged status changes it never wrote | `9fda507` | — | **FIXED AWAITING LIVE RETEST** |
 | P-004 | 2026-09-11 | Dee | Access / Finance | Bryan and every agency admin could open **Finance** and **Organization billing**, and read payroll data | Money is the owner's alone, and the owner can switch it on for one person (e.g. a billing specialist) | **C security / data-integrity** | S1 — agency financials exposed to all administrators | `resolve_agency_capability` opened with `role in ('agency_owner','agency_admin') then true`, so an admin resolved TRUE for every capability including money, and no override could take it back | `cae687d` | — | **FIXED AWAITING LIVE RETEST** |
 | P-005 | 2026-09-11 | Phase 70 probe, during the pilot | My Time / Timer | One real time entry (Dee's, 2026-09-11) carried the retired division `general`, two days after it was renamed to `admin` | Only the six live divisions are storable | A pilot defect | S2 — splits division totals on My Time, EOD and production reporting | `time_entries.division_id` is TEXT with no constraint, so a browser tab running the pre-rename bundle kept writing the old value | `cae687d` | — | **FIXED AWAITING LIVE RETEST** |
 | P-002 | 2026-09-11 | Dee (and Bryan Breva, first real invited user) | Invite Users / Login | After choosing a password, the page looked unchanged — only a small green line appeared inside the still-complete form. Bryan then wandered to `/app` and hit **"No workspace access"** | A clear "we sent you a confirmation email" state that says what to do next | A pilot defect | S1 — the first real invited user believed activation had failed | Sign-up sets a `notice` string rendered as one `text-xs` line between the password field and the button; the form stays fully visible, so nothing reads as progress | `18999b8` | — | **FIXED AWAITING LIVE RETEST** |
 | P-003 | 2026-09-11 | Dee | Invite Users / Login | The internal team invitation used generic copy and the platform tagline ("Credit + Funding Operations. One Connected Platform.") | BES's own branding and voice for internal team members, distinct from the partner emails | B pilot UX correction | S3 | The `isTeam` invitation shared a generic branch with customer-organization invites; only the two partner branches carried Dee's verbatim branded copy | `18999b8` | — | **FIXED AWAITING LIVE RETEST** |
 | P-001 | 2026-09-10 | Dee | Invite Users / Login | The activation email from `noreply@bescrm.net` landed in Gmail **Spam** | It reaches the inbox so a new team member can activate | A pilot defect | S1 — blocks the Invite Users P0 flow | See below | `bfd6f7c` (reply-to) + `app.bescrm.net` cut over 2026-09-11 | — | **FIXED AWAITING LIVE RETEST** — the next real invitation is the test |
+
+### P-007 · Every attendance score was a clean 15
+
+Two layers, each silent. `attendance_for` was bounded to `p_to - p_from < 62`
+and answered an over-wide range with **no rows, not an error**; every reader
+that thinks in quarters — the Attendance section, `scoreQuarter`, the
+quarter-close reward sweep — asked for 92 days and received nothing, which
+scores as a perfect 15. Raising the bound exposed the second layer: PostgREST
+returns at most 1,000 rows per request and says nothing about the rest, and a
+quarter for the team is 1,472 rows, so the last people's Septembers were cut
+off. Both readers now page until a page comes back short
+(`lib/attendance/page-all.ts`), `fetchAttendance` refuses a range the function
+cannot answer, and the sweep was redeployed with the same loop and answers
+`2026-Q2 closed, granted 0, skipped 2, exceptions 8` as before. Fix `7973a29`.
+Live retest: open People & Teams → Attendance and confirm Rowell reads 7 with
+8 absences, then any agent's own My Attendance.
 
 ### P-006 · Credit status now moves as part of finishing the work
 
