@@ -51,6 +51,8 @@ import { WeekChart } from "@/components/time/WeekChart";
 import { TodayTimeline } from "@/components/time/TodayTimeline";
 import { RequestTimeOffDialog } from "@/components/time/RequestTimeOffDialog";
 import { businessDaysBetween, businessToday } from "@/lib/calendar/us-federal-holidays";
+import { rewardWallet } from "@/lib/leave/reward-wallet";
+import { useMyRewards } from "@/lib/leave/use-rewards";
 
 /**
  * One shared heartbeat for every counter on the page. It beats only while a
@@ -298,7 +300,12 @@ const TimeOffCard = () => {
   const types = useLeaveTypes();
   const mine = useMyLeave();
   const actions = useLeaveActions();
+  const rewards = useMyRewards();
   const [asking, setAsking] = useState(false);
+  const wallet = useMemo(
+    () => rewardWallet(rewards.data ?? [], { today: businessToday() }),
+    [rewards.data],
+  );
 
   const STATUS_TONE: Record<string, string> = {
     pending: "border-amber-500/40 bg-amber-500/10 text-amber-800",
@@ -372,16 +379,18 @@ const TimeOffCard = () => {
 
       {asking && (
         <RequestTimeOffDialog
-          /* Unpaid categories only here. Spending a REWARD needs the wallet,
-             which lives on Time Off — offering a paid type with no credit
-             count beside it would be offering something this card cannot
-             answer for. */
-          types={(types.data ?? [])
-            .filter((t) => t.compensation === "unpaid")
-            .map((t) => ({
-              id: t.id, label: t.label, paid: t.paid, minNoticeDays: t.minNoticeDays,
-              compensation: t.compensation, rewardKind: t.rewardKind,
-            }))}
+          /* EVERY type, from every door. This card used to offer unpaid types
+             only, on the reasoning that spending a reward needed the wallet
+             kept on Time Off — and from where Dee stood, Birthday Reward Day
+             simply did not exist (2026-09-19: "Why I dont see the birthday
+             leave…"). A type a person holds no credit for is listed and
+             explained as unavailable, never hidden: hidden reads as missing. */
+          types={(types.data ?? []).map((t) => ({
+            id: t.id, label: t.label, paid: t.paid, minNoticeDays: t.minNoticeDays,
+            compensation: t.compensation, rewardKind: t.rewardKind,
+            rewardDaysAvailable: t.rewardKind === "birthday" ? wallet.birthdayDays
+              : t.rewardKind === "attendance" ? wallet.attendanceDays : undefined,
+          }))}
           busy={actions.submit.isPending}
           error={(actions.submit.error as Error | null)?.message ?? null}
           onClose={() => setAsking(false)}
