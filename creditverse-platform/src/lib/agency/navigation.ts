@@ -101,14 +101,13 @@ export const AGENCY_ROUTES: AgencyRouteSpec[] = [
 
   /* ── Team leads and up ────────────────────────────────────────────── */
   { key: "attention", label: "Attention Center", path: "/app/attention", readiness: "ready", access: "lead" },
-  { key: "team_eod", label: "Team EOD", path: "/app/team-eod", readiness: "ready", access: "lead" },
 
   /* ── Managers and up ──────────────────────────────────────────────── */
-  /* Team Members (Dee, 2026-09-10 §38): admins and managers see everyone,
-     a Team Lead sees the members of the teams they lead — the page scopes the
-     directory to that; an Agent has no company directory by default. */
-  { key: "people", label: "Team Members", path: "/app/people", readiness: "ready", access: "lead" },
-  { key: "teams", label: "Teams", path: "/app/teams", readiness: "ready", access: "lead" },
+  /* People & Teams (Dee, 2026-09-19): the one management workspace. A Team
+     Lead reaches it for the teams they lead, management for its scope; an
+     Agent is not offered it. Which SECTIONS appear is `people-sections.ts`;
+     Team Members, Teams and Team EOD dissolved into it. */
+  { key: "people", label: "People & Teams", path: "/app/people", readiness: "ready", access: "lead" },
   { key: "reporting", label: "Reports", path: "/app/reporting", readiness: "ready", access: "manage", permission: "reports.view" },
   { key: "partners", label: "BES Partners", path: "/app/bes-partners", readiness: "ready", access: "manage" },
   /* ── Operational modules: ACCESS is the module key, never ops.manage ──

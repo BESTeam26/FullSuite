@@ -22,23 +22,21 @@ import { timeSectionFor } from "@/lib/time/time-sections";
 import { TimeOverview } from "@/pages/app/time/TimeOverview";
 import { AttendancePage } from "@/pages/app/time/AttendancePage";
 import { TimeOffPage } from "@/pages/app/time/TimeOffPage";
-import { TeamManagement } from "@/pages/app/time/TeamManagement";
 import { MyTimeSection } from "@/pages/app/MyTimePage";
 
 export const TimeAttendancePage = () => {
   const { section: slug } = useParams();
-  /*
-   * The SAME authority the route guard reads. `manages` is the admin role or
-   * the explicit ops.manage capability — the grant `is_manager_of` consults in
-   * the database — and `leadsTeam` is a real `team_memberships.is_lead`
-   * relationship, not a rank. So the menu and the door cannot disagree.
-   */
+  /* Time & Attendance is the person's own (Dee, 2026-09-19): every section is
+     for everyone, and the context is passed only so callers read like People
+     & Teams does. */
   const { ctx } = useAgencyAccessContext();
   const manages = ctx.role === "agency_admin" || ctx.can("ops.manage");
   const section = timeSectionFor(slug, { manages, leadsTeam: ctx.leadsTeam });
 
-  /* An unknown or unauthorized segment falls back to the module root rather
-     than to a dead page. */
+  /* Team Management lived here until 2026-09-19; it is People & Teams now.
+     Old links and bookmarks land on the new home. */
+  if (slug === "team") return <Navigate to="/app/people" replace />;
+  /* An unknown segment falls back to the module root rather than to a dead page. */
   if (!section) return <Navigate to="/app/time" replace />;
 
   return (
@@ -47,7 +45,6 @@ export const TimeAttendancePage = () => {
       {section.slug === "my-time" && <MyTimeSection />}
       {section.slug === "attendance" && <AttendancePage />}
       {section.slug === "time-off" && <TimeOffPage />}
-      {section.slug === "team" && <TeamManagement />}
     </HqPageShell>
   );
 };

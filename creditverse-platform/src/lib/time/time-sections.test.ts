@@ -5,26 +5,19 @@ const AGENT = { manages: false, leadsTeam: false };
 const LEAD = { manages: false, leadsTeam: true };
 const MANAGER = { manages: true, leadsTeam: false };
 
-describe("who sees what", () => {
-  it("gives a normal employee their own four sections", () => {
-    /* Dee's spec: Overview, My Time, Attendance, Time Off. */
-    expect(visibleTimeSections(AGENT).map((s) => s.label))
-      .toEqual(["Overview", "My Time", "Attendance", "Time Off"]);
+/* Dee, 2026-09-19: Time & Attendance is "ME". Managing other people lives in
+   People & Teams — see people-sections.test.ts. */
+describe("Time & Attendance is the person's own, for every role", () => {
+  it("gives everybody the same four sections", () => {
+    for (const ctx of [AGENT, LEAD, MANAGER]) {
+      expect(visibleTimeSections(ctx).map((s) => s.label))
+        .toEqual(["Overview", "My Time", "My Attendance", "My Time Off"]);
+    }
   });
 
-  it("adds Team Management for somebody who actually leads a team", () => {
-    expect(visibleTimeSections(LEAD).map((s) => s.label)).toContain("Team Management");
-  });
-
-  it("adds it for management too", () => {
-    expect(visibleTimeSections(MANAGER).map((s) => s.label)).toContain("Team Management");
-  });
-
-  it("does NOT give it to an agent, whatever else they are", () => {
-    /* Dee: "Do not show Team Management merely because somebody is an Agency
-       Admin." The audience is a real team-lead relationship or management
-       capability — never a role name. */
-    expect(visibleTimeSections(AGENT).map((s) => s.slug)).not.toContain("team");
+  it("no longer carries Team Management — that is People & Teams now", () => {
+    expect(TIME_SECTIONS.map((s) => s.slug)).not.toContain("team");
+    expect(timeSectionFor("team", MANAGER)).toBeNull();
   });
 });
 
@@ -34,18 +27,13 @@ describe("resolving a URL segment", () => {
     expect(timeSectionFor("", AGENT)?.label).toBe("Overview");
   });
 
-  it("finds a section this person may open", () => {
-    expect(timeSectionFor("attendance", AGENT)?.label).toBe("Attendance");
+  it("finds a section by its slug", () => {
+    expect(timeSectionFor("attendance", AGENT)?.label).toBe("My Attendance");
+    expect(timeSectionFor("time-off", LEAD)?.label).toBe("My Time Off");
   });
 
-  it("answers the same for a section that does not exist and one they may not open", () => {
-    /* A 'you are not allowed' page tells somebody the section exists. */
-    expect(timeSectionFor("team", AGENT)).toBeNull();
+  it("answers null for a section that does not exist", () => {
     expect(timeSectionFor("nonsense", AGENT)).toBeNull();
-  });
-
-  it("opens Team Management for a lead", () => {
-    expect(timeSectionFor("team", LEAD)?.label).toBe("Team Management");
   });
 });
 

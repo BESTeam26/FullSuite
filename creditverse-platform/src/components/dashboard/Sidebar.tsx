@@ -56,6 +56,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { usePermissions, type PermissionKeyName } from "@/lib/auth/use-permission";
 import { accessTo, routeFor } from "@/lib/agency/navigation";
 import { visibleTimeSections } from "@/lib/time/time-sections";
+import { seesPeopleAndTeams, visiblePeopleSections } from "@/lib/people/people-sections";
 import { Eye } from "lucide-react";
 import { useAgencyAccessContext } from "@/lib/agency/use-access-context";
 import { useAgencyPermissions, type AgencyPermission } from "@/lib/data/agency-permissions";
@@ -193,9 +194,11 @@ export const Sidebar = () => {
     [agencyPermissions],
   );
 
-  /* The Time & Attendance sections this person may open. Team Management is
-     gated on a real team-lead relationship or management capability — never
-     on the role name alone (Dee, 2026-09-18). */
+  /* Dee, 2026-09-19, the locked Workforce IA — two systems only:
+       "Me"                     → Time & Attendance (everyone, the same four)
+       "My people / BES people" → People & Teams (role-adaptive; agents: none)
+     Both lists come from registries the pages themselves read, so the menu and
+     the page cannot disagree. */
   const timeChildren = useMemo(
     () =>
       visibleTimeSections({
@@ -206,6 +209,18 @@ export const Sidebar = () => {
         href: s.slug ? `/app/time/${s.slug}` : "/app/time",
       })),
     [navContext],
+  );
+  const peopleAudience = useMemo(() => ({
+    administers: navContext.role === "agency_admin",
+    manages: navContext.role === "agency_admin" || navContext.can("ops.manage"),
+    leadsTeam: navContext.leadsTeam,
+  }), [navContext]);
+  const peopleChildren = useMemo(
+    () => visiblePeopleSections(peopleAudience).map((s) => ({
+      label: s.label,
+      href: s.slug ? `/app/people/${s.slug}` : "/app/people",
+    })),
+    [peopleAudience],
   );
 
   /* Agency HQ navigation — BES employees only */
@@ -256,14 +271,9 @@ export const Sidebar = () => {
           badge: myWorkCount,
         },
         { label: "End of Day", icon: Timer, href: "/app/eod" },
-        /* Team EOD was declared in `navigation.ts`, routed, guarded and linked
-           from the Home "Missing EOD" tile — and was in no menu anywhere. It
-           is also where a LEAVE REQUEST is decided, and the notification a
-           lead receives says in so many words "Decide it from Team EOD", so
-           the one instruction the product gives pointed at a page with no way
-           to reach it. The group filter below hides it from anyone who is
-           neither a lead nor management. */
-        { label: "Team EOD", icon: ClipboardCheck, href: "/app/team-eod" },
+        /* Team EOD lives in People & Teams → End of Day (Dee, 2026-09-19);
+           /app/team-eod redirects there, so the "decide it from Team EOD"
+           notification still lands. */
         {
           label: "Notifications",
           icon: Bell,
@@ -302,11 +312,15 @@ export const Sidebar = () => {
           href: "/app/time",
           children: timeChildren,
         },
-        /* Two doors, deliberately (Dee's People Hub doctrine): People is the
-           person — profile, access, schedule, compensation, insights — and
-           Teams is the structure. Workforce and HR dissolved into them. */
-        { label: "Team Members", icon: Users, href: "/app/people" },
-        { label: "Teams", icon: Network, href: "/app/teams" },
+        /* The management workspace. Team Members, Teams and Team Management
+           dissolved into it (Dee, 2026-09-19). Not offered to an agent. */
+        {
+          label: "People & Teams",
+          icon: Users,
+          href: "/app/people",
+          children: peopleChildren,
+          show: seesPeopleAndTeams(peopleAudience),
+        },
       ],
     },
     {

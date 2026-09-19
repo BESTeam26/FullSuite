@@ -31,10 +31,10 @@ const STAFF_MENU = [
   "/app/notifications",
 ];
 
-const LEAD_EXTRAS = ["/app/attention", "/app/team-eod"];
+const LEAD_EXTRAS = ["/app/attention"];
 
 const MANAGEMENT = [
-  "/app/people", "/app/teams",
+  "/app/people",
   "/app/bes-partners",
 ];
 
@@ -108,12 +108,11 @@ describe("leading a team is a fact, not a rank", () => {
     for (const path of LEAD_EXTRAS) expect(allow(LEAD, path), path).toBe(true);
   });
 
-  /* Dee §38/§39 (2026-09-10): a lead reaches Team Members and Teams — scoped
-     by those pages to the teams they lead — but no other management area. */
-  it("opens Team Members and Teams for their own scope, and nothing else beyond the staff menu", () => {
+  /* Dee, 2026-09-19: a lead reaches People & Teams — scoped by the page to the
+     teams they lead — but no other management area. */
+  it("opens People & Teams for their own scope, and nothing else beyond the staff menu", () => {
     expect(allow(LEAD, "/app/people")).toBe(true);
-    expect(allow(LEAD, "/app/teams")).toBe(true);
-    for (const path of [...MANAGEMENT.filter((p) => p !== "/app/people" && p !== "/app/teams"), ...ADMIN_ONLY]) {
+    for (const path of [...MANAGEMENT.filter((p) => p !== "/app/people"), ...ADMIN_ONLY]) {
       expect(allow(LEAD, path), path).toBe(false);
     }
   });

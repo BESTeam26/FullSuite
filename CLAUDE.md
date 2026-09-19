@@ -1123,33 +1123,45 @@ the reader to wonder whether it was considered.
 
 Report per view when reporting the change.
 
-## 20c. NAVIGATION IS LOCKED (Dee, 2026-09-19 — do not redesign without UAT evidence)
+## 20c. THE WORKFORCE IA IS LOCKED (Dee, 2026-09-19 — supersedes the earlier §20c)
 
-> "Sidebar = major destinations. Tabs = functions inside a destination.
-> Role = experience. Placement = scope. Capability = action. The four views
-> must share the same architecture rather than becoming four independently
-> designed applications."
+Dee, after seeing three places manage the same people (Time & Attendance →
+Team Management, Team Members, Teams): *"I would simplify the entire
+Workforce section to only two systems… I would lock this instead of
+continuing to add more Workforce menu items."* Then the mockup: *"FOLLOW
+THIS EXACTLY."*
 
-1. **Time & Attendance stays collapsible for EVERY role** — Overview · My Time
-   · My Attendance · My Time Off nested under one parent. Never flattened into
-   separate Workforce entries. What changes by view is data scope and actions,
-   not the IA.
-2. **Team Management is ONE destination with internal tabs** — Overview |
-   Members | Schedule | Time | Attendance | Time Off | EOD | Performance, each
-   shown only when relevant and authorized. Never seven sidebar children.
-   Agent: none. Team Lead: assigned teams. Division Manager: their division.
-   Executive: organization-wide by capability.
-3. **Agent gets Notifications, not Attention Center.** Attention Center is for
-   operational exceptions needing management attention; Notifications are
-   personal events. Not interchangeable. Lead / Division Manager / Executive
-   see Attention Center when capability and scope permit.
-4. **The generated menu mockup is a concept, not the source of truth.** Ignore
-   its flat Workforce nav and its expanded Team Management children.
-5. **People & Teams stays management-oriented** — Team Members | Teams |
-   Positions | Access. Running the team is Team Management; structure and
-   administration is People & Teams. Not exposed merely for being a Team Lead.
-6. **Operational modules are untouched** by navigation cleanup; their
-   visibility derives from real module authorization.
+```
+WORKFORCE
+├─ Time & Attendance ▾      "ME"  — my clock, my schedule, my attendance,
+│    Overview · My Time ·           my leave, my rewards. Every role, the
+│    My Attendance · My Time Off    same four. Never a team section here.
+└─ People & Teams ▾         "MY PEOPLE / BES PEOPLE" — the ONE management
+     Overview · Team Members ·      workspace. Role-adaptive sections, in
+     Structure · Positions ·        this order, nested in the sidebar AND
+     Org Chart · Schedule ·         drawn as tabs on the page from the same
+     Attendance · Time Off ·        registry (`lib/people/people-sections.ts`).
+     End of Day · Performance
+```
+
+1. **Agent:** no People & Teams at all. They use My Time · My Attendance ·
+   My Time Off · End of Day.
+2. **Team Lead:** Overview · Team Members · Schedule · Attendance · Time Off ·
+   End of Day · Performance — over the teams they lead.
+3. **Division Manager:** the same operational sections over their division,
+   plus Org Chart.
+4. **Executive/admin:** everything, including Structure and Positions.
+5. **Retired destinations, kept as redirects:** `/app/time/team` (Team
+   Management) → `/app/people`; `/app/teams` → `/app/people/structure` (with
+   `?tab=` and `?team=` honoured); `/app/team-eod` → `/app/people/eod`;
+   `/app/workforce`, `/app/hr` → `/app/people/performance`. Do not bring any
+   of them back as sidebar entries, and do not add a new Workforce entry.
+6. **Data scope is the database's** — `managed_people()` and the row
+   policies decide what a section shows; the registry only decides which
+   sections are drawn. A section a person may not open resolves exactly like
+   one that does not exist.
+7. **Agent gets Notifications, not Attention Center** (unchanged).
+8. **Operational modules are untouched** by navigation cleanup.
 
 For every feature, verify all four views on: navigation visibility, page
 visibility, record/data scope, available actions, direct-route access,

@@ -160,7 +160,7 @@ export function TeamsAndMembers({
                   {[orgDivisionLabel(current.division), current.department].filter(Boolean).join(" › ") || "No division"}
                 </p>
               </div>
-              <Link to="/app/teams"
+              <Link to="/app/people/structure"
                 className="rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11px] font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 Manage this team
               </Link>

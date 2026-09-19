@@ -21,6 +21,7 @@ import { RequireEntitlement } from "./components/auth/RequireEntitlement";
 import { RequirePermission } from "./components/auth/RequirePermission";
 import { RequireHubModule } from "./components/auth/RequireHubModule";
 import { HubOrAgencyPage } from "./components/auth/HubOrAgencyPage";
+import { LegacyTeamsRedirect } from "./pages/app/people/LegacyTeamsRedirect";
 import { FundingOpsAccessProvider } from "@/lib/fulfillment/fundingops-access";
 import { useRouteTransition, ShownLocationContext } from "@/lib/nav/use-route-transition";
 import { RouteProgress } from "@/components/dashboard/RouteProgress";
@@ -118,19 +119,17 @@ const EodPage = lazy(chunkFor("/app/eod"));
 const AgencyOrOrgCalendar = lazy(chunkFor("/app/calendar"));
 const PartnerProfilePage = lazy(chunkFor("/app/bes-partners/:id"));
 const PartnerPortal = lazy(named(() => import("./pages/portal/PartnerPortal"), "PartnerPortal"));
-const TeamEodPage = lazy(chunkFor("/app/team-eod"));
 const AgencyTeamWorkspace = lazy(chunkFor("/app/team-workspace"));
 const NotificationsPage = lazy(chunkFor("/app/notifications"));
-const PeoplePage = lazy(chunkFor("/app/people"));
-const TeamMemberProfilePage = lazy(chunkFor("/app/people/:userId"));
-const TeamsPage = lazy(chunkFor("/app/teams"));
+const PeopleTeamsPage = lazy(chunkFor("/app/people"));
+const PeopleKeyRoute = lazy(named(() => import("./pages/app/people/PeopleTeamsPage"), "PeopleKeyRoute"));
 const BillingPage = lazy(chunkFor("/app/billing"));
 const AgencyFinance = lazy(chunkFor("/app/finance"));
 const AnnouncementsPage = lazy(chunkFor("/app/announcements"));
-/* The organization-side halves of /app/people and /app/teams. They share a
-   route with the agency pages and `HubOrAgencyPage` picks between them, so
-   they are not in the chunk registry — which is keyed by path, and a path has
-   one entry. The agency screen is the one worth warming from the menu. */
+/* The organization-side halves of /app/people and /app/teams (the customer
+   hub's People and Departments). They share a route with the agency pages and
+   `HubOrAgencyPage` picks between them, so they are not in the chunk registry
+   — which is keyed by path, and a path has one entry. */
 const CompanyPeople = lazy(() => import("./pages/app/CompanyPeople"));
 const CompanyDepartments = lazy(() => import("./pages/app/CompanyDepartments"));
 const CompanyTools = lazy(chunkFor("/app/tools"));
@@ -380,14 +379,9 @@ const AppRoutes = () => {
             <Route path="time/:section" element={<TimeAttendancePage />} />
             <Route path="my-time" element={<Navigate to="/app/time/my-time" replace />} />
             <Route path="eod" element={<EodPage />} />
-            <Route
-              path="team-eod"
-              element={
-                <RequireAgencyStaff label="Team EOD">
-                  <TeamEodPage />
-                </RequireAgencyStaff>
-              }
-            />
+            {/* Team EOD is People & Teams → End of Day (Dee, 2026-09-19). The
+                notification that says "decide it from Team EOD" still lands. */}
+            <Route path="team-eod" element={<Navigate to="/app/people/eod" replace />} />
             {/* The BES team's own workspace. Agency staff
                 only — this is internal work, not a
                 customer's (rule 16). */}
@@ -457,42 +451,45 @@ const AppRoutes = () => {
               element={<TalentOps />}
             />
             {/* Workforce */}
+            {/* People & Teams — the one management workspace (Dee, 2026-09-19).
+                /app/people is the Overview; /app/people/:key is a section when
+                the key names one and a person's profile otherwise. */}
             <Route
               path="people"
               element={
                 <HubOrAgencyPage
                   module="people"
                   label="People"
-                  agency={<RequireAgencyStaff label="People"><PeoplePage /></RequireAgencyStaff>}
+                  agency={<RequireAgencyStaff label="People & Teams"><PeopleTeamsPage /></RequireAgencyStaff>}
                   organization={<CompanyPeople />}
                 />
               }
             />
             <Route
-              path="people/:userId"
+              path="people/:key"
               element={
-                <RequireAgencyStaff label="Team member">
-                  <TeamMemberProfilePage />
+                <RequireAgencyStaff label="People & Teams">
+                  <PeopleKeyRoute />
                 </RequireAgencyStaff>
               }
             />
+            {/* Teams dissolved into People & Teams → Structure; the customer
+                hub's Departments keeps this path on the organization side. */}
             <Route
               path="teams"
               element={
                 <HubOrAgencyPage
                   module="departments"
                   label="Departments"
-                  agency={<RequireAgencyStaff label="Teams"><TeamsPage /></RequireAgencyStaff>}
+                  agency={<LegacyTeamsRedirect />}
                   organization={<CompanyDepartments />}
                 />
               }
             />
             {/* Workforce and HR & People dissolved into People (Dee's People
-                Hub doctrine): their facts live on as People → Workforce
-                insights and the Team Member profile; payroll configuration
-                went to Finance. Old bookmarks land where the facts went. */}
-            <Route path="workforce" element={<Navigate to="/app/people?view=insights" replace />} />
-            <Route path="hr" element={<Navigate to="/app/people?view=insights" replace />} />
+                Hub doctrine); their insights are People & Teams → Performance. */}
+            <Route path="workforce" element={<Navigate to="/app/people/performance" replace />} />
+            <Route path="hr" element={<Navigate to="/app/people/performance" replace />} />
             {/* Management */}
             <Route
               path="reporting"

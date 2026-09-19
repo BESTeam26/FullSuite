@@ -1,20 +1,10 @@
 /**
- * Team EOD — one day, everybody.
- *
- * Shows who submitted, who did not, and who was auto-submitted at the cutoff,
- * kept apart because they mean different things. Files worked and actions
- * completed are shown as two numbers for the same reason they are everywhere
- * else: five files with thirty-five actions and a hundred files with a hundred
- * are different days, and one figure cannot tell them apart.
- *
- * Deliberately NOT a score. The absence of recorded activity is shown as the
- * fact it is — somebody may have spent the day on a call, in training, or on
- * something nobody logged. Turning silence into a judgement is the manager's
- * job to avoid and this screen's job not to invite.
+ * People & Teams → End of Day: who reported, what they worked, and what is in
+ * their way — with the time-correction and leave queues that a lead decides
+ * from the same seat. Was the Team EOD page; /app/team-eod redirects here.
  */
 import { useState } from "react";
 import { AlertTriangle, CircleSlash, ClipboardCheck, Loader2, UserX } from "lucide-react";
-import { HqPageShell } from "@/pages/app/HqPages";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useAgencyAccessContext } from "@/lib/agency/use-access-context";
 import { managesAgency } from "@/lib/agency/navigation";
@@ -52,7 +42,7 @@ function PersonRow({ employeeId, date, name }: { employeeId: string; date: strin
   );
 }
 
-export const TeamEodPage = () => {
+export const TeamEod = () => {
   const access = useAgencyAccessContext();
   const [date, setDate] = useState(todayLocal());
   const team = useTeamEod(date);
@@ -72,15 +62,11 @@ export const TeamEodPage = () => {
   const followUp = rows.filter((r) => r.state === "needs_clarification");
 
   return (
-    <HqPageShell
-      title="Team EOD"
-      description="Who reported, what they worked, and what is in their way"
-      icon={ClipboardCheck}
-      actions={
+    <div className="space-y-3">
+      <div className="flex items-center justify-end">
         <Input type="date" value={date} onChange={(e) => setDate(e.target.value)}
           aria-label="Day" className="h-8 w-40" />
-      }
-    >
+      </div>
       <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-xl border border-border bg-card p-4">
           <p className="flex items-center gap-1.5 text-2xl font-black text-foreground">
@@ -203,7 +189,7 @@ export const TeamEodPage = () => {
         No recorded activity is shown as exactly that. Somebody may have spent the day on a
         call, in training, or on work nobody logged — the absence of a record is not a finding.
       </p>
-    </HqPageShell>
+    </div>
   );
 };
 

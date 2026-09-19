@@ -221,7 +221,7 @@ export function GlobalSearch({ className }: { className?: string }) {
             )}
             {memberHits.length > 0 && (
               <CommandGroup heading="Team">
-                {memberHits.map((m) => item(`member-${m.id}`, icon(Users), m.name, m.role, () => go("/app/teams")))}
+                {memberHits.map((m) => item(`member-${m.id}`, icon(Users), m.name, m.role, () => go("/app/people/members")))}
               </CommandGroup>
             )}
             {messageHits.length > 0 && (

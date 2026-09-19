@@ -61,7 +61,6 @@ export const ROUTE_CHUNKS: Record<string, Loader> = {
   "/app/time": named(() => import("@/pages/app/TimeAttendancePage"), "TimeAttendancePage"),
   "/app/time/:section": named(() => import("@/pages/app/TimeAttendancePage"), "TimeAttendancePage"),
   "/app/eod": named(() => import("@/pages/app/EodPage"), "EodPage"),
-  "/app/team-eod": named(() => import("@/pages/app/TeamEodPage"), "TeamEodPage"),
   "/app/team-workspace": named(
     () => import("@/pages/app/AgencyTeamWorkspace"),
     "AgencyTeamWorkspace",
@@ -74,9 +73,10 @@ export const ROUTE_CHUNKS: Record<string, Loader> = {
   ),
 
   // People and company
-  "/app/people": named(() => import("@/pages/app/PeopleHubPage"), "PeopleHubPage"),
-  "/app/people/:userId": () => import("@/pages/app/TeamMemberProfilePage"),
-  "/app/teams": named(hq2, "TeamsPage"),
+  /* People & Teams is one module with child routes (Dee, 2026-09-19): the
+     sections warm one chunk; a person's profile, opened from it, is its own. */
+  "/app/people": named(() => import("@/pages/app/people/PeopleTeamsPage"), "PeopleTeamsPage"),
+  "/app/people/:key": named(() => import("@/pages/app/people/PeopleTeamsPage"), "PeopleKeyRoute"),
   "/app/announcements": named(hq2, "AnnouncementsPage"),
   "/app/support": named(hq2, "SupportPage"),
   "/app/billing": named(hq2, "BillingPage"),

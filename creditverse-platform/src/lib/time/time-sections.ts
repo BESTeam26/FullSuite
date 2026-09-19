@@ -25,11 +25,13 @@
  * refuses the same person at the database whether or not a link was drawn.
  */
 
-export type TimeAudience =
-  /** Anybody who works at BES: their own time, their own attendance. */
-  | "everyone"
-  /** Somebody who actually leads a team, or holds management capability. */
-  | "lead";
+/**
+ * Dee, 2026-09-19, locking the Workforce IA: Time & Attendance is "ME" — my
+ * clock, my attendance, my leave, my rewards. Everybody who works at BES gets
+ * exactly these four; managing OTHER people lives in People & Teams
+ * (`lib/people/people-sections.ts`). There is no team audience here any more.
+ */
+export type TimeAudience = "everyone";
 
 export interface TimeSection {
   /** The URL segment under /app/time. The overview is the root and has none. */
@@ -55,60 +57,35 @@ export const TIME_SECTIONS: TimeSection[] = [
   },
   {
     slug: "attendance",
-    label: "Attendance",
+    label: "My Attendance",
     description: "Your quarterly attendance score and how it was reached.",
     audience: "everyone",
   },
   {
     slug: "time-off",
-    label: "Time Off",
+    label: "My Time Off",
     /* Dee, 2026-09-19: the navigation entry stays "Time Off"; the page says
        what it actually covers, because paid rewards are not leave. */
     description: "Plan time away, and manage the paid rewards you have earned.",
     audience: "everyone",
   },
-  {
-    slug: "team",
-    label: "Team Management",
-    description: "Your team's time, leave, attendance and availability.",
-    audience: "lead",
-  },
 ];
 
 export interface TimeAudienceContext {
-  /** Holds management capability over the workforce. */
+  /** Kept so callers read the same way as People & Teams; nothing here varies by it. */
   manages: boolean;
-  /** Actually leads at least one team — a relationship, not a role name. */
   leadsTeam: boolean;
 }
 
-export const visibleTimeSections = (ctx: TimeAudienceContext): TimeSection[] =>
-  TIME_SECTIONS.filter((s) => s.audience === "everyone" || ctx.manages || ctx.leadsTeam);
+/** Every section, for everyone: Time & Attendance is the person's own. */
+export const visibleTimeSections = (_ctx: TimeAudienceContext): TimeSection[] => TIME_SECTIONS;
 
 /**
- * The section a URL segment names, or null when it names none — or one this
- * person may not open, which is deliberately the same answer.
+ * The section a URL segment names, or null when it names none. `team` was a
+ * section once (Team Management); it now redirects to People & Teams.
  */
 export const timeSectionFor = (
   slug: string | undefined,
   ctx: TimeAudienceContext,
 ): TimeSection | null =>
   visibleTimeSections(ctx).find((s) => s.slug === (slug ?? "")) ?? null;
-
-/**
- * The tabs inside Team Management — Dee's locked list (CLAUDE.md §20c):
- * Overview | Members | Schedule | Time | Attendance | Time Off | EOD | Performance.
- *
- * Only the BUILT ones are listed. A tab is added here the day it works; a tab
- * that opens onto nothing would be a dead control, which is worse than a
- * missing one. The order is the locked order.
- */
-export const TEAM_TABS = [
-  { key: "overview", label: "Overview" },
-  { key: "members", label: "Members" },
-  { key: "schedule", label: "Schedule" },
-  { key: "attendance", label: "Attendance" },
-  { key: "time-off", label: "Time Off" },
-] as const;
-
-export type TeamTab = (typeof TEAM_TABS)[number]["key"];

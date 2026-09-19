@@ -130,14 +130,10 @@ const HELP: [prefix: string, help: PageHelp][] = [
     tip: "You only see the sections your role may change.",
   }],
   ["/app/people", {
-    title: "Team Members",
-    summary: "Everyone at your company, what they do and how to reach them.",
-    steps: ["Search by name, role or department.", "An administrator can move someone into a department here.", "A birthday shows only if that person chose to share it."],
-  }],
-  ["/app/teams", {
-    title: "Departments",
-    summary: "How your company is organised, and who belongs where.",
-    steps: ["Create a department, give it a lead, then assign people from People.", "Archiving a department releases its people and keeps the history."],
+    title: "People & Teams",
+    summary: "Your people, teams, positions and workforce operations — schedules, attendance, time off and end of day — in one place.",
+    steps: ["Team Members: search, filter, and open somebody's card or full profile.", "Schedule, Attendance and Time Off show the people you manage; a lead sees their team, management its scope.", "Structure and Positions are where an administrator shapes the organization."],
+    tip: "You only see the sections your role may use — an agent uses Time & Attendance instead.",
   }],
   ["/app/files", {
     title: "Files",

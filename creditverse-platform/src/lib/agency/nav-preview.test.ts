@@ -18,7 +18,7 @@ const MODULES = ["CreditOps", "FundingOps", "BES CRM", "TalentOps"];
 /* No "HR & People": it dissolved into People when the hub was built, and
    naming a route that no longer exists is how a test starts asserting the
    past. */
-const MANAGEMENT = ["Team Members", "Teams", "Reports", "BES Partners"];
+const MANAGEMENT = ["People & Teams", "Reports", "BES Partners"];
 const ADMIN_ONLY = ["Finance", "Agency Settings", "Organizations", "Organization billing", "Compliance & Legal"];
 /* "My Time" is a SECTION of the Time & Attendance module now, not a top-level
    tab (Dee, 2026-09-18) — so the menu promises the module, and
@@ -56,12 +56,10 @@ describe("a Team Lead who actually leads a team", () => {
 
   it("gets the team surfaces the fact earns", () => {
     expect(menu).toContain("Attention Center");
-    expect(menu).toContain("Team EOD");
   });
 
-  it("sees Team Members and Teams — scoped to the teams they lead — but no agency-wide administration", () => {
-    expect(menu).toContain("Team Members");
-    expect(menu).toContain("Teams");
+  it("sees People & Teams — scoped to the teams they lead — but no agency-wide administration", () => {
+    expect(menu).toContain("People & Teams");
     for (const item of ["Reports", ...ADMIN_ONLY]) expect(menu, item).not.toContain(item);
   });
 
@@ -69,7 +67,7 @@ describe("a Team Lead who actually leads a team", () => {
      fact there is no team scope, and the menu must say so by omission. */
   it("without the fact, the team surfaces are not there", () => {
     const noTeam = labels(ctx(["creditops.clients.view", "partners.view", "reports.view"], false));
-    expect(noTeam).not.toContain("Team EOD");
+    expect(noTeam).not.toContain("People & Teams");
     expect(noTeam).not.toContain("Attention Center");
   });
 });
@@ -78,7 +76,7 @@ describe("a Manager", () => {
   const menu = labels(ctx(["ops.manage", "team.manage", "reports.view", "partners.view", "crm.projects.view"]));
 
   it("runs their scope", () => {
-    for (const item of ["Team Members", "Teams", "Reports", "BES Partners", "BES CRM"]) {
+    for (const item of ["People & Teams", "Reports", "BES Partners", "BES CRM"]) {
       expect(menu, item).toContain(item);
     }
   });
@@ -117,7 +115,7 @@ describe("money in the menu", () => {
     expect(menu).toContain("Finance");
     expect(menu).toContain("Organization billing");
     /* And the grant buys money, not management. */
-    expect(menu).not.toContain("Team Members");
+    expect(menu).not.toContain("People & Teams");
     expect(menu).not.toContain("Reports");
   });
 });

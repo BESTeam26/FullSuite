@@ -41,7 +41,7 @@ const ICON: Record<OrgNode["kind"], typeof Users> = {
 function hrefFor(node: OrgNode): string | null {
   switch (node.kind) {
     case "team":
-      return `/app/teams?team=${node.recordId}`;
+      return `/app/people/structure?team=${node.recordId}`;
     case "leadership":
     case "division":
     case "department":
