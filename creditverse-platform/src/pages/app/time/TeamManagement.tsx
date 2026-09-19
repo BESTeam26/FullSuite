@@ -17,7 +17,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LeaveQueue } from "@/components/agency/people/AttendanceAndLeave";
 import { AttendanceSummary } from "@/components/attendance/AttendanceSummary";
 import { useWorkforce } from "@/lib/data/use-workforce";
-import { useAttendanceRange, useMyLeave, useSchedules } from "@/lib/data/use-people";
+import { useManagedPeople } from "@/lib/data/use-managed-people";
+import { useAttendanceRange, useSchedules, useTeamUpcomingLeave } from "@/lib/data/use-people";
 import { useAuth } from "@/lib/auth/auth-context";
 import { factsFrom } from "@/lib/attendance/attendance-facts";
 import { quarterOf, scoreQuarter } from "@/lib/attendance/attendance-score";
@@ -37,7 +38,7 @@ import { TeamsAndMembers, statusOf } from "@/components/time/TeamsAndMembers";
 import { cn } from "@/lib/utils";
 
 export function TeamManagement() {
-  const [tab, setTab] = useState<TeamTab>("time");
+  const [tab, setTab] = useState<TeamTab>("overview");
   const [reviewing, setReviewing] = useState<{ userId: string; name: string } | null>(null);
   const record = useRecordCorrection();
   const exceptions = useRewardExceptions();
@@ -51,21 +52,21 @@ export function TeamManagement() {
   const policy = useAttendancePolicy();
 
   /*
-   * Who this person may manage.
+   * Who this person may manage — the DATABASE's answer.
    *
-   * A lead sees the members of the teams they LEAD; management sees everyone
-   * the workforce batch already returns. Presentation only — `attendance_for`
-   * and the leave policies refuse the same person at the database.
+   * This used to be decided here: "if I lead teams, their members; otherwise
+   * everyone." That fallback is the leak §20b names — a division manager who
+   * leads no team saw the whole company. `managed_people()` is the same
+   * predicate that guards every workforce row, so the list and the rows agree
+   * by construction. An agent gets an empty set, and this page is not offered
+   * to them at all.
    */
+  const managed = useManagedPeople();
   const people = useMemo(() => {
     const all = workforce.data?.people ?? [];
-    const teams = workforce.data?.teams ?? [];
-    const myLedTeams = teams.filter((t) => !t.archived
-      && t.members.some((m) => m.isLead && m.userId === auth.user?.id));
-    if (myLedTeams.length === 0) return all;
-    const ids = new Set(myLedTeams.flatMap((t) => t.members.map((m) => m.userId)));
-    return all.filter((p) => ids.has(p.userId));
-  }, [workforce.data, auth.user?.id]);
+    if (!managed.data) return [];
+    return all.filter((p) => managed.data!.has(p.userId));
+  }, [workforce.data, managed.data]);
 
   const weekTime = new Map((workforce.data?.time ?? []).map((t) => [t.employeeId, t]));
   /* Who is on the clock, and of those, who is resting. The workforce batch
@@ -87,53 +88,32 @@ export function TeamManagement() {
       }));
     }
     return out;
-  }, [attendance.data, schedules.data, corrections.data, people, today]);
+  /* `policy` is a dependency, not decoration: without it a policy edit left
+     this table showing scores computed under the OLD numbers until something
+     else happened to re-render it. */
+  }, [attendance.data, schedules.data, corrections.data, people, today, policy]);
 
   const todayRows = (attendance.data ?? []).filter((d) => d.day === today);
   const dayFor = (userId: string) => todayRows.find((d) => d.userId === userId);
 
 
-  const todayRowsForTiles = (attendance.data ?? []).filter((d) => d.day === today);
-  const tiles = (() => {
-    const statuses = people.map((p) => statusOf(
-      p.userId,
-      todayRowsForTiles.find((d) => d.userId === p.userId),
-      running.has(p.userId),
-      onBreak.has(p.userId),
-    ));
-    const n = (s: string) => statuses.filter((x) => x === s).length;
-    const teams = (workforce.data?.teams ?? []).filter((t) => !t.archived);
-    return [
-      { label: "Teams", value: teams.length, note: "Live teams in your scope" },
-      { label: "Team members", value: people.length, note: "People you manage" },
-      { label: "On leave today", value: n("on_leave"), note: "Approved and away" },
-      { label: "Working now", value: n("working"), note: "A timer is running" },
-      { label: "Offline", value: n("offline"), note: "No timer running" },
-    ];
-  })();
 
   return (
     <Tabs value={tab} onValueChange={(v) => setTab(v as TeamTab)}>
-      {/* Dee's mockup puts the shape of the team above the tabs, so the
-          numbers do not change as you move between them. */}
-      <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
-        {tiles.map((t) => (
-          <div key={t.label} className="rounded-xl border border-border bg-card px-3 py-2.5">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t.label}</p>
-            <p className="text-xl font-extrabold tabular-nums text-foreground">{t.value}</p>
-            <p className="truncate text-[11px] text-muted-foreground">{t.note}</p>
-          </div>
-        ))}
-      </div>
-
       <TabsList className="h-8 flex-wrap bg-muted/60">
         {TEAM_TABS.map((t) => (
           <TabsTrigger key={t.key} value={t.key} className="text-[11px]">{t.label}</TabsTrigger>
         ))}
       </TabsList>
 
-      {/* ── Teams & Members ───────────────────────────────────────────── */}
-      <TabsContent value="time" className="mt-3">
+      {/* ── Overview ──────────────────────────────────────────────────── */}
+      <TabsContent value="overview" className="mt-3">
+        <TeamOverview people={people} todayRows={todayRows} today={today}
+          running={running} attendanceByUser={attendanceByUser} />
+      </TabsContent>
+
+      {/* ── Members ───────────────────────────────────────────────────── */}
+      <TabsContent value="members" className="mt-3">
         <TeamsAndMembers
           teams={(workforce.data?.teams ?? [])}
           people={people}
@@ -144,8 +124,8 @@ export function TeamManagement() {
         />
       </TabsContent>
 
-      {/* ── Leave Requests ────────────────────────────────────────────── */}
-      <TabsContent value="leave" className="mt-3 space-y-3">
+      {/* ── Time Off ──────────────────────────────────────────────────── */}
+      <TabsContent value="time-off" className="mt-3 space-y-3">
         <LeaveQueue />
         <p className="rounded-xl border border-border bg-card px-4 py-3 text-[11px] text-muted-foreground">
           A request is decided by a lead of the requester&apos;s team, or by management — never
@@ -283,78 +263,147 @@ export function TeamManagement() {
         )}
       </TabsContent>
 
-      {/* ── Availability ──────────────────────────────────────────────── */}
-      <TabsContent value="availability" className="mt-3">
-        <AvailabilityTab people={people} todayRows={todayRows} today={today} />
-      </TabsContent>
     </Tabs>
   );
 }
 
 /**
- * Who is working, who is out, and what is coming.
+ * Overview — the shape of the team right now, and what needs a lead's hand.
  *
- * Dee: "Do not expose private reasons to coworkers." So a colleague's leave
- * shows as leave and as dates — never the reason they gave for it.
+ * Dee, 2026-09-19: build Overview first. Everything here is derived from the
+ * same rows the other tabs read; it adds no query of its own except the team's
+ * upcoming leave, which is the one thing a lead planning coverage cannot get
+ * from today's attendance.
+ *
+ * Four views, same component: `people` is already the caller's management
+ * scope, so a Team Lead sees their team's shape, a Division Manager their
+ * division's, an Executive the company's. Nothing here widens it.
  */
-function AvailabilityTab({ people, todayRows, today }: {
+function TeamOverview({ people, todayRows, today, running, attendanceByUser }: {
   people: { userId: string; name: string }[];
-  todayRows: { userId: string; onLeave: boolean; leaveLabel: string | null; status: string }[];
+  todayRows: { userId: string; onLeave: boolean; leaveLabel: string | null; workMinutes: number }[];
   today: string;
+  running: Set<string>;
+  attendanceByUser: Map<string, ReturnType<typeof scoreQuarter>>;
 }) {
-  const mine = useMyLeave();
+  const teamLeave = useTeamUpcomingLeave();
+  const exceptions = useRewardExceptions();
+  const ids = new Set(people.map((p) => p.userId));
+  const nameOf = (id: string) => people.find((p) => p.userId === id)?.name ?? "Someone";
+
   const out = people.filter((p) => todayRows.find((d) => d.userId === p.userId)?.onLeave);
-  const working = people.filter((p) => !out.includes(p));
-  /* Only the caller's own upcoming leave is available to this screen without a
-     wider read; a team-wide forecast is a separate, scoped query rather than
-     something to fake from what happens to be loaded. */
-  const upcoming = (mine.data ?? []).filter((r) => r.status === "approved" && r.startsOn > today);
+  const working = people.filter((p) => running.has(p.userId));
+  const offline = people.filter((p) => !out.includes(p) && !working.includes(p));
+  const upcoming = (teamLeave.data ?? [])
+    .filter((r) => ids.has(r.userId) && r.status === "approved" && r.startsOn > today)
+    .sort((a, b) => (a.startsOn < b.startsOn ? -1 : 1)).slice(0, 6);
+  const alerts = people
+    .map((p) => ({ p, sc: attendanceByUser.get(p.userId) }))
+    .filter((x) => (x.sc?.alerts.length ?? 0) > 0);
+  const scopedExceptions = (exceptions.data ?? []).filter((x) => ids.has(x.userId));
+
+  const tile = (label: string, value: number, note: string) => (
+    <div key={label} className="rounded-xl border border-border bg-card px-3 py-2.5">
+      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className="text-xl font-extrabold tabular-nums text-foreground">{value}</p>
+      <p className="truncate text-[11px] text-muted-foreground">{note}</p>
+    </div>
+  );
+
+  if (people.length === 0) {
+    return (
+      <p className="rounded-2xl border border-dashed border-border bg-muted/30 p-8 text-center text-sm text-muted-foreground">
+        Nobody is in your management scope yet. A team lead sees the members of the teams
+        they lead; management sees its division or the company.
+      </p>
+    );
+  }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-3">
-      <div className="rounded-2xl border border-border bg-card p-5">
-        <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
-          <Users className="h-4 w-4 text-muted-foreground" aria-hidden /> Working today
-        </h3>
-        <p className="mt-1 text-2xl font-extrabold tabular-nums text-foreground">{working.length}</p>
-        <ul className="mt-2 space-y-0.5 text-xs text-muted-foreground">
-          {working.map((p) => <li key={p.userId} className="truncate">{p.name}</li>)}
-        </ul>
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {tile("People", people.length, "In your scope")}
+        {tile("Working now", working.length, "A timer is running")}
+        {tile("On leave today", out.length, "Approved and away")}
+        {tile("Offline", offline.length, "No timer running")}
       </div>
 
-      <div className="rounded-2xl border border-border bg-card p-5">
-        <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
-          <CalendarOff className="h-4 w-4 text-muted-foreground" aria-hidden /> Out today
-        </h3>
-        <p className="mt-1 text-2xl font-extrabold tabular-nums text-foreground">{out.length}</p>
-        <ul className="mt-2 space-y-0.5 text-xs text-muted-foreground">
-          {out.length === 0 && <li>Everybody is in.</li>}
-          {out.map((p) => {
-            const d = todayRows.find((r) => r.userId === p.userId);
-            return (
-              <li key={p.userId} className="truncate">
-                {/* The KIND of leave, never the reason given for it. */}
-                {p.name} · {d?.leaveLabel ?? "On leave"}
+      <div className="grid gap-3 lg:grid-cols-3">
+        <div className="rounded-2xl border border-border bg-card p-4">
+          <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
+            <Users className="h-4 w-4 text-muted-foreground" aria-hidden /> Availability today
+          </h3>
+          <ul className="mt-2 space-y-1 text-xs">
+            {working.map((p) => (
+              <li key={p.userId} className="flex items-center justify-between gap-2">
+                <span className="truncate text-foreground">{p.name}</span>
+                <span className="shrink-0 text-[11px] font-semibold text-status-success">Working</span>
               </li>
-            );
-          })}
-        </ul>
-      </div>
+            ))}
+            {out.map((p) => (
+              <li key={p.userId} className="flex items-center justify-between gap-2">
+                <span className="truncate text-foreground">{p.name}</span>
+                {/* The KIND of leave, never the reason — "Do not expose private
+                    reasons to coworkers." */}
+                <span className="shrink-0 text-[11px] font-semibold text-blue-700">
+                  {todayRows.find((d) => d.userId === p.userId)?.leaveLabel ?? "On leave"}
+                </span>
+              </li>
+            ))}
+            {offline.map((p) => (
+              <li key={p.userId} className="flex items-center justify-between gap-2">
+                <span className="truncate text-muted-foreground">{p.name}</span>
+                <span className="shrink-0 text-[11px] text-muted-foreground">Offline</span>
+              </li>
+            ))}
+          </ul>
+        </div>
 
-      <div className="rounded-2xl border border-border bg-card p-5">
-        <h3 className="text-sm font-bold text-foreground">Your upcoming leave</h3>
-        <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
-          {upcoming.length === 0 && <li>Nothing booked.</li>}
-          {upcoming.map((r) => (
-            <li key={r.id} className="truncate">
-              {r.typeLabel} · {formatDate(r.startsOn)}
-              {r.endsOn !== r.startsOn ? ` – ${formatDate(r.endsOn)}` : ""}
-            </li>
-          ))}
-        </ul>
-        <p className="mt-2 text-[11px] text-muted-foreground">
-          A team-wide leave forecast needs its own scoped read and is not built yet.
-        </p>
+        <div className="rounded-2xl border border-border bg-card p-4">
+          <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
+            <CalendarOff className="h-4 w-4 text-muted-foreground" aria-hidden /> Upcoming leave
+          </h3>
+          <ul className="mt-2 space-y-1.5 text-xs">
+            {upcoming.length === 0 && <li className="text-muted-foreground">Nothing booked ahead.</li>}
+            {upcoming.map((r) => (
+              <li key={r.id} className="flex items-start justify-between gap-2">
+                <span className="min-w-0">
+                  <span className="block truncate text-foreground">{nameOf(r.userId)}</span>
+                  <span className="block truncate text-[11px] text-muted-foreground">{r.typeLabel}</span>
+                </span>
+                <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
+                  {formatDate(r.startsOn)}{r.endsOn !== r.startsOn ? ` – ${formatDate(r.endsOn)}` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="rounded-2xl border border-border bg-card p-4">
+          <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
+            <CircleDot className="h-4 w-4 text-muted-foreground" aria-hidden /> Needs your attention
+          </h3>
+          <ul className="mt-2 space-y-1.5 text-xs">
+            {alerts.length === 0 && scopedExceptions.length === 0 && (
+              <li className="text-muted-foreground">Nothing outstanding.</li>
+            )}
+            {alerts.map(({ p, sc }) => sc!.alerts.map((a) => (
+              <li key={`${p.userId}-${a.kind}`}
+                className={cn("rounded-lg border px-2.5 py-1.5",
+                  a.kind === "management"
+                    ? "border-destructive/30 bg-status-danger-tint text-status-danger"
+                    : "border-amber-500/40 bg-amber-500/10 text-amber-900")}>
+                <strong>{p.name}</strong> · {a.title}
+              </li>
+            )))}
+            {scopedExceptions.map((x, i) => (
+              <li key={`${x.kind}-${x.userId}-${i}`}
+                className="rounded-lg border border-border bg-muted/40 px-2.5 py-1.5 text-muted-foreground">
+                <strong className="text-foreground">{x.person}</strong> · {EXCEPTION_TITLE[x.kind]}
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
     </div>
   );

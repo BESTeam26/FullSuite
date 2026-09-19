@@ -194,6 +194,21 @@ export async function fetchMyLeave(userId: string): Promise<LeaveRequest[]> {
   return (data ?? []).map((r) => mapLeave(r as unknown as Record<string, unknown>));
 }
 
+/**
+ * Approved leave ahead of today for everyone the caller may see. RLS narrows
+ * it to self / their team / their scope, so the Overview's "who is away next
+ * week" is exactly as wide as the caller's management scope and no wider.
+ */
+export async function fetchTeamUpcomingLeave(fromDate: string): Promise<LeaveRequest[]> {
+  const sb = requireSupabase();
+  const { data, error } = await sb
+    .from("leave_requests").select(LEAVE_SELECT)
+    .eq("status", "approved").gte("ends_on", fromDate)
+    .order("starts_on").limit(200);
+  if (error) throw error;
+  return (data ?? []).map((r) => mapLeave(r as unknown as Record<string, unknown>));
+}
+
 /** Pending requests the caller may see — RLS narrows to their team / all. */
 export async function fetchPendingLeave(): Promise<LeaveRequest[]> {
   const sb = requireSupabase();

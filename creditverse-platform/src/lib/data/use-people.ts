@@ -8,7 +8,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import {
   adjustPayslip, cancelLeave, createCutoff, decideLeave, fetchAttendance,
   fetchCutoffs, fetchLeaveTypes, fetchMyLeave, fetchPayRates,
-  fetchPayslips, fetchPendingLeave, fetchSchedules, generatePayroll,
+  fetchPayslips, fetchPendingLeave, fetchTeamUpcomingLeave, fetchSchedules, generatePayroll,
   fetchPayrollSettings,
   fetchFxRates,
   addFxRate, releasePayroll, setPayRate, setPayrollSettings,
@@ -57,6 +57,16 @@ export function useMyLeave() {
     queryFn: () => fetchMyLeave(userId),
     enabled: live && !!userId,
     staleTime: 30_000,
+  });
+}
+
+export function useTeamUpcomingLeave() {
+  const { live } = useLive();
+  const today = new Date().toISOString().slice(0, 10);
+  return useQuery({
+    queryKey: ["people", "leave", "team-upcoming", today],
+    queryFn: () => fetchTeamUpcomingLeave(today),
+    enabled: live, staleTime: 60_000,
   });
 }
 

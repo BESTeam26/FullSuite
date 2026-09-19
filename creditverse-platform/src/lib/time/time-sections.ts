@@ -95,12 +95,19 @@ export const timeSectionFor = (
 ): TimeSection | null =>
   visibleTimeSections(ctx).find((s) => s.slug === (slug ?? "")) ?? null;
 
-/** The tabs inside Team Management. Four tabs, not four sidebar entries. */
+/**
+ * The tabs inside Team Management — Dee's locked list (CLAUDE.md §20c):
+ * Overview | Members | Schedule | Time | Attendance | Time Off | EOD | Performance.
+ *
+ * Only the BUILT ones are listed. A tab is added here the day it works; a tab
+ * that opens onto nothing would be a dead control, which is worse than a
+ * missing one. The order is the locked order.
+ */
 export const TEAM_TABS = [
-  { key: "time", label: "Teams & Members" },
-  { key: "leave", label: "Leave Requests" },
+  { key: "overview", label: "Overview" },
+  { key: "members", label: "Members" },
   { key: "attendance", label: "Attendance" },
-  { key: "availability", label: "Availability" },
+  { key: "time-off", label: "Time Off" },
 ] as const;
 
 export type TeamTab = (typeof TEAM_TABS)[number]["key"];

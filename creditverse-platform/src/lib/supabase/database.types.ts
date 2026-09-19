@@ -17062,6 +17062,7 @@ export type Database = {
           work_minutes: number
         }[]
       }
+      attendance_reward_dispatch: { Args: never; Returns: undefined }
       attribute_referral: {
         Args: { p_client: string; p_code: string }
         Returns: string
@@ -18377,6 +18378,12 @@ export type Database = {
         Returns: undefined
       }
       looks_like_a_secret: { Args: { p_text: string }; Returns: boolean }
+      managed_people: {
+        Args: never
+        Returns: {
+          user_id: string
+        }[]
+      }
       manager_of: { Args: { p_user: string }; Returns: string }
       map_ghl_location: {
         Args: {
@@ -18435,6 +18442,10 @@ export type Database = {
         Returns: boolean
       }
       may_set_agency_policy: { Args: { p_agency: string }; Returns: boolean }
+      may_view_workforce_record: {
+        Args: { p_agency: string; p_user: string }
+        Returns: boolean
+      }
       may_work_client: { Args: { p_client: string }; Returns: boolean }
       member_can: { Args: { p_key: string; p_org: string }; Returns: boolean }
       member_first_run: {
