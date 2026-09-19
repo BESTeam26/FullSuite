@@ -176,7 +176,7 @@ export default function TeamMemberProfilePage() {
 
       <ProfileHeader member={member} position={positionTitle(member.userId) ?? member.jobTitle}
         division={myTeams[0]?.division ?? null} team={myTeams[0]?.name ?? null}
-        leadName={leadMember?.name ?? null} isSelf={isSelf} />
+        leadName={leadMember?.name ?? null} isSelf={isSelf} canEdit={isSelf || mayManage} />
 
       {confirmReactivate && (
         <ReactivateConfirm

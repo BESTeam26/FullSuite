@@ -8,8 +8,8 @@
  * one direct conversation with the person.
  */
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { Loader2, Mail, MessageSquare, Pencil, Users } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { BadgeCheck, Loader2, Mail, MessageSquare, Pencil, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Pill } from "@/components/agency/partner/partner-ui";
 import { useAvatarUrls } from "@/lib/data/use-account";
@@ -19,18 +19,22 @@ import { orgDivisionLabel } from "@/lib/agency/division-label";
 import { formatDate } from "@/lib/format-date";
 import type { AgencyMember } from "@/lib/data/agency-teams";
 import { cn } from "@/lib/utils";
+import { EditMemberProfileDialog } from "@/components/people/profile/EditMemberProfileDialog";
 
 export const initialsOf = (name: string) =>
   name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("") || "?";
 
-export function ProfileHeader({ member, position, division, team, leadName, isSelf }: {
+export function ProfileHeader({ member, position, division, team, leadName, isSelf, canEdit }: {
   member: AgencyMember;
   position: string | null;
   division: string | null;
   team: string | null;
   leadName: string | null;
   isSelf: boolean;
+  /** The person themselves or management within scope — the same predicate the database applies. */
+  canEdit: boolean;
 }) {
+  const [editing, setEditing] = useState(false);
   const avatars = useAvatarUrls([member.avatarPath]);
   const url = member.avatarPath ? avatars.data?.[member.avatarPath] : undefined;
   const navigate = useNavigate();
@@ -66,6 +70,7 @@ export function ProfileHeader({ member, position, division, team, leadName, isSe
             {division && <span>{orgDivisionLabel(division)}</span>}
             {division && <span aria-hidden>|</span>}
             <span>Joined {formatDate(member.since)}</span>
+            {member.employeeCode && <><span aria-hidden>|</span><span className="inline-flex items-center gap-1"><BadgeCheck className="h-3.5 w-3.5" aria-hidden /> Employee ID: <span className="font-semibold text-foreground">{member.employeeCode}</span></span></>}
           </p>
           <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
             <span className="inline-flex items-center gap-1.5 text-foreground"><Mail className="h-3.5 w-3.5 text-muted-foreground" aria-hidden /> {member.email}</span>
@@ -79,18 +84,24 @@ export function ProfileHeader({ member, position, division, team, leadName, isSe
         <div className="flex w-full shrink-0 flex-col gap-2 md:w-64">
           {member.tagline ? (
             <blockquote className="rounded-xl border border-border bg-muted/40 px-4 py-3 text-xs italic text-muted-foreground">“{member.tagline}”</blockquote>
-          ) : isSelf ? (
-            <p className="rounded-xl border border-dashed border-border px-4 py-3 text-xs text-muted-foreground">Add a line under your name from Edit Profile.</p>
+          ) : canEdit ? (
+            <p className="rounded-xl border border-dashed border-border px-4 py-3 text-xs text-muted-foreground">
+              {isSelf ? "Add a line under your name from Edit Profile." : "No quote yet — add one from Edit Profile."}
+            </p>
           ) : null}
-          {isSelf ? (
-            <Button asChild variant="outline" size="sm" className="h-9 text-xs">
-              <Link to="/app/settings?section=account"><Pencil className="mr-1.5 h-3.5 w-3.5" aria-hidden /> Edit Profile</Link>
-            </Button>
-          ) : (
-            <Button variant="outline" size="sm" className="h-9 text-xs" onClick={message} disabled={opening || !active}>
-              {opening ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden /> : <MessageSquare className="mr-1.5 h-3.5 w-3.5" aria-hidden />} Message
-            </Button>
-          )}
+          <div className="flex flex-wrap gap-2">
+            {canEdit && (
+              <Button variant="outline" size="sm" className="h-9 flex-1 text-xs" onClick={() => setEditing(true)}>
+                <Pencil className="mr-1.5 h-3.5 w-3.5" aria-hidden /> Edit Profile
+              </Button>
+            )}
+            {!isSelf && (
+              <Button variant="outline" size="sm" className="h-9 flex-1 text-xs" onClick={message} disabled={opening || !active}>
+                {opening ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden /> : <MessageSquare className="mr-1.5 h-3.5 w-3.5" aria-hidden />} Message
+              </Button>
+            )}
+          </div>
+          {canEdit && <EditMemberProfileDialog member={member} open={editing} onClose={() => setEditing(false)} />}
         </div>
       </div>
     </div>

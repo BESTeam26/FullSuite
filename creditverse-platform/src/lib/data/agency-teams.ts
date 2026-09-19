@@ -180,6 +180,8 @@ export interface AgencyMember {
   /** Their own quote on the profile header. */
   tagline: string | null;
   avatarPath: string | null;
+  /** Assigned once at hire: initials-MMYY-number, e.g. AC-0926-07. */
+  employeeCode: string | null;
   /** Capability keys granted to this person specifically — the module doors
       among them decide whether they can work at all. */
   moduleGrants: string[];
@@ -201,7 +203,7 @@ export async function fetchAgencyMembers(agencyId: string): Promise<AgencyMember
   const { data, error } = await sb
     .from("agency_memberships")
     // prettier-ignore
-    .select("id, user_id, role, access_profile, is_owner, scope, status, created_at, deactivated_at, job_title, manager_id, profiles!user_id!inner(full_name, email, phone, preferred_name, title, tagline, avatar_path, is_fixture)")
+    .select("id, user_id, role, access_profile, is_owner, scope, status, created_at, deactivated_at, job_title, manager_id, employee_code, profiles!user_id!inner(full_name, email, phone, preferred_name, title, tagline, avatar_path, is_fixture)")
     .eq("agency_id", agencyId)
     .eq("profiles.is_fixture", false)
     .order("created_at");
@@ -228,6 +230,7 @@ export async function fetchAgencyMembers(agencyId: string): Promise<AgencyMember
       profileTitle: p.title ?? null,
       tagline: p.tagline ?? null,
       avatarPath: p.avatar_path ?? null,
+      employeeCode: (r.employee_code as string | null) ?? null,
       moduleGrants: grantsByMembership.get(r.id as string) ?? [],
     };
   });

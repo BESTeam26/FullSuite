@@ -561,6 +561,7 @@ export type Database = {
           created_at: string
           deactivated_at: string | null
           deactivated_by: string | null
+          employee_code: string | null
           id: string
           is_owner: boolean
           job_title: string | null
@@ -583,6 +584,7 @@ export type Database = {
           created_at?: string
           deactivated_at?: string | null
           deactivated_by?: string | null
+          employee_code?: string | null
           id?: string
           is_owner?: boolean
           job_title?: string | null
@@ -605,6 +607,7 @@ export type Database = {
           created_at?: string
           deactivated_at?: string | null
           deactivated_by?: string | null
+          employee_code?: string | null
           id?: string
           is_owner?: boolean
           job_title?: string | null
@@ -18137,6 +18140,15 @@ export type Database = {
         Args: { p_credit: string; p_election: string; p_leave_request?: string }
         Returns: undefined
       }
+      employee_code_for: {
+        Args: {
+          p_agency: string
+          p_joined: string
+          p_membership: string
+          p_user: string
+        }
+        Returns: string
+      }
       end_position_assignment: {
         Args: { p_id: string; p_on?: string }
         Returns: undefined
@@ -18542,6 +18554,7 @@ export type Database = {
         Args: { p_actor: string; p_group: string }
         Returns: boolean
       }
+      may_manage_profile_of: { Args: { p_user: string }; Returns: boolean }
       may_notify_mention: {
         Args: {
           p_agency: string
@@ -19748,6 +19761,10 @@ export type Database = {
         Args: { p_archived: boolean; p_membership: string }
         Returns: undefined
       }
+      set_member_avatar: {
+        Args: { p_path: string; p_user: string }
+        Returns: undefined
+      }
       set_member_department: {
         Args: {
           p_department: string
@@ -19772,6 +19789,17 @@ export type Database = {
           p_key: string
           p_membership: string
           p_reason?: string
+        }
+        Returns: undefined
+      }
+      set_member_profile: {
+        Args: {
+          p_full_name: string
+          p_phone: string
+          p_preferred_name: string
+          p_tagline: string
+          p_title: string
+          p_user: string
         }
         Returns: undefined
       }
