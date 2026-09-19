@@ -562,6 +562,7 @@ export type Database = {
           deactivated_at: string | null
           deactivated_by: string | null
           employee_code: string | null
+          engagement_type: string | null
           id: string
           is_owner: boolean
           job_title: string | null
@@ -585,6 +586,7 @@ export type Database = {
           deactivated_at?: string | null
           deactivated_by?: string | null
           employee_code?: string | null
+          engagement_type?: string | null
           id?: string
           is_owner?: boolean
           job_title?: string | null
@@ -608,6 +610,7 @@ export type Database = {
           deactivated_at?: string | null
           deactivated_by?: string | null
           employee_code?: string | null
+          engagement_type?: string | null
           id?: string
           is_owner?: boolean
           job_title?: string | null

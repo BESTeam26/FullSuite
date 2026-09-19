@@ -18,6 +18,7 @@
  * the AGENCY does not: their membership is marked inactive and keeps their
  * role, so every record they touched still says who did the work (rule 4).
  */
+import type { EngagementType } from "@/lib/agency/engagement-type";
 import { requireSupabase } from "@/lib/supabase/client";
 import type { Enums } from "@/lib/supabase/database.types";
 
@@ -171,6 +172,8 @@ export interface AgencyMember {
   since: string;
   deactivatedAt: string | null;
   jobTitle: string | null;
+  /** employee | contractor — see lib/agency/engagement-type.ts; null = not recorded. */
+  engagementType: EngagementType | null;
   managerId: string | null;
   /** From the profile; a colleague's contact, shown on the person's card. */
   phone: string | null;
@@ -203,7 +206,7 @@ export async function fetchAgencyMembers(agencyId: string): Promise<AgencyMember
   const { data, error } = await sb
     .from("agency_memberships")
     // prettier-ignore
-    .select("id, user_id, role, access_profile, is_owner, scope, status, created_at, deactivated_at, job_title, manager_id, employee_code, profiles!user_id!inner(full_name, email, phone, preferred_name, title, tagline, avatar_path, is_fixture)")
+    .select("id, user_id, role, access_profile, is_owner, scope, status, created_at, deactivated_at, job_title, manager_id, employee_code, engagement_type, profiles!user_id!inner(full_name, email, phone, preferred_name, title, tagline, avatar_path, is_fixture)")
     .eq("agency_id", agencyId)
     .eq("profiles.is_fixture", false)
     .order("created_at");
@@ -224,6 +227,7 @@ export async function fetchAgencyMembers(agencyId: string): Promise<AgencyMember
       since: r.created_at as string,
       deactivatedAt: (r.deactivated_at as string) ?? null,
       jobTitle: (r.job_title as string) ?? null,
+      engagementType: (r.engagement_type as EngagementType) ?? null,
       managerId: (r.manager_id as string) ?? null,
       phone: (p.phone as string | null) ?? null,
       preferredName: p.preferred_name ?? null,

@@ -52,6 +52,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { isAdminRole } from "@/lib/agency/navigation";
 import { memberAccessLabel } from "@/lib/data/agency-invitations";
 import { formatDate } from "@/lib/format-date";
+import { engagementTypeLabel } from "@/lib/agency/engagement-type";
 
 export default function TeamMemberProfilePage() {
   /* Mounted from /app/people/:key (PeopleKeyRoute decides section vs person)
@@ -233,6 +234,8 @@ export default function TeamMemberProfilePage() {
                   <dd className="text-foreground">{member.status === "active" ? "Active" : "Deactivated"}</dd></div>
                 <div><dt className="font-bold uppercase tracking-wider text-[10px] text-muted-foreground">Position</dt>
                   <dd className="text-foreground">{member.jobTitle ?? "Not recorded"}</dd></div>
+                <div><dt className="font-bold uppercase tracking-wider text-[10px] text-muted-foreground">Engagement</dt>
+                  <dd className="text-foreground">{engagementTypeLabel(member.engagementType) ?? "Not recorded"}</dd></div>
                 <div><dt className="font-bold uppercase tracking-wider text-[10px] text-muted-foreground">Teams</dt>
                   <dd className="text-foreground">{myTeams.map((t) => t.name).join(", ") || "None"}</dd></div>
                 <div><dt className="font-bold uppercase tracking-wider text-[10px] text-muted-foreground">Leads</dt>

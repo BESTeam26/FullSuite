@@ -18,6 +18,11 @@ const session = (u) => `set local role authenticated; do $c$ begin perform set_c
 const tryAs = (u, sql) => q.query(`begin; ${session(u)} do $c$ begin ${sql}; perform set_config('probe.r','ok',true); exception when others then perform set_config('probe.r', sqlstate, true); end $c$; select current_setting('probe.r', true) as r; rollback;`)[0].r;
 
 console.log("\nEmployee IDs\n");
+check("engagement_type accepts only employee|contractor", tryAs(EXEC, `update public.agency_memberships set engagement_type='volunteer' where user_id='${AGENT}'`), "23514");
+check("an agent cannot set their own engagement type (RLS: zero rows touched)", q.query(`begin; ${session(AGENT)} update public.agency_memberships set engagement_type='contractor' where user_id='${AGENT}'; select count(*)::int as n from public.agency_memberships where user_id='${AGENT}' and engagement_type='contractor'; rollback;`)[0].n, 0);
+check("an agent reads their own engagement type", q.query(`begin; ${session(AGENT)} select count(*)::int as n from public.agency_memberships where user_id='${AGENT}'; rollback;`)[0].n, 1);
+check("an executive's change is audited with previous and new value (rolled back)", q.query(`begin; ${session(EXEC)} update public.agency_memberships set engagement_type='contractor' where user_id='${AGENT}'; select count(*)::int as n from public.activity_events where entity_type='profile' and entity_id='${AGENT}' and field='engagement_type' and new_value='contractor'; rollback;`)[0].n, 1);
+
 check("every membership has a code shaped INITIALS + MMYYYY-NNN", one("select count(*)::int as n from agency_memberships where employee_code !~ '^[A-Z]{2}[0-9]{6}-[0-9]{3,}$' or employee_code is null").n, 0);
 check("codes are unique within the agency", one("select count(*)::int as n from (select agency_id, employee_code from agency_memberships group by 1,2 having count(*)>1) d").n, 0);
 check("real people are numbered among real people (the first is 001)", one(`select employee_code from agency_memberships m join profiles p on p.id=m.user_id where coalesce(p.is_fixture,false)=false and m.agency_id='${AGENCY}' order by m.created_at, m.id limit 1`).employee_code.endsWith("-001"), true);

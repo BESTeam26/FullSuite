@@ -39,6 +39,7 @@ import { formatDate } from "@/lib/format-date";
 import { formatCentsIn } from "@/lib/format-money";
 import { useToast } from "@/hooks/use-toast";
 import type { AgencyMember } from "@/lib/data/agency-teams";
+import { ENGAGEMENT_TYPES, type EngagementType } from "@/lib/agency/engagement-type";
 import type { AgencyPerson, AgencyTeam } from "@/lib/data/agency-workforce";
 
 const NONE = "__none__";
@@ -103,6 +104,15 @@ export function WorkOrgTab({ member, people, teams }: {
                 onValueChange={(v) => void place({ managerId: v === NONE ? null : v })}
                 options={managerOptions} />
             </div>
+          </label>
+          <label className="text-sm">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Engagement type</span>
+            <div className="mt-1">
+              <OpsSelect size="field" value={member.engagementType ?? NONE}
+                onValueChange={(v) => void place({ engagementType: v === NONE ? null : (v as EngagementType) })}
+                options={[{ value: NONE, label: "Not recorded" }, ...ENGAGEMENT_TYPES.map((t) => ({ value: t.value, label: t.label }))]} />
+            </div>
+            <span className="mt-1 block text-[11px] text-muted-foreground">Employee or contractor. Shown on the person's own profile.</span>
           </label>
         </div>
       </ContentCard>

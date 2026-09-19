@@ -26,6 +26,7 @@ import { usePositions } from "@/lib/data/use-positions";
 import { useMemberDocuments } from "@/lib/data/member-documents";
 import { useMyRewards } from "@/lib/leave/use-rewards";
 import { orgDivisionLabel } from "@/lib/agency/division-label";
+import { engagementTypeLabel } from "@/lib/agency/engagement-type";
 import { formatDate } from "@/lib/format-date";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -138,7 +139,7 @@ export function MyProfileSection() {
             {row("Team", myTeams.map((t) => t.name).join(", ") || null)}
             {row("Reports To", nameOf(leadId))}
             {row("Start Date", me ? formatDate(me.since) : null)}
-            {row("Engagement Type", me ? (me.role === "agency_admin" ? "Administrator" : "Team member") : null)}
+            {row("Engagement Type", engagementTypeLabel(me?.engagementType))}
             {row("Status", me ? <Pill tone={me.status === "active" ? ACTIVE : INACTIVE}>{me.status === "active" ? "Active" : "Inactive"}</Pill> : null)}
           </dl>
         </Card>
