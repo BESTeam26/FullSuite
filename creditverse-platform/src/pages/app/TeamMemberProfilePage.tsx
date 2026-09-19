@@ -79,7 +79,11 @@ export default function TeamMemberProfilePage() {
     const led = new Set(auth.ledTeamIds ?? []);
     return teams.some((t) => led.has(t.id) && t.members.some((m) => m.userId === userId));
   }, [auth.ledTeamIds, teams, userId]);
-  const mayOpen = isSelf || manages || leadsThisPerson;
+  /* Dee, 2026-09-19: the performance profile — weighted scores, QA, sampling,
+     production, payroll — is a MANAGER'S view. A person's own identity lives
+     in Settings → My Profile; opening their own page lands there. */
+  const mayOpen = manages || leadsThisPerson;
+  const selfOnly = isSelf && !mayOpen;
   /* Editing stays a management act; a lead reads their people, a person reads
      themselves. The database re-checks every write regardless. */
   const mayManage = manages;
@@ -119,6 +123,7 @@ export default function TeamMemberProfilePage() {
       </HqPageShell>
     );
   }
+  if (selfOnly) return <Navigate to="/app/settings?section=account" replace />;
   if (!member || !mayOpen) {
     /* Unknown id and unauthorized id read the same — a profile that is not
        yours to open does not confirm it exists (rule 1). */

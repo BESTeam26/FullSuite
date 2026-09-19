@@ -14,6 +14,7 @@ import { SectionCard } from "@/components/settings/shared";
 import { Avatar } from "@/components/common/Avatar";
 import { useAuth } from "@/lib/auth/auth-context";
 import { Link } from "react-router-dom";
+import { isAdminRole } from "@/lib/agency/navigation";
 import { errorMessage } from "@/lib/data/error-message";
 import {
   MIN_PASSWORD_LENGTH,
@@ -94,7 +95,9 @@ export function AccountSection() {
   return (
     <div className="space-y-4">
       <SectionCard icon={UserRound} title="My Profile" description="How you appear to your team, and how they reach you.">
-        {auth.user?.id && (
+        {/* The performance profile is a manager's view (Dee, 2026-09-19); only
+            those who may open it are pointed at it. */}
+        {auth.user?.id && (isAdminRole(auth.agencyMembership?.role) || (auth.ledTeamIds?.length ?? 0) > 0) && (
           <p className="mb-3 text-xs">
             <Link to={`/app/people/${auth.user.id}`} className="font-semibold text-primary underline-offset-2 hover:underline">
               Open my profile page →
