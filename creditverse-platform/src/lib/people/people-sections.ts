@@ -74,7 +74,7 @@ export const PEOPLE_SECTIONS: PeopleSection[] = [
   { slug: "eod", label: "End of Day", audience: "lead",
     description: "Who reported, what they worked, and what is in their way." },
   { slug: "performance", label: "Performance", audience: "lead",
-    description: "Time, attendance and utilization across your people." },
+    description: "Your team's performance based on attendance, productivity, quality, and accountability." },
   { slug: "payroll", label: "Payroll", audience: "payroll",
     description: "Cutoffs, payslips and what each person is paid — for payroll eyes only." },
 ];

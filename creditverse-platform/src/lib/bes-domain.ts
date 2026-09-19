@@ -119,6 +119,10 @@ export interface WorkItem {
   createdBy?: string;
   /** The QA verdict on completed work, where a review happened (work_qa_result). */
   qaResult?: "pending" | "passed" | "needs_fix";
+  qaFeedback?: string;
+  qaReviewedAt?: string;
+  /** The reviewer's user id; the screen resolves the name from the roster. */
+  qaReviewedBy?: string;
 }
 
 /* ------------------------------------------------------------------ */

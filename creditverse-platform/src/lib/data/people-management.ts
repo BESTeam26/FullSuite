@@ -279,27 +279,41 @@ export interface AttendanceDay {
   status: "on_leave" | "no_schedule" | "off" | "absent" | "not_in_yet" | "late" | "present";
 }
 
-/** attendance_for is bounded in SQL to under this many days; a quarter is 92. */
-export const ATTENDANCE_RANGE_LIMIT_DAYS = 100;
+/** attendance_for is bounded in SQL to under 100 days; one window is a quarter. */
+export const ATTENDANCE_WINDOW_DAYS = 92;
+/** The most any one screen may ask for — the Performance trends (six months). */
+const ATTENDANCE_MAX_DAYS = 400;
 
+const shiftDays = (date: string, n: number): string =>
+  new Date(Date.parse(`${date}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+
+/**
+ * Attendance facts for a range, whatever its width.
+ *
+ * `attendance_for` answers an over-wide range with NO ROWS, not an error, and
+ * PostgREST caps any response at 1,000 rows — both silently; both once made
+ * every quarterly score a clean 15 (2026-09-19). So the range is cut into
+ * windows the function can answer, each window is paged to the end, and a
+ * range nothing on screen should ever need is refused loudly.
+ */
 export async function fetchAttendance(fromDate: string, toDate: string): Promise<AttendanceDay[]> {
-  /* The function answers an over-wide range with NO ROWS, not an error — which
-     is how every quarterly score once read a clean 15 (2026-09-19). Refuse
-     loudly here so an empty answer can never again pass for the truth. */
   const days = (Date.parse(`${toDate}T00:00:00Z`) - Date.parse(`${fromDate}T00:00:00Z`)) / 86_400_000;
-  if (!(days >= 0 && days < ATTENDANCE_RANGE_LIMIT_DAYS)) {
-    throw new Error(`Attendance can be read for up to ${ATTENDANCE_RANGE_LIMIT_DAYS - 1} days at a time (asked for ${days}).`);
+  if (!(days >= 0 && days <= ATTENDANCE_MAX_DAYS)) {
+    throw new Error(`Attendance can be read for up to ${ATTENDANCE_MAX_DAYS} days at a time (asked for ${days}).`);
+  }
+  const windows: { from: string; to: string }[] = [];
+  for (let start = fromDate; start <= toDate; start = shiftDays(start, ATTENDANCE_WINDOW_DAYS)) {
+    const end = shiftDays(start, ATTENDANCE_WINDOW_DAYS - 1);
+    windows.push({ from: start, to: end < toDate ? end : toDate });
   }
   const sb = requireSupabase();
-  /* Paged: PostgREST caps a response at 1,000 rows and says nothing — a
-     quarter for a team is more than that (2026-09-19). */
-  const rows = await pageAll(async (offset, limit) => {
-    const { data, error } = await sb.rpc("attendance_for", { p_from: fromDate, p_to: toDate })
+  const pages = await Promise.all(windows.map((w) => pageAll(async (offset, limit) => {
+    const { data, error } = await sb.rpc("attendance_for", { p_from: w.from, p_to: w.to })
       .order("user_id").order("day").range(offset, offset + limit - 1);
     if (error) throw error;
     return (data ?? []) as Record<string, unknown>[];
-  });
-  return rows.map((r) => ({
+  })));
+  return pages.flat().map((r) => ({
     userId: r.user_id as string,
     day: r.day as string,
     scheduled: Boolean(r.scheduled),

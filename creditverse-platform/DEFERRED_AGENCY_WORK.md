@@ -985,3 +985,43 @@ labour-counsel read on what a contractor verification letter may state.
 
 **Dependencies.** BES CRM QA gate; document builder templates; Dee's decision.
 
+## D-019 — Per-position Output targets, KPI catalogue and the two minimum thresholds
+
+**Deferred by Claude, 2026-09-19, when Dee locked the performance weighting**
+(migration `20260919011000_performance_policy.sql`; derivation
+`lib/people/performance-metrics.ts`):
+
+> "35% Quality + 35% Output + 20% Compliance + 10% Reliability… underneath each
+> category, the actual KPI changes according to position. A Processor's output
+> can be rounds/files processed; Client Support can use cases/follow-ups/SLA;
+> CRM can use completed milestones/tasks; Team Leads can use team delivery,
+> queue health, reviews, and management responsibilities… Quality and
+> Compliance need minimum thresholds regardless of the overall score."
+
+**What is live.** The weights are a `performance_policy` row; the overall is
+the weighted mean over the components that exist, renormalised, with the
+Needs Support cap wired for the thresholds. **Output is the count of work
+items delivered** and is *out of the overall* — a rate needs a target, and no
+target exists yet. The thresholds are NULL — Dee has not given the numbers.
+
+**Needs from Dee.** (1) The two minimums (e.g. Quality ≥ 70%, Compliance ≥
+70%); the cap activates the moment they are set. (2) Output targets per
+position, or the rule that derives them.
+
+**Proposed architecture.**
+- `position_kpis` (position_id, category `output`, kpi_key, target_per_day |
+  per_period, unit label): the KPI a seat is measured on and its target —
+  rows, per Dee's list; `kpi_definitions` already names the sources
+  (production, status_change, submission…).
+- `outputRate = delivered ÷ target × 100` per person from their held
+  position; people without a seat inherit nothing and stay "N done".
+- Delivered per KPI from the canonical fact: production_logs units (rounds /
+  files), work_items completed (CRM milestones), case follow-ups; team leads
+  from their team's aggregates.
+- A Settings surface for `performance_policy` (weights, thresholds) and for
+  position targets — today both are edited by UPDATE.
+
+**Risk.** A target that disagrees with what a position really does makes
+Output a false 35% of every score; ship per position with Dee's sign-off,
+behind the same probe pattern.
+

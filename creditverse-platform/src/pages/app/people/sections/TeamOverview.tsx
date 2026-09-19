@@ -31,6 +31,8 @@ import {
   addMix, attendanceMix, eodMix, lastActiveLabel, monthToDate, onTimeRate, previousMonth, qualityScore, rateChange,
   submissionRate, weekToDate, type AttendanceMix,
 } from "@/lib/people/overview-metrics";
+import { averageOf, personScore } from "@/lib/people/performance-metrics";
+import { usePerformancePolicy } from "@/lib/people/use-performance-policy";
 import { useCutoffs, usePendingLeave, useTeamUpcomingLeave } from "@/lib/data/use-people";
 import { usePositions } from "@/lib/data/use-positions";
 import { useAgencyMembers } from "@/lib/data/use-agency-teams";
@@ -63,7 +65,10 @@ export function TeamOverview({ canSeePositions }: { canSeePositions: boolean }) 
   const perms = useAgencyPermissions();
   const canPayroll = perms.can("payroll.view") || perms.can("payroll.manage");
   const week = weekToDate(today), month = monthToDate(today), lastMonth = previousMonth(today);
-  const eodMarks = useEodSubmissionsRange(week.from, week.to);
+  /* The month's submissions cover the week too — one request serves the EOD
+     ring, the Avg. Performance tile and the person's Quick Stats. */
+  const eodMarks = useEodSubmissionsRange(month.from, month.to);
+  const weighting = usePerformancePolicy();
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const ids = useMemo(() => new Set(people.map((p) => p.userId)), [people]);
@@ -90,12 +95,19 @@ export function TeamOverview({ canSeePositions }: { canSeePositions: boolean }) 
   const mixFor = (userId: string, range: { from: string; to: string }) =>
     attendanceMix(factsByUser.get(userId) ?? [], range, policy, correctionsByUser.get(userId) ?? []);
   const weekMix = people.reduce((acc, p) => addMix(acc, mixFor(p.userId, week)), EMPTY_MIX);
-  const monthRate = onTimeRate(people.reduce((acc, p) => addMix(acc, mixFor(p.userId, month)), EMPTY_MIX));
-  const lastMonthRate = onTimeRate(people.reduce((acc, p) => addMix(acc, mixFor(p.userId, lastMonth)), EMPTY_MIX));
+  /* Avg. Performance is the weighted overall (Quality 35 · Output 35 ·
+     Compliance 20 · Attendance 10, policy data) — the same figure the
+     Performance section shows, so the two pages cannot disagree. */
+  const scoreFor = (userId: string, range: { from: string; to: string }) => personScore({
+    userId, facts: factsByUser.get(userId) ?? [], corrections: correctionsByUser.get(userId) ?? [], policy,
+    eodMarks: eodMarks.data ?? [], items: work.source === "live" ? work.items : [],
+  }, range, weighting);
+  const monthRate = averageOf(people.map((p) => scoreFor(p.userId, month)), "overall");
+  const lastMonthRate = averageOf(people.map((p) => scoreFor(p.userId, lastMonth)), "overall");
   const change = rateChange(monthRate, lastMonthRate);
   const byDivision = divisions.map((d) => {
     const theirs = people.filter((p) => divisionOf.get(p.userId) === d);
-    return { division: d, rate: onTimeRate(theirs.reduce((acc, p) => addMix(acc, mixFor(p.userId, month)), EMPTY_MIX)) };
+    return { division: d, rate: averageOf(theirs.map((p) => scoreFor(p.userId, month)), "overall") };
   });
 
   /* EOD compliance this week over scheduled days. */
@@ -163,21 +175,21 @@ export function TeamOverview({ canSeePositions }: { canSeePositions: boolean }) 
           <Tile icon={CalendarOff} value={String(out.length)} label="On Leave Today"
             note={`${pendingCount} pending approval`} to="/app/people/time-off" tone="text-status-danger bg-status-danger-tint" />
           <Tile icon={BarChart3} value={pct(monthRate)} label="Avg. Performance"
-            note={change === null ? "On-time rate, this month" : `${change >= 0 ? "+" : ""}${change}% from last month`}
-            to="/app/people/attendance" tone="text-blue-700 bg-blue-500/10" />
+            note={change === null ? "Weighted overall, this month" : `${change >= 0 ? "+" : ""}${change}% from last month`}
+            to="/app/people/performance" tone="text-blue-700 bg-blue-500/10" />
         </div>
 
         {/* ── Performance · Attendance · EOD ────────────────────────────── */}
         <div className="grid gap-3 lg:grid-cols-3">
-          <Card title="Team Performance" sub="(This Month)" more={{ to: "/app/people/attendance", label: "View Details" }}>
-            <p className="mb-2 text-[10px] text-muted-foreground">On-time rate: days on time ÷ scheduled working days.</p>
+          <Card title="Team Performance" sub="(This Month)" more={{ to: "/app/people/performance", label: "View Details" }}>
+            <p className="mb-2 text-[10px] text-muted-foreground">Weighted overall: Quality {weighting.weights.quality} · Output {weighting.weights.output} · Compliance {weighting.weights.compliance} · Attendance {weighting.weights.attendance}.</p>
             <ul className="space-y-2.5">
               {byDivision.length === 0 && <li className="text-xs text-muted-foreground">Nobody in your scope is on a team yet.</li>}
               {byDivision.map((d) => (
                 <li key={d.division} className="flex items-center gap-3 text-xs">
                   <span className="w-28 shrink-0 truncate font-medium text-foreground">{orgDivisionLabel(d.division)}</span>
                   <span className="h-2 flex-1 overflow-hidden rounded-full bg-muted" role="progressbar"
-                    aria-valuenow={d.rate ?? 0} aria-valuemin={0} aria-valuemax={100} aria-label={`${orgDivisionLabel(d.division)} on-time rate`}>
+                    aria-valuenow={d.rate ?? 0} aria-valuemin={0} aria-valuemax={100} aria-label={`${orgDivisionLabel(d.division)} overall performance`}>
                     <span className="block h-full rounded-full bg-status-success transition-[width]" style={{ width: `${d.rate ?? 0}%` }} />
                   </span>
                   <span className="w-10 shrink-0 text-right font-semibold tabular-nums text-foreground">{pct(d.rate)}</span>

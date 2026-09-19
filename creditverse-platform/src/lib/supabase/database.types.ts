@@ -12342,6 +12342,57 @@ export type Database = {
           },
         ]
       }
+      performance_policy: {
+        Row: {
+          agency_id: string
+          min_compliance: number | null
+          min_quality: number | null
+          updated_at: string
+          updated_by: string | null
+          weight_attendance: number
+          weight_compliance: number
+          weight_output: number
+          weight_quality: number
+        }
+        Insert: {
+          agency_id: string
+          min_compliance?: number | null
+          min_quality?: number | null
+          updated_at?: string
+          updated_by?: string | null
+          weight_attendance?: number
+          weight_compliance?: number
+          weight_output?: number
+          weight_quality?: number
+        }
+        Update: {
+          agency_id?: string
+          min_compliance?: number | null
+          min_quality?: number | null
+          updated_at?: string
+          updated_by?: string | null
+          weight_attendance?: number
+          weight_compliance?: number
+          weight_output?: number
+          weight_quality?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "performance_policy_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: true
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "performance_policy_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       permission_keys: {
         Row: {
           description: string | null
