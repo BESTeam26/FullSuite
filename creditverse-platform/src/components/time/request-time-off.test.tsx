@@ -8,7 +8,19 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { RequestTimeOffDialog } from "./RequestTimeOffDialog";
-import { addDays, businessToday } from "@/lib/calendar/us-federal-holidays";
+import { addDays, businessToday, isBusinessDay, nextBusinessDay } from "@/lib/calendar/us-federal-holidays";
+
+/*
+ * These used to pick dates with plain arithmetic on today, and broke overnight
+ * when today became a Saturday: "today + 7" landed on a weekend, the form
+ * correctly refused a request with no working days in it, and two tests failed
+ * for a reason that had nothing to do with the notice rule.
+ *
+ * They now assert the INVARIANT — where the floor is, and that a range with
+ * working days in it is accepted — using dates rolled onto business days. A
+ * test that only passes from Monday to Thursday is a test that will cry wolf.
+ */
+const onBusinessDay = (date: string) => (isBusinessDay(date) ? date : nextBusinessDay(date));
 
 const TYPES = [
   { id: "vac", label: "Vacation", paid: true, minNoticeDays: 7 },
@@ -47,13 +59,16 @@ describe("the notice rule, before the form is filled in", () => {
   });
 
   it("accepts the seventh day", () => {
-    /* The boundary, stated once so nobody has to guess whether it is 7 or 8. */
+    /* The boundary, stated once so nobody has to guess whether it is 7 or 8.
+       Rolled onto a business day: the seventh day may be a Saturday, and a
+       request with no working days in it is refused for its own good reason. */
     const onSubmit = open();
-    setDate("First day away", addDays(businessToday(), 7));
-    setDate("Last day away", addDays(businessToday(), 8));
+    const start = onBusinessDay(addDays(businessToday(), 7));
+    setDate("First day away", start);
+    setDate("Last day away", start);
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     fireEvent.click(submit());
-    expect(onSubmit).toHaveBeenCalled();
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ startsOn: start }));
   });
 });
 
@@ -67,14 +82,27 @@ describe("leave nobody can plan", () => {
     expect(screen.queryByText(/days' notice/)).not.toBeInTheDocument();
   });
 
-  it("lets sick leave be filed for today", () => {
+  it("puts no floor under sick leave at all", () => {
+    /* The invariant, rather than "can be filed on this particular date":
+       sickness carries no notice, so the earliest day is TODAY — where for
+       everything else it is today + 7. */
+    open();
+    fireEvent.click(screen.getByLabelText("Leave type"));
+    fireEvent.click(screen.getByText("Sick leave"));
+    expect(screen.getByLabelText("First day away")).toHaveAttribute("min", businessToday());
+  });
+
+  it("lets sick leave be filed for the day it happens", () => {
     const onSubmit = open();
     fireEvent.click(screen.getByLabelText("Leave type"));
     fireEvent.click(screen.getByText("Sick leave"));
-    setDate("First day away", businessToday());
-    setDate("Last day away", businessToday());
+    /* A weekend day is not a scheduled shift, so there is nothing to excuse —
+       the form refuses a range with no working days in it, deliberately. */
+    const day = onBusinessDay(businessToday());
+    setDate("First day away", day);
+    setDate("Last day away", day);
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     fireEvent.click(submit());
-    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ startsOn: businessToday() }));
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ startsOn: day }));
   });
 });
