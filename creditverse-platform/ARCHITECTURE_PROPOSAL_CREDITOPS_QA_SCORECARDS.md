@@ -197,12 +197,71 @@ fallbacks. The company weighting and bands are untouched.
 - Probes build the lead and division-manager views in rolled-back
   transactions, as `schedule-scope-probe.mjs` does. No names anywhere.
 
+### 3.9 Sampling and the two timelines (spec Part 2)
+
+Dee's standard: **"Manual QA is sampled. Dispute results are measured across
+all eligible resulted work."**
+
+**Eligibility.** A completion becomes QA-eligible when the record says the
+agent submitted it: a Processing round completion (`creditops_open_round` /
+"Round Processing Completed" production log) or a Complaints & Mailing
+completion against a round. `qa_eligible_work` is a view over those facts —
+nobody nominates their own file.
+
+**Sampling policy is data.** `qa_sampling_policy` (per agency, editable with
+`may_set_agency_policy`):
+
+| Rule | Seeded value |
+|---|---|
+| baseline per agent per month | 5 — mix 3 random · 1 risk-based · 1 follow-up |
+| weekly distribution | 1 · 1 · 1 · 2 |
+| new agent window / rate | first 30 days · 3 per week |
+| strong performer (Workmanship ≥ 95 for N consecutive months) | 3 per month |
+| Workmanship below 90 / below 85 | 3 per week / 5 per week, until back above |
+| confirmed critical error | next 5 consecutive submissions |
+| new SOP or template version | first 3 applicable files |
+
+**Selection is a job, audited.** A daily cron (`qa_sampling_sweep`, the same
+pg_cron + Edge Function pattern as the reward sweep) fills each agent's
+remaining quota for the current week from their eligible pool:
+`qa_sample_selections (agent, period, week, subject, reason random|risk|
+follow_up|new_agent|low_score|critical|sop_change, risk_score, selected_at,
+review_id, status pending|reviewed|skipped, skip_reason)`. Random picks use a
+stored seed so a selection can be reproduced; risk picks use a deterministic
+score (round number, bureaus and furnishers involved, complaint handoff
+required, prior QA issue on the client); the follow-up pick is the first
+submission after the agent's last review with feedback. The Team Lead's queue
+is these rows — not a blank list of files.
+
+**Two timelines, one record.** A review freezes `workmanship_score` at
+completion. `deletion_rate` and `final_quality` on the review are NOT the
+employee KPI — they are the round's own figures once results exist. The
+employee's monthly Quality is computed by the engine as:
+
+```
+workmanship        = mean(workmanship_score) over reviews COMPLETED in the period
+deletionRate       = Σ deleted ÷ Σ items_disputed over ALL rounds the agent
+                     contributed to whose results were RECORDED in the period
+positiveOutcome    = the same set, (deleted + updated + partial) ÷ resolved
+finalQuality       = 0.70 × workmanship + 0.30 × deletionRate
+                     → "Provisional" (workmanship only, flagged) while no
+                       resulted rounds exist in the period
+```
+
+Shown exactly as Dee wrote it: *Workmanship 93.2% — based on 5 sampled
+reviews · Deletion Rate 51.8% — based on 38 resulted rounds / 426 items*.
+Complaints & Mailing contributors receive the same round results by the
+contributor rule; their monthly rate differs because their contributed set
+differs.
+
+**Workload.** Five processors × five reviews ≈ six reviews a week for one
+lead; the queue shows the count and the sweep never exceeds the policy.
+
 ## 4. What only Dee can decide (before build)
 
-1. **Results window.** A person's monthly Quality uses reviews *completed* in
-   the month; a round whose results are not yet recorded contributes
-   Workmanship only, flagged "results pending", and is **re-blended when
-   results land** (the review's `final_quality` updates once, audited). Agree?
+1. ~~Results window~~ — **settled by spec Part 2**: Workmanship from sampled
+   reviews completed in the period; Deletion Rate from all resulted rounds in
+   the period; Quality "Provisional" until results exist.
 2. **Legitimate contributor.** Automatic from a production log on the client
    while the round is open, plus manual add by a lead. Agree?
 3. **Where QA opens.** On the CreditOps client's round (proposed) rather than
@@ -217,17 +276,24 @@ fallbacks. The company weighting and bands are untouched.
    count for both departments.
 8. **Other departments' scorecards** arrive as templates you write in the same
    shape; nothing in code changes.
+9. **"Consistently 95%+"** for reduced sampling — how many consecutive months
+   (proposed: 3)?
+10. **When a low score lifts** — return to baseline after one full month back
+    above the line (proposed), or immediately?
+11. **A Complaints & Mailing "file"** — one round's downstream work as a whole
+    (proposed), or each complaint / mailing / upload separately?
 
 ## 5. Build plan (after Dee's go)
 
 | Phase | Ships | Proof |
 |---|---|---|
 | 1. Engine + schema | migrations for §3.1–3.5; `lib/qa/*` pure functions; templates v1 seeded from the spec; policy columns | unit tests reproduce every number in the spec; RLS probe, four views |
-| 2. Team Lead QA | "QA this round" on the CreditOps client; results statuses; critical errors; completion side effects | live walk-through by a lead on a real round (LIVE VERIFIED gate) |
+| 2. Team Lead QA | "QA this round" on the CreditOps client; the sampling policy, eligibility view, daily selection sweep and the lead's QA queue; results statuses; critical errors; completion side effects | live walk-through by a lead on a real round (LIVE VERIFIED gate); sweep probe: quotas, mix, no self-nomination |
 | 3. Performance integration | Quality = Final Quality per department; Productivity/Compliance formulas; agent's own QA view | Performance page shows scorecard-derived figures; probe per view |
 | 4. Departments | templates for Onboarding, Client Success, Bureau Calling, FundingOps, BES CRM, TalentOps as Dee supplies them | data only |
 
-Effort: phases 1–3 are roughly three focused sessions; phase 4 is data entry.
+Effort: phases 1–3 are roughly three to four focused sessions (the sampling
+sweep adds most of the fourth); phase 4 is data entry.
 
 ## 6. Risks
 

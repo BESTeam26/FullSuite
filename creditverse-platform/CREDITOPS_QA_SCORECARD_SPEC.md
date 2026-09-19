@@ -482,3 +482,155 @@ Capability determines action.
 Never hardcode names.
 
 The main thing I'd lock before Claude builds it is the 70% workmanship / 30% deletion rate split. Given how important actual deletions are to your CreditOps service, 30% is substantial enough to materially change Quality, but still leaves most of the grade under your team's direct control.
+
+---
+
+# Part 2 — QA sampling standard (Dee, 2026-09-19, verbatim)
+
+For your setup, I would **not have the Team Lead review 3–5 files every week for every agent** as the permanent standard. That can turn QA into a full-time job very quickly.
+
+I recommend **5 completed files per agent per month** as the normal baseline, with **risk-based additional reviews** when something is wrong.
+
+That gives you enough sampling to identify patterns without overwhelming Daniel or whoever is doing QA.
+
+### Recommended BES CreditOps QA Sampling
+
+| Agent status | QA reviews | Why |
+| --- | ---: | --- |
+| New agent / first 30 days | **3 files/week** | Catch training and process issues quickly |
+| Established agent | **5 files/month** | Normal ongoing QA sample |
+| Strong performer, consistently 95%+ | **3 files/month** | Reduced sampling after proven consistency |
+| QA below 90% | **3 files/week** temporarily | Increased monitoring/coaching |
+| QA below 85% | **5 files/week** temporarily | Significant quality concern |
+| Critical Error | **5 consecutive submissions reviewed** | Verify correction before returning to normal sampling |
+| New SOP/process launched | **First 3 applicable files** | Confirm the change is being followed |
+
+This is much better than treating everyone identically forever.
+
+### How FullSuite should choose the files
+
+I would **not let the agent choose which files get reviewed**.
+
+The scorecard should be based entirely on **actual work submitted by that agent**, exactly as you described.
+
+When Julius completes a dispute round, for example:
+
+> Round completed → Julius submits work → file becomes **QA Eligible**
+
+FullSuite builds that agent's eligible pool.
+
+Then the system should automatically select the monthly QA sample from their submitted work.
+
+I would use **randomized + risk-based sampling**, rather than purely random selection.
+
+For the normal 5 monthly reviews:
+
+**3 Random Files** — Randomly selected from the agent's completed work.
+
+**1 Risk-Based File** — Something potentially higher-risk, such as a complex file, later dispute round, multiple bureaus/furnishers, complaint handoff required, or previous QA issue.
+
+**1 Follow-Up File** — A file submitted after the employee received previous QA feedback, so the Team Lead can determine whether the issue was corrected.
+
+If the agent has no previous issue that month, make this another random/risk-based file.
+
+This prevents cherry-picking while still making QA useful for coaching.
+
+### Don't wait until month-end
+
+I'd still define the official sample as **5 per month**, but distribute it across the month.
+
+> Week 1: 1 file · Week 2: 1 file · Week 3: 1 file · Week 4: 2 files
+
+The exact days don't matter. FullSuite can spread selections automatically.
+
+This is better than Daniel suddenly receiving 40 QA reviews on the last day of the month.
+
+### The monthly Quality score
+
+If Julius has five completed QA reviews:
+
+| Review | QA Workmanship |
+| --- | ---: |
+| File 1 | 96% |
+| File 2 | 91% |
+| File 3 | 94% |
+| File 4 | 88% |
+| File 5 | 97% |
+| **Monthly QA Average** | **93.2%** |
+
+His monthly **QA Workmanship = 93.2%**.
+
+But there is an important change I recommend for the deletion component.
+
+Deletion results frequently won't be available when the Team Lead performs QA. So **don't force the QA review to wait for results**.
+
+Treat them as two timelines:
+
+**Workmanship QA** is scored immediately after the agent submits the work.
+
+**Results** are attached later when the credit report is reimported/reviewed.
+
+So FullSuite might initially show:
+
+> Processing QA: **93.2%** · Deletion Rate: **Pending** · Quality: **Provisional**
+
+Later, when results arrive:
+
+> Processing QA: **93.2%** · Deletion Rate: **47.5%** · Final Quality: **79.5%**
+
+using your: `(93.2 × 70%) + (47.5 × 30%) = 79.49%`
+
+### One adjustment I'd make to deletion-rate sampling
+
+I would **not calculate the employee's deletion rate using only the five QA files**. That would make the result statistically noisy and unnecessarily dependent on which five files happened to get selected.
+
+Instead:
+
+**QA Workmanship = sampled work**
+
+but
+
+**Deletion Rate = ALL eligible dispute rounds completed by that agent whose results became available during the measurement period.**
+
+That's much stronger.
+
+For example: Julius completed 52 dispute rounds. Only 5 are manually QA reviewed. Eventually 38 of his eligible rounds have results available. His performance becomes:
+
+> QA Workmanship **93.2%** — Based on 5 sampled reviews
+> Deletion Rate **51.8%** — Based on 38 resulted rounds / 426 disputed items
+> Positive Outcome Rate **68.4%**
+> Final Quality **80.8%**
+
+Now you're using human QA efficiently while using **all available system data for results**.
+
+### Complaints & Mailing should work the same way
+
+Ivan submits his work on the same dispute cycle. FullSuite selects approximately **5 completed Complaint/Mailing files per month** for QA. The Team Lead scores Ivan's actual work. When the eventual dispute result comes in, the same canonical result is attributed to Julius and Ivan because both participated in that cycle.
+
+So you could eventually see:
+
+> **Julius Rivera — Processing** · 5 QA reviews · Workmanship: 93.2% · Deletion Rate: 51.8% · Final Quality: 80.8%
+
+and:
+
+> **Ivan Olympia — Complaints & Mailing** · 5 QA reviews · Workmanship: 96.1% · Shared Deletion Rate: 49.7% · Final Quality: 82.2%
+
+Their deletion rates may differ across the month because they won't necessarily have worked on exactly the same set of files.
+
+### Team Lead workload stays manageable
+
+If Daniel has 5 processors: **5 agents × 5 reviews = 25 QA reviews/month** — roughly **6 reviews per week**. If each structured QA takes around 10–15 minutes once the system is efficient, that's a reasonable ongoing QA workload. The system then automatically increases sampling only for the people who need closer supervision.
+
+I would lock the BES standard as:
+
+> **Standard QA Sample: 5 files per agent per month**
+>
+> QA is performed against completed work actually submitted by the agent.
+>
+> Sampling is system-selected and distributed throughout the month.
+>
+> New employees, low QA scores, critical errors, coaching periods, and major SOP changes automatically trigger increased sampling.
+>
+> **Manual QA is sampled. Dispute results are measured across all eligible resulted work.**
+
+That last sentence is especially important. It gives you a much more credible performance system without burying your Team Leads in reviews.
