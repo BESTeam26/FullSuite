@@ -43,6 +43,7 @@ import { latestPerDay } from "../../../src/lib/attendance/corrections-latest.ts"
 import {
   closedQuarterFor, evaluateQuarter, isClosed, quarterBounds,
 } from "../../../src/lib/attendance/reward-sweep.ts";
+import { pageAll } from "../../../src/lib/attendance/page-all.ts";
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -78,7 +79,15 @@ Deno.serve(async (req) => {
     sb.from("agency_memberships")
       .select("user_id, agency_id, status, profiles!user_id!inner(is_fixture)")
       .eq("profiles.is_fixture", false),
-    sb.rpc("attendance_for", { p_from: from, p_to: to }),
+    /* Paged: PostgREST caps a response at 1,000 rows and says nothing; a
+       quarter for the whole team is more than that. Wrapped so it joins the
+       Promise.all with the same {data,error} shape. */
+    pageAll((offset, limit) =>
+      sb.rpc("attendance_for", { p_from: from, p_to: to })
+        .order("user_id").order("day").range(offset, offset + limit - 1)
+        .then(({ data, error }) => { if (error) throw error; return (data ?? []) as Record<string, unknown>[]; }))
+      .then((data) => ({ data, error: null as { message: string } | null }))
+      .catch((e: Error) => ({ data: null, error: { message: e.message } })),
     sb.from("work_schedules").select("user_id, shift_start, shift_end, lunch_minutes, effective_from")
       .order("effective_from", { ascending: false }),
     sb.from("attendance_corrections")

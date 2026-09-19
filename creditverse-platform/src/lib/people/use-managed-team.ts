@@ -16,7 +16,9 @@ import { useWorkforce } from "@/lib/data/use-workforce";
 import { useManagedPeople } from "@/lib/data/use-managed-people";
 import { useAttendanceRange, useSchedules } from "@/lib/data/use-people";
 import { factsFrom } from "@/lib/attendance/attendance-facts";
-import { quarterOf, scoreQuarter } from "@/lib/attendance/attendance-score";
+import {
+  quarterOf, scoreQuarter, type AttendanceFact, type AttendancePolicy, type Correction,
+} from "@/lib/attendance/attendance-score";
 import { quarterRange } from "@/lib/attendance/use-attendance-score";
 import { latestPerDay, useAttendanceCorrections } from "@/lib/attendance/use-attendance-corrections";
 import { useAttendancePolicy } from "@/lib/attendance/use-attendance-policy";
@@ -38,6 +40,11 @@ export interface ManagedTeam {
   /** Who has a timer going right now. */
   running: Set<string>;
   attendanceByUser: Map<string, QuarterScore>;
+  /** The per-day facts and corrections the score was computed from, so the
+      Overview can bucket a week or a month by the SAME classification. */
+  factsByUser: Map<string, AttendanceFact[]>;
+  correctionsByUser: Map<string, Correction[]>;
+  policy: AttendancePolicy;
 }
 
 export function useManagedTeam(): ManagedTeam {
@@ -61,18 +68,23 @@ export function useManagedTeam(): ManagedTeam {
     [workforce.data],
   );
 
-  const attendanceByUser = useMemo(() => {
-    const out = new Map<string, QuarterScore>();
-    if (!attendance.data) return out;
+  const scored = useMemo(() => {
+    const byUser = new Map<string, QuarterScore>();
+    const factsByUser = new Map<string, AttendanceFact[]>();
+    const correctionsByUser = new Map<string, Correction[]>();
+    if (!attendance.data) return { byUser, factsByUser, correctionsByUser };
     for (const p of people) {
       const theirs = attendance.data.filter((d) => d.userId === p.userId);
       const schedule = (schedules.data ?? []).find((s) => s.userId === p.userId);
-      out.set(p.userId, scoreQuarter(factsFrom(theirs, schedule, { today }), {
-        quarter: quarterOf(today), today, policy,
-        corrections: latestPerDay(corrections.data ?? [], p.userId),
+      const facts = factsFrom(theirs, schedule, { today });
+      const theirCorrections = latestPerDay(corrections.data ?? [], p.userId);
+      factsByUser.set(p.userId, facts);
+      correctionsByUser.set(p.userId, theirCorrections);
+      byUser.set(p.userId, scoreQuarter(facts, {
+        quarter: quarterOf(today), today, policy, corrections: theirCorrections,
       }));
     }
-    return out;
+    return { byUser, factsByUser, correctionsByUser };
   /* `policy` is a dependency, not decoration: without it a policy edit left
      scores computed under the OLD numbers until something else re-rendered. */
   }, [attendance.data, schedules.data, corrections.data, people, today, policy]);
@@ -91,6 +103,9 @@ export function useManagedTeam(): ManagedTeam {
     attendance: attendance.data ?? [],
     todayRows,
     running,
-    attendanceByUser,
+    attendanceByUser: scored.byUser,
+    factsByUser: scored.factsByUser,
+    correctionsByUser: scored.correctionsByUser,
+    policy,
   };
 }

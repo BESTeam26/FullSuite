@@ -952,3 +952,36 @@ not built beside the active epic (Team Management tabs).
 with what Dee actually pays would be a payroll correction across every
 monthly person. Ship behind the same probe pattern with built fixtures.
 
+## D-018 — Performance Rating and verification letters on People & Teams
+
+**Deferred by Claude, 2026-09-19, when the Overview was rebuilt to Dee's
+mockup ("Follow this strictly").** One Quick Stat on that mockup —
+**Performance Rating** — and the **Documents & Verification** requests
+(Contractor Engagement Verification, Compensation Verification, Engagement
+History) have no canonical record behind them. The Overview shows "Not tracked
+yet" for the rating and the person's actual documents on file for the card,
+rather than a figure or a button that means nothing (rule 12). **Quality Score
+is derived** — Dee asked "where does my QA and quality performance go now?",
+and the answer is `work_items.qa_result` (pending / passed / needs_fix, with
+reviewer, time and feedback), which the Overview reads as passed ÷ reviewed
+for the month.
+
+**What exists.** Attendance on-time rate, EOD submission rate and completed
+work items are derived and shown. `member_documents` holds agreements, NDAs,
+policies, acknowledgments and training documents with statuses.
+
+**Proposed architecture.**
+- **Performance Rating**: a stated, dated rating by a lead (`performance_ratings`:
+  person, period, rating, rater, note) — a manager's judgment, recorded with
+  its author, never inferred. Or drop it in favour of the derived rates.
+- **Verification letters**: three `document_templates` (engagement,
+  compensation, history) rendered through the existing document builder with
+  the person's canonical facts, issued from the profile's Documents tab and
+  stored as `member_documents` rows.
+
+**Why deferred.** Each needs a product decision from Dee (what QA means per
+division; whether a manual rating belongs beside derived metrics) and a
+labour-counsel read on what a contractor verification letter may state.
+
+**Dependencies.** BES CRM QA gate; document builder templates; Dee's decision.
+

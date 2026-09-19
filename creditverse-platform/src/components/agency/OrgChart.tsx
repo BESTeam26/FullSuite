@@ -25,11 +25,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  Building2, ChevronDown, ChevronRight, Crown, Layers, List, Network, UserCheck, UserX, Users,
+  Building2, ChevronDown, ChevronRight, Crown, Layers, List, Network, UserCheck, UserRound, UserX, Users,
 } from "lucide-react";
 import { buildOrgChart, countSeats, type OrgNode } from "@/lib/agency/org-chart";
 import { useOrganizationTree } from "@/lib/data/use-organization-structure";
 import { usePositions } from "@/lib/data/use-positions";
+import { useAgencyMembers } from "@/lib/data/use-agency-teams";
 import { useQuery } from "@tanstack/react-query";
 import { fetchAgencyBrand } from "@/lib/data/agencies";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -42,6 +43,7 @@ const ICON: Record<OrgNode["kind"], typeof Users> = {
   department: Layers,
   team: Users,
   position: UserCheck,
+  person: UserRound,
 };
 
 /** Where a node's own record lives, so no node is a dead end. */
@@ -55,6 +57,8 @@ function hrefFor(node: OrgNode): string | null {
       return `/app/settings?section=structure`;
     case "position":
       return `/app/settings?section=positions&position=${node.recordId}`;
+    case "person":
+      return `/app/people/${node.recordId}`;
     default:
       return null;
   }
@@ -63,6 +67,7 @@ function hrefFor(node: OrgNode): string | null {
 export function OrgChart() {
   const tree = useOrganizationTree();
   const positions = usePositions();
+  const members = useAgencyMembers();
   const auth = useAuth();
   /* The company's own name, from the agency record. The chart's root is the
      company, so it should say the company's name rather than a label. */
@@ -77,6 +82,15 @@ export function OrgChart() {
   const [view, setView] = useState<ChartView>(readView);
   const chooseView = (v: ChartView) => { setView(v); writeView(v); };
 
+  /* Who each person is and the role they hold: the seat from positions,
+     else the membership's job title. Active people only — a deactivated
+     member is yesterday's chart. */
+  const people = useMemo(() => {
+    const seat = new Map<string, string>();
+    for (const p of positions.data ?? []) for (const h of p.holders) if (!seat.has(h.userId)) seat.set(h.userId, p.title);
+    return (members.data ?? []).filter((m) => m.status === "active")
+      .map((m) => ({ userId: m.userId, name: m.name, title: seat.get(m.userId) ?? m.jobTitle ?? null }));
+  }, [members.data, positions.data]);
   const root = useMemo(
     () =>
       tree.data
@@ -84,9 +98,10 @@ export function OrgChart() {
             agencyName: agencyName || "BES Agency HQ",
             tree: tree.data,
             positions: positions.data ?? [],
+            people,
           })
         : null,
-    [tree.data, positions.data, agencyName],
+    [tree.data, positions.data, agencyName, people],
   );
   const seats = useMemo(() => countSeats(positions.data ?? []), [positions.data]);
   /* The chart is wider than the screen; open it on the company, not on the
@@ -245,8 +260,9 @@ function NodeCard({ node }: { node: OrgNode }) {
       node.kind === "position" && node.state === "filled" && "border-status-success/40 bg-status-success/5",
       node.kind === "position" && node.state === "covered" && "border-amber-500/40 bg-amber-500/5",
       node.kind === "position" && node.state === "vacant" && "border-dashed border-border bg-card",
+      node.kind === "person" && "border-primary/30 bg-primary/5",
     )}>
-      <Icon className={cn("mx-auto mb-1 h-4 w-4", node.kind === "leadership" ? "text-amber-600" : "text-muted-foreground")} aria-hidden />
+      <Icon className={cn("mx-auto mb-1 h-4 w-4", node.kind === "leadership" ? "text-amber-600" : node.kind === "person" ? "text-primary" : "text-muted-foreground")} aria-hidden />
       <span className="block truncate" title={node.label}>{label}</span>
       {node.detail && (
         <span className={cn("block truncate text-[11px]",
@@ -309,6 +325,7 @@ function Node({
             node.kind === "position" && node.state === "filled" && "border-status-success/40 bg-status-success/5",
             node.kind === "position" && node.state === "covered" && "border-amber-500/40 bg-amber-500/5",
             node.kind === "position" && node.state === "vacant" && "border-dashed border-border bg-card",
+            node.kind === "person" && "border-primary/30 bg-primary/5",
           )}
         >
           <span className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">

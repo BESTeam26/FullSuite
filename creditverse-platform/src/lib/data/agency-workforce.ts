@@ -9,7 +9,7 @@ import type { Enums } from "@/lib/supabase/database.types";
 
 export interface AgencyPerson { userId: string; name: string; email: string; role: Enums<"agency_role">; since: string }
 export interface AgencyTeam { id: string; name: string; departmentId: string | null; department: string | null; division: string | null; members: { userId: string; isLead: boolean }[]; archived: boolean }
-export interface WeekTime { employeeId: string; minutes: number; running: boolean }
+export interface WeekTime { employeeId: string; minutes: number; running: boolean; /** The most recent clock-in this week, or null. */ lastActiveAt: string | null }
 export interface Workforce { people: AgencyPerson[]; teams: AgencyTeam[]; time: WeekTime[]; weekStart: string }
 
 const startOfWeekUtc = (now: Date) => { const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())); const dow = (d.getUTCDay() + 6) % 7; d.setUTCDate(d.getUTCDate() - dow); return d; };
@@ -26,11 +26,11 @@ export async function fetchWorkforce(now: Date = new Date()): Promise<Workforce>
        fixture profiles: the matrix's teams are real rows, and a beta tester
        should not find "[TEST] Team A" in their roster. */
     sb.from("teams").select("id, name, archived_at, organization_id, department_id, is_fixture, departments(name, division), team_memberships(user_id, is_lead)").is("organization_id", null).eq("is_fixture", false).limit(200),
-    sb.from("time_entries").select("employee_id, duration_minutes, ended_at").gte("work_date", weekStart.toISOString().slice(0, 10)).limit(5000),
+    sb.from("time_entries").select("employee_id, duration_minutes, ended_at, started_at").gte("work_date", weekStart.toISOString().slice(0, 10)).limit(5000),
   ]);
   for (const r of [members, teams, time]) if (r.error) throw r.error;
   const byEmp = new Map<string, WeekTime>();
-  for (const t of time.data ?? []) { const cur = byEmp.get(t.employee_id) ?? { employeeId: t.employee_id, minutes: 0, running: false }; cur.minutes += t.duration_minutes ?? 0; if (t.ended_at === null) cur.running = true; byEmp.set(t.employee_id, cur); }
+  for (const t of time.data ?? []) { const cur = byEmp.get(t.employee_id) ?? { employeeId: t.employee_id, minutes: 0, running: false, lastActiveAt: null }; cur.minutes += t.duration_minutes ?? 0; if (t.ended_at === null) cur.running = true; if (!cur.lastActiveAt || t.started_at > cur.lastActiveAt) cur.lastActiveAt = t.started_at; byEmp.set(t.employee_id, cur); }
   return {
     weekStart: weekStart.toISOString(),
     people: (members.data ?? []).map((m) => { const p = m.profiles as { full_name: string | null; email: string } | null; return { userId: m.user_id, name: p?.full_name?.trim() || p?.email || "Team member", email: p?.email ?? "", role: m.role, since: m.created_at }; }),

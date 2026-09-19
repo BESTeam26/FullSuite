@@ -21,7 +21,7 @@ import type { OrganizationTree } from "@/lib/data/organization-structure";
 import type { Position } from "@/lib/data/positions";
 
 export type OrgNodeKind =
-  | "agency" | "leadership" | "division" | "department" | "team" | "position";
+  | "agency" | "leadership" | "division" | "department" | "team" | "position" | "person";
 
 export interface OrgNode {
   id: string;
@@ -36,10 +36,25 @@ export interface OrgNode {
   children: OrgNode[];
 }
 
+/** A person as the chart names them: who they are and the role they hold. */
+export interface OrgChartPerson {
+  userId: string;
+  name: string;
+  /** The seat they hold, else the membership's job title, else null. */
+  title: string | null;
+}
+
 export interface OrgChartInput {
   agencyName: string;
   tree: OrganizationTree;
   positions: readonly Position[];
+  /**
+   * Dee, 2026-09-19: "show the person under the role, like the list of names
+   * under those team or department… and their role." Team members and
+   * department managers are drawn as person nodes; omitted, the chart shows
+   * counts only.
+   */
+  people?: readonly OrgChartPerson[];
 }
 
 const live = <T extends { archived?: boolean; archivedAt?: string | null }>(x: T) =>
@@ -77,8 +92,28 @@ function positionNode(p: Position): OrgNode {
  * what §10 means by "above or outside the three operating Divisions" — it is
  * never counted among them and never rendered as a fourth.
  */
-export function buildOrgChart({ agencyName, tree, positions }: OrgChartInput): OrgNode {
+export function buildOrgChart({ agencyName, tree, positions, people = [] }: OrgChartInput): OrgNode {
   const active = positions.filter((p) => !p.archivedAt);
+  const personById = new Map(people.map((p) => [p.userId, p]));
+  /* A person under a team: their name, and the role they hold there. A lead
+     is said so even when they hold no seat — leading is a fact of the team. */
+  const personNode = (scope: string, userId: string, role: string | null): OrgNode | null => {
+    const person = personById.get(userId);
+    if (!person) return null;
+    return {
+      id: `person:${scope}:${userId}`,
+      kind: "person",
+      label: person.name,
+      detail: role ?? person.title ?? "Team member",
+      recordId: userId,
+      children: [],
+    };
+  };
+  const memberRole = (userId: string, isLead: boolean): string | null => {
+    const title = personById.get(userId)?.title ?? null;
+    if (isLead) return title ? `${title} · Team Lead` : "Team Lead";
+    return title;
+  };
   const byDepartment = new Map<string, Position[]>();
   const byTeam = new Map<string, Position[]>();
   const byDivisionOnly = new Map<string, Position[]>();
@@ -108,14 +143,23 @@ export function buildOrgChart({ agencyName, tree, positions }: OrgChartInput): O
             label: t.name,
             detail: `${t.members.length} ${t.members.length === 1 ? "person" : "people"}`,
             recordId: t.id,
-            children: (byTeam.get(t.id) ?? []).map(positionNode),
+            children: [
+              /* The lead first, then everybody else by name. */
+              ...[...t.members]
+                .sort((a, b) => Number(b.isLead) - Number(a.isLead)
+                  || (personById.get(a.userId)?.name ?? "").localeCompare(personById.get(b.userId)?.name ?? ""))
+                .map((m) => personNode(`team:${t.id}`, m.userId, memberRole(m.userId, m.isLead)))
+                .filter((n): n is OrgNode => n !== null),
+              ...(byTeam.get(t.id) ?? []).map(positionNode),
+            ],
           }));
+        const manager = d.managerId ? personNode(`department:${d.id}`, d.managerId, "Department Manager") : null;
         return {
           id: `department:${d.id}`,
           kind: "department" as const,
           label: d.name,
           recordId: d.id,
-          children: [...teams, ...(byDepartment.get(d.id) ?? []).map(positionNode)],
+          children: [...(manager ? [manager] : []), ...teams, ...(byDepartment.get(d.id) ?? []).map(positionNode)],
         };
       });
 

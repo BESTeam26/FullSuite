@@ -40,7 +40,9 @@ export type PeopleAudience =
   /** Management capability (admin, or ops.manage) — sees the organization. */
   | "manages"
   /** Agency admins: structure and positions are administration. */
-  | "admin";
+  | "admin"
+  /** The payroll capability (payroll.view / payroll.manage) — never implied by anything else. */
+  | "payroll";
 
 export interface PeopleSection {
   /** The URL segment under /app/people. The overview is the root and has none. */
@@ -73,6 +75,8 @@ export const PEOPLE_SECTIONS: PeopleSection[] = [
     description: "Who reported, what they worked, and what is in their way." },
   { slug: "performance", label: "Performance", audience: "lead",
     description: "Time, attendance and utilization across your people." },
+  { slug: "payroll", label: "Payroll", audience: "payroll",
+    description: "Cutoffs, payslips and what each person is paid — for payroll eyes only." },
 ];
 
 export interface PeopleAudienceContext {
@@ -82,6 +86,8 @@ export interface PeopleAudienceContext {
   manages: boolean;
   /** Leads at least one team — a relationship, not a role name. */
   leadsTeam: boolean;
+  /** Holds payroll.view or payroll.manage. Dee: never visible merely for Finance or admin. */
+  payroll: boolean;
 }
 
 const admits = (audience: PeopleAudience, ctx: PeopleAudienceContext): boolean => {
@@ -89,6 +95,7 @@ const admits = (audience: PeopleAudience, ctx: PeopleAudienceContext): boolean =
     case "lead": return ctx.leadsTeam || ctx.manages || ctx.administers;
     case "manages": return ctx.manages || ctx.administers;
     case "admin": return ctx.administers;
+    case "payroll": return ctx.payroll;
   }
 };
 

@@ -4,6 +4,7 @@ import {
   fetchEodActivity, fetchEodDay, fetchTeamEod, runEodCutoff, saveEodDay,
   reviewEod,
   type EodNotes, type ReviewDecision,
+  fetchEodSubmissionsRange,
 } from "@/lib/data/eod-day";
 
 export const todayLocal = () => {
@@ -67,6 +68,17 @@ export function useSaveEod(date: string) {
  * agency's cutoff is already marked auto-submitted by the time the table
  * renders — rather than sitting as "missing" until a scheduler happens to run.
  */
+/** Submissions across a date range, for compliance counts. */
+export function useEodSubmissionsRange(from: string, to: string) {
+  const { live, agencyId } = useCtx();
+  return useQuery({
+    queryKey: ["eod", "range", agencyId ?? "", from, to],
+    queryFn: () => fetchEodSubmissionsRange(agencyId!, from, to),
+    enabled: live && !!agencyId,
+    staleTime: 60_000,
+  });
+}
+
 export function useTeamEod(date: string) {
   const { live, agencyId } = useCtx();
   return useQuery({

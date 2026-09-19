@@ -9,6 +9,7 @@
  */
 import { requireSupabase } from "@/lib/supabase/client";
 import type { PayRateType } from "@/lib/payroll/rate-label";
+import { pageAll } from "@/lib/attendance/page-all";
 
 /* ── Schedules ─────────────────────────────────────────────────────────── */
 
@@ -278,11 +279,27 @@ export interface AttendanceDay {
   status: "on_leave" | "no_schedule" | "off" | "absent" | "not_in_yet" | "late" | "present";
 }
 
+/** attendance_for is bounded in SQL to under this many days; a quarter is 92. */
+export const ATTENDANCE_RANGE_LIMIT_DAYS = 100;
+
 export async function fetchAttendance(fromDate: string, toDate: string): Promise<AttendanceDay[]> {
+  /* The function answers an over-wide range with NO ROWS, not an error — which
+     is how every quarterly score once read a clean 15 (2026-09-19). Refuse
+     loudly here so an empty answer can never again pass for the truth. */
+  const days = (Date.parse(`${toDate}T00:00:00Z`) - Date.parse(`${fromDate}T00:00:00Z`)) / 86_400_000;
+  if (!(days >= 0 && days < ATTENDANCE_RANGE_LIMIT_DAYS)) {
+    throw new Error(`Attendance can be read for up to ${ATTENDANCE_RANGE_LIMIT_DAYS - 1} days at a time (asked for ${days}).`);
+  }
   const sb = requireSupabase();
-  const { data, error } = await sb.rpc("attendance_for", { p_from: fromDate, p_to: toDate });
-  if (error) throw error;
-  return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+  /* Paged: PostgREST caps a response at 1,000 rows and says nothing — a
+     quarter for a team is more than that (2026-09-19). */
+  const rows = await pageAll(async (offset, limit) => {
+    const { data, error } = await sb.rpc("attendance_for", { p_from: fromDate, p_to: toDate })
+      .order("user_id").order("day").range(offset, offset + limit - 1);
+    if (error) throw error;
+    return (data ?? []) as Record<string, unknown>[];
+  });
+  return rows.map((r) => ({
     userId: r.user_id as string,
     day: r.day as string,
     scheduled: Boolean(r.scheduled),

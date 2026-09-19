@@ -214,6 +214,7 @@ export const Sidebar = () => {
     administers: navContext.role === "agency_admin",
     manages: navContext.role === "agency_admin" || navContext.can("ops.manage"),
     leadsTeam: navContext.leadsTeam,
+    payroll: navContext.can("payroll.view") || navContext.can("payroll.manage"),
   }), [navContext]);
   const peopleChildren = useMemo(
     () => visiblePeopleSections(peopleAudience).map((s) => ({

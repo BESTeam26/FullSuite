@@ -3,10 +3,11 @@ import {
   PEOPLE_SECTIONS, isPeopleSectionSlug, peopleSectionFor, seesPeopleAndTeams, visiblePeopleSections,
 } from "./people-sections";
 
-const AGENT = { administers: false, manages: false, leadsTeam: false };
-const LEAD = { administers: false, manages: false, leadsTeam: true };
-const DIVISION_MANAGER = { administers: false, manages: true, leadsTeam: false };
-const EXECUTIVE = { administers: true, manages: true, leadsTeam: false };
+const AGENT = { administers: false, manages: false, leadsTeam: false, payroll: false };
+const LEAD = { administers: false, manages: false, leadsTeam: true, payroll: false };
+const DIVISION_MANAGER = { administers: false, manages: true, leadsTeam: false, payroll: false };
+const EXECUTIVE = { administers: true, manages: true, leadsTeam: false, payroll: false };
+const PAYROLL_ADMIN = { ...EXECUTIVE, payroll: true };
 const labels = (ctx: typeof AGENT) => visiblePeopleSections(ctx).map((s) => s.label);
 
 /* Dee, 2026-09-19: the locked, role-adaptive tab lists. */
@@ -33,7 +34,13 @@ describe("People & Teams is role-adaptive", () => {
       "Overview", "Team Members", "Structure", "Positions", "Org Chart",
       "Schedule", "Attendance", "Time Off", "End of Day", "Performance",
     ]);
-    expect(labels(EXECUTIVE)).toEqual(PEOPLE_SECTIONS.map((s) => s.label));
+    expect(labels(EXECUTIVE)).not.toContain("Payroll");
+  });
+
+  it("Payroll appears only with the payroll capability — never for being an admin", () => {
+    expect(labels(PAYROLL_ADMIN)).toEqual(PEOPLE_SECTIONS.map((s) => s.label));
+    expect(labels(PAYROLL_ADMIN).at(-1)).toBe("Payroll");
+    expect(labels({ ...AGENT, payroll: true })).toEqual(["Payroll"]);
   });
 });
 

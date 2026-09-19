@@ -280,6 +280,35 @@ export async function fetchTeamEod(agencyId: string, workDate: string): Promise<
  * feature does not depend on a cron job existing. Returns how many it
  * submitted. A no-op when the agency has not switched auto-submit on.
  */
+/** One submission, reduced to what compliance counting needs. */
+export interface EodSubmissionMark {
+  employeeId: string;
+  workDate: string;
+  kind: SubmissionKind;
+}
+
+/**
+ * Every submission in a date range the caller may see — ONE bounded query,
+ * not one per day. People & Teams → Overview counts the week from this plus
+ * the scheduled days `attendance_for` already knows, so "missing" means a
+ * scheduled day with no report, never a day off.
+ */
+export async function fetchEodSubmissionsRange(agencyId: string, from: string, to: string): Promise<EodSubmissionMark[]> {
+  const sb = requireSupabase();
+  const { data, error } = await sb
+    .from("eod_submissions")
+    .select("employee_id, work_date, submitted_at, auto_submitted")
+    .eq("agency_id", agencyId)
+    .gte("work_date", from).lte("work_date", to)
+    .limit(2000);
+  if (error) throw error;
+  return (data ?? []).map((r) => ({
+    employeeId: r.employee_id as string,
+    workDate: r.work_date as string,
+    kind: submissionKind({ submittedAt: (r.submitted_at as string) ?? null, autoSubmitted: Boolean(r.auto_submitted) }),
+  }));
+}
+
 export async function runEodCutoff(agencyId: string): Promise<number> {
   const sb = requireSupabase();
   const { data, error } = await sb.rpc("eod_run_cutoff", { p_agency: agencyId });

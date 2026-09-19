@@ -172,6 +172,8 @@ export interface AgencyMember {
   deactivatedAt: string | null;
   jobTitle: string | null;
   managerId: string | null;
+  /** From the profile; a colleague's contact, shown on the person's card. */
+  phone: string | null;
   /** Capability keys granted to this person specifically — the module doors
       among them decide whether they can work at all. */
   moduleGrants: string[];
@@ -193,14 +195,14 @@ export async function fetchAgencyMembers(agencyId: string): Promise<AgencyMember
   const { data, error } = await sb
     .from("agency_memberships")
     // prettier-ignore
-    .select("id, user_id, role, access_profile, is_owner, scope, status, created_at, deactivated_at, job_title, manager_id, profiles!user_id!inner(full_name, email, is_fixture)")
+    .select("id, user_id, role, access_profile, is_owner, scope, status, created_at, deactivated_at, job_title, manager_id, profiles!user_id!inner(full_name, email, phone, is_fixture)")
     .eq("agency_id", agencyId)
     .eq("profiles.is_fixture", false)
     .order("created_at");
   if (error) throw error;
   return (data ?? []).map((row) => {
     const r = row as Record<string, unknown>;
-    const p = (r.profiles ?? {}) as { full_name?: string; email?: string };
+    const p = (r.profiles ?? {}) as { full_name?: string; email?: string; phone?: string | null };
     return {
       membershipId: r.id as string,
       userId: r.user_id as string,
@@ -215,6 +217,7 @@ export async function fetchAgencyMembers(agencyId: string): Promise<AgencyMember
       deactivatedAt: (r.deactivated_at as string) ?? null,
       jobTitle: (r.job_title as string) ?? null,
       managerId: (r.manager_id as string) ?? null,
+      phone: (p.phone as string | null) ?? null,
       moduleGrants: grantsByMembership.get(r.id as string) ?? [],
     };
   });

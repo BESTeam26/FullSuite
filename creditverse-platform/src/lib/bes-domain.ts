@@ -117,6 +117,8 @@ export interface WorkItem {
   /** Set when the item is Completed; cleared if it is reopened. */
   completedAt?: string;
   createdBy?: string;
+  /** The QA verdict on completed work, where a review happened (work_qa_result). */
+  qaResult?: "pending" | "passed" | "needs_fix";
 }
 
 /* ------------------------------------------------------------------ */

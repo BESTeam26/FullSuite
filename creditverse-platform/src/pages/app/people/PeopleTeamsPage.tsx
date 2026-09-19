@@ -42,6 +42,7 @@ const OrganizationStructure = lazy(() => import("@/components/agency/Organizatio
 const TeamsManager = lazy(() => import("@/components/agency/TeamsManager").then((m) => ({ default: m.TeamsManager })));
 const PositionsSection = lazy(() => import("@/components/settings/sections/PositionsSection").then((m) => ({ default: m.PositionsSection })));
 const OrgChart = lazy(() => import("@/components/agency/OrgChart").then((m) => ({ default: m.OrgChart })));
+const PayrollPanel = lazy(() => import("@/components/agency/finance/PayrollPanel").then((m) => ({ default: m.PayrollPanel })));
 
 const TeamMemberProfilePage = lazy(() => import("@/pages/app/TeamMemberProfilePage"));
 
@@ -49,7 +50,12 @@ const TeamMemberProfilePage = lazy(() => import("@/pages/app/TeamMemberProfilePa
 export function usePeopleAudience() {
   const { ctx } = useAgencyAccessContext();
   const administers = ctx.role === "agency_admin";
-  return { administers, manages: administers || ctx.can("ops.manage"), leadsTeam: ctx.leadsTeam };
+  return {
+    administers,
+    manages: administers || ctx.can("ops.manage"),
+    leadsTeam: ctx.leadsTeam,
+    payroll: ctx.can("payroll.view") || ctx.can("payroll.manage"),
+  };
 }
 
 /**
@@ -127,6 +133,7 @@ export const PeopleTeamsPage = () => {
         {section.slug === "time-off" && <TeamTimeOff />}
         {section.slug === "eod" && <TeamEod />}
         {section.slug === "performance" && <TeamPerformance />}
+        {section.slug === "payroll" && <PayrollPanel />}
       </Suspense>
     </HqPageShell>
   );

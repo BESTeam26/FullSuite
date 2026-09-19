@@ -185,3 +185,49 @@ describe("the header counts", () => {
     ])).toEqual({ total: 3, filled: 1, covered: 1, vacant: 1 });
   });
 });
+
+/* Dee, 2026-09-19: "show the person under the role, like the list of names
+   under those team or department… and their role." */
+const findNode = (node: OrgNode, pred: (n: OrgNode) => boolean): OrgNode | null => {
+  if (pred(node)) return node;
+  for (const c of node.children) { const hit = findNode(c, pred); if (hit) return hit; }
+  return null;
+};
+
+describe("people under their team", () => {
+  const people = [
+    { userId: "u-lead", name: "Rowell", title: "Processing Team Lead" },
+    { userId: "u-a", name: "Bryan", title: "Processor" },
+    { userId: "u-b", name: "Archie", title: null },
+  ];
+  const tree = {
+    divisions: [division({})], departments: [department({ managerId: "u-lead" })],
+    teams: [team({ members: [{ userId: "u-a", isLead: false }, { userId: "u-b", isLead: false }, { userId: "u-lead", isLead: true }] })],
+  } as unknown as OrganizationTree;
+
+  it("lists each member under the team with the role they hold, the lead first", () => {
+    const root = buildOrgChart({ agencyName: "BES", tree, positions: [], people });
+    const teamNode = findNode(root, (n) => n.kind === "team")!;
+    const persons = teamNode.children.filter((n) => n.kind === "person");
+    expect(persons.map((n) => [n.label, n.detail])).toEqual([
+      ["Rowell", "Processing Team Lead · Team Lead"],
+      ["Archie", "Team member"],
+      ["Bryan", "Processor"],
+    ]);
+    expect(persons[0].recordId).toBe("u-lead");
+  });
+
+  it("names the department manager under the department", () => {
+    const root = buildOrgChart({ agencyName: "BES", tree, positions: [], people });
+    const dept = findNode(root, (n) => n.kind === "department")!;
+    expect(dept.children[0]).toMatchObject({ kind: "person", label: "Rowell", detail: "Department Manager" });
+  });
+
+  it("draws counts only when no people are supplied", () => {
+    const root = buildOrgChart({ agencyName: "BES", tree, positions: [] });
+    const teamNode = findNode(root, (n) => n.kind === "team")!;
+    expect(teamNode.children.some((n) => n.kind === "person")).toBe(false);
+    expect(teamNode.detail).toBe("3 people");
+  });
+});
+
