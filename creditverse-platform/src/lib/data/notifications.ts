@@ -38,7 +38,9 @@ export type NotificationKind =
      to the assignee, with the team's leads on the overdue one. A CRM go-live
      date uses the same two kinds against the project. */
   | "due_soon"
-  | "overdue";
+  | "overdue"
+  /* End of Day: a submission due, late, or reviewed (0916). */
+  | "eod";
 
 export interface Notification {
   id: number;

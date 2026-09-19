@@ -60,6 +60,42 @@ Measured as a REAL Agency User authorization context (`complaints-agent-matrix-p
 
 8/11 → 11/11. Root cause at the database: the directory arm of the client policy granted every client to any CreditOps user with `creditops.clients.view`; it now intersects with `can_see_partner()` (unchanged), so queues, checklists and production writes — which all check the client row — narrowed with it. Rendering: the CreditOps space now reads the previewed person's role and team placement; the Dashboard is a management view; department and agent filters follow the person's scope; the title reads "CreditOps" for non-management. Live retest: preview or sign in as a department agent and open CreditOps.
 
+### P-010 · Notifications page crashed for anyone holding an End of Day notice
+
+**2026-09-19 · reporter: console during Dee's session · module: Notifications ·
+class A pilot defect · severity: blocker for the page.** Actual: opening
+Notifications rendered nothing and the console read "Element type is invalid"
+from `NotificationRow`. Expected: the list. Root cause: migration 0916 added
+the `eod` notification kind and the database has been writing it (2 live
+rows); the frontend's `NotificationKind` union and `KIND_ICON` did not carry
+it, so the icon was `undefined` and React threw. The guard test that exists
+for exactly this (`notifications.kinds.test.ts`) knew only the `kind in (…)`
+spelling of the constraint, so it compared against 0218 and kept passing.
+Fix: `eod` added to the union, the icon map and the test; the row falls back
+to a bell for any kind a build does not know; the test now reads both
+spellings and asserts it found the 0916 file. Status: FIXED AWAITING LIVE
+RETEST — open Notifications as Dee and as an agent with an EOD notice.
+
+### P-009 · "Invite Team Member" failed: type "citext" does not exist
+
+**2026-09-19 · reporter: Dee's session, inviting Aaron · module: Invite Users /
+Login · class C security-adjacent pilot blocker · severity: P0.** Actual: the
+invite dialog showed `type "citext" does not exist`; no invitation was
+created. Expected: invitation created and emailed. Root cause: migration
+20260912001700 redefined `invite_agency_member` with `set search_path =
+public` while declaring `v_email citext` unqualified; the type lives in the
+`extensions` schema, so the function failed to compile on first call. The
+same fault sat in seven other functions — `accept_invitation`,
+`accept_partner_invitation`, `provision_self_serve_organization`,
+`diy_enroll`, `clickup_import_client`, `set_report_recipient`,
+`signature_request_create_unchecked` — meaning acceptance of ANY invitation
+and self-serve sign-up were also broken. Fix: migration 20260919024000
+regenerates all eight from their live definitions with `extensions.citext`;
+nothing else changes. Verified live: Aaron's invitation created and emailed
+through the dialog immediately after. Status: DEPLOYED to the database;
+FIXED AWAITING LIVE RETEST for acceptance — the next person who accepts an
+invitation is the test.
+
 ### P-007 · Every attendance score was a clean 15
 
 Two layers, each silent. `attendance_for` was bounded to `p_to - p_from < 62`

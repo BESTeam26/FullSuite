@@ -28,6 +28,7 @@ import {
   Clock,
   Timer,
   Bell,
+  ClipboardCheck,
   CheckCircle2,
   Check,
   CheckCheck,
@@ -437,6 +438,7 @@ const KIND_ICON: Record<Notification["kind"], ElementType> = {
   payroll: Receipt,
   due_soon: CalendarClock,
   overdue: AlertTriangle,
+  eod: ClipboardCheck,
 };
 
 const ENTITY_LABEL: Record<string, string> = {
@@ -471,7 +473,9 @@ const NotificationRow = ({
   onOpen: (n: Notification) => void;
   onMarkRead: (id: number) => void;
 }) => {
-  const Icon = KIND_ICON[n.kind];
+  /* A kind this build does not know renders as a plain bell — never a crash
+     (P-010: an `eod` notice took the whole page down). */
+  const Icon = KIND_ICON[n.kind] ?? Bell;
   // A record you were moved off is, by definition, one you may no longer
   // open. Say so instead of linking to a page that would show nothing.
   const href =

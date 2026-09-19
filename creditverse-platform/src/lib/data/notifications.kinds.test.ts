@@ -14,7 +14,11 @@ import type { NotificationKind } from "./notifications";
  * pinned to 0061 would have kept passing against a vocabulary four values
  * out of date.
  */
-const CHECK = /alter table public\.notifications\s+add constraint notifications_kind_check\s+check \(kind in \(([^)]*)\)\)/i;
+/* Both spellings the migrations have used: `kind in (…)` (0218) and
+   `kind = any (array[…])` (0916). P-010 taught why the second matters: the
+   regex knew only the first, so this test compared against 0218 and passed
+   while the database was already writing 'eod'. */
+const CHECK = /alter table public\.notifications\s+add constraint notifications_kind_check\s+check \(kind (?:in \(|= any \(array\[)([\s\S]*?)(?:\)\)|\]\)\))/i;
 
 function kindsFromNewestMigration(): { file: string; kinds: string[] } {
   const dir = "supabase/migrations";
@@ -27,7 +31,7 @@ function kindsFromNewestMigration(): { file: string; kinds: string[] } {
   const newest = found[found.length - 1];
   return {
     file: newest.file,
-    kinds: [...newest.match![1].matchAll(/'([^']+)'/g)].map((m) => m[1]),
+    kinds: [...newest.match![1].replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/'([^']+)'/g)].map((m) => m[1]),
   };
 }
 
@@ -51,9 +55,15 @@ describe("notification kinds", () => {
       payroll: true,
       due_soon: true,
       overdue: true,
+      eod: true,
     };
     const { file, kinds } = kindsFromNewestMigration();
     expect(kinds.sort(), `newest constraint is in ${file}`).toEqual(Object.keys(declared).sort());
+  });
+
+  it("reads the newest spelling of the constraint, not the first one it learnt", () => {
+    const { file } = kindsFromNewestMigration();
+    expect(file >= "20260916001300_eod_notifications_and_scope.sql").toBe(true);
   });
 
   it("finds the constraint in a migration later than the one that created the table", () => {
