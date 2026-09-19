@@ -372,9 +372,16 @@ const TimeOffCard = () => {
 
       {asking && (
         <RequestTimeOffDialog
-          types={(types.data ?? []).map((t) => ({
-            id: t.id, label: t.label, paid: t.paid, minNoticeDays: t.minNoticeDays,
-          }))}
+          /* Unpaid categories only here. Spending a REWARD needs the wallet,
+             which lives on Time Off — offering a paid type with no credit
+             count beside it would be offering something this card cannot
+             answer for. */
+          types={(types.data ?? [])
+            .filter((t) => t.compensation === "unpaid")
+            .map((t) => ({
+              id: t.id, label: t.label, paid: t.paid, minNoticeDays: t.minNoticeDays,
+              compensation: t.compensation, rewardKind: t.rewardKind,
+            }))}
           busy={actions.submit.isPending}
           error={(actions.submit.error as Error | null)?.message ?? null}
           onClose={() => setAsking(false)}

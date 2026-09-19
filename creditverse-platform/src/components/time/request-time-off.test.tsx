@@ -23,8 +23,13 @@ import { addDays, businessToday, isBusinessDay, nextBusinessDay } from "@/lib/ca
 const onBusinessDay = (date: string) => (isBusinessDay(date) ? date : nextBusinessDay(date));
 
 const TYPES = [
-  { id: "vac", label: "Vacation", paid: true, minNoticeDays: 7 },
-  { id: "sick", label: "Sick leave", paid: true, minNoticeDays: 0 },
+  { id: "vac", label: "Personal Time Off", paid: false, minNoticeDays: 7,
+    compensation: "unpaid" as const, rewardKind: null },
+  { id: "sick", label: "Sick leave", paid: false, minNoticeDays: 0,
+    compensation: "unpaid" as const, rewardKind: null },
+  { id: "rew", label: "Attendance Reward Day", paid: true, minNoticeDays: 7,
+    compensation: "reward" as const, rewardKind: "attendance" as const,
+    rewardDaysAvailable: 0 },
 ];
 
 const open = (onSubmit = vi.fn()) => {

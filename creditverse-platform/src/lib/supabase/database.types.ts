@@ -7349,6 +7349,7 @@ export type Database = {
       leave_requests: {
         Row: {
           agency_id: string
+          compensation: string
           coverage_note: string | null
           created_at: string
           decided_at: string | null
@@ -7364,6 +7365,7 @@ export type Database = {
         }
         Insert: {
           agency_id: string
+          compensation?: string
           coverage_note?: string | null
           created_at?: string
           decided_at?: string | null
@@ -7379,6 +7381,7 @@ export type Database = {
         }
         Update: {
           agency_id?: string
+          compensation?: string
           coverage_note?: string | null
           created_at?: string
           decided_at?: string | null
@@ -7428,33 +7431,39 @@ export type Database = {
           active: boolean
           agency_id: string
           code: string
+          compensation: string
           created_at: string
           id: string
           label: string
           min_notice_days: number
           paid: boolean
+          reward_kind: string | null
           sort: number
         }
         Insert: {
           active?: boolean
           agency_id: string
           code: string
+          compensation?: string
           created_at?: string
           id?: string
           label: string
           min_notice_days?: number
           paid?: boolean
+          reward_kind?: string | null
           sort?: number
         }
         Update: {
           active?: boolean
           agency_id?: string
           code?: string
+          compensation?: string
           created_at?: string
           id?: string
           label?: string
           min_notice_days?: number
           paid?: boolean
+          reward_kind?: string | null
           sort?: number
         }
         Relationships: [
@@ -14012,6 +14021,95 @@ export type Database = {
           },
         ]
       }
+      reward_credits: {
+        Row: {
+          agency_id: string
+          consumed_at: string | null
+          consumed_for: string | null
+          consumed_note: string | null
+          created_at: string
+          days: number
+          elected_at: string | null
+          election: string | null
+          expires_on: string
+          extend_reason: string | null
+          extended_by: string | null
+          extended_from: string | null
+          id: string
+          issued_on: string
+          kind: string
+          label: string
+          user_id: string
+        }
+        Insert: {
+          agency_id: string
+          consumed_at?: string | null
+          consumed_for?: string | null
+          consumed_note?: string | null
+          created_at?: string
+          days?: number
+          elected_at?: string | null
+          election?: string | null
+          expires_on: string
+          extend_reason?: string | null
+          extended_by?: string | null
+          extended_from?: string | null
+          id?: string
+          issued_on?: string
+          kind: string
+          label: string
+          user_id: string
+        }
+        Update: {
+          agency_id?: string
+          consumed_at?: string | null
+          consumed_for?: string | null
+          consumed_note?: string | null
+          created_at?: string
+          days?: number
+          elected_at?: string | null
+          election?: string | null
+          expires_on?: string
+          extend_reason?: string | null
+          extended_by?: string | null
+          extended_from?: string | null
+          id?: string
+          issued_on?: string
+          kind?: string
+          label?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reward_credits_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reward_credits_consumed_for_fkey"
+            columns: ["consumed_for"]
+            isOneToOne: false
+            referencedRelation: "leave_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reward_credits_extended_by_fkey"
+            columns: ["extended_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reward_credits_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       role_permissions: {
         Row: {
           allowed: boolean
@@ -17824,6 +17922,10 @@ export type Database = {
       }
       dst_calendar_sweep: { Args: never; Returns: undefined }
       due_date_sweep: { Args: never; Returns: number }
+      elect_birthday_reward: {
+        Args: { p_credit: string; p_election: string; p_leave_request?: string }
+        Returns: undefined
+      }
       end_position_assignment: {
         Args: { p_id: string; p_on?: string }
         Returns: undefined
@@ -17920,6 +18022,10 @@ export type Database = {
           relationship: string
           team_name: string
         }[]
+      }
+      extend_reward_credit: {
+        Args: { p_credit: string; p_new_expiry: string; p_reason: string }
+        Returns: undefined
       }
       file_bes_in_scope: { Args: { p_file: string }; Returns: boolean }
       file_org_admin: { Args: { p_file: string }; Returns: boolean }
@@ -18024,6 +18130,11 @@ export type Database = {
         }
         Returns: string
       }
+      grant_attendance_reward: {
+        Args: { p_note?: string; p_quarter: string; p_user: string }
+        Returns: string
+      }
+      grant_birthday_rewards: { Args: { p_on?: string }; Returns: number }
       handoff_client_departments: {
         Args: {
           p_client: string

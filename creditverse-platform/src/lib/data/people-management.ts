@@ -106,17 +106,27 @@ export interface LeaveType {
    * told the rule before they pick a date rather than after they submit.
    */
   minNoticeDays: number;
+  /**
+   * What BES pays for this kind of time off: nothing, or an earned reward.
+   * Deliberately NOT a balance — a type is a request category (Dee,
+   * 2026-09-19). Only `reward` types consume a credit.
+   */
+  compensation: "unpaid" | "reward";
+  /** Which reward a paid type spends. Null on everything unpaid. */
+  rewardKind: "birthday" | "attendance" | null;
 }
 
 export async function fetchLeaveTypes(): Promise<LeaveType[]> {
   const sb = requireSupabase();
   const { data, error } = await sb
-    .from("leave_types").select("id, code, label, paid, min_notice_days")
+    .from("leave_types").select("id, code, label, paid, min_notice_days, compensation, reward_kind")
     .eq("active", true).order("sort");
   if (error) throw error;
   return (data ?? []).map((r) => ({
     id: r.id, code: r.code, label: r.label, paid: r.paid,
     minNoticeDays: Number(r.min_notice_days ?? 0),
+    compensation: r.compensation === "reward" ? "reward" as const : "unpaid" as const,
+    rewardKind: (r.reward_kind as "birthday" | "attendance" | null) ?? null,
   }));
 }
 
@@ -130,7 +140,13 @@ export interface LeaveRequest {
   reason: string | null;
   /** How the work is covered while they are away — not why they are away. */
   coverageNote: string | null;
+  /** Whether somebody may be away. */
   status: "pending" | "approved" | "declined" | "cancelled";
+  /**
+   * Whether BES pays for it. Separate from `status` on purpose — Dee,
+   * 2026-09-19: "Approved does not automatically mean paid."
+   */
+  compensation: "unpaid" | "reward";
   decidedByName: string | null;
   decidedAt: string | null;
   decisionNote: string | null;
@@ -139,7 +155,7 @@ export interface LeaveRequest {
 }
 
 const LEAVE_SELECT =
-  "id, user_id, type_id, starts_on, ends_on, reason, coverage_note, status, decided_at, decision_note, created_at, " +
+  "id, user_id, type_id, starts_on, ends_on, reason, coverage_note, status, compensation, decided_at, decision_note, created_at, " +
   "leave_types(label), " +
   "decider:profiles!leave_requests_decided_by_fkey(full_name, email), " +
   "requester:profiles!leave_requests_user_id_fkey(full_name, email)";
@@ -158,6 +174,7 @@ const mapLeave = (r: Record<string, unknown>): LeaveRequest => {
     reason: (r.reason as string) ?? null,
     coverageNote: (r.coverage_note as string) ?? null,
     status: r.status as LeaveRequest["status"],
+    compensation: r.compensation === "reward" ? "reward" : "unpaid",
     decidedByName: d?.full_name?.trim() || d?.email || null,
     decidedAt: (r.decided_at as string) ?? null,
     decisionNote: (r.decision_note as string) ?? null,

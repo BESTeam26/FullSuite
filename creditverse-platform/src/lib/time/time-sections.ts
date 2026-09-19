@@ -62,7 +62,9 @@ export const TIME_SECTIONS: TimeSection[] = [
   {
     slug: "time-off",
     label: "Time Off",
-    description: "Upcoming leave, what is waiting on a decision, and your history.",
+    /* Dee, 2026-09-19: the navigation entry stays "Time Off"; the page says
+       what it actually covers, because paid rewards are not leave. */
+    description: "Plan time away, and manage the paid rewards you have earned.",
     audience: "everyone",
   },
   {

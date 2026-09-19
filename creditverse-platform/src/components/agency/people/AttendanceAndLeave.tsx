@@ -51,6 +51,14 @@ export const LeaveQueue = () => {
               {r.coverageNote && (
                 <span className="block text-muted-foreground">Coverage: {r.coverageNote}</span>
               )}
+              {/* Approving is permission to be away, not a decision to pay —
+                  the two are separate and the decider should see which this
+                  is (Dee, 2026-09-19). */}
+              <span className="block text-muted-foreground">
+                {r.compensation === "reward"
+                  ? "Paid — uses an earned reward credit"
+                  : "Unpaid · no attendance violation once approved"}
+              </span>
             </span>
             <span className="flex items-center gap-1.5">
               <Input

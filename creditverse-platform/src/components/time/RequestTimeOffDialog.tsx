@@ -19,11 +19,17 @@ import { CalendarOff, Info, Loader2, X } from "lucide-react";
 import { addDays, businessDaysBetween, businessToday } from "@/lib/calendar/us-federal-holidays";
 import { formatDate } from "@/lib/format-date";
 import { OpsSelect } from "@/components/ui/ops-select";
+import { cn } from "@/lib/utils";
 
 export interface LeaveTypeOption {
   id: string; label: string; paid: boolean;
   /** Days of warning this kind of leave needs. 0 for the unplannable ones. */
   minNoticeDays: number;
+  /** What BES pays for it — never a balance (Dee, 2026-09-19). */
+  compensation: "unpaid" | "reward";
+  rewardKind: "birthday" | "attendance" | null;
+  /** Spendable credits of that kind, for a reward type. */
+  rewardDaysAvailable?: number;
 }
 
 export function RequestTimeOffDialog({
@@ -70,7 +76,13 @@ export function RequestTimeOffDialog({
 
   /* A range of nothing but weekend is not a leave request — the database would
      take it and it would excuse no attendance at all. */
-  const canSubmit = Boolean(typeId) && datesChosen && workingDays > 0 && !tooSoon && !busy;
+  /* A reward type with no credit left is not submittable: approving it would
+     have nothing to spend, and the refusal belongs here rather than at a
+     lead's desk. */
+  const rewardShort = chosenType?.compensation === "reward"
+    && (chosenType.rewardDaysAvailable ?? 0) <= 0;
+  const canSubmit = Boolean(typeId) && datesChosen && workingDays > 0
+    && !tooSoon && !rewardShort && !busy;
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-charcoal/40 p-4 sm:items-center"
@@ -90,7 +102,13 @@ export function RequestTimeOffDialog({
           <Field label="Leave type">
             <OpsSelect size="field" value={typeId} onValueChange={setTypeId}
               aria-label="Leave type"
-              options={types.map((t) => ({ value: t.id, label: t.paid ? t.label : `${t.label} (unpaid)` }))} />
+              /* The PAID ones are marked, not the unpaid ones: almost
+                 everything at BES is unpaid, so tagging those is noise and
+                 tagging the rewards is the useful signal. */
+              options={types.map((t) => ({
+                value: t.id,
+                label: t.compensation === "reward" ? `${t.label} · paid reward` : t.label,
+              }))} />
           </Field>
 
           <div className="grid grid-cols-2 gap-3">
@@ -107,6 +125,48 @@ export function RequestTimeOffDialog({
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
             </Field>
           </div>
+
+          {/*
+            * Dee, 2026-09-19: "FullSuite changes the fields and displays the
+            * treatment before submission… Approved does not automatically mean
+            * paid." So the consequence is stated where the choice is made,
+            * not discovered afterwards.
+            */}
+          {chosenType && (
+            <div className="grid grid-cols-2 gap-2">
+              <span className="rounded-lg border border-border bg-muted/40 px-2.5 py-2">
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Compensation
+                </span>
+                <span className={cn("block text-xs font-bold",
+                  chosenType.compensation === "reward" ? "text-status-success" : "text-foreground")}>
+                  {chosenType.compensation === "reward" ? "Paid reward" : "Unpaid"}
+                </span>
+              </span>
+              <span className="rounded-lg border border-border bg-muted/40 px-2.5 py-2">
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Attendance
+                </span>
+                <span className="block text-xs font-bold text-foreground">
+                  Excused once approved
+                </span>
+              </span>
+            </div>
+          )}
+
+          {chosenType?.compensation === "reward" && (
+            <p className={cn("rounded-lg border px-3 py-2 text-[11px]",
+              (chosenType.rewardDaysAvailable ?? 0) > 0
+                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-900"
+                : "border-amber-500/40 bg-amber-500/10 text-amber-900")}>
+              {(chosenType.rewardDaysAvailable ?? 0) > 0
+                ? <>You have <strong>{chosenType.rewardDaysAvailable}</strong> paid
+                    {" "}{chosenType.rewardDaysAvailable === 1 ? "day" : "days"} of this kind.
+                    Approving this request uses one.</>
+                : <>You have no {chosenType.label.toLowerCase()} credits available. Earn one
+                    through attendance, or request unpaid time off instead.</>}
+            </p>
+          )}
 
           {notice > 0 && (
             <p className="rounded-lg border border-border bg-muted/50 px-3 py-2 text-[11px] text-muted-foreground">
