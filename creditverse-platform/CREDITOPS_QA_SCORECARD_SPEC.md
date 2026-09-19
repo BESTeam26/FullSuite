@@ -634,3 +634,154 @@ I would lock the BES standard as:
 > **Manual QA is sampled. Dispute results are measured across all eligible resulted work.**
 
 That last sentence is especially important. It gives you a much more credible performance system without burying your Team Leads in reviews.
+
+---
+
+# Part 3 — Dee's decisions on the analysis (2026-09-19, verbatim)
+
+Claude's analysis is aligned with what we designed, and the existing FullSuite architecture can support it without creating a separate CreditOps-only scoring engine. The key existing pieces are already there: `fulfillment_clients`, department handoffs, `production_logs`, `client_work_checklist`, `dispute_rounds`, and the round-outcome writer. The main missing layer is the versioned scorecard/review engine and richer round-level result tracking.
+
+I would answer Claude's remaining decisions like this:
+
+Proceed with these decisions:
+
+**1. Results Window: APPROVED**
+Workmanship QA is scored immediately when the selected completed work is reviewed. Do not wait for dispute results.
+Until results are available: `QA Workmanship = Final` · `Deletion Rate = Pending` · `Quality KPI = Provisional`
+Once eligible results are recorded, automatically recalculate: `Final Quality = (QA Workmanship × 70%) + (Deletion Rate × 30%)`
+Do not require the Team Lead to reopen the original QA review. Historical QA Workmanship must remain frozen. Only the result component updates.
+
+**2. Contributor Attribution: APPROVED WITH CONTROL**
+Derive contributors automatically from actual production activity for the client + dispute round + department. A Team Lead may correct/add a contributor only when necessary. Manual attribution changes require: reason · changed by · timestamp · audit history. Never attribute results simply because someone belongs to the department.
+
+**3. QA Opens on the CreditOps Client Round: APPROVED**
+The canonical QA context is: `Client → Dispute Round → Department Work → QA Review`. Do not make an isolated work item the source of truth. A round can have separate department QA reviews (`Dispute Processing QA`, `Complaints & Mailing QA`) while sharing the same canonical round results.
+
+**4. Grade Bands: APPROVED**
+Keep the QA/Quality grading bands separate from the existing Overall Performance bands.
+QA Workmanship / Final Quality: `95–100 = Exceptional` · `90–94.99 = Strong` · `85–89.99 = Meets Standard` · `80–84.99 = Coaching Needed` · `70–79.99 = Improvement Required` · `<70 = Critical Improvement` · `Confirmed Critical Error = Critical Failure`
+Keep these configurable/versioned as data. Do not replace the existing overall employee-performance grading bands with these.
+
+**5. QA Verdict: APPROVED**
+`Passed = Final QA Workmanship ≥85 with no confirmed Critical Error` · `<85 = Needs Review / Coaching`
+A confirmed Critical Error overrides the normal pass verdict and caps QA Workmanship at 59%.
+Do NOT use deletion rate to determine whether the original work passed QA.
+QA Pass/Fail answers: "Was the work performed correctly?" Final Quality answers: "What was the quality of the work when workmanship and actual dispute results are considered?"
+
+**6. Minimum Thresholds**
+For now use: `Quality minimum standard = 85%` · `Compliance minimum standard = 90%`
+These are performance flags, not mathematical overrides.
+Example: Overall Performance: 91% · Compliance: 82% ⚠ Below Standard
+The employee may mathematically have a high overall score, but FullSuite must still surface the threshold exception. Make thresholds policy-configurable rather than hardcoded.
+
+**7. Productivity Targets**
+Do NOT invent production targets yet. Build the architecture to support versioned targets by: `Division → Department → Position → Metric → Effective Date`
+Until I provide the actual expected output targets, FullSuite may show production counts, SLA performance, completed work and backlog metrics, but it must not manufacture a Productivity KPI from arbitrary targets. We will define the production standards separately.
+
+**8. Department Scorecards: APPROVED**
+This implementation is specifically for: `CreditOps → Dispute Processing` · `CreditOps → Complaints & Mailing`
+Do not treat this as the universal checklist for BES. Every division/department can have its own versioned scorecard template using the same generic QA engine.
+Future examples: CreditOps → Client Success/Support · BES CRM → Build QA · TalentOps → Service QA · Sales & Marketing → appropriate QA
+Adding those scorecards should primarily be configuration/data, not another scoring engine.
+
+**QA SAMPLING POLICY**
+Lock the standard baseline at: 5 completed files per agent per month. The agent does NOT choose the files. QA must be based on actual submitted/completed work. FullSuite automatically selects and distributes the sample throughout the month.
+Normal established-agent sample: `3 random completed files` · `1 risk-based completed file` · `1 follow-up/coaching file`. If there is no applicable follow-up/coaching file, select another random/risk-based file.
+Sampling escalation: New agent, first 30 days: `3/week` · Established: `5/month` · Consistently ≥95%: `3/month`, only after sufficient historical consistency · QA below 90%: `3/week temporarily` · QA below 85%: `5/week temporarily` · Critical Error: `next 5 consecutive applicable submissions` · Major new SOP/process: `first 3 applicable submissions`
+Sampling rules themselves must be configurable policy rather than hardcoded throughout the application.
+
+**MONTHLY QA WORKMANSHIP**
+Monthly QA Workmanship is based on the completed QA sample. Example: 96, 91, 94, 88, 97 → `(96 + 91 + 94 + 88 + 97) / 5 = 93.2%`. Do not manually enter this monthly percentage. Derive it from completed QA reviews.
+
+**IMPORTANT: DELETION RATE IS NOT SAMPLED**
+QA Workmanship = sampled work. Deletion Rate = ALL eligible resulted dispute work attributable to that agent during the measurement period. Do NOT calculate an employee's monthly deletion rate using only their 5 QA-reviewed files.
+Example: Agent completed 52 rounds. 5 were manually QA reviewed. 38 eligible attributable rounds now have results. QA Workmanship is calculated from the 5 reviews. Deletion Rate is calculated from all eligible resulted work across those 38 rounds. This prevents the random QA sample from distorting actual dispute results.
+
+**DELETION RATE**
+`Deletion Rate = Deleted Items / Total Eligible Disputed Items × 100`
+`Positive Outcome Rate = (Deleted + Corrected/Updated + Partial Improvement) / Resolved Items × 100`
+Display both. Deletion Rate feeds the 30% Results component of Quality. Positive Outcome Rate remains a supporting CreditOps outcome metric for now. Pending results must not silently become zero. Show them as Pending and exclude them according to the defined results-state rules.
+
+**PROCESSING + COMPLAINTS CONNECTION**
+Preserve the shared dispute-cycle architecture. Dispute Processing and Complaints & Mailing have separate Workmanship QA scores but share attributable dispute outcomes.
+Processing owns: report review · dispute strategy · CRA/furnisher letters · round documentation · DisputeFox/Credit Repair CRM updates · CreditOps tracker/status · GHL pipeline/status · downstream handoff · current SOP compliance.
+Complaints & Mailing owns: complaint execution · FTC/BBB/CFPB actions when applicable · mailing · bureau/portal uploads · downstream documentation · status completion · escalation of incomplete handoffs · current SOP compliance.
+If Processing failed to provide a usable handoff, attribute that defect to Processing. Do not automatically penalize Complaints/Mailing for an upstream defect outside its control. If Complaints/Mailing received a complete actionable handoff and failed to execute it correctly, attribute the defect to Complaints/Mailing. Results can still be shared across legitimate contributors.
+
+**SOP VERSIONING**
+Mandatory because our CreditOps process changes. QA templates must support: template name · division · department · version · effective_from · effective_to · active status · sections · section weights · checklist items · severity behavior · critical-error definitions · applicability/N/A rules.
+Historical QA reviews remain attached to the exact template version used when reviewed. Publishing a new SOP/QA version must never recalculate old Workmanship scores.
+
+**TEAM LEAD WORKFLOW**
+Keep this extremely simple in the UI. The Team Lead should not calculate anything manually.
+`Open assigned QA review` → inspect the agent's submitted work → mark `Pass / Minor Issue / Major Issue / N/A` → identify Critical Error if applicable → add feedback/corrective action where required → Submit QA
+FullSuite calculates everything else. Show a live score while reviewing, but freeze the Workmanship result when submitted.
+
+**RESULTS WORKFLOW**
+Results can arrive later. When CreditOps records/reimports results: update the canonical dispute-round outcomes → recalculate applicable agent Deletion Rate → recalculate Final Quality → update team/division rollups → preserve the original QA review unchanged. Do not create duplicate result records for Processing and Complaints.
+
+**DO NOT BUILD YET**
+Before implementation, update the architecture proposal with these decisions and show me:
+1. proposed canonical tables/relationships
+2. how existing `dispute_rounds`, `production_logs`, handoffs and `client_round_outcomes` will be reused/migrated
+3. exact score calculation flow
+4. QA sampling state machine
+5. results attribution rules
+6. Team Lead workflow
+7. Agent view
+8. Team Lead view
+9. Division Manager view
+10. Executive view
+11. handling of pending results
+12. historical/versioning behavior
+13. prevention of duplicate attribution and double-counting
+Do not create parallel sources of truth. Do not hardcode people. Do not invent productivity targets. Do not push until I approve the final architecture.
+
+One thing I especially agree with from Claude's review is making this a generic versioned scorecard engine with the two CreditOps scorecards seeded as data, rather than building special Processing/Complaints code. That gives you the exact CreditOps behavior now while letting Client Success, BES CRM, TalentOps, and future departments have completely different scorecards later without rebuilding the system.
+And the sampling decision is now clean: 5 QA files/month is the standard, but deletion performance uses all eligible resulted work, not those five samples.
+
+Yes to Claude's proposals, with a few important definitions tightened before the build:
+
+> Yes. Lock the remaining CreditOps QA decisions as follows.
+>
+> **#2 Contributor attribution: APPROVED WITH AUDIT CONTROL** — Primary attribution should be automatic from actual production activity tied to the specific `client + dispute round + department`. Team Leads may manually add, remove, or correct a contributor only when necessary. Any manual change requires: reason · changed by · timestamp · audit history. Department membership alone does NOT make someone a contributor. Do not attribute deletion results to someone simply because they touched the client at another time.
+>
+> **#3 QA opens on the CreditOps client's round: APPROVED** — Canonical hierarchy: `Client → Dispute Round → Department Work → QA Review`. A single dispute round may contain Dispute Processing QA, Complaints & Mailing QA, and shared canonical Results. Do not duplicate results between departments.
+>
+> **#4 Band sets: APPROVED** — Workmanship QA and Final Quality use the six QA grades plus Critical Failure. Keep the existing overall Performance bands separate. These bands must be policy/configuration data, not hardcoded UI logic.
+>
+> **#5 QA verdict: APPROVED** — `Passed = Workmanship QA ≥85% AND no confirmed Critical Error` · `Below 85% = Needs Review / Coaching` · `Critical Error = Critical Failure`. The QA verdict is based on Workmanship, NOT deletion rate. Workmanship answers: **Was the submitted work performed correctly?** Final Quality answers: **How strong was the employee's quality when workmanship and actual dispute results are combined?** Do not retroactively change a submitted QA verdict because later deletion results were low.
+>
+> **#6 Minimum thresholds: LOCK** — **Quality minimum = 85%** · **Compliance minimum = 90%**. These are minimum-standard flags, not mathematical caps. Example: Overall Performance 92% · Quality 83% ⚠ Below Standard. The 92% remains mathematically correct, but the employee is flagged because Quality failed its minimum standard. Same principle for Compliance. Make thresholds versioned/configurable policy.
+>
+> **#7 Per-position Productivity targets: DO NOT SET YET** — Do not invent targets. Build the framework now so targets can later exist by `Division → Department → Position → KPI Metric → Target → Effective Date`. Until I approve actual production targets, show factual operational metrics (files/rounds completed · actions completed · SLA/on-time percentage · overdue work · backlog · workload) but do NOT manufacture a Productivity score from arbitrary numbers. Productivity remains pending/not fully scored until the applicable target policy exists.
+>
+> **#9 Consistently 95%+: APPROVED AS 3 CONSECUTIVE MONTHS** — Reduced sampling from 5/month to 3/month requires **3 consecutive completed monthly QA periods with Workmanship QA ≥95%**. Use Workmanship QA, not Final Quality. No Critical Error may have occurred during those 3 months. If either condition fails, normal sampling continues.
+>
+> **#10 When increased sampling lifts: MODIFY** — Do NOT make every escalation require one full calendar month automatically.
+> **QA below 90%**: increase to 3 reviews/week. Return to standard 5/month after `5 consecutive reviewed submissions ≥90%` with no Major Issue or Critical Error.
+> **QA below 85%**: increase to 5 reviews/week. Return first to the 3/week monitoring tier after `5 consecutive reviewed submissions ≥85%` with no Critical Error. Then return to standard 5/month after `5 additional consecutive reviewed submissions ≥90%` with no Major Issue or Critical Error.
+> **Critical Error**: review the next 5 consecutive applicable submissions. If all five pass ≥85% with no additional Critical Error, return to the appropriate sampling tier based on current QA history.
+> Do not automatically return someone to normal sampling merely because a calendar month ended. The purpose is to verify corrected behavior.
+>
+> **#11 Complaints & Mailing "file": APPROVED** — One QA-eligible Complaints & Mailing file means **one dispute round's downstream work package for that client.** It may contain multiple actions (FTC · BBB · CFPB · CRA/bureau upload · mailing · supporting-document submission · tracking/confirmation · system/status updates). Do NOT count each action as a separate QA file. QA evaluates the downstream work package as a whole while still grading individual applicable checklist items. Use N/A for actions that were legitimately not required for that round.
+>
+> **IMPORTANT SAMPLING CLARIFICATION** — The QA sampling engine should primarily evaluate **Workmanship QA**, not Final Quality. Low Workmanship, Critical Errors, new employees and new SOP/template versions trigger additional sampling. A low Deletion Rate by itself should NOT automatically cause 5 QA reviews/week. Instead, low deletion performance should create a **Results/Performance Attention flag** for the Team Lead, who investigates (dispute strategy · Processing workmanship · Complaints/Mailing execution · account mix · later-round difficulty · bureau/furnisher outcomes · other). If that identifies a workmanship concern, the Team Lead can trigger enhanced QA sampling with a documented reason.
+>
+> **QUALITY TIMELINE** — `Workmanship QA = immediate + frozen` · `Deletion Rate = develops as results arrive` · `Final Quality = 70% Workmanship + 30% Deletion Rate`. Before eligible results exist: **Quality = Provisional**. Do NOT treat Pending results as 0%.
+>
+> **MONTHLY DELETION RATE** — Use ALL eligible resulted rounds attributable to that employee for the period. The dashboard must always expose the denominator: **Deletion Rate 51.8%** · `426 disputed items · 38 resulted rounds` · **Positive Outcome Rate 68.4%**. A 60% rate on 5 items must not look like a 60% rate on 500.
+>
+> **NO DOUBLE COUNTING** — A dispute item/result exists once canonically under its dispute round. It may be attributed to legitimate Processing and Complaints/Mailing contributors for individual analytics, but attribution must NOT create duplicate dispute results. Organization/team result reporting must aggregate canonical dispute outcomes, NOT sum employee-attributed totals. This rule is mandatory.
+>
+> **BUILD ORDER APPROVED**
+> 1. Generic versioned QA engine/schema · 2. CreditOps dispute-round canonical linkage · 3. Seed Dispute Processing QA template · 4. Seed Complaints & Mailing QA template · 5. QA eligibility + sampling policies · 6. Daily selection/sampling sweep · 7. Team Lead QA queue and review UI · 8. Agent QA results/feedback view · 9. Round results + attribution · 10. Provisional → Final Quality calculation · 11. Performance integration · 12. Team/Division/Executive rollups · 13. Audit/versioning/history
+> Do not build other departments' scorecards yet. This engine must support them later as data/configuration.
+>
+> **FOUR-VIEW UAT IS REQUIRED** — Agent: own QA reviews, feedback, Workmanship, deletion/results, provisional/final Quality, cannot grade themselves. Team Lead: QA queue for authorized team, performs QA, sampling status, coaching/escalated sampling, team Quality/results. Division Manager: authorized CreditOps departments, Processing vs Complaints quality, QA completion, deletion/results trends, exceptions, team/agent drilldown. Executive: organization-level rollups by capability, CreditOps quality/result trends, department comparisons, exceptions, drilldown by scope/capability. Test navigation, record scope, actions, direct routes, RPC/API authorization and denied states for all four.
+>
+> **PUSH** — Yes, push the currently committed and gate-green `main` containing the Workforce IA, Performance page, monthly rates and P-007 attendance fix. Keep the new CreditOps QA build as the next controlled implementation after the push. After the push, verify production deployment and run the previously required live P-007/Workforce regression checks before beginning the QA schema implementation. Then proceed with the approved QA build order above.
+
+The main change I made to Claude's proposal is #10. I would **not wait an arbitrary full month to reduce enhanced QA**. Five consecutive good submissions gives Daniel a much clearer signal that the specific behavior has actually been corrected.
+
+I also strongly recommend the **no-double-counting rule** above. Since Processing and Complaints share dispute results, the same deletion can legitimately contribute to both employees' individual Quality analytics, but it must remain **one deletion** when you look at CreditOps, Partner, or company results.

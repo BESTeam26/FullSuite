@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_POLICY, type AttendanceFact } from "@/lib/attendance/attendance-score";
 import {
-  averageOf, bandOf, deliveredCount, distribution, lastMonths, outputRate, overallOf, performanceCsv, personScore, trendOf,
+  averageOf, bandOf, belowStandard, deliveredCount, distribution, lastMonths, outputRate, overallOf, performanceCsv, personScore, trendOf,
 } from "./performance-metrics";
 import { DEFAULT_PERFORMANCE_POLICY } from "./performance-policy";
 
@@ -26,15 +26,20 @@ describe("the weighted overall", () => {
     expect(overallOf(parts({}))).toBeNull();
   });
 
-  it("caps the overall in Needs Support when Quality or Compliance is under a set minimum", () => {
-    const policy = { ...DEFAULT_PERFORMANCE_POLICY, minQuality: 70, minCompliance: 70 };
-    expect(overallOf(parts({ quality: 60, output: 100, compliance: 100, attendance: 100 }), policy)).toBe(59);
-    expect(overallOf(parts({ quality: 95, output: 100, compliance: 50, attendance: 100 }), policy)).toBe(59);
-    expect(overallOf(parts({ quality: 95, output: 100, compliance: 95, attendance: 100 }), policy)).toBe(97);
+  /* Dee, decision #6: "These are minimum-standard flags, not mathematical caps." */
+  it("flags a missed minimum standard without changing the overall — Dee's example: 92 overall, Quality 83 ⚠", () => {
+    const policy = { ...DEFAULT_PERFORMANCE_POLICY, minQuality: 85, minCompliance: 90 };
+    const p = parts({ quality: 83, output: 100, compliance: 95, attendance: 90 });
+    expect(overallOf(p, policy)).toBe(92); // (83·35 + 100·35 + 95·20 + 90·10) / 100 = 92.05 — unchanged by the flag
+    expect(belowStandard(p, policy)).toEqual(["quality"]);
+    expect(belowStandard(parts({ quality: 95, compliance: 82 }), policy)).toEqual(["compliance"]);
+    expect(belowStandard(parts({ quality: 95, compliance: 95 }), policy)).toEqual([]);
   });
 
-  it("applies no cap while the thresholds are unset — a threshold nobody chose caps nobody", () => {
-    expect(overallOf(parts({ quality: 10, output: 100, compliance: 10, attendance: 100 }))).toBe(51); // 50.5 rounds up
+  it("flags nothing while the minimums are unset, and never touches the arithmetic", () => {
+    const p = parts({ quality: 10, output: 100, compliance: 10, attendance: 100 });
+    expect(overallOf(p)).toBe(51); // 50.5 rounds up
+    expect(belowStandard(p, DEFAULT_PERFORMANCE_POLICY)).toEqual([]);
   });
 });
 

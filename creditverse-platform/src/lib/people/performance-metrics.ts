@@ -15,8 +15,9 @@
  * 0 on quality; quality is simply not in their overall yet). Dee's company
  * weights are policy data (`performance_policy`): Quality 35, Output 35,
  * Compliance 20, Attendance 10 — "70% of performance on the actual work
- * produced". Below the Quality or Compliance minimum, the overall is capped in
- * the Needs Support band however high the rest is.
+ * produced". The Quality and Compliance minimums (85 / 90) are FLAGS, not
+ * caps — Dee, decision #6: "These are minimum-standard flags, not mathematical
+ * caps… The 92% remains mathematically correct, but the employee is flagged."
  *
  * Output is "was enough work delivered", NOT hours worked — Dee: "we are not
  * measuring whether someone merely looks busy." A rate needs a target, and
@@ -41,7 +42,7 @@ export interface PersonScore {
   /** Work items delivered in the period — the fact behind `output`. */
   delivered: number;
   overall: number | null;
-  /** True when Quality or Compliance sits below the policy minimum. */
+  /** True when Quality or Compliance sits below the policy minimum — a flag, never a cap. */
   belowMinimum: boolean;
 }
 
@@ -96,19 +97,23 @@ export function personScore(input: PersonInputs, range: DateRange, policy: Perfo
   return { ...parts, delivered, overall: overallOf(parts, policy), belowMinimum: isBelowMinimum(parts, policy) };
 }
 
-/** Quality or Compliance under the policy floor — where a floor is set. */
+/** Quality or Compliance under the policy minimum — where a minimum is set. */
 export function isBelowMinimum(parts: Pick<PersonScore, "quality" | "compliance">, policy: PerformancePolicy): boolean {
-  return (policy.minQuality !== null && parts.quality !== null && parts.quality < policy.minQuality)
-    || (policy.minCompliance !== null && parts.compliance !== null && parts.compliance < policy.minCompliance);
+  return belowStandard(parts, policy).length > 0;
 }
 
-/** The top of the Needs Support band — where a below-minimum overall is capped. */
-export const NEEDS_SUPPORT_CAP = 59;
+/** Which minimum standards the person misses — the flags a lead sees. */
+export function belowStandard(parts: Pick<PersonScore, "quality" | "compliance">, policy: PerformancePolicy): ("quality" | "compliance")[] {
+  const out: ("quality" | "compliance")[] = [];
+  if (policy.minQuality !== null && parts.quality !== null && parts.quality < policy.minQuality) out.push("quality");
+  if (policy.minCompliance !== null && parts.compliance !== null && parts.compliance < policy.minCompliance) out.push("compliance");
+  return out;
+}
 
 /**
  * Weighted overall over the components that exist, weights renormalised to
- * them; null when none do. Capped at the Needs Support band when a minimum
- * threshold is breached.
+ * them; null when none do. A missed minimum standard does NOT change this
+ * number (decision #6) — it is reported beside it as a flag.
  */
 export function overallOf(
   parts: Pick<PersonScore, ScoreKey>, policy: PerformancePolicy = DEFAULT_PERFORMANCE_POLICY,
@@ -121,8 +126,7 @@ export function overallOf(
     weight += policy.weights[k];
   }
   if (weight === 0) return null;
-  const raw = Math.round(sum / weight);
-  return isBelowMinimum(parts, policy) ? Math.min(raw, NEEDS_SUPPORT_CAP) : raw;
+  return Math.round(sum / weight);
 }
 
 /** The team figure for one component: the mean over people who have it. */

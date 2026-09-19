@@ -85,7 +85,7 @@ export function PerformanceTable({ rows, selectedId, onSelect, titleOf, teamOf }
                     /* Delivered count until a per-position target exists (D-019). */
                     ? <span className="text-[11px] tabular-nums text-muted-foreground" title="Work items delivered · no target set yet">{score.delivered} done</span>
                     : <ScoreCell value={score[c.key] as number | null} />}
-                  {c.key === "overall" && score.belowMinimum && <span className="block text-[10px] font-semibold text-status-danger">below minimum</span>}
+                  {c.key === "overall" && score.belowMinimum && <span className="block text-[10px] font-semibold text-status-danger">⚠ below standard</span>}
                 </td>
               ))}
               <td className="px-3 py-2"><Trend current={score.overall} previous={previous.overall} /></td>

@@ -94,7 +94,7 @@ export function PerformancePersonColumn({ member, title, teamName, score, previo
         </ul>
         {score.belowMinimum && (
           <p className="mt-2 rounded-lg bg-status-danger-tint px-2.5 py-1.5 text-[11px] font-semibold text-status-danger">
-            Below the Quality or Compliance minimum — the overall is capped in Needs Support.
+            ⚠ Below the minimum standard for Quality ({weighting.minQuality ?? "—"}%) or Compliance ({weighting.minCompliance ?? "—"}%). The overall stands; the exception is flagged.
           </p>
         )}
         {score.output === null && (
