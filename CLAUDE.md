@@ -1083,6 +1083,46 @@ build.** The real BES team now uses the platform to expose real defects.
 - **The pilot ends only when Dee says so.** Until then: observe, fix current
   operational defects, capture ideas, keep the system stable and deployable.
 
+## 20b. FOUR VIEWS, EVERY TIME (Dee, 2026-09-19 — permanent)
+
+> "I know that you need to consider different views per role, like agent view,
+> team lead's view, Division manager's view, and executive view, always
+> consider all those views when you create things because that's a default
+> rule. Test all, and review all views as they follow the same logic, every
+> single time."
+
+Every screen, every query, every menu entry and every probe is designed AND
+CHECKED against four audiences. Not "does it work", but "what does each of
+these four see, and is that what they should see":
+
+| View | What it actually is in this codebase |
+|---|---|
+| **Agent** | `agency_user`, `access_scope = 'assigned'`, leads no team, no `ops.manage`. Sees their OWN work and nobody else's. |
+| **Team Lead** | `team_memberships.is_lead` on at least one live team. Sees the members of the teams they lead — a RELATIONSHIP, never a rank. |
+| **Division manager** | `ops.manage` with `scope_division` set (`access_scope = 'division'`). Sees one division. **Not the whole company.** |
+| **Executive** | `agency_admin` / `is_owner`, `access_scope = 'agency'`. Company-wide. |
+
+### The two mistakes this rule exists to stop
+
+1. **Treating `ops.manage` as company-wide.** `is_manager_of()` answers
+   "has management authority", NOT "over everything". A division manager holds
+   it and must still be confined by `scope_division`. Anything company-wide —
+   policy, point values, agency settings — needs `agency` scope, not merely
+   management capability.
+2. **Falling back to "everyone" when no narrower scope matches.** A list that
+   shows the whole company because the viewer leads no team is a leak wearing
+   a default. Default to the narrowest thing that is true (rule 1).
+
+### What "test all" means
+
+A change is not finished until each of the four is accounted for. Where the
+answer differs by view, it is covered by a NAMED test or probe check per view —
+`time-sections.test.ts` and the RLS probes are the pattern. Where the answer is
+genuinely the same for all four, say so once in a comment rather than leaving
+the reader to wonder whether it was considered.
+
+Report per view when reporting the change.
+
 ## 21. The active program: Live Operations Readiness (until Dee changes it)
 
 **Goal: the real BES team starts daily operations.** P0, in order: **Invite

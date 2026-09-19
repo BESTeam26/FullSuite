@@ -25,6 +25,7 @@ import { quarterRange } from "@/lib/attendance/use-attendance-score";
 import {
   latestPerDay, useAttendanceCorrections, useRecordCorrection,
 } from "@/lib/attendance/use-attendance-corrections";
+import { useAttendancePolicy } from "@/lib/attendance/use-attendance-policy";
 import { AttendanceReviewDrawer } from "@/components/attendance/AttendanceReviewDrawer";
 import { STANDING_BADGE, STANDING_LABEL } from "@/lib/attendance/attendance-score";
 import { businessToday } from "@/lib/calendar/us-federal-holidays";
@@ -45,6 +46,7 @@ export function TeamManagement() {
   const attendance = useAttendanceRange(from, to);
   const schedules = useSchedules();
   const corrections = useAttendanceCorrections(from, to);
+  const policy = useAttendancePolicy();
 
   /*
    * Who this person may manage.
@@ -78,7 +80,7 @@ export function TeamManagement() {
       const theirs = attendance.data.filter((d) => d.userId === p.userId);
       const schedule = (schedules.data ?? []).find((s) => s.userId === p.userId);
       out.set(p.userId, scoreQuarter(factsFrom(theirs, schedule, { today }), {
-        quarter: quarterOf(today), today,
+        quarter: quarterOf(today), today, policy,
         corrections: latestPerDay(corrections.data ?? [], p.userId),
       }));
     }

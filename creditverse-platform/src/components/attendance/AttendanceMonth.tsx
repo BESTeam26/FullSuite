@@ -38,7 +38,7 @@ export function AttendanceMonth({ rows, month, label }: {
   const pad = (n: number) => String(n).padStart(2, "0");
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-5">
+    <div className="rounded-2xl border border-border bg-card p-4">
       <h2 className="text-sm font-bold text-foreground">This month ({label})</h2>
       <div className="mt-3 grid grid-cols-7 gap-1 text-center">
         {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (

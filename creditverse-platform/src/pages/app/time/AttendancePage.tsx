@@ -64,20 +64,20 @@ export function AttendancePage() {
   const earned = new Set(score.badges.map((b) => b.key));
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <AttendanceHero score={score} quarterLabel={quarterLabel} />
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-        <div className="space-y-4">
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
+        <div className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
             <AttendanceBreakdown score={score} />
 
-            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-5 text-center">
-              <Flame className="mx-auto h-7 w-7 text-amber-600" aria-hidden />
-              <p className="mt-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4 text-center">
+              <Flame className="mx-auto h-6 w-6 text-amber-600" aria-hidden />
+              <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                 Current streak
               </p>
-              <p className="text-3xl font-extrabold tabular-nums text-foreground">
+              <p className="text-2xl font-extrabold tabular-nums text-foreground">
                 {score.streakDays}
                 <span className="ml-1 text-sm font-bold text-muted-foreground">
                   scheduled {score.streakDays === 1 ? "day" : "days"}
@@ -96,10 +96,10 @@ export function AttendancePage() {
 
           <AttendanceActivity rows={score.activity} />
 
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2">
             <AttendanceMonth rows={score.activity} month={month} label={monthLabel} />
 
-            <div className="rounded-2xl border border-border bg-card p-5">
+            <div className="rounded-2xl border border-border bg-card p-4">
               <h2 className="text-sm font-bold text-foreground">Attendance policy</h2>
               <ul className="mt-3 divide-y divide-border/60">
                 {RULES.map((r) => (
@@ -126,10 +126,10 @@ export function AttendancePage() {
           </div>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-3">
           <AttendanceRewardTiers current={score.standing} />
 
-          <div className="rounded-2xl border border-border bg-card p-5">
+          <div className="rounded-2xl border border-border bg-card p-4">
             <h2 className="flex items-center gap-2 text-sm font-bold text-foreground">
               <Trophy className="h-4 w-4 text-amber-600" aria-hidden /> Achievements
             </h2>

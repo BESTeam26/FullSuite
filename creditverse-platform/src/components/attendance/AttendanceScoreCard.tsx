@@ -37,7 +37,7 @@ export function AttendanceScoreCard({ score }: { score: QuarterScore }) {
   const moves = score.ledger.filter((l) => l.kind !== "opening");
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-5">
+    <div className="rounded-2xl border border-border bg-card p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div>
           <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">

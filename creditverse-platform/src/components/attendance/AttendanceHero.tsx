@@ -37,30 +37,33 @@ export function AttendanceHero({ score, quarterLabel }: {
   const isChampion = score.standing === "champion";
 
   return (
-    <div className="grid gap-3 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)_minmax(0,0.75fr)]">
+    /* `lg:` not `xl:`. At 1280 the three panels stacked into three full-width
+       bands and the page read as mostly empty space — Dee, 2026-09-19: "so
+       many space and it's like a very unprofessional view." */
+    <div className="grid gap-3 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.9fr)_minmax(0,0.85fr)]">
       {/* ── Where you are ─────────────────────────────────────────────── */}
-      <div className="rounded-2xl border border-border bg-card p-5">
+      <div className="rounded-2xl border border-border bg-card p-4">
         <p className="text-sm font-bold text-foreground">Your attendance score</p>
         <p className="text-[11px] text-muted-foreground">{quarterLabel}</p>
 
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <p className="text-4xl font-extrabold tabular-nums tracking-tight text-foreground">
+        <div className="mt-2 flex flex-wrap items-center gap-3">
+          <p className="text-3xl font-extrabold tabular-nums tracking-tight text-foreground">
             {pretty(score.score)}
-            <span className="ml-1 text-lg font-bold text-muted-foreground">/ {QUARTER_MAX_POINTS}</span>
+            <span className="ml-1 text-base font-bold text-muted-foreground">/ {QUARTER_MAX_POINTS}</span>
           </p>
-          <span className={cn("rounded-full px-3 py-1 text-xs font-bold", PILL[score.standing])}>
+          <span className={cn("rounded-full px-2.5 py-0.5 text-[11px] font-bold", PILL[score.standing])}>
             {STANDING_LABEL[score.standing]}
           </span>
         </div>
 
-        <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-muted"
+        <div className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-muted"
           role="progressbar" aria-valuenow={score.score} aria-valuemin={0}
           aria-valuemax={QUARTER_MAX_POINTS}
           aria-label={`${pretty(score.score)} of ${QUARTER_MAX_POINTS} points`}>
           <div className="h-full rounded-full bg-emerald-600 transition-[width]" style={{ width: `${pct}%` }} />
         </div>
 
-        <div className="mt-2 flex flex-wrap items-baseline justify-between gap-2 text-[11px] text-muted-foreground">
+        <div className="mt-1.5 flex flex-wrap items-baseline justify-between gap-2 text-[11px] text-muted-foreground">
           <span>Started at {QUARTER_START_POINTS} points</span>
           <span>
             {score.toNextStanding
@@ -72,7 +75,7 @@ export function AttendanceHero({ score, quarterLabel }: {
 
       {/* ── What is next ──────────────────────────────────────────────── */}
       <div className="space-y-3">
-        <div className="rounded-2xl border border-border bg-card p-4">
+        <div className="rounded-2xl border border-border bg-card p-3.5">
           <p className="flex items-center gap-2 text-xs font-bold text-foreground">
             <Target className="h-4 w-4 text-blue-600" aria-hidden /> Next milestone
           </p>
@@ -93,7 +96,7 @@ export function AttendanceHero({ score, quarterLabel }: {
           )}
         </div>
 
-        <div className="rounded-2xl border border-border bg-muted/40 p-4">
+        <div className="rounded-2xl border border-border bg-muted/40 p-3.5">
           <p className="flex items-center gap-2 text-xs font-bold text-foreground">
             <Trophy className="h-4 w-4 text-amber-600" aria-hidden /> Quarter goal
           </p>
@@ -105,28 +108,33 @@ export function AttendanceHero({ score, quarterLabel }: {
       </div>
 
       {/* ── What the top pays ─────────────────────────────────────────── */}
-      <div className={cn("rounded-2xl border p-5 text-center",
+      <div className={cn("rounded-2xl border p-4",
         isChampion
           ? "border-amber-500/50 bg-amber-500/10"
           : "border-border bg-gradient-to-b from-amber-500/5 to-card")}>
-        <p className="text-4xl" aria-hidden>🏆</p>
-        <p className="mt-1 text-sm font-extrabold text-foreground">Perfect Attendance Champion</p>
-        <p className="text-xs font-bold tabular-nums text-muted-foreground">
-          {QUARTER_MAX_POINTS}/{QUARTER_MAX_POINTS}
-        </p>
-        <ul className="mt-3 space-y-1.5 text-left">
+        <div className="flex items-center gap-2.5">
+          <span className="text-2xl leading-none" aria-hidden>🏆</span>
+          <span className="min-w-0">
+            <span className="block text-xs font-extrabold leading-tight text-foreground">
+              Perfect Attendance Champion
+            </span>
+            <span className="block text-[11px] font-bold tabular-nums text-muted-foreground">
+              {QUARTER_MAX_POINTS}/{QUARTER_MAX_POINTS}
+            </span>
+          </span>
+        </div>
+        <ul className="mt-2.5 space-y-1">
           {CHAMPION_REWARDS.map((r) => (
-            <li key={r.label} className="flex items-start gap-2 text-[11px] text-foreground">
+            <li key={r.label} className="flex items-start gap-1.5 text-[11px] leading-snug text-foreground">
               <span aria-hidden className="shrink-0">{r.icon}</span> {r.label}
             </li>
           ))}
         </ul>
-        <p className="mt-3 border-t border-border pt-2 text-[11px] italic text-muted-foreground">
-          “Show up. Stand out.”
-          <span className="mt-0.5 block not-italic font-bold">BES</span>
+        <p className="mt-2.5 border-t border-border pt-2 text-[11px] italic text-muted-foreground">
+          “Show up. Stand out.” <span className="not-italic font-bold">— BES</span>
         </p>
         {isChampion && (
-          <p className="mt-2 flex items-center justify-center gap-1 text-[11px] font-bold text-amber-900">
+          <p className="mt-1.5 flex items-center gap-1 text-[11px] font-bold text-amber-900">
             <Gift className="h-3.5 w-3.5" aria-hidden /> Earned this quarter
           </p>
         )}

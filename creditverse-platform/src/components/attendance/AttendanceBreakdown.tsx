@@ -23,13 +23,13 @@ export function AttendanceBreakdown({ score }: { score: QuarterScore }) {
   ];
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-5">
+    <div className="rounded-2xl border border-border bg-card p-4">
       <h2 className="text-sm font-bold text-foreground">Attendance breakdown</h2>
-      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+      <div className="mt-2.5 grid grid-cols-3 gap-1.5 sm:grid-cols-5">
         {cells.map((c) => (
-          <div key={c.label} className="rounded-xl border border-border px-2 py-3 text-center">
+          <div key={c.label} className="rounded-xl border border-border px-1.5 py-2 text-center">
             <c.icon className={cn("mx-auto h-4 w-4", c.n > 0 ? c.tone : "text-muted-foreground")} aria-hidden />
-            <p className="mt-1 text-xl font-extrabold tabular-nums text-foreground">{c.n}</p>
+            <p className="text-lg font-extrabold tabular-nums leading-tight text-foreground">{c.n}</p>
             <p className="text-[11px] text-muted-foreground">{c.label}</p>
             <p className={cn("mt-1 rounded-md px-1 py-0.5 text-[11px] font-bold tabular-nums",
               c.points > 0 ? "bg-emerald-500/10 text-emerald-800"

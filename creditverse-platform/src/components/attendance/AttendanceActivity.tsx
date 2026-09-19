@@ -21,7 +21,7 @@ export function AttendanceActivity({ rows, limit = 8 }: { rows: ActivityRow[]; l
   const shown = rows.slice(0, limit);
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-5">
+    <div className="rounded-2xl border border-border bg-card p-4">
       <h2 className="text-sm font-bold text-foreground">Recent attendance activity</h2>
       {shown.length === 0 ? (
         <p className="py-6 text-xs text-muted-foreground">Nothing recorded this quarter yet.</p>

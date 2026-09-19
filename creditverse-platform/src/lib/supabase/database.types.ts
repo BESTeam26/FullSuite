@@ -1285,6 +1285,93 @@ export type Database = {
           },
         ]
       }
+      attendance_policy: {
+        Row: {
+          absent_penalty: number
+          agency_id: string
+          band_champion: number
+          band_coaching: number
+          band_excellent: number
+          band_good: number
+          band_improvement: number
+          baseline: number
+          half_day_penalty: number
+          half_day_ratio: number
+          late_penalty: number
+          late_window_days: number
+          lates_for_coaching: number
+          max_points: number
+          min_points: number
+          ncns_for_management: number
+          ncns_penalty: number
+          perfect_month_bonus: number
+          streak_tiers: Json
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          absent_penalty?: number
+          agency_id: string
+          band_champion?: number
+          band_coaching?: number
+          band_excellent?: number
+          band_good?: number
+          band_improvement?: number
+          baseline?: number
+          half_day_penalty?: number
+          half_day_ratio?: number
+          late_penalty?: number
+          late_window_days?: number
+          lates_for_coaching?: number
+          max_points?: number
+          min_points?: number
+          ncns_for_management?: number
+          ncns_penalty?: number
+          perfect_month_bonus?: number
+          streak_tiers?: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          absent_penalty?: number
+          agency_id?: string
+          band_champion?: number
+          band_coaching?: number
+          band_excellent?: number
+          band_good?: number
+          band_improvement?: number
+          baseline?: number
+          half_day_penalty?: number
+          half_day_ratio?: number
+          late_penalty?: number
+          late_window_days?: number
+          lates_for_coaching?: number
+          max_points?: number
+          min_points?: number
+          ncns_for_management?: number
+          ncns_penalty?: number
+          perfect_month_bonus?: number
+          streak_tiers?: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_policy_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: true
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_policy_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_log: {
         Row: {
           action: string
@@ -18138,6 +18225,7 @@ export type Database = {
         Args: { p_need_work: boolean; p_workspace: string }
         Returns: boolean
       }
+      may_set_agency_policy: { Args: { p_agency: string }; Returns: boolean }
       may_work_client: { Args: { p_client: string }; Returns: boolean }
       member_can: { Args: { p_key: string; p_org: string }; Returns: boolean }
       member_first_run: {

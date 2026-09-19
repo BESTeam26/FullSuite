@@ -41,6 +41,66 @@ export type Classification =
   | "absent"
   | "ncns";
 
+/**
+ * The policy, as data.
+ *
+ * Dee, 2026-09-18: "Do not hardcode these into frontend components if they are
+ * configurable business policy." Every NUMBER here lives in
+ * `attendance_policy`, one row per agency. The constants below are the
+ * DEFAULT — what a fresh agency is seeded with, and what the engine falls back
+ * to if the policy has not loaded — so the numbers exist in exactly one place
+ * that a reader can check the database against.
+ *
+ * The classifications and the band identities stay in code: "half day beats
+ * late" is an ordering, not a number, and a new band needs an icon and a place
+ * in the ladder. Those are a deploy either way.
+ */
+export interface AttendancePolicy {
+  baseline: number;
+  maxPoints: number;
+  minPoints: number;
+  halfDayRatio: number;
+  /** Positive magnitudes. The engine negates them, so a typo cannot pay out. */
+  penalties: { late: number; half_day: number; absent: number; ncns: number };
+  perfectMonthBonus: number;
+  streakTiers: { days: number; points: number; badge: string }[];
+  /** Where each band STARTS. */
+  bands: { champion: number; excellent: number; good: number; coaching: number; improvement: number };
+  latesForCoaching: number;
+  lateWindowDays: number;
+  ncnsForManagement: number;
+}
+
+export const DEFAULT_POLICY: AttendancePolicy = {
+  baseline: 15,
+  maxPoints: 20,
+  minPoints: 0,
+  halfDayRatio: 0.5,
+  penalties: { late: 0.25, half_day: 0.5, absent: 1, ncns: 2 },
+  perfectMonthBonus: 1,
+  streakTiers: [
+    { days: 30, points: 0.5, badge: "30-Day Reliability" },
+    { days: 60, points: 0.5, badge: "60-Day Reliability" },
+    { days: 90, points: 1, badge: "90-Day Reliability" },
+  ],
+  bands: { champion: 20, excellent: 18, good: 15, coaching: 12, improvement: 9 },
+  latesForCoaching: 3,
+  lateWindowDays: 30,
+  ncnsForManagement: 2,
+};
+
+/** What each classification is worth under a given policy. */
+export function pointsUnder(policy: AttendancePolicy): Record<Classification, number> {
+  return {
+    none: 0, approved_leave: 0, grace: 0, on_time: 0,
+    late: -policy.penalties.late,
+    half_day: -policy.penalties.half_day,
+    absent: -policy.penalties.absent,
+    ncns: -policy.penalties.ncns,
+  };
+}
+
+/** The default policy's values, kept for callers that only need to LABEL. */
 export const POINTS: Record<Classification, number> = {
   none: 0,
   approved_leave: 0,
@@ -67,10 +127,10 @@ export const LABELS: Record<Classification, string> = {
 const VIOLATIONS: Classification[] = ["late", "half_day", "absent", "ncns"];
 export const isViolation = (c: Classification) => VIOLATIONS.includes(c);
 
-export const QUARTER_START_POINTS = 15;
-export const QUARTER_MAX_POINTS = 20;
-export const QUARTER_MIN_POINTS = 0;
-export const PERFECT_MONTH_BONUS = 1;
+export const QUARTER_START_POINTS = DEFAULT_POLICY.baseline;
+export const QUARTER_MAX_POINTS = DEFAULT_POLICY.maxPoints;
+export const QUARTER_MIN_POINTS = DEFAULT_POLICY.minPoints;
+export const PERFECT_MONTH_BONUS = DEFAULT_POLICY.perfectMonthBonus;
 
 /**
  * Reliability streaks, and why the perfect-quarter bonus went away.
@@ -88,11 +148,7 @@ export const PERFECT_MONTH_BONUS = 1;
  *   15 start + 3 perfect months + 0.5 + 0.5 + 1 = 20, and there is more than
  *   one way to get there.
  */
-export const STREAK_BONUSES: { days: number; points: number; badge: string }[] = [
-  { days: 30, points: 0.5, badge: "30-Day Reliability" },
-  { days: 60, points: 0.5, badge: "60-Day Reliability" },
-  { days: 90, points: 1, badge: "90-Day Reliability" },
-];
+export const STREAK_BONUSES = DEFAULT_POLICY.streakTiers;
 
 /**
  * A day, as the rest of the product already derives it.
@@ -124,10 +180,13 @@ export interface AttendanceFact {
 }
 
 /** Half a shift or less worked is a Half Day, whatever the reason. */
-export const HALF_DAY_RATIO = 0.5;
+export const HALF_DAY_RATIO = DEFAULT_POLICY.halfDayRatio;
 
 /** The single highest applicable classification for one day. */
-export function classifyDay(fact: AttendanceFact): Classification {
+export function classifyDay(
+  fact: AttendanceFact,
+  policy: AttendancePolicy = DEFAULT_POLICY,
+): Classification {
   if (!fact.scheduled) return "none";
   if (fact.approvedLeave) return "approved_leave";
 
@@ -137,7 +196,7 @@ export function classifyDay(fact: AttendanceFact): Classification {
   /* Half Day beats Late, so it is asked first (Dee's rule 4). A shift with no
      recorded length cannot be halved, so it falls through to the late test
      rather than classifying everybody as a half day. */
-  if (fact.scheduledMinutes > 0 && fact.workedMinutes <= fact.scheduledMinutes * HALF_DAY_RATIO) {
+  if (fact.scheduledMinutes > 0 && fact.workedMinutes <= fact.scheduledMinutes * policy.halfDayRatio) {
     return "half_day";
   }
 
@@ -166,6 +225,13 @@ export interface LedgerLine {
   points: number;
   kind: "opening" | "incident" | "reversal" | "perfect_month" | "streak";
   detail?: string;
+}
+
+/* Quarter-point steps throughout, so 15 − 0.25 × 3 is 14.25 and not 14.249….
+   A declaration, not a const: `STANDING_BANDS` is evaluated at module load and
+   calls this, which a `const` arrow further down the file cannot answer. */
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
 }
 
 export type Standing =
@@ -206,24 +272,43 @@ export const STANDING_ACTION: Record<Standing, string> = {
 };
 
 /** The bands, top-down. The first that fits wins. */
-export function standingFor(score: number): Standing {
-  if (score >= QUARTER_MAX_POINTS) return "champion";
-  if (score >= 18) return "excellent";
-  if (score >= 15) return "good";
-  if (score >= 12) return "coaching";
-  if (score >= 9) return "improvement";
+export function standingFor(score: number, policy: AttendancePolicy = DEFAULT_POLICY): Standing {
+  const b = policy.bands;
+  if (score >= b.champion) return "champion";
+  if (score >= b.excellent) return "excellent";
+  if (score >= b.good) return "good";
+  if (score >= b.coaching) return "coaching";
+  if (score >= b.improvement) return "improvement";
   return "review";
 }
 
-/** Every band, in order, for the ladder on screen. */
-export const STANDING_BANDS: { standing: Standing; from: number; to: number }[] = [
-  { standing: "champion", from: 20, to: 20 },
-  { standing: "excellent", from: 18, to: 19.75 },
-  { standing: "good", from: 15, to: 17.75 },
-  { standing: "coaching", from: 12, to: 14.75 },
-  { standing: "improvement", from: 9, to: 11.75 },
-  { standing: "review", from: 0, to: 8.75 },
-];
+/**
+ * Every band, in order, for the ladder on screen.
+ *
+ * Each band ENDS a quarter-point below the next one starts, so the ladder has
+ * no gap and no overlap however Dee moves the thresholds — writing the upper
+ * bounds out by hand is how 17.75 and 18 end up both belonging to nobody.
+ */
+export function standingBands(
+  policy: AttendancePolicy = DEFAULT_POLICY,
+): { standing: Standing; from: number; to: number }[] {
+  const b = policy.bands;
+  const starts: { standing: Standing; from: number }[] = [
+    { standing: "champion", from: b.champion },
+    { standing: "excellent", from: b.excellent },
+    { standing: "good", from: b.good },
+    { standing: "coaching", from: b.coaching },
+    { standing: "improvement", from: b.improvement },
+    { standing: "review", from: policy.minPoints },
+  ];
+  return starts.map((s, i) => ({
+    ...s,
+    to: i === 0 ? policy.maxPoints : round2(starts[i - 1].from - 0.25),
+  }));
+}
+
+/** The default ladder, for callers with no policy in hand. */
+export const STANDING_BANDS = standingBands();
 
 /** Patterns trigger coaching. They never change the points. */
 export interface PatternAlert {
@@ -232,9 +317,9 @@ export interface PatternAlert {
   detail: string;
 }
 
-export const LATES_FOR_COACHING = 3;
-export const LATE_WINDOW_DAYS = 30;
-export const NCNS_FOR_MANAGEMENT = 2;
+export const LATES_FOR_COACHING = DEFAULT_POLICY.latesForCoaching;
+export const LATE_WINDOW_DAYS = DEFAULT_POLICY.lateWindowDays;
+export const NCNS_FOR_MANAGEMENT = DEFAULT_POLICY.ncnsForManagement;
 
 export interface MonthBreakdown {
   /** `YYYY-MM`. */
@@ -347,8 +432,7 @@ const monthName = (month: string) => {
   const [y, m] = month.split("-").map(Number);
   return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString("en-US", { month: "long", timeZone: "UTC" });
 };
-/* Quarter-point steps throughout, so 15 − 0.25 × 3 is 14.25 and not 14.249…. */
-const round2 = (n: number) => Math.round(n * 100) / 100;
+
 
 /**
  * Score one quarter.
@@ -360,10 +444,17 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
  */
 export function scoreQuarter(
   facts: readonly AttendanceFact[],
-  options: { quarter: string; today: string; corrections?: readonly Correction[] } ,
+  options: {
+    quarter: string; today: string;
+    corrections?: readonly Correction[];
+    /** Defaults to the seeded values, so a caller without the row still works. */
+    policy?: AttendancePolicy;
+  },
 ): QuarterScore {
   const { quarter, today } = options;
   const corrections = options.corrections ?? [];
+  const policy = options.policy ?? DEFAULT_POLICY;
+  const POINTS_OF = pointsUnder(policy);
   const inQuarter = facts.filter((f) => quarterOf(f.day) === quarter)
     .slice().sort((a, b) => (a.day < b.day ? -1 : 1));
 
@@ -373,7 +464,7 @@ export function scoreQuarter(
   ) as Record<Classification, number>;
 
   const ledger: LedgerLine[] = [
-    { day: "", label: "Started the quarter", points: QUARTER_START_POINTS, kind: "opening" },
+    { day: "", label: "Started the quarter", points: policy.baseline, kind: "opening" },
   ];
 
   /* Which classification each day ENDED UP as, after any correction — the one
@@ -382,7 +473,7 @@ export function scoreQuarter(
   const effective = new Map<string, Classification>();
 
   for (const fact of inQuarter) {
-    const original = classifyDay(fact);
+    const original = classifyDay(fact, policy);
     const correction = correctionFor.get(fact.day);
     const final = correction ? correction.to : original;
     effective.set(fact.day, final);
@@ -390,14 +481,14 @@ export function scoreQuarter(
 
     if (isViolation(original)) {
       ledger.push({
-        day: fact.day, label: LABELS[original], points: POINTS[original], kind: "incident",
+        day: fact.day, label: LABELS[original], points: POINTS_OF[original], kind: "incident",
       });
     }
     if (correction && correction.to !== original) {
       ledger.push({
         day: fact.day,
         label: `Reversed — ${LABELS[correction.to].toLowerCase()}`,
-        points: round2(POINTS[correction.to] - POINTS[original]),
+        points: round2(POINTS_OF[correction.to] - POINTS_OF[original]),
         kind: "reversal",
         detail: `${correction.reason} · ${correction.by}`,
       });
@@ -420,7 +511,7 @@ export function scoreQuarter(
     ledger.push({
       day: `${month}-01`,
       label: `Perfect attendance · ${monthName(month)}`,
-      points: PERFECT_MONTH_BONUS,
+      points: policy.perfectMonthBonus,
       kind: "perfect_month",
     });
   }
@@ -443,7 +534,7 @@ export function scoreQuarter(
 
   /* Each reliability milestone the streak has passed. Cumulative within the
      quarter: reaching 60 days means 30 was passed on the way. */
-  for (const tier of STREAK_BONUSES) {
+  for (const tier of policy.streakTiers) {
     if (streakDays >= tier.days) {
       ledger.push({
         day: "", label: `${tier.badge} · ${tier.days} scheduled days without a violation`,
@@ -453,27 +544,27 @@ export function scoreQuarter(
   }
 
   const raw = round2(ledger.reduce((sum, l) => sum + l.points, 0));
-  const score = round2(Math.min(QUARTER_MAX_POINTS, Math.max(QUARTER_MIN_POINTS, raw)));
+  const score = round2(Math.min(policy.maxPoints, Math.max(policy.minPoints, raw)));
 
   /* ── Patterns. Alerts only — never a deeper deduction. */
   const alerts: PatternAlert[] = [];
   const lateDays = inQuarter
     .filter((f) => (effective.get(f.day) ?? "none") === "late")
     .map((f) => f.day);
-  const windowStart = shiftDays(today, -LATE_WINDOW_DAYS);
+  const windowStart = shiftDays(today, -policy.lateWindowDays);
   const latesInWindow = lateDays.filter((d) => d > windowStart && d <= today).length;
-  if (latesInWindow >= LATES_FOR_COACHING) {
+  if (latesInWindow >= policy.latesForCoaching) {
     alerts.push({
       kind: "coaching",
       title: "Coaching alert",
-      detail: `${latesInWindow} lates in the last ${LATE_WINDOW_DAYS} days. Each stays −0.25; the pattern is what needs a conversation.`,
+      detail: `${latesInWindow} lates in the last ${policy.lateWindowDays} days. Each stays ${POINTS_OF.late.toFixed(2)}; the pattern is what needs a conversation.`,
     });
   }
-  if (counts.ncns >= NCNS_FOR_MANAGEMENT) {
+  if (counts.ncns >= policy.ncnsForManagement) {
     alerts.push({
       kind: "management",
       title: "Management alert",
-      detail: `${counts.ncns} no-call-no-shows this quarter. Each stays −2.00.`,
+      detail: `${counts.ncns} no-call-no-shows this quarter. Each stays ${POINTS_OF.ncns.toFixed(2)}.`,
     });
   }
 
@@ -509,12 +600,12 @@ export function scoreQuarter(
   });
 
   /* ── Badges. Earned facts, kept beyond the quarter. */
-  const standing = standingFor(score);
+  const standing = standingFor(score, policy);
   const perfectQuarter = inQuarter.some((f) => f.scheduled)
     && inQuarter.filter((f) => f.scheduled)
       .every((f) => !isViolation(effective.get(f.day) ?? "none"));
   const badges: Badge[] = [];
-  for (const tier of STREAK_BONUSES) {
+  for (const tier of policy.streakTiers) {
     if (streakDays >= tier.days) {
       const key = `reliability_${tier.days}` as BadgeKey;
       badges.push({ key, ...BADGE_META[key] });
@@ -525,7 +616,7 @@ export function scoreQuarter(
   if (standing === "champion") badges.push({ key: "champion", ...BADGE_META.champion });
 
   /* ── How far to the next band, so the score reads as a goal. */
-  const higher = STANDING_BANDS.filter((b) => b.from > score).sort((a, b) => a.from - b.from)[0];
+  const higher = standingBands(policy).filter((b) => b.from > score).sort((a, b) => a.from - b.from)[0];
   const toNextStanding = higher
     ? { standing: higher.standing, points: round2(higher.from - score) }
     : null;
@@ -538,10 +629,10 @@ export function scoreQuarter(
       return {
         label: `Perfect ${monthName(currentMonth)}`,
         detail: "Finish the month without an attendance violation",
-        points: PERFECT_MONTH_BONUS,
+        points: policy.perfectMonthBonus,
       };
     }
-    const tier = STREAK_BONUSES.find((t) => streakDays < t.days);
+    const tier = policy.streakTiers.find((t) => streakDays < t.days);
     if (tier) {
       return {
         label: tier.badge,
@@ -560,7 +651,7 @@ export function scoreQuarter(
     .map((f) => {
       const c = effective.get(f.day) ?? "none";
       const fix = correctionFor.get(f.day);
-      const original = classifyDay(f);
+      const original = classifyDay(f, policy);
       const detail =
         c === "late" ? `${f.lateMinutes} minute${f.lateMinutes === 1 ? "" : "s"} after the grace period`
         : c === "half_day" ? `${Math.round(f.workedMinutes / 60)}h of a ${Math.round(f.scheduledMinutes / 60)}h shift`

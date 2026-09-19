@@ -12,6 +12,7 @@ import { factsFrom } from "@/lib/attendance/attendance-facts";
 import { quarterOf, scoreQuarter } from "@/lib/attendance/attendance-score";
 import { quarterRange } from "@/lib/attendance/use-attendance-score";
 import { latestPerDay, useAttendanceCorrections } from "@/lib/attendance/use-attendance-corrections";
+import { useAttendancePolicy } from "@/lib/attendance/use-attendance-policy";
 import { AttendanceSummary } from "./AttendanceSummary";
 
 export function MemberAttendanceScore({ userId }: { userId: string }) {
@@ -20,13 +21,14 @@ export function MemberAttendanceScore({ userId }: { userId: string }) {
   const attendance = useAttendanceRange(from, to);
   const schedules = useSchedules();
   const corrections = useAttendanceCorrections(from, to);
+  const policy = useAttendancePolicy();
 
   const score = useMemo(() => {
     if (!attendance.data) return null;
     const theirs = attendance.data.filter((d) => d.userId === userId);
     const schedule = (schedules.data ?? []).find((s) => s.userId === userId);
     return scoreQuarter(factsFrom(theirs, schedule, { today }), {
-      quarter: quarterOf(today), today,
+      quarter: quarterOf(today), today, policy,
       corrections: latestPerDay(corrections.data ?? [], userId),
     });
   }, [attendance.data, schedules.data, corrections.data, userId, today]);

@@ -22,14 +22,14 @@ const ROW: Record<Standing, string> = {
 
 export function AttendanceRewardTiers({ current }: { current: Standing }) {
   return (
-    <div className="rounded-2xl border border-border bg-card p-5">
+    <div className="rounded-2xl border border-border bg-card p-4">
       <h2 className="text-sm font-bold text-foreground">Attendance reward tiers</h2>
-      <ul className="mt-3 space-y-1.5">
+      <ul className="mt-2.5 space-y-1">
         {STANDING_BANDS.map((b) => {
           const mine = b.standing === current;
           return (
             <li key={b.standing}
-              className={cn("flex items-start gap-2.5 rounded-xl border px-3 py-2",
+              className={cn("flex items-start gap-2 rounded-xl border px-2.5 py-1.5",
                 ROW[b.standing], mine && "ring-2 ring-primary/40")}>
               <span aria-hidden className="text-base leading-none">{STANDING_BADGE[b.standing]}</span>
               <span className="min-w-0 flex-1">

@@ -9,8 +9,8 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  classifyDay, isViolation, POINTS, quarterOf, scoreQuarter, standingFor,
-  type AttendanceFact,
+  classifyDay, DEFAULT_POLICY, isViolation, POINTS, quarterOf, scoreQuarter,
+  standingBands, standingFor, type AttendanceFact,
 } from "./attendance-score";
 
 const day = (over: Partial<AttendanceFact> & { day: string }): AttendanceFact => ({
@@ -468,5 +468,70 @@ describe("where a classification came from", () => {
       source: "corrected", classification: "ncns", originalClassification: "absent",
     });
     expect(r.activity[0].points).toBe(-2);
+  });
+});
+
+describe("the policy is data, not constants", () => {
+  /* Dee, 2026-09-18: "Do not hardcode these into frontend components if they
+     are configurable business policy." These prove an EDIT actually lands. */
+  const d = (day: string, over: Partial<AttendanceFact> = {}): AttendanceFact => ({
+    day, scheduled: true, approvedLeave: false, lateMinutes: 0,
+    workedMinutes: 480, scheduledMinutes: 480, notified: true, ...over,
+  });
+  const late = d("2026-09-08", { lateMinutes: 15, workedMinutes: 460 });
+
+  it("prices a late at whatever the policy says", () => {
+    const dearer = { ...DEFAULT_POLICY, penalties: { ...DEFAULT_POLICY.penalties, late: 1 } };
+    expect(scoreQuarter([late], Q).score).toBe(14.75);
+    expect(scoreQuarter([late], { ...Q, policy: dearer }).score).toBe(14);
+  });
+
+  it("starts the quarter wherever the policy says", () => {
+    const policy = { ...DEFAULT_POLICY, baseline: 10 };
+    expect(scoreQuarter([], { ...Q, policy }).score).toBe(10);
+  });
+
+  it("clamps to the policy's own ceiling", () => {
+    const policy = { ...DEFAULT_POLICY, maxPoints: 16 };
+    const clean = Array.from({ length: 92 }, (_, i) =>
+      d(new Date(Date.UTC(2026, 6, 1 + i)).toISOString().slice(0, 10)));
+    const r = scoreQuarter(clean, { quarter: "2026-Q3", today: "2026-10-05", policy });
+    expect(r.score).toBe(16);
+    expect(r.clamped).toBe(true);
+  });
+
+  it("moves the bands when the policy moves them", () => {
+    const strict = { ...DEFAULT_POLICY, bands: { ...DEFAULT_POLICY.bands, good: 16 } };
+    expect(standingFor(15)).toBe("good");
+    expect(standingFor(15, strict)).toBe("coaching");
+  });
+
+  it("pays the streak tiers the policy defines, not the ones in code", () => {
+    const eager = {
+      ...DEFAULT_POLICY,
+      streakTiers: [{ days: 2, points: 3, badge: "2-Day Sprint" }],
+    };
+    const r = scoreQuarter([d("2026-09-01"), d("2026-09-02")], { ...Q, policy: eager });
+    expect(r.score).toBe(18);
+    expect(r.ledger.some((l) => l.kind === "streak" && l.label.includes("2-Day Sprint"))).toBe(true);
+  });
+
+  it("raises a coaching alert at the policy's own threshold", () => {
+    const twitchy = { ...DEFAULT_POLICY, latesForCoaching: 2 };
+    const lates = ["2026-09-08", "2026-09-15"].map((x) =>
+      d(x, { lateMinutes: 15, workedMinutes: 460 }));
+    expect(scoreQuarter(lates, Q).alerts).toHaveLength(0);
+    expect(scoreQuarter(lates, { ...Q, policy: twitchy }).alerts.map((a) => a.kind))
+      .toContain("coaching");
+  });
+
+  it("builds a ladder with no gap however the thresholds move", () => {
+    /* Each band ends a quarter-point below the next one starts. Writing the
+       upper bounds by hand is how 17.75 and 18 both end up belonging to
+       nobody. */
+    const bands = standingBands({ ...DEFAULT_POLICY, bands: { champion: 20, excellent: 17, good: 14, coaching: 11, improvement: 7 } });
+    expect(bands.map((b) => [b.from, b.to])).toEqual([
+      [20, 20], [17, 19.75], [14, 16.75], [11, 13.75], [7, 10.75], [0, 6.75],
+    ]);
   });
 });
