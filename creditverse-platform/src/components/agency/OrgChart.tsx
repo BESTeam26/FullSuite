@@ -79,6 +79,7 @@ export function OrgChart() {
   });
   const agencyName = brand.data?.name ?? "";
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [seeded, setSeeded] = useState(false);
   const [view, setView] = useState<ChartView>(readView);
   const chooseView = (v: ChartView) => { setView(v); writeView(v); };
 
@@ -104,6 +105,14 @@ export function OrgChart() {
     [tree.data, positions.data, agencyName, people],
   );
   const seats = useMemo(() => countSeats(positions.data ?? []), [positions.data]);
+  /* Teams start folded so the chart reads like the poster; a click opens them. */
+  useEffect(() => {
+    if (!root || seeded) return;
+    const folded: Record<string, boolean> = {};
+    const walk = (n: OrgNode) => { if (n.defaultCollapsed) folded[n.id] = true; n.children.forEach(walk); };
+    walk(root);
+    setCollapsed(folded); setSeeded(true);
+  }, [root, seeded]);
   /* The chart is wider than the screen; open it on the company, not on the
      leftmost branch. Runs when the chart first draws and when it is re-chosen. */
   const chartRef = useRef<HTMLDivElement>(null);
@@ -252,7 +261,7 @@ function NodeCard({ node }: { node: OrgNode }) {
   );
   return (
     <div className={cn(
-      "w-44 rounded-xl border px-3 py-2 text-center shadow-sm",
+      node.bullets ? "w-52" : "w-44", "rounded-xl border px-3 py-2 text-center shadow-sm",
       node.kind === "agency" && "border-primary/40 bg-primary/5",
       node.kind === "leadership" && "border-amber-500/40 bg-amber-500/5",
       node.kind === "division" && "border-border bg-muted/40",
@@ -274,6 +283,11 @@ function NodeCard({ node }: { node: OrgNode }) {
         <span className="mt-1 inline-block rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">
           Acting: {node.coverage}
         </span>
+      )}
+      {node.bullets && (
+        <ul className="mt-1.5 space-y-0.5 text-left text-[11px] text-muted-foreground">
+          {node.bullets.map((b) => <li key={b} className="flex gap-1.5"><span aria-hidden>•</span><span>{b}</span></li>)}
+        </ul>
       )}
     </div>
   );

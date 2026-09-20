@@ -46,9 +46,15 @@ export interface Division {
 export interface Department {
   id: string;
   divisionId: string | null;
+  /** A grouping department (Dee's chart): children are the queue departments underneath it. */
+  parentDepartmentId: string | null;
   name: string;
   description: string | null;
   managerId: string | null;
+  /** What the department does — the bullets on the org chart. Presentation, never a team. */
+  functions: string[];
+  /** Engine rows (FundingOps pipeline stages, Staff Management) are structure but not chart. */
+  showOnChart: boolean;
   sort: number;
   archived: boolean;
 }
@@ -82,7 +88,7 @@ export async function fetchOrganizationTree(): Promise<OrganizationTree> {
     // prettier-ignore
     sb.from("divisions").select("id, name, description, service, lead_id, sort, archived_at, parent_division_id, tier")
       .eq("is_fixture", false).order("sort").order("name"),
-    sb.from("departments").select("id, division_id, name, description, manager_id, sort, archived_at")
+    sb.from("departments").select("id, division_id, parent_department_id, name, description, manager_id, functions, show_on_chart, sort, archived_at")
       .eq("is_fixture", false).order("sort").order("name"),
     // prettier-ignore
     sb.from("teams").select("id, department_id, name, description, sort, archived_at, team_memberships(user_id, is_lead)")
@@ -101,8 +107,9 @@ export async function fetchOrganizationTree(): Promise<OrganizationTree> {
       tier: (r.tier as "leadership" | "operating") ?? "operating",
     })),
     departments: (departments.data ?? []).map((r) => ({
-      id: r.id, divisionId: r.division_id, name: r.name, description: r.description,
-      managerId: r.manager_id, sort: r.sort, archived: r.archived_at !== null,
+      id: r.id, divisionId: r.division_id, parentDepartmentId: r.parent_department_id ?? null, name: r.name, description: r.description,
+      managerId: r.manager_id, functions: (r.functions as string[] | null) ?? [], showOnChart: r.show_on_chart ?? true,
+      sort: r.sort, archived: r.archived_at !== null,
     })),
     teams: (teams.data ?? []).map((row) => {
       const r = row as Record<string, unknown>;

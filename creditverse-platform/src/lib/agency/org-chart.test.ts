@@ -19,7 +19,7 @@ const division = (over: Partial<OrganizationTree["divisions"][number]>) => ({
 });
 const department = (over: Partial<OrganizationTree["departments"][number]>) => ({
   id: "d1", divisionId: "v1", name: "Dispute", description: null,
-  managerId: null, sort: 10, archived: false, ...over,
+  managerId: null, parentDepartmentId: null, functions: [], showOnChart: true, sort: 10, archived: false, ...over,
 });
 const team = (over: Partial<OrganizationTree["teams"][number]>) => ({
   id: "t1", departmentId: "d1", name: "Team Daniel", description: null,
@@ -54,11 +54,16 @@ describe("the top of the chart", () => {
   });
 
   it("puts leadership FIRST and does not count it as an operating division", () => {
+    /* A leadership division with departments of its own is drawn as a box;
+       one that only holds seats is transparent (the seats hang off the
+       company — Dee's poster has no "Corporate" box). Either way it is
+       never counted among the operating divisions. */
     const root = chart({
       divisions: [
         division({}),
         division({ id: "v0", name: "Corporate Operations", service: "corporate", tier: "leadership", sort: 50 }),
       ],
+      departments: [department({ id: "d0", divisionId: "v0", name: "Executive Office" })],
     });
     expect(root.children[0].label).toBe("Corporate Operations");
     expect(root.children[0].kind).toBe("leadership");
@@ -104,8 +109,9 @@ describe("where a seat hangs", () => {
       { divisions: [division({ id: "v0", name: "Corporate Operations", tier: "leadership" })] },
       [position({ divisionId: "v0", departmentId: null, teamId: null, title: "Chief Executive Officer" })],
     );
-    expect(find(root, "Corporate Operations")!.children.map((c) => c.label))
-      .toEqual(["Chief Executive Officer"]);
+    /* Straight off the company: the leadership division has no departments,
+       so it draws no box of its own. */
+    expect(root.children.map((c) => c.label)).toEqual(["Chief Executive Officer"]);
   });
 
   it("in a visible 'Not yet placed' group when it has nothing at all", () => {
@@ -231,3 +237,50 @@ describe("people under their team", () => {
   });
 });
 
+
+describe("Dee's chart, 2026-09-20 — a reporting line, grouped departments, functions", () => {
+  const corp = division({ id: "corp", name: "Corporate", tier: "leadership", sort: 0 });
+  const ops = division({ id: "ops", name: "CreditOps", sort: 1 });
+  const ceo = position({ id: "ceo", title: "Chief Executive Officer", divisionId: "corp", departmentId: null, teamId: null });
+  const coo = position({ id: "coo", title: "Chief Operating Officer", divisionId: "corp", departmentId: null, teamId: null, reportsToId: "ceo", state: "vacant", holders: [] });
+  const ea = position({ id: "ea", title: "Executive Assistant", divisionId: "corp", departmentId: null, teamId: null, reportsToId: "coo" });
+
+  it("hangs the corporate seats on the line they report to, and the divisions under the head of operations", () => {
+    const root = chart({ divisions: [corp, ops], departments: [], teams: [] }, [ceo, coo, ea]);
+    const ceoNode = find(root, "Chief Executive Officer")!;
+    const cooNode = find(ceoNode, "Chief Operating Officer")!;
+    expect(cooNode.children.map((c) => c.label)).toEqual(["Executive Assistant", "CreditOps"]);
+    /* …the CEO hangs straight off the company (no "Corporate" box), and the
+       division is not ALSO drawn beside leadership. */
+    expect(root.children.map((c) => c.label)).toEqual(["Chief Executive Officer"]);
+  });
+
+  it("with no head of operations, the divisions hang under the company", () => {
+    const root = chart({ divisions: [corp, ops], departments: [], teams: [] }, [ceo]);
+    expect(root.children.map((c) => c.label)).toEqual(["Chief Executive Officer", "CreditOps"]);
+  });
+
+  it("groups queue departments under their chart department and keeps the queues as their own nodes", () => {
+    const grp = department({ id: "grp", divisionId: "ops", name: "Dispute Department", functions: ["Dispute Processors", "Bureau Calling"] });
+    const q1 = department({ id: "q1", divisionId: "ops", name: "Dispute", parentDepartmentId: "grp", sort: 1 });
+    const q2 = department({ id: "q2", divisionId: "ops", name: "Complaints & Mailing", parentDepartmentId: "grp", sort: 2 });
+    const root = chart({ divisions: [ops], departments: [grp, q1, q2], teams: [] });
+    const opsNode = find(root, "CreditOps")!;
+    expect(opsNode.children.map((c) => c.label)).toEqual(["Dispute Department"]);
+    expect(find(root, "Dispute Department")!.children.map((c) => c.label)).toEqual(["Dispute", "Complaints & Mailing"]);
+    expect(find(root, "Dispute Department")!.bullets).toEqual(["Dispute Processors", "Bureau Calling"]);
+  });
+
+  it("leaves an engine-only department off the chart", () => {
+    const stage = department({ id: "st", divisionId: "ops", name: "Stipulations", showOnChart: false });
+    const root = chart({ divisions: [ops], departments: [stage], teams: [] });
+    expect(labels(root)).not.toContain("Stipulations");
+  });
+
+  it("draws teams folded so the poster reads first, people on a click", () => {
+    const d = department({ id: "d", divisionId: "ops", name: "Dispute" });
+    const t = team({ id: "t", departmentId: "d", name: "Processing Team" });
+    const root = chart({ divisions: [ops], departments: [d], teams: [t] });
+    expect(find(root, "Processing Team")!.defaultCollapsed).toBe(true);
+  });
+});

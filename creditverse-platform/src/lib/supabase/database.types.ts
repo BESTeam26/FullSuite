@@ -4151,6 +4151,9 @@ export type Database = {
           is_fixture: boolean
           key: string
           manager_id: string | null
+          parent_department_id: string | null
+          functions: string[]
+          show_on_chart: boolean
           name: string
           sort: number
         }
@@ -4166,6 +4169,9 @@ export type Database = {
           is_fixture?: boolean
           key: string
           manager_id?: string | null
+          parent_department_id?: string | null
+          functions?: string[]
+          show_on_chart?: boolean
           name: string
           sort?: number
         }
@@ -4181,6 +4187,9 @@ export type Database = {
           is_fixture?: boolean
           key?: string
           manager_id?: string | null
+          parent_department_id?: string | null
+          functions?: string[]
+          show_on_chart?: boolean
           name?: string
           sort?: number
         }

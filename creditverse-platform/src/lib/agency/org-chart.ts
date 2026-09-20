@@ -33,6 +33,10 @@ export interface OrgNode {
   recordId?: string;
   state?: Position["state"];
   coverage?: string | null;
+  /** A department's functions — Dee's chart bullets. */
+  bullets?: string[];
+  /** Drawn folded until opened, so the chart reads like the poster. */
+  defaultCollapsed?: boolean;
   children: OrgNode[];
 }
 
@@ -131,43 +135,56 @@ export function buildOrgChart({ agencyName, tree, positions, people = [] }: OrgC
     }
   }
 
-  const divisionNode = (division: OrganizationTree["divisions"][number]): OrgNode => {
-    const departments = tree.departments
-      .filter((d) => d.divisionId === division.id && live(d))
-      .map((d) => {
-        const teams = tree.teams
-          .filter((t) => t.departmentId === d.id && live(t))
-          .map<OrgNode>((t) => ({
-            id: `team:${t.id}`,
-            kind: "team",
-            label: t.name,
-            detail: `${t.members.length} ${t.members.length === 1 ? "person" : "people"}`,
-            recordId: t.id,
-            children: [
-              /* The lead first, then everybody else by name. */
-              ...[...t.members]
-                .sort((a, b) => Number(b.isLead) - Number(a.isLead)
-                  || (personById.get(a.userId)?.name ?? "").localeCompare(personById.get(b.userId)?.name ?? ""))
-                .map((m) => personNode(`team:${t.id}`, m.userId, memberRole(m.userId, m.isLead)))
-                .filter((n): n is OrgNode => n !== null),
-              ...(byTeam.get(t.id) ?? []).map(positionNode),
-            ],
-          }));
-        const manager = d.managerId ? personNode(`department:${d.id}`, d.managerId, "Department Manager") : null;
-        return {
-          id: `department:${d.id}`,
-          kind: "department" as const,
-          label: d.name,
-          recordId: d.id,
-          children: [...(manager ? [manager] : []), ...teams, ...(byDepartment.get(d.id) ?? []).map(positionNode)],
-        };
-      });
+  const departmentNode = (d: OrganizationTree["departments"][number]): OrgNode => {
+    const teams = tree.teams
+      .filter((t) => t.departmentId === d.id && live(t))
+      .map<OrgNode>((t) => ({
+        id: `team:${t.id}`,
+        kind: "team",
+        label: t.name,
+        detail: `${t.members.length} ${t.members.length === 1 ? "person" : "people"}`,
+        recordId: t.id,
+        defaultCollapsed: true,
+        children: [
+          /* The lead first, then everybody else by name. */
+          ...[...t.members]
+            .sort((a, b) => Number(b.isLead) - Number(a.isLead)
+              || (personById.get(a.userId)?.name ?? "").localeCompare(personById.get(b.userId)?.name ?? ""))
+            .map((m) => personNode(`team:${t.id}`, m.userId, memberRole(m.userId, m.isLead)))
+            .filter((n): n is OrgNode => n !== null),
+          ...(byTeam.get(t.id) ?? []).map(positionNode),
+        ],
+      }));
+    /* Queue departments grouped under this one (Dee's chart, 2026-09-20). */
+    const children = tree.departments
+      .filter((c) => c.parentDepartmentId === d.id && live(c) && c.showOnChart)
+      .sort((a, b) => a.sort - b.sort || a.name.localeCompare(b.name))
+      .map(departmentNode);
+    const manager = d.managerId ? personNode(`department:${d.id}`, d.managerId, "Department Manager") : null;
+    return {
+      id: `department:${d.id}`,
+      kind: "department" as const,
+      label: d.name,
+      recordId: d.id,
+      bullets: d.functions.length > 0 ? d.functions : undefined,
+      children: [...(manager ? [manager] : []), ...children, ...teams, ...(byDepartment.get(d.id) ?? []).map(positionNode)],
+    };
+  };
 
-    /* Nested divisions — FundingOps under CreditOps (§12). */
+  const divisionNode = (division: OrganizationTree["divisions"][number]): OrgNode => {
+    /* Top-level departments only; grouped ones hang under their parent. */
+    const departments = tree.departments
+      .filter((d) => d.divisionId === division.id && live(d) && d.showOnChart && !d.parentDepartmentId)
+      .sort((a, b) => a.sort - b.sort || a.name.localeCompare(b.name))
+      .map(departmentNode);
+
+    /* Nested divisions — a division under a division stays a division (§12). */
     const nested = tree.divisions
       .filter((v) => v.parentDivisionId === division.id && live(v))
       .map(divisionNode);
 
+    /* The division's manager, by seat (divisions.lead_id is its projection). */
+    const lead = division.leadId ? personNode(`division:${division.id}`, division.leadId, "Division Manager") : null;
     return {
       id: `division:${division.id}`,
       kind: division.tier === "leadership" ? "leadership" : "division",
@@ -175,6 +192,7 @@ export function buildOrgChart({ agencyName, tree, positions, people = [] }: OrgC
       detail: division.description ?? null,
       recordId: division.id,
       children: [
+        ...(lead ? [lead] : []),
         ...(byDivisionOnly.get(division.id) ?? []).map(positionNode),
         ...departments,
         ...nested,
@@ -182,9 +200,44 @@ export function buildOrgChart({ agencyName, tree, positions, people = [] }: OrgC
     };
   };
 
+  /**
+   * Leadership is a reporting LINE, not a list: CEO → COO → the corporate
+   * seats that report to the COO — and the operating divisions hang under
+   * the head of operations (the leadership seat whose title names operations;
+   * a title is data, so this follows whatever Dee names it). With no such
+   * seat, divisions hang under the company.
+   */
+  const leadershipChain = (division: OrganizationTree["divisions"][number], operating: OrgNode[]): { nodes: OrgNode[]; attached: boolean } => {
+    const seats = byDivisionOnly.get(division.id) ?? [];
+    const nodeById = new Map(seats.map((p) => [p.id, positionNode(p)]));
+    const opsHead = seats.find((p) => /chief\s+operat/i.test(p.title)) ?? null;
+    let attached = false;
+    for (const p of seats) {
+      const node = nodeById.get(p.id)!;
+      const reports = seats.filter((c) => c.reportsToId === p.id).map((c) => nodeById.get(c.id)!);
+      node.children = [...node.children, ...reports];
+      if (opsHead && p.id === opsHead.id) { node.children = [...node.children, ...operating]; attached = true; }
+    }
+    const roots = seats.filter((p) => !p.reportsToId || !nodeById.has(p.reportsToId)).map((p) => nodeById.get(p.id)!);
+    const departments = tree.departments
+      .filter((d) => d.divisionId === division.id && live(d) && d.showOnChart && !d.parentDepartmentId)
+      .map(departmentNode);
+    /* The poster has no "Corporate" box: the CEO hangs straight off the
+       company. The leadership division is drawn only when it holds
+       departments of its own. */
+    return {
+      nodes: departments.length > 0
+        ? [{ id: `division:${division.id}`, kind: "leadership", label: division.name, detail: division.description ?? null, recordId: division.id, children: [...roots, ...departments] }]
+        : roots,
+      attached,
+    };
+  };
+
   const top = tree.divisions.filter((v) => live(v) && !v.parentDivisionId);
-  const leadership = top.filter((v) => v.tier === "leadership").map(divisionNode);
   const operating = top.filter((v) => v.tier !== "leadership").map(divisionNode);
+  const leadershipDivisions = top.filter((v) => v.tier === "leadership");
+  const chains = leadershipDivisions.map((v) => leadershipChain(v, operating));
+  const attached = chains.some((c) => c.attached);
 
   return {
     id: "agency",
@@ -192,8 +245,8 @@ export function buildOrgChart({ agencyName, tree, positions, people = [] }: OrgC
     label: agencyName,
     detail: `${operating.length} operating ${operating.length === 1 ? "division" : "divisions"}`,
     children: [
-      ...leadership,
-      ...operating,
+      ...chains.flatMap((c) => c.nodes),
+      ...(attached ? [] : operating),
       ...(unplaced.length > 0
         ? [{
             id: "unplaced",
