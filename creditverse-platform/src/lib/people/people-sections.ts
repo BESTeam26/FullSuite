@@ -32,6 +32,19 @@
  *
  * This decides what is RENDERED. Row Level Security refuses the same person
  * at the database whether or not a link was drawn.
+ *
+ * ── GROUPED, BECAUSE ELEVEN IS NOT A LIST ──────────────────────────────────
+ *
+ * Dee, 2026-09-20: "team members, compensation, payroll, and all under people
+ * and teams are a bit chaotic and messy and not clear to me, not friendly
+ * navigation." An executive sees every section, and eleven equal tabs in one
+ * wrapping row read as a pile rather than a menu. Each section now names the
+ * QUESTION it answers, and the tabs are drawn in those four clusters.
+ *
+ * The order inside the clusters is Dee's locked order (§20c), unchanged — the
+ * groups fall on contiguous runs of it, so nothing moved. Grouping is
+ * presentation; the destinations, their slugs and their audiences are the
+ * same rows they were.
  */
 
 export type PeopleAudience =
@@ -44,6 +57,16 @@ export type PeopleAudience =
   /** The payroll capability (payroll.view / payroll.manage) — never implied by anything else. */
   | "payroll";
 
+/** The question a cluster of sections answers. Presentation only. */
+export type PeopleGroup = "people" | "organization" | "operations" | "pay";
+
+export const PEOPLE_GROUPS: { key: PeopleGroup; label: string }[] = [
+  { key: "people", label: "Our people" },
+  { key: "organization", label: "How we are organized" },
+  { key: "operations", label: "Day to day" },
+  { key: "pay", label: "Pay" },
+];
+
 export interface PeopleSection {
   /** The URL segment under /app/people. The overview is the root and has none. */
   slug: string;
@@ -51,32 +74,33 @@ export interface PeopleSection {
   /** The line under the heading on that section's own page. */
   description: string;
   audience: PeopleAudience;
+  group: PeopleGroup;
 }
 
 /** The locked order, from Dee's mockup. */
 export const PEOPLE_SECTIONS: PeopleSection[] = [
-  { slug: "", label: "Overview", audience: "lead",
+  { slug: "", label: "Overview", audience: "lead", group: "people",
     description: "Manage our people, teams, positions and workforce operations — all in one place." },
-  { slug: "members", label: "Team Members", audience: "lead",
+  { slug: "members", label: "Team Members", audience: "lead", group: "people",
     description: "Everyone in your scope, where they sit and who they report to." },
-  { slug: "structure", label: "Structure", audience: "admin",
+  { slug: "structure", label: "Structure", audience: "admin", group: "organization",
     description: "Divisions, departments and teams — the one structure Work, EOD, production and partner assignment all read." },
-  { slug: "positions", label: "Positions", audience: "admin",
+  { slug: "positions", label: "Positions", audience: "admin", group: "organization",
     description: "Seats, who holds them, and who covers them." },
-  { slug: "org-chart", label: "Org Chart", audience: "manages",
+  { slug: "org-chart", label: "Org Chart", audience: "manages", group: "organization",
     description: "Who reports to whom, drawn from positions." },
-  { slug: "schedule", label: "Schedule", audience: "lead",
+  { slug: "schedule", label: "Schedule", audience: "lead", group: "operations",
     description: "The week, person by person: shifts, days off and approved leave." },
-  { slug: "attendance", label: "Attendance", audience: "lead",
+  { slug: "attendance", label: "Attendance", audience: "lead", group: "operations",
     description: "This quarter's attendance score for everyone in your scope." },
-  { slug: "time-off", label: "Time Off", audience: "lead",
+  { slug: "time-off", label: "Time Off", audience: "lead", group: "operations",
     description: "Leave requests waiting on a decision, and who is away." },
-  { slug: "eod", label: "End of Day", audience: "lead",
+  { slug: "eod", label: "End of Day", audience: "lead", group: "operations",
     description: "Who reported, what they worked, and what is in their way." },
-  { slug: "performance", label: "Performance", audience: "lead",
+  { slug: "performance", label: "Performance", audience: "lead", group: "operations",
     description: "Your team's performance based on attendance, productivity, quality, and accountability." },
-  { slug: "payroll", label: "Payroll", audience: "payroll",
-    description: "Cutoffs, payslips and what each person is paid — for payroll eyes only." },
+  { slug: "payroll", label: "Pay & Payroll", audience: "payroll", group: "pay",
+    description: "What each person is paid, and the cutoffs that pay them — for payroll eyes only." },
 ];
 
 export interface PeopleAudienceContext {
@@ -120,3 +144,16 @@ export const peopleSectionFor = (
 /** Is this URL segment a section at all (any audience)? A profile id is not. */
 export const isPeopleSectionSlug = (slug: string): boolean =>
   PEOPLE_SECTIONS.some((s) => s.slug === slug);
+
+/**
+ * The visible sections, clustered for drawing. Empty clusters are dropped, so
+ * a Team Lead sees two headings and an executive four.
+ */
+export const groupedPeopleSections = (
+  ctx: PeopleAudienceContext,
+): { key: PeopleGroup; label: string; sections: PeopleSection[] }[] => {
+  const visible = visiblePeopleSections(ctx);
+  return PEOPLE_GROUPS
+    .map((g) => ({ ...g, sections: visible.filter((s) => s.group === g.key) }))
+    .filter((g) => g.sections.length > 0);
+};

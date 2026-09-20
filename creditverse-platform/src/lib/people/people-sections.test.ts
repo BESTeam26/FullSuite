@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  PEOPLE_SECTIONS, isPeopleSectionSlug, peopleSectionFor, seesPeopleAndTeams, visiblePeopleSections,
+  PEOPLE_SECTIONS, groupedPeopleSections, isPeopleSectionSlug, peopleSectionFor, seesPeopleAndTeams,
+  visiblePeopleSections,
 } from "./people-sections";
 
 const AGENT = { administers: false, manages: false, leadsTeam: false, payroll: false };
@@ -39,8 +40,8 @@ describe("People & Teams is role-adaptive", () => {
 
   it("Payroll appears only with the payroll capability — never for being an admin", () => {
     expect(labels(PAYROLL_ADMIN)).toEqual(PEOPLE_SECTIONS.map((s) => s.label));
-    expect(labels(PAYROLL_ADMIN).at(-1)).toBe("Payroll");
-    expect(labels({ ...AGENT, payroll: true })).toEqual(["Payroll"]);
+    expect(labels(PAYROLL_ADMIN).at(-1)).toBe("Pay & Payroll");
+    expect(labels({ ...AGENT, payroll: true })).toEqual(["Pay & Payroll"]);
   });
 });
 
@@ -59,5 +60,28 @@ describe("resolving a URL segment", () => {
   it("tells a section slug from a profile id, so /app/people/:userId still works", () => {
     expect(isPeopleSectionSlug("schedule")).toBe(true);
     expect(isPeopleSectionSlug("41e20b82-394f-42a5-b4c2-56ab593f8f9a")).toBe(false);
+  });
+});
+
+/**
+ * Grouping is presentation, so the test that matters is that it did not
+ * quietly change what anyone may open, or the order Dee locked.
+ */
+describe("the sections are grouped without being reordered", () => {
+  it("every visible section lands in exactly one drawn cluster", () => {
+    for (const ctx of [LEAD, DIVISION_MANAGER, EXECUTIVE, PAYROLL_ADMIN]) {
+      const flat = groupedPeopleSections(ctx).flatMap((g) => g.sections);
+      expect(flat.map((s) => s.slug)).toEqual(visiblePeopleSections(ctx).map((s) => s.slug));
+    }
+  });
+
+  it("draws no empty cluster, so a lead sees fewer headings than an executive", () => {
+    expect(groupedPeopleSections(LEAD).every((g) => g.sections.length > 0)).toBe(true);
+    expect(groupedPeopleSections(LEAD).length)
+      .toBeLessThan(groupedPeopleSections(PAYROLL_ADMIN).length);
+  });
+
+  it("offers an agent nothing to group", () => {
+    expect(groupedPeopleSections(AGENT)).toEqual([]);
   });
 });

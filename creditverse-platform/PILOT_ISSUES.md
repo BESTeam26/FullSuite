@@ -86,8 +86,50 @@ click and had to discover that a small green link was the way in. The division
 and partner pickers, the note field and the Start button are now on the screen
 from the start, each with a visible label. Fix:
 `src/components/time/StartWorkCard.tsx`; the test now asserts the controls are
-present with no click and that no toggle remains. Status: FIXED AWAITING LIVE
+present with no click and that no toggle remains. **Status: LIVE VERIFIED**
+(Dee, 2026-09-20: "My Time confirmed Good").
+
+### P-021 · People & Teams read as a pile of eleven tabs
+
+**2026-09-20 · reporter: Dee · module: People & Teams · class B · severity:
+S3.** Dee: *"team members, compensation, payroll, and all under people and
+teams are a bit chaotic and messy and not clear to me, not friendly
+navigation."* An executive sees every section, and eleven equal tabs in one
+wrapping row is a pile rather than a menu. The same eleven destinations, in
+Dee's locked order (§20c), are now drawn under the question each answers: Our
+people · How we are organized · Day to day · Pay. Empty clusters are not
+drawn, so a Team Lead sees two headings where an executive sees four. Slugs,
+audiences and the sidebar are unchanged; the test asserts the grouping did not
+reorder or hide anything. Status: FIXED AWAITING LIVE RETEST.
+
+### P-020 · No direct way to see what people are paid
+
+**2026-09-20 · reporter: Dee · module: People & Teams → Pay & Payroll · class
+B · severity: S3.** Dee: *"I don't see a direct way I can easily see the
+compensation."* Compensation was reachable only by opening a person and
+finding their Compensation tab, which answers "what is this one person paid?"
+and never "what are we paying?". Pay & Payroll now opens on a roster of
+everyone's current arrangement, and names the people with no rate on file
+rather than leaving them silently absent.
+
+This exposed a real defect behind it: the arrangement row was gated entirely
+on `compensation.bes_cost.view`, so payroll could not read the table and
+nobody could see their own rate. Migration `20260920004100` opens the row to
+payroll, to the person themselves and to the managing partner, and revokes
+`bes_cost_cents` alone at the column level. Status: FIXED AWAITING LIVE
 RETEST.
+
+### P-019 · Position was typed by hand
+
+**2026-09-20 · reporter: Dee · module: Team Member Profile → Organization ·
+class B · severity: S3.** Dee: *"Position & reporting should be dropdown and
+not manual type."* Reports To was already a dropdown; the job title was a free
+text box, so "Processing Team Lead" and "Processing team lead" became
+different positions and the Positions registry, the Org Chart and the team
+list could never agree. The field now offers the Positions registry, labelled
+with each seat's division. A title recorded before the registry existed stays
+selectable and is marked as not in the list, so nobody's record loses its
+title. Status: FIXED AWAITING LIVE RETEST.
 
 ### P-018 · A person cannot read their own document history — OPEN, not yet diagnosed
 

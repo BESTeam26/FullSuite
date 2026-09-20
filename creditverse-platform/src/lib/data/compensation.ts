@@ -21,8 +21,12 @@ export interface CompensationArrangement {
   basis: CompensationBasis;
   /** What the worker earns. */
   agentRateCents: number;
-  /** What BES pays for them. Equal to the agent rate when BES pays directly. */
-  besCostCents: number;
+  /** What BES pays for them. Null when the caller may not see internal cost. */
+  besCostCents: number | null;
+  /** BES cost minus the worker's rate. Null with the cost. */
+  marginCents: number | null;
+  /** Only set by the roster query. */
+  personName?: string | null;
   managingPartnerId: string | null;
   managingPartnerName: string | null;
   currency: string;
@@ -32,36 +36,86 @@ export interface CompensationArrangement {
 }
 
 const ARRANGEMENT_SELECT =
-  "id, user_id, arrangement_type, compensation_basis, agent_rate_cents, bes_cost_cents, " +
+  "id, user_id, arrangement_type, compensation_basis, agent_rate_cents, " +
   "managing_partner_id, currency, effective_from, effective_to, reason, " +
   "partner:profiles!compensation_arrangements_managing_partner_id_fkey(full_name)";
 
-const mapArrangement = (r: Record<string, unknown>): CompensationArrangement => {
-  const partner = r.partner as { full_name?: string | null } | null;
-  return {
-    id: r.id as string,
-    userId: r.user_id as string,
-    arrangementType: r.arrangement_type as ArrangementType,
-    basis: r.compensation_basis as CompensationBasis,
-    agentRateCents: Number(r.agent_rate_cents ?? 0),
-    besCostCents: Number(r.bes_cost_cents ?? 0),
-    managingPartnerId: (r.managing_partner_id as string) ?? null,
-    managingPartnerName: partner?.full_name ?? null,
-    currency: r.currency as string,
-    effectiveFrom: r.effective_from as string,
-    effectiveTo: (r.effective_to as string) ?? null,
-    reason: (r.reason as string) ?? null,
-  };
+/**
+ * Two requests, issued together.
+ *
+ * The worker's rate comes off the table; BES's cost comes from
+ * `compensation_arrangements_internal`, which the database opens only to
+ * `compensation.bes_cost.view` or to the managing partner being paid. Neither
+ * request depends on the other's answer (rule 14), and the internal one
+ * simply returns nothing when the caller may not see cost — so `besCostCents`
+ * is null rather than the read failing.
+ */
+async function withCost(
+  rows: Record<string, unknown>[],
+  costs: Map<string, { bes: number; margin: number }>,
+): Promise<CompensationArrangement[]> {
+  return rows.map((r) => {
+    const partner = r.partner as { full_name?: string | null } | null;
+    const cost = costs.get(r.id as string);
+    return {
+      id: r.id as string,
+      userId: r.user_id as string,
+      arrangementType: r.arrangement_type as ArrangementType,
+      basis: r.compensation_basis as CompensationBasis,
+      agentRateCents: Number(r.agent_rate_cents ?? 0),
+      besCostCents: cost ? cost.bes : null,
+      marginCents: cost ? cost.margin : null,
+      managingPartnerId: (r.managing_partner_id as string) ?? null,
+      managingPartnerName: partner?.full_name ?? null,
+      currency: r.currency as string,
+      effectiveFrom: r.effective_from as string,
+      effectiveTo: (r.effective_to as string) ?? null,
+      reason: (r.reason as string) ?? null,
+    };
+  });
+}
+
+const costMap = (rows: unknown): Map<string, { bes: number; margin: number }> => {
+  const m = new Map<string, { bes: number; margin: number }>();
+  for (const r of (rows ?? []) as Record<string, unknown>[]) {
+    m.set(r.id as string, { bes: Number(r.bes_cost_cents ?? 0), margin: Number(r.margin_cents ?? 0) });
+  }
+  return m;
 };
 
 /** Every arrangement a person has held, newest first. */
 export async function fetchArrangements(userId: string): Promise<CompensationArrangement[]> {
   const sb = requireSupabase();
-  const { data, error } = await sb
-    .from("compensation_arrangements").select(ARRANGEMENT_SELECT)
-    .eq("user_id", userId).order("effective_from", { ascending: false });
-  if (error) throw error;
-  return (data ?? []).map((r) => mapArrangement(r as unknown as Record<string, unknown>));
+  const [main, internal] = await Promise.all([
+    sb.from("compensation_arrangements").select(ARRANGEMENT_SELECT)
+      .eq("user_id", userId).order("effective_from", { ascending: false }),
+    sb.from("compensation_arrangements_internal")
+      .select("id, bes_cost_cents, margin_cents").eq("user_id", userId),
+  ]);
+  if (main.error) throw main.error;
+  return withCost(
+    (main.data ?? []) as unknown as Record<string, unknown>[],
+    costMap(internal.data),
+  );
+}
+
+/** Everyone's CURRENT arrangement, for the pay roster. */
+export async function fetchArrangementRoster(): Promise<CompensationArrangement[]> {
+  const sb = requireSupabase();
+  const [main, internal] = await Promise.all([
+    sb.from("compensation_arrangements")
+      .select(`${ARRANGEMENT_SELECT}, person:profiles!compensation_arrangements_user_id_fkey(full_name, email)`)
+      .is("effective_to", null),
+    sb.from("compensation_arrangements_internal")
+      .select("id, bes_cost_cents, margin_cents").is("effective_to", null),
+  ]);
+  if (main.error) throw main.error;
+  const rows = (main.data ?? []) as unknown as Record<string, unknown>[];
+  const withNames = await withCost(rows, costMap(internal.data));
+  return withNames.map((a, i) => {
+    const person = rows[i].person as { full_name?: string | null; email?: string | null } | null;
+    return { ...a, personName: person?.full_name?.trim() || person?.email || null };
+  });
 }
 
 export interface NewArrangement {

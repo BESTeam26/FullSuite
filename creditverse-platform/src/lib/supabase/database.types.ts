@@ -16642,6 +16642,51 @@ export type Database = {
           },
         ]
       }
+      compensation_arrangements_internal: {
+        Row: {
+          agency_id: string | null
+          bes_cost_cents: number | null
+          effective_from: string | null
+          effective_to: string | null
+          id: string | null
+          margin_cents: number | null
+          user_id: string | null
+        }
+        Insert: {
+          agency_id?: string | null
+          bes_cost_cents?: number | null
+          effective_from?: string | null
+          effective_to?: string | null
+          id?: string | null
+          margin_cents?: never
+          user_id?: string | null
+        }
+        Update: {
+          agency_id?: string | null
+          bes_cost_cents?: number | null
+          effective_from?: string | null
+          effective_to?: string | null
+          id?: string | null
+          margin_cents?: never
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compensation_arrangements_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compensation_arrangements_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       creditops_assignment_required: {
         Row: {
           agency_id: string | null

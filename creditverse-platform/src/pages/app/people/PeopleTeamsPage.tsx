@@ -28,7 +28,7 @@ import { ManagementSeats } from "@/components/agency/people/ManagementSeats";
 import { InviteTeamMemberWizard } from "@/components/agency/people/InviteTeamMemberWizard";
 import { PeopleManager } from "@/components/agency/PeopleManager";
 import { useAgencyAccessContext } from "@/lib/agency/use-access-context";
-import { isPeopleSectionSlug, peopleSectionFor, visiblePeopleSections } from "@/lib/people/people-sections";
+import { groupedPeopleSections, isPeopleSectionSlug, peopleSectionFor, visiblePeopleSections } from "@/lib/people/people-sections";
 import { TeamOverview } from "@/pages/app/people/sections/TeamOverview";
 import { TeamAttendance } from "@/pages/app/people/sections/TeamAttendance";
 import { TeamTimeOff } from "@/pages/app/people/sections/TeamTimeOff";
@@ -45,6 +45,7 @@ const TeamsManager = lazy(() => import("@/components/agency/TeamsManager").then(
 const PositionsSection = lazy(() => import("@/components/settings/sections/PositionsSection").then((m) => ({ default: m.PositionsSection })));
 const OrgChart = lazy(() => import("@/components/agency/OrgChart").then((m) => ({ default: m.OrgChart })));
 const PayrollPanel = lazy(() => import("@/components/agency/finance/PayrollPanel").then((m) => ({ default: m.PayrollPanel })));
+const CompensationRoster = lazy(() => import("@/components/agency/people/CompensationRoster").then((m) => ({ default: m.CompensationRoster })));
 
 const TeamMemberProfilePage = lazy(() => import("@/pages/app/TeamMemberProfilePage"));
 
@@ -79,6 +80,7 @@ export const PeopleTeamsPage = () => {
   const { key: slug } = useParams();
   const audience = usePeopleAudience();
   const sections = visiblePeopleSections(audience);
+  const groups = groupedPeopleSections(audience);
   const section = peopleSectionFor(slug, audience);
 
   /* Not offered the page at all: home, not a locked door. */
@@ -92,22 +94,38 @@ export const PeopleTeamsPage = () => {
       icon={Users}
       actions={audience.administers ? <InviteButton /> : undefined}
     >
-      <nav aria-label="People & Teams sections" className="mb-3 flex flex-wrap gap-1 border-b border-border">
-        {sections.map((s) => {
-          const active = s.slug === section.slug;
-          return (
-            <Link key={s.slug} to={s.slug ? `/app/people/${s.slug}` : "/app/people"}
-              aria-current={active ? "page" : undefined}
-              className={cn(
-                "-mb-px border-b-2 px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                active
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:border-border hover:text-foreground",
-              )}>
-              {s.label}
-            </Link>
-          );
-        })}
+      {/* Dee, 2026-09-20: eleven equal tabs in one wrapping row read as a
+          pile. They are the same eleven destinations, in the same order, now
+          drawn under the question each one answers. A cluster with nothing in
+          it for this person is not drawn at all, so a Team Lead sees two
+          headings where an executive sees four. */}
+      <nav aria-label="People & Teams sections" className="mb-3 border-b border-border">
+        <div className="flex flex-wrap items-end gap-x-5 gap-y-1">
+          {groups.map((g) => (
+            <div key={g.key} className="min-w-0">
+              <p className="px-1 pb-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
+                {g.label}
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {g.sections.map((s) => {
+                  const active = s.slug === section.slug;
+                  return (
+                    <Link key={s.slug} to={s.slug ? `/app/people/${s.slug}` : "/app/people"}
+                      aria-current={active ? "page" : undefined}
+                      className={cn(
+                        "-mb-px border-b-2 px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        active
+                          ? "border-primary text-primary"
+                          : "border-transparent text-muted-foreground hover:border-border hover:text-foreground",
+                      )}>
+                      {s.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
       </nav>
 
       <Suspense fallback={<Loading />}>
@@ -136,7 +154,14 @@ export const PeopleTeamsPage = () => {
         {section.slug === "time-off" && <TeamTimeOff />}
         {section.slug === "eod" && <TeamEod />}
         {section.slug === "performance" && <TeamPerformance />}
-        {section.slug === "payroll" && <PayrollPanel />}
+        {/* Pay before payroll: "what are we paying this person?" is the
+            question asked far more often than "generate the cutoff". */}
+        {section.slug === "payroll" && (
+          <div className="space-y-3">
+            <CompensationRoster />
+            <PayrollPanel />
+          </div>
+        )}
       </Suspense>
     </HqPageShell>
   );

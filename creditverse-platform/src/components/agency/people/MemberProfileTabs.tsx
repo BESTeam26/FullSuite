@@ -29,7 +29,8 @@ import { useOrganizationTree } from "@/lib/data/use-organization-structure";
 import {
   useMemberActivity, useMemberEod, useMemberPartnerAssignments,
 } from "@/lib/data/team-member";
-import { useAttendanceRange, usePayRateBreakdown, usePayRates } from "@/lib/data/use-people";
+import { usePositions } from "@/lib/data/use-positions";
+import { useAttendanceRange, usePayRateBreakdown } from "@/lib/data/use-people";
 import { useEodActivity } from "@/lib/data/use-eod-day";
 import {
   MEMBER_DOCUMENT_KINDS, MEMBER_DOCUMENT_STATUSES, memberDocumentUrl,
@@ -58,7 +59,7 @@ export function WorkOrgTab({ member, people, teams }: {
   const { toast } = useToast();
   const teamActions = useTeamActions();
   const tree = useOrganizationTree();
-  const [title, setTitle] = useState<string | null>(null);
+  const positions = usePositions();
   const [hired, setHired] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [addTeam, setAddTeam] = useState(NONE);
@@ -68,6 +69,24 @@ export function WorkOrgTab({ member, people, teams }: {
   const managerOptions = [
     { value: NONE, label: "Nobody" },
     ...people.filter((p) => p.userId !== member.userId).map((p) => ({ value: p.userId, label: p.name })),
+  ];
+
+  /* Only seats somebody could actually hold. A closed or archived position
+     stays selectable for the person who already holds it, so their record
+     never silently loses its title when a seat is retired. */
+  const openPositions = (positions.data ?? []).filter((p) => !p.archivedAt && p.status !== "closed");
+  const held = member.jobTitle?.trim();
+  const positionOptions = [
+    { value: NONE, label: "No position yet" },
+    ...openPositions.map((p) => ({
+      value: p.title,
+      label: [p.title, p.divisionName].filter(Boolean).join(" · "),
+    })),
+    /* A title recorded before the registry existed must not vanish from the
+       control that shows it. */
+    ...(held && !openPositions.some((p) => p.title === held)
+      ? [{ value: held, label: `${held} (not in the Positions list)` }]
+      : []),
   ];
 
   const place = async (patch: Parameters<typeof setMemberPlacement>[1]) => {
@@ -87,18 +106,24 @@ export function WorkOrgTab({ member, people, teams }: {
     <div className="space-y-3">
       <ContentCard title="Position & reporting">
         <div className="grid gap-3 sm:grid-cols-2">
+          {/* Dee, 2026-09-20: "should be dropdown and not manual type". Typing
+              the title meant "Processing Team Lead", "Processing team lead"
+              and "Proc. Team Lead" all became different positions, and the
+              Positions registry and the Org Chart could never agree with the
+              team list. The titles offered here ARE the registry. */}
           <label className="text-sm">
             <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Position (job title)</span>
-            <div className="mt-1 flex gap-2">
-              <Input value={title ?? member.jobTitle ?? ""} onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. Processing Team Lead" className="h-8 text-xs" />
-              <Button size="sm" variant="outline" disabled={saving || title === null}
-                onClick={() => void place({ jobTitle: title })}>
-                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
-              </Button>
+            <div className="mt-1">
+              <OpsSelect size="field" value={member.jobTitle ?? NONE}
+                onValueChange={(v) => void place({ jobTitle: v === NONE ? null : v })}
+                options={positionOptions} aria-label="Position" />
             </div>
             <span className="mt-1 block text-[11px] text-muted-foreground">
-              A position describes the job. It never grants access — that is the Access tab.
+              {positions.isLoading
+                ? "Loading positions…"
+                : openPositions.length === 0
+                  ? "No positions defined yet — add them under People & Teams → Positions."
+                  : "A position describes the job. It never grants access — that is the Access tab."}
             </span>
           </label>
           <label className="text-sm">

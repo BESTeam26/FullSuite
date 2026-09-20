@@ -172,6 +172,22 @@ check("14 — a worker's own payslip view carries no internal column",
 check("15 — payslips_internal is closed to someone without the capability",
   asUser(ARCHIE, `select count(*)::int as n from payslips_internal;`)[0].n, 0);
 
+/* The row opened up on 2026-09-20 so payroll and the person themselves can
+   read the worker's rate. The COST had better not have opened with it. */
+check("15b — a worker can read their own arrangement",
+  asUser(ARCHIE, `select count(*)::int as n from compensation_arrangements where user_id = '${ARCHIE}';`)[0].n > 0,
+  true);
+check("15c — …and not anybody else's",
+  asUser(ARCHIE, `select count(*)::int as n from compensation_arrangements where user_id <> '${ARCHIE}';`)[0].n, 0);
+check("15d — BES cost is revoked from authenticated on the arrangement too",
+  q.query(`select count(*)::int as n from information_schema.column_privileges
+            where table_name='compensation_arrangements' and grantee='authenticated'
+              and privilege_type='SELECT' and column_name='bes_cost_cents'`)[0].n, 0);
+check("15e — a worker cannot reach the cost through the internal view either",
+  asUser(ARCHIE, `select count(*)::int as n from compensation_arrangements_internal;`)[0].n, 0);
+check("15f — the managing partner reads the cost of the arrangements they are paid for",
+  asUser(BRYAN, `select count(*)::int as n from compensation_arrangements_internal where user_id = '${ARCHIE}';`)[0].n, 1);
+
 console.log("\nWRITING IS GATED AND APPEND-ONLY");
 const refused = (fn) => { try { fn(); return "allowed"; } catch (e) { return /42501|permission|policy|row-level/i.test(e.message) ? "refused" : `other: ${e.message.slice(0, 70)}`; } };
 check("16 — an agent cannot write an arrangement",
