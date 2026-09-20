@@ -985,7 +985,7 @@ labour-counsel read on what a contractor verification letter may state.
 
 **Dependencies.** BES CRM QA gate; document builder templates; Dee's decision.
 
-## D-021 — Division manager scope in CreditOps: two decisions to reconcile
+## D-021 — Division manager scope in CreditOps — RESOLVED 2026-09-20 (AD-008: placement is scope)
 
 **Recorded by Claude, 2026-09-19, from the RLS matrix base checks.** The
 fixture division manager (`ops.manage`, `scope_division = creditops`, no

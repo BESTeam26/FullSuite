@@ -8431,6 +8431,48 @@ export type Database = {
         }
         Relationships: []
       }
+      management_seats: {
+        Row: {
+          agency_id: string
+          created_at: string
+          created_by: string | null
+          department_id: string | null
+          division_id: string | null
+          effective_from: string
+          effective_to: string | null
+          id: string
+          reason: string | null
+          seat: string
+          user_id: string
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          created_by?: string | null
+          department_id?: string | null
+          division_id?: string | null
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          reason?: string | null
+          seat: string
+          user_id: string
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          created_by?: string | null
+          department_id?: string | null
+          division_id?: string | null
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          reason?: string | null
+          seat?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       member_pay_rates: {
         Row: {
           agency_id: string

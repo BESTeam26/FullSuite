@@ -50,6 +50,22 @@ Journey, engine state, unit state, health are computed
 disagree. `test the rule, not the example` applies to their vocabularies
 (crm-domain tests read the migrations).
 
+## AD-008 · 2026-09-20 — Management placement is scope (D-021 locked)
+
+Dee: "Role = experience. Management placement = scope. Capability = action."
+`management_seats` (chief operations · division manager · department
+manager; effective-dated; many per person) is the one place a manager's
+reach comes from; Team Lead stays `team_memberships.is_lead`. Canonical
+helpers `has_operations_scope`, `managed_divisions`, `managed_departments`,
+`managed_teams`, `management_reach` read seats and nothing else. `in_scope`
+and `can_see_partner` each carry exactly one management branch; the agent
+and team-lead branches are unchanged; `scope_division` /
+`scope_department_id` no longer authorize. Money is orthogonal: no seat
+grants `payroll.*` / `compensation.*` / `finance.*`; those are owner-gated
+keys held by explicit grant. Design and phase mapping:
+`ARCHITECTURE_PROPOSAL_MANAGEMENT_PLACEMENT.md`; proof:
+`management-placement-probe.mjs`.
+
 ## AD-007 · 2026-09-19 — Hire date drives the Employee ID; owner first on a tie
 
 `agency_memberships.hired_on` is the true join date. `employee_code_for`
