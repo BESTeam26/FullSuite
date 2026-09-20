@@ -230,6 +230,40 @@ or quietly restate somebody's pay months later. Verified end to end: the same
 throwaway cutoff now releases and books an expense of PHP 10,000 in PHP.
 Status: LIVE VERIFIED by the decision itself — no operator step remains.
 
+### P-026 · A productivity report by department cannot be trusted yet — OPEN
+
+**2026-09-20 · reporter: Dee, asking whether full per-department visibility
+exists · module: Reports · class A/E · severity: S3.** It half exists. Reports
+carries a pivot builder over `report_pivot()` with 20 measures and six row
+dimensions, and grouping by Department returns real figures today. Four things
+stop it being the full visibility Dee asked for, each verified live:
+
+1. **A division is split in two by a hyphen.** The timer books to
+   `TIMER_DIVISIONS` (`bes-crm`) and the org structure uses the service enum
+   (`bes_crm`). Grouped by Service, BES CRM comes back as two rows — 15
+   production units under one spelling and 57 minutes under the other. The
+   divergence is *documented* in `division-label.ts` and reconciled for
+   DISPLAY; nothing reconciles it for reporting.
+2. **Hours are always zero per department.** Time is booked to a division,
+   never a department, so every department row reports 0 minutes worked. A
+   productivity report whose time column is structurally zero is misleading
+   rather than incomplete.
+3. **Department names are ambiguous across divisions.** `report_facts.
+   department` is a name, and "Support" exists under CreditOps (as Client
+   Success, keyed `support`) and under FundingOps (keyed `funding_support`).
+   Two different departments add up into one row.
+4. **No filters are offered.** `report_pivot` accepts organization, service,
+   department and employee filters. The screen exposes a row dimension and a
+   month count, and nothing else.
+
+There is also no `division` dimension at all; Service is the nearest thing and
+is the one broken by (1).
+
+Not fixed: (1) is a small, clear defect, but (2) and (3) are data-model
+decisions — what division does an hour belong to, and should a department be
+identified by key rather than name — and reporting is deferred under §21a
+until Dee says otherwise. Status: OPEN, awaiting Dee's call.
+
 ### P-022 · The compensation audit event told the worker what BES pays — SECURITY
 
 **2026-09-20 · reporter: Claude, diagnosing P-018 · module: audit trail ·
