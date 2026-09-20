@@ -4,10 +4,11 @@
  *
  *   • both doors are offered on the page itself, not behind a redirect that
  *     would lose the invitation;
- *   • creating an account here sends NO business details, so the trigger that
- *     provisions an organization and a trial on email confirmation does not
- *     fire — an invited person joins a team, they do not get a company;
- *   • the confirmation link comes back to this invitation;
+ *   • creating an account here goes through activate-invitation with the
+ *     token, the email and the password — no business details, so no
+ *     organization or trial is provisioned, and NO confirmation email (Dee,
+ *     2026-09-20: the invitation link already proved the address) — and then
+ *     signs the person in so the invitation is accepted as them;
  *   • a Postgres message never reaches the person.
  */
 import { describe, expect, it, vi, beforeEach } from "vitest";
@@ -20,6 +21,13 @@ const TOKEN = "11111111-2222-4333-8444-555555555555";
 
 const signUp = vi.fn(async () => ({ error: null }));
 const signInWithPassword = vi.fn(async () => ({ error: null }));
+const activateInvitedAccount = vi.fn(async () => undefined);
+
+vi.mock("@/lib/data/agency-invitations", () => ({
+  fetchInvitationPreview: vi.fn(async () => null),
+  acceptAgencyInvitation: vi.fn(async () => "agency"),
+  activateInvitedAccount: (...args: unknown[]) => activateInvitedAccount(...(args as [])),
+}));
 
 vi.mock("@/lib/auth/auth-context", () => ({
   useAuth: () => ({
@@ -44,6 +52,7 @@ const at = (path: string) =>
 beforeEach(() => {
   signUp.mockClear();
   signInWithPassword.mockClear();
+  activateInvitedAccount.mockClear();
 });
 
 describe("the activation page, signed out", () => {
@@ -54,22 +63,21 @@ describe("the activation page, signed out", () => {
     expect(screen.queryByText("login page")).not.toBeInTheDocument();
   });
 
-  it("creates an account with no business details, returning to this invitation", async () => {
+  it("creates the account through the invitation — no confirmation email — then signs in", async () => {
     at(`/accept-invitation/${TOKEN}`);
     fireEvent.change(screen.getByLabelText("Your full name"), { target: { value: "Rae Agent" } });
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "rae@example.test" } });
     fireEvent.change(screen.getByLabelText("Choose a password"), { target: { value: "a-long-password" } });
     fireEvent.click(screen.getByRole("button", { name: "Activate my account" }));
 
-    await waitFor(() => expect(signUp).toHaveBeenCalledTimes(1));
-    const [email, password, fullName, options] = signUp.mock.calls[0] as unknown as [
-      string, string, string, { business?: unknown; redirectPath?: string },
-    ];
-    expect(email).toBe("rae@example.test");
-    expect(password).toBe("a-long-password");
-    expect(fullName).toBe("Rae Agent");
-    expect(options.business).toBeUndefined();
-    expect(options.redirectPath).toBe(`/accept-invitation/${TOKEN}`);
+    await waitFor(() => expect(activateInvitedAccount).toHaveBeenCalledTimes(1));
+    expect(activateInvitedAccount).toHaveBeenCalledWith({
+      token: TOKEN, email: "rae@example.test", password: "a-long-password", fullName: "Rae Agent",
+    });
+    await waitFor(() => expect(signInWithPassword).toHaveBeenCalledWith("rae@example.test", "a-long-password"));
+    /* Never the public sign-up: that path provisions a company and waits on a confirmation email. */
+    expect(signUp).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Check your email/)).not.toBeInTheDocument();
   });
 
   it("signs an existing person in without creating anything", async () => {
@@ -82,6 +90,7 @@ describe("the activation page, signed out", () => {
 
     await waitFor(() => expect(signInWithPassword).toHaveBeenCalledWith("rae@example.test", "a-long-password"));
     expect(signUp).not.toHaveBeenCalled();
+    expect(activateInvitedAccount).not.toHaveBeenCalled();
   });
 
   it("refuses a link that is not shaped like an invitation before asking the database", () => {
