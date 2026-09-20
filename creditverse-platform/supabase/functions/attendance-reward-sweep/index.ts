@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
      per person (rule 14 applies to jobs too). */
   const [members, attendance, schedules, corrections, policies, existing] = await Promise.all([
     sb.from("agency_memberships")
-      .select("user_id, agency_id, status, profiles!user_id!inner(is_fixture)")
+      .select("user_id, agency_id, status, attendance_reward_eligible, profiles!user_id!inner(is_fixture)")
       .eq("profiles.is_fixture", false),
     /* Paged: PostgREST caps a response at 1,000 rows and says nothing; a
        quarter for the whole team is more than that. Wrapped so it joins the
@@ -128,6 +128,11 @@ Deno.serve(async (req) => {
   const people = (members.data ?? []).map((m) => ({
     userId: m.user_id as string, agencyId: m.agency_id as string,
     active: m.status === "active", alreadyRewarded: rewarded.has(m.user_id as string),
+    /* Dee, 2026-09-20: the founders do not clock in and management does not
+       compete for the bonus. Defaulting to TRUE when the column is somehow
+       absent keeps an ordinary agent earning; the database default is the
+       same, so the two agree. */
+    eligible: m.attendance_reward_eligible !== false,
   }));
 
   /* Policy is per agency; there is one agency, but the engine is asked with

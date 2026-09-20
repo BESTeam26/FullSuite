@@ -21,8 +21,10 @@ const oneLate = [
   ...perfectQ3.slice(41),
 ];
 
-const person = (userId: string, over: Partial<{ active: boolean; alreadyRewarded: boolean }> = {}) =>
-  ({ userId, agencyId: "a1", active: true, alreadyRewarded: false, ...over });
+const person = (
+  userId: string,
+  over: Partial<{ active: boolean; alreadyRewarded: boolean; eligible: boolean }> = {},
+) => ({ userId, agencyId: "a1", active: true, alreadyRewarded: false, eligible: true, ...over });
 
 const run = (opts: {
   people: ReturnType<typeof person>[];
@@ -128,5 +130,45 @@ describe("acceptance", () => {
     });
     expect(without[0].decision).toBe("skip");
     expect(withFix[0].decision).toBe("grant");
+  });
+});
+
+
+/**
+ * Who can win at all (Dee, 2026-09-20).
+ *
+ * Two people are ineligible for two different reasons. The founders do not
+ * clock in, so there is nothing to score. Management clocks in like everybody
+ * else and simply does not compete for the bonus. The sweep only asks whether
+ * somebody can win; the reason lives on the membership.
+ */
+describe("eligibility", () => {
+  it("skips somebody who cannot earn the bonus, and says why", () => {
+    const [out] = run({ people: [person("m", { eligible: false })], facts: {} });
+    expect(out).toEqual({ userId: "m", decision: "skip", reason: "not_eligible" });
+  });
+
+  it("does not raise a missing-schedule exception for them", () => {
+    /* The founders have no schedule BY DESIGN. Checking eligibility first is
+       what stops them appearing on an operator's problem list every quarter. */
+    const [out] = run({
+      people: [person("founder", { eligible: false })],
+      facts: {},
+      noSchedule: ["founder"],
+    });
+    expect(out.decision).toBe("skip");
+    expect(out).not.toHaveProperty("kind");
+  });
+
+  it("still raises the exception for somebody who IS eligible and has no schedule", () => {
+    const [out] = run({ people: [person("agent")], facts: {}, noSchedule: ["agent"] });
+    expect(out.decision).toBe("exception");
+  });
+
+  it("never skips an eligible person FOR ineligibility", () => {
+    /* They may still be skipped — an empty quarter scores below the top — so
+       the claim is about the reason, not the decision. */
+    const out = run({ people: [person("a")], facts: {} })[0];
+    expect(out).not.toMatchObject({ reason: "not_eligible" });
   });
 });

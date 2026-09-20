@@ -53,12 +53,23 @@ export interface SweepPerson {
   active: boolean;
   /** Already holds this quarter's reward — nothing to decide. */
   alreadyRewarded: boolean;
+  /**
+   * Whether this person can earn the bonus at all.
+   *
+   * Two different people are not eligible, for two different reasons (Dee,
+   * 2026-09-20): the founders do not clock in, so there is nothing to score;
+   * and management clocks in like everybody else and simply does not compete
+   * for it. Both arrive here as false, because the sweep's question is only
+   * "can this person win", and the distinction is kept where it belongs — on
+   * the membership.
+   */
+  eligible: boolean;
 }
 
 export type SweepOutcome =
   | { userId: string; decision: "grant"; finalScore: number }
   | { userId: string; decision: "skip"; finalScore: number; reason: "below_max" }
-  | { userId: string; decision: "skip"; reason: "inactive" | "already_rewarded" }
+  | { userId: string; decision: "skip"; reason: "inactive" | "already_rewarded" | "not_eligible" }
   | { userId: string; decision: "exception"; kind: "score_failed" | "missing_schedule"; detail: string };
 
 /**
@@ -88,6 +99,11 @@ export function evaluateQuarter(input: {
   return input.people.map((p): SweepOutcome => {
     if (!p.active) return { userId: p.userId, decision: "skip", reason: "inactive" };
     if (p.alreadyRewarded) return { userId: p.userId, decision: "skip", reason: "already_rewarded" };
+    /* Before the schedule check, deliberately: somebody who does not clock in
+       has no schedule BY DESIGN, and reporting that as a missing-schedule
+       exception would put the founders on an operator's problem list every
+       quarter, for ever. */
+    if (!p.eligible) return { userId: p.userId, decision: "skip", reason: "not_eligible" };
     if (!input.hasSchedule(p.userId)) {
       /* Without a shift length the engine cannot tell a half day from a late,
          so a score would be a guess. Surfaced, not guessed. */

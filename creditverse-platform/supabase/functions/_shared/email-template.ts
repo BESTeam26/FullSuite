@@ -79,6 +79,53 @@ export interface EmailContent {
 }
 
 /**
+ * One paragraph, rendered so a multi-line report survives the journey.
+ *
+ * HTML collapses a newline to a space. A paragraph escaped and dropped into
+ * `<p>` therefore arrived as one run-on line: the End of Day report read
+ * "PRODUCTIVITY REPORT Production Completed: 3 Tasks Completed: 5 Time
+ * Logged: 7h 30m" in every mail client (found 2026-09-20, when Dee asked for
+ * the report to look professional).
+ *
+ * So a paragraph's lines are kept, and two conventions the callers already
+ * follow are given a shape:
+ *
+ *   a FIRST LINE IN CAPITALS  becomes the section heading
+ *   a "Label: value" line     becomes a labelled row, value on the right
+ *
+ * A caller that uses neither still gets an ordinary paragraph, so nothing
+ * that was already fine changes.
+ */
+function renderBlock(text: string, colour: string): string {
+  const lines = text.split("\n").filter((l) => l.trim().length > 0);
+  if (lines.length === 0) return "";
+
+  /* A heading is capitals, punctuation and spaces — and has at least one
+     letter, so a line of dashes is not mistaken for one. */
+  const first = lines[0].trim();
+  const isHeading = lines.length > 1 && /[A-Z]/.test(first) && first === first.toUpperCase() && first.length <= 60;
+  const heading = isHeading
+    ? `<p style="margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${colour}">${escapeHtml(first)}</p>`
+    : "";
+
+  const rows = (isHeading ? lines.slice(1) : lines).map((line) => {
+    const pair = /^([^:]{1,40}):\s*(.*)$/.exec(line.trim());
+    if (pair && pair[2].length > 0) {
+      return `<tr>
+        <td style="padding:3px 12px 3px 0;font-size:14px;line-height:1.5;color:#64748b">${escapeHtml(pair[1])}</td>
+        <td style="padding:3px 0;font-size:14px;line-height:1.5;color:#0f172a;font-weight:600;text-align:right">${escapeHtml(pair[2])}</td>
+      </tr>`;
+    }
+    return `<tr><td colspan="2" style="padding:3px 0;font-size:14px;line-height:1.6;color:#334155">${escapeHtml(line)}</td></tr>`;
+  }).join("");
+
+  return `<div style="margin:0 0 18px">${heading}
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"
+           style="width:100%;border-collapse:collapse">${rows}</table>
+  </div>`;
+}
+
+/**
  * The HTML body. Every piece of caller-supplied text is escaped; only the
  * action URL is inserted raw, and callers build that from their own data,
  * never from anything a stranger typed.
@@ -91,9 +138,7 @@ export function renderEmail(content: EmailContent): string {
     ? `<img src="${logo}" alt="${name}" width="120" style="max-width:120px;height:auto;display:block;margin:0 auto 8px" />`
     : `<div style="font-size:18px;font-weight:700;color:${colour};text-align:center;margin-bottom:8px">${name}</div>`;
 
-  const body = content.paragraphs
-    .map((p) => `<p style="margin:0 0 14px;font-size:15px;line-height:1.6;color:#334155">${escapeHtml(p)}</p>`)
-    .join("");
+  const body = content.paragraphs.map((p) => renderBlock(p, colour)).join("");
 
   const button = content.action
     ? `<p style="margin:24px 0">

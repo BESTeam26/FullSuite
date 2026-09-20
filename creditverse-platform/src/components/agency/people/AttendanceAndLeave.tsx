@@ -162,7 +162,10 @@ export const AttendanceCard = ({ date, names }: { date: string; names: Map<strin
           {unscheduled > 0 && (
             <p className="mt-2 text-[11px] text-muted-foreground">
               {unscheduled} {unscheduled === 1 ? "person has" : "people have"} no work schedule yet, so
-              nothing is claimed about their day. Set schedules on the Workforce page.
+              nothing is claimed about their day. Set schedules under People &amp; Teams &rarr; Schedule.
+              {/* People exempt from tracking are not in this list at all — the
+                  database leaves them out — so this only ever names somebody
+                  who should have a schedule and does not. */}
             </p>
           )}
         </>
