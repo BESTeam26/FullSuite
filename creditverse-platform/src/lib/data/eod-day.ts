@@ -121,6 +121,53 @@ export interface EodSubmissionRow {
   routingReason: string | null;
 }
 
+/**
+ * Where a report went, in plain language — and whether somebody should act.
+ *
+ * The database has recorded this since routing was built and the interface
+ * never showed it, so a report that reached nobody looked exactly like one
+ * that reached its lead. Eight of the current roster are on no team, which
+ * means their End of Day is captured and notifies nobody, and the only way to
+ * discover that was to query the table (2026-09-20).
+ *
+ * `needsAttention` is the whole point: a report with no destination is not a
+ * fact about the report, it is a gap in the org chart, and it is fixed by
+ * putting the person on a team that has a lead.
+ */
+export interface EodRouting {
+  label: string;
+  /** True when the report reached nobody and somebody should do something. */
+  needsAttention: boolean;
+  /** What to do about it, or null when there is nothing to do. */
+  fix: string | null;
+}
+
+export function describeEodRouting(
+  reason: string | null | undefined,
+  leadName?: string | null,
+): EodRouting {
+  switch (reason) {
+    case "team_lead":
+      return { label: leadName ? `Goes to ${leadName}` : "Goes to their team lead", needsAttention: false, fix: null };
+    /* Not a gap: a lead's own report has nobody above them on the team, which
+       is the normal shape rather than a misconfiguration. */
+    case "is_lead":
+      return { label: "They lead the team, so it goes to nobody above them", needsAttention: false, fix: null };
+    case "no_team":
+      return { label: "Reaches nobody — they are on no team", needsAttention: true,
+               fix: "Put them on a team that has a lead, under Structure." };
+    case "no_lead":
+      return { label: "Reaches nobody — their team has no lead", needsAttention: true,
+               fix: "Mark somebody on their team as the lead, under Structure." };
+    case "ambiguous":
+      return { label: "Not sent — they are on teams with different leads", needsAttention: true,
+               fix: "Decide which team owns their End of Day, under Structure." };
+    /* Older reports predate the recording. Silence is not a gap. */
+    default:
+      return { label: "Not recorded", needsAttention: false, fix: null };
+  }
+}
+
 /** How a report reached its submitted state — the distinction that matters. */
 export type SubmissionKind = "not_submitted" | "submitted_by_person" | "auto_submitted";
 

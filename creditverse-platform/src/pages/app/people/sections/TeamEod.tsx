@@ -17,7 +17,7 @@ import { EodProductionSummary } from "@/components/agency/EodProductionSummary";
 import { EodReviewActions } from "@/components/agency/EodReviewActions";
 import { EodOrgRollup } from "@/components/agency/EodOrgRollup";
 import { useTeamEod, useEodActivity, todayLocal } from "@/lib/data/use-eod-day";
-import { SUBMISSION_LABEL, submissionKind } from "@/lib/data/eod-day";
+import { SUBMISSION_LABEL, describeEodRouting, submissionKind } from "@/lib/data/eod-day";
 import { formatDate } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
 
@@ -60,6 +60,13 @@ export const TeamEod = () => {
      these are counted separately rather than folded into one number. */
   const awaiting = submitted.filter((r) => !r.reviewedAt && r.state !== "needs_clarification");
   const followUp = rows.filter((r) => r.state === "needs_clarification");
+  /* Only reports that EXIST can have failed to reach somebody. A day nobody
+     submitted is a missing report, which the "Missing EOD" tile already
+     counts, and double-counting it here would read as two problems. */
+  const stranded = rows
+    .filter((r) => r.submittedAt)
+    .map((row) => ({ row, routing: describeEodRouting(row.routingReason, names.get(row.routedTo ?? "")) }))
+    .filter(({ routing }) => routing.needsAttention);
 
   return (
     <div className="space-y-3">
@@ -103,6 +110,32 @@ export const TeamEod = () => {
           <p className="text-sm font-semibold">Reported a blocker</p>
         </div>
       </div>
+
+      {/* A report that reached nobody used to look exactly like one that
+          reached its lead — the reason was recorded and never shown. Named
+          here, because "three people" is not something anybody can act on
+          (Dee, 2026-09-20). */}
+      {stranded.length > 0 && (
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-4">
+          <p className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+            <UserX className="h-4 w-4 text-amber-600" aria-hidden />
+            {stranded.length === 1
+              ? "One report has nowhere to go"
+              : `${stranded.length} reports have nowhere to go`}
+          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            These are saved and readable here. Nobody was notified.
+          </p>
+          <ul className="mt-2 space-y-1 text-xs">
+            {stranded.map(({ row, routing }) => (
+              <li key={row.employeeId} className="text-foreground">
+                <span className="font-medium">{row.employeeName}</span>
+                <span className="text-muted-foreground"> — {routing.label}. {routing.fix}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Management's view of the whole organisation, by team. Gated in SQL
           on ops.manage, so a lead simply gets no rows rather than a hidden
@@ -156,6 +189,18 @@ export const TeamEod = () => {
                       <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-bold", KIND_TONE[kind])}>
                         {SUBMISSION_LABEL[kind]}
                       </span>
+                      {r.submittedAt && (() => {
+                        const routing = describeEodRouting(r.routingReason, names.get(r.routedTo ?? ""));
+                        return (
+                          <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-bold",
+                            routing.needsAttention
+                              ? "border-amber-500/40 bg-amber-500/10 text-amber-700"
+                              : "border-border bg-muted text-muted-foreground")}
+                            title={routing.fix ?? undefined}>
+                            {routing.label}
+                          </span>
+                        );
+                      })()}
                     </span>
                   </button>
                   {isOpen && <PersonRow employeeId={r.employeeId} date={date} name={r.employeeName} />}
