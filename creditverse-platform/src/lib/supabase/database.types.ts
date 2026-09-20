@@ -17110,6 +17110,10 @@ export type Database = {
           user_id: string
         }[]
       }
+      activate_my_membership: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       agency_can: { Args: { p_key: string }; Returns: boolean }
       agency_can_all: { Args: never; Returns: Json }
       agency_can_for_user: {

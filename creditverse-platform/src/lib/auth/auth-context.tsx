@@ -207,6 +207,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const readIdentity = useCallback(async (userId: string) => {
     if (!supabase) return;
+    /* A Team Member exists before their first sign-in (AD-009), so somebody
+       may authenticate while their membership is still `invited` — Aaron did
+       on 2026-09-20 and landed in an empty app. Signing in IS the proof the
+       activation link existed to obtain, so the pending record activates
+       here, BEFORE identity is read, and the session sees an active member.
+       It answers instantly for everybody else, whose membership is not
+       pending, so it costs one call and no waterfall. */
+    /* A failure here must never block sign-in: the person still gets in,
+       simply as whatever they already were. */
+    try { await supabase.rpc("activate_my_membership"); } catch { /* not fatal */ }
     /* Team roster rides in the same parallel batch as the rest of identity —
        one round, resolved once per session, no waterfall (rule 14). */
     const [p, am, om, em, tm, pc] = await Promise.all([
