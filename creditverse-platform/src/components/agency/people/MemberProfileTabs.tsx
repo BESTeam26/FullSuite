@@ -124,7 +124,7 @@ export function WorkOrgTab({ member, people, teams }: {
                 {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
               </Button>
             </div>
-            <span className="mt-1 block text-[11px] text-muted-foreground">The true join date. Employee IDs take their month and sequence from it.</span>
+            <span className="mt-1 block text-[11px] text-muted-foreground">The true start date. The Agent ID takes its date from it; their permanent number never changes.</span>
           </label>
         </div>
       </ContentCard>

@@ -23,9 +23,12 @@ check("an agent cannot set their own engagement type (RLS: zero rows touched)", 
 check("an agent reads their own engagement type", q.query(`begin; ${session(AGENT)} select count(*)::int as n from public.agency_memberships where user_id='${AGENT}'; rollback;`)[0].n, 1);
 check("an executive's change is audited with previous and new value (rolled back)", q.query(`begin; ${session(EXEC)} update public.agency_memberships set engagement_type='contractor' where user_id='${AGENT}'; select count(*)::int as n from public.activity_events where entity_type='profile' and entity_id='${AGENT}' and field='engagement_type' and new_value='contractor'; rollback;`)[0].n, 1);
 
-check("every membership has a code shaped INITIALS + MMYYYY-NNN", one("select count(*)::int as n from agency_memberships where employee_code !~ '^[A-Z]{2}[0-9]{6}-[0-9]{3,}$' or employee_code is null").n, 0);
+check("every membership has an Agent ID shaped INITIALS + MMDDYY-NNN", one("select count(*)::int as n from agency_memberships where employee_code !~ '^[A-Z]{2}[0-9]{6}-[0-9]{3,}$' or employee_code is null").n, 0);
+check("the date segment IS the person's start date", one("select count(*)::int as n from agency_memberships m where m.hired_on is not null and substr(m.employee_code, 3, 6) <> to_char(m.hired_on, 'MMDDYY')").n, 0);
+check("agent numbers are unique and never shared", one("select count(*)::int as n from (select agency_id, agent_number from agency_memberships where agent_number is not null group by 1,2 having count(*)>1) d").n, 0);
+check("a name change does not move anybody's Agent ID (rolled back)", q.query(`begin; ${session(EXEC)} update public.profiles set full_name = 'Renamed Person' where id='${AGENT}'; select employee_code from public.agency_memberships where user_id='${AGENT}'; rollback;`)[0].employee_code, one(`select employee_code from agency_memberships where user_id='${AGENT}'`).employee_code);
 check("codes are unique within the agency", one("select count(*)::int as n from (select agency_id, employee_code from agency_memberships group by 1,2 having count(*)>1) d").n, 0);
-check("real people are numbered among real people by join date (the first is 001)", one(`select employee_code from agency_memberships m join profiles p on p.id=m.user_id where coalesce(p.is_fixture,false)=false and m.agency_id='${AGENCY}' order by coalesce(m.hired_on::timestamptz, m.created_at), m.id limit 1`).employee_code.endsWith("-001"), true);
+check("the earliest hire holds number 001", one(`select employee_code from agency_memberships m join profiles p on p.id=m.user_id where coalesce(p.is_fixture,false)=false and m.agency_id='${AGENCY}' order by m.agent_number limit 1`).employee_code.endsWith("-001"), true);
 check("fixtures carry the FX prefix", one("select count(*)::int as n from agency_memberships m join profiles p on p.id=m.user_id where p.is_fixture and employee_code not like 'FX%'").n, 0);
 check("a new membership is coded on insert (rolled back)", q.query(`begin; insert into public.agency_memberships (user_id, agency_id, role) values ('${OTHER}', '${AGENCY}', 'agency_user') on conflict do nothing; select count(*)::int as n from agency_memberships where user_id='${OTHER}' and employee_code is null; rollback;`)[0].n, 0);
 
@@ -43,7 +46,17 @@ if (LEAD) check("a team lead reads no payout account but their own", countAs(LEA
 check("payroll capability reads payout accounts", countAs(EXEC, `select 1 from member_payout_accounts`) > 0, true);
 check("a payout change is audited with the last four digits only", q.query(`begin; ${session(EXEC)} insert into public.member_payout_accounts (user_id, agency_id, method, provider, account_number) values ('${AGENT}', '${AGENCY}', 'gcash', 'GCash', '09991234567') on conflict (user_id) do update set account_number = excluded.account_number; select new_value from activity_events where entity_id='${AGENT}' and field='payout_account' order by created_at desc limit 1; rollback;`)[0].new_value, "gcash GCash ••••4567");
 check("nobody reads staged onboarding through the API", tryAs(EXEC, `perform 1 from public.invitation_onboarding`), "42501");
-check("a hire date change recomputes the Employee ID month (rolled back)", q.query(`begin; ${session(EXEC)} update public.agency_memberships set hired_on='2026-03-15' where user_id='${AGENT}'; select substr(employee_code, 3, 6) as mmyyyy from agency_memberships where user_id='${AGENT}'; rollback;`)[0].mmyyyy, "032026");
+/* Correcting a start date rewrites the DATE segment and nothing else: the
+   permanent number stays, and nobody else is renumbered (Dee, 2026-09-20). */
+check("a start-date correction rewrites the date segment only (rolled back)",
+  q.query(`begin; ${session(EXEC)} update public.agency_memberships set hired_on='2026-03-15' where user_id='${AGENT}'; select substr(employee_code, 3, 6) as mmddyy, agent_number from agency_memberships where user_id='${AGENT}'; rollback;`)[0],
+  { mmddyy: "031526", agent_number: one(`select agent_number from agency_memberships where user_id='${AGENT}'`).agent_number });
+/* Everybody else's identifier, before and after the correction, compared as
+   one string — the old behaviour renumbered the whole agency. */
+const othersNow = one(`select string_agg(employee_code, ',' order by agent_number) c from agency_memberships where user_id <> '${AGENT}' and employee_code is not null`).c;
+check("…and renumbers nobody else",
+  q.query(`begin; ${session(EXEC)} update public.agency_memberships set hired_on='2026-03-15' where user_id='${AGENT}'; reset role; select string_agg(employee_code, ',' order by agent_number) as c from agency_memberships where user_id <> '${AGENT}' and employee_code is not null; rollback;`)[0].c,
+  othersNow);
 
 console.log("\nWho may edit a profile\n");
 const edit = (viewer, target) => tryAs(viewer, `perform public.set_member_profile('${target}', 'Probe Name', null, null, null, 'probe')`);

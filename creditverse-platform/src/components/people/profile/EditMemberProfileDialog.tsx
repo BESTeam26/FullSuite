@@ -78,7 +78,7 @@ export function EditMemberProfileDialog({ member, open, onClose }: { member: Age
                 )}
               </div>
               <p className="text-[11px] text-muted-foreground">PNG, JPG or WebP up to {Math.round(MAX_AVATAR_BYTES / 1024 / 1024)} MB. Shown at small sizes.</p>
-              {member.employeeCode && <p className="text-[11px] text-muted-foreground">Employee ID <span className="font-semibold text-foreground">{member.employeeCode}</span> — assigned at hire, not editable.</p>}
+              {member.employeeCode && <p className="text-[11px] text-muted-foreground">Agent ID <span className="font-semibold text-foreground">{member.employeeCode}</span> — issued once, not editable.</p>}
             </div>
           </div>
 
