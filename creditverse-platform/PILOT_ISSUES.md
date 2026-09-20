@@ -75,6 +75,50 @@ assigned agent and BES staff of the agency — and widens nothing else
 Ivan reads and may update the record. Status: DEPLOYED · FIXED AWAITING
 LIVE RETEST — Ivan opens CreditOps and finds the file.
 
+### P-017 · Starting a timer hid its own controls behind "Choose manually"
+
+**2026-09-20 · reporter: Dee · module: My Time / Timer · class B · severity:
+S3.** Dee: *"I need this to be visible instead of just stating choose
+manually, it causes unnecessary friction that agents will guess where to click
+or how to track the first time."* Quick Start only offers work somebody has
+already tracked, so a person clocking in for the first time had nothing to
+click and had to discover that a small green link was the way in. The division
+and partner pickers, the note field and the Start button are now on the screen
+from the start, each with a visible label. Fix:
+`src/components/time/StartWorkCard.tsx`; the test now asserts the controls are
+present with no click and that no toggle remains. Status: FIXED AWAITING LIVE
+RETEST.
+
+### P-018 · A person cannot read their own document history — OPEN, not yet diagnosed
+
+**2026-09-20 · reporter: the RLS gate (phase 70) · module: People → Documents ·
+class A · severity: S4 (no P0 workflow depends on it).** Three phase-70 checks
+fail: a document lifecycle is not visible on the person's own history (0, want
+2), the subject of a document sees none of its history (`0/0`, want `0/1`), and
+a document FILE row read returns 42501 where 0 rows were expected.
+
+Established so far, live: the admin does hold `people.documents.manage`, the
+insert succeeds, and the audit row IS written. So the write side is sound and
+the failure is on the READ — the person the document is about cannot see the
+history about themselves. The privacy tightening in migration 0294 is the
+first place to look; the probe may equally be stale.
+
+Not fixed today. Documents is a supporting surface and no P0 workflow depends
+on it (rule 21a), and the failure is over-restriction, not exposure. Status:
+OPEN.
+
+### P-016 · Payroll probes collided with the first real cutoff
+
+**2026-09-20 · reporter: the RLS gate (phase 70) · module: Payroll · class A ·
+severity: minor.** Five checks began failing with `23P01` the moment Dee
+created a real September cutoff: they insert a cutoff at `current_date - 7 ..
+current_date`, and two cutoffs cannot overlap. One also generated payroll for
+`(select id from payroll_cutoffs limit 1)`, which with real data picked Dee's.
+No product defect — fragile probes that assumed an empty payroll calendar. Each
+now clears the calendar inside its own rolled-back transaction and addresses
+its cutoff by id. Status: DEPLOYED (probe only; nothing in the product
+changed).
+
 ### P-012 · An organization's own staff could not read their own CreditOps clients
 
 **2026-09-19 · reporter: the full RLS gate (org.owner fclients=0, want 2) ·

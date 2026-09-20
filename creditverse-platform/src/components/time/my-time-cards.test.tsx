@@ -185,10 +185,14 @@ describe("starting work", () => {
     expect(screen.getByText("Support Follow-up").closest("button")).toBeDisabled();
   });
 
-  it("lets somebody pick a division and partner by hand", () => {
+  /* Dee, 2026-09-20: the picker used to hide behind a "Choose manually"
+     toggle, so somebody clocking in for the first time had to guess where to
+     click. It is now on the screen from the start, and no click reveals it. */
+  it("shows the division, partner and start button without any click", () => {
     card();
-    fireEvent.click(screen.getByRole("button", { name: /Choose manually/ }));
     expect(screen.getByLabelText("Division")).toBeInTheDocument();
     expect(screen.getByLabelText("Partner this time is for")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Start timer/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Choose manually/ })).toBeNull();
   });
 });

@@ -6479,6 +6479,16 @@ if (runs(70)) {
       return "ERR " + (m ? m[1] : "unknown");
     }
   };
+  /* Real payroll exists now, and a cutoff cannot overlap another cutoff. A
+     probe that inserts `current_date - 7 .. current_date` collided with the
+     live September cutoff the moment Dee created one — which is a fragile
+     probe, not a defect (the fixtures must coexist with real data). So each
+     cutoff probe first clears the calendar INSIDE its own rolled-back
+     transaction, and then owns it. Nothing is deleted for real. */
+  const OWN_CALENDAR = `set local role postgres;
+    delete from public.payroll_cutoffs;
+    set local role authenticated;`;
+  const CUT70 = (n) => `'44444444-0000-4000-8000-0000000000${n}'::uuid`;
   const AGENT70 = U["bes.credit@bes.test"], LEAD70 = U["bes.lead@bes.test"],
         ADM70 = U["bes.admin@bes.test"], FUND70 = U["bes.funding@bes.test"];
   const AG70 = q(`select agency_id::text as rows from public.agency_memberships limit 1`)[0].rows;
@@ -6662,7 +6672,7 @@ if (runs(70)) {
     ["a locked period refuses NEW adjustment requests by name",
       () => p70(AGENT70, `insert into public.time_entries (agency_id, employee_id, division_id, work_date, started_at, ended_at)
           values ('${AG70}', '${AGENT70}', 'creditops', current_date - 20, now() - interval '20 days', now() - interval '20 days' + interval '4 hours');
-        set local role postgres;
+        ${OWN_CALENDAR} set local role postgres;
         insert into public.payroll_cutoffs (agency_id, period_start, period_end, verification_locks_on)
           values ('${AG70}', current_date - 25, current_date - 15, current_date - 10);
         set local role authenticated; set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
@@ -6673,7 +6683,7 @@ if (runs(70)) {
     ["…while the same request inside the window is accepted",
       () => p70(AGENT70, `insert into public.time_entries (agency_id, employee_id, division_id, work_date, started_at, ended_at)
           values ('${AG70}', '${AGENT70}', 'creditops', current_date - 2, now() - interval '2 days', now() - interval '2 days' + interval '4 hours');
-        set local role postgres;
+        ${OWN_CALENDAR} set local role postgres;
         insert into public.payroll_cutoffs (agency_id, period_start, period_end, verification_locks_on)
           values ('${AG70}', current_date - 8, current_date - 1, current_date + 4);
         set local role authenticated; set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
@@ -6682,17 +6692,23 @@ if (runs(70)) {
           now() - interval '2 days' + interval '3 hours', 'I stopped earlier than recorded') is not null)::text as rows`), "true"],
 
     ["an approved adjustment recomputes the draft payslips by itself",
-      () => p70(PAY70, `set local role postgres;
+      () => p70(PAY70, `${OWN_CALENDAR} set local role postgres;
         insert into public.member_pay_rates (agency_id, user_id, rate_type, rate_cents, currency, effective_from)
           values ('${AG70}', '${AGENT70}', 'hourly', 6000, 'USD', current_date - 90);
+        insert into public.compensation_arrangements (agency_id, user_id, arrangement_type,
+            compensation_basis, agent_rate_cents, bes_cost_cents, currency, effective_from, reason)
+          values ('${AG70}', '${AGENT70}', 'direct_bes', 'hourly', 6000, 6000, 'USD', current_date - 90,
+                  'Probe: payroll prices from the arrangement.');
         select set_config('bes.time_system', '1', true);
         insert into public.time_entries (agency_id, employee_id, division_id, work_date, started_at, ended_at)
           values ('${AG70}', '${AGENT70}', 'creditops', current_date - 2, now() - interval '50 hours', now() - interval '46 hours');
         select set_config('bes.time_system', '', true);
         set local role authenticated; set local request.jwt.claims = '{"sub":"${PAY70}","role":"authenticated"}';
-        insert into public.payroll_cutoffs (agency_id, period_start, period_end)
-          values ('${AG70}', current_date - 8, current_date - 1);
-        select public.generate_payroll((select id from public.payroll_cutoffs limit 1));
+        insert into public.payroll_cutoffs (id, agency_id, period_start, period_end)
+          values (${CUT70("f1")}, '${AG70}', current_date - 8, current_date - 1);
+        /* By id, never LIMIT 1 — with real cutoffs present that picked one
+           of Dee's. */
+        select public.generate_payroll(${CUT70("f1")});
         set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
         select set_config('probe.adj', public.request_time_adjustment(
           (select id from public.time_entries where employee_id = '${AGENT70}' and work_date = current_date - 2 limit 1),
@@ -6950,7 +6966,7 @@ if (runs(70)) {
     ["…and an unrecorded pair is NULL, never 1 — a missing rate must stop a conversion",
       () => p70(PAY70, `select coalesce(public.fx_rate_for('${AG70}', 'JPY', 'USD', current_date)::text, 'null') as rows`), "null"],
     ["a payslip freezes its rate: a later rate does not rewrite it",
-      () => p70(PAY70, `insert into public.fx_rates (agency_id, base_currency, quote_currency, rate, source, effective_from, set_by)
+      () => p70(PAY70, `${OWN_CALENDAR} insert into public.fx_rates (agency_id, base_currency, quote_currency, rate, source, effective_from, set_by)
           values ('${AG70}', 'PHP', 'USD', 0.01750000, 'paypal_actual', '2026-01-01', '${PAY70}');
         select public.set_payroll_settings(false, 15, 25, 10, 5, 'America/New_York', 'USD');
         select public.set_member_pay_rate('${AGENT70}', 'per_cutoff', 100000, 'PHP');
@@ -6962,7 +6978,7 @@ if (runs(70)) {
         select fx_rate::text as rows from public.payslips
          where cutoff_id='44444444-0000-4000-8000-0000000000fc' and user_id='${AGENT70}'`), "0.01750000"],
     ["…and the payout is the gross at that frozen rate",
-      () => p70(PAY70, `insert into public.fx_rates (agency_id, base_currency, quote_currency, rate, source, effective_from, set_by)
+      () => p70(PAY70, `${OWN_CALENDAR} insert into public.fx_rates (agency_id, base_currency, quote_currency, rate, source, effective_from, set_by)
           values ('${AG70}', 'PHP', 'USD', 0.02000000, 'paypal_actual', '2026-01-01', '${PAY70}');
         select public.set_payroll_settings(false, 15, 25, 10, 5, 'America/New_York', 'USD');
         select public.set_member_pay_rate('${AGENT70}', 'per_cutoff', 100000, 'PHP');
@@ -6972,7 +6988,7 @@ if (runs(70)) {
         select payout_cents as rows from public.payslips
          where cutoff_id='44444444-0000-4000-8000-0000000000fd' and user_id='${AGENT70}'`), 2000],
     ["release refuses while any payslip has no rate, and names the pair",
-      () => p70(PAY70, `select public.set_payroll_settings(false, 15, 25, 10, 5, 'America/New_York', 'PHP');
+      () => p70(PAY70, `${OWN_CALENDAR} select public.set_payroll_settings(false, 15, 25, 10, 5, 'America/New_York', 'PHP');
         select public.set_member_pay_rate('${AGENT70}', 'per_cutoff', 100000, 'USD');
         insert into public.payroll_cutoffs (id, agency_id, period_start, period_end, payday, created_by)
           values ('44444444-0000-4000-8000-0000000000fe'::uuid, '${AG70}', current_date - 7, current_date, current_date + 10, '${PAY70}');

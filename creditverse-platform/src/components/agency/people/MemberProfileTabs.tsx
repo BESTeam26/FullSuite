@@ -17,7 +17,9 @@ import { Input } from "@/components/ui/input";
 import { OpsSelect } from "@/components/ui/ops-select";
 import { Pill } from "@/components/agency/partner/partner-ui";
 import { Schedules } from "@/components/agency/people/Schedules";
-import { PayRateEditor } from "@/components/agency/people/PayRateEditor";
+import { ArrangementEditor } from "@/components/agency/people/ArrangementEditor";
+import { PayrollRecord } from "@/components/agency/people/PayrollRecord";
+import { useArrangements } from "@/lib/data/use-compensation";
 import { describeRateBasis, rateSuffix } from "@/lib/payroll/rate-label";
 import { useTeamActions } from "@/lib/data/use-agency-teams";
 import { useAgencyPartners } from "@/lib/data/use-agency-partners";
@@ -361,39 +363,77 @@ export function RecentAttendanceList({ userId }: { userId: string }) {
 
 export function CompensationTab({ member }: { member: AgencyMember }) {
   const perms = useAgencyPermissions();
-  const rates = usePayRates();
-  const rate = (rates.data ?? []).find((r) => r.userId === member.userId);
+  const arrangements = useArrangements(member.userId);
+  const live = (arrangements.data ?? []).find((a) => a.effectiveTo === null);
+  const history = (arrangements.data ?? []).filter((a) => a.effectiveTo !== null);
   /* Hooks before the authorization return: the derivation query is disabled
      (null user) whenever there is nothing to price, so it never fires early. */
-  const breakdown = usePayRateBreakdown(rate && rate.rateType !== "per_cutoff" ? rate.userId : null);
+  const breakdown = usePayRateBreakdown(live && live.basis !== "per_cutoff" ? member.userId : null);
   if (!perms.can("payroll.view") && !perms.can("payroll.manage")) return null;
-  const basisLine = rate ? describeRateBasis(rate.rateType, breakdown.data, (c) => formatCentsIn(c, rate.currency)) : null;
+
+  /* The cost side is a separate capability from payroll — holding payroll
+     shows what the worker earns and not what BES pays for them. */
+  const canSeeCost = perms.can("compensation.bes_cost.view");
+  const canManage = perms.can("compensation.arrangement.manage");
+  const basisLine = live ? describeRateBasis(live.basis, breakdown.data, (c) => formatCentsIn(c, live.currency)) : null;
 
   return (
-    <ContentCard title="Compensation">
-      {rates.isLoading ? (
-        <p className="py-4 text-xs text-muted-foreground"><Loader2 className="mr-1.5 inline h-3 w-3 animate-spin" /> Loading…</p>
-      ) : rate ? (
-        <div className="text-sm text-foreground">
-          <p className="font-semibold">
-            {formatCentsIn(rate.rateCents, rate.currency)} {rateSuffix(rate.rateType)}
+    <div className="space-y-3">
+      <ContentCard title="Compensation arrangement">
+        {arrangements.isLoading ? (
+          <p className="py-4 text-xs text-muted-foreground"><Loader2 className="mr-1.5 inline h-3 w-3 animate-spin" /> Loading…</p>
+        ) : live ? (
+          <div className="space-y-1 text-sm text-foreground">
+            <p className="font-semibold">
+              {formatCentsIn(live.agentRateCents, live.currency)} {rateSuffix(live.basis)}
+              <span className="ml-1.5 text-xs font-normal text-muted-foreground">to the worker</span>
+            </p>
+            {live.arrangementType === "managing_partner" ? (
+              <p className="text-xs text-muted-foreground">
+                Paid through {live.managingPartnerName ?? "a managing partner"}.
+                {canSeeCost
+                  ? ` BES pays ${formatCentsIn(live.besCostCents, live.currency)} ${rateSuffix(live.basis)}, a margin of ${formatCentsIn(live.besCostCents - live.agentRateCents, live.currency)}.`
+                  : " What BES pays the partner is not shown to this account."}
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">BES pays this worker directly, so BES's cost is the same figure.</p>
+            )}
+            {basisLine && <p className="text-xs text-muted-foreground">{basisLine}</p>}
+            <p className="text-xs text-muted-foreground">In force since {formatDate(live.effectiveFrom)}.</p>
+          </div>
+        ) : (
+          <p className="py-3 text-xs text-muted-foreground">
+            No arrangement on file — payroll will skip this person until one is set here.
           </p>
-          {basisLine && <p className="mt-0.5 text-xs text-muted-foreground">{basisLine}</p>}
-          <p className="mt-1 text-xs text-muted-foreground">
-            Effective {formatDate(rate.effectiveFrom)}. Rate changes keep their history; payslips live under Finance → Payroll.
-          </p>
-        </div>
-      ) : (
-        <p className="py-3 text-xs text-muted-foreground">
-          No rate on file — payroll will skip this person until one is set here.
-        </p>
-      )}
-      {perms.can("payroll.manage") && (
-        <div className="mt-3 border-t border-border/60 pt-3">
-          <PayRateEditor userId={member.userId} rate={rate ? { rateType: rate.rateType, rateCents: rate.rateCents, currency: rate.currency } : undefined} />
-        </div>
-      )}
-    </ContentCard>
+        )}
+        {canManage && (
+          <div className="mt-3 border-t border-border/60 pt-3">
+            {/* Keyed by the arrangement so the form re-seeds when it arrives.
+                Without this the fields keep the defaults they were built with
+                while the query was still loading, and an arrangement paid
+                through a managing partner reads as "BES pays them directly" —
+                a form that misstates the thing it is editing. */}
+            <ArrangementEditor key={live?.id ?? "none"} userId={member.userId} current={live} canSeeCost={canSeeCost} />
+          </div>
+        )}
+        {history.length > 0 && (
+          <div className="mt-3 border-t border-border/60 pt-3">
+            <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Earlier arrangements</p>
+            <ul className="space-y-1 text-xs text-muted-foreground">
+              {history.map((a) => (
+                <li key={a.id}>
+                  {formatDate(a.effectiveFrom)} – {formatDate(a.effectiveTo as string)}:{" "}
+                  {formatCentsIn(a.agentRateCents, a.currency)} {rateSuffix(a.basis)}
+                  {a.reason ? ` — ${a.reason}` : ""}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </ContentCard>
+
+      <PayrollRecord userId={member.userId} />
+    </div>
   );
 }
 

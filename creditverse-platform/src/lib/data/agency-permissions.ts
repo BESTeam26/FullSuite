@@ -32,6 +32,11 @@ export const AGENCY_PERMISSIONS = [
      front end does not know about is a capability nobody has. */
   "billing.view", "billing.manage",
   "payroll.view", "payroll.manage",
+  /* Compensation is NOT payroll. Payroll shows what a worker earns;
+     these open what BES pays for them and who may change it, because a
+     managing partner's margin is neither the worker's business nor
+     something a payroll clerk needs (Dee, 2026-09-20). */
+  "compensation.agent_rate.view", "compensation.bes_cost.view", "compensation.arrangement.manage",
   "org.structure.view", "org.structure.manage",
   "hub.files.manage", "ops.manage",
   "communication.audit", "communication.channels.manage", "communication.channels.create",

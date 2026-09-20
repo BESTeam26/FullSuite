@@ -4,6 +4,64 @@ Decisions that shaped the system, with enough context that nobody needs to
 re-derive them from commit history. Newest first. Small fixes do not belong
 here — depth of record matches depth of change.
 
+## AD-009 · 2026-09-20 — One rate could not tell the truth
+
+**Decision.** What a worker earns and what BES pays for them are two numbers,
+recorded separately in `compensation_arrangements`, effective-dated and
+append-only. The margin between them is derived and never stored. Payroll
+prices each arrangement segment of a period with the rate that was true then,
+and a released cutoff books BES's cost, not the workers' total.
+
+**Context.** Dee, stating the case that broke the old model: BES pays Bryan
+PHP 100 an hour for Archie's work, and Bryan pays Archie PHP 80. The PHP 100
+was on file as *Archie's rate* because there was only one field for it. Every
+figure downstream inherited that confusion — Archie's payslip overstated his
+pay by a quarter, and the released expense understated what left BES by the
+margin, because the margin was nobody's line.
+
+**Shape.**
+
+| Concept | Where it lives |
+|---|---|
+| Both rates, dated | `compensation_arrangements` (agent rate, BES cost, partner, basis) |
+| Scoped changes | `compensation_adjustments` — `agent_only` / `bes_only` / `both` |
+| The period's price | `compensation_segments()` → `compensation_for_period()` |
+| The payslip | `payslips.gross_cents` (worker) vs `bes_total_cents` (BES); `margin_cents` generated |
+| The worker's view | `my_payslips` — agent side only |
+| The partner's invoice | `managing_partner_settlements` |
+
+**Four rules Dee locked.**
+
+1. An adjustment carries an explicit financial scope. A bonus that moves the
+   worker's pay does not move BES's cost unless it says so — except under a
+   direct arrangement, where BES *is* the payer and the two cannot diverge.
+2. A monthly package prorates by **paid scheduled workdays**, never calendar
+   days. A Mon–Fri contractor must not earn less because a month has more
+   weekends.
+3. Bryan sees payroll, compensation and settlements; company finance stays
+   closed to him.
+4. Aaron holds every money capability, explicitly granted (AD — see
+   `20260920002500`).
+
+**What this cost elsewhere.** `member_pay_rates` stopped being written
+independently — it is now the agent-side mirror that
+`set_compensation_arrangement()` maintains, because two writers for one number
+is how the original confusion happened. `set_member_pay_rate()` kept its name
+and now opens a direct arrangement. The single-rate editor was deleted rather
+than left as a control that writes a table payroll no longer reads.
+
+**The boundary.** `compensation.bes_cost.view` is owner-gated and separate
+from payroll: holding payroll shows what a worker earns and not what BES pays
+for them. Row permission was not enough — a worker may read their own payslip
+row, so the internal columns are revoked from `authenticated` at the COLUMN
+level and served only through `payslips_internal`. The table grant had to go
+entirely first: a column revoke cannot carve a hole in `grant select on
+table`, which the probe caught after the first attempt silently did nothing.
+
+**Evidence.** `compensation-probe.mjs` — 26/26, including the equivalence
+check that a direct arrangement pays exactly what the single-rate generator
+paid, so nobody's pay moved on the day this shipped.
+
 ## AD-007 · 2026-09-08 — Two security roles; rank retired into facts
 
 **Decision.** Collapse agency security roles to `agency_admin`/`agency_user`

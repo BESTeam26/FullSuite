@@ -558,6 +558,7 @@ export type Database = {
         Row: {
           access_profile: Database["public"]["Enums"]["access_profile"] | null
           agency_id: string
+          agent_number: number | null
           created_at: string
           deactivated_at: string | null
           deactivated_by: string | null
@@ -583,6 +584,7 @@ export type Database = {
         Insert: {
           access_profile?: Database["public"]["Enums"]["access_profile"] | null
           agency_id: string
+          agent_number?: number | null
           created_at?: string
           deactivated_at?: string | null
           deactivated_by?: string | null
@@ -608,6 +610,7 @@ export type Database = {
         Update: {
           access_profile?: Database["public"]["Enums"]["access_profile"] | null
           agency_id?: string
+          agent_number?: number | null
           created_at?: string
           deactivated_at?: string | null
           deactivated_by?: string | null
@@ -2954,6 +2957,170 @@ export type Database = {
           },
         ]
       }
+      compensation_adjustments: {
+        Row: {
+          adjustment_type: string
+          agency_id: string
+          amount_cents: number
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          created_by: string | null
+          cutoff_id: string | null
+          effective_on: string
+          financial_scope: string
+          id: string
+          reason: string
+          user_id: string
+        }
+        Insert: {
+          adjustment_type: string
+          agency_id: string
+          amount_cents: number
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          cutoff_id?: string | null
+          effective_on?: string
+          financial_scope: string
+          id?: string
+          reason: string
+          user_id: string
+        }
+        Update: {
+          adjustment_type?: string
+          agency_id?: string
+          amount_cents?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          cutoff_id?: string | null
+          effective_on?: string
+          financial_scope?: string
+          id?: string
+          reason?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compensation_adjustments_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compensation_adjustments_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compensation_adjustments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compensation_adjustments_cutoff_id_fkey"
+            columns: ["cutoff_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_cutoffs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compensation_adjustments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      compensation_arrangements: {
+        Row: {
+          agency_id: string
+          agent_rate_cents: number
+          arrangement_type: string
+          bes_cost_cents: number
+          compensation_basis: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          effective_from: string
+          effective_to: string | null
+          id: string
+          managing_partner_id: string | null
+          reason: string | null
+          user_id: string
+        }
+        Insert: {
+          agency_id: string
+          agent_rate_cents: number
+          arrangement_type: string
+          bes_cost_cents: number
+          compensation_basis: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          effective_from: string
+          effective_to?: string | null
+          id?: string
+          managing_partner_id?: string | null
+          reason?: string | null
+          user_id: string
+        }
+        Update: {
+          agency_id?: string
+          agent_rate_cents?: number
+          arrangement_type?: string
+          bes_cost_cents?: number
+          compensation_basis?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          managing_partner_id?: string | null
+          reason?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compensation_arrangements_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compensation_arrangements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compensation_arrangements_managing_partner_id_fkey"
+            columns: ["managing_partner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compensation_arrangements_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       consumer_report_requests: {
         Row: {
           authorization_state: Database["public"]["Enums"]["consumer_report_authorization"]
@@ -4147,14 +4314,14 @@ export type Database = {
           description: string | null
           division: Database["public"]["Enums"]["fulfillment_service"]
           division_id: string | null
+          functions: string[]
           id: string
           is_fixture: boolean
           key: string
           manager_id: string | null
-          parent_department_id: string | null
-          functions: string[]
-          show_on_chart: boolean
           name: string
+          parent_department_id: string | null
+          show_on_chart: boolean
           sort: number
         }
         Insert: {
@@ -4165,14 +4332,14 @@ export type Database = {
           description?: string | null
           division: Database["public"]["Enums"]["fulfillment_service"]
           division_id?: string | null
+          functions?: string[]
           id?: string
           is_fixture?: boolean
           key: string
           manager_id?: string | null
-          parent_department_id?: string | null
-          functions?: string[]
-          show_on_chart?: boolean
           name: string
+          parent_department_id?: string | null
+          show_on_chart?: boolean
           sort?: number
         }
         Update: {
@@ -4183,14 +4350,14 @@ export type Database = {
           description?: string | null
           division?: Database["public"]["Enums"]["fulfillment_service"]
           division_id?: string | null
+          functions?: string[]
           id?: string
           is_fixture?: boolean
           key?: string
           manager_id?: string | null
-          parent_department_id?: string | null
-          functions?: string[]
-          show_on_chart?: boolean
           name?: string
+          parent_department_id?: string | null
+          show_on_chart?: boolean
           sort?: number
         }
         Relationships: [
@@ -4213,6 +4380,13 @@ export type Database = {
             columns: ["manager_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "departments_parent_department_id_fkey"
+            columns: ["parent_department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
             referencedColumns: ["id"]
           },
         ]
@@ -7145,20 +7319,59 @@ export type Database = {
           },
         ]
       }
+      invitation_onboarding: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          invitation_id: string
+          payload: Json
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          invitation_id: string
+          payload: Json
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          invitation_id?: string
+          payload?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invitation_onboarding_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invitation_onboarding_invitation_id_fkey"
+            columns: ["invitation_id"]
+            isOneToOne: true
+            referencedRelation: "invitations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invitations: {
         Row: {
           accepted_at: string | null
           access_profile: Database["public"]["Enums"]["access_profile"] | null
+          activated_at: string | null
           agency_id: string | null
           agency_role: Database["public"]["Enums"]["agency_role"] | null
           created_at: string
           email: string
           expires_at: string
           external_role: Database["public"]["Enums"]["external_role"] | null
+          full_name: string | null
           id: string
           invited_by: string | null
           kind: Database["public"]["Enums"]["membership_kind"]
           lead_team_id: string | null
+          membership_id: string | null
           module_keys: string[]
           org_role: Database["public"]["Enums"]["org_role"] | null
           organization_id: string | null
@@ -7170,16 +7383,19 @@ export type Database = {
         Insert: {
           accepted_at?: string | null
           access_profile?: Database["public"]["Enums"]["access_profile"] | null
+          activated_at?: string | null
           agency_id?: string | null
           agency_role?: Database["public"]["Enums"]["agency_role"] | null
           created_at?: string
           email: string
           expires_at?: string
           external_role?: Database["public"]["Enums"]["external_role"] | null
+          full_name?: string | null
           id?: string
           invited_by?: string | null
           kind: Database["public"]["Enums"]["membership_kind"]
           lead_team_id?: string | null
+          membership_id?: string | null
           module_keys?: string[]
           org_role?: Database["public"]["Enums"]["org_role"] | null
           organization_id?: string | null
@@ -7191,16 +7407,19 @@ export type Database = {
         Update: {
           accepted_at?: string | null
           access_profile?: Database["public"]["Enums"]["access_profile"] | null
+          activated_at?: string | null
           agency_id?: string | null
           agency_role?: Database["public"]["Enums"]["agency_role"] | null
           created_at?: string
           email?: string
           expires_at?: string
           external_role?: Database["public"]["Enums"]["external_role"] | null
+          full_name?: string | null
           id?: string
           invited_by?: string | null
           kind?: Database["public"]["Enums"]["membership_kind"]
           lead_team_id?: string | null
+          membership_id?: string | null
           module_keys?: string[]
           org_role?: Database["public"]["Enums"]["org_role"] | null
           organization_id?: string | null
@@ -7229,6 +7448,13 @@ export type Database = {
             columns: ["lead_team_id"]
             isOneToOne: false
             referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invitations_membership_id_fkey"
+            columns: ["membership_id"]
+            isOneToOne: false
+            referencedRelation: "agency_memberships"
             referencedColumns: ["id"]
           },
           {
@@ -8139,6 +8365,84 @@ export type Database = {
           },
         ]
       }
+      management_seats: {
+        Row: {
+          agency_id: string
+          created_at: string
+          created_by: string | null
+          department_id: string | null
+          division_id: string | null
+          effective_from: string
+          effective_to: string | null
+          id: string
+          reason: string | null
+          seat: string
+          user_id: string
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          created_by?: string | null
+          department_id?: string | null
+          division_id?: string | null
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          reason?: string | null
+          seat: string
+          user_id: string
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          created_by?: string | null
+          department_id?: string | null
+          division_id?: string | null
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          reason?: string | null
+          seat?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "management_seats_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "management_seats_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "management_seats_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "management_seats_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "divisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "management_seats_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meetings: {
         Row: {
           agency_id: string
@@ -8359,129 +8663,6 @@ export type Database = {
           },
         ]
       }
-      member_payout_accounts: {
-        Row: {
-          account_name: string | null
-          account_number: string | null
-          agency_id: string
-          method: string
-          notes: string | null
-          notification_email: string | null
-          provider: string | null
-          updated_at: string
-          updated_by: string | null
-          user_id: string
-        }
-        Insert: {
-          account_name?: string | null
-          account_number?: string | null
-          agency_id: string
-          method: string
-          notes?: string | null
-          notification_email?: string | null
-          provider?: string | null
-          updated_at?: string
-          updated_by?: string | null
-          user_id: string
-        }
-        Update: {
-          account_name?: string | null
-          account_number?: string | null
-          agency_id?: string
-          method?: string
-          notes?: string | null
-          notification_email?: string | null
-          provider?: string | null
-          updated_at?: string
-          updated_by?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
-      member_private_records: {
-        Row: {
-          agency_id: string
-          date_of_birth: string | null
-          emergency_contact_name: string | null
-          emergency_contact_phone: string | null
-          emergency_contact_relationship: string | null
-          home_address: string | null
-          updated_at: string
-          updated_by: string | null
-          user_id: string
-          whatsapp_phone: string | null
-          working_location: string | null
-        }
-        Insert: {
-          agency_id: string
-          date_of_birth?: string | null
-          emergency_contact_name?: string | null
-          emergency_contact_phone?: string | null
-          emergency_contact_relationship?: string | null
-          home_address?: string | null
-          updated_at?: string
-          updated_by?: string | null
-          user_id: string
-          whatsapp_phone?: string | null
-          working_location?: string | null
-        }
-        Update: {
-          agency_id?: string
-          date_of_birth?: string | null
-          emergency_contact_name?: string | null
-          emergency_contact_phone?: string | null
-          emergency_contact_relationship?: string | null
-          home_address?: string | null
-          updated_at?: string
-          updated_by?: string | null
-          user_id?: string
-          whatsapp_phone?: string | null
-          working_location?: string | null
-        }
-        Relationships: []
-      }
-      management_seats: {
-        Row: {
-          agency_id: string
-          created_at: string
-          created_by: string | null
-          department_id: string | null
-          division_id: string | null
-          effective_from: string
-          effective_to: string | null
-          id: string
-          reason: string | null
-          seat: string
-          user_id: string
-        }
-        Insert: {
-          agency_id: string
-          created_at?: string
-          created_by?: string | null
-          department_id?: string | null
-          division_id?: string | null
-          effective_from?: string
-          effective_to?: string | null
-          id?: string
-          reason?: string | null
-          seat: string
-          user_id: string
-        }
-        Update: {
-          agency_id?: string
-          created_at?: string
-          created_by?: string | null
-          department_id?: string | null
-          division_id?: string | null
-          effective_from?: string
-          effective_to?: string | null
-          id?: string
-          reason?: string | null
-          seat?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       member_pay_rates: {
         Row: {
           agency_id: string
@@ -8540,6 +8721,67 @@ export type Database = {
           },
         ]
       }
+      member_payout_accounts: {
+        Row: {
+          account_name: string | null
+          account_number: string | null
+          agency_id: string
+          method: string
+          notes: string | null
+          notification_email: string | null
+          provider: string | null
+          updated_at: string
+          updated_by: string | null
+          user_id: string
+        }
+        Insert: {
+          account_name?: string | null
+          account_number?: string | null
+          agency_id: string
+          method: string
+          notes?: string | null
+          notification_email?: string | null
+          provider?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          user_id: string
+        }
+        Update: {
+          account_name?: string | null
+          account_number?: string | null
+          agency_id?: string
+          method?: string
+          notes?: string | null
+          notification_email?: string | null
+          provider?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_payout_accounts_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_payout_accounts_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_payout_accounts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       member_permissions: {
         Row: {
           allowed: boolean
@@ -8584,6 +8826,70 @@ export type Database = {
             foreignKeyName: "member_permissions_set_by_fkey"
             columns: ["set_by"]
             isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      member_private_records: {
+        Row: {
+          agency_id: string
+          date_of_birth: string | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
+          emergency_contact_relationship: string | null
+          home_address: string | null
+          updated_at: string
+          updated_by: string | null
+          user_id: string
+          whatsapp_phone: string | null
+          working_location: string | null
+        }
+        Insert: {
+          agency_id: string
+          date_of_birth?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          emergency_contact_relationship?: string | null
+          home_address?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          user_id: string
+          whatsapp_phone?: string | null
+          working_location?: string | null
+        }
+        Update: {
+          agency_id?: string
+          date_of_birth?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          emergency_contact_relationship?: string | null
+          home_address?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          user_id?: string
+          whatsapp_phone?: string | null
+          working_location?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_private_records_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_private_records_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_private_records_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -12461,20 +12767,29 @@ export type Database = {
           adjustment_cents: number
           adjustment_note: string | null
           agency_id: string
+          arrangement_type: string
           base_cents: number
+          bes_adjustment_cents: number
+          bes_cost_cents: number
+          bes_payout_cents: number | null
+          bes_total_cents: number | null
           created_at: string
           currency: string
           cutoff_id: string
           fx_rate: number | null
           gross_cents: number | null
           id: string
+          managing_partner_id: string | null
+          margin_cents: number | null
           paid_break_minutes: number
+          paid_days: number
           paid_leave_minutes: number
           payout_cents: number | null
           payout_currency: string | null
           rate_basis: Json | null
           rate_cents: number
           rate_type: string
+          segments: Json | null
           user_id: string
           work_minutes: number
         }
@@ -12482,20 +12797,29 @@ export type Database = {
           adjustment_cents?: number
           adjustment_note?: string | null
           agency_id: string
+          arrangement_type?: string
           base_cents?: number
+          bes_adjustment_cents?: number
+          bes_cost_cents?: number
+          bes_payout_cents?: number | null
+          bes_total_cents?: number | null
           created_at?: string
           currency: string
           cutoff_id: string
           fx_rate?: number | null
           gross_cents?: number | null
           id?: string
+          managing_partner_id?: string | null
+          margin_cents?: number | null
           paid_break_minutes?: number
+          paid_days?: number
           paid_leave_minutes?: number
           payout_cents?: number | null
           payout_currency?: string | null
           rate_basis?: Json | null
           rate_cents: number
           rate_type: string
+          segments?: Json | null
           user_id: string
           work_minutes?: number
         }
@@ -12503,20 +12827,29 @@ export type Database = {
           adjustment_cents?: number
           adjustment_note?: string | null
           agency_id?: string
+          arrangement_type?: string
           base_cents?: number
+          bes_adjustment_cents?: number
+          bes_cost_cents?: number
+          bes_payout_cents?: number | null
+          bes_total_cents?: number | null
           created_at?: string
           currency?: string
           cutoff_id?: string
           fx_rate?: number | null
           gross_cents?: number | null
           id?: string
+          managing_partner_id?: string | null
+          margin_cents?: number | null
           paid_break_minutes?: number
+          paid_days?: number
           paid_leave_minutes?: number
           payout_cents?: number | null
           payout_currency?: string | null
           rate_basis?: Json | null
           rate_cents?: number
           rate_type?: string
+          segments?: Json | null
           user_id?: string
           work_minutes?: number
         }
@@ -12533,6 +12866,13 @@ export type Database = {
             columns: ["cutoff_id"]
             isOneToOne: false
             referencedRelation: "payroll_cutoffs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payslips_managing_partner_id_fkey"
+            columns: ["managing_partner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -16516,6 +16856,44 @@ export type Database = {
         }
         Relationships: []
       }
+      managing_partner_settlements: {
+        Row: {
+          agency_id: string | null
+          bes_pays_partner_cents: number | null
+          currency: string | null
+          cutoff_id: string | null
+          managing_partner_id: string | null
+          partner_margin_cents: number | null
+          partner_pays_workers_cents: number | null
+          people: number | null
+          period_end: string | null
+          period_start: string | null
+          status: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payslips_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payslips_cutoff_id_fkey"
+            columns: ["cutoff_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_cutoffs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payslips_managing_partner_id_fkey"
+            columns: ["managing_partner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       marketing_approvals: {
         Row: {
           campaign_id: string | null
@@ -16710,6 +17088,41 @@ export type Database = {
           },
         ]
       }
+      my_payslips: {
+        Row: {
+          adjustment_cents: number | null
+          adjustment_note: string | null
+          base_cents: number | null
+          created_at: string | null
+          currency: string | null
+          cutoff_id: string | null
+          fx_rate: number | null
+          gross_cents: number | null
+          id: string | null
+          paid_break_minutes: number | null
+          paid_days: number | null
+          paid_leave_minutes: number | null
+          payday: string | null
+          payout_cents: number | null
+          payout_currency: string | null
+          period_end: string | null
+          period_start: string | null
+          rate_basis: Json | null
+          rate_cents: number | null
+          rate_type: string | null
+          status: string | null
+          work_minutes: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payslips_cutoff_id_fkey"
+            columns: ["cutoff_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_cutoffs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       partner_account_credit_balance: {
         Row: {
           added_cents: number | null
@@ -16875,6 +17288,83 @@ export type Database = {
             columns: ["group_id"]
             isOneToOne: false
             referencedRelation: "outsourcing_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payslips_internal: {
+        Row: {
+          agency_id: string | null
+          arrangement_type: string | null
+          bes_adjustment_cents: number | null
+          bes_cost_cents: number | null
+          bes_payout_cents: number | null
+          bes_total_cents: number | null
+          cutoff_id: string | null
+          id: string | null
+          managing_partner_id: string | null
+          margin_cents: number | null
+          paid_days: number | null
+          segments: Json | null
+          user_id: string | null
+        }
+        Insert: {
+          agency_id?: string | null
+          arrangement_type?: string | null
+          bes_adjustment_cents?: number | null
+          bes_cost_cents?: number | null
+          bes_payout_cents?: number | null
+          bes_total_cents?: number | null
+          cutoff_id?: string | null
+          id?: string | null
+          managing_partner_id?: string | null
+          margin_cents?: number | null
+          paid_days?: number | null
+          segments?: Json | null
+          user_id?: string | null
+        }
+        Update: {
+          agency_id?: string | null
+          arrangement_type?: string | null
+          bes_adjustment_cents?: number | null
+          bes_cost_cents?: number | null
+          bes_payout_cents?: number | null
+          bes_total_cents?: number | null
+          cutoff_id?: string | null
+          id?: string | null
+          managing_partner_id?: string | null
+          margin_cents?: number | null
+          paid_days?: number | null
+          segments?: Json | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payslips_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payslips_cutoff_id_fkey"
+            columns: ["cutoff_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_cutoffs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payslips_managing_partner_id_fkey"
+            columns: ["managing_partner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payslips_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -17073,6 +17563,21 @@ export type Database = {
         Args: { p_update: string }
         Returns: undefined
       }
+      activate_invitation_claim: {
+        Args: { p_email: string; p_token: string }
+        Returns: {
+          email: string
+          existing_user: string
+          full_name: string
+          invitation_id: string
+          outcome: string
+        }[]
+      }
+      activate_invitation_stamp: {
+        Args: { p_invitation: string; p_outcome: string }
+        Returns: undefined
+      }
+      activate_my_membership: { Args: never; Returns: string }
       activity_service: {
         Args: { p_entity_type: string }
         Returns: Database["public"]["Enums"]["fulfillment_service"]
@@ -17110,10 +17615,6 @@ export type Database = {
           user_id: string
         }[]
       }
-      activate_my_membership: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
       agency_can: { Args: { p_key: string }; Returns: boolean }
       agency_can_all: { Args: never; Returns: Json }
       agency_can_for_user: {
@@ -17150,6 +17651,11 @@ export type Database = {
           title: string
         }[]
       }
+      agent_id_for: {
+        Args: { p_hired_on: string; p_number: number; p_user: string }
+        Returns: string
+      }
+      agent_initials: { Args: { p_user: string }; Returns: string }
       ai_available_credits: { Args: { p_org: string }; Returns: number }
       ai_can_use: {
         Args: { p_feature: string; p_org: string }
@@ -17269,6 +17775,15 @@ export type Database = {
         Args: { p_amount_cents?: number; p_group: string; p_invoice: string }
         Returns: string
       }
+      apply_invitation_onboarding: {
+        Args: {
+          p_agency: string
+          p_invitation: string
+          p_member: string
+          p_user: string
+        }
+        Returns: undefined
+      }
       approve_dispute_letter: { Args: { p_letter: string }; Returns: undefined }
       archive_announcement: { Args: { p_id: string }; Returns: undefined }
       archive_knowledge_article: { Args: { p_id: string }; Returns: undefined }
@@ -17330,6 +17845,7 @@ export type Database = {
         Args: { p_client: string; p_code: string }
         Returns: string
       }
+      auth_user_by_email: { Args: { p_email: string }; Returns: string }
       auto_stop_stale_timers: { Args: never; Returns: number }
       backfill_primary_partner_contacts: {
         Args: never
@@ -17759,6 +18275,45 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      compensation_for_period: {
+        Args: {
+          p_cutoff?: string
+          p_from: string
+          p_to: string
+          p_user: string
+        }
+        Returns: {
+          agent_adjustment_cents: number
+          agent_base_cents: number
+          agent_payable_cents: number
+          arrangement_type: string
+          bes_adjustment_cents: number
+          bes_base_cents: number
+          bes_payable_cents: number
+          currency: string
+          managing_partner_id: string
+          margin_cents: number
+          paid_days: number
+          work_minutes: number
+        }[]
+      }
+      compensation_segments: {
+        Args: { p_from: string; p_to: string; p_user: string }
+        Returns: {
+          agent_cents: number
+          arrangement_id: string
+          arrangement_type: string
+          bes_cents: number
+          compensation_basis: string
+          currency: string
+          managing_partner_id: string
+          paid_days: number
+          period_paid_days: number
+          segment_from: string
+          segment_to: string
+          work_minutes: number
+        }[]
+      }
       complete_letter_mailing: {
         Args: {
           p_cost_cents?: number
@@ -17881,6 +18436,31 @@ export type Database = {
           p_user?: string
         }
         Returns: string
+      }
+      create_team_member_with_invitation: {
+        Args: {
+          p_department?: string
+          p_division?: string
+          p_engagement?: string
+          p_full_name: string
+          p_hired_on?: string
+          p_job_title?: string
+          p_lead_team?: string
+          p_manager?: string
+          p_modules?: string[]
+          p_phone?: string
+          p_profile: Database["public"]["Enums"]["access_profile"]
+          p_role: Database["public"]["Enums"]["agency_role"]
+          p_seat?: string
+          p_team?: string
+          p_user: string
+        }
+        Returns: {
+          employee_code: string
+          invitation_id: string
+          membership_id: string
+          token: string
+        }[]
       }
       credit_client_visible: { Args: { p_client: string }; Returns: boolean }
       credit_client_writable: { Args: { p_client: string }; Returns: boolean }
@@ -18285,10 +18865,15 @@ export type Database = {
       employee_code_for: {
         Args: {
           p_agency: string
+          p_is_owner?: boolean
           p_joined: string
           p_membership: string
           p_user: string
         }
+        Returns: string
+      }
+      employee_code_free: {
+        Args: { p_agency: string; p_code: string }
         Returns: string
       }
       end_position_assignment: {
@@ -18524,6 +19109,8 @@ export type Database = {
         Args: { p_fulfillment_client: string }
         Returns: string
       }
+      has_operations_scope: { Args: { p_agency: string }; Returns: boolean }
+      holds_management_view: { Args: { p_agency: string }; Returns: boolean }
       hub_module_active: {
         Args: { p_module: string; p_org: string }
         Returns: boolean
@@ -18560,7 +19147,12 @@ export type Database = {
       intranet_may_write: { Args: { p_org: string }; Returns: boolean }
       invitation_preview: {
         Args: { p_token: string }
-        Returns: { email: string; expires_at: string; full_name: string; kind: string }[]
+        Returns: {
+          email: string
+          expires_at: string
+          full_name: string
+          kind: string
+        }[]
       }
       invite_agency_member: {
         Args: {
@@ -18646,13 +19238,29 @@ export type Database = {
         Returns: undefined
       }
       looks_like_a_secret: { Args: { p_text: string }; Returns: boolean }
+      managed_departments: { Args: never; Returns: string[] }
+      managed_divisions: { Args: never; Returns: string[] }
       managed_people: {
         Args: never
         Returns: {
           user_id: string
         }[]
       }
+      managed_services: {
+        Args: never
+        Returns: Database["public"]["Enums"]["fulfillment_service"][]
+      }
+      managed_teams: { Args: never; Returns: string[] }
+      management_reach: {
+        Args: {
+          p_agency: string
+          p_service: Database["public"]["Enums"]["fulfillment_service"]
+          p_team: string
+        }
+        Returns: boolean
+      }
       manager_of: { Args: { p_user: string }; Returns: string }
+      manages_private_record_of: { Args: { p_user: string }; Returns: boolean }
       map_ghl_location: {
         Args: {
           p_agency_own?: boolean
@@ -19156,6 +19764,17 @@ export type Database = {
           id: number
         }[]
       }
+      my_payment_statement: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          agent_adjustment_cents: number
+          agent_base_cents: number
+          agent_payable_cents: number
+          currency: string
+          paid_days: number
+          work_minutes: number
+        }[]
+      }
       my_permissions: {
         Args: { p_org: string }
         Returns: {
@@ -19175,6 +19794,10 @@ export type Database = {
           message_id: number
           saved_at: string
         }[]
+      }
+      next_agent_number: {
+        Args: { p_agency: string; p_fixture: boolean }
+        Returns: number
       }
       next_dst_transitions: {
         Args: { p_count?: number; p_from: string; p_tz: string }
@@ -19312,6 +19935,10 @@ export type Database = {
         Args: { p_id: string; p_reason?: string; p_table: string }
         Returns: Json
       }
+      paid_scheduled_days: {
+        Args: { p_from: string; p_to: string; p_user: string }
+        Returns: number
+      }
       partner_autopay_dispatch: { Args: never; Returns: undefined }
       partner_autopay_due: {
         Args: { p_environment?: string }
@@ -19444,6 +20071,14 @@ export type Database = {
           rate_type: string
         }[]
       }
+      payable_minutes: {
+        Args: { p_from: string; p_to: string; p_user: string }
+        Returns: {
+          paid_break_minutes: number
+          paid_leave_minutes: number
+          work_minutes: number
+        }[]
+      }
       payroll_auto_sweep: { Args: never; Returns: undefined }
       payroll_generate_internal: { Args: { p_cutoff: string }; Returns: number }
       payroll_recompute_for_entry: {
@@ -19473,6 +20108,14 @@ export type Database = {
           p_title?: string
         }
         Returns: string
+      }
+      reads_agent_rate: { Args: { p_agency: string }; Returns: boolean }
+      reads_bes_cost: { Args: { p_agency: string }; Returns: boolean }
+      reads_payroll_of: { Args: { p_agency: string }; Returns: boolean }
+      recompute_employee_codes: { Args: { p_agency: string }; Returns: number }
+      recompute_employee_codes_internal: {
+        Args: { p_agency: string }
+        Returns: number
       }
       record_attendance_correction: {
         Args: {
@@ -19790,6 +20433,7 @@ export type Database = {
         Args: { p_org: string; p_user: string }
         Returns: boolean
       }
+      seat_is_live: { Args: { p_from: string; p_to: string }; Returns: boolean }
       seat_transition_audit: {
         Args: {
           p_after: boolean
@@ -19868,6 +20512,20 @@ export type Database = {
         }
         Returns: undefined
       }
+      set_compensation_arrangement: {
+        Args: {
+          p_agent_cents: number
+          p_basis: string
+          p_bes_cents: number
+          p_currency: string
+          p_from: string
+          p_partner: string
+          p_reason: string
+          p_type: string
+          p_user: string
+        }
+        Returns: string
+      }
       set_department_due_override: {
         Args: {
           p_client: string
@@ -19928,10 +20586,6 @@ export type Database = {
           p_membership: string
           p_reason?: string
         }
-        Returns: undefined
-      }
-      stage_invitation_onboarding: {
-        Args: { p_invitation: string; p_payload: Json }
         Returns: undefined
       }
       set_member_profile: {
@@ -20131,6 +20785,10 @@ export type Database = {
           given_name: string
           surname: string
         }[]
+      }
+      stage_invitation_onboarding: {
+        Args: { p_invitation: string; p_payload: Json }
+        Returns: undefined
       }
       start_break: { Args: { p_kind?: string }; Returns: string }
       start_closing: {

@@ -6,7 +6,7 @@
  * Dee, 2026-09-19: "Schedule is operational workforce information.
  * Compensation is protected financial information." Nothing about money
  * renders here — not a rate, not a derived daily figure. That lives on the
- * Compensation tab behind payroll capability (PayRateEditor).
+ * Compensation tab behind payroll capability (ArrangementEditor).
  */
 import { useState } from "react";
 import { CalendarClock, Loader2 } from "lucide-react";
