@@ -13,25 +13,61 @@
  * refuses when somebody picks it.
  */
 import { describe, expect, it } from "vitest";
-import { CREDIT_STATUSES, creditStatusOptionsFor, departmentStatuses } from "@/lib/fulfillment/department-domain";
+import {
+  CREDIT_STATUSES, creditStatusOptionsFor, departmentStatuses, roundFromStatus,
+} from "@/lib/fulfillment/department-domain";
 import { Constants } from "@/lib/supabase/database.types";
 
 const ENUM: readonly string[] = Constants.public.Enums.fulfillment_client_status;
 
 describe("Dee's credit status list", () => {
-  it("is exactly the ten Dee gave, in Dee's order", () => {
+  /* Extended 2026-09-20 to Dee's GHL pipeline. The original ten are all still
+     here; four of them ARE pipeline stages under the names the system locked,
+     and are not repeated under Dee's wording. */
+  it("is the GHL pipeline, in Dee's order, with the locked names kept", () => {
     expect([...CREDIT_STATUSES]).toEqual([
       "New Client",
       "Incomplete Onboarding",
       "Ready for Round 1",
       "Ready for Processing",
       "Prio Processing",
-      "For Complaints",
-      "Round Sent - Awaiting Results",
+      "Round 1 Sent", "Round 2 Sent", "Round 3 Sent", "Round 4 Sent",
+      "Round 5 Sent", "Round 6 Sent", "Round 7 Sent", "Round 8 Sent",
+      "Round 9 Sent", "Round 10 Sent", "Round 11 Sent", "Round 12 Sent",
+      "In Dispute Mailed",
+      "CMS Issue 1", "CMS Issue 2", "CMS Issue 3",
+      "Results Available for Review",
       "Ready For Reimport/ Credit Update",
+      "For Complaints",
       "On Hold (Non Workable)",
       "For Partner Confirmation",
+      "Round Sent - Awaiting Results",
     ]);
+  });
+
+  it("keeps Dee's four already-locked stages under their locked names, not a second spelling", () => {
+    /* Dee wrote these; the system already had them. Adding her wording as
+       well would split one pipeline stage across two values. */
+    for (const duplicate of ["New Client Onboarded", "Round 1 Ready"]) {
+      expect(CREDIT_STATUSES, duplicate).not.toContain(duplicate);
+    }
+    for (const kept of ["New Client", "Ready for Round 1", "Incomplete Onboarding", "Ready for Processing"]) {
+      expect(CREDIT_STATUSES, kept).toContain(kept);
+    }
+  });
+
+  it("runs the rounds from 1 to 12 with none missing", () => {
+    const rounds = CREDIT_STATUSES.map(roundFromStatus).filter((n): n is number => n !== null);
+    expect(rounds).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+  });
+
+  it("reads the round out of the stage, and out of nothing else", () => {
+    expect(roundFromStatus("Round 7 Sent")).toBe(7);
+    expect(roundFromStatus("Round 12 Sent")).toBe(12);
+    /* Not a stage that merely mentions a round. */
+    expect(roundFromStatus("Ready for Round 1")).toBeNull();
+    expect(roundFromStatus("Round Sent - Awaiting Results")).toBeNull();
+    expect(roundFromStatus(null)).toBeNull();
   });
 
   it("every value is one the database will actually accept", () => {
@@ -67,9 +103,18 @@ describe("Dee's credit status list", () => {
     }
   });
 
-  it("is ten long, not thirty-something", () => {
-    expect(CREDIT_STATUSES).toHaveLength(10);
-    expect(ENUM.length).toBeGreaterThan(30);
+  /* It was ten until the GHL pipeline landed. The point of the check never
+     was the number ten — it was that the list is a PRODUCT DECISION and not
+     the enum, which still carries every legacy value the ClickUp and GHL
+     imports left behind. */
+  it("is Dee's chosen pipeline, not the whole enum", () => {
+    expect(CREDIT_STATUSES.length).toBeLessThan(ENUM.length);
+    const offered = new Set(CREDIT_STATUSES);
+    /* Legacy values the enum accepts and the pipeline deliberately does not. */
+    for (const legacy of ["NEW ONBOARDING", "INCOMPLETE ONBOARDING", "LETTERS MAILED",
+                          "BC NEEDED", "SUPPORT NEW", "In Processing", "Onboarding"]) {
+      expect(offered.has(legacy), legacy).toBe(false);
+    }
   });
 });
 

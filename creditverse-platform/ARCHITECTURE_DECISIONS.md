@@ -4,6 +4,52 @@ Decisions that shaped the system, with enough context that nobody needs to
 re-derive them from commit history. Newest first. Small fixes do not belong
 here — depth of record matches depth of change.
 
+## AD-010 · 2026-09-20 — The CreditOps pipeline matches GHL, and the round follows the stage
+
+**Decision.** The CreditOps credit-status list becomes Dee's GoHighLevel
+pipeline: the twelve numbered round-sent stages, three CMS issue levels, In
+Dispute Mailed and Results Available for Review, added to the five locked
+stages that already stood for the start of her pipeline. A `Round N Sent`
+status now SETS `fulfillment_clients.round` to Round N in the same statement.
+
+**Context.** Dee: *"instead of just the regular credit status, we want to
+match this with our GHL pipeline… Some of these statuses are already locked in
+the system, follow what we have locked and add these new credit statuses."*
+
+**Four stages were already here under other names**, and are reused rather
+than added a second time — two spellings of one stage is how a pipeline stops
+adding up:
+
+| Dee wrote | The locked name |
+|---|---|
+| New Client Onboarded | New Client |
+| Incomplete Onboarding | Incomplete Onboarding |
+| Round 1 Ready | Ready for Round 1 |
+| Ready for Processing | Ready for Processing |
+
+**The concern, and what was done about it.** `fulfillment_clients.round` has
+held Round 1–13 since long before this, so "Round 3 Sent" states in a second
+place something the record already knows, and two places holding one truth is
+how one truth becomes several (rules 2 and 5). The stages were not dropped —
+Dee asked for them and a pipeline board needs a column per stage. Instead only
+the status is set by hand and the round FOLLOWS it, through
+`round_follows_the_status()`. They cannot disagree because only one of them is
+written. A status that names no round leaves the round alone, so moving a
+client to Support does not forget which round they reached.
+
+**Routing.** Every new stage has a `creditops_status_routing` row, because a
+status with no row there is a label nobody works. Rounds and In Dispute Mailed
+are `waiting` in Dispute; CMS issues are `actionable` in Support at
+MONITORING ISSUE; Results Available for Review is `actionable` in Support at
+READY FOR REIMPORT.
+
+**Not removed.** "Round Sent - Awaiting Results" stays for the clients sitting
+on it, and the 39 legacy enum values from the ClickUp and GHL imports are
+untouched. The offered list is a product decision, not the enum;
+`credit-statuses.test.ts` holds that line and now tests the rule rather than
+the count, which is what let the old "is ten long" check survive its own
+premise changing.
+
 ## AD-009 · 2026-09-20 — One rate could not tell the truth
 
 **Decision.** What a worker earns and what BES pays for them are two numbers,

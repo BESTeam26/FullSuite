@@ -21210,6 +21210,23 @@ export type Database = {
         | "Ready For Reimport/ Credit Update"
         | "On Hold (Non Workable)"
         | "For Partner Confirmation"
+        | "Round 1 Sent"
+        | "Round 2 Sent"
+        | "Round 3 Sent"
+        | "Round 4 Sent"
+        | "Round 5 Sent"
+        | "Round 6 Sent"
+        | "Round 7 Sent"
+        | "Round 8 Sent"
+        | "Round 9 Sent"
+        | "Round 10 Sent"
+        | "Round 11 Sent"
+        | "Round 12 Sent"
+        | "CMS Issue 1"
+        | "CMS Issue 2"
+        | "CMS Issue 3"
+        | "In Dispute Mailed"
+        | "Results Available for Review"
       fulfillment_department:
         | "Onboarding"
         | "Dispute"
@@ -21962,6 +21979,23 @@ export const Constants = {
         "Ready For Reimport/ Credit Update",
         "On Hold (Non Workable)",
         "For Partner Confirmation",
+        "Round 1 Sent",
+        "Round 2 Sent",
+        "Round 3 Sent",
+        "Round 4 Sent",
+        "Round 5 Sent",
+        "Round 6 Sent",
+        "Round 7 Sent",
+        "Round 8 Sent",
+        "Round 9 Sent",
+        "Round 10 Sent",
+        "Round 11 Sent",
+        "Round 12 Sent",
+        "CMS Issue 1",
+        "CMS Issue 2",
+        "CMS Issue 3",
+        "In Dispute Mailed",
+        "Results Available for Review",
       ],
       fulfillment_department: [
         "Onboarding",

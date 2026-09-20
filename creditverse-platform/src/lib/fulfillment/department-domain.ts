@@ -277,18 +277,75 @@ export function describeHandoff(from: CreditOpsDepartment | null, plan: HandoffP
  * Bureau Calling, Complaints and QA are DEPARTMENTS with their own statuses —
  * `departmentStatuses()` above — and they do not belong in this list.
  */
+/**
+ * ── THE GHL PIPELINE, 2026-09-20 ──────────────────────────────────────────
+ *
+ * Dee: "instead of just the regular credit status, we want to match this with
+ * our GHL pipeline… Some of these statuses are already locked in the system,
+ * follow what we have locked and add these new credit statuses."
+ *
+ * Four of her stages were already here under the names the system locked, so
+ * they are reused rather than added a second time under a second spelling —
+ * two spellings of one stage is how a pipeline stops adding up:
+ *
+ *   Dee wrote                  the locked name
+ *   New Client Onboarded    →  New Client
+ *   Incomplete Onboarding   →  Incomplete Onboarding
+ *   Round 1 Ready           →  Ready for Round 1
+ *   Ready for Processing    →  Ready for Processing
+ *
+ * "Round Sent - Awaiting Results" stays for the clients already sitting on
+ * it; the twelve numbered stages are what new work moves through.
+ */
 export const CREDIT_STATUSES: readonly string[] = [
+  /* Onboarding */
   "New Client",
   "Incomplete Onboarding",
+  /* Ready to work */
   "Ready for Round 1",
   "Ready for Processing",
   "Prio Processing",
-  "For Complaints",
-  "Round Sent - Awaiting Results",
+  /* In flight, round by round. The client's `round` follows these — see the
+     `fulfillment_clients_round_follows_status` trigger. */
+  "Round 1 Sent",
+  "Round 2 Sent",
+  "Round 3 Sent",
+  "Round 4 Sent",
+  "Round 5 Sent",
+  "Round 6 Sent",
+  "Round 7 Sent",
+  "Round 8 Sent",
+  "Round 9 Sent",
+  "Round 10 Sent",
+  "Round 11 Sent",
+  "Round 12 Sent",
+  "In Dispute Mailed",
+  /* Credit monitoring problems, escalating */
+  "CMS Issue 1",
+  "CMS Issue 2",
+  "CMS Issue 3",
+  /* Results back */
+  "Results Available for Review",
   "Ready For Reimport/ Credit Update",
+  /* Off the pipeline */
+  "For Complaints",
   "On Hold (Non Workable)",
   "For Partner Confirmation",
+  /* Kept for the clients still on it, after the numbered stages replaced it. */
+  "Round Sent - Awaiting Results",
 ] as const;
+
+/**
+ * The round a status names, or null when it names none.
+ *
+ * The database has the same rule in `round_follows_the_status()`. It is
+ * repeated here only so a screen can show "Round 7" beside the stage without
+ * a round trip — the DATABASE is what writes it, never this.
+ */
+export const roundFromStatus = (status: string | null | undefined): number | null => {
+  const m = /^Round (\d+) Sent$/.exec(status ?? "");
+  return m ? Number(m[1]) : null;
+};
 
 /**
  * The list to OFFER for a given client: Dee's ten, plus whatever the record
