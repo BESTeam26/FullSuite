@@ -131,6 +131,68 @@ with each seat's division. A title recorded before the registry existed stays
 selectable and is marked as not in the list, so nobody's record loses its
 title. Status: FIXED AWAITING LIVE RETEST.
 
+### P-024 · The full security gate, classified — 1595/1661
+
+**2026-09-20 · reporter: Claude, running the gate after the day's changes ·
+module: authorization.** Up from 1435/1587 on 2026-09-19. The 66 failures, each
+looked at rather than counted:
+
+1. **Fixed today (4).** Phase 63's owner-capability checks encoded "the owner
+   holds `partners.financials.view` BY ROLE", which stopped being true the
+   moment that key became owner-gated at Dee's instruction. Rewritten to pin
+   the rule that replaced it: a role-held key still says "by role", the
+   owner-gated one says the owner holds it, and an ordinary member is refused
+   it BY NAME rather than by silence. Phase 59's "a manager sees no partner
+   they are not assigned" encoded the pre-D-021 rule Dee deliberately
+   replaced. Phase 63 and 59 are now 139/139.
+
+2. **A real gap, fixed (P-025 below).** `partners_visible_to_user` had not
+   learned the D-021 branches its own gate had.
+
+3. **Deliberate rule changes the harness never learnt (7).** Phase 2's
+   "restricted sees nothing" and "credit sees exactly own clients", already
+   recorded in P-011 as the next rewrite. Note that today's `entity_visible`
+   fix moved "restricted sees no activity" from 99 to 107: eight rows about
+   agency members, agency settings and payroll settings became readable, all
+   of them `bes_internal` visibility, which every BES staff member has always
+   been meant to read. The money fields are gated separately and restricted
+   sees none of them.
+
+4. **The division-manager fixture and department upserts (15).** Phases 5, 7,
+   26, 28 and 62. Identical before and after today's helper refactor, so
+   nothing here moved. Documented in P-011.
+
+5. **Partner portal, communication and engagement placement (~40).** Phases
+   55, 56, 57, 60, 61, 64 and 72, recorded in P-011 as "seen and not yet
+   examined" and still not examined. The Partner Portal is frozen for the
+   sprint (D-007), so these are not pilot blockers.
+
+Status: the four in (1) and the gap in (2) are DEPLOYED. The rest are OPEN and
+classified.
+
+### P-025 · The partner list did not know what the partner gate knew
+
+**2026-09-20 · reporter: the full gate (phases 59, 63) · module:
+authorization · class A · severity: S3.** `can_see_partner()` gained its D-021
+branches — a partner reached through a department you manage, and a partner
+with a live engagement in a service your division owns. The parameterised copy
+the interface and the access report read, `partners_visible_to_user()`, never
+did. A division manager who manages CreditOps could open any of the 22
+partners with a live CreditOps engagement while the list said "no assignment"
+for every one of them.
+
+The list was the NARROWER of the two, so nothing leaked. What it produced was
+worse in a quieter way: an access report that understates access, which is not
+a control anybody can trust.
+
+Fixed in `20260920005300`. The scope helpers all read `auth.uid()`, so the
+list could not ask them about somebody else; rather than restate the seat
+rules a second time — the exact drift that caused this — each helper gained a
+`_for(user)` form and the original became a one-line call with `auth.uid()`.
+The list now names each route in its reason. Verified: phases 59 and 63
+139/139, the placement probe still 31/31, and phases 5, 7, 26, 28 and 62
+unchanged. Status: DEPLOYED.
+
 ### P-023 · The first payroll release will refuse: no PHP→USD rate on file
 
 **2026-09-20 · reporter: Claude, dry-running payroll against the real team ·

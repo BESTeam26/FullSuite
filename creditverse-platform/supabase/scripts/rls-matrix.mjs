@@ -4433,8 +4433,21 @@ if (runs(59)) {
     ["the admin sees every partner", () => p59(ADM59, "", seeCount), ALL59],
 
     /* ── Everybody else starts with none ─────────────────────────── */
-    ["a manager sees no partner they are not assigned",
-      () => p59(MGR59, "", seeCount), 0],
+    /* D-021 changed this rule deliberately (Dee: a Division Manager sees the
+       whole division they manage, without a fake team or partner assignment).
+       So a division manager DOES reach partners serviced by their division,
+       and the claim worth pinning is that the reach is the division's and not
+       the company's — the mistake rule 20b exists to stop. */
+    ["a division manager reaches partners serviced by the division they manage",
+      () => p59(MGR59, "", `select (count(*) > 0)::text as rows from public.outsourcing_groups`), "true"],
+    ["…and every one of them is reached FOR that reason, not by assignment",
+      () => p59(MGR59, "", `select count(*)::int as rows
+        from public.partners_visible_to_user('${MGR59}') v
+        where v.allowed and v.reason not like '%division they manage%'`), 0],
+    ["…and the list agrees with the gate, partner for partner",
+      () => p59(MGR59, "", `select count(*)::int as rows
+        from public.partners_visible_to_user('${MGR59}') v
+        where v.allowed is distinct from public.can_see_partner(v.partner_id)`), 0],
     ["a team lead sees none either", () => p59(LEAD59, "", seeCount), 0],
     ["an agent sees none", () => p59(AGT59, "", seeCount), 0],
 
@@ -5398,7 +5411,7 @@ if (runs(63)) {
       return "ERR " + (m ? m[1] : "unknown");
     }
   };
-  const OWN63 = U["bes.owner@bes.test"], ADM63 = U["bes.admin@bes.test"];
+  const OWN63 = U["bes.owner@bes.test"], ADM63 = U["bes.admin@bes.test"], AGT63 = U["bes.credit@bes.test"];
   const MGR63 = U["bes.manager@bes.test"], LEAD63 = U["bes.lead@bes.test"];
   const CO63 = U["bes.credit@bes.test"], PORTAL63 = U["client.portal@bes.test"];
   const AG63 = q(`select id::text as rows from public.agencies limit 1`)[0].rows;
@@ -5490,8 +5503,18 @@ if (runs(63)) {
     ["every partner row carries a reason too",
       () => p63(OWN63, "", `select count(*)::int as rows from public.partners_visible_to_user('${CO63}')
                              where reason is null or length(trim(reason)) = 0`), 0],
-    ["an owner's capabilities say they are held by role",
-      () => p63(OWN63, "", `select (source like '%by role%')::text as rows from public.agency_can_for_user('${OWN63}','partners.financials.view')`), "true"],
+    /* `partners.financials.view` became OWNER-GATED on 2026-09-20 (Dee:
+       partner billing is granted, never inherited), so the owner holds it as
+       the owner and not "by role" — the wording changed because the rule did.
+       The claim worth pinning is the rule, so both routes are named: a
+       role-held key still says "by role", and the owner-gated one says who
+       holds it and why. */
+    ["a role-held capability says so",
+      () => p63(OWN63, "", `select (source like '%by role%')::text as rows from public.agency_can_for_user('${OWN63}','reports.view')`), "true"],
+    ["an owner-gated capability is the OWNER's, and says so",
+      () => p63(OWN63, "", `select (allowed and source like '%owner%')::text as rows from public.agency_can_for_user('${OWN63}','partners.financials.view')`), "true"],
+    ["…and an ordinary member is refused it by name, not by silence",
+      () => p63(OWN63, "", `select (not allowed and source like '%not granted%')::text as rows from public.agency_can_for_user('${AGT63}','partners.financials.view')`), "true"],
     ["a granted capability says it was granted to the person",
       () => p63(OWN63, grantPreview, `select (source like '%to this person%')::text as rows from public.agency_can_for_user('${ADM63}','access.preview_as_user')`),
       /* An admin holds everything by role, so the ROLE branch answers first —
