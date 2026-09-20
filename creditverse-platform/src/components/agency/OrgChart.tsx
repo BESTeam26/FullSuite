@@ -39,6 +39,7 @@ import { cn } from "@/lib/utils";
 const ICON: Record<OrgNode["kind"], typeof Users> = {
   agency: Building2,
   leadership: Crown,
+  tier: Layers,
   division: Layers,
   department: Layers,
   team: Users,
@@ -210,6 +211,10 @@ function TreeNode({ node, collapsed, onToggle }: {
 }) {
   const hasChildren = node.children.length > 0;
   const isOpen = !collapsed[node.id];
+  /* Dee's poster: a node's direct seats sit in one row; a TIER (the operating
+     divisions) hangs beneath that row as its own row, off the same stem. */
+  const seats = node.children.filter((c) => c.kind !== "tier");
+  const tiers = node.children.filter((c) => c.kind === "tier");
   return (
     <div className="flex flex-col items-center">
       <NodeCard node={node} />
@@ -220,34 +225,43 @@ function TreeNode({ node, collapsed, onToggle }: {
           {isOpen ? <ChevronDown className="h-3 w-3" aria-hidden /> : <>{countBelow(node)} <ChevronRight className="h-3 w-3" aria-hidden /></>}
         </button>
       )}
-      {hasChildren && isOpen && (
-        <div className="relative pt-5">
-          {/* The stem from this node down to the siblings' bar. */}
-          <span aria-hidden className="absolute left-1/2 top-0 h-5 w-px -translate-x-1/2 bg-border" />
-          <ul className="flex items-start gap-4">
-            {node.children.map((child, i) => {
-              const first = i === 0, last = i === node.children.length - 1;
-              return (
-                <li key={child.id} className="relative flex flex-col items-center pt-5">
-                  {/* The bar across the siblings, clipped at the ends. */}
-                  {node.children.length > 1 && (
-                    <span aria-hidden className="absolute top-0 h-px bg-border"
-                      style={{ left: first ? "50%" : 0, right: last ? "50%" : 0 }} />
-                  )}
-                  {/* The stub up from this child to the bar. */}
-                  <span aria-hidden className="absolute left-1/2 top-0 h-5 w-px -translate-x-1/2 bg-border" />
-                  <TreeNode node={child} collapsed={collapsed} onToggle={onToggle} />
-                </li>
-              );
-            })}
-          </ul>
+      {hasChildren && isOpen && seats.length > 0 && <Row nodes={seats} collapsed={collapsed} onToggle={onToggle} />}
+      {hasChildren && isOpen && tiers.map((tier) => (
+        <div key={tier.id} className="flex flex-col items-center">
+          <span aria-hidden className="h-5 w-px bg-border" />
+          <span className="rounded-full border border-border bg-muted/60 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            {tier.label}{tier.detail ? ` · ${tier.detail}` : ""}
+          </span>
+          <Row nodes={tier.children} collapsed={collapsed} onToggle={onToggle} />
         </div>
-      )}
+      ))}
     </div>
   );
 }
 
-/** The card itself — the same facts and the same link as the list view. */
+/** One row of siblings under a stem: the bar across them, a stub up from each. */
+function Row({ nodes, collapsed, onToggle }: { nodes: OrgNode[]; collapsed: Record<string, boolean>; onToggle: (id: string) => void }) {
+  return (
+    <div className="relative pt-5">
+      <span aria-hidden className="absolute left-1/2 top-0 h-5 w-px -translate-x-1/2 bg-border" />
+      <ul className="flex items-start gap-4">
+        {nodes.map((child, i) => {
+          const first = i === 0, last = i === nodes.length - 1;
+          return (
+            <li key={child.id} className="relative flex flex-col items-center pt-5">
+              {nodes.length > 1 && (
+                <span aria-hidden className="absolute top-0 h-px bg-border" style={{ left: first ? "50%" : 0, right: last ? "50%" : 0 }} />
+              )}
+              <span aria-hidden className="absolute left-1/2 top-0 h-5 w-px -translate-x-1/2 bg-border" />
+              <TreeNode node={child} collapsed={collapsed} onToggle={onToggle} />
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 function NodeCard({ node }: { node: OrgNode }) {
   const Icon = ICON[node.kind];
   const href = hrefFor(node);
@@ -264,6 +278,7 @@ function NodeCard({ node }: { node: OrgNode }) {
       node.bullets ? "w-52" : "w-44", "rounded-xl border px-3 py-2 text-center shadow-sm",
       node.kind === "agency" && "border-primary/40 bg-primary/5",
       node.kind === "leadership" && "border-amber-500/40 bg-amber-500/5",
+      node.kind === "tier" && "border-dashed border-border bg-muted/30",
       node.kind === "division" && "border-border bg-muted/40",
       (node.kind === "department" || node.kind === "team") && "border-border bg-card",
       node.kind === "position" && node.state === "filled" && "border-status-success/40 bg-status-success/5",
@@ -282,6 +297,11 @@ function NodeCard({ node }: { node: OrgNode }) {
       {node.coverage && (
         <span className="mt-1 inline-block rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">
           Acting: {node.coverage}
+        </span>
+      )}
+      {node.manager !== undefined && (
+        <span className={cn("mt-1 block text-[11px]", node.manager === "Vacant" ? "font-semibold text-muted-foreground" : "font-semibold text-foreground")}>
+          Division Manager · {node.manager}
         </span>
       )}
       {node.bullets && (

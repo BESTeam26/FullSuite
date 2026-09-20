@@ -249,10 +249,19 @@ describe("Dee's chart, 2026-09-20 — a reporting line, grouped departments, fun
     const root = chart({ divisions: [corp, ops], departments: [], teams: [] }, [ceo, coo, ea]);
     const ceoNode = find(root, "Chief Executive Officer")!;
     const cooNode = find(ceoNode, "Chief Operating Officer")!;
-    expect(cooNode.children.map((c) => c.label)).toEqual(["Executive Assistant", "CreditOps"]);
+    /* The corporate seats in the COO's row; the divisions beneath them as their own tier. */
+    expect(cooNode.children.map((c) => c.label)).toEqual(["Executive Assistant", "Operating Divisions"]);
+    const tier = find(cooNode, "Operating Divisions")!;
+    expect(tier.kind).toBe("tier");
+    expect(tier.children.map((c) => c.label)).toEqual(["CreditOps"]);
     /* …the CEO hangs straight off the company (no "Corporate" box), and the
        division is not ALSO drawn beside leadership. */
     expect(root.children.map((c) => c.label)).toEqual(["Chief Executive Officer"]);
+  });
+
+  it("names each division's manager by seat, or says the seat is vacant", () => {
+    const root = chart({ divisions: [division({ id: "v1", name: "CreditOps", leadId: null })] });
+    expect(find(root, "CreditOps")!.manager).toBe("Vacant");
   });
 
   it("with no head of operations, the divisions hang under the company", () => {

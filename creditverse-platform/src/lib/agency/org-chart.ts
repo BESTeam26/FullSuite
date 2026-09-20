@@ -21,7 +21,7 @@ import type { OrganizationTree } from "@/lib/data/organization-structure";
 import type { Position } from "@/lib/data/positions";
 
 export type OrgNodeKind =
-  | "agency" | "leadership" | "division" | "department" | "team" | "position" | "person";
+  | "agency" | "leadership" | "tier" | "division" | "department" | "team" | "position" | "person";
 
 export interface OrgNode {
   id: string;
@@ -35,6 +35,8 @@ export interface OrgNode {
   coverage?: string | null;
   /** A department's functions — Dee's chart bullets. */
   bullets?: string[];
+  /** A division's manager by seat, or "Vacant" — the "Division Managers" row of Dee's poster. */
+  manager?: string | null;
   /** Drawn folded until opened, so the chart reads like the poster. */
   defaultCollapsed?: boolean;
   children: OrgNode[];
@@ -184,15 +186,15 @@ export function buildOrgChart({ agencyName, tree, positions, people = [] }: OrgC
       .map(divisionNode);
 
     /* The division's manager, by seat (divisions.lead_id is its projection). */
-    const lead = division.leadId ? personNode(`division:${division.id}`, division.leadId, "Division Manager") : null;
+    const leadName = division.leadId ? personById.get(division.leadId)?.name ?? null : null;
     return {
       id: `division:${division.id}`,
       kind: division.tier === "leadership" ? "leadership" : "division",
       label: division.name,
       detail: division.description ?? null,
+      manager: division.tier === "leadership" ? undefined : leadName ?? "Vacant",
       recordId: division.id,
       children: [
-        ...(lead ? [lead] : []),
         ...(byDivisionOnly.get(division.id) ?? []).map(positionNode),
         ...departments,
         ...nested,
@@ -216,7 +218,12 @@ export function buildOrgChart({ agencyName, tree, positions, people = [] }: OrgC
       const node = nodeById.get(p.id)!;
       const reports = seats.filter((c) => c.reportsToId === p.id).map((c) => nodeById.get(c.id)!);
       node.children = [...node.children, ...reports];
-      if (opsHead && p.id === opsHead.id) { node.children = [...node.children, ...operating]; attached = true; }
+      /* Dee's poster: the divisions hang BENEATH the corporate row, as their
+         own tier — not beside the seats. */
+      if (opsHead && p.id === opsHead.id && operating.length > 0) {
+        node.children = [...node.children, { id: "tier:divisions", kind: "tier", label: "Operating Divisions", detail: "Division Managers", children: operating }];
+        attached = true;
+      }
     }
     const roots = seats.filter((p) => !p.reportsToId || !nodeById.has(p.reportsToId)).map((p) => nodeById.get(p.id)!);
     const departments = tree.departments
