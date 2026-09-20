@@ -131,23 +131,44 @@ with each seat's division. A title recorded before the registry existed stays
 selectable and is marked as not in the list, so nobody's record loses its
 title. Status: FIXED AWAITING LIVE RETEST.
 
-### P-018 · A person cannot read their own document history — OPEN, not yet diagnosed
+### P-022 · The compensation audit event told the worker what BES pays — SECURITY
 
-**2026-09-20 · reporter: the RLS gate (phase 70) · module: People → Documents ·
-class A · severity: S4 (no P0 workflow depends on it).** Three phase-70 checks
-fail: a document lifecycle is not visible on the person's own history (0, want
-2), the subject of a document sees none of its history (`0/0`, want `0/1`), and
-a document FILE row read returns 42501 where 0 rows were expected.
+**2026-09-20 · reporter: Claude, diagnosing P-018 · module: audit trail ·
+class C · severity: P0 for the money boundary.** The compensation trigger
+writes the whole arrangement into the event text — "managing_partner agent
+8000 cost 10000". That event is an ordinary `profile` row, so Archie could
+read, in plain language, that BES pays PHP 100 for him while he receives PHP
+80. Every column grant and gated view built earlier the same day was undone by
+one sentence in an audit log.
 
-Established so far, live: the admin does hold `people.documents.manage`, the
-insert succeeds, and the audit row IS written. So the write side is sound and
-the failure is on the READ — the person the document is about cannot see the
-history about themselves. The privacy tightening in migration 0294 is the
-first place to look; the probe may equally be stale.
+The value is NOT trimmed: an auditor with the capability must see what changed
+(rule 10). The READ is gated instead, in `activity_events_select` — a
+`compensation` field needs `compensation.bes_cost.view`, and a `rate` or
+`adjustment` field is the subject's own or payroll's. Migration
+`20260920004200`. Probe checks 15g–15k. Status: DEPLOYED.
 
-Not fixed today. Documents is a supporting surface and no P0 workflow depends
-on it (rule 21a), and the failure is over-restriction, not exposure. Status:
-OPEN.
+**The lesson, for next time:** a capability that hides a column has to hide
+every rendering of that column, and an audit event is a rendering.
+
+### P-018 · Five kinds of history were written and unreadable by anybody
+
+**2026-09-20 · reporter: the RLS gate (phase 70), diagnosed same day · module:
+audit trail · class A · severity: S3.** Three phase-70 checks and one phase-37
+check failed on the same root cause, and it was not the Documents module at
+all. `entity_visible()` had no branch for `agency_member`, `pay_rate`,
+`agency`, `payroll_cutoff` or `invitation`, so it answered false and the row
+policy refused those events to EVERYONE — the person, an admin, the owner.
+Eight member events, six rate changes and an invitation acceptance were
+written and could not be read. `client` events point at `fulfillment_clients`,
+a table that branch never checked, so all 29 were invisible too.
+
+Fixed in `20260920004200`, in the same migration as P-022 deliberately:
+making `pay_rate` visible would have turned six salary rows into a new leak,
+so the entity became visible and the money field became gated in one change.
+Status: DEPLOYED.
+
+The remaining phase-70 check, "a document FILE row follows the document rule",
+is a separate probe expectation and is still OPEN.
 
 ### P-016 · Payroll probes collided with the first real cutoff
 

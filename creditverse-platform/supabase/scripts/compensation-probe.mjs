@@ -188,6 +188,24 @@ check("15e — a worker cannot reach the cost through the internal view either",
 check("15f — the managing partner reads the cost of the arrangements they are paid for",
   asUser(BRYAN, `select count(*)::int as n from compensation_arrangements_internal where user_id = '${ARCHIE}';`)[0].n, 1);
 
+/* The audit trail is money too. The compensation trigger writes both sides
+   into new_value, so an activity event can undo every column grant above. */
+const AUDIT = `select count(*)::int as n from activity_events
+  where entity_type='profile' and field='compensation' and entity_id = '${ARCHIE}';`;
+check("15g — the worker cannot read the compensation audit about themselves",
+  asUser(ARCHIE, AUDIT)[0].n, 0);
+check("15h — payroll permission alone cannot read it either",
+  asUser("00000000-0000-4000-8000-0000000000c1", AUDIT, PAYROLL_ONLY)[0].n, 0);
+check("15i — somebody with the internal-cost capability can",
+  asUser(BRYAN, AUDIT)[0].n > 0, true);
+/* And the other half: history that WAS unreadable by everyone. */
+check("15j — a rate change is visible to the person it is about",
+  asUser(ARCHIE, `select count(*)::int as n from activity_events
+    where entity_type='pay_rate' and entity_id='${ARCHIE}';`)[0].n > 0, true);
+check("15k — …and not to a colleague without payroll",
+  asUser(BRYAN, `select 1`) && asUser(ARCHIE, `select count(*)::int as n from activity_events
+    where entity_type='pay_rate' and entity_id <> '${ARCHIE}';`)[0].n, 0);
+
 console.log("\nWRITING IS GATED AND APPEND-ONLY");
 const refused = (fn) => { try { fn(); return "allowed"; } catch (e) { return /42501|permission|policy|row-level/i.test(e.message) ? "refused" : `other: ${e.message.slice(0, 70)}`; } };
 check("16 — an agent cannot write an arrangement",
