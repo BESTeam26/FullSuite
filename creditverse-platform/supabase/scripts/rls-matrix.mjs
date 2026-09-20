@@ -417,24 +417,37 @@ const reach = (uid) => q(`
        mine as (select tm.team_id from public.team_memberships tm, me where tm.user_id = me.id),
        my_depts as (select t.department_id from public.teams t join mine on mine.team_id = t.id
                      where t.archived_at is null and t.department_id is not null),
+       /* D-021: placement. A live seat — chief operations, a division, a department. */
+       seats as (select s.seat, s.division_id, s.department_id from public.management_seats s, me
+                  where s.user_id = me.id and s.effective_from <= current_date and (s.effective_to is null or s.effective_to >= current_date)),
+       managed_divs as (select dv.id, dv.service from public.divisions dv where dv.archived_at is null
+                         and (exists (select 1 from seats where seat = 'chief_operations') or dv.id in (select division_id from seats where seat = 'division_manager'))),
+       managed_depts as (select d.id from public.departments d where d.archived_at is null
+                          and (d.division_id in (select id from managed_divs) or d.id in (select department_id from seats where seat = 'department_manager'))),
        reach_teams as (
          select t.id from public.teams t
           where t.archived_at is null
             and (t.id in (select team_id from mine)
                  or t.department_id in (select department_id from my_depts)
+                 or t.department_id in (select id from managed_depts)
                  or exists (select 1 from public.team_memberships l, me where l.team_id = t.id and l.user_id = me.id and l.is_lead))),
        my_groups as (select a.group_id from public.partner_assignments a, me
-                      where a.ended_on is null and (a.user_id = me.id or a.team_id in (select team_id from mine))),
+                      where a.ended_on is null and (a.user_id = me.id or a.team_id in (select team_id from mine)
+                                                    or a.team_id in (select t.id from public.teams t where t.department_id in (select id from managed_depts)))
+                     union select e.outsourcing_group_id from public.fulfillment_engagements e
+                      where e.outsourcing_group_id is not null and public.engagement_is_live(e.status, e.effective_from, e.effective_to)
+                        and e.service in (select service from managed_divs)),
        live_orgs as (select e.organization_id from public.fulfillment_engagements e
                       where e.service = 'creditops' and public.engagement_is_live(e.status, e.effective_from, e.effective_to)),
        w as (select wi.id from public.work_items wi, me
               where wi.workspace_id is null
                 and (wi.scope = 'AGENCY' or wi.organization_id in (select organization_id from live_orgs))
-                and (wi.assigned_to = me.id or wi.team_id in (select id from reach_teams))),
+                and (wi.assigned_to = me.id or wi.team_id in (select id from reach_teams)
+                     or (wi.team_id is null and wi.division in (select service from managed_divs)))),
        fc as (select c.id, c.outsourcing_group_id from public.fulfillment_clients c, me
                where c.archived_at is null
                  and (c.assigned_agent_id = me.id
-                      or (c.team_id in (select id from reach_teams)
+                      or ((c.team_id in (select id from reach_teams) or (c.team_id is null and 'creditops' in (select service::text from managed_divs)))
                           and (c.outsourcing_group_id in (select group_id from my_groups)
                                or (c.outsourcing_group_id is null and c.organization_id in (select organization_id from live_orgs))
                                or (c.outsourcing_group_id is null and c.organization_id is null)))))
