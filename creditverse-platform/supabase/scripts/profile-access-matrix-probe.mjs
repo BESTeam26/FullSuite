@@ -25,7 +25,12 @@ const session = (u) => `set local role authenticated; do $c$ begin perform set_c
 const as = (u, sql, setup = "") => q.query(`begin; ${setup} ${session(u)} ${sql}; rollback;`)[0];
 const tryAs = (u, sql, setup = "") => q.query(`begin; ${setup} ${session(u)} do $c$ begin ${sql}; perform set_config('probe.r','ok',true); exception when others then perform set_config('probe.r', sqlstate, true); end $c$; select current_setting('probe.r', true) as r; rollback;`)[0].r;
 const asLead = `insert into public.team_memberships (team_id, user_id, is_lead) values ('${team.id}', '${AGENT}', true) on conflict (team_id, user_id) do update set is_lead = true;`;
-const asDivMgr = `update public.agency_memberships set scope='division', scope_division='${team.division}' where user_id='${AGENT}' and agency_id='${AGENCY}';
+/* Since D-021 (AD-008) a manager's reach comes from a SEAT, not from the
+   scope column — which is now only a legacy ceiling nothing authorizes on.
+   The persona is built the way the product builds it. */
+const asDivMgr = `insert into public.management_seats (agency_id, user_id, seat, division_id, reason)
+    select '${AGENCY}', '${AGENT}', 'division_manager', dv.id, 'probe'
+      from public.divisions dv where dv.agency_id='${AGENCY}' and dv.service='${team.division}' and dv.archived_at is null;
   insert into public.agency_member_permissions (membership_id, key, allowed) select m.id, 'ops.manage', true from public.agency_memberships m where m.user_id='${AGENT}' and m.agency_id='${AGENCY}' on conflict (membership_id, key) do update set allowed = true;`;
 const n = (u, sql, setup) => as(u, `select count(*)::int as n from ${sql}`, setup).n;
 
