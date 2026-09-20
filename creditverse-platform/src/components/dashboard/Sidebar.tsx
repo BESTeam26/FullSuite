@@ -57,7 +57,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { usePermissions, type PermissionKeyName } from "@/lib/auth/use-permission";
 import { accessTo, routeFor } from "@/lib/agency/navigation";
 import { visibleTimeSections } from "@/lib/time/time-sections";
-import { seesPeopleAndTeams, visiblePeopleSections } from "@/lib/people/people-sections";
+import { groupedPeopleSections, seesPeopleAndTeams } from "@/lib/people/people-sections";
 import { Eye } from "lucide-react";
 import { useAgencyAccessContext } from "@/lib/agency/use-access-context";
 import { useAgencyPermissions, type AgencyPermission } from "@/lib/data/agency-permissions";
@@ -217,11 +217,17 @@ export const Sidebar = () => {
     leadsTeam: navContext.leadsTeam,
     payroll: navContext.can("payroll.view") || navContext.can("payroll.manage"),
   }), [navContext]);
+  /* Grouped, and the ONLY copy. Dee, 2026-09-20, seeing the same eleven links
+     nested here and repeated as tabs on the page: "these is redundant, since I
+     already have them on the main menu under people and teams." The headings
+     the page tabs carried moved here; the tabs went. */
   const peopleChildren = useMemo(
-    () => visiblePeopleSections(peopleAudience).map((s) => ({
-      label: s.label,
-      href: s.slug ? `/app/people/${s.slug}` : "/app/people",
-    })),
+    () => groupedPeopleSections(peopleAudience).flatMap((g) =>
+      g.sections.map((s) => ({
+        label: s.label,
+        href: s.slug ? `/app/people/${s.slug}` : "/app/people",
+        group: g.label,
+      }))),
     [peopleAudience],
   );
 
