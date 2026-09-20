@@ -55,12 +55,15 @@ export async function inviteAgencyMember(
   /* The modules they are hired to work — granted on activation as their own
      exceptions, because no profile grants a module (§16). */
   moduleKeys?: string[],
+  /* Their name as you know it — prefilled on the activation page. */
+  fullName?: string,
 ): Promise<string> {
   const sb = requireSupabase();
   const { data, error } = await sb.rpc("invite_agency_member", {
     p_email: email, p_role: role,
     p_profile: profile ?? undefined, p_lead_team: leadTeamId ?? undefined,
     p_modules: moduleKeys && moduleKeys.length > 0 ? moduleKeys : undefined,
+    p_full_name: fullName?.trim() || undefined,
   });
   if (error) throw error;
   return data as unknown as string;
@@ -114,6 +117,8 @@ export interface InvitationPreview {
   email: string;
   kind: string;
   expiresAt: string;
+  /** The name they were invited by — prefilled on activation, editable. */
+  fullName: string | null;
 }
 
 export async function fetchInvitationPreview(token: string): Promise<InvitationPreview | null> {
@@ -122,8 +127,29 @@ export async function fetchInvitationPreview(token: string): Promise<InvitationP
   if (error) throw error;
   const row = Array.isArray(data) ? data[0] : null;
   if (!row) return null;
-  const r = row as { email: string; kind: string; expires_at: string };
-  return { email: r.email, kind: r.kind, expiresAt: r.expires_at };
+  const r = row as { email: string; kind: string; expires_at: string; full_name?: string | null };
+  return { email: r.email, kind: r.kind, expiresAt: r.expires_at, fullName: r.full_name ?? null };
+}
+
+/**
+ * Create (or confirm) the invited person's account with no confirmation
+ * email: the invitation token is the proof of address. Server-side, with the
+ * service role, behind a token + email check (activate-invitation).
+ */
+export async function activateInvitedAccount(input: { token: string; email: string; password: string; fullName: string }): Promise<void> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.functions.invoke("activate-invitation", { body: input });
+  if (error) {
+    /* The function's own message is the useful one ("sent to a different
+       email address"); the SDK wraps it. */
+    const ctx = (error as { context?: Response }).context;
+    if (ctx && typeof ctx.json === "function") {
+      const body = await ctx.json().catch(() => null) as { error?: string } | null;
+      if (body?.error) throw new Error(body.error);
+    }
+    throw error;
+  }
+  if (data && typeof data === "object" && "error" in data && (data as { error?: string }).error) throw new Error((data as { error: string }).error);
 }
 
 /* ── Access profiles: operational presets on top of the two roles (0266) ──

@@ -31,7 +31,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { cn } from "@/lib/utils";
 import { invitationProblem } from "@/lib/auth/invitation-problem";
 import { acceptInvitation } from "@/lib/data/team-permissions";
-import { acceptAgencyInvitation, fetchInvitationPreview, type InvitationPreview } from "@/lib/data/agency-invitations";
+import { acceptAgencyInvitation, activateInvitedAccount, fetchInvitationPreview, type InvitationPreview } from "@/lib/data/agency-invitations";
 import { acceptPartnerInvitation } from "@/lib/data/agency-partners";
 
 type Door = "activate" | "signin";
@@ -150,7 +150,7 @@ function ActivationForms({ token }: { token: string }) {
   useEffect(() => {
     let cancelled = false;
     fetchInvitationPreview(token)
-      .then((p) => { if (!cancelled) { setPreview(p ?? "gone"); if (p) setEmail(p.email); } })
+      .then((p) => { if (!cancelled) { setPreview(p ?? "gone"); if (p) { setEmail(p.email); if (p.fullName) setFullName((cur) => cur || p.fullName!); } } })
       /* A lookup failure is not a dead end: fall back to letting them type it,
          rather than blocking activation on a network hiccup. */
       .catch(() => { if (!cancelled) setPreview(null); });
@@ -164,7 +164,6 @@ function ActivationForms({ token }: { token: string }) {
      It replaces the form entirely: a green line under a still-complete form
      reads as "nothing happened", which is exactly how the first real invited
      user read it (P-002). */
-  const [confirmSentTo, setConfirmSentTo] = useState<string | null>(null);
 
   /* Locked only when we actually know the address. A lookup that failed or
      found nothing leaves the field editable rather than blocking activation. */
@@ -198,15 +197,18 @@ function ActivationForms({ token }: { token: string }) {
     setError(null);
     setNotice(null);
     if (door === "activate") {
-      /* No business details: this person is joining an existing team, so no
-         organization and no trial is created for them. The confirmation link
-         comes back to this invitation instead of a generic landing page. */
-      const { error: err, needsConfirmation } = await auth.signUp(email, password, fullName, {
-        redirectPath: `/accept-invitation/${token}`,
-      });
-      if (!err && needsConfirmation) setConfirmSentTo(email);
-      else if (!err) setNotice("Account created — accepting your invitation…");
-      setError(err);
+      /* No confirmation email (Dee, 2026-09-20): the invitation link they
+         arrived on already proves the address. The server creates the account
+         confirmed, then they sign in here and the invitation is accepted as
+         them — the same path as "I already have one". */
+      try {
+        await activateInvitedAccount({ token, email, password, fullName });
+        const { error: err } = await auth.signInWithPassword(email, password);
+        if (!err) setNotice("Account ready — accepting your invitation…");
+        setError(err);
+      } catch (e) {
+        setError((e as Error).message);
+      }
     } else {
       const { error: err } = await auth.signInWithPassword(email, password);
       setError(err);
@@ -228,34 +230,6 @@ function ActivationForms({ token }: { token: string }) {
       {label}
     </button>
   );
-
-  /* One clear destination after sign-up, instead of a form that looks
-     untouched. It says what happened, what to do, and where they land. */
-  if (confirmSentTo) {
-    return (
-      <div className="mt-2 text-center">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-status-success/10">
-          <Mail className="h-6 w-6 text-status-success" />
-        </div>
-        <h2 className="mt-3 text-base font-bold text-foreground">Check your email</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Your account is created. We sent a confirmation link to{" "}
-          <span className="font-medium text-foreground">{confirmSentTo}</span>.
-        </p>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Open that email and click the link — it brings you straight back here and accepts your
-          invitation automatically. You can close this tab.
-        </p>
-        <p className="mt-3 text-xs text-muted-foreground">
-          Nothing in your inbox after a minute or two? Check your spam folder, then ask whoever
-          invited you to send it again.
-        </p>
-        <Button variant="outline" className="mt-4" onClick={() => navigate("/login")}>
-          Back to sign in
-        </Button>
-      </div>
-    );
-  }
 
   return (
     <>

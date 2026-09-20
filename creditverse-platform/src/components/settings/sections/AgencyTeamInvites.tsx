@@ -61,6 +61,7 @@ export function AgencyTeamInvites() {
   });
 
   const [email, setEmail] = useState("");
+  const [fullName, setFullName] = useState("");
   /* One dropdown, two stored facts: the SECURITY ROLE stays agency_admin or
      agency_user (0234 — never a third), and the ACCESS PROFILE is the
      operational preset an Agency User starts from. Combined here because
@@ -108,11 +109,13 @@ export function AgencyTeamInvites() {
         email, chosen.role, chosen.profile ?? undefined,
         chosen.profile === "team_lead" ? leadTeam : undefined,
         chosen.role === "agency_user" ? modules : undefined,
+        fullName,
       );
       return { id, outcome: await sendInvitationEmail(id) };
     },
     onSuccess: ({ outcome }) => {
       setEmail("");
+      setFullName("");
       setMessage(
         outcome.status === "sent"
           ? { text: "Invitation sent. They will get a branded email asking them to activate.", error: false }
@@ -137,7 +140,11 @@ export function AgencyTeamInvites() {
           className="space-y-3"
           onSubmit={(e) => { e.preventDefault(); if (email.trim()) invite.mutate(); }}
         >
-          <div className="grid gap-3 sm:grid-cols-[2fr_1fr]">
+          <div className="grid gap-3 sm:grid-cols-[1.4fr_1.6fr_1fr]">
+            <label className="text-sm">
+              <span className={labelCls}>Their full name</span>
+              <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} className={inputCls} autoComplete="off" placeholder="Prefilled on their activation page" />
+            </label>
             <label className="text-sm">
               <span className={labelCls}>Their work email</span>
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputCls} required autoComplete="off" />
