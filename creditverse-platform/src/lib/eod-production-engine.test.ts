@@ -32,7 +32,7 @@ const submission = (state: EodSubmission["state"]): EodSubmission => ({
   unitsByDivision: {
     creditops: 0,
     fundingops: 0,
-    "bes-crm": 0,
+    bes_crm: 0,
     talentops: 0,
     general: 0,
   },
@@ -79,7 +79,7 @@ describe("deriveEodTotals", () => {
     expect(r.unitsByDivision).toEqual({
       creditops: 12,
       fundingops: 5,
-      "bes-crm": 0,
+      bes_crm: 0,
       talentops: 0,
       general: 0,
     });

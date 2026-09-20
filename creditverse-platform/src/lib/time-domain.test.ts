@@ -106,14 +106,14 @@ describe("summariseTime", () => {
     const s = summariseTime(
       [
         entry({ id: "a", divisionId: "creditops", durationMinutes: 30 }),
-        entry({ id: "b", divisionId: "bes-crm", durationMinutes: 120 }),
+        entry({ id: "b", divisionId: "bes_crm", durationMinutes: 120 }),
         entry({ id: "c", divisionId: "creditops", durationMinutes: 30 }),
       ],
       "2026-09-03",
       now,
     );
     expect(s.byDivision).toEqual([
-      { divisionId: "bes-crm", minutes: 120 },
+      { divisionId: "bes_crm", minutes: 120 },
       { divisionId: "creditops", minutes: 60 },
     ]);
   });

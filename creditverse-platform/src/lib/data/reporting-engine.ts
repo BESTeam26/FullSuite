@@ -11,8 +11,13 @@ import type { KpiColumn, PivotRowJson } from "@/lib/reporting/pivot-shape";
 export interface KpiDefinition extends KpiColumn { description: string | null; service: string; source: string; besInternal: boolean; sort: number }
 export interface OrganizationKpiSetting { kpiKey: string; enabled: boolean; target: number | null; sort: number }
 export interface RoundOutcome { id: string; clientId: string; roundNumber: number; bureau: string; itemsDisputed: number; deleted: number; updated: number; verified: number; outcomeDate: string; source: string; note: string | null; recordedBy: string | null; createdAt: string }
-export type PivotDimension = "employee" | "department" | "organization" | "client" | "month" | "service";
-export interface PivotFilters { organizationId?: string; service?: string; department?: string; employeeId?: string }
+export type PivotDimension =
+  "employee" | "department" | "division" | "organization" | "client" | "month" | "service";
+export interface PivotFilters {
+  organizationId?: string; service?: string; department?: string; employeeId?: string;
+  /** A division name as `report_facts_scoped` reports it, e.g. "CreditOps". */
+  division?: string;
+}
 
 export async function fetchKpiDefinitions(): Promise<KpiDefinition[]> {
   const sb = requireSupabase();
@@ -45,6 +50,7 @@ export async function runPivot(rows: PivotDimension, kpis: string[], filters: Pi
   if (filters.service) f.service = filters.service;
   if (filters.department) f.department = filters.department;
   if (filters.employeeId) f.employee_id = filters.employeeId;
+  if (filters.division) f.division = filters.division;
   const { data, error } = await sb.rpc("report_pivot", { p_rows: rows, p_kpis: kpis, p_filters: f as Json, p_from: from, p_to: to });
   if (error) throw error;
   return ((data ?? []) as unknown[]).filter((r): r is PivotRowJson => !!r && typeof r === "object");

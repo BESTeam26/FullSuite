@@ -16,7 +16,7 @@
  */
 
 export type DivisionId =
-  "creditops" | "fundingops" | "bes-crm" | "talentops" | "general";
+  "creditops" | "fundingops" | "bes_crm" | "talentops" | "general";
 
 export interface ProductionLog {
   id: string;
@@ -88,7 +88,7 @@ export function deriveEodTotals(
   const unitsByDivision: Record<DivisionId, number> = {
     creditops: 0,
     fundingops: 0,
-    "bes-crm": 0,
+    bes_crm: 0,
     talentops: 0,
     general: 0,
   };

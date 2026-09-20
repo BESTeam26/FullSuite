@@ -16,11 +16,24 @@ import { formatKpiValue, monthLabel, shapePivot } from "@/lib/reporting/pivot-sh
 import { cn } from "@/lib/utils";
 
 const DIMENSIONS: { value: PivotDimension; label: string }[] = [
-  { value: "month", label: "Month" }, { value: "employee", label: "Team member" }, { value: "department", label: "Department" }, { value: "service", label: "Service" }, { value: "client", label: "Client" }, { value: "organization", label: "Organization" },
+  { value: "month", label: "Month" },
+  { value: "division", label: "Division" },
+  { value: "department", label: "Department" },
+  { value: "employee", label: "Team member" },
+  { value: "client", label: "Client" },
+  { value: "organization", label: "Organization" },
+  /* The raw service key, kept for anyone who needs it. Division is the same
+     question asked in the company's own words, and is what to reach for. */
+  { value: "service", label: "Service (raw key)" },
 ];
+const ANY = "__any";
 const STORAGE = "bes.reports.pivot";
-interface Layout { rows: PivotDimension; kpis: string[]; months: number }
-const DEFAULT: Layout = { rows: "month", kpis: ["letters.mailed", "letters.responded", "funding.submissions", "funding.funded_gross"], months: 6 };
+interface Layout { rows: PivotDimension; kpis: string[]; months: number; division: string; department: string; employeeId: string }
+const DEFAULT: Layout = {
+  rows: "month",
+  kpis: ["letters.mailed", "letters.responded", "funding.submissions", "funding.funded_gross"],
+  months: 6, division: ANY, department: ANY, employeeId: ANY,
+};
 const load = (): Layout => { try { const raw = localStorage.getItem(STORAGE); return raw ? { ...DEFAULT, ...(JSON.parse(raw) as Partial<Layout>) } : DEFAULT; } catch { return DEFAULT; } };
 
 export function PivotBuilder({ organizationId, memberOrganizationId }: { organizationId: string | null; memberOrganizationId: string | null }) {
@@ -29,7 +42,23 @@ export function PivotBuilder({ organizationId, memberOrganizationId }: { organiz
   const [layout, setLayout] = useState<Layout>(load);
   useEffect(() => { try { localStorage.setItem(STORAGE, JSON.stringify(layout)); } catch { /* per-browser convenience only */ } }, [layout]);
   const period = useMemo(() => { const to = new Date(); const from = new Date(Date.UTC(to.getUTCFullYear(), to.getUTCMonth() - (layout.months - 1), 1)); return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) }; }, [layout.months]);
-  const filters: PivotFilters = useMemo(() => (organizationId ? { organizationId } : {}), [organizationId]);
+  /* The report already knows every division and department it can show, so the
+     filters are built from ITS OWN answers rather than from a second list that
+     could disagree with it. One extra call, unfiltered, keyed separately. */
+  const universe = usePivot("division", ["time.minutes"], organizationId ? { organizationId } : {}, period.from, period.to, true);
+  const departments = usePivot("department", ["time.minutes"], organizationId ? { organizationId } : {}, period.from, period.to, true);
+  const optionsFrom = (rows: { row?: string }[] | undefined, label: string) => [
+    { value: ANY, label },
+    ...(rows ?? []).map((r) => String(r.row ?? "")).filter((v) => v && v !== "—")
+      .map((v) => ({ value: v, label: v })),
+  ];
+
+  const filters: PivotFilters = useMemo(() => ({
+    ...(organizationId ? { organizationId } : {}),
+    ...(layout.division !== ANY ? { division: layout.division } : {}),
+    ...(layout.department !== ANY ? { department: layout.department } : {}),
+    ...(layout.employeeId !== ANY ? { employeeId: layout.employeeId } : {}),
+  }), [organizationId, layout.division, layout.department, layout.employeeId]);
   const available = kpis.data ?? [];
   const chosen = available.filter((k) => layout.kpis.includes(k.key));
   const pivot = usePivot(layout.rows, chosen.map((k) => k.key), filters, period.from, period.to, chosen.length > 0);
@@ -42,6 +71,12 @@ export function PivotBuilder({ organizationId, memberOrganizationId }: { organiz
       <div className="flex flex-wrap items-end gap-3">
         <label className="block"><span className="mb-0.5 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Rows</span><OpsSelect value={layout.rows} onValueChange={(v) => setLayout((l) => ({ ...l, rows: v as PivotDimension }))} options={DIMENSIONS} aria-label="Rows" /></label>
         <label className="block"><span className="mb-0.5 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Period</span><OpsSelect value={String(layout.months)} onValueChange={(v) => setLayout((l) => ({ ...l, months: Number(v) }))} options={[{ value: "1", label: "This month" }, { value: "3", label: "Last 3 months" }, { value: "6", label: "Last 6 months" }, { value: "12", label: "Last 12 months" }]} aria-label="Period" /></label>
+        {/* Dee, 2026-09-20: "I can filter so I can have full visibility?" The
+            engine has accepted these since it was written and the screen never
+            offered them. */}
+        <label className="block"><span className="mb-0.5 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Division</span><OpsSelect value={layout.division} onValueChange={(v) => setLayout((l) => ({ ...l, division: v }))} options={optionsFrom(universe.data, "All divisions")} aria-label="Division" /></label>
+        <label className="block"><span className="mb-0.5 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Department</span><OpsSelect value={layout.department} onValueChange={(v) => setLayout((l) => ({ ...l, department: v }))} options={optionsFrom(departments.data, "All departments")} aria-label="Department" /></label>
+        <label className="block"><span className="mb-0.5 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Person</span><OpsSelect value={layout.employeeId} onValueChange={(v) => setLayout((l) => ({ ...l, employeeId: v }))} options={[{ value: ANY, label: "Everyone" }, ...members.map((m) => ({ value: m.id, label: m.name }))]} aria-label="Person" /></label>
         <div className="flex flex-wrap gap-1.5">
           {available.map((k) => (
             <button key={k.key} type="button" onClick={() => toggle(k.key)} aria-pressed={layout.kpis.includes(k.key)}

@@ -233,7 +233,7 @@ export function summariseTime(
 export const DIVISION_LABELS: Record<string, string> = {
   creditops: "CreditOps",
   fundingops: "FundingOps",
-  "bes-crm": "BES CRM",
+  bes_crm: "BES CRM",
   talentops: "TalentOps",
   /* "Admin" is what the team calls the hours that are not a module's — the
      old "General" said nothing about the work. `meeting` is its own bucket
@@ -246,7 +246,10 @@ export const DIVISION_LABELS: Record<string, string> = {
 };
 
 /** The buckets a person may start a timer in, in the order they are offered. */
-export const TIMER_DIVISIONS = ["creditops", "fundingops", "bes-crm", "talentops", "admin", "meeting"] as const;
+/* Spelled as the ORG STRUCTURE spells them. `bes-crm` with a hyphen was
+   corrected to `bes_crm` on 2026-09-20: the two spellings split BES CRM into
+   two rows on every report, production under one and hours under the other. */
+export const TIMER_DIVISIONS = ["creditops", "fundingops", "bes_crm", "talentops", "admin", "meeting"] as const;
 
 export const divisionLabel = (id: string) => DIVISION_LABELS[id] ?? id;
 

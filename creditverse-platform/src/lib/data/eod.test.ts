@@ -13,7 +13,10 @@ describe("EOD reconciliation across services", () => {
     expect(asDivision("creditops")).toBe("creditops");
     expect(asDivision("fundingops")).toBe("fundingops");
     expect(asDivision("talentops")).toBe("talentops");
-    expect(asDivision("bes_crm")).toBe("bes-crm");
+    expect(asDivision("bes_crm")).toBe("bes_crm");
+    /* The hyphenated spelling is still accepted: production written before
+       2026-09-20 carries it, and losing those rows would be worse. */
+    expect(asDivision("bes-crm")).toBe("bes_crm");
     expect(asDivision("something_else")).toBe("general");
   });
 
@@ -24,7 +27,7 @@ describe("EOD reconciliation across services", () => {
     ];
     const t = deriveEodTotals(rows, "e", "2026-09-04");
     expect(t.totalUnits).toBe(7);
-    expect(t.unitsByDivision).toEqual({ creditops: 2, fundingops: 1, "bes-crm": 1, talentops: 3, general: 0 });
+    expect(t.unitsByDivision).toEqual({ creditops: 2, fundingops: 1, bes_crm: 1, talentops: 3, general: 0 });
     expect(t.activeLogs).toHaveLength(4);
   });
 });

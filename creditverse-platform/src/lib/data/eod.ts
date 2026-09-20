@@ -28,18 +28,21 @@ type ProductionRow = Tables<"production_logs"> & {
 const DIVISIONS: DivisionId[] = [
   "creditops",
   "fundingops",
-  "bes-crm",
+  "bes_crm",
   "talentops",
   "general",
 ];
 
 /**
- * `production_logs.service` is the canonical dimension; the engine's
- * `DivisionId` predates it and spells BES CRM with a hyphen. Unknown values
- * fall into `general` rather than breaking the tally.
+ * `production_logs.service` is the canonical dimension, and since 2026-09-20
+ * the engine spells BES CRM the same way it does. The hyphenated form is still
+ * translated because reports written before that date carry it, and a tally
+ * that silently loses them would be worse than an old spelling.
+ *
+ * Unknown values fall into `general` rather than breaking the tally.
  */
 export const asDivision = (service: string): DivisionId => {
-  const v = service === "bes_crm" ? "bes-crm" : service;
+  const v = service === "bes-crm" ? "bes_crm" : service;
   return (DIVISIONS as string[]).includes(v) ? (v as DivisionId) : "general";
 };
 
