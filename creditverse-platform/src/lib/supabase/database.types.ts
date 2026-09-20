@@ -18556,11 +18556,7 @@ export type Database = {
       intranet_may_write: { Args: { p_org: string }; Returns: boolean }
       invitation_preview: {
         Args: { p_token: string }
-        Returns: {
-          email: string
-          expires_at: string
-          kind: string
-        }[]
+        Returns: { email: string; expires_at: string; full_name: string; kind: string }[]
       }
       invite_agency_member: {
         Args: {
@@ -19928,6 +19924,10 @@ export type Database = {
           p_membership: string
           p_reason?: string
         }
+        Returns: undefined
+      }
+      stage_invitation_onboarding: {
+        Args: { p_invitation: string; p_payload: Json }
         Returns: undefined
       }
       set_member_profile: {

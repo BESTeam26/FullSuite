@@ -31,7 +31,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { cn } from "@/lib/utils";
 import { invitationProblem } from "@/lib/auth/invitation-problem";
 import { acceptInvitation } from "@/lib/data/team-permissions";
-import { acceptAgencyInvitation, activateInvitedAccount, fetchInvitationPreview, type InvitationPreview } from "@/lib/data/agency-invitations";
+import { ActivationRefused, acceptAgencyInvitation, activateInvitedAccount, fetchInvitationPreview, type InvitationPreview } from "@/lib/data/agency-invitations";
 import { acceptPartnerInvitation } from "@/lib/data/agency-partners";
 
 type Door = "activate" | "signin";
@@ -207,7 +207,16 @@ function ActivationForms({ token }: { token: string }) {
         if (!err) setNotice("Account ready — accepting your invitation…");
         setError(err);
       } catch (e) {
-        setError((e as Error).message);
+        /* "You already have an account" is not a dead end: try the password
+           they just typed, and leave them on the sign-in door if it is wrong. */
+        const code = e instanceof ActivationRefused ? e.code : "";
+        if (code === "sign_in_instead" || code === "already_activated" || code === "already_accepted") {
+          const { error: err } = await auth.signInWithPassword(email, password);
+          if (err) { setDoor("signin"); setError(`${(e as Error).message} ${err}`); }
+          else setNotice("Signing you in and accepting your invitation…");
+        } else {
+          setError((e as Error).message);
+        }
       }
     } else {
       const { error: err } = await auth.signInWithPassword(email, password);

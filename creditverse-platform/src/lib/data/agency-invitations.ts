@@ -57,6 +57,8 @@ export async function inviteAgencyMember(
   moduleKeys?: string[],
   /* Their name as you know it — prefilled on the activation page. */
   fullName?: string,
+  /* The team they join on activation (a lead's team is passed separately). */
+  teamId?: string,
 ): Promise<string> {
   const sb = requireSupabase();
   const { data, error } = await sb.rpc("invite_agency_member", {
@@ -64,6 +66,7 @@ export async function inviteAgencyMember(
     p_profile: profile ?? undefined, p_lead_team: leadTeamId ?? undefined,
     p_modules: moduleKeys && moduleKeys.length > 0 ? moduleKeys : undefined,
     p_full_name: fullName?.trim() || undefined,
+    p_team: teamId ?? undefined,
   });
   if (error) throw error;
   return data as unknown as string;
@@ -136,20 +139,55 @@ export async function fetchInvitationPreview(token: string): Promise<InvitationP
  * email: the invitation token is the proof of address. Server-side, with the
  * service role, behind a token + email check (activate-invitation).
  */
+export class ActivationRefused extends Error {
+  /** invalid · expired · already_accepted · already_activated · sign_in_instead · wrong_email · weak_password */
+  readonly code: string;
+  constructor(message: string, code: string) { super(message); this.name = "ActivationRefused"; this.code = code; }
+}
+
 export async function activateInvitedAccount(input: { token: string; email: string; password: string; fullName: string }): Promise<void> {
   const sb = requireSupabase();
   const { data, error } = await sb.functions.invoke("activate-invitation", { body: input });
   if (error) {
-    /* The function's own message is the useful one ("sent to a different
-       email address"); the SDK wraps it. */
+    /* The function's own message is the useful one ("you already have an
+       account — sign in"); the SDK wraps it, so unwrap before showing. */
     const ctx = (error as { context?: Response }).context;
     if (ctx && typeof ctx.json === "function") {
-      const body = await ctx.json().catch(() => null) as { error?: string } | null;
-      if (body?.error) throw new Error(body.error);
+      const body = await ctx.json().catch(() => null) as { error?: string; code?: string } | null;
+      if (body?.error) throw new ActivationRefused(body.error, body.code ?? "refused");
     }
     throw error;
   }
-  if (data && typeof data === "object" && "error" in data && (data as { error?: string }).error) throw new Error((data as { error: string }).error);
+  const body = data as { error?: string; code?: string } | null;
+  if (body?.error) throw new ActivationRefused(body.error, body.code ?? "refused");
+}
+
+/**
+ * Everything about the person that is true before they accept: their start
+ * date, position, engagement type, phone and management seat. Applied to the
+ * canonical records by accept_agency_invitation, then deleted.
+ */
+export interface InvitationOnboarding {
+  hiredOn?: string;
+  jobTitle?: string;
+  engagementType?: string;
+  phone?: string;
+  seats?: { seat: string; division?: string; department?: string }[];
+  grants?: string[];
+}
+
+export async function stageInvitationOnboarding(invitationId: string, input: InvitationOnboarding): Promise<void> {
+  const payload: Record<string, unknown> = {};
+  if (input.hiredOn) payload.hired_on = input.hiredOn;
+  if (input.jobTitle?.trim()) payload.job_title = input.jobTitle.trim();
+  if (input.engagementType) payload.engagement_type = input.engagementType;
+  if (input.phone?.trim()) payload.phone = input.phone.trim();
+  if (input.seats && input.seats.length > 0) payload.seats = input.seats;
+  if (input.grants && input.grants.length > 0) payload.grants = input.grants;
+  if (Object.keys(payload).length === 0) return;
+  const sb = requireSupabase();
+  const { error } = await sb.rpc("stage_invitation_onboarding", { p_invitation: invitationId, p_payload: payload as never });
+  if (error) throw error;
 }
 
 /* ── Access profiles: operational presets on top of the two roles (0266) ──

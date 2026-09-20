@@ -17,14 +17,15 @@
  * answer — the module root — because a "not allowed" page tells somebody the
  * section exists.
  */
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
 import { Loader2, UserPlus, Users } from "lucide-react";
 import { HqPageShell } from "@/pages/app/HqPages";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { AgencyTeamInvites, PendingInvitationsList } from "@/components/settings/sections/AgencyTeamInvites";
 import { ManagementSeats } from "@/components/agency/people/ManagementSeats";
+import { InviteTeamMemberWizard } from "@/components/agency/people/InviteTeamMemberWizard";
 import { PeopleManager } from "@/components/agency/PeopleManager";
 import { useAgencyAccessContext } from "@/lib/agency/use-access-context";
 import { isPeopleSectionSlug, peopleSectionFor, visiblePeopleSections } from "@/lib/people/people-sections";
@@ -141,17 +142,25 @@ export const PeopleTeamsPage = () => {
   );
 };
 
-const InviteButton = () => (
-  <Dialog>
-    <DialogTrigger asChild>
-      <Button size="sm"><UserPlus className="mr-1.5 h-3.5 w-3.5" /> Invite Team Member</Button>
-    </DialogTrigger>
-    <DialogContent className="max-w-2xl">
-      <DialogHeader><DialogTitle>Invite a team member</DialogTitle></DialogHeader>
-      <AgencyTeamInvites />
-    </DialogContent>
-  </Dialog>
-);
+const InviteButton = () => {
+  const [open, setOpen] = useState(false);
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm"><UserPlus className="mr-1.5 h-3.5 w-3.5" /> Invite Team Member</Button>
+      </DialogTrigger>
+      <DialogContent className="max-h-[90vh] w-[min(96vw,64rem)] max-w-none overflow-y-auto sm:max-w-none">
+        <DialogHeader>
+          <DialogTitle>Invite a team member</DialogTitle>
+          <DialogDescription>
+            Add someone to BES and place them in the organization. Their access follows their placement.
+          </DialogDescription>
+        </DialogHeader>
+        <InviteTeamMemberWizard onDone={() => setOpen(false)} />
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 const Loading = () => (
   <p className="py-8 text-center text-sm text-muted-foreground">
