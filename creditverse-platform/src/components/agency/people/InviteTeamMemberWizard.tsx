@@ -32,7 +32,7 @@ import { isAdminRole } from "@/lib/agency/navigation";
 import { useOrganizationTree } from "@/lib/data/use-organization-structure";
 import { usePositions, usePositionActions } from "@/lib/data/use-positions";
 import { useAgencyMembers } from "@/lib/data/use-agency-teams";
-import { inviteAgencyMember, stageInvitationOnboarding } from "@/lib/data/agency-invitations";
+import { createTeamMemberWithInvitation } from "@/lib/data/agency-invitations";
 import { sendInvitationEmail } from "@/lib/data/emails";
 import { errorMessage } from "@/lib/data/error-message";
 import { ENGAGEMENT_TYPES } from "@/lib/agency/engagement-type";
@@ -115,34 +115,37 @@ export function InviteTeamMemberWizard({ onDone }: { onDone?: () => void }) {
           teamId: teamId === NONE ? null : teamId,
         });
       }
-      const id = await inviteAgencyMember(
-        email.trim(), plan.role, plan.profile ?? undefined,
-        plan.leadsTeam && teamId !== NONE ? teamId : undefined,
-        plan.moduleKeys.length > 0 ? plan.moduleKeys : undefined,
-        fullName.trim(),
-        teamId === NONE ? undefined : teamId,
-      );
-      await stageInvitationOnboarding(id, {
+      /* The Team Member first — Agent ID, start date, position, placement —
+         then the invitation. One transaction in the database. */
+      const created = await createTeamMemberWithInvitation({
+        fullName: fullName.trim(),
+        email: email.trim(),
+        role: plan.role,
+        profile: plan.profile,
+        teamId: teamId === NONE ? null : teamId,
+        leadTeamId: plan.leadsTeam && teamId !== NONE ? teamId : null,
+        moduleKeys: plan.moduleKeys,
         hiredOn: startDate,
-        jobTitle: positionTitle ?? undefined,
+        jobTitle: positionTitle,
         engagementType: engagement,
-        phone: phone.trim() || undefined,
-        seats: plan.seat
-          ? [{
-              seat: plan.seat,
-              ...(plan.seat === "division_manager" ? { division: division?.name } : {}),
-              ...(plan.seat === "department_manager" ? { department: department?.name } : {}),
-            }]
-          : undefined,
+        managerId: reportsTo === NONE ? null : reportsTo,
+        phone: phone.trim() || null,
+        seat: plan.seat,
+        divisionId: divisionId === NONE ? null : divisionId,
+        departmentId: departmentId === NONE ? null : departmentId,
       });
-      return { id, outcome: await sendInvitationEmail(id) };
+      /* Email delivery is a separate step on purpose: if it fails the person
+         still exists, pending activation, with a link to resend. */
+      return { id: created.invitation_id, code: created.employee_code, outcome: await sendInvitationEmail(created.invitation_id) };
     },
-    onSuccess: ({ outcome }) => {
+    onSuccess: ({ code, outcome }) => {
       void qc.invalidateQueries({ queryKey: ["agency", "invitations"] });
+      void qc.invalidateQueries({ queryKey: ["agency", "members"] });
+      void qc.invalidateQueries({ queryKey: ["people", "org"] });
       setMessage(
         outcome.status === "sent"
-          ? { text: `Invitation sent to ${email.trim()}. Their placement is staged and applies the moment they activate.`, error: false }
-          : { text: "Invitation created, but the email did not go out. Copy the link from the pending list and send it yourself.", error: true },
+          ? { text: `${fullName.trim()} is on the team as ${code}, pending activation. The invitation is on its way to ${email.trim()}.`, error: false }
+          : { text: `${fullName.trim()} is on the team as ${code}, pending activation — but the invitation email did not go out. Resend it from the directory.`, error: true },
       );
       if (outcome.status === "sent") onDone?.();
     },
@@ -204,8 +207,8 @@ export function InviteTeamMemberWizard({ onDone }: { onDone?: () => void }) {
               {field("Phone (optional)", <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(123) 456-7890" className="h-9 text-sm" />)}
             </div>
             <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
-              <strong className="text-foreground">Agent ID</strong> is assigned automatically when they activate, from their start date —
-              initials, month and year, then their number in the team. A photo is theirs to set from their own profile.
+              <strong className="text-foreground">Agent ID</strong> is assigned the moment you send this, from their start date —
+              initials, month and year, then their number in the team. It never changes, and a resent invitation reuses it.
             </p>
           </section>
         )}
@@ -263,8 +266,9 @@ export function InviteTeamMemberWizard({ onDone }: { onDone?: () => void }) {
               ))}
             </dl>
             <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
-              They receive one email. Activating it creates their sign-in, their Agent ID and everything above — in one step, with no
-              confirmation email, because the link was sent to that address.
+              Sending this creates their Team Member record and Agent ID straight away — they appear in People &amp; Teams as
+              <strong className="text-foreground"> Pending activation</strong>. The email lets them set a password; activating links
+              their sign-in to that record and makes it active. No confirmation email, because the link was sent to their address.
             </p>
           </section>
         )}

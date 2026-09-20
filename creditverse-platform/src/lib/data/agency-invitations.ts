@@ -167,6 +167,48 @@ export async function activateInvitedAccount(input: { token: string; email: stri
  * date, position, engagement type, phone and management seat. Applied to the
  * canonical records by accept_agency_invitation, then deleted.
  */
+/**
+ * Create the Team Member, then their invitation — the canonical lifecycle
+ * (Dee, 2026-09-20). The person exists in the directory as "Pending
+ * activation" from this moment, with their permanent Agent ID; activation
+ * links their sign-in to this exact record and flips them to active.
+ */
+export interface CreateTeamMemberInput {
+  fullName: string;
+  email: string;
+  role: "agency_admin" | "agency_user";
+  profile?: AccessProfile | null;
+  teamId?: string | null;
+  leadTeamId?: string | null;
+  moduleKeys?: string[];
+  hiredOn?: string | null;
+  jobTitle?: string | null;
+  engagementType?: string | null;
+  managerId?: string | null;
+  phone?: string | null;
+  seat?: string | null;
+  divisionId?: string | null;
+  departmentId?: string | null;
+}
+
+export interface CreatedTeamMember { invitation_id: string; membership_id: string; employee_code: string }
+
+export async function createTeamMemberWithInvitation(input: CreateTeamMemberInput): Promise<CreatedTeamMember> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.functions.invoke("create-team-member", { body: input });
+  if (error) {
+    const ctx = (error as { context?: Response }).context;
+    if (ctx && typeof ctx.json === "function") {
+      const b = await ctx.json().catch(() => null) as { error?: string } | null;
+      if (b?.error) throw new Error(b.error);
+    }
+    throw error;
+  }
+  const body = data as { error?: string } & CreatedTeamMember;
+  if (body?.error) throw new Error(body.error);
+  return body;
+}
+
 export interface InvitationOnboarding {
   hiredOn?: string;
   jobTitle?: string;

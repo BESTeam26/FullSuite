@@ -168,7 +168,8 @@ export interface AgencyMember {
   /** Ownership is a flag on the membership, not a role (0234). */
   isOwner: boolean;
   scope: string;
-  status: "active" | "inactive";
+  /** invited — a real workforce record awaiting first sign-in; never counted as active. */
+  status: "active" | "inactive" | "invited";
   since: string;
   deactivatedAt: string | null;
   jobTitle: string | null;
@@ -225,7 +226,7 @@ export async function fetchAgencyMembers(agencyId: string): Promise<AgencyMember
       accessProfile: (r.access_profile as Enums<"access_profile">) ?? null,
       isOwner: Boolean(r.is_owner),
       scope: (r.scope as string) ?? "assigned",
-      status: (r.status as "active" | "inactive") ?? "active",
+      status: (r.status as "active" | "inactive" | "invited") ?? "active",
       since: r.created_at as string,
       deactivatedAt: (r.deactivated_at as string) ?? null,
       jobTitle: (r.job_title as string) ?? null,

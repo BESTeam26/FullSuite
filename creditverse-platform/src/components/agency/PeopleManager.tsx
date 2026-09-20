@@ -49,11 +49,13 @@ const ROLES: { value: Enums<"agency_role">; label: string }[] = [
 const PROFILE_OPTIONS = ACCESS_PROFILES.map((v) => ({ value: v, label: ACCESS_PROFILE_LABELS[v] }));
 const PAGE_SIZE = 10;
 
-type MemberStatus = "active" | "on_leave" | "inactive";
-const STATUS_LABEL: Record<MemberStatus, string> = { active: "Active", on_leave: "On Leave", inactive: "Inactive" };
+type MemberStatus = "active" | "on_leave" | "invited" | "inactive";
+const STATUS_LABEL: Record<MemberStatus, string> = { active: "Active", on_leave: "On Leave", invited: "Pending activation", inactive: "Inactive" };
 const STATUS_TONE: Record<MemberStatus, string> = {
   active: "border-emerald-500/40 bg-emerald-500/10 text-emerald-800",
   on_leave: "border-amber-500/40 bg-amber-500/10 text-amber-900",
+  /* A real workforce record awaiting first sign-in — not an error state. */
+  invited: "border-primary/40 bg-primary/10 text-foreground",
   inactive: "border-destructive/30 bg-status-danger-tint text-status-danger",
 };
 const ALL = "__all__";
@@ -99,6 +101,9 @@ export function PeopleManager() {
 
   const statusOf = (m: AgencyMember): MemberStatus => {
     if (m.status === "inactive") return "inactive";
+    /* Invited people are in the directory with their Agent ID from day one;
+       they are never "on leave" or "active" until they activate. */
+    if (m.status === "invited") return "invited";
     if (team.todayRows.find((d) => d.userId === m.userId)?.onLeave) return "on_leave";
     return "active";
   };
@@ -159,7 +164,7 @@ export function PeopleManager() {
               placeholder="Search people by name, role, team or skill…" aria-label="Search people" />
           </div>
           <OpsSelect aria-label="Status" size="sm" value={status} onValueChange={resetPage(setStatus)}
-            options={[{ value: ALL, label: "All statuses" }, ...(["active", "on_leave", "inactive"] as MemberStatus[]).map((s) => ({ value: s, label: STATUS_LABEL[s] }))]} />
+            options={[{ value: ALL, label: "All statuses" }, ...(["active", "on_leave", "invited", "inactive"] as MemberStatus[]).map((s) => ({ value: s, label: STATUS_LABEL[s] }))]} />
           <OpsSelect aria-label="Division" size="sm" value={division} onValueChange={resetPage(setDivision)}
             options={[{ value: ALL, label: "All divisions" }, ...divisions.map((d) => ({ value: d, label: orgDivisionLabel(d) }))]} />
           <OpsSelect aria-label="Team" size="sm" value={teamFilter} onValueChange={resetPage(setTeamFilter)}
@@ -406,7 +411,12 @@ function PersonCard({
             </div>
             {mayChange && (
               <div className="flex flex-wrap items-center gap-1 border-t border-border/60 pt-2">
-                {member.status === "active" ? (
+                {member.status === "invited" ? (
+                  <span className="text-[11px] text-muted-foreground">
+                    Pending activation — they hold {member.employeeCode ?? "an Agent ID"} and appear in the directory,
+                    but count as nobody's headcount until they sign in.
+                  </span>
+                ) : member.status === "active" ? (
                   <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => onStatus("inactive")}>
                     <UserMinus className="mr-1 h-3.5 w-3.5" /> Deactivate
                   </Button>
