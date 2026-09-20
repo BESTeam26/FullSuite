@@ -385,6 +385,14 @@ function Node({
                 Acting: {node.coverage}
               </span>
             )}
+            {node.manager !== undefined && (
+              <span className={cn("text-[11px] font-semibold", node.manager === "Vacant" ? "text-muted-foreground" : "text-foreground")}>
+                Division Manager · {node.manager}
+              </span>
+            )}
+            {node.bullets && (
+              <span className="text-[11px] text-muted-foreground">{node.bullets.join(" · ")}</span>
+            )}
           </span>
         </span>
       </div>
