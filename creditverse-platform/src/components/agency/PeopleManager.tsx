@@ -345,7 +345,15 @@ function PersonCard({
           {fact("Reports to", managerName
             ? <span>{managerName}{managerPosition && <span className="block text-[11px] font-normal text-muted-foreground">{managerPosition}</span>}</span>
             : "—")}
-          {fact("Start date", formatDate(member.since))}
+          {/* The HIRE date, not the account date. `since` is when the
+              membership row was made — for Aaron that is the day he activated
+              his invitation, 2026, against a real start date of 2016. Showing
+              `since` under the label "Start date" restated ten years of
+              service as one day. The Agent ID takes its date from `hiredOn`
+              too, so the two now agree. */}
+          {fact("Start date", member.hiredOn
+            ? formatDate(member.hiredOn)
+            : <span className="text-muted-foreground">Not recorded</span>)}
           {fact("Access", memberAccessLabel(member.role, member.accessProfile))}
         </dl>
         <Link to={`/app/people/${member.userId}`}

@@ -142,7 +142,9 @@ export function MyProfileSection() {
             {row("Department", team?.department ?? null)}
             {row("Team", myTeams.map((t) => t.name).join(", ") || null)}
             {row("Reports To", nameOf(leadId))}
-            {row("Start Date", me ? formatDate(me.hiredOn ?? me.since) : null)}
+            {/* The hire date only. Falling back to the account date told
+                somebody who activated today that they started today. */}
+            {row("Start Date", me?.hiredOn ? formatDate(me.hiredOn) : null)}
             {row("Engagement Type", engagementTypeLabel(me?.engagementType))}
             {row("Status", me ? <Pill tone={me.status === "active" ? ACTIVE : INACTIVE}>{me.status === "active" ? "Active" : "Inactive"}</Pill> : null)}
           </dl>
