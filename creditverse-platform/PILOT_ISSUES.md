@@ -39,7 +39,7 @@ operator who hit it does.
 | P-005 | 2026-09-11 | Phase 70 probe, during the pilot | My Time / Timer | One real time entry (Dee's, 2026-09-11) carried the retired division `general`, two days after it was renamed to `admin` | Only the six live divisions are storable | A pilot defect | S2 — splits division totals on My Time, EOD and production reporting | `time_entries.division_id` is TEXT with no constraint, so a browser tab running the pre-rename bundle kept writing the old value | `cae687d` | — | **FIXED AWAITING LIVE RETEST** |
 | P-002 | 2026-09-11 | Dee (and Bryan Breva, first real invited user) | Invite Users / Login | After choosing a password, the page looked unchanged — only a small green line appeared inside the still-complete form. Bryan then wandered to `/app` and hit **"No workspace access"** | A clear "we sent you a confirmation email" state that says what to do next | A pilot defect | S1 — the first real invited user believed activation had failed | Sign-up sets a `notice` string rendered as one `text-xs` line between the password field and the button; the form stays fully visible, so nothing reads as progress | `18999b8` | — | **FIXED AWAITING LIVE RETEST** |
 | P-003 | 2026-09-11 | Dee | Invite Users / Login | The internal team invitation used generic copy and the platform tagline ("Credit + Funding Operations. One Connected Platform.") | BES's own branding and voice for internal team members, distinct from the partner emails | B pilot UX correction | S3 | The `isTeam` invitation shared a generic branch with customer-organization invites; only the two partner branches carried Dee's verbatim branded copy | `18999b8` | — | **FIXED AWAITING LIVE RETEST** |
-| P-001 | 2026-09-10 | Dee | Invite Users / Login | The activation email from `noreply@bescrm.net` landed in Gmail **Spam** | It reaches the inbox so a new team member can activate | A pilot defect | S1 — blocks the Invite Users P0 flow | See below | `bfd6f7c` (reply-to) + `app.bescrm.net` cut over 2026-09-11 | — | **FIXED AWAITING LIVE RETEST** — the next real invitation is the test |
+| P-001 | 2026-09-10 | Dee | Invite Users / Login | The activation email from `noreply@bescrm.net` landed in Gmail **Spam** | It reaches the inbox so a new team member can activate | A pilot defect | S1 — blocks the Invite Users P0 flow | See below | `bfd6f7c` (reply-to) + `app.bescrm.net` cut over 2026-09-11; DNS re-verified in Resend 2026-09-20 | Dee, 2026-09-20 | **LIVE VERIFIED** — two invitations received in the inbox, mailed-by send.bescrm.net, signed-by bescrm.net |
 
 ### P-008 · A department agent was offered all of CreditOps
 
@@ -340,6 +340,14 @@ Outsourcing. Your Business Growth Engine.", and a customer organization's
 invitation stays neutral in *their* branding, which is correct.
 
 ### P-001 · Invitation email delivered to Spam
+
+**Re-opened and closed 2026-09-20.** Aaron's activation landed in spam with
+"not authenticated": `resend._domainkey.bescrm.net` had disappeared and
+`send.bescrm.net` carried Mailgun/LeadConnector records (GoHighLevel's
+sending-domain setup). Dee re-ran Auto configure in Resend; the domain
+verified at 5:45 AM and the next two invitations (Aaron, and a test to
+dee+resendtest@) arrived in the inbox authenticated. `send.bescrm.net` now
+belongs to Resend; GoHighLevel keeps `mail.bescrm.net`.
 
 **Not an authentication failure.** Verified live against DNS:
 

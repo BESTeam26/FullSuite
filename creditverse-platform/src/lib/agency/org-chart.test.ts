@@ -286,6 +286,18 @@ describe("Dee's chart, 2026-09-20 — a reporting line, grouped departments, fun
     expect(labels(root)).not.toContain("Stipulations");
   });
 
+  it("folds a department's OWN team into the department — no second box for the same unit", () => {
+    const d = department({ id: "d", divisionId: "ops", name: "Dispute" });
+    const own = team({ id: "own", departmentId: "d", name: "CreditOps Dispute Processing Team", members: [{ userId: "u1", isLead: true }] });
+    const named = team({ id: "ally", departmentId: "d", name: "Team Ally", members: [] });
+    const root = buildOrgChart({ agencyName: "BES", tree: { divisions: [ops], departments: [d], teams: [own, named] }, positions: [],
+      people: [{ userId: "u1", name: "Ivan", title: null }] });
+    const dept = find(root, "Dispute")!;
+    expect(labels(dept)).not.toContain("CreditOps Dispute Processing Team");
+    expect(dept.children.map((c) => c.label)).toEqual(["Ivan", "Team Ally"]);
+    expect(dept.detail).toBe("1 person");
+  });
+
   it("draws teams folded so the poster reads first, people on a click", () => {
     const d = department({ id: "d", divisionId: "ops", name: "Dispute" });
     const t = team({ id: "t", departmentId: "d", name: "Processing Team" });

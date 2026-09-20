@@ -137,39 +137,59 @@ export function buildOrgChart({ agencyName, tree, positions, people = [] }: OrgC
     }
   }
 
+  /* "CreditOps Bureau Calling Team" under the "Bureau Calling" department is
+     the department's OWN team, not a second unit (Dee, 2026-09-20: "one is
+     CreditOps and one is not — that's incorrect"). A team whose name, minus
+     the division's name and the word Team, is the department's name is
+     folded into the department: its people hang directly under it. A team
+     with a name of its own (Team Ally) stays a team. */
+  const echoesDepartment = (teamName: string, departmentName: string, divisionName: string | null): boolean => {
+    const strip = (x: string) => x.toLowerCase().replace(/\bteam\b/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+    const t = strip(divisionName ? teamName.replace(new RegExp(divisionName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"), "") : teamName);
+    const d = strip(departmentName);
+    /* "Dispute Processing" is Dispute's own; "Client Success / Support" is
+       Client Success's own; a bare "TalentOps Team" is its department's own. */
+    return t === "" || t.includes(d) || d.includes(t);
+  };
+  const divisionNameOf = (divisionId: string | null) => tree.divisions.find((v) => v.id === divisionId)?.name ?? null;
+
+  const teamPeople = (t: OrganizationTree["teams"][number]): OrgNode[] =>
+    [...t.members]
+      .sort((a, b) => Number(b.isLead) - Number(a.isLead)
+        || (personById.get(a.userId)?.name ?? "").localeCompare(personById.get(b.userId)?.name ?? ""))
+      .map((m) => personNode(`team:${t.id}`, m.userId, memberRole(m.userId, m.isLead)))
+      .filter((n): n is OrgNode => n !== null);
+
   const departmentNode = (d: OrganizationTree["departments"][number]): OrgNode => {
-    const teams = tree.teams
-      .filter((t) => t.departmentId === d.id && live(t))
-      .map<OrgNode>((t) => ({
-        id: `team:${t.id}`,
-        kind: "team",
-        label: t.name,
-        detail: `${t.members.length} ${t.members.length === 1 ? "person" : "people"}`,
-        recordId: t.id,
-        defaultCollapsed: true,
-        children: [
-          /* The lead first, then everybody else by name. */
-          ...[...t.members]
-            .sort((a, b) => Number(b.isLead) - Number(a.isLead)
-              || (personById.get(a.userId)?.name ?? "").localeCompare(personById.get(b.userId)?.name ?? ""))
-            .map((m) => personNode(`team:${t.id}`, m.userId, memberRole(m.userId, m.isLead)))
-            .filter((n): n is OrgNode => n !== null),
-          ...(byTeam.get(t.id) ?? []).map(positionNode),
-        ],
-      }));
+    const liveTeams = tree.teams.filter((t) => t.departmentId === d.id && live(t));
+    const own = liveTeams.filter((t) => echoesDepartment(t.name, d.name, divisionNameOf(d.divisionId)));
+    const named = liveTeams.filter((t) => !own.includes(t));
+    const teams = named.map<OrgNode>((t) => ({
+      id: `team:${t.id}`,
+      kind: "team",
+      label: t.name,
+      detail: `${t.members.length} ${t.members.length === 1 ? "person" : "people"}`,
+      recordId: t.id,
+      defaultCollapsed: true,
+      children: [...teamPeople(t), ...(byTeam.get(t.id) ?? []).map(positionNode)],
+    }));
+    const ownPeople = own.flatMap((t) => [...teamPeople(t), ...(byTeam.get(t.id) ?? []).map(positionNode)]);
     /* Queue departments grouped under this one (Dee's chart, 2026-09-20). */
     const children = tree.departments
       .filter((c) => c.parentDepartmentId === d.id && live(c) && c.showOnChart)
       .sort((a, b) => a.sort - b.sort || a.name.localeCompare(b.name))
       .map(departmentNode);
     const manager = d.managerId ? personNode(`department:${d.id}`, d.managerId, "Department Manager") : null;
+    const headcount = own.reduce((n, t) => n + t.members.length, 0);
     return {
       id: `department:${d.id}`,
       kind: "department" as const,
       label: d.name,
+      detail: own.length > 0 && children.length === 0 ? `${headcount} ${headcount === 1 ? "person" : "people"}` : undefined,
       recordId: d.id,
       bullets: d.functions.length > 0 ? d.functions : undefined,
-      children: [...(manager ? [manager] : []), ...children, ...teams, ...(byDepartment.get(d.id) ?? []).map(positionNode)],
+      defaultCollapsed: ownPeople.length > 0 && children.length === 0 ? true : undefined,
+      children: [...(manager ? [manager] : []), ...children, ...ownPeople, ...teams, ...(byDepartment.get(d.id) ?? []).map(positionNode)],
     };
   };
 
