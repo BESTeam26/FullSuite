@@ -218,9 +218,17 @@ Dee's call which:
    no conversion is needed at all for a PHP-only team, and no rate can go
    stale.
 
-Not a defect: the refusal is the safeguard working. Logged because it will
-stop the first real release and the fix is a decision, not code. Status: OPEN,
-awaiting Dee.
+Not a defect: the refusal is the safeguard working. Logged because it would
+have stopped the first real release and the fix was a decision, not code.
+
+**Resolved 2026-09-20.** Dee: *"Set all payouts and agent pay in PHP as again
+I pay them in peso."* BES's income is in dollars, but that is the income side;
+what leaves the bank for the team leaves in pesos. Migration `20260920005400`
+sets the payout currency to PHP and makes PHP the default for new pay records.
+The conversion is now the identity, so there is no rate to record, go stale,
+or quietly restate somebody's pay months later. Verified end to end: the same
+throwaway cutoff now releases and books an expense of PHP 10,000 in PHP.
+Status: LIVE VERIFIED by the decision itself — no operator step remains.
 
 ### P-022 · The compensation audit event told the worker what BES pays — SECURITY
 
