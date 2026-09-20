@@ -29,6 +29,7 @@ import { formatDate } from "@/lib/format-date";
 import { useAgencyPermissions } from "@/lib/data/agency-permissions";
 import { useWorkforce } from "@/lib/data/use-workforce";
 import { useCreditOpsStore } from "@/lib/fulfillment/creditops-client-store";
+import { roundFromStatus } from "@/lib/fulfillment/department-domain";
 import { updateClientAssignee, updateClientField } from "@/lib/data/fulfillment-clients";
 import { clearDueOverride, markMailed, setDueOverride } from "@/lib/data/client-workflow";
 import { readSla, SLA_TONE_CLASS } from "@/lib/fulfillment/sla-display";
@@ -70,22 +71,41 @@ export function ClientAssignmentCard({ clientId }: { clientId: string }) {
 
   const sla = readSla(client.slaHoursRemaining);
 
+  /* Non-null exactly when the credit status governs the round. */
+  const stageRound = roundFromStatus(client.status);
+
   return (
     <ContentCard title="Assignment & dates">
       <div className="grid gap-3 sm:grid-cols-2">
+        {/* Dee, 2026-09-20: the round follows the stage. While the credit
+            status is "Round N Sent" the database keeps the round equal to N
+            on every write, so offering a dropdown here would be a control
+            whose choice is silently discarded. It shows the value and says
+            where it comes from instead. */}
         <label className="block text-xs">
           <span className="mb-1 block font-medium text-foreground">Current round</span>
-          <OpsSelect
-            size="field"
-            aria-label="Current round"
-            value={client.round ?? "Pre-Round"}
-            onValueChange={(v) =>
-              void guard("round",
-                () => updateClientField({ clientId, round: v as Enums<"fulfillment_round"> }),
-                "Round updated")
-            }
-            options={ROUNDS.map((r) => ({ value: r, label: r }))}
-          />
+          {stageRound === null ? (
+            <OpsSelect
+              size="field"
+              aria-label="Current round"
+              value={client.round ?? "Pre-Round"}
+              onValueChange={(v) =>
+                void guard("round",
+                  () => updateClientField({ clientId, round: v as Enums<"fulfillment_round"> }),
+                  "Round updated")
+              }
+              options={ROUNDS.map((r) => ({ value: r, label: r }))}
+            />
+          ) : (
+            <>
+              <p className="flex h-9 items-center rounded-lg border border-border bg-muted/40 px-3 font-semibold text-foreground">
+                Round {stageRound}
+              </p>
+              <span className="mt-1 block text-[11px] text-muted-foreground">
+                Set by the credit status “{client.status}”. Change the status to change the round.
+              </span>
+            </>
+          )}
         </label>
 
         <label className="block text-xs">

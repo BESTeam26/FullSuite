@@ -135,3 +135,35 @@ describe("a record whose value predates the list", () => {
     expect(creditStatusOptionsFor(null)).toEqual([...CREDIT_STATUSES]);
   });
 });
+
+/**
+ * The round follows the stage (Dee, 2026-09-20).
+ *
+ * The database enforces it on every write; these check the rule the UI reads
+ * to decide whether the round is still the agent's to choose. A control that
+ * offers a choice the database then discards is worse than no control.
+ */
+describe("the round follows the stage", () => {
+  it("every numbered stage governs its own round", () => {
+    for (let n = 1; n <= 12; n += 1) {
+      expect(roundFromStatus(`Round ${n} Sent`)).toBe(n);
+    }
+  });
+
+  it("leaves the round alone for every stage that names none", () => {
+    const governing = new Set(Array.from({ length: 12 }, (_, i) => `Round ${i + 1} Sent`));
+    for (const s of CREDIT_STATUSES) {
+      if (governing.has(s)) continue;
+      expect(roundFromStatus(s), `"${s}" must not govern the round`).toBeNull();
+    }
+  });
+
+  it("does not govern the round for a client in Support or Complaints", () => {
+    /* The point of keeping the round: a client on round 2 whose results came
+       back is still on round 2 while somebody reads them. */
+    for (const s of ["Results Available for Review", "CMS Issue 2", "For Complaints",
+                     "Ready For Reimport/ Credit Update", "On Hold (Non Workable)"]) {
+      expect(roundFromStatus(s), s).toBeNull();
+    }
+  });
+});
