@@ -170,17 +170,32 @@ only money an agent ever reads, and nothing on it can reveal `bes_cost_cents`.
 Nothing above rewrites a released payslip: there are none, and after this the
 frozen segments make one impossible to restate.
 
-## 4. What is NOT decided and needs Dee
+## 4. Decisions — locked by Dee, 2026-09-20
 
-1. Adjustments on a managing-partner worker (§2.2): follow the agent statement
-   and raise BES cost equally, or become a BES-side-only line?
-2. Aaron is not in the platform's people list; the grant needs his account.
-3. Does the partner (Bryan) see his own settlement inside FullSuite (a
-   `compensation.settlement.view` for the partner's own rows), or only
-   finance?
-4. Daily basis: prorate a monthly package by paid schedule days or calendar
-   days? (Today's `pay_rate_breakdown` uses 261 paid days a year; the
-   monthly share uses calendar halves.)
+1. **Adjustments carry an explicit financial scope**: `agent_only`,
+   `bes_only`, `both`. Never inferred. Each adjustment stores amount, type,
+   scope, reason, pay period, approved_by, created_by, timestamp. For a
+   managing-partner worker: Agent Payable = base agent compensation +
+   agent_only + both; BES Payable to the partner = base BES cost + bes_only +
+   both; margin is derived from the finals. The form asks "Who funds this
+   adjustment?" with the three choices. Nothing is booked twice.
+2. **Aaron** is invited (agency admin, existing pending invitation resent
+   through the app on 2026-09-20). On acceptance his staged grants apply:
+   payroll.view, payroll.manage, compensation.view, compensation.manage —
+   and his Chief Operations seat (D-021). Admin alone grants none of these.
+3. **Bryan** sees his own settlements, all payroll, all compensation
+   arrangements and all payment statements — by `payroll.*` and
+   `compensation.*` keys, which he holds. No finance keys. A
+   `compensation.settlement.view` key is not needed: the settlement view
+   is readable by `payroll.view` ∧ `compensation.view`.
+4. **Monthly proration uses paid scheduled workdays**, never calendar days:
+   `prorated = package ÷ paid scheduled days in period × applicable paid
+   scheduled days`, from the person's effective schedule segment for each
+   date; approved paid reward days count per the reward policy; approved
+   unpaid leave does not; a schedule change mid-period is computed by
+   segment. All effective-dated rates and packages are preserved.
+
+Build order in §3 stands; this becomes the active epic after D-021 lands.
 
 ## 5. Done already (today, before the build)
 
