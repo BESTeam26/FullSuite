@@ -131,6 +131,35 @@ with each seat's division. A title recorded before the registry existed stays
 selectable and is marked as not in the list, so nobody's record loses its
 title. Status: FIXED AWAITING LIVE RETEST.
 
+### P-023 · The first payroll release will refuse: no PHP→USD rate on file
+
+**2026-09-20 · reporter: Claude, dry-running payroll against the real team ·
+module: Finance → Payroll · class A · severity: S1 the day payroll runs, none
+before.** Generated a throwaway cutoff for 16–30 September against the real
+roster, inside a transaction that was rolled back. The chain works: Bryan's
+monthly package produced the correct half-month share, and the two hourly
+people produced nothing because nobody has clocked time yet, which is right —
+an unpriced period should pay nothing rather than guess.
+
+Release then refuses, correctly and by name:
+
+    No exchange rate recorded for PHP→USD. Set it under Finance → Payroll,
+    then release.
+
+Everyone is paid in PHP and `payroll_settings.payout_currency` is USD, so
+every payslip needs a conversion and none exists. Two ways out, and it is
+Dee's call which:
+
+1. **Record the PHP→USD rate** under Finance → Payroll. Right if BES books the
+   expense in dollars.
+2. **Set the payout currency to PHP.** Right if BES pays and books in pesos —
+   no conversion is needed at all for a PHP-only team, and no rate can go
+   stale.
+
+Not a defect: the refusal is the safeguard working. Logged because it will
+stop the first real release and the fix is a decision, not code. Status: OPEN,
+awaiting Dee.
+
 ### P-022 · The compensation audit event told the worker what BES pays — SECURITY
 
 **2026-09-20 · reporter: Claude, diagnosing P-018 · module: audit trail ·
