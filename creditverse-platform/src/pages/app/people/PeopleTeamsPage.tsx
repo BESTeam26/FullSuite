@@ -24,6 +24,7 @@ import { HqPageShell } from "@/pages/app/HqPages";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AgencyTeamInvites, PendingInvitationsList } from "@/components/settings/sections/AgencyTeamInvites";
+import { ManagementSeats } from "@/components/agency/people/ManagementSeats";
 import { PeopleManager } from "@/components/agency/PeopleManager";
 import { useAgencyAccessContext } from "@/lib/agency/use-access-context";
 import { isPeopleSectionSlug, peopleSectionFor, visiblePeopleSections } from "@/lib/people/people-sections";
@@ -122,6 +123,7 @@ export const PeopleTeamsPage = () => {
         )}
         {section.slug === "structure" && (
           <div className="space-y-4">
+            <ManagementSeats />
             <OrganizationStructure />
             <TeamsManager />
           </div>
