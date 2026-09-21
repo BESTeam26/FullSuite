@@ -18,8 +18,12 @@ Last reconciled: 2026-09-21, after the production release (`0014381`).
 
 ## NEXT — Dee's production focus order
 
-1. **Communication mobile** — messages, unread state, attachments on a phone.
-2. **My Work + routing/assignment** — everyone can see exactly what they own.
+1. ~~**Communication mobile**~~ — BUILT and deployed (P-046). Awaiting Dee's
+   six human checks on the installed PWA: system back, keyboard over the
+   composer, a real send, @mention insert, photo attach, notification tap,
+   plus one unread clearing.
+2. ~~**My Work + routing/assignment mobile**~~ — BUILT and deployed (P-047).
+   Awaiting somebody with assigned work opening it on a phone.
 3. **Clock / attendance mobile** — clock in, break, lunch, out.
 4. **CreditOps client workflow simplification** — work a file without knowing the model.
 5. **Notifications / Attention** — the system says what needs action.
