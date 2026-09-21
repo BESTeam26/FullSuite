@@ -18,3 +18,14 @@ It was also the one `/app` route with no guard of any kind, and its mapping
 attributed every work order to `organizations[0]` — the first organization in
 the list, whichever that happened to be, rather than the one the work belongs
 to (rule 4). The screen that replaced it is `/app/creditops`.
+
+**Added 2026-09-21 — `SalesMarketing` page and `components/marketing/`.**
+Dee: "You can remove the SALES and Marketing too. That is not needed. I can
+just create that project inside TalentOps." The module's WORKSPACES were
+already ordinary `workspaces` rows (`module = 'sales_marketing'`), so they now
+appear in the TalentOps tree like every other project; `/app/marketing`
+redirects to `/app/talentops`. Kept, not deleted, because the campaign and
+content-calendar screens are a finished design that may come back as a
+TalentOps view. The data layer they read (`lib/marketing`, `lib/data/marketing`,
+`lib/data/use-marketing`) and the permission keys stay live — the database
+probes still exercise them.

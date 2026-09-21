@@ -104,7 +104,6 @@ const Education = lazy(chunkFor("/app/education"));
 const Settings = lazy(chunkFor("/app/settings"));
 
 const CreditOps = lazy(chunkFor("/app/creditops"));
-const SalesMarketing = lazy(chunkFor("/app/marketing"));
 const FundingOps = lazy(chunkFor("/app/fundingops"));
 const BesCrm = lazy(chunkFor("/app/bes-crm"));
 const TalentOps = lazy(chunkFor("/app/talentops"));
@@ -595,7 +594,8 @@ const AppRoutes = () => {
                 Marketing is capability-gated rather than entitlement-gated
                 because it is BES's own operating module, not something a
                 customer subscribes to (rule 16). */}
-            <Route path="marketing" element={<SalesMarketing />} />
+            {/* Sales & Marketing lives inside TalentOps since 2026-09-21; old links still land. */}
+            <Route path="marketing" element={<Navigate to="/app/talentops" replace />} />
             <Route path="bes-partners" element={<RequireAgencyStaff label="BES Partners"><BesPartners /></RequireAgencyStaff>} />
             <Route path="bes-partners/:id" element={<RequireAgencyStaff label="Partner"><PartnerProfilePage /></RequireAgencyStaff>} />
             <Route path="commissions" element={<RequirePermission permission="fundingops.commissions.view" label="Commissions"><Commissions /></RequirePermission>} />

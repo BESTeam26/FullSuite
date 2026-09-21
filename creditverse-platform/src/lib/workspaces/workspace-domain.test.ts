@@ -19,7 +19,7 @@ const S = (id: string, position: number, isTerminal = false): WorkspaceStatus =>
 const I = (id: string, statusId: string | null): WorkspaceItem => ({
   id, title: id, description: null, priority: "Normal", assignedTo: null,
   teamId: null, dueAt: null, completedAt: null, createdAt: "2026-09-04T00:00:00Z",
-  boardId: null, statusId, itemTypeId: null,
+  boardId: null, statusId, itemTypeId: null, parentId: null,
 });
 const F = (fieldType: WorkspaceField["fieldType"], choices: string[] = []): WorkspaceField => ({
   id: "f", key: "f", label: "F", fieldType, choices, position: 0, archivedAt: null,

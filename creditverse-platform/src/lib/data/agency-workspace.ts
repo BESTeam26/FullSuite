@@ -25,20 +25,26 @@ export async function fetchAgencyWorkspaces(agencyId: string): Promise<Workspace
 
 export async function createAgencyWorkspace(agencyId: string, input: WorkspaceInput): Promise<string> {
   const sb = requireSupabase();
-  const { data, error } = await sb
+  /* The id is minted here and the insert asks for nothing back. Asking for
+     `returning id` runs the SELECT policy on the new row inside the same
+     statement, and that policy reaches the row through `workspace_reach(id)`
+     — a lookup whose snapshot predates the insert, so it finds nothing and
+     the whole create is refused as "violates row-level security" even for the
+     owner (P-031, 2026-09-21). The insert policy itself was never the problem. */
+  const id = crypto.randomUUID();
+  const { error } = await sb
     .from("workspaces")
     .insert({
-      agency_id: agencyId, organization_id: null,
+      id, agency_id: agencyId, organization_id: null,
       name: input.name, description: input.description ?? null,
       icon: input.icon ?? null, colour: input.colour ?? null,
-    })
-    .select("id").single();
+    });
   if (error) throw error;
   /* Same defaults as a customer workspace: without a status set nothing can
      be filed in it, and the failure looks like a bug in the task rather than
      an empty workspace. */
-  await seedWorkspaceDefaults(data.id as string);
-  return data.id;
+  await seedWorkspaceDefaults(id);
+  return id;
 }
 
 /* ── Checklist ────────────────────────────────────────────────────────── */

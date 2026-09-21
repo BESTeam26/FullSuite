@@ -41,17 +41,17 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   EMPTY_COUNTERS, GLOBAL_VIEWS, type Campaign, type GlobalViewId, type MarketingWorkItem,
 } from "@/lib/marketing/marketing-domain";
-import { MarketingTreeSidebar, type MarketingSelection } from "@/components/dashboard/marketing/MarketingTreeSidebar";
-import { MarketingDashboard } from "@/components/dashboard/marketing/MarketingDashboard";
-import { MarketingTaskList, type TaskListFilters } from "@/components/dashboard/marketing/MarketingTaskList";
-import { ContentCalendar } from "@/components/dashboard/marketing/ContentCalendar";
-import { CampaignsView } from "@/components/dashboard/marketing/CampaignsView";
-import { CampaignPage } from "@/components/dashboard/marketing/CampaignPage";
-import { CreateContentDialog, type NewContent } from "@/components/dashboard/marketing/CreateContentDialog";
-import { PartnerWorkspaceHeader } from "@/components/dashboard/marketing/PartnerWorkspaceHeader";
-import { NewMarketingTaskDialog } from "@/components/dashboard/marketing/NewMarketingTaskDialog";
-import { SheetImportDialog } from "@/components/dashboard/marketing/SheetImportDialog";
-import { MarketingItemDrawer } from "@/components/dashboard/marketing/MarketingItemDrawer";
+import { MarketingTreeSidebar, type MarketingSelection } from "@/_archive/components/marketing/MarketingTreeSidebar";
+import { MarketingDashboard } from "@/_archive/components/marketing/MarketingDashboard";
+import { MarketingTaskList, type TaskListFilters } from "@/_archive/components/marketing/MarketingTaskList";
+import { ContentCalendar } from "@/_archive/components/marketing/ContentCalendar";
+import { CampaignsView } from "@/_archive/components/marketing/CampaignsView";
+import { CampaignPage } from "@/_archive/components/marketing/CampaignPage";
+import { CreateContentDialog, type NewContent } from "@/_archive/components/marketing/CreateContentDialog";
+import { PartnerWorkspaceHeader } from "@/_archive/components/marketing/PartnerWorkspaceHeader";
+import { NewMarketingTaskDialog } from "@/_archive/components/marketing/NewMarketingTaskDialog";
+import { SheetImportDialog } from "@/_archive/components/marketing/SheetImportDialog";
+import { MarketingItemDrawer } from "@/_archive/components/marketing/MarketingItemDrawer";
 import { PartnerFilesTab } from "@/components/agency/partner/PartnerFilesTab";
 import { PartnerActivityTab } from "@/components/agency/partner/PartnerActivityTab";
 import { PARTNER_VIEWS, type PartnerViewId } from "@/lib/marketing/marketing-domain";

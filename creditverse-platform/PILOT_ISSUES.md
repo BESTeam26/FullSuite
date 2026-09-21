@@ -817,3 +817,43 @@ verifier: Roniel (or any of the five) activating successfully.
 
 Cost line: does this increase recurring infrastructure cost? No. Cost scales
 with: nothing — a one-time data repair.
+
+### P-031 · Owner cannot create a BES-internal workspace ("violates row-level security policy for table workspaces") — FIXED AWAITING LIVE RETEST
+
+**2026-09-21 · reporter: Dee (live, TalentOps › New workspace "Test 123") ·
+module: TalentOps · class A pilot defect · severity: S2.**
+
+**Root cause.** The insert was allowed — `is_agency_manager_or_above()` is
+true for Dee. The refusal came from the `returning id` step: the `workspaces`
+SELECT policy (D-021 rewrite) reaches an agency-owned row through
+`workspace_reach(id, null)`, a STABLE function that looks the row up, and
+inside the inserting statement its snapshot predates the insert, so it finds
+nothing. Postgres reports that as the same 42501 "new row violates row-level
+security policy". Proved in a rolled-back transaction: the same insert without
+RETURNING succeeds and the row is visible in the next statement.
+
+**Fix.** `createAgencyWorkspace` mints the id client-side and inserts without
+asking for the row back (`src/lib/data/agency-workspace.ts`). No RLS change
+during the pilot — the policy is right about who may read; only the
+same-statement read-back was wrong. If a second writer hits this shape, the
+proper structural fix is a row-local clause in `workspaces_select` for
+agency-owned rows, planned rather than done mid-pilot.
+
+**Verified.** As Dee, in a rolled-back transaction: workspace + two statuses +
+one board created and readable (the exact sequence the app runs). Live
+verifier: Dee creating her workspace in TalentOps.
+
+Cost line: no recurring cost change; one fewer round trip per create.
+
+### P-032 · Communication day marker is a loud sticky pill — FIXED AWAITING LIVE RETEST
+
+**2026-09-21 · reporter: Dee · module: Communication · class B pilot UX
+correction · severity: S4.** "This date on the Communication is not subtle …
+it does not disappear … a LOUD element." The day divider was a bordered,
+shadowed pill pinned to the top of the scroll box for the whole day.
+
+**Fix.** `ConversationPane.tsx`: the marker scrolls with the messages (no
+`sticky`), and is a plain 11px muted label between two faint rules — findable
+when scanning, silent otherwise. Every message already carries its own time.
+
+Cost line: none.

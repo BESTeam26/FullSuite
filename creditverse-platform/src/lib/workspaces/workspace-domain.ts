@@ -109,6 +109,8 @@ export interface Workspace {
   module?: string | null;
   /** The partner it belongs to, for a partner workspace inside a module. */
   partnerGroupId?: string | null;
+  /** That partner's name, joined on the same read. */
+  partnerName?: string;
   name: string;
   description: string | null;
   icon: string | null;
@@ -132,6 +134,8 @@ export interface WorkspaceItem {
   boardId: string | null;
   statusId: string | null;
   itemTypeId: string | null;
+  /** The item this is a subtask of, or null for a top-level task. */
+  parentId: string | null;
 }
 
 const byPosition = <T extends { position: number; key?: string }>(a: T, b: T) =>
@@ -177,3 +181,10 @@ export const openItemCount = (statuses: WorkspaceStatus[], items: WorkspaceItem[
   const terminal = new Set(statuses.filter((s) => s.isTerminal).map((s) => s.id));
   return items.filter((i) => !i.statusId || !terminal.has(i.statusId)).length;
 };
+
+/** Top-level tasks only: a subtask is listed under its parent, not beside it. */
+export const topLevelItems = <T extends WorkspaceItem>(items: T[]) => items.filter((i) => !i.parentId);
+
+/** The subtasks of one item, oldest first so the list reads in the order they were added. */
+export const subtasksOf = <T extends WorkspaceItem>(items: T[], parentId: string) =>
+  items.filter((i) => i.parentId === parentId).sort((a, b) => a.createdAt.localeCompare(b.createdAt));

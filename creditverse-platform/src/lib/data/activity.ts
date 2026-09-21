@@ -176,6 +176,29 @@ const mapRow = (r: Row): TimelineEntry => ({
  * `actor_name` is denormalised on the row, so rendering never joins to profiles
  * per entry — the N+1 this would otherwise be.
  */
+/**
+ * One bounded read across many records of one type — a workspace's Activity
+ * tab reads the events of every item it lists in a single request rather than
+ * one timeline per item (rule 14). RLS decides which rows come back.
+ */
+export async function fetchTimelineAcross(
+  entityType: string,
+  entityIds: string[],
+  limit = 100,
+): Promise<TimelineEntry[]> {
+  if (entityIds.length === 0) return [];
+  const sb = requireSupabase();
+  const { data, error } = await sb
+    .from("activity_events")
+    .select("*")
+    .eq("entity_type", entityType)
+    .in("entity_id", entityIds)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []).map(mapRow);
+}
+
 export async function fetchTimeline(
   entityType: string,
   entityId: string,

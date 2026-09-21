@@ -53,6 +53,12 @@ export interface AgencyRouteSpec {
   access: "user" | "lead" | "manage" | "admin";
   /** An extra named permission, where the gate alone is not the question. */
   permission?: string;
+  /**
+   * Other named permissions that ALSO open this door. A module folded into
+   * another keeps its own grant: a marketing hire's key still opens TalentOps,
+   * where their workspaces now live, without being handed the wider key.
+   */
+  alsoPermission?: string[];
   /** Why it is locked. Shown to an owner, never invented. */
   lockedReason?: string;
 }
@@ -119,8 +125,9 @@ export const AGENCY_ROUTES: AgencyRouteSpec[] = [
   { key: "creditops", label: "CreditOps", path: "/app/creditops", readiness: "ready", access: "user", permission: "creditops.clients.view" },
   { key: "fundingops", label: "FundingOps", path: "/app/fundingops", readiness: "ready", access: "user", permission: "fundingops.files.view" },
   { key: "bes_crm", label: "BES CRM", path: "/app/bes-crm", readiness: "ready", access: "user", permission: "crm.projects.view" },
-  { key: "talentops", label: "TalentOps", path: "/app/talentops", readiness: "ready", access: "user", permission: "talentops.view" },
-  { key: "marketing", label: "Sales & Marketing", path: "/app/marketing", readiness: "ready", access: "user", permission: "marketing.workspace.view" },
+  /* Sales & Marketing is a set of workspaces inside TalentOps (2026-09-21);
+     its grant keeps its own key and opens the same door. */
+  { key: "talentops", label: "TalentOps", path: "/app/talentops", readiness: "ready", access: "user", permission: "talentops.view", alsoPermission: ["marketing.workspace.view"] },
 
   /* ── Admins and the owner ─────────────────────────────────────────── */
   { key: "organizations", label: "Organizations", path: "/app/subaccounts", readiness: "ready", access: "admin" },
@@ -194,7 +201,7 @@ export function accessTo(spec: AgencyRouteSpec, ctx: AccessContext): Access {
     : spec.access === "manage" ? manages
     : admin;
   if (!gate) return "hide";
-  if (spec.permission && !ctx.can(spec.permission)) return "hide";
+  if (spec.permission && !ctx.can(spec.permission) && !(spec.alsoPermission ?? []).some((p) => ctx.can(p))) return "hide";
   return "allow";
 }
 

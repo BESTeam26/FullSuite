@@ -296,8 +296,9 @@ export const Sidebar = () => {
         { label: "CreditOps", icon: FileText, href: "/app/creditops" },
         { label: "FundingOps", icon: Landmark, href: "/app/fundingops" },
         { label: "BES CRM", icon: Workflow, href: "/app/bes-crm" },
+        /* Sales & Marketing folded into TalentOps 2026-09-21 (Dee): its
+           workspaces are rows in the TalentOps tree; /app/marketing redirects. */
         { label: "TalentOps", icon: UserCheck, href: "/app/talentops" },
-        { label: "Sales & Marketing", icon: Megaphone, href: "/app/marketing" },
       ],
     },
     {

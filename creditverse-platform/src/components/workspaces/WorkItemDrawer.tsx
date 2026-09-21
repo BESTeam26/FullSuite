@@ -25,6 +25,7 @@ import { useWorkItemTimeline } from "@/lib/data/use-work-timeline";
 import { useQueryClient } from "@tanstack/react-query";
 import { useItemFieldValues, useSetItemFieldValue, useUpdateWorkspaceItem, useWorkspaceItems } from "@/lib/data/use-workspaces";
 import { WorkChecklist } from "@/components/workspaces/WorkChecklist";
+import { WorkSubtasks } from "@/components/workspaces/WorkSubtasks";
 import type { OrgMember, OrgTeam } from "@/lib/data/workspaces";
 import {
   isOverdue,
@@ -98,6 +99,7 @@ export function WorkItemDrawer({
   visibilityModule = "talentops",
   fieldGroups,
   extra,
+  onOpenItem,
   onClose,
 }: {
   /** The drawer resolves the LIVE item from the shared items query, so its own edits refresh it. */
@@ -128,6 +130,8 @@ export function WorkItemDrawer({
    * so the generic drawer never learns what a campaign is.
    */
   extra?: React.ReactNode;
+  /** Opening a subtask from inside the drawer: the caller swaps the item shown. Absent, subtasks are not offered. */
+  onOpenItem?: (item: WorkspaceItem) => void;
   onClose: () => void;
 }) {
   const auth = useAuth();
@@ -135,6 +139,7 @@ export function WorkItemDrawer({
   const qc = useQueryClient();
   const { items } = useWorkspaceItems(workspace.id);
   const item = items.find((i) => i.id === itemId) ?? null;
+  const parent = item?.parentId ? items.find((i) => i.id === item.parentId) ?? null : null;
   const update = useUpdateWorkspaceItem(workspace.id);
   const { values } = useItemFieldValues(item?.id ?? null);
   const setValue = useSetItemFieldValue(item?.id ?? "");
@@ -176,6 +181,11 @@ export function WorkItemDrawer({
           )}
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span>{workspace.name}</span>
+            {parent && onOpenItem && (
+              <button type="button" onClick={() => onOpenItem(parent)} className="rounded text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                Subtask of {parent.title}
+              </button>
+            )}
             {item.completedAt ? (
               <span className="inline-flex items-center gap-1 text-status-success"><CheckCircle2 className="h-3.5 w-3.5" /> Completed {formatDate(item.completedAt)}</span>
             ) : isOverdue(item) ? (
@@ -262,6 +272,11 @@ export function WorkItemDrawer({
           <div className="sm:col-span-2">
             <WorkChecklist workItemId={item.id} readOnly={readOnly} />
           </div>
+          {onOpenItem && !item.parentId && (
+            <div className="sm:col-span-2">
+              <WorkSubtasks parent={item} workspace={workspace} readOnly={readOnly} onOpen={onOpenItem} />
+            </div>
+          )}
           {extra && <div className="sm:col-span-2">{extra}</div>}
           {!readOnly && !item.completedAt && terminal && (
             <div className="sm:col-span-2">

@@ -16,6 +16,8 @@ import {
   deleteStatus,
   fetchAllWorkspaceItems,
   fetchAssignableOrgMembers,
+  fetchMyStarredItemIds,
+  setItemStarred,
   fetchItemFieldValues,
   fetchOrgTeams,
   setItemFieldValue,
@@ -35,6 +37,7 @@ import {
   type CreateWorkspaceItemInput,
 } from "@/lib/data/workspaces";
 import type { FieldValue } from "@/lib/workspaces/workspace-domain";
+import { fetchTimelineAcross } from "@/lib/data/activity";
 
 const useLive = () => {
   const auth = useAuth();
@@ -109,6 +112,8 @@ const useInvalidateWorkspace = () => {
   const qc = useQueryClient();
   return (workspaceId: string) => {
     void qc.invalidateQueries({ queryKey: workspaceItemsKey(workspaceId) });
+    /* The cross-workspace read (TalentOps MY WORK) shows the same rows. */
+    void qc.invalidateQueries({ queryKey: ["workspaces", "items", "all"] });
     void qc.invalidateQueries({ queryKey: ["work"] });
   };
 };
@@ -121,12 +126,46 @@ export function useCreateWorkspaceItem() {
   });
 }
 
+/**
+ * Move an item whose workspace is only known per row — a list across
+ * workspaces (MY WORK) cannot bind one workspace up front.
+ */
+export function useMoveWorkspaceItem() {
+  const invalidate = useInvalidateWorkspace();
+  return useMutation({
+    mutationFn: ({ itemId, statusId }: { workspaceId: string; itemId: string; statusId: string }) =>
+      updateWorkspaceItemStatus(itemId, statusId),
+    onSuccess: (_, { workspaceId }) => invalidate(workspaceId),
+  });
+}
+
 export function useUpdateWorkspaceItemStatus(workspaceId: string) {
   const invalidate = useInvalidateWorkspace();
   return useMutation({
     mutationFn: ({ itemId, statusId }: { itemId: string; statusId: string }) =>
       updateWorkspaceItemStatus(itemId, statusId),
     onSuccess: () => invalidate(workspaceId),
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/* Stars                                                                 */
+/* ------------------------------------------------------------------ */
+
+export const myStarsKey = ["workspaces", "stars", "mine"] as const;
+
+export function useMyStars() {
+  const live = useLive();
+  const q = useQuery({ queryKey: myStarsKey, queryFn: fetchMyStarredItemIds, enabled: live, staleTime: 60_000 });
+  return { starred: new Set(q.data ?? []), isLoading: live && q.isLoading };
+}
+
+export function useToggleStar() {
+  const auth = useAuth();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ itemId, starred }: { itemId: string; starred: boolean }) => setItemStarred(auth.user!.id, itemId, starred),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: myStarsKey }),
   });
 }
 
@@ -213,4 +252,21 @@ export function useOrgTeams(organizationId: string | null) {
   const create = useMutation({ mutationFn: (name: string) => createOrgTeam(organizationId as string, name), onSuccess: invalidate });
   const setMember = useMutation({ mutationFn: ({ teamId, userId, member }: { teamId: string; userId: string; member: boolean }) => setTeamMember(teamId, userId, member), onSuccess: invalidate });
   return { teams: q.data ?? [], isLoading: live && !!organizationId && q.isLoading, create, setMember };
+}
+
+/* ------------------------------------------------------------------ */
+/* Workspace activity — one read across the items on screen             */
+/* ------------------------------------------------------------------ */
+
+export function useWorkspaceActivity(itemIds: string[]) {
+  const live = useLive();
+  /* Keyed by the sorted id set so two renders with the same items share one request. */
+  const key = [...itemIds].sort().join(",");
+  const q = useQuery({
+    queryKey: ["activity", "work_item", "across", key],
+    queryFn: () => fetchTimelineAcross("work_item", itemIds, 100),
+    enabled: live && itemIds.length > 0,
+    staleTime: 15_000,
+  });
+  return { entries: q.data ?? [], isLoading: live && itemIds.length > 0 && q.isLoading, error: q.error ? (q.error as Error).message : null };
 }

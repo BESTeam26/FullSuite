@@ -10434,12 +10434,13 @@ export type Database = {
       partner_action_items: {
         Row: {
           agency_id: string
+          audience: string
           campaign_id: string | null
           cancelled_reason: string | null
           created_at: string
           detail: string | null
           fulfillment_client_id: string | null
-          group_id: string
+          group_id: string | null
           id: string
           kind: string
           needs_routing_review: boolean
@@ -10461,12 +10462,13 @@ export type Database = {
         }
         Insert: {
           agency_id: string
+          audience?: string
           campaign_id?: string | null
           cancelled_reason?: string | null
           created_at?: string
           detail?: string | null
           fulfillment_client_id?: string | null
-          group_id: string
+          group_id?: string | null
           id?: string
           kind?: string
           needs_routing_review?: boolean
@@ -10488,12 +10490,13 @@ export type Database = {
         }
         Update: {
           agency_id?: string
+          audience?: string
           campaign_id?: string | null
           cancelled_reason?: string | null
           created_at?: string
           detail?: string | null
           fulfillment_client_id?: string | null
-          group_id?: string
+          group_id?: string | null
           id?: string
           kind?: string
           needs_routing_review?: boolean
@@ -15986,6 +15989,53 @@ export type Database = {
           },
         ]
       }
+      work_item_stars: {
+        Row: {
+          created_at: string
+          user_id: string
+          work_item_id: string
+        }
+        Insert: {
+          created_at?: string
+          user_id: string
+          work_item_id: string
+        }
+        Update: {
+          created_at?: string
+          user_id?: string
+          work_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_item_stars_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_item_stars_work_item_id_fkey"
+            columns: ["work_item_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_work"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_item_stars_work_item_id_fkey"
+            columns: ["work_item_id"]
+            isOneToOne: false
+            referencedRelation: "work_attention"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_item_stars_work_item_id_fkey"
+            columns: ["work_item_id"]
+            isOneToOne: false
+            referencedRelation: "work_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       work_items: {
         Row: {
           agency_id: string
@@ -16011,6 +16061,7 @@ export type Database = {
           is_fixture: boolean
           item_type_id: string | null
           organization_id: string | null
+          parent_id: string | null
           partner_group_id: string | null
           partner_service_id: string | null
           previous_assigned_to: string | null
@@ -16058,6 +16109,7 @@ export type Database = {
           is_fixture?: boolean
           item_type_id?: string | null
           organization_id?: string | null
+          parent_id?: string | null
           partner_group_id?: string | null
           partner_service_id?: string | null
           previous_assigned_to?: string | null
@@ -16105,6 +16157,7 @@ export type Database = {
           is_fixture?: boolean
           item_type_id?: string | null
           organization_id?: string | null
+          parent_id?: string | null
           partner_group_id?: string | null
           partner_service_id?: string | null
           previous_assigned_to?: string | null
@@ -16197,6 +16250,27 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_items_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_work"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_items_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "work_attention"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_items_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "work_items"
             referencedColumns: ["id"]
           },
           {
@@ -20302,6 +20376,16 @@ export type Database = {
         Returns: string
       }
       queue_reminder_email: { Args: { p_reminder: string }; Returns: undefined }
+      raise_client_action: {
+        Args: {
+          p_client: string
+          p_detail?: string
+          p_kind?: string
+          p_origin_status?: Database["public"]["Enums"]["fulfillment_client_status"]
+          p_title?: string
+        }
+        Returns: string
+      }
       raise_partner_action: {
         Args: {
           p_client: string
@@ -20498,6 +20582,10 @@ export type Database = {
         Returns: undefined
       }
       resolve_agency_capability: { Args: { p_key: string }; Returns: boolean }
+      resolve_client_action: {
+        Args: { p_action: string; p_response?: string }
+        Returns: Json
+      }
       resolve_client_duplicate: {
         Args: { p_client: string; p_note?: string; p_outcome: string }
         Returns: undefined
@@ -21385,6 +21473,7 @@ export type Database = {
         | "CMS Issue 3"
         | "In Dispute Mailed"
         | "Results Available for Review"
+        | "For Client Confirmation"
       fulfillment_department:
         | "Onboarding"
         | "Dispute"
@@ -22154,6 +22243,7 @@ export const Constants = {
         "CMS Issue 3",
         "In Dispute Mailed",
         "Results Available for Review",
+        "For Client Confirmation",
       ],
       fulfillment_department: [
         "Onboarding",

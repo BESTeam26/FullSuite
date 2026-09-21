@@ -156,6 +156,15 @@ describe("an Agency Admin", () => {
   });
 });
 
+describe("a module folded into another keeps its own door", () => {
+  it("the Sales & Marketing grant alone opens TalentOps, where its workspaces now live", () => {
+    expect(allow(ctx("agency_user", ["marketing.workspace.view"]), "/app/talentops")).toBe(true);
+  });
+  it("and a user with neither key is still hidden from it", () => {
+    expect(allow(ctx("agency_user", []), "/app/talentops")).toBe(false);
+  });
+});
+
 describe("unfinished routes", () => {
   /* Synthetic, so the rule is tested rather than whichever example happens to
      be unfinished this release. */

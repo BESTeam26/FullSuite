@@ -48,6 +48,10 @@ export const AGENCY_PERMISSIONS = [
      is behind it. Two keys rather than one because a partner-facing manager may
      need to see a partner's content calendar without being able to move it. */
   "marketing.workspace.view", "marketing.tasks.manage",
+  /* TalentOps: the right to create, assign and move work in a BES-owned
+     TalentOps workspace (`talentops.view` is only the door). The database's
+     `workspace_reach` asks for the same key. */
+  "talentops.tasks.manage",
   /* Configuring a BES CRM project, and its lifecycle: complete, archive,
      reopen, and the narrow delete. The database asks for this key too — the
      menu is presentation, the function is the gate. */

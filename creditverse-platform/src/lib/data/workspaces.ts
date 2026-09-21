@@ -21,6 +21,7 @@ type WorkspaceRow = Tables<"workspaces"> & {
   workspace_item_types: Tables<"workspace_item_types">[];
   workspace_fields: Tables<"workspace_fields">[];
   organizations?: { name: string; agency_id: string } | null;
+  outsourcing_groups?: { name: string } | null;
 };
 
 const choicesOf = (options: unknown): string[] => {
@@ -34,7 +35,8 @@ const WORKSPACE_SELECT = `
   workspace_statuses(id, key, label, colour, position, canonical_stage, is_terminal),
   workspace_item_types(id, key, label, icon, position),
   workspace_fields(id, key, label, field_type, options, position, archived_at),
-  organizations(name, agency_id)
+  organizations(name, agency_id),
+  outsourcing_groups(name)
 `;
 
 export const mapWorkspace = (row: WorkspaceRow): Workspace => ({
@@ -47,6 +49,7 @@ export const mapWorkspace = (row: WorkspaceRow): Workspace => ({
   agencyId: row.agency_id ?? row.organizations?.agency_id ?? undefined,
   module: row.module ?? null,
   partnerGroupId: row.partner_group_id ?? null,
+  partnerName: row.outsourcing_groups?.name,
   name: row.name,
   description: row.description,
   icon: row.icon,
@@ -115,16 +118,16 @@ export async function fetchSharedWorkspaces(): Promise<Workspace[]> {
 }
 
 const ITEM_COLUMNS =
-  "id, title, description, priority, assigned_to, team_id, due_at, completed_at, created_at, board_id, status_id, item_type_id";
+  "id, title, description, priority, assigned_to, team_id, due_at, completed_at, created_at, board_id, status_id, item_type_id, parent_id";
 type ItemRow = Pick<
   Tables<"work_items">,
-  "id" | "title" | "description" | "priority" | "assigned_to" | "team_id" | "due_at" | "completed_at" | "created_at" | "board_id" | "status_id" | "item_type_id"
+  "id" | "title" | "description" | "priority" | "assigned_to" | "team_id" | "due_at" | "completed_at" | "created_at" | "board_id" | "status_id" | "item_type_id" | "parent_id"
 >;
 
 export const mapWorkspaceItem = (r: ItemRow): WorkspaceItem => ({
   id: r.id, title: r.title, description: r.description, priority: r.priority,
   assignedTo: r.assigned_to, teamId: r.team_id, dueAt: r.due_at, completedAt: r.completed_at, createdAt: r.created_at,
-  boardId: r.board_id, statusId: r.status_id, itemTypeId: r.item_type_id,
+  boardId: r.board_id, statusId: r.status_id, itemTypeId: r.item_type_id, parentId: r.parent_id,
 });
 
 export const WORKSPACE_ITEMS_LIMIT = 200;
@@ -179,6 +182,8 @@ export interface CreateWorkspaceItemInput {
   priority?: "Normal" | "High" | "Urgent";
   dueAt?: string | null;
   description?: string | null;
+  /** Set when this is a subtask; the parent must be in the same workspace. */
+  parentId?: string | null;
 }
 
 /**
@@ -203,6 +208,7 @@ export async function createWorkspaceItem(input: CreateWorkspaceItemInput): Prom
       item_type_id: input.itemTypeId,
       assigned_to: input.assignedTo ?? null,
       team_id: input.teamId ?? null,
+      parent_id: input.parentId ?? null,
     } as never)
     .select(ITEM_COLUMNS)
     .single();
@@ -243,6 +249,24 @@ export async function updateWorkspaceItem(itemId: string, patch: WorkspaceItemPa
   if (patch.statusId !== undefined) row.status_id = patch.statusId;
   if (Object.keys(row).length === 0) return;
   const { error } = await supabase.from("work_items").update(row as never).eq("id", itemId);
+  if (error) throw new Error(error.message);
+}
+
+/* ------------------------------------------------------------------ */
+/* Stars — a person's own shortlist (work_item_stars, RLS: own rows)     */
+/* ------------------------------------------------------------------ */
+
+/** The ids the signed-in person has starred. RLS returns only their own rows. */
+export async function fetchMyStarredItemIds(): Promise<string[]> {
+  const { data, error } = await supabase.from("work_item_stars").select("work_item_id").limit(500);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((r) => r.work_item_id);
+}
+
+export async function setItemStarred(userId: string, itemId: string, starred: boolean): Promise<void> {
+  const { error } = starred
+    ? await supabase.from("work_item_stars").upsert({ user_id: userId, work_item_id: itemId }, { onConflict: "user_id,work_item_id" })
+    : await supabase.from("work_item_stars").delete().eq("user_id", userId).eq("work_item_id", itemId);
   if (error) throw new Error(error.message);
 }
 
