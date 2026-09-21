@@ -1392,6 +1392,19 @@ result read on a desktop in either country.
 
 Cost line: none. One trigger on insert; no new query.
 
+**Three gaps closed afterwards (`1f6b8e7`).** Re-reading the instruction
+against the code found three places the lock had not reached. `set_work_schedule`
+still defaulted `p_effective_from` to the **UTC** date, so a lead saving a
+schedule after Manila midnight dated it tomorrow — now Eastern, like every
+other workforce date (`20260921015000`). The ET label existed only on My Time;
+**Time Overview and Attendance** show the same dates and now carry it too. And
+`shiftInDeviceZone()` renders Dee's optional second line for a reader outside
+Eastern — *"Your shift: 9:00 AM – 6:00 PM EDT · 9:00 PM – 6:00 AM in your
+local time"* — returning nothing on an Eastern device, because printing the
+same two times twice reads like a discrepancy. `eod_day_activity` was checked
+and needed no change: it compares instants (`due_at < now()`), not dates.
+2386 tests, lint 0, build 0.
+
 ### P-052 · Break and lunch did not accumulate across the day, and the timer restarted at zero — FIXED
 
 **2026-09-21 · reporter: Dee · module: My Time / Home clock · class C —
