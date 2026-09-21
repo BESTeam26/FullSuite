@@ -218,10 +218,30 @@ const Login = () => {
   const google = async () => {
     setBusy(true);
     setError(null);
-    /* Success is a redirect to Google, so nothing below runs on that path. */
-    const { error: oauthError } = await auth.signInWithGoogle(from);
-    if (oauthError) {
-      setError(oauthError);
+    /* Success is a redirect to Google, so nothing below runs on that path —
+       which is exactly why the failure path has to be airtight. A button that
+       says "Please wait…" for ever tells somebody to keep waiting for
+       something that already gave up (Dee, 2026-09-21).
+
+       The watchdog covers the case no error describes: the call returns
+       cleanly and the browser simply does not navigate. Nothing to catch, and
+       nothing to report, unless somebody is watching the clock. */
+    const watchdog = window.setTimeout(() => {
+      setBusy(false);
+      setError("Google did not open. Check that pop-ups and redirects are allowed, then try again.");
+    }, 8000);
+    try {
+      const { error: oauthError } = await auth.signInWithGoogle(from);
+      if (oauthError) {
+        window.clearTimeout(watchdog);
+        setError(oauthError);
+        setBusy(false);
+      }
+      /* No clearTimeout on success: the redirect is meant to happen, and if it
+         does this page is gone before the watchdog fires. */
+    } catch (e) {
+      window.clearTimeout(watchdog);
+      setError((e as Error)?.message ?? "Could not start Google sign-in.");
       setBusy(false);
     }
   };

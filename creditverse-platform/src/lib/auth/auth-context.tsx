@@ -413,14 +413,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
    */
   const signInWithGoogle = useCallback(async (redirectPath?: string) => {
     if (!supabase) return { error: "Backend not configured." };
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: authCallbackUrl({ next: redirectPath }),
-        queryParams: { prompt: "select_account" },
-      },
-    });
-    return { error: error?.message ?? null };
+    /* This CAN throw rather than return an error — the PKCE verifier is written
+       to storage before the redirect, and a browser that refuses storage
+       rejects instead. It used to reject straight through the caller, which
+       never cleared its busy flag, so the button sat on "Please wait…" for
+       ever with nothing said (Dee, 2026-09-21). A failure is a failure either
+       way; it is reported the same way either way. */
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: authCallbackUrl({ next: redirectPath }),
+          queryParams: { prompt: "select_account" },
+        },
+      });
+      return { error: error?.message ?? null };
+    } catch (e) {
+      return { error: (e as Error)?.message ?? "Could not start Google sign-in." };
+    }
   }, []);
 
   const signUp = useCallback(

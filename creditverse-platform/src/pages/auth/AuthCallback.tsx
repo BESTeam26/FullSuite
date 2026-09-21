@@ -49,7 +49,19 @@ const AuthCallback = () => {
     return () => clearTimeout(t);
   }, []);
 
-  if (status === "signed-in") {
+  /* A THIRD state, and the one that stranded people.
+   *
+   * `unavailable` means the session is real and identity could not be read —
+   * a transient query failure on the first sign-in, usually. The callback knew
+   * only `signed-in` and `signed-out`, so `unavailable` matched neither, the
+   * page span until the timeout and then bounced to /login. The second attempt
+   * found the session already stored and worked, which is exactly the
+   * first-try/second-try pattern Dee and Bryan both hit.
+   *
+   * They are signed IN. Sending them back to a login form is asking them to do
+   * again the thing they just did. The app has its own handling for an
+   * identity it cannot read, and that is where this belongs. */
+  if (status === "signed-in" || status === "unavailable") {
     const next =
       params.get("type") === "recovery"
         ? "/app/settings"

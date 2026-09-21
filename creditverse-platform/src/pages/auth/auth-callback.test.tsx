@@ -12,7 +12,7 @@ import { act, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import AuthCallback from "@/pages/auth/AuthCallback";
 
-const status = { value: "loading" as "loading" | "signed-in" | "signed-out" };
+const status = { value: "loading" as "loading" | "signed-in" | "signed-out" | "unavailable" };
 vi.mock("@/lib/auth/auth-context", () => ({ useAuth: () => ({ status: status.value }) }));
 vi.mock("@/components/auth/RequireAuth", () => ({
   FullScreenSpinner: () => <p>waiting</p>,
@@ -109,6 +109,16 @@ describe("the OAuth callback", () => {
        is what made the first attempt fail. */
     at("?code=refreshed");
     expect(screen.getByText("waiting")).toBeInTheDocument();
+  });
+
+  it("forwards somebody whose session is real but whose identity would not load", () => {
+    /* `unavailable` matched neither branch, so the page span to the timeout and
+       then sent a signed-IN person back to the login form. That is the
+       first-try failure Dee and Bryan both hit. */
+    status.value = "unavailable";
+    at("?code=abc123");
+    expect(screen.getByText("the app")).toBeInTheDocument();
+    expect(screen.queryByText("login page")).toBeNull();
   });
 
   it("honours recovery links, which carry no code", () => {
