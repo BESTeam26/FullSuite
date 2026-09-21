@@ -4,6 +4,43 @@ Decisions that shaped the system, with enough context that nobody needs to
 re-derive them from commit history. Newest first. Small fixes do not belong
 here — depth of record matches depth of change.
 
+## AD-012 · 2026-09-21 — Presence precedence, and the two exceptions it must never hide
+
+**Decision (Dee).** One order decides every badge on the presence board, so
+two badges can never contradict each other:
+
+```
+approved leave → day off / no schedule → live clock → clocked out
+              → not in yet → absent
+```
+
+with the stated exception that **a live clock must never silently coexist
+with Day Off or Approved Leave.** Implemented as: the live clock always shows
+as the live state, and the calendar is carried BESIDE it as an `exception` —
+
+| Situation | Board reads |
+|---|---|
+| Clocked in on a scheduled day off | **Working** + *Unscheduled shift* |
+| Clocked in while on approved leave | **Working** + *Leave conflict*, raised for management review |
+
+Neither state overwrites the other. "On leave" for somebody currently working
+is a falsehood; "Working" with nothing beside it is half a truth.
+
+With no live entry, first match wins: approved leave → any time logged today
+(Clocked out) → day off / no schedule → scheduled with the shift still
+running (Not in yet) → scheduled with the shift ended (**Absent**).
+
+**Absent is concluded when the shift ends, not at midnight.** The attendance
+engine only calls a day absent once the day is over, because until then
+somebody may still arrive; on a live board that is too late to be useful to a
+team lead. Same conclusion, reached when it becomes true — and the engine
+remains the only thing that decides what the day WAS, for scoring and pay.
+
+**`exception` is derived, never stored, and never an authorization input.**
+Proof: `supabase/scripts/presence-probe.mjs`, 13 cases including both
+exceptions and the scope check (an agent manages nobody, so the board is empty
+for them). Implemented in migration `20260921011000`.
+
 ## AD-011 · 2026-09-21 — Organizational units exist because BES has them, not because a type of work exists
 
 **Decision.** The BES structure is the one Dee stated on 2026-09-21 and

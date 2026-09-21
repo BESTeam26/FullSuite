@@ -10,11 +10,12 @@
  * here and this card is not rendered for them (rule 20b).
  */
 import { Link } from "react-router-dom";
-import { Coffee, UtensilsCrossed, LogOut, Clock, CircleDot, CalendarOff, CalendarX, UserX } from "lucide-react";
+import { AlertTriangle, Coffee, UtensilsCrossed, LogOut, Clock, CircleDot, CalendarOff, CalendarX, UserX } from "lucide-react";
 import { formatTimeAgo } from "@/lib/format-date";
 import { formatDuration } from "@/lib/time-domain";
 import {
-  presenceCounts, PRESENCE_LABEL, PRESENCE_ORDER, PRESENCE_TONE, useTeamPresence, type PresenceState,
+  EXCEPTION_DETAIL, EXCEPTION_LABEL, exceptionCount, presenceCounts,
+  PRESENCE_LABEL, PRESENCE_ORDER, PRESENCE_TONE, useTeamPresence, type PresenceState,
 } from "@/lib/data/use-team-presence";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +27,7 @@ const ICON: Record<PresenceState, typeof Clock> = {
 export function TeamPresence({ names }: { names: Map<string, string> }) {
   const { presence, isLoading, error } = useTeamPresence();
   const counts = presenceCounts(presence);
+  const exceptions = exceptionCount(presence);
   /* Working first, then the people who stepped away, then everybody else —
      a manager reads this top-down looking for who is reachable. */
   const rows = [...presence].sort(
@@ -41,6 +43,15 @@ export function TeamPresence({ names }: { names: Map<string, string> }) {
           Attendance
         </Link>
       </div>
+
+      {exceptions > 0 && (
+        <Link to="/app/people/attendance"
+          className="mb-2 flex items-center gap-1.5 rounded-lg border border-destructive/30 bg-status-danger-tint px-2 py-1 text-[11px] font-semibold text-status-danger hover:border-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
+          {exceptions} needing review
+          <span className="font-normal text-muted-foreground">on the clock against the calendar</span>
+        </Link>
+      )}
 
       <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px]">
         {PRESENCE_ORDER.filter((s) => counts[s] > 0).map((s) => (
@@ -71,6 +82,11 @@ export function TeamPresence({ names }: { names: Map<string, string> }) {
                   {names.get(p.userId) ?? "Team member"}
                 </Link>
                 <span className="inline-flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
+                  {p.exception && (
+                    <AlertTriangle className="h-3 w-3 text-status-danger" aria-label={EXCEPTION_LABEL[p.exception]}>
+                      <title>{EXCEPTION_DETAIL[p.exception]}</title>
+                    </AlertTriangle>
+                  )}
                   <Icon className="h-3 w-3" aria-hidden />
                   {PRESENCE_LABEL[p.state]}
                   {p.since && (p.state === "on_break" || p.state === "on_lunch") && (

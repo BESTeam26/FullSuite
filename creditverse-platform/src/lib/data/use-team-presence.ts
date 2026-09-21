@@ -16,9 +16,23 @@ export type PresenceState =
   /* Not on the clock, and WHY: the attendance engine's own answer for the day. */
   | "not_in_yet" | "absent" | "off" | "on_leave" | "no_schedule";
 
+/** Where the clock and the calendar disagree — surfaced, never smoothed away. */
+export type PresenceException = "unscheduled_shift" | "leave_conflict";
+
+export const EXCEPTION_LABEL: Record<PresenceException, string> = {
+  unscheduled_shift: "Unscheduled shift",
+  leave_conflict: "Leave conflict",
+};
+
+export const EXCEPTION_DETAIL: Record<PresenceException, string> = {
+  unscheduled_shift: "Clocked in on a day they are not scheduled to work.",
+  leave_conflict: "Clocked in while on approved leave — for management review.",
+};
+
 export interface Presence {
   userId: string;
   state: PresenceState;
+  exception: PresenceException | null;
   /** When the current state began — the open entry's start, or the last clock-out. */
   since: string | null;
   firstIn: string | null;
@@ -84,6 +98,7 @@ export function useTeamPresence(options: { enabled?: boolean } = {}) {
       return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
         userId: r.user_id as string,
         state: r.state as PresenceState,
+        exception: (r.exception as PresenceException) ?? null,
         since: (r.since as string) ?? null,
         firstIn: (r.first_in as string) ?? null,
         workMinutes: Number(r.work_minutes ?? 0),
@@ -105,6 +120,9 @@ export function useTeamPresence(options: { enabled?: boolean } = {}) {
     error: q.error ? (q.error as Error).message : null,
   };
 }
+
+/** How many rows carry an exception — what a manager reviews first. */
+export const exceptionCount = (rows: readonly Presence[]) => rows.filter((p) => p.exception).length;
 
 /** How many people are in each state — the header line of the card. */
 export function presenceCounts(rows: readonly Presence[]): Record<PresenceState, number> {

@@ -1019,3 +1019,23 @@ addition is timing, not a new rule: the engine only calls a day absent once
 the day is over, so on the live board a scheduled person who has not clocked
 in AND whose shift has already ended reads **Absent** now rather than at
 midnight. A state nobody is in is not drawn.
+
+### P-041 · Presence precedence locked, with the two exceptions surfaced (Dee's launch checks)
+
+**2026-09-21 · Dee.** The order every badge follows is now fixed and proved
+(AD-012): approved leave → day off / no schedule → live clock → clocked out →
+not in yet → absent, and a live clock is never silently swallowed by the
+calendar.
+
+- **Clocked in on a day off** → **Working · Unscheduled shift**, not a normal
+  scheduled day.
+- **Clocked in while on approved leave** → **Working · Leave conflict**, and
+  the board raises "n needing review" at the top for management, filterable.
+- Both exceptions survive the shift: clocking out on a day off still reads
+  *Clocked out · Unscheduled shift*.
+
+`presence-probe.mjs` 13/13 against the live database. DEPLOYED, UNTESTED LIVE
+(no conflict exists in the real data today — the probe creates them and rolls
+them back).
+
+Cost line: none. Same single bounded query.

@@ -21124,6 +21124,7 @@ export type Database = {
         Args: never
         Returns: {
           activity: string
+          exception: string
           first_in: string
           leave_label: string
           position_title: string

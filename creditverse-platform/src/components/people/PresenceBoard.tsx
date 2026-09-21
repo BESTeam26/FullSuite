@@ -9,14 +9,15 @@
  */
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Search } from "lucide-react";
+import { AlertTriangle, Search } from "lucide-react";
 import { Avatar } from "@/components/common/Avatar";
 import { Input } from "@/components/ui/input";
 import { OpsSelect } from "@/components/ui/ops-select";
 import { formatDuration } from "@/lib/time-domain";
 import { timeIn, BES_TIMEZONE } from "@/lib/communication/conversation-clock";
 import {
-  presenceCounts, PRESENCE_LABEL, PRESENCE_ORDER, PRESENCE_PILL, PRESENCE_TONE,
+  exceptionCount, EXCEPTION_DETAIL, EXCEPTION_LABEL, presenceCounts,
+  PRESENCE_LABEL, PRESENCE_ORDER, PRESENCE_PILL, PRESENCE_TONE,
   useTeamPresence, type Presence, type PresenceState,
 } from "@/lib/data/use-team-presence";
 import { cn } from "@/lib/utils";
@@ -41,8 +42,12 @@ export function PresenceBoard({ names }: { names: Map<string, string> }) {
   const [search, setSearch] = useState("");
   const [team, setTeam] = useState<string>(ALL);
   const [status, setStatus] = useState<string>(ALL);
+  /* A separate switch rather than a status: an exception is a property OF a
+     state (working on a day off), not a state of its own. */
+  const [onlyExceptions, setOnlyExceptions] = useState(false);
 
   const counts = presenceCounts(presence);
+  const exceptions = exceptionCount(presence);
   const teams = useMemo(
     () => [...new Set(presence.map((p) => p.teamName).filter((t): t is string => !!t))].sort(),
     [presence],
@@ -58,10 +63,11 @@ export function PresenceBoard({ names }: { names: Map<string, string> }) {
             && !(p.positionTitle ?? "").toLowerCase().includes(needle)) return false;
         if (team !== ALL && p.teamName !== team) return false;
         if (status !== ALL && p.state !== status) return false;
+        if (onlyExceptions && !p.exception) return false;
         return true;
       })
       .sort((a, b) => (names.get(a.userId) ?? "").localeCompare(names.get(b.userId) ?? ""));
-  }, [presence, names, search, team, status]);
+  }, [presence, names, search, team, status, onlyExceptions]);
 
   return (
     <div className="space-y-3">
@@ -82,6 +88,23 @@ export function PresenceBoard({ names }: { names: Map<string, string> }) {
           </button>
         ))}
       </div>
+
+      {exceptions > 0 && (
+        <button type="button" aria-pressed={onlyExceptions} onClick={() => setOnlyExceptions((v) => !v)}
+          className={cn(
+            "flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            onlyExceptions
+              ? "border-destructive bg-status-danger-tint text-status-danger"
+              : "border-destructive/30 bg-status-danger-tint text-status-danger hover:border-destructive",
+          )}>
+          <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
+          <span className="font-semibold">{exceptions} needing review</span>
+          <span className="text-muted-foreground">
+            somebody is on the clock when the calendar says they should not be
+          </span>
+          <span className="ml-auto font-semibold underline-offset-2">{onlyExceptions ? "Show everyone" : "Show only these"}</span>
+        </button>
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         <label className="relative min-w-[12rem] flex-1 sm:max-w-xs">
@@ -140,9 +163,18 @@ export function PresenceBoard({ names }: { names: Map<string, string> }) {
                     </td>
                     <td className="px-3 py-2 text-muted-foreground">{p.teamName ?? "—"}</td>
                     <td className="px-3 py-2">
-                      <span className={cn("inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-semibold", PRESENCE_PILL[p.state])}>
-                        <span className={cn("h-1.5 w-1.5 rounded-full", PRESENCE_TONE[p.state])} aria-hidden />
-                        {PRESENCE_LABEL[p.state]}
+                      <span className="flex flex-wrap items-center gap-1">
+                        <span className={cn("inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-semibold", PRESENCE_PILL[p.state])}>
+                          <span className={cn("h-1.5 w-1.5 rounded-full", PRESENCE_TONE[p.state])} aria-hidden />
+                          {PRESENCE_LABEL[p.state]}
+                        </span>
+                        {p.exception && (
+                          <span title={EXCEPTION_DETAIL[p.exception]}
+                            className="inline-flex items-center gap-1 rounded-full border border-destructive/30 bg-status-danger-tint px-2 py-0.5 text-[11px] font-semibold text-status-danger">
+                            <AlertTriangle className="h-3 w-3" aria-hidden />
+                            {EXCEPTION_LABEL[p.exception]}
+                          </span>
+                        )}
                       </span>
                     </td>
                     <td className="px-3 py-2 tabular-nums text-foreground">
