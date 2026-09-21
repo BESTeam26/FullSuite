@@ -11,6 +11,9 @@ import { cn } from "@/lib/utils";
 import { DataSourceBadge } from "@/components/dashboard/DataSourceBadge";
 import { useMyWork, useAttention } from "@/lib/data/use-work";
 import { useMyDepartmentFiles } from "@/lib/data/use-my-department-files";
+import { MyWorkCards } from "@/components/work/MyWorkCards";
+import { MyDepartmentFileCards } from "@/components/work/MyDepartmentFileCards";
+import { actionableCount, dueLabel, isWaiting, workHref } from "@/lib/work/my-work-view";
 import { useCreditOpsExceptions } from "@/lib/data/use-creditops-exceptions";
 import { useAgency } from "@/lib/agency-context";
 import {
@@ -306,6 +309,8 @@ export const MyWorkPage = () => {
     ? items.findIndex((w) => w.id === linkedItem)
     : -1;
 
+  const waitingCount = items.filter((w) => !w.completedAt && isWaiting(w)).length;
+
   const divisionOf = (relatedType: string) =>
     relatedType === "fulfillment" || relatedType === "credit_case"
       ? "CreditOps"
@@ -325,8 +330,11 @@ export const MyWorkPage = () => {
     >
       <div className="mb-4 flex items-center gap-2">
         <DataSourceBadge source={source} />
+        {/* What the person can act on. Blocked work is theirs but is waiting
+            on somebody else, and counting it as a to-do overstates the day
+            (Dee, 2026-09-21). It is listed, separately, further down. */}
         <span className="text-xs text-muted-foreground">
-          {items.length} open {items.length === 1 ? "item" : "items"}
+          {actionableCount(items)} to do{waitingCount > 0 ? ` · ${waitingCount} waiting` : ""}
         </span>
       </div>
 
@@ -346,16 +354,25 @@ export const MyWorkPage = () => {
             ) : departmentFiles.files.length === 0 ? (
               <p className="py-6 text-center text-sm text-muted-foreground">No department work is assigned to you right now.</p>
             ) : (
-              <DivisionTable
-                columns={["Client", "Division", "Department", "Work status", "Updated"]}
-                rows={departmentFiles.files.map((f) => [
-                  <Link key={f.key} to={fileHref(f)} className="font-medium text-primary underline-offset-2 hover:underline">{f.clientName}{f.filePurpose ? ` · ${f.filePurpose}` : ""}</Link>,
-                  f.division,
-                  f.department,
-                  <StatusPill status={f.status} />,
-                  formatDate(f.updatedAt),
-                ])}
-              />
+              <>
+                {/* A five-column table does not fit a phone; the same rows as
+                    cards do, and each one opens its client in a single tap. */}
+                <div className="md:hidden">
+                  <MyDepartmentFileCards files={departmentFiles.files} hrefFor={fileHref} />
+                </div>
+                <div className="hidden md:block">
+                  <DivisionTable
+                    columns={["Client", "Division", "Department", "Work status", "Updated"]}
+                    rows={departmentFiles.files.map((f) => [
+                      <Link key={f.key} to={fileHref(f)} className="font-medium text-primary underline-offset-2 hover:underline">{f.clientName}{f.filePurpose ? ` · ${f.filePurpose}` : ""}</Link>,
+                      f.division,
+                      f.department,
+                      <StatusPill status={f.status} />,
+                      formatDate(f.updatedAt),
+                    ])}
+                  />
+                </div>
+              </>
             )}
           </ContentCard>
         </div>
@@ -384,16 +401,32 @@ export const MyWorkPage = () => {
             Nothing assigned to you right now.
           </div>
         ) : (
-          <DivisionTable
-            columns={["Task", "Division", "Status", "SLA (hrs)"]}
-            activeRow={activeRow >= 0 ? activeRow : undefined}
-            rows={items.map((w) => [
-              w.title,
-              w.workspaceId ? "Workspace" : divisionOf(w.relatedType),
-              <StatusPill status={w.stage} />,
-              w.slaHoursRemaining ?? "—",
-            ])}
-          />
+          <>
+            <div className="md:hidden">
+              <MyWorkCards
+                items={items}
+                divisionOf={(w) => (w.workspaceId ? "Workspace" : divisionOf(w.relatedType))}
+                viewMode={viewMode === "agency" ? "agency" : "organization"}
+              />
+            </div>
+            <div className="hidden md:block">
+              <DivisionTable
+                /* "SLA (hrs) 3.4" is a number the reader has to convert. The
+                   table says the same thing the cards do. */
+                columns={["Task", "Division", "Status", "Due"]}
+                activeRow={activeRow >= 0 ? activeRow : undefined}
+                rows={items.map((w) => [
+                  workHref(w, viewMode === "agency" ? "agency" : "organization")
+                    ? <Link to={workHref(w, viewMode === "agency" ? "agency" : "organization")!}
+                        className="font-medium text-primary underline-offset-2 hover:underline">{w.title}</Link>
+                    : w.title,
+                  w.workspaceId ? "Workspace" : divisionOf(w.relatedType),
+                  <StatusPill status={w.stage} />,
+                  dueLabel(w.dueAt),
+                ])}
+              />
+            </div>
+          </>
         )}
       </ContentCard>
     </HqPageShell>

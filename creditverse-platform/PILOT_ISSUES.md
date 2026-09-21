@@ -1153,3 +1153,38 @@ camera/gallery picker, and a notification tap from a locked phone.
 
 Cost line: none. No new queries, no new subscriptions; the URL change removes
 no round trip and adds none.
+
+### P-047 · My Work on a phone: cards instead of a squeezed table, and waiting work kept apart — BUILT, UI VERIFIED (empty state live), HUMAN TEST REQUIRED
+
+**2026-09-21 · Dee's second production target.** My Work drew two desktop
+tables — Client/Division/Department/Work status/Updated, and
+Task/Division/Status/**SLA (hrs)** — and neither belongs on a phone. The work
+rows were not even clickable, so "open the item" meant finding it again
+somewhere else.
+
+**What changed, against Dee's spec:**
+
+| Spec | Now |
+|---|---|
+| mobile-first, no squeezed table | cards below `md`, the table unchanged from `md` up |
+| only personally assigned actionable work | `fetchMyWork` already asks for `assigned_to = me`; the headline now counts only what can be acted on |
+| waiting work excluded | **Blocked** work is listed last under "Waiting on someone else", out of the day's list and out of the count |
+| department queue separate | unchanged — the queue has its own page, this shows only what is assigned |
+| large touch targets | every card is a 64px full-width target |
+| simple due/SLA language | "Overdue by 2 days" · "Due today" · "Due in 3 hours" · "Due Friday" · "No due date" — the desktop column says the same thing instead of "SLA (hrs) 3.4" |
+| open client/work item in one tap | the whole card is a link: a CreditOps file opens its client, a workspace task its workspace, a funding file its deal, a CRM item its project — and where there is no record to open it is plain text, not a link that goes nowhere |
+
+The deciding logic is `lib/work/my-work-view.ts`, not the component, so the
+phone and the desktop table cannot drift about what "mine" means. Grouping is
+Overdue → Due today → Next few days → Later → Waiting.
+
+**Verified:** 19 domain tests, 9 component tests (grouping, plain due
+language, waiting separated, one-tap links, no dead link, completed excluded,
+64px targets), full suite 2358, lint and build clean. **Live at 390px the page
+is Dee's real empty state — she has nothing assigned** — so the card list
+itself is proved by test, not by production data.
+
+**HUMAN TEST REQUIRED:** somebody with real assigned work opening My Work on
+their phone, and tapping a card through to the client or workspace.
+
+Cost line: none. No new queries — the same two reads the page already made.
