@@ -9,6 +9,7 @@ import { ContentCard } from "@/components/dashboard/DivisionLayout";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useAttendanceRange, useLeaveActions, usePendingLeave } from "@/lib/data/use-people";
+import { latestPerDay, useAttendanceCorrections } from "@/lib/attendance/use-attendance-corrections";
 import { formatDuration } from "@/lib/time-domain";
 import { formatDate } from "@/lib/format-date";
 import { businessDaysBetween } from "@/lib/calendar/us-federal-holidays";
@@ -97,6 +98,10 @@ const ATTENDANCE_TONE: Record<string, string> = {
   off: "border-border bg-muted text-muted-foreground",
   no_schedule: "border-border bg-muted text-muted-foreground",
 };
+/** What a correction's classification reads as on the day card. */
+const CORRECTED_STATUS: Record<string, string> = {
+  on_time: "present", late: "late", absent: "absent", ncns: "absent", approved_leave: "on_leave", half_day: "present",
+};
 const ATTENDANCE_LABEL: Record<string, string> = {
   present: "On time",
   late: "Late",
@@ -114,8 +119,17 @@ const ATTENDANCE_LABEL: Record<string, string> = {
  */
 export const AttendanceCard = ({ date, names }: { date: string; names: Map<string, string> }) => {
   const attendance = useAttendanceRange(date, date);
+  const corrections = useAttendanceCorrections(date, date);
 
-  const rows = (attendance.data ?? []).filter((a) => a.status !== "no_schedule");
+  /* A manager's correction stands over the derived day here exactly as it
+     does in the quarter score — the card showed "Late" for a day already
+     corrected to on time (Dee, 2026-09-21: "remove all late remark today").
+     One rule, `latestPerDay`, decides which correction is current. */
+  const corrected = (attendance.data ?? []).map((a) => {
+    const c = latestPerDay(corrections.data ?? [], a.userId).find((x) => x.day === a.day);
+    return c ? { ...a, status: CORRECTED_STATUS[c.to] ?? a.status, lateMinutes: c.to === "late" ? a.lateMinutes : 0, correctedBy: c.by } : a;
+  });
+  const rows = corrected.filter((a) => a.status !== "no_schedule");
   const unscheduled = (attendance.data ?? []).filter((a) => a.status === "no_schedule").length;
 
   return (

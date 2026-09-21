@@ -81,6 +81,19 @@ describe("the picker owns Enter while it is open", () => {
     expect(box().value).toBe("hi @Rowell Cruz ");
   });
 
+  it("an Enter the picker consumed never also sends, even when the picker has already closed (P-036)", () => {
+    composer();
+    type("hi @row");
+    /* The picker's window listener runs first and marks the key as taken;
+       the textarea handler must honour that mark rather than re-read the
+       picker's (already updated) state. */
+    fireEvent.keyDown(box(), { key: "Enter" });
+    const taken = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+    taken.preventDefault();
+    box().dispatchEvent(taken);
+    expect(onSend).not.toHaveBeenCalled();
+  });
+
   it("sends normally once the picker is closed", () => {
     composer();
     type("hi @row");

@@ -378,6 +378,15 @@ export function Composer({
             }
           }}
           onKeyDown={(e) => {
+            /* The picker handles its keys on the window in the CAPTURE phase
+               and closes itself with a state update. React flushes that update
+               before this handler runs, so by the time Enter reaches here the
+               picker is already gone and `mentionQuery` is null — and the same
+               keystroke that chose the person went on to send the message
+               (Dee, 2026-09-21). A key the picker consumed is marked
+               `defaultPrevented`; that mark, not the picker's state, is what
+               says "this Enter was taken". */
+            if (e.defaultPrevented) return;
             /* While the picker is open it owns Enter, Tab, the arrows and
                Escape — otherwise Enter would send "@Row" as a message
                instead of choosing Rowell. */

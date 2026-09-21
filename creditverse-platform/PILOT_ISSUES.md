@@ -924,3 +924,51 @@ its 12-second undo window are gone, along with the plumbing behind them —
 nothing else used it. A wrong message is deleted from its own "…" menu and
 leaves the honest tombstone. Channels, portal and communication suites (122)
 pass. DEPLOYED.
+
+### P-036 · Mention: Enter chose the person AND sent the message — FIXED AWAITING LIVE RETEST
+
+**2026-09-21 · reporter: Dee · module: Communication · class A · severity: S2.**
+"Doing a mention to someone and Enter is sending the message right away."
+
+**Root cause.** The mention picker handles its keys on the window in the
+capture phase and closes itself with a state update. React flushes that update
+before the textarea's own `onKeyDown` runs, so the guard that reads
+"is the picker open?" saw it already closed and treated the same Enter as
+"send". Fixed by honouring `defaultPrevented` — the mark the picker leaves on
+a key it consumed — rather than the picker's state. Covered by a test that
+reproduces exactly that order.
+
+Cost line: none.
+
+### P-037 · A new client's chosen agent was erased by routing — FIXED
+
+**2026-09-21 · reporter: the full gate (phase 37), after onboarding statuses
+moved to Client Success · module: CreditOps · class C data integrity.**
+Creating a client WITH an assigned agent opened its first department row
+unassigned — Client Success is `team_lead` mode — and
+`creditops_refresh_headline` then copied that emptiness back onto the client,
+silently discarding the person somebody had chosen. It surfaced the moment
+`New Client` began routing to a team-lead department; it would equally have
+lost an agent on any such department before.
+
+**Fix.** `20260921010600`: on INSERT only, an explicit `assigned_agent_id`
+seeds the first department record as a `manual_override`. A later status
+change still follows the department's own rule. Verified as Dee with a real
+agent, and phase 37 is 54/54 again.
+
+Cost line: none.
+
+### P-038 · Every "…" menu action needed a right-click to survive — FIXED (same cause as P-034)
+
+**2026-09-21 · reporter: James Ivan Lazo, relayed by Dee · module:
+Communication.** "Di po gumagana yung kahit anong buttons for interacting with
+chat." The message menu closed on the same click that opened it (P-034's
+listener), so Reply in thread, Save and Pin were unreachable by left-click —
+only a right-click, which fires no `click` event, left the menu standing.
+Fixed with P-034.
+
+**Checked at the database for two people, as themselves:** react, save, reply
+in thread, edit own and delete own all succeed for Dee and for James; pin is
+refused for James and allowed for Dee, which is correct — pinning is a channel
+manager's act — and the menu does not offer it to him, so there is no dead
+control.
