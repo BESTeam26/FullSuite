@@ -230,6 +230,47 @@ or quietly restate somebody's pay months later. Verified end to end: the same
 throwaway cutoff now releases and books an expense of PHP 10,000 in PHP.
 Status: LIVE VERIFIED by the decision itself — no operator step remains.
 
+### P-027 · A file can sit ACTIONABLE in two department queues at once — OPEN, needs Dee's call
+
+**2026-09-21 · reporter: Dee, asking whether handoffs are automatic · module:
+CreditOps · class A · severity: S2 (two agents can work one file).**
+
+The handoff itself IS automatic and needs no choice from the agent. Changing
+"Credit status after this work" fires `creditops_route_on_status` →
+`creditops_route_client`, which opens the destination department at its entry
+status. Verified live, rolled back:
+
+    Ready for Processing  →  Dispute = READY FOR PROCESSING
+    Round 8 Sent          →  Dispute = ROUND SENT - AWAITING RESULTS (unassigned)
+    CMS Issue 2           →  Support = MONITORING ISSUE
+
+The gap is what happens to the department the file LEFT. Only 3 of 57 routing
+rows set `closes_department`, all of them the "Ready for Reimport" family
+closing Dispute. So:
+
+    Ready for Processing → CMS Issue 2
+      Dispute = READY FOR PROCESSING (ACTIONABLE)
+      Support = MONITORING ISSUE     (ACTIONABLE)
+
+A dispute agent still sees that file as theirs to work while Support is
+chasing a monitoring issue on it. Where the source department is WAITING —
+which is every "Round N Sent" — this is correct and is the parallel work §17b
+intends. Where it is ACTIONABLE it is not parallel work, it is a department
+that was never told the file moved.
+
+**Not fixed: which moves finish the previous department is a product decision
+across 57 statuses, and rule 21b says the CreditOps status model is not
+altered casually.** Two ways to settle it, for Dee:
+
+1. **Per status** — set `closes_department` on the specific moves where the
+   previous department is genuinely done. Precise, and 57 decisions.
+2. **One rule** — when a file moves to a DIFFERENT department, any actionable
+   row it leaves behind stops being actionable. Nothing is marked complete,
+   because it was not completed. One decision, and no queue keeps a file that
+   has moved on.
+
+Recommend (2). Status: OPEN, awaiting Dee.
+
 ### P-026 · A productivity report by department cannot be trusted yet — OPEN
 
 **2026-09-20 · reporter: Dee, asking whether full per-department visibility
