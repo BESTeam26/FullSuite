@@ -83,7 +83,7 @@ export function TimerCard({
       <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
         {resting ? (
           <button type="button" onClick={onResume} disabled={busy}
-            className="inline-flex items-center gap-2 rounded-xl bg-status-success px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-status-success/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60">
+            className="inline-flex items-center gap-2 rounded-xl bg-status-success px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-status-success-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60">
             <Play className="h-4 w-4 fill-current" aria-hidden /> Back to work
           </button>
         ) : (

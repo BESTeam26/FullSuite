@@ -1,4 +1,5 @@
 import { lazy, Suspense } from "react";
+import { NewVersionBanner } from "@/components/common/NewVersionBanner";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -191,6 +192,9 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      {/* Deployed several times a day during the pilot: a tab left open keeps
+          running the build it loaded, and nothing used to say so (P-042). */}
+      <NewVersionBanner />
       <BrowserRouter>
         <AuthProvider>
           <ReferralProvider>

@@ -301,6 +301,16 @@ summary:focus-visible,
 .bg-status-danger { background-color: hsl(var(--status-danger)); }
 .hover\:bg-status-danger-strong:hover { background-color: color-mix(in srgb, hsl(var(--status-danger)) 88%, black); }
 
+/* The same for success, and for the same reason. `bg-status-success` was
+   being written in five places — a progress bar, a legend swatch, a presence
+   dot, "Back to work" — and NONE of them had a background, because only the
+   `-tint` variant was ever defined. An invisible bar merely looks empty; the
+   button was white text on the pale card behind it, which Dee could not read
+   at all (2026-09-21). --status-success is 162 88% 20%, a deep green that
+   carries white text well above the contrast floor. */
+.bg-status-success { background-color: hsl(var(--status-success)); }
+.hover\:bg-status-success-strong:hover { background-color: color-mix(in srgb, hsl(var(--status-success)) 88%, black); }
+
 /* Hover deepens the same hue — contrast rises, never falls. */
 .hover\:bg-status-success-tint-strong:hover { background-color: color-mix(in srgb, hsl(var(--status-success)) 20%, hsl(var(--card))); }
 .hover\:bg-status-warning-tint-strong:hover { background-color: color-mix(in srgb, hsl(var(--status-warning)) 22%, hsl(var(--card))); }
