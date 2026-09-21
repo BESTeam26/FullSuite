@@ -463,3 +463,8 @@ verify_jwt = true
 # person, so there is no JWT to verify.
 [functions.partner-autopay]
 verify_jwt = false
+
+# Called by pg_cron through pg_net with a shared secret, never by a browser:
+# there is no user JWT to verify, and the secret is the gate.
+[functions.attachment-purge]
+verify_jwt = false

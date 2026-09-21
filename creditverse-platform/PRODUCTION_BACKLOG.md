@@ -33,9 +33,11 @@ Last reconciled: 2026-09-21, after the production release (`0014381`).
 
 - Desktop / browser push notifications (brief: `docs/design-references/desktop-notifications-brief-2026-09-21.md`; VAPID keys already stored server-side).
 - TalentOps beyond the shipped workspace (D-022).
-- Sweep the storage bucket: the 46 MB of orphaned chat attachments left by the
-  Communication reset, and the objects behind removed messages (P-049) — both
-  need the Storage API, which SQL cannot call. Nothing serves either today.
+- **Retention classes for sensitive uploads** (credit reports, identity
+  documents, payroll files) so old files expire on a schedule instead of
+  relying on somebody deleting the message. Dee, 2026-09-21: worth doing,
+  explicitly not today. The purge worker (P-050) is the mechanism it would
+  reuse — it already deletes by queue, batch and retry.
 - CreditOps Onboarding-queue wording and any further queue polish.
 - Advanced reporting, dashboards, FundingOps depth — only if real operating need pulls them forward.
 

@@ -1283,3 +1283,56 @@ those objects needs a Storage-API sweep, which is in the backlog beside the
 orphans from the Communication reset.
 
 Cost line: none.
+
+### P-050 · Deleted attachments are now purged from storage, not merely hidden — BUILT · DATABASE VERIFIED · STORAGE VERIFIED
+
+**2026-09-21 · Dee:** *"I would not leave sensitive client artifacts sitting
+indefinitely in storage after the user deletes the message."* Hiding them from
+every reader (P-049) was the first half; this is the second.
+
+```
+message delete → tombstone → attachments hidden → rows queued for purge
+   → Storage-API worker deletes the objects → the queue records the outcome
+   → transient failures retry, invalid paths stop
+```
+
+**The parts.** `attachment_purge_queue` (path, source file and message, reason,
+requested/attempted/deleted timestamps, failure reason, retry count, abandoned
+marker; unique on bucket+path, so enqueueing twice is one request).
+A trigger on `messages.deleted_at` queues what the message carried, in the
+same transaction, and removes the dangling `files` rows. `attachment-purge`
+(Edge Function, service role, `verify_jwt = false`, gated by a dispatch
+secret) deletes in bounded batches of 50, retries transient failures and
+abandons a path after 5 with the reason recorded. `attachment_purge_dispatch`
+runs it hourly at :35 and does not wake it when the queue is empty.
+`attachment_purge_report()` is the dry run — **path · source message · reason ·
+live references · action** — and the worker's own `dry_run: true` makes the
+same decision from the same rule.
+
+**Nothing is deleted while anything live points at it.** Every step asks
+`attachment_has_live_reference(bucket, path)`, and the worker asks again at
+the moment of deletion, because the world may have changed since the queue
+row was written. A queued object that has regained a live reference is kept
+and the request dropped. (`files.path` is UNIQUE today, so one object cannot
+have two rows; the check is what protects the case if that ever changes.)
+
+**The backlog, run once.** Dry run first: 17 objects — 6 behind tombstoned
+messages including **Jet's credit-report screenshot**, 11 orphaned by the
+Communication reset — all with **0 live references**. Then the purge:
+**17 deleted, 1 kept** (a live message's object queued deliberately to prove
+the guard), 0 failed, 0 abandoned. Second run: `considered: 0` — idempotent.
+
+**Verified:** Jet's object is gone from `storage.objects`; all 17 purged paths
+are gone; the 9 live message objects are untouched; no dangling file rows
+remain; the queue records 17 purged, 0 pending, 0 abandoned. An unauthenticated
+call to the worker is refused 401. `attachment-purge-probe.mjs` **13/13** locks
+the rules in place.
+
+**Not done, deliberately:** retention classes for sensitive uploads (credit
+reports, identity documents, payroll files) so old files expire without a
+manual delete. Dee named it and said not to expand scope today — recorded in
+`PRODUCTION_BACKLOG.md` under LATER.
+
+Cost line: one Edge Function invocation an hour, and only when something is
+queued. **Cost scales with: the number of deleted or orphaned attachments** —
+roughly zero on a quiet day. Storage falls by 46 MB today.
