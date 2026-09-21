@@ -13,6 +13,7 @@ import { STANDING_BADGE, STANDING_LABEL } from "@/lib/attendance/attendance-scor
 import { useRecordCorrection } from "@/lib/attendance/use-attendance-corrections";
 import { EXCEPTION_TITLE, useRewardExceptions } from "@/lib/leave/use-reward-exceptions";
 import { useManagedTeam } from "@/lib/people/use-managed-team";
+import { PresenceBoard } from "@/components/people/PresenceBoard";
 import { cn } from "@/lib/utils";
 
 export function TeamAttendance() {
@@ -24,7 +25,10 @@ export function TeamAttendance() {
   const scopedExceptions = (exceptions.data ?? []).filter((x) => ids.has(x.userId));
 
   return (
-    <div>
+    <div className="space-y-4">
+      {/* Right now, before the quarter's score — Dee's 2026-09-21 board. */}
+      <PresenceBoard names={new Map(people.map((p) => [p.userId, p.name]))} />
+
       <div className="overflow-x-auto rounded-2xl border border-border bg-card">
         <table className="w-full text-left text-xs">
           <thead className="border-b border-border text-[10px] font-bold uppercase tracking-wider text-muted-foreground">

@@ -972,3 +972,40 @@ in thread, edit own and delete own all succeed for Dee and for James; pin is
 refused for James and allowed for Dee, which is correct — pinning is a channel
 manager's act — and the menu does not offer it to him, so there is no dead
 control.
+
+### P-039 · Break and Lunch punches were hidden in a ⋮ menu — FIXED (DEPLOYED)
+
+**2026-09-21 · reporter: Dee · module: My Time · class B · severity: S2 —
+pay depends on these punches.** "I missed the Break and Lunch punches on the
+timer, I only see clock out / clock in now."
+
+They existed, in the timer's ⋮ menu. A punch nobody can find is a punch
+nobody makes, so Break · Lunch · Stop are now three visible controls, each
+saying what it costs: **Break — paid up to your allowance**, **Lunch —
+unpaid**. On a break the pair is replaced by **Back to work**.
+
+**The pay rule Dee asked about was already correct and is unchanged**
+(`payable_minutes`): work minutes are paid; break minutes are paid up to the
+schedule's `break_minutes`; lunch is never paid. Every current schedule
+allows 30 break minutes and 60 lunch minutes, 9am–6pm — if the allowance
+should be 15 minutes, that is a schedule change under People & Teams →
+Schedule, not a code change.
+
+Cost line: none.
+
+### P-040 · Managers could not see who is online, on break or on lunch — BUILT (DEPLOYED, UNTESTED LIVE)
+
+**2026-09-21 · reporter: Dee · module: People & Teams.** Two surfaces, one
+source: a compact **Who's on now** card on People & Teams → Overview, and the
+full board at People & Teams → Attendance — counts for Working / On break /
+On lunch / Clocked out / Not in yet / On leave (each a filter), search, team
+and status filters, and a row per person with their team, status, clock-in,
+current activity and today's minutes.
+
+Everything is read off the canonical clock by `team_presence()`, which answers
+only for `managed_people()` — an agent sees nothing, a team lead their team, a
+division manager their division, the owner the company. No new table, no
+polling loop: refetched on focus and every two minutes.
+
+Cost line: no recurring infrastructure cost. Cost scales with: one bounded
+query per open management screen.

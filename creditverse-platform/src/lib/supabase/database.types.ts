@@ -21123,9 +21123,13 @@ export type Database = {
       team_presence: {
         Args: never
         Returns: {
+          activity: string
           first_in: string
+          leave_label: string
+          position_title: string
           since: string
           state: string
+          team_name: string
           user_id: string
           work_minutes: number
         }[]

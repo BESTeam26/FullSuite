@@ -55,22 +55,22 @@ describe("the running timer", () => {
     expect(onStop).toHaveBeenCalled();
   });
 
-  it("offers break and lunch, and says they are not worked time", () => {
-    /* The distinction is governance, not styling: rest never counts toward
-       pay or production, and the menu says so where the choice is made. */
+  it("offers Break and Lunch as visible punches, each saying what it costs", () => {
+    /* Dee, 2026-09-21: they were in a ⋮ menu and she could not find them.
+       The pay rule rides on these punches, so each one states it: break is
+       paid up to the schedule's allowance, lunch is not paid at all. */
     card();
-    fireEvent.click(screen.getByRole("button", { name: "Timer options" }));
-    expect(screen.getByText("Take a break")).toBeInTheDocument();
-    expect(screen.getByText("Go to lunch")).toBeInTheDocument();
-    expect(screen.getAllByText(/Counted as rest, not as worked time/)).toHaveLength(2);
+    expect(screen.getByRole("button", { name: /Break/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Lunch/ })).toBeInTheDocument();
+    expect(screen.getByText("Paid up to your allowance")).toBeInTheDocument();
+    expect(screen.getByText("Unpaid")).toBeInTheDocument();
   });
 
-  it("shows a break as a break, and offers the way back", () => {
+  it("shows a break as a break, and offers the way back instead of another break", () => {
     card({ kind: "break" });
     expect(screen.getByText("On break")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Timer options" }));
-    expect(screen.getByText("Back to work")).toBeInTheDocument();
-    expect(screen.queryByText("Take a break")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Back to work/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Break/ })).not.toBeInTheDocument();
   });
 
   it("cannot be operated while a write is in flight", () => {

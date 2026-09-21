@@ -10,7 +10,7 @@
  * here and this card is not rendered for them (rule 20b).
  */
 import { Link } from "react-router-dom";
-import { Coffee, UtensilsCrossed, LogOut, Clock, CircleDot } from "lucide-react";
+import { Coffee, UtensilsCrossed, LogOut, Clock, CircleDot, CalendarOff } from "lucide-react";
 import { formatTimeAgo } from "@/lib/format-date";
 import { formatDuration } from "@/lib/time-domain";
 import {
@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 
 const ICON: Record<PresenceState, typeof Clock> = {
   clocked_in: CircleDot, on_break: Coffee, on_lunch: UtensilsCrossed, clocked_out: LogOut, not_in: Clock,
+  on_leave: CalendarOff,
 };
 
 export function TeamPresence({ names }: { names: Map<string, string> }) {
