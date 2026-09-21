@@ -985,6 +985,47 @@ labour-counsel read on what a contractor verification letter may state.
 
 **Dependencies.** BES CRM QA gate; document builder templates; Dee's decision.
 
+## D-023 — Communication inbox: filter chips, sort and search (Dee's mockup, 2026-09-21)
+
+**Recorded by Claude, 2026-09-21. Reference:
+`docs/design-references/communication-inbox-mockup-2026-09-21.webp`** (Dee:
+"Can we adopt this as well for my Communication, the filter of the messages").
+Class D per §21a; awaiting Dee's go. Not on the launch line
+(login → access → activation → UAT → branding).
+
+**What Dee is asking for, in the platform's terms.** The Inbox column of the
+mockup: a chip row **Unread (n) · All · Recent · Starred** above the
+conversation list, a **Filters** menu (kind: channel / partner / direct), a
+**Newest** sort, and a **Search conversations** box that narrows the list as
+you type. Each row shows the conversation, its kind badge, the last message's
+author and first line, how long ago, and the unread count.
+
+**What already exists (rule 6).** `CommunicationHome` → Inbox already lists
+conversations from `inboxBuckets()` (Unread · Direct · Partners · Internal)
+with unread counts and last-message dates; the rail already has Favourites
+(the star); `lastMessageAt`, `unread`, `kind`, `partnerName` are on the
+`Channel` summary. So this is a *presentation* of data the screen already
+holds — no new query, no new table.
+
+**Smallest coherent build (~½ day).**
+1. `lib/communication/inbox.ts`: pure `filterInbox(channels, {chip, kind,
+   sort, search})` beside `inboxBuckets`, unit-tested (Unread = unread > 0;
+   Recent = last message within 7 days; Starred = the person's favourites;
+   Newest = by `lastMessageAt` desc; search over display name, partner,
+   organization).
+2. `CommunicationHome.tsx` Inbox view: chip row + sort + search bound to that
+   function; the chosen chip remembered per viewer in `localStorage`.
+3. Last-message preview line ("JM Navales: Client already submitted…") needs
+   the last message's author and text on the summary — check whether
+   `channel_summaries` already carries them; if not, that is one bounded
+   column addition to the summary view, not a per-row fetch (rule 14).
+
+**Four views.** Identical for all four: the list is whatever RLS returned;
+the chips only narrow it. Nothing here widens reach.
+
+**Cost.** Does it increase recurring infrastructure cost? No — reorders and
+filters an already-loaded list. Cost scales with: nothing new.
+
 ## D-022 — TalentOps as a project workspace (Dee's mockup, 2026-09-21)
 
 **Recorded by Claude, 2026-09-21. Reference:
