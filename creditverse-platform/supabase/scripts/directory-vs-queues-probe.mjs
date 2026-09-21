@@ -90,8 +90,16 @@ console.log("An agent placed in a CreditOps department");
   /* What the directory SHOULD hold for this person: clients whose partner is
      assigned to them by name or to a live team they are on — computed here
      from the assignment rows, not from the policy under test. */
+  /* Two routes reach the directory, and the oracle must count both or it
+     reports the second as a leak: the partner assignment, AND the file
+     assigned to this person by name. "Your own assignment is always visible"
+     is the older rule (P-013) — a queue can hand somebody a file whose
+     partner they do not otherwise hold, and hiding it from them would be the
+     bug. This line counted only the first until 2026-09-21, when the
+     Onboarding queue began assigning Client Success people directly. */
   const expected = one(`select count(*)::int as n from fulfillment_clients fc
-     where fc.outsourcing_group_id in (
+     where fc.assigned_agent_id = '${INSIDE}'
+        or fc.outsourcing_group_id in (
        select a.group_id from partner_assignments a where a.ended_on is null
          and (a.user_id = '${INSIDE}' or a.team_id in (
            select tm.team_id from team_memberships tm join teams t on t.id = tm.team_id
@@ -169,7 +177,8 @@ console.log("\nAnother CreditOps user works with no code change");
   /* Expected: the clients of every partner that reaches them through that team
      (the one just assigned plus any the team already had) or by name. */
   const expected = one(`select count(*)::int as n from fulfillment_clients fc
-     where fc.outsourcing_group_id = '${partner}'
+     where fc.assigned_agent_id = '${OUTSIDE}'
+        or fc.outsourcing_group_id = '${partner}'
         or fc.outsourcing_group_id in (select a.group_id from partner_assignments a where a.ended_on is null
              and (a.team_id = '${team}' or a.user_id = '${OUTSIDE}'))`).n;
   check("after placement with a team partner: the directory is exactly the team's partners' clients", after.list, expected);
