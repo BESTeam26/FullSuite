@@ -915,3 +915,12 @@ an @ only when the label has none. Messages already sent keep their text.
 Dee or James in CRM Team.
 
 Cost line: none.
+
+### P-035 · "Sent. Unsend" bar under the conversation — REMOVED (Dee, second request)
+
+**2026-09-21 · reporter: Dee · module: Communication · class B.** "REMOVE
+THIS, this is not needed. This is the second time I ask that." The bar and
+its 12-second undo window are gone, along with the plumbing behind them —
+nothing else used it. A wrong message is deleted from its own "…" menu and
+leaves the honest tombstone. Channels, portal and communication suites (122)
+pass. DEPLOYED.

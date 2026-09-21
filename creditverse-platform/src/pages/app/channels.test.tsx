@@ -70,8 +70,8 @@ vi.mock("@/lib/data/use-messages", () => ({
   useSendMessage: () => ({
     send: { mutateAsync: sendMutate, isPending: false },
     undo: { mutate: vi.fn() },
-    failed: [], canUndo: null, undoWindowMs: 12000,
-    dismissFailed: vi.fn(), clearUndo: vi.fn(),
+    failed: [],
+    dismissFailed: vi.fn(),
   }),
   useMessageActions: () => ({
     react: { mutate: reactMutate }, pin: { mutate: vi.fn() },

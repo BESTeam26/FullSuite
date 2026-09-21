@@ -20,7 +20,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Building2, FileText, Hash, Loader2, Lock, MessagesSquare, PanelRight, Pin,
-  ShieldAlert, Star, Undo2, Users, X,
+  ShieldAlert, Star, Users, X,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useTypingPresence } from "@/lib/data/use-typing-presence";
@@ -409,17 +409,6 @@ export function ConversationPane({
           className="mx-auto -mt-2 mb-1 rounded-full border border-border bg-card px-3 py-1 text-[11px] font-semibold text-primary shadow-sm hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
           Jump to latest
         </button>
-      )}
-
-      {sender.canUndo && !readOnly && (
-        <div className="flex items-center justify-end gap-2 border-t border-border px-3 py-1.5 text-[11px] text-muted-foreground">
-          Sent.
-          <button type="button"
-            onClick={() => sender.undo.mutate(sender.canUndo!)}
-            className="inline-flex items-center gap-1 font-bold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
-            <Undo2 className="h-3 w-3" /> Unsend
-          </button>
-        </div>
       )}
 
       {tab !== "messages" ? null : readOnly ? (

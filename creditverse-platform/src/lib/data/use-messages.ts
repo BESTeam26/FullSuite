@@ -95,17 +95,15 @@ export interface PendingSend {
 }
 
 /**
- * Sending, with an Undo window.
- *
- * §33: "Do not delay actual send for 10 seconds just to support Undo. Send
- * immediately. Undo reverses it." So the message goes now, and `undoable`
- * simply remembers which one may still be pulled back.
+ * Sending. The message goes immediately; there is no Undo window — Dee,
+ * 2026-09-21 (second time): the "Sent. Unsend" bar under the conversation
+ * "is not needed". A wrong message is deleted from its own "…" menu, which
+ * leaves the honest tombstone (§32) rather than pretending it was never sent.
  */
 export function useSendMessage(channelId: string | null, opts?: { onSent?: () => void }) {
   const qc = useQueryClient();
   const auth = useAuth();
   const [failed, setFailed] = useState<PendingSend[]>([]);
-  const [undoable, setUndoable] = useState<{ id: number; at: number } | null>(null);
   const key = richMessagesKey(channelId);
 
   const put = useCallback((rows: (prev: RichMessage[]) => RichMessage[]) => {
@@ -170,7 +168,6 @@ export function useSendMessage(channelId: string | null, opts?: { onSent?: () =>
           m.clientMessageId === v.clientMessageId
             ? { ...m, id: id ?? m.id, pending: false, clientMessageId: undefined }
             : m));
-        if (id) setUndoable({ id, at: Date.now() });
       }
       opts?.onSent?.();
     },
@@ -181,29 +178,12 @@ export function useSendMessage(channelId: string | null, opts?: { onSent?: () =>
     },
   });
 
-  const undo = useMutation({
-    mutationFn: (id: number) => deleteOwnMessage(id),
-    onSuccess: (_d, id) => {
-      put((prev) => prev.map((m) => (m.id === id ? { ...m, deleted: true, bodyText: null } : m)));
-      setUndoable(null);
-    },
-  });
-
-  /* The window is presentational: the row is already in the database, so an
-     expired Undo is simply a button that is no longer offered. */
-  const undoWindowMs = 12_000;
-  const canUndo = useMemo(
-    () => (undoable && Date.now() - undoable.at < undoWindowMs ? undoable.id : null),
-    [undoable],
-  );
-
   return {
-    send, undo, failed, canUndo, undoWindowMs,
+    send, failed,
     dismissFailed: (clientMessageId: string) => {
       setFailed((f) => f.filter((x) => x.clientMessageId !== clientMessageId));
       put((prev) => prev.filter((m) => m.clientMessageId !== clientMessageId));
     },
-    clearUndo: () => setUndoable(null),
   };
 }
 
