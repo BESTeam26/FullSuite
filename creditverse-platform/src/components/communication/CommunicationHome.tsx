@@ -272,7 +272,7 @@ export function CommunicationHome({
           </Line>
           <button type="button" aria-label={`Remove ${s.authorName}'s message from Saved`}
             onClick={() => unsave.mutate({ messageId: s.messageId, saved: true })}
-            className="mt-2 shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary group-hover:opacity-100">
+            className="mt-2 shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary group-hover:opacity-100 [@media(hover:none)]:opacity-100">
             <Bookmark className="h-3.5 w-3.5 fill-current" />
           </button>
         </li>

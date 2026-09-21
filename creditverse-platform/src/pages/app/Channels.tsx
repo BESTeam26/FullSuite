@@ -33,6 +33,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   Archive, ArchiveRestore, Building2, Hash, Loader2, Lock, MessagesSquare, Paperclip, Plus, Search, Settings2, UserRound,
   ShieldAlert, Users, X,
@@ -82,28 +83,41 @@ export default function Channels() {
   const actions = useChannelActions();
   const markRead = useMarkRead();
 
-  /* `?channel=` is how a partner record opens its own conversation. Read once
-     and then dropped from the URL, so a later click in the list is not dragged
-     back to it on the next render. */
+  /* WHAT IS OPEN LIVES IN THE URL, and that is a mobile fix.
+     `?channel=` was read once and then stripped, with the open conversation
+     held in component state. On a phone that produced two failures Dee hit in
+     the installed PWA (2026-09-21): the Android back gesture left FullSuite
+     entirely instead of returning to the list, because opening a conversation
+     pushed no history entry — and "All conversations" did nothing, because
+     the main pane fell back to the first channel whenever nothing was
+     explicitly open, so the list could never be the screen.
+     One source of truth fixes both: opening pushes a history entry, so the
+     system back button and the in-app Back are the same act, and a deep link
+     from a partner record still works. */
   const [params, setParams] = useSearchParams();
-  const [openId, setOpenId] = useState<string | null>(params.get("channel"));
-  useEffect(() => {
-    const requested = params.get("channel");
-    if (!requested) return;
-    setOpenId(requested);
-    const next = new URLSearchParams(params);
-    next.delete("channel");
-    setParams(next, { replace: true });
-  }, [params, setParams]);
+  const openId = params.get("channel");
+  const isMobile = useIsMobile();
+  const setPane = (next: { channel?: string | null; home?: string | null }) => {
+    const p = new URLSearchParams(params);
+    if (next.channel !== undefined) { if (next.channel) p.set("channel", next.channel); else p.delete("channel"); }
+    if (next.home !== undefined) { if (next.home) p.set("home", next.home); else p.delete("home"); }
+    /* A push, not a replace: the phone's back button is how people leave a
+       conversation, and it can only work if opening one was a navigation. */
+    setParams(p);
+  };
 
   const { folded, toggle: toggleSection } = useFoldedSections();
   /* HOME and a conversation are the same slot. Opening either closes the
-     other, so the main pane always has exactly one occupant. */
-  const [homeView, setHomeView] = useState<HomeView | null>(null);
+     other, so the main pane always has exactly one occupant — and both live
+     in the URL, so both answer the back button. */
+  const homeParam = params.get("home");
+  const homeView = (HOME_ITEMS.some((i) => i.key === homeParam) ? homeParam : null) as HomeView | null;
+  const setHomeView = (view: HomeView | null) => setPane({ home: view, channel: null });
   /* Column 4. Off by default — Dee asked for it "optional", and a panel that
      is always there costs width on every conversation that has no partner. */
   const [showContext, setShowContext] = useState(false);
-  const openChannel = (id: string) => { setHomeView(null); setOpenId(id); };
+  const openChannel = (id: string) => setPane({ channel: id, home: null });
+  const closeChannel = () => setPane({ channel: null });
   const [creating, setCreating] = useState(false);
   const railWidth = usePanelWidth({
     id: "communication-rail", userId: auth.user?.id ?? null,
@@ -120,12 +134,17 @@ export default function Channels() {
   const groups = useMemo(() => groupChannels(list), [list]);
   const waiting = useMemo(() => totalUnread(list), [list]);
 
+  /* A desktop pane needs an occupant, so it falls back to a sensible default.
+     A PHONE MUST NOT: the fallback is exactly what made the conversation list
+     unreachable, because "nothing open" still resolved to a conversation and
+     the list stayed hidden behind it. */
   const current = useMemo(() => {
     const live = list.filter((c) => !c.archivedAt);
-    return list.find((c) => c.id === openId)
-      ?? live.find((c) => c.kind === "general")
-      ?? live[0] ?? null;
-  }, [list, openId]);
+    const chosen = list.find((c) => c.id === openId) ?? null;
+    if (chosen) return chosen;
+    if (isMobile || homeView) return null;
+    return live.find((c) => c.kind === "general") ?? live[0] ?? null;
+  }, [list, openId, isMobile, homeView]);
 
   /* Opening a conversation marks it read. Not on every render — only when the
      open conversation changes and there is actually something unread, so a
@@ -156,7 +175,11 @@ export default function Channels() {
   const canCreate = agencyView ? perms.can("communication.channels.create") : true;
 
   return (
-    <div className="mx-auto flex h-[calc(100vh-4rem)] max-w-[1600px] flex-col gap-4 p-4 md:flex-row md:p-6">
+    /* `dvh`, not `vh`: on Android the URL bar collapses and `100vh` keeps the
+       old, taller viewport, which pushed the composer under the browser
+       chrome. `pb-[env(safe-area-inset-bottom)]` keeps it clear of the home
+       indicator in the installed PWA. */
+    <div className="mx-auto flex h-[calc(100dvh-4rem)] max-w-[1600px] flex-col gap-4 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:flex-row md:p-6">
       {/* Phone: the list OR the conversation, never both squeezed side by side
           (Dee's mobile standard §26). Tablet and up: the two panes. */}
       <aside aria-label="Conversations"
@@ -170,7 +193,7 @@ export default function Channels() {
         className={cn(
           "relative w-full shrink-0 flex-col md:flex md:w-[var(--rail-w)]",
           railWidth.dragging ? "" : "transition-[width] duration-150",
-          current ? "hidden" : "flex",
+          current || homeView ? "hidden" : "flex",
         )}>
         {/* The handle sits on the rail's right edge, hidden on a phone where
             the rail IS the screen. */}
@@ -218,7 +241,7 @@ export default function Channels() {
         {creating && canCreate && (
           <NewChannelForm owner={owner} agencyView={agencyView}
             onDone={() => setCreating(false)}
-            onCreated={(id) => { setOpenId(id); setCreating(false); }} />
+            onCreated={(id) => { openChannel(id); setCreating(false); }} />
         )}
 
         <div className="min-h-0 flex-1 overflow-y-auto">
@@ -308,9 +331,11 @@ export default function Channels() {
           </>
         )}
         {!homeView && current && (
-          <button type="button" onClick={() => setOpenId(null)}
-            className="flex h-11 items-center gap-1.5 border-b border-border px-3 text-sm font-medium text-foreground md:hidden">
-            <ArrowLeft className="h-4 w-4" /> All conversations
+          <button type="button" onClick={closeChannel}
+            /* Tall enough to hit with a thumb, and the only way back on a
+               phone besides the system gesture — which now does the same. */
+            className="flex h-12 w-full items-center gap-1.5 border-b border-border px-3 text-left text-sm font-semibold text-foreground md:hidden">
+            <ArrowLeft className="h-4 w-4 shrink-0" /> All conversations
           </button>
         )}
         {homeView ? null : !current ? (

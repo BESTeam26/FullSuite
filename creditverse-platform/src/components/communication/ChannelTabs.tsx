@@ -53,8 +53,11 @@ export function ChannelTabs({
   };
 
   return (
+    /* All four fit on a 360px phone: the labels stand down to icons and
+       counts below `sm`, rather than pushing Members off the edge behind a
+       scroll nobody sees (Dee, 2026-09-21). */
     <nav aria-label="Conversation sections"
-      className="flex gap-1 overflow-x-auto border-b border-border px-3">
+      className="flex gap-1 overflow-x-auto border-b border-border px-2 sm:px-3">
       {TABS.map((t) => {
         const on = active === t.key;
         const count = countFor(t.key);
@@ -65,15 +68,17 @@ export function ChannelTabs({
             onClick={() => onChange(t.key)}
             aria-current={on ? "page" : undefined}
             className={cn(
-              "flex shrink-0 items-center gap-1.5 border-b-2 px-2.5 py-2 text-xs font-semibold transition-colors",
+              "flex shrink-0 items-center gap-1.5 border-b-2 px-2 py-2.5 text-xs font-semibold transition-colors sm:px-2.5",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
               on
                 ? "border-primary text-foreground"
                 : "border-transparent text-muted-foreground hover:text-foreground",
             )}
           >
-            <t.icon className="h-3.5 w-3.5" />
-            {t.label}
+            <t.icon className="h-4 w-4 sm:h-3.5 sm:w-3.5" aria-hidden />
+            {/* The label is the accessible name on every size; below `sm` it
+                is read rather than drawn, so the row fits a narrow phone. */}
+            <span className="sr-only sm:not-sr-only">{t.label}</span>
             {count && (
               <span className={cn("rounded px-1 text-[10px] font-bold tabular-nums",
                 on ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground")}>

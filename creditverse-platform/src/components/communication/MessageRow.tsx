@@ -258,9 +258,11 @@ export function MessageRow({
       )}
 
       {/* Actions. Visible on hover and on keyboard focus — a menu you can only
-          reach with a mouse is a menu half the team cannot use (§22). */}
+          reach with a mouse is a menu half the team cannot use (§22). And a
+          hover bar is invisible on a phone, where there is no hover at all:
+          on a coarse pointer it is simply always there (Dee, 2026-09-21). */}
       {!m.deleted && !m.pending && (
-        <div className="absolute right-1 top-1 flex items-center gap-0.5 rounded-md border border-border bg-card opacity-0 shadow-sm transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+        <div className="absolute right-1 top-1 flex items-center gap-0.5 rounded-md border border-border bg-card opacity-0 shadow-sm transition-opacity focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
           <button type="button" aria-label="Add a reaction" onClick={() => setPickerOpen((v) => !v)}
             className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
             <SmilePlus className="h-3.5 w-3.5" />

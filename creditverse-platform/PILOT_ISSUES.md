@@ -1094,3 +1094,62 @@ only. The probe also learned that an own assignment is a legitimate second
 route to a client (P-013), so it stops reporting that as a leak.
 
 Cost line for all four: none.
+
+### P-046 · Communication was unusable on a phone: the conversation list could not be reached — FIXED (UI VERIFIED at 360/390/412, HUMAN TEST REQUIRED on the installed PWA)
+
+**2026-09-21 · reporter: Dee, from the installed Android PWA · module:
+Communication · class B · severity: S1 on mobile — the team is moving off
+Teams onto this.**
+
+**Root cause, and it was one thing.** What was open lived in component state,
+and the main pane fell back to the first channel whenever nothing was
+explicitly open. Two consequences on a phone, where the pane IS the screen:
+
+1. **"All conversations" did nothing.** It cleared the state, the fallback
+   immediately re-selected a channel, and the list stayed hidden behind it.
+   The list was unreachable from the moment Communication opened.
+2. **The Android back gesture left FullSuite.** Opening a conversation pushed
+   no history entry, so the system back button popped whatever came before
+   the app.
+
+**Fix — the URL is the single source of truth.** `?channel=<id>` and
+`?home=<view>` say what occupies the pane; opening pushes a history entry, so
+the system back button and the in-app Back are the same act, and a deep link
+from a notification or a partner record still lands correctly. The desktop
+fallback stays (a two-pane layout needs an occupant); **on a phone there is no
+fallback** — nothing open means the list is the screen.
+
+**Carried with it, all from Dee's list:**
+
+- **Hover-only controls** — react / reply / more sat at `opacity-0` until
+  hover, which a touch screen never produces. Visible on coarse pointers.
+- **Viewport and safe area** — `100dvh` instead of `100vh`, so a collapsing
+  Android URL bar cannot push the composer out of view, plus
+  `env(safe-area-inset-bottom)` for the installed PWA's home indicator.
+- **Messages · Files · Pins · Members** — all four now fit a 360px phone
+  (icons and counts below `sm`, labels still the accessible name) instead of
+  Members hanging off the edge behind an invisible scroll.
+- **Horizontal overflow** — an image attachment was capped at `max-w-sm`
+  (384px), wider than a 360px column, and dragged the whole message list
+  sideways. Capped to the column on a phone.
+- Back from a Home view (Inbox, Mentions, Saved, Drafts) works the same way.
+
+**Desktop is unchanged** — same two panes, same default selection, same
+controls; the only shared components touched are the message hover bar and
+the attachment width, both improvements at every size.
+
+**Verified by me at 360 × 780, 390 × 844 and 412 × 915 (Android Chrome
+emulation):** list is the screen · tap opens full-screen · in-app Back
+returns · **system back returns to the list and stays in the app** ·
+`?channel=` deep link opens the conversation · all four tabs fit and carry
+their counts · reaction/reply/more visible without hover · attachments and
+mentions render inside the column · composer reachable with the send button
+enabled · no page-level horizontal overflow at any of the three widths.
+2337 tests, lint and build clean.
+
+**HUMAN TEST REQUIRED**, because I cannot do these: the installed Android PWA
+specifically, a real on-screen keyboard over the composer, an actual send, the
+camera/gallery picker, and a notification tap from a locked phone.
+
+Cost line: none. No new queries, no new subscriptions; the URL change removes
+no round trip and adds none.

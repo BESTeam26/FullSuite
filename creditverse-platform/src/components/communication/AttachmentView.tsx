@@ -111,7 +111,9 @@ export function AttachmentView({ attachment }: { attachment: Attachment }) {
               onError={() => setFailed(true)}
               /* Capped so a tall screenshot does not push the conversation off
                  the screen, and `contain` so nothing is cropped away. */
-              className="max-h-80 max-w-sm object-contain"
+              /* `max-w-full` first: 24rem is wider than a 360px phone column, and an
+                 image that overflows drags the whole message list sideways. */
+              className="max-h-80 w-auto max-w-full object-contain sm:max-w-sm"
               loading="lazy"
             />
           ) : (
@@ -137,7 +139,7 @@ export function AttachmentView({ attachment }: { attachment: Attachment }) {
     <>
       <button type="button" onClick={() => void open()} disabled={busy}
         className={cn(
-          "flex w-full max-w-sm items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1.5 text-left text-xs transition-colors",
+          "flex w-full max-w-full items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1.5 text-left text-xs transition-colors sm:max-w-sm",
           "hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60",
         )}>
         {failed
