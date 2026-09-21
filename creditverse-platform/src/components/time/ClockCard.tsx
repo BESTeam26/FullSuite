@@ -26,7 +26,10 @@ import { Coffee, LogIn, LogOut, Play, UtensilsCrossed, Loader2, AlertTriangle } 
 import { useTimesheet } from "@/lib/data/use-time";
 import { useSchedules } from "@/lib/data/use-people";
 import { useAuth } from "@/lib/auth/auth-context";
-import { dayTotalForState, entrySeconds, formatDuration, liveDaySeconds, restBudget, stopwatch } from "@/lib/time-domain";
+import {
+  dayTotalForState, entrySeconds, formatDuration, liveDaySeconds, restBudget,
+  restChip, restClock, restPhrase, restPunchLabel, stopwatch,
+} from "@/lib/time-domain";
 import { timeIn, BES_TIMEZONE } from "@/lib/communication/conversation-clock";
 import { cn } from "@/lib/utils";
 
@@ -90,7 +93,13 @@ export function ClockCard() {
   const day = liveDaySeconds(t.entries, t.today, now);
   const sitting = open ? entrySeconds(open, now) : 0;
   const elapsed = open ? dayTotalForState(open.kind, day) : 0;
-  const budget = open && open.kind !== "work" ? restBudget(open.kind, day, mySchedule) : null;
+  /* Both allowances, always — the compact totals are shown while WORKING so
+     somebody knows what is left before they start another segment, not after
+     (Dee, 2026-09-21). The resting one drives the headline sentence. */
+  const breakBudget = restBudget("break", day, mySchedule);
+  const lunchBudget = restBudget("lunch", day, mySchedule);
+  const resting = open && open.kind !== "work" ? (open.kind as "break" | "lunch") : null;
+  const phrase = resting ? restPhrase(resting, resting === "break" ? breakBudget : lunchBudget) : null;
 
   /* The day's own division: continue what they were last on, so one tap does
      not silently file the morning under Admin. */
@@ -108,28 +117,41 @@ export function ClockCard() {
           )}
         </p>
         <p className="font-mono text-2xl font-extrabold tabular-nums tracking-tight text-foreground">
-          {open ? stopwatch(elapsed) : formatDuration(t.todayMinutes)}
+          {/* The DAY's accumulated figure for whatever is running — the whole
+              point of the fix. Rest reads "24:18" the way Dee writes it; work
+              keeps the fixed-width stopwatch so the digits do not reflow. */}
+          {!open ? formatDuration(t.todayMinutes) : resting ? restClock(elapsed) : stopwatch(elapsed)}
         </p>
       </div>
 
       <p className="mt-0.5 text-xs text-muted-foreground">
         {!open
           ? (t.todayMinutes > 0 ? "Worked today · your clock is stopped" : "You have not clocked in today")
-          : state === "working"
-            ? `today · this stretch ${stopwatch(sitting)}`
-            : `${state === "break" ? "Break" : "Lunch"} today · this one ${stopwatch(sitting)}`}
+          : resting
+            ? `used today · ${formatDuration(Math.round(day.workSeconds / 60))} worked · this one ${restClock(sitting)}`
+            : `today · this stretch ${stopwatch(sitting)}`}
       </p>
 
-      {budget && (
+      {phrase && (
         /* The allowance is the point of the number above it: break is paid up
            to it, lunch is not paid at all. */
-        <p className={cn("mt-1 text-xs font-semibold",
-          budget.overSeconds > 0 ? "text-status-danger" : "text-muted-foreground")}>
-          {budget.allowanceSeconds === null
-            ? "No schedule yet, so no allowance is set."
-            : budget.overSeconds > 0
-              ? `${formatDuration(Math.round(budget.overSeconds / 60))} over your ${formatDuration(Math.round(budget.allowanceSeconds / 60))} allowance`
-              : `${formatDuration(Math.round(budget.remainingSeconds! / 60))} of ${formatDuration(Math.round(budget.allowanceSeconds / 60))} left`}
+        <p className={cn("mt-1 flex items-center gap-1.5 text-xs font-semibold",
+          phrase.over ? "text-status-danger" : "text-muted-foreground")}>
+          {phrase.over && <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />}
+          {phrase.detail}
+        </p>
+      )}
+
+      {state === "working" && mySchedule && (
+        /* Standing reminder while working: how much of each allowance is gone,
+           so the decision to take another one is an informed one. */
+        <p className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+          <span className={cn(breakBudget.overSeconds > 0 && "font-semibold text-status-danger")}>
+            {restChip("break", breakBudget)}
+          </span>
+          <span className={cn(lunchBudget.overSeconds > 0 && "font-semibold text-status-danger")}>
+            {restChip("lunch", lunchBudget)}
+          </span>
         </p>
       )}
 
@@ -150,8 +172,12 @@ export function ClockCard() {
         )}
         {state === "working" && (
           <>
-            <Action busy={busy} tone="quiet" icon={Coffee} label="Start break" onClick={() => t.startBreak("break")} />
-            <Action busy={busy} tone="quiet" icon={UtensilsCrossed} label="Start lunch" onClick={() => t.startBreak("lunch")} />
+            {/* The label carries what is left, so the cost is visible BEFORE
+                the press rather than discovered on the payslip. */}
+            <Action busy={busy} tone="quiet" icon={Coffee}
+              label={restPunchLabel("break", breakBudget)} onClick={() => t.startBreak("break")} />
+            <Action busy={busy} tone="quiet" icon={UtensilsCrossed}
+              label={restPunchLabel("lunch", lunchBudget)} onClick={() => t.startBreak("lunch")} />
             <Action busy={busy} tone="danger" icon={LogOut} label="Clock out" onClick={() => t.clockOut()} />
           </>
         )}

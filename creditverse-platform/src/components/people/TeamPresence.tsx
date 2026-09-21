@@ -11,11 +11,10 @@
  */
 import { Link } from "react-router-dom";
 import { AlertTriangle, Coffee, UtensilsCrossed, LogOut, Clock, CircleDot, CalendarOff, CalendarX, UserX } from "lucide-react";
-import { formatTimeAgo } from "@/lib/format-date";
 import { formatDuration } from "@/lib/time-domain";
 import {
   EXCEPTION_DETAIL, EXCEPTION_LABEL, exceptionCount, presenceCounts,
-  PRESENCE_LABEL, PRESENCE_ORDER, PRESENCE_TONE, useTeamPresence, type PresenceState,
+  PRESENCE_LABEL, PRESENCE_ORDER, PRESENCE_TONE, restUsage, useTeamPresence, type PresenceState,
 } from "@/lib/data/use-team-presence";
 import { cn } from "@/lib/utils";
 
@@ -89,9 +88,21 @@ export function TeamPresence({ names }: { names: Map<string, string> }) {
                   )}
                   <Icon className="h-3 w-3" aria-hidden />
                   {PRESENCE_LABEL[p.state]}
-                  {p.since && (p.state === "on_break" || p.state === "on_lunch") && (
-                    <span className="tabular-nums"> {formatTimeAgo(p.since)}</span>
-                  )}
+                  {/* The DAY's usage, not how long this sitting has run. Dee,
+                      2026-09-21: "Do not show only the duration of the current
+                      segment." The over-run is what a manager acts on. */}
+                  {(() => {
+                    const rest = restUsage(p);
+                    if (!rest) return null;
+                    return (
+                      <>
+                        <span className="tabular-nums"> {formatDuration(rest.used)} today</span>
+                        {rest.over > 0 && (
+                          <span className="font-bold text-status-danger"> · {formatDuration(rest.over)} over</span>
+                        )}
+                      </>
+                    );
+                  })()}
                 </span>
                 <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground" title="Worked today">
                   {p.workMinutes > 0 ? formatDuration(p.workMinutes) : ""}

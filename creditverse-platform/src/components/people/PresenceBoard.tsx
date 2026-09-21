@@ -9,7 +9,7 @@
  */
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, Search } from "lucide-react";
+import { AlertTriangle, LogOut, Search } from "lucide-react";
 import { Avatar } from "@/components/common/Avatar";
 import { Input } from "@/components/ui/input";
 import { OpsSelect } from "@/components/ui/ops-select";
@@ -17,10 +17,19 @@ import { formatDuration } from "@/lib/time-domain";
 import { timeIn, BES_TIMEZONE } from "@/lib/communication/conversation-clock";
 import {
   exceptionCount, EXCEPTION_DETAIL, EXCEPTION_LABEL, presenceCounts,
-  PRESENCE_LABEL, PRESENCE_ORDER, PRESENCE_PILL, PRESENCE_TONE,
-  useTeamPresence, type Presence, type PresenceState,
+  PRESENCE_LABEL, PRESENCE_ORDER, PRESENCE_PILL, PRESENCE_TONE, restUsage,
+  useManagerClockOut, useTeamPresence, type Presence, type PresenceState,
 } from "@/lib/data/use-team-presence";
+import { useAuth } from "@/lib/auth/auth-context";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+
+/** The states in which somebody has a running clock to stop. */
+const ON_THE_CLOCK: ReadonlySet<PresenceState> = new Set(["clocked_in", "on_break", "on_lunch"]);
 
 const ALL = "__all__";
 
@@ -38,6 +47,8 @@ const activityOf = (p: Presence): string => {
 };
 
 export function PresenceBoard({ names }: { names: Map<string, string> }) {
+  /* Your own clock is My Time's, not the board's. */
+  const me = useAuth().user?.id ?? null;
   const { presence, isLoading, error } = useTeamPresence();
   const [search, setSearch] = useState("");
   const [team, setTeam] = useState<string>(ALL);
@@ -142,6 +153,7 @@ export function PresenceBoard({ names }: { names: Map<string, string> }) {
                 <th className="px-3 py-2">Clock in</th>
                 <th className="px-3 py-2">Current activity</th>
                 <th className="px-3 py-2 text-right">Today</th>
+                <th className="px-3 py-2 text-right"><span className="sr-only">Actions</span></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60">
@@ -168,6 +180,26 @@ export function PresenceBoard({ names }: { names: Map<string, string> }) {
                           <span className={cn("h-1.5 w-1.5 rounded-full", PRESENCE_TONE[p.state])} aria-hidden />
                           {PRESENCE_LABEL[p.state]}
                         </span>
+                        {/* Dee, 2026-09-21: the day's usage, never just this
+                            sitting — a fourth four-minute break is not a
+                            four-minute problem. */}
+                        {(() => {
+                          const rest = restUsage(p);
+                          if (!rest) return null;
+                          return (
+                            <>
+                              <span className="text-[11px] tabular-nums text-muted-foreground">
+                                {formatDuration(rest.used)} today
+                              </span>
+                              {rest.over > 0 && (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-destructive/30 bg-status-danger-tint px-2 py-0.5 text-[11px] font-semibold text-status-danger">
+                                  <AlertTriangle className="h-3 w-3" aria-hidden />
+                                  {formatDuration(rest.over)} over
+                                </span>
+                              )}
+                            </>
+                          );
+                        })()}
                         {p.exception && (
                           <span title={EXCEPTION_DETAIL[p.exception]}
                             className="inline-flex items-center gap-1 rounded-full border border-destructive/30 bg-status-danger-tint px-2 py-0.5 text-[11px] font-semibold text-status-danger">
@@ -184,6 +216,13 @@ export function PresenceBoard({ names }: { names: Map<string, string> }) {
                     <td className="px-3 py-2 text-right tabular-nums text-foreground">
                       {p.workMinutes > 0 ? formatDuration(p.workMinutes) : "—"}
                     </td>
+                    <td className="px-3 py-2 text-right">
+                      {/* Only where there is a clock to stop, and never your
+                          own — the database refuses both anyway (rule 1). */}
+                      {ON_THE_CLOCK.has(p.state) && p.userId !== me && (
+                        <ClockOutAction userId={p.userId} name={name} state={p.state} />
+                      )}
+                    </td>
                   </tr>
                 );
               })}
@@ -192,5 +231,74 @@ export function PresenceBoard({ names }: { names: Map<string, string> }) {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Stop somebody else's running clock.
+ *
+ * Dee, 2026-09-21: leads, division heads and executives need this because
+ * agents forget. It is confirmed first — ending another person's workday is
+ * not an action to take on a mis-click — and the reason is optional but goes
+ * into the audit row and into the notice the agent receives, because "your
+ * timer was stopped" with no explanation is worse than no message.
+ *
+ * The clock-out is stamped by the server at the moment it happens, capped
+ * like any other. A wrong time is corrected by an approved adjustment, never
+ * by typing one here.
+ */
+function ClockOutAction({ userId, name, state }: {
+  userId: string; name: string; state: PresenceState;
+}) {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const clockOut = useManagerClockOut();
+  const what = state === "on_break" ? "break" : state === "on_lunch" ? "lunch" : "timer";
+
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1">
+        <LogOut className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+        Clock out
+      </button>
+
+      <AlertDialog open={open} onOpenChange={setOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clock out {name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Their {what} stops now, at the current Eastern time. {name} is told that you
+              did it, and the change is recorded against your name. If the time turns out to
+              be wrong, they request an adjustment and you approve it.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-1.5">
+            <label htmlFor="clock-out-reason" className="text-xs text-muted-foreground">
+              Reason (optional) — this is shown to {name}.
+            </label>
+            <Input id="clock-out-reason" value={reason} maxLength={140}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Left the laptop running" />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Leave it running</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={clockOut.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                clockOut.mutate({ userId, reason }, {
+                  onSuccess: () => { toast.success(`${name} is clocked out.`); setOpen(false); setReason(""); },
+                  /* The message is the database's own — "You do not manage this
+                     person" is the honest answer, not a generic failure. */
+                  onError: (err) => toast.error("Could not clock them out", { description: err.message }),
+                });
+              }}>
+              {clockOut.isPending ? "Stopping…" : "Clock out"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

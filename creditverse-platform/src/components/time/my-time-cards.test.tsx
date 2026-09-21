@@ -45,7 +45,7 @@ describe("the running timer", () => {
       partnerName={null} busy={false}
       onStop={noop} onBreak={noop} onLunch={noop} onResume={noop} />);
     expect(screen.getByText("02:16:00")).toBeInTheDocument();
-    expect(screen.getByText(/this one 00:16:00, started/)).toBeInTheDocument();
+    expect(screen.getByText(/this one 16:00, started/)).toBeInTheDocument();
   });
 
   it("on a break it counts the day's break and what is left of the allowance", () => {
@@ -54,8 +54,11 @@ describe("the running timer", () => {
       allowance={{ breakMinutes: 30, lunchMinutes: 60 }}
       partnerName={null} busy={false}
       onStop={noop} onBreak={noop} onLunch={noop} onResume={noop} />);
-    expect(screen.getByText("00:22:00")).toBeInTheDocument();
-    expect(screen.getByText("8m of 30m left")).toBeInTheDocument();
+    /* Dee, 2026-09-21: the big figure is the DAY's break, and the line under
+       it is what is left of the paid allowance — in minutes and seconds,
+       because the last few minutes are the ones that cost money. */
+    expect(screen.getByText("22:00")).toBeInTheDocument();
+    expect(screen.getByText("Paid break remaining: 8:00")).toBeInTheDocument();
   });
 
   it("and says plainly when the allowance is spent", () => {
@@ -64,7 +67,7 @@ describe("the running timer", () => {
       allowance={{ breakMinutes: 30, lunchMinutes: 60 }}
       partnerName={null} busy={false}
       onStop={noop} onBreak={noop} onLunch={noop} onResume={noop} />);
-    expect(screen.getByText("15m over your 1h allowance")).toBeInTheDocument();
+    expect(screen.getByText("Over lunch by 15:00")).toBeInTheDocument();
   });
 
   it("falls back to the division when there is no note, never to a blank", () => {
@@ -83,12 +86,37 @@ describe("the running timer", () => {
   it("offers Break and Lunch as visible punches, each saying what it costs", () => {
     /* Dee, 2026-09-21: they were in a ⋮ menu and she could not find them.
        The pay rule rides on these punches, so each one states it: break is
-       paid up to the schedule's allowance, lunch is not paid at all. */
+       paid up to the schedule's allowance, lunch is not paid at all. With no
+       schedule there is no allowance to count against, so the standing rule
+       is what the button says. */
     card();
     expect(screen.getByRole("button", { name: /Break/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Lunch/ })).toBeInTheDocument();
     expect(screen.getByText("Paid up to your allowance")).toBeInTheDocument();
     expect(screen.getByText("Unpaid")).toBeInTheDocument();
+  });
+
+  it("names the allowance left on the button itself once a schedule exists", () => {
+    /* Dee: "make the remaining amount visible before they click." */
+    render(<TimerCard entry={entry()} now={NOW}
+      day={{ workSeconds: 3 * 3600, breakSeconds: 24 * 60, lunchSeconds: 42 * 60 }}
+      allowance={{ breakMinutes: 30, lunchMinutes: 60 }}
+      partnerName={null} busy={false}
+      onStop={noop} onBreak={noop} onLunch={noop} onResume={noop} />);
+    expect(screen.getByRole("button", { name: /Break · 6m paid left/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Lunch · 18m standard left/ })).toBeInTheDocument();
+    /* And the standing totals, so neither decision is taken blind. */
+    expect(screen.getByText("Break 24 / 30m")).toBeInTheDocument();
+    expect(screen.getByText("Lunch 42 / 60m")).toBeInTheDocument();
+  });
+
+  it("says a spent break is now unpaid, on the button", () => {
+    render(<TimerCard entry={entry()} now={NOW}
+      day={{ workSeconds: 3 * 3600, breakSeconds: 31 * 60, lunchSeconds: 0 }}
+      allowance={{ breakMinutes: 30, lunchMinutes: 60 }}
+      partnerName={null} busy={false}
+      onStop={noop} onBreak={noop} onLunch={noop} onResume={noop} />);
+    expect(screen.getByRole("button", { name: /Break · unpaid/ })).toBeInTheDocument();
   });
 
   it("shows a break as a break, and offers the way back instead of another break", () => {

@@ -85,6 +85,56 @@ check("10 · worked and clocked out on a DAY OFF keeps the exception",
 check("11 · leave plus a finished shift is a conflict, not a quiet 'on leave'",
   row(`${schedule(true, "23:59")} ${leave} ${closedWork}`), "on_leave/leave_conflict");
 
+/* ── The DAY's break and lunch, not the current sitting (Dee, 2026-09-21) ── */
+console.log("\nACCUMULATED BREAK AND LUNCH ON THE BOARD");
+{
+  /* Three closed breaks plus one that is still running. A manager looking at
+     the fourth must see the day, not the four minutes of this one. */
+  const restRow = (setup) => {
+    const r = q.query(`begin; set local role postgres; ${CLEAR} ${setup}
+      ${as(DEE)}
+      select state, break_minutes, lunch_minutes, break_allowance_minutes, lunch_allowance_minutes
+        from team_presence() where user_id = '${AGENT}';
+      rollback;`);
+    return r[0] ?? {};
+  };
+  const rest = (kind, startAgo, endAgo) =>
+    `insert into time_entries (agency_id, employee_id, kind, work_date, started_at, ended_at, division_id)
+     values ('${AGENCY}', '${AGENT}', '${kind}', ${TODAY}, now() - interval '${startAgo}', now() - interval '${endAgo}', 'creditops');`;
+  const openRest = (kind, startAgo) =>
+    `insert into time_entries (agency_id, employee_id, kind, work_date, started_at, division_id)
+     values ('${AGENCY}', '${AGENT}', '${kind}', ${TODAY}, now() - interval '${startAgo}', 'creditops');`;
+
+  const three = `${schedule(true, "23:59")} ${rest("break", "5 hours", "4 hours 48 minutes")} ${rest("break", "3 hours", "2 hours 50 minutes")} ${rest("break", "90 minutes", "75 minutes")}`;
+  const a = restRow(three);
+  check("14 · three closed breaks add up to the day's total", a.break_minutes, 37);
+  check("15 · the allowance comes from the person's own schedule", [a.break_allowance_minutes, a.lunch_allowance_minutes], [30, 60]);
+
+  const b = restRow(`${three} ${openRest("break", "4 minutes")}`);
+  check("16 · a fourth, running break reads the DAY, not the sitting", b.break_minutes, 41);
+  check("17 · and the state is still On break", b.state, "on_break");
+
+  const c = restRow(`${schedule(true, "23:59")} ${rest("lunch", "5 hours", "4 hours 18 minutes")} ${openRest("lunch", "26 minutes")}`);
+  check("18 · a split lunch resumes from the earlier segment", c.lunch_minutes, 68);
+
+  /* Yesterday's rest belongs to yesterday's work_date and must not carry. */
+  const yesterday = `insert into time_entries (agency_id, employee_id, kind, work_date, started_at, ended_at, division_id)
+     values ('${AGENCY}', '${AGENT}', 'break', ${TODAY} - 1, now() - interval '26 hours', now() - interval '25 hours 35 minutes', 'creditops');`;
+  const d = restRow(`${schedule(true, "23:59")} ${yesterday} ${rest("break", "2 hours", "1 hour 53 minutes")}`);
+  check("19 · the day resets on the Eastern work_date, so yesterday does not carry", d.break_minutes, 7);
+
+  /* No schedule: usage is still reported, no allowance is claimed. */
+  const e = restRow(`${rest("break", "2 hours", "1 hour 40 minutes")}`);
+  check("20 · with no schedule the usage shows and no allowance is invented",
+    [e.break_minutes, e.break_allowance_minutes], [20, null]);
+
+  /* The raw punches stay separate rows — the total is derived, never merged. */
+  const rows = q.query(`begin; set local role postgres; ${CLEAR} ${three}
+    select count(*)::int as n from time_entries where employee_id='${AGENT}' and kind='break';
+    rollback;`)[0].n;
+  check("21 · and the three punches remain three rows", rows, 3);
+}
+
 console.log("\nSCOPE");
 {
   const agentSees = q.query(`begin; ${as(AGENT)} select count(*)::int as n from team_presence(); rollback;`)[0].n;

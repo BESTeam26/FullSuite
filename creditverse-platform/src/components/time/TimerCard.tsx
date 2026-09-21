@@ -15,10 +15,13 @@
  * is never paid (`payable_minutes`). So they are visible controls, with what
  * each one costs written under them.
  */
-import { Coffee, Play, Square, UtensilsCrossed } from "lucide-react";
+import { AlertTriangle, Coffee, Play, Square, UtensilsCrossed } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
-import { dayTotalForState, divisionLabel, entrySeconds, formatDuration, restBudget, stopwatch } from "@/lib/time-domain";
+import {
+  dayTotalForState, divisionLabel, entrySeconds, restBudget, restChip,
+  restClock, restPhrase, restPunchLabel, stopwatch,
+} from "@/lib/time-domain";
 import type { TimeEntry } from "@/lib/data/time-entries";
 
 const clock = (iso: string) =>
@@ -47,7 +50,10 @@ export function TimerCard({
      this sitting is shown beneath it. */
   const seconds = dayTotalForState(entry.kind, day);
   const sitting = entrySeconds(entry, now);
-  const budget = resting ? restBudget(entry.kind as "break" | "lunch", day, allowance) : null;
+  const breakBudget = restBudget("break", day, allowance);
+  const lunchBudget = restBudget("lunch", day, allowance);
+  const restKind = resting ? (entry.kind as "break" | "lunch") : null;
+  const phrase = restKind ? restPhrase(restKind, restKind === "break" ? breakBudget : lunchBudget) : null;
 
   return (
     <div className={cn(
@@ -81,17 +87,27 @@ export function TimerCard({
 
         <div className="text-right">
           <p className="font-mono text-4xl font-extrabold tabular-nums tracking-tight text-foreground">
-            {stopwatch(seconds)}
+            {restKind ? restClock(seconds) : stopwatch(seconds)}
           </p>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            {resting ? "today" : "today"} · this one {stopwatch(sitting)}, started {clock(entry.startedAt)}
+            {restKind ? "used today" : "today"} · this one {restClock(sitting)}, started {clock(entry.startedAt)}
           </p>
-          {budget && budget.allowanceSeconds !== null && (
-            <p className={cn("mt-0.5 text-xs font-semibold",
-              budget.overSeconds > 0 ? "text-status-danger" : "text-muted-foreground")}>
-              {budget.overSeconds > 0
-                ? `${formatDuration(Math.round(budget.overSeconds / 60))} over your ${formatDuration(Math.round(budget.allowanceSeconds / 60))} allowance`
-                : `${formatDuration(Math.round(budget.remainingSeconds! / 60))} of ${formatDuration(Math.round(budget.allowanceSeconds / 60))} left`}
+          {phrase && (
+            <p className={cn("mt-0.5 flex items-center justify-end gap-1.5 text-xs font-semibold",
+              phrase.over ? "text-status-danger" : "text-muted-foreground")}>
+              {phrase.over && <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />}
+              {phrase.detail}
+            </p>
+          )}
+          {!resting && allowance && (
+            /* What is left of each allowance, before another one is started. */
+            <p className="mt-0.5 flex flex-wrap justify-end gap-x-3 text-xs text-muted-foreground">
+              <span className={cn(breakBudget.overSeconds > 0 && "font-semibold text-status-danger")}>
+                {restChip("break", breakBudget)}
+              </span>
+              <span className={cn(lunchBudget.overSeconds > 0 && "font-semibold text-status-danger")}>
+                {restChip("lunch", lunchBudget)}
+              </span>
             </p>
           )}
         </div>
@@ -105,8 +121,12 @@ export function TimerCard({
           </button>
         ) : (
           <>
-            <PunchButton icon={Coffee} label="Break" hint="Paid up to your allowance" onClick={onBreak} disabled={busy} />
-            <PunchButton icon={UtensilsCrossed} label="Lunch" hint="Unpaid" onClick={onLunch} disabled={busy} />
+            <PunchButton icon={Coffee} label={restPunchLabel("break", breakBudget)}
+              hint="Paid up to your allowance" showHint={breakBudget.allowanceSeconds === null}
+              onClick={onBreak} disabled={busy} />
+            <PunchButton icon={UtensilsCrossed} label={restPunchLabel("lunch", lunchBudget)}
+              hint="Unpaid" showHint={lunchBudget.allowanceSeconds === null}
+              onClick={onLunch} disabled={busy} />
           </>
         )}
         <button type="button" onClick={onStop} disabled={busy}
@@ -121,13 +141,20 @@ export function TimerCard({
   );
 }
 
-const PunchButton = ({ icon: Icon, label, hint, onClick, disabled }: {
-  icon: typeof Coffee; label: string; hint: string; onClick: () => void; disabled: boolean;
+/**
+ * `hint` is the standing pay RULE; the label carries how much is left today.
+ * When an allowance is known the label already says "paid left" or "unpaid",
+ * so printing the rule beside it is noise — it is shown only when there is no
+ * schedule and the label therefore says nothing about pay.
+ */
+const PunchButton = ({ icon: Icon, label, hint, showHint, onClick, disabled }: {
+  icon: typeof Coffee; label: string; hint: string; showHint: boolean;
+  onClick: () => void; disabled: boolean;
 }) => (
   <button type="button" onClick={onClick} disabled={disabled} title={hint}
     className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground shadow-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60">
     <Icon className="h-4 w-4 text-muted-foreground" aria-hidden />
     <span>{label}</span>
-    <span className="text-[11px] font-normal text-muted-foreground">{hint}</span>
+    {showHint && <span className="text-[11px] font-normal text-muted-foreground">{hint}</span>}
   </button>
 );

@@ -7,7 +7,7 @@
  * back to the front and every two minutes while it is open: presence is worth
  * knowing, not worth a socket (rule 22 — no polling loops, event-shaped cost).
  */
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { requireSupabase } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth/auth-context";
 
@@ -37,6 +37,12 @@ export interface Presence {
   since: string | null;
   firstIn: string | null;
   workMinutes: number;
+  /** The Eastern workday's accumulated rest, the open segment included. */
+  breakMinutes: number;
+  lunchMinutes: number;
+  /** From their own schedule; null when they have none, so none is claimed. */
+  breakAllowanceMinutes: number | null;
+  lunchAllowanceMinutes: number | null;
   /** What the open entry says they are on, when they wrote one. */
   activity: string | null;
   teamName: string | null;
@@ -102,6 +108,12 @@ export function useTeamPresence(options: { enabled?: boolean } = {}) {
         since: (r.since as string) ?? null,
         firstIn: (r.first_in as string) ?? null,
         workMinutes: Number(r.work_minutes ?? 0),
+        breakMinutes: Number(r.break_minutes ?? 0),
+        lunchMinutes: Number(r.lunch_minutes ?? 0),
+        breakAllowanceMinutes: r.break_allowance_minutes === null || r.break_allowance_minutes === undefined
+          ? null : Number(r.break_allowance_minutes),
+        lunchAllowanceMinutes: r.lunch_allowance_minutes === null || r.lunch_allowance_minutes === undefined
+          ? null : Number(r.lunch_allowance_minutes),
         activity: (r.activity as string) ?? null,
         teamName: (r.team_name as string) ?? null,
         positionTitle: (r.position_title as string) ?? null,
@@ -132,4 +144,50 @@ export function presenceCounts(rows: readonly Presence[]): Record<PresenceState,
   };
   for (const p of rows) out[p.state] += 1;
   return out;
+}
+
+/**
+ * What a manager reads beside "On break": the DAY's usage and, when it is
+ * spent, by how much.
+ *
+ * Dee, 2026-09-21: *"Do not show only the duration of the current segment."*
+ * A fourth four-minute break is not a four-minute problem. Returns null for
+ * anyone who is not resting, and claims no over-run without an allowance to
+ * measure against.
+ */
+export function restUsage(p: Presence): { used: number; over: number } | null {
+  if (p.state !== "on_break" && p.state !== "on_lunch") return null;
+  const onBreak = p.state === "on_break";
+  const used = onBreak ? p.breakMinutes : p.lunchMinutes;
+  const allowance = onBreak ? p.breakAllowanceMinutes : p.lunchAllowanceMinutes;
+  return { used, over: allowance === null ? 0 : Math.max(0, used - allowance) };
+}
+
+/**
+ * Clock out somebody you manage.
+ *
+ * Dee, 2026-09-21: an agent who closes their laptop with the timer running
+ * used to be left to the ten-hour auto-stop, which files ten hours against a
+ * day they worked seven and then needs an adjustment to undo. The manager
+ * stopping it when they notice is both more accurate and faster.
+ *
+ * Scope is the database's — `manager_clock_out` refuses anyone outside
+ * `managed_people()`, so the button being on screen proves nothing (rule 1).
+ * Invalidates presence and the timesheet: the same punch is read by both.
+ */
+export function useManagerClockOut() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ userId, reason }: { userId: string; reason?: string }) => {
+      const sb = requireSupabase();
+      const { error } = await sb.rpc("manager_clock_out" as never, {
+        p_user: userId, p_reason: reason?.trim() || null,
+      } as never);
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["workforce", "presence"] });
+      void qc.invalidateQueries({ queryKey: ["time"] });
+    },
+  });
 }

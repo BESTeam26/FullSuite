@@ -3,7 +3,7 @@
 **Small on purpose** (Production Operating Mode §14). Four lists, no roadmap.
 Anything speculative belongs in `DEFERRED_AGENCY_WORK.md`, not here.
 
-Last reconciled: 2026-09-21, after the production release (`0014381`).
+Last reconciled: 2026-09-21, after the Eastern workday lock (`1f6b8e7`).
 
 ---
 
@@ -24,8 +24,11 @@ Last reconciled: 2026-09-21, after the production release (`0014381`).
    plus one unread clearing.
 2. ~~**My Work + routing/assignment mobile**~~ — BUILT and deployed (P-047).
    Awaiting somebody with assigned work opening it on a phone.
-3. **Clock / attendance mobile** — clock in, break, lunch, out.
-4. **CreditOps client workflow simplification** — work a file without knowing the model.
+3. ~~**Clock / attendance mobile**~~ — BUILT and deployed (P-048), with the
+   day's accumulation (P-052) and the Eastern workday lock (P-051) on top.
+   Awaiting a real punch from a Manila phone read back on a desktop.
+4. **CreditOps client workflow simplification** — work a file without knowing
+   the model. ← ACTIVE
 5. **Notifications / Attention** — the system says what needs action.
 6. **Partner Portal** — after the internal workflow is stable (D-007).
 

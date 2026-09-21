@@ -41,7 +41,7 @@ import { formatDate } from "@/lib/format-date";
 import type { TimeAdjustmentRequest, TimeEntry } from "@/lib/data/time-entries";
 import {
   STALE_TIMER_HOURS, describeRunningFor, formatClock, formatDuration, humanDuration,
-  isStaleTimer, lateSecondsToday, liveDaySeconds, weekStart,
+  isStaleTimer, lateSecondsToday, liveDaySeconds, restDaySummary, weekStart,
 } from "@/lib/time-domain";
 import {
   partnerSplit, recentWork, todayTimeline, weekBars, weekRangeLabel,
@@ -50,7 +50,7 @@ import { TimerCard } from "@/components/time/TimerCard";
 import { StartWorkCard, type StartRequest } from "@/components/time/StartWorkCard";
 import { WeekChart } from "@/components/time/WeekChart";
 import { TodayTimeline } from "@/components/time/TodayTimeline";
-import { TodayAtAGlance } from "@/components/time/TodayAtAGlance";
+import { TodayAtAGlance, RestSplitStrip } from "@/components/time/TodayAtAGlance";
 import { EasternTimeNote } from "@/components/time/EasternTimeNote";
 import { shiftLabel } from "@/lib/time/business-timezone";
 import { RequestTimeOffDialog } from "@/components/time/RequestTimeOffDialog";
@@ -107,8 +107,12 @@ export const MyTimeSection = () => {
      manager, somebody else's shift and somebody else's allowance judging
      their own day (found 2026-09-21). */
   const mySchedule = (schedules.data ?? []).find((sc) => sc.userId === auth.user?.id) ?? null;
-  const overBreakSec = mySchedule ? Math.max(0, live.breakSeconds - mySchedule.breakMinutes * 60) : 0;
-  const overLunchSec = mySchedule ? Math.max(0, live.lunchSeconds - mySchedule.lunchMinutes * 60) : 0;
+  /* One derivation of the day's rest, shared with the Home clock, the timer
+     and the presence board — and applying the same cap `payable_minutes`
+     pays on, so this page and the payslip cannot disagree (Dee, 2026-09-21). */
+  const today = restDaySummary(live, mySchedule);
+  const overBreakSec = today.overBreakMinutes * 60;
+  const overLunchSec = today.overLunchMinutes * 60;
 
 
   /* Seconds, said in words. Dee, 2026-09-18: "387m late … i want it converted
@@ -206,6 +210,7 @@ export const MyTimeSection = () => {
             state: !t.openEntry ? "out" : t.openEntry.kind === "break" ? "break" : t.openEntry.kind === "lunch" ? "lunch" : "working",
             exceptions: todayExceptions,
           }}
+          summary={mySchedule ? today : null}
           timeZone={mySchedule?.timezone}
         />
       </div>
@@ -218,6 +223,15 @@ export const MyTimeSection = () => {
         <StatCard label="Partner work" value={formatDuration(split.partnerMinutes)} icon={Users} />
         <StatCard label="Internal work" value={formatDuration(split.internalMinutes)} icon={Home} />
       </div>
+
+      {/* Dee's five figures, 2026-09-21: break split into the part that is
+          paid and the part that is not, because that is the split the payslip
+          makes. Derived from the punches below, replacing none of them. */}
+      {mySchedule && (live.workSeconds > 0 || live.breakSeconds > 0 || live.lunchSeconds > 0) && (
+        <div className="mt-3 hidden md:block">
+          <RestSplitStrip summary={today} />
+        </div>
+      )}
 
       {/* Dee, 2026-09-18: "I like the previous layout, quick timer on the
           right and the history at the bottom." So: what is running fills the

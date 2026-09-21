@@ -61,8 +61,10 @@ describe("only the moves that exist", () => {
   it("working offers break, lunch and clock out — not 'back to work'", () => {
     sheet = { ...base, openEntry: entry("work") };
     show();
-    expect(screen.getByRole("button", { name: /Start break/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Start lunch/ })).toBeInTheDocument();
+    /* The labels carry how much allowance is left (Dee, 2026-09-21), so they
+       are matched on the punch itself rather than on a fixed sentence. */
+    expect(screen.getByRole("button", { name: /^Break/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Lunch/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Clock out/ })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Back to work/ })).not.toBeInTheDocument();
   });

@@ -337,3 +337,142 @@ export function dayTotalForState(
 ): number {
   return kind === "work" ? day.workSeconds : kind === "break" ? day.breakSeconds : day.lunchSeconds;
 }
+
+/* ── HOW REST IS SPOKEN ABOUT, IN ONE PLACE ─────────────────────────────────
+ *
+ * Dee, 2026-09-21, locking the behaviour: *"Break and lunch timers must be
+ * daily accumulated timers … an agent can take Break 1: 12 min, Break 2: 10
+ * min, Break 3: 15 min, and each break looks harmless on its own even though
+ * the daily total is already 37 minutes, which is 7 minutes over the paid
+ * allowance."*
+ *
+ * The figures come from `restBudget`; these turn them into the sentences.
+ * They live together because four surfaces say the same thing — the Home
+ * clock, the My Time timer, the manager's presence board and the day summary
+ * — and four copies of the phrasing is how "over break" becomes three
+ * different numbers on three screens.
+ *
+ * The audit trail is untouched by any of it. Every break remains its own row
+ * with its own start and end; the accumulated figure is derived for display
+ * and for the payroll cap, never written back as one merged punch.
+ */
+
+/**
+ * "5:42", "24:18", "1:07:22" — a live counter, written the way Dee writes it.
+ *
+ * The LEFTMOST unit is never zero-padded and the rest always are, so the
+ * string reads like a stopwatch rather than a timestamp. Deliberately not
+ * `stopwatch()`, which pads to a fixed HH:MM:SS so a full-width running clock
+ * does not reflow; these figures sit inside a sentence, where "05:42" reads
+ * like a time of day.
+ */
+export function restClock(totalSeconds: number): string {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  return h > 0 ? `${h}:${pad(m)}:${pad(s % 60)}` : `${m}:${pad(s % 60)}`;
+}
+
+export interface RestPhrase {
+  /** "On break · 24:18 used today" */
+  heading: string;
+  /** "Paid break remaining: 5:42", or the over-run, or the unpaid note. */
+  detail: string;
+  /** True when the allowance is spent — the caller colours it and warns. */
+  over: boolean;
+}
+
+/**
+ * What to say while somebody is resting.
+ *
+ * Break is paid to the allowance and unpaid after it; lunch is unpaid from
+ * the first minute, and its allowance is a standard length rather than a pay
+ * boundary. The wording keeps that difference, because it is the difference
+ * that costs money.
+ */
+export function restPhrase(kind: "break" | "lunch", budget: RestBudget): RestPhrase {
+  const used = restClock(budget.usedSeconds);
+  const heading = `${kind === "break" ? "On break" : "On lunch"} · ${used} used today`;
+  if (budget.allowanceSeconds === null) {
+    return {
+      heading,
+      detail: kind === "lunch"
+        ? "Lunch is unpaid. No schedule yet, so no standard length is set."
+        : "No schedule yet, so no paid allowance is set.",
+      over: false,
+    };
+  }
+  if (budget.overSeconds > 0) {
+    return {
+      heading,
+      detail: kind === "break"
+        ? `Over break by ${restClock(budget.overSeconds)} · unpaid`
+        : `Over lunch by ${restClock(budget.overSeconds)}`,
+      over: true,
+    };
+  }
+  return {
+    heading,
+    detail: kind === "break"
+      ? `Paid break remaining: ${restClock(budget.remainingSeconds!)}`
+      : `Lunch is unpaid · ${restClock(budget.remainingSeconds!)} remaining in standard lunch`,
+    over: false,
+  };
+}
+
+/** "Break 24 / 30m" — the standing reminder before another segment is started. */
+export function restChip(kind: "break" | "lunch", budget: RestBudget): string {
+  const used = Math.floor(budget.usedSeconds / 60);
+  const label = kind === "break" ? "Break" : "Lunch";
+  if (budget.allowanceSeconds === null) return `${label} ${used}m`;
+  return `${label} ${used} / ${Math.round(budget.allowanceSeconds / 60)}m`;
+}
+
+/**
+ * What the button says before it is pressed.
+ *
+ * Dee: *"If the agent has already used some allowance, make the remaining
+ * amount visible before they click."* Knowing it costs money afterwards is
+ * too late to be a choice.
+ */
+export function restPunchLabel(kind: "break" | "lunch", budget: RestBudget): string {
+  if (budget.allowanceSeconds === null) return kind === "break" ? "Break" : "Lunch · unpaid";
+  const left = Math.floor(budget.remainingSeconds! / 60);
+  if (kind === "break") return budget.remainingSeconds! <= 0 ? "Break · unpaid" : `Break · ${left}m paid left`;
+  return budget.remainingSeconds! <= 0 ? "Lunch · over allowance" : `Lunch · ${left}m standard left`;
+}
+
+/**
+ * The day summarised the way My Time and payroll both count it: worked, the
+ * break that is paid, the break that is not, lunch, and lunch over its
+ * standard length. `paidBreakMinutes` is the same `least(used, allowance)`
+ * the `payable_minutes` function pays on — one rule, not two.
+ */
+export interface RestDaySummary {
+  workMinutes: number;
+  paidBreakMinutes: number;
+  overBreakMinutes: number;
+  lunchMinutes: number;
+  overLunchMinutes: number;
+}
+
+export function restDaySummary(
+  day: { workSeconds: number; breakSeconds: number; lunchSeconds: number },
+  schedule?: { breakMinutes: number; lunchMinutes: number } | null,
+): RestDaySummary {
+  const br = restBudget("break", day, schedule);
+  const lu = restBudget("lunch", day, schedule);
+  const usedBreak = Math.round(day.breakSeconds / 60);
+  return {
+    workMinutes: Math.round(day.workSeconds / 60),
+    /* No schedule means no paid break at all, which is what payroll does —
+       showing an allowance nobody is paid for would be the friendlier lie. */
+    paidBreakMinutes: br.allowanceSeconds === null
+      ? 0
+      : Math.min(usedBreak, Math.round(br.allowanceSeconds / 60)),
+    overBreakMinutes: br.allowanceSeconds === null ? usedBreak : Math.round(br.overSeconds / 60),
+    lunchMinutes: Math.round(day.lunchSeconds / 60),
+    overLunchMinutes: Math.round(lu.overSeconds / 60),
+  };
+}

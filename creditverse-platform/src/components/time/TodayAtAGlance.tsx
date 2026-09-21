@@ -12,7 +12,7 @@
  * the desk cannot disagree about somebody's day.
  */
 import { AlertTriangle, Coffee, LogIn, LogOut, UtensilsCrossed } from "lucide-react";
-import { formatClock } from "@/lib/time-domain";
+import { formatClock, formatDuration, type RestDaySummary } from "@/lib/time-domain";
 import { timeIn, BES_TIMEZONE } from "@/lib/communication/conversation-clock";
 import { cn } from "@/lib/utils";
 
@@ -35,7 +35,12 @@ const STATE_LABEL: Record<TodayGlance["state"], string> = {
   lunch: "On lunch",
 };
 
-export function TodayAtAGlance({ glance, timeZone = BES_TIMEZONE }: { glance: TodayGlance; timeZone?: string }) {
+export function TodayAtAGlance({ glance, summary = null, timeZone = BES_TIMEZONE }: {
+  glance: TodayGlance;
+  /** The paid/over split, when the person has a schedule to be judged against. */
+  summary?: RestDaySummary | null;
+  timeZone?: string;
+}) {
   const { firstIn, lastOut, workSeconds, breakSeconds, lunchSeconds, state, exceptions } = glance;
   return (
     <section aria-label="Today at a glance" className="rounded-2xl border border-border bg-card p-4">
@@ -56,6 +61,8 @@ export function TodayAtAGlance({ glance, timeZone = BES_TIMEZONE }: { glance: To
         <Row icon={UtensilsCrossed} label="Lunch" value={lunchSeconds > 0 ? formatClock(lunchSeconds) : "—"} />
       </dl>
 
+      {summary && <div className="mt-3"><RestSplitStrip summary={summary} /></div>}
+
       {exceptions.length > 0 && (
         <ul className="mt-3 space-y-1">
           {exceptions.map((e) => (
@@ -75,5 +82,38 @@ const Row = ({ icon: Icon, label, value }: { icon: typeof LogIn; label: string; 
     <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
     <dt className="text-muted-foreground">{label}</dt>
     <dd className={cn("ml-auto font-semibold tabular-nums text-foreground")}>{value}</dd>
+  </div>
+);
+
+/**
+ * Worked · Paid break · Over break · Lunch · Over lunch — Dee's five figures,
+ * 2026-09-21.
+ *
+ * Break is split because the payslip splits it: `payable_minutes` pays
+ * `least(the day's break, the allowance)` and nothing after. Lunch is never
+ * paid, so only its over-run against the standard length is called out.
+ *
+ * `formatDuration` returns "—" for zero, which is the right thing to read:
+ * "0m over break" invites a second look at a figure that means nothing
+ * happened. It is one strip used by both layouts so the phone and the desk
+ * cannot print different numbers for the same day.
+ */
+export function RestSplitStrip({ summary }: { summary: RestDaySummary }) {
+  return (
+    <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 rounded-xl border border-border bg-card p-3 sm:grid-cols-5">
+      <Figure label="Worked" value={formatDuration(summary.workMinutes)} />
+      <Figure label="Paid break" value={formatDuration(summary.paidBreakMinutes)} />
+      <Figure label="Over break" value={formatDuration(summary.overBreakMinutes)} warn={summary.overBreakMinutes > 0} />
+      <Figure label="Lunch" value={formatDuration(summary.lunchMinutes)} />
+      <Figure label="Over lunch" value={formatDuration(summary.overLunchMinutes)} warn={summary.overLunchMinutes > 0} />
+    </dl>
+  );
+}
+
+const Figure = ({ label, value, warn }: { label: string; value: string; warn?: boolean }) => (
+  <div>
+    <dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</dt>
+    <dd className={cn("font-mono text-base font-extrabold tabular-nums",
+      warn ? "text-status-danger" : "text-foreground")}>{value}</dd>
   </div>
 );
