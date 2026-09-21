@@ -21120,6 +21120,16 @@ export type Database = {
           user_id: string
         }[]
       }
+      team_presence: {
+        Args: never
+        Returns: {
+          first_in: string
+          since: string
+          state: string
+          user_id: string
+          work_minutes: number
+        }[]
+      }
       thread_messages: {
         Args: { p_root: number }
         Returns: {

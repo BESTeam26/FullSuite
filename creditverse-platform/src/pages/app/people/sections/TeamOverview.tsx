@@ -27,6 +27,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Pill } from "@/components/agency/partner/partner-ui";
 import { Donut } from "@/components/people/Donut";
 import { useManagedTeam } from "@/lib/people/use-managed-team";
+import { TeamPresence } from "@/components/people/TeamPresence";
 import {
   addMix, attendanceMix, eodMix, lastActiveLabel, monthToDate, onTimeRate, previousMonth, qualityScore, rateChange,
   submissionRate, weekToDate, type AttendanceMix,
@@ -178,6 +179,9 @@ export function TeamOverview({ canSeePositions }: { canSeePositions: boolean }) 
             note={change === null ? "Weighted overall, this month" : `${change >= 0 ? "+" : ""}${change}% from last month`}
             to="/app/people/performance" tone="text-blue-700 bg-blue-500/10" />
         </div>
+
+        {/* Who is reachable right now, before any of the week's averages. */}
+        <TeamPresence names={new Map(people.map((p) => [p.userId, p.name]))} />
 
         {/* ── Performance · Attendance · EOD ────────────────────────────── */}
         <div className="grid gap-3 lg:grid-cols-3">
