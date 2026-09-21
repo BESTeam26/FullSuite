@@ -784,3 +784,36 @@ them today.
 
 A row moves to LIVE VERIFIED only when the named real operator has walked
 the whole list in production and said so.
+
+### P-030 · "Database error loading user" on Activate my account — FIXED AWAITING LIVE RETEST
+
+**2026-09-21 · reporter: Dee (Roniel Pena's screenshot) · module: Invite Users /
+Login · class A pilot defect · severity: S1 — five invited people could not
+activate at all.** Roniel filled in his name and password, pressed Activate
+my account, and got "Database error loading user".
+
+**Root cause.** Migration `20260920001800` staged five invited people
+(Roniel, Julius, Gile, Alyssa, Dmacasiab) as shell accounts by inserting
+straight into `auth.users`, naming only the columns it cared about. Supabase
+Auth reads its token columns (`confirmation_token`, `recovery_token`,
+`email_change`, `email_change_token_new`) into non-nullable Go strings, so a
+row with NULL there cannot be loaded — every sign-in, password set or admin
+update for that person failed before it started. Accounts made through the
+`create-team-member` function use `auth.admin.createUser`, which writes `''`,
+which is why every other invitation worked. Nothing in the activation code was
+wrong; the five rows were.
+
+**Fix.** `20260921006000_shell_auth_rows_readable_by_auth.sql` sets the
+empty strings Auth expects on any row that has NULLs (idempotent; five rows
+changed; identities untouched). **Rule from here:** a shell auth account is
+created through `auth.admin.createUser`, never by SQL insert. The
+`invitation-uat-probe` keeps its SQL shell only because it rolls back.
+
+**Verified.** A wrong-password sign-in for each of the five now answers
+"Invalid login credentials" (row loaded, password checked) where it answered
+"Database error loading user" before; `invitation-uat-probe` 16/16; all five
+invitations still EMAILED, awaiting acceptance, expiring 2026-09-27. Live
+verifier: Roniel (or any of the five) activating successfully.
+
+Cost line: does this increase recurring infrastructure cost? No. Cost scales
+with: nothing — a one-time data repair.
