@@ -72,3 +72,40 @@ export function shiftLabel(start: string, end: string, at: Date = new Date()): s
   };
   return `${clock(start)} – ${clock(end)} ${besAbbrev(at)}`;
 }
+
+/**
+ * The same shift in the reader's own city, for the line beneath the ET one:
+ *
+ *     9:00 AM – 6:00 PM EDT
+ *     9:00 PM – 6:00 AM Manila
+ *
+ * Null when the device is already on Eastern. Presentation only — nothing is
+ * ever judged against this, and the stored schedule is not rewritten.
+ */
+export function shiftInDeviceZone(start: string, end: string, on: Date = new Date()): string | null {
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  if (!zone || zone === BES_TZ) return null;
+
+  /* Anchor both ends to a real Eastern day, so DST is the database's problem
+     and not an offset arithmetic of ours. */
+  const day = besWorkDate(on);
+  const at = (hhmm: string) => {
+    const [h, m] = hhmm.split(":");
+    /* Build the instant that is `hhmm` Eastern on that day by searching the
+       two candidate UTC offsets — correct across both DST boundaries. */
+    for (const guess of [4, 5]) {
+      const iso = `${day}T${h.padStart(2, "0")}:${(m ?? "00").padStart(2, "0")}:00`;
+      const d = new Date(`${iso}Z`);
+      d.setUTCHours(d.getUTCHours() + guess);
+      const back = new Intl.DateTimeFormat("en-GB", { timeZone: BES_TZ, hour: "2-digit", minute: "2-digit", hour12: false }).format(d);
+      if (back === `${h.padStart(2, "0")}:${(m ?? "00").padStart(2, "0")}`) return d;
+    }
+    return null;
+  };
+  const from = at(start), to = at(end);
+  if (!from || !to) return null;
+  const fmt = (d: Date) => new Intl.DateTimeFormat(undefined, { timeZone: zone, hour: "numeric", minute: "2-digit" }).format(d);
+  /* The city, not the abbreviation: "Manila" reads better than "PST". */
+  const city = zone.split("/").pop()?.replace(/_/g, " ") ?? zone;
+  return `${fmt(from)} – ${fmt(to)} ${city}`;
+}

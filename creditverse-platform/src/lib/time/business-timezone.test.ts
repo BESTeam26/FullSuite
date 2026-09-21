@@ -5,7 +5,7 @@
  * on the wrong day again — and the reason copy never says "EST".
  */
 import { describe, expect, it } from "vitest";
-import { besAbbrev, besTime, besWorkDate, BES_TZ, BES_TZ_LABEL, shiftLabel } from "./business-timezone";
+import { besAbbrev, besTime, besWorkDate, BES_TZ, BES_TZ_LABEL, shiftInDeviceZone, shiftLabel } from "./business-timezone";
 
 /* 2026-09-21 22:02 Eastern (EDT) is 2026-09-22 10:02 in Manila. The exact
    moment three real punches were filed on the wrong day. */
@@ -65,5 +65,13 @@ describe("daylight saving is the database's job", () => {
     /* The autumn change, when 01:00–02:00 happens twice. */
     expect(besWorkDate(new Date("2026-11-01T05:30:00Z"))).toBe("2026-11-01");
     expect(besWorkDate(new Date("2026-11-01T06:30:00Z"))).toBe("2026-11-01");
+  });
+});
+
+describe("the reader's own city, beneath the Eastern line", () => {
+  it("says nothing when the device is already on Eastern", () => {
+    /* The suite runs on Eastern, which is the case that must stay silent —
+       a second line repeating the first is noise. */
+    expect(shiftInDeviceZone("09:00", "18:00", new Date("2026-09-22T02:02:00Z"))).toBeNull();
   });
 });

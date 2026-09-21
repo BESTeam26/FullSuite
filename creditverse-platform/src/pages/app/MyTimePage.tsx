@@ -190,7 +190,7 @@ export const MyTimeSection = () => {
       {/* Whose clock this is. Every judgement below — late, absent, the day a
           punch belongs to — is Eastern, and half the team is not (Dee). */}
       <div className="mb-3">
-        <EasternTimeNote />
+        <EasternTimeNote shift={mySchedule} />
       </div>
 
       {/* On a phone the day has to be one glance, not four cards, a timer and

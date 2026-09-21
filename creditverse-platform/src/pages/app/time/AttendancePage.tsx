@@ -25,6 +25,7 @@ import {
   POINTS, PERFECT_MONTH_BONUS, STREAK_BONUSES, type BadgeKey,
 } from "@/lib/attendance/attendance-score";
 import { cn } from "@/lib/utils";
+import { EasternTimeNote } from "@/components/time/EasternTimeNote";
 
 /* The policy in Dee's own words, so somebody can check the arithmetic against
    the rule rather than trusting the number. */
@@ -65,6 +66,8 @@ export function AttendancePage() {
 
   return (
     <div className="space-y-3">
+      {/* Whose clock everything below is judged by (Dee, 2026-09-21). */}
+      <EasternTimeNote />
       <AttendanceHero score={score} quarterLabel={quarterLabel} />
 
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">

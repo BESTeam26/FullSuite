@@ -33,6 +33,7 @@ import {
 import { dayGreeting } from "@/lib/greetings/day-greeting";
 import { formatDate } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
+import { EasternTimeNote } from "@/components/time/EasternTimeNote";
 
 const pretty = (n: number) => n.toFixed(2).replace(/\.00$/, "").replace(/0$/, "");
 
@@ -141,6 +142,8 @@ export function TimeOverview() {
 
   return (
     <div className="space-y-4">
+      {/* Whose clock everything below is judged by (Dee, 2026-09-21). */}
+      <EasternTimeNote />
       {/* The date and the line Dee wanted at the top of the module. */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
         <p className="border-l-2 border-border pl-3 text-xs italic text-muted-foreground">
