@@ -50,6 +50,8 @@ import { StartWorkCard, type StartRequest } from "@/components/time/StartWorkCar
 import { WeekChart } from "@/components/time/WeekChart";
 import { TodayTimeline } from "@/components/time/TodayTimeline";
 import { TodayAtAGlance } from "@/components/time/TodayAtAGlance";
+import { EasternTimeNote } from "@/components/time/EasternTimeNote";
+import { shiftLabel } from "@/lib/time/business-timezone";
 import { RequestTimeOffDialog } from "@/components/time/RequestTimeOffDialog";
 import { businessDaysBetween, businessToday } from "@/lib/calendar/us-federal-holidays";
 import { rewardWallet } from "@/lib/leave/reward-wallet";
@@ -118,7 +120,7 @@ export const MyTimeSection = () => {
   /* The same exceptions the banner shows, in the same words. */
   const todayExceptions = [
     lateSec > 0 && mySchedule
-      ? `${humanDuration(lateSec)} late — your shift starts at ${mySchedule.shiftStart.slice(0, 5)} (${mySchedule.timezone}).`
+      ? `${humanDuration(lateSec)} late — your shift starts at ${shiftLabel(mySchedule.shiftStart, mySchedule.shiftEnd)}.`
       : null,
     overBreakSec > 0 && mySchedule
       ? `Over break by ${humanDuration(overBreakSec)} — ${humanDuration(mySchedule.breakMinutes * 60)} of break is paid.`
@@ -179,6 +181,12 @@ export const MyTimeSection = () => {
           {t.error}
         </div>
       )}
+
+      {/* Whose clock this is. Every judgement below — late, absent, the day a
+          punch belongs to — is Eastern, and half the team is not (Dee). */}
+      <div className="mb-3">
+        <EasternTimeNote />
+      </div>
 
       {/* On a phone the day has to be one glance, not four cards, a timer and
           a timeline read in sequence (Dee, 2026-09-21). Same figures. */}
@@ -262,7 +270,7 @@ export const MyTimeSection = () => {
         <div role="status" className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-xs text-amber-900">
           <AlertTriangle className="h-4 w-4 shrink-0 text-status-warning" />
           {lateSec > 0 && (
-            <span><strong>{humanDuration(lateSec)} late</strong> today — your shift starts at {mySchedule.shiftStart.slice(0, 5)} ({mySchedule.timezone}) with {humanDuration(mySchedule.graceMinutes * 60)} of grace.</span>
+            <span><strong>{humanDuration(lateSec)} late</strong> today — your shift is {shiftLabel(mySchedule.shiftStart, mySchedule.shiftEnd)} with {humanDuration(mySchedule.graceMinutes * 60)} of grace.</span>
           )}
           {overBreakSec > 0 && (
             <span><strong>Over break by {humanDuration(overBreakSec)}</strong> — {humanDuration(mySchedule.breakMinutes * 60)} of break is paid; over-break is not.</span>

@@ -3,7 +3,8 @@
  *
  * Dee, 2026-09-17: *"the date and today or yesterday is overlapping, and I
  * wanna add the TIME in the chat record not just the date, so we know the time
- * stamp. For all internal BES, time should be EST. For partners, time will
+ * stamp. For all internal BES, time is Eastern (ET — EST or EDT by date,
+ * never hardcoded). For partners, time will
  * follow their Time Zone on all partner GC and Partner Channels."*
  *
  * The zone belongs to the CONVERSATION, not the reader — `channel_timezone()`

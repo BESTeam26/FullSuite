@@ -1336,3 +1336,58 @@ manual delete. Dee named it and said not to expand scope today — recorded in
 Cost line: one Edge Function invocation an hour, and only when something is
 queued. **Cost scales with: the number of deleted or orphaned attachments** —
 roughly zero on a quiet day. Storage falls by 46 MB today.
+
+### P-051 · The browser decided which workday a punch belonged to — FIXED (DATABASE VERIFIED, six real entries repaired)
+
+**2026-09-21 · found while locking the canonical timezone at Dee's
+instruction · module: Workforce · class C data integrity · severity: S1 for
+payroll.**
+
+Dee confirmed `America/New_York` is the intended canonical zone for every
+internal workforce record. Auditing against that turned up a live defect:
+**`work_date` — the column that decides which day hours are counted under —
+was stamped by the browser**, from the device's own calendar (`d.getDate()`),
+and the column default fell back to **UTC**.
+
+Half the team works from the Philippines, twelve hours ahead. For most of the
+Eastern working day their phone already says tomorrow. **Six entries were
+already wrong**: Archie (3), Mark (2), Paul (1), all clocked in on the
+afternoon of 2026-09-21 Eastern, all filed on 2026-09-22 — wrong daily totals,
+wrong attendance, wrong EOD, wrong payroll grouping.
+
+**Fix — the server decides, and no client gets a vote.** A BEFORE INSERT
+trigger sets a work entry's `work_date` from the Eastern date of its own
+`started_at`, overriding whatever is sent; the column default is Eastern
+rather than UTC; rest keeps the shift day it was handed, because
+`start_break`/`resume_work` copy it from the open work entry and a break
+belongs to the shift it interrupts. `localWorkDate()` in the client resolves
+through `America/New_York` too, for what the screen shows.
+
+**The repair needed the system's own hand.** The first attempt silently did
+nothing: `time_entries_guard` pins `work_date` and `started_at` on update
+unless the caller is a manager or the system — an agent must never rewrite
+which day they worked. Re-run under `bes.time_system = '1'`, which is what
+that flag is for. No timestamp moved; only the day the hours are counted
+under.
+
+**Wording, per Dee:** copy says **Eastern Time (ET)**, never a hardcoded
+"EST"; timestamps carry the abbreviation true on their own date (`9:00 AM
+EDT` in September, `9:00 AM EST` in January), from the IANA database. My Time
+shows *"All BES workforce times are shown in Eastern Time (ET) — 6:25 PM
+EDT"*, with the reader's own clock beside it when their device is not on
+Eastern, never instead of it. The raw `America/New_York` string no longer
+appears in the interface.
+
+**Dee's ten UAT points:** 1, 2, 9 and 10 by unit test (EDT and EST display,
+both DST transitions creating no missing or duplicated workday, local time
+secondary); 3–8 by `eastern-workday-probe.mjs` **12/12** against production —
+a device claiming tomorrow *or* yesterday is overruled, two devices punching
+the same instant land on one workday, rest keeps its shift, every schedule is
+`America/New_York`, lateness and absence resolve through the schedule's zone,
+payroll groups by that column, and **no live punch is now filed on the wrong
+day**. 2378 tests, lint, build clean.
+
+**HUMAN TEST REQUIRED:** an agent in Manila punching in and out, and the
+result read on a desktop in either country.
+
+Cost line: none. One trigger on insert; no new query.

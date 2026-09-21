@@ -11,6 +11,7 @@
 
 import { requireSupabase } from "@/lib/supabase/client";
 import type { Tables } from "@/lib/supabase/database.types";
+import { besWorkDate } from "@/lib/time/business-timezone";
 
 export type TimeEntryRow = Tables<"time_entries">;
 
@@ -50,8 +51,13 @@ const mapRow = (r: TimeEntryRow): TimeEntry => ({
 
 /** Local calendar date as YYYY-MM-DD — a work day is the employee's, not UTC's. */
 export function localWorkDate(d: Date = new Date()): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  /* EASTERN, NOT THE DEVICE. BES runs on America/New_York for every workforce
+     record (Dee, 2026-09-21), and half the team is twelve hours ahead: a
+     Manila agent past their local midnight is still inside the Eastern
+     working day. Reading `d.getDate()` filed six punches on tomorrow before
+     this was fixed. The server now decides the stored value outright
+     (20260921014000); this is the same answer, for the screen. */
+  return besWorkDate(d);
 }
 
 /* ------------------------------------------------------------------ */
