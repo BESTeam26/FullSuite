@@ -360,3 +360,23 @@ export function creditStatusOptionsFor(current: string | null | undefined): stri
     ? [current, ...CREDIT_STATUSES]
     : [...CREDIT_STATUSES];
 }
+
+/**
+ * Dee's three states for one department row (CREDITOPS_QUEUE_DOCTRINE, §23).
+ *
+ *   actionable   BES has work to do now
+ *   waiting      BES is waiting on a bureau or the client
+ *   done         the work is finished
+ *
+ * Never two. `Round 8 Sent` is waiting, not completed; `For Client
+ * Confirmation` is waiting, not completed. Marking either done is a lie the
+ * reporting then repeats. It lives here rather than in the component that
+ * draws it so the strip, the queues and any future report classify a row the
+ * same way.
+ */
+export type DepartmentWorkState = "actionable" | "waiting" | "done";
+
+export function departmentWorkState(row: Pick<DepartmentStatusRow, "status">): DepartmentWorkState {
+  if (!isOpenDepartmentStatus(row.status)) return "done";
+  return isActionableDepartmentStatus(row.status) ? "actionable" : "waiting";
+}

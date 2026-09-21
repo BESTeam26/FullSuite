@@ -6,6 +6,7 @@ import {
   handoffTargets,
   planHandoffs,
   departmentStatuses,
+  departmentWorkState,
   isOpenDepartmentStatus,
   isValidDepartmentStatus,
   nextDepartment,
@@ -109,5 +110,36 @@ describe("handing off to several departments at once", () => {
   it("says so when there is nothing to do", () => {
     const plan = planHandoffs("Dispute", ["Dispute"], []);
     expect(describeHandoff("Dispute", plan)).toBe("Nothing to hand off");
+  });
+});
+
+describe("Dee's three states for one department row (§23)", () => {
+  const row = (status: string) => ({ department: "Dispute", status, updatedAt: "" });
+
+  it("a round in the post is WAITING, not completed", () => {
+    /* The doctrine's own example: "Round 8 Sent is waiting externally, NOT
+       completed. Marking it complete is a lie the reporting then repeats." */
+    expect(departmentWorkState(row("ROUND SENT - AWAITING RESULTS"))).toBe("waiting");
+  });
+
+  it("a client we are chasing is WAITING, not completed", () => {
+    expect(departmentWorkState(row("WAITING CLIENT RESPONSE"))).toBe("waiting");
+    expect(departmentWorkState(row("DOCS PENDING"))).toBe("waiting");
+  });
+
+  it("work somebody can pick up now is ACTIONABLE", () => {
+    expect(departmentWorkState(row("READY FOR PROCESSING"))).toBe("actionable");
+    expect(departmentWorkState(row("BC NEEDED"))).toBe("actionable");
+  });
+
+  it("and only a genuinely closed status is DONE", () => {
+    expect(departmentWorkState(row("COMPLETED"))).toBe("done");
+    expect(departmentWorkState(row("SUPPORT RESOLVED"))).toBe("done");
+    expect(departmentWorkState(row("BC NOT NEEDED"))).toBe("done");
+  });
+
+  it("casing never decides whether somebody has work", () => {
+    expect(departmentWorkState(row("round sent - awaiting results"))).toBe("waiting");
+    expect(departmentWorkState(row("Completed"))).toBe("done");
   });
 });

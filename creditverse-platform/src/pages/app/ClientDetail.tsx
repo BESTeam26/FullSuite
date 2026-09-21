@@ -8,14 +8,7 @@ import { ReportIntegrityPanel } from "@/components/clients/ReportIntegrityPanel"
 import { Metro2IdentitySection } from "@/components/clients/Metro2IdentitySection";
 import { ChronologySection } from "@/components/clients/ChronologySection";
 import { RoundOutcomesPanel } from "@/components/clients/RoundOutcomesPanel";
-import {
-  ArrowLeft,
-  RefreshCw,
-  CheckCircle2,
-  Circle,
-  AlertTriangle,
-  Pencil,
-} from "lucide-react";
+import { ArrowLeft, RefreshCw, AlertTriangle, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -23,6 +16,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { WhereThisFileIs } from "@/components/clients/WhereThisFileIs";
+import { useClientFile } from "@/lib/data/client-file";
 import OverviewTab from "@/components/clients/OverviewTab";
 import AccountTab from "@/components/clients/AccountTab";
 import { DisputeDashboard } from "@/components/clients/DisputeDashboard";
@@ -54,14 +49,6 @@ const tabs: { key: ClientTab; label: string }[] = [
   { key: "simulator", label: "Score Simulator" },
 ];
 
-const trackerSteps = [
-  { label: "Import", done: true },
-  { label: "Choose disputes", done: true },
-  { label: "Build letters", current: true },
-  { label: "Send", done: false },
-  { label: "Update round", done: false },
-];
-
 const monitoringTone: Record<MonitoringStatus, string> = {
   connected: "bg-emerald-500/10 text-status-success",
   "monitoring-issue": "bg-red-500/10 text-status-danger",
@@ -79,6 +66,9 @@ const ClientDetailInner = () => {
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clientId);
   const clientsQuery = useQuery({ queryKey: ["creditops", "clients"], queryFn: fetchFulfillmentClients, enabled: live && isUuid, staleTime: 15_000 });
   const liveClient = live && isUuid ? (clientsQuery.data ?? []).find((c) => c.id === clientId) ?? null : null;
+  /* The case, the person behind it and its department statuses, in one
+     request — never three in sequence (rule 14). */
+  const clientFile = useClientFile(clientId, live);
   const displayName = liveClient?.name ?? (live ? "Client" : "Maria Gonzalez");
   const displayEmail = liveClient?.email ?? (live ? "" : "maria.g@email.com");
   const initials = displayName.replace(/^\[TEST\]\s*/, "").split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "CL";
@@ -184,47 +174,9 @@ const ClientDetailInner = () => {
         </Button>
       </div>
 
-      <div className="mb-6 rounded-2xl border border-border bg-card p-5">
-        <div className="flex items-center">
-          {trackerSteps.map((s, i) => (
-            <div key={s.label} className="flex flex-1 items-center">
-              <div className="flex flex-col items-center gap-1.5">
-                <div
-                  className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold ${
-                    s.done
-                      ? "bg-gradient-emerald text-white"
-                      : s.current
-                        ? "border-2 border-emerald-500 text-status-success"
-                        : "border border-border text-muted-foreground"
-                  }`}
-                >
-                  {s.done ? (
-                    <CheckCircle2 className="h-4 w-4" />
-                  ) : s.current ? (
-                    i + 1
-                  ) : (
-                    <Circle className="h-3.5 w-3.5" />
-                  )}
-                </div>
-                <span
-                  className={`whitespace-nowrap text-[11px] font-medium ${
-                    s.current ? "text-status-success" : "text-muted-foreground"
-                  }`}
-                >
-                  {s.label}
-                </span>
-              </div>
-              {i < trackerSteps.length - 1 && (
-                <div
-                  className={`mx-1 mb-4 h-0.5 flex-1 ${
-                    s.done ? "bg-emerald-500" : "bg-border"
-                  }`}
-                />
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* Where the file actually is, from `client_department_statuses` — the
+          record the queues route on. What stood here was a constant. */}
+      <WhereThisFileIs rows={clientFile.file?.departments ?? []} loading={clientFile.isLoading} />
 
       <div className="mb-6 flex flex-wrap gap-1.5 rounded-xl border border-border bg-card p-1">
         {tabs.map((t) => (
@@ -243,7 +195,7 @@ const ClientDetailInner = () => {
       </div>
 
       {tab === "overview" && <OverviewTab />}
-      {tab === "account" && <AccountTab />}
+      {tab === "account" && <AccountTab caseId={live && isUuid ? clientId : undefined} />}
       {tab === "import" &&
         (liveClient ? (
           <div className="space-y-4">
