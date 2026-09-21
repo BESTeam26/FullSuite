@@ -18,7 +18,11 @@ const one = (sql) => q.query(sql)[0];
 const U = Object.fromEntries(q.query(`select email, id from profiles where email in ('bes.credit@bes.test','bes.lead@bes.test','bes.manager@bes.test','bes.funding@bes.test','bes.restricted@bes.test','probe.agent@bes.test','lordvrye.bes@gmail.com','navalesjorelynmae.bes@gmail.com','wecare@blessedempireservices.com')`).map((r) => [r.email, r.id]));
 const AG = one("select id from agencies order by created_at limit 1").id;
 const CREDITOPS = one(`select id from divisions where agency_id='${AG}' and service='creditops' and archived_at is null`).id;
-const DISPUTE = one(`select id from departments where agency_id='${AG}' and name='Dispute' and archived_at is null`).id;
+/* By KEY, never by name: a department renamed in Settings must not break the
+   probe, exactly as it must not drop somebody out of their own queue. The
+   name moved to "Dispute Department" on 2026-09-21 and this line was the only
+   thing that noticed. */
+const DISPUTE = one(`select id from departments where agency_id='${AG}' and key='dispute' and division='creditops' and archived_at is null`).id;
 const CEDAR = one(`select id from fulfillment_clients where name='[TEST] Cleo Chan'`).id;   // Team B, Onboarding
 const LAKESIDE = one(`select id from fulfillment_clients where name='[TEST] Evan Ellis'`).id; // Team A, Dispute
 const session = (u) => `set local role authenticated; do $c$ begin perform set_config('request.jwt.claims', '{"sub":"${u}","role":"authenticated"}', true); end $c$;`;
