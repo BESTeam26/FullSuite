@@ -15,6 +15,28 @@ Last reconciled: 2026-09-21, after the Eastern workday lock (`1f6b8e7`).
 | N-2 | **Seven people have no pay rate** | Payroll cannot price their time. Dee is adding these. |
 | N-3 | **No PHP→USD rate on file** (P-023) | The first payroll release refuses until Dee records the rate or switches the payout currency. |
 | N-4 | **Five invitations unaccepted, two expired** | Julius, Gile, Alyssa, Dmacasiab, Roniel are staged but not in; two links have expired and need resending. |
+| N-5 | **Seven department rows carry a status no queue recognises** | Needs one decision from Dee, listed below. Until then those files can sit in a queue they should have left — Bryan Rodriguez is in five at once. |
+
+### N-5 in full — what each unrecognised status should become
+
+The CreditOps Status Guide is the vocabulary every queue routes on. These
+seven rows hold something else, so `departmentWorkState()` cannot tell whether
+the work is finished. They are marked "unrecognised" on the case page rather
+than guessed at, because the guess decides whether somebody has work.
+
+| Department | Stored | Rows | The question |
+|---|---|---|---|
+| Onboarding | `Complete` | 2 | Onboarding has no COMPLETED. Is this **OB READY FOR R1** or **PARTNER ENDORSED**? Both close the queue. |
+| Onboarding | `Ready for Round 1` | 1 | **OB READY FOR R1** (onboarding finished), or the Dispute status of that name on the wrong department? |
+| Complaints | `CFPB Needed` | 2 | A complaint to raise. **LETTERS PENDING**, or a new guide code? |
+| Complaints | `FTC Needed` | 1 | Same question. |
+| Complaints | `For Complaints` | 1 | Looks like "hand this to Complaints" — probably **CM NOT NEEDED**'s opposite, i.e. the entry status. |
+| Dispute | `In Progress` | 1 | **READY FOR PROCESSING**, or something the guide is missing? |
+| Support | `Not Started` | 1 | **SUPPORT NEW**? |
+
+Casing alone is not the issue: the comparison already uppercases. These are
+different words. Once Dee answers, one migration normalises them and the
+queues correct themselves.
 
 ## NEXT — Dee's production focus order
 
@@ -28,7 +50,12 @@ Last reconciled: 2026-09-21, after the Eastern workday lock (`1f6b8e7`).
    day's accumulation (P-052) and the Eastern workday lock (P-051) on top.
    Awaiting a real punch from a Manila phone read back on a desktop.
 4. **CreditOps client workflow simplification** — work a file without knowing
-   the model. ← ACTIVE
+   the model. ← ACTIVE. Step one shipped (`ba57b15`): the fake progress
+   tracker is now the real department statuses, and Client Info reads the
+   canonical person instead of a fabricated one. Next: group the nine tabs
+   into Work · Client Info · Documents · History, and deal with the two
+   disconnected letter pipelines (RoundLettersPanel persists; Print & Download
+   reads an in-memory list that is always empty for a live client).
 5. **Notifications / Attention** — the system says what needs action.
 6. **Partner Portal** — after the internal workflow is stable (D-007).
 
