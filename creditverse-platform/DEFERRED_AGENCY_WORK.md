@@ -985,6 +985,73 @@ labour-counsel read on what a contractor verification letter may state.
 
 **Dependencies.** BES CRM QA gate; document builder templates; Dee's decision.
 
+## D-022 — TalentOps as a project workspace (Dee's mockup, 2026-09-21)
+
+**Recorded by Claude, 2026-09-21. Reference:
+`docs/design-references/talentops-workspace-mockup-2026-09-21.webp`** (Dee:
+"I want the TalentOps be like this"). Deferred by Dee's own launch order the
+same day: *reliable first-click login → correct access/scope → team activation
+→ operational UAT → branding polish later.* This is none of those.
+
+**The mockup, in the platform's own terms.** A ClickUp-shaped workspace:
+
+- **Left rail** — MY WORK (Assigned to me · Due today · Overdue · Starred) and
+  WORKSPACES grouped as MANAGED PROJECTS (a partner, e.g. Business Made Fair,
+  with sub-lists Client Operations · Marketing · CRM Build · Website), BES
+  INTERNAL (FullSuite → Development · Bugs & Issues · Launch · QA/UAT;
+  Marketing; Operations; Recruitment) and OUTSOURCING (Wavy One Solutions,
+  ZackCredit).
+- **Main** — breadcrumb, project header with type badge, tabs List · Board ·
+  Activity, toolbar Add Task · Filter · Group · Sort · Fields · Search, and a
+  list grouped by status (To Do · In Progress · Review · Blocked · Completed)
+  with columns Task · Status · Assignee · Priority · Due Date.
+- **Right panel** — status, priority, due, assignee, description, checklist,
+  subtasks, attachments, comments thread. An "Automations (4)" control.
+
+**What already exists (rule 6 — reuse, do not clone).** The engine is largely
+built and is the canonical one rule 17 demands: `workspaces` (7),
+`workspace_boards` (13 — these ARE the mockup's sub-lists), `workspace_statuses`
+as rows (54), `workspace_item_types` (15), `workspace_fields` (23),
+`work_items` (55), `work_checklist_items`, `work_item_blockers`,
+`work_item_labels`, `work_item_field_values`, `workspace_shares`. UI:
+`Workspaces.tsx`, `WorkspaceBoard` (the Board tab), `WorkItemDrawer` (already
+carries description, priority, due, checklist, attachments, a comment),
+`WorkChecklist`, `SharePanel`, `WorkspaceSettings`. `TalentOps.tsx` is a
+182-line summary page over shared workspaces under live TalentOps
+engagements.
+
+**The gap, honestly.**
+
+| Mockup element | State |
+|---|---|
+| Grouping MANAGED / INTERNAL / OUTSOURCING | derivable — workspace's organization vs agency vs outsourcing group; UI only |
+| Sub-lists under a project | boards exist; the tree UI does not |
+| MY WORK: assigned / due today / overdue | derivable from `work_items`; UI only |
+| Starred | **no table** — needs `work_item_stars(user_id, item_id)` or a workspace-level pin |
+| List view grouped by status, with columns | **new view**; statuses are already rows |
+| Filter · Group · Sort | UI only |
+| Fields | `workspace_fields` exists; the picker UI does not |
+| Activity tab | `activity_events` on `work_item` exists; tab UI does not |
+| Subtasks | **check `work_items.parent_id`** — if absent, one nullable self-FK |
+| Comments thread | drawer shows one; a thread may need `work_comments` — check `messages`/channels first |
+| Automations | **not built**; rule 17 says "where supported" — its own epic |
+
+**Scoping.** Engine ~80% present; the work is the shell (tree + grouped list +
+detail panel), plus Starred, Subtasks, a comments thread, and Automations as
+a separate decision. Multi-day. **Four views apply** (rule 20b): an agent sees
+only work in shared scope; a lead their teams'; a division manager their
+division's; executives all. `workspace_shares` and RLS already decide that —
+the UI must not re-decide it.
+
+**Why deferred and not built the day before launch:** it touches no P0
+surface, adds no correctness, and a half-built shell is the "fragment" rule 20
+forbids parking. Build as the first post-launch epic, whole, behind the same
+`TalentOps` entry, replacing `TalentOps.tsx` rather than adding beside it.
+
+**Cost scales with:** nothing new at rest; work items per project at use. No
+realtime, no AI, no cron implied by the mockup except Automations, which gets
+its own estimate.
+
 ## D-021 — Division manager scope in CreditOps — RESOLVED 2026-09-20 (AD-008: placement is scope)
 
 **Recorded by Claude, 2026-09-19, from the RLS matrix base checks.** The
