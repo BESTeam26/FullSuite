@@ -1405,6 +1405,86 @@ same two times twice reads like a discrepancy. `eod_day_activity` was checked
 and needed no change: it compares instants (`due_at < now()`), not dates.
 2386 tests, lint 0, build 0.
 
+### P-054 · A lead could not stop an agent's forgotten timer — BUILT
+
+**2026-09-21 · reporter: Dee · module: Workforce · class D feature, accepted
+inside the active clock work because it is the other half of P-052.** *"I also
+want the team lead, division head, and the executives to have the capability
+Clock Out the agents."*
+
+An agent who shuts the laptop with the timer running was left to the ten-hour
+auto-stop, which files ten hours against a day they worked seven and then
+needs an adjustment request to undo. `manager_clock_out(user, reason)` lets
+the person who notices stop it.
+
+**Scope is `managed_people()` and nothing else**, so the four views answer the
+way they always do: an agent manages nobody and the function refuses every
+call; a team lead reaches their teams; a division manager their division and
+not the company; an executive the company. Nobody clocks themselves out
+through this door. The button on the presence board proves nothing — the
+database decides (rule 1).
+
+It is a clock-out, not an edit: stamped at the moment it happens and capped at
+ten hours, exactly like the agent's own. A wrong time is still corrected by an
+approved adjustment. Every use writes an `activity_events` row naming the
+manager, and the agent is notified who stopped their clock and why, because
+finding out from a payslip is not acceptable.
+
+`timer-integrity-probe.mjs` 7–14 covers all of it, against production.
+
+Cost line: no material increase — one statement per press, one notification.
+
+### P-053 · A finished punch had its end rewritten by any later edit — FIXED (39 rows repaired)
+
+**2026-09-21 · found while building P-052 · module: Workforce · class C data
+integrity · severity: S1 for payroll and attendance.**
+
+Dee's My Time showed a break of 4h 31m overlapping a lunch of 4h 31m
+overlapping three more lunches, all ending at the same instant. **Thirty-nine
+entries were wrong across four people** — Dee, James Ivan, Archie and Mark.
+
+**Cause.** `time_entries_guard`, the BEFORE UPDATE trigger, did this for any
+hand that is not a manager and not the system:
+
+```
+if new.ended_at is not null then ... new.ended_at := now();
+```
+
+It never asked whether the row was being CLOSED. An update to an
+already-finished entry — any column, any reason — moved its end to that
+moment. Past ten hours it went further and wrote `start + cap` with an
+`auto_stopped` stamp the row never earned.
+
+Two populations, one cause:
+
+| Rows | Shape | Where they came from |
+|---|---|---|
+| 11 | all ending 2026-09-21 18:19:24 Eastern | **This project's own `work_date` repair in `20260921014000`**, whose two UPDATE statements ran without `bes.time_system = '1'`. The repair was right; running it unflagged let the guard rewrite the ends of every row it corrected. |
+| 28 | all exactly 600 minutes, `auto_stopped` | Closed entries updated the following day, back to 2026-09-03. Not the auto-stop sweep, which only touches open entries. |
+
+The one-open-entry index has held since `20260903000600`, so no two punches
+were ever open at once. Every overlap was manufactured afterwards.
+
+**Fix.** A closed entry keeps its end, pinned exactly as `started_at` and
+`work_date` already were. The clock-out rule applies to a close, not to an
+edit. Correcting a finished entry stays an approved adjustment (rule 11).
+
+**Repair.** The true ends are not recoverable and were not invented. What is
+certain is that nobody is in two places at once, so each row was clamped to
+the next punch that person made — what `start_break` / `resume_work` /
+`clock_out` would have written, and a change that can only shorten a record.
+Zero overlaps remain platform-wide. Dee's day now reads work 5h 46m, break
+13m, lunch 3h 50m instead of 13 hours of overlapping rest.
+
+**The lesson worth keeping:** a repair migration that touches `time_entries`
+must set `bes.time_system = '1'`, and one that does not will silently damage
+what it is fixing. It has now cost two migrations.
+
+`timer-integrity-probe.mjs` 1–6, against production, including a standing
+check that no punch anywhere outlives the next one.
+
+Cost line: none. One comparison in a trigger that already ran.
+
 ### P-052 · Break and lunch did not accumulate across the day, and the timer restarted at zero — FIXED
 
 **2026-09-21 · reporter: Dee · module: My Time / Home clock · class C —
