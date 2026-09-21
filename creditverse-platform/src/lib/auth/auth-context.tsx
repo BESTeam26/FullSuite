@@ -163,6 +163,7 @@ const demoAgencyMembership: AgencyMembership = {
   time_tracking_required: true,
   attendance_reward_eligible: true,
   eod_required: true,
+  workforce_managed: true,
   engagement_type: null,
   hired_on: null,
   status: "active",

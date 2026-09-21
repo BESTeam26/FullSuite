@@ -583,6 +583,7 @@ export type Database = {
           status: string
           time_tracking_required: boolean
           user_id: string
+          workforce_managed: boolean
         }
         Insert: {
           access_profile?: Database["public"]["Enums"]["access_profile"] | null
@@ -612,6 +613,7 @@ export type Database = {
           status?: string
           time_tracking_required?: boolean
           user_id: string
+          workforce_managed?: boolean
         }
         Update: {
           access_profile?: Database["public"]["Enums"]["access_profile"] | null
@@ -641,6 +643,7 @@ export type Database = {
           status?: string
           time_tracking_required?: boolean
           user_id?: string
+          workforce_managed?: boolean
         }
         Relationships: [
           {
@@ -7355,6 +7358,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      infra_readings: {
+        Row: {
+          cause: string | null
+          connection_limit: number
+          connections: number
+          connections_by_source: Json | null
+          created_at: string
+          database_bytes: number
+          disk_quota_bytes: number
+          failed_jobs: number
+          largest_tables: Json | null
+          notified_band: number | null
+          taken_on: string
+        }
+        Insert: {
+          cause?: string | null
+          connection_limit: number
+          connections: number
+          connections_by_source?: Json | null
+          created_at?: string
+          database_bytes: number
+          disk_quota_bytes: number
+          failed_jobs: number
+          largest_tables?: Json | null
+          notified_band?: number | null
+          taken_on: string
+        }
+        Update: {
+          cause?: string | null
+          connection_limit?: number
+          connections?: number
+          connections_by_source?: Json | null
+          created_at?: string
+          database_bytes?: number
+          disk_quota_bytes?: number
+          failed_jobs?: number
+          largest_tables?: Json | null
+          notified_band?: number | null
+          taken_on?: string
+        }
+        Relationships: []
       }
       invitation_onboarding: {
         Row: {
@@ -19295,6 +19340,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      infra_watch: { Args: never; Returns: Json }
       intranet_may_write: { Args: { p_org: string }; Returns: boolean }
       invitation_preview: {
         Args: { p_token: string }

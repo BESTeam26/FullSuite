@@ -295,7 +295,10 @@ export async function fetchTeamEod(agencyId: string, workDate: string): Promise<
       /* Dee, 2026-09-21: "Aaron Dee and Bryan don't need EOD Report." Somebody
          who does not file one is not MISSING one — listing them would put a
          permanent red count on the page and train a lead to ignore it. */
-      .eq("eod_required", true),
+      .eq("eod_required", true)
+      /* The owners are outside workforce management entirely (Dee,
+         2026-09-21), so they are not a gap in anybody's team roster. */
+      .eq("workforce_managed", true),
     sb.from("eod_submissions").select("*").eq("agency_id", agencyId).eq("work_date", workDate),
   ]);
   if (roster.error) throw roster.error;

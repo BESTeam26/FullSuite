@@ -33,7 +33,9 @@ export function CompensationRoster() {
   /* Named, not counted: an unpriced person gets no payslip at all, so the
      useful thing is knowing WHO. */
   const unpriced = (members.data ?? [])
-    .filter((m) => m.status === "active" && !priced.has(m.userId))
+    /* The owners are outside workforce management (Dee, 2026-09-21), so a
+       missing pay rate is not a gap in their case — it is the point. */
+    .filter((m) => m.status === "active" && m.workforceManaged && !priced.has(m.userId))
     .map((m) => m.name || m.email);
   const anyCost = rows.some((r) => r.besCostCents !== null);
 
