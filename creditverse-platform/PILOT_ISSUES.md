@@ -1039,3 +1039,58 @@ calendar.
 them back).
 
 Cost line: none. Same single bounded query.
+
+### P-042 · A tab left open keeps running the build it loaded — FIXED (DEPLOYED)
+
+**2026-09-21 · reporter: Dee (twice) · module: platform.** Reactions were
+reported broken after they were fixed, because the open tab still held the
+pre-fix bundle and nothing said so. The page now compares its own entry
+bundle with the one the server is serving — on focus, at most once a minute,
+one ~2 KB request — and offers a Reload. Never forced: a reload mid-message
+would lose the message.
+
+### P-043 · "Back to work" was white text on no background — FIXED (LIVE VERIFIED)
+
+**2026-09-21 · reporter: Dee · module: My Time · class B · severity: S2 —
+unreadable.** `bg-status-success` was written in five places and defined in
+none; only the `-tint` variant existed. The progress bars and legend swatch
+merely looked empty; on the new punch button it meant white on the pale card.
+Defined beside `bg-status-danger`, which carried the same lesson in a comment
+above it. Verified on production: solid green, readable.
+
+### P-044 · Onboarding is a QUEUE of the Client Success team, not a department — CORRECTED (LIVE VERIFIED)
+
+**2026-09-21 · Dee's correction of the same day's change.** Routing every
+onboarding status into Support collapsed two different kinds of work into one
+list. The Support / Client Success team owns **two operational queues**:
+
+```
+Client Success / Support Team
+├── Onboarding Queue   New Client Onboarded · Incomplete Onboarding
+└── Support Queue      CMS Issue · Monitoring Issue · Reimport/Review · …
+```
+
+Queue ≠ department. No Onboarding department was recreated (AD-011 holds);
+the mapping layer now answers both queues for `key = 'support'`, and fair
+distribution picks Onboarding work from the Client Success team.
+
+**Acceptance, against production:** New Client → Onboarding/OB NOT STARTED ·
+Incomplete Onboarding → Onboarding/OB INCOMPLETE · CMS Issue → Support ·
+Monitoring Issue → Support · Jet, Nico and Allyssa each answer "Onboarding +
+Support" while Alvaro answers "Dispute" · 0 live Onboarding departments ·
+queue counts separate (Onboarding 7, Support 5) · partner/client scope
+unchanged (queue probe 13/13, routing 45/45, directory 19/19).
+
+### P-045 · A fixture client reached a real agent's directory — FIXED (LIVE VERIFIED)
+
+**2026-09-21 · found by `directory-vs-queues-probe` during the release, not by
+a person.** Moving the negative-control fixture team into a live CreditOps
+department that morning (so probe personas kept a scope) put `[TEST] Cleo
+Chan` into Jet Manugas's client list — its old department had no real people,
+Client Success has three. The negative-control team is back in a hidden
+fixture department; Team A stays in Dispute, which predates today and is what
+the positive-control personas need. Jet's directory is now his own client
+only. The probe also learned that an own assignment is a legitimate second
+route to a client (P-013), so it stops reporting that as a leak.
+
+Cost line for all four: none.
