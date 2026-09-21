@@ -90,7 +90,9 @@ export function mentionsIn(body: unknown): MentionAttrs[] {
  * written to `detail` and the text a picker inserts never drift.
  */
 export function mentionText(label: string): string {
-  return `@${label}`;
+  /* `@everyone` is stored with its @ already (channel_mentionable), and a
+     person's name never is; one @ either way, never "@@everyone". */
+  return label.startsWith("@") ? label : `@${label}`;
 }
 
 /**

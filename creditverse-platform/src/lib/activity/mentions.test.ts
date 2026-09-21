@@ -86,6 +86,9 @@ describe("rankMentionCandidates", () => {
 });
 
 describe("mentionText", () => {
+  it("does not double the @ on a group word that already carries one", () => {
+    expect(mentionText("@everyone")).toBe("@everyone");
+  });
   it("is the one place the plain-text form is decided", () => {
     expect(mentionText("Piper Manager")).toBe("@Piper Manager");
   });

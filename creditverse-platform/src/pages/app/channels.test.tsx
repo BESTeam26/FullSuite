@@ -371,6 +371,23 @@ describe("message actions respect who wrote it (§71)", () => {
     expect(screen.queryByText(/the secret/)).not.toBeInTheDocument();
   });
 
+  it("the reaction picker stays open after the click that opened it, and closes on a click elsewhere (P-034)", () => {
+    messages = [richMessage()];
+    render();
+    fireEvent.click(screen.getByRole("button", { name: "Add a reaction" }));
+    expect(screen.getByRole("button", { name: "React 👍" })).toBeInTheDocument();
+    fireEvent.click(document.body);
+    expect(screen.queryByRole("button", { name: "React 👍" })).not.toBeInTheDocument();
+  });
+
+  it("picking from the picker reacts", () => {
+    messages = [richMessage()];
+    render();
+    fireEvent.click(screen.getByRole("button", { name: "Add a reaction" }));
+    fireEvent.click(screen.getByRole("button", { name: "React 👍" }));
+    expect(reactMutate).toHaveBeenCalledWith({ messageId: 1, emoji: "👍", mine: false });
+  });
+
   it("toggles a reaction without a round trip to find out (§20)", () => {
     messages = [richMessage({ reactions: [{ emoji: "✅", count: 2, mine: false }] })];
     render();

@@ -12,7 +12,7 @@
  * refused (§31, §72). This component cannot grant what the policy denies, and
  * the policy does not care what this component draws.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Bookmark, BookmarkCheck,
   Check, CornerUpLeft, Download, History, MessageSquare, Megaphone,
@@ -66,18 +66,28 @@ export function MessageRow({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(m.bodyText ?? "");
   const [showHistory, setShowHistory] = useState(false);
+  const rowRef = useRef<HTMLElement>(null);
 
   /* Escape and a click elsewhere dismiss the actions. A menu opened by a
-     right-click is easy to open by accident, so it must be easy to leave. */
+     right-click is easy to open by accident, so it must be easy to leave.
+
+     "Elsewhere" means outside THIS row. React flushes this effect before the
+     opening click has finished travelling to the window, so a listener that
+     closed on any click caught that same click and shut the picker in the
+     act of opening it — reactions "did nothing" (P-034, Dee 2026-09-21). */
   useEffect(() => {
     if (!menuOpen && !pickerOpen) return;
     const close = () => { setMenuOpen(false); setPickerOpen(false); };
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
+    const onClick = (e: MouseEvent) => {
+      if (rowRef.current?.contains(e.target as Node)) return;
+      close();
+    };
     window.addEventListener("keydown", onKey);
-    window.addEventListener("click", close);
+    window.addEventListener("click", onClick);
     return () => {
       window.removeEventListener("keydown", onKey);
-      window.removeEventListener("click", close);
+      window.removeEventListener("click", onClick);
     };
   }, [menuOpen, pickerOpen]);
 
@@ -91,6 +101,7 @@ export function MessageRow({
 
   return (
     <article
+      ref={rowRef}
       /* Dee, 2026-09-17: "RIGHT Click on messages should allow you to choose
          options or actions like reply delete etc." The same menu the hover
          `…` opens — one set of actions, two ways to reach it, rather than a

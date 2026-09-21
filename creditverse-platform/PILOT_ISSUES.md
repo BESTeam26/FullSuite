@@ -892,3 +892,26 @@ on until those statuses are routed elsewhere (Client Success is the likely
 home). Say the word and the routing follows.
 
 Cost line: none.
+
+### P-034 · Reactions and the message menu "do nothing"; @everyone renders as @@everyone — FIXED AWAITING LIVE RETEST
+
+**2026-09-21 · reporter: Dee (CRM Team channel) · module: Communication ·
+class A pilot defect · severity: S2 — reactions are half the point of a chat.**
+
+**Root cause (reactions and the "…" menu).** Not the database: a reaction
+inserts fine as an agent and as Dee. `MessageRow` dismisses its picker and
+menu on "any click on the window". React flushes that effect before the
+opening click has finished travelling to the window, so the listener caught
+the same click and closed the picker in the act of opening it. Reproduced in
+the browser as Dee; covered now by a test that clicks Add a reaction and
+expects the picker to still be there. Fix: "elsewhere" means outside the row
+(a ref check), not anywhere.
+
+**Root cause (@@everyone).** `channel_mentionable` names the group option
+`@everyone` with its @ already; `mentionText` prepended another. It now adds
+an @ only when the label has none. Messages already sent keep their text.
+
+**Verified:** channels + mentions suites (63), typecheck, lint; live retest by
+Dee or James in CRM Team.
+
+Cost line: none.
