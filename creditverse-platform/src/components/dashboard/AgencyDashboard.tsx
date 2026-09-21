@@ -21,6 +21,7 @@ import { useOwnProfile } from "@/lib/data/use-account";
 import { useAgencyOverview } from "@/lib/data/use-agency-overview";
 import { dayGreeting } from "@/lib/greetings/day-greeting";
 import { MemberFirstRunCard } from "@/components/dashboard/GettingStartedCard";
+import { ClockCard } from "@/components/time/ClockCard";
 import { AgencyBirthdayStrip } from "@/components/dashboard/AgencyBirthdayStrip";
 import { AttentionCenter } from "./agency/AttentionCenter";
 import { SubAccountMiniGrid } from "./agency/SubAccountMiniGrid";
@@ -40,6 +41,9 @@ export const AgencyDashboard = () => {
 
   return (
     <div className="mx-auto max-w-[1600px] space-y-6 p-6 md:p-8">
+      {/* Managers clock in too — Bryan does. It renders nothing for anyone
+          not required to track, which is how Dee and Aaron see no clock. */}
+      <ClockCard />
       <AgencyBirthdayStrip />
       <MemberFirstRunCard />
 

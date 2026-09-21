@@ -1188,3 +1188,65 @@ itself is proved by test, not by production data.
 their phone, and tapping a card through to the client or workspace.
 
 Cost line: none. No new queries — the same two reads the page already made.
+
+### P-048 · Clock / attendance on a phone — BUILT · MOBILE UI VERIFIED · HUMAN TEST REQUIRED
+
+**2026-09-21 · Dee's third production target.** A daily punch took
+More → Workforce → Time & Attendance → My Time → find the timer card. Now the
+clock is the first thing on Home.
+
+**What it shows, and only what is valid:**
+
+```
+Clocked out                    → [ Clock in ]
+Clocked in · in at 9:26 AM     → [ Start break ] [ Start lunch ] [ Clock out ]
+On break · 08:12               → [ Back to work ]
+On lunch · 02:07:10            → [ Back to work ]
+```
+
+No disabled buttons for impossible moves — an action that cannot be taken is
+absent (rule 3). Every button is 48px and full width on a phone.
+
+**One authoritative state.** The card owns none: it reads `useTimesheet()`,
+the same hook My Time uses, so a punch from a phone and a punch from a desk
+are the same row, under the same break rules, corrections and payroll
+treatment. The ticking figure is presentation anchored on the server's
+`started_at`; the open-entry query already refetches when the tab returns to
+the front, so reopening the PWA, killing it, or switching devices
+reconstructs the state rather than resuming a local guess. **No mobile-only
+attendance logic was written.**
+
+**Double punches.** `time_entries` has a partial unique index allowing one
+open entry per person, so a racing second insert is refused by the database
+with "You are already clocked in"; the card disables every action while one is
+in flight and shows "Working…". A failure is shown as a failure — the card
+never renders the state it wanted.
+
+**My Time on a phone** gains "Today at a glance": worked time, clock in, clock
+out (or "Still on"), break, lunch, current state, and any attendance exception
+in the same words the desktop banner uses. Below `md` only; the desktop layout
+is untouched.
+
+**Who sees a clock:** BES staff. Somebody exempt from tracking (Dee, Aaron)
+sees nothing *unless they are actually on the clock* — exempt means not
+required, not forbidden, and Dee was on lunch the day this was written.
+
+**Verified:** 10 component tests (each state's valid moves, nothing disabled
+for impossible ones, in-flight lock, failure shown, who sees it), full suite
+2368, lint, build. **Live on production data at 360 / 390 / 412:** Dee's real
+"On lunch · 02:07:10 · Back to work" on Home, and My Time reading "Clock in
+8:39 AM EDT · Still on · Lunch 2h 15m · Over lunch by 1 hour 15 minutes".
+
+**HUMAN TEST REQUIRED** — I cannot do these: a real punch on the installed
+PWA, the four-step flow (in → break → back → lunch → back → out), a double tap
+on a slow connection, cross-device (punch on phone, read on desktop), and the
+PWA lifecycle (background, kill, lock, lose network).
+
+**TIMEZONE — reported, not changed.** Every work schedule carries
+`America/New_York`, so lateness, break allowances and the day boundary are all
+judged in Eastern time, and My Time shows "8:39 AM EDT" to a team working in
+the Philippines. That is the existing canonical policy and nothing here
+touched it, but it is an ambiguity worth a decision: a 9am–6pm PH shift stored
+as 9am–6pm Eastern marks people late by the wrong clock. Recorded for Dee.
+
+Cost line: none. No new queries — the card reads what the page already loads.

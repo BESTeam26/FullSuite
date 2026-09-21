@@ -18,6 +18,7 @@ import {
   ListTodo, Megaphone, Timer, Users,
 } from "lucide-react";
 import { ContentCard } from "@/components/dashboard/DivisionLayout";
+import { ClockCard } from "@/components/time/ClockCard";
 import { HomeFinanceStrip } from "@/components/agency/finance/HomeFinanceStrip";
 import { HolidayBanner, UpcomingHolidaysCard } from "@/components/agency/HolidayBanner";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -83,6 +84,13 @@ export const AgencyHome = () => {
         </div>
 
         <HolidayBanner />
+
+        {/* The clock first: it is the thing most people open FullSuite to do,
+            and on a phone it must be reachable without navigating (Dee,
+            2026-09-21). It renders nothing for anyone not required to track. */}
+        <div className="mb-4">
+          <ClockCard />
+        </div>
 
         <div className="grid gap-4 lg:grid-cols-3">
           <div className="space-y-4 lg:col-span-2">

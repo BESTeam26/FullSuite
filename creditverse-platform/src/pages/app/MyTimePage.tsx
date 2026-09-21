@@ -49,6 +49,7 @@ import { TimerCard } from "@/components/time/TimerCard";
 import { StartWorkCard, type StartRequest } from "@/components/time/StartWorkCard";
 import { WeekChart } from "@/components/time/WeekChart";
 import { TodayTimeline } from "@/components/time/TodayTimeline";
+import { TodayAtAGlance } from "@/components/time/TodayAtAGlance";
 import { RequestTimeOffDialog } from "@/components/time/RequestTimeOffDialog";
 import { businessDaysBetween, businessToday } from "@/lib/calendar/us-federal-holidays";
 import { rewardWallet } from "@/lib/leave/reward-wallet";
@@ -101,10 +102,31 @@ export const MyTimeSection = () => {
   const mySchedule = (schedules.data ?? [])[0];
   const overBreakSec = mySchedule ? Math.max(0, live.breakSeconds - mySchedule.breakMinutes * 60) : 0;
   const overLunchSec = mySchedule ? Math.max(0, live.lunchSeconds - mySchedule.lunchMinutes * 60) : 0;
+
+
   /* Seconds, said in words. Dee, 2026-09-18: "387m late … i want it converted
      easy to human to understand" — a number somebody has to divide by 60 in
      their head is a number they will misread. */
   const lateSec = mySchedule ? lateSecondsToday(entries, mySchedule, t.today, now) : 0;
+
+  /* Today's own punches, oldest first — the phone summary reads the first in
+     and the last out off them rather than asking a second question. */
+  const todayEntries = entries
+    .filter((e) => e.workDate === t.today)
+    .slice()
+    .sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+  /* The same exceptions the banner shows, in the same words. */
+  const todayExceptions = [
+    lateSec > 0 && mySchedule
+      ? `${humanDuration(lateSec)} late — your shift starts at ${mySchedule.shiftStart.slice(0, 5)} (${mySchedule.timezone}).`
+      : null,
+    overBreakSec > 0 && mySchedule
+      ? `Over break by ${humanDuration(overBreakSec)} — ${humanDuration(mySchedule.breakMinutes * 60)} of break is paid.`
+      : null,
+    overLunchSec > 0 && mySchedule
+      ? `Over lunch by ${humanDuration(overLunchSec)} — the allowance is ${humanDuration(mySchedule.lunchMinutes * 60)}.`
+      : null,
+  ].filter((x): x is string => !!x);
   /* A timer left running overnight quietly corrupts production and End of Day,
      so it is said out loud. Stopping it stays the person's own act. */
   const stale = isStaleTimer(t.openEntry);
@@ -157,6 +179,23 @@ export const MyTimeSection = () => {
           {t.error}
         </div>
       )}
+
+      {/* On a phone the day has to be one glance, not four cards, a timer and
+          a timeline read in sequence (Dee, 2026-09-21). Same figures. */}
+      <div className="mb-4 md:hidden">
+        <TodayAtAGlance
+          glance={{
+            firstIn: todayEntries[0]?.startedAt ?? null,
+            lastOut: t.openEntry ? null : (todayEntries.at(-1)?.endedAt ?? null),
+            workSeconds: live.workSeconds,
+            breakSeconds: live.breakSeconds,
+            lunchSeconds: live.lunchSeconds,
+            state: !t.openEntry ? "out" : t.openEntry.kind === "break" ? "break" : t.openEntry.kind === "lunch" ? "lunch" : "working",
+            exceptions: todayExceptions,
+          }}
+          timeZone={mySchedule?.timezone}
+        />
+      </div>
 
       {/* Today · This week · for a partner · for BES itself. The last two add
           up to the second: every worked minute is one or the other. */}
