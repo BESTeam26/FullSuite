@@ -858,7 +858,7 @@ when scanning, silent otherwise. Every message already carries its own time.
 
 Cost line: none.
 
-### P-033 · Owner could not archive the Onboarding department — FIXED AWAITING LIVE RETEST
+### P-033 · Owner could not archive the Onboarding department — CLOSED (Onboarding archived by 20260921010000 on Dee's structure spec)
 
 **2026-09-21 · reporter: Dee · module: People & Teams › Structure · class A
 pilot defect · severity: S2.** "I can't delete this Onboarding … I should be
