@@ -28,7 +28,10 @@ const activityOf = (p: Presence): string => {
   if (p.state === "on_leave") return p.leaveLabel ?? "On leave";
   if (p.state === "on_break") return "Break";
   if (p.state === "on_lunch") return "Lunch";
-  if (p.state === "not_in") return "Has not clocked in";
+  if (p.state === "not_in_yet") return "Has not clocked in yet";
+  if (p.state === "absent") return "Scheduled, never clocked in";
+  if (p.state === "off") return "Not scheduled today";
+  if (p.state === "no_schedule") return "No work schedule set";
   if (p.state === "clocked_out") return "Clocked out for the day";
   return p.activity ?? "Working";
 };
@@ -62,8 +65,9 @@ export function PresenceBoard({ names }: { names: Map<string, string> }) {
 
   return (
     <div className="space-y-3">
+      {/* A state nobody is in is not drawn: a permanent zero tile is furniture. */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
-        {PRESENCE_ORDER.map((s) => (
+        {PRESENCE_ORDER.filter((s) => counts[s] > 0 || status === s).map((s) => (
           <button key={s} type="button" aria-pressed={status === s}
             onClick={() => setStatus((cur) => (cur === s ? ALL : s))}
             className={cn(

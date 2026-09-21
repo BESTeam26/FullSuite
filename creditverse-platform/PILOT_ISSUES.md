@@ -1009,3 +1009,13 @@ polling loop: refetched on focus and every two minutes.
 
 Cost line: no recurring infrastructure cost. Cost scales with: one bounded
 query per open management screen.
+
+**Corrected the same day (Dee: "You must show here if they are OFF or leave or
+Absent").** The board read "Not in yet" for somebody whose schedule gave them
+the day off. Presence now defers to the attendance engine for anyone not
+punched in — **Day off · On leave · Absent · No schedule · Not in yet** — so
+there is one answer to "why is this person not working", not two. The one
+addition is timing, not a new rule: the engine only calls a day absent once
+the day is over, so on the live board a scheduled person who has not clocked
+in AND whose shift has already ended reads **Absent** now rather than at
+midnight. A state nobody is in is not drawn.

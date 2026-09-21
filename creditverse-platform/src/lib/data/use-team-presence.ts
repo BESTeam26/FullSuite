@@ -11,7 +11,10 @@ import { useQuery } from "@tanstack/react-query";
 import { requireSupabase } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth/auth-context";
 
-export type PresenceState = "clocked_in" | "on_break" | "on_lunch" | "clocked_out" | "not_in" | "on_leave";
+export type PresenceState =
+  | "clocked_in" | "on_break" | "on_lunch" | "clocked_out"
+  /* Not on the clock, and WHY: the attendance engine's own answer for the day. */
+  | "not_in_yet" | "absent" | "off" | "on_leave" | "no_schedule";
 
 export interface Presence {
   userId: string;
@@ -32,8 +35,11 @@ export const PRESENCE_LABEL: Record<PresenceState, string> = {
   on_break: "On break",
   on_lunch: "On lunch",
   clocked_out: "Clocked out",
-  not_in: "Not in yet",
+  not_in_yet: "Not in yet",
+  absent: "Absent",
+  off: "Day off",
   on_leave: "On leave",
+  no_schedule: "No schedule",
 };
 
 /** Dot colours, in the order a manager scans them. */
@@ -42,11 +48,16 @@ export const PRESENCE_TONE: Record<PresenceState, string> = {
   on_break: "bg-amber-500",
   on_lunch: "bg-blue-500",
   clocked_out: "bg-muted-foreground/50",
-  not_in: "bg-muted-foreground/30",
-  on_leave: "bg-status-danger",
+  not_in_yet: "bg-muted-foreground/40",
+  absent: "bg-status-danger",
+  off: "bg-slate-400",
+  on_leave: "bg-blue-500",
+  no_schedule: "bg-muted-foreground/30",
 };
 
-export const PRESENCE_ORDER: PresenceState[] = ["clocked_in", "on_break", "on_lunch", "clocked_out", "not_in", "on_leave"];
+export const PRESENCE_ORDER: PresenceState[] = [
+  "clocked_in", "on_break", "on_lunch", "clocked_out", "not_in_yet", "absent", "off", "on_leave", "no_schedule",
+];
 
 /** The pill's own colours — readable at rest, on hover and on a selected row (rule 15). */
 export const PRESENCE_PILL: Record<PresenceState, string> = {
@@ -54,8 +65,11 @@ export const PRESENCE_PILL: Record<PresenceState, string> = {
   on_break: "border-amber-500/40 bg-amber-500/10 text-amber-900",
   on_lunch: "border-blue-500/30 bg-blue-500/10 text-blue-800",
   clocked_out: "border-border bg-muted text-muted-foreground",
-  not_in: "border-border bg-muted text-muted-foreground",
-  on_leave: "border-destructive/30 bg-status-danger-tint text-status-danger",
+  not_in_yet: "border-amber-500/30 bg-amber-500/5 text-amber-900",
+  absent: "border-destructive/30 bg-status-danger-tint text-status-danger",
+  off: "border-border bg-muted text-muted-foreground",
+  on_leave: "border-blue-500/30 bg-blue-500/10 text-blue-800",
+  no_schedule: "border-border bg-muted text-muted-foreground",
 };
 
 export function useTeamPresence(options: { enabled?: boolean } = {}) {
@@ -94,7 +108,10 @@ export function useTeamPresence(options: { enabled?: boolean } = {}) {
 
 /** How many people are in each state — the header line of the card. */
 export function presenceCounts(rows: readonly Presence[]): Record<PresenceState, number> {
-  const out = { clocked_in: 0, on_break: 0, on_lunch: 0, clocked_out: 0, not_in: 0, on_leave: 0 };
+  const out: Record<PresenceState, number> = {
+    clocked_in: 0, on_break: 0, on_lunch: 0, clocked_out: 0,
+    not_in_yet: 0, absent: 0, off: 0, on_leave: 0, no_schedule: 0,
+  };
   for (const p of rows) out[p.state] += 1;
   return out;
 }
