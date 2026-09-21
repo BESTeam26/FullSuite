@@ -1006,6 +1006,46 @@ Files: `CURRENT_PRODUCT_DECISIONS.md` (active doctrine only),
 `DEFERRED_AGENCY_WORK.md` (the backlog), `ARCHITECTURE_DECISIONS.md`
 (implemented decisions), `LIVE_OPERATIONS_READINESS.md` (this sprint's gate).
 
+## 23. CreditOps queue doctrine (Dee, 2026-09-21 — permanent)
+
+**Full text: `creditverse-platform/CREDITOPS_QUEUE_DOCTRINE.md`, verbatim.**
+Dee wrote it in answer to P-027 and explicitly REJECTED the generic rule
+proposed there — "moving to another department makes the previous department
+non-actionable". Do not reintroduce it in any form.
+
+**Three states, never collapsed into one:**
+
+```
+actionable internally    BES has work to do now
+waiting externally       BES is waiting on a bureau or the client
+completed                the work is finished
+```
+
+`Round 8 Sent` is waiting externally, NOT completed. `For Client Confirmation`
+is waiting externally, NOT completed. Marking either complete is a lie the
+reporting then repeats.
+
+**A file leaves the active queue only when its own status says no BES action
+is required** — never because some other department became involved. Two
+departments may both be live when both have real work; `Dispute = Waiting for
+Results` alongside `Support = Monitoring Issue` is correct and must stay
+correct.
+
+**Queue membership is read from the DEPARTMENT record, not from the client's
+overall credit status:**
+
+```
+active_queue = actionable AND not waiting_for_external_party AND not completed
+```
+
+**`For Client Confirmation` is a client-portal state**, showing what is
+needed, what to do, when it was asked, and a control to do it. Internally it
+reads "Waiting on Client" and leaves the actionable queue. When the client
+responds, the next internal status opens automatically.
+
+The six cases in the file's TEST THESE EXACT CASES section are the acceptance
+test. Any change to queue behaviour re-runs all six.
+
 ## 22. Performance, security and cost doctrine (Dee, 2026-09-21 — permanent)
 
 **The full text is `creditverse-platform/PERFORMANCE_SECURITY_COST_DOCTRINE.md`,
