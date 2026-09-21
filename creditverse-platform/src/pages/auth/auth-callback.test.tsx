@@ -64,6 +64,53 @@ describe("the OAuth callback", () => {
     expect(screen.getByText("login page")).toBeInTheDocument();
   });
 
+  /* Dee's named regression cases, 2026-09-21. "A successful first Google login
+     should never require a second attempt." */
+  it("first-click success: the code lands and the person goes straight in", () => {
+    /* Boot order is the whole bug: signed-out arrives first, the session second. */
+    status.value = "signed-out";
+    const view = at("?code=first-click");
+    expect(screen.getByText("waiting")).toBeInTheDocument();
+    status.value = "signed-in";
+    view.rerender(
+      <MemoryRouter initialEntries={["/auth/callback?code=first-click"]}>
+        <Routes>
+          <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route path="/login" element={<p>login page</p>} />
+          <Route path="/app" element={<p>the app</p>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(screen.getByText("the app")).toBeInTheDocument();
+    expect(screen.queryByText("login page")).toBeNull();
+  });
+
+  it("cancelled at Google: back to login, with the reason", () => {
+    at("?error=access_denied&error_description=You%20cancelled%20sign-in");
+    expect(screen.getByText("login page")).toBeInTheDocument();
+  });
+
+  it("a provider error is not waited on", () => {
+    at("?error=server_error");
+    expect(screen.getByText("login page")).toBeInTheDocument();
+  });
+
+  it("an expired or already-used code gives up at the timeout rather than hanging", () => {
+    /* Nothing signs in, because the exchange fails. The page must still let go. */
+    at("?code=expired");
+    expect(screen.getByText("waiting")).toBeInTheDocument();
+    act(() => { vi.advanceTimersByTime(15001); });
+    expect(screen.getByText("login page")).toBeInTheDocument();
+  });
+
+  it("a direct refresh mid-callback waits again rather than bouncing", () => {
+    /* A refresh remounts with the same URL. The code may already be spent, in
+       which case the timeout ends it — but it must not bounce instantly, which
+       is what made the first attempt fail. */
+    at("?code=refreshed");
+    expect(screen.getByText("waiting")).toBeInTheDocument();
+  });
+
   it("honours recovery links, which carry no code", () => {
     status.value = "signed-in";
     at("?type=recovery");

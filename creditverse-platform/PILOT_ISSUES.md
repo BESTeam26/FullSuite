@@ -254,7 +254,7 @@ Six cases covered in `auth-callback.test.tsx`, including that a visit with no
 code still leaves immediately, so the old correct behaviour is unchanged.
 Status: FIXED AWAITING LIVE RETEST.
 
-### P-029 · The Google consent screen shows the raw project domain — OPEN, costs money
+### P-029 · The Google consent screen shows the raw project domain — DEFERRED by Dee
 
 **2026-09-21 · reporter: Dee · module: Login · class D · severity: S4
 cosmetic, but it is the first screen a new team member sees.** The consent
@@ -306,7 +306,11 @@ altered casually.** Two ways to settle it, for Dee:
    because it was not completed. One decision, and no queue keeps a file that
    has moved on.
 
-Recommend (2). Status: OPEN, awaiting Dee.
+Recommend (2). **Dee rejected (2)** and wrote the specification instead —
+`CREDITOPS_QUEUE_DOCTRINE.md`, CLAUDE.md rule 23. Built 2026-09-21 to her
+locked cases; the generic rule was never implemented. Proof:
+`creditops-queue-probe.mjs`, 13 checks, including two that exist solely to
+stop the rejected rule creeping back. Status: CLOSED.
 
 ### P-026 · A productivity report by department cannot be trusted yet — OPEN
 
