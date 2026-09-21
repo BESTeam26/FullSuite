@@ -230,6 +230,43 @@ or quietly restate somebody's pay months later. Verified end to end: the same
 throwaway cutoff now releases and books an expense of PHP 10,000 in PHP.
 Status: LIVE VERIFIED by the decision itself — no operator step remains.
 
+### P-028 · Google sign-in failed on the first click
+
+**2026-09-21 · reporter: Dee · module: Login · class A · severity: S1 for
+anybody using Google.** Dee: "Login via google don't work on the first click,
+need to refresh again then try again to work."
+
+A race, and the page lost it every time. The flow is PKCE, so Google returns
+to `/auth/callback?code=…` and supabase-js exchanges that code for a session
+asynchronously. The auth provider boots in parallel, calls `getSession()`,
+finds nothing stored — because the exchange has not finished — and reports
+`signed-out`. `AuthCallback` treated that as the answer and navigated to
+/login, abandoning the code mid-exchange. The retry usually won the race,
+which is precisely the "refresh and try again" behaviour.
+
+Fix: while a `code` is in the URL, `signed-out` is not an answer, it is the
+state before the answer. The page waits for the exchange or for a 15-second
+timeout, whichever comes first, and never longer. A provider-side refusal
+(`?error=`) is not waited on at all, and its reason is now carried to the
+login page instead of bouncing somebody back to a silent form.
+
+Six cases covered in `auth-callback.test.tsx`, including that a visit with no
+code still leaves immediately, so the old correct behaviour is unchanged.
+Status: FIXED AWAITING LIVE RETEST.
+
+### P-029 · The Google consent screen shows the raw project domain — OPEN, costs money
+
+**2026-09-21 · reporter: Dee · module: Login · class D · severity: S4
+cosmetic, but it is the first screen a new team member sees.** The consent
+screen reads "to continue to wiojlgkzxlaiajwwrzuj.supabase.co" instead of a
+BES domain, because that IS the OAuth callback host.
+
+The only fix is Supabase's Custom Domain add-on, which is $10/month per
+project and, per the doctrine's verified list, is NOT covered by the Spend
+Cap. So it is a recurring cost decision, not a code change, and it is Dee's.
+With it, the callback host becomes something like `auth.bescrm.net` and the
+consent screen says that instead. Status: OPEN, awaiting Dee.
+
 ### P-027 · A file can sit ACTIONABLE in two department queues at once — OPEN, needs Dee's call
 
 **2026-09-21 · reporter: Dee, asking whether handoffs are automatic · module:

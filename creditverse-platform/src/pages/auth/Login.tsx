@@ -151,6 +151,10 @@ const Login = () => {
   const auth = useAuth();
   const location = useLocation();
   const from = (location.state as { from?: string } | null)?.from ?? "/app";
+  /* A sign-in that failed at the provider used to bounce back here silently,
+     leaving somebody staring at the form wondering what they did wrong
+     (Dee, 2026-09-21). The callback now says why. */
+  const handoffError = (location.state as { authError?: string } | null)?.authError ?? null;
 
   const [panel, setPanel] = useState<Panel>("password");
   const [email, setEmail] = useState("");
@@ -161,7 +165,7 @@ const Login = () => {
   const [phone, setPhone] = useState("");
   const [plan, setPlan] = useState("creditops");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(handoffError);
   const [notice, setNotice] = useState<string | null>(null);
   const [artOk, setArtOk] = useState(true);
   /* Chosen once per visit, not on every render: a line that changes while
