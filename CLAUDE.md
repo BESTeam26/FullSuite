@@ -1206,7 +1206,45 @@ alerts at all, which is why `infra_watch()` exists.
   blockers, deferred-findings count — nothing else. Before Partner Portal
   execution: "AGENCY PILOT STABLE: YES / NO" with exact blockers.
 
-## 21a. PILOT OBSERVATION MODE (Dee, 2026-09-10 — active until Dee ends it)
+## 25. PRODUCTION OPERATING MODE (Dee, 2026-09-21 — supersedes §21a)
+
+**Full text, verbatim: `creditverse-platform/PRODUCTION_OPERATING_MODE.md`.
+Read it before responding to a request. This section is a pointer and the
+priority order, not a summary.**
+
+FullSuite is live and the team is working in it. The approach changed:
+
+```
+Use → observe → improve → automate → simplify
+```
+
+- **Production first.** The live app is the environment being improved. Fix
+  the canonical implementation rather than adding another path.
+- **Classify every request from the system, not from Dee**: A simple
+  correction · B bug/regression · C workflow correction · D feature extension
+  · E major build. Do not over-engineer "sort this alphabetically"; do not
+  under-engineer anything touching authorization, money, client status,
+  routing, assignment, SLA, audit or portal access.
+- **Scale verification to the risk.** A copy change does not need the security
+  matrix; a permission or routing change does.
+- **Mobile is production.** A workflow is not done because it works on a
+  desktop — Communication, My Work, Clock In/Out, Notifications, Search and
+  client lookup are phone surfaces.
+- **Test as the persona**, not only as Dee.
+- **Ship the useful version** and record what remains; never claim complete
+  what a human has not verified (`BUILT · DEPLOYED · DATABASE VERIFIED · UI
+  VERIFIED · LIVE TEST PENDING · HUMAN TEST REQUIRED`).
+- **A small backlog**, four lists: `PRODUCTION_BACKLOG.md`.
+
+**Dee's focus order:** Communication mobile → My Work + routing/assignment →
+Clock/attendance mobile → CreditOps workflow simplification →
+Notifications/Attention → Partner Portal.
+
+> §21a said "do not build; observe". This says "build what the day's work
+> needs, and nothing else". The difference is that the team is now inside the
+> product: the backlog comes from their friction, not from a roadmap.
+
+## 21a. PILOT OBSERVATION MODE (Dee, 2026-09-10 — SUPERSEDED 2026-09-21 by §25; kept for the classification habit and the status language)
 
 The release gate is clean (1559/1559, 70 phases). **That is not permission to
 build.** The real BES team now uses the platform to expose real defects.
