@@ -4,6 +4,48 @@ Decisions that shaped the system, with enough context that nobody needs to
 re-derive them from commit history. Newest first. Small fixes do not belong
 here — depth of record matches depth of change.
 
+## AD-011 · 2026-09-21 — Organizational units exist because BES has them, not because a type of work exists
+
+**Decision.** The BES structure is the one Dee stated on 2026-09-21 and
+corrected the same day:
+
+```
+CreditOps    Client Success · Dispute · Complaints & Mailing · Bureau Calling
+             (one team each; Bureau Calling empty for now)
+BES CRM      CRM Operations → CRM Team (Rowell, James, Mark) — roles in Positions
+Corporate    Management → Management Team (the team leads) · Admin Team (Aaron, Dee, Bryan)
+```
+
+Three rules fall out of it, all permanent:
+
+1. **Create an organizational unit because BES actually has one, not because a
+   type of work exists.** Automation is work, not a department; Onboarding is
+   a workflow stage, not a department. `New Client` and `Incomplete
+   Onboarding` route to Client Success (`creditops_status_routing`, migration
+   20260921010300). Do not recreate an Onboarding department because those
+   statuses exist.
+2. **Management access comes from placement, never from membership.** A
+   manager is a member of ONE operational team (as its lead) and reaches the
+   rest through `management_seats` (AD-008). Never add somebody to a team to
+   give them visibility; if they formally lead a second team, that is a second
+   seat.
+3. **A department that still holds a live team cannot be archived** — move the
+   team first (20260920007300). Fixture teams live in a hidden fixture
+   department and never block the owner (20260921009000).
+
+**Communication channels mirror groups by name** (Management Team, Admin
+Team) and stay conversations; a channel is never an authorization source.
+
+**Where the schema needs a department for a lone team** (division, hours,
+EOD and reporting all derive through `teams.department_id`), keep ONE neutral
+department — CRM Operations — rather than a department named after one kind
+of work.
+
+**Duplicates.** Archived duplicate rows that nothing references are deleted
+by explicit id (20260921010100); rows that work items, partner assignments or
+clients still record (Team Ally, Team Daniel) stay archived and hidden, because
+deleting them would erase who did what (rule 4).
+
 ## AD-010 · 2026-09-20 — The CreditOps pipeline matches GHL, and the round follows the stage
 
 **Decision.** The CreditOps credit-status list becomes Dee's GoHighLevel

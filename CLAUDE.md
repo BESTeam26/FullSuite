@@ -1006,6 +1006,17 @@ Files: `CURRENT_PRODUCT_DECISIONS.md` (active doctrine only),
 `DEFERRED_AGENCY_WORK.md` (the backlog), `ARCHITECTURE_DECISIONS.md`
 (implemented decisions), `LIVE_OPERATIONS_READINESS.md` (this sprint's gate).
 
+## 24. Organizational units are real, not categories of work (Dee, 2026-09-21 — permanent)
+
+Full record: `ARCHITECTURE_DECISIONS.md` AD-011. Create a division,
+department or team because BES actually has that unit — never because a type
+of work exists. **Onboarding is a workflow stage, not a department**; its
+statuses route to Client Success. **Management access comes from
+`management_seats`, never from team membership** — a manager is a lead on one
+operational team and reaches the rest through placement; a second formal
+lead role is a second seat, not an ordinary membership. Channels mirror
+groups by name and are never an authorization source.
+
 ## 23. CreditOps queue doctrine (Dee, 2026-09-21 — permanent)
 
 **Full text: `creditverse-platform/CREDITOPS_QUEUE_DOCTRINE.md`, verbatim.**
