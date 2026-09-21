@@ -1006,6 +1006,56 @@ Files: `CURRENT_PRODUCT_DECISIONS.md` (active doctrine only),
 `DEFERRED_AGENCY_WORK.md` (the backlog), `ARCHITECTURE_DECISIONS.md`
 (implemented decisions), `LIVE_OPERATIONS_READINESS.md` (this sprint's gate).
 
+## 22. Performance, security and cost doctrine (Dee, 2026-09-21 — permanent)
+
+**The full text is `creditverse-platform/PERFORMANCE_SECURITY_COST_DOCTRINE.md`,
+supplied verbatim. Read it before any substantial feature. This section is a
+pointer and a priority order, not a summary — do not paraphrase the doctrine
+anywhere else.**
+
+```
+1. Security
+2. Correctness / data integrity
+3. Operational reliability
+4. User-perceived speed
+5. Infrastructure efficiency / cost
+```
+
+**Never sacrifice a higher priority to improve a lower one.** In particular,
+never weaken RLS, widen the service role, or broaden a capability to reduce
+queries or cost (§3, §24). Security is not a cost lever.
+
+**Spend engineering before spending infrastructure.** Compute scaling is the
+LAST step, never the first (§1). Before proposing more compute, produce the
+measurements §27 demands: CPU, memory, connections, top slow queries, the
+workload causing pressure, and the optimizations already tried.
+
+**Design for 10× the DATA, provision for today's USERS.** Roughly 20 internal
+people and 25–30 partners, 9–6 on weekdays. Queries must not need a rewrite at
+ten times the rows; infrastructure must not be bought for users who do not
+exist yet.
+
+**Every substantial feature answers the twelve questions in §19** — request
+count on load, duplicates, bounds, indexes, RLS, realtime, polling, job scan
+size, Edge Function volume, AI volume, storage/egress, and whether it creates
+a second source of truth.
+
+**Every completion report answers one sentence:** *does this change increase
+recurring infrastructure cost?* Either "no material increase", or "yes,
+because…". Where the answer is yes, give the §20 COST IMPACT block. Never
+invent a dollar figure without measured usage.
+
+**A feature is not done because the tests pass.** §28: it is reviewed for
+security, data correctness, scope, performance and cost impact, across all
+four views (agent, team lead, division manager, executive — rule 20b).
+
+> Why this sits beside rules 7 and 14 rather than replacing them: those state
+> what a fast architecture looks like and how request patterns are inspected.
+> This one adds the budget the architecture is held to, the evidence required
+> before buying capacity, and the standing obligation to say what a change
+> costs. AI and messaging are called out separately because they, not database
+> compute, are the costs most likely to grow quietly as BES automates.
+
 ## 21b. THE LOCKED ROADMAP (Dee, 2026-09-10 — until Dee changes it)
 
 ```
