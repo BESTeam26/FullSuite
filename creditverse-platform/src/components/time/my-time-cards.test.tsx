@@ -26,7 +26,7 @@ const noop = () => undefined;
 
 describe("the running timer", () => {
   const card = (over: Partial<TimeEntry> = {}) =>
-    render(<TimerCard entry={entry(over)} now={NOW} partnerName="Credit by Nainoa"
+    render(<TimerCard entry={entry(over)} now={NOW} day={{ workSeconds: 0, breakSeconds: 0, lunchSeconds: 0 }} partnerName="Credit by Nainoa"
       busy={false} onStop={noop} onBreak={noop} onLunch={noop} onResume={noop} />);
 
   it("says what is being worked on, for whom", () => {
@@ -36,10 +36,35 @@ describe("the running timer", () => {
     expect(screen.getByText("Credit by Nainoa")).toBeInTheDocument();
   });
 
-  it("counts from when it started", () => {
-    card();
-    expect(screen.getByText("00:16:00")).toBeInTheDocument();
-    expect(screen.getByText(/Started at/)).toBeInTheDocument();
+  it("counts the DAY, and says what this stretch is worth beneath it", () => {
+    /* Dee, 2026-09-21: a timer that restarts at zero hides how much of the
+       day is already spent — worse for break and lunch, which are daily
+       allowances. The big figure is the day; the sitting is the small print. */
+    render(<TimerCard entry={entry()} now={NOW}
+      day={{ workSeconds: 2 * 3600 + 16 * 60, breakSeconds: 0, lunchSeconds: 0 }}
+      partnerName={null} busy={false}
+      onStop={noop} onBreak={noop} onLunch={noop} onResume={noop} />);
+    expect(screen.getByText("02:16:00")).toBeInTheDocument();
+    expect(screen.getByText(/this one 00:16:00, started/)).toBeInTheDocument();
+  });
+
+  it("on a break it counts the day's break and what is left of the allowance", () => {
+    render(<TimerCard entry={entry({ kind: "break" })} now={NOW}
+      day={{ workSeconds: 3 * 3600, breakSeconds: 22 * 60, lunchSeconds: 0 }}
+      allowance={{ breakMinutes: 30, lunchMinutes: 60 }}
+      partnerName={null} busy={false}
+      onStop={noop} onBreak={noop} onLunch={noop} onResume={noop} />);
+    expect(screen.getByText("00:22:00")).toBeInTheDocument();
+    expect(screen.getByText("8m of 30m left")).toBeInTheDocument();
+  });
+
+  it("and says plainly when the allowance is spent", () => {
+    render(<TimerCard entry={entry({ kind: "lunch" })} now={NOW}
+      day={{ workSeconds: 3 * 3600, breakSeconds: 0, lunchSeconds: 75 * 60 }}
+      allowance={{ breakMinutes: 30, lunchMinutes: 60 }}
+      partnerName={null} busy={false}
+      onStop={noop} onBreak={noop} onLunch={noop} onResume={noop} />);
+    expect(screen.getByText("15m over your 1h allowance")).toBeInTheDocument();
   });
 
   it("falls back to the division when there is no note, never to a blank", () => {
@@ -49,7 +74,7 @@ describe("the running timer", () => {
 
   it("stops on one press", () => {
     const onStop = vi.fn();
-    render(<TimerCard entry={entry()} now={NOW} partnerName={null} busy={false}
+    render(<TimerCard entry={entry()} now={NOW} day={{ workSeconds: 0, breakSeconds: 0, lunchSeconds: 0 }} partnerName={null} busy={false}
       onStop={onStop} onBreak={noop} onLunch={noop} onResume={noop} />);
     fireEvent.click(screen.getByRole("button", { name: /Stop timer/ }));
     expect(onStop).toHaveBeenCalled();
@@ -74,7 +99,7 @@ describe("the running timer", () => {
   });
 
   it("cannot be operated while a write is in flight", () => {
-    render(<TimerCard entry={entry()} now={NOW} partnerName={null} busy
+    render(<TimerCard entry={entry()} now={NOW} day={{ workSeconds: 0, breakSeconds: 0, lunchSeconds: 0 }} partnerName={null} busy
       onStop={noop} onBreak={noop} onLunch={noop} onResume={noop} />);
     expect(screen.getByRole("button", { name: /Stop timer/ })).toBeDisabled();
   });

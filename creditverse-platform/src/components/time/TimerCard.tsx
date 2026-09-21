@@ -18,17 +18,21 @@
 import { Coffee, Play, Square, UtensilsCrossed } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
-import { divisionLabel, entrySeconds, stopwatch } from "@/lib/time-domain";
+import { dayTotalForState, divisionLabel, entrySeconds, formatDuration, restBudget, stopwatch } from "@/lib/time-domain";
 import type { TimeEntry } from "@/lib/data/time-entries";
 
 const clock = (iso: string) =>
   new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 
 export function TimerCard({
-  entry, now, partnerName, busy, onStop, onBreak, onLunch, onResume,
+  entry, now, day, allowance, partnerName, busy, onStop, onBreak, onLunch, onResume,
 }: {
   entry: TimeEntry;
   now: Date;
+  /** Today's totals, so the clock reads the day rather than this sitting. */
+  day: { workSeconds: number; breakSeconds: number; lunchSeconds: number };
+  /** The person's own schedule, for the break and lunch allowance. */
+  allowance?: { breakMinutes: number; lunchMinutes: number } | null;
   partnerName: string | null;
   busy: boolean;
   onStop: () => void;
@@ -38,7 +42,12 @@ export function TimerCard({
 }) {
 
   const resting = entry.kind !== "work";
-  const seconds = entrySeconds(entry, now);
+  /* The DAY's total for whatever is running. A second break restarting at
+     zero hid how much of the allowance was already spent (Dee, 2026-09-21);
+     this sitting is shown beneath it. */
+  const seconds = dayTotalForState(entry.kind, day);
+  const sitting = entrySeconds(entry, now);
+  const budget = resting ? restBudget(entry.kind as "break" | "lunch", day, allowance) : null;
 
   return (
     <div className={cn(
@@ -75,8 +84,16 @@ export function TimerCard({
             {stopwatch(seconds)}
           </p>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            Started at {clock(entry.startedAt)}
+            {resting ? "today" : "today"} · this one {stopwatch(sitting)}, started {clock(entry.startedAt)}
           </p>
+          {budget && budget.allowanceSeconds !== null && (
+            <p className={cn("mt-0.5 text-xs font-semibold",
+              budget.overSeconds > 0 ? "text-status-danger" : "text-muted-foreground")}>
+              {budget.overSeconds > 0
+                ? `${formatDuration(Math.round(budget.overSeconds / 60))} over your ${formatDuration(Math.round(budget.allowanceSeconds / 60))} allowance`
+                : `${formatDuration(Math.round(budget.remainingSeconds! / 60))} of ${formatDuration(Math.round(budget.allowanceSeconds / 60))} left`}
+            </p>
+          )}
         </div>
       </div>
 

@@ -33,6 +33,7 @@ import {
 import { ContentCard, StatCard } from "@/components/dashboard/DivisionLayout";
 import { DataSourceBadge } from "@/components/dashboard/DataSourceBadge";
 import { useTimesheet } from "@/lib/data/use-time";
+import { useAuth } from "@/lib/auth/auth-context";
 import { useMyTimeAdjustments, useRequestTimeAdjustment } from "@/lib/data/use-time-adjustments";
 import { useLeaveActions, useLeaveTypes, useMyLeave, useSchedules } from "@/lib/data/use-people";
 import { useAgencyPartners } from "@/lib/data/use-agency-partners";
@@ -75,6 +76,7 @@ export const MyTimeSection = () => {
   const t = useTimesheet();
   const myAdjustments = useMyTimeAdjustments();
   const partners = useAgencyPartners();
+  const auth = useAuth();
   const schedules = useSchedules();
 
   const running = Boolean(t.openEntry);
@@ -101,7 +103,10 @@ export const MyTimeSection = () => {
 
   /* The agent's own schedule; the same numbers a manager's attendance view
      derives, said to the person themselves while they can still act on them. */
-  const mySchedule = (schedules.data ?? [])[0];
+  /* MY schedule, by id. `[0]` was whichever user_id sorted first — for a
+     manager, somebody else's shift and somebody else's allowance judging
+     their own day (found 2026-09-21). */
+  const mySchedule = (schedules.data ?? []).find((sc) => sc.userId === auth.user?.id) ?? null;
   const overBreakSec = mySchedule ? Math.max(0, live.breakSeconds - mySchedule.breakMinutes * 60) : 0;
   const overLunchSec = mySchedule ? Math.max(0, live.lunchSeconds - mySchedule.lunchMinutes * 60) : 0;
 
@@ -223,6 +228,8 @@ export const MyTimeSection = () => {
           <TimerCard
             entry={t.openEntry}
             now={now}
+            day={live}
+            allowance={mySchedule}
             partnerName={partnerNameOf(t.openEntry.partnerGroupId ?? null)}
             busy={t.isMutating}
             onStop={t.clockOut}

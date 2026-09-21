@@ -24,8 +24,9 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Coffee, LogIn, LogOut, Play, UtensilsCrossed, Loader2, AlertTriangle } from "lucide-react";
 import { useTimesheet } from "@/lib/data/use-time";
+import { useSchedules } from "@/lib/data/use-people";
 import { useAuth } from "@/lib/auth/auth-context";
-import { entrySeconds, formatDuration, stopwatch } from "@/lib/time-domain";
+import { dayTotalForState, entrySeconds, formatDuration, liveDaySeconds, restBudget, stopwatch } from "@/lib/time-domain";
 import { timeIn, BES_TIMEZONE } from "@/lib/communication/conversation-clock";
 import { cn } from "@/lib/utils";
 
@@ -56,6 +57,10 @@ const DOT: Record<ClockState, string> = {
 export function ClockCard() {
   const auth = useAuth();
   const t = useTimesheet();
+  /* MY schedule, by id — not `schedules[0]`, which for a manager is whichever
+     user_id sorts first and would judge them by somebody else's allowance. */
+  const schedules = useSchedules();
+  const mySchedule = (schedules.data ?? []).find((s) => s.userId === auth.user?.id) ?? null;
   /* A second per tick, anchored on the server's `startedAt` — never a local
      accumulator that would drift or survive a reload with the wrong total. */
   const [now, setNow] = useState(() => new Date());
@@ -79,7 +84,13 @@ export function ClockCard() {
   const open = t.openEntry;
   const state: ClockState = !open ? "out" : open.kind === "break" ? "break" : open.kind === "lunch" ? "lunch" : "working";
   const busy = t.isMutating;
-  const elapsed = open ? entrySeconds(open, now) : 0;
+  /* The DAY's total for whatever is running, not this sitting's. A second
+     break that reads 00:00:05 tells somebody they have all their break left
+     (Dee, 2026-09-21). The sitting is shown underneath, where it belongs. */
+  const day = liveDaySeconds(t.entries, t.today, now);
+  const sitting = open ? entrySeconds(open, now) : 0;
+  const elapsed = open ? dayTotalForState(open.kind, day) : 0;
+  const budget = open && open.kind !== "work" ? restBudget(open.kind, day, mySchedule) : null;
 
   /* The day's own division: continue what they were last on, so one tap does
      not silently file the morning under Admin. */
@@ -102,10 +113,25 @@ export function ClockCard() {
       </div>
 
       <p className="mt-0.5 text-xs text-muted-foreground">
-        {open
-          ? `${formatDuration(t.todayMinutes)} worked today`
-          : t.todayMinutes > 0 ? "Worked today · your clock is stopped" : "You have not clocked in today"}
+        {!open
+          ? (t.todayMinutes > 0 ? "Worked today · your clock is stopped" : "You have not clocked in today")
+          : state === "working"
+            ? `today · this stretch ${stopwatch(sitting)}`
+            : `${state === "break" ? "Break" : "Lunch"} today · this one ${stopwatch(sitting)}`}
       </p>
+
+      {budget && (
+        /* The allowance is the point of the number above it: break is paid up
+           to it, lunch is not paid at all. */
+        <p className={cn("mt-1 text-xs font-semibold",
+          budget.overSeconds > 0 ? "text-status-danger" : "text-muted-foreground")}>
+          {budget.allowanceSeconds === null
+            ? "No schedule yet, so no allowance is set."
+            : budget.overSeconds > 0
+              ? `${formatDuration(Math.round(budget.overSeconds / 60))} over your ${formatDuration(Math.round(budget.allowanceSeconds / 60))} allowance`
+              : `${formatDuration(Math.round(budget.remainingSeconds! / 60))} of ${formatDuration(Math.round(budget.allowanceSeconds / 60))} left`}
+        </p>
+      )}
 
       {t.actionError && (
         <p role="alert" className="mt-2 flex items-start gap-1.5 rounded-lg border border-destructive/30 bg-status-danger-tint px-2.5 py-1.5 text-xs font-medium text-status-danger">

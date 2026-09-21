@@ -14,12 +14,14 @@ import type { TimeEntry } from "@/lib/data/time-entries";
 
 let sheet: Record<string, unknown>;
 let membership: Record<string, unknown> | null;
+let schedules: Record<string, unknown>[];
 const clockIn = vi.fn(), clockOut = vi.fn(), startBreak = vi.fn(), resumeWork = vi.fn();
 
 vi.mock("@/lib/auth/auth-context", () => ({
-  useAuth: () => ({ agencyMembership: membership }),
+  useAuth: () => ({ agencyMembership: membership, user: { id: "u1" } }),
 }));
 vi.mock("@/lib/data/use-time", () => ({ useTimesheet: () => sheet }));
+vi.mock("@/lib/data/use-people", () => ({ useSchedules: () => ({ data: schedules }) }));
 
 const entry = (kind: TimeEntry["kind"]): TimeEntry => ({
   id: "t1", employeeId: "u1", divisionId: "creditops", kind,
@@ -32,6 +34,7 @@ const entry = (kind: TimeEntry["kind"]): TimeEntry => ({
 const base = {
   openEntry: undefined as TimeEntry | undefined,
   entries: [] as TimeEntry[],
+  today: "2026-09-21",
   todayMinutes: 0,
   isMutating: false,
   actionError: null as string | null,
@@ -40,6 +43,7 @@ const base = {
 
 beforeEach(() => {
   membership = { time_tracking_required: true };
+  schedules = [{ userId: "u1", breakMinutes: 30, lunchMinutes: 60 }];
   sheet = { ...base };
   [clockIn, clockOut, startBreak, resumeWork].forEach((m) => m.mockClear());
 });

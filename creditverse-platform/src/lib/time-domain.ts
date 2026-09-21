@@ -283,3 +283,57 @@ export function describeRunningFor(entry: TimeEntry, now: Date = new Date()): st
   const minutePart = rest > 0 ? `${rest} minute${rest === 1 ? "" : "s"}` : "";
   return [hourPart, minutePart].filter(Boolean).join(" ") || "less than a minute";
 }
+
+/* ------------------------------------------------------------------ */
+/* The day's rest, against the day's allowance                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Break and lunch are DAILY budgets, not per-sitting ones.
+ *
+ * Dee, 2026-09-21: "I don't think the break and lunch is being tracked
+ * accumulated for the day… the timer should not always start at 0. It must
+ * resume within the day." A second break showing 00:00:05 tells somebody they
+ * have all their break left, when they may have spent it. The number that
+ * matters is what the day has used against what the day allows — the same
+ * figure `payable_minutes` pays on (break up to the allowance; lunch never).
+ */
+export interface RestBudget {
+  /** Everything of that kind today, including the sitting in progress. */
+  usedSeconds: number;
+  /** What the schedule allows. Null when the person has no schedule yet. */
+  allowanceSeconds: number | null;
+  /** Never negative: over-run is reported on its own, not as a minus. */
+  remainingSeconds: number | null;
+  overSeconds: number;
+}
+
+export function restBudget(
+  kind: "break" | "lunch",
+  day: { breakSeconds: number; lunchSeconds: number },
+  schedule?: { breakMinutes: number; lunchMinutes: number } | null,
+): RestBudget {
+  const usedSeconds = kind === "break" ? day.breakSeconds : day.lunchSeconds;
+  const allowanceMinutes = schedule ? (kind === "break" ? schedule.breakMinutes : schedule.lunchMinutes) : null;
+  if (allowanceMinutes === null) {
+    return { usedSeconds, allowanceSeconds: null, remainingSeconds: null, overSeconds: 0 };
+  }
+  const allowanceSeconds = allowanceMinutes * 60;
+  return {
+    usedSeconds,
+    allowanceSeconds,
+    remainingSeconds: Math.max(0, allowanceSeconds - usedSeconds),
+    overSeconds: Math.max(0, usedSeconds - allowanceSeconds),
+  };
+}
+
+/**
+ * What the big number on a timer should read: the day's total for whatever
+ * the person is doing, not this sitting's.
+ */
+export function dayTotalForState(
+  kind: "work" | "break" | "lunch",
+  day: { workSeconds: number; breakSeconds: number; lunchSeconds: number },
+): number {
+  return kind === "work" ? day.workSeconds : kind === "break" ? day.breakSeconds : day.lunchSeconds;
+}

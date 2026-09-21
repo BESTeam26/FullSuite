@@ -1391,3 +1391,42 @@ day**. 2378 tests, lint, build clean.
 result read on a desktop in either country.
 
 Cost line: none. One trigger on insert; no new query.
+
+### P-052 · Break and lunch did not accumulate across the day, and the timer restarted at zero — FIXED
+
+**2026-09-21 · reporter: Dee · module: My Time / Home clock · class C —
+it misleads somebody about their own pay.** *"I don't think the break and
+lunch is being tracked accumulated for the day. This might cause agent
+confusion. Timer should not always start at 0. It must resume within the
+day."*
+
+The totals were being accumulated — `liveDaySeconds` has summed today's work,
+break and lunch all along, and `payable_minutes` pays on the day's figure.
+What was wrong is what the timer SHOWED: the current sitting. A second break
+opening at `00:00:05` tells an agent they have their whole allowance left
+when they may have spent it, and the allowance is what decides whether the
+minutes are paid.
+
+**Now the big figure is the day's total for whatever is running**, with the
+sitting underneath — *"22m · this one 00:05:12, started 1:48 PM"* — and for
+break and lunch the allowance beside it: **"8m of 30m left"**, or **"15m over
+your 1h allowance"** in red once it is spent. On Home and on My Time, from one
+rule (`restBudget` / `dayTotalForState` in `time-domain.ts`), so the two
+screens cannot disagree.
+
+**A second bug found on the way.** Both screens read `schedules[0]` as "my
+schedule" — `fetchSchedules()` returns every schedule the caller may see,
+ordered by `user_id`. For an agent RLS returns only their own, so it looked
+right; for a manager or the owner it is **whichever user_id sorts first** —
+somebody else's shift start and somebody else's break allowance judging their
+own day. Now selected by `userId === auth.user.id`. It has been hiding because
+every schedule today is 9–6 with 30/60; it would have surfaced the first time
+one person's hours differed.
+
+**Verified:** 7 new tests (day total per state, allowance remaining, over-run
+reported separately, no schedule claims no allowance), full suite 2385, lint,
+build. Live on Home against Dee's own day. **HUMAN TEST REQUIRED:** an agent
+taking a second break and seeing the day's total, not zero.
+
+Cost line: none — the figures were already loaded; one shared schedules query
+that other screens already cache.
