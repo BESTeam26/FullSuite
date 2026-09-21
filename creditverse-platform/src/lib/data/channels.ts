@@ -54,6 +54,9 @@ export interface Channel {
   canRename: boolean;
   unread: number;
   lastMessageAt: string | null;
+  /** The last line, for the Inbox preview: first name and one line of text. Absent on older summaries. */
+  lastMessageAuthor?: string | null;
+  lastMessageText?: string | null;
 }
 
 export interface ChannelMessage {
@@ -124,6 +127,8 @@ export async function fetchChannels(): Promise<Channel[]> {
       canRename: !!c.can_rename,
       unread: Number(c.unread ?? 0),
       lastMessageAt: (c.last_message_at as string) ?? null,
+      lastMessageAuthor: (c.last_message_author as string) ?? null,
+      lastMessageText: (c.last_message_text as string) ?? null,
     };
   });
 }

@@ -985,7 +985,7 @@ labour-counsel read on what a contractor verification letter may state.
 
 **Dependencies.** BES CRM QA gate; document builder templates; Dee's decision.
 
-## D-023 — Communication inbox: filter chips, sort and search (Dee's mockup, 2026-09-21)
+## D-023 — Communication inbox: filter chips, sort and search — BUILT 2026-09-21 on Dee's "GO" (DEPLOYED, awaiting Dee's live look)
 
 **Recorded by Claude, 2026-09-21. Reference:
 `docs/design-references/communication-inbox-mockup-2026-09-21.webp`** (Dee:

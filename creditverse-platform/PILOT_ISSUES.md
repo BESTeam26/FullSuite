@@ -785,7 +785,7 @@ them today.
 A row moves to LIVE VERIFIED only when the named real operator has walked
 the whole list in production and said so.
 
-### P-030 · "Database error loading user" on Activate my account — FIXED AWAITING LIVE RETEST
+### P-030 · "Database error loading user" on Activate my account — LIVE VERIFIED
 
 **2026-09-21 · reporter: Dee (Roniel Pena's screenshot) · module: Invite Users /
 Login · class A pilot defect · severity: S1 — five invited people could not
@@ -812,8 +812,8 @@ created through `auth.admin.createUser`, never by SQL insert. The
 **Verified.** A wrong-password sign-in for each of the five now answers
 "Invalid login credentials" (row loaded, password checked) where it answered
 "Database error loading user" before; `invitation-uat-probe` 16/16; all five
-invitations still EMAILED, awaiting acceptance, expiring 2026-09-27. Live
-verifier: Roniel (or any of the five) activating successfully.
+invitations still EMAILED, awaiting acceptance, expiring 2026-09-27.
+**LIVE VERIFIED 2026-09-21 by Dee: "all agents are now good and active."**
 
 Cost line: does this increase recurring infrastructure cost? No. Cost scales
 with: nothing — a one-time data repair.

@@ -6,7 +6,7 @@
  * partner who sent forty lines is still one thing to answer.
  */
 import { describe, expect, it } from "vitest";
-import { inboxBuckets } from "./inbox";
+import { chipCounts, DEFAULT_INBOX_QUERY, filterInbox, inboxBuckets, type InboxQuery } from "./inbox";
 import type { Channel } from "@/lib/data/channels";
 
 const ch = (over: Partial<Channel>): Channel => ({
@@ -80,5 +80,45 @@ describe("the buckets that are deliberately absent", () => {
        one that is missing. */
     expect(inboxBuckets([ch({})]).map((b) => b.key))
       .toEqual(["unread", "direct", "partners", "internal"]);
+  });
+});
+
+describe("the inbox list — chips, kind, sort and search (D-023)", () => {
+  const NOW = Date.parse("2026-09-21T12:00:00Z");
+  const rows = [
+    ch({ id: "bmf", displayName: "Business Made Fair", partnerGroupId: "p1", unread: 2, lastMessageAt: "2026-09-21T11:58:00Z", lastMessageAuthor: "JM", lastMessageText: "Client already submitted the domain access details." }),
+    ch({ id: "rowell", displayName: "Rowell", kind: "direct", unread: 1, lastMessageAt: "2026-09-21T11:48:00Z" }),
+    ch({ id: "dispute", displayName: "Dispute Team", kind: "department", unread: 0, favourite: true, lastMessageAt: "2026-09-10T09:00:00Z" }),
+    ch({ id: "old", displayName: "Announcements", kind: "topic", unread: 0, lastMessageAt: "2026-08-01T09:00:00Z" }),
+    ch({ id: "audit", displayName: "Somebody else's DM", kind: "direct", auditOnly: true, unread: 9, lastMessageAt: "2026-09-21T11:59:00Z" }),
+    ch({ id: "silent", displayName: "Never used", kind: "topic", unread: 0, lastMessageAt: null }),
+  ];
+  const run = (over: Partial<InboxQuery>) => filterInbox(rows, { ...DEFAULT_INBOX_QUERY, ...over }, NOW).map((c) => c.id);
+
+  it("Unread lists only conversations waiting on you; All lists every conversation you are in; an audit row is in neither", () => {
+    expect(run({ chip: "unread" })).toEqual(["bmf", "rowell"]);
+    expect(run({ chip: "all" })).toEqual(["bmf", "rowell", "dispute", "old", "silent"]);
+  });
+  it("Recent is the last seven days; Starred is the person's own favourites", () => {
+    expect(run({ chip: "recent" })).toEqual(["bmf", "rowell"]);
+    expect(run({ chip: "starred" })).toEqual(["dispute"]);
+  });
+  it("the kind filter tells partners, channels and direct messages apart", () => {
+    expect(run({ chip: "all", kind: "partners" })).toEqual(["bmf"]);
+    expect(run({ chip: "all", kind: "direct" })).toEqual(["rowell"]);
+    expect(run({ chip: "all", kind: "channels" })).toEqual(["dispute", "old", "silent"]);
+  });
+  it("sorts newest first by default, or by most unread, or by name; a conversation with no messages sorts last", () => {
+    expect(run({ chip: "all", sort: "newest" }).at(-1)).toBe("silent");
+    expect(run({ chip: "all", sort: "unread" }).slice(0, 2)).toEqual(["bmf", "rowell"]);
+    expect(run({ chip: "all", sort: "name" })).toEqual(["old", "bmf", "dispute", "silent", "rowell"]);
+  });
+  it("search reads the name, the partner and the last line", () => {
+    expect(run({ chip: "all", search: "domain" })).toEqual(["bmf"]);
+    expect(run({ chip: "all", search: "ROWELL" })).toEqual(["rowell"]);
+  });
+  it("chip counts answer under the current kind and search, so the numbers match what a click will show", () => {
+    expect(chipCounts(rows, { kind: "all", search: "" }, NOW)).toEqual({ unread: 2, all: 5, recent: 2, starred: 1 });
+    expect(chipCounts(rows, { kind: "direct", search: "" }, NOW).all).toBe(1);
   });
 });

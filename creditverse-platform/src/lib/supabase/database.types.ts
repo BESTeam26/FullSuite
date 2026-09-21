@@ -21164,6 +21164,8 @@ export type Database = {
           is_manager: boolean
           kind: string
           last_message_at: string
+          last_message_author: string
+          last_message_text: string
           name: string
           open_to_scope: boolean
           organization_id: string

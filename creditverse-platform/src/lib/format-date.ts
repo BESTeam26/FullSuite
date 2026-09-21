@@ -27,6 +27,23 @@ export function formatDate(value: string | Date | null | undefined, empty = "—
   return d ? d.toLocaleDateString(undefined, DATE) : String(value);
 }
 
+/**
+ * "2m", "3h", "5d", then the plain date — the compact age an inbox row shows.
+ * Only for a list scanned for recency; anywhere else the plain date rule holds.
+ */
+export function formatTimeAgo(value: string | Date | null | undefined, now: Date = new Date(), empty = ""): string {
+  const d = parse(value);
+  if (!d) return empty;
+  const mins = Math.floor((now.getTime() - d.getTime()) / 60_000);
+  if (mins < 1) return "now";
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d`;
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
 /** "Sep 1, 2026, 1:20 AM" — only where the time matters to the reader. */
 export function formatDateTime(value: string | Date | null | undefined, empty = "—"): string {
   if (value === null || value === undefined || value === "") return empty;
