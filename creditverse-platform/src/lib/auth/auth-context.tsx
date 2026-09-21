@@ -158,6 +158,11 @@ const demoAgencyMembership: AgencyMembership = {
   scope_department_id: null,
   employee_code: null,
   agent_number: 0,
+  /* Demo behaves like an ordinary member: clocks in, files an EOD, earns
+     the bonus. The exemptions are configuration, not a demo feature. */
+  time_tracking_required: true,
+  attendance_reward_eligible: true,
+  eod_required: true,
   engagement_type: null,
   hired_on: null,
   status: "active",

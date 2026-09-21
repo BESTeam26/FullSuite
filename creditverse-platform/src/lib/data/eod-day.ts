@@ -291,7 +291,11 @@ export async function fetchTeamEod(agencyId: string, workDate: string): Promise<
       .select("user_id, role, profiles:profiles!agency_memberships_user_id_fkey!inner(id, full_name, email, is_fixture)")
       .eq("agency_id", agencyId)
       .eq("status", "active")
-      .eq("profiles.is_fixture", false),
+      .eq("profiles.is_fixture", false)
+      /* Dee, 2026-09-21: "Aaron Dee and Bryan don't need EOD Report." Somebody
+         who does not file one is not MISSING one — listing them would put a
+         permanent red count on the page and train a lead to ignore it. */
+      .eq("eod_required", true),
     sb.from("eod_submissions").select("*").eq("agency_id", agencyId).eq("work_date", workDate),
   ]);
   if (roster.error) throw roster.error;

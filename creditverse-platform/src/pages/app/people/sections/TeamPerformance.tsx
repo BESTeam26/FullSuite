@@ -31,12 +31,15 @@ import type { DateRange } from "@/lib/people/overview-metrics";
 import { useAgencyMembers } from "@/lib/data/use-agency-teams";
 import { usePositions } from "@/lib/data/use-positions";
 import { useManagedTeam } from "@/lib/people/use-managed-team";
+import {
+  ROLLUP_LEVELS, isMeasured, rollupBy, type RollupLevel, type RollupPerson,
+} from "@/lib/people/performance-rollup";
 import { orgDivisionLabel } from "@/lib/agency/division-label";
 import { formatDate } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
 
 const SUBTABS = [
-  { key: "overview", label: "Overview" }, { key: "individuals", label: "Individuals" }, { key: "teams", label: "Teams" },
+  { key: "overview", label: "Overview" }, { key: "individuals", label: "Individuals" }, { key: "teams", label: "Rollup" },
   { key: "qa", label: "QA & Quality" }, { key: "coaching", label: "Coaching" },
 ] as const;
 type SubTab = (typeof SUBTABS)[number]["key"];
@@ -86,6 +89,23 @@ export function TeamPerformance() {
     && (positionFilter === ALL || titleOf(s.person.userId) === positionFilter)
     && (!needle || `${s.person.name} ${s.person.email} ${titleOf(s.person.userId) ?? ""}`.toLowerCase().includes(needle)))
     .sort((a, b) => (b.score.overall ?? -1) - (a.score.overall ?? -1));
+
+  /* Everything a rollup needs, resolved once. Dee, 2026-09-21: she needs the
+     individual, the team, the department and the division, and the page had
+     only a Teams table. The DEPARTMENT comes from the person's team, which is
+     where the org structure keeps it. */
+  const rollupPeople: RollupPerson[] = useMemo(() => scoped.map((s) => {
+    const mine = liveTeams.filter((t) => t.members.some((m) => m.userId === s.person.userId));
+    const home = mine[0];
+    return {
+      userId: s.person.userId,
+      name: s.person.name,
+      division: home?.division ? orgDivisionLabel(home.division) : null,
+      department: home?.department ?? null,
+      teams: mine.map((t) => t.name),
+      score: s.score,
+    };
+  }), [scoped, liveTeams]);
 
   const scores = scoped.map((s) => s.score), previous = scoped.map((s) => s.previous);
   const avg = (k: keyof PersonScore) => averageOf(scores, k);
@@ -211,7 +231,7 @@ export function TeamPerformance() {
             </div>
           )}
 
-          {tab === "teams" && <TeamsView scored={scoped} teams={liveTeams} />}
+          {tab === "teams" && <RollupView people={rollupPeople} />}
           {tab === "qa" && <QaView items={perf.items} scoped={scoped} period={period} nameOf={nameOf} />}
           {tab === "coaching" && <CoachingView scored={scoped} alerts={team.attendanceByUser} />}
         </div>
@@ -253,33 +273,76 @@ function Card({ title, sub, children }: { title: string; sub?: string; children:
   );
 }
 
-function TeamsView({ scored, teams }: { scored: ScoredPerson[]; teams: { id: string; name: string; division: string | null; members: { userId: string }[] }[] }) {
-  const rows = teams.map((t) => {
-    const theirs = scored.filter((s) => t.members.some((m) => m.userId === s.person.userId));
-    const scores = theirs.map((s) => s.score);
-    return { team: t, people: theirs.length, ...Object.fromEntries(SCORE_KEYS.map((k) => [k, averageOf(scores, k)])), overall: averageOf(scores, "overall") } as
-      { team: typeof t; people: number; overall: number | null } & Record<(typeof SCORE_KEYS)[number], number | null>;
-  }).filter((r) => r.people > 0).sort((a, b) => (b.overall ?? -1) - (a.overall ?? -1));
+/**
+ * One table, at whichever level you are responsible for.
+ *
+ * Dee, 2026-09-21: "I need a clean way to see every individual's performance
+ * and the team, team leaders view and department view and division view."
+ * Four levels behind one selector rather than four tabs, because the page was
+ * already the thing she called messy.
+ */
+function RollupView({ people }: { people: RollupPerson[] }) {
+  const [level, setLevel] = useState<RollupLevel>("division");
+  const rows = useMemo(() => rollupBy(people, level), [people, level]);
+  const noun = ROLLUP_LEVELS.find((l) => l.key === level)?.label ?? "Group";
+
   return (
-    <div className="overflow-x-auto rounded-2xl border border-border bg-card">
-      <table className="w-full min-w-[44rem] text-left text-xs">
-        <thead className="border-b border-border bg-muted/40 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-          <tr><th className="px-4 py-2">Team</th><th className="px-3 py-2">Division</th><th className="px-3 py-2 text-right">People</th>
-            {SCORE_KEYS.map((k) => <th key={k} className="px-3 py-2 text-center">{SCORE_LABEL[k]}</th>)}<th className="px-3 py-2 text-center">Overall</th></tr>
-        </thead>
-        <tbody className="divide-y divide-border/60">
-          {rows.length === 0 && <tr><td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">No teams in your scope yet.</td></tr>}
-          {rows.map((r) => (
-            <tr key={r.team.id}>
-              <td className="px-4 py-2 font-semibold text-foreground">{r.team.name}</td>
-              <td className="px-3 py-2 text-foreground">{r.team.division ? orgDivisionLabel(r.team.division) : "—"}</td>
-              <td className="px-3 py-2 text-right tabular-nums">{r.people}</td>
-              {SCORE_KEYS.map((k) => <td key={k} className="px-3 py-2 text-center"><ScoreCell value={r[k]} /></td>)}
-              <td className="px-3 py-2 text-center"><ScoreCell value={r.overall} /></td>
+    <div className="space-y-2">
+      <label className="flex items-center gap-2 text-xs">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Group by</span>
+        <OpsSelect size="sm" value={level} onValueChange={(v) => setLevel(v as RollupLevel)}
+          options={ROLLUP_LEVELS.map((l) => ({ value: l.key, label: l.label }))} aria-label="Group by" />
+      </label>
+
+      <div className="overflow-x-auto rounded-2xl border border-border bg-card">
+        <table className="w-full min-w-[44rem] text-left text-xs">
+          <thead className="border-b border-border bg-muted/40 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            <tr>
+              <th className="px-4 py-2">{noun}</th>
+              <th className="px-3 py-2 text-right">People</th>
+              {SCORE_KEYS.map((k) => <th key={k} className="px-3 py-2 text-center">{SCORE_LABEL[k]}</th>)}
+              <th className="px-3 py-2 text-center">Overall</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-border/60">
+            {rows.length === 0 && (
+              <tr><td colSpan={SCORE_KEYS.length + 3} className="px-4 py-8 text-center text-muted-foreground">
+                Nobody in your scope yet.
+              </td></tr>
+            )}
+            {rows.map((r) => (
+              <tr key={r.key}>
+                <td className="px-4 py-2 font-semibold text-foreground">{r.label}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{r.people}</td>
+                {/* A row with nothing measured says so ONCE, across the whole
+                    row. Four dashes and a 0% read as a damning review of people
+                    who simply have not started. */}
+                {isMeasured(r) ? (
+                  <>
+                    {SCORE_KEYS.map((k) => (
+                      <td key={k} className="px-3 py-2 text-center">
+                        <ScoreCell value={r.scores[k]} />
+                        {r.measured[k] > 0 && r.measured[k] < r.people && (
+                          <span className="block text-[10px] text-muted-foreground">{r.measured[k]} of {r.people}</span>
+                        )}
+                      </td>
+                    ))}
+                    <td className="px-3 py-2 text-center"><ScoreCell value={r.overall} /></td>
+                  </>
+                ) : (
+                  <td colSpan={SCORE_KEYS.length + 1} className="px-3 py-2 text-center text-muted-foreground">
+                    Not measured yet
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-[11px] text-muted-foreground">
+        A group scores the average of its people, so a number here is exactly the rows beneath it. Somebody on two
+        teams counts in both teams and once in their department.
+      </p>
     </div>
   );
 }

@@ -559,11 +559,13 @@ export type Database = {
           access_profile: Database["public"]["Enums"]["access_profile"] | null
           agency_id: string
           agent_number: number | null
+          attendance_reward_eligible: boolean
           created_at: string
           deactivated_at: string | null
           deactivated_by: string | null
           employee_code: string | null
           engagement_type: string | null
+          eod_required: boolean
           hired_on: string | null
           id: string
           is_owner: boolean
@@ -579,17 +581,20 @@ export type Database = {
             | Database["public"]["Enums"]["fulfillment_service"]
             | null
           status: string
+          time_tracking_required: boolean
           user_id: string
         }
         Insert: {
           access_profile?: Database["public"]["Enums"]["access_profile"] | null
           agency_id: string
           agent_number?: number | null
+          attendance_reward_eligible?: boolean
           created_at?: string
           deactivated_at?: string | null
           deactivated_by?: string | null
           employee_code?: string | null
           engagement_type?: string | null
+          eod_required?: boolean
           hired_on?: string | null
           id?: string
           is_owner?: boolean
@@ -605,17 +610,20 @@ export type Database = {
             | Database["public"]["Enums"]["fulfillment_service"]
             | null
           status?: string
+          time_tracking_required?: boolean
           user_id: string
         }
         Update: {
           access_profile?: Database["public"]["Enums"]["access_profile"] | null
           agency_id?: string
           agent_number?: number | null
+          attendance_reward_eligible?: boolean
           created_at?: string
           deactivated_at?: string | null
           deactivated_by?: string | null
           employee_code?: string | null
           engagement_type?: string | null
+          eod_required?: boolean
           hired_on?: string | null
           id?: string
           is_owner?: boolean
@@ -631,6 +639,7 @@ export type Database = {
             | Database["public"]["Enums"]["fulfillment_service"]
             | null
           status?: string
+          time_tracking_required?: boolean
           user_id?: string
         }
         Relationships: [
@@ -663,6 +672,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "agency_memberships_primary_department_id_fkey"
+            columns: ["primary_department_id"]
+            isOneToOne: false
+            referencedRelation: "report_facts_scoped"
+            referencedColumns: ["department_id"]
+          },
+          {
             foreignKeyName: "agency_memberships_primary_division_id_fkey"
             columns: ["primary_division_id"]
             isOneToOne: false
@@ -682,6 +698,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "departments"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_memberships_scope_department_id_fkey"
+            columns: ["scope_department_id"]
+            isOneToOne: false
+            referencedRelation: "report_facts_scoped"
+            referencedColumns: ["department_id"]
           },
           {
             foreignKeyName: "agency_memberships_user_id_fkey"
@@ -1225,6 +1248,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "departments"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "announcements_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "report_facts_scoped"
+            referencedColumns: ["department_id"]
           },
           {
             foreignKeyName: "announcements_organization_id_fkey"
@@ -4388,6 +4418,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "departments"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "departments_parent_department_id_fkey"
+            columns: ["parent_department_id"]
+            isOneToOne: false
+            referencedRelation: "report_facts_scoped"
+            referencedColumns: ["department_id"]
           },
         ]
       }
@@ -8426,6 +8463,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "departments"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "management_seats_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "report_facts_scoped"
+            referencedColumns: ["department_id"]
           },
           {
             foreignKeyName: "management_seats_division_id_fkey"
@@ -13312,6 +13356,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "positions_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "report_facts_scoped"
+            referencedColumns: ["department_id"]
+          },
+          {
             foreignKeyName: "positions_division_id_fkey"
             columns: ["division_id"]
             isOneToOne: false
@@ -15168,6 +15219,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "teams_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "report_facts_scoped"
+            referencedColumns: ["department_id"]
+          },
+          {
             foreignKeyName: "teams_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
@@ -15253,6 +15311,7 @@ export type Database = {
           auto_stopped: boolean
           client_id: string | null
           created_at: string
+          department_id: string | null
           division_id: string
           duration_minutes: number | null
           employee_id: string
@@ -15271,6 +15330,7 @@ export type Database = {
           auto_stopped?: boolean
           client_id?: string | null
           created_at?: string
+          department_id?: string | null
           division_id?: string
           duration_minutes?: number | null
           employee_id: string
@@ -15289,6 +15349,7 @@ export type Database = {
           auto_stopped?: boolean
           client_id?: string | null
           created_at?: string
+          department_id?: string | null
           division_id?: string
           duration_minutes?: number | null
           employee_id?: string
@@ -15316,6 +15377,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "fulfillment_clients"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_entries_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_entries_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "report_facts_scoped"
+            referencedColumns: ["department_id"]
           },
           {
             foreignKeyName: "time_entries_employee_id_fkey"
@@ -17436,6 +17511,32 @@ export type Database = {
         }
         Relationships: []
       }
+      report_facts_scoped: {
+        Row: {
+          agency_id: string | null
+          amount: number | null
+          client_id: string | null
+          department: string | null
+          department_id: string | null
+          department_scoped: string | null
+          division: string | null
+          division_id: string | null
+          employee_id: string | null
+          fact_date: string | null
+          funding_file_id: string | null
+          minutes: number | null
+          organization_id: string | null
+          outcome: string | null
+          outsourcing_group_id: string | null
+          quantity: number | null
+          service: string | null
+          source: string | null
+          status_from: string | null
+          status_to: string | null
+          unit: string | null
+        }
+        Relationships: []
+      }
       report_item_changes: {
         Row: {
           account_ref: string | null
@@ -18804,6 +18905,7 @@ export type Database = {
         Args: { p_approve: boolean; p_note?: string; p_request: string }
         Returns: undefined
       }
+      default_department_for: { Args: { p_user: string }; Returns: string }
       default_role_access: {
         Args: {
           p_product: Database["public"]["Enums"]["product_key"]
@@ -19155,6 +19257,10 @@ export type Database = {
         Returns: string
       }
       has_operations_scope: { Args: { p_agency: string }; Returns: boolean }
+      has_operations_scope_for: {
+        Args: { p_agency: string; p_user: string }
+        Returns: boolean
+      }
       holds_management_view: { Args: { p_agency: string }; Returns: boolean }
       hub_module_active: {
         Args: { p_module: string; p_org: string }
@@ -19284,7 +19390,9 @@ export type Database = {
       }
       looks_like_a_secret: { Args: { p_text: string }; Returns: boolean }
       managed_departments: { Args: never; Returns: string[] }
+      managed_departments_for: { Args: { p_user: string }; Returns: string[] }
       managed_divisions: { Args: never; Returns: string[] }
+      managed_divisions_for: { Args: { p_user: string }; Returns: string[] }
       managed_people: {
         Args: never
         Returns: {
@@ -19293,6 +19401,10 @@ export type Database = {
       }
       managed_services: {
         Args: never
+        Returns: Database["public"]["Enums"]["fulfillment_service"][]
+      }
+      managed_services_for: {
+        Args: { p_user: string }
         Returns: Database["public"]["Enums"]["fulfillment_service"][]
       }
       managed_teams: { Args: never; Returns: string[] }
