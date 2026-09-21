@@ -208,8 +208,11 @@ export interface StructureImpact {
 export async function impactOfDepartment(id: string): Promise<StructureImpact> {
   const sb = requireSupabase();
   const [teams, memberships] = await Promise.all([
+    /* Fixture teams are hidden from the tree and ignored by the archive guard,
+       so they are not counted here either — the confirm must describe what the
+       archive will actually meet (P-033). */
     sb.from("teams").select("id", { count: "exact", head: true })
-      .eq("department_id", id).is("archived_at", null),
+      .eq("department_id", id).is("archived_at", null).eq("is_fixture", false),
     sb.from("agency_memberships").select("id", { count: "exact", head: true })
       .eq("primary_department_id", id).eq("status", "active"),
   ]);
@@ -217,7 +220,7 @@ export async function impactOfDepartment(id: string): Promise<StructureImpact> {
   /* Work belongs to a TEAM, not to a department — `work_items` has no
      department column. So the open work under a department is the open work of
      its teams, counted in one query rather than one per team. */
-  const teamIds = (await sb.from("teams").select("id").eq("department_id", id)).data ?? [];
+  const teamIds = (await sb.from("teams").select("id").eq("department_id", id).eq("is_fixture", false)).data ?? [];
   const work = teamIds.length === 0
     ? { count: 0, error: null }
     : await sb.from("work_items").select("id", { count: "exact", head: true })

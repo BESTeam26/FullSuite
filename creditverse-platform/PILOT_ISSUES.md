@@ -857,3 +857,38 @@ shadowed pill pinned to the top of the scroll box for the whole day.
 when scanning, silent otherwise. Every message already carries its own time.
 
 Cost line: none.
+
+### P-033 · Owner could not archive the Onboarding department — FIXED AWAITING LIVE RETEST
+
+**2026-09-21 · reporter: Dee · module: People & Teams › Structure · class A
+pilot defect · severity: S2.** "I can't delete this Onboarding … I should be
+able to delete or archive all records from my user as Dee (owner)." The card
+read "0 teams"; the confirm read "1 team"; the archive was refused with "Move
+[TEST] Team B to another department before archiving this one."
+
+**Root cause.** Not a permission. `[TEST] Team B` is an RLS-probe fixture
+team that migration 20260907001100 parked inside Dee's real Onboarding
+department. The structure page hides fixture rows (hence "0 teams"), the
+confirm count and the archive guard (20260920007300) did not (hence "1 team"
+and the refusal). A fixture standing in the way of a real action breaks
+rule 20's "fixtures coexist with real data".
+
+**Fix.** `20260921009000_fixtures_out_of_real_departments.sql`: a hidden
+`[TEST] Fixture Department` now holds both fixture teams, and the archive
+guard ignores fixture teams outright; `impactOfDepartment` counts what the
+guard counts. The guard for REAL teams is unchanged and is integrity, not
+permission: a department with a live team cannot be archived until the team is
+moved, because an orphaned team loses its department in hours, production,
+EOD routing and reports with nothing saying why. Owner included.
+
+**Verified as Dee, rolled back:** archiving Onboarding now succeeds; archiving
+Dispute Department is still refused naming its real team. Live verifier: Dee
+pressing Archive on Onboarding.
+
+**Caveat for Dee, not a blocker.** CreditOps routes "New Client Onboarded" and
+"Incomplete Onboarding" to the Onboarding department's people. With the
+department archived and nobody placed there, that work has no team to land
+on until those statuses are routed elsewhere (Client Success is the likely
+home). Say the word and the routing follows.
+
+Cost line: none.
