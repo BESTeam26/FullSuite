@@ -1046,6 +1046,35 @@ responds, the next internal status opens automatically.
 The six cases in the file's TEST THESE EXACT CASES section are the acceptance
 test. Any change to queue behaviour re-runs all six.
 
+## 21c. LAUNCH ORDER AND TWO THINGS NOT TO CONFUSE (Dee, 2026-09-21)
+
+**The order for launch, in Dee's words:**
+
+```
+reliable first-click login → correct access/scope → team activation
+  → operational UAT → branding polish later
+```
+
+Anything not on that line is documented and deferred, however clearly asked
+for — the TalentOps workspace mockup (D-022) is the worked example. "Keeps
+cost controlled without compromising the part your team actually needs to
+work."
+
+**Google sign-in is CLOSED only on Dee's eight-point acceptance list** in
+`PILOT_ISSUES.md` P-028, tested by a real person in a fresh tab. A passing
+suite is not the gate.
+
+**Two branding fixes that are NOT substitutes for each other:**
+
+| | What it changes | Cost |
+|---|---|---|
+| Custom Supabase domain | the authentication HOSTNAME | $10/month, not covered by the Spend Cap |
+| Google OAuth verification | the verified BES app IDENTITY: name and logo | free; privacy + terms pages on bescrm.net; Google review |
+
+The long-term plan is **verification**, after launch. Never suggest the $10
+domain as a way to get the BES name on the consent screen — it cannot; it
+replaces one hostname with another.
+
 ## 22. Performance, security and cost doctrine (Dee, 2026-09-21 — permanent)
 
 **The full text is `creditverse-platform/PERFORMANCE_SECURITY_COST_DOCTRINE.md`,

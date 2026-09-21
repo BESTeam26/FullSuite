@@ -252,7 +252,28 @@ login page instead of bouncing somebody back to a silent form.
 
 Six cases covered in `auth-callback.test.tsx`, including that a visit with no
 code still leaves immediately, so the old correct behaviour is unchanged.
-Status: FIXED AWAITING LIVE RETEST.
+
+**Second cause, 2026-09-21, after Bryan reproduced it.** The callback knew two
+statuses and there are three. `unavailable` — session real, identity not yet
+readable — matched neither branch, so the page span to the timeout and sent a
+signed-IN person back to the login form. Now forwarded into the app. Also
+closed: the call THROWING (button stuck on "Please wait…" for ever) and the
+call returning while the browser never navigates (8-second watchdog with a
+message). 25 tests across `auth-callback.test.tsx` and `google-signin.test.tsx`.
+
+**Dee's acceptance condition (2026-09-21) — CLOSED only when ALL of:**
+- first click succeeds
+- no refresh is required
+- no second attempt is required
+- a new / invited user lands in the correct FullSuite account
+- a returning user lands correctly
+- cancel / provider error returns a clear message
+- a callback refresh does not break the session
+- Agent / Manager / Executive routing still resolves correctly after
+  authentication
+
+Status: FIXED AWAITING LIVE RETEST — Bryan, fresh tab, first click.
+
 
 ### P-029 · The Google consent screen shows the raw project domain — DEFERRED by Dee
 
@@ -266,6 +287,21 @@ project and, per the doctrine's verified list, is NOT covered by the Spend
 Cap. So it is a recurring cost decision, not a code change, and it is Dee's.
 With it, the callback host becomes something like `auth.bescrm.net` and the
 consent screen says that instead. Status: OPEN, awaiting Dee.
+
+**The distinction Dee wants kept, so the $10 domain is never later offered as
+a substitute:**
+
+- **Custom Supabase domain** → changes the authentication HOSTNAME
+  (`auth.bescrm.net` instead of the project host). $10/month. Cosmetic.
+- **Google OAuth verification** → enables the verified BES app IDENTITY —
+  name and logo on the consent screen. Free, needs a privacy policy and terms
+  on bescrm.net and a Google review of days to weeks. Google's own docs: "In
+  order for your app name and/or logo to be displayed, you must submit your
+  app for verification."
+
+They solve different problems. **Long-term plan is Google verification**,
+after launch, with no change to the authentication architecture.
+
 
 ### P-027 · A file can sit ACTIONABLE in two department queues at once — OPEN, needs Dee's call
 
