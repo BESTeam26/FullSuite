@@ -1250,3 +1250,36 @@ touched it, but it is an ambiguity worth a decision: a 9am–6pm PH shift stored
 as 9am–6pm Eastern marks people late by the wrong clock. Recorded for Dee.
 
 Cost line: none. No new queries — the card reads what the page already loads.
+
+### P-049 · Deleting a message left its attachments on screen — FIXED (DATABASE VERIFIED, UI VERIFIED)
+
+**2026-09-21 · reporter: Dee, from Jet Manugas · module: Communication ·
+class B · severity: S2, and a privacy matter.** Jet posted the wrong
+screenshot — a client's IdentityIQ dashboard with all three scores — deleted
+it, and the image stayed under "This message was removed". His own words:
+*"wrong screenshot po, hindi pa po ma-delete."*
+
+**Root cause.** The three readers that serve a message — `channel_messages`,
+`thread_messages`, `channel_message_by_id` — aggregated its files without
+asking whether the message still existed. The rule was already written one
+line below, for mentions: *"a removed message should not still be telling
+somebody they were named in it."* The same is true of what it showed. The
+Files tab (`channel_files`) and the counts (`channel_details`) had the guard
+already, so this was the last path serving them.
+
+**Fix.** `20260921012000` withholds attachments on a tombstone in all three,
+generated from the live definitions with one block replaced in each. The UI
+does the same, so a message deleted in front of somebody clears at once
+rather than on the next refetch.
+
+**Verified on production:** Jet's deleted message now serves 0 attachments
+while live messages in the same channel still serve theirs; regression test
+added; full suite 2369, lint, build clean.
+
+**What remains, and I am not pretending otherwise:** the stored object is
+still in the bucket. Supabase refuses storage deletes from SQL, and nothing in
+the application can produce a URL for a row no reader returns — but purging
+those objects needs a Storage-API sweep, which is in the backlog beside the
+orphans from the Communication reset.
+
+Cost line: none.

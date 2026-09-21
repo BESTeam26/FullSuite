@@ -33,7 +33,9 @@ Last reconciled: 2026-09-21, after the production release (`0014381`).
 
 - Desktop / browser push notifications (brief: `docs/design-references/desktop-notifications-brief-2026-09-21.md`; VAPID keys already stored server-side).
 - TalentOps beyond the shipped workspace (D-022).
-- Sweep the 46 MB of orphaned chat attachments left in `bes-files` by the Communication reset (Storage API, not SQL).
+- Sweep the storage bucket: the 46 MB of orphaned chat attachments left by the
+  Communication reset, and the objects behind removed messages (P-049) — both
+  need the Storage API, which SQL cannot call. Nothing serves either today.
 - CreditOps Onboarding-queue wording and any further queue polish.
 - Advanced reporting, dashboards, FundingOps depth — only if real operating need pulls them forward.
 

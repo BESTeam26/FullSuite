@@ -194,7 +194,11 @@ export function MessageRow({
         </p>
       )}
 
-      {m.attachments.length > 0 && (
+      {/* A tombstone shows nothing it carried. The readers already withhold
+          them (20260921012000); this is the same rule on the screen, so a
+          message removed in front of somebody clears immediately rather than
+          on the next refetch. */}
+      {!m.deleted && m.attachments.length > 0 && (
         <ul className="mt-1.5 space-y-1">
           {m.attachments.map((a) => <li key={a.id}><AttachmentView attachment={a} /></li>)}
         </ul>

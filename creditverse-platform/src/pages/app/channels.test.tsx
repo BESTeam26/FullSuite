@@ -359,6 +359,18 @@ describe("message actions respect who wrote it (§71)", () => {
     expect(screen.queryByRole("button", { name: /Delete/ })).not.toBeInTheDocument();
   });
 
+  it("a removed message takes its attachments with it (P-049)", () => {
+    /* Jet posted a client's credit report by mistake and deleted it; the
+       screenshot stayed on screen. A removal that leaves the picture is not
+       a removal. */
+    messages = [richMessage({
+      deleted: true, bodyText: null, authorName: "Jet",
+      attachments: [{ id: "f1", name: "credit-report.webp", path: "x/y.webp", mime: "image/webp", size: 32000 }],
+    })];
+    render();
+    expect(screen.queryByText("credit-report.webp")).not.toBeInTheDocument();
+  });
+
   it("shows a tombstone rather than the words that were removed (§32)", () => {
     /* The rule is that a tombstone stands where the message was, so the thread
        keeps its shape and nobody wonders what vanished. Asserted by SHAPE
