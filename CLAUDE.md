@@ -1049,6 +1049,41 @@ invent a dollar figure without measured usage.
 security, data correctness, scope, performance and cost impact, across all
 four views (agent, team lead, division manager, executive — rule 20b).
 
+**Three cost buckets, never one number** (Dee's amendment, 2026-09-21). They
+behave differently and a single figure hides the one that is moving:
+
+| Bucket | What is in it | Behaviour at BES scale |
+|---|---|---|
+| **Infrastructure** | Supabase compute, storage, egress, functions, realtime | relatively stable |
+| **AI** | Anthropic and any other model spend | spikes with behaviour |
+| **Messaging** | SMS, email, WhatsApp, GHL/Twilio | spikes with behaviour |
+
+**Declare the cost DRIVER before release.** Every automation, AI feature,
+realtime feature, scheduled job or bulk communication workflow states, in one
+line, what its recurring cost scales with — and names the dimension, not the
+category:
+
+```
+Cost scales with: number of AI summaries generated per client conversation
+Cost scales with: realtime subscriptions per active user
+Cost scales with: one row per person per day, unbounded
+```
+
+"No material increase" is only an acceptable answer when nothing about the
+change grows with users, partners, clients, messages or AI calls. If it grows,
+say what it grows with.
+
+**A warning must name its cause.** A threshold alert that says only "78%"
+tells somebody to worry without telling them what to do. It reports the
+reading, the change since yesterday, the likeliest source and the action —
+and the action is to inspect the source, never to buy compute first.
+
+**The Spend Cap is not blanket protection.** Verified 2026-09-21 and recorded
+in the doctrine file with both lists: it covers usage-shaped items and leaves
+the provisioned ones, compute above all, still billing. Re-verify rather than
+trusting that note; Supabase changes both lists. Supabase sends no usage
+alerts at all, which is why `infra_watch()` exists.
+
 > Why this sits beside rules 7 and 14 rather than replacing them: those state
 > what a fast architecture looks like and how request patterns are inspected.
 > This one adds the budget the architecture is held to, the evidence required

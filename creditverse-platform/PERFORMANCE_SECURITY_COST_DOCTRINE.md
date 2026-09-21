@@ -529,3 +529,72 @@ Yes, because...
 
 That one sentence will force it to think about cost before quietly adding another cron job, realtime subscription, AI call, or expensive database query.
 The key principle for FullSuite should be: don't make the app cheaper by making your team wait. Make the software efficient enough that your current compute stays cheap while the team doesn't notice the constraint.
+
+---
+
+# AMENDMENT — Dee, 2026-09-21 (verbatim)
+
+Yes, this is a good direction, with one correction: I would verify the exact Spend Cap behavior and quota coverage before treating it as hard protection for every usage category. Supabase billing controls and included quotas can change, and some costs, especially compute, may sit outside cap behavior.
+Operationally, though, the strategy is sound:
+
+* keep FullSuite on one production Supabase project
+* keep current compute modest
+* turn on provider-side cost controls where available
+* add internal warning thresholds
+* separately watch AI and messaging spend
+* do not add more infrastructure unless the current stack genuinely cannot handle the requirement
+
+The internal daily watch you described is especially useful because it catches two things early: capacity creep and silent background-job failures. I would extend that doctrine slightly so Claude always reports not just "usage crossed X%" but also the likely cause.
+For example:
+Connections 78%
+Change from yesterday: +21%
+Likely source: increased realtime subscriptions from Communication workspace
+Recommended action: inspect subscription fan-out before scaling compute
+That makes the warning actionable instead of just alarming.
+I would also keep three separate cost buckets inside FullSuite governance:
+Infrastructure
+Supabase compute, storage, egress, functions, realtime
+AI
+OpenAI / Anthropic / other model spend
+Messaging
+SMS, email, WhatsApp, GHL/Twilio/provider usage
+Those three behave very differently. Supabase is likely to stay relatively stable at your current scale, while AI and outbound messaging can spike based on behavior.
+So the standing rule I'd add for Claude is:
+Every automation, AI feature, realtime feature, scheduled job, or bulk communication workflow must declare its expected recurring cost driver before release.
+If the feature can materially scale with number of users, Partners, clients, messages, or AI calls, state the scaling dimension explicitly.
+Example:
+Cost scales with: number of AI summaries generated per client conversation
+or
+Cost scales with: realtime subscriptions per active user
+That one line will help stop hidden variable-cost features from slipping into production.
+
+## Verified Spend Cap coverage — read from supabase.com/docs/guides/platform/cost-control on 2026-09-21
+
+Dee's correction is right, and this is the check rather than the assumption.
+**Re-verify before relying on it; Supabase may change both lists.**
+
+Covered by the Spend Cap (usage stops rather than bills):
+Disk Size · Egress · Edge Function Invocations · Logs Ingest · Logs Query ·
+Monthly Active Users · Monthly Active SSO Users · Monthly Active Third Party
+Users · Realtime Messages · Realtime Peak Connections · Storage Image
+Transformations · Storage Size
+
+**NOT covered** (these still bill with the cap on):
+Compute · Branching Compute · Read Replica Compute · Custom Domain ·
+additionally provisioned Disk IOPS · additionally provisioned Disk Throughput ·
+IPv4 address · Log Drain Hours · Log Drain Events · Multi-Factor Authentication
+Phone · Point-in-Time-Recovery
+
+So the cap is NOT blanket protection. It protects the usage-shaped costs and
+leaves the provisioned ones — compute above all — to be controlled by not
+provisioning them. That is the other half of §1 and §27: the only lever on
+compute cost is the decision not to upgrade.
+
+Supabase does not send usage alerts at all. Their page states the Spend Cap
+"doesn't allow for fine-grained cost control, such as setting budgets for
+specific usage item or receiving notifications when certain costs are
+reached." The internal daily watch exists because of that sentence.
+
+Plan quotas read from supabase.com/pricing the same day, Pro:
+100,000 monthly active users, 8 GB disk per project, 250 GB egress,
+250 GB cached egress, 100 GB file storage.
