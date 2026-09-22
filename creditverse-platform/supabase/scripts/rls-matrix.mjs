@@ -7292,13 +7292,20 @@ if (runs(72)) {
      fulfilment service: the derivation probe below asserts what the service
      records decide, and a partner with no services would answer Needs Review
      and make the probe test nothing. */
+  /* A LIVE engagement, chosen deterministically. `limit 1` with no order was
+     picking whichever row came back first, and since Approve with Tiff was
+     paused while its service record stayed active, these probes were sometimes
+     measuring a paused engagement and reading its (correct) Needs Review
+     placement as a failure. */
   const ENG72 = q(`select e.id::text as rows
                      from public.fulfillment_engagements e
                     where e.service='creditops' and e.outsourcing_group_id is not null
+                      and public.engagement_is_live(e.status, e.effective_from, e.effective_to)
                       and exists (select 1 from public.partner_services s
                                    where s.group_id = e.outsourcing_group_id
                                      and s.status='active'
                                      and s.service_type='CREDITOPS_FULFILLMENT')
+                    order by e.id
                     limit 1`)[0].rows;
   const MANAGED72 = q(`select id::text as rows from public.module_categories
                         where module='creditops' and key='managed_ops' limit 1`)[0].rows;
@@ -7321,9 +7328,15 @@ if (runs(72)) {
     ) d`);
 
   const P72 = [
-    ["a move writes the category, its source, and nothing else",
+    /* Since 20260911002600 a folder can carry a commercial TERM, and moving
+       into one records that term rather than marking the placement a manual
+       override — "a placement the recorded term now explains is not an
+       override any more". So the row the move touches is the commitment, not
+       category_source. The rule this protects is unchanged: a move writes the
+       placement and nothing else about the engagement. */
+    ["a move writes the category, its term, and nothing else",
       () => movedColumns(OWN72, OUTSRC72),
-      "category_source, operational_category_id, updated_at"],
+      "commitment, operational_category_id, updated_at"],
 
     ["an agent without partners.operations cannot move an account",
       () => p72(AGENT72, `select public.set_engagement_category('${ENG72}', '${OUTSRC72}')`),
@@ -7350,16 +7363,47 @@ if (runs(72)) {
       () => p72(OWN72, `select public.set_engagement_category('${ENG72}', null)`),
       "ERR 22023"],
 
-    ["a move pins the engagement against the derivation",
+    /* Both branches, because they are different promises. Into a folder that
+       carries a term, the term explains the placement and the derivation may
+       keep maintaining it (auto). Into one that carries none, the move is the
+       plain pin it always was and automation must not overwrite it (manual). */
+    ["a move into a folder WITH a term records the term, not an override",
       () => p72(OWN72, `select public.set_engagement_category('${ENG72}', '${OUTSRC72}');
                         select category_source as rows from public.fulfillment_engagements where id='${ENG72}'`),
+      "auto"],
+    ["a move into a folder with NO term pins it against the derivation",
+      () => p72(OWN72, `set local role postgres;
+                        update public.module_categories set commitment_model = null where id='${OUTSRC72}';
+                        set local role authenticated;
+                        set local request.jwt.claims = '{"sub":"${OWN72}","role":"authenticated"}';
+                        select public.set_engagement_category('${ENG72}', '${OUTSRC72}');
+                        select category_source as rows from public.fulfillment_engagements where id='${ENG72}'`),
       "manual"],
-    ["following automatic placement hands it back, and the service decides",
+    /* Rewritten 2026-09-22. This asserted that handing an engagement back
+       returned it to Managed Ops. Since 20260911002600 the derivation READS
+       the recorded term, and moving into Outsourcing records
+       `per_client_round` — so the derivation's own answer is now Outsourcing,
+       and handing back correctly leaves it there. Undoing a move is not what
+       the function promises; what it promises is that the DERIVATION decides
+       again, so that is what is checked, against `derive_engagement_category`
+       rather than against a category named here. Two implementations agreeing
+       is a real check; a hardcoded destination was only ever a snapshot. */
+    ["following automatic placement hands the decision back to the derivation",
       () => p72(OWN72, `select public.set_engagement_category('${ENG72}', '${OUTSRC72}');
                         select public.follow_automatic_placement('${ENG72}');
-                        select category_source || ':' || (operational_category_id = '${MANAGED72}')::text as rows
+                        select category_source || ':' || (operational_category_id = public.derive_engagement_category('${ENG72}'))::text as rows
                           from public.fulfillment_engagements where id='${ENG72}'`),
       "auto:true"],
+    ["…and where no term was recorded, that answer is the service's own category",
+      () => p72(OWN72, `set local role postgres;
+                        update public.module_categories set commitment_model = null where id='${OUTSRC72}';
+                        set local role authenticated;
+                        set local request.jwt.claims = '{"sub":"${OWN72}","role":"authenticated"}';
+                        select public.set_engagement_category('${ENG72}', '${OUTSRC72}');
+                        select public.follow_automatic_placement('${ENG72}');
+                        select (operational_category_id = '${MANAGED72}')::text as rows
+                          from public.fulfillment_engagements where id='${ENG72}'`),
+      "true"],
     /* The DELTA, not the total: counting every such row in the table passed
        only while there happened to be none, and started failing the moment
        real moves existed. */
@@ -7375,6 +7419,7 @@ if (runs(72)) {
       () => q(`select count(*)::int as rows from public.fulfillment_engagements e
                  join public.module_categories c on c.id = e.operational_category_id
                 where e.service='creditops' and e.category_source='auto' and c.is_fallback
+                  and public.engagement_is_live(e.status, e.effective_from, e.effective_to)
                   and exists (select 1 from public.partner_services s
                                where s.group_id = e.outsourcing_group_id and s.status='active'
                                  and s.service_type = 'CREDITOPS_FULFILLMENT')`)[0].rows,
