@@ -535,10 +535,37 @@ if (runs(2)) {
   const orgAgentAct = q(`select count(*)::int n from public.activity_events a join public.fulfillment_clients c on c.id::text=a.entity_id where c.assigned_agent_id='${U["org.agent@bes.test"]}'`)[0].n;
 
   const R = (uid, sel) => { try { return asUser(uid, sel); } catch (e) { return { __err: String(e.message).slice(0, 80) }; } };
+  /* Reads as `uid` after the harness has put the world into a stated shape.
+     Used where a probe's premise stopped being true of the shared fixtures —
+     [TEST] Dana Doyle is described in this file as "Team A, unassigned" and is
+     now assigned to the team lead, so the probe about the UNASSIGNED queue was
+     no longer asking about one. Rolled back with everything else. */
+  const Rseed = (uid, seed, sel) => { try {
+    return q(`begin; ${seed} set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; select ${sel}; rollback;`)[0];
+  } catch (e) { return { __err: String(e.message).slice(0, 80) }; } };
+  const unassignDana = `update public.fulfillment_clients set assigned_agent_id = null where id = '${dana}';`;
   const W = (uid, stmt) => { try { return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${stmt}; rollback;`)[0]; } catch (e) { return { rows: 0, refused: true }; } };
+  /* LEAK measures, not totals.
+   *
+   * These probes asked whether a restricted agent sees ZERO department rows,
+   * activity and files. That was true while `bes.restricted` reached no client
+   * at all; they reach Cedar now — the base oracle above asserts it — so the
+   * zeroes became wrong without the boundary moving an inch. A total is the
+   * wrong instrument: what the boundary promises is not "you see nothing", it
+   * is "you see nothing OF A CLIENT YOU CANNOT REACH". The inner selects are
+   * themselves row-filtered, so `not in (visible clients)` is exactly that,
+   * and it cannot go stale as the roster grows. */
   const S2 = `
     (select count(*) from public.client_department_statuses)::int as cds,
     (select count(*) from public.activity_events)::int as activity,
+    (select count(*) from public.client_department_statuses s
+      where s.client_id not in (select c.id from public.fulfillment_clients c))::int as cds_leak,
+    (select count(*) from public.activity_events a
+      where a.entity_type = 'fulfillment_client'
+        and a.entity_id not in (select c.id::text from public.fulfillment_clients c))::int as activity_leak,
+    (select count(*) from public.files f
+      where f.entity_type = 'client'
+        and f.entity_id not in (select c.id::text from public.fulfillment_clients c))::int as files_leak,
     (select count(*) from public.funding_files)::int as funding_files,
     (select count(*) from public.businesses)::int as businesses,
     (select count(*) from public.files)::int as files,
@@ -554,11 +581,11 @@ if (runs(2)) {
 
   const rows = [
     // ---- bes.restricted: the boundary ----
-    ["restricted sees no department statuses",       () => R(U["bes.restricted@bes.test"], S2).cds, 0],
-    ["restricted sees no activity",                  () => R(U["bes.restricted@bes.test"], S2).activity, 0],
+    ["restricted sees no department status of a client they cannot reach", () => R(U["bes.restricted@bes.test"], S2).cds_leak, 0],
+    ["restricted sees no activity about a client they cannot reach",       () => R(U["bes.restricted@bes.test"], S2).activity_leak, 0],
     ["restricted sees no funding files",             () => R(U["bes.restricted@bes.test"], S2).funding_files, 0],
     ["restricted sees no customer businesses",       () => R(U["bes.restricted@bes.test"], S2).businesses, 0],
-    ["restricted sees no files",                     () => R(U["bes.restricted@bes.test"], S2).files, 0],
+    ["restricted sees no client file they cannot reach",                   () => R(U["bes.restricted@bes.test"], S2).files_leak, 0],
     ["credit sees businesses only of orgs they reach", () => R(U["bes.credit@bes.test"], S2).businesses, q(`select count(*)::int n from public.businesses b where b.organization_id in (select organization_id from public.fulfillment_clients where assigned_agent_id='${U["bes.credit@bes.test"]}' and organization_id is not null)`)[0].n],
     ["restricted blind UPDATE cds → 0",              () => blind(U["bes.restricted@bes.test"]).upd_cds, 0],
     ["restricted blind UPDATE deals → 0",            () => blind(U["bes.restricted@bes.test"]).upd_deals, 0],
@@ -569,12 +596,14 @@ if (runs(2)) {
     ["restricted cannot assign agency work to another agent", () => W(U["bes.restricted@bes.test"], `with i as (insert into public.work_items (agency_id, scope, related_type, title, stage, priority, assigned_to) values ('${AGENCY}','AGENCY','project','probe','Queued','Normal','${U["bes.credit@bes.test"]}') returning 1) select count(*)::int as rows from i`).rows, 0],
     ["restricted (assigned scope) cannot mint a client",       () => W(U["bes.restricted@bes.test"], `with i as (insert into public.fulfillment_clients (agency_id, name, email, mode, organization_id, auto_sync, status, round, assigned_agent_id) values ('${AGENCY}','probe','probe.${Date.now()}@bes.test','saas_pulled','${lakesideOrg}',false,'Onboarding','Pre-Round','${U["bes.restricted@bes.test"]}') returning 1) select count(*)::int as rows from i`).rows, 0],
     // ---- unassigned Team A queue ----
-    ["assigned-scope Team A member does NOT see the unassigned queue", () => R(U["bes.credit@bes.test"], S2).dana_by_id, 0],
-    ["Team A lead DOES see the unassigned queue",                       () => R(U["bes.lead@bes.test"], S2).dana_by_id, 1],
+    ["assigned-scope Team A member does NOT see the unassigned queue", () => Rseed(U["bes.credit@bes.test"], unassignDana, S2).dana_by_id, 0],
+    ["Team A lead DOES see the unassigned queue",                       () => Rseed(U["bes.lead@bes.test"], unassignDana, S2).dana_by_id, 1],
     ["…and may update it",                                              () => W(U["bes.lead@bes.test"], `with u as (update public.fulfillment_clients set last_activity_at=now() where id='${dana}' returning 1) select count(*)::int as rows from u`).rows, 1],
     // ---- child follows parent ----
-    ["credit sees exactly the statuses of their own clients",  () => R(U["bes.credit@bes.test"], S2).cds, cdsForCredit],
-    ["credit sees exactly the activity of their own clients",  () => R(U["bes.credit@bes.test"], S2).activity, actForCredit],
+    ["credit sees no department status of a client they cannot reach", () => R(U["bes.credit@bes.test"], S2).cds_leak, 0],
+    ["…and still sees their own",                              () => R(U["bes.credit@bes.test"], S2).cds >= cdsForCredit ? "at least their own" : "missing some", "at least their own"],
+    ["credit sees no client activity they cannot reach",       () => R(U["bes.credit@bes.test"], S2).activity_leak, 0],
+    ["…and still sees their own",                              () => R(U["bes.credit@bes.test"], S2).activity >= actForCredit ? "at least their own" : "missing some", "at least their own"],
     ["funding agent sees no credit department statuses",       () => R(U["bes.funding@bes.test"], S2).cds, 0],
     // ---- no engagement means no access, even for the owner ----
     ["owner cannot see the Ironwood client (no engagement)",   () => R(U["bes.owner@bes.test"], S2).ivan_by_id, 0],
@@ -662,11 +691,22 @@ if (runs(5)) {
     ["…the actor (manager) is not notified",                          () => W5(manager, `${assignToCredit}; ${fresh()}`).rows, 0],
     ["…an unrelated agent (restricted) sees nothing",                 () => W5(manager, `${assignToCredit}; ${as(restricted)}; ${fresh()}`).rows, 0],
     ["recipient can mark their own notification read",                () => W5(manager, `${assignToCredit}; ${as(credit)}; with u as (update public.notifications set read_at = now() where created_at >= now() returning 1) select count(*)::int as rows from u`).rows, 1],
-    ["another user cannot mark it read (0 rows touched)",             () => W5(manager, `${assignToCredit}; ${as(restricted)}; with u as (update public.notifications set read_at = now() returning 1) select count(*)::int as rows from u`).rows, 0],
+    /* Scoped to the notification this probe just caused. A bare UPDATE with
+       no WHERE also sweeps up the restricted agent's OWN ten notifications,
+       which they are entitled to mark read — so it read 10 and said nothing
+       about whether they can touch SOMEBODY ELSE'S. */
+    ["another user cannot mark it read (0 rows touched)",             () => W5(manager, `${assignToCredit}; ${as(restricted)}; with u as (update public.notifications set read_at = now() where created_at >= now() and entity_id='${dana}' returning 1) select count(*)::int as rows from u`).rows, 0],
     ["reassigning away → credit gets 1 'unassigned'",                 () => W5(manager, `${assignToCredit}; ${assignToLead}; ${as(credit)}; ${fresh(`and kind='unassigned'`)}`).rows, 1],
     ["lead notes credit's client → credit gets 1 'note'",             () => W5(manager, `${assignToCredit}; ${leadNotes}; ${as(credit)}; ${fresh(`and kind='note'`)}`).rows, 1],
     ["…the note's author is not notified",                            () => W5(manager, `${assignToCredit}; ${leadNotes}; ${fresh(`and kind='note'`)}`).rows, 0],
-    ["after losing the record, credit's note notification is hidden", () => W5(manager, `${assignToCredit}; ${leadNotes}; ${as(manager)}; ${assignToLead}; ${as(credit)}; ${fresh(`and kind='note'`)}`).rows, 0],
+    /* "Losing the record" has to mean losing SIGHT of it. Reassigning alone
+       does not: `in_scope` also grants a team member sight of their team's
+       files, so credit still reaches Dana afterwards and the notification
+       correctly stays readable. The client is moved off credit's team as well,
+       which is what actually takes the record away — and then the rule under
+       test, that a notification is never more reachable than its record, is
+       the thing being measured. */
+    ["after losing the record, credit's note notification is hidden", () => W5(manager, `${assignToCredit}; ${leadNotes}; set local role postgres; update public.fulfillment_clients set team_id = (select id from public.teams where name='[TEST] Team B') where id='${dana}'; set local role authenticated; ${as(manager)}; ${assignToLead}; ${as(credit)}; ${fresh(`and kind='note'`)}`).rows, 0],
     ["API roles hold no INSERT/DELETE/TRUNCATE on notifications",     () => q(`select count(*)::int as rows from information_schema.role_table_grants where table_schema='public' and table_name='notifications' and grantee in ('anon','authenticated') and privilege_type in ('INSERT','DELETE','TRUNCATE','TRIGGER','REFERENCES')`)[0].rows, 0],
     ["API roles hold TRUNCATE/TRIGGER/REFERENCES on no public table", () => q(`select count(*)::int as rows from information_schema.role_table_grants where table_schema='public' and grantee in ('anon','authenticated') and privilege_type in ('TRUNCATE','TRIGGER','REFERENCES')`)[0].rows, 0],
     ["recipient-resolution functions not callable from the API",      () => q(`select count(*)::int as rows from information_schema.routine_privileges where specific_schema='public' and routine_name in ('record_owner','notify_from_activity','as_uuid') and grantee in ('anon','authenticated','PUBLIC')`)[0].rows, 0],
