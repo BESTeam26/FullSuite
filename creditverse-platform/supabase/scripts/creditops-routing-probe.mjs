@@ -178,13 +178,13 @@ check("8 — Support never auto-assigns, even with a full team",
   probe(`insert into team_memberships (team_id, user_id, is_lead)
            values ((select id from teams where name='CreditOps Client Success / Support Team'), '${P.ada}', true),
                   ((select id from teams where name='CreditOps Client Success / Support Team'), '${P.ben}', false);
-    ${makeClients(1, "On Hold (Non Workable)")}
+    ${makeClients(1, "Monitoring Issue 1")}
     select department::text, assignee_id::text, assignment_method
       from client_department_statuses where client_id::text like 'cccccccc%';`)[0],
   { department: "Support", assignee_id: null, assignment_method: "team_lead" });
 
 check("9 — Support's unassigned files are NOT Assignment Required",
-  probe(`${makeClients(1, "On Hold (Non Workable)")}
+  probe(`${makeClients(1, "Monitoring Issue 1")}
     select count(*)::int as n from creditops_assignment_required where client_id::text like 'cccccccc%';`)[0],
   { n: 0 });
 
@@ -473,11 +473,11 @@ check("36 — the request remembers which workflow asked",
   { origin_status: "Ready for Processing", origin_department: "Dispute", needs_routing_review: false });
 
 check("37 — a Support request records Support, not Processing",
-  probe(`${makeClients(1, "On Hold (Non Workable)")}
+  probe(`${makeClients(1, "Monitoring Issue 1")}
     update fulfillment_clients set status='For Partner Confirmation' where id::text like 'cccccccc%';
     select origin_status::text, origin_department::text
       from partner_action_items where fulfillment_client_id::text like 'cccccccc%';`)[0],
-  { origin_status: "On Hold (Non Workable)", origin_department: "Support" });
+  { origin_status: "Monitoring Issue 1", origin_department: "Support" });
 
 console.log("\nQUEUES READ DEPARTMENT WORK");
 

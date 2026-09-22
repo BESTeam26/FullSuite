@@ -85,12 +85,17 @@ interface CreditOpsTreeSidebarProps {
   onSelect: (selection: CreditOpsSelection) => void;
 }
 
-/* Statuses that are NOT counted as active volume */
+/* Statuses that are NOT counted as active volume. The first two are Dee's
+   2026-09-22 names; the rest are what records written before the rename still
+   hold, which is why they stay (rule 11). */
 const INACTIVE_STATUSES = [
+  "Program Completed",
+  "Inactive / Canceled",
+  "Graduated",
+  "Non Workable",
   "Completed",
   "Archived",
   "Archived / Inactive",
-  "Graduated",
 ];
 
 const isActive = (status: string) => !INACTIVE_STATUSES.includes(status);

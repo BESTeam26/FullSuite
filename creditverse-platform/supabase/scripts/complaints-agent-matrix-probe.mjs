@@ -23,10 +23,26 @@ const check = (name, got, want) => {
 };
 const one = (sql) => q.query(sql)[0];
 const AGENCY = one("select id from agencies order by created_at limit 1").id;
-const AGENT = one(`select p.id from profiles p join agency_memberships m on m.user_id=p.id and m.status='active'
+/* An agent in exactly ONE CreditOps department, and that department must be
+   Complaints. The probe's whole shape is "one department, one partner", and
+   it used to take any plain agent — which quietly picked somebody sitting on
+   both a Complaints team and a Client Success team, so "only the Complaints
+   queue is visible" failed on a correct system. Roster changes must not
+   decide whether a security probe passes. */
+const AGENT = one(`select p.id from profiles p
+     join agency_memberships m on m.user_id=p.id and m.status='active'
    where coalesce(p.is_fixture,false)=false and m.role='agency_user' and not m.is_owner
      and not exists (select 1 from team_memberships tm where tm.user_id=p.id and tm.is_lead)
-     and not exists (select 1 from partner_assignments pa where pa.user_id=p.id and pa.ended_on is null) limit 1`).id;
+     and not exists (select 1 from partner_assignments pa where pa.user_id=p.id and pa.ended_on is null)
+     and (select count(distinct d.key) from team_memberships tm
+            join teams t on t.id=tm.team_id and t.archived_at is null
+            join departments d on d.id=t.department_id and d.division='creditops'
+           where tm.user_id=p.id) = 1
+     and exists (select 1 from team_memberships tm
+                   join teams t on t.id=tm.team_id and t.archived_at is null
+                   join departments d on d.id=t.department_id
+                  where tm.user_id=p.id and d.key='complaints')
+   limit 1`).id;
 const TEAM = one(`select t.id from teams t join departments d on d.id=t.department_id where d.key='complaints' and t.archived_at is null and coalesce(t.is_fixture,false)=false and t.agency_id='${AGENCY}' limit 1`).id;
 /* Partner A and B: two groups with clients; B must not reach the agent through any assignment. */
 const partners = q.query(`select og.id, og.name, count(fc.id)::int as clients from outsourcing_groups og join fulfillment_clients fc on fc.outsourcing_group_id=og.id and fc.archived_at is null

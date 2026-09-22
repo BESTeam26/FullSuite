@@ -133,7 +133,9 @@ describe("stageToClientStatus", () => {
       "In Processing": "In Processing",
       "Ready for QA": "Ready for QA",
       "QA Review": "Ready for QA",
-      Completed: "Completed",
+      /* The work item's stage is still "Completed"; the client's credit
+         status was renamed to "Program Completed" on 2026-09-22. */
+      Completed: "Program Completed",
       Blocked: "Attention",
       Attention: "Attention",
     };

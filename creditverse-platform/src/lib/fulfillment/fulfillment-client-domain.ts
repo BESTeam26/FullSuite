@@ -24,6 +24,7 @@
  */
 
 import type { WorkStage } from "@/lib/bes-domain";
+import type { Enums } from "@/lib/supabase/database.types";
 import {
   checkClientConflict,
   clientGroupKey,
@@ -75,36 +76,18 @@ export const FULFILLMENT_MODE_DESC: Record<FulfillmentMode, string> = {
 /* Fulfillment client — unified record for both modes                  */
 /* ------------------------------------------------------------------ */
 
-export type FulfillmentClientStatus =
-  | "Onboarding"
-  | "NEW ONBOARDING"
-  | "INCOMPLETE ONBOARDING"
-  | "Ready for Processing"
-  | "In Processing"
-  | "Ready for QA"
-  | "In Dispute"
-  | "Awaiting Response"
-  | "Monitoring Issue"
-  | "Completed"
-  | "Attention"
-  | "BC NEEDED"
-  | "BC IN PROGRESS"
-  | "BC COMPLETED"
-  | "BC NOT NEEDED"
-  | "LETTERS PENDING"
-  | "LETTERS MAILED"
-  | "CFPB FILED"
-  | "FTC FILED"
-  | "CM COMPLETED"
-  | "SUPPORT NEW"
-  | "ONBOARDING FOLLOWUP"
-  | "READY FOR REIMPORT"
-  | "BILLING ISSUE"
-  | "WAITING CLIENT RESPONSE"
-  | "ESCALATED TO MANAGEMENT"
-  | "SUPPORT RESOLVED"
-  | "Graduated"
-  | "Archived";
+/**
+ * The client's credit status.
+ *
+ * Read straight from the database enum rather than written out again. It was
+ * a hand-kept union of thirty-odd literals, which is a second source of truth
+ * for a vocabulary the database already owns (rule 2) — and it duly drifted:
+ * when Dee renamed `Completed` to `Program Completed` on 2026-09-22 this list
+ * still said `Completed`, and every screen that set a status stopped
+ * compiling. Generated types cannot drift.
+ */
+export type FulfillmentClientStatus = Enums<"fulfillment_client_status">;
+
 
 export type ClientLifecycle = "active" | "program_completed" | "graduated" | "archived";
 export const LIFECYCLE_LABELS: Record<ClientLifecycle, string> = {
@@ -173,7 +156,9 @@ export const stageToClientStatus = (
     case "QA Review":
       return "Ready for QA";
     case "Completed":
-      return "Completed";
+      /* Renamed 2026-09-22: the work item's stage is still "Completed", the
+         client's credit status is now "Program Completed". */
+      return "Program Completed";
     case "Blocked":
       return "Attention";
     case "Attention":

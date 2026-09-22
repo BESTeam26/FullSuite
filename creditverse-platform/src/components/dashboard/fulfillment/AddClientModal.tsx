@@ -16,16 +16,13 @@ import { OpsAddClientModal } from "./OpsAddClientModal";
 import { OpsSelect } from "@/components/ui/ops-select";
 import { useTeams } from "@/lib/data/use-teams";
 import { useWorkforce } from "@/lib/data/use-workforce";
+import { CREDIT_STATUSES } from "@/lib/fulfillment/department-domain";
 
-const STATUS_OPTIONS = [
-  "Onboarding",
-  "Ready for Processing",
-  "In Processing",
-  "Ready for QA",
-  "In Dispute",
-  "Awaiting Response",
-  "Completed",
-];
+/* One list, Dee's (2026-09-22). This dialog used to carry a third spelling of
+   the status vocabulary — "Onboarding", "In Processing", "Ready for QA" —
+   none of which is in the workflow any more, so a client could be created
+   onto a status the queues do not route. */
+const STATUS_OPTIONS = [...CREDIT_STATUSES];
 
 const ROUND_OPTIONS: FulfillmentClient["round"][] = [
   "Pre-Round",

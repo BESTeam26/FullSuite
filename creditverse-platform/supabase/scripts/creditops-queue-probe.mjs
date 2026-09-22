@@ -63,8 +63,8 @@ check("2 — Round 8 Sent → Dispute hidden from the active queue, waiting, NOT
              (select count(*)::int from client_department_statuses where client_id=(select id from t) and department='Dispute') as row_kept;`)[0],
   { dept_status: "ROUND SENT - AWAITING RESULTS", actionable: false, row_kept: 1 });
 
-check("3 — CMS Issue 2 while Dispute waits → Support visible, Dispute still hidden, both records truthful",
-  tx(`${reset} ${setStatus("Ready for Processing")} ${setStatus("Round 8 Sent")} ${setStatus("CMS Issue 2")} ${queue};`)[0].rows,
+check("3 — Monitoring Issue 2 while Dispute waits → Support visible, Dispute still hidden, both records truthful",
+  tx(`${reset} ${setStatus("Ready for Processing")} ${setStatus("Round 8 Sent")} ${setStatus("Monitoring Issue 2")} ${queue};`)[0].rows,
   "Dispute=waiting | Support=ACTIONABLE");
 
 check("4 — For Client Confirmation → internal queue hidden, portal action visible",
@@ -91,7 +91,7 @@ check("5 — the client confirms → the portal action closes and the right inte
 check("6 — a department still legitimately actionable is NOT suppressed by another opening",
   /* Dee REJECTED the generic close rule. Dispute has not sent the round, so it
      keeps its actionable work while Support picks up a monitoring issue. */
-  tx(`${reset} ${setStatus("Ready for Processing")} ${setStatus("CMS Issue 2")} ${queue};`)[0].rows,
+  tx(`${reset} ${setStatus("Ready for Processing")} ${setStatus("Monitoring Issue 2")} ${queue};`)[0].rows,
   "Dispute=ACTIONABLE | Support=ACTIONABLE");
 
 console.log("\nTHE TWO DEE ADDED");
@@ -119,7 +119,7 @@ check("8 — after confirmation the file returns by itself, with no manager hunt
 console.log("\nTHE RULE DEE REJECTED MUST NOT COME BACK");
 
 check("9 — nothing closes a department merely because another opened",
-  tx(`${reset} ${setStatus("Ready for Processing")} ${setStatus("CMS Issue 2")}
+  tx(`${reset} ${setStatus("Ready for Processing")} ${setStatus("Monitoring Issue 2")}
       select count(*)::int as closed from client_department_statuses
        where client_id=(select id from t) and upper(status) = 'COMPLETED';`)[0].closed,
   0);

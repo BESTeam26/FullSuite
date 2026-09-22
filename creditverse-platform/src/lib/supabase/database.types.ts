@@ -15203,6 +15203,10 @@ export type Database = {
           id: string
           label: string | null
           max_cycles: number | null
+          on_expiry_assign: boolean
+          on_expiry_client_status:
+            | Database["public"]["Enums"]["fulfillment_client_status"]
+            | null
           on_expiry_department:
             | Database["public"]["Enums"]["fulfillment_department"]
             | null
@@ -15222,6 +15226,10 @@ export type Database = {
           id?: string
           label?: string | null
           max_cycles?: number | null
+          on_expiry_assign?: boolean
+          on_expiry_client_status?:
+            | Database["public"]["Enums"]["fulfillment_client_status"]
+            | null
           on_expiry_department?:
             | Database["public"]["Enums"]["fulfillment_department"]
             | null
@@ -15241,6 +15249,10 @@ export type Database = {
           id?: string
           label?: string | null
           max_cycles?: number | null
+          on_expiry_assign?: boolean
+          on_expiry_client_status?:
+            | Database["public"]["Enums"]["fulfillment_client_status"]
+            | null
           on_expiry_department?:
             | Database["public"]["Enums"]["fulfillment_department"]
             | null
@@ -18817,6 +18829,12 @@ export type Database = {
           still_unassigned: number
         }[]
       }
+      creditops_closed_status_for: {
+        Args: {
+          p_department: Database["public"]["Enums"]["fulfillment_department"]
+        }
+        Returns: string
+      }
       creditops_completion_state: {
         Args: {
           p_client: string
@@ -21127,6 +21145,10 @@ export type Database = {
           id: string
           label: string | null
           max_cycles: number | null
+          on_expiry_assign: boolean
+          on_expiry_client_status:
+            | Database["public"]["Enums"]["fulfillment_client_status"]
+            | null
           on_expiry_department:
             | Database["public"]["Enums"]["fulfillment_department"]
             | null
@@ -21528,7 +21550,7 @@ export type Database = {
         | "In Dispute"
         | "Awaiting Response"
         | "Monitoring Issue"
-        | "Completed"
+        | "Program Completed"
         | "Attention"
         | "BC NEEDED"
         | "BC IN PROGRESS"
@@ -21547,7 +21569,7 @@ export type Database = {
         | "ESCALATED TO MANAGEMENT"
         | "SUPPORT RESOLVED"
         | "Graduated"
-        | "Archived"
+        | "Inactive / Canceled"
         | "Ready for Round 1"
         | "Round Sent - Awaiting Results"
         | "Ready for Reimport / Review"
@@ -21557,7 +21579,7 @@ export type Database = {
         | "Prio Processing"
         | "For Complaints"
         | "Ready For Reimport/ Credit Update"
-        | "On Hold (Non Workable)"
+        | "Non Workable"
         | "For Partner Confirmation"
         | "Round 1 Sent"
         | "Round 2 Sent"
@@ -21571,12 +21593,13 @@ export type Database = {
         | "Round 10 Sent"
         | "Round 11 Sent"
         | "Round 12 Sent"
-        | "CMS Issue 1"
-        | "CMS Issue 2"
-        | "CMS Issue 3"
+        | "Monitoring Issue 1"
+        | "Monitoring Issue 2"
+        | "Monitoring Issue 3"
         | "In Dispute Mailed"
-        | "Results Available for Review"
+        | "Ready for Credit Review"
         | "For Client Confirmation"
+        | "Outsourcing - Unpaid"
       fulfillment_department:
         | "Onboarding"
         | "Dispute"
@@ -22298,7 +22321,7 @@ export const Constants = {
         "In Dispute",
         "Awaiting Response",
         "Monitoring Issue",
-        "Completed",
+        "Program Completed",
         "Attention",
         "BC NEEDED",
         "BC IN PROGRESS",
@@ -22317,7 +22340,7 @@ export const Constants = {
         "ESCALATED TO MANAGEMENT",
         "SUPPORT RESOLVED",
         "Graduated",
-        "Archived",
+        "Inactive / Canceled",
         "Ready for Round 1",
         "Round Sent - Awaiting Results",
         "Ready for Reimport / Review",
@@ -22327,7 +22350,7 @@ export const Constants = {
         "Prio Processing",
         "For Complaints",
         "Ready For Reimport/ Credit Update",
-        "On Hold (Non Workable)",
+        "Non Workable",
         "For Partner Confirmation",
         "Round 1 Sent",
         "Round 2 Sent",
@@ -22341,12 +22364,13 @@ export const Constants = {
         "Round 10 Sent",
         "Round 11 Sent",
         "Round 12 Sent",
-        "CMS Issue 1",
-        "CMS Issue 2",
-        "CMS Issue 3",
+        "Monitoring Issue 1",
+        "Monitoring Issue 2",
+        "Monitoring Issue 3",
         "In Dispute Mailed",
-        "Results Available for Review",
+        "Ready for Credit Review",
         "For Client Confirmation",
+        "Outsourcing - Unpaid",
       ],
       fulfillment_department: [
         "Onboarding",

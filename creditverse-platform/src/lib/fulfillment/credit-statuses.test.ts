@@ -21,24 +21,27 @@ import { Constants } from "@/lib/supabase/database.types";
 const ENUM: readonly string[] = Constants.public.Enums.fulfillment_client_status;
 
 describe("Dee's credit status list", () => {
-  /* Extended 2026-09-20 to Dee's GHL pipeline. The original ten are all still
-     here; four of them ARE pipeline stages under the names the system locked,
-     and are not repeated under Dee's wording. */
-  it("is the GHL pipeline, in Dee's order, with the locked names kept", () => {
+  /* Dee gave the whole list on 2026-09-22 rather than corrections to it:
+     "Clear Status that reflect the actual workflow." Four groups, in this
+     order — getting them in, the twelve rounds, not workable, no longer
+     active. This is a PRODUCT DECISION, so it is pinned literally. */
+  it("is Dee's workflow, in her order and her words", () => {
     expect([...CREDIT_STATUSES]).toEqual([
       "New Client",
       "Incomplete Onboarding",
       "Ready for Round 1",
       "Ready for Processing",
-      "Prio Processing",
       "Round 1 Sent", "Round 2 Sent", "Round 3 Sent", "Round 4 Sent",
       "Round 5 Sent", "Round 6 Sent", "Round 7 Sent", "Round 8 Sent",
       "Round 9 Sent", "Round 10 Sent", "Round 11 Sent", "Round 12 Sent",
-      "CMS Issue 1", "CMS Issue 2", "CMS Issue 3",
-      "Results Available for Review",
-      "For Complaints",
-      "On Hold (Non Workable)",
+      "Ready for Credit Review",
+      "Monitoring Issue 1", "Monitoring Issue 2", "Monitoring Issue 3",
+      "Outsourcing - Unpaid",
       "For Partner Confirmation",
+      "Non Workable",
+      "Program Completed",
+      "Graduated",
+      "Inactive / Canceled",
     ]);
   });
 
@@ -75,14 +78,15 @@ describe("Dee's credit status list", () => {
     }
   });
 
-  it("keeps Dee's spelling exactly, parenthesis and all", () => {
-    expect(CREDIT_STATUSES).toContain("On Hold (Non Workable)");
-    /* Not the tidier variants that already exist in the enum. The reimport
-       pair used to be here too; Dee retired her own spelling of it on
-       2026-09-22 as a duplicate, so neither is offered now. */
-    expect(CREDIT_STATUSES).not.toContain("Ready for Reimport / Review");
-    expect(CREDIT_STATUSES).not.toContain("Ready For Reimport/ Credit Update");
-    expect(CREDIT_STATUSES).not.toContain("Waiting for Partner Approval");
+  it("drops every older spelling of a state that now has one name", () => {
+    /* All of these were renamed or retired on 2026-09-22. They remain in the
+       database type for the records that hold them; none is offered. */
+    for (const old of ["On Hold (Non Workable)", "CMS Issue 1", "CMS Issue 2", "CMS Issue 3",
+                       "Results Available for Review", "Completed", "Archived",
+                       "Ready for Reimport / Review", "Ready For Reimport/ Credit Update",
+                       "Waiting for Partner Approval", "Prio Processing", "For Complaints"]) {
+      expect(CREDIT_STATUSES, old).not.toContain(old);
+    }
   });
 
   it("contains no DEPARTMENT status — those are a different vocabulary", () => {
@@ -96,10 +100,13 @@ describe("Dee's credit status list", () => {
     }
   });
 
-  it("offers no QA, no Graduated and no Archived", () => {
-    for (const s of ["Ready for QA", "Graduated", "Archived", "Monitoring Issue", "Attention"]) {
+  it("offers no QA and none of the legacy one-word states", () => {
+    /* Graduated moved the other way on 2026-09-22 — it is now one of the
+       three archive states Dee named, so it IS offered. */
+    for (const s of ["Ready for QA", "Archived", "Monitoring Issue", "Attention", "In Dispute"]) {
       expect(CREDIT_STATUSES, s).not.toContain(s);
     }
+    expect(CREDIT_STATUSES).toContain("Graduated");
   });
 
   /* It was ten until the GHL pipeline landed. The point of the check never
@@ -189,7 +196,9 @@ describe("the three redundant statuses Dee retired (2026-09-22)", () => {
     /* "Ready for Reimport / Review" — spaces around the slash, two live
        clients on it — is a different status and was not touched. */
     expect(creditStatusOptionsFor(null)).not.toContain("Ready For Reimport/ Credit Update");
-    expect(CREDIT_STATUSES.includes("Results Available for Review")).toBe(true);
+    /* It survived the cull and was then renamed, on 2026-09-22, to the words
+       Dee actually uses. */
+    expect(CREDIT_STATUSES.includes("Ready for Credit Review")).toBe(true);
   });
 
   it("leaves the twelve numbered rounds as the only in-flight stages", () => {

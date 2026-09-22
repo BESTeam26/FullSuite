@@ -294,36 +294,41 @@ export function describeHandoff(from: CreditOpsDepartment | null, plan: HandoffP
  *   Round 1 Ready           →  Ready for Round 1
  *   Ready for Processing    →  Ready for Processing
  *
- * ── THREE WERE THE SAME THING SAID THREE WAYS (Dee, 2026-09-22) ───────────
+ * ── DEE'S LIST, 2026-09-22 ────────────────────────────────────────────────
  *
- * *"Too many redundant credit statuses. In dispute Mailed and round sent
- * awaiting results are the same, I need only the Actual Round 1-10 Sent…
- * Delete Ready for reimport/ Credit update as this is duplicate."*
+ * She gave the whole thing rather than corrections to it: *"Clear Status that
+ * reflect the actual workflow."* Four groups, in this order — getting them in,
+ * the twelve rounds, not workable, no longer active.
  *
- * So `In Dispute Mailed`, `Round Sent - Awaiting Results` and
- * `Ready For Reimport/ Credit Update` are no longer offered. All three routed
- * identically to a status that IS offered, which is what made them redundant
- * rather than merely untidy.
+ * Almost all of it was a rename in the database rather than a new value, so
+ * every routing row, SLA policy and client history still points at the same
+ * state: `CMS Issue N` became `Monitoring Issue N`, `Results Available for
+ * Review` became `Ready for Credit Review`, `On Hold (Non Workable)` became
+ * `Non Workable`, `Completed` became `Program Completed`, `Archived` became
+ * `Inactive / Canceled`. Only `Outsourcing - Unpaid` is new.
  *
- * They are dropped from this list, not from the database type. Postgres keeps
- * enum values, and so should we: a client who sat on one last year still has
- * to read back correctly (rule 11). `creditStatusOptionsFor` below puts a
- * retired value back at the top of the dropdown for the record that holds it,
- * so nothing looks silently changed. No live client held any of the three.
+ * ── WHAT IS NO LONGER OFFERED, AND WHY IT IS STILL IN THE TYPE ────────────
  *
- * The twelve numbered stages are what work moves through, and every one of
- * them is a waiting state: the round is in the post, nobody at BES is
- * assigned, and the clock is thirty days (`sla_policies`, 20260922006000).
+ * `Prio Processing`, `For Complaints` and the earlier duplicates are dropped
+ * from this list but kept in the database type. Postgres keeps enum values,
+ * and so should we: a client who sat on one has to read back correctly
+ * (rule 11). `creditStatusOptionsFor` puts a retired value at the top of the
+ * dropdown for the record that holds it, so nothing looks silently changed.
+ *
+ * `For Complaints` is a DEPARTMENT placement, not a stage of the client's
+ * credit work — a file reaches Complaints through a handoff, which is why it
+ * left this list rather than being renamed.
  */
 export const CREDIT_STATUSES: readonly string[] = [
-  /* Onboarding */
+  /* Getting them in */
   "New Client",
   "Incomplete Onboarding",
   /* Ready to work */
   "Ready for Round 1",
   "Ready for Processing",
-  "Prio Processing",
-  /* In flight, round by round. The client's `round` follows these — see the
+  /* In flight, round by round — every one of these is a WAITING state: the
+     round is in the post, nobody at BES is assigned, and the clock is thirty
+     days. The client's `round` follows these, through the
      `fulfillment_clients_round_follows_status` trigger. */
   "Round 1 Sent",
   "Round 2 Sent",
@@ -337,16 +342,19 @@ export const CREDIT_STATUSES: readonly string[] = [
   "Round 10 Sent",
   "Round 11 Sent",
   "Round 12 Sent",
-  /* Credit monitoring problems, escalating */
-  "CMS Issue 1",
-  "CMS Issue 2",
-  "CMS Issue 3",
   /* Results back */
-  "Results Available for Review",
-  /* Off the pipeline */
-  "For Complaints",
-  "On Hold (Non Workable)",
+  "Ready for Credit Review",
+  /* Not workable, and it is Support who does something about it */
+  "Monitoring Issue 1",
+  "Monitoring Issue 2",
+  "Monitoring Issue 3",
+  "Outsourcing - Unpaid",
   "For Partner Confirmation",
+  "Non Workable",
+  /* No longer active */
+  "Program Completed",
+  "Graduated",
+  "Inactive / Canceled",
 ] as const;
 
 /**

@@ -42,14 +42,17 @@ console.log(`\nA SENT ROUND — ${CLIENT.name}\n`);
   check("2 · with nobody assigned", r1.unassigned, true);
   check("3 · and a due date thirty days out", Number(r1.days_to_due), 30);
 
-  /* Every numbered round behaves the same — the rule is the status family,
-     not one hand-configured row. */
-  const each = [2, 5, 10, 12].map((n) => {
-    const r = sendRound(n);
-    return `${r.status}/${r.unassigned}/${Number(r.days_to_due)}`;
+  /* EVERY numbered round, not a sample. Testing 2, 5, 10 and 12 missed that
+     `Round 4 Sent` could not be saved at all: the round enum calls it
+     `Round 4+` and the trigger built the string `Round 4` (20260922012000). */
+  const each = Array.from({ length: 12 }, (_, i) => i + 1).map((n) => {
+    try {
+      const r = sendRound(n);
+      return `${r.status}/${r.unassigned}/${Number(r.days_to_due)}`;
+    } catch (e) { return `ERROR: ${String(e.message).split("\n")[0].slice(0, 60)}`; }
   });
-  check("4 · rounds 2, 5, 10 and 12 all behave identically", each,
-    Array(4).fill("ROUND SENT - AWAITING RESULTS/true/30"));
+  check("4 · all twelve rounds save, and all behave identically", each,
+    Array(12).fill("ROUND SENT - AWAITING RESULTS/true/30"));
 }
 
 console.log("\nTHIRTY DAYS LATER\n");
@@ -68,10 +71,29 @@ console.log("\nTHIRTY DAYS LATER\n");
              where s.client_id = fc.id and s.department = 'Support') as support_assigned
       from public.fulfillment_clients fc where fc.id = '${CLIENT.id}';
     rollback;`);
-  check("5 · the client status becomes Results Available for Review",
-    after.client_status, "Results Available for Review");
+  check("5 · the client status becomes Ready for Credit Review",
+    after.client_status, "Ready for Credit Review");
   check("6 · Support is opened on it", after.support_status, "READY FOR REIMPORT");
   check("7 · and somebody on the support team has it", after.support_assigned, true);
+
+  /* ── IT MUST NOT FIRE TWICE ────────────────────────────────────────────
+     The first version left the Dispute row overdue, so the sweep picked the
+     same client up every hour: four "Back for review" entries on two clients
+     inside two hours, in production. A second sweep must be a no-op. */
+  const twice = one(`begin;
+    update public.fulfillment_clients set status = 'Round 4 Sent' where id = '${CLIENT.id}';
+    update public.client_department_statuses
+       set system_due_at = now() - interval '1 hour', opened_at = now() - interval '31 days'
+     where client_id = '${CLIENT.id}' and department = 'Dispute';
+    select public.sla_sweep();
+    select (public.sla_sweep() ->> 'returned_for_review')::int as second_run,
+           (select s.status from public.client_department_statuses s
+             where s.client_id = '${CLIENT.id}' and s.department = 'Dispute') as dispute_status;
+    rollback;`);
+  check("9 · the second sweep returns nothing — the wait is over, not overdue",
+    Number(twice.second_run), 0);
+  check("10 · because the Dispute row closed when its wait ended",
+    twice.dispute_status, "COMPLETED");
 
   /* It must not fire early. */
   const early = one(`begin;
@@ -79,19 +101,19 @@ console.log("\nTHIRTY DAYS LATER\n");
     select public.sla_sweep();
     select status as client_status from public.fulfillment_clients where id = '${CLIENT.id}';
     rollback;`);
-  check("8 · and not a day before", early.client_status, "Round 3 Sent");
+  check("11 · and not a day before", early.client_status, "Round 3 Sent");
 }
 
 console.log("\nTHE OTHER POLICIES ARE UNTOUCHED\n");
 {
   const onboarding = one(`select count(*)::int n from sla_policies
                            where department = 'Onboarding' and max_cycles is not null`);
-  check("9 · the onboarding follow-up policies still exist", onboarding.n > 0, true);
+  check("12 · the onboarding follow-up policies still exist", onboarding.n > 0, true);
   const defaults = one(`select count(*)::int n from sla_policies
                          where on_expiry_client_status is null and on_expiry_assign = false`);
-  check("10 · every other policy keeps the old unassigned behaviour", defaults.n > 0, true);
+  check("13 · every other policy keeps the old unassigned behaviour", defaults.n > 0, true);
   const dead = one(`select count(*)::int n from sla_policies where status = 'Mailed'`);
-  check("11 · the dead 'Mailed' policy is gone", dead.n, 0);
+  check("14 · the dead 'Mailed' policy is gone", dead.n, 0);
 }
 
 console.log(`\n${pass} passed, ${failures.length} failed`);

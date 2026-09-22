@@ -41,7 +41,10 @@ import { usePartners } from "@/lib/data/use-partners";
 const METRICS: OpsMetricsConfig<FulfillmentClient> = {
   overdueHours: 4,
   dueTodayHours: 24,
-  inactiveStatuses: ["Completed", "Archived", "Graduated"],
+  /* Dee's 2026-09-22 names first; the older spellings stay for records
+     written before the rename. */
+  inactiveStatuses: ["Program Completed", "Inactive / Canceled", "Graduated",
+                     "Non Workable", "Completed", "Archived"],
   escalationStatuses: ["Attention"],
   openCount: (c) => c.openItems,
 };

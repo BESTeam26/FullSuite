@@ -109,18 +109,41 @@ if (complaintsPair.length < 2) {
       (select count(*)::int from public.my_creditops_departments()) as depts,
       (select string_agg(distinct s.department::text, ', ' order by s.department::text)
          from client_department_statuses s) as queues,
-      (select count(*)::int from work_items where assigned_to <> auth.uid()) as others_work;`);
-    check(`${person.full_name} sees the whole Main Client List`, seen.clients, everyClient);
+      (select count(*)::int from work_items where assigned_to <> auth.uid()) as others_work,
+      /* A client outside the person's partner scope that they are not
+         working either. Being ASSIGNED a file is its own reason to see it —
+         AD-004 stopped the DIRECTORY handing everyone every client, it did
+         not blind somebody to their own work. */
+      (select count(*)::int from fulfillment_clients c
+        where c.archived_at is null and c.outsourcing_group_id is not null
+          and not public.can_see_partner(c.outsourcing_group_id)
+          and c.assigned_agent_id is distinct from auth.uid()
+          and not exists (select 1 from client_department_statuses s
+                           where s.client_id = c.id and s.assignee_id = auth.uid())) as outside_scope;`);
+    /* AD-004, 2026-09-19, superseding the 2026-09-13 open directory: the Main
+       Client List respects PARTNER scope. Dee: "creditops.clients.view may
+       allow the CreditOps client-directory experience. It must NOT mean all
+       CreditOps clients." So the assertion is no longer "sees everything" —
+       it is "sees no more than everything, and nothing outside their partners".
+       Written as the RULE rather than a count, because the count moves with
+       the roster. */
+    check(`${person.full_name} sees no client outside their partner scope or their own work`,
+      seen.clients <= everyClient && seen.outside_scope === 0, true);
     check(`${person.full_name} is in exactly one department`, seen.depts, 1);
-    check(`${person.full_name} sees only the Complaints queue`, /^Complaints/.test(seen.queues ?? ""), true);
+    check(`${person.full_name} sees only their own department's queue`,
+      (seen.queues ?? "").split(", ").filter(Boolean).every((d) => d === "Complaints"), true);
     check(`${person.full_name}'s My Work is personal only`, seen.others_work, 0);
   }
 
   /* Queue membership is canonical department work, not the client's overall
      Credit Status — the distinction Dee has corrected twice. */
   const [a, b] = complaintsPair;
-  const qRow = one(`select s.client_id from client_department_statuses s
-                     where s.department = 'Complaints' limit 1`);
+  /* Chosen AS the agent, not as the system. Picking any Complaints row and
+     hoping it falls inside their partner scope made this probe depend on
+     which row the planner returned first — it broke the day a status
+     normalisation touched those rows (AD-004: the directory is scoped). */
+  const qRow = row(a.id, `select s.client_id from client_department_statuses s
+                           where s.department = 'Complaints' limit 1;`);
   if (qRow) {
     const reassigned = row(a.id,
       `update client_department_statuses set assignee_id = '${b.id}'
@@ -134,7 +157,10 @@ if (complaintsPair.length < 2) {
     const unmoved = row(a.id,
       `select count(*)::int as still from client_department_statuses s
         where s.client_id = '${qRow.client_id}' and s.department = 'Complaints';`,
-      `update fulfillment_clients set status = 'On Hold (Non Workable)' where id = '${qRow.client_id}';`);
+      /* A non-terminal status on purpose. `Non Workable` became TERMINAL on
+         2026-09-22 and now closes every department, which is Dee's decision
+         and not what this check is about. */
+      `update fulfillment_clients set status = 'Monitoring Issue 1' where id = '${qRow.client_id}';`);
     check("the queue follows department work, not overall Credit Status", unmoved.still, 1);
   }
 
