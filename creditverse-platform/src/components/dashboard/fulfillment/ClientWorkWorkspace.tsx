@@ -28,6 +28,10 @@
  */
 
 import { useMemo, useState } from "react";
+import { ChevronRight } from "lucide-react";
+import {
+  Collapsible, CollapsibleContent, CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet";
@@ -51,14 +55,6 @@ import { ClientLifecycleControl } from "./ClientLifecycleControl";
 import { ClientStatusControl } from "./ClientStatusControl";
 import { ClientAssignmentCard } from "./ClientAssignmentCard";
 
-const TABS = [
-  { id: "work", label: "Work" },
-  { id: "info", label: "Client Info" },
-  { id: "documents", label: "Documents" },
-  { id: "history", label: "History" },
-] as const;
-type TabId = (typeof TABS)[number]["id"];
-
 export function ClientWorkWorkspace({
   clientId,
   onBack,
@@ -72,7 +68,6 @@ export function ClientWorkWorkspace({
   const store = useCreditOpsStore();
   const access = useCreditOpsAccess();
   const perms = useAgencyPermissions();
-  const [tab, setTab] = useState<TabId>("work");
   const [completing, setCompleting] = useState(false);
   const [managing, setManaging] = useState(false);
 
@@ -147,85 +142,79 @@ export function ClientWorkWorkspace({
         onDueClear={onDueClear}
       />
 
-      <div className="flex gap-1 border-b border-border">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            aria-current={tab === t.id ? "page" : undefined}
-            className={cn(
-              "border-b-2 px-3.5 py-2 text-xs font-bold transition-colors",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              tab === t.id
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      {/* ── ONE SCROLL, NOT LAYER OVER LAYER ──────────────────────────────
+          Dee, 2026-09-22: *"once the agent open the file, the work and all
+          checklist should be already there and not layer over layer."*
 
-      {tab === "work" && (
-        <div className="space-y-3">
-          <ClientWorkTab
-            client={client}
-            clientId={clientId}
-            current={current}
-            nextAction={(client as { nextAction?: string | null }).nextAction ?? null}
-            onCompleteWork={() => setCompleting(true)}
-          />
-          {/* The Work tab leads with the department holding the file, which is
-              right — but a file can be live in several at once, and by Dee's
-              queue doctrine (§23) that is correct and must stay visible:
-              "Dispute = Waiting for Results alongside Support = Monitoring
-              Issue". Bryan Rodriguez is in five. This is the whole picture,
-              read apart into work-now, waiting and finished. */}
-          {rows.length > 1 && <WhereThisFileIs rows={rows} />}
-        </div>
-      )}
-      {tab === "info" && (
+          It was a panel, inside it four tabs, inside those a stack of cards,
+          and Complete Work opened a second drawer on top. Three layers before
+          an agent could see what to do. Her ClickUp has none of that: you
+          open a task and the description, the checklist and the comments are
+          simply there, one after another.
+
+          So the tabs are gone. The work and its checklist lead, the activity
+          follows, and the two REFERENCE sections — who the person is, and
+          their files — are folded shut underneath, because they are things
+          you look up rather than things you do. */}
+      <ClientWorkTab
+        client={client}
+        clientId={clientId}
+        current={current}
+        nextAction={(client as { nextAction?: string | null }).nextAction ?? null}
+        onCompleteWork={() => setCompleting(true)}
+      />
+
+      {/* Several departments can hold one file at once, and by Dee's queue
+          doctrine (§23) that has to stay visible. Shown only when there IS
+          more than one, so a simple file stays simple. */}
+      {rows.length > 1 && <WhereThisFileIs rows={rows} />}
+
+      <ClientHistoryTab clientId={clientId} />
+
+      <FoldedSection label="Client info" hint="Contact, identity, sensitive details">
         <ClientInfoTab
           client={client}
           /* No empty cross-module card: the funding panel appears only when a
              funding relationship exists (Dee, 2026-09-11). */
           hasFunding={Boolean((client as { fundingClientId?: string | null }).fundingClientId)}
         />
-      )}
-      {tab === "documents" && <ClientDocumentsTab clientId={clientId} />}
-      {tab === "history" && (
-        <div className="space-y-3">
-          {/* The same composer as the Work tab: an agent reading the history
-              and wanting to add to it should not have to change tab. */}
-          <ClientUpdateComposer client={client} />
-          <ClientHistoryTab clientId={clientId} />
+      </FoldedSection>
+
+      <FoldedSection label="Documents" hint="Everything filed against this client">
+        <ClientDocumentsTab clientId={clientId} />
+      </FoldedSection>
+
+      {/* ── COMPLETE WORK OPENS IN PLACE, NOT ON TOP ──────────────────────
+          It is still a deliberate action — Dee, 2026-09-11: "Do NOT
+          permanently display the giant Complete Work form", and that stands;
+          446 lines of form on every client was the original complaint.
+
+          But it used to open as a second drawer over the panel, which is the
+          layering she objected to on 2026-09-22. It now expands where the
+          button is, at the end of the work it belongs to, so finishing a file
+          is the bottom of the same scroll rather than another window. */}
+      {completing && (
+        <div className="rounded-2xl border border-primary/40 bg-card p-4">
+          <div className="mb-3 flex items-baseline justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-bold text-foreground">Complete work — {client.name}</h2>
+              <p className="text-xs text-muted-foreground">
+                What you finished, anything worth recording, and where the file goes next.
+              </p>
+            </div>
+            <button type="button" onClick={() => setCompleting(false)}
+              className="shrink-0 rounded-lg border border-border px-2.5 py-1 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              Not now
+            </button>
+          </div>
+          <CompleteWorkSection
+            clientId={clientId}
+            clientName={client.name}
+            partnerName={clientGroupLabel(client)}
+            currentStatus={client.status}
+          />
         </div>
       )}
-
-      {/* ── COMPLETE WORK IS A DRAWER ──────────────────────────────────────
-          Dee: "Do NOT permanently display the giant Complete Work form."
-          It was 446 lines of form expanded on every client, whether or not
-          anybody was completing anything. The component is unchanged — the
-          production record, the actions and the handoff rules are all exactly
-          as they were; it is simply opened when it is wanted. */}
-      <Sheet open={completing} onOpenChange={setCompleting}>
-        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
-          <SheetHeader>
-            <SheetTitle className="text-sm">Complete work — {client.name}</SheetTitle>
-            <SheetDescription className="text-xs">
-              What you finished, anything worth recording, and where the file goes next.
-            </SheetDescription>
-          </SheetHeader>
-          <div className="mt-4">
-            <CompleteWorkSection
-              clientId={clientId}
-              clientName={client.name}
-              partnerName={clientGroupLabel(client)}
-              currentStatus={client.status}
-            />
-          </div>
-        </SheetContent>
-      </Sheet>
 
       {/* ── MANAGEMENT CONTROLS, BEHIND More ───────────────────────────────
           Lifecycle, the credit status vocabulary and the SLA/date overrides.
@@ -249,5 +238,28 @@ export function ClientWorkWorkspace({
         </SheetContent>
       </Sheet>
     </div>
+  );
+}
+
+/**
+ * A reference section, shut until somebody wants it.
+ *
+ * Not a tab: a tab hides its contents behind a decision about which tab you
+ * are on, and you cannot scroll past it to see what else exists. A folded
+ * section is in the page, in order, and says what is inside it.
+ */
+function FoldedSection({ label, hint, children }: {
+  label: string; hint: string; children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <ChevronRight className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-90")} aria-hidden />
+        <span className="text-xs font-bold text-foreground">{label}</span>
+        <span className="truncate text-[11px] text-muted-foreground">{hint}</span>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="pt-3">{children}</CollapsibleContent>
+    </Collapsible>
   );
 }
