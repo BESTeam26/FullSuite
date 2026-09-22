@@ -101,17 +101,6 @@ Last reconciled: 2026-09-21, after the Eastern workday lock (`1f6b8e7`).
   it cannot be derived without guessing. **Needs one answer from Dee:** when an
   agent marks a round mailed, should the stage advance to the next round, or
   stay on the round the file is already showing?
-
-- **The HQ dashboard KPI tiles count `[TEST]` fixtures; the lists beneath them
-  do not.** Dee's home screen reads "4 organizations · 38 live fulfillment
-  engagements" above a Connected Organizations panel that says "0 companies".
-  Both are behaving as written: RLS correctly shows Dee four organizations,
-  all four are fixtures, and `fetchOrganizations` filters `is_fixture = false`
-  the way a customer list should. The counting function does not, so the tile
-  reports test data as if it were the business. Same question for "Credit
-  clients 18" and "Funding files 3". Fix by excluding fixtures in the overview
-  counts, not by showing fixtures in the list.
-
 ## HUMAN GATE — needs Dee or a real operator
 
 | Item | Who | What is needed |
