@@ -294,8 +294,26 @@ export function describeHandoff(from: CreditOpsDepartment | null, plan: HandoffP
  *   Round 1 Ready           →  Ready for Round 1
  *   Ready for Processing    →  Ready for Processing
  *
- * "Round Sent - Awaiting Results" stays for the clients already sitting on
- * it; the twelve numbered stages are what new work moves through.
+ * ── THREE WERE THE SAME THING SAID THREE WAYS (Dee, 2026-09-22) ───────────
+ *
+ * *"Too many redundant credit statuses. In dispute Mailed and round sent
+ * awaiting results are the same, I need only the Actual Round 1-10 Sent…
+ * Delete Ready for reimport/ Credit update as this is duplicate."*
+ *
+ * So `In Dispute Mailed`, `Round Sent - Awaiting Results` and
+ * `Ready For Reimport/ Credit Update` are no longer offered. All three routed
+ * identically to a status that IS offered, which is what made them redundant
+ * rather than merely untidy.
+ *
+ * They are dropped from this list, not from the database type. Postgres keeps
+ * enum values, and so should we: a client who sat on one last year still has
+ * to read back correctly (rule 11). `creditStatusOptionsFor` below puts a
+ * retired value back at the top of the dropdown for the record that holds it,
+ * so nothing looks silently changed. No live client held any of the three.
+ *
+ * The twelve numbered stages are what work moves through, and every one of
+ * them is a waiting state: the round is in the post, nobody at BES is
+ * assigned, and the clock is thirty days (`sla_policies`, 20260922006000).
  */
 export const CREDIT_STATUSES: readonly string[] = [
   /* Onboarding */
@@ -319,20 +337,16 @@ export const CREDIT_STATUSES: readonly string[] = [
   "Round 10 Sent",
   "Round 11 Sent",
   "Round 12 Sent",
-  "In Dispute Mailed",
   /* Credit monitoring problems, escalating */
   "CMS Issue 1",
   "CMS Issue 2",
   "CMS Issue 3",
   /* Results back */
   "Results Available for Review",
-  "Ready For Reimport/ Credit Update",
   /* Off the pipeline */
   "For Complaints",
   "On Hold (Non Workable)",
   "For Partner Confirmation",
-  /* Kept for the clients still on it, after the numbered stages replaced it. */
-  "Round Sent - Awaiting Results",
 ] as const;
 
 /**

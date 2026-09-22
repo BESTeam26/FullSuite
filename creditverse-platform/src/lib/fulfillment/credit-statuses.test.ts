@@ -34,14 +34,11 @@ describe("Dee's credit status list", () => {
       "Round 1 Sent", "Round 2 Sent", "Round 3 Sent", "Round 4 Sent",
       "Round 5 Sent", "Round 6 Sent", "Round 7 Sent", "Round 8 Sent",
       "Round 9 Sent", "Round 10 Sent", "Round 11 Sent", "Round 12 Sent",
-      "In Dispute Mailed",
       "CMS Issue 1", "CMS Issue 2", "CMS Issue 3",
       "Results Available for Review",
-      "Ready For Reimport/ Credit Update",
       "For Complaints",
       "On Hold (Non Workable)",
       "For Partner Confirmation",
-      "Round Sent - Awaiting Results",
     ]);
   });
 
@@ -78,11 +75,13 @@ describe("Dee's credit status list", () => {
     }
   });
 
-  it("keeps Dee's spelling exactly — capital F, unspaced slash, parenthesis", () => {
-    expect(CREDIT_STATUSES).toContain("Ready For Reimport/ Credit Update");
+  it("keeps Dee's spelling exactly, parenthesis and all", () => {
     expect(CREDIT_STATUSES).toContain("On Hold (Non Workable)");
-    /* Not the tidier variants that already exist in the enum. */
+    /* Not the tidier variants that already exist in the enum. The reimport
+       pair used to be here too; Dee retired her own spelling of it on
+       2026-09-22 as a duplicate, so neither is offered now. */
     expect(CREDIT_STATUSES).not.toContain("Ready for Reimport / Review");
+    expect(CREDIT_STATUSES).not.toContain("Ready For Reimport/ Credit Update");
     expect(CREDIT_STATUSES).not.toContain("Waiting for Partner Approval");
   });
 
@@ -165,5 +164,37 @@ describe("the round follows the stage", () => {
                      "Ready For Reimport/ Credit Update", "On Hold (Non Workable)"]) {
       expect(roundFromStatus(s), s).toBeNull();
     }
+  });
+});
+
+describe("the three redundant statuses Dee retired (2026-09-22)", () => {
+  /* "In dispute Mailed and round sent awaiting results are the same, I need
+     only the Actual Round 1-10 Sent… Delete Ready for reimport/ Credit update
+     as this is duplicate." */
+  const retired = ["In Dispute Mailed", "Round Sent - Awaiting Results",
+                   "Ready For Reimport/ Credit Update"];
+
+  it("are no longer offered", () => {
+    for (const s of retired) expect(CREDIT_STATUSES).not.toContain(s);
+  });
+
+  it("but still read back for a record that holds one", () => {
+    /* Dropped from the list, not from the database type. A dropdown that does
+       not contain what the record says is a dropdown that appears to have
+       already changed it (rule 11). */
+    for (const s of retired) expect(creditStatusOptionsFor(s)[0]).toBe(s);
+  });
+
+  it("and the one that is NOT a duplicate survives", () => {
+    /* "Ready for Reimport / Review" — spaces around the slash, two live
+       clients on it — is a different status and was not touched. */
+    expect(creditStatusOptionsFor(null)).not.toContain("Ready For Reimport/ Credit Update");
+    expect(CREDIT_STATUSES.includes("Results Available for Review")).toBe(true);
+  });
+
+  it("leaves the twelve numbered rounds as the only in-flight stages", () => {
+    const rounds = CREDIT_STATUSES.filter((s) => /^Round \d+ Sent$/.test(s));
+    expect(rounds).toHaveLength(12);
+    expect(rounds[0]).toBe("Round 1 Sent");
   });
 });

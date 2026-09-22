@@ -357,7 +357,14 @@ check("23 — work cannot be parked on somebody outside the department",
   false);
 
 check("24 — the change is recorded with actor, previous and new",
-  attempt(P.dev, supportTeam(P.dev, P.ben), `
+  /* Release it first. The file is whichever real client happens to have a
+     Support row, and whether THAT one is already assigned is not what this
+     check is about — the rule is that the audit records what it moved FROM.
+     Asserting on the incidental state made this fail the day a status
+     normalisation reshuffled which row came back first. */
+  attempt(P.dev, `${supportTeam(P.dev, P.ben)}
+    update client_department_statuses set assignee_id = null
+     where client_id = ${SUPPORT_FILE} and department = 'Support';`, `
     do $$ begin perform public.creditops_assign_agent(${SUPPORT_FILE}, 'Support', '${P.ben}', 'covering today'); end $$;
     reset role;
     select action, previous_value, (actor_id = '${P.dev}') as actor_is_the_lead,
