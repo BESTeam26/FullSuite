@@ -65,6 +65,8 @@ export type SubAccount = {
   };
   plan: string;
   isFulfillmentSubscriber: boolean;
+  /** Live BES services, derived from engagements. Empty = no active fulfillment. */
+  besServices: string[];
   activeClients: number;
   monthlyRevenue: number;
   status: "Active" | "Pending Onboarding" | "At Risk" | "Paused";
@@ -91,6 +93,9 @@ const toSubAccount = (org: Organization): SubAccount => ({
   branding: org.branding,
   plan: orgPlanLabel(org),
   isFulfillmentSubscriber: org.isFulfillmentSubscriber,
+  /* The live engagement services, derived — the badge reads these, never
+     `isFulfillmentSubscriber`, which is the legacy boolean rule 16 retired. */
+  besServices: org.besServices ?? [],
   activeClients: 0,
   monthlyRevenue: org.businesses.reduce(
     (s, b) => s + (b.monthlyRevenue ?? 0),

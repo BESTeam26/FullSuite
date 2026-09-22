@@ -168,14 +168,25 @@ export async function fetchUserPreferences(userId: string) {
  */
 export async function fetchOrganizations(userId: string): Promise<Organization[]> {
   const sb = requireSupabase();
-  const [{ data, error }, prefs] = await Promise.all([
-    /* Fixture organizations stay out of the customer list. */
+  const [{ data, error }, prefs, services] = await Promise.all([
+    /* Fixture organizations stay out of the customer list. Row Level Security
+       has already limited this to organizations BES is actively engaged on
+       and authorized for (20260922017000) — this query does not re-ask. */
     sb.from("organizations").select(ORG_SELECT).eq("is_fixture", false).order("name"),
     fetchUserPreferences(userId),
+    /* One call for every organization's live services, not one per row. */
+    sb.rpc("organization_services_map" as never),
   ]);
   if (error) throw error;
   const pinned = new Set(prefs.pinned_org_ids);
-  return ((data ?? []) as unknown as OrgRow[]).map((r) => mapOrgRow(r, pinned));
+  const byOrg = new Map<string, string[]>(
+    ((services.data ?? []) as { organization_id: string; services: string[] | null }[])
+      .map((r) => [r.organization_id, r.services ?? []]),
+  );
+  return ((data ?? []) as unknown as OrgRow[]).map((r) => ({
+    ...mapOrgRow(r, pinned),
+    besServices: byOrg.get(r.id) ?? [],
+  }));
 }
 
 /* ------------------------------------------------------------------ */

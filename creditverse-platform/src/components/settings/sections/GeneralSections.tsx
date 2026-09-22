@@ -10,6 +10,7 @@ import type { EntitlementState } from "@/lib/agency-settings-context";
 import { useWorkforce } from "@/lib/data/use-workforce";
 import { formatDate } from "@/lib/format-date";
 import { AgencyTeamInvites } from "@/components/settings/sections/AgencyTeamInvites";
+import { orgDivisionLabel } from "@/lib/agency/division-label";
 
 /* ---------------- Agency & Branding ---------------- */
 export const AgencyBrandingSection = () => {
@@ -139,9 +140,11 @@ export const SubAccountsSection = () => {
                       that grants BES access. Not a switch: an engagement is a
                       contract record, created where engagements are managed. */}
                   <span
-                    className={`text-[11px] font-medium ${s.isFulfillmentSubscriber ? "text-status-success" : "text-muted-foreground"}`}
+                    className={`text-[11px] font-medium ${s.besServices.length > 0 ? "text-status-success" : "text-muted-foreground"}`}
                   >
-                    {s.isFulfillmentSubscriber ? "Engaged" : "Self-managed"}
+                    {s.besServices.length > 0
+                      ? s.besServices.map((x) => orgDivisionLabel(x) ?? x).join(" · ")
+                      : "Self-managed"}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-muted-foreground">

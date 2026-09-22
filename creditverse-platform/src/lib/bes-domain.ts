@@ -187,6 +187,18 @@ export type OrgStatus = "Active" | "Pending Onboarding" | "At Risk" | "Paused";
 
 export interface Organization {
   id: string;
+  /**
+   * What BES is actively fulfilling for this customer, derived from live
+   * `fulfillment_engagements` — never stored (Dee, 2026-09-22: "Do not create
+   * a manually maintained `has_active_fulfillment` field if it duplicates
+   * existing engagement truth").
+   *
+   * Empty means no active fulfillment, and for a BES reader that organization
+   * is not in the operational directory at all. An organization's own members
+   * still see their tenancy either way, so the array can legitimately be empty
+   * for them.
+   */
+  besServices?: string[];
   /** Permanent, human-readable Organization ID (BES-XXXXXX). Display and support reference only. */
   publicId: string;
   name: string;

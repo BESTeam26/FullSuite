@@ -46,10 +46,15 @@ export const SubAccountsManager = () => {
       (s.address && s.address.toLowerCase().includes(search.toLowerCase()));
 
     const matchesPlan = planFilter === "ALL" || s.plan === planFilter;
+    /* Derived from live engagements, not from the legacy
+       `isFulfillmentSubscriber` boolean — that flag carries no service, no
+       dates and no authorized team, and rule 16 retired it as an
+       authorization source. Dee, 2026-09-22: one source of truth. */
+    const engaged = s.besServices.length > 0;
     const matchesFulfillment =
       fulfillmentFilter === "ALL" ||
-      (fulfillmentFilter === "DFY" && s.isFulfillmentSubscriber) ||
-      (fulfillmentFilter === "SELF" && !s.isFulfillmentSubscriber);
+      (fulfillmentFilter === "DFY" && engaged) ||
+      (fulfillmentFilter === "SELF" && !engaged);
 
     return matchesSearch && matchesPlan && matchesFulfillment;
   });
@@ -72,6 +77,9 @@ export const SubAccountsManager = () => {
       ...acc,
       // Never true from a form: fulfillment access comes from an engagement.
       isFulfillmentSubscriber: false,
+      /* A brand new organization has no engagement yet, so no active service.
+         The badge fills in the moment one is created — nobody types it. */
+      besServices: [],
       activeClients: 0,
       monthlyRevenue:
         acc.plan === "Full Suite"

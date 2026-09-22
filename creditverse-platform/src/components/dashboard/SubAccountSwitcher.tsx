@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { mayEnterOrganizations } from "@/lib/agency/navigation";
+import { orgDivisionLabel } from "@/lib/agency/division-label";
 import { useAgencyAccessContext } from "@/lib/agency/use-access-context";
 import {
   DropdownMenu,
@@ -222,8 +223,17 @@ export const SubAccountSwitcher = () => {
                               <p className="truncate text-xs font-medium leading-none">
                                 {sub.name}
                               </p>
+                              {/* The plan is what they bought; the services
+                                  are what BES is actually doing for them,
+                                  derived from live engagements (Dee,
+                                  2026-09-22). */}
                               <p className="text-[10px] text-sidebar-foreground/50 truncate mt-0.5">
                                 {sub.plan}
+                                {sub.besServices.length > 0 && (
+                                  <span className="text-emerald-400/80">
+                                    {" · "}{sub.besServices.map((x) => orgDivisionLabel(x) ?? x).join(" · ")}
+                                  </span>
+                                )}
                               </p>
                             </div>
                           </div>
@@ -270,9 +280,21 @@ export const SubAccountSwitcher = () => {
                             <p className="truncate text-xs font-medium leading-none">
                               {sub.name}
                             </p>
+                            {/* What BES is actually fulfilling, derived from
+                                live engagements — the reason this
+                                organization is in the list at all. */}
                             <p className="text-[10px] text-sidebar-foreground/50 truncate mt-0.5">
                               {sub.plan} · {sub.activeClients} clients
                             </p>
+                            {sub.besServices.length > 0 && (
+                              <p className="mt-0.5 flex items-center gap-1 truncate text-[10px] font-semibold text-emerald-400">
+                                <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />
+                                Active Fulfillment
+                                <span className="truncate font-normal text-sidebar-foreground/50">
+                                  {sub.besServices.map((x) => orgDivisionLabel(x) ?? x).join(" · ")}
+                                </span>
+                              </p>
+                            )}
                           </div>
                         </div>
                         <button
