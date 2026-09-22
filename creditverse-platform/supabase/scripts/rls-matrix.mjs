@@ -535,15 +535,24 @@ if (runs(2)) {
   const orgAgentAct = q(`select count(*)::int n from public.activity_events a join public.fulfillment_clients c on c.id::text=a.entity_id where c.assigned_agent_id='${U["org.agent@bes.test"]}'`)[0].n;
 
   const R = (uid, sel) => { try { return asUser(uid, sel); } catch (e) { return { __err: String(e.message).slice(0, 80) }; } };
-  /* Reads as `uid` after the harness has put the world into a stated shape.
-     Used where a probe's premise stopped being true of the shared fixtures —
-     [TEST] Dana Doyle is described in this file as "Team A, unassigned" and is
-     now assigned to the team lead, so the probe about the UNASSIGNED queue was
-     no longer asking about one. Rolled back with everything else. */
-  const Rseed = (uid, seed, sel) => { try {
-    return q(`begin; ${seed} set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; select ${sel}; rollback;`)[0];
-  } catch (e) { return { __err: String(e.message).slice(0, 80) }; } };
-  const unassignDana = `update public.fulfillment_clients set assigned_agent_id = null where id = '${dana}';`;
+  /* [TEST] Dana Doyle is described in this file as "Team A, unassigned" and is
+     now assigned to the team lead, so the probe about the UNASSIGNED queue had
+     stopped asking about one.
+     The first fix unassigned her inside the transaction. It worked and it cost
+     49 MINUTES: `fulfillment_clients` carries a dozen triggers — routing,
+     activity, GHL enqueue, notifications — so a single-row assignee update
+     takes over a minute, and two probes doing it took phase 2 from 23m to 49m,
+     two thirds of the entire gate.
+     The question needs no write. What decides the unassigned queue is
+     `in_scope` with a NULL assignee, so that is asked directly: same rule, no
+     trigger cascade, milliseconds. */
+  const unassignedReach = `public.in_scope(c.agency_id, 'creditops'::public.fulfillment_service, c.team_id, null, c.created_by)::text`;
+  const reachesUnassigned = (uid) => {
+    try {
+      return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}';
+                select ${unassignedReach} as rows from public.fulfillment_clients c where c.id='${dana}'; rollback;`)[0]?.rows ?? "no row";
+    } catch (e) { return "ERR"; }
+  };
   const W = (uid, stmt) => { try { return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${stmt}; rollback;`)[0]; } catch (e) { return { rows: 0, refused: true }; } };
   /* LEAK measures, not totals.
    *
@@ -596,8 +605,8 @@ if (runs(2)) {
     ["restricted cannot assign agency work to another agent", () => W(U["bes.restricted@bes.test"], `with i as (insert into public.work_items (agency_id, scope, related_type, title, stage, priority, assigned_to) values ('${AGENCY}','AGENCY','project','probe','Queued','Normal','${U["bes.credit@bes.test"]}') returning 1) select count(*)::int as rows from i`).rows, 0],
     ["restricted (assigned scope) cannot mint a client",       () => W(U["bes.restricted@bes.test"], `with i as (insert into public.fulfillment_clients (agency_id, name, email, mode, organization_id, auto_sync, status, round, assigned_agent_id) values ('${AGENCY}','probe','probe.${Date.now()}@bes.test','saas_pulled','${lakesideOrg}',false,'Onboarding','Pre-Round','${U["bes.restricted@bes.test"]}') returning 1) select count(*)::int as rows from i`).rows, 0],
     // ---- unassigned Team A queue ----
-    ["assigned-scope Team A member does NOT see the unassigned queue", () => Rseed(U["bes.credit@bes.test"], unassignDana, S2).dana_by_id, 0],
-    ["Team A lead DOES see the unassigned queue",                       () => Rseed(U["bes.lead@bes.test"], unassignDana, S2).dana_by_id, 1],
+    ["assigned-scope Team A member does NOT see the unassigned queue", () => reachesUnassigned(U["bes.credit@bes.test"]), "false"],
+    ["Team A lead DOES see the unassigned queue",                       () => reachesUnassigned(U["bes.lead@bes.test"]), "true"],
     ["…and may update it",                                              () => W(U["bes.lead@bes.test"], `with u as (update public.fulfillment_clients set last_activity_at=now() where id='${dana}' returning 1) select count(*)::int as rows from u`).rows, 1],
     // ---- child follows parent ----
     ["credit sees no department status of a client they cannot reach", () => R(U["bes.credit@bes.test"], S2).cds_leak, 0],
