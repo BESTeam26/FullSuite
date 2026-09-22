@@ -7503,6 +7503,28 @@ if (runs(75)) {
       return "ERR " + (m ? m[1] : "unknown");
     }
   };
+  /* The department status a round in the post actually sits on.
+   *
+   * These probes drove the literal 'Mailed' until 2026-09-22. Nothing had
+   * written that status for some time, so they were quietly exercising the
+   * 24-hour fallback and calling it a 30-day wait; when migration
+   * 20260922006000 deleted the orphaned `Mailed` policy row the pretence
+   * showed. Read it out of the product instead — whatever `mark_client_mailed`
+   * opens is by definition the status under test, so a future rename cannot
+   * leave these probes testing a state that cannot occur. */
+  const MAILED75 = q(`select split_part(split_part(
+      pg_get_functiondef('public.mark_client_mailed(uuid, timestamptz)'::regprocedure),
+      $mark$enter_department_queue(p_client, 'Dispute', '$mark$, 2), $q$'$q$, 1) as rows`)[0].rows;
+
+  /* Dee dropped the abbreviation on 2026-09-22 — "I don't want OB, I need
+   * full term" — and the enum rename carried the SLA policy with it. These
+   * probes kept driving `OB INCOMPLETE`, so they were scheduling follow-ups
+   * against a status no policy matched: exactly the silent-fallback trap that
+   * hid the mailed clock. Named once, and checked against the department's
+   * real vocabulary so the next rename fails HERE, loudly, rather than
+   * quietly testing a state that cannot occur. */
+  const OB_INCOMPLETE75 = "INCOMPLETE ONBOARDING";
+
   const enter = (status, dept, openedAgo) =>
     `insert into public.client_department_statuses (client_id, department, status, opened_at)
      values ('${CL75}', '${dept}', '${status}', now() - interval '${openedAgo}')
@@ -7511,6 +7533,16 @@ if (runs(75)) {
            needs_lead_review = false;`;
 
   const P75 = [
+    /* The guard on every literal status below. Both of these were driven for
+       weeks against names nothing wrote — `Mailed` and `OB INCOMPLETE` — so
+       the probes reported a 24-hour fallback as a 30-day wait and a missing
+       follow-up cycle as a passing one. A status with no policy is not a
+       failing test here; it is an ABSENT test, which is worse. */
+    ["every status these probes drive is one the policy actually knows",
+      () => run(`select count(*)::int as rows from (values ('${MAILED75}'),('${OB_INCOMPLETE75}')) v(st)
+                  where not exists (select 1 from public.sla_policies sp
+                                     where sp.status::text = v.st)`), 0],
+
     ["6 — Ready for Round 1 is 24 hours",
       () => run(`${enter('Ready for Round 1', 'Onboarding', '0 hours')}
                  select round(extract(epoch from (system_due_at - opened_at))/3600)::int as rows
@@ -7536,9 +7568,9 @@ if (runs(75)) {
                   where client_id='${CL75}' and department='Support'`), 24],
 
     ["11 — mailed is 720 hours, and waiting",
-      () => run(`${enter('Mailed', 'Dispute', '0 hours')}
+      () => run(`${enter(MAILED75, 'Dispute', '0 hours')}
                  select (round(extract(epoch from (system_due_at - opened_at))/3600)::int::text
-                         || ' ' || public.department_is_waiting((select agency_id from public.fulfillment_clients where id='${CL75}'), 'Dispute', 'Mailed')::text) as rows
+                         || ' ' || public.department_is_waiting((select agency_id from public.fulfillment_clients where id='${CL75}'), 'Dispute', '${MAILED75}')::text) as rows
                    from public.client_department_statuses
                   where client_id='${CL75}' and department='Dispute'`), "720 true"],
 
@@ -7549,20 +7581,20 @@ if (runs(75)) {
                   where client_id='${CL75}' and department='Bureau Calling'`), 24],
 
     ["1 — an incomplete onboarding starts at follow-up 1 of 3",
-      () => run(`${enter('OB INCOMPLETE', 'Onboarding', '0 hours')}
+      () => run(`${enter(OB_INCOMPLETE75, 'Onboarding', '0 hours')}
                  select (cycle_number::text || ' of ' ||
-                         (public.sla_policy_for((select agency_id from public.fulfillment_clients where id='${CL75}'),'Onboarding','OB INCOMPLETE')).max_cycles::text) as rows
+                         (public.sla_policy_for((select agency_id from public.fulfillment_clients where id='${CL75}'),'Onboarding','${OB_INCOMPLETE75}')).max_cycles::text) as rows
                    from public.client_department_statuses
                   where client_id='${CL75}' and department='Onboarding'`), "1 of 3"],
 
     ["2 — unresolved after 24 hours schedules follow-up 2",
-      () => run(`${enter('OB INCOMPLETE', 'Onboarding', '25 hours')}
+      () => run(`${enter(OB_INCOMPLETE75, 'Onboarding', '25 hours')}
                  select public.sla_sweep();
                  select cycle_number as rows from public.client_department_statuses
                   where client_id='${CL75}' and department='Onboarding'`), 2],
 
     ["3 — and then follow-up 3",
-      () => run(`${enter('OB INCOMPLETE', 'Onboarding', '25 hours')}
+      () => run(`${enter(OB_INCOMPLETE75, 'Onboarding', '25 hours')}
                  update public.client_department_statuses set cycle_number = 2
                   where client_id='${CL75}' and department='Onboarding';
                  select public.sla_sweep();
@@ -7570,7 +7602,7 @@ if (runs(75)) {
                   where client_id='${CL75}' and department='Onboarding'`), 3],
 
     ["4 — and never a fourth: a person decides instead",
-      () => run(`${enter('OB INCOMPLETE', 'Onboarding', '25 hours')}
+      () => run(`${enter(OB_INCOMPLETE75, 'Onboarding', '25 hours')}
                  update public.client_department_statuses set cycle_number = 3
                   where client_id='${CL75}' and department='Onboarding';
                  select public.sla_sweep();
@@ -7579,7 +7611,7 @@ if (runs(75)) {
                   where client_id='${CL75}' and department='Onboarding'`), "3 true"],
 
     ["4 — and a flagged client is left alone thereafter",
-      () => run(`${enter('OB INCOMPLETE', 'Onboarding', '25 hours')}
+      () => run(`${enter(OB_INCOMPLETE75, 'Onboarding', '25 hours')}
                  update public.client_department_statuses set cycle_number = 3, needs_lead_review = true
                   where client_id='${CL75}' and department='Onboarding';
                  select public.sla_sweep();
@@ -7587,7 +7619,7 @@ if (runs(75)) {
                   where client_id='${CL75}' and department='Onboarding'`), 3],
 
     ["5 — completing onboarding ends the follow-up cycle",
-      () => run(`${enter('OB INCOMPLETE', 'Onboarding', '25 hours')}
+      () => run(`${enter(OB_INCOMPLETE75, 'Onboarding', '25 hours')}
                  ${enter('Ready for Round 1', 'Onboarding', '0 hours')}
                  select public.sla_sweep();
                  select (status || ' / ' || cycle_number::text) as rows
@@ -7607,21 +7639,33 @@ if (runs(75)) {
                    from public.client_department_statuses
                   where client_id='${CL75}' and department='Onboarding'`), 5],
 
-    ["13 — the 30th day returns the file for review",
-      () => run(`${enter('Mailed', 'Dispute', '31 days')}
+    /* Dee, 2026-09-22: "After 30 days, sent their next status to Results
+       available for review" — since renamed `Ready for Credit Review`. The
+       sweep does NOT move the department row to Support (that would collide
+       with the Support row most of these clients already hold); it CLOSES the
+       Dispute row and sets the CLIENT status, and routing does the rest. So
+       both halves are asserted, not just the one that used to be here. */
+    ["13 — the 30th day closes the dispute queue",
+      () => run(`${enter(MAILED75, 'Dispute', '31 days')}
                  select public.sla_sweep();
                  select status as rows from public.client_department_statuses
-                  where client_id='${CL75}' and department='Dispute'`), "Ready for Reimport / Review"],
+                  where client_id='${CL75}' and department='Dispute'`), "COMPLETED"],
+
+    ["13 — …and returns the client for review",
+      () => run(`${enter(MAILED75, 'Dispute', '31 days')}
+                 select public.sla_sweep();
+                 select status::text as rows from public.fulfillment_clients
+                  where id='${CL75}'`), "Ready for Credit Review"],
 
     ["14 — returned work comes back unassigned",
       () => run(`update public.fulfillment_clients set assigned_agent_id='${AGENT75}' where id='${CL75}';
-                 ${enter('Mailed', 'Dispute', '31 days')}
+                 ${enter(MAILED75, 'Dispute', '31 days')}
                  select public.sla_sweep();
                  select coalesce(assigned_agent_id::text,'unassigned') as rows
                    from public.fulfillment_clients where id='${CL75}'`), "unassigned"],
 
     ["15 — and returned work gets the 24-hour review clock",
-      () => run(`${enter('Mailed', 'Dispute', '31 days')}
+      () => run(`${enter(MAILED75, 'Dispute', '31 days')}
                  select public.sla_sweep();
                  select round(extract(epoch from (system_due_at - opened_at))/3600)::int as rows
                    from public.client_department_statuses
@@ -7645,12 +7689,12 @@ if (runs(75)) {
 
     ["12 — entering the waiting stage clears the processor",
       () => run(`update public.fulfillment_clients set assigned_agent_id='${AGENT75}' where id='${CL75}';
-                 ${enter('Mailed', 'Dispute', '0 hours')}
+                 ${enter(MAILED75, 'Dispute', '0 hours')}
                  select coalesce(assigned_agent_id::text,'unassigned') as rows
                    from public.fulfillment_clients where id='${CL75}'`), "unassigned"],
 
     ["19 — a manual override keeps the calculated date beside it",
-      () => p75(OWN75, `${enter('Mailed', 'Dispute', '0 hours')}
+      () => p75(OWN75, `${enter(MAILED75, 'Dispute', '0 hours')}
                         select public.set_department_due_override('${CL75}', 'Dispute', now() + interval '3 days', 'client asked');
                         select (system_due_at is not null and manual_due_at is not null)::text as rows
                           from public.client_department_statuses
