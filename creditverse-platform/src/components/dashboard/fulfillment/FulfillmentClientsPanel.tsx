@@ -29,12 +29,15 @@ import {
 } from "@/lib/fulfillment/ops-client-filtering";
 import {
   COLUMN_DEFS,
+  customColDef,
   STATUS_OPTIONS,
   loadPrefs,
   savePrefs,
   type ViewPrefs,
 } from "./client-list-helpers";
 import { ClientListTable } from "./ClientListTable";
+import { AddClientColumn } from "./AddClientColumn";
+import { useClientColumns } from "@/lib/data/client-columns";
 import { ClientListGrid } from "./ClientListGrid";
 import { OpsClientListToolbar } from "./OpsClientListToolbar";
 import { AddClientModal } from "./AddClientModal";
@@ -205,13 +208,19 @@ export function FulfillmentClientsPanel({
   // Mode / Source is only meaningful in the cross-partner Management view.
   // Inside a single ManagedOps or Outsourcing Partner workspace, the mode is
   // implied by the group, so we hide it to reduce clutter.
+  const { columns: customColumns } = useClientColumns();
   const hideModeCol = !!partner && GROUPS_HIDING_MODE.includes(partner.group);
   const availableCols = hideModeCol
     ? COLUMN_DEFS.filter((c) => c.id !== "mode")
     : COLUMN_DEFS;
-  const visibleCols = availableCols.filter((c) =>
-    prefs.visibleCols.includes(c.id),
-  );
+  /* The built-in columns the person has switched on, then the ones somebody
+     added. Custom columns are always shown: you added it because you wanted
+     to see it, and hiding it behind a second control is the complication Dee
+     asked us not to add (2026-09-22). */
+  const visibleCols = [
+    ...availableCols.filter((c) => prefs.visibleCols.includes(c.id)),
+    ...customColumns.map(customColDef),
+  ];
 
   return (
     <div className="space-y-4">
@@ -283,6 +292,7 @@ export function FulfillmentClientsPanel({
         onVisibleColsChange={(ids) => setPref("visibleCols", ids)}
         columnsOpen={showColumns}
         onColumnsOpenChange={setShowColumns}
+        extraActions={<AddClientColumn />}
         search={search}
         onSearchChange={setSearch}
         statusFilter={statusFilter}

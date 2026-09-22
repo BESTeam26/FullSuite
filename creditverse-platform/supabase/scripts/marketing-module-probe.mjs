@@ -137,8 +137,8 @@ check("13. checklists on marketing work are the canonical work_checklist_items",
 
 check("14. content metadata is a workspace field value, not a content table",
   as(AGENT, HIRED, `do $a$ declare v uuid; begin ${NEW_TASK} into v;
-       insert into work_item_field_values (work_item_id, field_id, value)
-       values (v, (select id from workspace_fields where workspace_id='${WS}' and key='publish_at'), to_jsonb('2026-10-05'::text)); end $a$;
+       insert into custom_field_values (entity_type, entity_id, field_id, value)
+       values ('work_item', v, (select id from workspace_fields where workspace_id='${WS}' and key='publish_at'), to_jsonb('2026-10-05'::text)); end $a$;
      reset role; select publish_on from marketing_work where title='Probe: October launch post';`).rows,
   [{ publish_on: "2026-10-05" }]);
 
@@ -161,8 +161,8 @@ check("16. partners come back A→Z regardless of anything else",
 
 check("17. the calendar reads the same row as the task list",
   as(AGENT, HIRED, `do $a$ declare v uuid; begin ${NEW_TASK} into v;
-       insert into work_item_field_values (work_item_id, field_id, value)
-       values (v, (select id from workspace_fields where workspace_id='${WS}' and key='publish_at'), to_jsonb('2026-10-05'::text)); end $a$;
+       insert into custom_field_values (entity_type, entity_id, field_id, value)
+       values ('work_item', v, (select id from workspace_fields where workspace_id='${WS}' and key='publish_at'), to_jsonb('2026-10-05'::text)); end $a$;
      reset role; select count(distinct id)::int as rows_behind_both_views from marketing_work
        where title='Probe: October launch post' and publish_on is not null;`).rows,
   [{ rows_behind_both_views: 1 }]);
@@ -370,11 +370,11 @@ check("35. a view-only hire cannot create a campaign",
 
 check("36. schedules content on the calendar",
   as(AGENT, HIRED, `do $a$ declare v uuid; begin ${NEW_TASK} into v;
-       insert into work_item_field_values (work_item_id, field_id, value)
-       values (v, (select id from workspace_fields where workspace_id='${WS}' and key='publish_at'),
+       insert into custom_field_values (entity_type, entity_id, field_id, value)
+       values ('work_item', v, (select id from workspace_fields where workspace_id='${WS}' and key='publish_at'),
                to_jsonb('2026-10-20'::text));
-       insert into work_item_field_values (work_item_id, field_id, value)
-       values (v, (select id from workspace_fields where workspace_id='${WS}' and key='channel'),
+       insert into custom_field_values (entity_type, entity_id, field_id, value)
+       values ('work_item', v, (select id from workspace_fields where workspace_id='${WS}' and key='channel'),
                to_jsonb('Instagram'::text)); end $a$;
      reset role; select publish_on, channel from marketing_work where title='Probe: October launch post';`).rows,
   [{ publish_on: "2026-10-20", channel: "Instagram" }]);
@@ -417,8 +417,8 @@ if (!BMF_WS) {
          insert into campaigns (agency_id, workspace_id, partner_group_id, name, status)
          values ('${AGENCY}', '${BMF_WS}', '${BMF}', 'Probe: BMF October', 'active') returning id into c;
          update work_items set campaign_id = c where id = v;
-         insert into work_item_field_values (work_item_id, field_id, value)
-         values (v, (select id from workspace_fields where workspace_id='${BMF_WS}' and key='publish_at'),
+         insert into custom_field_values (entity_type, entity_id, field_id, value)
+         values ('work_item', v, (select id from workspace_fields where workspace_id='${BMF_WS}' and key='publish_at'),
                  to_jsonb('2026-10-09'::text)); end $a$;
        reset role; select count(distinct id)::int as one_row, max(publish_on) as publish_on,
               max(campaign_name) as campaign from marketing_work where title='Probe: BMF reel';`).rows,
@@ -515,8 +515,8 @@ if (!BMF_WS) {
                   (select id from workspace_item_types where workspace_id=v_ws and key='content'),
                   'Probe: lifecycle post', 'sheet-lifecycle-1')
           returning id into v;
-          insert into work_item_field_values (work_item_id, field_id, value)
-          values (v, (select id from workspace_fields where workspace_id=v_ws and key='publish_at'),
+          insert into custom_field_values (entity_type, entity_id, field_id, value)
+          values ('work_item', v, (select id from workspace_fields where workspace_id=v_ws and key='publish_at'),
                   to_jsonb('2026-10-30'::text));
           perform set_config('probe.item', v::text, true);
           ${move('in_progress')}
@@ -557,10 +557,10 @@ if (!BMF_WS) {
                v_ws uuid := (select workspace_id from work_items where id = v);
        begin
          ${move('published')}
-         insert into work_item_field_values (work_item_id, field_id, value)
-         values (v, (select id from workspace_fields where workspace_id=v_ws and key='published_url'),
+         insert into custom_field_values (entity_type, entity_id, field_id, value)
+         values ('work_item', v, (select id from workspace_fields where workspace_id=v_ws and key='published_url'),
                  to_jsonb('https://instagram.com/p/probe'::text))
-         on conflict (work_item_id, field_id) do update set value = excluded.value;
+         on conflict (field_id, entity_id) do update set value = excluded.value;
        end $b3$;
        reset role;
        select (select count(*)::int from work_items where external_ref = 'sheet-lifecycle-1') as items,

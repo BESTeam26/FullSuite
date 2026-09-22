@@ -7,6 +7,7 @@
  * globally on other views.
  */
 
+import type { ReactNode } from "react";
 import { Search, List, LayoutGrid, Plus, Columns3, X } from "lucide-react";
 import type { ColDef } from "./ops-client-list-helpers";
 import { cn } from "@/lib/utils";
@@ -25,6 +26,8 @@ interface OpsClientListToolbarProps<Id extends string> {
   onVisibleColsChange: (ids: Id[]) => void;
   columnsOpen: boolean;
   onColumnsOpenChange: (open: boolean) => void;
+  /** Extra controls beside Columns. */
+  extraActions?: ReactNode;
   search: string;
   onSearchChange: (value: string) => void;
   statusFilter: string;
@@ -59,6 +62,7 @@ export function OpsClientListToolbar<Id extends string>({
   onVisibleColsChange,
   columnsOpen,
   onColumnsOpenChange,
+  extraActions,
   search,
   onSearchChange,
   statusFilter,
@@ -133,6 +137,10 @@ export function OpsClientListToolbar<Id extends string>({
         >
           <Plus className="h-3.5 w-3.5" /> Add Client
         </button>
+
+        {/* Whatever the division wants beside Columns — CreditOps puts "Add
+            column" here (Dee, 2026-09-22). */}
+        {extraActions}
 
         <div className="relative">
           <button

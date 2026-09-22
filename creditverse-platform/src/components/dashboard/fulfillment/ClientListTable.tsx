@@ -21,6 +21,7 @@ import type { DepartmentStatus } from "@/lib/fulfillment/creditops-store-types";
 import { currentDepartment, departmentStatuses, openDepartments } from "@/lib/fulfillment/department-domain";
 import {
   DaysToUpdateCell, DueDateOverrideCell, EditableChoiceCell, EditableDateCell,
+  EditableTextCell,
 } from "@/components/dashboard/fulfillment/ClientRowEditors";
 import { setClientDepartmentStatus, updateClientField } from "@/lib/data/fulfillment-clients";
 import { clearDueOverride, setDueOverride } from "@/lib/data/client-workflow";
@@ -38,6 +39,9 @@ const ROUND_OPTIONS = [
 import { useAuth } from "@/lib/auth/auth-context";
 import { useAssignableRoster } from "@/lib/data/use-workforce";
 import { useCreditOpsWorkScope } from "@/lib/data/use-creditops-scope";
+import {
+  useClientColumns, useClientColumnValues, useSetClientColumnValue,
+} from "@/lib/data/client-columns";
 import type { CreditOpsDepartment } from "@/lib/fulfillment/creditops-access";
 
 /* Who is actually doing it. Every activity entry used to be attributed to
@@ -78,6 +82,11 @@ export function ClientListTable({
   const canOverrideDates = useAgencyPermissions().can("ops.manage");
   const actor = useActor();
   const store = useCreditOpsStore();
+  /* The columns somebody added, and their values for the rows on screen —
+     one request for the whole page, never one per row (rule 14). */
+  const { columns: customColumns } = useClientColumns();
+  const { byClient: customValues } = useClientColumnValues(clients.map((c) => c.id));
+  const setCustomValue = useSetClientColumnValue();
 
   return (
     <OpsClientListTable<FulfillmentClient, ColId>
@@ -101,6 +110,41 @@ export function ClientListTable({
         logActivity: store.addActivity,
       }}
       renderExtraCell={(client, colId) => {
+        /* A column somebody added themselves. Dee, 2026-09-22: "on the actual
+           list i should be able to change the drop down." A dropdown is an
+           inline select; everything else is an inline text box. The value is
+           written straight to `custom_field_values` — the same engine the
+           workspaces use, so there is no second kind of custom column. */
+        if (colId.startsWith("custom:")) {
+          const field = customColumns.find((f) => f.id === colId.slice(7));
+          if (!field) return null;
+          const current = customValues[client.id]?.[field.id];
+          const shown = current === null || current === undefined ? "" : String(current);
+          if (field.type === "select") {
+            return (
+              <EditableChoiceCell
+                label={field.label}
+                value={shown}
+                /* An empty choice is offered on purpose: a cell filled in by
+                   mistake has to be clearable. */
+                options={["", ...field.options]}
+                onSave={async (next) => {
+                  await setCustomValue.mutateAsync({ clientId: client.id, fieldId: field.id, value: next || null });
+                }}
+              />
+            );
+          }
+          return (
+            <EditableTextCell
+              label={field.label}
+              value={shown}
+              type={field.type === "number" ? "number" : field.type === "date" ? "date" : "text"}
+              onSave={async (next) => {
+                await setCustomValue.mutateAsync({ clientId: client.id, fieldId: field.id, value: next || null });
+              }}
+            />
+          );
+        }
         switch (colId) {
           /* Editable in the row, like the board Dee runs today. Every one of
              these writes the record and the database trigger writes the

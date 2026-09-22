@@ -1275,6 +1275,51 @@ export type Database = {
           },
         ]
       }
+      attachment_purge_queue: {
+        Row: {
+          abandoned_at: string | null
+          attempted_at: string | null
+          bucket: string
+          deleted_at: string | null
+          failure_reason: string | null
+          id: string
+          path: string
+          reason: string
+          requested_at: string
+          retry_count: number
+          source_file_id: string | null
+          source_message_id: number | null
+        }
+        Insert: {
+          abandoned_at?: string | null
+          attempted_at?: string | null
+          bucket: string
+          deleted_at?: string | null
+          failure_reason?: string | null
+          id?: string
+          path: string
+          reason: string
+          requested_at?: string
+          retry_count?: number
+          source_file_id?: string | null
+          source_message_id?: number | null
+        }
+        Update: {
+          abandoned_at?: string | null
+          attempted_at?: string | null
+          bucket?: string
+          deleted_at?: string | null
+          failure_reason?: string | null
+          id?: string
+          path?: string
+          reason?: string
+          requested_at?: string
+          retry_count?: number
+          source_file_id?: string | null
+          source_message_id?: number | null
+        }
+        Relationships: []
+      }
       attendance_corrections: {
         Row: {
           agency_id: string
@@ -4270,6 +4315,38 @@ export type Database = {
             columns: ["template_id"]
             isOneToOne: false
             referencedRelation: "crm_engine_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      custom_field_values: {
+        Row: {
+          entity_id: string
+          entity_type: string
+          field_id: string
+          updated_at: string
+          value: Json | null
+        }
+        Insert: {
+          entity_id: string
+          entity_type: string
+          field_id: string
+          updated_at?: string
+          value?: Json | null
+        }
+        Update: {
+          entity_id?: string
+          entity_type?: string
+          field_id?: string
+          updated_at?: string
+          value?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_field_values_field_id_fkey"
+            columns: ["field_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_fields"
             referencedColumns: ["id"]
           },
         ]
@@ -13029,6 +13106,7 @@ export type Database = {
       }
       permission_keys: {
         Row: {
+          admin_auto: boolean
           description: string | null
           key: string
           label: string
@@ -13038,6 +13116,7 @@ export type Database = {
           sort: number
         }
         Insert: {
+          admin_auto?: boolean
           description?: string | null
           key: string
           label: string
@@ -13047,6 +13126,7 @@ export type Database = {
           sort?: number
         }
         Update: {
+          admin_auto?: boolean
           description?: string | null
           key?: string
           label?: string
@@ -15882,56 +15962,6 @@ export type Database = {
           },
         ]
       }
-      work_item_field_values: {
-        Row: {
-          field_id: string
-          updated_at: string
-          value: Json | null
-          work_item_id: string
-        }
-        Insert: {
-          field_id: string
-          updated_at?: string
-          value?: Json | null
-          work_item_id: string
-        }
-        Update: {
-          field_id?: string
-          updated_at?: string
-          value?: Json | null
-          work_item_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "work_item_field_values_field_id_fkey"
-            columns: ["field_id"]
-            isOneToOne: false
-            referencedRelation: "workspace_fields"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "work_item_field_values_work_item_id_fkey"
-            columns: ["work_item_id"]
-            isOneToOne: false
-            referencedRelation: "marketing_work"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "work_item_field_values_work_item_id_fkey"
-            columns: ["work_item_id"]
-            isOneToOne: false
-            referencedRelation: "work_attention"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "work_item_field_values_work_item_id_fkey"
-            columns: ["work_item_id"]
-            isOneToOne: false
-            referencedRelation: "work_items"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       work_item_labels: {
         Row: {
           added_at: string
@@ -16496,36 +16526,49 @@ export type Database = {
       }
       workspace_fields: {
         Row: {
+          agency_id: string | null
           archived_at: string | null
+          entity_type: string
           field_type: string
           id: string
           key: string
           label: string
           options: Json | null
           position: number
-          workspace_id: string
+          workspace_id: string | null
         }
         Insert: {
+          agency_id?: string | null
           archived_at?: string | null
+          entity_type?: string
           field_type: string
           id?: string
           key: string
           label: string
           options?: Json | null
           position?: number
-          workspace_id: string
+          workspace_id?: string | null
         }
         Update: {
+          agency_id?: string | null
           archived_at?: string | null
+          entity_type?: string
           field_type?: string
           id?: string
           key?: string
           label?: string
           options?: Json | null
           position?: number
-          workspace_id?: string
+          workspace_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "workspace_fields_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "workspace_fields_workspace_id_fkey"
             columns: ["workspace_id"]
@@ -18086,6 +18129,23 @@ export type Database = {
           role: string
         }[]
       }
+      attachment_has_live_reference: {
+        Args: { p_bucket: string; p_path: string }
+        Returns: boolean
+      }
+      attachment_purge_dispatch: { Args: never; Returns: undefined }
+      attachment_purge_report: {
+        Args: never
+        Returns: {
+          action: string
+          failure_reason: string
+          live_references: number
+          object_path: string
+          reason: string
+          retry_count: number
+          source_message: number
+        }[]
+      }
       attendance_for: {
         Args: { p_from: string; p_to: string }
         Returns: {
@@ -18786,6 +18846,10 @@ export type Database = {
         }
         Returns: string[]
       }
+      creditops_departments_of: {
+        Args: { p_department_ids: string[] }
+        Returns: Database["public"]["Enums"]["fulfillment_department"][]
+      }
       creditops_directory_visible: {
         Args: { p_agency: string }
         Returns: boolean
@@ -18803,6 +18867,12 @@ export type Database = {
           p_agency: string
           p_department: Database["public"]["Enums"]["fulfillment_department"]
           p_user: string
+        }
+        Returns: boolean
+      }
+      creditops_may_work: {
+        Args: {
+          p_department: Database["public"]["Enums"]["fulfillment_department"]
         }
         Returns: boolean
       }
@@ -18830,6 +18900,10 @@ export type Database = {
           p_status: string
         }
         Returns: boolean
+      }
+      creditops_work_scope: {
+        Args: never
+        Returns: Database["public"]["Enums"]["fulfillment_department"][]
       }
       crm_add_engine: {
         Args: { p_engine: string; p_project: string }
@@ -19535,6 +19609,10 @@ export type Database = {
           p_team: string
         }
         Returns: boolean
+      }
+      manager_clock_out: {
+        Args: { p_reason?: string; p_user: string }
+        Returns: string
       }
       manager_of: { Args: { p_user: string }; Returns: string }
       manages_private_record_of: { Args: { p_user: string }; Returns: boolean }
@@ -20375,6 +20453,10 @@ export type Database = {
         Args: { p_attempt?: number; p_invoice: string }
         Returns: string
       }
+      queue_message_attachments_for_purge: {
+        Args: { p_message: number }
+        Returns: number
+      }
       queue_reminder_email: { Args: { p_reminder: string }; Returns: undefined }
       raise_client_action: {
         Args: {
@@ -21124,9 +21206,13 @@ export type Database = {
         Args: never
         Returns: {
           activity: string
+          break_allowance_minutes: number
+          break_minutes: number
           exception: string
           first_in: string
           leave_label: string
+          lunch_allowance_minutes: number
+          lunch_minutes: number
           position_title: string
           since: string
           state: string

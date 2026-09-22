@@ -276,9 +276,10 @@ export async function setItemStarred(userId: string, itemId: string, starred: bo
 
 export async function fetchItemFieldValues(itemId: string): Promise<Record<string, FieldValue>> {
   const { data, error } = await supabase
-    .from("work_item_field_values")
+    .from("custom_field_values")
     .select("field_id, value")
-    .eq("work_item_id", itemId);
+    .eq("entity_type", "work_item")
+    .eq("entity_id", itemId);
   if (error) throw new Error(error.message);
   return Object.fromEntries((data ?? []).map((r) => [r.field_id, (r.value as FieldValue) ?? null]));
 }
@@ -286,8 +287,9 @@ export async function fetchItemFieldValues(itemId: string): Promise<Record<strin
 /** Upsert one value; the database validates the type against the field. */
 export async function setItemFieldValue(itemId: string, fieldId: string, value: FieldValue): Promise<void> {
   const { error } = await supabase
-    .from("work_item_field_values")
-    .upsert({ work_item_id: itemId, field_id: fieldId, value: value as never }, { onConflict: "work_item_id,field_id" });
+    .from("custom_field_values")
+    .upsert({ entity_type: "work_item", entity_id: itemId, field_id: fieldId, value: value as never },
+            { onConflict: "field_id,entity_id" });
   if (error) throw new Error(error.message);
 }
 
@@ -406,6 +408,7 @@ export interface FieldInput { key: string; label: string; fieldType: WorkspaceFi
 
 export async function createField(workspaceId: string, f: FieldInput): Promise<void> {
   const { error } = await supabase.from("workspace_fields").insert({
+    entity_type: "work_item",
     workspace_id: workspaceId, key: f.key, label: f.label.trim(), field_type: f.fieldType, position: f.position,
     options: f.fieldType === "select" ? ({ choices: (f.choices ?? []).map((c) => c.trim()).filter(Boolean) } as never) : null,
   });

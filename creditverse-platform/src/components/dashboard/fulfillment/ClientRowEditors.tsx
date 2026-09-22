@@ -238,3 +238,63 @@ export function DaysToUpdateCell({ dueAt }: { dueAt: string | null }) {
     </span>
   );
 }
+
+/**
+ * A free-text, number or date cell, edited in place.
+ *
+ * The sibling of `EditableChoiceCell`, added for the custom columns Dee asked
+ * for on 2026-09-22 — a dropdown uses the choice cell, everything else lands
+ * here. Saves on blur and on Enter; Escape abandons the edit, because a cell
+ * you opened by mis-clicking must be leaveable without writing anything.
+ */
+export function EditableTextCell({ value, onSave, label, type = "text" }: {
+  value: string;
+  onSave: (next: string) => Promise<void>;
+  label: string;
+  type?: "text" | "number" | "date";
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const [saving, setSaving] = useState(false);
+
+  const commit = () => {
+    if (draft === value) { setEditing(false); return; }
+    setSaving(true);
+    void onSave(draft).finally(() => { setSaving(false); setEditing(false); });
+  };
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        type={type}
+        aria-label={label}
+        value={draft}
+        disabled={saving}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") { e.preventDefault(); commit(); }
+          if (e.key === "Escape") { setDraft(value); setEditing(false); }
+        }}
+        className="w-full rounded border border-primary bg-background px-1 py-0.5 text-[11px] text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      />
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      disabled={saving}
+      onClick={() => { setDraft(value); setEditing(true); }}
+      aria-label={`${label} — click to change`}
+      className="group flex w-full items-center gap-1 rounded border border-transparent px-1 py-0.5 text-left text-[11px] transition-colors hover:border-border hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
+    >
+      {saving ? <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" aria-hidden /> : null}
+      {value
+        ? <span className="truncate text-foreground">{value}</span>
+        : <span className="text-muted-foreground">—</span>}
+      <Pencil className="ml-auto h-3 w-3 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" aria-hidden />
+    </button>
+  );
+}

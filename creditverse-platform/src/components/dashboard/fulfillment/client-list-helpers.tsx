@@ -94,7 +94,22 @@ export type ColId =
   | "processed"
   | "dueDate"
   | "daysToUpdate"
-  | "latestComment";
+  | "latestComment"
+  /* A column somebody added themselves, as `custom:<field id>`. Dee,
+     2026-09-22: the list should take a dropdown column she creates, the way
+     ClickUp and Monday do. The built-in ids above stay a closed set so a typo
+     is still a type error; only this arm is open. */
+  | `custom:${string}`;
+
+/** The column definition for one custom field, as the table wants it. */
+export const customColDef = (field: { id: string; label: string }): ColDef<ColId> => ({
+  id: `custom:${field.id}`,
+  label: field.label,
+  defaultOn: true,
+  minWidth: 120,
+  defaultWidth: 160,
+  sortable: false,
+});
 
 /* Operational by default (separation step 2): Client · Credit Stage · Credit
    Status · Current Department · Work Status · Assigned To · Open Work · SLA ·
