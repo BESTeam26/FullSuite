@@ -5642,8 +5642,20 @@ if (runs(64)) {
   /* Act as one person, then read the result as postgres. Two `set local role`
      switches in one transaction, which is legal because session_user never
      stops being the login role. */
-  const act64 = (uid, stmt, assertion) =>
-    p64(uid, "", `${stmt} set local role postgres; ${assertion}`);
+  /* Every act64 probe asks WHO GETS TOLD, never who may act — none of them
+     expects a refusal. Since Dee's ladder (0922 002000) made CreditOps work
+     an explicit capability rather than a consequence of being owner, the
+     actor here needs it or the handoff stops before it can notify anybody,
+     and eight notification checks failed as authorization errors. Granted in
+     the probe's own transaction and rolled back with it; who MAY hand off is
+     phase 62's subject, not this one's. */
+  const act64 = (uid, stmt, assertion, seed = "") =>
+    p64(uid, `insert into public.agency_member_permissions (membership_id, key, allowed)
+              select m.id, 'creditops.work.manage', true from public.agency_memberships m
+               where m.user_id = '${uid}' and m.status = 'active'
+              on conflict (membership_id, key) do update set allowed = true;
+              ${seed}`,
+        `${stmt} set local role postgres; ${assertion}`);
 
   const OWN64 = U["bes.owner@bes.test"], CO64 = U["bes.credit@bes.test"];
   const LEAD64 = U["bes.lead@bes.test"], MGR64 = U["bes.manager@bes.test"];
@@ -5675,6 +5687,17 @@ if (runs(64)) {
   const ann64 = (cols, vals) =>
     `insert into public.announcements (audience, title, body, agency_id, created_by${cols}) values ('bes_internal','[TEST] Notify','[TEST] Body','${AG64}','${OWN64}'${vals});`;
   const nCount = (where) => `select count(*)::int as rows from public.notifications where ${where}`;
+  const freeTeam64 = `update public.work_items set team_id = null where id = '${WORK64}';`;
+  /* These probes used to depend on where the shared fixtures happened to be
+     standing. `[TEST] Evan Ellis` has since been reassigned and already holds
+     an open Dispute row, so a handoff to Dispute reported `alreadyOpen` and
+     told nobody — three notification checks read 0 while the notifier was
+     working perfectly. The state each one needs is now stated, in its own
+     rolled-back transaction: who owns the file, and which queue is shut. */
+  const ready64 = (client, agent, ...closed) => `
+    update public.fulfillment_clients set assigned_agent_id = '${agent}' where id = '${client}';
+    delete from public.client_department_statuses
+     where client_id = '${client}' and department in (${closed.map((d) => `'${d}'`).join(",")});`;
 
   const P64 = AG64 && GEN64 && EVAN64 && CLEO64 && WORK64 ? [
     /* ── the 0206 defect, from both sides ────────────────────────────── */
@@ -5712,8 +5735,11 @@ if (runs(64)) {
     ["…and still receives the mention",
       () => act64(OWN64, `select public.open_direct_channel('${CO64}'); ${say64(dm64(OWN64, CO64), OWN64, CO64)}`,
         nCount(`recipient_id='${CO64}' and kind='mention'`)), 1],
+    /* Scoped to THIS channel. Counting every 'dm' notification in the
+       database read 82 — the team's real direct messages — against an
+       expected 0, which says nothing about the message the probe just sent. */
     ["a message in a channel that is not direct raises no dm notification",
-      () => act64(OWN64, say64(`'${GEN64}'`, OWN64, null), nCount(`kind='dm'`)), 0],
+      () => act64(OWN64, say64(`'${GEN64}'`, OWN64, null), nCount(`kind='dm' and entity_id='${GEN64}'`)), 0],
 
     /* ── 0219: a direct message says WHO, not "Direct message" ───────── */
     ["a direct-message notification is labelled with its author, not the channel's name",
@@ -5728,26 +5754,34 @@ if (runs(64)) {
     /* ── handoff ─────────────────────────────────────────────────────── */
     ["a handoff tells the client's assigned agent",
       () => act64(OWN64, `select public.handoff_client_departments('${EVAN64}','Onboarding',array['Dispute']::public.fulfillment_department[],array['Ready for Processing'],'probe');`,
-        nCount(`kind='handoff' and recipient_id='${CO64}' and entity_id='${EVAN64}'`)), 1],
+        nCount(`kind='handoff' and recipient_id='${CO64}' and entity_id='${EVAN64}'`), ready64(EVAN64, CO64, 'Dispute')), 1],
     ["…and the lead of a team attached to the DESTINATION department, on a client whose own team has no lead",
       () => act64(OWN64, `select public.handoff_client_departments('${CLEO64}','Onboarding',array['Dispute']::public.fulfillment_department[],array['Ready for Processing'],'probe');`,
         nCount(`kind='handoff' and recipient_id='${LEAD64}' and entity_id='${CLEO64}'`)), 1],
     ["a destination department with NO team attached still hands off, and tells the two who own the file",
       () => act64(OWN64, `select public.handoff_client_departments('${EVAN64}','Onboarding',array['Complaints']::public.fulfillment_department[],array['CM NOT NEEDED'],'probe');`,
-        nCount(`kind='handoff' and entity_id='${EVAN64}'`)), 2],
+        nCount(`kind='handoff' and entity_id='${EVAN64}'`), ready64(EVAN64, CO64, 'Complaints')), 2],
     ["nobody is told twice when the client's own team IS the destination department's team",
       () => act64(OWN64, `select public.handoff_client_departments('${EVAN64}','Onboarding',array['Dispute']::public.fulfillment_department[],array['Ready for Processing'],'probe');`,
-        nCount(`kind='handoff' and recipient_id='${LEAD64}' and entity_id='${EVAN64}'`)), 1],
+        nCount(`kind='handoff' and recipient_id='${LEAD64}' and entity_id='${EVAN64}'`), ready64(EVAN64, LEAD64, 'Dispute')), 1],
     ["the department key is derived from the enum by the same rule that seeded it",
       () => q(`select (public.fulfillment_department_key('Bureau Calling') = (select key from public.departments where name='Bureau Calling' limit 1))::text as rows`)[0].rows, "true"],
 
     /* ── attention ───────────────────────────────────────────────────── */
+    /* `[TEST] Round 2 dispute prep` hangs off Team Daniel, which was archived
+       on 2026-09-20 in the real roster. `work_items_update` requires a LIVE
+       team, so NOBODY could move this item — not the owner, not its own
+       assignee — and two notification checks failed as authorization errors.
+       The policy is right and no real work is caught by it (checked: zero
+       non-fixture items on an archived team). The fixture is what drifted, so
+       the probe detaches it from the dead team first. These probes are about
+       what the move NOTIFIES, not about who may move it. */
     ["moving work INTO Attention is reported as 'attention', not as an ordinary status change",
       () => act64(OWN64, `update public.work_items set stage='Attention' where id='${WORK64}';`,
-        `select kind as rows from public.notifications where recipient_id='${CO64}' and entity_id='${WORK64}' order by id desc limit 1`), "attention"],
+        `select kind as rows from public.notifications where recipient_id='${CO64}' and entity_id='${WORK64}' order by id desc limit 1`, freeTeam64), "attention"],
     ["an ordinary move stays 'status'",
       () => act64(OWN64, `update public.work_items set stage='Ready for QA' where id='${WORK64}';`,
-        `select kind as rows from public.notifications where recipient_id='${CO64}' and entity_id='${WORK64}' order by id desc limit 1`), "status"],
+        `select kind as rows from public.notifications where recipient_id='${CO64}' and entity_id='${WORK64}' order by id desc limit 1`, freeTeam64), "status"],
 
     /* ── announcement ────────────────────────────────────────────────── */
     ["publishing a BES announcement notifies every other active staff member",
@@ -5799,9 +5833,19 @@ if (runs(64)) {
       () => q(`begin; ${ann64(", team_id, published_at", `, '${TEAMA64}', now()`)} ${nCount(`kind='announcement' and recipient_id='${CO64}'`)}; rollback;`)[0].rows, 1],
     ["…and not an agent outside it",
       () => q(`begin; ${ann64(", team_id, published_at", `, '${TEAMA64}', now()`)} ${nCount(`kind='announcement' and recipient_id='${FUND64}'`)}; rollback;`)[0].rows, 0],
-    ["a department-targeted announcement reaches nobody who is not scoped to that department",
+    /* Rewritten 2026-09-22. This measured "not scoped to the department" by
+       `agency_memberships.scope_department_id` — the column migration 0349
+       ABANDONED, in its own words "a column nobody maintains, so this branch
+       reached nobody". Targeting is derived from live team membership now, so
+       the old form asked whether anyone outside an empty set was told, which
+       is unanswerable and read 5. Two named people instead: one who is in the
+       department and one who plainly is not. */
+    ["a department-targeted announcement reaches somebody in that department",
       () => q(`begin; ${ann64(", department_id, published_at", `, '${DISPUTE64}', now()`)}
-        ${nCount(`kind='announcement' and not exists (select 1 from public.agency_memberships am where am.user_id = notifications.recipient_id and am.scope_department_id = '${DISPUTE64}')`)}; rollback;`)[0].rows, 0],
+        ${nCount(`kind='announcement' and recipient_id='${CO64}'`)}; rollback;`)[0].rows, 1],
+    ["…and nobody outside it",
+      () => q(`begin; ${ann64(", department_id, published_at", `, '${DISPUTE64}', now()`)}
+        ${nCount(`kind='announcement' and recipient_id='${FUND64}'`)}; rollback;`)[0].rows, 0],
 
     /* ── grants ──────────────────────────────────────────────────────── */
     ["anon reaches no notification",
