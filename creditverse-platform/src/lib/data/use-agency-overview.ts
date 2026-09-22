@@ -1,11 +1,16 @@
 /**
  * The figures on BES HQ's own home, counted in the database.
  *
- * Head counts only — `select id, { count: "exact", head: true }` returns a
- * number and no rows, so the dashboard never pulls a tenant's records to show
- * a tile (rule 14). Every count is bounded by the caller's own row-level
- * security, so a restricted BES user sees smaller numbers rather than a
- * refusal, which is the correct behaviour for a summary.
+ * ONE call, not five. `agency_overview_counts()` returns all five numbers from
+ * a single query, so the dashboard never pulls a tenant's records to show a
+ * tile (rule 14). It is SECURITY INVOKER, so every count stays bounded by the
+ * caller's own row-level security and a restricted BES user sees smaller
+ * numbers rather than a refusal — the correct behaviour for a summary.
+ *
+ * It also excludes [TEST] fixtures. Five separate head counts did not, while
+ * the lists under the tiles did, so Dee's home read "4 organizations" above a
+ * panel saying "0 companies" (2026-09-22). A number that disagrees with the
+ * list beneath it is the one somebody quotes.
  */
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -22,20 +27,16 @@ export interface AgencyOverview {
 
 async function fetchAgencyOverview(): Promise<AgencyOverview> {
   const sb = requireSupabase();
-  const count = async (table: string, apply?: (q: ReturnType<typeof sb.from>) => unknown) => {
-    const query = sb.from(table as never).select("id", { count: "exact", head: true });
-    const { count: n, error } = await (apply ? (apply(query as never) as typeof query) : query);
-    if (error) throw error;
-    return n ?? 0;
+  const { data, error } = await sb.rpc("agency_overview_counts" as never);
+  if (error) throw error;
+  const row = (data as unknown as Array<Record<string, number>> | null)?.[0];
+  return {
+    organizations: row?.organizations ?? 0,
+    creditClients: row?.credit_clients ?? 0,
+    fundingFiles: row?.funding_files ?? 0,
+    fundedFiles: row?.funded_files ?? 0,
+    liveEngagements: row?.live_engagements ?? 0,
   };
-  const [organizations, creditClients, fundingFiles, fundedFiles, liveEngagements] = await Promise.all([
-    count("organizations"),
-    count("fulfillment_clients"),
-    count("funding_files"),
-    count("funding_files", (q) => (q as never as { eq: (c: string, v: string) => unknown }).eq("stage", "Funded")),
-    count("fulfillment_engagements", (q) => (q as never as { eq: (c: string, v: string) => unknown }).eq("status", "active")),
-  ]);
-  return { organizations, creditClients, fundingFiles, fundedFiles, liveEngagements };
 }
 
 export function useAgencyOverview() {
