@@ -3467,8 +3467,13 @@ if (runs(55)) {
   const taskId = (title) => `(select id from public.work_items where title='${title}' order by created_at desc limit 1)`;
 
   const P55 = [
+    /* Counts the workspace this probe just made, by name — not every
+       organization-less workspace in the agency. BES has real ones now, so the
+       old form said 6 where it wanted 1 and would have gone on drifting with
+       the business. The rule is "the manager may create one", not "there is
+       exactly one" (test the rule, not the day's data). */
     ["a BES manager may create an agency workspace with no organization",
-      () => probe55(OWNER55, `${mkWs}; select count(*)::int as rows from public.workspaces where agency_id='${AG}' and organization_id is null`), 1],
+      () => probe55(OWNER55, `${mkWs}; select count(*)::int as rows from public.workspaces where agency_id='${AG}' and organization_id is null and name='BES Team Probe'`), 1],
 
     ["an organization owner cannot create one",
       () => probe55(ORG55, `${mkWs}; select 0 as rows`), "ERR 42501"],
@@ -3592,9 +3597,9 @@ if (runs(55)) {
 
     ["a partner contact sees THEIR clients and nobody else's",
       () => probe55(OWNER55,
-        `insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values
-           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active'),
-           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active');
+        `insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle, portal_access_enabled) values
+           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active',true),
+           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active',true);
          insert into public.partner_contacts (group_id, agency_id, full_name, email, user_id, status) values
            ('44444444-0000-4000-8000-0000000000fa'::uuid, '${AG}', 'Probe Contact', 'pc@example.test', '${ORG55}'::uuid, 'active');
          insert into public.fulfillment_clients (agency_id, name, email, mode, outsourcing_group_id) values
@@ -3608,9 +3613,9 @@ if (runs(55)) {
       () => probe55(ORG55, `select count(*)::int as rows from public.my_partner_projects()`), 0],
     ["a partner contact sees THEIR build and its business, and nobody else's",
       () => probe55(OWNER55,
-        `insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values
-           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active'),
-           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active');
+        `insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle, portal_access_enabled) values
+           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active',true),
+           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active',true);
          insert into public.partner_contacts (group_id, agency_id, full_name, email, user_id, status) values
            ('44444444-0000-4000-8000-0000000000fa'::uuid, '${AG}', 'Probe Contact', 'pc@example.test', '${ORG55}'::uuid, 'active');
          insert into public.crm_projects (id, agency_id, partner_group_id, name, business_name) values
@@ -3620,9 +3625,9 @@ if (runs(55)) {
          select string_agg(name || '/' || coalesce(business_name, '-'), ',') as rows from public.my_partner_projects()`), "Mine build/Brand A"],
     ["…and what BES needs from them lists only their own OUTSTANDING asks",
       () => probe55(OWNER55,
-        `insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values
-           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active'),
-           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active');
+        `insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle, portal_access_enabled) values
+           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active',true),
+           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active',true);
          insert into public.partner_contacts (group_id, agency_id, full_name, email, user_id, status) values
            ('44444444-0000-4000-8000-0000000000fa'::uuid, '${AG}', 'Probe Contact', 'pc@example.test', '${ORG55}'::uuid, 'active');
          insert into public.crm_projects (id, agency_id, partner_group_id, name, business_name) values
@@ -3637,9 +3642,9 @@ if (runs(55)) {
          select string_agg(label, ',') as rows from public.my_partner_requirements()`), "Logo files"],
     ["…and the partner cannot mark a requirement received themselves — BES records the receipt",
       () => probe55(OWNER55,
-        `insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values
-           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active'),
-           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active');
+        `insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle, portal_access_enabled) values
+           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active',true),
+           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active',true);
          insert into public.partner_contacts (group_id, agency_id, full_name, email, user_id, status) values
            ('44444444-0000-4000-8000-0000000000fa'::uuid, '${AG}', 'Probe Contact', 'pc@example.test', '${ORG55}'::uuid, 'active');
          insert into public.crm_projects (id, agency_id, partner_group_id, name, business_name) values
@@ -3655,9 +3660,9 @@ if (runs(55)) {
     /* ── Onboarding is the Partner Profile (0298) ─────────────────────── */
     ["a partner contact saves company information onto THEIR OWN record, and the address is composed",
       () => probe55(OWNER55, `set local role postgres;
-         insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values
-           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active'),
-           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active');
+         insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle, portal_access_enabled) values
+           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active',true),
+           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active',true);
          insert into public.partner_contacts (id, group_id, agency_id, full_name, email, user_id, status) values
            ('44444444-0000-4000-8000-0000000000e1'::uuid, '44444444-0000-4000-8000-0000000000fa'::uuid, '${AG}', 'Probe Contact', 'pc@example.test', '${ORG55}'::uuid, 'active');
          insert into public.partner_credentials (id, agency_id, group_id, platform_key, label, username, category) values
@@ -3671,9 +3676,9 @@ if (runs(55)) {
       "Probe Legal LLC | Probe Brand | 1 Main St, Dallas, TX 75001 | Pat Contact | Owner"],
     ["…and the other partner's record is untouched, because the gate is the caller's own group",
       () => probe55(OWNER55, `set local role postgres;
-         insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values
-           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active'),
-           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active');
+         insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle, portal_access_enabled) values
+           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active',true),
+           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active',true);
          insert into public.partner_contacts (id, group_id, agency_id, full_name, email, user_id, status) values
            ('44444444-0000-4000-8000-0000000000e1'::uuid, '44444444-0000-4000-8000-0000000000fa'::uuid, '${AG}', 'Probe Contact', 'pc@example.test', '${ORG55}'::uuid, 'active');
          insert into public.partner_credentials (id, agency_id, group_id, platform_key, label, username, category) values
@@ -3685,9 +3690,9 @@ if (runs(55)) {
          select coalesce(legal_business_name, '-') as rows from public.outsourcing_groups where id = '44444444-0000-4000-8000-0000000000fb'`), "-"],
     ["a partner profile change is written to the partner's shared activity",
       () => probe55(OWNER55, `set local role postgres;
-         insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values
-           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active'),
-           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active');
+         insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle, portal_access_enabled) values
+           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active',true),
+           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active',true);
          insert into public.partner_contacts (id, group_id, agency_id, full_name, email, user_id, status) values
            ('44444444-0000-4000-8000-0000000000e1'::uuid, '44444444-0000-4000-8000-0000000000fa'::uuid, '${AG}', 'Probe Contact', 'pc@example.test', '${ORG55}'::uuid, 'active');
          insert into public.partner_credentials (id, agency_id, group_id, platform_key, label, username, category) values
@@ -3703,9 +3708,9 @@ if (runs(55)) {
       () => probe55(U["org2.owner@bes.test"], `select public.my_partner_profile_save('{"legal_business_name":"X"}'::jsonb) as rows`), "ERR 42501"],
     ["a partner contact adds a system: the password goes to the vault, the row carries the category and who saved it",
       () => probe55(OWNER55, `set local role postgres;
-         insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values
-           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active'),
-           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active');
+         insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle, portal_access_enabled) values
+           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active',true),
+           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active',true);
          insert into public.partner_contacts (id, group_id, agency_id, full_name, email, user_id, status) values
            ('44444444-0000-4000-8000-0000000000e1'::uuid, '44444444-0000-4000-8000-0000000000fa'::uuid, '${AG}', 'Probe Contact', 'pc@example.test', '${ORG55}'::uuid, 'active');
          insert into public.partner_credentials (id, agency_id, group_id, platform_key, label, username, category) values
@@ -3719,9 +3724,9 @@ if (runs(55)) {
            from public.partner_credentials c where c.id = current_setting('probe.cred')::uuid`), "ghl:Wavy One:subaccount:true:true:1"],
     ["…the partner reads back their own systems, without the secret, and never another partner's",
       () => probe55(OWNER55, `set local role postgres;
-         insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values
-           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active'),
-           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active');
+         insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle, portal_access_enabled) values
+           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active',true),
+           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active',true);
          insert into public.partner_contacts (id, group_id, agency_id, full_name, email, user_id, status) values
            ('44444444-0000-4000-8000-0000000000e1'::uuid, '44444444-0000-4000-8000-0000000000fa'::uuid, '${AG}', 'Probe Contact', 'pc@example.test', '${ORG55}'::uuid, 'active');
          insert into public.partner_credentials (id, agency_id, group_id, platform_key, label, username, category) values
@@ -3732,9 +3737,9 @@ if (runs(55)) {
          select string_agg(label || ':' || has_secret::text, ',') as rows from public.my_partner_credentials()`), "DF login:true"],
     ["…reveals their own password, and the look is recorded against the contact",
       () => probe55(OWNER55, `set local role postgres;
-         insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values
-           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active'),
-           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active');
+         insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle, portal_access_enabled) values
+           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active',true),
+           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active',true);
          insert into public.partner_contacts (id, group_id, agency_id, full_name, email, user_id, status) values
            ('44444444-0000-4000-8000-0000000000e1'::uuid, '44444444-0000-4000-8000-0000000000fa'::uuid, '${AG}', 'Probe Contact', 'pc@example.test', '${ORG55}'::uuid, 'active');
          insert into public.partner_credentials (id, agency_id, group_id, platform_key, label, username, category) values
@@ -3747,9 +3752,9 @@ if (runs(55)) {
          select current_setting('probe.pw') || ':' || (select count(*) from public.partner_credential_events where credential_id = current_setting('probe.cred')::uuid and action = 'revealed' and actor_id = '${ORG55}')::text as rows`), "Sup3r-Secret!:1"],
     ["…but cannot reveal, edit or remove another partner's credential — and learns nothing from the refusal",
       () => probe55(OWNER55, `set local role postgres;
-         insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values
-           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active'),
-           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active');
+         insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle, portal_access_enabled) values
+           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active',true),
+           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active',true);
          insert into public.partner_contacts (id, group_id, agency_id, full_name, email, user_id, status) values
            ('44444444-0000-4000-8000-0000000000e1'::uuid, '44444444-0000-4000-8000-0000000000fa'::uuid, '${AG}', 'Probe Contact', 'pc@example.test', '${ORG55}'::uuid, 'active');
          insert into public.partner_credentials (id, agency_id, group_id, platform_key, label, username, category) values
@@ -3759,9 +3764,9 @@ if (runs(55)) {
          select public.my_partner_credential_reveal('44444444-0000-4000-8000-0000000000d1') as rows`), "ERR P0002"],
     ["…editing another partner's credential is refused the same way",
       () => probe55(OWNER55, `set local role postgres;
-         insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values
-           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active'),
-           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active');
+         insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle, portal_access_enabled) values
+           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active',true),
+           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active',true);
          insert into public.partner_contacts (id, group_id, agency_id, full_name, email, user_id, status) values
            ('44444444-0000-4000-8000-0000000000e1'::uuid, '44444444-0000-4000-8000-0000000000fa'::uuid, '${AG}', 'Probe Contact', 'pc@example.test', '${ORG55}'::uuid, 'active');
          insert into public.partner_credentials (id, agency_id, group_id, platform_key, label, username, category) values
@@ -3771,9 +3776,9 @@ if (runs(55)) {
          select public.my_partner_credential_save('disputefox', 'Hijack', null, null, null, null, null, '44444444-0000-4000-8000-0000000000d1', 'crm') as rows`), "ERR P0002"],
     ["…and removal archives — the row and its history stay",
       () => probe55(OWNER55, `set local role postgres;
-         insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values
-           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active'),
-           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active');
+         insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle, portal_access_enabled) values
+           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active',true),
+           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active',true);
          insert into public.partner_contacts (id, group_id, agency_id, full_name, email, user_id, status) values
            ('44444444-0000-4000-8000-0000000000e1'::uuid, '44444444-0000-4000-8000-0000000000fa'::uuid, '${AG}', 'Probe Contact', 'pc@example.test', '${ORG55}'::uuid, 'active');
          insert into public.partner_credentials (id, agency_id, group_id, platform_key, label, username, category) values
@@ -3787,12 +3792,12 @@ if (runs(55)) {
            from public.partner_credentials where id = current_setting('probe.cred')::uuid`), "true:moved registrar:0"],
     ["the staff vault path still requires the credentials capability",
       () => probe55(U["bes.credit@bes.test"], `select public.partner_credential_save('44444444-0000-4000-8000-0000000000fa', 'disputefox', 'X') as rows`,
-        `insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active');`), "ERR 42501"],
+        `insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle, portal_access_enabled) values ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active',true);`), "ERR 42501"],
     ["finishing onboarding without the confirmation is refused",
       () => probe55(OWNER55, `set local role postgres;
-         insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values
-           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active'),
-           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active');
+         insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle, portal_access_enabled) values
+           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active',true),
+           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active',true);
          insert into public.partner_contacts (id, group_id, agency_id, full_name, email, user_id, status) values
            ('44444444-0000-4000-8000-0000000000e1'::uuid, '44444444-0000-4000-8000-0000000000fa'::uuid, '${AG}', 'Probe Contact', 'pc@example.test', '${ORG55}'::uuid, 'active');
          insert into public.partner_credentials (id, agency_id, group_id, platform_key, label, username, category) values
@@ -3802,9 +3807,9 @@ if (runs(55)) {
          select public.my_partner_onboarding_complete(false) as rows`), "ERR 22023"],
     ["finishing onboarding records completion and the access confirmation, and hands over the agreement when BES flagged one",
       () => probe55(OWNER55, `set local role postgres;
-         insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values
-           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active'),
-           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active');
+         insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle, portal_access_enabled) values
+           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active',true),
+           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active',true);
          insert into public.partner_contacts (id, group_id, agency_id, full_name, email, user_id, status) values
            ('44444444-0000-4000-8000-0000000000e1'::uuid, '44444444-0000-4000-8000-0000000000fa'::uuid, '${AG}', 'Probe Contact', 'pc@example.test', '${ORG55}'::uuid, 'active');
          insert into public.partner_credentials (id, agency_id, group_id, platform_key, label, username, category) values
@@ -3824,9 +3829,9 @@ if (runs(55)) {
           where g.id = '44444444-0000-4000-8000-0000000000fa'`), "true:true:true:sent:true:1"],
     ["…and with no flagged agreement, onboarding completes and returns nothing to sign",
       () => probe55(OWNER55, `set local role postgres;
-         insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values
-           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active'),
-           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active');
+         insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle, portal_access_enabled) values
+           ('44444444-0000-4000-8000-0000000000fa'::uuid,'${AG}','Probe Portal A','pa@example.test','active',true),
+           ('44444444-0000-4000-8000-0000000000fb'::uuid,'${AG}','Probe Portal B','pb@example.test','active',true);
          insert into public.partner_contacts (id, group_id, agency_id, full_name, email, user_id, status) values
            ('44444444-0000-4000-8000-0000000000e1'::uuid, '44444444-0000-4000-8000-0000000000fa'::uuid, '${AG}', 'Probe Contact', 'pc@example.test', '${ORG55}'::uuid, 'active');
          insert into public.partner_credentials (id, agency_id, group_id, platform_key, label, username, category) values
@@ -3840,8 +3845,8 @@ if (runs(55)) {
 
     ["…and a suspended partner resolves to no clients at all",
       () => probe55(OWNER55,
-        `insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values
-           ('44444444-0000-4000-8000-0000000000fc'::uuid,'${AG}','Probe Portal C','pcx@example.test','suspended');
+        `insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle, portal_access_enabled) values
+           ('44444444-0000-4000-8000-0000000000fc'::uuid,'${AG}','Probe Portal C','pcx@example.test','suspended',true);
          insert into public.partner_contacts (group_id, agency_id, full_name, email, user_id, status) values
            ('44444444-0000-4000-8000-0000000000fc'::uuid, '${AG}', 'Probe Contact', 'pc2@example.test', '${ORG55}'::uuid, 'active');
          insert into public.fulfillment_clients (agency_id, name, email, mode, outsourcing_group_id)
@@ -3882,8 +3887,13 @@ if (runs(55)) {
          insert into public.files (id, agency_id, entity_type, entity_id, bucket, path, name, uploaded_by) values
            ('44444444-0000-4000-8000-0000000000fe'::uuid, '${AG}', 'partner', '44444444-0000-4000-8000-0000000000fd', 'bes-files', 'agency/partner/probe/x.pdf', 'x.pdf', '${U["bes.owner@bes.test"]}'::uuid);
          select public.set_partner_file_shared('44444444-0000-4000-8000-0000000000fe'::uuid, true);
+         /* Scoped to THIS probe's partner. Counting every 'File shared'
+            event in the agency made the total climb as BES shared real files
+            with real partners — it read 3 against an expected 2. */
          select ((select shared_with_partner from public.files where id='44444444-0000-4000-8000-0000000000fe')::int
-               + (select count(*) from public.activity_events where entity_type='partner' and action like 'File shared%')::int)::int as rows`), 2],
+               + (select count(*) from public.activity_events
+                   where entity_type='partner' and action like 'File shared%'
+                     and entity_id='44444444-0000-4000-8000-0000000000fd')::int)::int as rows`), 2],
 
     ["sharing a file stored OUTSIDE the partner subtree is refused, even to the owner (003400)",
       () => probe55(OWNER55,
@@ -3944,8 +3954,8 @@ if (runs(55)) {
 
     ["a suspended partner's invitation refuses to open",
       () => probe55(OWNER55,
-        `insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values
-           ('44444444-0000-4000-8000-0000000000e1'::uuid,'${AG}','Probe Invite A','ia@example.test','active');
+        `insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle, portal_access_enabled) values
+           ('44444444-0000-4000-8000-0000000000e1'::uuid,'${AG}','Probe Invite A','ia@example.test','active',true);
          insert into public.partner_contacts (id, group_id, agency_id, full_name, email) values
            ('44444444-0000-4000-8000-0000000000e2'::uuid, '44444444-0000-4000-8000-0000000000e1'::uuid, '${AG}', 'Probe Invitee',
             (select email from public.profiles where id='${ORG55}'));
@@ -4555,9 +4565,9 @@ if (runs(60)) {
     const coActive = opts.coActive ?? true;
     const assignEnded = opts.assignEnded ? "current_date" : "null";
     return `
-    insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle) values
+    insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle, portal_access_enabled) values
       ('${A60}','${AG60}','[TEST] Conversation A','conv-a@example.test','${lifecycle}'),
-      ('${B60}','${AG60}','[TEST] Conversation B','conv-b@example.test','active');
+      ('${B60}','${AG60}','[TEST] Conversation B','conv-b@example.test','active',true);
     insert into public.partner_services (id, group_id, agency_id, name) values
       ('${SVC_CO}','${A60}','${AG60}','CreditOps outsourcing'),
       ('${SVC_CRM}','${A60}','${AG60}','BES CRM build');
