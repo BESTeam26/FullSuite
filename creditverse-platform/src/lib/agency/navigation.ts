@@ -234,3 +234,22 @@ export function routeAllows(path: string, ctx: AccessContext): boolean {
  */
 export const managesAgency = (ctx: Pick<AccessContext, "role" | "can">): boolean =>
   isAdminRole(ctx.role) || ctx.can("ops.manage");
+
+/**
+ * May this person step the workspace into a customer organization?
+ *
+ * The sidebar's workspace switcher is the Organizations door wearing a
+ * different shape, so it asks the same question through the same function.
+ * Before this, `/app/subaccounts` was admin-only while the switcher offered
+ * every BES staff member a customer tenant to step into — an agent, a team
+ * lead and a division manager were all handed a context none of their screens
+ * would fill (rule 16: BES staff status is not access).
+ *
+ * This decides what is OFFERED. What an organization actually returns is
+ * still RLS's answer, unchanged by hiding the control (rule 1).
+ */
+export const mayEnterOrganizations = (ctx: AccessContext): boolean => {
+  const spec = routeFor("/app/subaccounts");
+  /* No spec means the door was removed; offer nothing rather than everything. */
+  return spec ? accessTo(spec, ctx) === "allow" : false;
+};

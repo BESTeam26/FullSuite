@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  AGENCY_ROUTES, accessTo, isAdminRole, managesAgency, routeAllows, routeFor, visibleRoutes,
+  AGENCY_ROUTES, accessTo, isAdminRole, managesAgency, mayEnterOrganizations,
+  routeAllows, routeFor, visibleRoutes,
   type AccessContext, type AgencyRole, type AgencyRouteSpec,
 } from "./navigation";
 
@@ -239,5 +240,40 @@ describe("the route table itself", () => {
     expect(routeFor("/not-an-agency-route")).toBeUndefined();
     // A path outside the table is not governed here.
     expect(routeAllows("/not-an-agency-route", USER)).toBe(true);
+  });
+});
+
+/*
+ * Rule 20b — all four views, named, because the answer differs by view.
+ *
+ * The sidebar's workspace switcher used to offer every BES staff member a
+ * customer organization to step into while `/app/subaccounts` refused them.
+ * One question now, asked through one function.
+ */
+describe("stepping the workspace into a customer organization", () => {
+  it("is not offered to an agent", () => {
+    expect(mayEnterOrganizations(USER)).toBe(false);
+  });
+
+  it("is not offered to a team lead — leading a team is not tenancy", () => {
+    expect(mayEnterOrganizations(LEAD)).toBe(false);
+  });
+
+  it("is not offered to a division manager — ops.manage is not company-wide", () => {
+    expect(mayEnterOrganizations(OPS)).toBe(false);
+  });
+
+  it("is offered to an executive", () => {
+    expect(mayEnterOrganizations(ADMIN)).toBe(true);
+  });
+
+  it("is offered to nobody signed out", () => {
+    expect(mayEnterOrganizations(ctx(null))).toBe(false);
+  });
+
+  it("answers exactly as the Organizations door does, for every view", () => {
+    for (const view of [USER, LEAD, OPS, ADMIN, ctx(null)]) {
+      expect(mayEnterOrganizations(view)).toBe(allow(view, "/app/subaccounts"));
+    }
   });
 });
