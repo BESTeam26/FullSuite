@@ -4601,7 +4601,7 @@ if (runs(60)) {
     const assignEnded = opts.assignEnded ? "current_date" : "null";
     return `
     insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle, portal_access_enabled) values
-      ('${A60}','${AG60}','[TEST] Conversation A','conv-a@example.test','${lifecycle}'),
+      ('${A60}','${AG60}','[TEST] Conversation A','conv-a@example.test','${lifecycle}',true),
       ('${B60}','${AG60}','[TEST] Conversation B','conv-b@example.test','active',true);
     insert into public.partner_services (id, group_id, agency_id, name) values
       ('${SVC_CO}','${A60}','${AG60}','CreditOps outsourcing'),
