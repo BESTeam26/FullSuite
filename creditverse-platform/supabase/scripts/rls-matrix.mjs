@@ -7938,8 +7938,22 @@ if (runs(75)) {
                  select coalesce(assigned_agent_id::text,'unassigned') as rows
                    from public.fulfillment_clients where id='${CL75}'`), "unassigned"],
 
+    /* Writing a department row now needs the caller to WORK that department
+       (20260922028000, closing a hole where writes reached further than
+       reads), and the fixture owner deliberately holds no
+       `creditops.work.manage` — the grant goes to the earliest real owner.
+       Granted inside this transaction so the check stays about the OVERRIDE
+       keeping the calculated date beside it, not about who may set one; who
+       may is the check directly above, which still refuses an agent. */
     ["19 — a manual override keeps the calculated date beside it",
-      () => p75(OWN75, `${enter(MAILED75, 'Dispute', '0 hours')}
+      () => p75(OWN75, `set local role postgres;
+                        insert into public.agency_member_permissions (membership_id, key, allowed)
+                        select m.id, 'creditops.work.manage', true from public.agency_memberships m
+                         where m.user_id = '${OWN75}' and m.status = 'active'
+                        on conflict (membership_id, key) do update set allowed = true;
+                        set local role authenticated;
+                        set local request.jwt.claims = '{"sub":"${OWN75}","role":"authenticated"}';
+                        ${enter(MAILED75, 'Dispute', '0 hours')}
                         select public.set_department_due_override('${CL75}', 'Dispute', now() + interval '3 days', 'client asked');
                         select (system_due_at is not null and manual_due_at is not null)::text as rows
                           from public.client_department_statuses
