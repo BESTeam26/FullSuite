@@ -64,6 +64,17 @@ Last reconciled: 2026-09-21, after the Eastern workday lock (`1f6b8e7`).
 
 ## FOUND 2026-09-22, NOT YET FIXED
 
+- **Aaron's role and his reach disagree, and only Dee can say which is right.**
+  `aaron@blessedempireservices.com` is `agency_admin` with `is_owner = true`
+  but `scope = 'assigned'` — owner-gated capabilities (which include the money
+  ones) with an agent's data reach. The security gate has a standing invariant
+  that no owner or admin sits on a narrower scope, and this is the one row
+  failing it. Two possible repairs and they are opposites: widen his scope to
+  `agency` because he really is an owner, or clear `is_owner` / lower the role
+  because he is not. **Do not guess** — widening a named person's access is
+  Dee's decision. The invitation path that produced this shape is fixed
+  (migration 20260922026000); this row predates it.
+
 - **"Mark as mailed" still sets the credit status to `In Dispute`, which Dee
   retired on 2026-09-22.** The 30-day clock is fixed (migration 20260922021000);
   this is the remaining half. Dee's words were "I need only the Actual Round

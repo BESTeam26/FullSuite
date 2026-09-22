@@ -4107,7 +4107,12 @@ if (runs(56)) {
     ["an agent sees neither",
       () => p56(AGT56, seeService, seed56) === 0 && p56(AGT56, seeBilling, seed56) === 0 ? "correct" : "wrong", "correct"],
     ["the owner sees both", () => p56(OWN56, seeBilling, seed56), 1],
-    ["the admin sees both", () => p56(ADM56, seeBilling, seed56), 1],
+    /* `partners.financials.view` is owner_gated, which is Dee's separation:
+       "do NOT let this grant Payroll/Finance automatically. Money capabilities
+       remain separate." So an ADMIN does not get it by role — only the owner,
+       or somebody the owner names. This asserted the opposite. */
+    ["the admin does NOT see the money by role alone", () => p56(ADM56, seeBilling, seed56), 0],
+    ["…but does once the owner names them", () => p56(ADM56, seeBilling, seed56 + `insert into public.agency_member_permissions (membership_id, key, allowed) select m.id, 'partners.financials.view', true from public.agency_memberships m where m.user_id='${ADM56}' on conflict (membership_id, key) do update set allowed = true;`), 1],
 
     /* ── Precedence, in both directions ──────────────────────────── */
     ["an explicit GRANT beats the role default",
@@ -4126,20 +4131,34 @@ if (runs(56)) {
     ["a manager cannot grant themselves financial access",
       () => p56(MGR56, `select public.set_agency_permission('${MGRM}','partners.financials.view',true) as rows`), "ERR 42501"],
 
-    ["an admin can",
-      /* The function returns void. Casting void to text is not a cast that
-         exists, so this probe used to fail on 42883 rather than on the rule —
-         it reads back the row that was written instead. */
-      () => p56(ADM56, `select public.set_agency_permission('${MGRM}','partners.financials.view',true); select allowed::text as rows from public.agency_member_permissions where membership_id='${MGRM}' and key='partners.financials.view'`), "true"],
+    /* Two different rules, and this used to conflate them. An admin MAY
+       change ordinary access; only the OWNER may hand out a money capability
+       ("Only the agency owner can grant or withdraw partners.financials.view").
+       The function returns void, and casting void to text is not a cast that
+       exists, so these read back the row that was written. */
+    ["an admin can change ordinary access",
+      () => p56(ADM56, `select public.set_agency_permission('${MGRM}','settings.manage',true); select allowed::text as rows from public.agency_member_permissions where membership_id='${MGRM}' and key='settings.manage'`), "true"],
+    ["…but not a money capability — that is the owner's alone",
+      () => p56(ADM56, `select public.set_agency_permission('${MGRM}','partners.financials.view',true) as rows`), "ERR 42501"],
+    ["…which the owner may",
+      () => p56(OWN56, `select public.set_agency_permission('${MGRM}','partners.financials.view',true); select allowed::text as rows from public.agency_member_permissions where membership_id='${MGRM}' and key='partners.financials.view'`), "true"],
 
     /* An override on an owner or admin would be a switch that does nothing,
        because agency_can answers by role before it reads a row. */
+    /* The rule is about a switch that would do NOTHING: an owner or admin
+       holds ordinary capabilities by role, so an override row against them is
+       a control with no effect. It has to be tested with a key they actually
+       hold by role — an OWNER-GATED one is the one case where an override
+       against them is meaningful, so the old form was testing the exception. */
     ["an override cannot be written against an owner or admin",
       () => { const am = q(`select m.id::text as rows from public.agency_memberships m join public.profiles p on p.id=m.user_id where p.email='bes.admin@bes.test'`)[0].rows;
-              return p56(OWN56, `select public.set_agency_permission('${am}','partners.financials.view',false) as rows`); }, "ERR 22023"],
+              return p56(OWN56, `select public.set_agency_permission('${am}','settings.manage',false) as rows`); }, "ERR 22023"],
+    ["…but IS allowed for an owner-gated one, where it decides the answer",
+      () => { const am = q(`select m.id::text as rows from public.agency_memberships m join public.profiles p on p.id=m.user_id where p.email='bes.admin@bes.test'`)[0].rows;
+              return p56(OWN56, `select public.set_agency_permission('${am}','partners.financials.view',true); select allowed::text as rows from public.agency_member_permissions where membership_id='${am}' and key='partners.financials.view'`); }, "true"],
 
     ["a permission change is audited",
-      () => p56(ADM56, `select public.set_agency_permission('${MGRM}','partners.financials.view',true); select (count(*) > 0)::text as rows from public.audit_log where action='agency_permission.set'`), "true"],
+      () => p56(ADM56, `select public.set_agency_permission('${MGRM}','settings.manage',true); select (count(*) > 0)::text as rows from public.audit_log where action='agency_permission.set'`), "true"],
 
     /* ── A partner never sees the money ──────────────────────────── */
     ["the billing policy has no partner branch at all",
@@ -4330,11 +4349,18 @@ if (runs(57)) {
          select public.archive_partner('${GRP57}','probe');
          select count(*)::int as rows from public.partner_contacts where group_id='${GRP57}' and status='active'`), 0],
 
+    /* Counted as the harness, deliberately. Archiving a partner correctly
+       takes it out of `can_see_partner`, so the owner who just archived it can
+       no longer SELECT its clients — and the probe read that (correct) loss of
+       VISIBILITY as the records having been DELETED. What this check is about
+       is that archiving preserves history (rule 11), which is a question about
+       the rows, not about who may read them. */
     ["…and deletes no client record",
       () => cascade(OWN57, seed57,
         `select public.cancel_partner_service('${S1}', current_date, 'probe');
          select public.cancel_partner_service('${S2}', current_date, 'probe');
          select public.archive_partner('${GRP57}','probe');
+         set local role postgres;
          select count(*)::int as rows from public.fulfillment_clients where outsourcing_group_id='${GRP57}'`),
       q(`select count(*)::int as rows from public.fulfillment_clients where outsourcing_group_id='${GRP57}'`)[0].rows],
 
@@ -5070,9 +5096,16 @@ if (runs(61)) {
         `select coalesce((select announcement_title from public.channel_messages((select id from public.channels where system_key='announcements_updates')) where announcement_title = '[TEST] Leadership only'), 'HIDDEN') as rows`), "HIDDEN"],
 
     /* ── §55/§56 — realtime, and editing your own words ──────────── */
-    ["messages are published to realtime, and NOTHING else is",
+    /* `message_reactions` joined the publication deliberately in
+       20260916000300 ("reactions broadcast too") and use-message-realtime.ts
+       subscribes to it. The rule this protects is unchanged and still worth
+       keeping — realtime is a standing cost and an exposure surface (rule 22),
+       so the set is an ALLOWLIST of two, not a free-for-all. Anything else
+       appearing here fails. */
+    ["only messages and reactions are published to realtime, and NOTHING else",
       () => q(`select count(*)::int as rows from pg_publication_tables
-                where pubname='supabase_realtime' and not (schemaname='public' and tablename='messages')`)[0].rows, 0],
+                where pubname='supabase_realtime'
+                  and not (schemaname='public' and tablename in ('messages','message_reactions'))`)[0].rows, 0],
     ["…and messages IS published",
       () => q(`select count(*)::int as rows from pg_publication_tables
                 where pubname='supabase_realtime' and schemaname='public' and tablename='messages'`)[0].rows, 1],
@@ -5129,15 +5162,21 @@ if (runs(61)) {
         `select count(*)::int as rows from public.channel_mentionable('${CH61}') where user_id='${REAL61}'`), 0],
     ["…never offers you yourself",
       () => p61(OWN61, world61, `select count(*)::int as rows from public.channel_mentionable('${CH61}') where user_id='${OWN61}'`), 0],
+    /* `channel_mentionable.user_id` is TEXT, because the picker also offers
+       groups — '@everyone' comes back as 'channel' and a team as
+       'team:<uuid>'. So a person row has to be selected before it can be
+       compared with a profile id; joining the raw column against uuid failed
+       with "no such operator" and the probe reported that as the answer. */
     ["…never offers a fixture account to a real person",
-      () => p61(OWN61, world61, `select count(*)::int as rows from public.channel_mentionable('${CH61}') p join public.profiles pr on pr.id=p.user_id where pr.is_fixture`), 0],
+      () => p61(OWN61, world61, `select count(*)::int as rows from public.channel_mentionable('${CH61}') p join public.profiles pr on pr.id = p.user_id::uuid where p.user_id ~ '^[0-9a-f-]{36}$' and pr.is_fixture`), 0],
     ["…and hands a roster to NOBODY who cannot see the conversation (rule 1)",
       () => p61(GHL60_61, `insert into public.channels (id, agency_id, kind, name, created_by, open_to_scope) values ('${CH61}','${AG61}','topic','closed','${OWN61}', false);`,
         `select count(*)::int as rows from public.channel_mentionable('${CH61}')`), 0],
     ["the picker and the notifier agree, person for person",
       () => p61(OWN61, world61,
         `select count(*)::int as rows from public.channel_mentionable('${CH61}') m
-          where not public.channel_notifiable('${CH61}', m.user_id)`), 0],
+          where m.user_id ~ '^[0-9a-f-]{36}$'
+            and not public.channel_notifiable('${CH61}', m.user_id::uuid)`), 0],
     ["…a member of it IS notifiable",
       () => p61(OWN61, world61, `select public.channel_notifiable('${CH61}','${OWN61}')::text as rows`), "true"],
     ["…an all-hands channel reaches active staff who were never added",
@@ -5150,14 +5189,17 @@ if (runs(61)) {
         `select public.channel_notifiable('${CH61}','${CO61}')::text as rows`), "false"],
 
     /* ── §26 — an attachment is not more reachable than its message ── */
+    /* Scoped to THIS probe's message. Counting every channel_message file in
+       the agency read 14 and 13 as the team attached real files, against an
+       expected 1 and 0. */
     ["a file row on a message follows the message",
       () => p61(CO61, world61 + `insert into public.files (agency_id, entity_type, entity_id, bucket, path, name, uploaded_by) values ('${AG61}','channel_message','${M_OWNER}','bes-files','agency/channels/${CH61}/x.pdf','x.pdf','${OWN61}');`,
-        `select count(*)::int as rows from public.files where entity_type='channel_message'`), 1],
+        `select count(*)::int as rows from public.files where entity_type='channel_message' and entity_id=${M_OWNER}::text`), 1],
     ["…and NOT when the conversation is out of reach",
       () => p61(CO61, `insert into public.channels (id, agency_id, kind, name, created_by, open_to_scope) values ('${CH61}','${AG61}','topic','closed','${OWN61}', false);
         insert into public.messages (id, channel_id, author_id, body, body_text) overriding system value values (${M_OWNER},'${CH61}','${OWN61}','{}'::jsonb,'x');
         insert into public.files (agency_id, entity_type, entity_id, bucket, path, name, uploaded_by) values ('${AG61}','channel_message','${M_OWNER}','bes-files','agency/channels/${CH61}/x.pdf','x.pdf','${OWN61}');`,
-        `select count(*)::int as rows from public.files where entity_type='channel_message'`), 0],
+        `select count(*)::int as rows from public.files where entity_type='channel_message' and entity_id=${M_OWNER}::text`), 0],
     ["the storage policy routes the channels subtree through channel access",
       () => q(`select (position('storage_channel_of' in pg_get_expr(polqual, polrelid)) > 0)::text as rows from pg_policy where polname='bes_files_select'`)[0].rows, "true"],
     /* Permissive policies are OR-ed, so the question is not how many there
