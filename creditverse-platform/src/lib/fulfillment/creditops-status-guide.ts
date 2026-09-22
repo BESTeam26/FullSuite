@@ -182,6 +182,37 @@ export const CREDIT_OPS_STATUS_GUIDE: StatusGuideItem[] = [
   },
 
   // Complaints & Mailing Team
+  /* ── THE STEP BEFORE A COMPLAINT IS FILED (Dee, 2026-09-22) ─────────────
+     The guide only ever had FILED states, but the team has been typing
+     "For Complaints", "CFPB Needed" and "FTC Needed" — nine rows of a status
+     no queue could route on. Dee: that is a missing step, not a typo, so the
+     guide gains it rather than the work being reinterpreted as something it
+     is not. All three are work to do now: nobody outside BES is holding them
+     up, which is what separates them from CM AWAITING RESPONSE. */
+  {
+    code: "FOR COMPLAINTS",
+    name: "FOR COMPLAINTS",
+    description:
+      "Handed to Complaints & Mailing and waiting to be picked up. The entry state: somebody decides here which complaint, if any, this file needs.",
+    category: "complaints",
+    badgeClass: "bg-amber-500/10 text-amber-700 border-amber-500/30",
+  },
+  {
+    code: "CFPB NEEDED",
+    name: "CFPB NEEDED",
+    description:
+      "A CFPB complaint has been decided on and still has to be filed. Becomes CFPB FILED once it is submitted.",
+    category: "complaints",
+    badgeClass: "bg-orange-500/10 text-orange-700 border-orange-500/30",
+  },
+  {
+    code: "FTC NEEDED",
+    name: "FTC NEEDED",
+    description:
+      "An FTC complaint has been decided on and still has to be filed. Becomes FTC FILED once it is submitted.",
+    category: "complaints",
+    badgeClass: "bg-orange-500/10 text-orange-700 border-orange-500/30",
+  },
   {
     code: "CM NOT NEEDED",
     name: "CM NOT NEEDED",

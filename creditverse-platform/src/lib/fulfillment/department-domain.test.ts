@@ -39,7 +39,10 @@ describe("department / work status", () => {
     expect(nextDepartment("Bureau Calling")).toBeNull();
   });
   it("a hand-off opens the next department on its first open status", () => {
-    expect(handoffEntryStatus("Complaints")).toBe("LETTERS PENDING");
+    /* FOR COMPLAINTS, not LETTERS PENDING: Dee added the entry step on
+       2026-09-22, because a file handed to Complaints has not yet been
+       decided on, let alone had letters drafted. */
+    expect(handoffEntryStatus("Complaints")).toBe("FOR COMPLAINTS");
     expect(handoffEntryStatus("Bureau Calling")).toBe("BC NEEDED");
     expect(handoffEntryStatus("Support")).toBe("SUPPORT NEW");
   });
@@ -61,7 +64,7 @@ describe("handing off to several departments at once", () => {
   it("opens Bureau Calling AND Complaints from one handoff", () => {
     const plan = planHandoffs("Dispute", ["Bureau Calling", "Complaints"], []);
     expect(plan.opening.map((o) => o.department)).toEqual(["Bureau Calling", "Complaints"]);
-    expect(plan.opening.map((o) => o.entryStatus)).toEqual(["BC NEEDED", "LETTERS PENDING"]);
+    expect(plan.opening.map((o) => o.entryStatus)).toEqual(["BC NEEDED", "FOR COMPLAINTS"]);
     expect(plan.alreadyOpen).toEqual([]);
   });
 
