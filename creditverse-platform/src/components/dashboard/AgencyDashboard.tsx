@@ -25,7 +25,6 @@ import { ClockCard } from "@/components/time/ClockCard";
 import { AgencyBirthdayStrip } from "@/components/dashboard/AgencyBirthdayStrip";
 import { AttentionCenter } from "./agency/AttentionCenter";
 import { SubAccountMiniGrid } from "./agency/SubAccountMiniGrid";
-import { SubAccountInvoicingMetering } from "./SubAccountInvoicingMetering";
 import { AnnouncementsBoard } from "@/components/intranet/AnnouncementsBoard";
 import { KpiTile } from "@/components/dashboard/ops/KpiTile";
 
@@ -94,16 +93,6 @@ export const AgencyDashboard = () => {
       <AttentionCenter />
 
       <SubAccountMiniGrid subAccounts={subAccounts} onSwitch={switchToSubAccount} />
-
-      <div>
-        <div className="mb-3 flex items-center gap-2">
-          <Receipt className="h-4 w-4 text-status-warning" />
-          <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
-            Organization Invoicing &amp; Usage Metering
-          </h2>
-        </div>
-        <SubAccountInvoicingMetering />
-      </div>
 
       <div>
         <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-muted-foreground">Announcements</h2>

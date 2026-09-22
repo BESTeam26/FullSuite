@@ -9,7 +9,6 @@ import { AgencyAccessPanel } from "@/components/agency/AgencyAccessPanel";
 import { HqPageShell } from "@/pages/app/HqPages";
 import { cn } from "@/lib/utils";
 import { LiveCalendar } from "@/components/dashboard/LiveCalendar";
-import { SubAccountInvoicingMetering } from "@/components/dashboard/SubAccountInvoicingMetering";
 import { useAgencySettings } from "@/lib/agency-settings-context";
 import { Link } from "react-router-dom";
 import { useWorkforce } from "@/lib/data/use-workforce";
@@ -45,19 +44,41 @@ import {
 /**
  * Billing & Revenue.
  *
- * The figures that used to be here — "$31,650 platform MRR", "$6,624 usage",
- * "$11,250 fulfillment", "$5,281 DIY" — were written into the page. What is
- * actually measured today is per-organization seats and active records, and
- * AI credit usage; both are shown by the metering panel, which reads the
- * database. Invoices and MRR arrive with the payment connection.
+ * Twice now this page has shown money that did not exist. First a set of
+ * hardcoded figures ("$31,650 platform MRR"). Then the panel that replaced
+ * them, which was described as reading the database and did not: it multiplied
+ * each organization by a price list written into the component, invented an
+ * invoice number and a due date, and offered a "Dispatch Stripe Invoice"
+ * button that only raised a toast — for a provider that is not in the stack.
+ *
+ * Dee moved invoicing to GoHighLevel on 2026-09-22 and had the platform's own
+ * invoices deleted. So this page now says exactly that, and shows nothing.
+ * The engine behind it is untouched and paused, not removed: the tables,
+ * functions, the dunning policy and PayInvoicePanel are all still there, and
+ * the five billing cron jobs are deactivated rather than unscheduled
+ * (migration 20260922019000). A figure returns here when it is measured.
  */
 export const BillingPage = () => (
   <HqPageShell
     title="Billing & Revenue"
-    description="What each organization is using today. Invoicing and revenue reporting arrive with the payment connection."
+    description="Invoicing runs in GoHighLevel."
     icon={Receipt}
   >
-    <SubAccountInvoicingMetering />
+    <ContentCard title="The platform is not invoicing right now">
+      <div className="space-y-3 text-sm text-muted-foreground">
+        <p>
+          BES invoices partners through GoHighLevel. This platform is not
+          generating invoices, not sending payment reminders, and not charging
+          cards on file. The invoices created here before 22 September 2026
+          were deleted.
+        </p>
+        <p>
+          Nothing was removed — invoicing, reminders and card payment are
+          switched off and can be switched back on. Until then, what a partner
+          owes lives in GoHighLevel, not here.
+        </p>
+      </div>
+    </ContentCard>
   </HqPageShell>
 );
 
