@@ -266,3 +266,39 @@ provided", so `Complete` and `Ready for Round 1` both map to the existing
 fix and is not one. `COMPLETED` belongs to Dispute; Onboarding has no such
 value, and writing it would have produced a status the writer itself rejects.
 Check the department's own vocabulary before calling a mapping obvious.
+
+
+---
+
+## H. 2026-09-22 — custom columns, and the folder/list/task shape
+
+Dee, having said it more than once: *"I simply want this to be just like
+Monday.com and ClickUp. I have Folder (Partner Name), List and Task (Client
+Name). The task list should be able to create column like dropdown and on the
+actual list i should be able to change the drop down. dont make it too
+complicated."*
+
+The tree already was that shape — MANAGED OPS / OUTSOURCING folders per
+partner, Main Client List inside each, a client per row. What was missing was
+the ability to shape the list itself.
+
+**"Add column" is on the list toolbar.** Name, type (Dropdown, Text, Number,
+Date), and for a dropdown the choices one per line. It then renders on every
+row and is edited in place. Removing it archives it; the values survive.
+
+**It reuses the one field engine.** `workspace_fields` already stored a column
+definition and already supported `select`. The value table was the only thing
+bolted to work items, so it became `custom_field_values (field_id,
+entity_type, entity_id, value)` and `workspace_fields` gained `entity_type`
+and `agency_id`. There is no second table of client fields, because
+customisation is data (rule 17).
+
+Two constraints refuse a careless insert and are worth knowing before adding a
+field type: `options` must be the object `{ "choices": [...] }`, and `key`
+must match `^[a-z][a-z0-9_]{0,39}$`.
+
+**Credit tools were removed from the card the same day.** Dee: *"I dont need
+the credit tools here yet. We're using DisputeFox for credit repair CRM for
+now."* The eight panels stay in `src/components/clients/`, unmounted, per rule
+16b — a pause is not licence to remove the foundation. Re-mounting them is one
+tab.
