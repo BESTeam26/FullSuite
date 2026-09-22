@@ -44,7 +44,6 @@ import { ClientWorkTab } from "./client/ClientWorkTab";
 import { ClientInfoTab } from "./client/ClientInfoTab";
 import { ClientDocumentsTab } from "./client/ClientDocumentsTab";
 import { ClientHistoryTab } from "./client/ClientHistoryTab";
-import { ClientCreditToolsTab } from "./client/ClientCreditToolsTab";
 import { WhereThisFileIs } from "@/components/clients/WhereThisFileIs";
 import { ClientUpdateComposer } from "./client/ClientUpdateComposer";
 import { CompleteWorkSection } from "./CompleteWorkSection";
@@ -57,10 +56,6 @@ const TABS = [
   { id: "info", label: "Client Info" },
   { id: "documents", label: "Documents" },
   { id: "history", label: "History" },
-  /* Dee, 2026-09-21: the analysis tooling stays, one click away, behind a
-     single door — it does not lead the screen and it is not a second client
-     page. Loaded only when opened. */
-  { id: "credit", label: "Credit tools" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 
@@ -198,14 +193,6 @@ export function ClientWorkWorkspace({
         />
       )}
       {tab === "documents" && <ClientDocumentsTab clientId={clientId} />}
-      {tab === "credit" && (
-        <ClientCreditToolsTab
-          clientId={clientId}
-          clientName={client.name}
-          organizationId={client.organizationId ?? null}
-          outsourcingGroupId={client.outsourcingGroupId ?? null}
-        />
-      )}
       {tab === "history" && (
         <div className="space-y-3">
           {/* The same composer as the Work tab: an agent reading the history

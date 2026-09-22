@@ -18,6 +18,7 @@ import { roleAccessKey } from "@/lib/data/role-access";
 import { ORG_ROLE_LABELS } from "@/lib/fulfillment/role-access-defaults";
 import { useMyCreditOpsDepartments } from "@/lib/data/use-my-departments";
 import { departmentScopeOf } from "@/lib/data/my-departments-domain";
+import { useCreditOpsWorkScope } from "@/lib/data/use-creditops-scope";
 
 /* ------------------------------------------------------------------ */
 /* Departments                                                         */
@@ -411,6 +412,8 @@ export function CreditOpsAccessProvider({ children }: { children: ReactNode }) {
   const auth = useAuth();
   const { activeOrganization } = useAgency();
   const live = auth.mode === "live";
+  /* The queues this person may CHANGE, straight from the database (0922002). */
+  const workScope = useCreditOpsWorkScope();
   /* The View As preview: this space renders from the EFFECTIVE person's role
      and team placement, never the previewer's. Dee, 2026-09-19: "Do not leak
      Dee's Admin/Owner UI into the simulated Agent workspace." The data
@@ -491,8 +494,25 @@ export function CreditOpsAccessProvider({ children }: { children: ReactNode }) {
     myDepartments.includes(w.department),
   );
 
+  /* ── WHAT MAY BE CHANGED IS THE DATABASE'S ANSWER, NOT THIS FILE'S ──────
+     Dee, 2026-09-22: *"Actions such as change status, reassign, update
+     queue/work state, correct workflow must be controlled by explicit
+     CreditOps capabilities… Do not require Dee to be artificially placed in
+     Dispute, Support, Complaints, etc. just to operate the system."*
+
+     `myDepartments` above answers "which queues are MINE" — it drives the
+     navigation and the queue lists, and team placement is the right source
+     for that. It is the wrong source for "may I change this", because the
+     Original Owner runs the operation without sitting in any of the five.
+
+     So a live session asks `creditops_work_scope()`, the same function the
+     writers refuse on: the explicit capability, own team departments,
+     department-manager and division-manager seats. Demo mode has no database
+     to ask, so it keeps the local rule. */
   const canLogDepartment = (dept: CreditOpsDepartment) =>
-    access.canLogWork && myDepartments.includes(dept);
+    live
+      ? workScope.departments.includes(dept)
+      : access.canLogWork && myDepartments.includes(dept);
 
   return (
     <CreditOpsAccessContext.Provider

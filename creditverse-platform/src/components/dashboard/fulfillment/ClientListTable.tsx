@@ -37,6 +37,8 @@ const ROUND_OPTIONS = [
 ];
 import { useAuth } from "@/lib/auth/auth-context";
 import { useAssignableRoster } from "@/lib/data/use-workforce";
+import { useCreditOpsWorkScope } from "@/lib/data/use-creditops-scope";
+import type { CreditOpsDepartment } from "@/lib/fulfillment/creditops-access";
 
 /* Who is actually doing it. Every activity entry used to be attributed to
    "Agent (BES HQ)" — a name nobody has — so history could not say who did the
@@ -63,6 +65,8 @@ export function ClientListTable({
   departmentRows,
 }: ClientListTableProps) {
   const queryClient = useQueryClient();
+  /* The queues this person may change — the same answer the writers use. */
+  const workScope = useCreditOpsWorkScope();
   /* One invalidation after an inline edit. The list is a shared query, so
      refetching it here is what puts the new value in front of everybody
      looking at the same row rather than only the person who typed it. */
@@ -196,6 +200,14 @@ export function ClientListTable({
                cannot record a status the department does not have. */
             const cur = currentDepartment(departmentRows[client.id] ?? []);
             if (!cur) return <span className="text-muted-foreground">No open work</span>;
+            /* Offer the editor only where the database would accept the write.
+               The row used to be editable by any staff member who could see
+               the client; `set_client_department_status` now refuses outside
+               the person's work scope, and a control that always errors is
+               worse than none (rule 3, Dee 2026-09-22). */
+            if (!workScope.departments.includes(cur.department as CreditOpsDepartment)) {
+              return <span className="text-foreground">{cur.status}</span>;
+            }
             return (
               <EditableChoiceCell
                 label={`${cur.department} work status`}
