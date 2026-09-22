@@ -37,7 +37,7 @@ export const SubAccountSwitcher = () => {
   const { isAgencyStaff } = useAuth();
   /* The one authorization context the menu and the route guard already run
      on — no second resolution, and View As substitutes here too (rule 14). */
-  const { ctx: navContext } = useAgencyAccessContext();
+  const { ctx: navContext, loading: accessLoading } = useAgencyAccessContext();
   const switchToSubAccount = agencyContext?.switchToSubAccount || (() => {});
   const togglePinSubAccount = agencyContext?.togglePinSubAccount || (() => {});
 
@@ -100,7 +100,13 @@ export const SubAccountSwitcher = () => {
      the door agree, one function). An organization's own people keep it, as
      it is how somebody in two organizations moves between them; they never
      saw the HQ entry anyway. */
-  if (isAgencyStaff && !mayEnterOrganizations(navContext)) {
+  /* Until the answer is known, offer nothing. `isAgencyStaff` turns true at
+     the same moment the role arrives, so gating on it alone would paint the
+     chevron for a split second and then take it away — revealing a control is
+     fine, withdrawing one somebody may already have reached for is not
+     (rule 15). Same principle as `agencyPermissions.loading`: unknown means
+     no, so nothing flashes into view. */
+  if (accessLoading || (isAgencyStaff && !mayEnterOrganizations(navContext))) {
     return (
       <div className="border-b border-sidebar-border p-3">
         <div className="flex w-full items-center rounded-xl border border-sidebar-border bg-sidebar-accent/30 p-2.5 text-left">
