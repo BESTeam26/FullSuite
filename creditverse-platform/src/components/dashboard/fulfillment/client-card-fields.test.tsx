@@ -61,7 +61,6 @@ const show = (over: { canWork?: boolean; canManage?: boolean } = {}) =>
       canManage={over.canManage ?? true}
       onBack={() => undefined}
       onCompleteWork={() => undefined}
-      onManage={() => undefined}
       onStatusChange={noop}
       onAssigneeChange={noop}
       onDueChange={noop}

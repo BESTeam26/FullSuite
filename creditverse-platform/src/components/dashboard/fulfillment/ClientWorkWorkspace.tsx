@@ -32,9 +32,6 @@ import { ChevronRight } from "lucide-react";
 import {
   Collapsible, CollapsibleContent, CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import {
-  Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle,
-} from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { useCreditOpsStore } from "@/lib/fulfillment/creditops-client-store";
 import { useCreditOpsAccess, type CreditOpsDepartment } from "@/lib/fulfillment/creditops-access";
@@ -69,7 +66,6 @@ export function ClientWorkWorkspace({
   const access = useCreditOpsAccess();
   const perms = useAgencyPermissions();
   const [completing, setCompleting] = useState(false);
-  const [managing, setManaging] = useState(false);
 
   const client = store.clients.find((c) => c.id === clientId);
   const rows = store.getDepartmentStatuses(clientId);
@@ -135,7 +131,6 @@ export function ClientWorkWorkspace({
         onBack={onBack}
         backLabel={backLabel}
         onCompleteWork={() => setCompleting(true)}
-        onManage={() => setManaging(true)}
         onStatusChange={onStatusChange}
         onAssigneeChange={onAssigneeChange}
         onDueChange={onDueChange}
@@ -216,27 +211,26 @@ export function ClientWorkWorkspace({
         </div>
       )}
 
-      {/* ── MANAGEMENT CONTROLS, BEHIND More ───────────────────────────────
-          Lifecycle, the credit status vocabulary and the SLA/date overrides.
+      {/* ── MANAGEMENT CONTROLS, FOLDED INTO THE PAGE ─────────────────────
+          Lifecycle, the credit status vocabulary and the date corrections.
           Dee: "Normal agents should NOT have prominent access to archive /
-          change lifecycle, SLA override, advanced date corrections." Each of
-          these components keeps its own capability check — this only decides
-          where they are, never who may use them. */}
-      <Sheet open={managing} onOpenChange={setManaging}>
-        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
-          <SheetHeader>
-            <SheetTitle className="text-sm">Manage {client.name}</SheetTitle>
-            <SheetDescription className="text-xs">
-              Corrections and lifecycle. Everything here is recorded with your name.
-            </SheetDescription>
-          </SheetHeader>
-          <div className="mt-4 space-y-3">
+          change lifecycle, SLA override, advanced date corrections" — still
+          true, which is why it is shut by default and why each component
+          keeps its own capability check.
+
+          But it used to be a second panel opened over the first, and that is
+          the layering Dee objected to on 2026-09-22. Folded, it is in the
+          page, in order, and closing it does not close the client. */}
+      {canManage && (
+        <FoldedSection label="Manage this client"
+          hint="Corrections and lifecycle · recorded with your name">
+          <div className="space-y-3">
             <ClientStatusControl client={client} />
             <ClientAssignmentCard clientId={clientId} />
             <ClientLifecycleControl client={client} canEdit={canManage} />
           </div>
-        </SheetContent>
-      </Sheet>
+        </FoldedSection>
+      )}
     </div>
   );
 }

@@ -90,7 +90,7 @@ const CreditCases = lazy(chunkFor("/app/creditops/cases"));
 const BesPartners = lazy(chunkFor("/app/bes-partners"));
 const FundingDealDetail = lazy(chunkFor("/app/funding-deals/:dealId"));
 const DiyReferrals = lazy(chunkFor("/app/diy-referrals"));
-const CreditCaseRedirect = lazy(chunkFor("/app/creditops/cases/:id"));
+const CreditCasePage = lazy(chunkFor("/app/creditops/cases/:id"));
 const FundingFiles = lazy(chunkFor("/app/funding-files"));
 const FundingFileDetail = lazy(chunkFor("/app/funding-files/:fileId"));
 const Lenders = lazy(chunkFor("/app/lenders"));
@@ -625,7 +625,7 @@ const AppRoutes = () => {
             <Route path="creditops/cases" element={<RequirePermission permission="creditops.clients.view" label="Credit Cases"><CreditCases /></RequirePermission>} />
             <Route
               path="creditops/cases/:id"
-              element={<RequirePermission permission="creditops.clients.view" label="Credit Cases"><CreditCaseRedirect /></RequirePermission>}
+              element={<RequirePermission permission="creditops.clients.view" label="Credit Cases"><CreditCasePage /></RequirePermission>}
             />
             <Route
               path="operations"

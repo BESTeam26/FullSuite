@@ -56,7 +56,6 @@ export function ClientFileHeader({
   onBack,
   backLabel = "Back to clients",
   onCompleteWork,
-  onManage,
   onStatusChange,
   onAssigneeChange,
   onDueChange,
@@ -70,7 +69,6 @@ export function ClientFileHeader({
   /** "Back to clients" on a page; "Close" when the card is a panel over the list. */
   backLabel?: string;
   onCompleteWork: () => void;
-  onManage: () => void;
   onStatusChange: (department: CreditOpsDepartment, status: string) => Promise<void>;
   onAssigneeChange: (department: CreditOpsDepartment, assigneeId: string | null) => Promise<void>;
   onDueChange: (department: CreditOpsDepartment, date: string, reason: string) => Promise<void>;
@@ -169,31 +167,12 @@ export function ClientFileHeader({
           </Fact>
         </div>
 
+        {/* One button. The "More" menu held a single real item, Manage
+            client, which is now a folded section further down the page — and
+            a dropdown is a layer like any other (Dee, 2026-09-22). The rest
+            of it was a disabled row showing the client id. */}
         <div className="flex shrink-0 items-center gap-2">
           {canWork && <Button size="sm" onClick={onCompleteWork}>Complete Work</Button>}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button size="sm" variant="outline" aria-label="More">
-                <MoreHorizontal className="h-3.5 w-3.5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel className="text-xs">This client</DropdownMenuLabel>
-              {canManage ? (
-                <DropdownMenuItem className="text-xs" onSelect={onManage}>
-                  <ShieldAlert className="mr-2 h-3.5 w-3.5" /> Manage client
-                </DropdownMenuItem>
-              ) : (
-                <DropdownMenuItem disabled className="text-xs">
-                  Management controls need the ops.manage capability
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem disabled className="text-[11px] text-muted-foreground">
-                Client ID {client.id.slice(0, 8)}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
       </div>
     </header>
