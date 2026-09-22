@@ -207,3 +207,62 @@ until 2026-09-21, a fabricated client identity on every real file. Nobody
 noticed because the workspace never linked to it; the Clients directory, the
 calendar, notifications and the sidebar did. A consolidation is not finished
 while a second door onto the same record is still open.
+
+
+---
+
+## G. 2026-09-22 — who may CHANGE a file, and the words they may set
+
+Dee approved the card and corrected the authorization statement behind it:
+
+> "Do not derive CreditOps editability from Admin Team membership. Admin Team /
+> Management Team are organizational or communication groups. They must not be
+> authorization sources… Do not require Dee to be artificially placed in
+> Dispute, Support, Complaints, etc. just to operate the system."
+
+### The ladder, enforced in the database
+
+| View | May CHANGE |
+|---|---|
+| Original Owner | every queue, by an EXPLICIT grant of `creditops.work.manage` |
+| Division Manager | the CreditOps division their seat covers |
+| Department Manager | the departments their seats cover |
+| Team Lead / Agent | the departments their own teams place them in |
+| CEO / COO | nothing — organization-wide VISIBILITY only |
+
+`creditops_work_scope()` is the one answer; `set_client_department_status` and
+`handoff_client_departments` refuse on it, and the screen asks the same
+function rather than re-deriving the rule. `chief_operations` is deliberately
+excluded from mutation even though `managed_divisions_for()` grants it every
+division for reading: "Operational visibility and action remain separate."
+
+**What section C's "gap" turned out to be.** It described the interface as
+unable to tell departments apart. The truth was worse: the writers checked
+nothing beyond visibility, so ANY staff member could set ANY status on ANY
+department of ANY visible file. `canLogDepartment` in React was the whole
+control. Section C is superseded by this one.
+
+**Why `admin_auto` had to exist.** `resolve_agency_capability` granted every
+non-owner-gated key automatically to `agency_admin`, short-circuiting before
+the explicit member grant, so a grant could not be withheld from an admin.
+`owner_gated` was no help either — Dee and Aaron both carry `is_owner`, so
+that flag cannot tell the Original Owner from the COO. `admin_auto` defaults
+to true, leaving every existing key exactly as it resolved.
+
+Money is separate and stays separate: payroll, finance, partner financials,
+compensation and billing are owner-gated and were proved untouched by the new
+grant.
+
+### The vocabulary
+
+Complaints had only FILED states while the team worked in "needed" ones, so
+the guide gained **FOR COMPLAINTS, CFPB NEEDED, FTC NEEDED** — all actionable,
+with FOR COMPLAINTS as the handoff entry state in place of LETTERS PENDING.
+Onboarding gained nothing: Dee, "no other status aside from statuses I have
+provided", so `Complete` and `Ready for Round 1` both map to the existing
+`OB READY FOR R1`.
+
+**The trap worth remembering:** `Complete` → `COMPLETED` looks like a casing
+fix and is not one. `COMPLETED` belongs to Dispute; Onboarding has no such
+value, and writing it would have produced a status the writer itself rejects.
+Check the department's own vocabulary before calling a mapping obvious.
