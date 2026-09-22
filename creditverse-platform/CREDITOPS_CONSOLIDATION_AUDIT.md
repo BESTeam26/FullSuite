@@ -177,3 +177,33 @@ have — the database already refuses what it refuses.
 
 Each ships whole, with the gate green, before the next begins (rule 20: one
 active epic, parked deliberately).
+
+
+---
+
+## F. 2026-09-21 — the card became a ClickUp task, and the second screen went
+
+Dee, seeing the credit-repair page: *"I don't intend that to be like
+disputefox now, I need it to be like ClickUp or monday.com like how I worked
+on it with folders and lists."* Then, asked where a client should open:
+**a panel over the list**, and **the credit tools behind one tab**.
+
+What this section adds to the mapping above, which otherwise stands:
+
+| Change | Why |
+|---|---|
+| The four-tab card opens in a `Sheet` over the list, not by unmounting it | Closing it used to discard the filters, the grouping and the scroll position. Working down a queue is the job. |
+| Status and assignee are edited **on the card**, through `set_client_department_status` — the writer the list rows already use | A task card you cannot act on is a report. One writer means the row and the card are one event with one audit trail. |
+| The due date stays read-only unless `ops.manage` | It is derived by the SLA engine and an override demands a reason. The date is a commitment to the partner, not a property of the task. |
+| A fifth tab, **Credit tools**, holds the eight panels from the retired page, lazily | They are real, built, and used — but they are not what opening a client is for. |
+| `/app/creditops/cases/:id` redirects into the workspace | One client, one screen. The URL is kept because four places and every old message link to it. |
+| `WhereThisFileIs` on the Work tab, when more than one department holds the file | Section A row 1 gives the header the CURRENT department. §23 requires that several can be live at once and stay visible. |
+
+**The two screens are the finding worth remembering.** The consolidation in
+sections A–E was carried out on `ClientWorkWorkspace`, which the CreditOps
+workspace opens. The route `/app/creditops/cases/:id` kept mounting the
+ORIGINAL GHL AI Studio page — nine tabs, a hardcoded five-step tracker and,
+until 2026-09-21, a fabricated client identity on every real file. Nobody
+noticed because the workspace never linked to it; the Clients directory, the
+calendar, notifications and the sidebar did. A consolidation is not finished
+while a second door onto the same record is still open.

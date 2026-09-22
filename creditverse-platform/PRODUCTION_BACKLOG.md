@@ -49,13 +49,18 @@ queues correct themselves.
 3. ~~**Clock / attendance mobile**~~ — BUILT and deployed (P-048), with the
    day's accumulation (P-052) and the Eastern workday lock (P-051) on top.
    Awaiting a real punch from a Manila phone read back on a desktop.
-4. **CreditOps client workflow simplification** — work a file without knowing
-   the model. ← ACTIVE. Step one shipped (`ba57b15`): the fake progress
-   tracker is now the real department statuses, and Client Info reads the
-   canonical person instead of a fabricated one. Next: group the nine tabs
-   into Work · Client Info · Documents · History, and deal with the two
-   disconnected letter pipelines (RoundLettersPanel persists; Print & Download
-   reads an in-memory list that is always empty for a live client).
+4. ~~**CreditOps client workflow simplification**~~ — BUILT and deployed.
+   Dee, 2026-09-21: *"I need it to be like ClickUp or monday.com."* A client
+   now opens as a card in a panel OVER the list (`ca054b2`), with status,
+   owner and due date editable on the card, and the eight credit-repair
+   panels behind one Credit tools tab. The separate nine-tab page is gone and
+   its URL redirects to the same card (`ab91bbc`). Awaiting a real agent
+   working a file on it.
+
+   Still open in this area: the two disconnected letter pipelines
+   (`RoundLettersPanel` persists to the database; Print & Download reads an
+   in-memory list that is always empty for a live client), and the CreditOps
+   department checklist being a second engine beside `work_checklist_items`.
 5. **Notifications / Attention** — the system says what needs action.
 6. **Partner Portal** — after the internal workflow is stable (D-007).
 
