@@ -5,6 +5,7 @@ import {
   handoffEntryStatus,
   handoffTargets,
   planHandoffs,
+  CREDIT_STATUSES,
   departmentStatuses,
   departmentWorkState,
   isOpenDepartmentStatus,
@@ -144,5 +145,27 @@ describe("Dee's three states for one department row (§23)", () => {
   it("casing never decides whether somebody has work", () => {
     expect(departmentWorkState(row("round sent - awaiting results"))).toBe("waiting");
     expect(departmentWorkState(row("Completed"))).toBe("done");
+  });
+});
+
+describe("a monitoring issue is work, not a wait (Dee, 2026-09-22)", () => {
+  /* Asked whether Monitoring Issue 1/2/3 should behave like Non Workable,
+     which leaves every queue: "All monitoring issues remain actionable
+     items." The client cannot be worked until their monitoring access is
+     fixed, but fixing it IS Support's job — somebody chases it today. */
+  it("MONITORING ISSUE is actionable Support work", () => {
+    expect(departmentWorkState({ status: "MONITORING ISSUE" })).toBe("actionable");
+  });
+
+  it("and is not confused with MONITORING PENDING, which is a wait", () => {
+    /* One letter apart in meaning and nowhere near it in consequence:
+       PENDING is Onboarding waiting on the client to grant access. */
+    expect(departmentWorkState({ status: "MONITORING PENDING" })).toBe("waiting");
+  });
+
+  it("every numbered monitoring stage is offered and none is terminal", () => {
+    for (const s of ["Monitoring Issue 1", "Monitoring Issue 2", "Monitoring Issue 3"]) {
+      expect(CREDIT_STATUSES, s).toContain(s);
+    }
   });
 });

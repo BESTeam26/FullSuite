@@ -189,6 +189,17 @@ check("9 — Support's unassigned files are NOT Assignment Required",
   { n: 0 });
 
 console.log("\nLOCKED STATUS RULES");
+
+/* Dee, 2026-09-22, asked whether the monitoring stages should leave every
+   queue the way Non Workable now does: "All monitoring issues remain
+   actionable items." Every one of them lands on Support as real work. */
+check("10a — every monitoring stage is actionable Support work",
+  q.query(`select coalesce(string_agg(distinct
+             r.kind || '/' || r.department::text || '/' ||
+             public.creditops_status_is_actionable(r.department, r.entry_status)::text, ' '), '(none)') as v
+             from creditops_status_routing r
+            where r.status::text like 'Monitoring Issue%'`)[0].v,
+  "actionable/Support/true");
 check("10 — Ready For Reimport / Credit Update goes to Support, unassigned",
   probe(`${setup([P.ada])}
     ${makeClients(1, "Ready for Processing")}
