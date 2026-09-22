@@ -309,13 +309,6 @@ export const CREDIT_OPS_STATUS_GUIDE: StatusGuideItem[] = [
     badgeClass: "bg-amber-500/10 text-amber-700 border-amber-500/30",
   },
   {
-    code: "MONITORING PENDING",
-    name: "MONITORING PENDING",
-    description: "Credit monitoring account needs to be set up and verified.",
-    category: "onboarding",
-    badgeClass: "bg-amber-500/10 text-amber-700 border-amber-500/30",
-  },
-  {
     code: "ACCESS VERIFIED",
     name: "ACCESS VERIFIED",
     description:

@@ -157,10 +157,12 @@ describe("a monitoring issue is work, not a wait (Dee, 2026-09-22)", () => {
     expect(departmentWorkState({ status: "MONITORING ISSUE" })).toBe("actionable");
   });
 
-  it("and is not confused with MONITORING PENDING, which is a wait", () => {
-    /* One letter apart in meaning and nowhere near it in consequence:
-       PENDING is Onboarding waiting on the client to grant access. */
-    expect(departmentWorkState({ status: "MONITORING PENDING" })).toBe("waiting");
+  it("and Onboarding has no MONITORING PENDING to confuse it with", () => {
+    /* Dee, 2026-09-22: "Monitoring Pending - we don't have this, we only have
+       incomplete onboarding." Removed outright rather than retired: unlike a
+       client status, no department row was sitting on it. */
+    expect(departmentStatuses("Onboarding")).not.toContain("MONITORING PENDING");
+    expect(departmentStatuses("Onboarding")).toContain("OB INCOMPLETE");
   });
 
   it("every numbered monitoring stage is offered and none is terminal", () => {
