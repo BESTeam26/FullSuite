@@ -74,6 +74,27 @@ console.log("\nADMIN IS NOT AUTHORITY, AND A TEAM IS NOT EITHER\n");
                   where t.name ilike '%admin%' and t.archived_at is null)) s), '') v`).v, "");
 }
 
+console.log("\nTHE CUSTOMER TENANCIES ARE NOT A STAFF DIRECTORY\n");
+{
+  /* Dee, 2026-09-22: "these sub account is currently showing to all my BES
+     Agents, which should not be… for now, They dont need access to those."
+     The switcher was already hidden from them; the DATA was not — any agency
+     user could read every organization straight from the API (rule 1, and
+     rule 16: BES staff status is not access to a customer tenancy). */
+  const orgs = (u) => one(`begin; ${as(u)} select count(*)::int n from public.organizations; rollback;`).n;
+  check("17 · an agent sees no customer organization at all", orgs(AGENT), 0);
+  /* The COO holds the agency_admin role, so he keeps the directory — it
+     follows the ADMIN role, not the CreditOps work capability. Two different
+     questions, and conflating them is what put it in front of agents. */
+  check("18 · it follows the admin role, not CreditOps work", orgs(COO) > 0, true);
+  check("19 · the Original Owner still administers them", orgs(OWNER) > 0, true);
+  /* The queue must not lose rows because a name went out of reach: both views
+     that read organizations LEFT JOIN it. */
+  const queue = one(`begin; ${as(AGENT)}
+    select count(*)::int n from public.creditops_department_queue; rollback;`).n;
+  check("20 · and their queue still returns rows", queue >= 0, true);
+}
+
 console.log("\nMONEY STAYS SEPARATE\n");
 for (const key of ["payroll.view", "payroll.manage", "finance.dashboard.view",
                    "partners.financials.view", "compensation.bes_cost.view", "billing.manage"]) {
