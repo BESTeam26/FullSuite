@@ -37,11 +37,14 @@ import { useCreditOpsAccess, type CreditOpsDepartment } from "@/lib/fulfillment/
 import { useAgencyPermissions } from "@/lib/data/agency-permissions";
 import { currentDepartment } from "@/lib/fulfillment/department-domain";
 import { clientGroupLabel } from "@/lib/fulfillment/fulfillment-client-domain";
+import { setClientDepartmentStatus } from "@/lib/data/fulfillment-clients";
+import { setDueOverride, clearDueOverride } from "@/lib/data/client-workflow";
 import { ClientFileHeader } from "./client/ClientFileHeader";
 import { ClientWorkTab } from "./client/ClientWorkTab";
 import { ClientInfoTab } from "./client/ClientInfoTab";
 import { ClientDocumentsTab } from "./client/ClientDocumentsTab";
 import { ClientHistoryTab } from "./client/ClientHistoryTab";
+import { ClientCreditToolsTab } from "./client/ClientCreditToolsTab";
 import { ClientUpdateComposer } from "./client/ClientUpdateComposer";
 import { CompleteWorkSection } from "./CompleteWorkSection";
 import { ClientLifecycleControl } from "./ClientLifecycleControl";
@@ -53,15 +56,22 @@ const TABS = [
   { id: "info", label: "Client Info" },
   { id: "documents", label: "Documents" },
   { id: "history", label: "History" },
+  /* Dee, 2026-09-21: the analysis tooling stays, one click away, behind a
+     single door — it does not lead the screen and it is not a second client
+     page. Loaded only when opened. */
+  { id: "credit", label: "Credit tools" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 
 export function ClientWorkWorkspace({
   clientId,
   onBack,
+  backLabel,
 }: {
   clientId: string;
   onBack: () => void;
+  /** Set by whoever mounts the card — a panel closes, a page goes back. */
+  backLabel?: string;
 }) {
   const store = useCreditOpsStore();
   const access = useCreditOpsAccess();
@@ -97,6 +107,33 @@ export function ClientWorkWorkspace({
   const canWork = department ? access.canLogDepartment(department) : false;
   const canManage = perms.can("ops.manage");
 
+  /* The card's editable fields all go through the canonical writers the list
+     already uses, then refresh the department rows the header reads. Nothing
+     here decides who may write — `set_client_department_status` and the SLA
+     override refuse on their own (rule 1). */
+  const refreshDepartments = () => store.refreshDepartmentStatuses(clientId);
+  const onStatusChange = async (dept: CreditOpsDepartment, status: string) => {
+    await setClientDepartmentStatus({ clientId, department: dept, status });
+    refreshDepartments();
+  };
+  const onAssigneeChange = async (dept: CreditOpsDepartment, assigneeId: string | null) => {
+    /* The status is unchanged; the writer takes both together because
+       reassigning is a status-row event, recorded with the same audit. */
+    const row = rows.find((r) => r.department === dept);
+    await setClientDepartmentStatus({
+      clientId, department: dept, status: row?.status ?? "", assigneeId,
+    });
+    refreshDepartments();
+  };
+  const onDueChange = async (dept: CreditOpsDepartment, date: string, reason: string) => {
+    await setDueOverride(clientId, dept, date, reason);
+    refreshDepartments();
+  };
+  const onDueClear = async (dept: CreditOpsDepartment) => {
+    await clearDueOverride(clientId, dept);
+    refreshDepartments();
+  };
+
   return (
     <div className="space-y-4 text-xs">
       <ClientFileHeader
@@ -105,8 +142,13 @@ export function ClientWorkWorkspace({
         canWork={canWork}
         canManage={canManage}
         onBack={onBack}
+        backLabel={backLabel}
         onCompleteWork={() => setCompleting(true)}
         onManage={() => setManaging(true)}
+        onStatusChange={onStatusChange}
+        onAssigneeChange={onAssigneeChange}
+        onDueChange={onDueChange}
+        onDueClear={onDueClear}
       />
 
       <div className="flex gap-1 border-b border-border">
@@ -146,6 +188,14 @@ export function ClientWorkWorkspace({
         />
       )}
       {tab === "documents" && <ClientDocumentsTab clientId={clientId} />}
+      {tab === "credit" && (
+        <ClientCreditToolsTab
+          clientId={clientId}
+          clientName={client.name}
+          organizationId={client.organizationId ?? null}
+          outsourcingGroupId={client.outsourcingGroupId ?? null}
+        />
+      )}
       {tab === "history" && (
         <div className="space-y-3">
           {/* The same composer as the Work tab: an agent reading the history

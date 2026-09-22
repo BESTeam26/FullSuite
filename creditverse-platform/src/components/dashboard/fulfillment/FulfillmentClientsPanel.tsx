@@ -39,6 +39,7 @@ import { ClientListGrid } from "./ClientListGrid";
 import { OpsClientListToolbar } from "./OpsClientListToolbar";
 import { AddClientModal } from "./AddClientModal";
 import { ClientWorkWorkspace } from "./ClientWorkWorkspace";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 
 const ALL_STATUSES = "All Statuses";
 /* Who is looking, not a name in the source. "Assigned to me" used to mean
@@ -212,17 +213,34 @@ export function FulfillmentClientsPanel({
     prefs.visibleCols.includes(c.id),
   );
 
-  if (openClientId) {
-    return (
-      <ClientWorkWorkspace
-        clientId={openClientId}
-        onBack={() => setOpenClientId(null)}
-      />
-    );
-  }
-
   return (
     <div className="space-y-4">
+      {/* ── THE CLIENT OPENS OVER THE LIST, NOT INSTEAD OF IT ─────────────
+          Dee, 2026-09-21, choosing between a panel and a full page: the panel,
+          "what ClickUp itself does". Opening a client used to UNMOUNT the
+          list, so closing it threw away the filters, the grouping and the
+          scroll position — three clicks to get back to where you were, every
+          time, while working down a queue.
+
+          The card itself is unchanged: the same four tabs, the same header,
+          the same Complete Work and Manage drawers nested inside it. Only
+          where it is drawn has moved. */}
+      <Sheet open={!!openClientId} onOpenChange={(o) => !o && setOpenClientId(null)}>
+        <SheetContent side="right"
+          className="w-full gap-0 overflow-y-auto p-4 sm:max-w-4xl"
+          /* The list behind stays readable, so the queue is still the
+             context you are working in. */
+          aria-label="Client">
+          {openClientId && (
+            <ClientWorkWorkspace
+              clientId={openClientId}
+              onBack={() => setOpenClientId(null)}
+              backLabel="Close"
+            />
+          )}
+        </SheetContent>
+      </Sheet>
+
       <div className="mb-2 flex items-center justify-end gap-2 text-xs">
         <span className="text-muted-foreground">Show</span>
         <OpsSelect
