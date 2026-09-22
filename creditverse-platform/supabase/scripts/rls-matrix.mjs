@@ -559,13 +559,13 @@ if (runs(2)) {
     (select count(*) from public.client_department_statuses)::int as cds,
     (select count(*) from public.activity_events)::int as activity,
     (select count(*) from public.client_department_statuses s
-      where s.client_id not in (select c.id from public.fulfillment_clients c))::int as cds_leak,
+      where not exists (select 1 from public.fulfillment_clients c where c.id = s.client_id))::int as cds_leak,
     (select count(*) from public.activity_events a
       where a.entity_type = 'fulfillment_client'
-        and a.entity_id not in (select c.id::text from public.fulfillment_clients c))::int as activity_leak,
+        and not exists (select 1 from public.fulfillment_clients c where c.id::text = a.entity_id))::int as activity_leak,
     (select count(*) from public.files f
       where f.entity_type = 'client'
-        and f.entity_id not in (select c.id::text from public.fulfillment_clients c))::int as files_leak,
+        and not exists (select 1 from public.fulfillment_clients c where c.id::text = f.entity_id))::int as files_leak,
     (select count(*) from public.funding_files)::int as funding_files,
     (select count(*) from public.businesses)::int as businesses,
     (select count(*) from public.files)::int as files,
