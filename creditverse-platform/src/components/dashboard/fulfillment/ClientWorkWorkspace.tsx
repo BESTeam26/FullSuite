@@ -45,6 +45,7 @@ import { ClientInfoTab } from "./client/ClientInfoTab";
 import { ClientDocumentsTab } from "./client/ClientDocumentsTab";
 import { ClientHistoryTab } from "./client/ClientHistoryTab";
 import { ClientCreditToolsTab } from "./client/ClientCreditToolsTab";
+import { WhereThisFileIs } from "@/components/clients/WhereThisFileIs";
 import { ClientUpdateComposer } from "./client/ClientUpdateComposer";
 import { CompleteWorkSection } from "./CompleteWorkSection";
 import { ClientLifecycleControl } from "./ClientLifecycleControl";
@@ -171,13 +172,22 @@ export function ClientWorkWorkspace({
       </div>
 
       {tab === "work" && (
-        <ClientWorkTab
-          client={client}
-          clientId={clientId}
-          current={current}
-          nextAction={(client as { nextAction?: string | null }).nextAction ?? null}
-          onCompleteWork={() => setCompleting(true)}
-        />
+        <div className="space-y-3">
+          <ClientWorkTab
+            client={client}
+            clientId={clientId}
+            current={current}
+            nextAction={(client as { nextAction?: string | null }).nextAction ?? null}
+            onCompleteWork={() => setCompleting(true)}
+          />
+          {/* The Work tab leads with the department holding the file, which is
+              right — but a file can be live in several at once, and by Dee's
+              queue doctrine (§23) that is correct and must stay visible:
+              "Dispute = Waiting for Results alongside Support = Monitoring
+              Issue". Bryan Rodriguez is in five. This is the whole picture,
+              read apart into work-now, waiting and finished. */}
+          {rows.length > 1 && <WhereThisFileIs rows={rows} />}
+        </div>
       )}
       {tab === "info" && (
         <ClientInfoTab

@@ -93,7 +93,7 @@ export const ROUTE_CHUNKS: Record<string, Loader> = {
   "/app/clients": () => import("@/pages/app/Clients"),
   "/app/clients/:id": () => import("@/pages/app/ClientProfile"),
   "/app/creditops/cases": () => import("@/pages/app/CreditCases"),
-  "/app/creditops/cases/:id": () => import("@/pages/app/ClientDetail"),
+  "/app/creditops/cases/:id": () => import("@/pages/app/CreditCaseRedirect"),
   "/app/dispute-dashboard": () => import("@/pages/app/DisputeDashboard"),
   "/app/operations": () => import("@/pages/app/OrganizationCreditOps"),
 

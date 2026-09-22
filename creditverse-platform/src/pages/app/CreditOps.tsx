@@ -121,6 +121,13 @@ function CreditOpsWorkspace() {
       setSelection({ kind: "partner", partnerId: owner.id });
       setActiveView("main-list");
       setLinkedOpenClientId(client.id);
+    } else if (client) {
+      /* Visible, but not inside a partner folder we can name. The shared Main
+         Client List is universal by Dee's instruction, so it always has
+         somewhere honest to open — better than silently doing nothing, which
+         is what a link to such a client used to do. */
+      setSelection({ kind: "management", view: "mgmt-main-list" });
+      setLinkedOpenClientId(client.id);
     }
     setSearchParams({}, { replace: true });
   }, [linkedClient, clients, partners, setSearchParams]);
@@ -186,6 +193,7 @@ function CreditOpsWorkspace() {
                 <ManagementView
                   view={selection.view}
                   partnerScope={queuePartnerScope}
+                  openClientId={linkedOpenClientId}
                   onNavigateToView={(v) =>
                     setSelection({ kind: "management", view: v })
                   }
@@ -259,11 +267,14 @@ function AccessDeniedNotice() {
 function ManagementView({
   view,
   partnerScope,
+  openClientId,
   onNavigateToView,
 }: {
   view: string;
   /** Narrow a queue to one partner, when it was opened from that partner. */
   partnerScope: string | null;
+  /** A client to open on arrival, from ?client= — see the deep link above. */
+  openClientId?: string | null;
   onNavigateToView: (v: string) => void;
 }) {
   // Map management view ids to the actual queue types
@@ -287,7 +298,7 @@ function ManagementView({
   if (view === "mgmt-main-list") {
     return (
       <div className="p-6">
-        <FulfillmentClientsPanel selectedScope="all" />
+        <FulfillmentClientsPanel selectedScope="all" initialOpenClientId={openClientId ?? null} />
       </div>
     );
   }
