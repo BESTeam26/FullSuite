@@ -49,7 +49,7 @@ export function seedDepartmentStatuses(
   return [
     {
       department: "Onboarding",
-      status: client.round === "Pre-Round" ? "OB IN REVIEW" : "OB READY FOR R1",
+      status: client.round === "Pre-Round" ? "ONBOARDING IN REVIEW" : "ONBOARDING READY FOR ROUND 1",
       assignee: client.assignedAgent ?? "Unassigned",
       updatedAt: client.createdAt,
     },

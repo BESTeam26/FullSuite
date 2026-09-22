@@ -78,6 +78,8 @@ export const CLOSED_DEPARTMENT_STATUSES: ReadonlySet<string> = new Set([
   "CM NOT NEEDED",
   "CM COMPLETED",
   "SUPPORT RESOLVED",
+  "ONBOARDING READY FOR ROUND 1",
+  /* The pre-2026-09-22 spelling, kept so older rows still read as closed. */
   "OB READY FOR R1",
   "PARTNER ENDORSED",
   "COMPLETED",

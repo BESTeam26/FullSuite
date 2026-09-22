@@ -162,12 +162,39 @@ describe("a monitoring issue is work, not a wait (Dee, 2026-09-22)", () => {
        incomplete onboarding." Removed outright rather than retired: unlike a
        client status, no department row was sitting on it. */
     expect(departmentStatuses("Onboarding")).not.toContain("MONITORING PENDING");
-    expect(departmentStatuses("Onboarding")).toContain("OB INCOMPLETE");
+    expect(departmentStatuses("Onboarding")).toContain("INCOMPLETE ONBOARDING");
   });
 
   it("every numbered monitoring stage is offered and none is terminal", () => {
     for (const s of ["Monitoring Issue 1", "Monitoring Issue 2", "Monitoring Issue 3"]) {
       expect(CREDIT_STATUSES, s).toContain(s);
     }
+  });
+});
+
+
+describe("Onboarding says Onboarding (Dee, 2026-09-22)", () => {
+  /* "I don't want OB, I need full term Onboarding Not Started — and we don't
+     have that actually, it's incomplete onboarding only." */
+  it("abbreviates nothing", () => {
+    for (const s of departmentStatuses("Onboarding")) {
+      expect(s, s).not.toMatch(/^OB /);
+    }
+  });
+
+  it("has no not-started state, because BES does not have one", () => {
+    expect(departmentStatuses("Onboarding")).not.toContain("ONBOARDING NOT STARTED");
+    expect(departmentStatuses("Onboarding")).not.toContain("OB NOT STARTED");
+  });
+
+  it("opens a handed-over file as incomplete, which is the state it is in", () => {
+    expect(handoffEntryStatus("Onboarding")).toBe("INCOMPLETE ONBOARDING");
+  });
+
+  it("still reads the old spelling of the finished state as finished", () => {
+    /* Three live rows carried `OB READY FOR R1` before the rename. A report
+       over last month must not suddenly show them as open work (rule 11). */
+    expect(departmentWorkState({ status: "OB READY FOR R1" })).toBe("done");
+    expect(departmentWorkState({ status: "ONBOARDING READY FOR ROUND 1" })).toBe("done");
   });
 });

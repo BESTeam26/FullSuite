@@ -285,16 +285,16 @@ export const CREDIT_OPS_STATUS_GUIDE: StatusGuideItem[] = [
 
   // Onboarding Team
   {
-    code: "OB NOT STARTED",
-    name: "OB NOT STARTED",
+    code: "INCOMPLETE ONBOARDING",
+    name: "INCOMPLETE ONBOARDING",
     description:
-      "Client has not started onboarding. Begin intake and document collection.",
+      "Something is still missing — documents, payment or monitoring access. This is the state a file arrives in and what a handoff to Onboarding opens on; BES has no separate \"not started\" (Dee, 2026-09-22).",
     category: "onboarding",
-    badgeClass: "bg-slate-500/10 text-slate-700 border-slate-500/30",
+    badgeClass: "bg-rose-500/10 text-rose-700 border-rose-500/30",
   },
   {
-    code: "OB IN REVIEW",
-    name: "OB IN REVIEW",
+    code: "ONBOARDING IN REVIEW",
+    name: "ONBOARDING IN REVIEW",
     description:
       "Onboarding in progress — reviewing client information and documents.",
     category: "onboarding",
@@ -317,8 +317,8 @@ export const CREDIT_OPS_STATUS_GUIDE: StatusGuideItem[] = [
     badgeClass: "bg-teal-500/10 text-teal-700 border-teal-500/30",
   },
   {
-    code: "OB READY FOR R1",
-    name: "OB READY FOR R1",
+    code: "ONBOARDING READY FOR ROUND 1",
+    name: "ONBOARDING READY FOR ROUND 1",
     description:
       "Client fully onboarded and ready for Round 1 dispute processing.",
     category: "onboarding",
@@ -331,13 +331,5 @@ export const CREDIT_OPS_STATUS_GUIDE: StatusGuideItem[] = [
       "Partner has reviewed and endorsed the client file for processing.",
     category: "onboarding",
     badgeClass: "bg-emerald-500/10 text-emerald-700 border-emerald-500/30",
-  },
-  {
-    code: "OB INCOMPLETE",
-    name: "OB INCOMPLETE",
-    description:
-      "Onboarding incomplete — missing critical documents or monitoring.",
-    category: "onboarding",
-    badgeClass: "bg-rose-500/10 text-rose-700 border-rose-500/30",
   },
 ];
