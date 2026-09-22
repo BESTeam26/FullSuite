@@ -567,6 +567,18 @@ if (runs(2)) {
   const S2 = `
     (select count(*) from public.client_department_statuses)::int as cds,
     (select count(*) from public.activity_events)::int as activity,
+    (select count(*) from public.funding_files)::int as funding_files,
+    (select count(*) from public.businesses)::int as businesses,
+    (select count(*) from public.files)::int as files,
+    (select count(*) from public.fulfillment_clients where id='${dana}')::int as dana_by_id,
+    (select count(*) from public.fulfillment_clients where id='${ivan}')::int as ivan_by_id`;
+  /* The leak measures are their own select, NOT part of S2.
+     Folding them into S2 cost phase 2 twenty-odd minutes: S2 is evaluated for
+     every persona in this phase, and these three scan activity_events and
+     files under that persona's RLS. Only five probes ask for them. (My first
+     guess at the slowdown was a seed UPDATE, and I said so; removing it
+     changed the runtime by three minutes. Measuring beat guessing, again.) */
+  const S2LEAK = `
     (select count(*) from public.client_department_statuses s
       where not exists (select 1 from public.fulfillment_clients c where c.id = s.client_id))::int as cds_leak,
     (select count(*) from public.activity_events a
@@ -574,12 +586,8 @@ if (runs(2)) {
         and not exists (select 1 from public.fulfillment_clients c where c.id::text = a.entity_id))::int as activity_leak,
     (select count(*) from public.files f
       where f.entity_type = 'client'
-        and not exists (select 1 from public.fulfillment_clients c where c.id::text = f.entity_id))::int as files_leak,
-    (select count(*) from public.funding_files)::int as funding_files,
-    (select count(*) from public.businesses)::int as businesses,
-    (select count(*) from public.files)::int as files,
-    (select count(*) from public.fulfillment_clients where id='${dana}')::int as dana_by_id,
-    (select count(*) from public.fulfillment_clients where id='${ivan}')::int as ivan_by_id`;
+        and not exists (select 1 from public.fulfillment_clients c where c.id::text = f.entity_id))::int as files_leak`;
+
   const blind = (uid) => ({
     ...W(uid, `with a as (update public.client_department_statuses set updated_at=now() returning 1),
        b as (update public.funding_deals set updated_at=now() returning 1),
@@ -590,11 +598,11 @@ if (runs(2)) {
 
   const rows = [
     // ---- bes.restricted: the boundary ----
-    ["restricted sees no department status of a client they cannot reach", () => R(U["bes.restricted@bes.test"], S2).cds_leak, 0],
-    ["restricted sees no activity about a client they cannot reach",       () => R(U["bes.restricted@bes.test"], S2).activity_leak, 0],
+    ["restricted sees no department status of a client they cannot reach", () => R(U["bes.restricted@bes.test"], S2LEAK).cds_leak, 0],
+    ["restricted sees no activity about a client they cannot reach",       () => R(U["bes.restricted@bes.test"], S2LEAK).activity_leak, 0],
     ["restricted sees no funding files",             () => R(U["bes.restricted@bes.test"], S2).funding_files, 0],
     ["restricted sees no customer businesses",       () => R(U["bes.restricted@bes.test"], S2).businesses, 0],
-    ["restricted sees no client file they cannot reach",                   () => R(U["bes.restricted@bes.test"], S2).files_leak, 0],
+    ["restricted sees no client file they cannot reach",                   () => R(U["bes.restricted@bes.test"], S2LEAK).files_leak, 0],
     ["credit sees businesses only of orgs they reach", () => R(U["bes.credit@bes.test"], S2).businesses, q(`select count(*)::int n from public.businesses b where b.organization_id in (select organization_id from public.fulfillment_clients where assigned_agent_id='${U["bes.credit@bes.test"]}' and organization_id is not null)`)[0].n],
     ["restricted blind UPDATE cds → 0",              () => blind(U["bes.restricted@bes.test"]).upd_cds, 0],
     ["restricted blind UPDATE deals → 0",            () => blind(U["bes.restricted@bes.test"]).upd_deals, 0],
@@ -609,9 +617,9 @@ if (runs(2)) {
     ["Team A lead DOES see the unassigned queue",                       () => reachesUnassigned(U["bes.lead@bes.test"]), "true"],
     ["…and may update it",                                              () => W(U["bes.lead@bes.test"], `with u as (update public.fulfillment_clients set last_activity_at=now() where id='${dana}' returning 1) select count(*)::int as rows from u`).rows, 1],
     // ---- child follows parent ----
-    ["credit sees no department status of a client they cannot reach", () => R(U["bes.credit@bes.test"], S2).cds_leak, 0],
+    ["credit sees no department status of a client they cannot reach", () => R(U["bes.credit@bes.test"], S2LEAK).cds_leak, 0],
     ["…and still sees their own",                              () => R(U["bes.credit@bes.test"], S2).cds >= cdsForCredit ? "at least their own" : "missing some", "at least their own"],
-    ["credit sees no client activity they cannot reach",       () => R(U["bes.credit@bes.test"], S2).activity_leak, 0],
+    ["credit sees no client activity they cannot reach",       () => R(U["bes.credit@bes.test"], S2LEAK).activity_leak, 0],
     ["…and still sees their own",                              () => R(U["bes.credit@bes.test"], S2).activity >= actForCredit ? "at least their own" : "missing some", "at least their own"],
     ["funding agent sees no credit department statuses",       () => R(U["bes.funding@bes.test"], S2).cds, 0],
     // ---- no engagement means no access, even for the owner ----
