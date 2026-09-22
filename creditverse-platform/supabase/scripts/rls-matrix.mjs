@@ -947,7 +947,18 @@ if (runs(12)) {
     ["…both with an Organization ID",                                    () => multi ? W12(multi, `select count(*)::int as rows from public.organizations where public_id ~ '^BES-[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}$'`).rows : "no fixture", 2],
     ["single-organization owner sees one",                              () => W12(orgOwner, `select count(*)::int as rows from public.organizations`).rows, 1],
     ["an unrelated organization's ID resolves to nothing for them",      () => W12(orgOwner, `select count(*)::int as rows from public.organizations where public_id = (select public_id from public.organizations where name='[TEST] Cedar Financial')`).rows, 0],
-    ["BES staff with no scope still lists organizations (containers), not their data", () => W12(besRestricted, `select (select count(*) from public.organizations)::int - (select count(*) from public.work_items)::int as rows`).rows, q(`select count(*)::int n from public.organizations`)[0].n],
+    /* INVERTED 2026-09-22 on Dee's instruction: "these sub accounts are
+       currently showing to all my BES Agents, which should not be." An
+       Organization is operationally visible only where BES holds a LIVE
+       fulfillment engagement AND the reader is authorized for it
+       (migration 20260922017000). Being BES staff is not the rule and the
+       container is not a freebie — so an agent with no engagement scope sees
+       none at all, and the count is asserted against the live engagement
+       model rather than a number that would go stale the day BES signs
+       another customer. */
+    ["BES staff with no engagement scope list NO organizations",       () => W12(besRestricted, `select count(*)::int as rows from public.organizations`).rows, 0],
+    ["…while the executive lists exactly the ones BES is engaged on",   () => W12(U["bes.owner@bes.test"], `select count(*)::int as rows from public.organizations`).rows,
+      q(`select count(distinct e.organization_id)::int n from public.fulfillment_engagements e join public.organizations o on o.id = e.organization_id where public.engagement_is_live(e.status, e.effective_from, e.effective_to)`)[0].n],
     ["Organization IDs are unique",                                     () => q(`select (count(*) - count(distinct public_id))::int as rows from public.organizations`)[0].rows, 0],
     ["…and immutable",                                                  () => { try { q(`begin; update public.organizations set public_id='BES-ZZZZZZ' where name='[TEST] Lakeside Partners'; rollback;`); return 1; } catch (e) { return 0; } }, 0],
     ["…and generated when omitted",                                     () => q(`begin; with i as (insert into public.organizations (agency_id, name, code, principal_name, principal_email) values ('a0000000-0000-4000-8000-000000000001','probe','PRB','p','p@probe.test') returning public_id) select count(*)::int as rows from i where public_id ~ '^BES-[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}$'; rollback;`)[0].rows, 1],
