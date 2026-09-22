@@ -64,6 +64,23 @@ Last reconciled: 2026-09-21, after the Eastern workday lock (`1f6b8e7`).
 
 ## FOUND 2026-09-22, NOT YET FIXED
 
+- **An agent scoped to "assigned" still sees their whole team's clients, and
+  rule 20b says they should not.** Dee's four-views rule describes an agent as
+  "`access_scope = 'assigned'`, leads no team. Sees their OWN work and nobody
+  else's." `in_scope()` does not consult `access_scope` at all: one of its arms
+  grants sight to any member of the team that holds the record, and a broader
+  one to anyone in the record's department. Measured — bes.credit (assigned
+  scope) sees [TEST] Dana Doyle whether she is unassigned, assigned to the team
+  lead, or assigned to them.
+  **This is NOT being changed on a hunch.** `in_scope()` is read by most
+  policies in the database, Dee's standing instruction is "do not broaden
+  can_see_partner() or in_scope()", and narrowing it would change what every
+  agent sees across the whole product — an architecture change (rule 20), which
+  is planned and documented rather than executed, and needs a full matrix run
+  behind it. **The question for Dee:** should an agent see the files their
+  TEAM holds, or only the files assigned to them? One security-gate check
+  stays red until she answers, which is the honest state for it.
+
 - **Aaron's role and his reach disagree, and only Dee can say which is right.**
   `aaron@blessedempireservices.com` is `agency_admin` with `is_owner = true`
   but `scope = 'assigned'` — owner-gated capabilities (which include the money
