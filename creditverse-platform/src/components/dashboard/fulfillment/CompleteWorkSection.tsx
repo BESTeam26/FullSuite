@@ -453,9 +453,26 @@ export function CompleteWorkSection({
                 {submitError} Your selection has been kept.
               </p>
             )}
+            {/* Dee reported Complete Work as "not working", twice. It was not
+                broken: it is disabled until at least one thing is ticked, and
+                it said so nowhere. A disabled button with no reason beside it
+                is indistinguishable from a dead one — you click, nothing
+                happens, you report it broken, and you are right to (rules 12
+                and 15). Every department has 8–11 actions, so there is always
+                something to tick; the only thing missing was the sentence. */}
+            {selectedItems.length === 0 && !isSubmitting && (
+              <p className="flex-1 text-[11px] text-muted-foreground">
+                Tick what you finished above, then this turns green.
+              </p>
+            )}
             <button
               onClick={() => void handleCompleteWork()}
               disabled={selectedItems.length === 0 || isSubmitting}
+              title={
+                selectedItems.length === 0
+                  ? "Tick at least one thing you completed first"
+                  : undefined
+              }
               aria-busy={isSubmitting}
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-lg px-4 py-2 font-bold shadow transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-card",
