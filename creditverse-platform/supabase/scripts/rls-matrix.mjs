@@ -7567,7 +7567,11 @@ if (runs(73)) {
     }
   };
   const OWN73 = U["bes.owner@bes.test"], AGENT73 = U["bes.credit@bes.test"];
-  const PROJ73 = q(`select id::text as rows from public.crm_projects limit 1`)[0].rows;
+  /* Deterministic. `limit 1` with no ORDER BY picked a different project on
+     different runs, so the blocker count below was pinned to whichever row
+     came back first — it read 4 one run and 3 the next, with nothing having
+     changed. */
+  const PROJ73 = q(`select id::text as rows from public.crm_projects order by id limit 1`)[0].rows;
   const AG73 = q(`select agency_id::text as rows from public.crm_projects where id='${PROJ73}'`)[0].rows;
   const GRP73 = q(`select coalesce(partner_group_id::text,'') as rows from public.crm_projects where id='${PROJ73}'`)[0].rows;
 
@@ -7586,9 +7590,22 @@ if (runs(73)) {
     ["the table itself still refuses a direct delete, for the owner too",
       () => p73(OWN73, `delete from public.crm_projects where id = '${PROJ73}'`), "ERR 42501"],
 
+    /* Counted independently rather than pinned to a number. The point is that
+       the function names EVERY kind of history this project actually has —
+       a hardcoded 4 tests the fixture, not the function, and goes stale the
+       moment somebody adds a milestone. */
     ["a project with real history reports exactly why it cannot be deleted",
-      () => q(`select array_length(public.crm_project_deletion_blockers('${PROJ73}'), 1) as rows`)[0].rows,
-      4],
+      () => q(`select coalesce(array_length(public.crm_project_deletion_blockers('${PROJ73}'), 1), 0) as rows`)[0].rows,
+      /* The same six categories the function checks, joined the way it joins
+         them — production and time reach the project THROUGH work_items. */
+      q(`select (
+           (exists (select 1 from public.production_logs l join public.work_items w on w.id=l.work_item_id where w.crm_project_id='${PROJ73}'))::int +
+           (exists (select 1 from public.time_entries t join public.work_items w on w.id=t.work_item_id where w.crm_project_id='${PROJ73}'))::int +
+           (exists (select 1 from public.work_items w where w.crm_project_id='${PROJ73}' and w.stage <> 'Queued'))::int +
+           (exists (select 1 from public.crm_milestones m where m.project_id='${PROJ73}' and m.completed_at is not null))::int +
+           (exists (select 1 from public.files f where f.entity_type='crm_project' and f.entity_id='${PROJ73}'))::int +
+           (exists (select 1 from public.crm_client_requirements r where r.project_id='${PROJ73}'))::int
+         ) as rows`)[0].rows],
     ["and deleting it is refused rather than cascading",
       () => p73(OWN73, `select public.crm_project_delete('${PROJ73}')`), "ERR 23503"],
 
