@@ -277,10 +277,16 @@ export function OpsGlobalQueue<T extends OpsClient, P extends OpsPartner>({
                     ))}
                     <td
                       className="px-3 py-2.5"
+                      /* Same bug as OpsClientListTable: this asked for the
+                         clicked element's own tag, and the status control
+                         wraps its value, so the click reached the row handler
+                         and opened the file instead of changing the status.
+                         `closest` asks whether the click landed inside a
+                         control, which is the question. */
                       onClick={(e) => {
-                        const tag = (e.target as HTMLElement).tagName;
-                        if (["SELECT", "OPTION"].includes(tag))
-                          e.stopPropagation();
+                        if ((e.target as HTMLElement).closest(
+                          'button, input, select, textarea, a, label, [role="combobox"], [role="listbox"], [role="option"]',
+                        )) e.stopPropagation();
                       }}
                     >
                       {editingStatusId === c.id ? (
