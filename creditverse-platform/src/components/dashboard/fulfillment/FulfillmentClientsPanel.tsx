@@ -256,7 +256,19 @@ export function FulfillmentClientsPanel({
         ].map((s) => (
           <div key={s.label} className="rounded-lg border border-border bg-card px-3 py-2">
             <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{s.label}</p>
-            <p className={`mt-0.5 text-lg font-bold ${s.tone}`}>{s.value}</p>
+            {/* A tile that says 0 while the list is still arriving is not a
+                slower truth, it is a different one — "there is no work here".
+                The bar keeps the tile exactly the height the number will be,
+                so nothing moves when the figure lands (Dee, 2026-09-23:
+                screens "flash and blink before it load properly"). */}
+            {store.loading ? (
+              <div
+                aria-hidden
+                className="mt-0.5 h-[1.75rem] w-10 animate-pulse rounded bg-muted"
+              />
+            ) : (
+              <p className={`mt-0.5 text-lg font-bold ${s.tone}`}>{s.value}</p>
+            )}
           </div>
         ))}
       </div>
@@ -309,7 +321,25 @@ export function FulfillmentClientsPanel({
         statusOptions={STATUS_OPTIONS}
       />
 
-      {filtered.length === 0 ? (
+      {/* "No clients match your filters" is a STATEMENT ABOUT THE FILTERS, and
+          for the 400ms before the list arrives it is not true — there are
+          clients, they are in flight. An operator who reads it concludes the
+          queue is empty, or that their filter is wrong, and it is neither.
+          The skeleton stands in the same place at the same height, so the real
+          rows replace it without the page moving (Dee, 2026-09-23). */}
+      {store.loading ? (
+        <div className="overflow-hidden rounded-xl border border-border" aria-busy="true" aria-label="Loading clients">
+          <div className="h-10 border-b border-border bg-muted/40" />
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-4 border-b border-border px-3 py-2.5 last:border-b-0">
+              <div className="h-4 flex-1 animate-pulse rounded bg-muted" />
+              <div className="h-4 w-20 animate-pulse rounded bg-muted" />
+              <div className="h-4 w-28 animate-pulse rounded bg-muted" />
+              <div className="h-4 w-40 animate-pulse rounded bg-muted" />
+            </div>
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
         <ContentCard title="No clients match your filters">
           <p className="text-sm text-muted-foreground">
             Adjust the status filter or search to find clients for this Partner.

@@ -88,6 +88,18 @@ export interface ProductionLogInput {
 
 export interface OpsClientStoreValue<T extends OpsClient, D> {
   clients: T[];
+  /**
+   * True until the client list has arrived for the first time.
+   *
+   * Without it a screen cannot tell "no clients" from "not yet", so it renders
+   * an empty list and counts of zero and then jumps to the real figures.
+   * CreditOps showed `TOTAL CLIENTS 0 · ACTIVE 0 · DUE TODAY 0 · OVERDUE 0` and
+   * an empty table for 400ms before snapping to 10/10/5/4 — measured on
+   * production, 2026-09-23, and the reason Dee reports screens that "flash and
+   * blink before it load properly". Briefly showing a confident zero is worse
+   * than showing nothing: it reads as "there is no work here".
+   */
+  loading: boolean;
   activity: OpsActivityEntry[];
   getActivity: (clientId: string) => OpsActivityEntry[];
   getDepartmentStatuses: (clientId: string) => D[];
@@ -544,6 +556,8 @@ export function createOpsClientStore<T extends OpsClient, D>(
     const value = useMemo<OpsClientStoreValue<T, D>>(
       () => ({
         clients,
+        /* The seeded store holds its clients in memory; nothing is in flight. */
+        loading: false,
         activity,
         getActivity,
         getDepartmentStatuses,
@@ -894,6 +908,9 @@ export function createOpsClientStore<T extends OpsClient, D>(
     const value = useMemo<OpsClientStoreValue<T, D>>(
       () => ({
         clients,
+        /* Only the FIRST load. A background refetch must not blank a screen
+           somebody is already reading. */
+        loading: clientsQuery.isPending,
         activity,
         getActivity: () => [],
         getDepartmentStatuses,
@@ -917,6 +934,7 @@ export function createOpsClientStore<T extends OpsClient, D>(
       // eslint-disable-next-line react-hooks/exhaustive-deps
       [
         clients,
+        clientsQuery.isPending,
         getDepartmentStatuses,
         refreshDepartmentStatuses,
         updateStatus,
@@ -957,6 +975,9 @@ export function createOpsClientStore<T extends OpsClient, D>(
       Promise.reject(new Error("No operations context — write refused."));
     return {
       clients: [],
+      /* Not loading — there is nothing to load and never will be. A screen
+         that showed a skeleton here would wait forever. */
+      loading: false,
       activity: [],
       getActivity: () => [],
       getDepartmentStatuses: () => [],
