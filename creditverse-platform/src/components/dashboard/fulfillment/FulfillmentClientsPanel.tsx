@@ -23,6 +23,8 @@ import { ContentCard } from "@/components/dashboard/DivisionLayout";
 import { useCreditOpsStore } from "@/lib/fulfillment/creditops-client-store";
 import { QUICK_VIEWS, matchesQuickView, quickViewCounts, type QuickViewId } from "@/lib/fulfillment/quick-views";
 import { BulkActionBar } from "./BulkActionBar";
+import { CreditOpsCoverageStrip } from "./CreditOpsCoverageStrip";
+import { useCreditOpsCoverage, type CoverageState } from "@/lib/data/use-creditops-coverage";
 import type { CreditOpsPartner } from "@/lib/fulfillment/creditops-partners";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useCreditOpsAccess } from "@/lib/fulfillment/creditops-access";
@@ -93,6 +95,11 @@ export function FulfillmentClientsPanel({
   /* Selected rows, for the bulk bar. Cleared whenever the view changes: a
      selection you can no longer see is a selection you can act on by accident. */
   const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set());
+  /* The coverage card somebody has clicked, if any. Separate from the quick
+     view: "my work" and "what is falling through" are different questions and
+     a lead uses both at once. */
+  const [coverageFilter, setCoverageFilter] = useState<CoverageState | null>(null);
+  const coverage = useCreditOpsCoverage();
   /* Lifecycle view: active clients by default; history stays one click away. */
   const [lifecycleView, setLifecycleView] = useState<"active" | "all" | "archived">("active");
   const lifecycleFiltered = useMemo(
@@ -202,10 +209,17 @@ export function FulfillmentClientsPanel({
     [user?.id, teamIds],
   );
   const quickCounts = useMemo(() => quickViewCounts(shown, quickCtx), [shown, quickCtx]);
-  const inView = useMemo(
-    () => (quickView === "all" ? shown : shown.filter((c) => matchesQuickView(c, quickView, quickCtx))),
-    [shown, quickView, quickCtx],
-  );
+  /* The clients in the chosen coverage state, taken from the rows the strip
+     counted — so a card reading 13 filters to thirteen and never twelve. */
+  const coverageIds = useMemo(() => {
+    if (!coverageFilter) return null;
+    return new Set((coverage.data ?? []).filter((r) => r.state === coverageFilter).map((r) => r.client_id));
+  }, [coverage.data, coverageFilter]);
+
+  const inView = useMemo(() => {
+    const byQuickView = quickView === "all" ? shown : shown.filter((c) => matchesQuickView(c, quickView, quickCtx));
+    return coverageIds ? byQuickView.filter((c) => coverageIds.has(c.id)) : byQuickView;
+  }, [shown, quickView, quickCtx, coverageIds]);
 
   /* Anything selected that the current view no longer shows is dropped, so a
      bulk action can only ever reach rows on screen. */
@@ -277,6 +291,13 @@ export function FulfillmentClientsPanel({
           aria-label="Lifecycle filter"
         />
       </div>
+      <CreditOpsCoverageStrip
+        rows={coverage.data ?? []}
+        loading={coverage.isPending}
+        active={coverageFilter}
+        onPick={setCoverageFilter}
+      />
+
       {/* Dee's CreditOps design, 2026-09-23 — "Quick views: work your list
           your way." The count beside each label is computed from the same
           predicate that filters the rows, so the tab and the table can never
