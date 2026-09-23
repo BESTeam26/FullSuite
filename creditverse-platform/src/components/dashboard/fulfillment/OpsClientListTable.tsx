@@ -464,7 +464,7 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
           <thead className="bg-muted/50">
             <tr>
               {selection && (
-                <th className="w-9 px-3 py-2.5">
+                <th className="sticky left-0 z-20 w-9 bg-muted/50 px-3 py-2.5">
                   {/* Selects what is ON SCREEN, which is what the filters and
                       the quick view have narrowed to — never every client in
                       the division. "Select all" that reaches rows you cannot
@@ -484,14 +484,25 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
                   />
                 </th>
               )}
-              {visibleCols.map((col) => (
+              {visibleCols.map((col, i) => (
                 <th
                   key={col.id}
                   style={{
                     width: prefs.colWidths[col.id] ?? col.defaultWidth,
                     minWidth: col.minWidth,
+                    /* Sits just right of the checkbox when there is one. */
+                    ...(i === 0 ? { left: selection ? 36 : 0 } : {}),
                   }}
-                  className="relative px-3 py-2.5 text-left font-medium text-muted-foreground whitespace-nowrap"
+                  /* The name column stays put while the rest scrolls.
+                     This table is wider than any screen — eleven columns,
+                     1781px against 753px of viewport — so reaching Due Date
+                     scrolled the CLIENT'S NAME off the left and left you
+                     editing a row you could no longer identify. ClickUp pins
+                     the task name for the same reason. */
+                  className={cn(
+                    "relative px-3 py-2.5 text-left font-medium text-muted-foreground whitespace-nowrap",
+                    i === 0 && "sticky z-20 bg-muted/50",
+                  )}
                 >
                   <button
                     onClick={() => handleSort(col.id)}
@@ -532,7 +543,16 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
                 onClick={() => onOpenClient(c.id)}
               >
                 {selection && (
-                  <td className="w-9 px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+                  <td
+                    className={cn(
+                      "sticky left-0 z-10 w-9 px-3 py-2.5",
+                      /* Opaque either way, tinted when the row is selected —
+                         a pinned cell that stayed plain would read as an
+                         unselected row beside a selected one. */
+                      selection.selected.has(c.id) ? "bg-primary/5" : "bg-[hsl(var(--card))]",
+                    )}
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <input
                       type="checkbox"
                       aria-label={`Select ${c.name}`}
@@ -542,14 +562,22 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
                     />
                   </td>
                 )}
-                {visibleCols.map((col) => (
+                {visibleCols.map((col, i) => (
                   <td
                     key={col.id}
                     style={{
                       width: prefs.colWidths[col.id] ?? col.defaultWidth,
                       minWidth: col.minWidth,
+                      ...(i === 0 ? { left: selection ? 36 : 0 } : {}),
                     }}
-                    className="px-3 py-2.5 text-foreground whitespace-nowrap"
+                    /* An opaque background is what makes a sticky cell work:
+                       without it the scrolling columns slide visibly under the
+                       name. */
+                    className={cn(
+                      "px-3 py-2.5 text-foreground whitespace-nowrap",
+                      i === 0 && "sticky z-10",
+                      i === 0 && (selection?.selected.has(c.id) ? "bg-primary/5" : "bg-[hsl(var(--card))]"),
+                    )}
                     /* Clicking a CONTROL edits; clicking the rest of the row
                        opens the file. This tested the clicked element's own
                        tag, and every control in this table wraps its value in
