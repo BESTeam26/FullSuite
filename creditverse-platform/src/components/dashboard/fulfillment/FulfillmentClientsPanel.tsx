@@ -22,6 +22,7 @@ import type { DepartmentStatus } from "@/lib/fulfillment/creditops-store-types";
 import { ContentCard } from "@/components/dashboard/DivisionLayout";
 import { useCreditOpsStore } from "@/lib/fulfillment/creditops-client-store";
 import { QUICK_VIEWS, matchesQuickView, quickViewCounts, type QuickViewId } from "@/lib/fulfillment/quick-views";
+import { BulkActionBar } from "./BulkActionBar";
 import type { CreditOpsPartner } from "@/lib/fulfillment/creditops-partners";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useCreditOpsAccess } from "@/lib/fulfillment/creditops-access";
@@ -89,6 +90,9 @@ export function FulfillmentClientsPanel({
      way." Defaults to All so nobody lands on an empty screen wondering where
      their queue went. */
   const [quickView, setQuickView] = useState<QuickViewId>("all");
+  /* Selected rows, for the bulk bar. Cleared whenever the view changes: a
+     selection you can no longer see is a selection you can act on by accident. */
+  const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set());
   /* Lifecycle view: active clients by default; history stays one click away. */
   const [lifecycleView, setLifecycleView] = useState<"active" | "all" | "archived">("active");
   const lifecycleFiltered = useMemo(
@@ -202,6 +206,17 @@ export function FulfillmentClientsPanel({
     () => (quickView === "all" ? shown : shown.filter((c) => matchesQuickView(c, quickView, quickCtx))),
     [shown, quickView, quickCtx],
   );
+
+  /* Anything selected that the current view no longer shows is dropped, so a
+     bulk action can only ever reach rows on screen. */
+  useEffect(() => {
+    setSelected((prev) => {
+      if (prev.size === 0) return prev;
+      const visible = new Set(inView.map((c) => c.id));
+      const next = new Set([...prev].filter((id) => visible.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [inView]);
 
   const activeCount = inView.filter((c) => isActiveClient(c)).length;
 
@@ -394,6 +409,8 @@ export function FulfillmentClientsPanel({
         <ClientListTable
           departmentRows={departmentRows}
           clients={inView}
+          selected={selected}
+          onSelectedChange={setSelected}
           visibleCols={visibleCols}
           prefs={prefs}
           setPrefs={setPrefs}

@@ -81,6 +81,19 @@ interface OpsClientListTableProps<T extends OpsClient, Id extends string> {
   actor: string;
   /** Selectable statuses for the inline status editor. */
   statusOptions: readonly string[];
+  /**
+   * Multi-select, when the caller wants it.
+   *
+   * Passed in rather than held here because the BULK BAR lives outside the
+   * table — the caller owns what "apply to these ten" means, and a table that
+   * changed records on its own would be a second place where writes happen
+   * (rule 5).
+   */
+  selection?: {
+    selected: ReadonlySet<string>;
+    onToggle: (id: string) => void;
+    onToggleAll: (ids: string[]) => void;
+  };
   /** Scoped assignee pool — never the whole agency directory. */
   /** The roster this division may assign to, as identities, not labels. */
   assignees: readonly AssignedPerson[];
@@ -100,6 +113,7 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
   actions,
   actor,
   statusOptions,
+  selection,
   assignees,
   renderStatusPill,
   renderExtraCell,
@@ -449,6 +463,27 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
         <table className="w-full text-sm">
           <thead className="bg-muted/50">
             <tr>
+              {selection && (
+                <th className="w-9 px-3 py-2.5">
+                  {/* Selects what is ON SCREEN, which is what the filters and
+                      the quick view have narrowed to — never every client in
+                      the division. "Select all" that reaches rows you cannot
+                      see is how a bulk action becomes an accident. */}
+                  <input
+                    type="checkbox"
+                    aria-label="Select all clients in this view"
+                    className="h-3.5 w-3.5 cursor-pointer accent-primary"
+                    checked={clients.length > 0 && clients.every((c) => selection.selected.has(c.id))}
+                    ref={(el) => {
+                      if (el) {
+                        const n = clients.filter((c) => selection.selected.has(c.id)).length;
+                        el.indeterminate = n > 0 && n < clients.length;
+                      }
+                    }}
+                    onChange={() => selection.onToggleAll(clients.map((c) => c.id))}
+                  />
+                </th>
+              )}
               {visibleCols.map((col) => (
                 <th
                   key={col.id}
@@ -490,9 +525,23 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
             {clients.map((c) => (
               <tr
                 key={c.id}
-                className="cursor-pointer transition-colors hover:bg-muted/30"
+                className={cn(
+                  "cursor-pointer transition-colors hover:bg-muted/30",
+                  selection?.selected.has(c.id) && "bg-primary/5",
+                )}
                 onClick={() => onOpenClient(c.id)}
               >
+                {selection && (
+                  <td className="w-9 px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      aria-label={`Select ${c.name}`}
+                      className="h-3.5 w-3.5 cursor-pointer accent-primary"
+                      checked={selection.selected.has(c.id)}
+                      onChange={() => selection.onToggle(c.id)}
+                    />
+                  </td>
+                )}
                 {visibleCols.map((col) => (
                   <td
                     key={col.id}

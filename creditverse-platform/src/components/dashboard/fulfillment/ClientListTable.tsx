@@ -17,6 +17,7 @@ import {
   type ViewPrefs,
 } from "./client-list-helpers";
 import { OpsClientListTable } from "./OpsClientListTable";
+import { BulkActionBar } from "./BulkActionBar";
 import { clientGroupLabel } from "@/lib/fulfillment/fulfillment-client-domain";
 import type { DepartmentStatus } from "@/lib/fulfillment/creditops-store-types";
 import { currentDepartment, departmentStatuses, openDepartments } from "@/lib/fulfillment/department-domain";
@@ -59,6 +60,9 @@ interface ClientListTableProps {
   onOpenClient: (id: string) => void;
   /** Department rows per client id (batched by the panel). */
   departmentRows: Record<string, DepartmentStatus[]>;
+  /** Multi-select, owned by the panel so it survives a re-render of the table. */
+  selected: ReadonlySet<string>;
+  onSelectedChange: (next: ReadonlySet<string>) => void;
 }
 
 export function ClientListTable({
@@ -68,6 +72,8 @@ export function ClientListTable({
   setPrefs,
   onOpenClient,
   departmentRows,
+  selected,
+  onSelectedChange,
 }: ClientListTableProps) {
   const queryClient = useQueryClient();
   /* The queues this person may change — the same answer the writers use. */
@@ -89,7 +95,39 @@ export function ClientListTable({
   const { byClient: customValues } = useClientColumnValues(clients.map((c) => c.id));
   const setCustomValue = useSetClientColumnValue();
 
+  /* One client at a time, through the SAME writer a single row uses — so a
+     bulk change obeys exactly the authorization a one-off change obeys, and
+     there is no second write path to keep in step (rule 5). Settled, not
+     raced: the failures come back so the bar can report them honestly. */
+  const applyToSelected = async (write: (id: string) => Promise<unknown>) => {
+    const ids = [...selected];
+    const results = await Promise.allSettled(ids.map((id) => write(id)));
+    const failed = ids.filter((_, i) => results[i].status === "rejected");
+    await refresh();
+    /* The ones that worked leave the selection; the ones that did not stay in
+       it, so the next attempt is aimed at exactly what still needs doing. */
+    onSelectedChange(new Set(failed));
+    return failed;
+  };
+
   return (
+    <>
+      <BulkActionBar
+        count={selected.size}
+        statusOptions={ALL_STATUS_OPTIONS}
+        assignees={assignees}
+        onClear={() => onSelectedChange(new Set())}
+        onApplyStatus={(status) =>
+          applyToSelected((id) => store.updateStatus(id, status as FulfillmentClient["status"], actor))
+        }
+        onApplyAssignee={(agentId) => {
+          /* The writer takes the PERSON, not an id — the same resolution a
+             single-row edit does, so a bulk assign cannot record a name the
+             row editor would have rejected. */
+          const person = assignees.find((a) => (a.id ?? "") === agentId) ?? { id: null, name: "Unassigned" };
+          return applyToSelected((id) => store.updateAssignee(id, person, actor));
+        }}
+      />
     <OpsClientListTable<FulfillmentClient, ColId>
       clients={clients}
       visibleCols={visibleCols}
@@ -99,6 +137,18 @@ export function ClientListTable({
       actor={actor}
       statusOptions={ALL_STATUS_OPTIONS}
       assignees={assignees}
+      selection={{
+        selected,
+        onToggle: (id) => {
+          const next = new Set(selected);
+          if (next.has(id)) next.delete(id); else next.add(id);
+          onSelectedChange(next);
+        },
+        onToggleAll: (ids) => {
+          const all = ids.every((id) => selected.has(id));
+          onSelectedChange(all ? new Set() : new Set(ids));
+        },
+      }}
       slaWarningHours={SLA_WARNING_HOURS}
       renderStatusPill={(status) => <FulfillmentStatusPill status={status} />}
       actions={{
@@ -285,5 +335,6 @@ export function ClientListTable({
         }
       }}
     />
+    </>
   );
 }
