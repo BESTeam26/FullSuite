@@ -461,10 +461,10 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
       </ul>
       <div className="hidden overflow-x-auto rounded-xl border border-border md:block">
         <table className="w-full text-sm">
-          <thead className="bg-muted/50">
+          <thead className="bg-muted">
             <tr>
               {selection && (
-                <th className="sticky left-0 z-20 w-9 bg-muted/50 px-3 py-2.5">
+                <th className="sticky left-0 z-20 w-9 bg-muted px-3 py-2.5">
                   {/* Selects what is ON SCREEN, which is what the filters and
                       the quick view have narrowed to — never every client in
                       the division. "Select all" that reaches rows you cannot
@@ -501,7 +501,7 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
                      the task name for the same reason. */
                   className={cn(
                     "relative px-3 py-2.5 text-left font-medium text-muted-foreground whitespace-nowrap",
-                    i === 0 && "sticky z-20 bg-muted/50",
+                    i === 0 && "sticky z-20 bg-muted",
                   )}
                 >
                   <button
@@ -537,7 +537,7 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
               <tr
                 key={c.id}
                 className={cn(
-                  "cursor-pointer transition-colors hover:bg-muted/30",
+                  "group cursor-pointer transition-colors hover:bg-muted/30",
                   selection?.selected.has(c.id) && "bg-primary/5",
                 )}
                 onClick={() => onOpenClient(c.id)}
@@ -546,10 +546,15 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
                   <td
                     className={cn(
                       "sticky left-0 z-10 w-9 px-3 py-2.5",
-                      /* Opaque either way, tinted when the row is selected —
-                         a pinned cell that stayed plain would read as an
-                         unselected row beside a selected one. */
-                      selection.selected.has(c.id) ? "bg-primary/5" : "bg-[hsl(var(--card))]",
+                      /* Opaque ALWAYS — a transparent pinned cell lets the
+                         scrolling columns slide under it. The row's tint is
+                         painted ON TOP as an inset layer instead, so selected
+                         and hover look identical to the rest of the row
+                         without any see-through. */
+                      "bg-[hsl(var(--card))]",
+                      selection.selected.has(c.id)
+                        ? "shadow-[inset_0_0_0_9999px_hsl(var(--primary)/0.05)]"
+                        : "group-hover:shadow-[inset_0_0_0_9999px_hsl(var(--muted)/0.3)]",
                     )}
                     onClick={(e) => e.stopPropagation()}
                   >
@@ -575,8 +580,11 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
                        name. */
                     className={cn(
                       "px-3 py-2.5 text-foreground whitespace-nowrap",
-                      i === 0 && "sticky z-10",
-                      i === 0 && (selection?.selected.has(c.id) ? "bg-primary/5" : "bg-[hsl(var(--card))]"),
+                      i === 0 && "sticky z-10 bg-[hsl(var(--card))]",
+                      i === 0 &&
+                        (selection?.selected.has(c.id)
+                          ? "shadow-[inset_0_0_0_9999px_hsl(var(--primary)/0.05)]"
+                          : "group-hover:shadow-[inset_0_0_0_9999px_hsl(var(--muted)/0.3)]"),
                     )}
                     /* Clicking a CONTROL edits; clicking the rest of the row
                        opens the file. This tested the clicked element's own
