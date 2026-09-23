@@ -613,8 +613,24 @@ if (runs(2)) {
     ["restricted cannot assign agency work to another agent", () => W(U["bes.restricted@bes.test"], `with i as (insert into public.work_items (agency_id, scope, related_type, title, stage, priority, assigned_to) values ('${AGENCY}','AGENCY','project','probe','Queued','Normal','${U["bes.credit@bes.test"]}') returning 1) select count(*)::int as rows from i`).rows, 0],
     ["restricted (assigned scope) cannot mint a client",       () => W(U["bes.restricted@bes.test"], `with i as (insert into public.fulfillment_clients (agency_id, name, email, mode, organization_id, auto_sync, status, round, assigned_agent_id) values ('${AGENCY}','probe','probe.${Date.now()}@bes.test','saas_pulled','${lakesideOrg}',false,'Onboarding','Pre-Round','${U["bes.restricted@bes.test"]}') returning 1) select count(*)::int as rows from i`).rows, 0],
     // ---- unassigned Team A queue ----
-    ["assigned-scope Team A member does NOT see the unassigned queue", () => reachesUnassigned(U["bes.credit@bes.test"]), "false"],
-    ["Team A lead DOES see the unassigned queue",                       () => reachesUnassigned(U["bes.lead@bes.test"]), "true"],
+    /* DEE, 2026-09-23, asked directly and answered directly: "if the file
+       belongs to their team or department, they can access or view because it
+       can be used as reference, but if the project like bescrm or talentops
+       being shared to creditops, should not."
+       So an agent reaching an unassigned CreditOps file on their own team is
+       CORRECT — this probe asserted the opposite for months, and it was the
+       last red check on the gate. The line that matters is not inside
+       CreditOps, it is between MODULES, and it is the check below. */
+    ["a CreditOps agent reaches their own team's unassigned file (reference)", () => reachesUnassigned(U["bes.credit@bes.test"]), "true"],
+    ["…and so does the team lead",                                             () => reachesUnassigned(U["bes.lead@bes.test"]), "true"],
+    /* The boundary Dee drew. CreditOps people see CreditOps work; a BES CRM
+       build or a TalentOps workspace does not become theirs by being shared
+       into the division. Measured at zero for both an agent and a division
+       manager. */
+    ["…but no BES CRM or TalentOps work, however shared (Dee, 2026-09-23)",
+      () => R(U["bes.credit@bes.test"], `(select count(*) from public.work_items where division in ('bes_crm','talentops') or workspace_id is not null)::int as crossmodule`).crossmodule, 0],
+    ["…and a division manager reaches none of it either",
+      () => R(U["bes.manager@bes.test"], `(select count(*) from public.work_items where division in ('bes_crm','talentops') or workspace_id is not null)::int as crossmodule`).crossmodule, 0],
     ["…and may update it",                                              () => W(U["bes.lead@bes.test"], `with u as (update public.fulfillment_clients set last_activity_at=now() where id='${dana}' returning 1) select count(*)::int as rows from u`).rows, 1],
     // ---- child follows parent ----
     ["credit sees no department status of a client they cannot reach", () => R(U["bes.credit@bes.test"], S2LEAK).cds_leak, 0],

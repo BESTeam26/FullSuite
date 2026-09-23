@@ -62,45 +62,25 @@ Last reconciled: 2026-09-21, after the Eastern workday lock (`1f6b8e7`).
 - CreditOps Onboarding-queue wording and any further queue polish.
 - Advanced reporting, dashboards, FundingOps depth — only if real operating need pulls them forward.
 
-## FOUND 2026-09-22, NOT YET FIXED
+## ANSWERED BY DEE 2026-09-23, ALL THREE FIXED
 
-- **An agent scoped to "assigned" still sees their whole team's clients, and
-  rule 20b says they should not.** Dee's four-views rule describes an agent as
-  "`access_scope = 'assigned'`, leads no team. Sees their OWN work and nobody
-  else's." `in_scope()` does not consult `access_scope` at all: one of its arms
-  grants sight to any member of the team that holds the record, and a broader
-  one to anyone in the record's department. Measured — bes.credit (assigned
-  scope) sees [TEST] Dana Doyle whether she is unassigned, assigned to the team
-  lead, or assigned to them.
-  **This is NOT being changed on a hunch.** `in_scope()` is read by most
-  policies in the database, Dee's standing instruction is "do not broaden
-  can_see_partner() or in_scope()", and narrowing it would change what every
-  agent sees across the whole product — an architecture change (rule 20), which
-  is planned and documented rather than executed, and needs a full matrix run
-  behind it. **The question for Dee:** should an agent see the files their
-  TEAM holds, or only the files assigned to them? One security-gate check
-  stays red until she answers, which is the honest state for it.
+The security gate's last open questions. None was a judgement a migration
+could make on its own; all three were hers, and she answered them directly.
 
-- **Aaron's role and his reach disagree, and only Dee can say which is right.**
-  `aaron@blessedempireservices.com` is `agency_admin` with `is_owner = true`
-  but `scope = 'assigned'` — owner-gated capabilities (which include the money
-  ones) with an agent's data reach. The security gate has a standing invariant
-  that no owner or admin sits on a narrower scope, and this is the one row
-  failing it. Two possible repairs and they are opposites: widen his scope to
-  `agency` because he really is an owner, or clear `is_owner` / lower the role
-  because he is not. **Do not guess** — widening a named person's access is
-  Dee's decision. The invitation path that produced this shape is fixed
-  (migration 20260922026000); this row predates it.
+- **"if the file belongs to their team or department, they can access or view
+  because it can be used as reference, but if the project like bescrm or
+  talentops being shared to creditops, should not."** So an agent reaching an
+  unassigned CreditOps file on their own team is CORRECT, and the probe that
+  called it a leak had been wrong for months. The real boundary is between
+  MODULES, it already holds (measured at zero for both an agent and a division
+  manager), and it is now pinned by its own checks.
+- **"Aaron has access to everything, I repeat, everything, he's an owner."**
+  Every active owner now carries agency scope, written as the rule rather than
+  the name so the next owner cannot land in the same state.
+- **"no need for this because it's the same as round sent status."** So
+  `mark_client_mailed` no longer overwrites the stage the agent chose; the
+  round in the post survives, and the 30-day clock is untouched.
 
-- **"Mark as mailed" still sets the credit status to `In Dispute`, which Dee
-  retired on 2026-09-22.** The 30-day clock is fixed (migration 20260922021000);
-  this is the remaining half. Dee's words were "I need only the Actual Round
-  1-10 Sent — that's automatically the waiting status", so the action should
-  leave the client on `Round N Sent`. Which N a given click means is the open
-  question: the `round` enum stops at `Round 4+` while the stages run to 12, so
-  it cannot be derived without guessing. **Needs one answer from Dee:** when an
-  agent marks a round mailed, should the stage advance to the next round, or
-  stay on the round the file is already showing?
 ## HUMAN GATE — needs Dee or a real operator
 
 | Item | Who | What is needed |
