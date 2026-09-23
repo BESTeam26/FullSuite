@@ -22,11 +22,14 @@ export function CreditOpsCoverageStrip({
   loading,
   active,
   onPick,
+  unstaffed,
 }: {
   rows: readonly CoverageRow[];
   loading: boolean;
   active: CoverageState | null;
   onPick: (state: CoverageState | null) => void;
+  /** Departments with no agent at all — NOT departments with nothing assigned. */
+  unstaffed: readonly string[];
 }) {
   const { total, queues } = summariseCoverage(rows);
 
@@ -118,10 +121,14 @@ export function CreditOpsCoverageStrip({
                   </>
                 )}
               </p>
-              {/* Dee: Bureau Calling is the fourth department and not active
-                  yet. A queue with work and nobody who can take it is a
-                  STAFFING fact, said once here rather than alerted daily. */}
-              {q.unassigned === q.active && q.active > 0 && (
+              {/* Asked of the ROSTER, not of the files. This first read
+                  "every file here is unassigned", which labelled Complaints —
+                  three agents, one file waiting for the hourly sweep — as
+                  having no staff. That is worse than no label: it points at
+                  the wrong fix. Bureau Calling is the real case, and Dee has
+                  said it is the fourth department and not active yet, so it is
+                  stated here once rather than alerted daily. */}
+              {unstaffed.includes(q.department) && (
                 <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-status-warning">
                   No active staff
                 </p>

@@ -31,7 +31,26 @@ const P = {
   cora: "3925d409-086e-4eee-90de-1d104197c9a2",
   dev: "83f1ff5c-6831-41af-ab6d-d0e14b8e41d6",
   eli: "315f8257-bd8d-49fc-955c-036972f803bc",
+  fay: "dac0d51d-9a5d-43d7-af32-1c7d5f6a1ab1",
+  gus: "59a88143-7459-4327-be0e-6b0c9fd1c715",
 };
+
+/**
+ * The fixtures who may actually be GIVEN files.
+ *
+ * Ada, Ben and Cora are the owner, the agency admin and a manager, and Dee's
+ * rule is that the top of the admin takes no work — recorded as
+ * `can_receive_production_work = false` and honoured by the picker. Every
+ * rotation scenario below was originally written around Ada and Ben, and the
+ * day that flag shipped they all started measuring an empty pool: the engine
+ * was right, the cast was wrong.
+ *
+ * So the people who stand in for "an agent" are named once, here. A scenario
+ * about WHO MAY BE ASSIGNED uses these; a scenario about who may DO the
+ * assigning still uses the role it needs.
+ */
+const WORKERS = [P.dev, P.eli, P.fay, P.gus];
+const [, AGENT_A, AGENT_B] = WORKERS;
 
 let pass = 0, fail = 0;
 const check = (name, got, want) => {
@@ -87,72 +106,106 @@ const makeClients = (n, status) =>
 
 console.log("\nEQUAL DISTRIBUTION");
 
-/* Measured as SPREAD, not as "one each".
+/* Two rules, and they pull in opposite directions on purpose.
  *
- * The first version asserted four files across four members gave four
- * distinct assignees, and broke the moment a member already held work — which
- * is the normal state of a real team. Fairness does not mean everybody gets
- * the next one; it means nobody ends up more than one file ahead of the least
- * loaded person. That is the rule, so that is what is checked.
+ * Three earlier versions of this section were wrong in the same way: each
+ * asserted something that was true of the roster on the day it was written.
+ * The first wanted four files to produce four distinct assignees, and broke
+ * the moment a member already held work — the normal state of a real team.
+ * The second wanted everybody within one file of the least loaded, on the
+ * premise that "the members start from a known zero", which stopped being
+ * true once the fixture agents held fixture work.
  *
- * Complaints is used because no team pointed at it before today, so the
- * members start from a known zero. */
+ * The third was subtler and worth writing down. It measured whether handing
+ * the team four files made it less level — and it did, every time, because
+ * all four probe clients belonged to the SAME partner. That is Dee's own
+ * rule, not a fault: "give files per partner group so agent will work only on
+ * one dispute fox and one SOP before they jump on the next company." Partner
+ * batching deliberately outranks workload. A probe that spread those four
+ * files across four people would have been asserting the OPPOSITE of what
+ * she asked for, and it would have looked like a fairness test while doing
+ * it.
+ *
+ * So the two rules are checked separately, each on the case it governs: one
+ * partner's files stay with one agent, and work from DIFFERENT partners
+ * levels the team out. Levelness is measured as a gap that must not widen,
+ * because nobody starts at zero.
+ */
 const COMPLAINTS_TEAM = "(select id from teams where name='CreditOps Complaints & Mailing Team')";
 const staffComplaints = (members) => members
   .map((m) => `insert into team_memberships (team_id, user_id, is_lead) values (${COMPLAINTS_TEAM}, '${m}', false);`)
   .join("\n");
-const complaintsSpread = (n) => `
-  ${staffComplaints([P.ada, P.ben, P.cora, P.dev])}
-  ${makeClients(n, "For Complaints")}
-  with load as (
-    select u.user_id,
-           (select count(*) from client_department_statuses s
-             join fulfillment_clients c on c.id = s.client_id
-            where s.assignee_id = u.user_id and c.archived_at is null
-              and coalesce(c.lifecycle,'active')='active'
-              and public.creditops_status_is_actionable(s.department, s.status)) as files
-      from (values ('${P.ada}'::uuid), ('${P.ben}'), ('${P.cora}'), ('${P.dev}')) u(user_id)
-  )
-  select (max(files) - min(files) <= 1) as level,
+
+check("1 — four files from ONE partner stay with ONE agent, per Dee's batching rule",
+  probe(`${staffComplaints(WORKERS)}
+    ${makeClients(4, "For Complaints")}
+    select count(distinct assignee_id)::int as agents,
+           count(*)::int as placed
+      from client_department_statuses
+     where client_id::text like 'cccccccc%' and assignee_id is not null;`)[0],
+  { agents: 1, placed: 4 });
+
+/* One partner each, created here rather than borrowed: the fixture partners
+   name their own agents, and a named agent is a smaller pool than the team. */
+const makeClientsAcrossPartners = (n, status) =>
+  Array.from({ length: n }, (_, i) => `
+  insert into outsourcing_groups (id, agency_id, name, contact_email)
+  values ('bbbbbbbb-0000-4000-8000-00000000000${i}', '${AGENCY}', 'Probe Partner ${i}', 'partner${i}@example.test');
+  insert into fulfillment_clients (id, agency_id, name, email, mode, status, round, outsourcing_group_id)
+  values ('cccccccc-0000-4000-8000-00000000000${i}', '${AGENCY}', 'Probe ${i}', 'probe${i}@example.test',
+          'outsourcing_only', '${status}', 'Pre-Round', 'bbbbbbbb-0000-4000-8000-00000000000${i}');`).join("\n");
+
+/** Open actionable files per worker, as one scalar: busiest minus least busy. */
+const SPREAD = `
+  select coalesce(max(files) - min(files), 0) from (
+    select (select count(*) from client_department_statuses s
+              join fulfillment_clients c on c.id = s.client_id
+             where s.assignee_id = u.user_id and c.archived_at is null
+               and coalesce(c.lifecycle,'active') = 'active'
+               and public.creditops_status_is_actionable(s.department, s.status)) as files
+      from (values ${WORKERS.map((w) => `('${w}'::uuid)`).join(", ")}) u(user_id)
+  ) t`;
+
+const acrossPartners = (n) => `
+  ${staffComplaints(WORKERS)}
+  create temp table spread_before on commit drop as ${SPREAD};
+  ${makeClientsAcrossPartners(n, "For Complaints")}
+  select ((${SPREAD}) <= greatest((select * from spread_before), 1)) as level,
          (select count(*)::int from client_department_statuses
-           where client_id::text like 'cccccccc%' and assignee_id is not null) as placed
-    from load;`;
+           where client_id::text like 'cccccccc%' and assignee_id is not null) as placed;`;
 
-check("1 — four members, four files: nobody ends up more than one file ahead",
-  probe(complaintsSpread(4))[0], { level: true, placed: 4 });
-
-check("2 — eight files stay level, so the rotation does not favour anyone",
-  probe(complaintsSpread(8))[0], { level: true, placed: 8 });
+check("2 — work from four DIFFERENT partners does not make the team less level",
+  probe(acrossPartners(4))[0], { level: true, placed: 4 });
 
 check("3 — waiting files do not count as workload",
   /* Isolated on Complaints, which has no pre-existing team: the Dispute pool
      already contains members of [TEST] Team A, so a Dispute probe would be
-     measuring them too. Ada holds four WAITING files, Ben holds one
-     ACTIONABLE. Ada must still be picked — none of hers is work she can do. */
+     measuring them too. The first agent holds four WAITING files, the second
+     holds one ACTIONABLE. The first must still be picked — none of hers is work she can do. */
   probe(`insert into team_memberships (team_id, user_id, is_lead) values
-           ((select id from teams where name='CreditOps Complaints & Mailing Team'), '${P.ada}', false),
-           ((select id from teams where name='CreditOps Complaints & Mailing Team'), '${P.ben}', false);
+           ((select id from teams where name='CreditOps Complaints & Mailing Team'), '${AGENT_A}', false),
+           ((select id from teams where name='CreditOps Complaints & Mailing Team'), '${AGENT_B}', false);
     insert into client_department_statuses (client_id, department, status, assignee_id)
-      select id, 'Dispute', 'ROUND SENT - AWAITING RESULTS', '${P.ada}' from fulfillment_clients
+      select id, 'Dispute', 'ROUND SENT - AWAITING RESULTS', '${AGENT_A}' from fulfillment_clients
        where archived_at is null and coalesce(lifecycle,'active')='active' limit 4
-      on conflict (client_id, department) do update set assignee_id='${P.ada}', status='ROUND SENT - AWAITING RESULTS';
+      on conflict (client_id, department) do update set assignee_id='${AGENT_A}', status='ROUND SENT - AWAITING RESULTS';
     insert into client_department_statuses (client_id, department, status, assignee_id)
-      select id, 'Complaints', 'LETTERS PENDING', '${P.ben}' from fulfillment_clients
+      select id, 'Complaints', 'LETTERS PENDING', '${AGENT_B}' from fulfillment_clients
        where archived_at is null and coalesce(lifecycle,'active')='active' limit 1
-      on conflict (client_id, department) do update set assignee_id='${P.ben}', status='LETTERS PENDING';
+      on conflict (client_id, department) do update set assignee_id='${AGENT_B}', status='LETTERS PENDING';
     select public.creditops_pick_assignee('Complaints', '${AGENCY}')::text as picked;`)[0],
-  { picked: P.ada });
+  { picked: AGENT_A });
 
 check("4 — actionable files DO count as workload",
   probe(`insert into team_memberships (team_id, user_id, is_lead) values
-           ((select id from teams where name='CreditOps Complaints & Mailing Team'), '${P.ada}', false),
-           ((select id from teams where name='CreditOps Complaints & Mailing Team'), '${P.ben}', false);
+           ((select id from teams where name='CreditOps Complaints & Mailing Team'), '${AGENT_A}', false),
+           ((select id from teams where name='CreditOps Complaints & Mailing Team'), '${AGENT_B}', false);
     insert into client_department_statuses (client_id, department, status, assignee_id)
-      select id, 'Complaints', 'LETTERS PENDING', '${P.ada}' from fulfillment_clients
+      select id, 'Complaints', 'LETTERS PENDING', '${AGENT_A}' from fulfillment_clients
        where archived_at is null and coalesce(lifecycle,'active')='active' limit 3
-      on conflict (client_id, department) do update set assignee_id='${P.ada}', status='LETTERS PENDING';
+      on conflict (client_id, department) do update set assignee_id='${AGENT_A}', status='LETTERS PENDING';
     select public.creditops_pick_assignee('Complaints', '${AGENCY}')::text as picked;`)[0],
-  { picked: P.ben });
+  { picked: AGENT_B });
 
 console.log("\nZERO-MEMBER DEPARTMENT");
 check("5 — an empty auto department leaves the file unassigned, department still set",
@@ -311,7 +364,7 @@ const attempt = (user, setup, action) => {
        * become the user, call the function, read the outcome — is wrapped in
        * one SELECT over a CTE-free DO block plus a final query. Anything that
        * returns rows in between silently becomes the "answer" instead. */
-      `begin; ${setup}
+      `begin; ${MAKE_SUPPORT_FILE} ${setup}
        set local role authenticated;
        do $claims$ begin perform set_config('request.jwt.claims', '{"sub":"${user}","role":"authenticated"}', true); end $claims$;
        ${action} rollback;`) };
@@ -322,18 +375,30 @@ const attempt = (user, setup, action) => {
 
 const SUPPORT_TEAM = "(select id from teams where name='CreditOps Client Success / Support Team')";
 
-/* Resolved ONCE, as the connection owner, and inlined as a literal.
+/* The file these scenarios act on is BUILT by the probe, not borrowed.
  *
- * Looking it up inside the probe's own statement would run under the acting
- * user's RLS — a Support lead who cannot yet see that row gets null, the
- * function is handed null, and the refusal that comes back says "Client not
- * visible" when the real answer is "the probe asked the wrong question". */
-const SUPPORT_FILE = `'${
-  q.query(`select s.client_id from client_department_statuses s
-             join fulfillment_clients c on c.id = s.client_id
-            where s.department = 'Support' and c.is_fixture = false
-              and c.archived_at is null limit 1`)[0].client_id
-}'::uuid`;
+ * It used to be `select … limit 1` over the live table, and it worked for as
+ * long as pilot clients happened to exist. The day CreditOps was cleared for
+ * Dee's real import the probe crashed on an empty result — the same
+ * fragile-probe trap named at the top of this file, in a new place. A
+ * security probe must never depend on rows somebody else put there.
+ *
+ * The id is a literal, resolved before any role is assumed. Looking it up
+ * inside the probe's own statement would run under the acting user's RLS — a
+ * Support lead who cannot yet see that row gets null, the function is handed
+ * null, and the refusal says "Client not visible" when the real answer is
+ * "the probe asked the wrong question".
+ *
+ * The status routes it to Support on insert (check 42), so the department row
+ * these scenarios assign comes from the real trigger rather than a hand-made
+ * row. Created inside each scenario's transaction, and rolled back with it. */
+const SUPPORT_FILE = `'dddddddd-0000-4000-8000-000000000001'::uuid`;
+const MAKE_SUPPORT_FILE = `
+  insert into fulfillment_clients (id, agency_id, name, email, mode, status, round, outsourcing_group_id)
+  values (${SUPPORT_FILE}, '${AGENCY}', 'Probe Support File', 'probe-support@example.test',
+          'outsourcing_only', 'Ready For Reimport/ Credit Update', 'Pre-Round',
+          (select id from outsourcing_groups limit 1));
+`;
 
 /* A genuine agent, not a manager: [TEST] Cora Manager holds `ops.manage`, so
  * using her to prove "an agent may not" proved the opposite by accident. */
@@ -402,10 +467,10 @@ console.log("\nMY WORK");
    department rows are known exactly, rather than depending on whatever the
    live board happens to hold today. */
 const myWorkCount = (setup) => probe(`
-  ${staffComplaints([P.ada])}
+  ${staffComplaints([AGENT_A])}
   ${makeClients(1, "For Complaints")}
   ${setup}
-  select count(*)::int as mine from creditops_my_work where assignee_id = '${P.ada}'
+  select count(*)::int as mine from creditops_my_work where assignee_id = '${AGENT_A}'
    and client_id::text like 'cccccccc%';`)[0];
 
 check("26 — actionable work I own is in My Work",
@@ -550,6 +615,73 @@ check("45 — two legitimate department workstreams put the client in both queue
     select count(distinct department)::int as queues from creditops_department_queue
      where client_id::text like 'cccccccc%';`)[0],
   { queues: 2 });
+
+console.log("\n\"NO ACTIVE STAFF\" IS A QUESTION ABOUT THE ROSTER");
+
+/* The label fired on "every file in this queue is unassigned", so Complaints —
+   three agents, one file waiting for the hourly sweep — was reported as having
+   nobody. Those two facts look identical in a one-file queue and mean opposite
+   things: one resolves itself within the hour, the other needs somebody hired
+   onto a team. Never derive the second from the first. */
+
+check("46 — a staffed queue holding nothing but unassigned files is NOT unstaffed",
+  /* Eli and Dev, not Ada and Ben: the owner and the admin carry
+     `can_receive_production_work = false` by Dee's rule that the top of the
+     admin takes no files, so a queue staffed only by them genuinely has
+     nobody who can be given work. */
+  probe(`${staffComplaints([P.eli, P.dev])}
+    ${makeClients(2, "For Complaints")}
+    update client_department_statuses set assignee_id = null
+     where client_id::text like 'cccccccc%';
+    select
+      (select count(*)::int from client_department_statuses
+        where client_id::text like 'cccccccc%' and assignee_id is null) as unowned,
+      exists (select 1 from creditops_unstaffed_departments()
+               where department = 'Complaints') as reported_unstaffed;`)[0],
+  { unowned: 2, reported_unstaffed: false });
+
+check("47 — a queue with nobody on its team IS unstaffed, files or no files",
+  /* ISOLATE has already emptied the CreditOps teams of real people, so
+     Complaints genuinely has nobody here. Asserted with no client at all, to
+     show the answer does not come from the work. */
+  probe(`select exists (select 1 from creditops_unstaffed_departments()
+                          where department = 'Complaints') as reported_unstaffed;`)[0],
+  { reported_unstaffed: true });
+
+check("48 — one agent is enough; the label is about zero, not about capacity",
+  probe(`${staffComplaints([P.eli])}
+    ${makeClients(6, "For Complaints")}
+    select exists (select 1 from creditops_unstaffed_departments()
+                    where department = 'Complaints') as reported_unstaffed;`)[0],
+  { reported_unstaffed: false });
+
+console.log("\nTHE VOCABULARY AND THE RULES AGREE");
+
+/* Renaming a status is four edits in the data and four more in the logic, and
+   twice now the second half has been missed — BC/CM was spelled out in the
+   enum, the rows, the routing and the dropdowns while four functions went on
+   comparing against the old words. A file then read COMPLAINT COMPLETED,
+   matched nothing, and stayed in the queue as live work forever.
+   Asked as a rule so the next rename cannot repeat it. */
+
+check("50 — the status each department closes with is one of its own, and is not actionable",
+  q.query(`select coalesce(string_agg(d.dept::text || ': ' || coalesce(c.closed, '(none)'), ', '), '') as broken
+     from unnest(enum_range(null::fulfillment_department)) d(dept)
+     cross join lateral (select creditops_closed_status_for(d.dept) as closed) c
+    where c.closed is null
+       or not (c.closed = any(creditops_department_statuses(d.dept)))
+       or creditops_status_is_actionable(d.dept, c.closed)`)[0],
+  { broken: "" });
+
+check("51 — no rule anywhere still compares against a status name that was renamed away",
+  q.query(`select coalesce(string_agg(name, ', '), '') as stale from (
+      select p.proname as name from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+       where n.nspname = 'public' and pg_get_functiondef(p.oid) ~ '''(BC|CM) '
+      union all
+      select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
+       where n.nspname = 'public' and c.relkind in ('v','m') and pg_get_viewdef(c.oid) ~ '''(BC|CM) '
+    ) t`)[0],
+  { stale: "" });
 
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail === 0 ? 0 : 1);

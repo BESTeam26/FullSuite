@@ -51,6 +51,31 @@ export function useCreditOpsCoverage() {
 }
 
 /** Totals for the strip, and per queue underneath — from the same rows. */
+/**
+ * The departments with nobody who could take work at all.
+ *
+ * Separate from the coverage states because it is a question about the
+ * ROSTER, not about any file. "Every file here is unassigned" and "this queue
+ * has no staff" look identical for a one-file queue and mean opposite things:
+ * the first waits for the sweep, the second needs a person hired onto a team.
+ */
+export function useUnstaffedDepartments() {
+  const auth = useAuth();
+  const live = auth.mode === "live" && auth.status === "signed-in" && auth.isAgencyStaff;
+  return useQuery({
+    queryKey: ["creditops", "unstaffed-departments"],
+    queryFn: async (): Promise<string[]> => {
+      const sb = requireSupabase();
+      const { data, error } = await sb.rpc("creditops_unstaffed_departments" as never);
+      if (error) throw error;
+      return ((data as unknown as { department: string }[]) ?? []).map((r) => r.department);
+    },
+    enabled: live,
+    /* A roster changes when somebody joins a team, not minute to minute. */
+    staleTime: 5 * 60_000,
+  });
+}
+
 export function summariseCoverage(rows: readonly CoverageRow[]) {
   const blank = () => ({ active: 0, unassigned: 0, owner_away: 0, overdue: 0, on_track: 0 });
   const total = blank();

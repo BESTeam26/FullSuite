@@ -24,7 +24,7 @@ import { useCreditOpsStore } from "@/lib/fulfillment/creditops-client-store";
 import { QUICK_VIEWS, matchesQuickView, quickViewCounts, type QuickViewId } from "@/lib/fulfillment/quick-views";
 import { BulkActionBar } from "./BulkActionBar";
 import { CreditOpsCoverageStrip } from "./CreditOpsCoverageStrip";
-import { useCreditOpsCoverage, type CoverageState } from "@/lib/data/use-creditops-coverage";
+import { useCreditOpsCoverage, useUnstaffedDepartments, type CoverageState } from "@/lib/data/use-creditops-coverage";
 import type { CreditOpsPartner } from "@/lib/fulfillment/creditops-partners";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useCreditOpsAccess } from "@/lib/fulfillment/creditops-access";
@@ -100,6 +100,7 @@ export function FulfillmentClientsPanel({
      a lead uses both at once. */
   const [coverageFilter, setCoverageFilter] = useState<CoverageState | null>(null);
   const coverage = useCreditOpsCoverage();
+  const unstaffed = useUnstaffedDepartments();
   /* Lifecycle view: active clients by default; history stays one click away. */
   const [lifecycleView, setLifecycleView] = useState<"active" | "all" | "archived">("active");
   const lifecycleFiltered = useMemo(
@@ -296,6 +297,7 @@ export function FulfillmentClientsPanel({
         loading={coverage.isPending}
         active={coverageFilter}
         onPick={setCoverageFilter}
+        unstaffed={unstaffed.data ?? []}
       />
 
       {/* Dee's CreditOps design, 2026-09-23 — "Quick views: work your list
