@@ -113,6 +113,16 @@ export function CompleteWorkSection({
   const [activeDept, setActiveDept] = useState<CreditOpsDepartment | "">(
     workingDepts[0] ?? "",
   );
+  /* The authorized departments arrive from a query, so on the first render
+     they are usually EMPTY and this state initialises to "". useState keeps
+     its initial value forever, so without this the form would sit there with
+     no department and refuse to submit — and now that a single-department
+     agent sees a label instead of a dropdown, there is no longer a control to
+     put it right by hand. Adopt the first one as soon as it is known, and
+     leave a choice somebody has already made alone. */
+  useEffect(() => {
+    if (!activeDept && workingDepts.length > 0) setActiveDept(workingDepts[0]);
+  }, [workingDepts, activeDept]);
   /* Reported upward so the sticky context bar can say which department the
      operator is logging as — §21, so nobody records actions under the wrong
      one. The state stays owned here; only the value travels. */
