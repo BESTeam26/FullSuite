@@ -34,6 +34,18 @@ describe("every warmed key is a key some screen reads", () => {
     expect(work).toContain('queryKey: ["work", "attention"]');
   });
 
+  it("Communication and People — imported from the hook, so they cannot drift", async () => {
+    /* These two export their key. Importing it is stronger than any assertion:
+       a rename is a compile error rather than a silent miss. */
+    const { channelsKey } = await import("@/lib/data/use-channels");
+    const { workforceKey } = await import("@/lib/data/use-workforce");
+    expect(channelsKey).toEqual(["channels"]);
+    expect(workforceKey).toEqual(["agency", "workforce"]);
+    for (const r of ["/app/channels", "/app/people", "/app/time"]) {
+      expect(Object.keys(ROUTE_DATA)).toContain(r);
+    }
+  });
+
   it("warms the fetchers the screens call, not re-implementations of them", () => {
     /* If somebody writes a bespoke query here it can drift from the screen's
        own shape and warm something subtly different. */

@@ -37,6 +37,12 @@ import type { QueryClient } from "@tanstack/react-query";
 
 import { fetchFulfillmentClients } from "@/lib/data/fulfillment-clients";
 import { fetchAttention, fetchMyWork } from "@/lib/data/work-items";
+/* Imported, not retyped. These two export their key, so the prefetch and the
+   screen cannot drift apart — which is the whole failure mode here. */
+import { channelsKey } from "@/lib/data/use-channels";
+import { fetchChannels } from "@/lib/data/channels";
+import { workforceKey } from "@/lib/data/use-workforce";
+import { fetchWorkforce } from "@/lib/data/agency-workforce";
 
 /** How long a warmed entry counts as fresh. Matches the hooks' own staleTime. */
 const FRESH = 15_000;
@@ -72,6 +78,32 @@ export const ROUTE_DATA: Record<string, Warm[]> = {
       queryKey: ["work", "attention"],
       queryFn: fetchAttention,
       staleTime: FRESH,
+    }),
+  ],
+  /* Dee's first-priority surface, and the one her team sits in all day. */
+  "/app/channels": [
+    (qc) => void qc.prefetchQuery({
+      queryKey: channelsKey,
+      queryFn: fetchChannels,
+      staleTime: 30_000,
+    }),
+  ],
+  /* People & Teams was the worst measured screen — 1352ms over seven
+     repaints. `useWorkforce` is the one batch People, Teams and the org chart
+     all read, so warming it covers the whole section. Its own staleTime is
+     60s; matched here so the warmed entry is not instantly stale. */
+  "/app/people": [
+    (qc) => void qc.prefetchQuery({
+      queryKey: workforceKey,
+      queryFn: () => fetchWorkforce(),
+      staleTime: 60_000,
+    }),
+  ],
+  "/app/time": [
+    (qc) => void qc.prefetchQuery({
+      queryKey: workforceKey,
+      queryFn: () => fetchWorkforce(),
+      staleTime: 60_000,
     }),
   ],
 };
