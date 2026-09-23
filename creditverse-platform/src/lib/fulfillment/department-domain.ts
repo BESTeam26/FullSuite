@@ -327,6 +327,17 @@ export const CREDIT_STATUSES: readonly string[] = [
   /* Ready to work */
   "Ready for Round 1",
   "Ready for Processing",
+  /* The same work, jumped up the queue. Dee, 2026-09-23, asked for this back
+     by hand — "once set to Prio, and credit status is Prio Processing, they
+     will be prioritized in agent assignment."
+
+     It was dropped from this list on 2026-09-22 as a leftover, which was
+     wrong: it is live and fully wired. It routes to Dispute exactly as Ready
+     for Processing does, carries a 24-hour SLA instead of 72, and the sweep
+     already escalates a file INTO it after five unresolved days. The only
+     thing missing was a way for a person to say so deliberately, which is
+     what this restores. `creditops_assign_unclaimed` hands these out first. */
+  "Prio Processing",
   /* In flight, round by round — every one of these is a WAITING state: the
      round is in the post, nobody at BES is assigned, and the clock is thirty
      days. The client's `round` follows these, through the

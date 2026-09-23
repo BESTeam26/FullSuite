@@ -31,6 +31,7 @@ describe("Dee's credit status list", () => {
       "Incomplete Onboarding",
       "Ready for Round 1",
       "Ready for Processing",
+      "Prio Processing",
       "Round 1 Sent", "Round 2 Sent", "Round 3 Sent", "Round 4 Sent",
       "Round 5 Sent", "Round 6 Sent", "Round 7 Sent", "Round 8 Sent",
       "Round 9 Sent", "Round 10 Sent", "Round 11 Sent", "Round 12 Sent",
@@ -54,6 +55,19 @@ describe("Dee's credit status list", () => {
     for (const kept of ["New Client", "Ready for Round 1", "Incomplete Onboarding", "Ready for Processing"]) {
       expect(CREDIT_STATUSES, kept).toContain(kept);
     }
+  });
+
+  /* Dee, 2026-09-23: "should agents be able to set Prio Processing by hand? —
+     YES." It is offered again, and this pins the REASON so nobody culls it a
+     second time as a leftover: it is live, it routes to Dispute exactly as
+     Ready for Processing does, it carries a 24-hour SLA instead of 72, the
+     sweep escalates into it after five unresolved days, and assignment hands
+     these out before anything else. */
+  it("offers Prio Processing, beside the ordinary processing stage", () => {
+    expect(CREDIT_STATUSES).toContain("Prio Processing");
+    expect(CREDIT_STATUSES.indexOf("Prio Processing"))
+      .toBe(CREDIT_STATUSES.indexOf("Ready for Processing") + 1);
+    expect(ENUM, "the database must accept it").toContain("Prio Processing");
   });
 
   it("runs the rounds from 1 to 12 with none missing", () => {
@@ -84,7 +98,7 @@ describe("Dee's credit status list", () => {
     for (const old of ["On Hold (Non Workable)", "CMS Issue 1", "CMS Issue 2", "CMS Issue 3",
                        "Results Available for Review", "Completed", "Archived",
                        "Ready for Reimport / Review", "Ready For Reimport/ Credit Update",
-                       "Waiting for Partner Approval", "Prio Processing", "For Complaints"]) {
+                       "Waiting for Partner Approval", "For Complaints"]) {
       expect(CREDIT_STATUSES, old).not.toContain(old);
     }
   });
