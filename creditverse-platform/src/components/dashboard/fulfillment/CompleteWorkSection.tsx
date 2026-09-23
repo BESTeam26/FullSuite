@@ -304,20 +304,41 @@ export function CompleteWorkSection({
         </p>
       ) : (
         <>
-          {/* Log as department — only authorized departments */}
-          <div className="flex items-center gap-2">
-            <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-              Log as department
-            </label>
-            <OpsSelect
-              value={activeDept}
-              onValueChange={handleDeptChange}
-              options={workingDepts}
-              size="sm"
-              aria-label="Log as department"
-              className="flex-1 font-semibold"
-            />
-          </div>
+          {/* Dee, 2026-09-23: "their department is defined so no need to ask
+              the agent what department they are unless they have multiple
+              departments or they are head of that division or department."
+
+              An agent placed in one department was being asked, on every
+              single completion, to confirm the only answer there is. It is one
+              click each time, on the action they perform most — which is
+              exactly the friction this workspace exists to remove.
+
+              So the question is only asked of people who genuinely have one:
+              somebody in two departments, or a lead whose placement reaches
+              several. For everybody else it is stated, not requested. The
+              value written is identical either way — `activeDept` already
+              defaults to their single department — so this removes a prompt,
+              never a choice. */}
+          {workingDepts.length === 1 ? (
+            <p className="flex items-center gap-2 text-[11px] text-muted-foreground">
+              <span className="font-bold uppercase tracking-wider">Logging as</span>
+              <span className="font-semibold text-foreground">{workingDepts[0]}</span>
+            </p>
+          ) : (
+            <div className="flex items-center gap-2">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                Log as department
+              </label>
+              <OpsSelect
+                value={activeDept}
+                onValueChange={handleDeptChange}
+                options={workingDepts}
+                size="sm"
+                aria-label="Log as department"
+                className="flex-1 font-semibold"
+              />
+            </div>
+          )}
 
           {/* Dynamic production-action library for the selected department */}
           {activeDept && (

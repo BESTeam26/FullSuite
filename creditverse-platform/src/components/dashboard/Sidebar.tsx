@@ -233,24 +233,25 @@ export const Sidebar = () => {
 
   /* Agency HQ navigation — BES employees only */
   const agencyNavGroups: NavGroup[] = [
+    /*
+     * ORDERED BY THE WORKING DAY, not by the org chart.
+     *
+     * Dee, 2026-09-23: "you place the most important workspace at the very
+     * bottom which is incorrect cause the goal is no friction at all for the
+     * agents to work." CreditOps was NINTH — below Organizations, which holds
+     * no real customer records at all, and below BES Partners. The screen an
+     * agent opens every few minutes sat under two they open in a month.
+     *
+     * So the top of this menu is now the things somebody touches during a
+     * shift: where they are, what they are working, who they are talking to.
+     * Organizations and BES Partners moved to Management, beside Reports and
+     * Finance, which is what they are — how the business is run, not how the
+     * work is done.
+     */
     {
       label: "HQ",
       items: [
         { label: "Home", icon: LayoutDashboard, href: "/app" },
-        {
-          label: "Organizations",
-          icon: Building2,
-          href: "/app/subaccounts",
-          badge: subAccounts.length,
-        },
-        /*
-         * BES PARTNERS sits beside Organizations, not inside it, because the
-         * two answer different questions. Organizations = who buys the
-         * software. BES Partners = who BES actually does work for. A company
-         * can be either, both, or (model 3) a partner with no SaaS tenant at
-         * all — which is why a partner is not a subclass of an organization.
-         */
-        { label: "BES Partners", icon: Handshake, href: "/app/bes-partners" },
         {
           label: "Attention Center",
           icon: AlertTriangle,
@@ -335,6 +336,19 @@ export const Sidebar = () => {
     {
       label: "Management",
       items: [
+        /* Moved down from HQ on 2026-09-23. These answer "how is the business
+           doing", which is a weekly question — not "what am I working on",
+           which is a minute-by-minute one. Organizations = who buys the
+           software; BES Partners = who BES actually does work for. A company
+           can be either, both, or (model 3) a partner with no SaaS tenant at
+           all, which is why a partner is not a subclass of an organization. */
+        {
+          label: "Organizations",
+          icon: Building2,
+          href: "/app/subaccounts",
+          badge: subAccounts.length,
+        },
+        { label: "BES Partners", icon: Handshake, href: "/app/bes-partners" },
         { label: "Reports", icon: BarChart3, href: "/app/reporting", permission: "reports.view" },
         /* BES's own money — partner receivables and agency expenses. Distinct
            from "Organization billing", which is SaaS subscription metering for
