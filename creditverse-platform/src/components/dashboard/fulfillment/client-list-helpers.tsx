@@ -77,6 +77,10 @@ export const STATUS_OPTIONS = ["All Statuses", ...ALL_STATUS_OPTIONS];
 
 export type ColId =
   | "client"
+  /* Dee's CreditOps design, 2026-09-23: the partner sits beside the client,
+     because every queue crosses partners and "whose client is this" is the
+     first thing an agent needs. */
+  | "partner"
   | "email"
   | "phone"
   | "mode"
@@ -116,6 +120,7 @@ export const customColDef = (field: { id: string; label: string }): ColDef<ColId
    Last Activity. Contact columns stay available behind "Columns". */
 export const COLUMN_DEFS: ColDef<ColId>[] = [
   CLIENT_COL,
+  { ...compactColumn("partner", "Partner"), defaultWidth: 150, minWidth: 110 },
   { ...EMAIL_COL, defaultOn: false },
   { ...PHONE_COL, defaultOn: false },
   { ...MODE_COL, defaultOn: false },
@@ -155,10 +160,12 @@ export const COLUMN_DEFS: ColDef<ColId>[] = [
    existed. Bumping the key hands everybody the new defaults once; anyone who
    had hidden a column re-hides it. */
 const prefsStore = createViewPrefsStore<ColId>(
-  /* v4: the saved set is a list of column ids, so a column added later is
-     absent from it and never appears. Bumping hands everybody the new
-     defaults once — including the combined Department / Status column. */
-  "creditops-clientlist-prefs-v4",
+  /* v5: the saved set is a list of column ids, so a column added later is
+     absent from it and never appears — the reason Dee's board showed no
+     Processed Date when that was added. Bumping hands everybody the new
+     defaults once; this time it is the Partner column from her 2026-09-23
+     design. Anyone who had hidden a column re-hides it. */
+  "creditops-clientlist-prefs-v5",
   COLUMN_DEFS,
   "client",
 );

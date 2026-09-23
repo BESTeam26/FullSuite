@@ -17,6 +17,7 @@ import {
   type ViewPrefs,
 } from "./client-list-helpers";
 import { OpsClientListTable } from "./OpsClientListTable";
+import { clientGroupLabel } from "@/lib/fulfillment/fulfillment-client-domain";
 import type { DepartmentStatus } from "@/lib/fulfillment/creditops-store-types";
 import { currentDepartment, departmentStatuses, openDepartments } from "@/lib/fulfillment/department-domain";
 import {
@@ -146,6 +147,15 @@ export function ClientListTable({
           );
         }
         switch (colId) {
+          /* Whose client this is. `clientGroupLabel` is the one place that
+             decides a partner's display name across CreditOps, so the column
+             and the sidebar folders always read the same. */
+          case "partner":
+            return (
+              <span className="text-xs text-foreground">
+                {clientGroupLabel(client) || <span className="text-muted-foreground">—</span>}
+              </span>
+            );
           /* Editable in the row, like the board Dee runs today. Every one of
              these writes the record and the database trigger writes the
              activity entry — the screen never logs its own change. */

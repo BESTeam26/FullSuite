@@ -21,6 +21,7 @@ import {
 import type { DepartmentStatus } from "@/lib/fulfillment/creditops-store-types";
 import { ContentCard } from "@/components/dashboard/DivisionLayout";
 import { useCreditOpsStore } from "@/lib/fulfillment/creditops-client-store";
+import { QUICK_VIEWS, matchesQuickView, quickViewCounts, type QuickViewId } from "@/lib/fulfillment/quick-views";
 import type { CreditOpsPartner } from "@/lib/fulfillment/creditops-partners";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useCreditOpsAccess } from "@/lib/fulfillment/creditops-access";
@@ -65,7 +66,7 @@ export function FulfillmentClientsPanel({
   partner,
   initialOpenClientId = null,
 }: FulfillmentClientsPanelProps) {
-  const { displayName, ledTeamIds } = useAuth();
+  const { displayName, ledTeamIds, teamIds, user } = useAuth();
   /* Filters follow the person's legitimate scope (Dee, 2026-09-19): one
      authorized department needs no department filter; an unrestricted agent
      filter belongs to management and team leads, not to an agent. */
@@ -84,6 +85,10 @@ export function FulfillmentClientsPanel({
   const [roundFilter, setRoundFilter] = useState("all");
   const [agentFilter, setAgentFilter] = useState("all");
   const [assignedOnly, setAssignedOnly] = useState(assignedOnlyFilter);
+  /* Dee's CreditOps design, 2026-09-23: "Quick views — work your list your
+     way." Defaults to All so nobody lands on an empty screen wondering where
+     their queue went. */
+  const [quickView, setQuickView] = useState<QuickViewId>("all");
   /* Lifecycle view: active clients by default; history stays one click away. */
   const [lifecycleView, setLifecycleView] = useState<"active" | "all" | "archived">("active");
   const lifecycleFiltered = useMemo(
@@ -185,7 +190,20 @@ export function FulfillmentClientsPanel({
     return [...seen].sort((a, b) => a.localeCompare(b));
   }, [departmentRows]);
 
-  const activeCount = shown.filter((c) => isActiveClient(c)).length;
+  /* The quick view narrows what the table shows, and the counts on the tabs
+     come from the SAME list before that narrowing — so "Unassigned (5)" and
+     the five rows you get by clicking it are the same five, always. */
+  const quickCtx = useMemo(
+    () => ({ userId: user?.id ?? "", teamIds: teamIds ?? [] }),
+    [user?.id, teamIds],
+  );
+  const quickCounts = useMemo(() => quickViewCounts(shown, quickCtx), [shown, quickCtx]);
+  const inView = useMemo(
+    () => (quickView === "all" ? shown : shown.filter((c) => matchesQuickView(c, quickView, quickCtx))),
+    [shown, quickView, quickCtx],
+  );
+
+  const activeCount = inView.filter((c) => isActiveClient(c)).length;
 
   /**
    * The five numbers Dee asked for, counted over what is on screen.
@@ -198,7 +216,7 @@ export function FulfillmentClientsPanel({
   const summary = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
     let dueToday = 0, overdue = 0, waiting = 0;
-    for (const c of shown) {
+    for (const c of inView) {
       const due = (c as { dueAt?: string | null }).dueAt ?? null;
       if (due) {
         const day = String(due).slice(0, 10);
@@ -208,8 +226,8 @@ export function FulfillmentClientsPanel({
       const rows = departmentRows[c.id] ?? [];
       if (rows.length > 0 && openDepartments(rows).every((r) => !isActionableDepartmentStatus(r.status))) waiting += 1;
     }
-    return { total: shown.length, active: activeCount, dueToday, overdue, waiting };
-  }, [shown, departmentRows, activeCount]);
+    return { total: inView.length, active: activeCount, dueToday, overdue, waiting };
+  }, [inView, departmentRows, activeCount]);
 
   // Mode / Source is only meaningful in the cross-partner Management view.
   // Inside a single ManagedOps or Outsourcing Partner workspace, the mode is
@@ -244,6 +262,33 @@ export function FulfillmentClientsPanel({
           aria-label="Lifecycle filter"
         />
       </div>
+      {/* Dee's CreditOps design, 2026-09-23 — "Quick views: work your list
+          your way." The count beside each label is computed from the same
+          predicate that filters the rows, so the tab and the table can never
+          disagree. */}
+      <div className="mb-3 flex flex-wrap items-center gap-1 border-b border-border" role="tablist" aria-label="Quick views">
+        {QUICK_VIEWS.map((v) => {
+          const on = quickView === v.id;
+          return (
+            <button
+              key={v.id}
+              type="button"
+              role="tab"
+              aria-selected={on}
+              onClick={() => setQuickView(v.id)}
+              className={`-mb-px rounded-t-md border-b-2 px-3 py-2 text-xs font-semibold transition-colors ${
+                on
+                  ? "border-primary text-foreground"
+                  : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"
+              }`}
+            >
+              {v.label}{" "}
+              <span className={on ? "text-primary" : "text-muted-foreground"}>({quickCounts[v.id]})</span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* Dee, 2026-09-12: Total · Active · Due Today · Overdue · Waiting.
           "These summary metrics should be useful and not oversized." */}
       <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
@@ -339,7 +384,7 @@ export function FulfillmentClientsPanel({
             </div>
           ))}
         </div>
-      ) : filtered.length === 0 ? (
+      ) : inView.length === 0 ? (
         <ContentCard title="No clients match your filters">
           <p className="text-sm text-muted-foreground">
             Adjust the status filter or search to find clients for this Partner.
@@ -348,14 +393,14 @@ export function FulfillmentClientsPanel({
       ) : prefs.view === "list" ? (
         <ClientListTable
           departmentRows={departmentRows}
-          clients={shown}
+          clients={inView}
           visibleCols={visibleCols}
           prefs={prefs}
           setPrefs={setPrefs}
           onOpenClient={openClient}
         />
       ) : (
-        <ClientListGrid clients={shown} onOpenClient={openClient} />
+        <ClientListGrid clients={inView} onOpenClient={openClient} />
       )}
 
       <AddClientModal
