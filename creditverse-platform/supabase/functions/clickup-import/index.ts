@@ -47,24 +47,76 @@ const CU = "https://api.clickup.com/api/v2";
 interface CuComment { id: string; comment_text: string; user?: { id: number; username: string }; date: string }
 interface CuAttachment { id: string; title: string; extension: string; mimetype: string; size: number; date: string; url?: string }
 
-/** ClickUp's status strings → the canonical lifecycle plus a queue. */
-const STATUS_MAP: Record<string, { status: string; department?: string; queue?: string }> = {
-  "process r1":          { status: "Ready for Round 1", department: "Onboarding", queue: "Ready for Round 1" },
-  "ready for processing":{ status: "Ready for Processing", department: "Onboarding", queue: "Ready for Processing" },
-  "processing prio":     { status: "Prio Processing", department: "Dispute", queue: "Priority" },
-  "indispute - mailed":  { status: "In Dispute", department: "Dispute", queue: "Mailed" },
-  "editing & mailing":   { status: "LETTERS PENDING", department: "Dispute", queue: "Editing & mailing" },
+/**
+ * ClickUp's status strings → the canonical BES client status.
+ *
+ * ── WHY THERE IS NO DEPARTMENT COLUMN HERE ANY MORE ────────────────────────
+ *
+ * There was one, and it had drifted. It named departments and queue names
+ * ("Mailed", "Priority", "Follow up") that no department vocabulary has ever
+ * contained, and two client statuses — "On Hold (Non Workable)" and
+ * "Archived" — that are not in the enum at all, so those cards would have
+ * been refused on write.
+ *
+ * It was also a second copy of a decision the database already owns.
+ * `creditops_status_routing` says, for every client status, which department
+ * opens and in what state, and the routing trigger applies it on insert. So
+ * the import sets the status and lets routing do its job (rules 2 and 5).
+ *
+ * The one exception is below: three ClickUp statuses are MORE specific than
+ * the client status can express, and their department state is set
+ * explicitly rather than thrown away.
+ */
+const STATUS_MAP: Record<string, string> = {
+  "process r1":              "Ready for Round 1",
+  "ready for processing":    "Ready for Processing",
+  "processing prio":         "Prio Processing",
+  "indispute - mailed":      "In Dispute Mailed",
+  "editing & mailing":       "LETTERS PENDING",
+  "for complaints":          "For Complaints",
   /* "needed" is not "filed" — the action is still outstanding (Dee). */
-  "ftc needed":          { status: "In Dispute", department: "Complaints", queue: "FTC Needed" },
-  "for cfpb only":       { status: "In Dispute", department: "Complaints", queue: "CFPB Needed" },
-  "for complaints":      { status: "For Complaints", department: "Complaints", queue: "For Complaints" },
-  "onboarding follow up":{ status: "ONBOARDING FOLLOWUP", department: "Onboarding", queue: "Follow up" },
-  "incomplete onboarding":{ status: "Incomplete Onboarding", department: "Onboarding", queue: "Incomplete" },
-  "for client confirmation": { status: "For Partner Confirmation", department: "Support", queue: "Awaiting confirmation" },
-  "suspended":           { status: "On Hold (Non Workable)" },
-  "completed/ graduated":{ status: "Graduated" },
-  "archived":            { status: "Archived" },
+  "ftc needed":              "For Complaints",
+  "for cfpb only":           "For Complaints",
+  "onboarding follow up":    "ONBOARDING FOLLOWUP",
+  "incomplete onboarding":   "Incomplete Onboarding",
+  "for client confirmation": "For Client Confirmation",
+  "1 monitoring issue":      "Monitoring Issue 1",
+  "2 monitoring issue":      "Monitoring Issue 2",
+  "3 monitoring issue":      "Monitoring Issue 3",
+  /* Dee, 2026-09-23, asked what "workforce audit" means: "that is READY FOR
+     CREDIT REVIEW". Routing sends it to Support · READY FOR REIMPORT. */
+  "workforce audit":         "Ready for Credit Review",
+  "waiting for payment!":    "Outsourcing - Unpaid",
+  "suspended":               "Non Workable",
+  "do not work":             "Non Workable",
+  "canceled/inactive/":      "Inactive / Canceled",
+  "completed/ graduated":    "Graduated",
 };
+
+/**
+ * Where ClickUp knows more than the client status does.
+ *
+ * "For Complaints", "FTC needed" and "CFPB only" are one client status and
+ * three different pieces of work. Routing opens Complaints on FOR COMPLAINTS
+ * for all three; these say which one it actually is, and the import writes
+ * that over the routed row.
+ */
+const DEPARTMENT_OVERRIDE: Record<string, { department: string; status: string }> = {
+  "for complaints": { department: "Complaints", status: "FOR COMPLAINTS" },
+  "ftc needed":     { department: "Complaints", status: "FTC NEEDED" },
+  "for cfpb only":  { department: "Complaints", status: "CFPB NEEDED" },
+};
+
+/**
+ * Statuses that are not imported at all.
+ *
+ * Dee, 2026-09-23, on the 13 archived cards in Tiffany Hunter's list: leave
+ * them in ClickUp. They are finished history, nothing is lost by leaving them
+ * where they are, and bringing them across would put a dozen files in front
+ * of agents that nobody is working. They are skipped before the card is
+ * fetched, so no SSN on an archived card is even read.
+ */
+const NOT_IMPORTED = new Set(["archived"]);
 
 /** The ClickUp Current Round dropdown → the canonical round. */
 function roundFrom(name: string | null): { round: string; freeze: boolean } {
@@ -112,17 +164,21 @@ Deno.serve(async (req) => {
   };
 
   const summary = {
-    found: 0, matched: 0, created: 0, skipped: 0,
+    found: 0, matched: 0, created: 0, skipped: 0, notImported: 0,
     secrets: 0, comments: 0, attachments: 0, needsReview: [] as string[],
     perClient: [] as Record<string, unknown>[],
   };
 
   try {
-    const list = await cu<{ tasks: { id: string; name: string }[] }>(
+    const list = await cu<{ tasks: { id: string; name: string; status?: { status?: string } }[] }>(
       `/list/${listId}/task?include_closed=true&subtasks=true`);
     summary.found = list.tasks.length;
 
     for (const brief of list.tasks) {
+      /* Before the card is fetched, so an archived card's SSN is never read. */
+      const briefStatus = String(brief.status?.status ?? "").toLowerCase();
+      if (NOT_IMPORTED.has(briefStatus)) { summary.notImported++; continue; }
+
       const task = await cu<Record<string, unknown>>(
         `/task/${brief.id}?include_subtasks=false`);
       const comments = (await cu<{ comments: CuComment[] }>(`/task/${brief.id}/comment`)).comments ?? [];
@@ -157,10 +213,14 @@ Deno.serve(async (req) => {
       if (merged.ssn) secretValues.push(merged.ssn);
 
       const cuStatus = String((task.status as { status?: string })?.status ?? "").toLowerCase();
-      const mapped = STATUS_MAP[cuStatus] ?? { status: "New Client" };
-      if (!STATUS_MAP[cuStatus]) {
+      const mappedStatus = STATUS_MAP[cuStatus];
+      if (!mappedStatus) {
+        /* Named, not guessed. A card landing on "New Client" because nobody
+           taught the map its status looks imported and is in the wrong queue,
+           so it is called out by name for somebody to answer. */
         merged.needsReview.push(`ClickUp status "${cuStatus}" has no canonical mapping yet`);
       }
+      const override = DEPARTMENT_OVERRIDE[cuStatus] ?? null;
 
       const roundField = (task.custom_fields as { name: string; value?: unknown; type_config?: { options?: { orderindex: number; name: string }[] } }[] | undefined)
         ?.find((f) => f.name === "Current Round");
@@ -195,7 +255,7 @@ Deno.serve(async (req) => {
         city: merged.address?.city ?? null,
         state: merged.address?.state ?? null,
         postal_code: merged.address?.postalCode ?? null,
-        status: mapped.status, round,
+        status: mappedStatus ?? "New Client", round,
         /* The ClickUp due date is provenance only — canonical SLA replaces it
            once FullSuite has the anchors (Dee). */
         due_at: task.due_date ? new Date(Number(task.due_date)).toISOString() : null,
@@ -203,7 +263,8 @@ Deno.serve(async (req) => {
         started_on: merged.startedOn,
         breach_equifax: merged.breachEquifax, breach_npd: merged.breachNpd,
         security_freeze_only: freeze,
-        department: mapped.department ?? null, department_status: mapped.queue ?? null,
+        department: override?.department ?? null,
+        department_status: override?.status ?? null,
         ssn: merged.ssn,
         credentials: merged.credentials.map((c) => ({
           kind: c.provider === "CFPB" ? "cfpb" : "monitoring",

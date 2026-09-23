@@ -13,6 +13,8 @@ export interface ImportSummary {
   matched: number;
   created: number;
   skipped: number;
+  /** Cards deliberately left in ClickUp — archived ones (Dee, 2026-09-23). */
+  notImported: number;
   secrets: number;
   comments: number;
   attachments: number;

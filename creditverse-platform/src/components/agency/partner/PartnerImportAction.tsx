@@ -52,7 +52,12 @@ export function PartnerImportAction({ partner }: { partner: AgencyPartner & { so
       setResult(summary);
       toast({
         title: "Import finished",
-        description: `${summary.created} created, ${summary.matched} matched, ${summary.secrets} secrets stored.`,
+        description: [
+          `${summary.created} created`,
+          `${summary.matched} matched`,
+          `${summary.secrets} secrets stored`,
+          summary.notImported ? `${summary.notImported} archived left in ClickUp` : null,
+        ].filter(Boolean).join(", ") + ".",
       });
     } catch (e) {
       toast({ title: "The import did not run", description: (e as Error).message, variant: "destructive" });
