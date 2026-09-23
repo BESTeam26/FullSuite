@@ -121,13 +121,13 @@ console.log("\nTHE WRITERS REFUSE, NOT JUST THE SCREEN\n");
   check("11 · the owner may set a Dispute status", attempt(OWNER, "Dispute", "READY FOR PROCESSING"), "written");
   check("12 · the COO may not, despite seeing every file", attempt(COO, "Dispute", "READY FOR PROCESSING"), "refused");
   check("13 · an agent may set a status in their own queue", attempt(AGENT, "Support", "SUPPORT NEW"), "written");
-  check("14 · …and is refused in a queue they do not work", attempt(AGENT, "Bureau Calling", "BC NEEDED"), "refused");
+  check("14 · …and is refused in a queue they do not work", attempt(AGENT, "Bureau Calling", "BUREAU CALLING NEEDED"), "refused");
 
   const handoff = (u, from) => {
     try {
       q.query(`begin; ${as(u)}
         select public.handoff_client_departments('${client}','${from}',
-          array['Complaints']::fulfillment_department[], array['CM NOT NEEDED']::text[], 'probe');
+          array['Complaints']::fulfillment_department[], array['COMPLAINT NOT NEEDED']::text[], 'probe');
         rollback;`);
       return "handed off";
     } catch (e) {

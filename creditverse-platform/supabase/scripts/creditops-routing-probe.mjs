@@ -412,12 +412,12 @@ check("26 — actionable work I own is in My Work",
   myWorkCount(""), { mine: 1 });
 
 check("27 — a waiting file is not, even though it is still mine on paper",
-  myWorkCount(`update client_department_statuses set status='CM AWAITING RESPONSE'
+  myWorkCount(`update client_department_statuses set status='COMPLAINT AWAITING RESPONSE'
                 where client_id::text like 'cccccccc%' and department='Complaints';`),
   { mine: 0 });
 
 check("28 — resolved work is not",
-  myWorkCount(`update client_department_statuses set status='CM COMPLETED'
+  myWorkCount(`update client_department_statuses set status='COMPLAINT COMPLETED'
                 where client_id::text like 'cccccccc%' and department='Complaints';`),
   { mine: 0 });
 
@@ -532,7 +532,7 @@ check("42 — Ready For Reimport goes to Support and CLOSES the dispute work",
 
 check("43 — resolved department work leaves the queue",
   probe(`${makeClients(1, "For Complaints")}
-    update client_department_statuses set status='CM COMPLETED'
+    update client_department_statuses set status='COMPLAINT COMPLETED'
      where client_id::text like 'cccccccc%' and department='Complaints';
     select count(*)::int as rows from creditops_department_queue where client_id::text like 'cccccccc%';`)[0],
   { rows: 0 });

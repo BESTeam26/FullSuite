@@ -1298,7 +1298,7 @@ if (runs(19)) {
   const P19 = [
     ["organization owner sets a department status; the activity event is written with it", () => w19(U["org.owner@bes.test"], SET), creditOn && ["org_admin","org_manager"].includes(roleOf(U["org.owner@bes.test"])) || creditOn ? "BILLING ISSUE:1" : "ERR 42501"],
     ["another organization's owner cannot",                          () => w19(U["org2.owner@bes.test"], SET), "ERR 42501"],
-    ["a status outside the department's vocabulary is refused",      () => w19(U["org.owner@bes.test"], `select public.set_client_department_status('${T.lakeside_client}', 'Support', 'BC NEEDED', null, null); select 1 as rows`), creditOn ? "ERR 22023" : "ERR 42501"],
+    ["a status outside the department's vocabulary is refused",      () => w19(U["org.owner@bes.test"], `select public.set_client_department_status('${T.lakeside_client}', 'Support', 'BUREAU CALLING NEEDED', null, null); select 1 as rows`), creditOn ? "ERR 22023" : "ERR 42501"],
     ["BES staff in scope set a department status",                   () => w19(U["bes.manager@bes.test"], SET), "BILLING ISSUE:1"],
     ["hand-off: funding client → CreditOps (creates/links, status Credit Readiness, activity both sides)", () => w19f(U["org.owner@bes.test"], `select public.handoff_to_creditops('${lakesideFunding}', null); select (select status::text from public.funding_clients where id='${lakesideFunding}') || ':' || (select (fulfillment_client_id is not null)::text from public.funding_clients where id='${lakesideFunding}') || ':' || (select count(*) from public.activity_events where entity_id='${lakesideFunding}' and action like 'Sent to CreditOps%')::text as rows`), creditOn && fundingOn ? "Credit Readiness:true:1" : "ERR 42501"],
     ["hand-off back: qualified → Readiness Review",                () => w19f(U["org.owner@bes.test"], `select public.handoff_to_creditops('${lakesideFunding}', null); select public.handoff_to_fundingops((select fulfillment_client_id from public.funding_clients where id='${lakesideFunding}')); select status::text as rows from public.funding_clients where id='${lakesideFunding}'`), creditOn && fundingOn ? "Readiness Review" : "ERR 42501"],
@@ -5396,7 +5396,7 @@ if (runs(62)) {
   const P62 = AG62 && TEAM_A62 ? [
     /* ── THE BUG ITSELF ──────────────────────────────────────────────── */
     ["the owner can now SELECT department rows for a partner's client",
-      () => p62(OWN62, world62() + `insert into public.client_department_statuses (client_id, department, status) values ('${CL62}','Complaints','CM NOT NEEDED');`,
+      () => p62(OWN62, world62() + `insert into public.client_department_statuses (client_id, department, status) values ('${CL62}','Complaints','COMPLAINT NOT NEEDED');`,
         deptCountExcludingSource), 1],
     /* The upsert needed that SELECT policy to read the conflicting row — the
        original bug. It also needs the caller to WORK the department (0922
@@ -5406,9 +5406,9 @@ if (runs(62)) {
        So the capability is granted inside the probe, which is what makes
        these about the UPSERT rather than about who the owner is. */
     ["…which is what the UPSERT needs, and it no longer fails",
-      () => p62(OWN62, world62() + canWork62(OWN62), `select public.set_client_department_status('${CL62}','Complaints','CM NOT NEEDED',null); ${deptCountExcludingSource}`), 1],
+      () => p62(OWN62, world62() + canWork62(OWN62), `select public.set_client_department_status('${CL62}','Complaints','COMPLAINT NOT NEEDED',null); ${deptCountExcludingSource}`), 1],
     ["…and running the upsert twice still leaves ONE row",
-      () => p62(OWN62, world62() + canWork62(OWN62), `select public.set_client_department_status('${CL62}','Complaints','CM NOT NEEDED',null); select public.set_client_department_status('${CL62}','Complaints','CM NOT NEEDED',null); ${deptCountExcludingSource}`), 1],
+      () => p62(OWN62, world62() + canWork62(OWN62), `select public.set_client_department_status('${CL62}','Complaints','COMPLAINT NOT NEEDED',null); select public.set_client_department_status('${CL62}','Complaints','COMPLAINT NOT NEEDED',null); ${deptCountExcludingSource}`), 1],
 
     /* ── §31 TEST A — the authorized agent, partner via TEAM ─────────── */
     /* TEAM-scoped, which is what "assigned through Team" means. An agent
@@ -5416,7 +5416,7 @@ if (runs(62)) {
        and not by their team's — `in_scope` says so, and the first version of
        this probe asked the wrong person and read the refusal as a bug. */
     ["A · a TEAM-scoped lead whose team holds the partner can hand off",
-      () => p62(LEAD62, world62(), handoff(["Complaints"], ["CM NOT NEEDED"])),
+      () => p62(LEAD62, world62(), handoff(["Complaints"], ["COMPLAINT NOT NEEDED"])),
       '{"opened": ["Complaints"], "alreadyOpen": []}'],
     /* §7 says handing a file on must not close or rewrite the department it
        LEAVES. It used to be checked by asserting no Dispute row existed at
@@ -5424,7 +5424,7 @@ if (runs(62)) {
        insert. Now it checks the thing §7 actually protects: the source row is
        still there, still saying what it said before the handoff. */
     ["A · …the source department is NOT closed or written (§7)",
-      () => p62(LEAD62, world62(), `${handoff(["Complaints"], ["CM NOT NEEDED"])}; select status as rows from public.client_department_statuses where client_id='${CL62}' and department='Dispute'`), "ROUND SENT - AWAITING RESULTS"],
+      () => p62(LEAD62, world62(), `${handoff(["Complaints"], ["COMPLAINT NOT NEEDED"])}; select status as rows from public.client_department_statuses where client_id='${CL62}' and department='Dispute'`), "ROUND SENT - AWAITING RESULTS"],
     ["A · …and it grants no financial access (§31)",
       () => p62(LEAD62, world62(), `select public.agency_can('partners.financials.view')::text as rows`), "false"],
     /* An agent without `partners.view` cannot reach a PARTNER's client by any
@@ -5435,7 +5435,7 @@ if (runs(62)) {
        agent is unassigned" and "the agent cannot work partner clients at
        all", and only one of those is fixed by an assignment. */
     ["A · an agent without partners.view cannot reach a partner's client",
-      () => p62(CO62, world62(), handoff(["Complaints"], ["CM NOT NEEDED"])), "ERR 42501"],
+      () => p62(CO62, world62(), handoff(["Complaints"], ["COMPLAINT NOT NEEDED"])), "ERR 42501"],
     /* INVERTED on 2026-09-22, and the old expectation was the stale one.
        This asserted that an assignment could not rescue a missing
        `partners.view`. Migration 20260919026000 deliberately made it rescue
@@ -5446,7 +5446,7 @@ if (runs(62)) {
        widened to do it — the assignment is its own arm of the policy. */
     ["A · …unless they are assigned it by name, which always counts (P-013)",
       () => p62(CO62, world62() + `update public.fulfillment_clients set assigned_agent_id='${CO62}' where id='${CL62}';`,
-        handoff(["Complaints"], ["CM NOT NEEDED"])), '{"opened": ["Complaints"], "alreadyOpen": []}'],
+        handoff(["Complaints"], ["COMPLAINT NOT NEEDED"])), '{"opened": ["Complaints"], "alreadyOpen": []}'],
     ["A · …and partners.view is indeed what they are missing",
       () => p62(CO62, "", `select public.agency_can('partners.view')::text as rows`), "false"],
 
@@ -5455,15 +5455,15 @@ if (runs(62)) {
       () => p62(CO62, world62({ assign: false }), `select count(*)::int as rows from public.fulfillment_clients where id='${CL62}'`), 0],
     ["B · …cannot create a department status directly",
       () => p62(CO62, world62({ assign: false }),
-        `insert into public.client_department_statuses (client_id, department, status) values ('${CL62}','Complaints','CM NOT NEEDED'); select 1 as rows`), "ERR 42501"],
+        `insert into public.client_department_statuses (client_id, department, status) values ('${CL62}','Complaints','COMPLAINT NOT NEEDED'); select 1 as rows`), "ERR 42501"],
     ["B · …and the handoff RPC refuses them",
-      () => p62(CO62, world62({ assign: false }), handoff(["Complaints"], ["CM NOT NEEDED"])), "ERR 42501"],
+      () => p62(CO62, world62({ assign: false }), handoff(["Complaints"], ["COMPLAINT NOT NEEDED"])), "ERR 42501"],
 
     /* ── §33 TEST C — a BES CRM agent on no CreditOps team ───────────── */
     ["C · an agent on no assigned team is refused the handoff",
-      () => p62(GHL62, world62(), handoff(["Complaints"], ["CM NOT NEEDED"])), "ERR 42501"],
+      () => p62(GHL62, world62(), handoff(["Complaints"], ["COMPLAINT NOT NEEDED"])), "ERR 42501"],
     ["C · …and reaches no department row",
-      () => p62(GHL62, world62() + `insert into public.client_department_statuses (client_id, department, status) values ('${CL62}','Complaints','CM NOT NEEDED');`,
+      () => p62(GHL62, world62() + `insert into public.client_department_statuses (client_id, department, status) values ('${CL62}','Complaints','COMPLAINT NOT NEEDED');`,
         deptCount), 0],
 
     /* ── §34 TEST D — a manager's reach is their SCOPE, not their role ──
@@ -5478,17 +5478,17 @@ if (runs(62)) {
        file is theirs to move — and that is the difference from the
        team-scoped lead below, who is refused even then. */
     ["D · a division-scoped manager reaches a client in their division",
-      () => p62(MGR62, world62(), handoff(["Complaints"], ["CM NOT NEEDED"])),
+      () => p62(MGR62, world62(), handoff(["Complaints"], ["COMPLAINT NOT NEEDED"])),
       '{"opened": ["Complaints"], "alreadyOpen": []}'],
     ["D · …but not one whose partner is assigned to nobody",
-      () => p62(MGR62, world62({ assign: false }), handoff(["Complaints"], ["CM NOT NEEDED"])), "ERR 42501"],
+      () => p62(MGR62, world62({ assign: false }), handoff(["Complaints"], ["COMPLAINT NOT NEEDED"])), "ERR 42501"],
     /* `assign: false` alone is not enough: the CLIENT's own `team_id` is a
        route in its own right, and the first version of this probe left it
        pointing at the lead's team and read the (correct) success as a bug.
        `team: "other"` puts the client on Team B, so the Team-A lead has no
        route at all. */
     ["D · …while a TEAM-scoped lead with no route at all is refused",
-      () => p62(LEAD62, world62({ assign: false, team: "other" }), handoff(["Complaints"], ["CM NOT NEEDED"])), "ERR 42501"],
+      () => p62(LEAD62, world62({ assign: false, team: "other" }), handoff(["Complaints"], ["COMPLAINT NOT NEEDED"])), "ERR 42501"],
     /* Dee, 2026-09-22, closing her CreditOps ladder: being agency_admin is
        NOT CreditOps work authority. `creditops.work.manage` is an explicit,
        revocable capability (`admin_auto = false`), granted to the Original
@@ -5496,24 +5496,24 @@ if (runs(62)) {
        admin is refused until somebody gives it to them, and then allowed —
        both halves, because a capability nobody can be refused is not one. */
     ["D · …and the admin is NOT agency-wide by role alone",
-      () => p62(ADM62, world62({ assign: false }), handoff(["Complaints"], ["CM NOT NEEDED"])), "ERR 42501"],
+      () => p62(ADM62, world62({ assign: false }), handoff(["Complaints"], ["COMPLAINT NOT NEEDED"])), "ERR 42501"],
     ["D · …but IS with creditops.work.manage, explicitly granted",
       () => p62(ADM62, world62({ assign: false }) + `
         insert into public.agency_member_permissions (membership_id, key, allowed)
         select m.id, 'creditops.work.manage', true from public.agency_memberships m
          where m.user_id = '${ADM62}' and m.status = 'active'
         on conflict (membership_id, key) do update set allowed = true;`,
-        handoff(["Complaints"], ["CM NOT NEEDED"])),
+        handoff(["Complaints"], ["COMPLAINT NOT NEEDED"])),
       '{"opened": ["Complaints"], "alreadyOpen": []}'],
 
     /* ── §35 MULTI-HANDOFF, one transaction ──────────────────────────── */
     ["multi · both destinations open in ONE call",
-      () => p62(LEAD62, world62(), handoff(["Complaints", "Bureau Calling"], ["CM NOT NEEDED", "BC NOT NEEDED"])),
+      () => p62(LEAD62, world62(), handoff(["Complaints", "Bureau Calling"], ["COMPLAINT NOT NEEDED", "BUREAU CALLING NOT NEEDED"])),
       '{"opened": ["Complaints", "Bureau Calling"], "alreadyOpen": []}'],
     ["multi · …and that is exactly two department rows, not three",
-      () => p62(LEAD62, world62(), `${handoff(["Complaints", "Bureau Calling"], ["CM NOT NEEDED", "BC NOT NEEDED"])}; ${deptCountExcludingSource}`), 2],
+      () => p62(LEAD62, world62(), `${handoff(["Complaints", "Bureau Calling"], ["COMPLAINT NOT NEEDED", "BUREAU CALLING NOT NEEDED"])}; ${deptCountExcludingSource}`), 2],
     ["multi · an invalid status refuses the WHOLE call, writing nothing",
-      () => p62(LEAD62, world62(), handoff(["Complaints", "Bureau Calling"], ["CM NOT NEEDED", "NOT A STATUS"])), "ERR 22023"],
+      () => p62(LEAD62, world62(), handoff(["Complaints", "Bureau Calling"], ["COMPLAINT NOT NEEDED", "NOT A STATUS"])), "ERR 22023"],
     /* NOTE: an earlier version of this probe wrote `begin; select 1; end;`
        inside the harness's own transaction. `end` COMMITTED it, so the outer
        `rollback` had nothing left to undo and two [TEST] fixture rows landed
@@ -5522,21 +5522,21 @@ if (runs(62)) {
 
     /* ── §36 ALREADY OPEN is left exactly as it is ───────────────────── */
     ["already · an active department is reported, not reopened",
-      () => p62(LEAD62, world62({ complaintsOpen: true }), handoff(["Complaints", "Bureau Calling"], ["CM NOT NEEDED", "BC NOT NEEDED"])),
+      () => p62(LEAD62, world62({ complaintsOpen: true }), handoff(["Complaints", "Bureau Calling"], ["COMPLAINT NOT NEEDED", "BUREAU CALLING NOT NEEDED"])),
       '{"opened": ["Bureau Calling"], "alreadyOpen": ["Complaints"]}'],
     ["already · …and is NOT moved backwards (§6)",
-      () => p62(LEAD62, world62({ complaintsOpen: true }), `${handoff(["Complaints"], ["CM NOT NEEDED"])}; select status as rows from public.client_department_statuses where client_id='${CL62}' and department='Complaints'`), "LETTERS PENDING"],
+      () => p62(LEAD62, world62({ complaintsOpen: true }), `${handoff(["Complaints"], ["COMPLAINT NOT NEEDED"])}; select status as rows from public.client_department_statuses where client_id='${CL62}' and department='Complaints'`), "LETTERS PENDING"],
 
     /* ── §37 RETRY is idempotent ─────────────────────────────────────── */
     ["retry · the same handoff twice opens once",
-      () => p62(LEAD62, world62(), `${handoff(["Complaints"], ["CM NOT NEEDED"])}; ${handoff(["Complaints"], ["CM NOT NEEDED"])}`),
+      () => p62(LEAD62, world62(), `${handoff(["Complaints"], ["COMPLAINT NOT NEEDED"])}; ${handoff(["Complaints"], ["COMPLAINT NOT NEEDED"])}`),
       '{"opened": [], "alreadyOpen": ["Complaints"]}'],
     ["retry · …and leaves ONE department row",
-      () => p62(LEAD62, world62(), `${handoff(["Complaints"], ["CM NOT NEEDED"])}; ${handoff(["Complaints"], ["CM NOT NEEDED"])}; ${deptCountExcludingSource}`), 1],
+      () => p62(LEAD62, world62(), `${handoff(["Complaints"], ["COMPLAINT NOT NEEDED"])}; ${handoff(["Complaints"], ["COMPLAINT NOT NEEDED"])}; ${deptCountExcludingSource}`), 1],
 
     /* ── §38 THE LOCKED DOCTRINE ─────────────────────────────────────── */
     ["status · a handoff does NOT change the client's master status",
-      () => p62(LEAD62, world62(), `${handoff(["Complaints", "Bureau Calling"], ["CM NOT NEEDED", "BC NOT NEEDED"])}; ${masterStatus}`),
+      () => p62(LEAD62, world62(), `${handoff(["Complaints", "Bureau Calling"], ["COMPLAINT NOT NEEDED", "BUREAU CALLING NOT NEEDED"])}; ${masterStatus}`),
       "Round Sent - Awaiting Results"],
     /* Writing another department's status directly is not the same act as
        handing a file to it: the handoff checks the department you are LEAVING
@@ -5550,11 +5550,11 @@ if (runs(62)) {
     ["status · the handoff function contains no write to fulfillment_clients",
       () => q(`select (position('update public.fulfillment_clients' in lower(pg_get_functiondef('public.handoff_client_departments(uuid,public.fulfillment_department,public.fulfillment_department[],text[],text)'::regprocedure))) = 0)::text as rows`)[0].rows, "true"],
     ["status · and the round is untouched too",
-      () => p62(LEAD62, world62(), `${handoff(["Complaints"], ["CM NOT NEEDED"])}; select round::text as rows from public.fulfillment_clients where id='${CL62}'`), "Round 2"],
+      () => p62(LEAD62, world62(), `${handoff(["Complaints"], ["COMPLAINT NOT NEEDED"])}; select round::text as rows from public.fulfillment_clients where id='${CL62}'`), "Round 2"],
 
     /* ── The portal side: a client never reads internal department state ─ */
     ["a client-portal user reaches no department status",
-      () => p62(PORTAL62, world62() + `insert into public.client_department_statuses (client_id, department, status) values ('${CL62}','Complaints','CM NOT NEEDED');`,
+      () => p62(PORTAL62, world62() + `insert into public.client_department_statuses (client_id, department, status) values ('${CL62}','Complaints','COMPLAINT NOT NEEDED');`,
         deptCount), 0],
 
     /* ── The shape that makes it all hold ───────────────────────────── */
@@ -5909,7 +5909,7 @@ if (runs(64)) {
       () => act64(OWN64, `select public.handoff_client_departments('${CLEO64}','Onboarding',array['Dispute']::public.fulfillment_department[],array['Ready for Processing'],'probe');`,
         nCount(`kind='handoff' and recipient_id='${LEAD64}' and entity_id='${CLEO64}'`)), 1],
     ["a destination department with NO team attached still hands off, and tells the two who own the file",
-      () => act64(OWN64, `select public.handoff_client_departments('${EVAN64}','Onboarding',array['Complaints']::public.fulfillment_department[],array['CM NOT NEEDED'],'probe');`,
+      () => act64(OWN64, `select public.handoff_client_departments('${EVAN64}','Onboarding',array['Complaints']::public.fulfillment_department[],array['COMPLAINT NOT NEEDED'],'probe');`,
         nCount(`kind='handoff' and entity_id='${EVAN64}'`), ready64(EVAN64, CO64, 'Complaints')), 2],
     ["nobody is told twice when the client's own team IS the destination department's team",
       () => act64(OWN64, `select public.handoff_client_departments('${EVAN64}','Onboarding',array['Dispute']::public.fulfillment_department[],array['Ready for Processing'],'probe');`,
@@ -7776,7 +7776,7 @@ if (runs(74)) {
        actionable queue has a deadline, defaulting to 24 hours, because a queue
        with no deadline is how work goes quiet. So the assertion inverts. */
     ["a queue with no specific rule still gets the 24-hour default",
-      () => p74(OWN74, `select public.enter_department_queue('${CL74}', 'Bureau Calling', 'BC NEEDED');
+      () => p74(OWN74, `select public.enter_department_queue('${CL74}', 'Bureau Calling', 'BUREAU CALLING NEEDED');
                         select round(extract(epoch from (system_due_at - opened_at))/3600)::int as rows
                           from public.client_department_statuses
                          where client_id='${CL74}' and department='Bureau Calling'`),
