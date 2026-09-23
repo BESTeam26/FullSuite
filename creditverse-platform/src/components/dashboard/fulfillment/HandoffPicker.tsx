@@ -18,7 +18,7 @@
  * "opens Bureau Calling; Complaints is already working it" rather than
  * reporting it afterwards. A department already mid-way through is left
  * exactly where it is — re-sending a file to Bureau Calling must not knock it
- * back to BC NEEDED.
+ * back to BUREAU CALLING NEEDED.
  */
 import { useMemo } from "react";
 import { ArrowRightLeft } from "lucide-react";

@@ -21552,15 +21552,15 @@ export type Database = {
         | "Monitoring Issue"
         | "Program Completed"
         | "Attention"
-        | "BC NEEDED"
-        | "BC IN PROGRESS"
-        | "BC COMPLETED"
-        | "BC NOT NEEDED"
+        | "BUREAU CALLING NEEDED"
+        | "BUREAU CALLING IN PROGRESS"
+        | "BUREAU CALLING COMPLETED"
+        | "BUREAU CALLING NOT NEEDED"
         | "LETTERS PENDING"
         | "LETTERS MAILED"
         | "CFPB FILED"
         | "FTC FILED"
-        | "CM COMPLETED"
+        | "COMPLAINT COMPLETED"
         | "SUPPORT NEW"
         | "ONBOARDING FOLLOWUP"
         | "READY FOR REIMPORT"
@@ -22323,15 +22323,15 @@ export const Constants = {
         "Monitoring Issue",
         "Program Completed",
         "Attention",
-        "BC NEEDED",
-        "BC IN PROGRESS",
-        "BC COMPLETED",
-        "BC NOT NEEDED",
+        "BUREAU CALLING NEEDED",
+        "BUREAU CALLING IN PROGRESS",
+        "BUREAU CALLING COMPLETED",
+        "BUREAU CALLING NOT NEEDED",
         "LETTERS PENDING",
         "LETTERS MAILED",
         "CFPB FILED",
         "FTC FILED",
-        "CM COMPLETED",
+        "COMPLAINT COMPLETED",
         "SUPPORT NEW",
         "ONBOARDING FOLLOWUP",
         "READY FOR REIMPORT",

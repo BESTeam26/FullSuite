@@ -18,18 +18,18 @@ const rows = [
   { department: "Onboarding", status: "OB READY FOR R1", updatedAt: "2026-09-01" },
   { department: "Dispute", status: "READY FOR PROCESSING", updatedAt: "2026-09-02" },
   { department: "Support", status: "SUPPORT NEW", updatedAt: "2026-09-02" },
-  { department: "Complaints", status: "CM NOT NEEDED", updatedAt: "2026-09-02" },
-  { department: "Bureau Calling", status: "BC NOT NEEDED", updatedAt: "2026-09-02" },
+  { department: "Complaints", status: "COMPLAINT NOT NEEDED", updatedAt: "2026-09-02" },
+  { department: "Bureau Calling", status: "BUREAU CALLING NOT NEEDED", updatedAt: "2026-09-02" },
 ];
 
 describe("department / work status", () => {
   it("vocabulary comes from the Status Guide", () => {
-    expect(departmentStatuses("Bureau Calling")).toEqual(["BC NOT NEEDED", "BC NEEDED", "BC IN PROGRESS", "BC COMPLETED"]);
+    expect(departmentStatuses("Bureau Calling")).toEqual(["BUREAU CALLING NOT NEEDED", "BUREAU CALLING NEEDED", "BUREAU CALLING IN PROGRESS", "BUREAU CALLING COMPLETED"]);
     expect(isValidDepartmentStatus("Support", "billing issue")).toBe(true);
-    expect(isValidDepartmentStatus("Support", "BC NEEDED")).toBe(false);
+    expect(isValidDepartmentStatus("Support", "BUREAU CALLING NEEDED")).toBe(false);
   });
   it("closed statuses mean no open work; current department is the first open one in order", () => {
-    expect(isOpenDepartmentStatus("CM NOT NEEDED")).toBe(false);
+    expect(isOpenDepartmentStatus("COMPLAINT NOT NEEDED")).toBe(false);
     expect(isOpenDepartmentStatus("Letters Pending")).toBe(true);
     expect(openDepartments(rows).map((r) => r.department)).toEqual(["Dispute", "Support"]);
     expect(currentDepartment(rows)?.department).toBe("Dispute");
@@ -44,7 +44,7 @@ describe("department / work status", () => {
        2026-09-22, because a file handed to Complaints has not yet been
        decided on, let alone had letters drafted. */
     expect(handoffEntryStatus("Complaints")).toBe("FOR COMPLAINTS");
-    expect(handoffEntryStatus("Bureau Calling")).toBe("BC NEEDED");
+    expect(handoffEntryStatus("Bureau Calling")).toBe("BUREAU CALLING NEEDED");
     expect(handoffEntryStatus("Support")).toBe("SUPPORT NEW");
   });
 });
@@ -65,22 +65,22 @@ describe("handing off to several departments at once", () => {
   it("opens Bureau Calling AND Complaints from one handoff", () => {
     const plan = planHandoffs("Dispute", ["Bureau Calling", "Complaints"], []);
     expect(plan.opening.map((o) => o.department)).toEqual(["Bureau Calling", "Complaints"]);
-    expect(plan.opening.map((o) => o.entryStatus)).toEqual(["BC NEEDED", "FOR COMPLAINTS"]);
+    expect(plan.opening.map((o) => o.entryStatus)).toEqual(["BUREAU CALLING NEEDED", "FOR COMPLAINTS"]);
     expect(plan.alreadyOpen).toEqual([]);
   });
 
   it("leaves a department that is already working the file exactly where it is", () => {
     /* Re-sending a file to Bureau Calling mid-call must not knock it back to
-       BC NEEDED and lose where it had got to. */
+       BUREAU CALLING NEEDED and lose where it had got to. */
     const plan = planHandoffs("Dispute", ["Bureau Calling", "Complaints"],
-      [row("Bureau Calling", "BC IN PROGRESS")]);
-    expect(plan.alreadyOpen).toEqual([{ department: "Bureau Calling", status: "BC IN PROGRESS" }]);
+      [row("Bureau Calling", "BUREAU CALLING IN PROGRESS")]);
+    expect(plan.alreadyOpen).toEqual([{ department: "Bureau Calling", status: "BUREAU CALLING IN PROGRESS" }]);
     expect(plan.opening.map((o) => o.department)).toEqual(["Complaints"]);
   });
 
   it("re-opens a department whose work was closed", () => {
-    const plan = planHandoffs("Dispute", ["Bureau Calling"], [row("Bureau Calling", "BC COMPLETED")]);
-    expect(plan.opening).toEqual([{ department: "Bureau Calling", entryStatus: "BC NEEDED" }]);
+    const plan = planHandoffs("Dispute", ["Bureau Calling"], [row("Bureau Calling", "BUREAU CALLING COMPLETED")]);
+    expect(plan.opening).toEqual([{ department: "Bureau Calling", entryStatus: "BUREAU CALLING NEEDED" }]);
   });
 
   it("refuses to hand a file to the department it is already with", () => {
@@ -133,13 +133,13 @@ describe("Dee's three states for one department row (§23)", () => {
 
   it("work somebody can pick up now is ACTIONABLE", () => {
     expect(departmentWorkState(row("READY FOR PROCESSING"))).toBe("actionable");
-    expect(departmentWorkState(row("BC NEEDED"))).toBe("actionable");
+    expect(departmentWorkState(row("BUREAU CALLING NEEDED"))).toBe("actionable");
   });
 
   it("and only a genuinely closed status is DONE", () => {
     expect(departmentWorkState(row("COMPLETED"))).toBe("done");
     expect(departmentWorkState(row("SUPPORT RESOLVED"))).toBe("done");
-    expect(departmentWorkState(row("BC NOT NEEDED"))).toBe("done");
+    expect(departmentWorkState(row("BUREAU CALLING NOT NEEDED"))).toBe("done");
   });
 
   it("casing never decides whether somebody has work", () => {

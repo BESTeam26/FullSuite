@@ -118,7 +118,7 @@ describe("Dee's credit status list", () => {
     const offered = new Set(CREDIT_STATUSES);
     /* Legacy values the enum accepts and the pipeline deliberately does not. */
     for (const legacy of ["NEW ONBOARDING", "INCOMPLETE ONBOARDING", "LETTERS MAILED",
-                          "BC NEEDED", "SUPPORT NEW", "In Processing", "Onboarding"]) {
+                          "BUREAU CALLING NEEDED", "SUPPORT NEW", "In Processing", "Onboarding"]) {
       expect(offered.has(legacy), legacy).toBe(false);
     }
   });

@@ -510,7 +510,7 @@ export async function setClientLifecycle(input: { clientId: string; lifecycle: C
  *
  * The plan is worked out first (`planHandoffs`) so a department already
  * mid-way through is left alone rather than reset — re-sending a file to
- * Bureau Calling must not knock it back to BC NEEDED and lose where it had
+ * Bureau Calling must not knock it back to BUREAU CALLING NEEDED and lose where it had
  * got to.
  *
  * Sequential rather than parallel on purpose: each write is its own RPC with

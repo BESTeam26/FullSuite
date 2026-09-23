@@ -67,13 +67,13 @@ export function seedDepartmentStatuses(
     },
     {
       department: "Complaints",
-      status: "CM NOT NEEDED",
+      status: "COMPLAINT NOT NEEDED",
       assignee: "Unassigned",
       updatedAt: client.createdAt,
     },
     {
       department: "Bureau Calling",
-      status: "BC NOT NEEDED",
+      status: "BUREAU CALLING NOT NEEDED",
       assignee: "Unassigned",
       updatedAt: client.createdAt,
     },

@@ -150,31 +150,31 @@ export const CREDIT_OPS_STATUS_GUIDE: StatusGuideItem[] = [
 
   // Bureau Calling Team
   {
-    code: "BC NOT NEEDED",
-    name: "BC NOT NEEDED",
+    code: "BUREAU CALLING NOT NEEDED",
+    name: "BUREAU CALLING NOT NEEDED",
     description: "No bureau call required for this client at this time.",
     category: "bureau",
     badgeClass: "bg-slate-500/10 text-slate-700 border-slate-500/30",
   },
   {
-    code: "BC NEEDED",
-    name: "BC NEEDED",
+    code: "BUREAU CALLING NEEDED",
+    name: "BUREAU CALLING NEEDED",
     description:
       "Client needs a bureau verification call. Assign to bureau caller within 24 hours.",
     category: "bureau",
     badgeClass: "bg-amber-500/10 text-amber-700 border-amber-500/30",
   },
   {
-    code: "BC IN PROGRESS",
-    name: "BC IN PROGRESS",
+    code: "BUREAU CALLING IN PROGRESS",
+    name: "BUREAU CALLING IN PROGRESS",
     description:
       "Bureau call is actively being handled by a bureau caller agent.",
     category: "bureau",
     badgeClass: "bg-blue-500/10 text-blue-700 border-blue-500/30",
   },
   {
-    code: "BC COMPLETED",
-    name: "BC COMPLETED",
+    code: "BUREAU CALLING COMPLETED",
+    name: "BUREAU CALLING COMPLETED",
     description:
       "Bureau call completed. Results logged. File ready for next processing step.",
     category: "bureau",
@@ -188,7 +188,7 @@ export const CREDIT_OPS_STATUS_GUIDE: StatusGuideItem[] = [
      no queue could route on. Dee: that is a missing step, not a typo, so the
      guide gains it rather than the work being reinterpreted as something it
      is not. All three are work to do now: nobody outside BES is holding them
-     up, which is what separates them from CM AWAITING RESPONSE. */
+     up, which is what separates them from COMPLAINT AWAITING RESPONSE. */
   {
     code: "FOR COMPLAINTS",
     name: "FOR COMPLAINTS",
@@ -214,8 +214,8 @@ export const CREDIT_OPS_STATUS_GUIDE: StatusGuideItem[] = [
     badgeClass: "bg-orange-500/10 text-orange-700 border-orange-500/30",
   },
   {
-    code: "CM NOT NEEDED",
-    name: "CM NOT NEEDED",
+    code: "COMPLAINT NOT NEEDED",
+    name: "COMPLAINT NOT NEEDED",
     description:
       "No complaints or mailing work needed for this client at this time.",
     category: "complaints",
@@ -268,16 +268,16 @@ export const CREDIT_OPS_STATUS_GUIDE: StatusGuideItem[] = [
     badgeClass: "bg-rose-600/10 text-rose-800 border-rose-600/30",
   },
   {
-    code: "CM AWAITING RESPONSE",
-    name: "CM AWAITING RESPONSE",
+    code: "COMPLAINT AWAITING RESPONSE",
+    name: "COMPLAINT AWAITING RESPONSE",
     description:
       "Complaints filed — awaiting bureau/agency response (30-45 days).",
     category: "complaints",
     badgeClass: "bg-purple-500/10 text-purple-700 border-purple-500/30",
   },
   {
-    code: "CM COMPLETED",
-    name: "CM COMPLETED",
+    code: "COMPLAINT COMPLETED",
+    name: "COMPLAINT COMPLETED",
     description: "All complaints and mailing work completed for this cycle.",
     category: "complaints",
     badgeClass: "bg-emerald-500/10 text-emerald-700 border-emerald-500/30",

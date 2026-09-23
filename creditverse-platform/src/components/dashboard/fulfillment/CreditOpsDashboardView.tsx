@@ -52,10 +52,10 @@ interface CreditOpsDashboardViewProps {
 /* Department statuses that mean "no open file for this department". Counted
    in the queue-status grids, excluded from Team Workload. */
 const CLOSED_DEPARTMENT_STATUSES = new Set([
-  "BC NOT NEEDED",
-  "BC COMPLETED",
-  "CM NOT NEEDED",
-  "CM COMPLETED",
+  "BUREAU CALLING NOT NEEDED",
+  "BUREAU CALLING COMPLETED",
+  "COMPLAINT NOT NEEDED",
+  "COMPLAINT COMPLETED",
   "SUPPORT RESOLVED",
 ]);
 
@@ -153,7 +153,7 @@ export function CreditOpsDashboardView({
   const critical30 = activeClients.filter(
     (c) => c.slaHoursRemaining !== undefined && c.slaHoursRemaining <= 4,
   ).length;
-  const bureauCount = countFor("Bureau Calling", "BC NEEDED") + countFor("Bureau Calling", "BC IN PROGRESS");
+  const bureauCount = countFor("Bureau Calling", "BUREAU CALLING NEEDED") + countFor("Bureau Calling", "BUREAU CALLING IN PROGRESS");
   const archivedCount = scopedClients.length - activeClients.length;
 
   const workload: { label: string; department: DepartmentStatus["department"]; color: string }[] = [

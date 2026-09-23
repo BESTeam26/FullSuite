@@ -96,7 +96,7 @@ export function CreditOpsManagementDashboard({
     (c) => c.status === "Attention",
   ).length;
   const bureauCalls = activeClients.filter(
-    (c) => c.status === "BC NEEDED",
+    (c) => c.status === "BUREAU CALLING NEEDED",
   ).length;
 
   const kpis: OpsKpi[] = [

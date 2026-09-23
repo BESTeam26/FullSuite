@@ -73,10 +73,10 @@ export function departmentStatuses(department: CreditOpsDepartment): string[] {
 
 /** Statuses that mean "nothing open for this department". */
 export const CLOSED_DEPARTMENT_STATUSES: ReadonlySet<string> = new Set([
-  "BC NOT NEEDED",
-  "BC COMPLETED",
-  "CM NOT NEEDED",
-  "CM COMPLETED",
+  "BUREAU CALLING NOT NEEDED",
+  "BUREAU CALLING COMPLETED",
+  "COMPLAINT NOT NEEDED",
+  "COMPLAINT COMPLETED",
   "SUPPORT RESOLVED",
   "ONBOARDING READY FOR ROUND 1",
   /* The pre-2026-09-22 spelling, kept so older rows still read as closed. */
@@ -103,7 +103,7 @@ export const WAITING_DEPARTMENT_STATUSES: ReadonlySet<string> = new Set([
   "ROUND SENT - AWAITING RESULTS",
   "WAITING FOR PARTNER APPROVAL",
   "WAITING CLIENT RESPONSE",
-  "CM AWAITING RESPONSE",
+  "COMPLAINT AWAITING RESPONSE",
   "DOCS PENDING",
 ]);
 
@@ -181,7 +181,7 @@ export function handoffEntryStatus(department: CreditOpsDepartment): string {
  *
  * 2. Handing to a department that is ALREADY OPEN leaves it alone. Re-sending
  *    a file to Bureau Calling that is mid-call would otherwise knock it back
- *    to "BC NEEDED" and lose where it had got to.
+ *    to "BUREAU CALLING NEEDED" and lose where it had got to.
  */
 
 /** Every department a file may be handed to from here — all but itself. */
