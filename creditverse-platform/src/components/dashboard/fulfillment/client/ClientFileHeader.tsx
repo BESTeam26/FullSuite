@@ -18,7 +18,9 @@
  * the one helper that formats it is shared with every queue so they cannot
  * word the same fact differently.
  */
-import { ArrowLeft, MoreHorizontal, ShieldAlert } from "lucide-react";
+import {
+  ArrowLeft, CalendarDays, ClipboardList, ExternalLink, Timer, UserRound,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -79,6 +81,15 @@ export function ClientFileHeader({
   const lifecycle = client.lifecycle ?? "active";
 
   return (
+    /* ── DEE'S MOCKUP, 2026-09-24 ────────────────────────────────────────
+       Title and partner, then the state as CHIPS, then the four facts as
+       cards with an icon each. The facts were a cramped four-column strip of
+       small labels; as cards they are readable at a glance from across a
+       desk, which is how a queue gets worked.
+
+       Every field is still the same inline editor writing through the same
+       canonical writer, and who may change what is still the database's
+       answer. This is the same header, laid out as she drew it. */
     <header className="rounded-xl border border-border bg-card shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3 px-4 pt-3">
         <div className="min-w-0">
@@ -88,97 +99,134 @@ export function ClientFileHeader({
           >
             <ArrowLeft className="h-3.5 w-3.5" /> {backLabel}
           </button>
-          <h1 className="truncate text-lg font-bold text-foreground">{client.name}</h1>
-          <p className="truncate text-xs text-muted-foreground">{clientGroupLabel(client)}</p>
+          <h1 className="truncate text-2xl font-bold tracking-tight text-foreground">{client.name}</h1>
+          <p className="mt-0.5 flex items-center gap-1.5 truncate text-sm font-medium text-foreground">
+            <span
+              aria-hidden
+              className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[9px] font-bold text-primary"
+            >
+              {clientGroupLabel(client).slice(0, 2).toUpperCase()}
+            </span>
+            {clientGroupLabel(client)}
+          </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Badge tone="border-border bg-muted text-muted-foreground">{client.status}</Badge>
-          <Badge tone="border-border bg-muted text-foreground">{client.round}</Badge>
-          {/* Lifecycle is a badge, not a panel. Managing it is under More. */}
-          <Badge
-            tone={lifecycle === "active"
-              ? "border-emerald-500/30 bg-emerald-500/10 text-status-success"
-              : "border-border bg-muted text-muted-foreground"}
+        <div className="flex shrink-0 items-center gap-2">
+          {canWork && (
+            <Button size="sm" onClick={onCompleteWork}>
+              Complete Work
+            </Button>
+          )}
+          {/* A file worth two screens is a file worth two windows — an agent
+              comparing a report against the dispute needs both at once. */}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => window.open(`/app/creditops?client=${client.id}`, "_blank", "noopener")}
           >
-            {lifecycle === "active" ? "Active" : lifecycle}
-          </Badge>
+            Open in new tab <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
+          </Button>
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-end justify-between gap-4 border-t border-border px-4 py-3">
-        {/* ── THE THREE FIELDS A TASK CARD LETS YOU CHANGE ─────────────────
-            Dee, 2026-09-21: opening a client should behave like a ClickUp
-            task, and on a task you set the status, the owner and the date
-            without going anywhere. These are the same editors the client list
-            already uses and the same canonical writer
-            (`set_client_department_status`), so a change made here and a
-            change made in the row are one event.
+      {/* The state of the file, read left to right: is it live, what is the
+          credit status, which round. */}
+      <div className="flex flex-wrap items-center gap-1.5 px-4 pt-2.5">
+        <Badge
+          tone={lifecycle === "active"
+            ? "border-emerald-500/30 bg-emerald-500/10 text-status-success"
+            : "border-border bg-muted text-muted-foreground"}
+        >
+          {lifecycle === "active" ? "Active" : lifecycle}
+        </Badge>
+        <Badge tone="border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400">
+          {client.status}
+        </Badge>
+        <Badge tone="border-border bg-muted text-muted-foreground">{client.round}</Badge>
+      </div>
 
-            Who may change what is still the database's answer: the status and
-            the owner need the department this file is in, and the due date is
-            derived by the SLA engine — overriding it is a management act that
-            demands a reason, so it is only editable for `ops.manage` and
-            read-only for everyone else. */}
-        <div className="grid flex-1 grid-cols-2 gap-4 sm:grid-cols-4">
-          <Fact label="Current work">
-            {!current ? (
-              <span className="text-muted-foreground">No open work</span>
-            ) : canWork ? (
-              <span className="flex flex-wrap items-baseline gap-1">
-                <span className="text-muted-foreground">{current.department}</span>
+      <div className="grid gap-2 px-4 py-3 sm:grid-cols-2 xl:grid-cols-4">
+        <FactCard icon={ClipboardList} label="Current work" tone="text-primary">
+          {!current ? (
+            <span className="text-muted-foreground">No open work</span>
+          ) : (
+            <>
+              <p className="truncate text-sm font-bold text-foreground">{current.department}</p>
+              {canWork ? (
                 <EditableChoiceCell
                   label={`${current.department} work status`}
                   value={current.status}
                   options={departmentStatuses(current.department as CreditOpsDepartment)}
                   onSave={(next) => onStatusChange(current.department as CreditOpsDepartment, next)}
                 />
-              </span>
-            ) : (
-              `${current.department} · ${current.status}`
-            )}
-          </Fact>
-          <Fact label="Due">
-            {current && canManage ? (
-              <DueDateOverrideCell
-                value={due}
-                department={current.department}
-                onSave={(date, reason) => onDueChange(current.department as CreditOpsDepartment, date, reason)}
-                onClear={() => onDueClear(current.department as CreditOpsDepartment)}
-              />
-            ) : due ? formatDate(due) : <span className="text-muted-foreground">—</span>}
-          </Fact>
-          <Fact label="SLA">
-            <span className={SLA_TONE_CLASS[sla.tone]}>{sla.label}</span>
-          </Fact>
-          <Fact label="Assigned to">
-            {current && canWork ? (
-              <AssigneeCell
-                department={current.department as CreditOpsDepartment}
-                value={current.assigneeId ?? null}
-                valueName={current.assignee}
-                onSave={(id) => onAssigneeChange(current.department as CreditOpsDepartment, id)}
-              />
-            ) : current?.assignee && current.assignee !== "Unassigned" ? (
-              current.assignee
-            ) : (
-              <span className="text-muted-foreground">Unassigned</span>
-            )}
-          </Fact>
-        </div>
+              ) : (
+                <p className="truncate text-[11px] uppercase tracking-wide text-muted-foreground">
+                  {current.status}
+                </p>
+              )}
+            </>
+          )}
+        </FactCard>
 
-        {/* One button. The "More" menu held a single real item, Manage
-            client, which is now a folded section further down the page — and
-            a dropdown is a layer like any other (Dee, 2026-09-22). The rest
-            of it was a disabled row showing the client id. */}
-        <div className="flex shrink-0 items-center gap-2">
-          {canWork && <Button size="sm" onClick={onCompleteWork}>Complete Work</Button>}
-        </div>
+        <FactCard icon={UserRound} label="Assigned to" tone="text-violet-600 dark:text-violet-400">
+          {current && canWork ? (
+            <AssigneeCell
+              department={current.department as CreditOpsDepartment}
+              value={current.assigneeId ?? null}
+              valueName={current.assignee}
+              onSave={(id) => onAssigneeChange(current.department as CreditOpsDepartment, id)}
+            />
+          ) : current?.assignee && current.assignee !== "Unassigned" ? (
+            <p className="truncate text-sm font-semibold text-foreground">{current.assignee}</p>
+          ) : (
+            <p className="text-sm text-muted-foreground">Unassigned</p>
+          )}
+        </FactCard>
+
+        <FactCard icon={CalendarDays} label="Due date" tone="text-sky-600 dark:text-sky-400">
+          {current && canManage ? (
+            <DueDateOverrideCell
+              value={due}
+              department={current.department}
+              onSave={(date, reason) => onDueChange(current.department as CreditOpsDepartment, date, reason)}
+              onClear={() => onDueClear(current.department as CreditOpsDepartment)}
+            />
+          ) : (
+            <p className="text-sm font-semibold text-foreground">
+              {due ? formatDate(due) : <span className="text-muted-foreground">—</span>}
+            </p>
+          )}
+        </FactCard>
+
+        <FactCard icon={Timer} label="SLA" tone="text-amber-600 dark:text-amber-400">
+          <p className={cn("text-sm font-semibold", SLA_TONE_CLASS[sla.tone])}>{sla.label}</p>
+        </FactCard>
       </div>
     </header>
   );
 }
 
+/** One of the four facts, as a card with its own icon. */
+function FactCard({
+  icon: Icon, label, tone, children,
+}: {
+  icon: typeof ClipboardList;
+  label: string;
+  tone: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex min-w-0 items-start gap-2.5 rounded-xl border border-border bg-background px-3 py-2.5">
+      <span className={cn("mt-0.5 shrink-0 rounded-lg bg-muted p-1.5", tone)} aria-hidden>
+        <Icon className="h-4 w-4" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</p>
+        <div className="mt-0.5 min-w-0">{children}</div>
+      </div>
+    </div>
+  );
+}
 
 /**
  * Who owns this file in this department.

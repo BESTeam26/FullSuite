@@ -92,7 +92,13 @@ describe("somebody who does not work that department", () => {
   it("reads the status and cannot change it", () => {
     show({ canWork: false });
     expect(screen.queryByRole("button", { name: /work status/ })).toBeNull();
-    expect(screen.getByText("Dispute · READY FOR PROCESSING")).toBeInTheDocument();
+    /* Both facts are readable. Asserted separately rather than as one string:
+       the header lays the department above its status now (Dee's mockup,
+       2026-09-24), and "Dispute · READY FOR PROCESSING" was testing the
+       punctuation between them rather than the rule, which is that a person
+       who does not work the department can READ it and not change it. */
+    expect(screen.getByText("Dispute")).toBeInTheDocument();
+    expect(screen.getByText("READY FOR PROCESSING")).toBeInTheDocument();
   });
 
   it("reads the assignee and cannot change it", () => {

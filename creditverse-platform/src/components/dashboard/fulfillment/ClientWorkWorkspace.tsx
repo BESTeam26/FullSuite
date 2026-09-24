@@ -48,10 +48,67 @@ import { ClientHistoryTab } from "./client/ClientHistoryTab";
 import { WhereThisFileIs } from "@/components/clients/WhereThisFileIs";
 import { ClientUpdateComposer } from "./client/ClientUpdateComposer";
 import { ClientActivityRail } from "./client/ClientActivityRail";
+import { ClientQuickInfo } from "./client/ClientQuickInfo";
+import { useClientDocuments } from "@/lib/data/use-client-work-detail";
+import { useClientPosts } from "@/lib/data/use-client-posts";
+import { Briefcase, CreditCard, FolderOpen, MessageSquare, ShieldCheck } from "lucide-react";
 import { CompleteWorkSection } from "./CompleteWorkSection";
 import { ClientLifecycleControl } from "./ClientLifecycleControl";
 import { ClientStatusControl } from "./ClientStatusControl";
 import { ClientAssignmentCard } from "./ClientAssignmentCard";
+
+type TabId = "work" | "credit" | "identity" | "files" | "history";
+
+/**
+ * The tabs from Dee's mockup, with live counts.
+ *
+ * A count on a tab is the reason somebody opens it. "Files" tells an agent
+ * nothing; "Files 24" tells them there is a year of paperwork behind it, and
+ * a zero tells them not to bother looking.
+ */
+function TabBar({ tab, onPick, clientId }: {
+  tab: TabId; onPick: (t: TabId) => void; clientId: string;
+}) {
+  const files = useClientDocuments(clientId);
+  const posts = useClientPosts(clientId);
+  const TABS: { id: TabId; label: string; icon: typeof Briefcase; count?: number }[] = [
+    { id: "work", label: "Work", icon: Briefcase },
+    { id: "credit", label: "Credit", icon: CreditCard },
+    { id: "identity", label: "Identity & Access", icon: ShieldCheck },
+    { id: "files", label: "Files", icon: FolderOpen, count: files.data?.length },
+    { id: "history", label: "History", icon: MessageSquare, count: posts.data?.length },
+  ];
+  return (
+    <div role="tablist" aria-label="Client file" className="flex flex-wrap gap-1 border-b border-border">
+      {TABS.map((t) => {
+        const on = t.id === tab;
+        return (
+          <button
+            key={t.id}
+            role="tab"
+            aria-selected={on}
+            onClick={() => onPick(t.id)}
+            className={cn(
+              "-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              on
+                ? "border-primary text-foreground"
+                : "border-transparent text-muted-foreground hover:border-border hover:text-foreground",
+            )}
+          >
+            <t.icon className="h-3.5 w-3.5" aria-hidden />
+            {t.label}
+            {t.count !== undefined && t.count > 0 && (
+              <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground">
+                {t.count}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 export function ClientWorkWorkspace({
   clientId,
@@ -67,6 +124,7 @@ export function ClientWorkWorkspace({
   const access = useCreditOpsAccess();
   const perms = useAgencyPermissions();
   const [completing, setCompleting] = useState(false);
+  const [tab, setTab] = useState<TabId>("work");
 
   const client = store.clients.find((c) => c.id === clientId);
   const rows = store.getDepartmentStatuses(clientId);
@@ -131,15 +189,19 @@ export function ClientWorkWorkspace({
   );
 
   return (
-    /* ── TWO COLUMNS, THE WAY DEE'S CLICKUP HAS IT ───────────────────────
-       Dee, 2026-09-24, with a screenshot: "This is the UI I want exactly."
-       The file on the left, the conversation in a rail on the right that is
-       always open and scrolls on its own.
+    /* ── DEE'S MOCKUP, 2026-09-24 ────────────────────────────────────────
+       Three columns: the work, a reference column beside it, and the
+       conversation on the right.
 
-       It was one column with the conversation buried under four collapsed
-       sections, so an agent opened a client and saw no client details, no
-       documents and no comments — on files carrying a year of them. Nothing
-       about what may be seen changes here; this is where it sits. */
+       It was one column with everything folded, so opening a client showed
+       neither the person's details nor a year of comments. Tabs are back in
+       the MIDDLE only — Work, Credit, Identity, Files, Activity — because
+       those are alternatives to each other, while Quick Info and the
+       conversation are things you read WHILE working and must not be behind
+       a choice.
+
+       Nothing here changes what may be seen. Every panel keeps the check it
+       already had. */
     <div className="grid gap-4 text-xs xl:grid-cols-[minmax(0,1fr)_400px]">
       <div className="min-w-0 space-y-4">
         <ClientFileHeader
@@ -156,42 +218,57 @@ export function ClientWorkWorkspace({
           onDueClear={onDueClear}
         />
 
-        {/* ── THE CONTROLS ARE AT THE TOP ──────────────────────────────
-            Dee, 2026-09-24: managing the client and editing their details
-            "should be at the upper part". They were at the very bottom,
-            under the history and the documents, which on a file with a year
-            of comments is several screens of scrolling to change a status.
+        <TabBar tab={tab} onPick={setTab} clientId={clientId} />
 
-            Still shut by default and still capability-gated — each control
-            inside keeps its own check, and `ops.manage` decides whether the
-            section exists at all. Being reachable is not the same as being
-            open, and neither is the same as being permitted. */}
-        {canManage && (
-          <FoldedSection label="Manage this client"
-            hint="Lifecycle, status, assignment and dates · recorded with your name">
-            <div className="space-y-3">
-              <ClientStatusControl client={client} />
-              <ClientAssignmentCard clientId={clientId} />
-              <ClientLifecycleControl client={client} canEdit={canManage} />
-            </div>
-          </FoldedSection>
-        )}
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
+          <div className="min-w-0 space-y-4">
+            {tab === "work" && (
+              <>
+                {/* Managing the client sits at the top of the work, not under
+                    the history — Dee, 2026-09-24. Shut by default, and each
+                    control inside keeps its own capability check. */}
+                {canManage && (
+                  <FoldedSection label="Manage this client"
+                    hint="Lifecycle, status, assignment and dates · recorded with your name">
+                    <div className="space-y-3">
+                      <ClientStatusControl client={client} />
+                      <ClientAssignmentCard clientId={clientId} />
+                      <ClientLifecycleControl client={client} canEdit={canManage} />
+                    </div>
+                  </FoldedSection>
+                )}
 
-        {/* Who the person is, open. In ClickUp the address and the identity
-            are the first thing under the title, not a section you unfold —
-            and Dee: "I don't want hidden client details." */}
-        <ClientInfoTab
-          client={client}
-          hasFunding={Boolean((client as { fundingClientId?: string | null }).fundingClientId)}
-        />
+                <ClientWorkTab
+                  client={client}
+                  clientId={clientId}
+                  current={current}
+                  nextAction={(client as { nextAction?: string | null }).nextAction ?? null}
+                  onCompleteWork={() => setCompleting(true)}
+                />
 
-        <ClientWorkTab
-          client={client}
-          clientId={clientId}
-          current={current}
-          nextAction={(client as { nextAction?: string | null }).nextAction ?? null}
-          onCompleteWork={() => setCompleting(true)}
-        />
+                {/* Several departments can hold one file at once, and by Dee's
+                    queue doctrine (§23) that has to stay visible. */}
+                {rows.length > 1 && <WhereThisFileIs rows={rows} />}
+              </>
+            )}
+
+            {tab === "credit" && (
+              <ClientInfoTab
+                client={client}
+                hasFunding={Boolean((client as { fundingClientId?: string | null }).fundingClientId)}
+              />
+            )}
+
+            {tab === "identity" && <ClientInfoTab client={client} hasFunding={false} />}
+
+            {tab === "files" && <ClientDocumentsTab clientId={clientId} />}
+
+            {tab === "history" && <ClientHistoryTab clientId={clientId} />}
+          </div>
+
+          {/* The reference column. Always there, whichever tab is open. */}
+          <ClientQuickInfo client={client} current={current} className="min-w-0" />
+        </div>
 
         {completing && (
           <div className="rounded-2xl border border-primary/40 bg-card p-4">
@@ -215,24 +292,6 @@ export function ClientWorkWorkspace({
             />
           </div>
         )}
-
-        {/* Several departments can hold one file at once, and by Dee's queue
-            doctrine (§23) that has to stay visible. Shown only when there IS
-            more than one, so a simple file stays simple. */}
-        {rows.length > 1 && <WhereThisFileIs rows={rows} />}
-
-        {/* Attachments, open and shown as thumbnails — 28 files on Tiffany
-            Hunter's own card, and they were behind a fold. */}
-        <ClientDocumentsTab clientId={clientId} />
-
-        {/* Dee, 2026-09-23: "History is the one that I don't want
-            automatically shown, that can be collapsible." It is the audit
-            trail — consulted, not read — and it is NOT the conversation,
-            which now has its own column. */}
-        <FoldedSection label="History" hint="Every change on this file, and who made it">
-          <ClientHistoryTab clientId={clientId} />
-        </FoldedSection>
-
       </div>
 
       {/* Sticky so the conversation stays beside the work rather than
