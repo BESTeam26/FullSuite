@@ -51,13 +51,13 @@ import { ClientUpdateComposer } from "./client/ClientUpdateComposer";
 import { ClientActivityRail } from "./client/ClientActivityRail";
 import { useClientDocuments } from "@/lib/data/use-client-work-detail";
 import { useClientPosts } from "@/lib/data/use-client-posts";
-import { Briefcase, CreditCard, FolderOpen, MessageSquare, ShieldCheck } from "lucide-react";
+import { Briefcase, FolderOpen, MessageSquare, ShieldCheck } from "lucide-react";
 import { CompleteWorkSection } from "./CompleteWorkSection";
 import { ClientLifecycleControl } from "./ClientLifecycleControl";
 import { ClientStatusControl } from "./ClientStatusControl";
 import { ClientAssignmentCard } from "./ClientAssignmentCard";
 
-type TabId = "work" | "credit" | "identity" | "files" | "history";
+type TabId = "work" | "info" | "files" | "history";
 
 /**
  * The tabs from Dee's mockup, with live counts.
@@ -73,8 +73,10 @@ function TabBar({ tab, onPick, clientId }: {
   const posts = useClientPosts(clientId);
   const TABS: { id: TabId; label: string; icon: typeof Briefcase; count?: number }[] = [
     { id: "work", label: "Work", icon: Briefcase },
-    { id: "credit", label: "Credit", icon: CreditCard },
-    { id: "identity", label: "Identity & Access", icon: ShieldCheck },
+    /* Credit and Identity & Access were two tabs over one subject — both
+       opened on the same person and the same editable details, and Credit
+       carried the identity panel anyway. Dee, 2026-09-24: combine them. */
+    { id: "info", label: "Client info", icon: ShieldCheck },
     { id: "files", label: "Files", icon: FolderOpen, count: files.data?.length },
     { id: "history", label: "History", icon: MessageSquare, count: posts.data?.length },
   ];
@@ -254,25 +256,18 @@ export function ClientWorkWorkspace({
               </>
             )}
 
-            {/* Everything about the person, and a way to correct it. The
-                imported files arrived with gaps the import itself reported —
-                a missing date of birth, an address it could not parse — and
-                until now there was nothing on this screen that could fix
-                one. */}
-            {tab === "credit" && (
+            {/* Everything about the person: their details and a way to
+                correct them, the credit file, and the protected identity and
+                logins. The imported files arrived with gaps the import itself
+                reported — a missing date of birth, an address it could not
+                parse — and until now nothing on this screen could fix one. */}
+            {tab === "info" && (
               <>
                 <ClientDetailsCard clientId={clientId} />
                 <ClientInfoTab
                   client={client}
                   hasFunding={Boolean((client as { fundingClientId?: string | null }).fundingClientId)}
                 />
-              </>
-            )}
-
-            {tab === "identity" && (
-              <>
-                <ClientDetailsCard clientId={clientId} />
-                <ClientInfoTab client={client} hasFunding={false} />
               </>
             )}
 

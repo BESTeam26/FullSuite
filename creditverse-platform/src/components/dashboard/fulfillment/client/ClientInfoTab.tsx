@@ -36,27 +36,17 @@ export function ClientInfoTab({
      "Do not show an empty Funding card on every CreditOps client." */
   hasFunding: boolean;
 }) {
-  const c = client as FulfillmentClient & {
-    dateOfBirth?: string | null;
-    address?: string | null;
-  };
+  /* Contact, address and date of birth moved to the editable Client details
+     card above this one (Dee, 2026-09-24). What is left here is the WORK's
+     view of the person — the round they are on, where their credit status
+     stands — which is read from the file rather than typed by anybody. */
 
   return (
     <div className="space-y-3">
-      <ContentCard title="Contact">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <Field label="Name" value={client.name} />
-          <Field label="Phone" value={client.phone} />
-          <Field label="Email" value={client.email} />
-          <Field label="Address" value={c.address} />
-        </div>
-      </ContentCard>
-
       <ContentCard title="Credit file">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="Current round" value={client.round} />
           <Field label="Credit status" value={client.status} />
-          <Field label="Date of birth" value={c.dateOfBirth ? formatDate(c.dateOfBirth) : null} />
           <Field label="Client since" value={client.createdAt ? formatDate(client.createdAt) : null} />
         </div>
       </ContentCard>
