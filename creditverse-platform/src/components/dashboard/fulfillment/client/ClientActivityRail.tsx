@@ -15,9 +15,9 @@
  * so an eleven-month conversation carries on in the same column it arrived in.
  */
 import { useState } from "react";
-import { Loader2, SmilePlus } from "lucide-react";
+import { Loader2, SmilePlus, ThumbsUp } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatDate } from "@/lib/format-date";
+import { formatDateTime } from "@/lib/format-date";
 import { useToast } from "@/hooks/use-toast";
 import {
   useClientPosts, useReactToPost, useReplyToPost, type ClientPost,
@@ -118,90 +118,135 @@ function Post({
     }
   };
 
+  const thumbs = post.reactions.find((r) => r.emoji === "👍");
+
   return (
-    <article className={cn("py-3", depth > 0 && "ml-4 border-l border-border pl-3")}>
-      <div className="flex items-start gap-2">
-        <span
-          aria-hidden
-          className={cn(
-            "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white",
-            toneFor(post.authorId ?? post.author),
-          )}
-        >
-          {initialsOf(post.author)}
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="flex flex-wrap items-baseline gap-x-2">
-            <span className="text-xs font-semibold text-foreground">{post.author}</span>
-            <span className="text-[11px] text-muted-foreground">{formatDate(post.at)}</span>
-            {post.imported && (
-              <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                from ClickUp
-              </span>
+    /* A CARD, not a row in a divided list. Dee's ClickUp gives every comment
+       its own bordered block with a hairline above its actions, and that is
+       what makes a long conversation readable — a divider line between posts
+       reads as one continuous wall of text. */
+    <article className={cn(
+      "overflow-hidden rounded-xl border border-border bg-card",
+      depth > 0 && "ml-6",
+    )}>
+      <div className="p-3">
+        <div className="flex items-start gap-2">
+          <span
+            aria-hidden
+            className={cn(
+              "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white",
+              toneFor(post.authorId ?? post.author),
             )}
-          </p>
-          {post.detail && (
-            /* `whitespace-pre-wrap`: eleven months of ClickUp comments are
-               plain text with line breaks that carry meaning. */
-            <p className="mt-1 whitespace-pre-wrap break-words text-xs leading-relaxed text-foreground">
-              {post.detail}
+          >
+            {initialsOf(post.author)}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="flex flex-wrap items-baseline gap-x-2">
+              <span className="text-xs font-bold text-foreground">{post.author}</span>
+              {/* Date AND time: "yesterday at 9:57 am" is how somebody places a
+                  comment in a day's conversation. */}
+              <span className="text-[11px] text-muted-foreground">{formatDateTime(post.at)}</span>
+              {post.imported && (
+                <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                  from ClickUp
+                </span>
+              )}
             </p>
-          )}
+            {post.detail && (
+              /* `whitespace-pre-wrap`: a year of ClickUp comments is plain
+                 text whose line breaks carry the meaning. */
+              <p className="mt-1.5 whitespace-pre-wrap break-words text-xs leading-relaxed text-foreground">
+                {post.detail}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* The action bar: reactions on the left, Reply on the right, above a
+          hairline inside the card — ClickUp's arrangement exactly. */}
+      <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-1.5">
+        <div className="flex flex-wrap items-center gap-1">
+          {/* Thumbs-up is its own control, because it is the one people use. */}
+          <button
+            type="button"
+            disabled={react.isPending}
+            onClick={() => react.mutate({ postId: post.id, emoji: "👍" })}
+            aria-pressed={!!thumbs?.mine}
+            aria-label={thumbs?.mine ? "Remove your thumbs up" : "Thumbs up"}
+            className={cn(
+              "flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] leading-none transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              thumbs?.mine
+                ? "border-primary/50 bg-primary/10 text-foreground"
+                : "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground",
+            )}
+          >
+            <ThumbsUp className="h-3.5 w-3.5" />
+            {thumbs && <span className="font-semibold">{thumbs.count}</span>}
+          </button>
 
           <Reactions
             post={post}
             busy={react.isPending}
             onReact={(emoji) => react.mutate({ postId: post.id, emoji })}
           />
+        </div>
 
-          {!replying ? (
+        <button
+          type="button"
+          onClick={() => setReplying((v) => !v)}
+          className="shrink-0 text-[11px] font-semibold text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          Reply
+        </button>
+      </div>
+
+      {replying && (
+        <div className="border-t border-border p-3">
+          <textarea
+            autoFocus
+            rows={2}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              /* Enter sends, Shift+Enter breaks the line — ClickUp's rule. */
+              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                e.preventDefault(); void send();
+              }
+              if (e.key === "Escape") { setReplying(false); setDraft(""); }
+            }}
+            placeholder="Reply…"
+            className="w-full resize-y rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+          <div className="mt-1.5 flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setReplying(true)}
-              className="mt-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={() => void send()}
+              disabled={!draft.trim() || reply.isPending}
+              className="inline-flex items-center gap-1 rounded-lg bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
+              {reply.isPending && <Loader2 className="h-3 w-3 animate-spin" />}
               Reply
             </button>
-          ) : (
-            <div className="mt-2">
-              <textarea
-                autoFocus
-                rows={2}
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void send();
-                  if (e.key === "Escape") { setReplying(false); setDraft(""); }
-                }}
-                placeholder="Reply…"
-                className="w-full resize-y rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              />
-              <div className="mt-1 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => void send()}
-                  disabled={!draft.trim() || reply.isPending}
-                  className="inline-flex items-center gap-1 rounded-lg bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  {reply.isPending && <Loader2 className="h-3 w-3 animate-spin" />}
-                  Reply
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setReplying(false); setDraft(""); }}
-                  className="text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
+            <button
+              type="button"
+              onClick={() => { setReplying(false); setDraft(""); }}
+              className="text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
+      {post.replies.length > 0 && (
+        <div className="space-y-2 border-t border-border bg-muted/30 p-2">
           {post.replies.map((r) => (
             <Post key={r.id} post={r} clientId={clientId} organizationId={organizationId} depth={depth + 1} />
           ))}
         </div>
-      </div>
+      )}
     </article>
   );
 }
@@ -228,7 +273,12 @@ export function ClientActivityRail({
         )}
       </header>
 
-      <div className="min-h-0 flex-1 divide-y divide-border overflow-y-auto px-4">
+      {/* The composer sits at the TOP. ClickUp puts it at the foot of the
+          column; Dee asked for it up here, where it is reachable without
+          scrolling a year of history first. */}
+      <div className="border-b border-border p-3">{composer}</div>
+
+      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
         {posts.isLoading ? (
           /* Skeletons, not "no posts yet": a false empty on a file with a
              year of history is the one thing worse than waiting. */
@@ -258,7 +308,6 @@ export function ClientActivityRail({
         )}
       </div>
 
-      <div className="border-t border-border p-3">{composer}</div>
     </aside>
   );
 }

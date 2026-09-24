@@ -156,6 +156,27 @@ export function ClientWorkWorkspace({
           onDueClear={onDueClear}
         />
 
+        {/* ── THE CONTROLS ARE AT THE TOP ──────────────────────────────
+            Dee, 2026-09-24: managing the client and editing their details
+            "should be at the upper part". They were at the very bottom,
+            under the history and the documents, which on a file with a year
+            of comments is several screens of scrolling to change a status.
+
+            Still shut by default and still capability-gated — each control
+            inside keeps its own check, and `ops.manage` decides whether the
+            section exists at all. Being reachable is not the same as being
+            open, and neither is the same as being permitted. */}
+        {canManage && (
+          <FoldedSection label="Manage this client"
+            hint="Lifecycle, status, assignment and dates · recorded with your name">
+            <div className="space-y-3">
+              <ClientStatusControl client={client} />
+              <ClientAssignmentCard clientId={clientId} />
+              <ClientLifecycleControl client={client} canEdit={canManage} />
+            </div>
+          </FoldedSection>
+        )}
+
         {/* Who the person is, open. In ClickUp the address and the identity
             are the first thing under the title, not a section you unfold —
             and Dee: "I don't want hidden client details." */}
@@ -212,16 +233,6 @@ export function ClientWorkWorkspace({
           <ClientHistoryTab clientId={clientId} />
         </FoldedSection>
 
-      {canManage && (
-        <FoldedSection label="Manage this client"
-          hint="Corrections and lifecycle · recorded with your name">
-          <div className="space-y-3">
-            <ClientStatusControl client={client} />
-            <ClientAssignmentCard clientId={clientId} />
-            <ClientLifecycleControl client={client} canEdit={canManage} />
-          </div>
-        </FoldedSection>
-      )}
       </div>
 
       {/* Sticky so the conversation stays beside the work rather than

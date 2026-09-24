@@ -34,6 +34,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { useQueryClient } from "@tanstack/react-query";
 import { postNote } from "@/lib/data/activity";
 import { requireSupabase } from "@/lib/supabase/client";
+import { clientPostsKey } from "@/lib/data/use-client-posts";
 import type { FulfillmentClient } from "@/lib/fulfillment/fulfillment-client-domain";
 
 export function ClientUpdateComposer({ client }: { client: FulfillmentClient }) {
@@ -105,14 +106,19 @@ export function ClientUpdateComposer({ client }: { client: FulfillmentClient }) 
       });
 
       setText(""); setFiles([]);
+      /* The Activity rail FIRST — it is the column the person is looking at
+         when they press Post. Leaving it out is why an update appeared to do
+         nothing: the row was written, History refreshed out of sight, and the
+         conversation the agent was reading did not move. */
+      void qc.invalidateQueries({ queryKey: clientPostsKey(client.id) });
       void qc.invalidateQueries({ queryKey: ["creditops", "history", client.id] });
       void qc.invalidateQueries({ queryKey: ["creditops", "documents", client.id] });
-      toast({
-        title: "Posted",
-        description: stored.length
-          ? "It is in History, and the file is in Documents."
-          : "It is in History.",
-      });
+      /* No toast on success any more: the comment appears in the column the
+         person is already looking at, and a notification telling somebody
+         about something they can see is noise. Failures still speak. */
+      if (stored.length) {
+        toast({ title: "Posted", description: `${stored.length} file${stored.length === 1 ? "" : "s"} added to Documents.` });
+      }
     } catch (e) {
       /* The text is deliberately KEPT on failure: retyping a paragraph
          because a network blipped is the worst moment to lose it. */
@@ -136,8 +142,16 @@ export function ClientUpdateComposer({ client }: { client: FulfillmentClient }) 
         value={text}
         onChange={(e) => setText(e.target.value)}
         onPaste={onPaste}
+        onKeyDown={(e) => {
+          /* ClickUp sends on Enter and breaks the line on Shift+Enter. Dee,
+             2026-09-24: the comment should behave exactly like ClickUp's. */
+          if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+            e.preventDefault();
+            if (!busy && (text.trim() || files.length > 0)) void post();
+          }
+        }}
         rows={2}
-        placeholder="Post an update… paste a screenshot, or drop a file"
+        placeholder="Write a comment…  Enter to send, Shift+Enter for a new line"
         aria-label="Post an update"
         className="min-h-[52px] resize-none border-0 bg-transparent p-0 text-xs shadow-none focus-visible:ring-0"
       />
