@@ -26,13 +26,18 @@ import {
 } from "@/lib/data/use-client-posts";
 
 /* Dee's mockup, 2026-09-24. "All" is not a filter, it is the absence of one,
-   so it carries no predicate and cannot fall out of step with the rest. */
+   so it carries no predicate and cannot fall out of step with the rest.
+   
+   System was in the mockup and is not here. Seeing it filled with real rows,
+   Dee: "why did you duplicate these on comment section, that's not needed" —
+   and they were duplicates, of what the History tab already lists. Status
+   changes, assignments and handoffs stay there; this column is what people
+   said, what they attached, and the work they finished. */
 const FILTERS: { id: string; label: string; kinds: FeedKind[] }[] = [
   { id: "all", label: "All", kinds: [] },
   { id: "work", label: "Work", kinds: ["work"] },
   { id: "comments", label: "Comments", kinds: ["comment"] },
   { id: "files", label: "Files", kinds: ["file"] },
-  { id: "system", label: "System", kinds: ["system"] },
 ];
 
 /**
