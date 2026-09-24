@@ -16,7 +16,7 @@
  * Revealing is deliberate and it is logged. Hiding again drops the value from
  * memory, so a panel left open on a screen is not still holding an SSN.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Check, Copy, Eye, EyeOff, Loader2, ShieldAlert } from "lucide-react";
 import { ContentCard } from "@/components/dashboard/DivisionLayout";
@@ -39,6 +39,30 @@ function SecretRow({ secret, canReveal }: { secret: ClientSecret; canReveal: boo
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
+
+  /* ── SHOWN, NOT HIDDEN BEHIND A CLICK ────────────────────────────────────
+     Dee, 2026-09-24: "I don't want hidden SSN, I don't want hidden client
+     details." An agent working a dispute needs the number in front of them,
+     and an eye icon on every file is a click they make every time anyway.
+
+     Nothing about the SECURITY changes. The value still comes one at a time
+     from `client_secret_reveal`, which checks the capability and writes an
+     audit row before it answers — somebody without the capability still never
+     receives it, and every read is still recorded against a name. What
+     changes is that the request happens on open instead of on a click.
+
+     The eye still works, because hiding is still useful: it drops the value
+     from memory when somebody walks up to the desk. */
+  useEffect(() => {
+    if (!canReveal || !secret.hasValue) return;
+    let cancelled = false;
+    setBusy(true);
+    revealClientSecret(secret.id)
+      .then((v) => { if (!cancelled) setValue(v); })
+      .catch(() => { /* the row falls back to dots and the eye still works */ })
+      .finally(() => { if (!cancelled) setBusy(false); });
+    return () => { cancelled = true; };
+  }, [secret.id, secret.hasValue, canReveal]);
 
   const reveal = async () => {
     if (value) { setValue(null); return; }   // hide, and drop it from memory

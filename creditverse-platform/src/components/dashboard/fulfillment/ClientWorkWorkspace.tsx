@@ -47,6 +47,7 @@ import { ClientDocumentsTab } from "./client/ClientDocumentsTab";
 import { ClientHistoryTab } from "./client/ClientHistoryTab";
 import { WhereThisFileIs } from "@/components/clients/WhereThisFileIs";
 import { ClientUpdateComposer } from "./client/ClientUpdateComposer";
+import { ClientActivityRail } from "./client/ClientActivityRail";
 import { CompleteWorkSection } from "./CompleteWorkSection";
 import { ClientLifecycleControl } from "./ClientLifecycleControl";
 import { ClientStatusControl } from "./ClientStatusControl";
@@ -121,113 +122,96 @@ export function ClientWorkWorkspace({
     refreshDepartments();
   };
 
+  const activity = (
+    <ClientActivityRail
+      clientId={clientId}
+      organizationId={(client as { organizationId?: string | null }).organizationId ?? null}
+      composer={<ClientUpdateComposer client={client} />}
+    />
+  );
+
   return (
-    <div className="space-y-4 text-xs">
-      <ClientFileHeader
-        client={client}
-        current={current}
-        canWork={canWork}
-        canManage={canManage}
-        onBack={onBack}
-        backLabel={backLabel}
-        onCompleteWork={() => setCompleting(true)}
-        onStatusChange={onStatusChange}
-        onAssigneeChange={onAssigneeChange}
-        onDueChange={onDueChange}
-        onDueClear={onDueClear}
-      />
+    /* ── TWO COLUMNS, THE WAY DEE'S CLICKUP HAS IT ───────────────────────
+       Dee, 2026-09-24, with a screenshot: "This is the UI I want exactly."
+       The file on the left, the conversation in a rail on the right that is
+       always open and scrolls on its own.
 
-      {/* ── ONE SCROLL, NOT LAYER OVER LAYER ──────────────────────────────
-          Dee, 2026-09-22: *"once the agent open the file, the work and all
-          checklist should be already there and not layer over layer."*
+       It was one column with the conversation buried under four collapsed
+       sections, so an agent opened a client and saw no client details, no
+       documents and no comments — on files carrying a year of them. Nothing
+       about what may be seen changes here; this is where it sits. */
+    <div className="grid gap-4 text-xs xl:grid-cols-[minmax(0,1fr)_400px]">
+      <div className="min-w-0 space-y-4">
+        <ClientFileHeader
+          client={client}
+          current={current}
+          canWork={canWork}
+          canManage={canManage}
+          onBack={onBack}
+          backLabel={backLabel}
+          onCompleteWork={() => setCompleting(true)}
+          onStatusChange={onStatusChange}
+          onAssigneeChange={onAssigneeChange}
+          onDueChange={onDueChange}
+          onDueClear={onDueClear}
+        />
 
-          It was a panel, inside it four tabs, inside those a stack of cards,
-          and Complete Work opened a second drawer on top. Three layers before
-          an agent could see what to do. Her ClickUp has none of that: you
-          open a task and the description, the checklist and the comments are
-          simply there, one after another.
-
-          So the tabs are gone. The work and its checklist lead, the activity
-          follows, and the two REFERENCE sections — who the person is, and
-          their files — are folded shut underneath, because they are things
-          you look up rather than things you do. */}
-      <ClientWorkTab
-        client={client}
-        clientId={clientId}
-        current={current}
-        nextAction={(client as { nextAction?: string | null }).nextAction ?? null}
-        onCompleteWork={() => setCompleting(true)}
-      />
-
-      {completing && (
-        <div className="rounded-2xl border border-primary/40 bg-card p-4">
-          <div className="mb-3 flex items-baseline justify-between gap-3">
-            <div>
-              <h2 className="text-sm font-bold text-foreground">Complete work — {client.name}</h2>
-              <p className="text-xs text-muted-foreground">
-                What you finished, anything worth recording, and where the file goes next.
-              </p>
-            </div>
-            <button type="button" onClick={() => setCompleting(false)}
-              className="shrink-0 rounded-lg border border-border px-2.5 py-1 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-              Not now
-            </button>
-          </div>
-          <CompleteWorkSection
-            clientId={clientId}
-            clientName={client.name}
-            partnerName={clientGroupLabel(client)}
-            currentStatus={client.status}
-          />
-        </div>
-      )}
-
-      {/* Several departments can hold one file at once, and by Dee's queue
-          doctrine (§23) that has to stay visible. Shown only when there IS
-          more than one, so a simple file stays simple. */}
-      {rows.length > 1 && <WhereThisFileIs rows={rows} />}
-
-      {/* Dee, 2026-09-23: "History is the one that I don't want automatically
-          shown, that can be collapsible." It is the audit trail — something
-          you consult when a question comes up, not something you read while
-          working — and left open it pushed everything below it down the page. */}
-      <FoldedSection label="History" hint="Every change on this file, and who made it">
-        <ClientHistoryTab clientId={clientId} />
-      </FoldedSection>
-
-      <FoldedSection label="Client info" hint="Contact, identity, sensitive details">
+        {/* Who the person is, open. In ClickUp the address and the identity
+            are the first thing under the title, not a section you unfold —
+            and Dee: "I don't want hidden client details." */}
         <ClientInfoTab
           client={client}
-          /* No empty cross-module card: the funding panel appears only when a
-             funding relationship exists (Dee, 2026-09-11). */
           hasFunding={Boolean((client as { fundingClientId?: string | null }).fundingClientId)}
         />
-      </FoldedSection>
 
-      <FoldedSection label="Documents" hint="Everything filed against this client">
+        <ClientWorkTab
+          client={client}
+          clientId={clientId}
+          current={current}
+          nextAction={(client as { nextAction?: string | null }).nextAction ?? null}
+          onCompleteWork={() => setCompleting(true)}
+        />
+
+        {completing && (
+          <div className="rounded-2xl border border-primary/40 bg-card p-4">
+            <div className="mb-3 flex items-baseline justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-bold text-foreground">Complete work — {client.name}</h2>
+                <p className="text-xs text-muted-foreground">
+                  What you finished, anything worth recording, and where the file goes next.
+                </p>
+              </div>
+              <button type="button" onClick={() => setCompleting(false)}
+                className="shrink-0 rounded-lg border border-border px-2.5 py-1 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                Not now
+              </button>
+            </div>
+            <CompleteWorkSection
+              clientId={clientId}
+              clientName={client.name}
+              partnerName={clientGroupLabel(client)}
+              currentStatus={client.status}
+            />
+          </div>
+        )}
+
+        {/* Several departments can hold one file at once, and by Dee's queue
+            doctrine (§23) that has to stay visible. Shown only when there IS
+            more than one, so a simple file stays simple. */}
+        {rows.length > 1 && <WhereThisFileIs rows={rows} />}
+
+        {/* Attachments, open and shown as thumbnails — 28 files on Tiffany
+            Hunter's own card, and they were behind a fold. */}
         <ClientDocumentsTab clientId={clientId} />
-      </FoldedSection>
 
-      {/* ── COMPLETE WORK OPENS IN PLACE, NOT ON TOP ──────────────────────
-          It is still a deliberate action — Dee, 2026-09-11: "Do NOT
-          permanently display the giant Complete Work form", and that stands;
-          446 lines of form on every client was the original complaint.
+        {/* Dee, 2026-09-23: "History is the one that I don't want
+            automatically shown, that can be collapsible." It is the audit
+            trail — consulted, not read — and it is NOT the conversation,
+            which now has its own column. */}
+        <FoldedSection label="History" hint="Every change on this file, and who made it">
+          <ClientHistoryTab clientId={clientId} />
+        </FoldedSection>
 
-          But it used to open as a second drawer over the panel, which is the
-          layering she objected to on 2026-09-22. It now expands where the
-          button is, at the end of the work it belongs to, so finishing a file
-          is the bottom of the same scroll rather than another window. */}
-
-      {/* ── MANAGEMENT CONTROLS, FOLDED INTO THE PAGE ─────────────────────
-          Lifecycle, the credit status vocabulary and the date corrections.
-          Dee: "Normal agents should NOT have prominent access to archive /
-          change lifecycle, SLA override, advanced date corrections" — still
-          true, which is why it is shut by default and why each component
-          keeps its own capability check.
-
-          But it used to be a second panel opened over the first, and that is
-          the layering Dee objected to on 2026-09-22. Folded, it is in the
-          page, in order, and closing it does not close the client. */}
       {canManage && (
         <FoldedSection label="Manage this client"
           hint="Corrections and lifecycle · recorded with your name">
@@ -238,6 +222,11 @@ export function ClientWorkWorkspace({
           </div>
         </FoldedSection>
       )}
+      </div>
+
+      {/* Sticky so the conversation stays beside the work rather than
+          scrolling away from it; its own scrollbar, like ClickUp's. */}
+      <div className="xl:sticky xl:top-4 xl:h-[calc(100vh-2rem)]">{activity}</div>
     </div>
   );
 }

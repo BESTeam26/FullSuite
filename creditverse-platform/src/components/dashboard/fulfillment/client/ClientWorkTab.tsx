@@ -35,7 +35,6 @@ import {
 import type { DepartmentStatus } from "@/lib/fulfillment/creditops-store-types";
 import type { FulfillmentClient } from "@/lib/fulfillment/fulfillment-client-domain";
 import { ClientNotesCard } from "./ClientNotesCard";
-import { ClientUpdateComposer } from "./ClientUpdateComposer";
 
 /**
  * Complete Work, with what has been checked already visible on it.
@@ -138,10 +137,9 @@ export function ClientWorkTab({
 
       {notes}
 
-      {/* Posting an update while working. Removed in the consolidation and
-          restored: one post puts the note in History and any screenshot in
-          Documents, from the same write (Dee, 2026-09-12). */}
-      <ClientUpdateComposer client={client} />
+      {/* The composer moved to the foot of the Activity rail on 2026-09-24,
+          where ClickUp keeps it. Two composers on one screen is two places to
+          wonder which one posts where. */}
 
       {canWork && <ClientWorkflowActions clientId={clientId} department={department} />}
     </div>
