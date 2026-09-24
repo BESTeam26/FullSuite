@@ -13,6 +13,7 @@
 import { useState } from "react";
 import { HeartPulse, Loader2 } from "lucide-react";
 import { PartnerImportAction } from "@/components/agency/partner/PartnerImportAction";
+import { PartnerWorkspacesCard } from "@/components/agency/partner/PartnerWorkspacesCard";
 import { ContentCard } from "@/components/dashboard/DivisionLayout";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -201,6 +202,9 @@ export function PartnerOverviewTab({ partner, services, servicesFailed = false, 
             creating duplicates.
           </p>
           <PartnerImportAction partner={partner} />
+          {/* Which workspaces this partner is in — the control that used to
+              require a migration (Dee, 2026-09-24). */}
+          <PartnerWorkspacesCard partnerId={partner.id} />
         </ContentCard>
       </div>
     </div>

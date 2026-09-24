@@ -28,7 +28,7 @@
  */
 
 import { useMemo, useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, X } from "lucide-react";
 import {
   Collapsible, CollapsibleContent, CollapsibleTrigger,
 } from "@/components/ui/collapsible";
@@ -276,26 +276,48 @@ export function ClientWorkWorkspace({
             {tab === "history" && <ClientHistoryTab clientId={clientId} />}
         </div>
 
+        {/* ── COMPLETE WORK IS DOCKED, NOT APPENDED ─────────────────────
+            Dee, 2026-09-24: "This complete work button doesn't have any
+            function at all." It had one. It rendered the form at the BOTTOM
+            of a page that is now several screens long, so pressing the button
+            opened something nobody could see — which is indistinguishable
+            from a dead control, and worse, because you press it twice.
+
+            Her mockup docks it to the bottom right, over the work, and that
+            is what this is: fixed, above everything, with its own scroll for
+            a long checklist. */}
         {completing && (
-          <div className="rounded-2xl border border-primary/40 bg-card p-4">
-            <div className="mb-3 flex items-baseline justify-between gap-3">
-              <div>
-                <h2 className="text-sm font-bold text-foreground">Complete work — {client.name}</h2>
-                <p className="text-xs text-muted-foreground">
-                  What you finished, anything worth recording, and where the file goes next.
+          <div
+            role="dialog"
+            aria-modal="false"
+            aria-label={`Complete work for ${client.name}`}
+            className="fixed bottom-4 right-4 z-40 flex max-h-[85vh] w-[min(26rem,calc(100vw-2rem))] flex-col rounded-2xl border border-border bg-card shadow-2xl"
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
+              <div className="min-w-0">
+                <h2 className="text-sm font-bold text-foreground">Complete work</h2>
+                <p className="truncate text-[11px] text-muted-foreground">
+                  {client.name}
+                  {current ? ` · ${current.department}` : ""}
                 </p>
               </div>
-              <button type="button" onClick={() => setCompleting(false)}
-                className="shrink-0 rounded-lg border border-border px-2.5 py-1 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                Not now
+              <button
+                type="button"
+                onClick={() => setCompleting(false)}
+                aria-label="Close"
+                className="shrink-0 rounded-lg p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <X className="h-4 w-4" />
               </button>
             </div>
-            <CompleteWorkSection
-              clientId={clientId}
-              clientName={client.name}
-              partnerName={clientGroupLabel(client)}
-              currentStatus={client.status}
-            />
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
+              <CompleteWorkSection
+                clientId={clientId}
+                clientName={client.name}
+                partnerName={clientGroupLabel(client)}
+                currentStatus={client.status}
+              />
+            </div>
           </div>
         )}
       </div>

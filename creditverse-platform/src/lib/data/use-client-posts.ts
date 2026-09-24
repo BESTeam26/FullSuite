@@ -51,7 +51,14 @@ interface Row {
   reactions: PostReaction[] | null;
 }
 
-/** Flat rows → top-level posts, each carrying its replies oldest-first. */
+/**
+ * Flat rows → top-level posts, each carrying its replies.
+ *
+ * The database returns newest-first (Dee, 2026-09-24: the latest comment is
+ * the one you need when you pick a file up). Replies are re-sorted the other
+ * way inside their thread, because a reply appearing above the thing it
+ * replies to is nonsense however the list around it is sorted.
+ */
 export function threadPosts(rows: readonly Row[]): ClientPost[] {
   const byId = new Map<number, ClientPost>();
   for (const r of rows) {
@@ -68,6 +75,11 @@ export function threadPosts(rows: readonly Row[]): ClientPost[] {
     const parent = post.parentId === null ? null : byId.get(post.parentId);
     if (parent) parent.replies.push(post);
     else top.push(post);
+  }
+  for (const post of byId.values()) {
+    if (post.replies.length > 1) {
+      post.replies.sort((a, b) => a.at.localeCompare(b.at));
+    }
   }
   return top;
 }
