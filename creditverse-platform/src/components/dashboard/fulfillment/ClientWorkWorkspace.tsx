@@ -51,6 +51,7 @@ import { ClientUpdateComposer } from "./client/ClientUpdateComposer";
 import { ClientActivityRail } from "./client/ClientActivityRail";
 import { useClientDocuments } from "@/lib/data/use-client-work-detail";
 import { useClientPosts } from "@/lib/data/use-client-posts";
+import { useMyQueue, pickNext } from "@/lib/data/use-next-client";
 import { Briefcase, FolderOpen, MessageSquare, ShieldCheck } from "lucide-react";
 import { CompleteWorkSection } from "./CompleteWorkSection";
 import { ClientLifecycleControl } from "./ClientLifecycleControl";
@@ -116,17 +117,32 @@ export function ClientWorkWorkspace({
   clientId,
   onBack,
   backLabel,
+  onOpenClient,
 }: {
   clientId: string;
   onBack: () => void;
   /** Set by whoever mounts the card — a panel closes, a page goes back. */
   backLabel?: string;
+  /**
+   * Open a different client without going back to the list.
+   *
+   * Supplied by the queues, which own which client is open. Where it is not
+   * supplied — the standalone case page — Complete Work simply closes, and
+   * the button says so rather than offering a journey it cannot make.
+   */
+  onOpenClient?: (clientId: string) => void;
 }) {
   const store = useCreditOpsStore();
   const access = useCreditOpsAccess();
   const perms = useAgencyPermissions();
   const [completing, setCompleting] = useState(false);
   const [tab, setTab] = useState<TabId>("work");
+
+  /* The next file this person should work — most urgent first, from the same
+     view My Work reads, so the button and the queue cannot disagree about
+     what is actionable or whose it is. */
+  const queue = useMyQueue();
+  const next = onOpenClient ? pickNext(queue.data ?? [], clientId) : null;
 
   const client = store.clients.find((c) => c.id === clientId);
   const rows = store.getDepartmentStatuses(clientId);
@@ -316,7 +332,22 @@ export function ClientWorkWorkspace({
                 clientName={client.name}
                 partnerName={clientGroupLabel(client)}
                 currentStatus={client.status}
+                submitLabel={next ? "Complete & next client" : "Complete Work"}
+                onCompleted={() => {
+                  setCompleting(false);
+                  /* Straight to the next file. Dee's mockup ends the panel
+                     with this, and the point is that an agent working a queue
+                     never returns to the list. Where there is no next one,
+                     the panel just closes on a finished file. */
+                  if (next) onOpenClient?.(next.clientId);
+                }}
               />
+              {next && (
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  Next: <span className="font-medium text-foreground">{next.clientName}</span>
+                  {next.department ? ` · ${next.department}` : ""}
+                </p>
+              )}
             </div>
           </div>
         )}

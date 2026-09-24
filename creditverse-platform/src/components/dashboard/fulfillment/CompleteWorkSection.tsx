@@ -49,6 +49,16 @@ interface Props {
   currentStatus?: string;
   /** Reported upward for the sticky client context bar (§21). */
   onActiveDepartmentChange?: (department: string | null) => void;
+  /**
+   * Called once the work is recorded, so the caller can move on.
+   *
+   * Fired AFTER the write succeeds and never on failure — the whole value of
+   * Complete & Next Client is that landing on the next file means the last
+   * one is genuinely done.
+   */
+  onCompleted?: () => void;
+  /** "Complete Work", or "Complete & next client" where there is one. */
+  submitLabel?: string;
 }
 
 /**
@@ -95,6 +105,8 @@ export function CompleteWorkSection({
   partnerName = "—",
   currentStatus,
   onActiveDepartmentChange,
+  onCompleted,
+  submitLabel = "Complete Work",
 }: Props) {
   const store = useCreditOpsStore();
   const access = useCreditOpsAccess();
@@ -276,6 +288,10 @@ export function CompleteWorkSection({
       setSelectedItems([]);
       setWorkNotes("");
       setHandoffTo([]);
+      /* Only now, and only here — inside the try, after every write. A caller
+         that advances to the next file must never be told this one is
+         finished when it is not. */
+      onCompleted?.();
       /* Not reset to blank: the file's status is now whatever was just
          written, and the selector should go on showing the truth. */
     } catch (err) {
@@ -484,7 +500,7 @@ export function CompleteWorkSection({
               )}
             >
               {isSubmitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              {isSubmitting ? "Recording…" : "Complete Work"}
+              {isSubmitting ? "Recording…" : submitLabel}
             </button>
           </div>
         </>

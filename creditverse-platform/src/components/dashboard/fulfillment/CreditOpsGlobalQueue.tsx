@@ -188,6 +188,9 @@ export function CreditOpsGlobalQueue({ queueType, partnerScope = null }: Props) 
       <ClientWorkWorkspace
         clientId={openClientId}
         onBack={() => setOpenClientId(null)}
+        /* Complete & next client moves within the queue instead of returning
+           to the list — this component owns which file is open. */
+        onOpenClient={setOpenClientId}
       />
     );
   }

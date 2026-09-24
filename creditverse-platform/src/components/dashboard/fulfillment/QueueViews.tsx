@@ -57,6 +57,10 @@ export function QueueView({
       <ClientWorkWorkspace
         clientId={openClientId}
         onBack={() => setOpenClientId(null)}
+        /* Complete & next client lands here rather than going back to the
+           list — the queue owns which file is open, so it is the queue that
+           moves to the next one. */
+        onOpenClient={setOpenClientId}
       />
     );
   }
