@@ -1166,7 +1166,7 @@ behind the same probe pattern.
 
 ---
 
-## D-023 — One canonical person across two partner lists
+## D-023 — One canonical person across two partner lists · DECIDED AND BUILT 2026-09-24
 
 **Raised by Claude, 2026-09-24, importing Tiffany Hunter's 72 clients**, when
 Dee set the duplicate rule:
@@ -1210,10 +1210,20 @@ tenancy, and rule 20 says tenancy is planned, not executed mid-sprint.
 - A review queue for pairs the rules decline to merge, rather than a line in
   an import summary that scrolls away.
 
-**Needs from Dee.** When the same person is a client of two partners: one
-record both see, one record only BES sees whole, or two files with a link
-between them? That answer decides the rest.
+**Dee answered on 2026-09-24, and the answer was the third option and none
+of the complexity:** two files with a BES-only link between them. Partner
+scope is the boundary; a person is not. Recorded as **AD-012** and built —
+`client_identity_links`, `client_note_cross_partner_identity()`, and
+`identity-link-probe.mjs` (10 checks).
 
-**Risk of leaving it.** Low until the second import, then it compounds: every
-list adds duplicate canonical people that are harder to merge later than to
-prevent now. Do this BEFORE importing a second partner's list.
+**What was dropped as a result.** The agency-wide `clients` match and the
+SSN fingerprint are NOT wanted: merging canonical people across partners is
+the thing Dee ruled out, and decrypting an SSN to find duplicates is refused
+outright. If a fingerprint is ever added it is BES-internal reference only
+and never crosses a partner boundary.
+
+**Still open, small:** the links have no screen. They surface as a count in
+the import summary and are readable in the table by anyone authorized for
+both partners. A "possible same person" review list is worth building when
+there are enough links to review — after the second and third imports, not
+before.

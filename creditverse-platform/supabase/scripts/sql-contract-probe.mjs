@@ -350,6 +350,20 @@ console.log("\nEvery capability the interface asks for still exists");
   else fail("interface asks for a capability that does not exist", orphans.join(", "));
 }
 
+{
+  /* A table added without RLS is not a wrong answer — it is every answer,
+     to everybody. Nothing in the suite asked this until D-023 added a table
+     and the question came up: "how would we know?" Every public table is
+     protected today, so the guard is a rule from the day it is written
+     rather than a backlog with an exception list. */
+  const bare = q.query(`select c.relname as name
+      from pg_class c join pg_namespace n on n.oid = c.relnamespace
+     where n.nspname = 'public' and c.relkind = 'r' and not c.relrowsecurity
+     order by 1`).map((r) => r.name);
+  if (bare.length === 0) ok("every table in public has row level security enabled");
+  else fail("a table in public has no row level security", bare.join(", "));
+}
+
 console.log(`\n${pass} passed, ${failures.length} failed` +
   (skipped.length ? `, ${skipped.length} skipped because their arguments are assembled elsewhere` : ""));
 if (failures.length) process.exitCode = 1;

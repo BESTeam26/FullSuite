@@ -26,6 +26,14 @@ export interface ImportSummary {
   duplicates: string[];
   /** Imported with no email, phone, date of birth or SSN to match on later. */
   thinIdentity: string[];
+  /**
+   * How many of these people look like clients of ANOTHER partner too.
+   *
+   * A count, never a name. The files stay separate and neither partner learns
+   * of the other; only BES staff authorized for both partners can read which
+   * pairs these are (Dee, 2026-09-24, D-023).
+   */
+  crossPartner: number;
 }
 
 /** `clickup:list:901821115879` → `901821115879`. */

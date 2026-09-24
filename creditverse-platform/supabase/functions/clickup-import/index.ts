@@ -166,7 +166,7 @@ Deno.serve(async (req) => {
   const summary = {
     found: 0, matched: 0, created: 0, skipped: 0, notImported: 0,
     secrets: 0, comments: 0, attachments: 0, needsReview: [] as string[],
-    duplicates: [] as string[], thinIdentity: [] as string[],
+    duplicates: [] as string[], thinIdentity: [] as string[], crossPartner: 0,
     perClient: [] as Record<string, unknown>[],
   };
 
@@ -339,7 +339,14 @@ Deno.serve(async (req) => {
         summary.needsReview.push(`${payload.full_name}: ${error.message}`);
         continue;
       }
-      const r = data as { created: boolean; secrets: number; notes: number };
+      const r = data as {
+        created: boolean; secrets: number; notes: number; cross_partner_notes?: number;
+      };
+      /* A COUNT, deliberately. Which person and which partner is a fact about
+         the other partner's book, and this summary is not the place to spend
+         it (Dee, 2026-09-24, D-023). It is readable in the link table by
+         somebody authorized for both partners, and nowhere else. */
+      summary.crossPartner += r.cross_partner_notes ?? 0;
       if (r.created) summary.created++; else summary.matched++;
 
       /* Which record this card ended up on, and what it had to identify

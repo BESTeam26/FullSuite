@@ -286,6 +286,40 @@ to Settings. Schedule is operational (a team lead may read and set it);
 compensation is financial (payroll capability only) — the two never share a
 card again.
 
+## AD-012 · 2026-09-24 — One human, several partner files; only BES connects them
+
+Dee, locking D-023 while importing a partner's client list:
+
+> "Duplicate detection is scoped within one Partner database only. Do not
+> globally merge client records across different Partners… If the same person
+> appears under another Partner: create a new client record scoped to that
+> Partner. Do not copy or expose the old Partner's data. Each Partner gets an
+> independent client file… BES internal users may have a cross-reference such
+> as 'Possible same person across Partners'… That link is internal only. It
+> must never merge the Partner-facing data or broaden tenant visibility…
+> Same human across Partners does not imply shared tenancy. **Person
+> similarity is not authorization.**"
+
+**Inside one partner**, duplicates merge on the ClickUp card id, then the
+legacy id, then email, then phone digits, then name AND date of birth —
+never on a name alone (`client_match_for_import`). **Across partners**,
+nothing merges: Partner B's file carries none of Partner A's notes,
+documents, dispute history, communications or activity, and neither partner
+can tell the other's file exists.
+
+BES may know the two look like one person. `client_identity_links` records
+the pair and which field agreed — never the value, and never an SSN, which
+by this ruling is not decrypted for matching at all. It is a note, not a
+join: no partner-facing query reads through it, there is no INSERT policy so
+a link cannot be fabricated, and it is readable only by BES staff authorized
+for **both** partners. That last condition is the point — showing a link to
+somebody scoped to one partner would tell them a fact about the other
+partner's book, through the very table meant to protect it.
+
+Proved by `identity-link-probe.mjs`, ten checks, including the near-misses:
+a partner contact sees nothing, an agent who can see one side sees nothing,
+and seeing a link never opens the other partner's client record.
+
 ## AD-004 · 2026-09-19 — The Main Client List respects Partner scope
 
 Dee, after previewing a Complaints & Mailing agent who was offered every

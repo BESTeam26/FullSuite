@@ -171,6 +171,19 @@ export function PartnerImportAction({ partner }: { partner: AgencyPartner & { so
               </ul>
             </div>
           )}
+          {result.crossPartner > 0 && (
+            <div className="col-span-full mt-2">
+              <p className="text-[11px] font-semibold text-foreground">
+                Also a client of another partner
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                {result.crossPartner === 1
+                  ? "One of these people looks like a client of another partner too."
+                  : `${result.crossPartner} of these people look like clients of another partner too.`}{" "}
+                The files stay separate and neither partner sees the other's — this is a BES-only note.
+              </p>
+            </div>
+          )}
           {result.thinIdentity.length > 0 && (
             <div className="col-span-full mt-2">
               <p className="text-[11px] font-semibold text-foreground">
