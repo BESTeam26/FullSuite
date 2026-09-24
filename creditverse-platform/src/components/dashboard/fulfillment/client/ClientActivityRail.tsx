@@ -14,14 +14,47 @@
  * Imported ClickUp comments and notes written here are the same kind of row,
  * so an eleven-month conversation carries on in the same column it arrived in.
  */
-import { useState } from "react";
-import { Loader2, SmilePlus, ThumbsUp } from "lucide-react";
+import { useMemo, useState } from "react";
+import { FileText, Loader2, SmilePlus, ThumbsUp } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatDateTime } from "@/lib/format-date";
+import { formatDate } from "@/lib/format-date";
+import { useFilePreviews } from "@/lib/data/use-file-previews";
 import { useToast } from "@/hooks/use-toast";
 import {
-  useClientPosts, useReactToPost, useReplyToPost, type ClientPost,
+  useClientPosts, useReactToPost, useReplyToPost, type ClientPost, type FeedKind,
 } from "@/lib/data/use-client-posts";
+
+/* Dee's mockup, 2026-09-24. "All" is not a filter, it is the absence of one,
+   so it carries no predicate and cannot fall out of step with the rest. */
+const FILTERS: { id: string; label: string; kinds: FeedKind[] }[] = [
+  { id: "all", label: "All", kinds: [] },
+  { id: "work", label: "Work", kinds: ["work"] },
+  { id: "comments", label: "Comments", kinds: ["comment"] },
+  { id: "files", label: "Files", kinds: ["file"] },
+  { id: "system", label: "System", kinds: ["system"] },
+];
+
+/**
+ * "Today", "Yesterday", then the plain date.
+ *
+ * Grouping by day is what makes a year of imported comments navigable: the
+ * eye finds the day first and the entry second. Inside a group the stamp is
+ * the TIME alone, because the date is already the heading above it.
+ */
+function dayLabel(at: string): string {
+  const d = new Date(at);
+  const today = new Date();
+  const sameDay = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  if (sameDay(d, today)) return "Today";
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  if (sameDay(d, yesterday)) return "Yesterday";
+  return formatDate(at);
+}
+
+const timeOfDay = (at: string) =>
+  new Date(at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 
 /* The six ClickUp offers on hover. A fixed set, because a picker is a
    dependency and a search box for something nobody searches. */
@@ -41,6 +74,52 @@ const toneFor = (key: string) => {
   for (let i = 0; i < key.length; i++) n = (n * 31 + key.charCodeAt(i)) >>> 0;
   return AVATAR_TONES[n % AVATAR_TONES.length];
 };
+
+/**
+ * A file in the feed: the picture when it is one, a labelled row when it is not.
+ *
+ * The preview URL is signed and short-lived — `useFilePreviews` batches the
+ * signing for everything on screen, so a column with twenty screenshots is
+ * one request and not twenty.
+ */
+function FileCard({ file }: { file: NonNullable<ClientPost["file"]> }) {
+  const isImage = (file.mime ?? "").startsWith("image/");
+  const previews = useFilePreviews(isImage ? [{ bucket: file.bucket, path: file.path }] : []);
+  const url = previews.data?.[`${file.bucket}/${file.path}`];
+  const size = file.size ? `${Math.max(1, Math.round(file.size / 1024))} KB` : null;
+
+  if (isImage) {
+    return (
+      <figure className="mt-1.5">
+        {url ? (
+          <img
+            src={url}
+            alt={file.name}
+            loading="lazy"
+            className="max-h-56 w-full rounded-lg border border-border object-cover"
+          />
+        ) : (
+          /* A grey box the size of the picture, not a spinner: the layout must
+             not jump when twenty of these resolve at once. */
+          <div className="h-32 w-full animate-pulse rounded-lg border border-border bg-muted" />
+        )}
+        <figcaption className="mt-1 truncate text-[11px] text-muted-foreground">
+          {file.name}{size ? ` · ${size}` : ""}
+        </figcaption>
+      </figure>
+    );
+  }
+
+  return (
+    <div className="mt-1.5 flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-2.5 py-2">
+      <FileText className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+      <div className="min-w-0">
+        <p className="truncate text-xs font-medium text-foreground">{file.name}</p>
+        {size && <p className="text-[10px] text-muted-foreground">{size}</p>}
+      </div>
+    </div>
+  );
+}
 
 function Reactions({
   post, onReact, busy,
@@ -109,7 +188,8 @@ function Post({
   const send = async () => {
     if (!draft.trim()) return;
     try {
-      await reply.mutateAsync({ parentId: post.id, text: draft });
+      if (postId === null) return;
+      await reply.mutateAsync({ parentId: postId, text: draft });
       setDraft(""); setReplying(false);
     } catch (e) {
       /* The draft stays: losing a typed reply to a network blip is the worst
@@ -119,6 +199,7 @@ function Post({
   };
 
   const thumbs = post.reactions.find((r) => r.emoji === "👍");
+  const postId = post.id;
 
   return (
     /* A CARD, not a row in a divided list. Dee's ClickUp gives every comment
@@ -143,15 +224,15 @@ function Post({
           <div className="min-w-0 flex-1">
             <p className="flex flex-wrap items-baseline gap-x-2">
               <span className="text-xs font-bold text-foreground">{post.author}</span>
-              {/* Date AND time: "yesterday at 9:57 am" is how somebody places a
-                  comment in a day's conversation. */}
-              <span className="text-[11px] text-muted-foreground">{formatDateTime(post.at)}</span>
+              {/* The time alone — the day is the heading above this group. */}
+              <span className="text-[11px] text-muted-foreground">{timeOfDay(post.at)}</span>
               {post.imported && (
                 <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
                   from ClickUp
                 </span>
               )}
             </p>
+            {post.file && <FileCard file={post.file} />}
             {post.detail && (
               /* `whitespace-pre-wrap`: a year of ClickUp comments is plain
                  text whose line breaks carry the meaning. */
@@ -164,14 +245,17 @@ function Post({
       </div>
 
       {/* The action bar: reactions on the left, Reply on the right, above a
-          hairline inside the card — ClickUp's arrangement exactly. */}
+          hairline inside the card — ClickUp's arrangement exactly. A file or a
+          completion has no activity id, so there is nothing to react to and
+          nothing to reply to; the bar is simply absent rather than disabled. */}
+      {post.id !== null && (
       <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-1.5">
         <div className="flex flex-wrap items-center gap-1">
           {/* Thumbs-up is its own control, because it is the one people use. */}
           <button
             type="button"
             disabled={react.isPending}
-            onClick={() => react.mutate({ postId: post.id, emoji: "👍" })}
+            onClick={() => postId !== null && react.mutate({ postId, emoji: "👍" })}
             aria-pressed={!!thumbs?.mine}
             aria-label={thumbs?.mine ? "Remove your thumbs up" : "Thumbs up"}
             className={cn(
@@ -189,7 +273,7 @@ function Post({
           <Reactions
             post={post}
             busy={react.isPending}
-            onReact={(emoji) => react.mutate({ postId: post.id, emoji })}
+            onReact={(emoji) => postId !== null && react.mutate({ postId, emoji })}
           />
         </div>
 
@@ -201,6 +285,7 @@ function Post({
           Reply
         </button>
       </div>
+      )}
 
       {replying && (
         <div className="border-t border-border p-3">
@@ -256,11 +341,40 @@ export function ClientActivityRail({
 }: {
   clientId: string;
   organizationId: string | null;
-  /** The existing composer, pinned to the bottom as ClickUp pins its own. */
+  /** The existing composer, pinned to the top as Dee asked. */
   composer: React.ReactNode;
 }) {
   const posts = useClientPosts(clientId);
-  const rows = posts.data ?? [];
+  const [filter, setFilter] = useState("all");
+  const rows = useMemo(() => posts.data ?? [], [posts.data]);
+
+  /* Filtered in the browser over one fetch. Four tabs that each hit the
+     network is the waterfall rule 14 forbids, and the whole feed for one
+     client is small. */
+  const shown = useMemo(() => {
+    const f = FILTERS.find((x) => x.id === filter);
+    if (!f || f.kinds.length === 0) return rows;
+    return rows.filter((r) => f.kinds.includes(r.kind));
+  }, [rows, filter]);
+
+  /* Grouped by day, in the order the feed already came back — newest first,
+     so the day headings run backwards from Today. */
+  const days = useMemo(() => {
+    const out: { label: string; items: ClientPost[] }[] = [];
+    for (const item of shown) {
+      const label = dayLabel(item.at);
+      const last = out[out.length - 1];
+      if (last && last.label === label) last.items.push(item);
+      else out.push({ label, items: [item] });
+    }
+    return out;
+  }, [shown]);
+
+  const countFor = (id: string) => {
+    const f = FILTERS.find((x) => x.id === id);
+    if (!f || f.kinds.length === 0) return rows.length;
+    return rows.filter((r) => f.kinds.includes(r.kind)).length;
+  };
 
   return (
     <aside className="flex h-full min-h-0 flex-col rounded-2xl border border-border bg-card">
@@ -268,7 +382,7 @@ export function ClientActivityRail({
         <h2 className="text-sm font-bold text-foreground">Activity</h2>
         {rows.length > 0 && (
           <span className="text-[11px] text-muted-foreground">
-            {rows.length} {rows.length === 1 ? "post" : "posts"}
+            {rows.length} {rows.length === 1 ? "entry" : "entries"}
           </span>
         )}
       </header>
@@ -278,14 +392,43 @@ export function ClientActivityRail({
           scrolling a year of history first. */}
       <div className="border-b border-border p-3">{composer}</div>
 
-      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
+      <div role="tablist" aria-label="Filter the activity"
+        className="flex flex-wrap gap-1 border-b border-border px-3 py-2">
+        {FILTERS.map((f) => {
+          const on = f.id === filter;
+          const n = countFor(f.id);
+          return (
+            <button
+              key={f.id}
+              role="tab"
+              aria-selected={on}
+              onClick={() => setFilter(f.id)}
+              /* A filter that would empty the column is still offered, with a
+                 zero on it: "no files on this client" is an answer, and a tab
+                 that vanishes makes somebody wonder where it went. */
+              className={cn(
+                "rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                on
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
+              )}
+            >
+              {f.label}
+              {n > 0 && <span className={cn("ml-1", on ? "opacity-80" : "text-muted-foreground")}>{n}</span>}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto p-3">
         {posts.isLoading ? (
-          /* Skeletons, not "no posts yet": a false empty on a file with a
-             year of history is the one thing worse than waiting. */
-          <div className="space-y-3 py-3" aria-label="Loading the conversation">
+          /* Skeletons, not "nothing here": a false empty on a file with a year
+             of history is the one thing worse than waiting. */
+          <div className="space-y-3" aria-label="Loading the activity">
             {[0, 1, 2].map((i) => (
               <div key={i} className="flex gap-2">
-                <div className="h-6 w-6 shrink-0 animate-pulse rounded-full bg-muted" />
+                <div className="h-7 w-7 shrink-0 animate-pulse rounded-full bg-muted" />
                 <div className="flex-1 space-y-1.5">
                   <div className="h-3 w-1/3 animate-pulse rounded bg-muted" />
                   <div className="h-3 w-full animate-pulse rounded bg-muted" />
@@ -294,20 +437,37 @@ export function ClientActivityRail({
             ))}
           </div>
         ) : posts.isError ? (
-          <p className="py-4 text-xs text-status-danger">
-            The conversation could not be loaded. {(posts.error as Error).message}
+          <p className="text-xs text-status-danger">
+            The activity could not be loaded. {(posts.error as Error).message}
           </p>
-        ) : rows.length === 0 ? (
-          <p className="py-4 text-xs text-muted-foreground">
-            Nothing posted yet. Anything written below stays on this client.
+        ) : days.length === 0 ? (
+          <p className="text-xs text-muted-foreground">
+            {rows.length === 0
+              ? "Nothing here yet. Anything written above stays on this client."
+              : `Nothing under ${FILTERS.find((f) => f.id === filter)?.label}.`}
           </p>
         ) : (
-          rows.map((p) => (
-            <Post key={p.id} post={p} clientId={clientId} organizationId={organizationId} />
+          days.map((day) => (
+            <section key={day.label} className="mb-3 last:mb-0">
+              {/* Sticky, so the day you are reading stays named while you
+                  scroll through it. */}
+              <h3 className="sticky top-0 z-10 -mx-3 bg-card/95 px-3 py-1 text-[11px] font-bold text-muted-foreground backdrop-blur">
+                {day.label}
+              </h3>
+              <div className="space-y-2">
+                {day.items.map((p) => (
+                  <Post
+                    key={p.id ?? `${p.kind}:${p.at}:${p.title}`}
+                    post={p}
+                    clientId={clientId}
+                    organizationId={organizationId}
+                  />
+                ))}
+              </div>
+            </section>
           ))
         )}
       </div>
-
     </aside>
   );
 }

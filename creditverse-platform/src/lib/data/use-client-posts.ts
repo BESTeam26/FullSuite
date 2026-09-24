@@ -23,8 +23,21 @@ export interface PostReaction {
   mine: boolean;
 }
 
+export type FeedKind = "comment" | "work" | "system" | "file";
+
+export interface FeedFile {
+  id: string;
+  name: string;
+  path: string;
+  bucket: string;
+  mime: string | null;
+  size: number | null;
+}
+
 export interface ClientPost {
-  id: number;
+  kind: FeedKind;
+  /** Null on a file row — only an activity can be replied to or reacted to. */
+  id: number | null;
   parentId: number | null;
   at: string;
   author: string;
@@ -34,13 +47,15 @@ export interface ClientPost {
   /** Came from ClickUp rather than being written here. */
   imported: boolean;
   reactions: PostReaction[];
+  file: FeedFile | null;
   replies: ClientPost[];
 }
 
 export const clientPostsKey = (clientId: string) => ["creditops", "posts", clientId];
 
 interface Row {
-  id: number;
+  kind: FeedKind;
+  activity_id: number | null;
   parent_id: number | null;
   happened_at: string;
   actor: string;
@@ -49,6 +64,7 @@ interface Row {
   detail: string | null;
   imported: boolean;
   reactions: PostReaction[] | null;
+  file: FeedFile | null;
 }
 
 /**
@@ -61,25 +77,32 @@ interface Row {
  */
 export function threadPosts(rows: readonly Row[]): ClientPost[] {
   const byId = new Map<number, ClientPost>();
+  const out: ClientPost[] = [];
+
   for (const r of rows) {
-    byId.set(r.id, {
-      id: r.id, parentId: r.parent_id, at: r.happened_at, author: r.actor,
-      authorId: r.actor_id, title: r.title, detail: r.detail,
-      imported: r.imported, reactions: r.reactions ?? [], replies: [],
-    });
+    const post: ClientPost = {
+      kind: r.kind, id: r.activity_id, parentId: r.parent_id, at: r.happened_at,
+      author: r.actor, authorId: r.actor_id, title: r.title, detail: r.detail,
+      imported: r.imported, reactions: r.reactions ?? [], file: r.file, replies: [],
+    };
+    if (r.activity_id !== null) byId.set(r.activity_id, post);
+    out.push(post);
   }
+
   const top: ClientPost[] = [];
-  for (const post of byId.values()) {
-    /* A reply whose parent is not in the list — deleted, or filtered out —
-       is shown at the top level rather than dropped. Somebody wrote it. */
+  for (const post of out) {
+    /* A reply whose parent is not in the list — deleted, or filtered out — is
+       shown at the top level rather than dropped. Somebody wrote it. */
     const parent = post.parentId === null ? null : byId.get(post.parentId);
     if (parent) parent.replies.push(post);
     else top.push(post);
   }
+
+  /* The database returns newest-first, which is what somebody picking a file
+     up needs. Replies read the other way inside their thread, because a reply
+     above the thing it answers is nonsense. */
   for (const post of byId.values()) {
-    if (post.replies.length > 1) {
-      post.replies.sort((a, b) => a.at.localeCompare(b.at));
-    }
+    if (post.replies.length > 1) post.replies.sort((a, b) => a.at.localeCompare(b.at));
   }
   return top;
 }
@@ -92,7 +115,7 @@ export function useClientPosts(clientId: string | null) {
     staleTime: 15_000,
     queryFn: async (): Promise<ClientPost[]> => {
       const sb = requireSupabase();
-      const { data, error } = await sb.rpc("client_posts" as never, {
+      const { data, error } = await sb.rpc("client_feed" as never, {
         p_client: clientId as string,
       } as never);
       if (error) throw error;
