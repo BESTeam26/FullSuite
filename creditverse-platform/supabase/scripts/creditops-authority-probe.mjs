@@ -64,8 +64,15 @@ console.log("\nADMIN IS NOT AUTHORITY, AND A TEAM IS NOT EITHER\n");
      short-circuit, and every other key still opts in. */
   check("7 · the new key is not granted automatically to admins",
     one(`select admin_auto a from permission_keys where key='creditops.work.manage'`).a, false);
-  check("8 · and every other key still resolves exactly as before",
-    one(`select count(*)::int n from permission_keys where not admin_auto and key <> 'creditops.work.manage'`).n, 0);
+  /* Named, not counted. This asserted that NO other key opts out, and the
+     moment Dee asked for policy mutation to need an explicit capability
+     (2026-09-24) a second legitimate one appeared and this went red for being
+     correct. The rule worth protecting is that opting out is DELIBERATE, so
+     the deliberate ones are listed and anything else is the failure. */
+  check("8 · the only keys that opt out of the admin short-circuit are the two chosen ones",
+    one(`select coalesce(string_agg(key, ', ' order by key), '') v
+           from permission_keys where not admin_auto`).v,
+    "agency.policy.manage, creditops.work.manage");
   /* The Admin Team is a department of its own; it maps to no CreditOps queue,
      so sitting on it grants nothing. */
   check("9 · the Admin Team maps to no CreditOps queue",
@@ -123,9 +130,30 @@ console.log("\nTHE WRITERS REFUSE, NOT JUST THE SCREEN\n");
   check("13 · an agent may set a status in their own queue", attempt(AGENT, "Support", "SUPPORT NEW"), "written");
   check("14 · …and is refused in a queue they do not work", attempt(AGENT, "Bureau Calling", "BUREAU CALLING NEEDED"), "refused");
 
+  /* The handoff needs the file to BE in the department it is handed on FROM,
+     and the SETUP is done as the owner — who may write any queue — so that
+     what is measured is the handoff and nothing else.
+
+     Both halves of that were wrong before. Each attempt rolls back, so the
+     Support row written by check 13 was gone by the time this ran, and the
+     probe passed only because the arbitrary `limit 1` client happened to sit
+     in Support already; it picked a different one the day CreditOps was
+     reloaded from ClickUp and reported a permission failure that was really a
+     missing row. Then doing the setup as the ACTING user made check 16 fail
+     at the setup line instead of at the handoff — the right refusal from the
+     wrong statement, which is a pass for the wrong reason waiting to happen. */
   const handoff = (u, from) => {
     try {
-      q.query(`begin; ${as(u)}
+      q.query(`begin; ${as(OWNER)}
+        select public.set_client_department_status('${client}','${from}',
+          /* The department's OWN first actionable status, asked of the
+             vocabulary rather than written here. A hardcoded one is wrong the
+             moment a department's list changes — 'READY FOR PROCESSING' is
+             not a Bureau Calling status and refused the setup outright. */
+          (select s from unnest(public.creditops_department_statuses('${from}')) s
+            where public.creditops_status_is_actionable('${from}', s) limit 1),
+          null, 'probe setup');
+        ${as(u)}
         select public.handoff_client_departments('${client}','${from}',
           array['Complaints']::fulfillment_department[], array['COMPLAINT NOT NEEDED']::text[], 'probe');
         rollback;`);

@@ -43,12 +43,12 @@ import { setDueOverride, clearDueOverride } from "@/lib/data/client-workflow";
 import { ClientFileHeader } from "./client/ClientFileHeader";
 import { ClientWorkTab } from "./client/ClientWorkTab";
 import { ClientInfoTab } from "./client/ClientInfoTab";
+import { ClientDetailsCard } from "./client/ClientDetailsCard";
 import { ClientDocumentsTab } from "./client/ClientDocumentsTab";
 import { ClientHistoryTab } from "./client/ClientHistoryTab";
 import { WhereThisFileIs } from "@/components/clients/WhereThisFileIs";
 import { ClientUpdateComposer } from "./client/ClientUpdateComposer";
 import { ClientActivityRail } from "./client/ClientActivityRail";
-import { ClientQuickInfo } from "./client/ClientQuickInfo";
 import { useClientDocuments } from "@/lib/data/use-client-work-detail";
 import { useClientPosts } from "@/lib/data/use-client-posts";
 import { Briefcase, CreditCard, FolderOpen, MessageSquare, ShieldCheck } from "lucide-react";
@@ -220,8 +220,10 @@ export function ClientWorkWorkspace({
 
         <TabBar tab={tab} onPick={setTab} clientId={clientId} />
 
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
-          <div className="min-w-0 space-y-4">
+        {/* One column under the tabs. Quick Info was a third column repeating
+            what the header and the Credit tab already say — Dee, 2026-09-24:
+            "I don't need the Quick info". */}
+        <div className="min-w-0 space-y-4">
             {tab === "work" && (
               <>
                 {/* Managing the client sits at the top of the work, not under
@@ -252,22 +254,31 @@ export function ClientWorkWorkspace({
               </>
             )}
 
+            {/* Everything about the person, and a way to correct it. The
+                imported files arrived with gaps the import itself reported —
+                a missing date of birth, an address it could not parse — and
+                until now there was nothing on this screen that could fix
+                one. */}
             {tab === "credit" && (
-              <ClientInfoTab
-                client={client}
-                hasFunding={Boolean((client as { fundingClientId?: string | null }).fundingClientId)}
-              />
+              <>
+                <ClientDetailsCard clientId={clientId} />
+                <ClientInfoTab
+                  client={client}
+                  hasFunding={Boolean((client as { fundingClientId?: string | null }).fundingClientId)}
+                />
+              </>
             )}
 
-            {tab === "identity" && <ClientInfoTab client={client} hasFunding={false} />}
+            {tab === "identity" && (
+              <>
+                <ClientDetailsCard clientId={clientId} />
+                <ClientInfoTab client={client} hasFunding={false} />
+              </>
+            )}
 
             {tab === "files" && <ClientDocumentsTab clientId={clientId} />}
 
             {tab === "history" && <ClientHistoryTab clientId={clientId} />}
-          </div>
-
-          {/* The reference column. Always there, whichever tab is open. */}
-          <ClientQuickInfo client={client} current={current} className="min-w-0" />
         </div>
 
         {completing && (
