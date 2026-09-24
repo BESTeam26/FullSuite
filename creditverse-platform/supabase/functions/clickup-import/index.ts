@@ -145,7 +145,26 @@ Deno.serve(async (req) => {
   if (!cuToken) return json(503, { error: "ClickUp is not connected", code: "not_connected" });
 
   const body = await req.json().catch(() => ({}));
-  const { listId, groupId, dryRun } = body as { listId?: string; groupId?: string; dryRun?: boolean };
+  /**
+   * `resume` and `max` exist for the FIRST import of a large list.
+   *
+   * A card costs about twenty seconds — two ClickUp calls, the write, and any
+   * attachments — and an Edge Function is cut off at 150 seconds. Tiffany
+   * Hunter's list is 72 cards, so one call was never going to finish it, and
+   * a plain re-run starts from the top and spends its whole budget
+   * re-matching what it already imported.
+   *
+   * With `resume`, a card whose task id is already in the crosswalk is
+   * skipped before it is fetched; `max` stops the call while it still has
+   * time to answer. Together they make the import restartable: call it until
+   * `remaining` is zero.
+   *
+   * Both default off, so an ordinary re-run still refreshes every card, which
+   * is what somebody pressing Import a second time means by it.
+   */
+  const { listId, groupId, dryRun, resume, max } = body as {
+    listId?: string; groupId?: string; dryRun?: boolean; resume?: boolean; max?: number;
+  };
   if (!listId || !groupId) return json(400, { error: "listId and groupId are required" });
 
   /* Normally the caller's own token, so the database applies the same rules it
@@ -167,6 +186,7 @@ Deno.serve(async (req) => {
     found: 0, matched: 0, created: 0, skipped: 0, notImported: 0,
     secrets: 0, comments: 0, attachments: 0, needsReview: [] as string[],
     duplicates: [] as string[], thinIdentity: [] as string[], crossPartner: 0,
+    alreadyDone: 0, remaining: 0,
     perClient: [] as Record<string, unknown>[],
   };
 
@@ -202,6 +222,16 @@ Deno.serve(async (req) => {
       `/list/${listId}/task?include_closed=true&subtasks=true`);
     summary.found = list.tasks.length;
 
+    /* One query for the whole crosswalk, not one per card. */
+    const done = new Set<string>();
+    if (resume) {
+      const { data } = await createClient(url, service)
+        .from("import_links").select("source_id")
+        .eq("source_system", "clickup").eq("source_kind", "task");
+      for (const row of (data ?? []) as { source_id: string }[]) done.add(row.source_id);
+    }
+    let processed = 0;
+
     for (const brief of list.tasks) {
       /* Before the card is fetched, so an archived card's SSN is never read. */
       const briefStatus = String(brief.status?.status ?? "").toLowerCase();
@@ -210,6 +240,10 @@ Deno.serve(async (req) => {
         archivedNames.set(nameKey(brief.name), brief.name);
         continue;
       }
+
+      if (resume && done.has(brief.id)) { summary.alreadyDone++; continue; }
+      if (max && processed >= max) { summary.remaining++; continue; }
+      processed++;
 
       const task = await cu<Record<string, unknown>>(
         `/task/${brief.id}?include_subtasks=false`);

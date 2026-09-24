@@ -381,6 +381,38 @@ console.log("\nEvery capability the interface asks for still exists");
   else fail("a table in public has no row level security", bare.join(", "));
 }
 
+console.log("\nEvery scheduled job's last run actually worked");
+{
+  /* The question nobody was asking. `attachment_purge_dispatch` failed every
+     hour for two days, and `infra_watch` — the daily health check built to
+     report exactly that — failed for two days beside it, because both of its
+     notification inserts omitted a NOT NULL column. Neither was visible
+     anywhere except `cron.job_run_details`, which is a table people query
+     after they already suspect something.
+     
+     Asked of the LAST run of each job, not of a failure count: a job that
+     failed overnight and recovered is not interesting, and a job whose most
+     recent run errored is, however long it has been scheduled. Paused jobs
+     have no recent runs and are skipped — their reason is in
+     `cron_job_pauses`. */
+  const runs = q.query(`
+    select j.jobname, d.status, left(coalesce(d.return_message, ''), 120) as message
+      from cron.job j
+      left join public.cron_job_pauses p on p.jobname = j.jobname
+      left join lateral (
+        select status, return_message from cron.job_run_details r
+         where r.jobid = j.jobid order by r.start_time desc limit 1
+      ) d on true
+     where j.active and p.jobname is null
+     order by j.jobname`);
+  const broken = runs.filter((r) => r.status && r.status !== "succeeded");
+  if (runs.length === 0) fail("no active scheduled jobs found", "the query found nothing — has cron moved?");
+  else if (broken.length === 0) ok(`the last run of all ${runs.length} active jobs succeeded`);
+  else for (const b of broken) {
+    fail(`cron · ${b.jobname} last run ${b.status}`, b.message.replace(/\s+/g, " "));
+  }
+}
+
 console.log(`\n${pass} passed, ${failures.length} failed` +
   (skipped.length ? `, ${skipped.length} skipped because their arguments are assembled elsewhere` : ""));
 if (failures.length) process.exitCode = 1;
