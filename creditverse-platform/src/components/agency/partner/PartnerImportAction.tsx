@@ -148,6 +148,7 @@ export function PartnerImportAction({ partner }: { partner: AgencyPartner & { so
             ["Found", result.found], ["Matched", result.matched], ["Created", result.created],
             ["Skipped", result.skipped], ["Comments", result.comments],
             ["Attachments", result.attachments], ["Secrets", result.secrets],
+            ["Left in ClickUp", result.notImported],
             ["Needs review", result.needsReview.length],
           ] as const).map(([label, value]) => (
             <div key={label}>
@@ -159,6 +160,27 @@ export function PartnerImportAction({ partner }: { partner: AgencyPartner & { so
             <ul className="col-span-full mt-1 list-disc space-y-0.5 pl-4 text-[11px] text-status-warning">
               {result.needsReview.map((r) => <li key={r}>{r}</li>)}
             </ul>
+          )}
+          {/* Two people or one? The import will not guess, so it asks —
+              by name, with what each card had to identify itself. */}
+          {result.duplicates.length > 0 && (
+            <div className="col-span-full mt-2">
+              <p className="text-[11px] font-semibold text-foreground">Same name, kept apart</p>
+              <ul className="mt-0.5 list-disc space-y-0.5 pl-4 text-[11px] text-muted-foreground">
+                {result.duplicates.map((r) => <li key={r}>{r}</li>)}
+              </ul>
+            </div>
+          )}
+          {result.thinIdentity.length > 0 && (
+            <div className="col-span-full mt-2">
+              <p className="text-[11px] font-semibold text-foreground">
+                No email, phone, date of birth or SSN on file
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                These cannot be matched against a second list later:{" "}
+                {result.thinIdentity.join(", ")}
+              </p>
+            </div>
           )}
         </dl>
       )}

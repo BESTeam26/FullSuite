@@ -1163,3 +1163,57 @@ position, or the rule that derives them.
 Output a false 35% of every score; ship per position with Dee's sign-off,
 behind the same probe pattern.
 
+
+---
+
+## D-023 — One canonical person across two partner lists
+
+**Raised by Claude, 2026-09-24, importing Tiffany Hunter's 72 clients**, when
+Dee set the duplicate rule:
+
+> "ANYONE WHO APPEAR TWICE, MERGE THEM. Ensure details are the same, DOB and
+> SSN and email and phone numbers are on file, so you'll be able to identify
+> if that's really a duplicate or simply has the same name."
+
+**What is live and correct.** `client_match_for_import` merges on the ClickUp
+task id, then the legacy id, then email, then phone digits, then name AND
+date of birth — and never on a name alone. Where it declines, the import now
+names the pair, says what identifiers the cards carried, and leaves the
+decision to a person. That satisfies Dee's rule **within one partner's list**.
+
+**The gap.** Every lookup in that function is scoped to `p_group`, and
+`clickup_import_client` creates a fresh `clients` row whenever no
+fulfillment file matches. So one human appearing in two partners' lists
+becomes **two canonical people**, which is exactly what rule 2 and the client
+record doctrine forbid — one Client identity, many services. Nothing has hit
+this yet because only one list has been imported. **The second list can
+trigger it**, and Dee has more coming.
+
+**Why it is not a quick fix.** The fulfillment FILE is rightly per partner —
+two partners engaging BES about the same person are two pieces of work. It is
+the PERSON underneath that should be one row. Splitting those two means
+deciding what a partner may then see: `my_partner_clients` and the portal
+read from the client record, so one shared `clients` row touched by two
+partners is a visibility question before it is a data question. That is
+tenancy, and rule 20 says tenancy is planned, not executed mid-sprint.
+
+**Proposed architecture.**
+- Match the `clients` row AGENCY-wide (SSN fingerprint, email, phone, name +
+  DOB); keep `fulfillment_clients` matching per group exactly as it is.
+- Partner-facing reads keep scoping through `fulfillment_clients`, never
+  through `clients`, so a shared person never widens what a partner sees.
+- An `ssn_fingerprint` (HMAC, key in Vault) on `clients`, written by
+  `client_secret_write`: SSN is the strongest identifier Dee named and today
+  it cannot be compared at all, because Vault encrypts with a nonce and the
+  ciphertext of one SSN differs every time. A fingerprint makes duplicate
+  detection an indexed equality with no SSN ever decrypted.
+- A review queue for pairs the rules decline to merge, rather than a line in
+  an import summary that scrolls away.
+
+**Needs from Dee.** When the same person is a client of two partners: one
+record both see, one record only BES sees whole, or two files with a link
+between them? That answer decides the rest.
+
+**Risk of leaving it.** Low until the second import, then it compounds: every
+list adds duplicate canonical people that are harder to merge later than to
+prevent now. Do this BEFORE importing a second partner's list.

@@ -19,6 +19,13 @@ export interface ImportSummary {
   comments: number;
   attachments: number;
   needsReview: string[];
+  /**
+   * Same name, separate records — the matcher saw both cards and declined to
+   * merge, because a name alone does not prove one person (Dee, 2026-09-23).
+   */
+  duplicates: string[];
+  /** Imported with no email, phone, date of birth or SSN to match on later. */
+  thinIdentity: string[];
 }
 
 /** `clickup:list:901821115879` → `901821115879`. */

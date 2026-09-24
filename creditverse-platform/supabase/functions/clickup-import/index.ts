@@ -166,8 +166,36 @@ Deno.serve(async (req) => {
   const summary = {
     found: 0, matched: 0, created: 0, skipped: 0, notImported: 0,
     secrets: 0, comments: 0, attachments: 0, needsReview: [] as string[],
+    duplicates: [] as string[], thinIdentity: [] as string[],
     perClient: [] as Record<string, unknown>[],
   };
+
+  /**
+   * What each card claimed to be, so duplicates can be judged after the run.
+   *
+   * Dee, 2026-09-23: "ANYONE WHO APPEAR TWICE, MERGE THEM. Ensure details are
+   * the same, DOB and SSN and email and phone numbers are on file, so you'll
+   * be able to identify if that's really a duplicate or simply has the same
+   * name."
+   *
+   * `client_match_for_import` already does the merging, and already refuses
+   * to merge on a name alone — it matches on the ClickUp task, then the
+   * legacy id, then email, then phone digits, then name AND date of birth.
+   * Two cards for one person with a shared email become one record without
+   * anybody deciding anything.
+   *
+   * What it cannot do is tell somebody about the case it deliberately did
+   * NOT merge. Two cards reading "Wilma Malu" with no email, no phone and no
+   * date of birth between them are either one person or two, and guessing
+   * either way is worse than saying so. Those are collected here and named
+   * in the summary.
+   */
+  const seen = new Map<string, {
+    name: string; records: Set<string>; email: boolean; phone: boolean;
+    dob: boolean; ssn: boolean;
+  }>();
+  const nameKey = (n: string) => n.toLowerCase().replace(/[^a-z]/g, "");
+  const archivedNames = new Map<string, string>();
 
   try {
     const list = await cu<{ tasks: { id: string; name: string; status?: { status?: string } }[] }>(
@@ -177,7 +205,11 @@ Deno.serve(async (req) => {
     for (const brief of list.tasks) {
       /* Before the card is fetched, so an archived card's SSN is never read. */
       const briefStatus = String(brief.status?.status ?? "").toLowerCase();
-      if (NOT_IMPORTED.has(briefStatus)) { summary.notImported++; continue; }
+      if (NOT_IMPORTED.has(briefStatus)) {
+        summary.notImported++;
+        archivedNames.set(nameKey(brief.name), brief.name);
+        continue;
+      }
 
       const task = await cu<Record<string, unknown>>(
         `/task/${brief.id}?include_subtasks=false`);
@@ -309,6 +341,23 @@ Deno.serve(async (req) => {
       }
       const r = data as { created: boolean; secrets: number; notes: number };
       if (r.created) summary.created++; else summary.matched++;
+
+      /* Which record this card ended up on, and what it had to identify
+         itself with. Two cards landing on ONE record is the merge working;
+         two cards landing on TWO records under one name is the case a human
+         has to settle. */
+      const key = nameKey(payload.full_name);
+      const entry = seen.get(key) ?? {
+        name: payload.full_name, records: new Set<string>(),
+        email: false, phone: false, dob: false, ssn: false,
+      };
+      entry.records.add((data as { fulfillment_client_id: string }).fulfillment_client_id);
+      entry.email ||= Boolean(payload.email);
+      entry.phone ||= Boolean(payload.phone);
+      entry.dob ||= Boolean(payload.dob);
+      /* Whether an SSN is ON FILE, never the number. */
+      entry.ssn ||= Boolean(payload.ssn);
+      seen.set(key, entry);
       summary.secrets += r.secrets ?? 0;
       summary.comments += r.notes ?? 0;
       merged.needsReview.forEach((x) => summary.needsReview.push(`${payload.full_name}: ${x}`));
@@ -342,6 +391,38 @@ Deno.serve(async (req) => {
         });
         summary.attachments++;
       }
+    }
+    /* ── WHO NEEDS A HUMAN TO LOOK ─────────────────────────────────────── */
+    for (const e of seen.values()) {
+      const held = [
+        e.email ? "email" : null, e.phone ? "phone" : null,
+        e.dob ? "date of birth" : null, e.ssn ? "SSN" : null,
+      ].filter(Boolean);
+
+      if (e.records.size > 1) {
+        /* The matcher saw both cards and declined to merge them, because the
+           only thing they share is a name. Said plainly, with what they do
+           and do not have, so the answer is one look rather than an
+           investigation. */
+        summary.duplicates.push(
+          `${e.name}: ${e.records.size} separate records — the cards share a name but nothing that proves ` +
+          `one person${held.length ? ` (on file between them: ${held.join(", ")})` : " (no email, phone, date of birth or SSN on either)"}`);
+      }
+
+      /* A file with none of the four cannot be matched against anything
+         later — not another list, not a second card, not a returning client.
+         Worth knowing now rather than discovering it at the third import. */
+      if (held.length === 0) {
+        summary.thinIdentity.push(e.name);
+      }
+    }
+
+    for (const [key, name] of archivedNames) {
+      const live = seen.get(key);
+      if (!live) continue;
+      summary.duplicates.push(
+        `${name}: an ARCHIVED card of the same name was left in ClickUp as agreed. ` +
+        `If it holds details the live card does not, they did not come across.`);
     }
   } catch (e) {
     return json(502, { error: (e as Error).message, summary });
