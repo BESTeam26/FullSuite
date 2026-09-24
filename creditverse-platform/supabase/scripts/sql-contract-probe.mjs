@@ -237,15 +237,32 @@ for (const call of unique) {
 
 console.log("\nA scheduled job points at something that exists");
 {
+  /* `paused` carries the REASON a job is off, from `cron_job_pauses`.
+     Five billing jobs went off on 2026-09-22 when Dee moved invoicing to
+     GoHighLevel, and this probe called all five failures on every run
+     afterwards — five red lines that were correct behaviour, sitting next to
+     the one red line that was a real two-day outage. Dee: "A
+     security/reliability gate that treats intentional shutdowns as failures
+     trains everyone to ignore red."
+
+     It cuts both ways. A job that is RUNNING while still carrying a pause
+     note is a failure too: somebody re-armed it and left the note behind, and
+     a stale exemption is how a genuinely-off job later passes unnoticed. */
   const jobs = q.query(`
     select j.jobname, j.active, j.command,
-           substring(j.command from 'public\\.([a-z0-9_]+)\\s*\\(') as target
-      from cron.job j`);
+           substring(j.command from 'public\\.([a-z0-9_]+)\\s*\\(') as target,
+           p.reason as paused, p.paused_on::text as paused_on
+      from cron.job j
+      left join public.cron_job_pauses p on p.jobname = j.jobname`);
   for (const job of jobs) {
     if (!job.target) { fail(`cron · ${job.jobname}`, `command calls no public function: ${job.command}`); continue; }
     const found = byName.get(job.target);
     if (!found) fail(`cron · ${job.jobname}`, `calls public.${job.target}(), which does not exist`);
-    else if (!job.active) fail(`cron · ${job.jobname}`, "is not active");
+    else if (job.active && job.paused)
+      fail(`cron · ${job.jobname}`, `is running, but is still recorded as paused since ${job.paused_on} — delete the note or stop the job`);
+    else if (!job.active && job.paused)
+      ok(`cron · ${job.jobname} → paused on purpose since ${job.paused_on}: ${job.paused.split(".")[0]}`);
+    else if (!job.active) fail(`cron · ${job.jobname}`, "is not active, and no reason is recorded in cron_job_pauses");
     else ok(`cron · ${job.jobname} → public.${job.target}()`);
   }
 }
