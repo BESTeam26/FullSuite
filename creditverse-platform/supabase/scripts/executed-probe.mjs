@@ -88,6 +88,11 @@ if (CLIENT) {
 }
 if (POST) {
   runs("activity_react() — on", `select public.activity_react(${POST}, '👍');`);
+  runs("note_edit()", `select public.note_edit(${POST}, 'probe edit');`);
+  runs("note_delete()", `select public.note_delete(${POST});`);
+  runs("client_feed() — after a withdrawal",
+    `select public.note_delete(${POST});
+     select count(*)::int from client_feed('${CLIENT}') where activity_id = ${POST};`);
   runs("activity_react() — off", `select public.activity_react(${POST}, '👍'), public.activity_react(${POST}, '👍');`);
 } else {
   console.log("  --   no post to react to");

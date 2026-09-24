@@ -48,6 +48,10 @@ export interface ClientPost {
   imported: boolean;
   reactions: PostReaction[];
   file: FeedFile | null;
+  /** Corrected since it was written. */
+  edited: boolean;
+  /** Whether THIS reader may change or withdraw it — the database's answer. */
+  mine: boolean;
   replies: ClientPost[];
 }
 
@@ -65,6 +69,8 @@ interface Row {
   imported: boolean;
   reactions: PostReaction[] | null;
   file: FeedFile | null;
+  edited: boolean;
+  mine: boolean;
 }
 
 /**
@@ -83,7 +89,8 @@ export function threadPosts(rows: readonly Row[]): ClientPost[] {
     const post: ClientPost = {
       kind: r.kind, id: r.activity_id, parentId: r.parent_id, at: r.happened_at,
       author: r.actor, authorId: r.actor_id, title: r.title, detail: r.detail,
-      imported: r.imported, reactions: r.reactions ?? [], file: r.file, replies: [],
+      imported: r.imported, reactions: r.reactions ?? [], file: r.file,
+      edited: r.edited, mine: r.mine, replies: [],
     };
     if (r.activity_id !== null) byId.set(r.activity_id, post);
     out.push(post);
@@ -161,6 +168,40 @@ export function useReplyToPost(clientId: string, organizationId: string | null) 
         visibility: "bes_internal",
         parent_id: parentId,
       } as never);
+      if (error) throw error;
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: clientPostsKey(clientId) }),
+  });
+}
+
+/**
+ * Correct a comment, or withdraw it.
+ *
+ * Both go through database functions rather than a plain update: the rule —
+ * your own comment, never a system event — lives there, and a withdrawal
+ * takes the replies with it. `activity_events` has no DELETE policy and is
+ * not getting one; it is the file's audit trail.
+ */
+export function useEditPost(clientId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ postId, text }: { postId: number; text: string }) => {
+      const sb = requireSupabase();
+      const { error } = await sb.rpc("note_edit" as never, {
+        p_id: postId, p_text: text,
+      } as never);
+      if (error) throw error;
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: clientPostsKey(clientId) }),
+  });
+}
+
+export function useDeletePost(clientId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (postId: number) => {
+      const sb = requireSupabase();
+      const { error } = await sb.rpc("note_delete" as never, { p_id: postId } as never);
       if (error) throw error;
     },
     onSettled: () => qc.invalidateQueries({ queryKey: clientPostsKey(clientId) }),

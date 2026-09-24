@@ -92,7 +92,9 @@ export function ClientUpdateComposer({ client }: { client: FulfillmentClient }) 
         stored.push(name);
       }
 
-      await postNote({
+      /* Files alone, and nothing typed: the attachments ARE the post. An
+         empty note beside them is a blank card in the conversation. */
+      if (text.trim()) await postNote({
         agencyId: auth.agencyId ?? "",
         organizationId: client.organizationId ?? null,
         entityType: "fulfillment_client",
@@ -100,8 +102,13 @@ export function ClientUpdateComposer({ client }: { client: FulfillmentClient }) 
         actorId: auth.user?.id ?? null,
         actorName: auth.displayName ?? null,
         action: shared ? "Update posted" : "Internal note",
-        detail: [text.trim(), stored.length ? `Attached: ${stored.join(", ")}` : ""]
-          .filter(Boolean).join("\n"),
+        /* The filenames used to be appended here, from when a file had
+           nowhere else to appear. The Activity column now lists every
+           attachment as its own entry with a thumbnail, so saying it again in
+           the comment produced two rows for one act — "Attached: Screenshot
+           …png" directly above the screenshot (Dee's screenshot,
+           2026-09-24). The file speaks for itself. */
+        detail: text.trim(),
         visibility: shared ? "shared_with_partner" : "bes_internal",
       });
 

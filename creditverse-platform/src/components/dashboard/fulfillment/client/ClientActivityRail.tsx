@@ -15,13 +15,14 @@
  * so an eleven-month conversation carries on in the same column it arrived in.
  */
 import { useMemo, useState } from "react";
-import { FileText, Loader2, SmilePlus, ThumbsUp } from "lucide-react";
+import { FileText, Loader2, Pencil, SmilePlus, ThumbsUp, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/format-date";
 import { useFilePreviews } from "@/lib/data/use-file-previews";
 import { useToast } from "@/hooks/use-toast";
 import {
-  useClientPosts, useReactToPost, useReplyToPost, type ClientPost, type FeedKind,
+  useClientPosts, useDeletePost, useEditPost, useReactToPost, useReplyToPost,
+  type ClientPost, type FeedKind,
 } from "@/lib/data/use-client-posts";
 
 /* Dee's mockup, 2026-09-24. "All" is not a filter, it is the absence of one,
@@ -181,8 +182,13 @@ function Post({
 }: { post: ClientPost; clientId: string; organizationId: string | null; depth?: number }) {
   const react = useReactToPost(clientId);
   const reply = useReplyToPost(clientId, organizationId);
+  const edit = useEditPost(clientId);
+  const remove = useDeletePost(clientId);
   const [replying, setReplying] = useState(false);
   const [draft, setDraft] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [editDraft, setEditDraft] = useState("");
+  const [confirming, setConfirming] = useState(false);
   const { toast } = useToast();
 
   const send = async () => {
@@ -200,6 +206,28 @@ function Post({
 
   const thumbs = post.reactions.find((r) => r.emoji === "👍");
   const postId = post.id;
+
+  const saveEdit = async () => {
+    if (postId === null || !editDraft.trim()) return;
+    try {
+      await edit.mutateAsync({ postId, text: editDraft });
+      setEditing(false);
+    } catch (e) {
+      /* The draft stays. Losing a correction to a refusal is the worst moment
+         to clear a box. */
+      toast({ title: "That did not save", description: (e as Error).message, variant: "destructive" });
+    }
+  };
+
+  const doDelete = async () => {
+    if (postId === null) return;
+    try {
+      await remove.mutateAsync(postId);
+      setConfirming(false);
+    } catch (e) {
+      toast({ title: "That did not delete", description: (e as Error).message, variant: "destructive" });
+    }
+  };
 
   return (
     /* A CARD, not a row in a divided list. Dee's ClickUp gives every comment
@@ -233,13 +261,50 @@ function Post({
               )}
             </p>
             {post.file && <FileCard file={post.file} />}
-            {post.detail && (
+            {editing ? (
+              <div className="mt-1.5">
+                <textarea
+                  autoFocus
+                  rows={3}
+                  value={editDraft}
+                  onChange={(e) => setEditDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                      e.preventDefault(); void saveEdit();
+                    }
+                    if (e.key === "Escape") setEditing(false);
+                  }}
+                  className="w-full resize-y rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                />
+                <div className="mt-1.5 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void saveEdit()}
+                    disabled={!editDraft.trim() || edit.isPending}
+                    className="inline-flex items-center gap-1 rounded-lg bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    {edit.isPending && <Loader2 className="h-3 w-3 animate-spin" />}
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditing(false)}
+                    className="text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : post.detail ? (
               /* `whitespace-pre-wrap`: a year of ClickUp comments is plain
                  text whose line breaks carry the meaning. */
               <p className="mt-1.5 whitespace-pre-wrap break-words text-xs leading-relaxed text-foreground">
                 {post.detail}
+                {post.edited && (
+                  <span className="ml-1.5 text-[10px] text-muted-foreground">(edited)</span>
+                )}
               </p>
-            )}
+            ) : null}
           </div>
         </div>
       </div>
@@ -277,13 +342,57 @@ function Post({
           />
         </div>
 
-        <button
-          type="button"
-          onClick={() => setReplying((v) => !v)}
-          className="shrink-0 text-[11px] font-semibold text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          Reply
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          {/* Offered only where the database would allow it — `mine` is its
+              answer, not a guess made here, so the control and the rule
+              cannot disagree. */}
+          {post.mine && !editing && (
+            <>
+              <button
+                type="button"
+                onClick={() => { setEditDraft(post.detail ?? ""); setEditing(true); }}
+                className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <Pencil className="h-3 w-3" /> Edit
+              </button>
+              {confirming ? (
+                <span className="inline-flex items-center gap-1.5 text-[11px]">
+                  <span className="text-muted-foreground">Delete?</span>
+                  <button
+                    type="button"
+                    onClick={() => void doDelete()}
+                    disabled={remove.isPending}
+                    className="font-semibold text-status-danger transition-opacity hover:opacity-80 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    {remove.isPending ? "Deleting…" : "Yes"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirming(false)}
+                    className="font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    No
+                  </button>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirming(true)}
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-status-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <Trash2 className="h-3 w-3" /> Delete
+                </button>
+              )}
+            </>
+          )}
+          <button
+            type="button"
+            onClick={() => setReplying((v) => !v)}
+            className="text-[11px] font-semibold text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Reply
+          </button>
+        </div>
       </div>
       )}
 
@@ -451,7 +560,7 @@ export function ClientActivityRail({
             <section key={day.label} className="mb-3 last:mb-0">
               {/* Sticky, so the day you are reading stays named while you
                   scroll through it. */}
-              <h3 className="sticky top-0 z-10 -mx-3 bg-card/95 px-3 py-1 text-[11px] font-bold text-muted-foreground backdrop-blur">
+              <h3 className="sticky top-0 z-20 -mx-3 mb-2 border-b border-border bg-card px-3 py-1.5 text-[11px] font-bold text-muted-foreground">
                 {day.label}
               </h3>
               <div className="space-y-2">
