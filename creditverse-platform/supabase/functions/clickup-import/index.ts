@@ -125,6 +125,11 @@ function roundFrom(name: string | null): { round: string; freeze: boolean } {
   const n = /Round\s+(\d+)/i.exec(name);
   if (!n) return { round: "Pre-Round", freeze: false };
   const v = Number(n[1]);
+  /* The enum's fourth value is "Round 4+", not "Round 4" — it is the bucket
+     where BES stopped counting individually. Writing "Round 4" raised
+     22P02 and the whole card was refused, which is how Andre Patterson
+     failed to import at all. The enum is the authority on its own spelling. */
+  if (v === 4) return { round: "Round 4+", freeze: false };
   /* The canonical enum stops at 13; beyond that is a data question, not a
      silent clamp. */
   return { round: v >= 1 && v <= 13 ? `Round ${v}` : "Pre-Round", freeze: false };
@@ -162,8 +167,9 @@ Deno.serve(async (req) => {
    * Both default off, so an ordinary re-run still refreshes every card, which
    * is what somebody pressing Import a second time means by it.
    */
-  const { listId, groupId, dryRun, resume, max } = body as {
-    listId?: string; groupId?: string; dryRun?: boolean; resume?: boolean; max?: number;
+  const { listId, groupId, dryRun, resume, max, offset } = body as {
+    listId?: string; groupId?: string; dryRun?: boolean;
+    resume?: boolean; max?: number; offset?: number;
   };
   if (!listId || !groupId) return json(400, { error: "listId and groupId are required" });
 
@@ -231,8 +237,14 @@ Deno.serve(async (req) => {
       for (const row of (data ?? []) as { source_id: string }[]) done.add(row.source_id);
     }
     let processed = 0;
+    let index = -1;
 
     for (const brief of list.tasks) {
+      index++;
+      /* `offset` walks a list that must be REPROCESSED rather than resumed —
+         after a parser fix, when every card needs reading again and `resume`
+         would skip them all. Caller pages: offset 0, 4, 8 … */
+      if (offset && index < offset) { summary.alreadyDone++; continue; }
       /* Before the card is fetched, so an archived card's SSN is never read. */
       const briefStatus = String(brief.status?.status ?? "").toLowerCase();
       if (NOT_IMPORTED.has(briefStatus)) {
@@ -310,16 +322,81 @@ Deno.serve(async (req) => {
         });
       }
 
+      /* ── THE CARD TITLE IS THE NAME, UNLESS THE CARD TEXT AGREES ──────
+         The parser used to win outright, and it kept lifting things that are
+         not people. Two cards with a pasted screenshot produced "image.png".
+         Four more produced "High alert, special cases, Use the most
+         aggressive approach for disputing." — a dispute instruction, imported
+         as four clients' names.
+         
+         Guessing which line of free text is a name is the wrong problem to
+         solve. The ClickUp card title IS the client's name; the parsed name
+         is only worth preferring when it is the SAME person written more
+         fully ("Jane S." → "Jane Marie Smith"), and that case always shares a
+         word with the title. So the title wins unless the parsed name looks
+         like a person AND overlaps it. */
+      const wordsOf = (n: string) =>
+        n.toLowerCase().replace(/[^a-z\s'-]/g, " ").split(/\s+/).filter((w) => w.length > 1);
+      const looksLikeAPerson = (n: string | null | undefined): n is string => {
+        if (!n) return false;
+        const t = n.trim();
+        if (t.length > 60 || !/[a-z]/i.test(t)) return false;
+        if (/[.,;:!?]/.test(t.replace(/\b(jr|sr|ii|iii|dr|mr|mrs|ms)\.?/gi, ""))) return false;
+        if (/\.(png|jpe?g|gif|webp|pdf|heic|docx?|xlsx?|csv)$/i.test(t)) return false;
+        return t.split(/\s+/).length <= 5;
+      };
+      const titleWords = new Set(wordsOf(brief.name));
+      const parsedFits = looksLikeAPerson(merged.fullName)
+        && wordsOf(merged.fullName).some((w) => titleWords.has(w));
+      const fullName = parsedFits ? merged.fullName! : brief.name;
+      if (!parsedFits && merged.fullName && merged.fullName.trim() !== brief.name.trim()) {
+        merged.needsReview.push(
+          `the card text gave "${merged.fullName.slice(0, 60)}" as the name; used the ClickUp title instead`);
+      }
+      const titleFirst = fullName.split(/\s+/)[0];
+      const titleLast = fullName.split(/\s+/).slice(1).join(" ") || null;
+
+      /* `clients.state` is a two-letter code. A card writing "Florida" — or a
+         whole address line the parser mistook for a state — failed the check
+         constraint and took the ENTIRE client with it: Tyree Shavers and
+         Scott Watson did not import at all because of this. The value is
+         normalised, and anything unrecognisable is dropped rather than
+         allowed to cost a client. The card text is kept whole in the notes
+         either way, so nothing is actually lost. */
+      const STATES: Record<string, string> = {
+        alabama: "AL", alaska: "AK", arizona: "AZ", arkansas: "AR", california: "CA",
+        colorado: "CO", connecticut: "CT", delaware: "DE", "district of columbia": "DC",
+        florida: "FL", georgia: "GA", hawaii: "HI", idaho: "ID", illinois: "IL",
+        indiana: "IN", iowa: "IA", kansas: "KS", kentucky: "KY", louisiana: "LA",
+        maine: "ME", maryland: "MD", massachusetts: "MA", michigan: "MI", minnesota: "MN",
+        mississippi: "MS", missouri: "MO", montana: "MT", nebraska: "NE", nevada: "NV",
+        "new hampshire": "NH", "new jersey": "NJ", "new mexico": "NM", "new york": "NY",
+        "north carolina": "NC", "north dakota": "ND", ohio: "OH", oklahoma: "OK",
+        oregon: "OR", pennsylvania: "PA", "rhode island": "RI", "south carolina": "SC",
+        "south dakota": "SD", tennessee: "TN", texas: "TX", utah: "UT", vermont: "VT",
+        virginia: "VA", washington: "WA", "west virginia": "WV", wisconsin: "WI",
+        wyoming: "WY", "puerto rico": "PR",
+      };
+      const stateCode = (raw: string | null | undefined): string | null => {
+        if (!raw) return null;
+        const t = raw.trim();
+        if (/^[A-Za-z]{2}$/.test(t)) return t.toUpperCase();
+        const mapped = STATES[t.toLowerCase()];
+        if (mapped) return mapped;
+        merged.needsReview.push(`could not read "${t.slice(0, 40)}" as a state; left blank`);
+        return null;
+      };
+
       const payload = {
         group_id: groupId,
         task_id: brief.id,
-        full_name: merged.fullName ?? brief.name,
-        first_name: merged.firstName ?? brief.name.split(/\s+/)[0],
-        last_name: merged.lastName ?? (brief.name.split(/\s+/).slice(1).join(" ") || null),
+        full_name: fullName,
+        first_name: parsedFits && merged.firstName ? merged.firstName : titleFirst,
+        last_name: parsedFits && merged.lastName ? merged.lastName : titleLast,
         email: merged.email, phone: merged.phone, dob: merged.dateOfBirth,
         address_line1: merged.address?.line1 ?? null,
         city: merged.address?.city ?? null,
-        state: merged.address?.state ?? null,
+        state: stateCode(merged.address?.state),
         postal_code: merged.address?.postalCode ?? null,
         status: mappedStatus ?? "New Client", round,
         /* The ClickUp due date is provenance only — canonical SLA replaces it
