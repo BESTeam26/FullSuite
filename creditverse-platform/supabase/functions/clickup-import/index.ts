@@ -542,7 +542,14 @@ Deno.serve(async (req) => {
         if (up.error) { summary.needsReview.push(`${payload.full_name}: ${a.title} — ${up.error.message}`); continue; }
         await admin.from("files").insert({
           agency_id: (data as { agency_id?: string }).agency_id ?? null,
-          entity_type: "client", entity_id: fcId, bucket: "bes-files", path,
+          /* `fulfillment_client`, which is what every CreditOps screen reads.
+             This said "client" and the repoint on 2026-09-24 fixed the rows
+             already written and the ACTIVITY writer beside it — and missed
+             this one, in the same migration whose whole point was that fixing
+             a consumer and leaving the producer is how a bug comes back with
+             more data behind it. Kevin Hernandez's 80 attachments arrived
+             invisible. */
+          entity_type: "fulfillment_client", entity_id: fcId, bucket: "bes-files", path,
           name: a.title, mime_type: a.mimetype, size_bytes: a.size,
           created_at: new Date(Number(a.date)).toISOString(),
         });
