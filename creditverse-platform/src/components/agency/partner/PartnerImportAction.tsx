@@ -25,7 +25,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAgencyPermissions } from "@/lib/data/agency-permissions";
 import { usePartnerActions } from "@/lib/data/use-agency-partners";
 import {
-  listIdFromSourceRef, runClickUpImport, type ImportSummary,
+  importTargetFromSourceRef, runClickUpImport, type ImportSummary,
 } from "@/lib/data/clickup-import";
 import type { AgencyPartner } from "@/lib/data/agency-partners";
 
@@ -41,14 +41,16 @@ export function PartnerImportAction({ partner }: { partner: AgencyPartner & { so
 
   if (!perms.can("creditops.clients.import")) return null;
 
-  const listId = listIdFromSourceRef(partner.sourceListRef);
+  /* A view link resolves to its list inside the import; both are runnable. */
+  const target = importTargetFromSourceRef(partner.sourceListRef);
+  const listId = target?.id ?? null;
 
   const run = async () => {
     if (!listId) return;
     setRunning(true);
     setResult(null);
     try {
-      const summary = await runClickUpImport(partner.id, listId);
+      const summary = await runClickUpImport(partner.id, target!);
       setResult(summary);
       toast({
         title: "Import finished",

@@ -177,24 +177,31 @@ const acrossPartners = (n) => `
 check("2 — work from four DIFFERENT partners does not make the team less level",
   probe(acrossPartners(4))[0], { level: true, placed: 4 });
 
-check("3 — waiting files do not count as workload",
-  /* Isolated on Complaints, which has no pre-existing team: the Dispute pool
-     already contains members of [TEST] Team A, so a Dispute probe would be
-     measuring them too. The first agent holds four WAITING files, the second
-     holds one ACTIONABLE. The first must still be picked — none of hers is work she can do. */
-  probe(`insert into team_memberships (team_id, user_id, is_lead) values
-           ((select id from teams where name='CreditOps Complaints & Mailing Team'), '${AGENT_A}', false),
-           ((select id from teams where name='CreditOps Complaints & Mailing Team'), '${AGENT_B}', false);
+check("3 — piling WAITING files on somebody does not change who is picked next",
+  /* The rule, measured as a DELTA rather than as an absolute.
+  
+     This used to give one agent four waiting files, another one actionable
+     file, and assert the first was picked — on the premise that they started
+     level. They do not: the fixture agents hold fixture clients' work, and
+     the moment one of them held one more than the other this went red while
+     the rule it names was still perfectly true.
+  
+     Asked properly: whoever the picker chooses, load them with four WAITING
+     files and it must choose them again. Waiting is not workload, whatever
+     anybody started with. */
+  probe(`${staffComplaints([P.eli, P.dev, P.fay])}
+    create temp table before_pick on commit drop as
+      select public.creditops_pick_assignee('Complaints', '${AGENCY}') as who;
     insert into client_department_statuses (client_id, department, status, assignee_id)
-      select id, 'Dispute', 'ROUND SENT - AWAITING RESULTS', '${AGENT_A}' from fulfillment_clients
+      select id, 'Dispute', 'ROUND SENT - AWAITING RESULTS', (select who from before_pick)
+        from fulfillment_clients
        where archived_at is null and coalesce(lifecycle,'active')='active' limit 4
-      on conflict (client_id, department) do update set assignee_id='${AGENT_A}', status='ROUND SENT - AWAITING RESULTS';
-    insert into client_department_statuses (client_id, department, status, assignee_id)
-      select id, 'Complaints', 'LETTERS PENDING', '${AGENT_B}' from fulfillment_clients
-       where archived_at is null and coalesce(lifecycle,'active')='active' limit 1
-      on conflict (client_id, department) do update set assignee_id='${AGENT_B}', status='LETTERS PENDING';
-    select public.creditops_pick_assignee('Complaints', '${AGENCY}')::text as picked;`)[0],
-  { picked: AGENT_A });
+      on conflict (client_id, department) do update
+        set assignee_id = (select who from before_pick), status = 'ROUND SENT - AWAITING RESULTS';
+    select (public.creditops_pick_assignee('Complaints', '${AGENCY}')
+              = (select who from before_pick)) as same_person,
+           ((select who from before_pick) is not null) as somebody_was_pickable;`)[0],
+  { same_person: true, somebody_was_pickable: true });
 
 check("4 — actionable files DO count as workload",
   probe(`insert into team_memberships (team_id, user_id, is_lead) values

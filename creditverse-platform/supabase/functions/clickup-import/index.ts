@@ -167,11 +167,12 @@ Deno.serve(async (req) => {
    * Both default off, so an ordinary re-run still refreshes every card, which
    * is what somebody pressing Import a second time means by it.
    */
-  const { listId, groupId, dryRun, resume, max, offset } = body as {
-    listId?: string; groupId?: string; dryRun?: boolean;
+  const { listId, viewId, groupId, dryRun, resume, max, offset } = body as {
+    listId?: string; viewId?: string; groupId?: string; dryRun?: boolean;
     resume?: boolean; max?: number; offset?: number;
   };
-  if (!listId || !groupId) return json(400, { error: "listId and groupId are required" });
+  if (!groupId) return json(400, { error: "groupId is required" });
+  if (!listId && !viewId) return json(400, { error: "listId or viewId is required" });
 
   /* Normally the caller's own token, so the database applies the same rules it
      would to a browser and the import is attributed to whoever ran it.
@@ -186,6 +187,39 @@ Deno.serve(async (req) => {
     const r = await fetch(`${CU}${path}`, { headers: { Authorization: cuToken } });
     if (!r.ok) throw new Error(`ClickUp ${path} → ${r.status}`);
     return (await r.json()) as T;
+  };
+
+  /**
+   * A ClickUp VIEW link, turned into the list behind it.
+   *
+   * What somebody copies out of the address bar is usually a view —
+   * `/v/l/rk9kb-22578` — because that is the tab they were looking at. Only
+   * `/v/li/…` carries a list id. `clickup-list-ref` has always parsed both and
+   * said the import "resolves a view when it has to"; it never did, so a
+   * partner linked by view could not be imported at all. Two of Dee's are.
+   *
+   * The parent's TYPE is checked rather than assumed: a view can hang off a
+   * folder, a space or the whole workspace, and importing "every task in the
+   * CreditOps space" into one partner because a number happened to fit is the
+   * failure that has already happened once here, when Approve with Tiff had
+   * the space id stored as its list.
+   */
+  const resolveView = async (id: string): Promise<{ listId: string; listName: string }> => {
+    const v = await cu<{ view?: { id: string; name: string; parent?: { id: string; type: number } } }>(
+      `/view/${id}`);
+    const parent = v.view?.parent;
+    if (!parent) throw new Error(`ClickUp view ${id} reports no parent`);
+    /* Confirmed by fetching it AS a list rather than by trusting the type
+       code — if it is a folder or a space, this fails and says so. */
+    let list: { id: string; name: string };
+    try {
+      list = await cu<{ id: string; name: string }>(`/list/${parent.id}`);
+    } catch {
+      throw new Error(
+        `That view belongs to a ${parent.type === 5 ? "folder" : parent.type === 4 ? "space" : "container"}, ` +
+        `not a list (${parent.id}). Link the partner to one list — a folder holds several partners.`);
+    }
+    return { listId: list.id, listName: list.name };
   };
 
   const summary = {
@@ -224,8 +258,17 @@ Deno.serve(async (req) => {
   const archivedNames = new Map<string, string>();
 
   try {
+    /* Resolved first, so everything below deals in a list id only. */
+    let resolvedList = listId ?? "";
+    if (!resolvedList && viewId) {
+      const v = await resolveView(viewId);
+      resolvedList = v.listId;
+      (summary as unknown as Record<string, unknown>).resolvedList = v.listId;
+      (summary as unknown as Record<string, unknown>).resolvedListName = v.listName;
+    }
+
     const list = await cu<{ tasks: { id: string; name: string; status?: { status?: string } }[] }>(
-      `/list/${listId}/task?include_closed=true&subtasks=true`);
+      `/list/${resolvedList}/task?include_closed=true&subtasks=true`);
     summary.found = list.tasks.length;
 
     /* One query for the whole crosswalk, not one per card. */
