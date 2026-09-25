@@ -132,7 +132,17 @@ function toDirectoryRow(r: DirectoryRecord): ClientDirectoryRow {
  */
 export async function fetchClientDirectory(organizationId?: string | null): Promise<ClientDirectoryRow[]> {
   const sb = requireSupabase();
-  let query = sb.from("clients").select(DIRECTORY_SELECT).order("full_name", { ascending: true });
+  let query = sb
+    .from("clients")
+    .select(DIRECTORY_SELECT)
+    /* The security fixtures are not people anybody works. They cannot be
+       deleted — the whole RLS matrix asserts on them by name — so they are
+       excluded here, the same way the CreditOps client list already excludes
+       them. `is_fixture` is derived from the owning partner by trigger, so
+       this cannot drift from what a fixture actually is (Dee, 2026-09-25:
+       "delete all test record"). */
+    .eq("is_fixture", false)
+    .order("full_name", { ascending: true });
   if (organizationId) query = query.eq("organization_id", organizationId);
   const { data, error } = await query;
   if (error) throw error;

@@ -47,7 +47,10 @@ export type Database = {
           agency_id: string
           body: Json | null
           created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
           detail: string | null
+          edited_at: string | null
           entity_id: string
           entity_type: string
           field: string | null
@@ -55,6 +58,7 @@ export type Database = {
           mark: string | null
           new_value: string | null
           organization_id: string | null
+          parent_id: number | null
           pinned: boolean
           previous_value: string | null
           visibility: Database["public"]["Enums"]["activity_visibility"]
@@ -66,7 +70,10 @@ export type Database = {
           agency_id: string
           body?: Json | null
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           detail?: string | null
+          edited_at?: string | null
           entity_id: string
           entity_type: string
           field?: string | null
@@ -74,6 +81,7 @@ export type Database = {
           mark?: string | null
           new_value?: string | null
           organization_id?: string | null
+          parent_id?: number | null
           pinned?: boolean
           previous_value?: string | null
           visibility?: Database["public"]["Enums"]["activity_visibility"]
@@ -85,7 +93,10 @@ export type Database = {
           agency_id?: string
           body?: Json | null
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           detail?: string | null
+          edited_at?: string | null
           entity_id?: string
           entity_type?: string
           field?: string | null
@@ -93,6 +104,7 @@ export type Database = {
           mark?: string | null
           new_value?: string | null
           organization_id?: string | null
+          parent_id?: number | null
           pinned?: boolean
           previous_value?: string | null
           visibility?: Database["public"]["Enums"]["activity_visibility"]
@@ -113,10 +125,60 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "activity_events_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "activity_events_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_events_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "activity_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      activity_reactions: {
+        Row: {
+          activity_id: number
+          created_at: string
+          emoji: string
+          user_id: string
+        }
+        Insert: {
+          activity_id: number
+          created_at?: string
+          emoji: string
+          user_id: string
+        }
+        Update: {
+          activity_id?: number
+          created_at?: string
+          emoji?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_reactions_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "activity_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_reactions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -560,6 +622,7 @@ export type Database = {
           agency_id: string
           agent_number: number | null
           attendance_reward_eligible: boolean
+          can_receive_production_work: boolean
           created_at: string
           deactivated_at: string | null
           deactivated_by: string | null
@@ -590,6 +653,7 @@ export type Database = {
           agency_id: string
           agent_number?: number | null
           attendance_reward_eligible?: boolean
+          can_receive_production_work?: boolean
           created_at?: string
           deactivated_at?: string | null
           deactivated_by?: string | null
@@ -620,6 +684,7 @@ export type Database = {
           agency_id?: string
           agent_number?: number | null
           attendance_reward_eligible?: boolean
+          can_receive_production_work?: boolean
           created_at?: string
           deactivated_at?: string | null
           deactivated_by?: string | null
@@ -2260,6 +2325,7 @@ export type Database = {
           assigned_at: string | null
           assignee_id: string | null
           assignment_method: string | null
+          assignment_reason: string | null
           blocked_at: string | null
           blocked_by: string | null
           blocked_reason: string | null
@@ -2280,6 +2346,7 @@ export type Database = {
           assigned_at?: string | null
           assignee_id?: string | null
           assignment_method?: string | null
+          assignment_reason?: string | null
           blocked_at?: string | null
           blocked_by?: string | null
           blocked_reason?: string | null
@@ -2300,6 +2367,7 @@ export type Database = {
           assigned_at?: string | null
           assignee_id?: string | null
           assignment_method?: string | null
+          assignment_reason?: string | null
           blocked_at?: string | null
           blocked_by?: string | null
           blocked_reason?: string | null
@@ -2341,6 +2409,105 @@ export type Database = {
           {
             foreignKeyName: "client_department_statuses_manual_due_by_fkey"
             columns: ["manual_due_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_identity_links: {
+        Row: {
+          agency_id: string
+          client_a: string
+          client_b: string
+          group_a: string
+          group_b: string
+          id: string
+          matched_on: string
+          noticed_at: string
+          resolution: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+        }
+        Insert: {
+          agency_id: string
+          client_a: string
+          client_b: string
+          group_a: string
+          group_b: string
+          id?: string
+          matched_on: string
+          noticed_at?: string
+          resolution?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+        }
+        Update: {
+          agency_id?: string
+          client_a?: string
+          client_b?: string
+          group_a?: string
+          group_b?: string
+          id?: string
+          matched_on?: string
+          noticed_at?: string
+          resolution?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_identity_links_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_identity_links_client_a_fkey"
+            columns: ["client_a"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_identity_links_client_b_fkey"
+            columns: ["client_b"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_identity_links_group_a_fkey"
+            columns: ["group_a"]
+            isOneToOne: false
+            referencedRelation: "marketing_partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_identity_links_group_a_fkey"
+            columns: ["group_a"]
+            isOneToOne: false
+            referencedRelation: "outsourcing_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_identity_links_group_b_fkey"
+            columns: ["group_b"]
+            isOneToOne: false
+            referencedRelation: "marketing_partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_identity_links_group_b_fkey"
+            columns: ["group_b"]
+            isOneToOne: false
+            referencedRelation: "outsourcing_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_identity_links_resolved_by_fkey"
+            columns: ["resolved_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -2644,6 +2811,7 @@ export type Database = {
           first_name: string | null
           full_name: string | null
           id: string
+          is_fixture: boolean
           last_name: string
           mode: Database["public"]["Enums"]["fulfillment_mode"]
           needs_review: boolean
@@ -2673,6 +2841,7 @@ export type Database = {
           first_name?: string | null
           full_name?: string | null
           id?: string
+          is_fixture?: boolean
           last_name: string
           mode: Database["public"]["Enums"]["fulfillment_mode"]
           needs_review?: boolean
@@ -2702,6 +2871,7 @@ export type Database = {
           first_name?: string | null
           full_name?: string | null
           id?: string
+          is_fixture?: boolean
           last_name?: string
           mode?: Database["public"]["Enums"]["fulfillment_mode"]
           needs_review?: boolean
@@ -4315,6 +4485,38 @@ export type Database = {
             columns: ["template_id"]
             isOneToOne: false
             referencedRelation: "crm_engine_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cron_job_pauses: {
+        Row: {
+          created_at: string
+          jobname: string
+          paused_by: string | null
+          paused_on: string
+          reason: string
+        }
+        Insert: {
+          created_at?: string
+          jobname: string
+          paused_by?: string | null
+          paused_on?: string
+          reason: string
+        }
+        Update: {
+          created_at?: string
+          jobname?: string
+          paused_by?: string | null
+          paused_on?: string
+          reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cron_job_pauses_paused_by_fkey"
+            columns: ["paused_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -17898,6 +18100,10 @@ export type Database = {
         Returns: undefined
       }
       activate_my_membership: { Args: never; Returns: string }
+      activity_react: {
+        Args: { p_activity: number; p_emoji: string }
+        Returns: boolean
+      }
       activity_service: {
         Args: { p_entity_type: string }
         Returns: Database["public"]["Enums"]["fulfillment_service"]
@@ -17945,6 +18151,16 @@ export type Database = {
         }[]
       }
       agency_of_org: { Args: { p_org: string }; Returns: string }
+      agency_overview_counts: {
+        Args: never
+        Returns: {
+          credit_clients: number
+          funded_files: number
+          funding_files: number
+          live_engagements: number
+          organizations: number
+        }[]
+      }
       agency_positions: {
         Args: { p_agency: string }
         Returns: {
@@ -18218,6 +18434,7 @@ export type Database = {
         Returns: boolean
       }
       bes_may_inspect_seats: { Args: { p_org: string }; Returns: boolean }
+      bes_may_see_organization: { Args: { p_org: string }; Returns: boolean }
       billing_email_dispatch: { Args: never; Returns: undefined }
       billing_email_supersede_settled: { Args: never; Returns: number }
       billing_period_due: {
@@ -18483,6 +18700,24 @@ export type Database = {
         Args: { p_client: string }
         Returns: boolean
       }
+      client_feed: {
+        Args: { p_client: string }
+        Returns: {
+          activity_id: number
+          actor: string
+          actor_id: string
+          detail: string
+          edited: boolean
+          file: Json
+          happened_at: string
+          imported: boolean
+          kind: string
+          mine: boolean
+          parent_id: number
+          reactions: Json
+          title: string
+        }[]
+      }
       client_history: {
         Args: { p_client: string }
         Returns: {
@@ -18507,6 +18742,20 @@ export type Database = {
         }
         Returns: string
       }
+      client_note_cross_partner_identity: {
+        Args: { p_client: string; p_group: string }
+        Returns: number
+      }
+      client_person_for_import: {
+        Args: {
+          p_dob: string
+          p_email: string
+          p_full_name: string
+          p_group: string
+          p_phone: string
+        }
+        Returns: string
+      }
       client_portal_home: {
         Args: never
         Returns: {
@@ -18527,6 +18776,20 @@ export type Database = {
           presented_offers: number
           public_id: string
           published_updates: number
+        }[]
+      }
+      client_posts: {
+        Args: { p_client: string }
+        Returns: {
+          actor: string
+          actor_id: string
+          detail: string
+          happened_at: string
+          id: number
+          imported: boolean
+          parent_id: number
+          reactions: Json
+          title: string
         }[]
       }
       client_progress_report: {
@@ -18805,6 +19068,7 @@ export type Database = {
         Args: { p_client: string; p_consumer: string; p_org: string }
         Returns: boolean
       }
+      creditops_alert_uncovered: { Args: never; Returns: number }
       creditops_apply_checklist_template: {
         Args: {
           p_client: string
@@ -18820,6 +19084,11 @@ export type Database = {
           p_reason?: string
         }
         Returns: undefined
+      }
+      creditops_assign_unclaimed: { Args: never; Returns: Json }
+      creditops_available_today: {
+        Args: { p_on?: string; p_user: string }
+        Returns: boolean
       }
       creditops_backfill_routing: {
         Args: never
@@ -18844,6 +19113,28 @@ export type Database = {
           completed: string[]
           may_finalize: boolean
           outstanding_required: string[]
+        }[]
+      }
+      creditops_coverage: {
+        Args: never
+        Returns: {
+          actionable: number
+          assignee_away: number
+          department: string
+          no_agent_at_all: boolean
+          overdue: number
+          unassigned: number
+        }[]
+      }
+      creditops_coverage_gaps: { Args: never; Returns: Json }
+      creditops_coverage_states: {
+        Args: never
+        Returns: {
+          assignee: string
+          client_id: string
+          department: string
+          due_at: string
+          state: string
         }[]
       }
       creditops_department_roster: {
@@ -18898,8 +19189,29 @@ export type Database = {
         Args: {
           p_agency: string
           p_department: Database["public"]["Enums"]["fulfillment_department"]
+          p_group?: string
         }
         Returns: string
+      }
+      creditops_pick_assignee_explained: {
+        Args: {
+          p_agency: string
+          p_client?: string
+          p_department: Database["public"]["Enums"]["fulfillment_department"]
+          p_group?: string
+        }
+        Returns: {
+          reason: string
+          user_id: string
+        }[]
+      }
+      creditops_queue_counts: {
+        Args: never
+        Returns: {
+          actionable: number
+          department: string
+          waiting: number
+        }[]
       }
       creditops_refresh_headline: {
         Args: { p_client: string }
@@ -18919,9 +19231,23 @@ export type Database = {
         }
         Returns: boolean
       }
+      creditops_unstaffed_departments: {
+        Args: never
+        Returns: {
+          department: string
+        }[]
+      }
       creditops_work_scope: {
         Args: never
         Returns: Database["public"]["Enums"]["fulfillment_department"][]
+      }
+      creditops_works_a_department_on: {
+        Args: { p_client: string }
+        Returns: boolean
+      }
+      creditops_works_today: {
+        Args: { p_on?: string; p_user: string }
+        Returns: boolean
       }
       crm_add_engine: {
         Args: { p_engine: string; p_project: string }
@@ -20168,6 +20494,7 @@ export type Database = {
           saved_at: string
         }[]
       }
+      names_are_compatible: { Args: { a: string; b: string }; Returns: boolean }
       next_agent_number: {
         Args: { p_agency: string; p_fixture: boolean }
         Returns: number
@@ -20182,6 +20509,8 @@ export type Database = {
       next_invoice_number: { Args: { p_agency: string }; Returns: string }
       normalize_business_name: { Args: { p: string }; Returns: string }
       normalize_phone: { Args: { p: string }; Returns: string }
+      note_delete: { Args: { p_id: number }; Returns: undefined }
+      note_edit: { Args: { p_id: number; p_text: string }; Returns: undefined }
       notify_mentions: {
         Args: {
           p_activity: Database["public"]["Tables"]["activity_events"]["Row"]
@@ -20231,6 +20560,10 @@ export type Database = {
         Returns: boolean
       }
       organization_active_records: { Args: { p_org: string }; Returns: number }
+      organization_active_services: {
+        Args: { p_org: string }
+        Returns: Database["public"]["Enums"]["fulfillment_service"][]
+      }
       organization_directory: {
         Args: { p_org: string }
         Returns: {
@@ -20263,6 +20596,10 @@ export type Database = {
           letter_templates: number
           teammates: number
         }[]
+      }
+      organization_has_active_fulfillment: {
+        Args: { p_org: string }
+        Returns: boolean
       }
       organization_hub: {
         Args: { p_org: string }
@@ -20304,6 +20641,23 @@ export type Database = {
         }[]
       }
       organization_seat_usage: { Args: { p_org: string }; Returns: number }
+      organization_services_map: {
+        Args: never
+        Returns: {
+          organization_id: string
+          services: Database["public"]["Enums"]["fulfillment_service"][]
+        }[]
+      }
+      organizations_history: {
+        Args: never
+        Returns: {
+          ended_on: string
+          id: string
+          last_service: string
+          last_status: string
+          name: string
+        }[]
+      }
       owner_delete_record: {
         Args: { p_id: string; p_reason?: string; p_table: string }
         Returns: Json
@@ -21039,6 +21393,14 @@ export type Database = {
       set_partner_portal_access: {
         Args: { p_enabled: boolean; p_group: string; p_reason?: string }
         Returns: undefined
+      }
+      set_partner_service: {
+        Args: {
+          p_category: string
+          p_group: string
+          p_service: Database["public"]["Enums"]["fulfillment_service"]
+        }
+        Returns: string
       }
       set_payroll_settings: {
         Args: {

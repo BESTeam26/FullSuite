@@ -157,6 +157,10 @@ const demoAgencyMembership: AgencyMembership = {
   scope_division: null,
   scope_department_id: null,
   employee_code: null,
+  /* The demo agent takes work, so the sample queues and EOD have something in
+     them. Added when the flag became real (2026-09-23) — regenerating the
+     types is what noticed it was missing here. */
+  can_receive_production_work: true,
   agent_number: 0,
   /* Demo behaves like an ordinary member: clocks in, files an EOD, earns
      the bonus. The exemptions are configuration, not a demo feature. */
