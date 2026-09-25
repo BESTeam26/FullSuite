@@ -35,6 +35,18 @@ vi.mock("@/lib/data/use-partners", () => ({
     ],
   }),
 }));
+/* The queue badges are somebody else's test. Mocked with real-looking counts
+   so this one keeps asserting the single thing it is for — that the collapsed
+   rail and the expanded tree cannot disagree about what the caller may reach
+   — and does not start needing an AuthProvider to do it. */
+vi.mock("@/lib/data/use-queue-counts", () => ({
+  useQueueCounts: () => ({
+    data: {
+      Dispute: { department: "Dispute", actionable: 14, waiting: 20 },
+      Support: { department: "Support", actionable: 27, waiting: 1 },
+    },
+  }),
+}));
 vi.mock("@/lib/fulfillment/creditops-client-store", () => ({
   useCreditOpsStore: () => ({
     clients: [{ outsourcingGroupId: "s1", status: "In Dispute" }],
@@ -117,5 +129,33 @@ describe("the collapsed rail carries the same authorization as the tree", () => 
     expect(screen.queryByText(/Management views aggregate all Partners/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Collapse/ }));
     expect(screen.queryByText(/Management views aggregate all Partners/)).not.toBeInTheDocument();
+  });
+});
+
+describe("the queue badges", () => {
+  it("puts the actionable count beside the queue it belongs to", () => {
+    /* Dee, 2026-09-25: "I don't see the numbers on here." The number is the
+       reason somebody picks one queue over another. */
+    rail();
+    const dispute = screen.getAllByRole("button", { name: /Dispute Queue/ })[0];
+    expect(dispute.textContent).toContain("14");
+  });
+
+  it("counts what can be WORKED, never what is waiting on somebody else", () => {
+    /* Dispute has 14 actionable and 20 waiting on the bureaus. A badge reading
+       34 would send an agent to start on files nobody can touch, which is the
+       collapse Dee's queue doctrine (§23) exists to forbid. */
+    rail();
+    const dispute = screen.getAllByRole("button", { name: /Dispute Queue/ })[0];
+    expect(dispute.textContent).not.toContain("34");
+    expect(dispute.textContent).not.toContain("20");
+  });
+
+  it("says nothing where nothing counts it, rather than guessing a zero", () => {
+    /* Escalation Queue is not a department, so no count exists for it. A
+       badge there would be an invented number. */
+    rail();
+    const escalation = screen.getAllByRole("button", { name: /Escalation Queue/ })[0];
+    expect(escalation.textContent?.replace(/\D/g, "")).toBe("");
   });
 });

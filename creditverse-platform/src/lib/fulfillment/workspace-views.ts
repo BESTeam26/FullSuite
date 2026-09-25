@@ -161,6 +161,14 @@ export interface CreditOpsNavItem {
   id: PartnerViewId;
   label: string;
   scope: CreditOpsViewScope;
+  /**
+   * The department this queue shows, where it shows one.
+   *
+   * Carried through from the catalogue so the sidebar can put a count on it
+   * without re-deriving which queue is which department from its id — a
+   * second mapping that would drift the first time one is renamed.
+   */
+  department?: string;
 }
 
 /**
@@ -187,8 +195,9 @@ export function creditOpsNavForPerson(scope: PersonViewScope): {
   management: CreditOpsNavItem[];
 } {
   const visible = new Set<string>(creditOpsViewsForPerson(scope));
-  const asItem = (v: (typeof PARTNER_VIEWS)[number]) => ({
+  const asItem = (v: (typeof PARTNER_VIEWS)[number]): CreditOpsNavItem => ({
     id: v.id, label: v.label, scope: v.scope as CreditOpsViewScope,
+    department: "department" in v ? v.department : undefined,
   });
   const items = PARTNER_VIEWS.filter((v) => visible.has(v.id)).map(asItem);
   const inspect = new Set<string>(creditOpsQueuesToInspect(scope));

@@ -93,11 +93,20 @@ export const OpsTreeNavItem = ({
   icon: Icon,
   active,
   onSelect,
+  count,
 }: {
   label: string;
   icon: ElementType;
   active: boolean;
   onSelect: () => void;
+  /**
+   * How much work is waiting behind this destination.
+   *
+   * `undefined` means nobody counts this one and nothing is drawn. ZERO is
+   * drawn, quietly: "no files in Bureau Calling" is an answer an agent needs,
+   * and a badge that disappears at zero makes somebody click to find out.
+   */
+  count?: number;
 }) => (
   <button
     onClick={onSelect}
@@ -111,7 +120,21 @@ export const OpsTreeNavItem = ({
     )}
   >
     <Icon className={cn("h-3.5 w-3.5 shrink-0", active ? "text-primary" : "text-muted-foreground")} />
-    <span className="truncate">{label}</span>
+    <span className="flex-1 truncate text-left">{label}</span>
+    {count !== undefined && (
+      <span
+        className={cn(
+          "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums",
+          count === 0
+            ? "text-muted-foreground"
+            : active
+              ? "bg-primary/20 text-primary"
+              : "bg-muted text-muted-foreground",
+        )}
+      >
+        {count}
+      </span>
+    )}
   </button>
 );
 

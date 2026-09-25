@@ -66,6 +66,7 @@ import { useCreditOpsAccess } from "@/lib/fulfillment/creditops-access";
 import { cn } from "@/lib/utils";
 import { partnerLabel } from "@/lib/partners/partner-label";
 import { usePartners } from "@/lib/data/use-partners";
+import { useQueueCounts } from "@/lib/data/use-queue-counts";
 import { useCreditOpsStore } from "@/lib/fulfillment/creditops-client-store";
 import { comparePartnersByName, type OpsPartner } from "@/lib/fulfillment/ops-client-domain";
 import type { ModuleCategory } from "@/lib/data/module-categories";
@@ -172,6 +173,15 @@ export function CreditOpsTreeSidebar({
   /* The same array the client list renders — one source, so the tree count and
      the list can never disagree. */
   const { clients } = useCreditOpsStore();
+  /* How much work is behind each queue. One query for the whole sidebar,
+     scoped to this person by the view it reads (Dee, 2026-09-25: "I don't see
+     the numbers on here"). */
+  const queueCounts = useQueueCounts();
+  const countForQueue = useCallback(
+    (view: { department?: string }) =>
+      view.department ? queueCounts.data?.[view.department]?.actionable : undefined,
+    [queueCounts.data],
+  );
   const countFor = useCallback(
     (scopeId: string) => countActiveForPartner(clients, scopeId),
     [clients],
@@ -492,6 +502,7 @@ export function CreditOpsTreeSidebar({
                 icon={BarChart3}
                 active={isMgmtViewActive(mgmtId(v.id))}
                 onSelect={() => onSelect({ kind: "management", view: mgmtId(v.id) })}
+                count={countForQueue(v)}
               />
             ))}
           </OpsTreeGroup>
@@ -509,6 +520,7 @@ export function CreditOpsTreeSidebar({
                 icon={BarChart3}
                 active={isMgmtViewActive(mgmtId(v.id))}
                 onSelect={() => onSelect({ kind: "management", view: mgmtId(v.id) })}
+                count={countForQueue(v)}
               />
             ))}
           </OpsTreeGroup>
