@@ -91,6 +91,19 @@ const STATUS_MAP: Record<string, string> = {
   "do not work":             "Non Workable",
   "canceled/inactive/":      "Inactive / Canceled",
   "completed/ graduated":    "Graduated",
+  /* Both were unmapped and therefore fell to "New Client", which routes to
+     Onboarding · INCOMPLETE ONBOARDING — so eight finished EDP files landed
+     in the Onboarding queue as new work and inflated its badge. ClickUp
+     groups both with its DONE statuses; neither opens a department here.
+     
+     "Endorsed to client" is the file handed back to the partner, and
+     "Program Completed" is the canonical end-state that opens nothing. The
+     autoclosed CFPB complaint is a Complaints outcome, so it closes there.
+     
+     Named, not guessed at import time: an unmapped status is still reported
+     by name, and that report is what found these two. */
+  "endorsed to client":      "Program Completed",
+  "cfpb (autoclosed)":       "COMPLAINT COMPLETED",
 };
 
 /**
