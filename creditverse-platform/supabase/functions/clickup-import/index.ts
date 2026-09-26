@@ -280,8 +280,31 @@ Deno.serve(async (req) => {
       (summary as unknown as Record<string, unknown>).resolvedListName = v.listName;
     }
 
-    const list = await cu<{ tasks: { id: string; name: string; status?: { status?: string } }[] }>(
-      `/list/${resolvedList}/task?include_closed=true&subtasks=true`);
+    /* ── EVERY PAGE, NOT THE FIRST ──────────────────────────────────────
+       ClickUp returns at most 100 tasks per request and says whether that
+       was the last page. This asked once and took what it got, so a list of
+       113 imported as 100 — and reported "100 found" with no hint that
+       anything was missing. EDP Management Group lost seven clients that
+       way, and it was only noticed because the next list ALSO reported
+       exactly 100, which is not a number lists happen to be.
+
+       Bounded at 50 pages: 5,000 cards is far beyond any partner here, and a
+       loop that trusts an API to eventually say "last page" is a loop that
+       can run forever. */
+    type Brief = { id: string; name: string; status?: { status?: string } };
+    const tasks: Brief[] = [];
+    for (let page = 0; page < 50; page++) {
+      const chunk = await cu<{ tasks: Brief[]; last_page?: boolean }>(
+        `/list/${resolvedList}/task?include_closed=true&subtasks=true&page=${page}`);
+      tasks.push(...(chunk.tasks ?? []));
+      if (chunk.last_page || (chunk.tasks ?? []).length === 0) break;
+      if (page === 49) {
+        throw new Error(
+          `That list has more than 5,000 cards, which is beyond what this import walks. ` +
+          `Split it before importing, or nothing here can promise it is complete.`);
+      }
+    }
+    const list = { tasks };
     summary.found = list.tasks.length;
 
     /* One query for the whole crosswalk, not one per card. */
