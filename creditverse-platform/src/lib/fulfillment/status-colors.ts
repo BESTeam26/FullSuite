@@ -28,14 +28,14 @@
  *   onboarding     light blue    new client, onboarding, docs
  *   ready          strong blue   ready to be worked
  *   processing     purple        being worked now
- *   support        orange        support and monitoring
+ *   support        orange        routine support work
  *   waiting        grey          waiting on a bureau or a third party
  *   clientAction   yellow        waiting on the CLIENT
  *   complaints     pink/red      complaints work
  *   mailing        amber/brown   letters going out
  *   done           green         completed, graduated
  *   closed         dark grey     cancelled, inactive, archived, unworkable
- *   attention      red           escalation, billing, anything on fire
+ *   attention      red           any ISSUE, escalation, billing, unworkable
  *
  * ── AND ONLY THE STATUS SHOUTS ────────────────────────────────────────────
  *
@@ -160,7 +160,10 @@ const EXPLICIT: Record<string, StatusFamily> = {
   "in dispute": "processing",
   "in dispute mailed": "waiting",
   "attention": "attention",
-  "non workable": "closed",
+  /* Dee, 2026-09-26: *"NON WORKABLE … must be red."* It is not a file that
+     quietly closed itself — it is one somebody has to look at and decide
+     about, which is the opposite of the dark grey it started in. */
+  "non workable": "attention",
   "outsourcing - unpaid": "attention",
   "partner endorsed": "done",
   "access verified": "onboarding",
@@ -198,7 +201,11 @@ const EXPLICIT: Record<string, StatusFamily> = {
  */
 const RULES: { family: StatusFamily; test: RegExp }[] = [
   /* On fire, before anything else can claim them. */
-  { family: "attention",    test: /escalat|billing issue|unpaid|at risk|blocked/ },
+  /* Dee, 2026-09-26: *"Issue must be RED."* Any status carrying the word —
+     BILLING ISSUE, Monitoring Issue 1/2/3 — is something gone wrong, not
+     routine support work, and reads as red rather than as the support
+     family's orange. */
+  { family: "attention",    test: /escalat|issue|unpaid|at risk|blocked/ },
 
   /* Waiting on the CLIENT — Dee's doctrine separates this from waiting on a
      bureau, and the two must not look alike: only one of them has somebody to
