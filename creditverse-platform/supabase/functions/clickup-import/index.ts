@@ -205,12 +205,13 @@ Deno.serve(async (req) => {
    * With the crosswalk intact the matcher finds him by task id and UPDATES,
    * so the retry corrects the record instead of duplicating the person.
    */
-  const { listId, viewId, groupId, dryRun, resume, max, offset, taskIds } = body as {
+  const { listId, viewId, groupId, dryRun, resume, max, offset, taskIds, roundScan } = body as {
     listId?: string; viewId?: string; groupId?: string; dryRun?: boolean;
     resume?: boolean; max?: number; offset?: number; taskIds?: string[];
+    roundScan?: boolean;
   };
   if (!groupId) return json(400, { error: "groupId is required" });
-  if (!listId && !viewId) return json(400, { error: "listId or viewId is required" });
+  if (!listId && !viewId && !roundScan) return json(400, { error: "listId or viewId is required" });
 
   /* Normally the caller's own token, so the database applies the same rules it
      would to a browser and the import is attributed to whoever ran it.
@@ -226,6 +227,73 @@ Deno.serve(async (req) => {
     if (!r.ok) throw new Error(`ClickUp ${path} → ${r.status}`);
     return (await r.json()) as T;
   };
+
+  /**
+   * `roundScan` reads which dispute round a card says it is on, and returns
+   * NOTHING ELSE.
+   *
+   * 155 imported clients carry "In Dispute Mailed" with no round: ClickUp's
+   * "Current Round" custom field is empty on their cards, and their comments
+   * do not name one either. Many of the descriptions do, in prose.
+   *
+   * ── WHY THIS RUNS HERE AND NOT IN A SCRIPT ────────────────────────────
+   *
+   * A client card's description is the most dangerous text in the workspace:
+   * it is where SSNs, dates of birth and credit-monitoring passwords are
+   * written down, which is the whole reason the import scrubs them into the
+   * vault instead of storing them. Pulling 155 descriptions out to a local
+   * script — or into anyone's terminal — would spread exactly the data the
+   * rest of this function exists to contain.
+   *
+   * So the text is read in the function's memory, matched, and dropped. What
+   * crosses the wire is a task id and a number. There is no mode here that
+   * returns description text, deliberately.
+   *
+   * ── WHAT COUNTS AS A ROUND ────────────────────────────────────────────
+   *
+   * Only the word ROUND immediately followed by a number. "Round letters
+   * uploaded to LetterStream" names no round. A range — "rounds 1-4" — names
+   * no single round either, and is reported as ranged rather than guessed at.
+   * A dispute round is an FCRA record; the caller decides what to do with an
+   * ambiguous answer, and this reports the ambiguity rather than resolving it.
+   */
+  if (roundScan) {
+    if (!Array.isArray(taskIds) || taskIds.length === 0) {
+      return json(400, { error: "roundScan needs taskIds" });
+    }
+    if (taskIds.length > 60) return json(400, { error: "at most 60 task ids per scan" });
+
+    const EXPLICIT = /\bround\s*#?\s*(\d{1,2})\b/gi;
+    const RANGED = /\bround(s)?\s*#?\s*\d{1,2}\s*(?:-|–|to|through|thru|&|and)\s*#?\s*\d{1,2}/i;
+    const out: { id: string; field: string | null; rounds: number[]; ranged: boolean; error?: string }[] = [];
+
+    for (const id of taskIds) {
+      try {
+        const task = await cu<Record<string, unknown>>(`/task/${id}?include_subtasks=false`);
+
+        /* The custom field first: where it is set, it is the operation's own
+           answer and beats anything written in prose. */
+        const rf = (task.custom_fields as { name: string; value?: unknown; type_config?: { options?: { orderindex: number; name: string }[] } }[] | undefined)
+          ?.find((f) => f.name === "Current Round");
+        const field = rf && rf.value !== undefined && rf.value !== null
+          ? rf.type_config?.options?.find((o) => o.orderindex === Number(rf.value))?.name ?? null
+          : null;
+
+        const text = [task.description, task.text_content, task.name]
+          .filter((t): t is string => typeof t === "string").join(" ");
+        const ranged = RANGED.test(text);
+        const rounds: number[] = [];
+        for (const m of text.matchAll(EXPLICIT)) {
+          const n = Number(m[1]);
+          if (n >= 1 && n <= 12) rounds.push(n);
+        }
+        out.push({ id, field, rounds, ranged });
+      } catch (e) {
+        out.push({ id, field: null, rounds: [], ranged: false, error: String(e).slice(0, 120) });
+      }
+    }
+    return json(200, { scanned: out.length, results: out });
+  }
 
   /**
    * A ClickUp VIEW link, turned into the list behind it.
