@@ -122,30 +122,6 @@ export async function fetchFulfillmentClients(): Promise<FulfillmentClient[]> {
   return ((data ?? []) as unknown as ClientRow[]).map(mapClientRow);
 }
 
-export async function fetchOutsourcingGroups(): Promise<OutsourcingGroup[]> {
-  const sb = requireSupabase();
-  const { data, error } = await sb
-    .from("outsourcing_groups")
-    .select("*, fulfillment_clients(count)")
-    .order("name");
-  if (error) throw error;
-  return (data ?? []).map((g) => {
-    const counted = g as typeof g & {
-      fulfillment_clients: { count: number }[] | null;
-    };
-    return {
-      id: g.id,
-      name: g.name,
-      partnerName: g.partner_name,
-      contactEmail: g.contact_email,
-      contractRef: g.contract_ref ?? undefined,
-      clientCount: counted.fulfillment_clients?.[0]?.count ?? 0,
-      status: g.status,
-      createdAt: g.created_at.slice(0, 10),
-    };
-  });
-}
-
 /** Department statuses for ONE client — loaded when a file is opened, not with the list. */
 /**
  * Department rows for MANY clients in one bounded query — for the operational
