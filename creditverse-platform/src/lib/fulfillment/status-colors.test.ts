@@ -14,6 +14,8 @@
  * catching the failure that matters — a waiting file painted like finished
  * work, or an actionable one painted like something nobody has to touch.
  */
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   CLOSED_DEPARTMENT_STATUSES,
@@ -91,6 +93,57 @@ describe("the colour agrees with the queue doctrine", () => {
        attached — somebody has to chase. Same colour, same treatment, and the
        chasing stops happening. */
     expect(familyOf("WAITING CLIENT RESPONSE")).not.toBe(familyOf("ROUND SENT - AWAITING RESULTS"));
+  });
+});
+
+describe("the classes actually exist in this project's Tailwind", () => {
+  it("never uses a shade of a colour the theme has flattened", () => {
+    /* THE BUG THIS EXISTS FOR, 2026-09-26.
+     *
+     * `attention` was `bg-red-600 text-white`. It measured 4.8:1 in the
+     * contrast test above and rendered as WHITE TEXT ON A WHITE PILL, because
+     * `tailwind.config.ts` redefines `red` as a single colour — so `bg-red-600`
+     * is not a class Tailwind emits, it was purged from the build, and only
+     * `text-white` survived.
+     *
+     * The contrast test could not catch it: it measured the hex I had written
+     * down by hand, which is a statement of intent, not of what ships. This
+     * one reads the actual config and asserts the class can exist at all.
+     *
+     * `green` and `red` are the live traps today, but the test derives the
+     * list rather than naming them, so redefining another palette tomorrow
+     * fails here instead of on Dee's screen.
+     */
+    /* From the project root: vitest runs there, and `import.meta.url` is not
+       a file URL once the test has been transformed. */
+    const config = readFileSync(resolve(process.cwd(), "tailwind.config.ts"), "utf8");
+    const block = config.slice(config.indexOf("colors: {"));
+
+    /* Top-level keys inside `colors`. A key mapped to a STRING has no shades;
+       a key mapped to an OBJECT has only the shade names written there. */
+    const flattened = new Set<string>();
+    let depth = 0;
+    for (let i = block.indexOf("{"); i < block.length; i++) {
+      if (block[i] === "{") depth++;
+      else if (block[i] === "}") { depth--; if (depth === 0) break; }
+      else if (depth === 1) {
+        const m = /^([A-Za-z_][\w-]*)\s*:\s*["{]/.exec(block.slice(i));
+        if (m) flattened.add(m[1]);
+      }
+    }
+    expect(flattened.has("red"), "sanity: the config still redefines red").toBe(true);
+
+    for (const [family, tone] of Object.entries(FAMILY_TONES)) {
+      for (const cls of `${tone.pill} ${tone.chip}`.split(/\s+/)) {
+        const m = /^(?:bg|text|border)-([a-z]+)-\d+/.exec(cls);
+        if (!m) continue;
+        expect(
+          flattened.has(m[1]),
+          `${family}: "${cls}" uses shade ${m[1]}-N, but tailwind.config.ts ` +
+          `redefines "${m[1]}" — that class is purged and will not render`,
+        ).toBe(false);
+      }
+    }
   });
 });
 

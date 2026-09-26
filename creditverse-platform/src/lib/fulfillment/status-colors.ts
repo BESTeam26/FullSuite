@@ -111,8 +111,13 @@ export const FAMILY_TONES: Record<StatusFamily, Tone> = {
                   chip: "bg-emerald-700/10 text-emerald-700 border-emerald-700/30" },
   closed:       { pill: "bg-slate-600 text-white border-slate-700",
                   chip: "bg-slate-600/10 text-slate-600 border-slate-600/30" },
-  attention:    { pill: "bg-red-600 text-white border-red-700",
-                  chip: "bg-red-600/10 text-red-700 border-red-600/30" },
+  /* rose, NOT red. `tailwind.config.ts` redefines `red` as a single colour
+     with no shades, so `bg-red-600` is not a class that exists: it was purged
+     from the build while `text-white` survived, and Dee got white text on a
+     white pill. See the palette test — this is the kind of mistake that
+     looks fine in the source and only appears on screen. */
+  attention:    { pill: "bg-rose-700 text-white border-rose-800",
+                  chip: "bg-rose-700/10 text-rose-700 border-rose-700/30" },
   neutral:      { pill: "bg-muted text-foreground border-border",
                   chip: "bg-muted text-muted-foreground border-border" },
 };
@@ -145,7 +150,7 @@ export const TOKEN_HEX: Record<string, string> = {
   "amber-950": "#451a03",
   "pink-600": "#db2777",
   "emerald-700": "#047857",
-  "red-600": "#dc2626",
+  "rose-700": "#be123c",
 };
 
 /** WCAG AA for text below 18px. */
