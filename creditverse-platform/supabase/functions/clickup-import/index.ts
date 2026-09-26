@@ -128,15 +128,21 @@ const DEPARTMENT_OVERRIDE: Record<string, { department: string; status: string }
 };
 
 /**
- * Statuses that are not imported at all.
+ * Statuses that arrive as HISTORY rather than as work.
  *
- * Dee, 2026-09-23, on the 13 archived cards in Tiffany Hunter's list: leave
- * them in ClickUp. They are finished history, nothing is lost by leaving them
- * where they are, and bringing them across would put a dozen files in front
- * of agents that nobody is working. They are skipped before the card is
- * fetched, so no SSN on an archived card is even read.
+ * Dee, 2026-09-23, asked for archived cards to be left in ClickUp. On
+ * 2026-09-26 she changed her mind: "I want everything in clickup now."
+ *
+ * So they come across, and they come across ARCHIVED — lifecycle set, out of
+ * every queue, out of My Work, out of the assignment engine. That is the
+ * distinction that made the original answer reasonable and makes this one
+ * safe: bringing a finished client's record over is not the same as putting
+ * a finished client in front of an agent.
+ *
+ * The status is preserved as the card's own words in `source_status`, so
+ * "why is this archived" is answerable without opening ClickUp.
  */
-const NOT_IMPORTED = new Set(["archived"]);
+const ARCHIVED_STATUSES = new Set(["archived"]);
 
 /** The ClickUp Current Round dropdown → the canonical round. */
 function roundFrom(name: string | null): { round: string; freeze: boolean } {
@@ -187,9 +193,21 @@ Deno.serve(async (req) => {
    * Both default off, so an ordinary re-run still refreshes every card, which
    * is what somebody pressing Import a second time means by it.
    */
-  const { listId, viewId, groupId, dryRun, resume, max, offset } = body as {
+  /**
+   * `taskIds` re-imports named cards and nothing else.
+   *
+   * A card can fail on its own — Fernando Serrato's vault entries were lost
+   * to a name collision while the client itself imported fine — and the only
+   * ways to retry it were to walk 786 cards again or to delete its crosswalk
+   * row, which would have created a second Fernando because his card carries
+   * no email, phone or date of birth to match him by.
+   *
+   * With the crosswalk intact the matcher finds him by task id and UPDATES,
+   * so the retry corrects the record instead of duplicating the person.
+   */
+  const { listId, viewId, groupId, dryRun, resume, max, offset, taskIds } = body as {
     listId?: string; viewId?: string; groupId?: string; dryRun?: boolean;
-    resume?: boolean; max?: number; offset?: number;
+    resume?: boolean; max?: number; offset?: number; taskIds?: string[];
   };
   if (!groupId) return json(400, { error: "groupId is required" });
   if (!listId && !viewId) return json(400, { error: "listId or viewId is required" });
@@ -311,16 +329,48 @@ Deno.serve(async (req) => {
           `Split it before importing, or nothing here can promise it is complete.`);
       }
     }
-    const list = { tasks };
+    const list = {
+      tasks: taskIds?.length
+        ? tasks.filter((t) => taskIds.includes(t.id))
+        : tasks,
+    };
     summary.found = list.tasks.length;
+    if (taskIds?.length && list.tasks.length !== taskIds.length) {
+      /* Named a card that is not in this list: say so rather than silently
+         importing the ones that happened to match. */
+      const missing = taskIds.filter((id) => !tasks.some((t) => t.id === id));
+      summary.needsReview.push(`not in this list: ${missing.join(", ")}`);
+    }
 
     /* One query for the whole crosswalk, not one per card. */
     const done = new Set<string>();
     if (resume) {
-      const { data } = await createClient(url, service)
-        .from("import_links").select("source_id")
-        .eq("source_system", "clickup").eq("source_kind", "task");
-      for (const row of (data ?? []) as { source_id: string }[]) done.add(row.source_id);
+      /* ── PAGED, BECAUSE POSTGREST STOPS AT 1,000 ─────────────────────
+         This asked once and took what came back. The crosswalk passed a
+         thousand rows during the Vanquish import — 1,151 across five
+         partners — so `resume` was handed a TRUNCATED set of "already
+         imported", decided 106 cards still needed doing, re-imported the
+         same three on every pass and never finished. The same silent
+         truncation that once made every attendance score read 15.
+
+         Paged to exhaustion, and it RAISES if the pages stop making sense
+         rather than resuming from a partial answer: a resume built on a
+         short list is worse than no resume, because it looks like progress. */
+      const admin = createClient(url, service);
+      const PAGE = 1000;
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await admin
+          .from("import_links").select("source_id")
+          .eq("source_system", "clickup").eq("source_kind", "task")
+          .range(from, from + PAGE - 1);
+        if (error) throw new Error(`Could not read the ClickUp crosswalk: ${error.message}`);
+        const rows = (data ?? []) as { source_id: string }[];
+        for (const row of rows) done.add(row.source_id);
+        if (rows.length < PAGE) break;
+        if (from > 200_000) {
+          throw new Error("The ClickUp crosswalk is larger than this import can page through.");
+        }
+      }
     }
     let processed = 0;
     let index = -1;
@@ -333,10 +383,10 @@ Deno.serve(async (req) => {
       if (offset && index < offset) { summary.alreadyDone++; continue; }
       /* Before the card is fetched, so an archived card's SSN is never read. */
       const briefStatus = String(brief.status?.status ?? "").toLowerCase();
-      if (NOT_IMPORTED.has(briefStatus)) {
+      const isArchived = ARCHIVED_STATUSES.has(briefStatus);
+      if (isArchived) {
         summary.notImported++;
         archivedNames.set(nameKey(brief.name), brief.name);
-        continue;
       }
 
       if (resume && done.has(brief.id)) { summary.alreadyDone++; continue; }
@@ -378,7 +428,7 @@ Deno.serve(async (req) => {
 
       const cuStatus = String((task.status as { status?: string })?.status ?? "").toLowerCase();
       const mappedStatus = STATUS_MAP[cuStatus];
-      if (!mappedStatus) {
+      if (!mappedStatus && !isArchived) {
         /* Named, not guessed. A card landing on "New Client" because nobody
            taught the map its status looks imported and is in the wrong queue,
            so it is called out by name for somebody to answer. */
@@ -484,7 +534,12 @@ Deno.serve(async (req) => {
         city: merged.address?.city ?? null,
         state: stateCode(merged.address?.state),
         postal_code: merged.address?.postalCode ?? null,
-        status: mappedStatus ?? "New Client", round,
+        /* An archived card is an inactive client, whatever its last working
+           status was. Routing sends "Inactive / Canceled" to no department,
+           and the lifecycle below keeps it out of the queues regardless. */
+        status: isArchived ? "Inactive / Canceled" : (mappedStatus ?? "New Client"),
+        archived: isArchived,
+        round,
         /* The ClickUp due date is provenance only — canonical SLA replaces it
            once FullSuite has the anchors (Dee). */
         due_at: task.due_date ? new Date(Number(task.due_date)).toISOString() : null,
