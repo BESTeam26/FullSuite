@@ -10,7 +10,7 @@
  * one Partner. Same canonical client records — different scope.
  */
 
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { clientGroupKey } from "@/lib/fulfillment/ops-client-domain";
 import { isActiveClient } from "@/lib/fulfillment/fulfillment-client-domain";
@@ -89,13 +89,72 @@ function CreditOpsWorkspace() {
     },
     [myDepartments, canAccessManagement],
   );
-  /* Everybody lands on the shared dashboard now — there is no longer a layer
-     an agent is kept out of wholesale. */
-  const [selection, setSelection] = useState<CreditOpsSelection>({
-    kind: "management",
-    view: "mgmt-main-list",
-  });
-  const [activeView, setActiveView] = useState<PartnerViewId>("main-list");
+  /* ── WHICH LIST YOU ARE ON LIVES IN THE ADDRESS ─────────────────────────
+     Dee, 2026-09-26: "if I select a client and go back to client list, I
+     wanna make sure we go back to the actual list we're working on and not on
+     the main list or other list."
+
+     This used to be two `useState`s, so `/app/creditops` meant "whatever the
+     defaults are" and there was no way for Back to land anywhere else. Opening
+     a client leaves the page entirely — a client is its own route, which is
+     what makes it linkable — and returning rebuilt the page from scratch on
+     the shared Main Client List, whichever partner you had been working.
+
+     In the URL, the selection survives the round trip, a browser refresh, and
+     being sent to somebody else. `?partner=<id>` selects a partner folder and
+     `view` is then its workspace tab; with no `partner`, `view` is the
+     management destination. Everybody still lands on the shared dashboard
+     when the address says nothing.
+
+     The setters keep the shapes the call sites already use, so choosing a
+     partner, opening a queue and switching tabs are unchanged apart from
+     where the answer is stored. */
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const selection = useMemo<CreditOpsSelection>(() => {
+    const partnerId = searchParams.get("partner");
+    if (partnerId) return { kind: "partner", partnerId };
+    const view = searchParams.get("view");
+    return {
+      kind: "management",
+      view: view?.startsWith("mgmt-") ? view : "mgmt-main-list",
+    };
+  }, [searchParams]);
+
+  const activeView = ((searchParams.get("view") ?? "main-list") as PartnerViewId);
+
+  const patchParams = useCallback(
+    (patch: (p: URLSearchParams) => void, replace = false) => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        patch(next);
+        return next;
+      }, { replace });
+    },
+    [setSearchParams],
+  );
+
+  const setSelection = useCallback(
+    (sel: CreditOpsSelection) =>
+      patchParams((p) => {
+        if (sel.kind === "partner") {
+          p.set("partner", sel.partnerId);
+          /* A partner folder opens on its client list; its tab id lives in the
+             same `view` param, which the management ids never collide with
+             because those are all prefixed `mgmt-`. */
+          p.set("view", "main-list");
+        } else {
+          p.delete("partner");
+          p.set("view", sel.view);
+        }
+      }),
+    [patchParams],
+  );
+
+  const setActiveView = useCallback(
+    (view: PartnerViewId) => patchParams((p) => p.set("view", view)),
+    [patchParams],
+  );
   /* The partner a global queue was opened for, so it arrives filtered. Cleared
      when a queue is chosen from the navigation, which means "all partners". */
   const [queuePartnerScope, setQueuePartnerScope] = useState<string | null>(null);
@@ -106,7 +165,6 @@ function CreditOpsWorkspace() {
   // caller may not see resolves to nothing and nothing is claimed. On a hit:
   // select its Partner, open the client list on that record, drop the param.
   const { clients } = useCreditOpsStore();
-  const [searchParams, setSearchParams] = useSearchParams();
   const linkedClient = searchParams.get("client");
   const [linkedOpenClientId, setLinkedOpenClientId] = useState<string | null>(null);
   useEffect(() => {
@@ -129,8 +187,10 @@ function CreditOpsWorkspace() {
       setSelection({ kind: "management", view: "mgmt-main-list" });
       setLinkedOpenClientId(client.id);
     }
-    setSearchParams({}, { replace: true });
-  }, [linkedClient, clients, partners, setSearchParams]);
+    /* Drop ONLY the deep-link param. This used to clear the whole query,
+       which now would erase the partner and view it had just set. */
+    patchParams((p) => p.delete("client"), true);
+  }, [linkedClient, clients, partners, patchParams, setSelection, setActiveView]);
 
   // A view the person may not open must not stay selected — for instance when
   // their department assignment changes mid-session. The shared dashboard is
@@ -169,14 +229,20 @@ function CreditOpsWorkspace() {
   return (
     <>
       <WebhookBridge />
-      <div className="flex min-h-screen flex-col bg-muted/20">
+      {/* An app FRAME, not a long page: the shell is exactly one
+          viewport tall and each pane scrolls inside itself, so the
+          partner tree and the header stay put while the client list
+          moves. `dvh` rather than `vh` because on a phone `100vh`
+          measures the viewport WITHOUT the browser chrome and cuts the
+          last row off (rule 25: mobile is production). */}
+      <div className="flex h-dvh flex-col overflow-hidden bg-muted/20">
         <CreditOpsHeader
           partnerName={headerName}
           clientCount={headerCount}
           onOpenStatusGuide={() => setIsStatusGuideOpen(true)}
         />
 
-        <div className="flex flex-1 flex-col overflow-hidden md:flex-row">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
           <CreditOpsTreeSidebar
             selected={selection}
             onSelect={(sel) => {
@@ -187,7 +253,7 @@ function CreditOpsWorkspace() {
             }}
           />
 
-          <div className="flex-1 overflow-y-auto">
+          <div className="min-h-0 flex-1 overflow-y-auto">
             {selection.kind === "management" ? (
               mayOpen(selection.view) ? (
                 <ManagementView

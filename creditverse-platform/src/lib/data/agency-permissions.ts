@@ -115,7 +115,20 @@ export function useAgencyPermissions() {
        either way; this only decides how quickly the screen catches up. */
     staleTime: 30_000,
   });
-  const map = q.data ?? {};
+  /* ── DEMO MODE ─────────────────────────────────────────────────────────
+     With no backend there is no `agency_can_all` to ask, so the map came back
+     empty and every gated route answered "Access denied" — a mode whose whole
+     purpose is "the UI remains explorable over seed data" could not open
+     CreditOps, FundingOps or anything else behind a capability.
+
+     This is not a security decision and cannot become one: it is reachable
+     only when `authMode === "demo"`, which means `isSupabaseConfigured` is
+     false and there is no database to reach. In live mode the map still comes
+     from `agency_can_all`, which applies the same rule the row policies do,
+     and an unanswered query still denies. */
+  const map = auth.mode === "demo"
+    ? Object.fromEntries(AGENCY_PERMISSIONS.map((k) => [k, true]))
+    : (q.data ?? {});
   return {
     /** Unknown while loading: assume NO, so nothing flashes into view. */
     can: (key: AgencyPermission) => map[key] === true,

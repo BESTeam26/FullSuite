@@ -26,6 +26,23 @@
         "--strictPort"
       ],
       "port": 8081
+    },
+    {
+      "name": "creditverse-demo",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "creditverse-platform",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "8082",
+        "--strictPort",
+        "--mode",
+        "demo"
+      ],
+      "port": 8082
     }
   ]
 }

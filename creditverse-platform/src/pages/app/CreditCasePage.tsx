@@ -20,7 +20,8 @@
  * RLS-scoped, so a client id the caller may not see resolves to nothing and
  * the card says so rather than claiming a record.
  */
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { returnTo } from "@/lib/nav/return-to";
 import { ClientWorkWorkspace } from "@/components/dashboard/fulfillment/ClientWorkWorkspace";
 import {
   CreditOpsStoreProvider,
@@ -30,6 +31,7 @@ import { CreditOpsAccessProvider } from "@/lib/fulfillment/creditops-access";
 export default function CreditCasePage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
 
   if (!id) {
     return (
@@ -47,8 +49,13 @@ export default function CreditCasePage() {
         <div className="mx-auto max-w-5xl p-4 md:p-6">
           <ClientWorkWorkspace
             clientId={id}
-            /* Back to the list they came from, not to whatever was before. */
-            onBack={() => navigate("/app/creditops")}
+            /* The list they came from, carried in router state by whoever
+               opened this page. It used to be a fixed "/app/creditops", which
+               meant Back always landed on the shared Main Client List — the
+               comment here claimed otherwise and the code did not do it.
+               Arriving without a return address (a pasted link, a new tab)
+               still lands somewhere sensible. */
+            onBack={() => navigate(returnTo(location.state, "/app/creditops"))}
             backLabel="Back to clients"
           />
         </div>

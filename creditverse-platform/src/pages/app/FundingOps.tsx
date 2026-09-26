@@ -136,11 +136,16 @@ function FundingOpsWorkspace() {
     setSelection({ kind: "client", clientId });
   const openDeal = (dealId: string) => setSelection({ kind: "deal", dealId });
 
+  /* An app FRAME, not a long page: the shell is exactly one viewport tall
+     and each pane scrolls inside itself, so the partner tree and the header
+     stay put while the client list moves. `dvh` rather than `vh` because on a
+     phone `100vh` measures the viewport WITHOUT the browser chrome and cuts
+     the last row off (rule 25: mobile is production). */
   return (
-    <div className="flex min-h-screen flex-col bg-muted/20">
+    <div className="flex h-dvh flex-col overflow-hidden bg-muted/20">
       <FundingOpsHeader partnerName={headerName} clientCount={headerCount} />
 
-      <div className="flex flex-1 flex-col overflow-hidden md:flex-row">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
         <FundingOpsTreeSidebar
           selected={selection}
           onSelect={(sel) => {
@@ -149,7 +154,7 @@ function FundingOpsWorkspace() {
           }}
         />
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-y-auto">
           {selection.kind === "management" ? (
             canAccessManagement ? (
               <ManagementView

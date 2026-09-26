@@ -27,7 +27,7 @@ export function CreditOpsHeader({
   const access = useCreditOpsAccess();
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border bg-card px-6 py-3">
+    <div className="flex shrink-0 flex-wrap items-center justify-between gap-4 border-b border-border bg-card px-6 py-3">
       <div className="flex items-center gap-3">
         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
           <FileText className="h-5 w-5" />

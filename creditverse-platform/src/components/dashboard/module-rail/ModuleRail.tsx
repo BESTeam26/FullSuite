@@ -117,7 +117,13 @@ export function ModuleRail({
       <nav
         aria-label={`${title} navigation`}
         className={cn(
-          "hidden shrink-0 flex-col overflow-y-auto border-r border-border bg-card transition-[width] duration-200 ease-out md:flex",
+          /* `min-h-0` is what makes the `overflow-y-auto` beside it mean
+             anything. A flex child's default `min-height: auto` refuses to
+             shrink below its content, so without it the rail grows to the
+             full height of the page and scrolls away with it instead of
+             scrolling inside itself — which is exactly what Dee reported:
+             the partner list disappearing off the top of the screen. */
+          "hidden min-h-0 shrink-0 flex-col overflow-y-auto border-r border-border bg-card transition-[width] duration-200 ease-out md:flex",
           rail.collapsed ? `${RAIL_COLLAPSED} px-1.5 py-3` : `${RAIL_EXPANDED} p-4`,
         )}
       >
