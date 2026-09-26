@@ -103,6 +103,13 @@ const STATUS_MAP: Record<string, string> = {
      Named, not guessed at import time: an unmapped status is still reported
      by name, and that report is what found these two. */
   "endorsed to client":      "Program Completed",
+  /* BES does not have the client's CFPB portal login, so no complaint can be
+     filed until they hand it over. That is waiting on the CLIENT, which is
+     exactly what "For Client Confirmation" is for in Dee's doctrine — it
+     routes to Support · WAITING ON CLIENT, out of the actionable queue and
+     into the state the client portal is built to resolve. Unmapped, it fell
+     to "New Client" and three BMF files queued as new onboarding work. */
+  "no cfpb login":           "For Client Confirmation",
   "cfpb (autoclosed)":       "COMPLAINT COMPLETED",
 };
 
