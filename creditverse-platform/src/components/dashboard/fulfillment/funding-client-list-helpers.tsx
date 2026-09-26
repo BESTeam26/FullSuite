@@ -38,7 +38,7 @@ export const FUNDING_PHONE_RE = PHONE_RE;
 /* ------------------------------------------------------------------ */
 
 export const FundingStatusPill = ({ status }: { status: string }) => (
-  <StatusPill status={status} tones={FUNDING_STATUS_TONE} />
+  <StatusPill status={status} tone={FUNDING_STATUS_TONE[status]} />
 );
 
 export const FUNDING_STATUS_OPTIONS = [

@@ -23,6 +23,7 @@ import { X } from "lucide-react";
 export function BulkActionBar({
   count,
   statusOptions,
+  statusTone,
   assignees,
   onClear,
   onApplyStatus,
@@ -30,6 +31,8 @@ export function BulkActionBar({
 }: {
   count: number;
   statusOptions: readonly string[];
+  /** Colour for each status in the bulk menu; omitted leaves it plain. */
+  statusTone?: (status: string) => string;
   assignees: { id: string | null; name: string }[];
   onClear: () => void;
   /** Resolves with the ids that FAILED, so the bar can keep them selected. */
@@ -79,6 +82,7 @@ export function BulkActionBar({
           placeholder="Change to…"
           disabled={busy !== null}
           options={statusOptions}
+          tone={statusTone}
           onValueChange={(v) => void run("status", () => onApplyStatus(v))}
         />
       </div>

@@ -4,6 +4,7 @@
  */
 
 import { useState } from "react";
+import { statusPillTone } from "@/lib/fulfillment/status-colors";
 import {
   BookOpen,
   Key,
@@ -457,7 +458,7 @@ export function EditableSopsAndLoginsView({
               className="rounded-lg border border-border/60 bg-muted/20 p-2.5"
             >
               <span
-                className={`inline-block rounded-full border px-2 py-0.5 text-[10px] font-bold ${s.badgeClass}`}
+                className={`inline-block rounded-full border px-2 py-0.5 text-[10px] font-bold ${statusPillTone(s.code)}`}
               >
                 {s.name}
               </span>

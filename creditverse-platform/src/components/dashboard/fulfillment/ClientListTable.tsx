@@ -17,6 +17,8 @@ import {
   type ViewPrefs,
 } from "./client-list-helpers";
 import { OpsClientListTable } from "./OpsClientListTable";
+import { statusChipTone, statusPillTone } from "@/lib/fulfillment/status-colors";
+import { cn } from "@/lib/utils";
 import { BulkActionBar } from "./BulkActionBar";
 import { clientGroupLabel } from "@/lib/fulfillment/fulfillment-client-domain";
 import type { DepartmentStatus } from "@/lib/fulfillment/creditops-store-types";
@@ -115,6 +117,7 @@ export function ClientListTable({
       <BulkActionBar
         count={selected.size}
         statusOptions={ALL_STATUS_OPTIONS}
+      statusTone={statusPillTone}
         assignees={assignees}
         onClear={() => onSelectedChange(new Set())}
         onApplyStatus={(status) =>
@@ -136,6 +139,7 @@ export function ClientListTable({
       onOpenClient={onOpenClient}
       actor={actor}
       statusOptions={ALL_STATUS_OPTIONS}
+      statusTone={statusPillTone}
       assignees={assignees}
       selection={{
         selected,
@@ -280,11 +284,22 @@ export function ClientListTable({
                human phrase, the way Dee reads it out loud. */
             const cur = currentDepartment(departmentRows[client.id] ?? []);
             if (!cur) return <span className="text-muted-foreground">No open work</span>;
+            /* The sub-status carries its family's hue at a tenth of the
+               strength (Dee, 2026-09-26: *"don't make everything colorful.
+               Status should remain the strongest color signal on each row."*)
+               — enough to scan a column of departments by, quiet enough that
+               the credit-status pill still wins the row. */
             return (
-              <span className="flex min-w-0 items-center gap-1 text-[11px]">
-                <span className="font-semibold text-foreground">{cur.department}</span>
-                <span className="text-muted-foreground">·</span>
-                <span className="truncate text-foreground">{cur.status}</span>
+              <span className="flex min-w-0 items-center gap-1.5 text-[11px]">
+                <span className="shrink-0 font-semibold text-foreground">{cur.department}</span>
+                <span
+                  className={cn(
+                    "min-w-0 truncate rounded border px-1.5 py-px font-medium",
+                    statusChipTone(cur.status),
+                  )}
+                >
+                  {cur.status}
+                </span>
               </span>
             );
           }
@@ -310,13 +325,23 @@ export function ClientListTable({
                the person's work scope, and a control that always errors is
                worse than none (rule 3, Dee 2026-09-22). */
             if (!workScope.departments.includes(cur.department as CreditOpsDepartment)) {
-              return <span className="text-foreground">{cur.status}</span>;
+              return (
+                <span
+                  className={cn(
+                    "inline-flex rounded border px-1.5 py-px text-[11px] font-medium",
+                    statusChipTone(cur.status),
+                  )}
+                >
+                  {cur.status}
+                </span>
+              );
             }
             return (
               <EditableChoiceCell
                 label={`${cur.department} work status`}
                 value={cur.status}
                 options={departmentStatuses(cur.department)}
+                tone={statusChipTone}
                 onSave={async (next) => {
                   await setClientDepartmentStatus({
                     clientId: client.id,

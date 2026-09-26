@@ -6,6 +6,7 @@
  */
 
 import { CREDIT_STATUSES } from "@/lib/fulfillment/department-domain";
+import { statusPillTone } from "@/lib/fulfillment/status-colors";
 import {
   AGENT_COL,
   Avatar,
@@ -24,7 +25,6 @@ import {
   countColumn,
   createViewPrefsStore,
   type ColDef,
-  type StatusToneMap,
   type ViewPrefs as SharedViewPrefs,
 } from "./ops-client-list-helpers";
 
@@ -35,20 +35,17 @@ export type { ColDef };
 /* Status                                                              */
 /* ------------------------------------------------------------------ */
 
-const FULFILLMENT_STATUS_TONE: StatusToneMap = {
-  Onboarding: "bg-amber-500/10 text-status-warning border-amber-500/30",
-  "Ready for Processing": "bg-blue-500/10 text-status-info border-blue-500/30",
-  "In Processing": "bg-blue-500/10 text-status-info border-blue-500/30",
-  "Ready for QA": "bg-amber-500/10 text-status-warning border-amber-500/30",
-  "In Dispute": "bg-purple-500/10 text-status-accent border-purple-500/30",
-  "Awaiting Response": "bg-slate-500/10 text-muted-foreground border-slate-500/30",
-  "Monitoring Issue": "bg-red-500/10 text-status-danger border-red-500/30",
-  Completed: "bg-emerald-500/10 text-status-success border-emerald-500/30",
-  Attention: "bg-red-500/10 text-status-danger border-red-500/30",
-};
-
+/**
+ * The CreditOps status pill.
+ *
+ * Dee, 2026-09-26: *"Right now too many statuses visually look the same."*
+ * This used to hold a table of NINE tones against a vocabulary of sixty, so
+ * fifty-one statuses rendered as the same grey chip. The colour now comes from
+ * `@/lib/fulfillment/status-colors`, which classifies by meaning and is the one
+ * map every CreditOps surface reads.
+ */
 export const FulfillmentStatusPill = ({ status }: { status: string }) => (
-  <StatusPill status={status} tones={FULFILLMENT_STATUS_TONE} />
+  <StatusPill status={status} tone={statusPillTone(status)} />
 );
 
 /**

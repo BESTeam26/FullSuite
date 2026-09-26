@@ -11,6 +11,7 @@ import {
   type StatusGuideItem,
 } from "@/lib/fulfillment/creditops-status-guide";
 import { cn } from "@/lib/utils";
+import { statusPillTone } from "@/lib/fulfillment/status-colors";
 
 interface StatusGuideModalProps {
   isOpen: boolean;
@@ -114,7 +115,7 @@ export function StatusGuideModal({ isOpen, onClose }: StatusGuideModalProps) {
                     <span
                       className={cn(
                         "inline-flex rounded-full border px-2.5 py-0.5 text-xs font-bold tracking-tight",
-                        item.badgeClass,
+                        statusPillTone(item.code),
                       )}
                     >
                       {item.name}

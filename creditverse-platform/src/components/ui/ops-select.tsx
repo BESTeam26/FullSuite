@@ -64,6 +64,16 @@ interface OpsSelectProps {
   openOnMount?: boolean;
   /** Fired when the menu closes without a change — used by inline editors. */
   onDismiss?: () => void;
+  /**
+   * Optional per-option colour, for a menu of statuses.
+   *
+   * Dee, 2026-09-26, on the status dropdowns: sixty values in one list, all
+   * rendered in the same grey, and the only way to find "Round 4 Sent" is to
+   * read every line. The caller passes `statusPillTone`; anything that is not
+   * a status passes nothing and keeps a plain menu, because colouring a list
+   * of assignees or column names would just be noise.
+   */
+  tone?: (value: string) => string;
   "aria-label"?: string;
 }
 
@@ -81,6 +91,7 @@ export function OpsSelect({
   autoFocus,
   openOnMount,
   onDismiss,
+  tone,
   "aria-label": ariaLabel,
 }: OpsSelectProps) {
   return (
@@ -115,7 +126,18 @@ export function OpsSelect({
           const { value: v, label } = normalize(option);
           return (
             <SelectItem key={v} value={v} className={ITEM_SIZES[size]}>
-              {label}
+              {tone ? (
+                <span
+                  className={cn(
+                    "inline-flex items-center whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-semibold",
+                    tone(v),
+                  )}
+                >
+                  {label}
+                </span>
+              ) : (
+                label
+              )}
             </SelectItem>
           );
         })}

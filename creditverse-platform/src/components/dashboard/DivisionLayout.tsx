@@ -1,6 +1,7 @@
 import { useState, type ReactNode, type ElementType } from "react";
 import { Fragment } from "react";
 import { cn } from "@/lib/utils";
+import { statusPillTone } from "@/lib/fulfillment/status-colors";
 
 /* ------------------------------------------------------------------ */
 /* Shared helpers for managed-service division pages                     */
@@ -166,36 +167,25 @@ export const EmptyTab = ({ label }: { label: string }) => (
   </div>
 );
 
-export const StatusPill = ({ status }: { status: string }) => {
-  const tone: Record<string, string> = {
-    Active: "bg-emerald-500/10 text-status-success border-emerald-500/30",
-    Healthy: "bg-emerald-500/10 text-status-success border-emerald-500/30",
-    Processing: "bg-blue-500/10 text-status-info border-blue-500/30",
-    "Ready for QA": "bg-amber-500/10 text-status-warning border-amber-500/30",
-    Queued: "bg-slate-500/10 text-muted-foreground border-slate-500/30",
-    Completed: "bg-emerald-500/10 text-status-success border-emerald-500/30",
-    Blocked: "bg-red-500/10 text-status-danger border-red-500/30",
-    Attention: "bg-red-500/10 text-status-danger border-red-500/30",
-    "At Risk": "bg-red-500/10 text-status-danger border-red-500/30",
-    "Pending Onboarding":
-      "bg-amber-500/10 text-status-warning border-amber-500/30",
-    Funded: "bg-emerald-500/10 text-status-success border-emerald-500/30",
-    Submitted: "bg-blue-500/10 text-status-info border-blue-500/30",
-    Offer: "bg-purple-500/10 text-status-accent border-purple-500/30",
-    Review: "bg-amber-500/10 text-status-warning border-amber-500/30",
-    Draft: "bg-slate-500/10 text-muted-foreground border-slate-500/30",
-  };
-  return (
-    <span
-      className={cn(
-        "inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium",
-        tone[status] ?? "bg-muted text-muted-foreground border-border",
-      )}
-    >
-      {status}
-    </span>
-  );
-};
+/**
+ * The shared status chip for work stages and record states.
+ *
+ * It used to carry its OWN table of sixteen tones — a second source of truth
+ * beside the CreditOps list's, which is how "Completed" could be green on one
+ * screen and grey on another. Dee, 2026-09-26: *"The same status must always
+ * have the same color everywhere it appears."* So the colour comes from the
+ * one canonical map and this component only draws it.
+ */
+export const StatusPill = ({ status }: { status: string }) => (
+  <span
+    className={cn(
+      "inline-flex items-center whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-semibold",
+      statusPillTone(status),
+    )}
+  >
+    {status}
+  </span>
+);
 
 /* ------------------------------------------------------------------ */
 /* DivisionLayout — shared shell for all 4 managed-service divisions     */

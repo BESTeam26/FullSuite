@@ -90,11 +90,17 @@ export function EditableDateCell({ value, onSave, label, tone }: {
 }
 
 /** A dropdown cell — the round, and anything else with a fixed vocabulary. */
-export function EditableChoiceCell({ value, options, onSave, label }: {
+export function EditableChoiceCell({ value, options, onSave, label, tone }: {
   value: string;
   options: readonly string[];
   onSave: (next: string) => Promise<void>;
   label: string;
+  /**
+   * Optional colour for the value and the menu — passed for a department's
+   * work status, omitted for the custom text/choice columns, which are not
+   * statuses and would only be made noisier by colour.
+   */
+  tone?: (value: string) => string;
 }) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -108,6 +114,7 @@ export function EditableChoiceCell({ value, options, onSave, label }: {
         aria-label={label}
         value={value}
         options={options as string[]}
+        tone={tone}
         onDismiss={() => setEditing(false)}
         onValueChange={async (v) => {
           setSaving(true);
@@ -126,7 +133,14 @@ export function EditableChoiceCell({ value, options, onSave, label }: {
     >
       {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : (
         <>
-          <span className="flex-1 truncate">{value}</span>
+          <span
+            className={cn(
+              "min-w-0 flex-1 truncate",
+              tone && cn("rounded border px-1.5 py-px", tone(value)),
+            )}
+          >
+            {value}
+          </span>
           <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
         </>
       )}

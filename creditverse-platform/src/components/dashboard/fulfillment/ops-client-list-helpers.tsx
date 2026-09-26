@@ -21,20 +21,24 @@ import type { OpsClient } from "@/lib/fulfillment/ops-client-domain";
 export type StatusToneMap = Record<string, string>;
 
 /**
- * Renders a status chip using the calling division's tone map. Unknown
- * statuses fall back to a neutral chip rather than rendering unstyled.
+ * Renders a status chip in the tone the calling division resolved.
+ *
+ * The chip does not decide its own colour: CreditOps passes the canonical
+ * tone from `lib/fulfillment/status-colors`, FundingOps passes its own
+ * vocabulary's. An absent tone falls back to a readable neutral rather than
+ * rendering unstyled.
  */
 export const StatusPill = ({
   status,
-  tones,
+  tone,
 }: {
   status: string;
-  tones: StatusToneMap;
+  tone?: string;
 }) => (
   <span
     className={cn(
-      "inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium",
-      tones[status] ?? "bg-muted text-muted-foreground border-border",
+      "inline-flex items-center whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-semibold",
+      tone || "bg-muted text-foreground border-border",
     )}
   >
     {status}

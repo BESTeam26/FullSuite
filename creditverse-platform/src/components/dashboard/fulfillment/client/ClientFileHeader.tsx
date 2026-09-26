@@ -37,6 +37,7 @@ import type { CreditOpsDepartment } from "@/lib/fulfillment/creditops-access";
 import { EditableChoiceCell, DueDateOverrideCell } from "../ClientRowEditors";
 import { useDepartmentRoster } from "@/lib/data/use-department-roster";
 import { OpsSelect } from "@/components/ui/ops-select";
+import { statusChipTone, statusPillTone } from "@/lib/fulfillment/status-colors";
 import { useState } from "react";
 
 const Badge = ({ children, tone }: { children: React.ReactNode; tone: string }) => (
@@ -139,9 +140,11 @@ export function ClientFileHeader({
         >
           {lifecycle === "active" ? "Active" : lifecycle}
         </Badge>
-        <Badge tone="border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400">
-          {client.status}
-        </Badge>
+        {/* Amber, for every one of the sixty statuses, until 2026-09-26 — so
+            "Program Completed" and "BILLING ISSUE" opened the same colour.
+            The canonical map now decides, exactly as it does in the list the
+            agent arrived from. */}
+        <Badge tone={statusPillTone(client.status)}>{client.status}</Badge>
         <Badge tone="border-border bg-muted text-muted-foreground">{client.round}</Badge>
       </div>
 
@@ -157,11 +160,19 @@ export function ClientFileHeader({
                   label={`${current.department} work status`}
                   value={current.status}
                   options={departmentStatuses(current.department as CreditOpsDepartment)}
+                  tone={statusChipTone}
                   onSave={(next) => onStatusChange(current.department as CreditOpsDepartment, next)}
                 />
               ) : (
-                <p className="truncate text-[11px] uppercase tracking-wide text-muted-foreground">
-                  {current.status}
+                <p className="min-w-0">
+                  <span
+                    className={cn(
+                      "inline-flex max-w-full truncate rounded border px-1.5 py-px text-[11px] font-medium",
+                      statusChipTone(current.status),
+                    )}
+                  >
+                    {current.status}
+                  </span>
                 </p>
               )}
             </>

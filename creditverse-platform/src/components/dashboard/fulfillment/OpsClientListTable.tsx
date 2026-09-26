@@ -98,6 +98,11 @@ interface OpsClientListTableProps<T extends OpsClient, Id extends string> {
   /** The roster this division may assign to, as identities, not labels. */
   assignees: readonly AssignedPerson[];
   renderStatusPill: (status: string) => ReactNode;
+  /**
+   * Colour for each option in the open status menu. Optional: a division that
+   * does not colour its statuses gets a plain menu rather than a wrong one.
+   */
+  statusTone?: (status: string) => string;
   /** SLA hours at or below which the figure turns red. */
   /** Cells for columns unique to this division. Return null if unhandled. */
   renderExtraCell: (client: T, colId: Id) => ReactNode | null;
@@ -116,6 +121,7 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
   selection,
   assignees,
   renderStatusPill,
+  statusTone,
   renderExtraCell,
 }: OpsClientListTableProps<T, Id>) {
   const [editingStatusId, setEditingStatusId] = useState<string | null>(null);
@@ -346,6 +352,7 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
               openOnMount
               size="inline"
               aria-label="Status"
+              tone={statusTone}
               value={client.status}
               onValueChange={(v) => commitStatus(client.id, v)}
               onDismiss={() => setEditingStatusId(null)}
