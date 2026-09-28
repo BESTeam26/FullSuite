@@ -10,7 +10,7 @@
  * one Partner. Same canonical client records — different scope.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { clientGroupKey } from "@/lib/fulfillment/ops-client-domain";
 import { isActiveClient } from "@/lib/fulfillment/fulfillment-client-domain";
@@ -123,13 +123,40 @@ function CreditOpsWorkspace() {
 
   const activeView = ((searchParams.get("view") ?? "main-list") as PartnerViewId);
 
+  /**
+   * Patch the query string, composing with any patch made earlier in the same
+   * click.
+   *
+   * ── THE BUG THIS FIXES (mine, 2026-09-27) ──────────────────────────────
+   *
+   * `setSearchParams(fn)` hands `fn` the params from the LAST RENDER — it
+   * closes over them (react-router-dom 6.30, `useSearchParams`). Two calls in
+   * one event handler therefore BOTH start from the pre-click value, and the
+   * second silently discards what the first wrote.
+   *
+   * Choosing a partner did exactly that: `setSelection` wrote
+   * `partner=X&view=main-list`, then the workspace tab was set from a copy
+   * that had never had `partner` — so it was dropped, and clicking a partner
+   * in the tree appeared to do nothing or left you on the previous one. That
+   * is Dee's report of 2026-09-28: "regardless of which Partner I click …
+   * not responding or not loading correctly."
+   *
+   * The ref carries the params FORWARD within a tick and is reset from the
+   * router on every render, so a second patch builds on the first instead of
+   * on a stale snapshot. Reading `window.location` would also work under
+   * BrowserRouter and silently not under MemoryRouter, which is how the test
+   * for this caught it.
+   */
+  const paramsRef = useRef(searchParams);
+  paramsRef.current = searchParams;
+
   const patchParams = useCallback(
     (patch: (p: URLSearchParams) => void, replace = false) => {
-      setSearchParams((prev) => {
-        const next = new URLSearchParams(prev);
-        patch(next);
-        return next;
-      }, { replace });
+      const next = new URLSearchParams(paramsRef.current);
+      patch(next);
+      /* So the NEXT patch in this same tick composes with this one. */
+      paramsRef.current = next;
+      setSearchParams(next, { replace });
     },
     [setSearchParams],
   );
