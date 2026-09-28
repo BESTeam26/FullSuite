@@ -223,7 +223,11 @@ export function ClientWorkWorkspace({
 
        Nothing here changes what may be seen. Every panel keeps the check it
        already had. */
-    <div className="grid gap-4 text-xs xl:grid-cols-[minmax(0,1fr)_400px]">
+    <div className="grid gap-4 text-xs xl:grid-cols-[minmax(0,1fr)_360px]">
+      {/* 360, not 400: this now sits to the right of the CreditOps tree inside
+          the shell, so the pane is ~290px narrower than the page it used to
+          own. The rail gives up 40px so the work area keeps a usable width at
+          1280 with the tree open. Below `xl` the rail stacks underneath. */}
       <div className="min-w-0 space-y-4">
         <ClientFileHeader
           client={client}

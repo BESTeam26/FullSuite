@@ -90,7 +90,6 @@ const CreditCases = lazy(chunkFor("/app/creditops/cases"));
 const BesPartners = lazy(chunkFor("/app/bes-partners"));
 const FundingDealDetail = lazy(chunkFor("/app/funding-deals/:dealId"));
 const DiyReferrals = lazy(chunkFor("/app/diy-referrals"));
-const CreditCasePage = lazy(chunkFor("/app/creditops/cases/:id"));
 const FundingFiles = lazy(chunkFor("/app/funding-files"));
 const FundingFileDetail = lazy(chunkFor("/app/funding-files/:fileId"));
 const Lenders = lazy(chunkFor("/app/lenders"));
@@ -625,7 +624,14 @@ const AppRoutes = () => {
             <Route path="creditops/cases" element={<RequirePermission permission="creditops.clients.view" label="Credit Cases"><CreditCases /></RequirePermission>} />
             <Route
               path="creditops/cases/:id"
-              element={<RequirePermission permission="creditops.clients.view" label="Credit Cases"><CreditCasePage /></RequirePermission>}
+              /* The SAME element shape as the `creditops` route on purpose: a
+                 client opens inside the CreditOps shell, and React keeps the
+                 shell's instance across the two routes only when the tree
+                 under <Routes> matches type-for-type at the same position.
+                 A different wrapper here would remount the tree, the header
+                 and every provider on every client open (Dee, 2026-09-29:
+                 "Do not reload the entire CreditOps shell"). */
+              element={<RequireEntitlement product="creditOps" label="CreditOps"><CreditOps /></RequireEntitlement>}
             />
             <Route
               path="operations"

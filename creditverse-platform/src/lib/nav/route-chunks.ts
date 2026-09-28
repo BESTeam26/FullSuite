@@ -93,7 +93,11 @@ export const ROUTE_CHUNKS: Record<string, Loader> = {
   "/app/clients": () => import("@/pages/app/Clients"),
   "/app/clients/:id": () => import("@/pages/app/ClientProfile"),
   "/app/creditops/cases": () => import("@/pages/app/CreditCases"),
-  "/app/creditops/cases/:id": () => import("@/pages/app/CreditCasePage"),
+  /* The case route renders the CreditOps shell itself — a client opens inside
+     it, not on a separate page (Dee, 2026-09-29) — so it prefetches the same
+     chunk. Sharing the import means opening a client from the list loads
+     nothing new. */
+  "/app/creditops/cases/:id": () => import("@/pages/app/CreditOps"),
   "/app/dispute-dashboard": () => import("@/pages/app/DisputeDashboard"),
   "/app/operations": () => import("@/pages/app/OrganizationCreditOps"),
 

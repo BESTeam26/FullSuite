@@ -11,8 +11,11 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { clientGroupKey } from "@/lib/fulfillment/ops-client-domain";
+import { partnerForClient } from "@/lib/fulfillment/creditops-case-selection";
+import { returnTo } from "@/lib/nav/return-to";
+import { ClientWorkWorkspace } from "@/components/dashboard/fulfillment/ClientWorkWorkspace";
 import { isActiveClient } from "@/lib/fulfillment/fulfillment-client-domain";
 import { CreditOpsHeader } from "@/components/dashboard/fulfillment/CreditOpsHeader";
 import {
@@ -109,7 +112,8 @@ function CreditOpsWorkspace() {
      The setters keep the shapes the call sites already use, so choosing a
      partner, opening a queue and switching tabs are unchanged apart from
      where the answer is stored. */
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   const selection = useMemo<CreditOpsSelection>(() => {
     const partnerId = searchParams.get("partner");
@@ -156,9 +160,16 @@ function CreditOpsWorkspace() {
       patch(next);
       /* So the NEXT patch in this same tick composes with this one. */
       paramsRef.current = next;
-      setSearchParams(next, { replace });
+      /* To the CreditOps path EXPLICITLY, not "?query" relative to wherever
+         we are. A client is open at /app/creditops/cases/:id inside this
+         same shell (Dee, 2026-09-29: "Clicking another Partner from the
+         sidebar should take me directly to that Partner's client list
+         without needing to close the current client first"); a relative
+         write would have kept the case open under the new partner. The
+         shell stays mounted across it — only the pane's content changes. */
+      navigate({ pathname: "/app/creditops", search: `?${next.toString()}` }, { replace });
     },
-    [setSearchParams],
+    [navigate],
   );
 
   const setSelection = useCallback(
@@ -192,6 +203,28 @@ function CreditOpsWorkspace() {
   // caller may not see resolves to nothing and nothing is claimed. On a hit:
   // select its Partner, open the client list on that record, drop the param.
   const { clients } = useCreditOpsStore();
+
+  /* ── A CLIENT OPEN INSIDE THIS SHELL ──────────────────────────────────
+     Dee, 2026-09-29: "Keep the CreditOps workspace sidebar permanently
+     visible… The Client Workspace should open in the content area to the
+     right of that CreditOps sidebar, not replace it."
+
+     /app/creditops/cases/:id renders THIS page, not a separate one, so the
+     tree, the header and every cached query stay exactly where they were —
+     the address is kept (linkable, "open in new tab") and the shell is
+     kept. Only the pane changes.
+
+     While a client is open, the tree highlights the partner that client
+     belongs to, derived from the record rather than from the URL — the
+     URL names the client, the client names the partner. */
+  const { id: openCaseId = null } = useParams<{ id: string }>();
+  const location = useLocation();
+  const caseSelection = useMemo(
+    () => partnerForClient(clients, partners, openCaseId),
+    [clients, partners, openCaseId],
+  );
+  const treeSelection: CreditOpsSelection = caseSelection ?? selection;
+
   const linkedClient = searchParams.get("client");
   const [linkedOpenClientId, setLinkedOpenClientId] = useState<string | null>(null);
   useEffect(() => {
@@ -228,9 +261,11 @@ function CreditOpsWorkspace() {
     }
   }, [mayOpen, selection]);
 
+  /* From the case-aware selection: with a client open, this is the partner
+     the client belongs to, so the header and the tree agree. */
   const partner =
-    selection.kind === "partner"
-      ? partners.find((p) => p.id === selection.partnerId)
+    treeSelection.kind === "partner"
+      ? partners.find((p) => p.id === treeSelection.partnerId)
       : undefined;
 
   /* Header count from the store's RLS-scoped rows — the seed array counted
@@ -247,11 +282,11 @@ function CreditOpsWorkspace() {
   /* "CreditOps Management" is a manager's title (Dee, 2026-09-19); an agent
      works in CreditOps. */
   const headerName =
-    selection.kind === "management"
+    treeSelection.kind === "management"
       ? (canAccessManagement ? "CreditOps Management" : "CreditOps")
       : (partner?.name ?? "Select a Partner");
   const headerCount =
-    selection.kind === "management" ? null : partnerActiveCount;
+    treeSelection.kind === "management" ? null : partnerActiveCount;
 
   return (
     <>
@@ -271,7 +306,7 @@ function CreditOpsWorkspace() {
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
           <CreditOpsTreeSidebar
-            selected={selection}
+            selected={treeSelection}
             onSelect={(sel) => {
               setSelection(sel);
               /* Chosen from the navigation, a queue means every partner. */
@@ -281,7 +316,25 @@ function CreditOpsWorkspace() {
           />
 
           <div className="min-h-0 flex-1 overflow-y-auto">
-            {selection.kind === "management" ? (
+            {openCaseId ? (
+              /* The client, INSIDE the shell. Everything around it — tree,
+                 header, partner highlight — is the same mounted instance the
+                 list had. No max-width: the work area and the activity rail
+                 share whatever this pane has (Dee: "fit responsively inside
+                 the remaining content width"). */
+              <div className="p-4 md:p-6">
+                <ClientWorkWorkspace
+                  clientId={openCaseId}
+                  onBack={() => navigate(returnTo(location.state, "/app/creditops"))}
+                  backLabel="Back to clients"
+                  /* Complete & next client stays in the shell, and carries the
+                     same return address so Back still lands on the list. */
+                  onOpenClient={(id) =>
+                    navigate(`/app/creditops/cases/${id}`, { state: location.state })
+                  }
+                />
+              </div>
+            ) : selection.kind === "management" ? (
               mayOpen(selection.view) ? (
                 <ManagementView
                   view={selection.view}
