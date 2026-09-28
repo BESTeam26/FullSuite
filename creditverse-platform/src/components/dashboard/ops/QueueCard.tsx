@@ -1,13 +1,12 @@
 /** Action-queue card: icon badge, title with a count chip, one-line description, and up to four linked items. */
 import type { LucideIcon } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
-import { fromHere } from "@/lib/nav/return-to";
+import { Link } from "react-router-dom";
+import { fromCurrentUrl } from "@/lib/nav/return-to";
 import { cn } from "@/lib/utils";
 import { TONE_BADGE, type KpiTone } from "./KpiTile";
 
 export interface QueueItem { id: string; label: string; href: string }
 export function QueueCard({ title, description, count, icon: Icon, tone = "emerald", items, informational = false }: { title: string; description: string; count: number; icon: LucideIcon; tone?: KpiTone; items: QueueItem[]; informational?: boolean }) {
-  const location = useLocation();
   const hot = count > 0 && !informational;
   return (
     <div className={cn("rounded-2xl border bg-card p-4 shadow-sm transition-shadow hover:shadow-md", hot ? "border-status-warning/40" : "border-border")}>
@@ -23,7 +22,7 @@ export function QueueCard({ title, description, count, icon: Icon, tone = "emera
       </div>
       {items.length > 0 && (
         <ul className="mt-3 space-y-1 border-t border-border/60 pt-2">
-          {items.slice(0, 4).map((it) => <li key={it.id}><Link to={it.href} state={fromHere(location)} className="block truncate text-[11px] font-semibold text-primary hover:underline">{it.label}</Link></li>)}
+          {items.slice(0, 4).map((it) => <li key={it.id}><Link to={it.href} state={fromCurrentUrl()} className="block truncate text-[11px] font-semibold text-primary hover:underline">{it.label}</Link></li>)}
           {items.length > 4 && <li className="text-[10px] text-muted-foreground">+{items.length - 4} more</li>}
         </ul>
       )}

@@ -31,6 +31,31 @@ export const fromHere = (loc: Pick<Location, "pathname" | "search">) => ({
 });
 
 /**
+ * The same thing, read at click time instead of subscribed to.
+ *
+ * ── WHY THIS EXISTS ───────────────────────────────────────────────────────
+ *
+ * `useLocation()` SUBSCRIBES a component to the router. On a screen holding a
+ * 1,228-row table that is expensive in a way nothing about the call site
+ * suggests: `navigate()` changes the location, every subscriber re-renders,
+ * and the click that opened a client spends its time re-rendering the list it
+ * is leaving. Chrome reported it as an INP of 233ms on the row.
+ *
+ * I introduced exactly that on 2026-09-27 by adding `useLocation()` to the
+ * client list purely to build this value — a hook called for its return value,
+ * which quietly brought a subscription with it.
+ *
+ * Under `BrowserRouter` the browser's own URL is the router's URL, so reading
+ * it inside the handler gives the same answer with no subscription and no
+ * re-render. Components that genuinely need to RE-RENDER on navigation should
+ * still use `useLocation`; this is for the ones that only need to know where
+ * they are at the moment somebody clicks.
+ */
+export const fromCurrentUrl = () => ({
+  from: `${window.location.pathname}${window.location.search}`,
+});
+
+/**
  * The address to return to, or the caller's fallback.
  *
  * Only an in-app path is accepted. Router state is ordinary client-side data:

@@ -5,8 +5,8 @@
  */
 import { useMemo, useState } from "react";
 import { formatDate } from "@/lib/format-date";
-import { useLocation, useNavigate } from "react-router-dom";
-import { fromHere } from "@/lib/nav/return-to";
+import { useNavigate } from "react-router-dom";
+import { fromCurrentUrl } from "@/lib/nav/return-to";
 import { useQuery } from "@tanstack/react-query";
 import { Search, Users } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -39,7 +39,6 @@ export function LiveClientsList() {
 
 function LiveClientsListInner() {
   const navigate = useNavigate();
-  const location = useLocation();
   const agency = useAgency();
   const fulfillment = useFulfillment();
   const [q, setQ] = useState("");
@@ -102,7 +101,7 @@ function LiveClientsListInner() {
               <li key={c.id}>
                 <button
                   type="button"
-                  onClick={() => navigate(`/app/creditops/cases/${c.id}`, { state: fromHere(location) })}
+                  onClick={() => navigate(`/app/creditops/cases/${c.id}`, { state: fromCurrentUrl() })}
                   className="flex w-full flex-col gap-1 px-4 py-3 text-left transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none"
                 >
                   <span className="flex items-center justify-between gap-2">
@@ -123,8 +122,8 @@ function LiveClientsListInner() {
               {rows.map((c) => (
                 <tr
                   key={c.id}
-                  onClick={() => navigate(`/app/creditops/cases/${c.id}`, { state: fromHere(location) })}
-                  onKeyDown={(e) => { if (e.key === "Enter") navigate(`/app/creditops/cases/${c.id}`, { state: fromHere(location) }); }}
+                  onClick={() => navigate(`/app/creditops/cases/${c.id}`, { state: fromCurrentUrl() })}
+                  onKeyDown={(e) => { if (e.key === "Enter") navigate(`/app/creditops/cases/${c.id}`, { state: fromCurrentUrl() }); }}
                   tabIndex={0}
                   className="cursor-pointer border-t border-border/60 transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none"
                 >

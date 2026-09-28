@@ -210,7 +210,9 @@ Deno.serve(async (req) => {
     resume?: boolean; max?: number; offset?: number; taskIds?: string[];
     roundScan?: boolean;
   };
-  if (!groupId) return json(400, { error: "groupId is required" });
+  if (!groupId && !(body as { resolveOnly?: boolean }).resolveOnly) {
+    return json(400, { error: "groupId is required" });
+  }
   if (!listId && !viewId && !roundScan) return json(400, { error: "listId or viewId is required" });
 
   /* Normally the caller's own token, so the database applies the same rules it
@@ -328,6 +330,49 @@ Deno.serve(async (req) => {
     return { listId: list.id, listName: list.name };
   };
 
+  /**
+   * `resolveOnly` says which list a link points at, and how big it is.
+   *
+   * A partner link arrives as a VIEW — `/v/l/rk9kb-12318` — which names no
+   * list and no partner. Before anything is imported, somebody has to know
+   * WHICH partner's book this is, so the engagement, the team assignment and
+   * the folder can be checked first; attaching 600 clients to the wrong
+   * partner is not an easy thing to undo.
+   *
+   * It reads the list's name and its card count, nothing else: no task is
+   * fetched, so no client detail is read and none can leak (see `roundScan`
+   * for why that distinction matters on these cards). No `groupId`, because
+   * the whole point is to learn which partner this is before choosing one.
+   */
+  if (roundScan === undefined && (body as { resolveOnly?: boolean }).resolveOnly) {
+    if (!viewId && !listId) return json(400, { error: "resolveOnly needs viewId or listId" });
+    try {
+      const resolved = viewId
+        ? await resolveView(viewId)
+        : await cu<{ id: string; name: string }>(`/list/${listId}`)
+            .then((l) => ({ listId: l.id, listName: l.name }));
+      /* One page is enough for the count: ClickUp reports the total. */
+      /* Both counts, because they are different questions. `include_closed`
+         brings back cards in a CLOSED status; `archived=true` brings back
+         cards in ClickUp's ARCHIVE, and ClickUp returns those INSTEAD of the
+         live ones rather than alongside them. A list can hold archived cards
+         that no ordinary query ever shows. */
+      const live = await cu<{ tasks: unknown[]; last_page?: boolean }>(
+        `/list/${resolved.listId}/task?include_closed=true&subtasks=false&page=0`);
+      const archived = await cu<{ tasks: unknown[]; last_page?: boolean }>(
+        `/list/${resolved.listId}/task?include_closed=true&archived=true&subtasks=false&page=0`);
+      return json(200, {
+        ...resolved,
+        livePage0: live.tasks.length,
+        liveHasMorePages: live.last_page === false,
+        clickupArchivedPage0: archived.tasks.length,
+        archivedHasMorePages: archived.last_page === false,
+      });
+    } catch (e) {
+      return json(502, { error: (e as Error).message });
+    }
+  }
+
   const summary = {
     found: 0, matched: 0, created: 0, skipped: 0, notImported: 0,
     secrets: 0, comments: 0, attachments: 0, needsReview: [] as string[],
@@ -362,6 +407,10 @@ Deno.serve(async (req) => {
   }>();
   const nameKey = (n: string) => n.toLowerCase().replace(/[^a-z]/g, "");
   const archivedNames = new Map<string, string>();
+  /* Card ids that came out of ClickUp's ARCHIVE rather than the live list.
+     Kept separately from `ARCHIVED_STATUSES` (a card whose STATUS is archived)
+     because they are different facts that happen to land on the same column. */
+  const clickupArchived = new Set<string>();
 
   try {
     /* Resolved first, so everything below deals in a list id only. */
@@ -385,18 +434,48 @@ Deno.serve(async (req) => {
        loop that trusts an API to eventually say "last page" is a loop that
        can run forever. */
     type Brief = { id: string; name: string; status?: { status?: string } };
-    const tasks: Brief[] = [];
-    for (let page = 0; page < 50; page++) {
-      const chunk = await cu<{ tasks: Brief[]; last_page?: boolean }>(
-        `/list/${resolvedList}/task?include_closed=true&subtasks=true&page=${page}`);
-      tasks.push(...(chunk.tasks ?? []));
-      if (chunk.last_page || (chunk.tasks ?? []).length === 0) break;
-      if (page === 49) {
-        throw new Error(
-          `That list has more than 5,000 cards, which is beyond what this import walks. ` +
-          `Split it before importing, or nothing here can promise it is complete.`);
+
+    const walk = async (archivedPass: boolean): Promise<Brief[]> => {
+      const out: Brief[] = [];
+      for (let page = 0; page < 50; page++) {
+        const chunk = await cu<{ tasks: Brief[]; last_page?: boolean }>(
+          `/list/${resolvedList}/task?include_closed=true&subtasks=true` +
+          `${archivedPass ? "&archived=true" : ""}&page=${page}`);
+        out.push(...(chunk.tasks ?? []));
+        if (chunk.last_page || (chunk.tasks ?? []).length === 0) break;
+        if (page === 49) {
+          throw new Error(
+            `That list has more than 5,000 cards, which is beyond what this import walks. ` +
+            `Split it before importing, or nothing here can promise it is complete.`);
+        }
       }
-    }
+      return out;
+    };
+
+    /* ── TWO PASSES, BECAUSE ARCHIVED CARDS ARE NOT RETURNED BESIDE LIVE ONES ──
+       `archived=true` is a FILTER, not an addition: ClickUp answers with the
+       archived cards INSTEAD of the live ones. A single ordinary query can
+       therefore never see them, and this import only ever ran the ordinary
+       query — so a list's archive was invisible rather than empty.
+
+       Dee, 2026-09-26: "I wanna ensure that we also INCLUDE ALL ARCHIVE FROM
+       ALL the lists I already sent… I want everything in ClickUp now." That
+       was honoured for cards carrying an ARCHIVED STATUS, which is a different
+       thing and is why it looked done. It was not: 66 cards sat in ClickUp's
+       own archive across three partners — 59 of them Vanquish Ventures' —
+       and no query this function made could have returned one.
+
+       The same shape as the pagination bug above: an API that answers a
+       narrower question than the one being asked, and says nothing about it. */
+    const liveTasks = await walk(false);
+    const archivedTasks = await walk(true);
+    const liveIds = new Set(liveTasks.map((t) => t.id));
+    /* Belt and braces: if ClickUp ever does return a card in both passes,
+       the live one wins rather than the row being imported twice. */
+    const archivedOnly = archivedTasks.filter((t) => !liveIds.has(t.id));
+    for (const t of archivedOnly) clickupArchived.add(t.id);
+    const tasks: Brief[] = [...liveTasks, ...archivedOnly];
+    (summary as unknown as Record<string, unknown>).fromClickUpArchive = archivedOnly.length;
     const list = {
       tasks: taskIds?.length
         ? tasks.filter((t) => taskIds.includes(t.id))
@@ -451,7 +530,11 @@ Deno.serve(async (req) => {
       if (offset && index < offset) { summary.alreadyDone++; continue; }
       /* Before the card is fetched, so an archived card's SSN is never read. */
       const briefStatus = String(brief.status?.status ?? "").toLowerCase();
-      const isArchived = ARCHIVED_STATUSES.has(briefStatus);
+      /* Two independent ways a card is history: its STATUS says archived, or
+         it sits in ClickUp's own ARCHIVE. Either one lands the client as
+         archived here; neither is a reason to skip it (Dee: "I want
+         everything in ClickUp now"). */
+      const isArchived = ARCHIVED_STATUSES.has(briefStatus) || clickupArchived.has(brief.id);
       if (isArchived) {
         summary.notImported++;
         archivedNames.set(nameKey(brief.name), brief.name);

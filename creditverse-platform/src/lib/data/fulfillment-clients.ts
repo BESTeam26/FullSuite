@@ -12,6 +12,7 @@
  */
 
 import { requireSupabase } from "@/lib/supabase/client";
+import { pageAll } from "@/lib/attendance/page-all";
 import type { ClientLifecycle } from "@/lib/fulfillment/fulfillment-client-domain";
 import type {
   Enums,
@@ -110,16 +111,39 @@ export function mapClientRow(row: ClientRow): FulfillmentClient {
  * letters or activity. Historical review reads them by id, which does not
  * filter (see `fetchFulfillmentClient`).
  */
+/**
+ * ── READ TO THE END, NOT TO THE FIRST THOUSAND ─────────────────────────────
+ *
+ * This had no paging, and PostgREST answers at most 1,000 rows while saying
+ * nothing about the rest. On 2026-09-28 there were 1,228 active clients, so
+ * the CreditOps Main Client List was showing 1,000 of them and 228 people
+ * simply did not exist on screen — no error, no warning, a list that looked
+ * complete.
+ *
+ * It only became possible this month: the ClickUp imports took the book from
+ * a few dozen clients to 1,228, and the cap was crossed somewhere inside
+ * Vanquish Ventures' 780. That is what makes this shape dangerous — it is
+ * correct until the day it quietly is not (the same failure as P-007, where
+ * the row cap made every attendance score read a clean 15).
+ *
+ * `pageAll` reads until a page comes back short and refuses rather than
+ * looping forever. It costs one extra request per additional thousand rows,
+ * which is the right trade against showing somebody a partial client list.
+ */
 export async function fetchFulfillmentClients(): Promise<FulfillmentClient[]> {
   const sb = requireSupabase();
-  const { data, error } = await sb
-    .from("fulfillment_clients")
-    .select(CLIENT_SELECT)
-    .is("archived_at", null)
-    .eq("is_fixture", false)
-    .order("name");
-  if (error) throw error;
-  return ((data ?? []) as unknown as ClientRow[]).map(mapClientRow);
+  const rows = await pageAll<ClientRow>(async (offset, limit) => {
+    const { data, error } = await sb
+      .from("fulfillment_clients")
+      .select(CLIENT_SELECT)
+      .is("archived_at", null)
+      .eq("is_fixture", false)
+      .order("name")
+      .range(offset, offset + limit - 1);
+    if (error) throw error;
+    return (data ?? []) as unknown as ClientRow[];
+  });
+  return rows.map(mapClientRow);
 }
 
 /** Department statuses for ONE client — loaded when a file is opened, not with the list. */
@@ -133,13 +157,42 @@ export async function fetchDepartmentStatusesForClients(
 ): Promise<Record<string, DepartmentStatus[]>> {
   if (clientIds.length === 0) return {};
   const sb = requireSupabase();
-  const { data, error } = await sb
-    .from("client_department_statuses")
-    .select("*, assignee:profiles!client_department_statuses_assignee_id_fkey(full_name, email)")
-    .in("client_id", [...clientIds]);
-  if (error) throw error;
+
+  /* ── TWO CAPS, NOT ONE ───────────────────────────────────────────────────
+     Both bit at once when the imports took the book past a thousand clients.
+
+     The ROW cap: PostgREST returns at most 1,000 rows and says nothing about
+     the rest. There are 1,196 department rows behind the active clients, so
+     196 of them came back empty and their cells read "No open work" — on
+     files that had open work and an assigned agent. A wrong answer stated
+     confidently, which is worse than an error (Dee saw these on 2026-09-28).
+
+     The URL cap: `.in()` puts every id in the query string, and 1,228 UUIDs
+     is roughly 45KB. That is past what proxies will carry, so the ids are
+     sent in batches as well. */
+  const ids = [...clientIds];
+  const IDS_PER_REQUEST = 200;
+  const rows: Record<string, unknown>[] = [];
+  for (let i = 0; i < ids.length; i += IDS_PER_REQUEST) {
+    const batch = ids.slice(i, i + IDS_PER_REQUEST);
+    const page = await pageAll<Record<string, unknown>>(async (offset, limit) => {
+      const { data, error } = await sb
+        .from("client_department_statuses")
+        .select("*, assignee:profiles!client_department_statuses_assignee_id_fkey(full_name, email)")
+        .in("client_id", batch)
+        .order("client_id")
+        .range(offset, offset + limit - 1);
+      if (error) throw error;
+      return (data ?? []) as unknown as Record<string, unknown>[];
+    });
+    rows.push(...page);
+  }
+
   const out: Record<string, DepartmentStatus[]> = {};
-  for (const d of data ?? []) {
+  for (const d of rows as unknown as {
+    client_id: string; department: string; status: string;
+    assignee_id: string | null; updated_at: string;
+  }[]) {
     const withAgent = d as typeof d & { assignee: { full_name: string | null; email: string } | null };
     (out[d.client_id] ??= []).push({
       department: d.department as DepartmentStatus["department"],

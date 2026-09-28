@@ -10,8 +10,8 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { fromHere } from "@/lib/nav/return-to";
+import { useNavigate } from "react-router-dom";
+import { fromCurrentUrl } from "@/lib/nav/return-to";
 import { isActiveClient } from "@/lib/fulfillment/fulfillment-client-domain";
 import { OpsSelect } from "@/components/ui/ops-select";
 import { useDepartmentStatusMap } from "@/lib/data/use-department-statuses";
@@ -121,15 +121,14 @@ export function FulfillmentClientsPanel({
      Clicking a client now goes to its own address, so it has a URL you can
      send, a back button that works, and no second window stacked on a first. */
   const navigate = useNavigate();
-  const location = useLocation();
   const openClient = (id: string) =>
-    navigate(`/app/creditops/cases/${id}`, { state: fromHere(location) });
+    navigate(`/app/creditops/cases/${id}`, { state: fromCurrentUrl() });
 
   /* A notification deep link (`?client=`) lands on the same address. */
   useEffect(() => {
     if (initialOpenClientId)
       navigate(`/app/creditops/cases/${initialOpenClientId}`,
-        { replace: true, state: fromHere(location) });
+        { replace: true, state: fromCurrentUrl() });
   }, [initialOpenClientId, navigate]);
 
   useEffect(() => savePrefs(prefs), [prefs]);

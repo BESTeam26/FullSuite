@@ -17,6 +17,7 @@
  */
 
 import { requireSupabase } from "@/lib/supabase/client";
+import { pageAll } from "@/lib/attendance/page-all";
 import type { Tables, TablesUpdate } from "@/lib/supabase/database.types";
 import {
   deriveServices,
@@ -144,9 +145,20 @@ export async function fetchClientDirectory(organizationId?: string | null): Prom
     .eq("is_fixture", false)
     .order("full_name", { ascending: true });
   if (organizationId) query = query.eq("organization_id", organizationId);
-  const { data, error } = await query;
-  if (error) throw error;
-  return ((data ?? []) as unknown as DirectoryRecord[]).map(toDirectoryRow);
+
+  /* Read to the END. PostgREST caps a response at 1,000 rows and reports
+     nothing about the rest, and the ClickUp imports took this table to 1,868
+     — so the directory was showing 1,000 people and looking complete. Same
+     shape, same day, as the CreditOps client list (see
+     `fetchFulfillmentClients`); found by checking every unbounded read
+     against the tables that had crossed the cap, rather than waiting for the
+     next one to be noticed by a person. */
+  const rows = await pageAll<DirectoryRecord>(async (offset, limit) => {
+    const { data, error } = await query.range(offset, offset + limit - 1);
+    if (error) throw error;
+    return (data ?? []) as unknown as DirectoryRecord[];
+  });
+  return rows.map(toDirectoryRow);
 }
 
 /* ─── One client's profile ────────────────────────────────────────────────── */
