@@ -101,6 +101,94 @@ function section(title: string, body: unknown): string | null {
   return text ? `${title}\n${text}` : null;
 }
 
+/**
+ * The stored `eod_report` document, as plain-text blocks.
+ *
+ * Dee, 2026-09-29: "Email should also be automatically generated from this
+ * same canonical report so the FullSuite report and emailed report always
+ * match." This draws the SAME document the screen draws — `eod_submissions.
+ * report`, built once at submission — and computes nothing. Every number here
+ * was summed in the database from production_logs; the renderer only lays it
+ * out.
+ *
+ * Blocks of lines rather than a table, for the reason the rest of this file
+ * gives: email clients mangle tables, and this is read on a phone at six.
+ */
+function renderReport(raw: unknown): string[] {
+  if (!raw || typeof raw !== "object") return [];
+  const r = raw as Record<string, unknown>;
+  const level = String(r.level ?? "team");
+  const scope = (r.scope ?? {}) as Record<string, unknown>;
+  const lead = (r.lead ?? {}) as Record<string, unknown>;
+  const cats = Array.isArray(r.categories) ? r.categories as Record<string, unknown>[] : [];
+  const label = (key: string) => String(cats.find((c) => c.key === key)?.label ?? key);
+  const rows = Array.isArray(r.rows) ? r.rows as Record<string, unknown>[] : [];
+  const groups = Array.isArray(r.groups) ? r.groups as Record<string, unknown>[] : [];
+  const totals = (r.totals ?? {}) as Record<string, unknown>;
+  const attention = Array.isArray(r.attention) ? r.attention as Record<string, unknown>[] : [];
+
+  const title = {
+    team: "TEAM LEAD EOD REPORT",
+    department: "DEPARTMENT EOD REPORT",
+    division: "DIVISION EOD REPORT",
+    agency: "ORGANIZATION EOD REPORT",
+  }[level] ?? "EOD REPORT";
+  const leadTitle = { team: "Team Lead", department: "Department Lead", division: "Division Lead", agency: "Management" }[level] ?? "Lead";
+  const unitWord = { team: "Agent", department: "Team", division: "Department", agency: "Division" }[level] ?? "Row";
+
+  const blocks: string[] = [];
+  blocks.push([
+    `${title} — ${String(scope.name ?? "")}`,
+    `${day(r.work_date)} · ${leadTitle}: ${String(lead.name ?? "Not assigned")}`,
+  ].join("\n"));
+
+  /* The table, one block per row: name / role / each category with units /
+     total / the person's own words. Categories are whatever the database
+     says they are — nothing here knows the word "Complaints". */
+  if (rows.length > 0) {
+    blocks.push([`${unitWord.toUpperCase()} SUBMISSIONS`, ...rows.map((x) => {
+      const c = (x.categories ?? {}) as Record<string, unknown>;
+      const parts = Object.entries(c).filter(([, v]) => Number(v) > 0).map(([k, v]) => `${label(k)} ${count(v)}`);
+      const lines = [
+        level === "team"
+          ? `${String(x.name)} · ${String(x.role ?? "")} · ${x.submitted ? "Submitted" : "Not submitted"}`
+          : `${String(x.name)} · ${count(x.members)} members · ${count(x.submitted)} submitted`,
+        `  ${parts.length ? parts.join(" · ") + " · " : ""}Total ${count(x.total)}`,
+      ];
+      if (level === "team" && x.notes) lines.push(`  Notes: ${String(x.notes)}`);
+      if (level === "team" && x.blockers) lines.push(`  Blocker: ${String(x.blockers)}`);
+      return lines.join("\n");
+    })].join("\n\n"));
+  }
+
+  /* The summary, grouped by work type, as Dee's reference reads it. */
+  if (groups.length > 0) {
+    blocks.push(["EOD SUMMARY", ...groups.map((g) => {
+      const lines = Array.isArray(g.lines) ? g.lines as Record<string, unknown>[] : [];
+      return [
+        String(g.label),
+        ...lines.map((l) => `• ${String(l.name)} completed ${count(l.units)} ${String(g.label)}`),
+        `Total ${String(g.label)} Output: ${count(g.total)}`,
+      ].join("\n");
+    })].join("\n\n"));
+  }
+
+  const tc = (totals.categories ?? {}) as Record<string, unknown>;
+  blocks.push([
+    "OVERALL TOTAL",
+    ...cats.map((c) => `${String(c.label)}: ${count(tc[String(c.key)] ?? 0)}`),
+    `Total ${level === "team" ? "Team" : String(scope.name ?? "")} Output: ${count(totals.total)}`,
+    `${count(totals.members)} ${unitWord === "Agent" ? "members" : "people"} · ${count(totals.submitted)} submitted · ${count(totals.not_submitted)} not submitted`,
+  ].join("\n"));
+
+  if (attention.length > 0) {
+    blocks.push(["BLOCKERS / ATTENTION NEEDED", ...attention.map((a) =>
+      `${String(a.name ?? "Someone")}${a.unit ? ` (${String(a.unit)})` : ""}: ` +
+      [a.blockers, a.help_needed].filter(Boolean).map(String).join(" · "))].join("\n"));
+  }
+  return blocks;
+}
+
 function compose(row: OutboxRow, brand: EmailBrand, appUrl: string) {
   const p = row.payload;
   const snap = (p.snapshot ?? {}) as Record<string, unknown>;
@@ -122,9 +210,13 @@ function compose(row: OutboxRow, brand: EmailBrand, appUrl: string) {
   /* The team half, for a lead. Absent entirely for everybody else — an "your
      team" section reading "0 members" on an agent's email is a question about
      why it is there. */
+  /* A lead's stored report, when the submission carries one. It supersedes
+     the inline `team` payload below, which older outbox rows still have. */
+  const reportBlocks = renderReport(p.report);
+
   const team = p.team as Record<string, unknown> | null | undefined;
   const teamBlocks: string[] = [];
-  if (team) {
+  if (team && reportBlocks.length === 0) {
     teamBlocks.push([
       "TEAM / DEPARTMENT PRODUCTIVITY",
       `Team Members: ${count(team.members)}`,
@@ -168,14 +260,25 @@ function compose(row: OutboxRow, brand: EmailBrand, appUrl: string) {
     section("NOTES", p.notes),
   ].filter((x): x is string => x !== null);
 
+  const levelHeading = {
+    team: "Team Lead End of Day Report",
+    department: "Department End of Day Report",
+    division: "Division End of Day Report",
+    agency: "Organization End of Day Report",
+  }[String(p.report_level ?? "")];
+
   return {
-    heading: "End of Day Productivity Report",
+    heading: levelHeading ?? "End of Day Productivity Report",
     paragraphs: [
       `${employee}\n${day(p.work_date)}`,
       /* Dee's order: the individual day first, always, then the team. A lead's
          own report is never replaced by their department's. */
-      `${team ? "INDIVIDUAL PRODUCTIVITY" : "PRODUCTIVITY REPORT"}\n${productivity}`,
+      `${team || reportBlocks.length ? "INDIVIDUAL PRODUCTIVITY" : "PRODUCTIVITY REPORT"}\n${productivity}`,
       ...written,
+      /* The canonical rollup for whatever this person leads — the same
+         document the screen shows. Then the legacy team block, only for
+         outbox rows written before the report existed. */
+      ...reportBlocks,
       ...teamBlocks,
     ],
     action: { label: "View EOD Report", url: `${appUrl}/app/team-eod` },

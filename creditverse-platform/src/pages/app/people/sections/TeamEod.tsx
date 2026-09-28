@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { EodProductionSummary } from "@/components/agency/EodProductionSummary";
 import { EodReviewActions } from "@/components/agency/EodReviewActions";
 import { EodOrgRollup } from "@/components/agency/EodOrgRollup";
+import { EodReportCard } from "@/components/agency/EodReportCard";
 import { useTeamEod, useEodActivity, todayLocal } from "@/lib/data/use-eod-day";
 import { SUBMISSION_LABEL, describeEodRouting, submissionKind } from "@/lib/data/eod-day";
 import { formatDate } from "@/lib/format-date";
@@ -136,6 +137,11 @@ export const TeamEod = () => {
           </ul>
         </div>
       )}
+
+      {/* This person's own rollup for whatever they lead — the canonical
+          document, read off their submission once filed, built live before.
+          Renders nothing for somebody who leads nothing. (Dee, 2026-09-29.) */}
+      <EodReportCard date={date} />
 
       {/* Management's view of the whole organisation, by team. Gated in SQL
           on ops.manage, so a lead simply gets no rows rather than a hidden

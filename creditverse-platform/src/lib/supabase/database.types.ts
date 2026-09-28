@@ -3629,6 +3629,30 @@ export type Database = {
           },
         ]
       }
+      creditops_production_events: {
+        Row: {
+          active: boolean
+          created_at: string
+          department: Database["public"]["Enums"]["fulfillment_department"]
+          status: string
+          unit_label: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          department: Database["public"]["Enums"]["fulfillment_department"]
+          status: string
+          unit_label: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          department?: Database["public"]["Enums"]["fulfillment_department"]
+          status?: string
+          unit_label?: string
+        }
+        Relationships: []
+      }
       creditops_status_routing: {
         Row: {
           closes_department:
@@ -5897,6 +5921,10 @@ export type Database = {
           escalations: string | null
           id: string
           next_workday_priority: string | null
+          report: Json | null
+          report_error: string | null
+          report_level: string | null
+          report_scope_id: string | null
           review_note: string | null
           reviewed_at: string | null
           reviewed_by: string | null
@@ -5921,6 +5949,10 @@ export type Database = {
           escalations?: string | null
           id?: string
           next_workday_priority?: string | null
+          report?: Json | null
+          report_error?: string | null
+          report_level?: string | null
+          report_scope_id?: string | null
           review_note?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -5945,6 +5977,10 @@ export type Database = {
           escalations?: string | null
           id?: string
           next_workday_priority?: string | null
+          report?: Json | null
+          report_error?: string | null
+          report_level?: string | null
+          report_scope_id?: string | null
           review_note?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -19137,6 +19173,10 @@ export type Database = {
           state: string
         }[]
       }
+      creditops_department_readable_client_ids: {
+        Args: never
+        Returns: string[]
+      }
       creditops_department_roster: {
         Args: {
           p_department: Database["public"]["Enums"]["fulfillment_department"]
@@ -19149,6 +19189,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      creditops_department_scope_client_ids: { Args: never; Returns: string[] }
       creditops_department_statuses: {
         Args: {
           p_department: Database["public"]["Enums"]["fulfillment_department"]
@@ -19159,6 +19200,7 @@ export type Database = {
         Args: { p_department_ids: string[] }
         Returns: Database["public"]["Enums"]["fulfillment_department"][]
       }
+      creditops_directory_agency_ids: { Args: never; Returns: string[] }
       creditops_directory_visible: {
         Args: { p_agency: string }
         Returns: boolean
@@ -19237,6 +19279,7 @@ export type Database = {
           department: string
         }[]
       }
+      creditops_visible_group_ids: { Args: never; Returns: string[] }
       creditops_work_scope: {
         Args: never
         Returns: Database["public"]["Enums"]["fulfillment_department"][]
@@ -19620,11 +19663,26 @@ export type Database = {
           with_blockers: number
         }[]
       }
+      eod_report: {
+        Args: { p_date: string; p_level: string; p_scope_id: string }
+        Returns: Json
+      }
       eod_route_for: {
         Args: { p_employee: string }
         Returns: {
           lead_id: string
           reason: string
+          team_id: string
+          team_name: string
+        }[]
+      }
+      eod_route_up_for: {
+        Args: { p_employee: string }
+        Returns: {
+          lead_id: string
+          level: string
+          reason: string
+          scope_id: string
           team_id: string
           team_name: string
         }[]
@@ -20279,6 +20337,7 @@ export type Database = {
           waiting: boolean
         }[]
       }
+      my_partner_contact_group_ids: { Args: never; Returns: string[] }
       my_partner_credential_archive: {
         Args: { p_id: string; p_reason?: string }
         Returns: undefined
@@ -20494,6 +20553,9 @@ export type Database = {
           saved_at: string
         }[]
       }
+      my_visible_organization_ids: { Args: never; Returns: string[] }
+      my_visible_partner_ids: { Args: never; Returns: string[] }
+      my_visible_profile_ids: { Args: never; Returns: string[] }
       names_are_compatible: { Args: { a: string; b: string }; Returns: boolean }
       next_agent_number: {
         Args: { p_agency: string; p_fixture: boolean }
