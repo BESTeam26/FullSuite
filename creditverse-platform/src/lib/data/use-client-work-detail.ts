@@ -134,6 +134,40 @@ export async function reportWorkBlocker(
  * Every document filed against this client — uploads and the ClickUp import
  * alike, because both write the same canonical row.
  */
+/**
+ * How many files a client has, without fetching them.
+ *
+ * Dee, 2026-09-28: "Lazy-load heavy areas like Files, Activity, Credit Tools,
+ * Identity & Access… Avoid loading data the user has not opened yet."
+ *
+ * The Files TAB is already lazy — its panel only mounts when opened — but the
+ * tab BAR showed a count, and getting that count meant fetching every file
+ * row and its metadata for every client anybody opened. About 25 files a
+ * client across 19,000 rows, paid on every open, to render one number.
+ *
+ * `head: true` asks Postgres for the count and returns no rows at all. The
+ * number is the same; the payload is gone. Its own query key, so it does not
+ * collide with the full fetch the tab does when it is actually opened.
+ */
+export function useClientDocumentCount(clientId: string | null) {
+  const auth = useAuth();
+  return useQuery({
+    queryKey: ["creditops", "documents", "count", clientId],
+    enabled: live(auth) && !!clientId,
+    staleTime: 30_000,
+    queryFn: async (): Promise<number> => {
+      const sb = requireSupabase();
+      const { count, error } = await sb
+        .from("files")
+        .select("id", { count: "exact", head: true })
+        .eq("entity_type", "fulfillment_client")
+        .eq("entity_id", clientId as string);
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+}
+
 export function useClientDocuments(clientId: string | null) {
   const auth = useAuth();
   return useQuery({

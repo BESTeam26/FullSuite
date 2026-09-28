@@ -49,7 +49,7 @@ import { ClientHistoryTab } from "./client/ClientHistoryTab";
 import { WhereThisFileIs } from "@/components/clients/WhereThisFileIs";
 import { ClientUpdateComposer } from "./client/ClientUpdateComposer";
 import { ClientActivityRail } from "./client/ClientActivityRail";
-import { useClientDocuments } from "@/lib/data/use-client-work-detail";
+import { useClientDocumentCount } from "@/lib/data/use-client-work-detail";
 import { useClientPosts } from "@/lib/data/use-client-posts";
 import { useMyQueue, pickNext } from "@/lib/data/use-next-client";
 import { Briefcase, FolderOpen, MessageSquare, ShieldCheck } from "lucide-react";
@@ -70,7 +70,10 @@ type TabId = "work" | "info" | "files" | "history";
 function TabBar({ tab, onPick, clientId }: {
   tab: TabId; onPick: (t: TabId) => void; clientId: string;
 }) {
-  const files = useClientDocuments(clientId);
+  /* Counts only. The posts query is shared with the Activity rail beside it
+     (same key, one request); the file COUNT is a head request, so opening a
+     client no longer pulls every file row to render a number. */
+  const files = useClientDocumentCount(clientId);
   const posts = useClientPosts(clientId);
   const TABS: { id: TabId; label: string; icon: typeof Briefcase; count?: number }[] = [
     { id: "work", label: "Work", icon: Briefcase },
@@ -78,7 +81,7 @@ function TabBar({ tab, onPick, clientId }: {
        opened on the same person and the same editable details, and Credit
        carried the identity panel anyway. Dee, 2026-09-24: combine them. */
     { id: "info", label: "Client info", icon: ShieldCheck },
-    { id: "files", label: "Files", icon: FolderOpen, count: files.data?.length },
+    { id: "files", label: "Files", icon: FolderOpen, count: files.data },
     { id: "history", label: "History", icon: MessageSquare, count: posts.data?.length },
   ];
   return (
