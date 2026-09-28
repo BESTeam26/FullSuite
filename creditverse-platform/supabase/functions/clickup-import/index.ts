@@ -469,6 +469,22 @@ Deno.serve(async (req) => {
        narrower question than the one being asked, and says nothing about it. */
     const liveTasks = await walk(false);
     const archivedTasks = await walk(true);
+
+    /* `taskIdsOnly` answers "which cards exist in this list", and nothing
+       else — ids and an archived flag, no card fetched, no detail read. It is
+       how a completed import is CHECKED rather than assumed: compare it with
+       the crosswalk and anything missing is named. Worth having as its own
+       mode, because "the numbers look right" is how 66 archived cards went
+       unnoticed in the first place. */
+    if ((body as { taskIdsOnly?: boolean }).taskIdsOnly) {
+      return json(200, {
+        listId: resolvedList,
+        ids: [...liveTasks, ...archivedTasks.filter((t) => !new Set(liveTasks.map((x) => x.id)).has(t.id))]
+          .map((t) => t.id),
+        live: liveTasks.length,
+        archived: archivedTasks.length,
+      });
+    }
     const liveIds = new Set(liveTasks.map((t) => t.id));
     /* Belt and braces: if ClickUp ever does return a card in both passes,
        the live one wins rather than the row being imported twice. */
