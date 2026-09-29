@@ -35,6 +35,9 @@ describe("Dee's credit status list", () => {
       "Round 1 Sent", "Round 2 Sent", "Round 3 Sent", "Round 4 Sent",
       "Round 5 Sent", "Round 6 Sent", "Round 7 Sent", "Round 8 Sent",
       "Round 9 Sent", "Round 10 Sent", "Round 11 Sent", "Round 12 Sent",
+      /* 13 because a client reached it and `fulfillment_round` already ran
+         to 13 (2026-09-29). The series matches the round field. */
+      "Round 13 Sent",
       "Ready for Credit Review",
       "Monitoring Issue 1", "Monitoring Issue 2", "Monitoring Issue 3",
       "Outsourcing - Unpaid",
@@ -70,9 +73,9 @@ describe("Dee's credit status list", () => {
     expect(ENUM, "the database must accept it").toContain("Prio Processing");
   });
 
-  it("runs the rounds from 1 to 12 with none missing", () => {
+  it("runs the rounds from 1 to 13 with none missing", () => {
     const rounds = CREDIT_STATUSES.map(roundFromStatus).filter((n): n is number => n !== null);
-    expect(rounds).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+    expect(rounds).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
   });
 
   it("reads the round out of the stage, and out of nothing else", () => {
@@ -165,13 +168,13 @@ describe("a record whose value predates the list", () => {
  */
 describe("the round follows the stage", () => {
   it("every numbered stage governs its own round", () => {
-    for (let n = 1; n <= 12; n += 1) {
+    for (let n = 1; n <= 13; n += 1) {
       expect(roundFromStatus(`Round ${n} Sent`)).toBe(n);
     }
   });
 
   it("leaves the round alone for every stage that names none", () => {
-    const governing = new Set(Array.from({ length: 12 }, (_, i) => `Round ${i + 1} Sent`));
+    const governing = new Set(Array.from({ length: 13 }, (_, i) => `Round ${i + 1} Sent`));
     for (const s of CREDIT_STATUSES) {
       if (governing.has(s)) continue;
       expect(roundFromStatus(s), `"${s}" must not govern the round`).toBeNull();
@@ -217,7 +220,7 @@ describe("the three redundant statuses Dee retired (2026-09-22)", () => {
 
   it("leaves the twelve numbered rounds as the only in-flight stages", () => {
     const rounds = CREDIT_STATUSES.filter((s) => /^Round \d+ Sent$/.test(s));
-    expect(rounds).toHaveLength(12);
+    expect(rounds).toHaveLength(13);
     expect(rounds[0]).toBe("Round 1 Sent");
   });
 });
