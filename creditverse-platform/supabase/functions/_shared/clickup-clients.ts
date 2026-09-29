@@ -84,7 +84,11 @@ export function parseSsn(raw: string | null | undefined): string | null {
 }
 
 const EMAIL_RE = /[\w.+-]+@[\w-]+\.[\w.-]+/;
-const looksLikeFile = (line: string) => /\.(png|jpe?g|pdf|gif|webp|heic|docx?|xlsx?|csv)$/i.test(line.trim());
+/* A filename, or the "[attachment: …]" marker the importer writes for an
+   attachment part of a comment: both say "a file was uploaded", nothing more. */
+const looksLikeFile = (line: string) =>
+  /\.(png|jpe?g|pdf|gif|webp|heic|docx?|xlsx?|csv)$/i.test(line.trim())
+  || /^\[attachment: .*\]$/i.test(line.trim());
 
 /** A comment that is only a list of filenames is an upload receipt, not a note. */
 export function isAttachmentReceipt(text: string): boolean {

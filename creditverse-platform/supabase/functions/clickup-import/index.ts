@@ -65,21 +65,73 @@ const ARTIFACT_LINE = /(^|\n)(undefined|null|\[object object\])(\n|$)/i;
  * becomes "[attachment: <name>]" and every other part is its text; the
  * artifact regex at the end is the belt to that pair of braces.
  */
+/** Every string a part holds under `text` or `insert`, however nested. */
+function partStrings(v: unknown, depth = 0): string[] {
+  if (depth > 6 || v === null || typeof v !== "object") return [];
+  if (Array.isArray(v)) return v.flatMap((x) => partStrings(x, depth + 1));
+  const out: string[] = [];
+  for (const [k, x] of Object.entries(v as Record<string, unknown>)) {
+    if ((k === "text" || k === "insert") && typeof x === "string") out.push(x);
+    else if (typeof x === "object") out.push(...partStrings(x, depth + 1));
+  }
+  return out;
+}
+
+/**
+ * An embedded table, as lines of " | "-joined cells in row/column order.
+ * ClickUp keys cells "row:col" with a content array; rows and columns carry
+ * their order. Colspans are flattened — this is a note, not a spreadsheet.
+ */
+function renderTableEmbed(embed: Record<string, unknown>): string {
+  const cells = (embed.cells ?? {}) as Record<string, unknown>;
+  const grid = new Map<number, Map<number, string>>();
+  for (const [key, cell] of Object.entries(cells)) {
+    const [r, c] = key.split(":").map(Number);
+    if (!Number.isFinite(r) || !Number.isFinite(c)) continue;
+    const text = partStrings((cell as Record<string, unknown>).content).join("").replace(/\s+/g, " ").trim();
+    if (!grid.has(r)) grid.set(r, new Map());
+    grid.get(r)!.set(c, text);
+  }
+  return [...grid.entries()].sort(([a], [b]) => a - b)
+    .map(([, cols]) => [...cols.entries()].sort(([a], [b]) => a - b).map(([, t]) => t).join(" | "))
+    .filter((line) => line.replace(/[\s|]/g, "").length > 0)
+    .join("\n");
+}
+
+/**
+ * A comment's text from its structured parts, never from `comment_text`.
+ *
+ * ClickUp's `comment_text` is its own join of the parts, and a part with no
+ * text — an attachment, an embedded table — becomes the literal string
+ * "undefined" in it. 552 imported comments said exactly that (2026-09-30).
+ * Here an attachment becomes "[attachment: <name>]", a table its rows, and
+ * any other textless part whatever strings it holds, or its type in
+ * brackets; the artifact filter at the end is the belt to those braces.
+ */
 function commentText(c: CuComment): string {
   const parts = Array.isArray(c.comment) ? c.comment : null;
   let text: string;
   if (parts && parts.length > 0) {
     text = parts.map((p) => {
-      const att = p.attachment ?? p.image;
-      if (att || p.type === "attachment" || p.type === "image") {
+      const rec = p as Record<string, unknown>;
+      const att = (rec.attachment ?? rec.image) as { title?: string; name?: string } | undefined;
+      if (att || rec.type === "attachment" || rec.type === "image") {
         return `[attachment: ${att?.title ?? att?.name ?? "image"}]`;
       }
-      return typeof p.text === "string" ? p.text : "";
+      if (rec["table-embed"] && typeof rec["table-embed"] === "object") {
+        const table = renderTableEmbed(rec["table-embed"] as Record<string, unknown>);
+        return table ? `\n${table}\n` : "[table]";
+      }
+      if (typeof rec.text === "string") return rec.text;
+      const held = partStrings(rec).join("");
+      return held || (rec.type ? `[${String(rec.type)}]` : "");
     }).join("");
   } else {
     text = String(c.comment_text ?? "");
   }
-  return text.split("\n").filter((line) => !/^(undefined|null|\[object object\])$/i.test(line.trim())).join("\n");
+  return text.split("\n")
+    .filter((line) => !/^(undefined|null|\[object object\])$/i.test(line.trim()))
+    .join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 interface CuAttachment { id: string; title: string; extension: string; mimetype: string; size: number; date: string; url?: string }
 
@@ -391,6 +443,93 @@ Deno.serve(async (req) => {
     return json(200, { scanned: out.length, results: out });
   }
 
+  /* `repairComments`: rebuild the text of every imported comment that
+     carries a parser artifact, from ClickUp's structured parts, and hand
+     it to the one repair writer. Secrets are scrubbed exactly as on import
+     — the card is re-parsed for them — and nothing of the text returns. */
+  if ((body as { repairComments?: boolean }).repairComments) {
+    if (!Array.isArray(taskIds) || taskIds.length === 0 || taskIds.length > 60) {
+      return json(400, { error: "repairComments needs 1–60 taskIds" });
+    }
+    const svc = createClient(url, service);
+    const rep: { id: string; artifacts: number; repaired: number; error?: string; unrepaired?: unknown[] }[] = [];
+    for (const id of taskIds) {
+      try {
+        const task = await cu<Record<string, unknown>>(`/task/${id}?include_subtasks=false`);
+        const comments = (await cu<{ comments: CuComment[] }>(`/task/${id}/comment`)).comments ?? [];
+        const desc = parseClientCard(String(task.text_content ?? ""), "description");
+        const merged = mergeCards(desc, comments.map((c) => parseClientCard(String(c.comment_text ?? ""), `comment ${c.id}`)));
+        const secretValues = merged.credentials.map((x) => x.secret);
+        if (merged.ssn) secretValues.push(merged.ssn);
+        let artifacts = 0, repaired = 0;
+        /* For a comment that could not be repaired: the SHAPE of its parts
+           (key names and `type` values, never text), so the builder can be
+           taught the part it did not recognise. */
+        const unrepaired: unknown[] = [];
+        for (const c of comments) {
+          if (!ARTIFACT_LINE.test(String(c.comment_text ?? ""))) continue;
+          artifacts++;
+          const clean = scrubSecrets(commentText(c), secretValues);
+          let n = 0;
+          if (clean.trim()) {
+            const { data, error } = await svc.rpc("clickup_repair_comment_text", {
+              p_task_id: id, p_comment_id: c.id,
+              p_at: new Date(Number(c.date)).toISOString(), p_text: clean,
+            });
+            if (error) throw new Error(error.message);
+            n = Number((data as { repaired?: number })?.repaired ?? 0);
+          }
+          repaired += n;
+          if (n === 0) {
+            unrepaired.push({
+              comment: c.id, empty: !clean.trim(), at: new Date(Number(c.date)).toISOString(),
+              parts: (Array.isArray(c.comment) ? c.comment : []).map((p) => {
+                const rec = p as Record<string, unknown>;
+                const embed = rec["table-embed"] as Record<string, unknown> | undefined;
+                const shape = (v: unknown, depth: number): unknown =>
+                  depth > 3 || v === null || typeof v !== "object" ? typeof v
+                  : Array.isArray(v) ? [v.length, v.length ? shape(v[0], depth + 1) : null]
+                  : Object.fromEntries(Object.entries(v as object).map(([k, x]) => [k, shape(x, depth + 1)]));
+                return { keys: Object.keys(rec).sort().join(","), type: rec.type ?? null,
+                         embed: embed ? shape(embed, 0) : undefined };
+              }),
+            });
+          }
+        }
+        rep.push({ id, artifacts, repaired, unrepaired });
+      } catch (e) {
+        rep.push({ id, artifacts: 0, repaired: 0, error: String(e).slice(0, 120) });
+      }
+    }
+    return json(200, { repairs: rep });
+  }
+
+  /* `inventoryOnly`: per card, how many comments and attachments ClickUp
+     holds — counts only, so the copy can be audited against the database
+     without any comment text or file leaving the function. */
+  if ((body as { inventoryOnly?: boolean }).inventoryOnly) {
+    if (!Array.isArray(taskIds) || taskIds.length === 0 || taskIds.length > 60) {
+      return json(400, { error: "inventoryOnly needs 1–60 taskIds" });
+    }
+    const inv: { id: string; comments?: number; importable?: number; attachments?: number; error?: string }[] = [];
+    for (const id of taskIds) {
+      try {
+        const task = await cu<{ attachments?: unknown[] }>(`/task/${id}?include_subtasks=false`);
+        const comments = (await cu<{ comments?: CuComment[] }>(`/task/${id}/comment`)).comments ?? [];
+        /* `importable` applies the import's own skips — empty, automation
+           noise, attachment receipts — so the audit compares like with like. */
+        const importable = comments.filter((c) => {
+          const text = commentText(c);
+          return text.trim() && !isAutomationNoise(c.user?.id, text) && !isAttachmentReceipt(text);
+        }).length;
+        inv.push({ id, comments: comments.length, importable, attachments: (task.attachments ?? []).length });
+      } catch (e) {
+        inv.push({ id, error: String(e).slice(0, 120) });
+      }
+    }
+    return json(200, { inventory: inv });
+  }
+
   if (roundScan) {
     if (!Array.isArray(taskIds) || taskIds.length === 0) {
       return json(400, { error: "roundScan needs taskIds" });
@@ -612,65 +751,6 @@ Deno.serve(async (req) => {
        the crosswalk and anything missing is named. Worth having as its own
        mode, because "the numbers look right" is how 66 archived cards went
        unnoticed in the first place. */
-    /* `repairComments`: rebuild the text of every imported comment that
-       carries a parser artifact, from ClickUp's structured parts, and hand
-       it to the one repair writer. Secrets are scrubbed exactly as on import
-       — the card is re-parsed for them — and nothing of the text returns. */
-    if ((body as { repairComments?: boolean }).repairComments) {
-      if (!Array.isArray(taskIds) || taskIds.length === 0 || taskIds.length > 60) {
-        return json(400, { error: "repairComments needs 1–60 taskIds" });
-      }
-      const svc = createClient(url, service);
-      const rep: { id: string; artifacts: number; repaired: number; error?: string }[] = [];
-      for (const id of taskIds) {
-        try {
-          const task = await cu<Record<string, unknown>>(`/task/${id}?include_subtasks=false`);
-          const comments = (await cu<{ comments: CuComment[] }>(`/task/${id}/comment`)).comments ?? [];
-          const desc = parseClientCard(String(task.text_content ?? ""), "description");
-          const merged = mergeCards(desc, comments.map((c) => parseClientCard(String(c.comment_text ?? ""), `comment ${c.id}`)));
-          const secretValues = merged.credentials.map((x) => x.secret);
-          if (merged.ssn) secretValues.push(merged.ssn);
-          let artifacts = 0, repaired = 0;
-          for (const c of comments) {
-            if (!ARTIFACT_LINE.test(String(c.comment_text ?? ""))) continue;
-            artifacts++;
-            const clean = scrubSecrets(commentText(c), secretValues);
-            if (!clean.trim()) continue;
-            const { data, error } = await svc.rpc("clickup_repair_comment_text", {
-              p_task_id: id, p_comment_id: c.id,
-              p_at: new Date(Number(c.date)).toISOString(), p_text: clean,
-            });
-            if (error) throw new Error(error.message);
-            repaired += Number((data as { repaired?: number })?.repaired ?? 0);
-          }
-          rep.push({ id, artifacts, repaired });
-        } catch (e) {
-          rep.push({ id, artifacts: 0, repaired: 0, error: String(e).slice(0, 120) });
-        }
-      }
-      return json(200, { repairs: rep });
-    }
-
-    /* `inventoryOnly`: per card, how many comments and attachments ClickUp
-       holds — counts only, so the copy can be audited against the database
-       without any comment text or file leaving the function. */
-    if ((body as { inventoryOnly?: boolean }).inventoryOnly) {
-      if (!Array.isArray(taskIds) || taskIds.length === 0 || taskIds.length > 60) {
-        return json(400, { error: "inventoryOnly needs 1–60 taskIds" });
-      }
-      const inv: { id: string; comments?: number; attachments?: number; error?: string }[] = [];
-      for (const id of taskIds) {
-        try {
-          const task = await cu<{ attachments?: unknown[] }>(`/task/${id}?include_subtasks=false`);
-          const comments = (await cu<{ comments?: unknown[] }>(`/task/${id}/comment`)).comments ?? [];
-          inv.push({ id, comments: comments.length, attachments: (task.attachments ?? []).length });
-        } catch (e) {
-          inv.push({ id, error: String(e).slice(0, 120) });
-        }
-      }
-      return json(200, { inventory: inv });
-    }
-
     if ((body as { taskIdsOnly?: boolean }).taskIdsOnly) {
       return json(200, {
         listId: resolvedList,
