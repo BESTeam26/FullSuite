@@ -511,7 +511,7 @@ Deno.serve(async (req) => {
     if (!Array.isArray(taskIds) || taskIds.length === 0 || taskIds.length > 60) {
       return json(400, { error: "inventoryOnly needs 1–60 taskIds" });
     }
-    const inv: { id: string; comments?: number; importable?: number; attachments?: number; error?: string }[] = [];
+    const inv: { id: string; comments?: number; importable?: number; attachments?: number; error?: string; commentIds?: unknown[]; attachmentIds?: string[] }[] = [];
     for (const id of taskIds) {
       try {
         const task = await cu<{ attachments?: unknown[] }>(`/task/${id}?include_subtasks=false`);
@@ -522,7 +522,12 @@ Deno.serve(async (req) => {
           const text = commentText(c);
           return text.trim() && !isAutomationNoise(c.user?.id, text) && !isAttachmentReceipt(text);
         }).length;
-        inv.push({ id, comments: comments.length, importable, attachments: (task.attachments ?? []).length });
+        inv.push({
+          id, comments: comments.length, importable, attachments: (task.attachments ?? []).length,
+          /* Ids and dates only — the keys the crosswalk is written under. */
+          commentIds: comments.map((c) => ({ id: c.id, at: new Date(Number(c.date)).toISOString() })),
+          attachmentIds: ((task.attachments ?? []) as { id?: string }[]).map((a) => String(a.id ?? "")),
+        });
       } catch (e) {
         inv.push({ id, error: String(e).slice(0, 120) });
       }
