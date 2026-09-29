@@ -15,8 +15,7 @@ import { ContentCard } from "@/components/dashboard/DivisionLayout";
 import { Input } from "@/components/ui/input";
 import { EodProductionSummary } from "@/components/agency/EodProductionSummary";
 import { EodReviewActions } from "@/components/agency/EodReviewActions";
-import { EodOrgRollup } from "@/components/agency/EodOrgRollup";
-import { EodReportCard } from "@/components/agency/EodReportCard";
+import { EodReportCard, EodRoutedReportsCard } from "@/components/agency/EodReportCard";
 import { useTeamEod, useEodActivity, todayLocal } from "@/lib/data/use-eod-day";
 import { SUBMISSION_LABEL, describeEodRouting, submissionKind } from "@/lib/data/eod-day";
 import { formatDate } from "@/lib/format-date";
@@ -44,7 +43,6 @@ function PersonRow({ employeeId, date, name }: { employeeId: string; date: strin
 }
 
 export const TeamEod = () => {
-  const access = useAgencyAccessContext();
   const [date, setDate] = useState(todayLocal());
   const team = useTeamEod(date);
   const [open, setOpen] = useState<string | null>(null);
@@ -139,14 +137,15 @@ export const TeamEod = () => {
       )}
 
       {/* This person's own rollup for whatever they lead — the canonical
-          document, read off their submission once filed, built live before.
-          Renders nothing for somebody who leads nothing. (Dee, 2026-09-29.) */}
+          document, one card per scope, read off their submission once filed,
+          built live before. Renders nothing for somebody who leads nothing.
+          (Dee, 2026-09-29 / 30.) */}
       <EodReportCard date={date} />
 
-      {/* Management's view of the whole organisation, by team. Gated in SQL
-          on ops.manage, so a lead simply gets no rows rather than a hidden
-          panel. */}
-      <EodOrgRollup date={date} enabled={managesAgency(access.ctx)} />
+      {/* And the reports filed TO them by the rung below, as stored. The
+          per-team rollup that used to sit here summed production a second
+          way; there is one calculation now, and this is it. */}
+      <EodRoutedReportsCard date={date} />
 
       <ContentCard title={`${rows.length} on the team · ${formatDate(date)}`}>
         {team.isLoading ? (

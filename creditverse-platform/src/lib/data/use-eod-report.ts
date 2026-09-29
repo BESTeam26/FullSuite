@@ -8,13 +8,18 @@
  *
  * So the order of preference is fixed:
  *
- *   1. The stored document on the submission (`eod_submissions.report`),
- *      built once when the lead pressed Submit. A row fetch. This is what the
- *      email was rendered from, so what the lead sees here is what their
- *      manager received — by construction, not by coincidence.
+ *   1. The stored documents on the submission (`eod_submissions.report`),
+ *      built once when the lead pressed Submit. This is what the email was
+ *      rendered from, so what the lead sees here is what their manager
+ *      received — by construction, not by coincidence.
  *   2. Only when no submission exists for the day: a live `eod_report` build,
  *      so a lead can see "what my report looks like so far" before filing.
- *      Bounded to the scope they lead; never called anywhere else.
+ *      Bounded to the scopes they lead; never called anywhere else.
+ *
+ * That preference is written ONCE, in `eod_my_report`, and the browser makes
+ * one request for it (rule 14). A person seated on two scopes — Rowell over
+ * CreditOps and BES CRM, Daniel over two departments — gets one document per
+ * scope, each built by the same `eod_report`; nothing is summed twice.
  *
  * Nothing here computes a number. Every figure in the document was summed in
  * the database from production_logs.
@@ -79,13 +84,13 @@ export interface EodReportDoc {
 }
 
 export interface MyEodReport {
-  /** Null when this person leads nothing — there is no rollup to show. */
-  doc: EodReportDoc | null;
+  /** One document per scope this person leads. Empty for somebody who leads nothing. */
+  docs: EodReportDoc[];
   level: EodReportLevel | null;
-  /** True when `doc` came from the submitted row; false when built live. */
+  /** True when `docs` came from the submitted row; false when built live. */
   stored: boolean;
   submittedAt: string | null;
-  /** Why the stored build failed, if it did. The submission still went through. */
+  /** Why a stored build failed, if it did. The submission still went through. */
   error: string | null;
   /** Where this person's submission is sent, and why. */
   routing: { reason: string | null; toName: string | null };
@@ -102,52 +107,62 @@ export function useMyEodReport(date: string) {
     enabled: mode === "live" && status === "signed-in" && !!userId,
     staleTime: 30_000,
     queryFn: async (): Promise<MyEodReport> => {
-      const sb = requireSupabase();
+      const { data, error } = await requireSupabase().rpc("eod_my_report", { p_date: date });
+      if (error) throw error;
+      const r = (data ?? {}) as Record<string, unknown>;
+      const routing = (r.routing ?? {}) as Record<string, unknown>;
+      return {
+        docs: Array.isArray(r.documents) ? (r.documents as EodReportDoc[]) : [],
+        level: (r.level as EodReportLevel | null) ?? null,
+        stored: r.stored === true,
+        submittedAt: (r.submitted_at as string | null) ?? null,
+        error: (r.error as string | null) ?? null,
+        routing: {
+          reason: (routing.reason as string | null) ?? null,
+          toName: (routing.lead_name as string | null) ?? null,
+        },
+      };
+    },
+  });
+}
 
-      /* 1. The stored document. The generated types do not know the four new
-            columns yet; this reads them by name and narrows by hand rather
-            than regenerating types for one hook. */
-      const { data: row, error: rowErr } = await sb
-        .from("eod_submissions")
-        .select("submitted_at, report, report_level, report_scope_id, report_error, routing_reason, routed_to")
-        .eq("employee_id", userId)
-        .eq("work_date", date)
-        .maybeSingle();
-      if (rowErr) throw rowErr;
-      const r = (row ?? null) as unknown as Record<string, unknown> | null;
+/**
+ * A report somebody filed TO this person: a division manager reads the
+ * department reports addressed to them, an executive the division reports.
+ * Read exactly as stored — the same documents the sender's email carried.
+ */
+export interface EodRoutedReport {
+  eodId: string;
+  employeeId: string;
+  employeeName: string;
+  level: EodReportLevel;
+  docs: EodReportDoc[];
+  submittedAt: string;
+  error: string | null;
+}
 
-      /* Who it goes to, for the "Submit to …" line. */
-      const { data: route } = await sb.rpc("eod_route_up_for", { p_employee: userId });
-      const routeRow = (Array.isArray(route) ? route[0] : route) as Record<string, unknown> | undefined;
-      let toName: string | null = null;
-      if (routeRow?.lead_id) {
-        const { data: p } = await sb.from("profiles").select("full_name, email")
-          .eq("id", String(routeRow.lead_id)).maybeSingle();
-        toName = (p?.full_name as string) || (p?.email as string) || null;
-      }
-      const routing = { reason: (r?.routing_reason as string) ?? (routeRow?.reason as string) ?? null, toName };
-      const level = ((r?.report_level as string) ?? (routeRow?.level as string) ?? null) as EodReportLevel | null;
+export const eodRoutedToMeKey = (userId: string, date: string) =>
+  ["eod", "report", "routed-to-me", userId, date] as const;
 
-      if (r?.report) {
-        return { doc: r.report as EodReportDoc, level, stored: true,
-          submittedAt: (r.submitted_at as string) ?? null,
-          error: (r.report_error as string) ?? null, routing };
-      }
-
-      /* 2. Nothing stored: leads nothing, or has not filed yet. Build live
-            only for somebody who leads a scope. */
-      if (!level || !routeRow?.scope_id) {
-        return { doc: null, level: null, stored: false,
-          submittedAt: (r?.submitted_at as string) ?? null,
-          error: (r?.report_error as string) ?? null, routing };
-      }
-      const { data: doc, error: docErr } = await sb.rpc("eod_report", {
-        p_level: level, p_scope_id: String(routeRow.scope_id), p_date: date,
-      });
-      if (docErr) throw docErr;
-      return { doc: doc as unknown as EodReportDoc, level, stored: false,
-        submittedAt: (r?.submitted_at as string) ?? null,
-        error: (r?.report_error as string) ?? null, routing };
+export function useEodReportsRoutedToMe(date: string) {
+  const { user, mode, status } = useAuth();
+  const userId = user?.id ?? "";
+  return useQuery({
+    queryKey: eodRoutedToMeKey(userId, date),
+    enabled: mode === "live" && status === "signed-in" && !!userId,
+    staleTime: 30_000,
+    queryFn: async (): Promise<EodRoutedReport[]> => {
+      const { data, error } = await requireSupabase().rpc("eod_reports_routed_to_me", { p_date: date });
+      if (error) throw error;
+      return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+        eodId: String(r.eod_id),
+        employeeId: String(r.employee_id),
+        employeeName: String(r.employee_name ?? ""),
+        level: String(r.report_level) as EodReportLevel,
+        docs: Array.isArray(r.documents) ? (r.documents as EodReportDoc[]) : [],
+        submittedAt: String(r.submitted_at),
+        error: (r.report_error as string | null) ?? null,
+      }));
     },
   });
 }

@@ -162,6 +162,20 @@ export function describeEodRouting(
     case "ambiguous":
       return { label: "Not sent — they are on teams with different leads", needsAttention: true,
                fix: "Decide which team owns their End of Day, under Structure." };
+    /* The ladder above the team: each rung's report goes one rung up. */
+    case "department_lead":
+      return { label: leadName ? `Goes to ${leadName}` : "Goes to their department lead", needsAttention: false, fix: null };
+    case "division_lead":
+      return { label: leadName ? `Goes to ${leadName}` : "Goes to their division lead", needsAttention: false, fix: null };
+    case "executive":
+      return { label: leadName ? `Goes to ${leadName}` : "Goes to the executive", needsAttention: false, fix: null };
+    /* An executive: nobody is above them, which is the normal shape. */
+    case "top":
+      return { label: "Executive — nobody above them", needsAttention: false, fix: null };
+    /* A lead whose next rung is empty: the seat above them is unfilled. */
+    case "unrouted":
+      return { label: "Reaches nobody — the seat above them is empty", needsAttention: true,
+               fix: "Seat a manager one rung up, under Structure." };
     /* Older reports predate the recording. Silence is not a gap. */
     default:
       return { label: "Not recorded", needsAttention: false, fix: null };

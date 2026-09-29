@@ -18706,6 +18706,15 @@ export type Database = {
         Returns: undefined
       }
       clickup_import_client: { Args: { p: Json }; Returns: Json }
+      clickup_preserve_description: {
+        Args: {
+          p_conflict?: string
+          p_imported_at?: string
+          p_task_id: string
+          p_text: string
+        }
+        Returns: Json
+      }
       client_address_record: {
         Args: {
           p_city: string
@@ -19105,6 +19114,7 @@ export type Database = {
         Returns: boolean
       }
       creditops_alert_uncovered: { Args: never; Returns: number }
+      creditops_any_reach: { Args: never; Returns: boolean }
       creditops_apply_checklist_template: {
         Args: {
           p_client: string
@@ -19645,27 +19655,27 @@ export type Database = {
         Args: { p_date: string; p_employee: string }
         Returns: Json
       }
-      eod_email_dispatch: { Args: never; Returns: undefined }
-      eod_org_rollup: {
-        Args: { p_date: string }
-        Returns: {
-          completed: number
-          department: string
-          lead_name: string
-          members: number
-          minutes_logged: number
-          missing: number
-          needs_review: number
-          production: number
-          submitted: number
-          team_id: string
-          team_name: string
-          with_blockers: number
-        }[]
+      eod_documents_for: {
+        Args: { p_date: string; p_employee: string }
+        Returns: Json
       }
+      eod_email_dispatch: { Args: never; Returns: undefined }
+      eod_my_report: { Args: { p_date: string }; Returns: Json }
       eod_report: {
         Args: { p_date: string; p_level: string; p_scope_id: string }
         Returns: Json
+      }
+      eod_reports_routed_to_me: {
+        Args: { p_date: string }
+        Returns: {
+          documents: Json
+          employee_id: string
+          employee_name: string
+          eod_id: string
+          report_error: string
+          report_level: string
+          submitted_at: string
+        }[]
       }
       eod_route_for: {
         Args: { p_employee: string }
@@ -19688,6 +19698,17 @@ export type Database = {
         }[]
       }
       eod_run_cutoff: { Args: { p_agency: string }; Returns: number }
+      eod_scopes_led: {
+        Args: { p_employee: string }
+        Returns: {
+          lead_id: string
+          level: string
+          reason: string
+          scope_id: string
+          scope_name: string
+          team_id: string
+        }[]
+      }
       eod_team_rollup: {
         Args: { p_date: string; p_lead: string }
         Returns: {

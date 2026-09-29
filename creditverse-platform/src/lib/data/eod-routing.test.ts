@@ -44,3 +44,17 @@ describe("describeEodRouting", () => {
     expect(describeEodRouting(null).label).toBe("Not recorded");
   });
 });
+
+describe("the rungs above the team", () => {
+  it("names the person one rung up, whatever the rung", () => {
+    expect(describeEodRouting("department_lead", "Daniel").label).toBe("Goes to Daniel");
+    expect(describeEodRouting("division_lead", "Rowell").label).toBe("Goes to Rowell");
+    expect(describeEodRouting("executive", "Aaron").label).toBe("Goes to Aaron");
+  });
+  it("treats the top of the ladder as normal, and an empty seat above as a gap", () => {
+    expect(describeEodRouting("top").needsAttention).toBe(false);
+    const r = describeEodRouting("unrouted");
+    expect(r.needsAttention).toBe(true);
+    expect(r.fix).toMatch(/Structure/);
+  });
+});

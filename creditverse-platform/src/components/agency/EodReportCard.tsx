@@ -28,6 +28,7 @@ import { ContentCard } from "@/components/dashboard/DivisionLayout";
 import { formatDate } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
 import {
+  useEodReportsRoutedToMe,
   useMyEodReport,
   type EodReportDoc,
   type EodReportLevel,
@@ -211,9 +212,49 @@ export function EodReportView({ doc, depth = 0 }: { doc: EodReportDoc; depth?: n
 }
 
 /**
- * The card on the Team EOD page: this person's own rollup for the day.
- * Renders nothing at all for somebody who leads nothing (rule 3) — there is
- * no report to show, and an empty card would be a question.
+ * The header line every document shares: the day, who leads the scope, and
+ * where the submission goes.
+ */
+function DocMeta({ doc, toName, stored, error }: {
+  doc: EodReportDoc; toName: string | null; stored: boolean; error: string | null;
+}) {
+  return (
+    <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+      <span>{formatDate(doc.work_date)}</span>
+      <span>{LEAD_TITLE[doc.level]}: <span className="text-foreground">{doc.lead.name ?? "Not assigned"}</span></span>
+      <span className="flex items-center gap-1">
+        <Send className="h-3 w-3" aria-hidden />
+        {doc.level === "agency"
+          ? <>Top of the ladder — nobody above</>
+          : toName
+            ? <>Goes to <span className="text-foreground">{toName}</span></>
+            : <>Nobody is one rung up — goes to BES Support</>}
+      </span>
+      {error && (
+        <span className="text-amber-700">The stored copy failed to build ({error}); showing nothing rather than a guess.</span>
+      )}
+      {!stored && (
+        <span className="flex items-center gap-1"><Loader2 className="h-3 w-3" aria-hidden /> Updates as work is completed; frozen when you submit.</span>
+      )}
+    </div>
+  );
+}
+
+const StoredBadge = ({ stored }: { stored: boolean }) => (
+  <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-bold",
+    stored
+      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
+      : "border-border bg-muted text-muted-foreground")}>
+    {stored ? "Submitted" : "Live preview"}
+  </span>
+);
+
+/**
+ * The cards on the Team EOD page: this person's own rollup for the day, one
+ * card per scope they lead. Rowell, seated on two divisions, sees two —
+ * neither is dropped for being the older seat (Dee, 2026-09-30). Renders
+ * nothing at all for somebody who leads nothing (rule 3): there is no report
+ * to show, and an empty card would be a question.
  */
 export function EodReportCard({ date }: { date: string }) {
   const q = useMyEodReport(date);
@@ -235,38 +276,59 @@ export function EodReportCard({ date }: { date: string }) {
     );
   }
   const r = q.data;
-  if (!r || !r.doc || !r.level) return null;
-  const { doc } = r;
+  if (!r || r.docs.length === 0) {
+    /* A lead whose stored build failed has a submission and no document:
+       say so, rather than showing nothing and letting them assume it went. */
+    if (r?.error && r.level) {
+      return (
+        <ContentCard title="EOD Report">
+          <p className="text-sm text-amber-700">Your submission went through, but its report failed to build: {r.error}</p>
+        </ContentCard>
+      );
+    }
+    return null;
+  }
 
   return (
-    <ContentCard
-      title={`${TITLE[doc.level]} — ${doc.scope.name}`}
-      action={
-        <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-bold",
-          r.stored
-            ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
-            : "border-border bg-muted text-muted-foreground")}>
-          {r.stored ? "Submitted" : "Live preview"}
-        </span>
-      }
-    >
-      <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-        <span>{formatDate(doc.work_date)}</span>
-        <span>{LEAD_TITLE[doc.level]}: <span className="text-foreground">{doc.lead.name ?? "Not assigned"}</span></span>
-        <span className="flex items-center gap-1">
-          <Send className="h-3 w-3" aria-hidden />
-          {r.routing.toName
-            ? <>Goes to <span className="text-foreground">{r.routing.toName}</span></>
-            : <>Nobody is one rung up — goes to BES Support</>}
-        </span>
-        {r.error && (
-          <span className="text-amber-700">The stored copy failed to build ({r.error}); showing nothing rather than a guess.</span>
-        )}
-        {!r.stored && (
-          <span className="flex items-center gap-1"><Loader2 className="h-3 w-3" aria-hidden /> Updates as work is completed; frozen when you submit.</span>
-        )}
-      </div>
-      <EodReportView doc={doc} />
-    </ContentCard>
+    <>
+      {r.docs.map((doc) => (
+        <ContentCard key={doc.scope.id} title={`${TITLE[doc.level]} — ${doc.scope.name}`}
+          action={<StoredBadge stored={r.stored} />}>
+          <DocMeta doc={doc} toName={r.routing.toName} stored={r.stored} error={r.error} />
+          <EodReportView doc={doc} />
+        </ContentCard>
+      ))}
+    </>
+  );
+}
+
+/**
+ * Reports filed TO this person — the department reports a division manager
+ * receives, the division reports an executive receives — exactly as stored,
+ * which is exactly what the email carried. Dee, 2026-09-30: "Executives should
+ * receive the division-level EOD reports submitted/escalated by the Division
+ * Leads, rather than simply receiving a flat dump."
+ *
+ * Renders nothing when nothing was addressed to them today: the absence of
+ * a report is already counted on the page as "Missing EOD".
+ */
+export function EodRoutedReportsCard({ date }: { date: string }) {
+  const q = useEodReportsRoutedToMe(date);
+  const rows = q.data ?? [];
+  if (q.isLoading || q.isError || rows.length === 0) return null;
+  return (
+    <>
+      {rows.flatMap((row) => row.docs.map((doc) => (
+        <ContentCard key={`${row.eodId}-${doc.scope.id}`}
+          title={`${TITLE[doc.level]} — ${doc.scope.name}`}
+          action={
+            <span className="text-[11px] text-muted-foreground">
+              Submitted by <span className="font-medium text-foreground">{row.employeeName}</span> · {formatDate(row.submittedAt)}
+            </span>
+          }>
+          <EodReportView doc={doc} />
+        </ContentCard>
+      )))}
+    </>
   );
 }

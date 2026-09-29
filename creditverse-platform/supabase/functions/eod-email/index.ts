@@ -114,6 +114,18 @@ function section(title: string, body: unknown): string | null {
  * Blocks of lines rather than a table, for the reason the rest of this file
  * gives: email clients mangle tables, and this is read on a phone at six.
  */
+/**
+ * A submission stores `{documents: [...]}` — one document per scope the
+ * sender leads — and rows written before 2026-09-30 store one bare document.
+ * Both read the same way.
+ */
+function reportDocuments(raw: unknown): unknown[] {
+  if (!raw || typeof raw !== "object") return [];
+  const r = raw as Record<string, unknown>;
+  if (Array.isArray(r.documents)) return r.documents;
+  return [raw];
+}
+
 function renderReport(raw: unknown): string[] {
   if (!raw || typeof raw !== "object") return [];
   const r = raw as Record<string, unknown>;
@@ -212,7 +224,7 @@ function compose(row: OutboxRow, brand: EmailBrand, appUrl: string) {
      why it is there. */
   /* A lead's stored report, when the submission carries one. It supersedes
      the inline `team` payload below, which older outbox rows still have. */
-  const reportBlocks = renderReport(p.report);
+  const reportBlocks = reportDocuments(p.report).flatMap(renderReport);
 
   const team = p.team as Record<string, unknown> | null | undefined;
   const teamBlocks: string[] = [];
