@@ -44,7 +44,43 @@ const json = (status: number, body: unknown) =>
 
 const CU = "https://api.clickup.com/api/v2";
 
-interface CuComment { id: string; comment_text: string; user?: { id: number; username: string }; date: string }
+interface CuCommentPart {
+  text?: string; type?: string;
+  attachment?: { title?: string; name?: string }; image?: { title?: string; name?: string };
+}
+interface CuComment {
+  id: string; comment_text: string; comment?: CuCommentPart[];
+  user?: { id: number; username: string }; date: string;
+}
+
+const ARTIFACT_LINE = /(^|\n)(undefined|null|\[object object\])(\n|$)/i;
+
+/**
+ * A comment's text from its structured parts, never from `comment_text`.
+ *
+ * ClickUp's `comment_text` is its own join of the parts, and an attachment
+ * part has no text — so an image-only comment arrives as the literal string
+ * "undefined\n", and an image inside a sentence as "…\nundefined\n…". 552
+ * imported comments said exactly that (2026-09-30). Here an attachment
+ * becomes "[attachment: <name>]" and every other part is its text; the
+ * artifact regex at the end is the belt to that pair of braces.
+ */
+function commentText(c: CuComment): string {
+  const parts = Array.isArray(c.comment) ? c.comment : null;
+  let text: string;
+  if (parts && parts.length > 0) {
+    text = parts.map((p) => {
+      const att = p.attachment ?? p.image;
+      if (att || p.type === "attachment" || p.type === "image") {
+        return `[attachment: ${att?.title ?? att?.name ?? "image"}]`;
+      }
+      return typeof p.text === "string" ? p.text : "";
+    }).join("");
+  } else {
+    text = String(c.comment_text ?? "");
+  }
+  return text.split("\n").filter((line) => !/^(undefined|null|\[object object\])$/i.test(line.trim())).join("\n");
+}
 interface CuAttachment { id: string; title: string; extension: string; mimetype: string; size: number; date: string; url?: string }
 
 /**
@@ -249,7 +285,9 @@ Deno.serve(async (req) => {
   };
   /* `preserveDescription` resolves its client through the crosswalk, never
      from a caller-supplied group, so it needs neither a group nor a list. */
-  const preserving = !!(body as { preserveDescription?: boolean }).preserveDescription;
+  const preserving = !!(body as { preserveDescription?: boolean }).preserveDescription
+    || !!(body as { repairComments?: boolean }).repairComments
+    || !!(body as { inventoryOnly?: boolean }).inventoryOnly;
   if (!groupId && !(body as { resolveOnly?: boolean }).resolveOnly && !preserving) {
     return json(400, { error: "groupId is required" });
   }
@@ -559,6 +597,65 @@ Deno.serve(async (req) => {
        the crosswalk and anything missing is named. Worth having as its own
        mode, because "the numbers look right" is how 66 archived cards went
        unnoticed in the first place. */
+    /* `repairComments`: rebuild the text of every imported comment that
+       carries a parser artifact, from ClickUp's structured parts, and hand
+       it to the one repair writer. Secrets are scrubbed exactly as on import
+       — the card is re-parsed for them — and nothing of the text returns. */
+    if ((body as { repairComments?: boolean }).repairComments) {
+      if (!Array.isArray(taskIds) || taskIds.length === 0 || taskIds.length > 60) {
+        return json(400, { error: "repairComments needs 1–60 taskIds" });
+      }
+      const svc = createClient(url, service);
+      const rep: { id: string; artifacts: number; repaired: number; error?: string }[] = [];
+      for (const id of taskIds) {
+        try {
+          const task = await cu<Record<string, unknown>>(`/task/${id}?include_subtasks=false`);
+          const comments = (await cu<{ comments: CuComment[] }>(`/task/${id}/comment`)).comments ?? [];
+          const desc = parseClientCard(String(task.text_content ?? ""), "description");
+          const merged = mergeCards(desc, comments.map((c) => parseClientCard(String(c.comment_text ?? ""), `comment ${c.id}`)));
+          const secretValues = merged.credentials.map((x) => x.secret);
+          if (merged.ssn) secretValues.push(merged.ssn);
+          let artifacts = 0, repaired = 0;
+          for (const c of comments) {
+            if (!ARTIFACT_LINE.test(String(c.comment_text ?? ""))) continue;
+            artifacts++;
+            const clean = scrubSecrets(commentText(c), secretValues);
+            if (!clean.trim()) continue;
+            const { data, error } = await svc.rpc("clickup_repair_comment_text", {
+              p_task_id: id, p_comment_id: c.id,
+              p_at: new Date(Number(c.date)).toISOString(), p_text: clean,
+            });
+            if (error) throw new Error(error.message);
+            repaired += Number((data as { repaired?: number })?.repaired ?? 0);
+          }
+          rep.push({ id, artifacts, repaired });
+        } catch (e) {
+          rep.push({ id, artifacts: 0, repaired: 0, error: String(e).slice(0, 120) });
+        }
+      }
+      return json(200, { repairs: rep });
+    }
+
+    /* `inventoryOnly`: per card, how many comments and attachments ClickUp
+       holds — counts only, so the copy can be audited against the database
+       without any comment text or file leaving the function. */
+    if ((body as { inventoryOnly?: boolean }).inventoryOnly) {
+      if (!Array.isArray(taskIds) || taskIds.length === 0 || taskIds.length > 60) {
+        return json(400, { error: "inventoryOnly needs 1–60 taskIds" });
+      }
+      const inv: { id: string; comments?: number; attachments?: number; error?: string }[] = [];
+      for (const id of taskIds) {
+        try {
+          const task = await cu<{ attachments?: unknown[] }>(`/task/${id}?include_subtasks=false`);
+          const comments = (await cu<{ comments?: unknown[] }>(`/task/${id}/comment`)).comments ?? [];
+          inv.push({ id, comments: comments.length, attachments: (task.attachments ?? []).length });
+        } catch (e) {
+          inv.push({ id, error: String(e).slice(0, 120) });
+        }
+      }
+      return json(200, { inventory: inv });
+    }
+
     if ((body as { taskIdsOnly?: boolean }).taskIdsOnly) {
       return json(200, {
         listId: resolvedList,
@@ -656,7 +753,7 @@ Deno.serve(async (req) => {
       const noteComments: { id: string; author: string; at: string; text: string }[] = [];
       const parsedComments: ParsedClient[] = [];
       for (const c of comments) {
-        const text = String(c.comment_text ?? "");
+        const text = commentText(c);
         if (!text.trim()) continue;
         if (isAutomationNoise(c.user?.id, text)) { summary.skipped++; continue; }
         if (isAttachmentReceipt(text)) { summary.skipped++; continue; }
@@ -860,7 +957,9 @@ Deno.serve(async (req) => {
       {
         const text = preservableText(task as unknown as Record<string, unknown>);
         if (text) {
-          const { error: pErr } = await admin.rpc("clickup_preserve_description", {
+          /* Its own client: the attachment loop below declares `admin` later
+             in this block, and reaching it from here is a TDZ error. */
+          const { error: pErr } = await createClient(url, service).rpc("clickup_preserve_description", {
             p_task_id: brief.id, p_text: text, p_imported_at: null,
             p_conflict: credentialConflict(text),
           });
