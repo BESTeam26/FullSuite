@@ -26,7 +26,9 @@
     "db:authmap": "node supabase/scripts/authorization-map.mjs",
     "probe:chat": "node supabase/scripts/chat-actions-probe.mjs",
     "probe:release": "node supabase/scripts/release-certification-probe.mjs",
-    "probe:eod": "node supabase/scripts/eod-probe.mjs"
+    "probe:eod": "node supabase/scripts/eod-probe.mjs",
+    "gate": "bash scripts/release-gate.sh",
+    "gate:selftest": "bash scripts/release-gate.selftest.sh"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
