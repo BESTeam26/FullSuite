@@ -185,7 +185,9 @@ export function EodReportView({ doc, depth = 0 }: { doc: EodReportDoc; depth?: n
       {doc.children.length > 0 && (
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {ROW_WORD[doc.children[0].level]} reports
+            {/* The children ARE this document's rows, one level down: an
+                organization's are divisions, a division's are departments. */}
+            {ROW_WORD[doc.level]} reports
           </p>
           {doc.children.map((child) => {
             const isOpen = open.has(child.scope.id);

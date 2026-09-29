@@ -118,6 +118,8 @@ describe("drill-down", () => {
       children: [child],
     });
     render(<EodReportView doc={dept} />);
+    /* The heading names what the children are — a department's are teams. */
+    expect(screen.getByText("Team reports")).toBeInTheDocument();
     /* Collapsed: the child's agents are not in the DOM. */
     expect(screen.queryByText("Ada Agent")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Widget Processing Team/ }));
