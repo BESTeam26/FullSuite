@@ -64,6 +64,8 @@ interface OpsSelectProps {
   openOnMount?: boolean;
   /** Fired when the menu closes without a change — used by inline editors. */
   onDismiss?: () => void;
+  /** Fired when the menu opens — a caller that loads its options lazily starts here. */
+  onOpen?: () => void;
   /**
    * Optional per-option colour, for a menu of statuses.
    *
@@ -91,6 +93,7 @@ export function OpsSelect({
   autoFocus,
   openOnMount,
   onDismiss,
+  onOpen,
   tone,
   "aria-label": ariaLabel,
 }: OpsSelectProps) {
@@ -103,6 +106,7 @@ export function OpsSelect({
       onOpenChange={(open) => {
         // An inline editor should close when the user dismisses the menu.
         if (!open) onDismiss?.();
+        else onOpen?.();
       }}
     >
       <SelectTrigger

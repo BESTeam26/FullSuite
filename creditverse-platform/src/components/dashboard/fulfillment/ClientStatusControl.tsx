@@ -43,7 +43,9 @@ import { Loader2, Save, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { OpsSelect } from "@/components/ui/ops-select";
 import { errorMessage } from "@/lib/data/error-message";
-import { updateClientStatus } from "@/lib/data/fulfillment-clients";
+import { useCreditOpsStore } from "@/lib/fulfillment/creditops-client-store";
+import { useAuth } from "@/lib/auth/auth-context";
+import { queueCountsKey } from "@/lib/data/use-queue-counts";
 import { CREDIT_STATUSES, creditStatusOptionsFor } from "@/lib/fulfillment/department-domain";
 import { isStatusAutoSynced } from "@/lib/fulfillment/ops-client-domain";
 import type { FulfillmentClient, FulfillmentClientStatus } from "@/lib/fulfillment/fulfillment-client-domain";
@@ -55,6 +57,11 @@ export function ClientStatusControl({
   client, canEdit = true,
 }: { client: FulfillmentClient; canEdit?: boolean }) {
   const queryClient = useQueryClient();
+  const { updateStatus } = useCreditOpsStore();
+  const { user } = useAuth();
+  /* The actor is what the seed store's activity line reads; the live store
+     ignores it — the database trigger records who wrote. */
+  const actor = user?.user_metadata?.full_name ?? user?.email ?? "BES";
   const [next, setNext] = useState<string>(client.status);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,12 +75,18 @@ export function ClientStatusControl({
     setBusy(true);
     setError(null);
     try {
-      await updateClientStatus(client.id, next as FulfillmentClientStatus);
-      /* The activity entry comes from the database trigger on
+      /* Through the store: it writes, then patches THIS row in the loaded
+         list with what the server returned — no 1,000-row refetch to change
+         one field (Dee, 2026-09-30: immediate feedback, then the server's
+         result). The activity entry comes from the database trigger on
          `fulfillment_clients`, never from here — a screen that logs its own
          changes is a screen that can log a change it failed to make. */
-      await queryClient.invalidateQueries({ queryKey: ["creditops", "clients"] });
-      await queryClient.invalidateQueries({ queryKey: ["activity"] });
+      await updateStatus(client.id, next as FulfillmentClientStatus, actor);
+      /* A status change routes departments and moves queue counts: refresh
+         exactly those, nothing wider. */
+      void queryClient.invalidateQueries({ queryKey: ["creditops", "department-statuses"] });
+      void queryClient.invalidateQueries({ queryKey: queueCountsKey });
+      void queryClient.invalidateQueries({ queryKey: ["activity"] });
     } catch (e) {
       setError(errorMessage(e, "Could not change the status."));
       setNext(client.status);

@@ -27,6 +27,7 @@
     "probe:chat": "node supabase/scripts/chat-actions-probe.mjs",
     "probe:release": "node supabase/scripts/release-certification-probe.mjs",
     "probe:eod": "node supabase/scripts/eod-probe.mjs",
+    "probe:latency": "node supabase/scripts/creditops-latency-probe.mjs",
     "gate": "bash scripts/release-gate.sh",
     "gate:selftest": "bash scripts/release-gate.selftest.sh"
   },

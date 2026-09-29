@@ -59,17 +59,26 @@ export function useWorkChecklist(clientId: string | null, department: Department
     staleTime: 15_000,
     queryFn: async (): Promise<ChecklistItem[]> => {
       const sb = requireSupabase();
-      await sb.rpc("creditops_apply_checklist_template", {
-        p_client: clientId as string,
-        p_department: department as Department,
-      });
-      const { data, error } = await sb
+      const read = () => sb
         .from("client_work_checklist")
         .select("id, label, done, done_at, sort")
         .eq("client_id", clientId as string)
         .eq("department", department as Department)
         .order("sort");
+      /* Read first; the template is applied only to an EMPTY checklist. It
+         used to run the (idempotent) apply on every open — a write RPC on a
+         path that is opened hundreds of times a day, for nothing (Dee,
+         2026-09-30: no writes or heavy calls on a workspace open). */
+      let { data, error } = await read();
       if (error) throw error;
+      if ((data ?? []).length === 0) {
+        await sb.rpc("creditops_apply_checklist_template", {
+          p_client: clientId as string,
+          p_department: department as Department,
+        });
+        ({ data, error } = await read());
+        if (error) throw error;
+      }
       return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
         id: r.id as string,
         label: r.label as string,

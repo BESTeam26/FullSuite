@@ -29,11 +29,15 @@ import { formatDate } from "@/lib/format-date";
 import { useAgencyPermissions } from "@/lib/data/agency-permissions";
 import { useWorkforce } from "@/lib/data/use-workforce";
 import { useCreditOpsStore } from "@/lib/fulfillment/creditops-client-store";
+import { patchCachedClient } from "@/lib/fulfillment/creditops-client-cache";
+import { queueCountsKey } from "@/lib/data/use-queue-counts";
+import { useAuth } from "@/lib/auth/auth-context";
 import { roundFromStatus } from "@/lib/fulfillment/department-domain";
-import { updateClientAssignee, updateClientField } from "@/lib/data/fulfillment-clients";
+import { updateClientField } from "@/lib/data/fulfillment-clients";
 import { clearDueOverride, markMailed, setDueOverride } from "@/lib/data/client-workflow";
 import { readSla, SLA_TONE_CLASS } from "@/lib/fulfillment/sla-display";
 import type { Enums } from "@/lib/supabase/database.types";
+import type { FulfillmentClient } from "@/lib/fulfillment/fulfillment-client-domain";
 
 const ROUNDS: Enums<"fulfillment_round">[] = [
   "Pre-Round", "Round 1", "Round 2", "Round 3", "Round 4+", "Round 5", "Round 6",
@@ -45,7 +49,13 @@ export function ClientAssignmentCard({ clientId }: { clientId: string }) {
   const store = useCreditOpsStore();
   const client = store.clients.find((c) => c.id === clientId);
   const perms = useAgencyPermissions();
-  const workforce = useWorkforce();
+  /* The roster (teams, memberships, today's time entries — three requests)
+     is loaded the first time the agent picker OPENS, not on every workspace
+     open. Until then the picker shows the current assignee by name (Dee,
+     2026-09-30: open the shell fast, load secondary content when asked). */
+  const [rosterWanted, setRosterWanted] = useState(false);
+  const workforce = useWorkforce({ enabled: rosterWanted });
+  const actor = useAuth().displayName ?? "BES staff";
   const qc = useQueryClient();
   const { toast } = useToast();
   const [busy, setBusy] = useState<string | null>(null);
@@ -57,8 +67,12 @@ export function ClientAssignmentCard({ clientId }: { clientId: string }) {
   if (!client) return null;
 
   const people = workforce.data?.people ?? [];
+  /* A write here changes this file's routing, its queue and its progress —
+     never the whole client list. Invalidating ["creditops"] used to refetch
+     1,000+ clients, every checklist and every count after one dropdown. */
   const refresh = () => {
-    void qc.invalidateQueries({ queryKey: ["creditops"] });
+    void qc.invalidateQueries({ queryKey: ["creditops", "department-statuses"] });
+    void qc.invalidateQueries({ queryKey: queueCountsKey });
     void qc.invalidateQueries({ queryKey: ["client-progress", clientId] });
     void qc.invalidateQueries({ queryKey: ["work"] });
   };
@@ -91,7 +105,11 @@ export function ClientAssignmentCard({ clientId }: { clientId: string }) {
               value={client.round ?? "Pre-Round"}
               onValueChange={(v) =>
                 void guard("round",
-                  () => updateClientField({ clientId, round: v as Enums<"fulfillment_round"> }),
+                  async () => {
+                    await updateClientField({ clientId, round: v as Enums<"fulfillment_round"> });
+                    /* What the server accepted, patched onto this one row. */
+                    patchCachedClient(qc, clientId, { round: v as FulfillmentClient["round"] });
+                  },
                   "Round updated")
               }
               options={ROUNDS.map((r) => ({ value: r, label: r }))}
@@ -114,12 +132,25 @@ export function ClientAssignmentCard({ clientId }: { clientId: string }) {
             size="field"
             aria-label="Assigned agent"
             value={client.assignedAgentId ?? "__none__"}
+            onOpen={() => setRosterWanted(true)}
             onValueChange={(v) =>
-              void guard("agent", () => updateClientAssignee(clientId, v === "__none__" ? null : v),
-                v === "__none__" ? "Unassigned" : "Assigned")
+              void guard("agent", () => {
+                const person = people.find((p) => p.userId === v);
+                /* Through the store: it writes and patches this row with the
+                   server's answer. Identity, never a name (rule 4). */
+                return store.updateAssignee(clientId,
+                  v === "__none__" ? { id: null, name: "Unassigned" } : { id: v, name: person?.name ?? "" },
+                  actor);
+              }, v === "__none__" ? "Unassigned" : "Assigned")
             }
             options={[
               { value: "__none__", label: "Unassigned" },
+              /* Before the roster is loaded, the one option that must exist
+                 is the current assignee, so the control shows who has it. */
+              ...(people.length === 0 && client.assignedAgentId
+                ? [{ value: client.assignedAgentId, label: client.assignedAgent ?? "Assigned" }]
+                : []),
+              ...(rosterWanted && workforce.isLoading ? [{ value: "__loading__", label: "Loading people…" }] : []),
               ...people.map((p) => ({ value: p.userId, label: p.name })),
             ]}
           />

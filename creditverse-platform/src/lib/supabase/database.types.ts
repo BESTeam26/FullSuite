@@ -17246,6 +17246,7 @@ export type Database = {
             | Database["public"]["Enums"]["fulfillment_department"]
             | null
           due_at: string | null
+          is_fixture: boolean | null
           organization_id: string | null
           outsourcing_group_id: string | null
           partner_name: string | null
@@ -17353,6 +17354,78 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "fulfillment_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fulfillment_clients_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fulfillment_clients_outsourcing_group_id_fkey"
+            columns: ["outsourcing_group_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fulfillment_clients_outsourcing_group_id_fkey"
+            columns: ["outsourcing_group_id"]
+            isOneToOne: false
+            referencedRelation: "outsourcing_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      creditops_queue_base: {
+        Row: {
+          actionable: boolean | null
+          agency_id: string | null
+          assignee_id: string | null
+          assignment_method: string | null
+          blocked_reason: string | null
+          client_email: string | null
+          client_id: string | null
+          client_name: string | null
+          client_phone: string | null
+          client_public_id: string | null
+          credit_status:
+            | Database["public"]["Enums"]["fulfillment_client_status"]
+            | null
+          department:
+            | Database["public"]["Enums"]["fulfillment_department"]
+            | null
+          due_at: string | null
+          is_fixture: boolean | null
+          organization_id: string | null
+          outsourcing_group_id: string | null
+          round: Database["public"]["Enums"]["fulfillment_round"] | null
+          updated_at: string | null
+          waiting: boolean | null
+          work_status: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_department_statuses_assignee_id_fkey"
+            columns: ["assignee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_department_statuses_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "fulfillment_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fulfillment_clients_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
             referencedColumns: ["id"]
           },
           {
@@ -18715,6 +18788,16 @@ export type Database = {
         }
         Returns: Json
       }
+      clickup_repair_comment_text: {
+        Args: {
+          p_at: string
+          p_comment_id: string
+          p_task_id: string
+          p_text: string
+        }
+        Returns: Json
+      }
+      clickup_withdraw_review_tag: { Args: { p_tag: string }; Returns: number }
       client_address_record: {
         Args: {
           p_city: string
@@ -19183,6 +19266,13 @@ export type Database = {
           state: string
         }[]
       }
+      creditops_department_pairs_visible: {
+        Args: never
+        Returns: {
+          client_id: string
+          department: Database["public"]["Enums"]["fulfillment_department"]
+        }[]
+      }
       creditops_department_readable_client_ids: {
         Args: never
         Returns: string[]
@@ -19197,6 +19287,18 @@ export type Database = {
           full_name: string
           is_lead: boolean
           user_id: string
+        }[]
+      }
+      creditops_department_rows: {
+        Args: { p_group?: string }
+        Returns: {
+          assignee_email: string
+          assignee_id: string
+          assignee_name: string
+          client_id: string
+          department: Database["public"]["Enums"]["fulfillment_department"]
+          status: string
+          updated_at: string
         }[]
       }
       creditops_department_scope_client_ids: { Args: never; Returns: string[] }
@@ -19236,6 +19338,13 @@ export type Database = {
           p_department: Database["public"]["Enums"]["fulfillment_department"]
         }
         Returns: boolean
+      }
+      creditops_my_assigned_pairs: {
+        Args: never
+        Returns: {
+          client_id: string
+          department: Database["public"]["Enums"]["fulfillment_department"]
+        }[]
       }
       creditops_pick_assignee: {
         Args: {

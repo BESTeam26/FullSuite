@@ -25,4 +25,11 @@ npx vitest run --reporter=dot
 echo "== build =="
 npm run build --silent
 
+# Dee, 2026-09-30: "I want performance treated as a hard release gate for
+# every CreditOps change… measured from an actual agent account." Every
+# CreditOps path, timed in the live database as an executive AND as an
+# agent, each against its threshold. Over threshold = no release.
+echo "== creditops latency (live, as executive and agent) =="
+node supabase/scripts/creditops-latency-probe.mjs
+
 echo "== GATE PASSED =="

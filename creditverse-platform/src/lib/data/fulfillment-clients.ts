@@ -172,10 +172,13 @@ export async function fetchDepartmentStatusesForClients(
      sent in batches as well. */
   const ids = [...clientIds];
   const IDS_PER_REQUEST = 200;
-  const rows: Record<string, unknown>[] = [];
-  for (let i = 0; i < ids.length; i += IDS_PER_REQUEST) {
-    const batch = ids.slice(i, i + IDS_PER_REQUEST);
-    const page = await pageAll<Record<string, unknown>>(async (offset, limit) => {
+  const batches: string[][] = [];
+  for (let i = 0; i < ids.length; i += IDS_PER_REQUEST) batches.push(ids.slice(i, i + IDS_PER_REQUEST));
+  /* The batches are independent, so they go out together: a partner with
+     839 clients used to wait for four ~1 s requests in a row (rule 14 —
+     parallelize what is genuinely independent). */
+  const pages = await Promise.all(batches.map((batch) =>
+    pageAll<Record<string, unknown>>(async (offset, limit) => {
       const { data, error } = await sb
         .from("client_department_statuses")
         .select("*, assignee:profiles!client_department_statuses_assignee_id_fkey(full_name, email)")
@@ -184,9 +187,8 @@ export async function fetchDepartmentStatusesForClients(
         .range(offset, offset + limit - 1);
       if (error) throw error;
       return (data ?? []) as unknown as Record<string, unknown>[];
-    });
-    rows.push(...page);
-  }
+    })));
+  const rows: Record<string, unknown>[] = pages.flat();
 
   const out: Record<string, DepartmentStatus[]> = {};
   for (const d of rows as unknown as {
@@ -198,6 +200,41 @@ export async function fetchDepartmentStatusesForClients(
       department: d.department as DepartmentStatus["department"],
       status: d.status,
       assignee: withAgent.assignee?.full_name?.trim() || withAgent.assignee?.email || "Unassigned",
+      assigneeId: d.assignee_id ?? null,
+      updatedAt: d.updated_at,
+    });
+  }
+  return out;
+}
+
+/**
+ * The department rows of a whole scope — one partner, or everything the
+ * caller may see — in ONE statement (`creditops_department_rows`), paged by
+ * range. The Main Client List needs every row in its scope for its columns
+ * and filters; asking by 200 ids at a time was five requests for Vanquish
+ * Ventures, each rebuilding the policy sets (2026-09-30). The rows are the
+ * same rows under the same policies; only the number of statements changed.
+ */
+export async function fetchDepartmentStatusesForScope(
+  groupId: string | null,
+): Promise<Record<string, DepartmentStatus[]>> {
+  const sb = requireSupabase();
+  const rows = await pageAll<Record<string, unknown>>(async (offset, limit) => {
+    const { data, error } = await sb
+      .rpc("creditops_department_rows", { p_group: groupId })
+      .range(offset, offset + limit - 1);
+    if (error) throw error;
+    return (data ?? []) as unknown as Record<string, unknown>[];
+  });
+  const out: Record<string, DepartmentStatus[]> = {};
+  for (const d of rows as unknown as {
+    client_id: string; department: string; status: string; assignee_id: string | null;
+    updated_at: string; assignee_name: string | null; assignee_email: string | null;
+  }[]) {
+    (out[d.client_id] ??= []).push({
+      department: d.department as DepartmentStatus["department"],
+      status: d.status,
+      assignee: d.assignee_name?.trim() || d.assignee_email || "Unassigned",
       assigneeId: d.assignee_id ?? null,
       updatedAt: d.updated_at,
     });

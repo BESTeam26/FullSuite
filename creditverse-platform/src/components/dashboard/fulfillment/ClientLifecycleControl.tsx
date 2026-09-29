@@ -10,6 +10,8 @@ import { Archive, Loader2, RotateCcw } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-context";
 import { errorMessage } from "@/lib/data/error-message";
 import { setClientLifecycle } from "@/lib/data/fulfillment-clients";
+import { dropCachedClient, patchCachedClient } from "@/lib/fulfillment/creditops-client-cache";
+import { queueCountsKey } from "@/lib/data/use-queue-counts";
 import { LIFECYCLE_LABELS, isActiveClient, type ClientLifecycle, type FulfillmentClient } from "@/lib/fulfillment/fulfillment-client-domain";
 import { Button } from "@/components/ui/button";
 import { OpsSelect } from "@/components/ui/ops-select";
@@ -28,8 +30,14 @@ export function ClientLifecycleControl({ client, canEdit }: { client: Fulfillmen
     setBusy(true); setError(null);
     try {
       await setClientLifecycle({ clientId: client.id, lifecycle: next, reason: reason.trim() || null });
-      await queryClient.invalidateQueries({ queryKey: ["creditops", "clients"] });
-      await queryClient.invalidateQueries({ queryKey: ["activity"] });
+      /* The list holds active clients only: an archived one leaves it, a
+         restored one is re-read (rare). Neither re-reads the whole list to
+         change one row. */
+      if (next === "active") void queryClient.invalidateQueries({ queryKey: ["creditops", "clients"] });
+      else dropCachedClient(queryClient, client.id);
+      patchCachedClient(queryClient, client.id, { lifecycle: next });
+      void queryClient.invalidateQueries({ queryKey: queueCountsKey });
+      void queryClient.invalidateQueries({ queryKey: ["activity"] });
       setConfirming(null); setReason("");
     } catch (e) { setError(errorMessage(e, "Could not change the client's lifecycle.")); }
     finally { setBusy(false); }

@@ -179,7 +179,14 @@ export function FulfillmentClientsPanel({
   /* One bounded query for the visible clients' department rows — the
      operational columns read from it; never a query per row (rule 14). */
   const visibleIds = useMemo(() => filtered.map((c) => c.id), [filtered]);
-  const { byClient: departmentRows } = useDepartmentStatusMap(visibleIds);
+  /* By SCOPE, not by id: one request for a partner (or for everything the
+     viewer may see) instead of one per 200 clients. An organization scope
+     is not a partner, so it keeps the id path. */
+  const statusScope = useMemo<{ groupId: string | null } | undefined>(() => {
+    if (selectedScope === "all") return { groupId: null };
+    return lifecycleFiltered.some((c) => c.outsourcingGroupId === selectedScope) ? { groupId: selectedScope } : undefined;
+  }, [selectedScope, lifecycleFiltered]);
+  const { byClient: departmentRows } = useDepartmentStatusMap(visibleIds, statusScope);
   departmentRowsRef.current = departmentRows;
   /* Applied AFTER the department rows arrive, because department, work
      status and the department's assignee live on those rows rather than on

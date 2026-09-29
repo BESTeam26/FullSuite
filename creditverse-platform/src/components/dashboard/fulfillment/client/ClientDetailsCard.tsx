@@ -23,6 +23,7 @@ import { Loader2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { patchCachedClient } from "@/lib/fulfillment/creditops-client-cache";
 import { formatDate } from "@/lib/format-date";
 import {
   fetchClientDetails, saveClientDetails, stateProblem, type ClientDetails,
@@ -54,11 +55,17 @@ export function ClientDetailsCard({ clientId }: { clientId: string }) {
 
   const save = useMutation({
     mutationFn: (next: ClientDetails) => saveClientDetails(clientId, next),
-    onSuccess: () => {
+    onSuccess: (_r, next) => {
       setDraft(null);
-      /* The file, the list and the directory all read these. */
+      /* The file, the list and the directory all read these. The list gets
+         the three fields it shows patched in place — what the server just
+         accepted — rather than a 1,000-row refetch. */
       void qc.invalidateQueries({ queryKey: ["creditops", "details", clientId] });
-      void qc.invalidateQueries({ queryKey: ["creditops", "clients"] });
+      patchCachedClient(qc, clientId, {
+        name: `${next.firstName} ${next.lastName}`.trim(),
+        email: next.email.trim(),
+        phone: next.phone.trim() || null,
+      });
       void qc.invalidateQueries({ queryKey: ["clients"] });
       toast({ title: "Saved" });
     },

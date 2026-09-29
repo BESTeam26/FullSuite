@@ -14,7 +14,7 @@
  * Imported ClickUp comments and notes written here are the same kind of row,
  * so an eleven-month conversation carries on in the same column it arrived in.
  */
-import { useMemo, useState } from "react";
+import { createContext, useContext, useMemo, useState } from "react";
 import { FileText, Loader2, Pencil, SmilePlus, ThumbsUp, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/format-date";
@@ -82,16 +82,31 @@ const toneFor = (key: string) => {
 };
 
 /**
- * A file in the feed: the picture when it is one, a labelled row when it is not.
+ * Signed preview URLs for every image in the feed, provided ONCE at the rail.
  *
- * The preview URL is signed and short-lived — `useFilePreviews` batches the
- * signing for everything on screen, so a column with twenty screenshots is
- * one request and not twenty.
+ * Each FileCard used to call `useFilePreviews` for its own file — which is
+ * one signing request per picture, exactly the per-row round trip the hook
+ * exists to prevent (nine requests on one workspace open, 2026-09-30). The
+ * rail now collects every image across posts and replies, signs them in one
+ * request, and hands the map down through context.
+ */
+const PreviewUrls = createContext<Record<string, string>>({});
+
+const collectImageTargets = (posts: ClientPost[], out: { bucket: string; path: string }[] = []) => {
+  for (const p of posts) {
+    if (p.file && (p.file.mime ?? "").startsWith("image/")) out.push({ bucket: p.file.bucket, path: p.file.path });
+    if (p.replies?.length) collectImageTargets(p.replies, out);
+  }
+  return out;
+};
+
+/**
+ * A file in the feed: the picture when it is one, a labelled row when it is not.
+ * The URL comes from the rail's single signing request (see PreviewUrls).
  */
 function FileCard({ file }: { file: NonNullable<ClientPost["file"]> }) {
   const isImage = (file.mime ?? "").startsWith("image/");
-  const previews = useFilePreviews(isImage ? [{ bucket: file.bucket, path: file.path }] : []);
-  const url = previews.data?.[`${file.bucket}/${file.path}`];
+  const url = useContext(PreviewUrls)[`${file.bucket}/${file.path}`];
   const size = file.size ? `${Math.max(1, Math.round(file.size / 1024))} KB` : null;
 
   if (isImage) {
@@ -461,6 +476,10 @@ export function ClientActivityRail({
   const posts = useClientPosts(clientId);
   const [filter, setFilter] = useState("all");
   const rows = useMemo(() => posts.data ?? [], [posts.data]);
+  /* One signing request for every picture in the feed, replies included. */
+  const imageTargets = useMemo(() => collectImageTargets(rows), [rows]);
+  const previews = useFilePreviews(imageTargets);
+  const previewUrls = previews.data ?? {};
 
   /* Filtered in the browser over one fetch. Four tabs that each hit the
      network is the waterfall rule 14 forbids, and the whole feed for one
@@ -491,6 +510,7 @@ export function ClientActivityRail({
   };
 
   return (
+    <PreviewUrls.Provider value={previewUrls}>
     <aside className="flex h-full min-h-0 flex-col rounded-2xl border border-border bg-card">
       <header className="flex items-baseline justify-between border-b border-border px-4 py-2.5">
         <h2 className="text-sm font-bold text-foreground">Activity</h2>
@@ -583,5 +603,6 @@ export function ClientActivityRail({
         )}
       </div>
     </aside>
+    </PreviewUrls.Provider>
   );
 }
