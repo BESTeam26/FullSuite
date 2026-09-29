@@ -9,7 +9,10 @@
  */
 import { requireSupabase } from "@/lib/supabase/client";
 
-export type ClientSecretKind = "ssn" | "monitoring" | "cfpb" | "other";
+/* `source_note`: the original ClickUp description, preserved whole as
+   protected data (Dee, 2026-09-30). Same masking, same audited reveal, same
+   capability as an SSN — it may contain one. */
+export type ClientSecretKind = "ssn" | "monitoring" | "cfpb" | "source_note" | "other";
 
 export interface ClientSecret {
   id: string;

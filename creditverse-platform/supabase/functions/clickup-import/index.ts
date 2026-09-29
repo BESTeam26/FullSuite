@@ -161,6 +161,43 @@ function roundFrom(name: string | null): { round: string; freeze: boolean } {
   return { round: v >= 1 && v <= 13 ? `Round ${v}` : "Pre-Round", freeze: false };
 }
 
+/**
+ * The description, as text worth keeping — or nothing.
+ *
+ * Dee, 2026-09-30: "EVERYTHING from the original ClickUp task description
+ * must be preserved… Keep the original meaningful content, not parser
+ * artifacts… never render undefined null [object Object]."
+ *
+ * ClickUp gives `text_content` (plain) and `description` (markdown). Plain
+ * is preferred because it is what a human wrote, not what a renderer did to
+ * it. Nothing is summarised, extracted or reworded here: the point of the
+ * record is that it is the source. Only artifacts are removed, and if that
+ * leaves nothing, nothing is stored.
+ */
+function preservableText(task: Record<string, unknown>): string | null {
+  const pick = (v: unknown) => (typeof v === "string" ? v : "");
+  let text = pick(task.text_content) || pick(task.description);
+  text = text.replace(/\[object Object\]|\bundefined\b/g, "").trim();
+  if (!text || /^(null|none)$/i.test(text)) return null;
+  return text;
+}
+
+/**
+ * Two different values for the same credential in one description.
+ *
+ * Dee: "Preserve ALL conflicting imported information rather than choosing a
+ * password arbitrarily." The structured import stores ONE login per
+ * provider, so a second value used to vanish. This only DETECTS the
+ * conflict — the preserved description carries both values, and the client
+ * is flagged for review. Nothing is chosen, and no value is returned.
+ */
+function credentialConflict(text: string): string | null {
+  const values = new Set<string>();
+  for (const m of text.matchAll(/\bpass(?:word|wd)?\s*[:=\-–]\s*(\S{4,})/gi)) values.add(m[1]);
+  if (values.size < 2) return null;
+  return `${values.size} different password values`;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json(405, { error: "POST only" });
@@ -210,10 +247,13 @@ Deno.serve(async (req) => {
     resume?: boolean; max?: number; offset?: number; taskIds?: string[];
     roundScan?: boolean;
   };
-  if (!groupId && !(body as { resolveOnly?: boolean }).resolveOnly) {
+  /* `preserveDescription` resolves its client through the crosswalk, never
+     from a caller-supplied group, so it needs neither a group nor a list. */
+  const preserving = !!(body as { preserveDescription?: boolean }).preserveDescription;
+  if (!groupId && !(body as { resolveOnly?: boolean }).resolveOnly && !preserving) {
     return json(400, { error: "groupId is required" });
   }
-  if (!listId && !viewId && !roundScan) return json(400, { error: "listId or viewId is required" });
+  if (!listId && !viewId && !roundScan && !preserving) return json(400, { error: "listId or viewId is required" });
 
   /* Normally the caller's own token, so the database applies the same rules it
      would to a browser and the import is attributed to whoever ran it.
@@ -259,13 +299,56 @@ Deno.serve(async (req) => {
    * A dispute round is an FCRA record; the caller decides what to do with an
    * ambiguous answer, and this reports the ambiguity rather than resolving it.
    */
+  /**
+   * `preserveDescription`: store each card's original description as a
+   * protected source note, and return NOTHING of it.
+   *
+   * The backfill for every card already imported (Dee, 2026-09-30: "not
+   * only for future imports"). The text is read here, handed to the one
+   * database writer, and dropped; what crosses the wire back is a task id
+   * and whether it was stored. There is no mode that returns description
+   * text, deliberately — see `roundScan` for why that matters on these cards.
+   *
+   * Idempotent: the writer updates the existing note for a task rather than
+   * adding a second, so this can be rerun safely at any time.
+   */
+  if ((body as { preserveDescription?: boolean }).preserveDescription) {
+    if (!Array.isArray(taskIds) || taskIds.length === 0) {
+      return json(400, { error: "preserveDescription needs taskIds" });
+    }
+    if (taskIds.length > 60) return json(400, { error: "at most 60 task ids per call" });
+    const svc = createClient(url, service);
+    const out: { id: string; stored: boolean; action?: string; reason?: string; conflict?: boolean; error?: string }[] = [];
+    for (const id of taskIds) {
+      try {
+        const task = await cu<Record<string, unknown>>(`/task/${id}?include_subtasks=false`);
+        const text = preservableText(task);
+        if (!text) { out.push({ id, stored: false, reason: "empty" }); continue; }
+        const conflict = credentialConflict(text);
+        const { data, error } = await svc.rpc("clickup_preserve_description", {
+          p_task_id: id, p_text: text, p_imported_at: null, p_conflict: conflict,
+        });
+        if (error) { out.push({ id, stored: false, error: error.message.slice(0, 120) }); continue; }
+        const r = data as { stored: boolean; action?: string; reason?: string };
+        out.push({ id, stored: r.stored, action: r.action, reason: r.reason, conflict: !!conflict });
+      } catch (e) {
+        out.push({ id, stored: false, error: String(e).slice(0, 120) });
+      }
+    }
+    return json(200, { scanned: out.length, results: out });
+  }
+
   if (roundScan) {
     if (!Array.isArray(taskIds) || taskIds.length === 0) {
       return json(400, { error: "roundScan needs taskIds" });
     }
     if (taskIds.length > 60) return json(400, { error: "at most 60 task ids per scan" });
 
-    const EXPLICIT = /\bround\s*#?\s*(\d{1,2})\b/gi;
+    /* "Round 2", "round #2", and the shorthand "R2" / "R 2" the processors
+       write in notes (Dee, 2026-09-30: "Look for trustworthy round evidence
+       such as R1 R2 Round 2 Round 3"). Bounded on both sides so "R2D2" and
+       a tracking number do not read as rounds. */
+    const EXPLICIT = /\b(?:round\s*#?\s*|r\s?)(\d{1,2})\b/gi;
     const RANGED = /\bround(s)?\s*#?\s*\d{1,2}\s*(?:-|–|to|through|thru|&|and)\s*#?\s*\d{1,2}/i;
     const out: { id: string; field: string | null; rounds: number[]; ranged: boolean; error?: string }[] = [];
 
@@ -767,6 +850,23 @@ Deno.serve(async (req) => {
          somebody authorized for both partners, and nowhere else. */
       summary.crossPartner += r.cross_partner_notes ?? 0;
       if (r.created) summary.created++; else summary.matched++;
+
+      /* The original description, preserved as a protected source note —
+         through the same single writer the backfill uses, so a card
+         imported today and a card imported in August end up with the same
+         record. After the client write, because the writer resolves the
+         client through the crosswalk that write just recorded. A failure
+         here is noted and does not undo the import. */
+      {
+        const text = preservableText(task as unknown as Record<string, unknown>);
+        if (text) {
+          const { error: pErr } = await admin.rpc("clickup_preserve_description", {
+            p_task_id: brief.id, p_text: text, p_imported_at: null,
+            p_conflict: credentialConflict(text),
+          });
+          if (pErr) summary.needsReview.push(`${payload.full_name}: description not preserved — ${pErr.message}`);
+        }
+      }
 
       /* Which record this card ended up on, and what it had to identify
          itself with. Two cards landing on ONE record is the merge working;

@@ -32,6 +32,11 @@ const SECTIONS: { kind: ClientSecretKind; title: string; blurb: string }[] = [
   { kind: "ssn", title: "Sensitive Identity", blurb: "Held encrypted. Every reveal is recorded." },
   { kind: "monitoring", title: "Credit Monitoring", blurb: "The client's monitoring provider login." },
   { kind: "cfpb", title: "Portal Access", blurb: "Complaint portal accounts BES created." },
+  /* The original ClickUp card text, whole. Historical source, not the
+     operational record — identity and logins above are what BES works from.
+     Held and revealed exactly like an SSN, because it may contain one. */
+  { kind: "source_note", title: "Preserved ClickUp Description",
+    blurb: "The card as it was written in ClickUp. Reveals are recorded." },
 ];
 
 function SecretRow({ secret, canReveal }: { secret: ClientSecret; canReveal: boolean }) {
