@@ -449,6 +449,7 @@ export function FulfillmentClientsPanel({
           prefs={prefs}
           setPrefs={setPrefs}
           onOpenClient={openClient}
+                  valuesScope={statusScope}
         />
       ) : (
         <ClientListGrid clients={inView} onOpenClient={openClient} />

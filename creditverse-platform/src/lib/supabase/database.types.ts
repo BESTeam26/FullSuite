@@ -19266,6 +19266,14 @@ export type Database = {
           state: string
         }[]
       }
+      creditops_custom_values: {
+        Args: { p_group?: string }
+        Returns: {
+          entity_id: string
+          field_id: string
+          value: Json
+        }[]
+      }
       creditops_department_pairs_visible: {
         Args: never
         Returns: {

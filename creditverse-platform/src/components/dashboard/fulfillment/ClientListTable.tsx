@@ -65,6 +65,8 @@ interface ClientListTableProps {
   /** Multi-select, owned by the panel so it survives a re-render of the table. */
   selected: ReadonlySet<string>;
   onSelectedChange: (next: ReadonlySet<string>) => void;
+  /** The list's scope, when it is one partner or everything: custom values come by scope, not by id. */
+  valuesScope?: { groupId: string | null };
 }
 
 export function ClientListTable({
@@ -76,6 +78,7 @@ export function ClientListTable({
   departmentRows,
   selected,
   onSelectedChange,
+  valuesScope,
 }: ClientListTableProps) {
   const queryClient = useQueryClient();
   /* The queues this person may change — the same answer the writers use. */
@@ -94,7 +97,11 @@ export function ClientListTable({
   /* The columns somebody added, and their values for the rows on screen —
      one request for the whole page, never one per row (rule 14). */
   const { columns: customColumns } = useClientColumns();
-  const { byClient: customValues } = useClientColumnValues(clients.map((c) => c.id));
+  const { byClient: customValues } = useClientColumnValues(clients.map((c) => c.id), {
+    scope: valuesScope,
+    /* No client column defined → nothing to fetch, no request. */
+    enabled: customColumns.length > 0,
+  });
   const setCustomValue = useSetClientColumnValue();
 
   /* One client at a time, through the SAME writer a single row uses — so a

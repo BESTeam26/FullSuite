@@ -79,22 +79,36 @@ export function useClientColumns() {
   return { columns: q.data ?? [], isLoading: live && q.isLoading };
 }
 
-/** Every custom value for the clients currently on screen, in one request. */
-export function useClientColumnValues(clientIds: readonly string[]) {
+/**
+ * Every custom value for the clients on screen, in one request — by SCOPE
+ * when the caller has one (a partner, or everything they may see), so the
+ * server is not sent 839 ids to find rows it can locate from the scope
+ * (Dee, 2026-09-30). And no request at all while no client column exists:
+ * `enabled` is the column count, not a guess.
+ */
+export function useClientColumnValues(
+  clientIds: readonly string[],
+  options: { scope?: { groupId: string | null }; enabled?: boolean } = {},
+) {
   const auth = useAuth();
   const live = auth.mode === "live" && auth.status === "signed-in";
   /* A stable key: the same set of clients in a different order is the same
      request, and re-sorting the list must not refetch. */
   const ids = [...clientIds].sort();
+  const scope = options.scope;
   const q = useQuery({
-    queryKey: ["creditops", "client-column-values", ids],
+    queryKey: scope
+      ? ["creditops", "client-column-values", "scope", scope.groupId ?? "all"]
+      : ["creditops", "client-column-values", ids],
     queryFn: async (): Promise<Record<string, ClientColumnValues>> => {
       const sb = requireSupabase();
-      const { data, error } = await sb
-        .from("custom_field_values")
-        .select("field_id, entity_id, value")
-        .eq("entity_type", ENTITY)
-        .in("entity_id", ids);
+      const { data, error } = scope
+        ? await sb.rpc("creditops_custom_values", { p_group: scope.groupId })
+        : await sb
+            .from("custom_field_values")
+            .select("field_id, entity_id, value")
+            .eq("entity_type", ENTITY)
+            .in("entity_id", ids);
       if (error) throw error;
       const out: Record<string, ClientColumnValues> = {};
       for (const r of data ?? []) {
@@ -103,7 +117,7 @@ export function useClientColumnValues(clientIds: readonly string[]) {
       }
       return out;
     },
-    enabled: live && ids.length > 0,
+    enabled: live && (options.enabled ?? true) && (scope ? true : ids.length > 0),
     staleTime: 30_000,
   });
   return { byClient: q.data ?? {}, isLoading: live && q.isLoading };
