@@ -227,11 +227,26 @@ function preservableText(task: Record<string, unknown>): string | null {
  * conflict — the preserved description carries both values, and the client
  * is flagged for review. Nothing is chosen, and no value is returned.
  */
+/**
+ * A credential conflict is two different secrets for the SAME login —
+ * Kendra Smith's two SmartCredit passwords, Fernando Serrato's two
+ * IdentityIQ passwords (Dee, 2026-09-30). A card listing a SmartCredit
+ * password and a CFPB password is two logins, not a conflict; the first
+ * version of this counted any two password values and flagged 92 cards
+ * that were merely thorough. It now reads the same parsed credentials the
+ * import stores, grouped by provider, and names the provider — never a
+ * value — in what it returns.
+ */
 function credentialConflict(text: string): string | null {
-  const values = new Set<string>();
-  for (const m of text.matchAll(/\bpass(?:word|wd)?\s*[:=\-–]\s*(\S{4,})/gi)) values.add(m[1]);
-  if (values.size < 2) return null;
-  return `${values.size} different password values`;
+  const byProvider = new Map<string, Set<string>>();
+  for (const c of parseClientCard(text, "description").credentials) {
+    const key = (c.provider ?? "unknown provider").toLowerCase();
+    if (!byProvider.has(key)) byProvider.set(key, new Set());
+    byProvider.get(key)!.add(String(c.secret));
+  }
+  const conflicted = [...byProvider.entries()].filter(([, v]) => v.size > 1)
+    .map(([k, v]) => `${k} (${v.size} different passwords)`);
+  return conflicted.length ? conflicted.join("; ") : null;
 }
 
 Deno.serve(async (req) => {
