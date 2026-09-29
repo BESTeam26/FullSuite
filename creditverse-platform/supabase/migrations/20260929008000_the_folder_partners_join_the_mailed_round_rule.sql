@@ -1,0 +1,22 @@
+-- "Round 13 Sent" exists, because Round 13 does.
+--
+-- The mailed-round conversion for the folder's partners refused, on its own
+-- guard: one client is on Round 13, and the "Round N Sent" series of the
+-- status vocabulary stopped at 12 — even though `fulfillment_round` already
+-- runs to 13. The guard did what it is for: it stopped rather than write a
+-- round number that is not the round the letters went out on.
+--
+-- This completes the series to match the round field. It is not a new kind
+-- of status: every "Round N Sent" routes the same way (Dispute · ROUND SENT
+-- - AWAITING RESULTS, waiting on a bureau), the colour map reads
+-- `round \d+ sent` generically, and the front-end list gains the one entry.
+--
+-- ── WHY THIS IS ITS OWN MIGRATION ────────────────────────────────────────
+--
+-- A value added to an enum cannot be USED in the same transaction that adds
+-- it. The routing row and the conversion that reference "Round 13 Sent"
+-- follow in 20260929009000, after this has committed.
+--
+-- Cost impact: none.
+
+alter type public.fulfillment_client_status add value if not exists 'Round 13 Sent';

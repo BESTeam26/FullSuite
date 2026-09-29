@@ -22024,6 +22024,7 @@ export type Database = {
         | "Ready for Credit Review"
         | "For Client Confirmation"
         | "Outsourcing - Unpaid"
+        | "Round 13 Sent"
       fulfillment_department:
         | "Onboarding"
         | "Dispute"
@@ -22795,6 +22796,7 @@ export const Constants = {
         "Ready for Credit Review",
         "For Client Confirmation",
         "Outsourcing - Unpaid",
+        "Round 13 Sent",
       ],
       fulfillment_department: [
         "Onboarding",

@@ -354,6 +354,10 @@ export const CREDIT_STATUSES: readonly string[] = [
   "Round 10 Sent",
   "Round 11 Sent",
   "Round 12 Sent",
+  /* 13 exists because `fulfillment_round` runs to 13 and a client reached it
+     (2026-09-29). The series matches the round field; the colour map and the
+     routing table read "Round N Sent" generically. */
+  "Round 13 Sent",
   /* Results back */
   "Ready for Credit Review",
   /* Not workable, and it is Support who does something about it */
