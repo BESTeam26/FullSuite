@@ -92,7 +92,20 @@ const ISOLATE = `
      and coalesce(p.is_fixture, false) = false;
 `;
 
-const probe = (sql) => q.query(`begin; ${ISOLATE} ${sql} rollback;`);
+/*
+ * And, since 2026-09-30, it lends the stand-in agents a real badge for the
+ * length of the transaction. The picker never hands a production file to a
+ * fixture account — 177 live Dispute files once sat with "[TEST] Eli Credit"
+ * because it did — so the fixtures who play "an agent" here are un-flagged
+ * inside the rollback. The rule itself is asserted separately below, with
+ * the flags exactly as production has them.
+ */
+const LEND_BADGES = `
+  update profiles set is_fixture = false where id in (${WORKERS.map((w) => `'${w}'`).join(",")});
+`;
+const probe = (sql) => q.query(`begin; ${ISOLATE} ${LEND_BADGES} ${sql} rollback;`);
+/** Same isolation, flags untouched: what production actually sees. */
+const probeAsProduction = (sql) => q.query(`begin; ${ISOLATE} ${sql} rollback;`);
 
 /* Four fresh clients, four processors on the Dispute team. */
 const setup = (members) => `
@@ -324,8 +337,9 @@ console.log("\nHEADLINE ASSIGNEE");
 check("17 — the headline IS the primary department's owner, whoever the engine picked",
   /* Asserted relationally on purpose. Naming a person here would test the
      roster rather than the rule, and the Dispute pool already holds members
-     of pre-existing teams. */
-  probe(`${setup([P.ada])}
+     of pre-existing teams. Staffed by a WORKER, not by Ada: the owner carries
+     can_receive_production_work = false and is never picked. */
+  probe(`${setup([AGENT_A])}
     ${makeClients(1, "Ready for Processing")}
     select (select assigned_agent_id from fulfillment_clients where id::text like 'cccccccc%')
              is not distinct from
@@ -335,7 +349,7 @@ check("17 — the headline IS the primary department's owner, whoever the engine
   { headline_matches_primary: true, somebody_has_it: true });
 
 check("18 — a second department's owner does NOT become the headline",
-  probe(`${setup([P.ada])}
+  probe(`${setup([AGENT_A])}
     ${makeClients(1, "Ready for Processing")}
     insert into client_department_statuses (client_id, department, status, assignee_id)
       select id, 'Support', 'SUPPORT NEW', '${P.ben}' from fulfillment_clients where id::text like 'cccccccc%';
@@ -689,6 +703,30 @@ check("51 — no rule anywhere still compares against a status name that was ren
        where n.nspname = 'public' and c.relkind in ('v','m') and pg_get_viewdef(c.oid) ~ '''(BC|CM) '
     ) t`)[0],
   { stale: "" });
+
+
+console.log("\nA FIXTURE IS NEVER GIVEN REAL WORK");
+
+/* Dee, 2026-09-30: "test/fixture accounts can NEVER receive production
+   client assignments." Flags as production has them: the only people on
+   the Dispute team are fixtures, a real file arrives, and nobody is picked —
+   the file waits unassigned rather than landing on a test account. */
+check("52 — a production file is left unassigned rather than given to a fixture",
+  probeAsProduction(`${setup(WORKERS)}
+    ${makeClients(1, "Ready for Round 1")}
+    select
+      public.creditops_pick_assignee('Dispute', '${AGENCY}', null) is null as nobody_pickable,
+      (select count(*)::int from client_department_statuses s
+         join profiles p on p.id = s.assignee_id
+        where s.client_id::text like 'cccccccc%' and coalesce(p.is_fixture, false)) as fixture_assignments;`)[0],
+  { nobody_pickable: true, fixture_assignments: 0 });
+
+check("53 — on the live roster, no department's pick is a fixture",
+  q.query(`select count(*)::int as fixture_picks
+             from unnest(enum_range(null::public.fulfillment_department)) d(dept)
+             join profiles p on p.id = public.creditops_pick_assignee(d.dept, '${AGENCY}', null)
+            where coalesce(p.is_fixture, false);`)[0],
+  { fixture_picks: 0 });
 
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail === 0 ? 0 : 1);

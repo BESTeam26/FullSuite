@@ -69,6 +69,43 @@ export interface ClientDirectoryRow {
   lastActivity: string | null;
   createdAt: string;
   needsReview: boolean;
+  /** The tagged review note, when flagged. Tags are data; see reviewCategoriesOf. */
+  reviewNote: string | null;
+}
+
+/* ─── Review categories ───────────────────────────────────────────────────── */
+
+/**
+ * Why a client is flagged, read from the tags the import and the duplicate
+ * check write at the front of each review-note line. Dee, 2026-09-30: keep
+ * the flagged clients available for review, separated into Round Unknown,
+ * Round Conflict, Credential Conflict and Possible Duplicate — and never
+ * guess or merge. A note with no known tag (the older name-only duplicate
+ * match) reads as "possible duplicate", which is what it always meant.
+ */
+export type ReviewCategory =
+  | "round_unknown" | "round_conflict" | "credential_conflict" | "possible_duplicate" | "workload_review";
+
+export const REVIEW_CATEGORY_LABEL: Record<ReviewCategory, string> = {
+  round_unknown: "Round unknown",
+  round_conflict: "Round conflict",
+  credential_conflict: "Credential conflict",
+  possible_duplicate: "Possible duplicate",
+  workload_review: "Workload review",
+};
+
+const REVIEW_TAGS: [RegExp, ReviewCategory][] = [
+  [/\[round unknown\]/i, "round_unknown"],
+  [/\[round conflict\]/i, "round_conflict"],
+  [/\[credential conflict\]/i, "credential_conflict"],
+  [/\[possible duplicate\]/i, "possible_duplicate"],
+  [/\[workload review\]/i, "workload_review"],
+];
+
+export function reviewCategoriesOf(row: Pick<ClientDirectoryRow, "needsReview" | "reviewNote">): ReviewCategory[] {
+  if (!row.needsReview) return [];
+  const found = REVIEW_TAGS.filter(([re]) => re.test(row.reviewNote ?? "")).map(([, c]) => c);
+  return found.length ? found : ["possible_duplicate"];
 }
 
 /* ─── Deriving service links ──────────────────────────────────────────────── */
@@ -161,6 +198,8 @@ export interface ClientDirectoryFilters {
   assigned: string | null;
   business: BusinessFilter;
   needsReviewOnly: boolean;
+  /** With needsReviewOnly: narrow to one category. Null means every category. */
+  reviewCategory: ReviewCategory | null;
 }
 
 export const EMPTY_FILTERS: ClientDirectoryFilters = {
@@ -170,12 +209,14 @@ export const EMPTY_FILTERS: ClientDirectoryFilters = {
   assigned: null,
   business: "any",
   needsReviewOnly: false,
+  reviewCategory: null,
 };
 
 export function matchesFilters(row: ClientDirectoryRow, f: ClientDirectoryFilters): boolean {
   if (f.status === "active" && row.status !== "active") return false;
   if (f.status === "inactive" && row.status === "active") return false;
   if (f.needsReviewOnly && !row.needsReview) return false;
+  if (f.needsReviewOnly && f.reviewCategory && !reviewCategoriesOf(row).includes(f.reviewCategory)) return false;
 
   if (f.services.length > 0) {
     const held = new Set(enrolledServices(row).map((s) => s.service));

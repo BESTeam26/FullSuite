@@ -33,7 +33,7 @@ import {
  * it never asks for them.
  */
 const DIRECTORY_SELECT = `
-  id, public_id, full_name, email, phone, status, needs_review, created_at, updated_at,
+  id, public_id, full_name, email, phone, status, needs_review, review_note, created_at, updated_at,
   organization_id,
   fulfillment_clients(
     id, lifecycle, round, last_activity_at,
@@ -51,7 +51,7 @@ type AgentEmbed = { full_name: string | null; email: string } | null;
 
 type DirectoryRecord = Pick<
   Tables<"clients">,
-  "id" | "public_id" | "full_name" | "email" | "phone" | "status" | "needs_review" | "created_at" | "updated_at" | "organization_id"
+  "id" | "public_id" | "full_name" | "email" | "phone" | "status" | "needs_review" | "review_note" | "created_at" | "updated_at" | "organization_id"
 > & {
   fulfillment_clients: {
     id: string;
@@ -121,6 +121,7 @@ function toDirectoryRow(r: DirectoryRecord): ClientDirectoryRow {
     lastActivity: latest(credit?.last_activity_at, funding?.last_activity_at, diy?.updated_at),
     createdAt: r.created_at,
     needsReview: r.needs_review,
+    reviewNote: r.review_note ?? null,
   };
 }
 

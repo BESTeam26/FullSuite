@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  reviewCategoriesOf,
   deriveServices,
   enrolledServices,
   lifecycleToServiceState,
@@ -26,6 +27,7 @@ const row = (over: Partial<ClientDirectoryRow> = {}): ClientDirectoryRow => ({
   lastActivity: "2026-09-05T10:00:00Z",
   createdAt: "2026-01-04T10:00:00Z",
   needsReview: false,
+  reviewNote: null,
   ...over,
 });
 
@@ -141,5 +143,32 @@ describe("assignee options", () => {
   it("de-duplicates across services and sorts", () => {
     const rows = [row({ assigned: ["Mike", "Sarah Reyes"] }), row({ assigned: ["Sarah Reyes"] }), row({ assigned: [] })];
     expect(assigneeOptions(rows)).toEqual(["Mike", "Sarah Reyes"]);
+  });
+});
+
+describe("review categories are read from the tags, never guessed", () => {
+  it("names every tag on the note, and nothing for an unflagged client", () => {
+    expect(reviewCategoriesOf(row())).toEqual([]);
+    expect(reviewCategoriesOf(row({ needsReview: true, reviewNote: "[round unknown] No round recorded" })))
+      .toEqual(["round_unknown"]);
+    expect(reviewCategoriesOf(row({ needsReview: true,
+      reviewNote: "[round conflict] saw 2 and 6\n[credential conflict] identityiq (2 different passwords)" })))
+      .toEqual(["round_conflict", "credential_conflict"]);
+    expect(reviewCategoriesOf(row({ needsReview: true, reviewNote: "[possible duplicate] same name" })))
+      .toEqual(["possible_duplicate"]);
+    expect(reviewCategoriesOf(row({ needsReview: true, reviewNote: "[workload review] 174 files" })))
+      .toEqual(["workload_review"]);
+  });
+  it("treats the older untagged duplicate match as a possible duplicate", () => {
+    expect(reviewCategoriesOf(row({ needsReview: true, reviewNote: "Two records matched on name alone" })))
+      .toEqual(["possible_duplicate"]);
+    expect(reviewCategoriesOf(row({ needsReview: true, reviewNote: null }))).toEqual(["possible_duplicate"]);
+  });
+  it("narrows the review filter to one category", () => {
+    const f = { ...EMPTY_FILTERS, needsReviewOnly: true, reviewCategory: "round_unknown" as const };
+    expect(matchesFilters(row({ needsReview: true, reviewNote: "[round unknown] x" }), f)).toBe(true);
+    expect(matchesFilters(row({ needsReview: true, reviewNote: "[possible duplicate] x" }), f)).toBe(false);
+    /* The category alone never filters: only inside the review view. */
+    expect(matchesFilters(row(), { ...EMPTY_FILTERS, reviewCategory: "round_unknown" })).toBe(true);
   });
 });

@@ -31,8 +31,7 @@ import {
   sortRows,
   type ClientDirectoryFilters,
   type ClientSortKey,
-  type ServiceKey,
-} from "@/lib/clients/client-directory-domain";
+  type ServiceKey, REVIEW_CATEGORY_LABEL, reviewCategoriesOf, type ReviewCategory } from "@/lib/clients/client-directory-domain";
 
 const STATUS_TONE: Record<string, string> = {
   active: "border-emerald-600/30 bg-emerald-500/10 text-status-success",
@@ -68,6 +67,13 @@ export function ClientDirectoryPage() {
 
   const open = (id: string) => navigate(`/app/clients/${id}`);
   const needsReviewCount = all.filter((r) => r.needsReview).length;
+  /* One count per category, from the tags on the rows already loaded — no
+     request, no calculation beyond reading a tag (Dee, 2026-09-30). */
+  const reviewCounts = useMemo(() => {
+    const counts = new Map<ReviewCategory, number>();
+    for (const r of all) for (const c of reviewCategoriesOf(r)) counts.set(c, (counts.get(c) ?? 0) + 1);
+    return counts;
+  }, [all]);
 
   return (
     <div className="p-6 md:p-8">
@@ -182,6 +188,27 @@ export function ClientDirectoryPage() {
         )}
       </div>
 
+      {/* Why each flagged client is flagged, one chip per reason. Nothing is
+          guessed or merged from here: a person opens the client and decides. */}
+      {filters.needsReviewOnly && reviewCounts.size > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-2" role="group" aria-label="Review reason">
+          <button type="button" aria-pressed={filters.reviewCategory === null}
+            onClick={() => set("reviewCategory", null)}
+            className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+              filters.reviewCategory === null ? "border-primary bg-primary/10 text-foreground" : "border-border bg-background text-foreground hover:bg-muted"}`}>
+            All reasons ({needsReviewCount})
+          </button>
+          {(Object.keys(REVIEW_CATEGORY_LABEL) as ReviewCategory[]).filter((c) => reviewCounts.has(c)).map((c) => (
+            <button key={c} type="button" aria-pressed={filters.reviewCategory === c}
+              onClick={() => set("reviewCategory", filters.reviewCategory === c ? null : c)}
+              className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                filters.reviewCategory === c ? "border-primary bg-primary/10 text-foreground" : "border-border bg-background text-foreground hover:bg-muted"}`}>
+              {REVIEW_CATEGORY_LABEL[c]} ({reviewCounts.get(c)})
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* ── The directory ───────────────────────────────────────────────── */}
       <div className="overflow-x-auto rounded-2xl border border-border bg-card">
         {directory.isLoading ? (
@@ -263,7 +290,7 @@ export function ClientDirectoryPage() {
                         {c.needsReview && (
                           <AlertTriangle
                             className="h-3.5 w-3.5 text-status-warning"
-                            aria-label="Possible duplicate — needs review"
+                            aria-label={`Needs review — ${reviewCategoriesOf(c).map((k) => REVIEW_CATEGORY_LABEL[k]).join(", ")}`}
                           />
                         )}
                       </p>
