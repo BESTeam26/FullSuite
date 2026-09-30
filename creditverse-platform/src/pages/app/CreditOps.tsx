@@ -10,7 +10,7 @@
  * one Partner. Same canonical client records — different scope.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, startTransition } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { clientGroupKey } from "@/lib/fulfillment/ops-client-domain";
 import { partnerForClient } from "@/lib/fulfillment/creditops-case-selection";
@@ -308,10 +308,14 @@ function CreditOpsWorkspace() {
           <CreditOpsTreeSidebar
             selected={treeSelection}
             onSelect={(sel) => {
-              setSelection(sel);
-              /* Chosen from the navigation, a queue means every partner. */
-              setQueuePartnerScope(null);
-              if (sel.kind === "partner") setActiveView("main-list");
+              /* The sidebar has already painted the choice; the navigation
+                 (and the pane it renders) is a transition. setSelection
+                 already opens a partner on its client list: ONE navigation. */
+              startTransition(() => {
+                setSelection(sel);
+                /* Chosen from the navigation, a queue means every partner. */
+                setQueuePartnerScope(null);
+              });
             }}
           />
 

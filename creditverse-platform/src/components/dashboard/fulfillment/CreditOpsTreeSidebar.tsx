@@ -64,6 +64,7 @@ import {
 } from "@/lib/fulfillment/creditops-partners";
 import { useCreditOpsAccess } from "@/lib/fulfillment/creditops-access";
 import { cn } from "@/lib/utils";
+import { useImmediateSelection } from "@/lib/fulfillment/use-immediate-selection";
 import { partnerLabel } from "@/lib/partners/partner-label";
 import { usePartners } from "@/lib/data/use-partners";
 import { useQueueCounts } from "@/lib/data/use-queue-counts";
@@ -80,6 +81,12 @@ import { ModuleRail, type ModuleRailItem } from "@/components/dashboard/module-r
 
 export type CreditOpsSelection =
   { kind: "management"; view: string } | { kind: "partner"; partnerId: string };
+
+
+export const sameSelection = (a: CreditOpsSelection, b: CreditOpsSelection) =>
+  a.kind === b.kind && (a.kind === "partner"
+    ? a.partnerId === (b as { partnerId?: string }).partnerId
+    : a.view === (b as { view?: string }).view);
 
 interface CreditOpsTreeSidebarProps {
   selected: CreditOpsSelection;
@@ -150,9 +157,15 @@ const mgmtId = (view: string) => `mgmt-${view}`;
 const SIGNAL_LOG = { id: "mgmt-webhooks", label: "CRM Signal Log", icon: Webhook };
 
 export function CreditOpsTreeSidebar({
-  selected,
+  selected: urlSelected,
   onSelect,
 }: CreditOpsTreeSidebarProps) {
+  /* The node the user just clicked, highlighted at once and from HERE — so
+     the click re-renders this sidebar only, never the client list beside it.
+     Kept in the page, the same state cost ~400 ms per click re-rendering the
+     pane before the browser could paint (2026-09-30). The URL, arriving as a
+     transition, takes over as soon as it agrees. */
+  const [selected, choose] = useImmediateSelection(urlSelected, sameSelection);
   /* Live organizations and outsourcing groups. The constants remain only as
      the demo fallback — their scope ids are invented, so a live session must
      navigate by real ones or intake cannot save (rule 2). */
@@ -270,7 +283,7 @@ export function CreditOpsTreeSidebar({
         )}
       >
         <button
-          onClick={() => onSelect({ kind: "partner", partnerId: partner.id })}
+          onClick={() => { choose({ kind: "partner", partnerId: partner.id }); onSelect({ kind: "partner", partnerId: partner.id }); }}
           className={cn(
             "flex min-w-0 flex-1 items-center justify-between rounded-md px-2 py-1.5 text-left text-xs font-medium",
             isSelected ? "font-bold text-primary-foreground" : "text-foreground",
@@ -433,7 +446,7 @@ export function CreditOpsTreeSidebar({
       label: v.label,
       icon,
       active: isMgmtViewActive(mgmtId(v.id)),
-      onSelect: () => onSelect({ kind: "management", view: mgmtId(v.id) }),
+      onSelect: () => { choose({ kind: "management", view: mgmtId(v.id) }); { const sel: CreditOpsSelection = { kind: "management", view: mgmtId(v.id) }; choose(sel); onSelect(sel); }; },
     });
     const views: ModuleRailItem[] = [
       ...nav.universal.map((v) => railView(v, v.id === "dashboard" ? LayoutDashboard : BarChart3)),
@@ -445,7 +458,7 @@ export function CreditOpsTreeSidebar({
             label: SIGNAL_LOG.label,
             icon: SIGNAL_LOG.icon,
             active: isMgmtViewActive(SIGNAL_LOG.id),
-            onSelect: () => onSelect({ kind: "management", view: SIGNAL_LOG.id }),
+            onSelect: () => { const sel: CreditOpsSelection = { kind: "management", view: SIGNAL_LOG.id }; choose(sel); onSelect(sel); },
           }]
         : []),
     ];
@@ -483,7 +496,7 @@ export function CreditOpsTreeSidebar({
               label={v.label}
               icon={v.id === "dashboard" ? LayoutDashboard : BarChart3}
               active={isMgmtViewActive(mgmtId(v.id))}
-              onSelect={() => onSelect({ kind: "management", view: mgmtId(v.id) })}
+              onSelect={() => { const sel: CreditOpsSelection = { kind: "management", view: mgmtId(v.id) }; choose(sel); onSelect(sel); }}
             />
           ))}
         </div>
@@ -501,7 +514,7 @@ export function CreditOpsTreeSidebar({
                 label={v.label}
                 icon={BarChart3}
                 active={isMgmtViewActive(mgmtId(v.id))}
-                onSelect={() => onSelect({ kind: "management", view: mgmtId(v.id) })}
+                onSelect={() => { const sel: CreditOpsSelection = { kind: "management", view: mgmtId(v.id) }; choose(sel); onSelect(sel); }}
                 count={countForQueue(v)}
               />
             ))}
@@ -519,7 +532,7 @@ export function CreditOpsTreeSidebar({
                 label={v.label}
                 icon={BarChart3}
                 active={isMgmtViewActive(mgmtId(v.id))}
-                onSelect={() => onSelect({ kind: "management", view: mgmtId(v.id) })}
+                onSelect={() => { const sel: CreditOpsSelection = { kind: "management", view: mgmtId(v.id) }; choose(sel); onSelect(sel); }}
                 count={countForQueue(v)}
               />
             ))}
@@ -549,14 +562,14 @@ export function CreditOpsTreeSidebar({
                 label={v.label}
                 icon={BarChart3}
                 active={isMgmtViewActive(mgmtId(v.id))}
-                onSelect={() => onSelect({ kind: "management", view: mgmtId(v.id) })}
+                onSelect={() => { const sel: CreditOpsSelection = { kind: "management", view: mgmtId(v.id) }; choose(sel); onSelect(sel); }}
               />
             ))}
             <OpsTreeNavItem
               label={SIGNAL_LOG.label}
               icon={SIGNAL_LOG.icon}
               active={isMgmtViewActive(SIGNAL_LOG.id)}
-              onSelect={() => onSelect({ kind: "management", view: SIGNAL_LOG.id })}
+              onSelect={() => { const sel: CreditOpsSelection = { kind: "management", view: SIGNAL_LOG.id }; choose(sel); onSelect(sel); }}
             />
           </OpsTreeGroup>
         )}

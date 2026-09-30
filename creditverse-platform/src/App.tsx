@@ -194,7 +194,12 @@ const App = () => (
       {/* Deployed several times a day during the pilot: a tab left open keeps
           running the build it loaded, and nothing used to say so (P-042). */}
       <NewVersionBanner />
-      <BrowserRouter>
+      {/* Every navigation is a React transition: the click paints first
+          (a highlighted node, a pressed tab) and the heavy pane render that
+          follows is interruptible. Measured before this on a real click:
+          Dispute Queue 1,256 ms to next paint, Main Client List 752 ms
+          (FullSuite audit, 2026-09-30). */}
+      <BrowserRouter future={{ v7_startTransition: true }}>
         <AuthProvider>
           <ReferralProvider>
             <RoleProvider>

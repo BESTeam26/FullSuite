@@ -95,6 +95,9 @@ const PATHS = (fc, uid) => [
   ["EOD · my report",                     800,  500, `select public.eod_my_report(current_date)`],
   ["Finance · overview",                  600,  300, `select * from public.finance_overview(6)`],
   ["BES CRM · project board",            1500, 1000, `select * from public.crm_project_board('active')`],
+  ["Reporting · pivot (division, 6 months)", 2000, 1000, `select * from public.report_pivot('division', array['time.minutes'], '{}'::jsonb, (date_trunc('month', current_date) - interval '5 months')::date, current_date)`],
+  ["Reporting · scope options",          2000, 1000, `select * from public.report_scope_options((date_trunc('month', current_date) - interval '5 months')::date, current_date, null)`],
+  ["Activity · 180-day status scan (facts arm)", 1000, 300, `select count(*) from activity_events where created_at >= now() - interval '180 days' and action = 'Status changed'`],
 ];
 
 let failed = 0;

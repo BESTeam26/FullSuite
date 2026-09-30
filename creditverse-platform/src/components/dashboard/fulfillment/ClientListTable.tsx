@@ -1,3 +1,4 @@
+import { memo } from "react";
 /**
  * ClientListTable — CreditOps Main Client List, bound to the shared ops table.
  *
@@ -69,7 +70,7 @@ interface ClientListTableProps {
   valuesScope?: { groupId: string | null };
 }
 
-export function ClientListTable({
+function ClientListTableImpl({
   clients,
   visibleCols,
   prefs,
@@ -370,3 +371,9 @@ export function ClientListTable({
     </>
   );
 }
+
+/**
+ * Memoized: a click in the sidebar re-renders the page, and a 1,000-row
+ * table that re-renders with unchanged props is 400 ms nobody asked for.
+ */
+export const ClientListTable = memo(ClientListTableImpl);

@@ -18217,6 +18217,15 @@ export type Database = {
         Args: { p_entity_type: string }
         Returns: Database["public"]["Enums"]["fulfillment_service"]
       }
+      activity_view_combos: {
+        Args: never
+        Returns: {
+          agency_id: string
+          entity_type: string
+          organization_id: string
+          visibility: Database["public"]["Enums"]["activity_visibility"]
+        }[]
+      }
       add_deal_stipulation: {
         Args: {
           p_deal: string
@@ -20712,6 +20721,15 @@ export type Database = {
       normalize_phone: { Args: { p: string }; Returns: string }
       note_delete: { Args: { p_id: number }; Returns: undefined }
       note_edit: { Args: { p_id: number; p_text: string }; Returns: undefined }
+      notification_view_combos: {
+        Args: never
+        Returns: {
+          agency_id: string
+          entity_type: string
+          organization_id: string
+          visibility: Database["public"]["Enums"]["activity_visibility"]
+        }[]
+      }
       notify_mentions: {
         Args: {
           p_activity: Database["public"]["Tables"]["activity_events"]["Row"]
@@ -21198,6 +21216,13 @@ export type Database = {
           p_to?: string
         }
         Returns: Json[]
+      }
+      report_scope_options: {
+        Args: { p_from: string; p_organization?: string; p_to: string }
+        Returns: {
+          department: string
+          division: string
+        }[]
       }
       report_work_blocker: {
         Args: {

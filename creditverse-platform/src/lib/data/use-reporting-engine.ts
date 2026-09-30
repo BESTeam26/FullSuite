@@ -1,3 +1,4 @@
+import { requireSupabase } from "@/lib/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth/auth-context";
 import { fetchKpiDefinitions, fetchOrganizationKpiSettings, fetchRoundOutcomes, runPivot, type PivotDimension, type PivotFilters } from "@/lib/data/reporting-engine";
@@ -22,4 +23,28 @@ export function useInvalidateReporting() {
     if (clientId) void qc.invalidateQueries({ queryKey: roundOutcomesKey(clientId) });
     void qc.invalidateQueries({ queryKey: ["reporting", "pivot"] });
   };
+}
+
+/**
+ * The division and department filter lists for the pivot builder, from the
+ * SAME facts the pivot reads (so they can never disagree with it) — but as
+ * one light statement of distinct names, not two KPI pivots. Two of the
+ * Reporting page's three ~1 s requests became this one (2026-09-30).
+ */
+export function useScopeOptions(from: string, to: string, organizationId: string | null) {
+  const live = useLive();
+  return useQuery({
+    queryKey: ["reporting", "scope-options", from, to, organizationId ?? ""],
+    queryFn: async (): Promise<{ divisions: string[]; departments: string[] }> => {
+      const { data, error } = await requireSupabase().rpc("report_scope_options" as never, {
+        p_from: from, p_to: to, p_organization: organizationId,
+      } as never);
+      if (error) throw error;
+      const rows = (data ?? []) as unknown as { division: string | null; department: string | null }[];
+      const uniq = (xs: (string | null)[]) => [...new Set(xs.filter((v): v is string => !!v && v !== "—"))];
+      return { divisions: uniq(rows.map((r) => r.division)), departments: uniq(rows.map((r) => r.department)) };
+    },
+    enabled: live,
+    staleTime: 60_000,
+  });
 }

@@ -10,7 +10,7 @@ import { OpsSelect } from "@/components/ui/ops-select";
 import { ChartCard } from "@/components/dashboard/ops/ChartCard";
 import { useOrgMembers } from "@/lib/data/use-workspaces";
 import type { PivotDimension, PivotFilters } from "@/lib/data/reporting-engine";
-import { useKpiDefinitions, usePivot } from "@/lib/data/use-reporting-engine";
+import { useKpiDefinitions, usePivot, useScopeOptions } from "@/lib/data/use-reporting-engine";
 import { formatDate } from "@/lib/format-date";
 import { formatKpiValue, monthLabel, shapePivot } from "@/lib/reporting/pivot-shape";
 import { cn } from "@/lib/utils";
@@ -45,12 +45,10 @@ export function PivotBuilder({ organizationId, memberOrganizationId }: { organiz
   /* The report already knows every division and department it can show, so the
      filters are built from ITS OWN answers rather than from a second list that
      could disagree with it. One extra call, unfiltered, keyed separately. */
-  const universe = usePivot("division", ["time.minutes"], organizationId ? { organizationId } : {}, period.from, period.to, true);
-  const departments = usePivot("department", ["time.minutes"], organizationId ? { organizationId } : {}, period.from, period.to, true);
-  const optionsFrom = (rows: { row?: string }[] | undefined, label: string) => [
+  const scope = useScopeOptions(period.from, period.to, organizationId ?? null);
+  const optionsFrom = (names: string[] | undefined, label: string) => [
     { value: ANY, label },
-    ...(rows ?? []).map((r) => String(r.row ?? "")).filter((v) => v && v !== "—")
-      .map((v) => ({ value: v, label: v })),
+    ...(names ?? []).map((v) => ({ value: v, label: v })),
   ];
 
   const filters: PivotFilters = useMemo(() => ({
@@ -74,8 +72,8 @@ export function PivotBuilder({ organizationId, memberOrganizationId }: { organiz
         {/* Dee, 2026-09-20: "I can filter so I can have full visibility?" The
             engine has accepted these since it was written and the screen never
             offered them. */}
-        <label className="block"><span className="mb-0.5 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Division</span><OpsSelect value={layout.division} onValueChange={(v) => setLayout((l) => ({ ...l, division: v }))} options={optionsFrom(universe.data, "All divisions")} aria-label="Division" /></label>
-        <label className="block"><span className="mb-0.5 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Department</span><OpsSelect value={layout.department} onValueChange={(v) => setLayout((l) => ({ ...l, department: v }))} options={optionsFrom(departments.data, "All departments")} aria-label="Department" /></label>
+        <label className="block"><span className="mb-0.5 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Division</span><OpsSelect value={layout.division} onValueChange={(v) => setLayout((l) => ({ ...l, division: v }))} options={optionsFrom(scope.data?.divisions, "All divisions")} aria-label="Division" /></label>
+        <label className="block"><span className="mb-0.5 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Department</span><OpsSelect value={layout.department} onValueChange={(v) => setLayout((l) => ({ ...l, department: v }))} options={optionsFrom(scope.data?.departments, "All departments")} aria-label="Department" /></label>
         <label className="block"><span className="mb-0.5 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Person</span><OpsSelect value={layout.employeeId} onValueChange={(v) => setLayout((l) => ({ ...l, employeeId: v }))} options={[{ value: ANY, label: "Everyone" }, ...members.map((m) => ({ value: m.id, label: m.name }))]} aria-label="Person" /></label>
         <div className="flex flex-wrap gap-1.5">
           {available.map((k) => (
