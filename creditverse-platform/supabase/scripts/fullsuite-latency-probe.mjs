@@ -27,32 +27,18 @@ import { createSyncQuery, readAccessToken, readProjectRef } from "./lib/sync-que
 const q = createSyncQuery({ projectRef: readProjectRef(), token: readAccessToken(), baseUrl: new URL("./lib/", import.meta.url) });
 const reportOnly = process.argv.includes("--report");
 
-const exec = q.query(`select m.user_id, coalesce(p.full_name,p.email) as name from agency_memberships m join profiles p on p.id=m.user_id
-  where m.status='active' and m.role='agency_admin' and not coalesce(p.is_fixture,false) order by m.is_owner desc nulls last, p.full_name limit 1`)[0];
-const agent = q.query(`select m.user_id, coalesce(p.full_name,p.email) as name from agency_memberships m join profiles p on p.id=m.user_id
-  where m.status='active' and m.role='agency_user' and not coalesce(p.is_fixture,false) and m.can_receive_production_work
-    and exists (select 1 from team_memberships tm join teams t on t.id=tm.team_id and t.archived_at is null join departments d on d.id=t.department_id
-                 where tm.user_id=m.user_id and d.division='creditops')
-  order by p.full_name limit 1`)[0];
-/* A team lead or manager: leads a live CreditOps team, or holds a live
-   department/division seat on CreditOps. */
-const lead = q.query(`select m.user_id, coalesce(p.full_name,p.email) as name from agency_memberships m join profiles p on p.id=m.user_id
-  where m.status='active' and m.role='agency_user' and not coalesce(p.is_fixture,false)
-    and (exists (select 1 from team_memberships tm join teams t on t.id=tm.team_id and t.archived_at is null join departments d on d.id=t.department_id
-                  where tm.user_id=m.user_id and tm.is_lead and d.division='creditops')
-         or exists (select 1 from management_seats s left join divisions dv on dv.id=s.division_id left join departments sd on sd.id=s.department_id
-                     where s.user_id=m.user_id and seat_is_live(s.effective_from, s.effective_to) and (dv.service='creditops' or sd.division='creditops')))
-  order by p.full_name limit 1`)[0];
-/* Somebody who is NOT CreditOps at all: staff, on no CreditOps team, no seat
-   reaching CreditOps. Must see nothing — and must not pay to find that out. */
-const outsider = q.query(`select m.user_id, coalesce(p.full_name,p.email) as name from agency_memberships m join profiles p on p.id=m.user_id
-  where m.status='active' and m.role='agency_user' and not coalesce(p.is_fixture,false)
-    and not exists (select 1 from team_memberships tm join teams t on t.id=tm.team_id and t.archived_at is null join departments d on d.id=t.department_id
-                     where tm.user_id=m.user_id and d.division='creditops')
-    and not exists (select 1 from management_seats s left join divisions dv on dv.id=s.division_id left join departments sd on sd.id=s.department_id
-                     where s.user_id=m.user_id and seat_is_live(s.effective_from, s.effective_to) and (dv.service='creditops' or sd.division='creditops'))
-    and not exists (select 1 from partner_assignments pa where pa.user_id=m.user_id and pa.ended_on is null)
-  order by p.full_name limit 1`)[0];
+const pick = (where, order = "p.full_name") => q.query(`select m.user_id, coalesce(p.full_name,p.email) as name
+  from agency_memberships m join profiles p on p.id=m.user_id
+  where m.status='active' and not coalesce(p.is_fixture,false) and (${where}) order by ${order} limit 1`)[0];
+const onCreditOpsTeam = `exists (select 1 from team_memberships tm join teams t on t.id=tm.team_id and t.archived_at is null join departments d on d.id=t.department_id where tm.user_id=m.user_id and d.division='creditops')`;
+const seat = (kind) => `exists (select 1 from management_seats s where s.user_id=m.user_id and s.seat='${kind}' and seat_is_live(s.effective_from, s.effective_to))`;
+const exec     = pick(`m.role='agency_admin'`, "m.is_owner desc nulls last, p.full_name");
+const division = pick(seat("division_manager"));
+const departmt = pick(seat("department_manager"));
+const lead     = pick(`m.role='agency_user' and exists (select 1 from team_memberships tm join teams t on t.id=tm.team_id and t.archived_at is null join departments d on d.id=t.department_id where tm.user_id=m.user_id and tm.is_lead and d.division='creditops')`,
+  `(case when ${seat("department_manager")} or ${seat("division_manager")} then 1 else 0 end), p.full_name`);
+const agent    = pick(`m.role='agency_user' and m.can_receive_production_work and ${onCreditOpsTeam} and not exists (select 1 from team_memberships tm where tm.user_id=m.user_id and tm.is_lead) and not exists (select 1 from management_seats s where s.user_id=m.user_id and seat_is_live(s.effective_from, s.effective_to))`);
+const outsider = pick(`m.role='agency_user' and not ${onCreditOpsTeam} and not exists (select 1 from management_seats s left join divisions dv on dv.id=s.division_id left join departments sd on sd.id=s.department_id where s.user_id=m.user_id and seat_is_live(s.effective_from, s.effective_to) and (dv.service='creditops' or sd.division='creditops')) and not exists (select 1 from partner_assignments pa where pa.user_id=m.user_id and pa.ended_on is null)`);
 if (!exec || !agent) { console.error("no executive or no CreditOps agent on the roster"); process.exit(2); }
 
 /* A real file each person can see, with the most activity, so the timeline
@@ -98,11 +84,22 @@ const PATHS = (fc, uid) => [
   ["History tab · client_history",       500,  300, `select * from public.client_history('${fc}'::uuid)`],
   ["Identity & Access · secrets list",   300,  200, `select id, kind, label, provider, username, url, secret_id, last_rotated_at from client_secrets where client_id=(select client_id from fulfillment_clients where id='${fc}') and archived_at is null order by kind`],
   ["search · name filter",               500,  300, `select fc.id, fc.name from fulfillment_clients fc where fc.archived_at is null and not fc.is_fixture and fc.name ilike '%mar%' order by fc.name limit 50`],
+  /* ── Whole app (FullSuite audit, 2026-09-30) ─────────────────────────── */
+  ["bell · unread notifications (every page, every minute)", 1500, 300, `select id from notifications where read_at is null`],
+  ["Clients directory (1,000 rows)",     1000,  500, `select c.* from clients c order by c.full_name limit 1000`],
+  ["Partners page · partner list",        400,  300, `select g.* from outsourcing_groups g where g.archived_at is null order by g.name`],
+  ["Home · attention",                    800,  500, `select * from work_attention`],
+  ["Home · creditops exceptions",         800,  500, `select * from creditops_exceptions`],
+  ["People · attendance (7 days)",        800,  500, `select * from public.attendance_for(current_date - 6, current_date)`],
+  ["Communication · visible channels",    600,  300, `select * from public.visible_channels()`],
+  ["EOD · my report",                     800,  500, `select public.eod_my_report(current_date)`],
+  ["Finance · overview",                  600,  300, `select * from public.finance_overview(6)`],
+  ["BES CRM · project board",            1500, 1000, `select * from public.crm_project_board('active')`],
 ];
 
 let failed = 0;
 const table = [];
-for (const [who, p] of [["EXECUTIVE", exec], ["AGENT", agent], ["TEAM LEAD / MANAGER", lead], ["NON-CREDITOPS", outsider]]) {
+for (const [who, p] of [["OWNER / EXECUTIVE", exec], ["DIVISION MANAGER", division], ["DEPARTMENT MANAGER", departmt], ["TEAM LEAD", lead], ["AGENT", agent], ["NON-CREDITOPS", outsider]]) {
   if (!p) { console.log(`\n${who}: nobody on the roster fits — skipped`); continue; }
   const fc = busiest(p.user_id);
   console.log(`\n${who}: ${p.name}${fc ? "" : " (sees no client — file paths skipped)"}`);
@@ -137,8 +134,18 @@ for (const [who, p] of [["EXECUTIVE", exec], ["AGENT", agent], ["TEAM LEAD / MAN
       for (let i = 0; i < (reportOnly ? 1 : 3); i++) runs.push(timeAs(p.user_id, sql));
       runs.sort((a, b) => a.ms - b.ms);
       r = runs[Math.floor(runs.length / 2)];
-    } catch (e) { r = { ms: Infinity, rows: "ERR " + String(e).slice(0, 40) }; }
-    const over = r.ms > limit;
+      /* The ceiling applies to the WORST single run, not the median. */
+      if (runs[runs.length - 1].ms > 10_000) r = runs[runs.length - 1];
+    } catch (e) {
+      /* A capability refusal (42501) is the right answer for this role, not
+         a slow one: the path does not exist for them. Anything else is an error. */
+      if (/42501/.test(String(e))) { console.log(`  n/a  ${label.padEnd(33)} ${"denied".padStart(6)}`); continue; }
+      r = { ms: Infinity, rows: "ERR " + String(e).slice(0, 40) };
+    }
+    /* Dee, 2026-09-30: every action, click, load and navigation under 10 s —
+       an absolute ceiling on any single measurement, whatever the guard. */
+    const HARD_CEILING_MS = 10_000;
+    const over = r.ms > limit || r.ms > HARD_CEILING_MS;
     const slow = !over && r.ms > target;
     if (over && !reportOnly) failed++;
     table.push({ who, label, ms: r.ms, limit });

@@ -30,6 +30,6 @@ npm run build --silent
 # CreditOps path, timed in the live database as an executive AND as an
 # agent, each against its threshold. Over threshold = no release.
 echo "== creditops latency (live, as executive and agent) =="
-node supabase/scripts/creditops-latency-probe.mjs
+node supabase/scripts/fullsuite-latency-probe.mjs
 
 echo "== GATE PASSED =="
