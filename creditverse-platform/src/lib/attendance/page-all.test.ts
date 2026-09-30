@@ -14,7 +14,24 @@ describe("reading past PostgREST's silent 1,000-row cap", () => {
     const calls: number[] = [];
     const rows = await pageAll(async (o, l) => { calls.push(o); return exact.slice(o, o + l); });
     expect(rows.length).toBe(2000);
-    expect(calls).toEqual([0, 1000, 2000]);
+    /* The first page is read alone; the exactly-full second page is not
+       trusted, so a third request (offset 2000) is made and comes back empty. */
+    expect(calls[0]).toBe(0);
+    expect(calls).toContain(1000);
+    expect(calls).toContain(2000);
+  });
+
+  it("reads the pages after the first together, not one after another", async () => {
+    let inFlight = 0, peak = 0;
+    const rows = await pageAll(async (o, l) => {
+      inFlight++; peak = Math.max(peak, inFlight);
+      await new Promise((r) => setTimeout(r, 5));
+      inFlight--;
+      return source.slice(o, o + l);
+    });
+    expect(rows.length).toBe(1472);
+    /* 1,472 rows: page 0 alone, then pages 1–3 in flight at once. */
+    expect(peak).toBeGreaterThan(1);
   });
 
   it("stops loudly rather than looping forever", async () => {

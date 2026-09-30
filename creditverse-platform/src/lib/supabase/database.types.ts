@@ -20691,6 +20691,7 @@ export type Database = {
           saved_at: string
         }[]
       }
+      my_visible_client_ids: { Args: never; Returns: string[] }
       my_visible_organization_ids: { Args: never; Returns: string[] }
       my_visible_partner_ids: { Args: never; Returns: string[] }
       my_visible_profile_ids: { Args: never; Returns: string[] }

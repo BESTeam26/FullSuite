@@ -15,14 +15,27 @@ export const POSTGREST_PAGE = 1000;
 export async function pageAll<T>(
   fetchPage: (offset: number, limit: number) => Promise<T[]>,
   pageSize: number = POSTGREST_PAGE,
-  /** A hard stop, so a misbehaving source cannot loop forever. */
   maxPages = 50,
 ): Promise<T[]> {
   const out: T[] = [];
-  for (let page = 0; page < maxPages; page++) {
-    const rows = await fetchPage(page * pageSize, pageSize);
-    out.push(...rows);
-    if (rows.length < pageSize) return out;
+  /* The first page tells us whether there is more. After that, pages are
+     independent, so they are read three at a time rather than one after
+     another: the 2,155-row client directory was three sequential requests
+     (~3 s on a real link) for one round trip's worth of waiting (FullSuite
+     audit, 2026-09-30). Still bounded by maxPages; still refuses loudly
+     rather than truncating silently. */
+  const first = await fetchPage(0, pageSize);
+  out.push(...first);
+  if (first.length < pageSize) return out;
+  const FAN_OUT = 3;
+  for (let page = 1; page < maxPages; page += FAN_OUT) {
+    const batch = await Promise.all(
+      Array.from({ length: Math.min(FAN_OUT, maxPages - page) }, (_, i) => fetchPage((page + i) * pageSize, pageSize)),
+    );
+    for (const rows of batch) {
+      out.push(...rows);
+      if (rows.length < pageSize) return out;
+    }
   }
   throw new Error(`Refused to read more than ${maxPages * pageSize} rows — narrow the range.`);
 }
