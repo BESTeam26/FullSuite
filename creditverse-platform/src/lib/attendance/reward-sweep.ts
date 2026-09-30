@@ -90,6 +90,9 @@ export function evaluateQuarter(input: {
   correctionsFor: (userId: string) => readonly Correction[];
 }): SweepOutcome[] {
   const { quarter, today, policy } = input;
+  /* A quarter that ended before scoring began was the testing phase: nobody
+     is scored for it, so nobody is rewarded or reported for it. */
+  if (policy.scoringStartsOn !== null && quarterBounds(quarter).to < policy.scoringStartsOn) return [];
   if (!isClosed(quarter, today)) {
     /* Dee: "Do not issue before quarter closes." Not an error — the sweep runs
        daily and most days there is simply nothing to close. */

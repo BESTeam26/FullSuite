@@ -56,7 +56,7 @@ export function useTeamPerformance(period: DateRange) {
     return people.map((person) => {
       const theirs = attendance.data!.filter((d) => d.userId === person.userId);
       const schedule = schedules.find((s) => s.userId === person.userId);
-      const facts = factsFrom(theirs, schedule, { today });
+      const facts = factsFrom(theirs, schedule, { today, scoringStartsOn: policy.scoringStartsOn });
       const input = {
         userId: person.userId, facts, policy,
         corrections: latestPerDay(corrections.data ?? [], person.userId),
@@ -73,6 +73,7 @@ export function useTeamPerformance(period: DateRange) {
 
   return {
     weighting,
+    scoringStartsOn: policy.scoringStartsOn,
     loading: team.loading || attendance.isLoading || eod.isLoading,
     error: attendance.error ?? eod.error ?? null,
     today,

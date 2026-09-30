@@ -107,3 +107,26 @@ describe("months and the export", () => {
     expect(csv.split("\n")[1]).toBe('"Ann ""A"" Lee","Processor","T1","90","","100","","7","93"');
   });
 });
+
+/* Dee, 2026-09-30: September was the testing phase; October is live. */
+describe("a period before scoring began has no score", () => {
+  const live = { ...DEFAULT_POLICY, scoringStartsOn: "2026-10-01" };
+  const input = {
+    userId: "u1",
+    facts: [fact("2026-09-15", { lateMinutes: 30 }), fact("2026-10-05")],
+    corrections: [], policy: live,
+    eodMarks: [{ employeeId: "u1", workDate: "2026-10-05", kind: "submitted_by_person" as const }],
+    items: [{ assignedTo: "u1", completedAt: "2026-09-20T10:00:00Z", qaResult: "needs_fix" as const }],
+  };
+  it("September is null in every component, not a zero", () => {
+    const s = personScore(input, { from: "2026-09-01", to: "2026-09-30" }, DEFAULT_PERFORMANCE_POLICY);
+    expect(s).toMatchObject({ attendance: null, quality: null, compliance: null, output: null, overall: null, delivered: 0, belowMinimum: false });
+  });
+  it("a period straddling the start is scored from the start — the September late and the September QA fail do not count", () => {
+    const s = personScore(input, { from: "2026-09-01", to: "2026-10-31" }, DEFAULT_PERFORMANCE_POLICY);
+    expect(s.attendance).toBe(100);
+    expect(s.compliance).toBe(100);
+    expect(s.quality).toBeNull();
+  });
+});
+

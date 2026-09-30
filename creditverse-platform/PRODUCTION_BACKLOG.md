@@ -98,6 +98,16 @@ could make on its own; all three were hers, and she answered them directly.
 
 ## HUMAN GATE — needs Dee or a real operator
 
+- **Scores count from October 1, 2026 (Dee, 2026-09-30: September was the
+  testing phase).** `attendance_policy.scoring_starts_on = 2026-10-01`
+  (migration 20260930037000). Attendance points, lates, coaching alerts,
+  Compliance and Quality all ignore days before it; the quarter-close reward
+  sweep (Edge Function v6) skips 2026-Q3. Nothing was deleted: clock records,
+  EOD filings and the ten September corrections remain as history. No pay
+  deductions existed to reverse. DEPLOYED · DATABASE VERIFIED · UI VERIFIED
+  as the owner — Dee, on or after Oct 1, open My Attendance as an agent and
+  confirm Q4 starts clean at 15 points with no September lates.
+
 - **Dispute / Support / Onboarding queue under ALL QUEUES snapped back to the
   Main Client List for managers (fixed 2026-09-30, `creditOpsMayOpenView`).**
   The sidebar drew the queues a manager may inspect; the page's guard only

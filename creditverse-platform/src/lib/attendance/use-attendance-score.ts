@@ -16,6 +16,12 @@ import { latestPerDay, useAttendanceCorrections } from "./use-attendance-correct
 import { quarterOf, scoreQuarter, type QuarterScore } from "./attendance-score";
 
 /** First and last calendar day of the quarter a date falls in. */
+/** "2026-Q4" → "2026-10-01". */
+export function quarterStartOf(quarter: string): string {
+  const [y, q] = quarter.split("-Q").map(Number);
+  return `${y}-${String((q - 1) * 3 + 1).padStart(2, "0")}-01`;
+}
+
 export function quarterRange(day: string): { from: string; to: string } {
   const [y, m] = day.split("-").map(Number);
   const firstMonth = Math.floor((m - 1) / 3) * 3 + 1;
@@ -41,12 +47,12 @@ export function useMyAttendanceScore(): { score: QuarterScore | null; isLoading:
     const mine = attendance.data.filter((d) => d.userId === auth.user?.id);
     const schedule = (schedules.data ?? []).find((s) => s.userId === auth.user?.id)
       ?? (schedules.data ?? [])[0];
-    const facts = factsFrom(mine, schedule, { today });
+    const facts = factsFrom(mine, schedule, { today, scoringStartsOn: policy.scoringStartsOn });
     return scoreQuarter(facts, {
       quarter: quarterOf(today), today, policy,
       corrections: latestPerDay(corrections.data ?? [], auth.user?.id ?? ""),
     });
-  }, [attendance.data, schedules.data, corrections.data, auth.user?.id, today]);
+  }, [attendance.data, schedules.data, corrections.data, auth.user?.id, today, policy]);
 
   return { score, isLoading: attendance.isPending || schedules.isPending };
 }

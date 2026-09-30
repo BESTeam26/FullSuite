@@ -43,7 +43,9 @@ export function ProfileOverview({ member, lead, nameOf, canEditGoals, onOpenTab 
   onOpenTab: (tab: string) => void;
 }) {
   const perf = usePersonPerformance(member.userId);
-  const { score, previous, weighting, range, today, items } = perf;
+  const { score, previous, weighting, range, today, items, scoringStartsOn } = perf;
+  /* Dee, 2026-09-30: a month before scoring began was the testing phase. */
+  const testingPhase = scoringStartsOn !== null && range.to < scoringStartsOn;
   const marks = useProductionMarks(member.userId, range.from, range.to);
   const docs = useMemberDocuments(member.userId, true);
   const leadAvatar = useAvatarUrls([lead?.avatarPath]);
@@ -63,7 +65,7 @@ export function ProfileOverview({ member, lead, nameOf, canEditGoals, onOpenTab 
     const prev = previous ? previous[key] : null;
     const label = key === "overall" ? "Overall Performance" : `${SCORE_LABEL[key]} (${weighting.weights[key]}%)`;
     const sub = key === "output" && value === null ? `${score?.delivered ?? 0} items delivered · no target yet`
-      : value === null ? "No data this month" : key === "overall" ? BAND_LABEL[bandOf(value)] : key === "quality" ? QA_GRADE(value) : BAND_LABEL[bandOf(value)];
+      : value === null ? (testingPhase ? "Testing phase · not scored" : "No data this month") : key === "overall" ? BAND_LABEL[bandOf(value)] : key === "quality" ? QA_GRADE(value) : BAND_LABEL[bandOf(value)];
     const flagged = score?.belowMinimum && ((key === "quality" && value !== null && weighting.minQuality !== null && value < weighting.minQuality)
       || (key === "compliance" && value !== null && weighting.minCompliance !== null && value < weighting.minCompliance));
     return (

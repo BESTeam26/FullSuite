@@ -27,11 +27,11 @@ export function MemberAttendanceScore({ userId }: { userId: string }) {
     if (!attendance.data) return null;
     const theirs = attendance.data.filter((d) => d.userId === userId);
     const schedule = (schedules.data ?? []).find((s) => s.userId === userId);
-    return scoreQuarter(factsFrom(theirs, schedule, { today }), {
+    return scoreQuarter(factsFrom(theirs, schedule, { today, scoringStartsOn: policy.scoringStartsOn }), {
       quarter: quarterOf(today), today, policy,
       corrections: latestPerDay(corrections.data ?? [], userId),
     });
-  }, [attendance.data, schedules.data, corrections.data, userId, today]);
+  }, [attendance.data, schedules.data, corrections.data, userId, today, policy]);
 
   return (
     <div className="rounded-xl border border-border bg-card p-4">

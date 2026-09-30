@@ -145,7 +145,7 @@ Deno.serve(async (req) => {
     const policy = policyByAgency.get(agencyId) ?? mapPolicy(null);
     const outcomes = evaluateQuarter({
       quarter, today, policy, people: group,
-      factsFor: (id) => factsFrom(days.filter((d) => d.userId === id), scheduleOf.get(id), { today }),
+      factsFor: (id) => factsFrom(days.filter((d) => d.userId === id), scheduleOf.get(id), { today, scoringStartsOn: policy.scoringStartsOn }),
       hasSchedule: (id) => scheduleOf.has(id),
       correctionsFor: (id) => latestPerDay(correctionRows, id),
     });

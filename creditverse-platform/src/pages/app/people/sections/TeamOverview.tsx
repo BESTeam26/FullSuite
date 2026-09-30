@@ -29,7 +29,7 @@ import { Donut } from "@/components/people/Donut";
 import { useManagedTeam } from "@/lib/people/use-managed-team";
 import { TeamPresence } from "@/components/people/TeamPresence";
 import {
-  addMix, attendanceMix, eodMix, lastActiveLabel, monthToDate, onTimeRate, previousMonth, qualityScore, rateChange,
+  addMix, attendanceMix, eodMix, lastActiveLabel, monthToDate, onTimeRate, previousMonth, qualityScore, rateChange, scoredRange,
   submissionRate, weekToDate, type AttendanceMix,
 } from "@/lib/people/overview-metrics";
 import { averageOf, personScore } from "@/lib/people/performance-metrics";
@@ -366,7 +366,7 @@ export function TeamOverview({ canSeePositions }: { canSeePositions: boolean }) 
           attendanceRate={onTimeRate(mixFor(selected.userId, month))}
           eodRate={submissionRate(eodMix(eodMarks.data ?? [], scheduledDays.filter((d) => d.employeeId === selected.userId), week))}
           tasksDone={work.source === "live" ? tasksDone(selected.userId) : null}
-          quality={work.source === "live" ? qualityScore(work.items, selected.userId, month) : { score: null, reviewed: 0 }}
+          quality={work.source === "live" && scoredRange(month, policy.scoringStartsOn) ? qualityScore(work.items, selected.userId, scoredRange(month, policy.scoringStartsOn)!) : { score: null, reviewed: 0 }}
           canPayroll={canPayroll} />
       )}
     </div>

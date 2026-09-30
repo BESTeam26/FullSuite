@@ -172,3 +172,17 @@ describe("eligibility", () => {
     expect(out).not.toMatchObject({ reason: "not_eligible" });
   });
 });
+
+/* Dee, 2026-09-30: nobody is scored — so nobody is rewarded — for the testing phase. */
+describe("a quarter that closed before scoring began", () => {
+  it("is not evaluated at all", () => {
+    const outcomes = evaluateQuarter({
+      quarter: "2026-Q3", today: "2026-10-01",
+      policy: { ...DEFAULT_POLICY, scoringStartsOn: "2026-10-01" },
+      people: [{ userId: "u1", agencyId: "a", active: true, alreadyRewarded: false, eligible: true }],
+      factsFor: () => [], hasSchedule: () => false, correctionsFor: () => [],
+    });
+    expect(outcomes).toEqual([]);
+  });
+});
+

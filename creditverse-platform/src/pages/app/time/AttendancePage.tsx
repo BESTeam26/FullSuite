@@ -20,6 +20,8 @@ import { AttendanceMonth } from "@/components/attendance/AttendanceMonth";
 import { AttendanceScoreCard } from "@/components/attendance/AttendanceScoreCard";
 import { useMyAttendanceScore } from "@/lib/attendance/use-attendance-score";
 import { businessToday } from "@/lib/calendar/us-federal-holidays";
+import { formatDate } from "@/lib/format-date";
+import { quarterStartOf } from "@/lib/attendance/use-attendance-score";
 import {
   BADGE_META, LATES_FOR_COACHING, LATE_WINDOW_DAYS, NCNS_FOR_MANAGEMENT,
   POINTS, PERFECT_MONTH_BONUS, STREAK_BONUSES, type BadgeKey,
@@ -68,6 +70,13 @@ export function AttendancePage() {
     <div className="space-y-3">
       {/* Whose clock everything below is judged by (Dee, 2026-09-21). */}
       <EasternTimeNote />
+      {/* Dee, 2026-09-30: the testing phase does not count. Said once, only
+          while the calendar quarter began before scoring did. */}
+      {score.scoringStartsOn && score.scoringStartsOn > quarterStartOf(score.quarter) && (
+        <p className="rounded-xl border border-border bg-muted/40 px-4 py-2 text-xs text-muted-foreground">
+          Scoring started {formatDate(score.scoringStartsOn)}. Days before that were the testing phase and do not count — no lates, no violations, no points lost.
+        </p>
+      )}
       <AttendanceHero score={score} quarterLabel={quarterLabel} />
 
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">

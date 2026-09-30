@@ -76,7 +76,7 @@ export function useManagedTeam(): ManagedTeam {
     for (const p of people) {
       const theirs = attendance.data.filter((d) => d.userId === p.userId);
       const schedule = (schedules.data ?? []).find((s) => s.userId === p.userId);
-      const facts = factsFrom(theirs, schedule, { today });
+      const facts = factsFrom(theirs, schedule, { today, scoringStartsOn: policy.scoringStartsOn });
       const theirCorrections = latestPerDay(corrections.data ?? [], p.userId);
       factsByUser.set(p.userId, facts);
       correctionsByUser.set(p.userId, theirCorrections);

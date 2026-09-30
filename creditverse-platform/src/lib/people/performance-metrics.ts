@@ -28,9 +28,7 @@
  */
 import type { AttendanceFact, AttendancePolicy, Correction } from "@/lib/attendance/attendance-score";
 import type { SubmissionKind } from "@/lib/data/eod-day";
-import {
-  attendanceMix, eodMix, onTimeRate, qualityScore, submissionRate, type DateRange,
-} from "./overview-metrics";
+import { attendanceMix, eodMix, onTimeRate, qualityScore, submissionRate, type DateRange, scoredRange } from "./overview-metrics";
 import { DEFAULT_PERFORMANCE_POLICY, type PerformancePolicy } from "./performance-policy";
 
 export interface PersonScore {
@@ -84,7 +82,14 @@ export interface PersonInputs {
   outputTarget?: number | null;
 }
 
-export function personScore(input: PersonInputs, range: DateRange, policy: PerformancePolicy = DEFAULT_PERFORMANCE_POLICY): PersonScore {
+export function personScore(input: PersonInputs, period: DateRange, policy: PerformancePolicy = DEFAULT_PERFORMANCE_POLICY): PersonScore {
+  /* A period that ended before scoring began has no score at all — not a
+     zero, not a partial: it was the testing phase. */
+  const range = scoredRange(period, input.policy.scoringStartsOn);
+  if (range === null) {
+    const parts = { attendance: null, quality: null, compliance: null, output: null };
+    return { ...parts, delivered: 0, overall: null, belowMinimum: false };
+  }
   const scheduledDays = input.facts
     .filter((f) => f.scheduled && !f.approvedLeave && inRange(f.day, range))
     .map((f) => ({ employeeId: input.userId, day: f.day }));

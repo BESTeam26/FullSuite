@@ -46,5 +46,8 @@ export function mapPolicy(r: Record<string, unknown> | null | undefined): Attend
     latesForCoaching: num(r.lates_for_coaching, d.latesForCoaching),
     lateWindowDays: num(r.late_window_days, d.lateWindowDays),
     ncnsForManagement: num(r.ncns_for_management, d.ncnsForManagement),
+    scoringStartsOn: typeof r.scoring_starts_on === "string" && /^\d{4}-\d{2}-\d{2}/.test(r.scoring_starts_on)
+      ? r.scoring_starts_on.slice(0, 10)
+      : null,
   };
 }

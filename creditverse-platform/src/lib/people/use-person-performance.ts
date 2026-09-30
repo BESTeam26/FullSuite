@@ -34,7 +34,7 @@ export function usePersonPerformance(userId: string, period?: DateRange) {
     const theirs = attendance.data.filter((d) => d.userId === userId);
     const schedule = (schedules.data ?? []).find((s) => s.userId === userId);
     const input = {
-      userId, facts: factsFrom(theirs, schedule, { today }), policy,
+      userId, facts: factsFrom(theirs, schedule, { today, scoringStartsOn: policy.scoringStartsOn }), policy,
       corrections: latestPerDay(corrections.data ?? [], userId),
       eodMarks: eod.data ?? [], items: work.source === "live" ? work.items : [],
     };
@@ -48,6 +48,7 @@ export function usePersonPerformance(userId: string, period?: DateRange) {
   return {
     loading: attendance.isLoading || eod.isLoading,
     today, range, weighting,
+    scoringStartsOn: policy.scoringStartsOn,
     items: work.source === "live" ? work.items : [],
     ...(scored ?? { score: null, previous: null, months: [] }),
   };

@@ -55,6 +55,7 @@ export function TeamPerformance() {
   const [periodKey, setPeriodKey] = useState<string>(() => periods[0]?.from ?? "");
   const period: DateRange = periods.find((p) => p.from === periodKey) ?? periods[0];
   const perf = useTeamPerformance(period);
+  const scoringStartsOn = perf.scoringStartsOn;
   const members = useAgencyMembers();
   const positions = usePositions();
   const [division, setDivision] = useState(ALL);
@@ -150,7 +151,11 @@ export function TeamPerformance() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <OpsSelect aria-label="Period" size="sm" value={period.from} onValueChange={setPeriodKey}
-            options={periods.map((p) => ({ value: p.from, label: `${formatDate(p.from)} – ${formatDate(p.to)}` }))} />
+            options={periods.map((p) => ({
+              value: p.from,
+              /* Months before scoring began were the testing phase (Dee, 2026-09-30). */
+              label: `${formatDate(p.from)} – ${formatDate(p.to)}${scoringStartsOn && p.to < scoringStartsOn ? " · testing phase, not scored" : ""}`,
+            }))} />
           <OpsSelect aria-label="Division" size="sm" value={division} onValueChange={setDivision}
             options={[{ value: ALL, label: "All divisions" }, ...divisions.map((d) => ({ value: d, label: orgDivisionLabel(d) }))]} />
           <Button size="sm" className="h-8 text-xs" onClick={exportCsv} disabled={rows.length === 0}>

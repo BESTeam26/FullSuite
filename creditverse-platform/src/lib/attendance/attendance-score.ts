@@ -69,6 +69,14 @@ export interface AttendancePolicy {
   latesForCoaching: number;
   lateWindowDays: number;
   ncnsForManagement: number;
+  /**
+   * The first day that counts, "YYYY-MM-DD", or null for "from the beginning".
+   * Dee, 2026-09-30: September was the testing phase; October is live. Days
+   * before this are not attendance events, and a performance period cannot
+   * start before it — so nothing before it can be a late, a violation, a
+   * missed EOD or a score.
+   */
+  scoringStartsOn: string | null;
 }
 
 export const DEFAULT_POLICY: AttendancePolicy = {
@@ -87,6 +95,7 @@ export const DEFAULT_POLICY: AttendancePolicy = {
   latesForCoaching: 3,
   lateWindowDays: 30,
   ncnsForManagement: 2,
+  scoringStartsOn: null,
 };
 
 /** What each classification is worth under a given policy. */
@@ -420,6 +429,8 @@ export interface QuarterScore {
    * has not broken a streak of turning up. Only a violation does.
    */
   streakDays: number;
+  /** The policy's first scored day, so a screen can say the quarter started later than the calendar did. */
+  scoringStartsOn: string | null;
 }
 
 export const quarterOf = (day: string): string => {
@@ -670,6 +681,7 @@ export function scoreQuarter(
     });
 
   return {
+    scoringStartsOn: policy.scoringStartsOn,
     quarter, score, standing, ledger, counts, alerts, activity,
     latesInWindow, nextOpportunity, clamped: raw !== score,
     months: monthRows, streakDays, badges, toNextStanding, nextAchievement,

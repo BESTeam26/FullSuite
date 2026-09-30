@@ -18,6 +18,18 @@ import { weekStart } from "@/lib/time-domain";
 
 export interface DateRange { from: string; to: string }
 
+/**
+ * The part of `range` that is scored, or null when all of it was the testing
+ * phase (Dee, 2026-09-30: scores count from October 1). One clamp, used by
+ * every performance calculation, so a September period has no quality,
+ * compliance or attendance figure rather than a figure nobody should read.
+ */
+export function scoredRange(range: DateRange, scoringStartsOn: string | null): DateRange | null {
+  if (scoringStartsOn === null || range.from >= scoringStartsOn) return range;
+  if (range.to < scoringStartsOn) return null;
+  return { from: scoringStartsOn, to: range.to };
+}
+
 /** Monday of the week `today` is in, through today. */
 export const weekToDate = (today: string): DateRange =>
   ({ from: weekStart(new Date(`${today}T12:00:00`)), to: today });

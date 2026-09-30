@@ -1460,6 +1460,7 @@ export type Database = {
           ncns_for_management: number
           ncns_penalty: number
           perfect_month_bonus: number
+          scoring_starts_on: string | null
           streak_tiers: Json
           updated_at: string
           updated_by: string | null
@@ -1483,6 +1484,7 @@ export type Database = {
           ncns_for_management?: number
           ncns_penalty?: number
           perfect_month_bonus?: number
+          scoring_starts_on?: string | null
           streak_tiers?: Json
           updated_at?: string
           updated_by?: string | null
@@ -1506,6 +1508,7 @@ export type Database = {
           ncns_for_management?: number
           ncns_penalty?: number
           perfect_month_bonus?: number
+          scoring_starts_on?: string | null
           streak_tiers?: Json
           updated_at?: string
           updated_by?: string | null

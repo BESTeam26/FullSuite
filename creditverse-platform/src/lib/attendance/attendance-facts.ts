@@ -57,13 +57,20 @@ export function scheduledMinutes(schedule: ShiftLike): number {
 export function factsFrom(
   days: readonly AttendanceDayLike[],
   schedule: ShiftLike | undefined,
-  options: { today: string },
+  options: {
+    today: string;
+    /** `AttendancePolicy.scoringStartsOn`. Required so no caller can forget the testing period. */
+    scoringStartsOn: string | null;
+  },
 ): AttendanceFact[] {
   const shift = schedule ? scheduledMinutes(schedule) : 0;
   return days
     /* A day that has not finished is not yet an attendance event: somebody who
        has not clocked in at 9:05 is "not in yet", not absent. */
     .filter((d) => d.day < options.today)
+    /* Days before scoring began were the testing phase (Dee, 2026-09-30): not
+       lates, not violations, not points. The clock records still exist. */
+    .filter((d) => options.scoringStartsOn === null || d.day >= options.scoringStartsOn)
     .filter((d) => d.status !== "no_schedule" && d.status !== "off")
     .map((d) => ({
       day: d.day,
