@@ -1391,3 +1391,24 @@ Retired enum values still exist in history and must always normalize to fail
 SAFE (owner→admin, ranks→user). The GHL-style **Login As is designed but
 deferred** — see `DEFERRED_AGENCY_WORK.md` D-001. Do not build a second
 preview system meanwhile; the parked View As stays until Login As replaces it.
+
+## 26. FullSuite performance, navigation & UX rule (Dee, 2026-09-30 — permanent)
+
+**Full text, verbatim: `creditverse-platform/FULLSUITE_PERFORMANCE_RULE.md`.
+Read it before any change to any module. This section is a pointer, not a
+summary.**
+
+```
+simple navigation      < 300 ms      normal page / list   < 1 s
+heavier workspace      < 2 s         3–5 s                investigate
+5–10 s                 unacceptable  10 s +               production defect, release blocker
+```
+
+**No known 10-second interaction may ship**, in any module. Every
+performance change touching RLS, policies, views, helpers or visibility
+carries a per-role before/after visibility proof (the one-transaction
+pattern in `supabase/scripts/creditops-latency-probe.mjs`'s companions).
+Fixed paths join the permanent latency suite with target, guard, baseline,
+role and request count, and a major regression fails the release gate.
+Measured as Owner/Executive, Division Manager, Department Manager, Team
+Lead, Agent and a zero-visibility user — never admin alone.
