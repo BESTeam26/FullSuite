@@ -20687,6 +20687,7 @@ export type Database = {
           key: string
         }[]
       }
+      my_reach_team_ids: { Args: { p_agency: string }; Returns: string[] }
       my_saved_messages: {
         Args: { p_limit?: number }
         Returns: {

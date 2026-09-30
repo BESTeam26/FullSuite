@@ -16,7 +16,9 @@
  * into a division store.
  */
 
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { ArrowUp, ArrowDown, ArrowUpDown, Pencil } from "lucide-react";
 import {
   checkClientConflict,
@@ -124,6 +126,36 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
   statusTone,
   renderExtraCell,
 }: OpsClientListTableProps<T, Id>) {
+  /* ── ONLY THE VISIBLE ROWS ARE IN THE DOM ────────────────────────────
+     A 1,472-row table committed whole took 1.9–2.9 s to paint after a
+     click, and the phone card list below was rendered too — hidden by CSS,
+     still built (FullSuite audit, 2026-09-30). Rows are virtualized against
+     the pane that scrolls them (rule 7: virtualize large lists), and the
+     card list exists only on a phone. Row heights are measured, so a row
+     that wraps is laid out correctly. */
+  const isMobile = useIsMobile();
+  const tableRef = useRef<HTMLTableElement | null>(null);
+  const virtualizer = useVirtualizer({
+    count: clients.length,
+    getScrollElement: () =>
+      (tableRef.current?.closest("[data-scroll-region]") as HTMLElement | null)
+      ?? (document.scrollingElement as HTMLElement | null),
+    estimateSize: () => 44,
+    overscan: 12,
+    /* Before the pane has been measured (first paint, tests), assume one
+       screen of rows rather than none; and a row that measures 0 (not laid
+       out) keeps its estimate rather than collapsing the list. */
+    initialRect: { width: 1200, height: 800 },
+    measureElement: (el) => el.getBoundingClientRect().height || 44,
+    /* The table sits below a header inside the scroll pane; its own offset
+       is what the virtualizer must subtract. */
+    scrollMargin: tableRef.current?.offsetTop ?? 0,
+  });
+  const virtualRows = virtualizer.getVirtualItems();
+  const paddingTop = virtualRows.length > 0 ? virtualRows[0].start - virtualizer.options.scrollMargin : 0;
+  const paddingBottom = virtualRows.length > 0
+    ? virtualizer.getTotalSize() - (virtualRows[virtualRows.length - 1].end - virtualizer.options.scrollMargin)
+    : 0;
   const [editingStatusId, setEditingStatusId] = useState<string | null>(null);
   const [editingAgentId, setEditingAgentId] = useState<string | null>(null);
   const [editingContact, setEditingContact] = useState<{
@@ -438,7 +470,7 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
       {/* Phones: the same clients as cards — name, partner, status, due,
           assignee — tap to open (Dee's mobile standard §17). The inline
           editors stay on the table, which is a tablet/desktop surface. */}
-      <ul className="space-y-2 md:hidden">
+      {isMobile && <ul className="space-y-2 md:hidden">
         {clients.map((c) => (
           <li key={c.id}>
             <button type="button" onClick={() => onOpenClient(c.id)}
@@ -465,9 +497,9 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
         {clients.length === 0 && (
           <li className="rounded-xl border border-dashed border-border p-6 text-center text-xs text-muted-foreground">No clients in this list.</li>
         )}
-      </ul>
+      </ul>}
       <div className="hidden overflow-x-auto rounded-xl border border-border md:block">
-        <table className="w-full text-sm">
+        <table ref={tableRef} className="w-full text-sm">
           <thead className="bg-muted">
             <tr>
               {selection && (
@@ -540,9 +572,12 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {clients.map((c) => (
+            {paddingTop > 0 && <tr aria-hidden style={{ height: paddingTop }}><td /></tr>}
+            {virtualRows.map((row) => { const c = clients[row.index]; return (
               <tr
                 key={c.id}
+                data-index={row.index}
+                ref={virtualizer.measureElement}
                 className={cn(
                   "group cursor-pointer transition-colors hover:bg-muted/30",
                   selection?.selected.has(c.id) && "bg-primary/5",
@@ -616,7 +651,8 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
                   </td>
                 ))}
               </tr>
-            ))}
+            ); })}
+            {paddingBottom > 0 && <tr aria-hidden style={{ height: paddingBottom }}><td /></tr>}
           </tbody>
         </table>
       </div>

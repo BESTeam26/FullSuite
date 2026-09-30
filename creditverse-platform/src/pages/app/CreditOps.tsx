@@ -319,7 +319,7 @@ function CreditOpsWorkspace() {
             }}
           />
 
-          <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="min-h-0 flex-1 overflow-y-auto" data-scroll-region>
             {openCaseId ? (
               /* The client, INSIDE the shell. Everything around it — tree,
                  header, partner highlight — is the same mounted instance the
