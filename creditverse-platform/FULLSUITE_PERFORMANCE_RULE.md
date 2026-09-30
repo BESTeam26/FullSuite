@@ -155,3 +155,23 @@ If a new feature makes the app noticeably slower, fix the performance regression
 ## 14. PRODUCT PRINCIPLE
 FullSuite should feel fast enough that users think about their work, not the software.
 The system should reduce friction, not create it.
+
+---
+
+## Addendum — Dee, 2026-09-30 (after the FullSuite audit), verbatim
+
+Performance is a release requirement across all FullSuite modules.
+No known 10-second interaction may ship.
+Every fixed latency defect must stay covered by the FullSuite latency suite.
+Performance must be measured by role, not just as owner/admin.
+Security equivalence must be proven for any optimization touching RLS, views, policies, or authorization helpers.
+New features must not regress protected paths.
+FullSuite should feel responsive enough that users think about their work, not the software.
+
+Remaining open performance work, in this order:
+1. Reporting pivots at 1–3s
+2. BES CRM board around 1.1s
+3. High-unread notification bell around 1.1s
+4. Any real-world path the team reports as slow even if the synthetic gate still passes
+
+One important thing: do not let the gate become the only truth. If the team still says a screen feels slow, profile that real session. The browser/network/render path can still feel bad even when the DB query is fast.

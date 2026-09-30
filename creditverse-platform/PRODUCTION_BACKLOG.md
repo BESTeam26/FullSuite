@@ -19,6 +19,14 @@ Last reconciled: 2026-09-21, after the Eastern workday lock (`1f6b8e7`).
 
 ## NEXT — Dee's production focus order
 
+**Open performance work (Dee, 2026-09-30, in this order — the latency suite
+guards every fixed path; the gate is not the only truth: a screen the team
+says feels slow is profiled as a real session):**
+1. Reporting pivots at 1–3 s (`report_pivot` over `report_facts_scoped`)
+2. BES CRM board around 1.1 s (`crm_project_board` per-project helpers)
+3. High-unread notification bell around 1.1 s (`can_view_activity` per row is the remainder)
+4. Any real-world path the team reports as slow even if the synthetic gate still passes
+
 1. ~~**Communication mobile**~~ — BUILT and deployed (P-046). Awaiting Dee's
    six human checks on the installed PWA: system back, keyboard over the
    composer, a real send, @mention insert, photo attach, notification tap,
