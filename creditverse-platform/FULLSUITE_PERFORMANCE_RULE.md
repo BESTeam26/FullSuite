@@ -175,3 +175,32 @@ Remaining open performance work, in this order:
 4. Any real-world path the team reports as slow even if the synthetic gate still passes
 
 One important thing: do not let the gate become the only truth. If the team still says a screen feels slow, profile that real session. The browser/network/render path can still feel bad even when the DB query is fast.
+
+---
+
+## Addendum — Dee, 2026-09-30 (client list virtualization), verbatim
+
+Lock the client list virtualization as a permanent performance rule:
+* large lists must not render every row at once
+* do not render hidden desktop/mobile duplicate lists at the same time
+* only render what is visible plus a small buffer
+* deep scroll must remain accurate
+* filters, search, selection, status updates, bulk actions, and row height behavior must continue to work correctly
+
+Add a regression test so the client list cannot quietly go back to rendering 1,000+ DOM rows.
+Also add the real interaction paths to the INP/performance coverage:
+* Main Client List
+* Dispute Queue
+* Support Queue
+* Partner switch
+* client open
+
+Keep the target: normal click INP under 200ms and preferably under 100ms for common navigation.
+
+Any FullSuite list expected to exceed a few hundred rows must use virtualization or an equivalent bounded-render strategy.
+That should apply to CreditOps, People, Partners, My Work, EOD punch lists, reporting tables, and any future high-volume list.
+
+### How this is enforced
+* `src/components/dashboard/fulfillment/ops-client-list-virtualization.test.tsx` fails the release gate if the client list renders anything like its row count again (1,500 clients must render < 100 rows; no phone cards on a desktop).
+* `supabase/scripts/inp-probe.browser.js` is the INP probe: pasted into the browser console on the live app (or driven by the browser tool with REAL clicks — synthetic `.click()` carries no interaction id), it reports click → next paint for Main Client List, Dispute Queue, Support Queue, a Partner switch and a client open, against the 200 ms / 100 ms targets. Run it as an agent account, not only as the owner.
+* The virtualized list: `OpsClientListTable` (`@tanstack/react-virtual`, rows measured, estimate fallback, phone card list only under `useIsMobile()`); the scroll pane is marked `data-scroll-region` in `CreditOps.tsx`.

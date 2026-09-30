@@ -75,6 +75,10 @@ const PATHS = (fc, uid) => [
   ["department rows · scope (Vanquish)",  800,  500, `select * from public.creditops_department_rows((select id from outsourcing_groups where name='Vanquish Ventures'))`],
   ["department statuses (200 ids)",      800,  500, `select s.*, p.full_name, p.email from client_department_statuses s left join profiles p on p.id=s.assignee_id where s.client_id in (select id from fulfillment_clients where archived_at is null and not is_fixture order by name limit 200) order by s.client_id`],
   ["open queue · Dispute",               800,  500, `select * from creditops_department_queue where department='Dispute' order by due_at nulls last limit 500`],
+  ["open queue · Support",               800,  500, `select * from creditops_department_queue where department='Support' order by due_at nulls last limit 500`],
+  // Dee's named interaction paths (2026-09-30): Main Client List, Dispute Queue, Support Queue, Partner switch, client open.
+  // A partner switch is one scope RPC since 20260930027000 — it used to be 6 requests of 200-id batches.
+  ["partner switch · department rows",    800,  500, `select * from public.creditops_department_rows((select id from outsourcing_groups where archived_at is null order by name limit 1))`],
   ["My Work / next client",              600,  300, `select client_id, client_name, department, due_at from creditops_my_work where assignee_id='${uid}' order by due_at nulls first limit 100`],
   ["open Client Workspace · file",       500,  200, `select fc.*, o.name, g.name, p.full_name from fulfillment_clients fc left join organizations o on o.id=fc.organization_id left join outsourcing_groups g on g.id=fc.outsourcing_group_id left join profiles p on p.id=fc.assigned_agent_id where fc.id='${fc}'`],
   ["open Client Workspace · departments",800,  300, `select s.*, p.full_name from client_department_statuses s left join profiles p on p.id=s.assignee_id where s.client_id='${fc}'`],

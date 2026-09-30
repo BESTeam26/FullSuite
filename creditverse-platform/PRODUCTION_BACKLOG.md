@@ -60,6 +60,14 @@ says feels slow is profiled as a real session):**
 
 ## LATER — useful, not currently blocking operations
 
+- **Bounded rendering for every high-volume list (Dee's rule, 2026-09-30).**
+  Done: the CreditOps main client list and department queues
+  (`OpsClientListTable`, virtualized, phone cards only on a phone). Still
+  rendering every row and to be bounded when they grow or when touched
+  next: People › Team Members, Partners list, My Work, EOD punch lists,
+  reporting pivot tables. Each gets the same regression test shape as
+  `ops-client-list-virtualization.test.tsx` when it is converted.
+
 - Desktop / browser push notifications (brief: `docs/design-references/desktop-notifications-brief-2026-09-21.md`; VAPID keys already stored server-side).
 - TalentOps beyond the shipped workspace (D-022).
 - **Retention classes for sensitive uploads** (credit reports, identity

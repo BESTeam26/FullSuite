@@ -1412,3 +1412,11 @@ Fixed paths join the permanent latency suite with target, guard, baseline,
 role and request count, and a major regression fails the release gate.
 Measured as Owner/Executive, Division Manager, Department Manager, Team
 Lead, Agent and a zero-visibility user — never admin alone.
+
+**Lists (Dee, 2026-09-30):** any list expected to exceed a few hundred
+rows renders only what is visible plus a small buffer (virtualized or an
+equivalent bounded strategy) — CreditOps, People, Partners, My Work, EOD
+punch lists, reporting tables and every future high-volume list. Never a
+hidden desktop/mobile duplicate list rendered at the same time. Click INP
+under 200 ms, preferably under 100 ms for common navigation; measured with
+real input (`supabase/scripts/inp-probe.browser.js`), as an agent too.
