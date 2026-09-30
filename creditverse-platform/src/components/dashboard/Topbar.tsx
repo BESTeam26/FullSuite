@@ -1,9 +1,8 @@
-import { useUnreadNotificationCount } from "@/lib/data/use-notifications";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { NewClientDialog } from "@/components/clients/NewClientDialog";
 import {
-  Bell,
   Plus,
   Building2,
   Layers,
@@ -42,7 +41,6 @@ export const Topbar = () => {
      search opens as its own full-width row instead of eating the header. */
   const [mobileSearch, setMobileSearch] = useState(false);
   const copilot = useCopilot();
-  const unreadNotifications = useUnreadNotificationCount();
   const account = useOwnProfile();
   const avatars = useAvatarUrls([account.profile?.avatarPath]);
   const avatarUrl = account.profile?.avatarPath ? avatars.data?.[account.profile.avatarPath] : null;
@@ -116,25 +114,9 @@ export const Topbar = () => {
           {mobileSearch ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
         </button>
 
-        {/* The dot means exactly one thing: unread rows in `notifications`
-            for this user, under their own RLS. Same query as the sidebar. */}
-        <Link
-          to="/app/notifications"
-          aria-label={
-            unreadNotifications > 0
-              ? `Notifications, ${unreadNotifications} unread`
-              : "Notifications"
-          }
-          title="Notifications"
-          className="relative inline-flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-        >
-          <Bell className="h-5 w-5" />
-          {unreadNotifications > 0 && (
-            <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-primary-foreground">
-              {unreadNotifications > 99 ? "99+" : unreadNotifications}
-            </span>
-          )}
-        </Link>
+        {/* The bell: the badge is the unread count; the popover is the most
+            recent unread and the way to the full list (Dee, 2026-09-30). */}
+        <NotificationBell />
 
         {/* Phone: the secondary controls, one menu. Authorization is unchanged —
             each item is the same action as its desktop control. */}

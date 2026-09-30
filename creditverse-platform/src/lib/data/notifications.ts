@@ -69,6 +69,7 @@ export const mapNotification = (row: NotificationRow): Notification => ({
 });
 
 export const NOTIFICATIONS_PAGE_SIZE = 50;
+export const RECENT_UNREAD_LIMIT = 5;
 
 export async function fetchNotifications(
   limit = NOTIFICATIONS_PAGE_SIZE,
@@ -76,6 +77,18 @@ export async function fetchNotifications(
   const { data, error } = await supabase
     .from("notifications")
     .select("*")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map(mapNotification);
+}
+
+/** The bell's popover: the newest unread only, a handful (Dee, 2026-09-30). */
+export async function fetchRecentUnreadNotifications(limit = RECENT_UNREAD_LIMIT): Promise<Notification[]> {
+  const { data, error } = await supabase
+    .from("notifications")
+    .select("*")
+    .is("read_at", null)
     .order("created_at", { ascending: false })
     .limit(limit);
   if (error) throw new Error(error.message);

@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth/auth-context";
 import {
   fetchNotifications,
+  fetchRecentUnreadNotifications,
   fetchUnreadCount,
   markAllNotificationsRead,
   markNotificationRead,
@@ -15,6 +16,7 @@ import {
 export const NOTIFICATIONS_KEY = ["notifications"] as const;
 const LIST_KEY = [...NOTIFICATIONS_KEY, "list"] as const;
 const UNREAD_KEY = [...NOTIFICATIONS_KEY, "unread"] as const;
+const RECENT_UNREAD_KEY = [...NOTIFICATIONS_KEY, "recent-unread"] as const;
 
 const useLive = () => {
   const auth = useAuth();
@@ -44,7 +46,27 @@ export function useNotifications(): NotificationsResult {
   };
 }
 
-/** Shared by the sidebar badge and the topbar bell: one request, one key. */
+/**
+ * The bell's popover. Fetched only while the popover is open (rule 14: no
+ * hidden-panel queries), then kept fresh for the minute the count polls.
+ */
+export function useRecentUnreadNotifications(open: boolean): NotificationsResult {
+  const live = useLive();
+  const q = useQuery({
+    queryKey: RECENT_UNREAD_KEY,
+    queryFn: () => fetchRecentUnreadNotifications(),
+    enabled: live && open,
+    staleTime: 15_000,
+  });
+  return {
+    items: q.data ?? [],
+    isLoading: live && open && q.isLoading,
+    error: q.error ? (q.error as Error).message : null,
+    live,
+  };
+}
+
+/** Shared by the topbar bell's badge: one request, one key. */
 export function useUnreadNotificationCount(): number {
   const live = useLive();
   const q = useQuery({
@@ -66,6 +88,8 @@ export function useMarkNotificationRead() {
       qc.setQueryData<Notification[]>(LIST_KEY, (prev) =>
         prev?.map((n) => (n.id === id && !n.readAt ? { ...n, readAt: now } : n)),
       );
+      /* Read rows leave the popover at once; the next open refetches. */
+      qc.setQueryData<Notification[]>(RECENT_UNREAD_KEY, (prev) => prev?.filter((n) => n.id !== id));
       void qc.invalidateQueries({ queryKey: UNREAD_KEY });
     },
   });

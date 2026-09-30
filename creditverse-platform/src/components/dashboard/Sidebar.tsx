@@ -13,7 +13,6 @@ import {
   ClipboardCheck,
   Clock,
   Timer,
-  Bell,
   FileText,
   Landmark,
   FolderOpen,
@@ -52,7 +51,6 @@ import { SubAccountSwitcher } from "@/components/dashboard/SubAccountSwitcher";
 import { useMyWork, useAttention } from "@/lib/data/use-work";
 import { useChannels } from "@/lib/data/use-channels";
 import { totalUnread } from "@/lib/communication/channel-groups";
-import { useUnreadNotificationCount } from "@/lib/data/use-notifications";
 import { useAuth } from "@/lib/auth/auth-context";
 import { usePermissions, type PermissionKeyName } from "@/lib/auth/use-permission";
 import { accessTo, routeFor } from "@/lib/agency/navigation";
@@ -155,7 +153,6 @@ export const Sidebar = () => {
      administrative row is never counted: being able to inspect a conversation
      is not a message waiting for you (§17). */
   const unreadMessages = totalUnread(useChannels().data ?? []);
-  const unreadNotifications = useUnreadNotificationCount();
   const myWorkCount = myWork.items.length;
 
   const isActive = (href: string) => {
@@ -282,13 +279,9 @@ export const Sidebar = () => {
         { label: "End of Day", icon: Timer, href: "/app/eod" },
         /* Team EOD lives in People & Teams → End of Day (Dee, 2026-09-19);
            /app/team-eod redirects there, so the "decide it from Team EOD"
-           notification still lands. */
-        {
-          label: "Notifications",
-          icon: Bell,
-          href: "/app/notifications",
-          badge: unreadNotifications,
-        },
+           notification still lands. Notifications themselves left the menu
+           on 2026-09-30: the topbar bell shows the recent unread ones and
+           links to the full page, which stays routable. */
       ],
     },
     {
