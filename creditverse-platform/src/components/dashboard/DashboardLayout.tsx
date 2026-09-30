@@ -71,7 +71,7 @@ const AgencyShell = () => {
             <Sidebar />
             <div className="flex flex-1 flex-col overflow-hidden">
               <Topbar />
-              <main ref={work} className="flex-1 overflow-y-auto">
+              <main ref={work} className="flex-1 overflow-y-auto" data-scroll-region>
                 {/* ── WHY THE BOUNDARIES ARE HERE AND NOT AROUND THE SHELL ──
                     Both of these used to sit above `DashboardLayout`: one
                     Suspense wrapping the whole route tree in App.tsx, and

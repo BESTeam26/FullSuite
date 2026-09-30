@@ -13,7 +13,9 @@
  * worked one deep file look like an agent who worked nine shallow ones, and
  * showing only the unit count loses what was done.
  */
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { useVirtualRows } from "@/hooks/use-virtual-rows";
+import { VirtualSpacer } from "@/components/ui/virtual-spacer";
 import { ChevronRight, CheckCircle2, FileText } from "lucide-react";
 import type { EodActivity } from "@/lib/data/eod-day";
 import { cn } from "@/lib/utils";
@@ -22,6 +24,8 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
 
 export function EodProductionSummary({ activity }: { activity: EodActivity }) {
   const [openFile, setOpenFile] = useState<string | null>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+  const virtual = useVirtualRows(activity.files.length, listRef);
 
   if (activity.filesWorked === 0 && activity.actionsCompleted === 0) {
     return (
@@ -92,11 +96,13 @@ export function EodProductionSummary({ activity }: { activity: EodActivity }) {
           <p className="mb-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground">
             Work behind these totals
           </p>
-          <ul className="divide-y divide-border/50 rounded-lg border border-border">
-            {activity.files.map((f) => {
+          <ul ref={listRef} className="divide-y divide-border/50 rounded-lg border border-border">
+            <VirtualSpacer as="li" height={virtual.paddingTop} />
+            {virtual.rows.map((row) => {
+              const f = activity.files[row.index];
               const open = openFile === f.id;
               return (
-                <li key={f.id}>
+                <li key={f.id} data-index={row.index} ref={virtual.measureElement}>
                   <button
                     type="button"
                     aria-expanded={open}
@@ -144,6 +150,7 @@ export function EodProductionSummary({ activity }: { activity: EodActivity }) {
                 </li>
               );
             })}
+            <VirtualSpacer as="li" height={virtual.paddingBottom} />
           </ul>
         </div>
       )}

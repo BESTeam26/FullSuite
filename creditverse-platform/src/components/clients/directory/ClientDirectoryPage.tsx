@@ -10,7 +10,10 @@
  * page answers only: who are our customers, what do they buy from us, who owns
  * the relationship, and when did we last touch them.
  */
-import { useMemo, useState } from "react";
+import { useRef, useMemo, useState } from "react";
+import { useVirtualRows } from "@/hooks/use-virtual-rows";
+import { VirtualSpacer } from "@/components/ui/virtual-spacer";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useNavigate } from "react-router-dom";
 import { Search, Users, Plus, Filter, ArrowUpDown, AlertTriangle } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -74,6 +77,13 @@ export function ClientDirectoryPage() {
     for (const r of all) for (const c of reviewCategoriesOf(r)) counts.set(c, (counts.get(c) ?? 0) + 1);
     return counts;
   }, [all]);
+
+  /* Only the visible rows are in the DOM, and only one presentation is
+     built — cards on a phone, the table elsewhere (Dee, 2026-09-30). */
+  const isMobile = useIsMobile();
+  const tableRef = useRef<HTMLTableElement>(null);
+  const cardsRef = useRef<HTMLUListElement>(null);
+  const virtual = useVirtualRows(rows.length, isMobile ? cardsRef : tableRef);
 
   return (
     <div className="p-6 md:p-8">
@@ -224,11 +234,12 @@ export function ClientDirectoryPage() {
               : "No clients match these filters."}
           </p>
         ) : (
-          <>
-            {/* Cards below md; the table's seven columns cannot fit a phone. */}
-            <ul className="divide-y divide-border/60 md:hidden">
-              {rows.map((c) => (
-                <li key={c.id}>
+          isMobile ? (
+            /* Cards below md; the table's seven columns cannot fit a phone. */
+            <ul ref={cardsRef} className="divide-y divide-border/60 md:hidden">
+              <VirtualSpacer as="li" height={virtual.paddingTop} />
+              {virtual.rows.map((row) => { const c = rows[row.index]; return (
+                <li key={c.id} data-index={row.index} ref={virtual.measureElement}>
                   <button
                     type="button"
                     onClick={() => open(c.id)}
@@ -255,9 +266,11 @@ export function ClientDirectoryPage() {
                     </span>
                   </button>
                 </li>
-              ))}
+              ); })}
+              <VirtualSpacer as="li" height={virtual.paddingBottom} />
             </ul>
-            <table className="hidden w-full text-sm md:table">
+          ) : (
+            <table ref={tableRef} className="hidden w-full text-sm md:table">
               <thead className="bg-muted/40 text-left text-[11px] uppercase tracking-wider text-muted-foreground">
                 <tr>
                   <th className="px-4 py-2.5">
@@ -274,9 +287,12 @@ export function ClientDirectoryPage() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((c) => (
+                <VirtualSpacer as="tr" height={virtual.paddingTop} colSpan={7} />
+                {virtual.rows.map((row) => { const c = rows[row.index]; return (
                   <tr
                     key={c.id}
+                    data-index={row.index}
+                    ref={virtual.measureElement}
                     onClick={() => open(c.id)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") open(c.id);
@@ -327,10 +343,11 @@ export function ClientDirectoryPage() {
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{dateLabel(c.lastActivity)}</td>
                   </tr>
-                ))}
+                ); })}
+                <VirtualSpacer as="tr" height={virtual.paddingBottom} colSpan={7} />
               </tbody>
             </table>
-          </>
+          )
         )}
       </div>
       <p className="mt-2 text-[11px] text-muted-foreground">

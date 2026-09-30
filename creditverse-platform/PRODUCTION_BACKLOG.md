@@ -60,13 +60,12 @@ says feels slow is profiled as a real session):**
 
 ## LATER — useful, not currently blocking operations
 
-- **Bounded rendering for every high-volume list (Dee's rule, 2026-09-30).**
-  Done: the CreditOps main client list and department queues
-  (`OpsClientListTable`, virtualized, phone cards only on a phone). Still
-  rendering every row and to be bounded when they grow or when touched
-  next: People › Team Members, Partners list, My Work, EOD punch lists,
-  reporting pivot tables. Each gets the same regression test shape as
-  `ops-client-list-virtualization.test.tsx` when it is converted.
+- **Bounded rendering for every high-volume list (Dee's rule, 2026-09-30) — DONE 2026-09-30.**
+  Every list past a few hundred rows now renders through `useVirtualRows`
+  (the list is in `FULLSUITE_PERFORMANCE_RULE.md`); People › Team Members
+  was already paged. What remains is the standing rule: a new list past a
+  few hundred rows uses the same hook and gets a case in
+  `large-lists-are-bounded.test.tsx`.
 
 - Desktop / browser push notifications (brief: `docs/design-references/desktop-notifications-brief-2026-09-21.md`; VAPID keys already stored server-side).
 - TalentOps beyond the shipped workspace (D-022).
@@ -98,6 +97,13 @@ could make on its own; all three were hers, and she answered them directly.
   round in the post survives, and the 30-day clock is untouched.
 
 ## HUMAN GATE — needs Dee or a real operator
+
+- **Dispute / Support / Onboarding queue under ALL QUEUES snapped back to the
+  Main Client List for managers (fixed 2026-09-30, `creditOpsMayOpenView`).**
+  The sidebar drew the queues a manager may inspect; the page's guard only
+  accepted queues the person is a member of, so the click was undone within
+  a second. FIXED AWAITING LIVE RETEST — Dee, click Dispute Queue as the
+  owner and confirm it stays.
 
 | Item | Who | What is needed |
 |---|---|---|

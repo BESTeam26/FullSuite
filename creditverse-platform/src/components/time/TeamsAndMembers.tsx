@@ -7,7 +7,9 @@
  * `work_schedules`. No new store, and nothing is written from this screen —
  * it is a read of the team, with the actions that already have homes.
  */
-import { useMemo, useState } from "react";
+import { useRef, useMemo, useState } from "react";
+import { useVirtualRows } from "@/hooks/use-virtual-rows";
+import { VirtualSpacer } from "@/components/ui/virtual-spacer";
 import { Link } from "react-router-dom";
 import {
   Building2, ChevronDown, ChevronRight, Coffee, Search, UserRound, Users,
@@ -94,6 +96,9 @@ export function TeamsAndMembers({
   const counted = members.map((m) =>
     statusOf(m.userId, dayOf.get(m.userId), running.has(m.userId), onBreak.has(m.userId)));
   const tally = (s: MemberStatus) => counted.filter((c) => c === s).length;
+
+  const tableRef = useRef<HTMLTableElement>(null);
+  const virtual = useVirtualRows(members.length, tableRef);
 
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,260px)_minmax(0,1fr)]">
@@ -185,7 +190,7 @@ export function TeamsAndMembers({
             </div>
 
             <div className="mt-3 overflow-x-auto">
-              <table className="w-full text-left text-xs">
+              <table ref={tableRef} className="w-full text-left text-xs">
                 <thead className="border-b border-border text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                   <tr>
                     <th className="px-2 py-2">Name</th>
@@ -196,11 +201,13 @@ export function TeamsAndMembers({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
-                  {members.map((m) => {
+                  <VirtualSpacer as="tr" height={virtual.paddingTop} colSpan={5} />
+                  {virtual.rows.map((row) => {
+                    const m = members[row.index];
                     const day = dayOf.get(m.userId);
                     const status = statusOf(m.userId, day, running.has(m.userId), onBreak.has(m.userId));
                     return (
-                      <tr key={m.userId}>
+                      <tr key={m.userId} data-index={row.index} ref={virtual.measureElement}>
                         <td className="px-2 py-2">
                           <Link to={`/app/people/${m.userId}`}
                             className="flex min-w-0 items-center gap-1.5 font-medium text-foreground underline-offset-2 hover:underline">
@@ -226,6 +233,7 @@ export function TeamsAndMembers({
                       </tr>
                     );
                   })}
+                  <VirtualSpacer as="tr" height={virtual.paddingBottom} colSpan={5} />
                   {members.length === 0 && (
                     <tr><td colSpan={5} className="px-2 py-8 text-center text-muted-foreground">
                       <Users className="mx-auto mb-1 h-4 w-4" aria-hidden />

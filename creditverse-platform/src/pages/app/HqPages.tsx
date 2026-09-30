@@ -1,4 +1,5 @@
 import type { ReactNode, ElementType } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { formatDate } from "@/lib/format-date";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
@@ -291,6 +292,7 @@ function CreditOpsExceptions() {
 /* ------------------------------------------------------------------ */
 
 export const MyWorkPage = () => {
+  const isMobile = useIsMobile();
   const { items, source, isLoading, error } = useMyWork();
   /* Department files assigned to me (CreditOps / FundingOps) — the second half
      of "what do I need to do right now" (separation step 4). */
@@ -357,10 +359,9 @@ export const MyWorkPage = () => {
               <>
                 {/* A five-column table does not fit a phone; the same rows as
                     cards do, and each one opens its client in a single tap. */}
-                <div className="md:hidden">
+                {isMobile ? (
                   <MyDepartmentFileCards files={departmentFiles.files} hrefFor={fileHref} />
-                </div>
-                <div className="hidden md:block">
+                ) : (
                   <DivisionTable
                     columns={["Client", "Division", "Department", "Work status", "Updated"]}
                     rows={departmentFiles.files.map((f) => [
@@ -371,7 +372,7 @@ export const MyWorkPage = () => {
                       formatDate(f.updatedAt),
                     ])}
                   />
-                </div>
+                )}
               </>
             )}
           </ContentCard>
@@ -402,14 +403,13 @@ export const MyWorkPage = () => {
           </div>
         ) : (
           <>
-            <div className="md:hidden">
+            {isMobile ? (
               <MyWorkCards
                 items={items}
                 divisionOf={(w) => (w.workspaceId ? "Workspace" : divisionOf(w.relatedType))}
                 viewMode={viewMode === "agency" ? "agency" : "organization"}
               />
-            </div>
-            <div className="hidden md:block">
+            ) : (
               <DivisionTable
                 /* "SLA (hrs) 3.4" is a number the reader has to convert. The
                    table says the same thing the cards do. */
@@ -425,7 +425,7 @@ export const MyWorkPage = () => {
                   dueLabel(w.dueAt),
                 ])}
               />
-            </div>
+            )}
           </>
         )}
       </ContentCard>

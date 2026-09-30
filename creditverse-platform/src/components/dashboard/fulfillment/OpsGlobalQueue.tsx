@@ -11,7 +11,9 @@
  * external CRMs via webhooks, FundingOps does not).
  */
 
-import { useEffect, useMemo, useState, type ElementType, type ReactNode } from "react";
+import { useRef, useEffect, useMemo, useState, type ElementType, type ReactNode } from "react";
+import { useVirtualRows } from "@/hooks/use-virtual-rows";
+import { VirtualSpacer } from "@/components/ui/virtual-spacer";
 import { Search, ChevronRight } from "lucide-react";
 import {
   clientGroupLabel,
@@ -149,6 +151,9 @@ export function OpsGlobalQueue<T extends OpsClient, P extends OpsPartner>({
     setEditingStatusId(null);
   };
 
+  const tableRef = useRef<HTMLTableElement>(null);
+  const virtual = useVirtualRows(visible.length, tableRef);
+
   return (
     <div className="space-y-4">
       {/* Header + filters */}
@@ -217,7 +222,7 @@ export function OpsGlobalQueue<T extends OpsClient, P extends OpsPartner>({
 
       {/* Table */}
       <div className="overflow-x-auto rounded-xl border border-border">
-        <table className="w-full text-sm">
+        <table ref={tableRef} className="w-full text-sm">
           <thead className="bg-muted/50">
             <tr>
               {[
@@ -250,11 +255,16 @@ export function OpsGlobalQueue<T extends OpsClient, P extends OpsPartner>({
                 </td>
               </tr>
             ) : (
-              visible.map((c) => {
+              <>
+              <VirtualSpacer as="tr" height={virtual.paddingTop} colSpan={7 + detailColumns.length} />
+              {virtual.rows.map((row) => {
+                const c = visible[row.index];
                 const partner = resolvePartner(c);
                 return (
                   <tr
                     key={c.id}
+                    data-index={row.index}
+                    ref={virtual.measureElement}
                     className="cursor-pointer transition-colors hover:bg-muted/30"
                     onClick={() => onOpenClient(c.id)}
                   >
@@ -359,7 +369,9 @@ export function OpsGlobalQueue<T extends OpsClient, P extends OpsPartner>({
                     </td>
                   </tr>
                 );
-              })
+              })}
+              <VirtualSpacer as="tr" height={virtual.paddingBottom} colSpan={7 + detailColumns.length} />
+              </>
             )}
           </tbody>
         </table>

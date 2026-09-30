@@ -3,7 +3,10 @@
  * Workspace's Main Client List shows), each opening the client profile. The
  * sample list stays in demo mode only.
  */
-import { useMemo, useState } from "react";
+import { useRef, useMemo, useState } from "react";
+import { useVirtualRows } from "@/hooks/use-virtual-rows";
+import { VirtualSpacer } from "@/components/ui/virtual-spacer";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { formatDate } from "@/lib/format-date";
 import { useNavigate } from "react-router-dom";
 import { fromCurrentUrl } from "@/lib/nav/return-to";
@@ -57,6 +60,11 @@ function LiveClientsListInner() {
   }, [clients.data, orgId, q, lifecycleView]);
   const partner = agency.activeOrganization ? partnerForOrganization("creditOps", agency.activeOrganization, fulfillment.engagements) : undefined;
 
+  const isMobile = useIsMobile();
+  const tableRef = useRef<HTMLTableElement>(null);
+  const cardsRef = useRef<HTMLUListElement>(null);
+  const virtual = useVirtualRows(rows.length, isMobile ? cardsRef : tableRef);
+
   return (
     <div className="p-6 md:p-8">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -95,10 +103,11 @@ function LiveClientsListInner() {
         ) : rows.length === 0 ? (
           <p className="p-6 text-sm text-muted-foreground">{q ? "No clients match." : lifecycleView === "active" ? "No active clients yet. Use New client to add one." : "No clients in this view."}</p>
         ) : (
-          <>
-          <ul className="divide-y divide-border/60 md:hidden">
-            {rows.map((c) => (
-              <li key={c.id}>
+          isMobile ? (
+          <ul ref={cardsRef} className="divide-y divide-border/60 md:hidden">
+            <VirtualSpacer as="li" height={virtual.paddingTop} />
+            {virtual.rows.map((row) => { const c = rows[row.index]; return (
+              <li key={c.id} data-index={row.index} ref={virtual.measureElement}>
                 <button
                   type="button"
                   onClick={() => navigate(`/app/creditops/cases/${c.id}`, { state: fromCurrentUrl() })}
@@ -112,16 +121,21 @@ function LiveClientsListInner() {
                   <span className="text-[11px] text-muted-foreground">{lifecycleLabel(c)} · {c.round} · {c.assignedAgent ?? "Unassigned"} · {lastActivityLabel(c)}</span>
                 </button>
               </li>
-            ))}
+            ); })}
+            <VirtualSpacer as="li" height={virtual.paddingBottom} />
           </ul>
-          <table className="hidden w-full text-sm md:table">
+          ) : (
+          <table ref={tableRef} className="hidden w-full text-sm md:table">
             <thead className="bg-muted/40 text-left text-[11px] uppercase tracking-wider text-muted-foreground">
               <tr><th className="px-4 py-2.5">Client</th><th className="px-4 py-2.5">Lifecycle</th><th className="px-4 py-2.5">Processing status</th><th className="px-4 py-2.5">Round</th><th className="px-4 py-2.5">Assigned</th><th className="px-4 py-2.5">Last activity</th></tr>
             </thead>
             <tbody>
-              {rows.map((c) => (
+              <VirtualSpacer as="tr" height={virtual.paddingTop} colSpan={6} />
+              {virtual.rows.map((row) => { const c = rows[row.index]; return (
                 <tr
                   key={c.id}
+                  data-index={row.index}
+                  ref={virtual.measureElement}
                   onClick={() => navigate(`/app/creditops/cases/${c.id}`, { state: fromCurrentUrl() })}
                   onKeyDown={(e) => { if (e.key === "Enter") navigate(`/app/creditops/cases/${c.id}`, { state: fromCurrentUrl() }); }}
                   tabIndex={0}
@@ -134,10 +148,11 @@ function LiveClientsListInner() {
                   <td className="px-4 py-3 text-muted-foreground">{c.assignedAgent ?? "Unassigned"}</td>
                   <td className="px-4 py-3 text-muted-foreground">{lastActivityLabel(c)}</td>
                 </tr>
-              ))}
+              ); })}
+              <VirtualSpacer as="tr" height={virtual.paddingBottom} colSpan={6} />
             </tbody>
           </table>
-          </>
+          )
         )}
       </div>
       <AddClientModal open={adding} onClose={() => setAdding(false)} partner={partner} />

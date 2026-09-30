@@ -17,8 +17,9 @@
  */
 
 import { useRef, useState, type ReactNode } from "react";
-import { useVirtualizer } from "@tanstack/react-virtual";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useVirtualRows } from "@/hooks/use-virtual-rows";
+import { VirtualSpacer } from "@/components/ui/virtual-spacer";
 import { ArrowUp, ArrowDown, ArrowUpDown, Pencil } from "lucide-react";
 import {
   checkClientConflict,
@@ -134,28 +135,9 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
      card list exists only on a phone. Row heights are measured, so a row
      that wraps is laid out correctly. */
   const isMobile = useIsMobile();
-  const tableRef = useRef<HTMLTableElement | null>(null);
-  const virtualizer = useVirtualizer({
-    count: clients.length,
-    getScrollElement: () =>
-      (tableRef.current?.closest("[data-scroll-region]") as HTMLElement | null)
-      ?? (document.scrollingElement as HTMLElement | null),
-    estimateSize: () => 44,
-    overscan: 12,
-    /* Before the pane has been measured (first paint, tests), assume one
-       screen of rows rather than none; and a row that measures 0 (not laid
-       out) keeps its estimate rather than collapsing the list. */
-    initialRect: { width: 1200, height: 800 },
-    measureElement: (el) => el.getBoundingClientRect().height || 44,
-    /* The table sits below a header inside the scroll pane; its own offset
-       is what the virtualizer must subtract. */
-    scrollMargin: tableRef.current?.offsetTop ?? 0,
-  });
-  const virtualRows = virtualizer.getVirtualItems();
-  const paddingTop = virtualRows.length > 0 ? virtualRows[0].start - virtualizer.options.scrollMargin : 0;
-  const paddingBottom = virtualRows.length > 0
-    ? virtualizer.getTotalSize() - (virtualRows[virtualRows.length - 1].end - virtualizer.options.scrollMargin)
-    : 0;
+  const tableRef = useRef<HTMLTableElement>(null);
+  const cardsRef = useRef<HTMLUListElement>(null);
+  const virtual = useVirtualRows(clients.length, isMobile ? cardsRef : tableRef);
   const [editingStatusId, setEditingStatusId] = useState<string | null>(null);
   const [editingAgentId, setEditingAgentId] = useState<string | null>(null);
   const [editingContact, setEditingContact] = useState<{
@@ -470,9 +452,10 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
       {/* Phones: the same clients as cards — name, partner, status, due,
           assignee — tap to open (Dee's mobile standard §17). The inline
           editors stay on the table, which is a tablet/desktop surface. */}
-      {isMobile && <ul className="space-y-2 md:hidden">
-        {clients.map((c) => (
-          <li key={c.id}>
+      {isMobile && <ul ref={cardsRef} className="space-y-2 md:hidden">
+        <VirtualSpacer as="li" height={virtual.paddingTop} />
+        {virtual.rows.map((row) => { const c = clients[row.index]; return (
+          <li key={c.id} data-index={row.index} ref={virtual.measureElement}>
             <button type="button" onClick={() => onOpenClient(c.id)}
               className="w-full rounded-xl border border-border bg-card p-3 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <div className="flex items-start justify-between gap-2">
@@ -493,12 +476,14 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
               </div>
             </button>
           </li>
-        ))}
+        ); })}
+        <VirtualSpacer as="li" height={virtual.paddingBottom} />
         {clients.length === 0 && (
           <li className="rounded-xl border border-dashed border-border p-6 text-center text-xs text-muted-foreground">No clients in this list.</li>
         )}
       </ul>}
-      <div className="hidden overflow-x-auto rounded-xl border border-border md:block">
+      {/* The table is a tablet/desktop surface; on a phone it is not built at all. */}
+      {!isMobile && <div className="hidden overflow-x-auto rounded-xl border border-border md:block">
         <table ref={tableRef} className="w-full text-sm">
           <thead className="bg-muted">
             <tr>
@@ -572,12 +557,12 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {paddingTop > 0 && <tr aria-hidden style={{ height: paddingTop }}><td /></tr>}
-            {virtualRows.map((row) => { const c = clients[row.index]; return (
+            <VirtualSpacer as="tr" height={virtual.paddingTop} />
+            {virtual.rows.map((row) => { const c = clients[row.index]; return (
               <tr
                 key={c.id}
                 data-index={row.index}
-                ref={virtualizer.measureElement}
+                ref={virtual.measureElement}
                 className={cn(
                   "group cursor-pointer transition-colors hover:bg-muted/30",
                   selection?.selected.has(c.id) && "bg-primary/5",
@@ -652,10 +637,10 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
                 ))}
               </tr>
             ); })}
-            {paddingBottom > 0 && <tr aria-hidden style={{ height: paddingBottom }}><td /></tr>}
+            <VirtualSpacer as="tr" height={virtual.paddingBottom} />
           </tbody>
         </table>
-      </div>
+      </div>}
     </div>
   );
 }

@@ -1,14 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  creditOpsQueuesToInspect,
-  creditOpsViewsForPerson,
-  hiddenViews,
-  toggleHiddenView,
-  visibleCreditOpsViews,
-  visibleFundingOpsViews,
-  workspaceViewOptions,
-  creditOpsNavForPerson,
-} from "./workspace-views";
+import { creditOpsQueuesToInspect, creditOpsViewsForPerson, hiddenViews, toggleHiddenView, visibleCreditOpsViews, visibleFundingOpsViews, workspaceViewOptions, creditOpsNavForPerson, creditOpsMayOpenView } from "./workspace-views";
 import { PARTNER_VIEWS } from "@/lib/fulfillment/creditops-partners";
 
 describe("organization workspace views", () => {
@@ -209,3 +200,20 @@ describe("a department agent's CreditOps navigation", () => {
   });
 });
 
+describe("creditOpsMayOpenView — the page guard agrees with the sidebar", () => {
+  it("lets a manager open a queue they may inspect but are not a member of", () => {
+    const owner = { departments: [], canAccessManagement: true };
+    expect(creditOpsMayOpenView(owner, "mgmt-dispute-queue")).toBe(true);
+    expect(creditOpsMayOpenView(owner, "mgmt-webhooks")).toBe(true);
+  });
+  it("still denies an agent a queue outside their department, and every management tool", () => {
+    const agent = { departments: ["Support"], canAccessManagement: false };
+    expect(creditOpsMayOpenView(agent, "mgmt-support-queue")).toBe(true);
+    expect(creditOpsMayOpenView(agent, "mgmt-dispute-queue")).toBe(false);
+    expect(creditOpsMayOpenView(agent, "mgmt-webhooks")).toBe(false);
+  });
+  it("keeps the universal views open to everyone, and denies an unresolved person the queues", () => {
+    expect(creditOpsMayOpenView({ departments: undefined, canAccessManagement: false }, "mgmt-main-list")).toBe(true);
+    expect(creditOpsMayOpenView({ departments: undefined, canAccessManagement: false }, "mgmt-dispute-queue")).toBe(false);
+  });
+});

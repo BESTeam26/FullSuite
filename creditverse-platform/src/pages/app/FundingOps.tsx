@@ -154,7 +154,7 @@ function FundingOpsWorkspace() {
           }}
         />
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-y-auto" data-scroll-region>
           {selection.kind === "management" ? (
             canAccessManagement ? (
               <ManagementView

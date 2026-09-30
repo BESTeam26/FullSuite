@@ -130,6 +130,21 @@ export function creditOpsQueuesToInspect(scope: PersonViewScope): PartnerViewId[
 }
 
 /**
+ * May this person OPEN a management-layer view, by its `mgmt-` id?
+ *
+ * The answer is the union of the views their job includes and the queues a
+ * manager may inspect. The sidebar draws both bands from these two lists;
+ * a check that read only the first let the owner click Dispute Queue in
+ * ALL QUEUES and be sent straight back to the Main Client List (found
+ * 2026-09-30). One decision, used by the sidebar and by the page's guard.
+ */
+export function creditOpsMayOpenView(scope: PersonViewScope, mgmtView: string): boolean {
+  if (mgmtView === "mgmt-webhooks") return scope.canAccessManagement === true;
+  const id = mgmtView.replace(/^mgmt-/, "") as PartnerViewId;
+  return creditOpsViewsForPerson(scope).includes(id) || creditOpsQueuesToInspect(scope).includes(id);
+}
+
+/**
  * The CreditOps views this person's job includes, in workspace order.
  *
  * Dee, 2026-09-11: *"Every authorized CreditOps team member should have:

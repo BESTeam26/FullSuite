@@ -45,7 +45,7 @@ import {
   CREDIT_OPS_PARTNERS,
   type PartnerViewId,
 } from "@/lib/fulfillment/creditops-partners";
-import { creditOpsViewsForPerson } from "@/lib/fulfillment/workspace-views";
+import { creditOpsMayOpenView } from "@/lib/fulfillment/workspace-views";
 import { LayoutDashboard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePartners } from "@/lib/data/use-partners";
@@ -83,13 +83,7 @@ function CreditOpsWorkspace() {
      Escalation Queue and the CRM Signal Log stay management tooling. Row
      Level Security still decides which client rows arrive in either. */
   const mayOpen = useCallback(
-    (view: string) => {
-      if (view === "mgmt-webhooks") return canAccessManagement;
-      const id = view.replace(/^mgmt-/, "");
-      return creditOpsViewsForPerson({ departments: myDepartments, canAccessManagement }).includes(
-        id as PartnerViewId,
-      );
-    },
+    (view: string) => creditOpsMayOpenView({ departments: myDepartments, canAccessManagement }, view),
     [myDepartments, canAccessManagement],
   );
   /* ── WHICH LIST YOU ARE ON LIVES IN THE ADDRESS ─────────────────────────

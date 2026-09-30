@@ -1,5 +1,7 @@
-import { useState, type ReactNode, type ElementType } from "react";
-import { Fragment } from "react";
+import { Fragment, useRef, useState, type ReactNode, type ElementType } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useVirtualRows } from "@/hooks/use-virtual-rows";
+import { VirtualSpacer } from "@/components/ui/virtual-spacer";
 import { cn } from "@/lib/utils";
 import { statusPillTone } from "@/lib/fulfillment/status-colors";
 
@@ -69,10 +71,55 @@ export const DivisionTable = ({
   rows: (string | number | ReactNode)[][];
   /** Index of the row a deep link points at; highlighted, still readable. */
   activeRow?: number;
-}) => (
-  <>
+}) => {
+  /* One presentation is built, never both: the card list is a phone
+     surface and the table a desktop one (Dee, 2026-09-30: no hidden
+     desktop/mobile duplicate lists). Rows are virtualized in either. */
+  const isMobile = useIsMobile();
+  const tableRef = useRef<HTMLTableElement>(null);
+  const cardsRef = useRef<HTMLUListElement>(null);
+  const virtual = useVirtualRows(rows.length, isMobile ? cardsRef : tableRef);
+  if (isMobile) {
+    return (
+      <ul ref={cardsRef} className="space-y-2 md:hidden">
+        <VirtualSpacer as="li" height={virtual.paddingTop} />
+        {virtual.rows.map((v) => {
+          const i = v.index;
+          const row = rows[i];
+          return (
+            <li
+              key={i}
+              data-index={i}
+              ref={virtual.measureElement}
+              aria-current={activeRow === i ? "true" : undefined}
+              className={cn(
+                "rounded-xl border border-border bg-card p-3 text-sm",
+                activeRow === i && "border-primary/50 bg-primary/5",
+              )}
+            >
+              <div className="min-w-0 break-words font-semibold text-foreground">{row[0]}</div>
+              <dl className="mt-2 grid grid-cols-[minmax(0,7rem)_minmax(0,1fr)] gap-x-3 gap-y-1">
+                {row.slice(1).map((cell, j) =>
+                  cell === null || cell === undefined || cell === "" || columns[j + 1] === "" ? (
+                    cell ? <div key={j} className="col-span-2 flex justify-end">{cell}</div> : null
+                  ) : (
+                    <Fragment key={j}>
+                      <dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{columns[j + 1]}</dt>
+                      <dd className="min-w-0 break-words text-foreground">{cell}</dd>
+                    </Fragment>
+                  ),
+                )}
+              </dl>
+            </li>
+          );
+        })}
+        <VirtualSpacer as="li" height={virtual.paddingBottom} />
+      </ul>
+    );
+  }
+  return (
     <div className="hidden overflow-x-auto rounded-xl border border-border md:block">
-      <table className="w-full text-sm">
+      <table ref={tableRef} className="w-full text-sm">
         <thead className="bg-muted/50">
           <tr>
             {columns.map((col) => (
@@ -86,56 +133,38 @@ export const DivisionTable = ({
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
-          {rows.map((row, i) => (
-            <tr
-              key={i}
-              aria-current={activeRow === i ? "true" : undefined}
-              className={cn(
-                "transition-colors hover:bg-muted/30",
-                activeRow === i && "bg-primary/5 shadow-[inset_3px_0_0_0_hsl(var(--primary))]",
-              )}
-            >
-              {row.map((cell, j) => (
-                <td
-                  key={j}
-                  className="px-4 py-2.5 text-foreground whitespace-nowrap"
-                >
-                  {cell}
-                </td>
-              ))}
-            </tr>
-          ))}
+          <VirtualSpacer as="tr" height={virtual.paddingTop} colSpan={columns.length} />
+          {virtual.rows.map((v) => {
+            const i = v.index;
+            const row = rows[i];
+            return (
+              <tr
+                key={i}
+                data-index={i}
+                ref={virtual.measureElement}
+                aria-current={activeRow === i ? "true" : undefined}
+                className={cn(
+                  "transition-colors hover:bg-muted/30",
+                  activeRow === i && "bg-primary/5 shadow-[inset_3px_0_0_0_hsl(var(--primary))]",
+                )}
+              >
+                {row.map((cell, j) => (
+                  <td
+                    key={j}
+                    className="px-4 py-2.5 text-foreground whitespace-nowrap"
+                  >
+                    {cell}
+                  </td>
+                ))}
+              </tr>
+            );
+          })}
+          <VirtualSpacer as="tr" height={virtual.paddingBottom} colSpan={columns.length} />
         </tbody>
       </table>
     </div>
-    <ul className="space-y-2 md:hidden">
-      {rows.map((row, i) => (
-        <li
-          key={i}
-          aria-current={activeRow === i ? "true" : undefined}
-          className={cn(
-            "rounded-xl border border-border bg-card p-3 text-sm",
-            activeRow === i && "border-primary/50 bg-primary/5",
-          )}
-        >
-          <div className="min-w-0 break-words font-semibold text-foreground">{row[0]}</div>
-          <dl className="mt-2 grid grid-cols-[minmax(0,7rem)_minmax(0,1fr)] gap-x-3 gap-y-1">
-            {row.slice(1).map((cell, j) =>
-              cell === null || cell === undefined || cell === "" || columns[j + 1] === "" ? (
-                cell ? <div key={j} className="col-span-2 flex justify-end">{cell}</div> : null
-              ) : (
-                <Fragment key={j}>
-                  <dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{columns[j + 1]}</dt>
-                  <dd className="min-w-0 break-words text-foreground">{cell}</dd>
-                </Fragment>
-              ),
-            )}
-          </dl>
-        </li>
-      ))}
-    </ul>
-  </>
-);
+  );
+};
 
 export const ContentCard = ({
   title,

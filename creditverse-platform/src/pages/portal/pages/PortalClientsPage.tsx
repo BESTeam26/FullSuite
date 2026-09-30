@@ -12,7 +12,9 @@
  * who at BES is assigned, raw SLA and the audit trail are not omitted by a
  * filter — they never reach the browser.
  */
-import { useMemo, useState } from "react";
+import { useRef, useMemo, useState } from "react";
+import { useVirtualRows } from "@/hooks/use-virtual-rows";
+import { VirtualSpacer } from "@/components/ui/virtual-spacer";
 import { Link } from "react-router-dom";
 import { AlertCircle, ArrowRight, Loader2, Search, Users } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -47,6 +49,8 @@ export function PortalClientsPage() {
     () => filterClients(all, filters.bucket ? filters : { ...filters, bucket: null }),
     [all, filters],
   );
+  const tableRef = useRef<HTMLTableElement>(null);
+  const virtual = useVirtualRows(rows.length, tableRef);
   const set = (patch: Partial<ClientFilters>) => setFilters((f) => ({ ...f, ...patch }));
   const pick = (v: string) => (v === ALL ? null : v);
   const narrowed = !!(filters.bucket || filters.status || filters.round || filters.department || filters.actionNeeded);
@@ -138,7 +142,7 @@ export function PortalClientsPage() {
         </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-border bg-card">
-          <table className="w-full min-w-[48rem] text-left text-xs">
+          <table ref={tableRef} className="w-full min-w-[48rem] text-left text-xs">
             <thead>
               <tr className="border-b border-border">
                 <th className="px-3 py-2 font-semibold text-muted-foreground">Client</th>
@@ -151,8 +155,9 @@ export function PortalClientsPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((c) => (
-                <tr key={c.publicId} className="border-b border-border/50 transition-colors last:border-b-0 hover:bg-muted/40">
+              <VirtualSpacer as="tr" height={virtual.paddingTop} colSpan={7} />
+              {virtual.rows.map((row) => { const c = rows[row.index]; return (
+                <tr key={c.publicId} data-index={row.index} ref={virtual.measureElement} className="border-b border-border/50 transition-colors last:border-b-0 hover:bg-muted/40">
                   <td className="px-3 py-2">
                     <Link to={`/partner/clients/${c.publicId}`}
                       className="font-medium text-foreground hover:text-primary hover:underline">
@@ -187,7 +192,8 @@ export function PortalClientsPage() {
                     )}
                   </td>
                 </tr>
-              ))}
+              ); })}
+              <VirtualSpacer as="tr" height={virtual.paddingBottom} colSpan={7} />
             </tbody>
           </table>
         </div>

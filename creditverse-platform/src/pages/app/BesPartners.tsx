@@ -29,7 +29,9 @@
  * commercial relationship in the same column, which is exactly the confusion
  * this release exists to end. They are listed apart and labelled.
  */
-import { useMemo, useState } from "react";
+import { useRef, useMemo, useState } from "react";
+import { useVirtualRows } from "@/hooks/use-virtual-rows";
+import { VirtualSpacer } from "@/components/ui/virtual-spacer";
 import { Link, useNavigate } from "react-router-dom";
 import { AlertTriangle, Building2, ExternalLink, Handshake, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -139,6 +141,9 @@ export default function BesPartners() {
     [agency.organizations, groups.data, fulfillment.engagements],
   );
 
+  const tableRef = useRef<HTMLTableElement>(null);
+  const virtual = useVirtualRows(rows.length, tableRef);
+
   return (
     <div className="p-6 md:p-8">
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
@@ -214,7 +219,7 @@ export default function BesPartners() {
               : "No partners match those filters."}
           </p>
         ) : (
-          <table className="w-full text-sm">
+          <table ref={tableRef} className="w-full text-sm">
             <thead className="bg-muted/40 text-left text-[11px] uppercase tracking-wider text-muted-foreground">
               <tr>
                 <th className="px-4 py-2.5">Partner</th>
@@ -226,11 +231,13 @@ export default function BesPartners() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((p) => {
+              <VirtualSpacer as="tr" height={virtual.paddingTop} colSpan={6} />
+              {virtual.rows.map((row) => {
+                const p = rows[row.index];
                 const summary = services.data?.[p.id];
                 const count = counts.data?.[p.id]?.activeClients;
                 return (
-                  <tr key={p.id} className="border-t border-border/60 align-top transition-colors hover:bg-muted/40">
+                  <tr key={p.id} data-index={row.index} ref={virtual.measureElement} className="border-t border-border/60 align-top transition-colors hover:bg-muted/40">
                     <td className="px-4 py-3">
                       <Link to={`/app/bes-partners/${p.id}`}
                         className="font-medium text-foreground hover:text-primary hover:underline">
@@ -299,6 +306,7 @@ export default function BesPartners() {
                   </tr>
                 );
               })}
+              <VirtualSpacer as="tr" height={virtual.paddingBottom} colSpan={6} />
             </tbody>
           </table>
         )}

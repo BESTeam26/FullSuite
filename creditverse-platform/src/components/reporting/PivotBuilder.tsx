@@ -4,7 +4,9 @@
  * the layout is remembered per browser. Values are the database's; totals are
  * computed only where a total means something (never for distinct counts).
  */
-import { useEffect, useMemo, useState } from "react";
+import { useRef, useEffect, useMemo, useState } from "react";
+import { useVirtualRows } from "@/hooks/use-virtual-rows";
+import { VirtualSpacer } from "@/components/ui/virtual-spacer";
 import { Loader2, Table2 } from "lucide-react";
 import { OpsSelect } from "@/components/ui/ops-select";
 import { ChartCard } from "@/components/dashboard/ops/ChartCard";
@@ -64,6 +66,9 @@ export function PivotBuilder({ organizationId, memberOrganizationId }: { organiz
   const table = useMemo(() => shapePivot(pivot.data ?? [], chosen, (key) => layout.rows === "month" ? monthLabel(key) : layout.rows === "employee" ? memberName[key] ?? "Team member" : key), [pivot.data, chosen, layout.rows, memberName]);
   const toggle = (key: string) => setLayout((l) => ({ ...l, kpis: l.kpis.includes(key) ? l.kpis.filter((k) => k !== key) : [...l.kpis, key] }));
 
+  const tableRef = useRef<HTMLTableElement>(null);
+  const virtual = useVirtualRows(table.rows.length, tableRef, 33);
+
   return (
     <ChartCard title="Pivot report" icon={Table2} extra={pivot.isLoading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : undefined}>
       <div className="flex flex-wrap items-end gap-3">
@@ -84,13 +89,15 @@ export function PivotBuilder({ organizationId, memberOrganizationId }: { organiz
       </div>
       {pivot.error && <p role="alert" className="mt-3 text-xs text-status-danger">Could not run the report.</p>}
       <div className="mt-3 overflow-x-auto rounded-xl border border-border">
-        <table className="w-full text-left text-xs">
+        <table ref={tableRef} className="w-full text-left text-xs">
           <thead className="bg-muted/50 text-[11px] uppercase tracking-wider text-muted-foreground">
             <tr><th className="px-3 py-2 font-bold">{DIMENSIONS.find((d) => d.value === layout.rows)?.label}</th>{table.columns.map((c) => <th key={c.key} className="px-3 py-2 text-right font-bold">{c.label}</th>)}</tr>
           </thead>
           <tbody>
             {!pivot.isLoading && table.rows.length === 0 && <tr><td colSpan={table.columns.length + 1} className="px-3 py-6 text-center text-muted-foreground">{chosen.length === 0 ? "Pick at least one KPI." : "No records in this period."}</td></tr>}
-            {table.rows.map((r) => <tr key={r.key} className="border-t border-border/60 hover:bg-muted/30"><td className="px-3 py-2 font-semibold text-foreground">{r.label}</td>{r.values.map((v, i) => <td key={i} className="px-3 py-2 text-right text-foreground">{formatKpiValue(v, table.columns[i].aggregation)}</td>)}</tr>)}
+            <VirtualSpacer as="tr" height={virtual.paddingTop} colSpan={table.columns.length + 1} />
+            {virtual.rows.map((row) => { const r = table.rows[row.index]; return <tr key={r.key} data-index={row.index} ref={virtual.measureElement} className="border-t border-border/60 hover:bg-muted/30"><td className="px-3 py-2 font-semibold text-foreground">{r.label}</td>{r.values.map((v, i) => <td key={i} className="px-3 py-2 text-right text-foreground">{formatKpiValue(v, table.columns[i].aggregation)}</td>)}</tr>; })}
+            <VirtualSpacer as="tr" height={virtual.paddingBottom} colSpan={table.columns.length + 1} />
           </tbody>
           {table.rows.length > 1 && <tfoot><tr className="border-t-2 border-border bg-muted/30 font-bold"><td className="px-3 py-2 text-foreground">Total</td>{table.totals.map((t, i) => <td key={i} className="px-3 py-2 text-right text-foreground">{formatKpiValue(t, table.columns[i].aggregation)}</td>)}</tr></tfoot>}
         </table>

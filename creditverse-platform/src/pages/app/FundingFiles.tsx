@@ -5,7 +5,10 @@
  * row is the Funding File page with its tabs. Reads are RLS-scoped to the
  * active organization's own files.
  */
-import { useMemo, useState } from "react";
+import { useRef, useMemo, useState } from "react";
+import { useVirtualRows } from "@/hooks/use-virtual-rows";
+import { VirtualSpacer } from "@/components/ui/virtual-spacer";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Link } from "react-router-dom";
 import { FolderOpen, Loader2, Search } from "lucide-react";
 import { FundingPipelineBoard } from "@/components/dashboard/fulfillment/funding-domain/FundingPipelineBoard";
@@ -37,6 +40,12 @@ export default function FundingFiles() {
     const list = q ? files.data.filter((f) => `${f.clientName ?? ""} ${f.businessName} ${f.purpose} ${f.stage} ${f.publicId ?? ""}`.toLowerCase().includes(q)) : files.data;
     return [...list].sort((a, b) => (a.clientName ?? a.businessName).localeCompare(b.clientName ?? b.businessName));
   }, [files.data, query]);
+
+  const isMobile = useIsMobile();
+  const tableRef = useRef<HTMLTableElement>(null);
+  const cardsRef = useRef<HTMLUListElement>(null);
+  const virtual = useVirtualRows(rows.length, isMobile ? cardsRef : tableRef);
+  const showCards = isMobile && !files.isLoading && rows.length > 0;
 
   return (
     <div className="space-y-4 p-6">
@@ -71,10 +80,11 @@ export default function FundingFiles() {
 
       {view === "list" && (
       <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
-        {!files.isLoading && rows.length > 0 && (
-          <ul className="divide-y divide-border/60 md:hidden">
-            {rows.map((f) => (
-              <li key={f.id}>
+        {showCards && (
+          <ul ref={cardsRef} className="divide-y divide-border/60 md:hidden">
+            <VirtualSpacer as="li" height={virtual.paddingTop} />
+            {virtual.rows.map((row) => { const f = rows[row.index]; return (
+              <li key={f.id} data-index={row.index} ref={virtual.measureElement}>
                 <Link to={`/app/funding-files/${f.id}`} className="flex flex-col gap-1 px-4 py-3 transition-colors hover:bg-muted/30 focus-visible:bg-muted/30 focus-visible:outline-none">
                   <span className="flex items-center justify-between gap-2">
                     <span className="font-semibold text-primary">{f.clientName ?? f.businessName}</span>
@@ -87,10 +97,11 @@ export default function FundingFiles() {
                   </span>
                 </Link>
               </li>
-            ))}
+            ); })}
+            <VirtualSpacer as="li" height={virtual.paddingBottom} />
           </ul>
         )}
-        <table className={cn("w-full text-left text-xs", !files.isLoading && rows.length > 0 && "hidden md:table")}>
+        {!showCards && <table ref={tableRef} className={cn("w-full text-left text-xs", !files.isLoading && rows.length > 0 && "hidden md:table")}>
           <thead className="bg-muted/50 text-[11px] uppercase tracking-wider text-muted-foreground">
             <tr>
               <th className="px-4 py-2 font-bold">Client · business · purpose</th>
@@ -107,8 +118,9 @@ export default function FundingFiles() {
             {!files.isLoading && rows.length === 0 && (
               <tr><td colSpan={5} className="px-4 py-6 text-center text-muted-foreground">No funding files yet. Files are created from a funding client in the Workspace.</td></tr>
             )}
-            {rows.map((f) => (
-              <tr key={f.id} className="border-t border-border/60 hover:bg-muted/30">
+            <VirtualSpacer as="tr" height={virtual.paddingTop} colSpan={5} />
+            {virtual.rows.map((row) => { const f = rows[row.index]; return (
+              <tr key={f.id} data-index={row.index} ref={virtual.measureElement} className="border-t border-border/60 hover:bg-muted/30">
                 <td className="px-4 py-2">
                   <Link to={`/app/funding-files/${f.id}`} className="font-semibold text-primary hover:underline">{f.clientName ?? f.businessName}</Link>
                   <p className="text-[11px] text-muted-foreground">{f.clientName ? `${f.businessName} · ` : ""}{f.purpose}{f.publicId && <span className="ml-1 font-mono text-[10px]">{f.publicId}</span>}</p>
@@ -120,9 +132,10 @@ export default function FundingFiles() {
                 <td className="px-4 py-2 text-foreground">{f.dealCount}</td>
                 <td className="px-4 py-2 text-muted-foreground">{f.lastActivity || "—"}</td>
               </tr>
-            ))}
+            ); })}
+            <VirtualSpacer as="tr" height={virtual.paddingBottom} colSpan={5} />
           </tbody>
-        </table>
+        </table>}
       </div>
       )}
       {files.error && <p role="alert" className="text-xs text-status-danger">Could not load funding files.</p>}
