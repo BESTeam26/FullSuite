@@ -1420,3 +1420,27 @@ punch lists, reporting tables and every future high-volume list. Never a
 hidden desktop/mobile duplicate list rendered at the same time. Click INP
 under 200 ms, preferably under 100 ms for common navigation; measured with
 real input (`supabase/scripts/inp-probe.browser.js`), as an agent too.
+
+## 27. Senior engineering protocol (Dee, 2026-09-30 — permanent)
+
+**Full text, verbatim: `creditverse-platform/SENIOR_ENGINEERING_PROTOCOL.md`.
+Read it before any engineering request. This section is a pointer, not a
+summary.** Dee: *"FOLLOW THIS, LOCK THIS RULE MOVING FORWARD."*
+
+The working method for every request: understand → inspect → verify
+assumptions → root cause or requirement → plan → smallest complete solution
+→ review the diff → format/lint/typecheck → test → security review →
+data-integrity review → performance and accessibility review when relevant
+→ verify actual behaviour → update documentation → report evidence,
+assumptions and risks. Never guess → generate → silence errors → "fixed".
+
+Every substantial report uses the protocol's response sections and its
+five verification labels exactly: **IMPLEMENTED · VERIFIED · NOT VERIFIED ·
+ASSUMPTIONS · KNOWN RISKS.** Never fabricate a test, build, browser,
+deployment, benchmark or database result. Small questions stay concise;
+process depth matches task risk.
+
+> Where this overlaps rules 12, 13, 14, 20b, 22, 25 and 26, all hold: the
+> earlier rules define the domain (tenancy, four views, cost, production
+> mode, performance targets); this one defines how the work is done and the
+> completion gate it is held to.
