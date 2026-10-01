@@ -9,6 +9,24 @@ Last reconciled: 2026-09-21, after the Eastern workday lock (`1f6b8e7`).
 
 ## NOW — affecting daily operations
 
+- **Partner Portal: doctrine recorded (CLAUDE.md §28), inventory done,
+  exposure closed 2026-10-01 (migration 20261001008000).** A partner
+  contact could read the full `outsourcing_groups` and `partner_services`
+  rows (notes, health, account manager, team, processor, contract value)
+  through the REST API, and @mentions / the roster handed partners six
+  BES staff emails, roles and four team names. Now: the partner's profile
+  comes from `my_partner_profile()` (named columns only), the services
+  table has no partner branch (they read `my_partner_services`), mentions
+  and roster show partners names as "BES team" / "Partner contact" with no
+  email, role or team; a suspended partner's contact can still read their
+  own row (the whole-portal lockout). Proven as the real partner contact
+  before/after and as the owner (unchanged). Portal work order next:
+  Overview (in progress) → Clients → Actions Needed → Messages → Projects
+  & Services → Billing → Files (also: shared CLIENT documents live under
+  clients/… and the partner storage rule covers only agency/partner/…, so
+  downloads will fail once a client file is shared — none exists yet) →
+  Updates → Account Settings.
+
 - **Reminders and live delivery shipped 2026-10-01 (Dee: EOD / clock-in /
   clock-out reminders; Slack-style notifications).** `reminders_sweep()`
   runs every 5 minutes: "Time to clock in" (shift start + grace, until +2h,

@@ -20752,6 +20752,7 @@ export type Database = {
           unread_messages: number
         }[]
       }
+      my_partner_profile: { Args: never; Returns: Json }
       my_partner_profile_save: { Args: { p: Json }; Returns: undefined }
       my_partner_projects: {
         Args: never

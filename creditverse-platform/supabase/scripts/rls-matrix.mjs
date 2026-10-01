@@ -8104,6 +8104,48 @@ if (runs(76)) {
   runPhase("phase 76", P76, { strict: true });
 }
 
+
+if (runs(77)) {
+  startPhase("phase 77");
+  /* A PARTNER READS ONLY WHAT IS EXPOSED (PARTNER_PORTAL_DOCTRINE, Dee
+   * 2026-10-01). A partner contact — a user with no agency membership and an
+   * active partner_contacts row — reads their company through
+   * my_partner_profile() and nothing of the table itself, no services row,
+   * and is offered people by name only: no email, no role, no BES team. */
+  const PC = U["probe.agent@bes.test"], OWNER77 = U["bes.owner@bes.test"];
+  const AG77 = `(select id from public.agencies order by created_at limit 1)`;
+  const G = "44444444-0000-4000-8000-0000000000e7";
+  const seed = `insert into public.outsourcing_groups (id, agency_id, name, contact_email, lifecycle, portal_access_enabled, notes, health_note)
+                  values ('${G}'::uuid, ${AG77}, 'Probe Exposure', 'pe@example.test', 'active', true, 'INTERNAL NOTE', 'INTERNAL HEALTH');
+                insert into public.partner_contacts (group_id, agency_id, full_name, email, user_id, status)
+                  values ('${G}'::uuid, ${AG77}, 'Probe Contact', 'probe.contact@example.test', '${PC}'::uuid, 'active');
+                insert into public.partner_services (group_id, agency_id, name, status, notes)
+                  values ('${G}'::uuid, ${AG77}, 'Probe Service', 'active', 'INTERNAL SERVICE NOTE');`;
+  const as77 = (uid, sql) => {
+    try { return q(`begin; ${seed} set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; }
+    catch (e) { const m = (String(e.message) + "\n" + String(e.stdout ?? "")).match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); }
+  };
+  const P77 = [
+    ["a partner contact reads no outsourcing_groups row directly",
+      () => as77(PC, `select count(*)::int as rows from public.outsourcing_groups`), 0],
+    ["…but their own company through my_partner_profile(), by id",
+      () => as77(PC, `select (public.my_partner_profile()->>'id' = '${G}')::text as rows`), "true"],
+    ["…and the profile carries no internal column",
+      () => as77(PC, `select (public.my_partner_profile() ?| array['notes','health','health_note','account_manager_id','team_id','source_list_ref'])::text as rows`), "false"],
+    ["a partner contact reads no partner_services row directly",
+      () => as77(PC, `select count(*)::int as rows from public.partner_services`), 0],
+    /* Services reach a partner through my_partner_services(), which reads the
+       live engagements (fulfillment_engagements), never partner_services. */
+    ["…and my_partner_services() is the partner's way to read services",
+      () => as77(PC, `select ((select count(*) from public.my_partner_services()) >= 0)::text as rows`), "true"],
+    ["a partner contact reads their own contact row",
+      () => as77(PC, `select count(*)::int as rows from public.partner_contacts where user_id = auth.uid()`), 1],
+    ["the owner still reads the probe group with its internal note",
+      () => as77(OWNER77, `select (notes = 'INTERNAL NOTE')::text as rows from public.outsourcing_groups where id = '${G}'::uuid`), "true"],
+  ];
+  runPhase("phase 77", P77, { strict: true });
+}
+
 endPhase();
 
 /* ------------------------------------------------------------------ *

@@ -390,12 +390,18 @@ export async function setContactStatus(id: string, status: PartnerContact["statu
 }
 
 /** The partner the signed-in portal user belongs to. Null for everyone else. */
+/**
+ * The signed-in partner contact's own company — through `my_partner_profile`,
+ * which names the partner-visible columns (PARTNER_PORTAL_DOCTRINE). The
+ * table itself is no longer readable by a partner; internal fields (notes,
+ * health, account manager, team) never reach the browser.
+ */
 export async function fetchMyPartner(): Promise<AgencyPartner | null> {
   const sb = requireSupabase();
-  const { data, error } = await sb.rpc("partner_group_of_user");
+  const { data, error } = await sb.rpc("my_partner_profile");
   if (error) throw error;
-  const id = data as string | null;
-  return id ? fetchAgencyPartner(id) : null;
+  if (!data || typeof data !== "object") return null;
+  return mapPartner(data as Record<string, unknown>);
 }
 
 /* ── Derived client counts ────────────────────────────────────────────── */
