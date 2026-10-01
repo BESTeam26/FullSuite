@@ -55,6 +55,9 @@ through two pricing functions; no payroll adjustment could be saved.)
 
 ## NEEDS FIX
 
+- Notification bell for people with many unread rows: 1.14 s per poll
+  (every page, every minute) for Allyssa (171 unread). Over the 300 ms
+  target; the fix is bounding the unread query, not the policy.
 - CreditOps cold load as the executive: 4.3 s, 18 requests (§26 says 3–5 s
   is "investigate"). Not measured as an agent today; the latency gate run is
   recorded below when it finishes.
@@ -105,7 +108,14 @@ through two pricing functions; no payroll adjustment could be saved.)
 
 ## Test runs recorded today
 
-- Unit suite, typecheck, lint: see the commit for this pass.
+- Unit suite 2,583/2,583 (236 files), typecheck clean, lint clean, production
+  build clean (commit 9c026e4).
+- Latency gate (`npm run probe:latency`): PASS, 154 paths within guard across
+  Owner, Division Manager, Department Manager, Team Lead, Agent and a
+  zero-visibility user. Above target, under guard: bell unread notifications
+  for people carrying ~170 unread (1.14 s, guard 1.5 s), Reporting pivot and
+  scope options (1.3–1.8 s, guard 2 s), CreditOps queue counts (0.32–0.36 s,
+  guard 0.8 s). Unchanged by today's work; listed under NEEDS FIX.
 - Matrix phases 37, 70, 71: 226/228 → after the probe corrections 150/151 on
   phase 70 (the one remaining is the pre-existing bootstrap mismatch).
 - Probes: management-placement 35/35, profile-access-matrix 26/26,
