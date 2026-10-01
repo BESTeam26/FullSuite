@@ -20,8 +20,14 @@ describe("hrefForEntity", () => {
   });
 
   it("returns null for entities no surface can open by URL", () => {
-    expect(hrefForEntity("eod_submission", "x")).toBeNull();
     expect(hrefForEntity("funding_file", "x")).toBeNull();
+  });
+
+  /* Since 2026-10-01 an EOD notice and a clock reminder open their pages. */
+  it("opens End of Day for EOD notices and reminders, and My Time for clock reminders", () => {
+    expect(hrefForEntity("eod_submission", "x")).toBe("/app/eod");
+    expect(hrefForEntity("eod_day", "2026-10-01:eod")).toBe("/app/eod");
+    expect(hrefForEntity("time_clock", "2026-10-01:clock_in")).toBe("/app/time");
   });
 
   it("URL-encodes the id", () => {

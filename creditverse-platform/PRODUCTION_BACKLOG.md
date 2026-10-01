@@ -9,6 +9,29 @@ Last reconciled: 2026-09-21, after the Eastern workday lock (`1f6b8e7`).
 
 ## NOW — affecting daily operations
 
+- **Reminders and live delivery shipped 2026-10-01 (Dee: EOD / clock-in /
+  clock-out reminders; Slack-style notifications).** `reminders_sweep()`
+  runs every 5 minutes: "Time to clock in" (shift start + grace, until +2h,
+  no work entry), "Your shift has ended — clock out" (timer still running
+  past shift end), "Submit your End of Day" (cutoff − 30 min, or shift end
+  when no cutoff is set), "Your End of Day is overdue" (at the cutoff), once
+  per person per day, never on approved leave or a day off. Every new
+  notification reaches the open app live: toast with Open, desktop
+  notification when the tab is not in front (after "Turn on desktop
+  notifications" in the bell), a chime for reminders/mentions/DMs (Sound
+  on/off in the bell), the unread count in the tab title, and the bell
+  rings for 8 seconds. First live run: 9:25 AM ET today, four people got
+  the clock-in reminder.
+  **Next step (not built): notifications when the app is CLOSED or on a
+  phone that is locked** — Web Push: a service worker, VAPID keys in the
+  Vault, a `push_subscriptions` table under RLS, a `push-notify` Edge
+  Function triggered from `notifications` inserts, and the PWA installed
+  on iPhones (iOS only delivers push to an installed web app). The
+  manifest exists; nothing else does. Cost scales with: one push message
+  per notification per subscribed device.
+- **EOD cutoff still unset** — the reminder uses shift end until
+  `agencies.eod_cutoff_local` is set (Dee's mockup: 7:00 PM ET).
+
 - **EOD hierarchy, next step after the Agent view (Dee, 2026-10-01).** The
   Agent EOD Submission View shipped on the existing engine (submit → locked
   snapshot → routed to the lead → email → notification → rollup). Still to

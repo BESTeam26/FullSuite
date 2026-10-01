@@ -14278,6 +14278,45 @@ export type Database = {
           },
         ]
       }
+      reminder_marks: {
+        Row: {
+          agency_id: string
+          kind: string
+          sent_at: string
+          user_id: string
+          work_date: string
+        }
+        Insert: {
+          agency_id: string
+          kind: string
+          sent_at?: string
+          user_id: string
+          work_date: string
+        }
+        Update: {
+          agency_id?: string
+          kind?: string
+          sent_at?: string
+          user_id?: string
+          work_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reminder_marks_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reminder_marks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       renewal_opportunities: {
         Row: {
           file_id: string
@@ -21202,6 +21241,7 @@ export type Database = {
         Returns: undefined
       }
       release_payroll: { Args: { p_cutoff: string }; Returns: string }
+      reminders_sweep: { Args: { p_now?: string }; Returns: number }
       rename_channel: {
         Args: { p_channel: string; p_name: string }
         Returns: string

@@ -56,6 +56,7 @@ describe("notification kinds", () => {
       due_soon: true,
       overdue: true,
       eod: true,
+      reminder: true,
     };
     const { file, kinds } = kindsFromNewestMigration();
     expect(kinds.sort(), `newest constraint is in ${file}`).toEqual(Object.keys(declared).sort());

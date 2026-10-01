@@ -5,9 +5,11 @@
  * unread count as before — unread rows in `notifications` under the reader's
  * own RLS — so the dot and the popover never disagree.
  */
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Bell, CheckCheck } from "lucide-react";
+import { Bell, BellRing, CheckCheck, Volume2, VolumeX } from "lucide-react";
+import { SOUND_PREF_KEY, nativePermission, soundEnabled } from "@/lib/notifications/notification-delivery";
+import { requestNativePermission } from "@/lib/notifications/use-notification-delivery";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { NotificationRow } from "@/components/notifications/NotificationRow";
 import {
@@ -20,6 +22,20 @@ export const NOTIFICATIONS_PATH = "/app/notifications";
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const unread = useUnreadNotificationCount();
+  /* A fresh arrival makes the bell ring for a few seconds — the "flash" Dee
+     asked for — then it settles to the ordinary badge. */
+  const previous = useRef(unread);
+  const [ringing, setRinging] = useState(false);
+  useEffect(() => {
+    if (unread > previous.current) { setRinging(true); const t = setTimeout(() => setRinging(false), 8_000); previous.current = unread; return () => clearTimeout(t); }
+    previous.current = unread;
+  }, [unread]);
+  const [permission, setPermission] = useState(nativePermission());
+  const [sound, setSound] = useState(soundEnabled());
+  const toggleSound = () => {
+    const next = !sound; setSound(next);
+    try { localStorage.setItem(SOUND_PREF_KEY, next ? "on" : "off"); } catch { /* per-browser preference only */ }
+  };
   const recent = useRecentUnreadNotifications(open);
   const markRead = useMarkNotificationRead();
   const markAll = useMarkAllNotificationsRead();
@@ -42,9 +58,9 @@ export function NotificationBell() {
           title="Notifications"
           className="relative inline-flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background data-[state=open]:bg-muted data-[state=open]:text-foreground"
         >
-          <Bell className="h-5 w-5" />
+          {ringing ? <BellRing className="h-5 w-5 animate-pulse text-primary" /> : <Bell className="h-5 w-5" />}
           {unread > 0 && (
-            <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-primary-foreground">
+            <span className={`absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-primary-foreground ${ringing ? "animate-pulse" : ""}`}>
               {unread > 99 ? "99+" : unread}
             </span>
           )}
@@ -80,6 +96,22 @@ export function NotificationBell() {
             ))}
           </ul>
         )}
+        {/* Delivery on this device: desktop notifications and the chime. */}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-2 text-xs">
+          {permission === "default" && (
+            <button type="button" onClick={() => void requestNativePermission().then(setPermission)}
+              className="font-semibold text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm">
+              Turn on desktop notifications
+            </button>
+          )}
+          {permission === "granted" && <span className="text-muted-foreground">Desktop notifications on</span>}
+          {permission === "denied" && <span className="text-muted-foreground">Desktop notifications blocked in your browser settings</span>}
+          {permission === "unsupported" && <span className="text-muted-foreground">This browser cannot show desktop notifications</span>}
+          <button type="button" onClick={toggleSound} aria-pressed={sound}
+            className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-medium text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            {sound ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />} {sound ? "Sound on" : "Sound off"}
+          </button>
+        </div>
         <div className="border-t border-border px-4 py-2.5">
           <Link
             to={NOTIFICATIONS_PATH}

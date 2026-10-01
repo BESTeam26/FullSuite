@@ -8,7 +8,7 @@
  */
 import type { ElementType } from "react";
 import {
-  AtSign, AlertTriangle, Clock, Bell, ClipboardCheck, Check, MessageSquare, UserPlus, UserMinus,
+  AtSign, AlertTriangle, BellRing, Clock, Bell, ClipboardCheck, Check, MessageSquare, UserPlus, UserMinus,
   ArrowRightLeft, Send, Share2, Megaphone, CalendarOff, CalendarClock, Receipt,
 } from "lucide-react";
 import { formatDate } from "@/lib/format-date";
@@ -31,6 +31,7 @@ const KIND_ICON: Record<Notification["kind"], ElementType> = {
   due_soon: CalendarClock,
   overdue: AlertTriangle,
   eod: ClipboardCheck,
+  reminder: BellRing,
 };
 
 const ENTITY_LABEL: Record<string, string> = {

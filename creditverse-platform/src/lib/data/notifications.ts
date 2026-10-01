@@ -16,6 +16,7 @@ export type NotificationKind =
   | "unassigned"
   | "note"
   | "status"
+  | "reminder"
   /* Written by triggers on `messages` (0218): a mention in any conversation,
      and a direct message that carried no mention. */
   | "mention"
@@ -156,6 +157,14 @@ export function hrefForEntity(
        the same `?channel=` a partner record uses. */
     case "channel":
       return `/app/channels?channel=${id}`;
+    /* An EOD notice — yours was submitted, a reminder to file it, or a report
+       you received — opens End of Day. */
+    case "eod_submission":
+    case "eod_day":
+      return "/app/eod";
+    /* A clock-in or clock-out reminder opens My Time. */
+    case "time_clock":
+      return "/app/time";
     /* The board highlights the one that was announced. */
     case "announcement":
       return `/app/announcements?announcement=${id}`;

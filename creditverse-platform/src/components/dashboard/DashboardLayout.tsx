@@ -1,4 +1,5 @@
 import { RouteErrorBoundary } from "@/components/common/RouteErrorBoundary";
+import { useNotificationDelivery } from "@/lib/notifications/use-notification-delivery";
 import { Suspense, useLayoutEffect, useRef } from "react";
 import { Outlet } from "react-router-dom";
 import { Sidebar } from "@/components/dashboard/Sidebar";
@@ -63,6 +64,9 @@ const useWorkAreaScrollReset = () => {
 const AgencyShell = () => {
   const own = useOwnAccessContext();
   const work = useWorkAreaScrollReset();
+  /* Every new notification reaches the open app at once: toast, desktop
+     notification when the tab is not in front, chime, tab-title badge. */
+  useNotificationDelivery();
   return (
     <ViewAsProvider ownRole={own.role} ownCan={own.can}>
       <SidebarStateProvider>
