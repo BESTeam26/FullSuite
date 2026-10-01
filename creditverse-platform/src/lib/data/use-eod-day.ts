@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth/auth-context";
+import { businessToday } from "@/lib/calendar/us-federal-holidays";
 import {
   fetchEodActivity, fetchEodCutoff, fetchEodDay, fetchTeamEod, runEodCutoff, saveEodDay,
   reviewEod,
@@ -7,10 +8,14 @@ import {
   fetchEodSubmissionsRange,
 } from "@/lib/data/eod-day";
 
-export const todayLocal = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-};
+/**
+ * The day an End of Day report is about: the EASTERN business day, never the
+ * device's. Six reports were filed for "tomorrow" on 2026-10-01 by people in
+ * Manila submitting at 5 AM their time, and each snapshotted an empty day.
+ * The database clamps a future date too (migration 20261001016000); this
+ * keeps the page and the server naming the same day.
+ */
+export const eodToday = () => businessToday();
 
 export const eodActivityKey = (employeeId: string, date: string) => ["eod", "activity", employeeId, date] as const;
 export const eodDayKey = (employeeId: string, date: string) => ["eod", "day", employeeId, date] as const;

@@ -7040,6 +7040,15 @@ if (runs(70)) {
         set local request.jwt.claims = '{"sub":"${PAY70}","role":"authenticated"}';
         select work_minutes as rows from public.payslips where user_id = '${AGENT70}'`), 120],
 
+    /* An EOD is filed for the EASTERN workday (20261001016000): a device in
+       Manila that believes it is tomorrow still files today's report, and the
+       snapshot is the system's own measurement of that day. */
+    ["an EOD dated tomorrow by the device is filed for the Eastern workday",
+      () => p70(AGENT70, `insert into public.eod_submissions (agency_id, employee_id, work_date, state)
+        values ('${AG70}', '${AGENT70}', current_date + 3, 'draft');
+        select (work_date = (now() at time zone 'America/New_York')::date)::text as rows
+          from public.eod_submissions where employee_id = '${AGENT70}' and state = 'draft'`), "true"],
+
     /* ── member documents (0273): HR paper is a capability, never staff status ── */
     ["adding a team member document needs the documents capability",
       () => p70(ADM70, `set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';

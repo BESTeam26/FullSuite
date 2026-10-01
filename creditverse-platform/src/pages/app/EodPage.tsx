@@ -28,7 +28,7 @@ import { EodTeamRollup } from "@/components/agency/EodTeamRollup";
 import { EodEmailStatus } from "@/components/agency/EodEmailStatus";
 import { EasternTimeNote } from "@/components/time/EasternTimeNote";
 import { useAuth } from "@/lib/auth/auth-context";
-import { useEodActivity, useEodCutoff, useEodDay, useSaveEod, todayLocal } from "@/lib/data/use-eod-day";
+import { useEodActivity, useEodCutoff, useEodDay, useSaveEod, eodToday } from "@/lib/data/use-eod-day";
 import { describeEodRouting, type EodNotes } from "@/lib/data/eod-day";
 import { useMyEodReport } from "@/lib/data/use-eod-report";
 import { useAgencyMembers } from "@/lib/data/use-agency-teams";
@@ -96,7 +96,7 @@ function Count({ icon: Icon, label, value, tone }: { icon: typeof Clock; label: 
 export const EodPage = () => {
   const { user, displayName, teamIds } = useAuth();
   const userId = user?.id ?? "";
-  const date = todayLocal();
+  const date = eodToday();
   const activity = useEodActivity(date);
   const day = useEodDay(date);
   const save = useSaveEod(date);

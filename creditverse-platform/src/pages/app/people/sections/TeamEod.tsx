@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { EodProductionSummary } from "@/components/agency/EodProductionSummary";
 import { EodReviewActions } from "@/components/agency/EodReviewActions";
 import { EodReportCard, EodRoutedReportsCard } from "@/components/agency/EodReportCard";
-import { useTeamEod, useEodActivity, todayLocal } from "@/lib/data/use-eod-day";
+import { useTeamEod, useEodActivity, eodToday } from "@/lib/data/use-eod-day";
 import { SUBMISSION_LABEL, describeEodRouting, submissionKind } from "@/lib/data/eod-day";
 import { formatDate } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
@@ -43,7 +43,7 @@ function PersonRow({ employeeId, date, name }: { employeeId: string; date: strin
 }
 
 export const TeamEod = () => {
-  const [date, setDate] = useState(todayLocal());
+  const [date, setDate] = useState(eodToday());
   const team = useTeamEod(date);
   const [open, setOpen] = useState<string | null>(null);
 

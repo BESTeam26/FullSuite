@@ -23,7 +23,7 @@ import { HomeFinanceStrip } from "@/components/agency/finance/HomeFinanceStrip";
 import { HolidayBanner, UpcomingHolidaysCard } from "@/components/agency/HolidayBanner";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useAgencyWork } from "@/lib/data/use-work";
-import { useEodDay, useTeamEod, todayLocal } from "@/lib/data/use-eod-day";
+import { useEodDay, useTeamEod, eodToday } from "@/lib/data/use-eod-day";
 import { useHolidayUpkeep } from "@/lib/data/use-agency-calendar";
 import { useAnnouncements } from "@/lib/data/use-intranet";
 import { submissionKind, SUBMISSION_LABEL } from "@/lib/data/eod-day";
@@ -61,7 +61,7 @@ export const AgencyHome = () => {
   useHolidayUpkeep();
 
   const work = useAgencyWork();
-  const date = todayLocal();
+  const date = eodToday();
   const eod = useEodDay(date);
   /* Null organization = BES internal, which is staff-only by policy. */
   const announcements = useAnnouncements(null);

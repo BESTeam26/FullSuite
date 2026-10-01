@@ -91,6 +91,13 @@ through two pricing functions; no payroll adjustment could be saved.)
   71 (payroll) and 77 (portal) were re-run clean. The full gate must be
   re-run at a quiet hour before the next release. Known pre-existing
   bootstrap mismatch untouched: `org.owner attention=2 (want 1)`.
+- A Team Lead who holds neither `ops.manage` nor a seat cannot read their
+  agents' `eod_submissions` rows directly (`eod_submissions_select` is self
+  or `is_manager_of`); the rollup function still serves them. No real lead is
+  in that position today (all three hold management access). Watch it when
+  a plain team lead is appointed.
+- Production units read 0 on every report tonight; minutes are right. Not
+  yet determined whether that is correct for the day or a derivation gap.
 - `managed_people()` excludes fixture profiles by design; authorization that
   must also work for the matrix's fixture leads keeps the direct team-lead
   branch (migration 20261001014000). Any future "in scope" check must do the
@@ -98,6 +105,19 @@ through two pricing functions; no payroll adjustment could be saved.)
 
 ## WORKING (verified today)
 
+- End of Day is filed for the Eastern workday (found 2026-10-01 evening):
+  six people in Manila submitted between 5 and 6 PM Eastern with the
+  device's date (October 2) and an empty snapshot, and six lead emails said
+  "0 minutes". The page now names the Eastern business day, the database
+  clamps a future date and takes the snapshot itself at submission
+  (migration 20261001016000), the six reports were re-dated and
+  re-snapshotted (449–457 minutes each) and their emails re-queued. Matrix
+  phase 70 holds the rule.
+- Every page function walked as Jet (agent), Allyssa (lead and department),
+  Rowell (division) and Kaori (partner): 103 calls, no errors; scopes as
+  expected (partner reads 0 rows of any staff table).
+- Phone width (375 px): My Work, Time & Attendance and Communication render
+  with no horizontal scroll and reachable controls (as Dee).
 - Attention Center rows open the thing that needs attention (Dee's report,
   2026-10-01 PM): the client file, the funding file or the BES CRM project
   the work is about, otherwise the work item on My Work. Rows were plain
