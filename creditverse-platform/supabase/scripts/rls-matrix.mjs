@@ -8057,6 +8057,53 @@ if (runs(75)) {
   runPhase("phase 75", P75, { strict: true });
 }
 
+
+if (runs(76)) {
+  startPhase("phase 76");
+  /* PUSH SAFEGUARDS (Dee, 2026-10-01). Found the same day: a table with row
+   * policies but no grant refused every device registration silently. These
+   * run the real statements as real accounts, so the grant AND the policy
+   * are both proven — not a policy read in isolation. */
+  const AGENT = U["bes.credit@bes.test"], OWNER = U["bes.owner@bes.test"], ADMIN = U["bes.admin@bes.test"];
+  const AG = `(select id from public.agencies order by created_at limit 1)`;
+  /* Like tryQ: a refusal is reported as "ERR <sqlstate>", which is what a
+     probe expecting one asserts. */
+  const asUserRun = (uid, sql) => {
+    try { return q(`begin; set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0]; }
+    catch (e) {
+      const text = String(e.message) + "\n" + String(e.stdout ?? "");
+      const m = text.match(/ERROR:\s*(\w+):/);
+      return { rows: "ERR " + (m ? m[1] : "unknown") };
+    }
+  };
+  const register = (uid, forUid) =>
+    asUserRun(uid, `with i as (insert into public.push_subscriptions (agency_id, user_id, endpoint, p256dh, auth, user_agent)
+                               values (${AG}, '${forUid}', 'https://example.test/matrix-' || gen_random_uuid(), 'k', 'a', 'matrix') returning 1)
+                    select count(*)::int as rows from i`);
+  const P76 = [
+    ["an agent can register their own device",                 () => register(AGENT, AGENT).rows, 1],
+    ["an agent cannot register a device in the owner's name",   () => register(AGENT, OWNER).rows, "ERR 42501"],
+    ["a no-membership probe cannot register a device at all",   () => register(U["probe.agent@bes.test"], U["probe.agent@bes.test"]).rows, "ERR 42501"],
+    ["an agent reads no device but their own",
+      () => asUser(AGENT, `(select count(*) from public.push_subscriptions where user_id <> auth.uid())::int as rows`).rows, 0],
+    ["an admin reads the agency's devices without an error",
+      () => asUser(ADMIN, `((select count(*) from public.push_subscriptions) >= 0)::text as rows`).rows, "true"],
+    ["an agent reads no push health event",
+      () => asUser(AGENT, `(select count(*) from public.push_delivery_events)::int as rows`).rows, 0],
+    ["an owner reads push health without an error",
+      () => asUser(OWNER, `((select count(*) from public.push_delivery_events) >= 0)::text as rows`).rows, "true"],
+    ["nobody signed in can write a push health event",
+      () => asUserRun(OWNER, `with i as (insert into public.push_delivery_events (agency_id, kind) values (${AG}, 'unauthorized') returning 1) select count(*)::int as rows from i`).rows, "ERR 42501"],
+    ["the sender is nudged by a trigger on notifications, not by a poll",
+      () => q(`select (count(*) = 1)::text as rows from pg_trigger where tgname='notifications_push'`)[0].rows, "true"],
+    ["the owners are alerted by a trigger on push health, not by a poll",
+      () => q(`select (count(*) = 1)::text as rows from pg_trigger where tgname='push_delivery_events_alert'`)[0].rows, "true"],
+    ["the dispatch functions are not callable by signed-in users",
+      () => q(`select (not has_function_privilege('authenticated', 'public.notify_push()', 'execute') and not has_function_privilege('authenticated', 'public.push_delivery_alert()', 'execute'))::text as rows`)[0].rows, "true"],
+  ];
+  runPhase("phase 76", P76, { strict: true });
+}
+
 endPhase();
 
 /* ------------------------------------------------------------------ *

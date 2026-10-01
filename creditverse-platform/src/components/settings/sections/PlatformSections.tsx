@@ -22,7 +22,8 @@ import { formatDateTime } from "@/lib/format-date";
 import { useQuery } from "@tanstack/react-query";
 import { errorMessage } from "@/lib/data/error-message";
 import { cn } from "@/lib/utils";
-import { PUSH_EVENT_LABEL, usePushDeliveryHealth, type PushEventKind } from "@/lib/data/push-delivery";
+import { PUSH_EVENT_LABEL, describeDevice, usePushDeliveryHealth, usePushDevices, type PushEventKind } from "@/lib/data/push-delivery";
+import { useAgencyMembers } from "@/lib/data/use-agency-teams";
 import {
   STATE_LABEL,
   fetchIntegrationHealth,
@@ -110,6 +111,10 @@ export const UsageSection = () => (
  */
 const PushDeliveryHealth = () => {
   const health = usePushDeliveryHealth();
+  const devices = usePushDevices();
+  const members = useAgencyMembers();
+  const nameOf = (id: string | null) => (id && (members.data ?? []).find((m) => m.userId === id)?.name) || "Unknown";
+  const removed = (health.data?.recent ?? []).filter((e) => e.kind === "device_gone");
   const kinds: PushEventKind[] = ["failed_send", "device_gone", "unauthorized", "function_error", "dispatch_error"];
   const tone = (k: PushEventKind, n: number) =>
     n === 0 ? "text-foreground" : k === "device_gone" ? "text-foreground" : "text-status-danger";
@@ -146,6 +151,41 @@ const PushDeliveryHealth = () => {
         </ul>
       )}
       {health.data && health.data.recent.length === 0 && <p className="mt-2 text-[11px] text-muted-foreground">No push delivery events in the last 7 days.</p>}
+
+      {/* Registered devices: who has turned closed-app push on, where, and how it is doing. */}
+      <div className="mt-4 border-t border-border pt-3">
+        <p className="text-sm font-medium text-foreground">Registered devices <span className="text-xs font-normal text-muted-foreground">({devices.data?.length ?? "…"})</span></p>
+        {devices.error && <p role="alert" className="mt-1 text-xs text-status-danger">{errorMessage(devices.error, "Could not read devices.")}</p>}
+        {devices.data && devices.data.length === 0 && <p className="mt-1 text-[11px] text-muted-foreground">Nobody has turned on notifications on a device yet. Each person does it once per device, from the bell.</p>}
+        {(devices.data?.length ?? 0) > 0 && (
+          <div className="mt-2 overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="text-[10px] uppercase tracking-wider text-muted-foreground"><tr><th className="py-1 text-left font-bold">User</th><th className="py-1 text-left font-bold">Device</th><th className="py-1 text-left font-bold">Registered</th><th className="py-1 text-left font-bold">Last push</th><th className="py-1 text-left font-bold">Last failure</th></tr></thead>
+              <tbody>
+                {devices.data!.map((d) => (
+                  <tr key={d.id} className="border-t border-border/60 align-top">
+                    <td className="py-1.5 pr-2 text-foreground">{d.userName}</td>
+                    <td className="py-1.5 pr-2 text-foreground">{describeDevice(d.userAgent)}</td>
+                    <td className="py-1.5 pr-2 text-muted-foreground">{formatDateTime(d.registeredAt)}</td>
+                    <td className="py-1.5 pr-2 text-muted-foreground">{d.lastSuccessAt ? formatDateTime(d.lastSuccessAt) : "None yet"}</td>
+                    <td className={cn("py-1.5", d.lastFailureAt ? "text-status-danger" : "text-muted-foreground")}>{d.lastFailureAt ? `${formatDateTime(d.lastFailureAt)} · ${d.lastFailure ?? ""}` : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {removed.length > 0 && (
+          <div className="mt-3">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Removed as dead (7 days)</p>
+            <ul className="mt-1 space-y-0.5 text-[11px]">
+              {removed.map((e) => (
+                <li key={e.id} className="flex flex-wrap gap-x-2"><span className="text-muted-foreground">{formatDateTime(e.createdAt)}</span><span className="text-foreground">{nameOf(e.userId)}</span><span className="text-muted-foreground">{e.detail}</span></li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

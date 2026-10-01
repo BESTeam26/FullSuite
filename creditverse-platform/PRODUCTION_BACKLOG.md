@@ -157,6 +157,27 @@ could make on its own; all three were hers, and she answered them directly.
 
 ## HUMAN GATE — needs Dee or a real operator
 
+- **Notifications are TWO delivery channels, verified separately (Dee,
+  2026-10-01).** (1) In-app: toast, ringing bell, tab-title badge, desktop
+  alert while a tab is open — LIVE VERIFIED. (2) Closed-app push — NOT
+  VERIFIED until, on a real device, all eight steps pass, in order: user
+  clicks Turn on notifications → browser permission granted → a
+  `push_subscriptions` row exists for that user and device → the bell
+  reads "Notifications are on for this device" → FullSuite fully closed or
+  backgrounded → a real notification is created → the OS-level push
+  appears → tapping it opens the correct FullSuite destination. One laptop
+  and one phone, each all eight. Permanent safeguards, each held by a
+  test or a database rule: registration failures are shown to the user
+  (bell + console); a person registers and reads only their own devices
+  (matrix phase 76); health and the device list are admin-only (phase 76);
+  dead devices are removed by the sender (push_delivery_events
+  device_gone); no OS push while a FullSuite window is focused (sw.js)
+  and no in-page alert on a device that has push; deep links use the one
+  canonical link rule (`notification-href.ts`, shared by bell, toast and
+  sender). Management view: Settings › Integrations › Push delivery —
+  registered devices (user, browser and system, registered, last push,
+  last failure) and devices removed as dead, read on open, never polled.
+
 - **Blank page after a search on 2026-10-01 — fixed, one refresh needed.**
   A tab open since before the day's deploys navigated to CreditOps and
   fetched a page chunk the deploy had removed; nothing caught it, so React

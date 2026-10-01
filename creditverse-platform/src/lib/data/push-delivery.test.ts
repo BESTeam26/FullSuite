@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { summarisePushEvents, type PushDeliveryEvent } from "./push-delivery";
+import { describeDevice, summarisePushEvents, type PushDeliveryEvent } from "./push-delivery";
 
 const at = (hoursAgo: number, kind: PushDeliveryEvent["kind"], id: number): PushDeliveryEvent =>
   ({ id, kind, detail: null, createdAt: new Date(Date.UTC(2026, 9, 1, 12 - hoursAgo)).toISOString(), notificationId: null, userId: null });
@@ -13,3 +13,15 @@ describe("push delivery health", () => {
     expect(s.recent.map((e) => e.id)).toEqual([3, 2, 1, 0]);
   });
 });
+
+describe("naming a device from its browser string", () => {
+  it("says the browser and the system in plain words", () => {
+    expect(describeDevice("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/129.0 Safari/537.36")).toBe("Chrome on Windows");
+    expect(describeDevice("Mozilla/5.0 (Windows NT 10.0) Chrome/129.0 Safari/537.36 Edg/129.0")).toBe("Edge on Windows");
+    expect(describeDevice("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605 Version/17.0 Mobile/15E148 Safari/604.1")).toBe("Safari on iPhone");
+    expect(describeDevice("Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605 Version/17.0 Safari/605")).toBe("Safari on Mac");
+    expect(describeDevice("Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/129.0 Mobile Safari/537.36")).toBe("Chrome on Android");
+    expect(describeDevice(null)).toBe("Unknown device");
+  });
+});
+

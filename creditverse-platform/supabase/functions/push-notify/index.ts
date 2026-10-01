@@ -85,6 +85,7 @@ Deno.serve(async (req) => {
     try {
       await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload, { TTL: 60 * 60 * 6, urgency: "high" });
       sent += 1;
+      await sb.from("push_subscriptions").update({ last_success_at: new Date().toISOString(), last_seen_at: new Date().toISOString() }).eq("id", s.id);
     } catch (e) {
       const status = (e as { statusCode?: number }).statusCode;
       const message = e instanceof Error ? e.message : String(e);
@@ -93,11 +94,11 @@ Deno.serve(async (req) => {
         await recordEvent(sb, { kind: "device_gone", agency_id: n.agency_id, notification_id: n.id, subscription_id: s.id, user_id: n.recipient_id, detail: `push service answered ${status}` });
       } else {
         failed.push(`${s.id}:${status ?? "?"}`);
+        await sb.from("push_subscriptions").update({ last_failure_at: new Date().toISOString(), last_failure: `${status ?? "no status"}: ${message}`.slice(0, 300) }).eq("id", s.id);
         await recordEvent(sb, { kind: "failed_send", agency_id: n.agency_id, notification_id: n.id, subscription_id: s.id, user_id: n.recipient_id, detail: `${status ?? "no status"}: ${message}` });
       }
     }
   }
   if (gone.length > 0) await sb.from("push_subscriptions").delete().in("id", gone);
-  await sb.from("push_subscriptions").update({ last_seen_at: new Date().toISOString() }).in("id", (subs ?? []).map((s) => s.id).filter((id) => !gone.includes(id)));
   return json(200, { sent, gone: gone.length, failed });
 });

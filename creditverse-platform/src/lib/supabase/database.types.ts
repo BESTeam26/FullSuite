@@ -14149,7 +14149,10 @@ export type Database = {
           endpoint: string
           failed_at: string | null
           id: string
+          last_failure: string | null
+          last_failure_at: string | null
           last_seen_at: string
+          last_success_at: string | null
           p256dh: string
           user_agent: string | null
           user_id: string
@@ -14161,7 +14164,10 @@ export type Database = {
           endpoint: string
           failed_at?: string | null
           id?: string
+          last_failure?: string | null
+          last_failure_at?: string | null
           last_seen_at?: string
+          last_success_at?: string | null
           p256dh: string
           user_agent?: string | null
           user_id: string
@@ -14173,7 +14179,10 @@ export type Database = {
           endpoint?: string
           failed_at?: string | null
           id?: string
+          last_failure?: string | null
+          last_failure_at?: string | null
           last_seen_at?: string
+          last_success_at?: string | null
           p256dh?: string
           user_agent?: string | null
           user_id?: string

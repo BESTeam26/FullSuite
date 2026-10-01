@@ -63,3 +63,48 @@ export function usePushDeliveryHealth() {
     select: (events) => summarisePushEvents(events),
   });
 }
+
+/** A registered device, as management sees it. */
+export interface PushDevice {
+  id: string; userId: string; userName: string; userAgent: string | null;
+  registeredAt: string; lastSuccessAt: string | null; lastFailureAt: string | null; lastFailure: string | null;
+}
+
+/** "Chrome on Windows", "Safari on iPhone (Home Screen)" — from the browser's own description. */
+export function describeDevice(userAgent: string | null | undefined): string {
+  const ua = userAgent ?? "";
+  if (!ua) return "Unknown device";
+  const browser = /Edg\//.test(ua) ? "Edge" : /OPR\//.test(ua) ? "Opera" : /Firefox\//.test(ua) ? "Firefox"
+    : /CriOS\//.test(ua) ? "Chrome" : /Chrome\//.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari" : "Browser";
+  const os = /iPhone/.test(ua) ? "iPhone" : /iPad/.test(ua) ? "iPad" : /Android/.test(ua) ? "Android"
+    : /Windows/.test(ua) ? "Windows" : /Mac OS X|Macintosh/.test(ua) ? "Mac" : /CrOS/.test(ua) ? "ChromeOS" : /Linux/.test(ua) ? "Linux" : "unknown OS";
+  return `${browser} on ${os}`;
+}
+
+export async function fetchPushDevices(): Promise<PushDevice[]> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.from("push_subscriptions")
+    .select("id, user_id, user_agent, created_at, last_success_at, last_failure_at, last_failure, profiles!push_subscriptions_user_id_fkey(full_name, email)")
+    .is("failed_at", null).order("created_at", { ascending: false }).limit(300);
+  if (error) throw error;
+  return (data ?? []).map((r) => {
+    const p = r.profiles as { full_name: string | null; email: string } | null;
+    return {
+      id: String(r.id), userId: String(r.user_id), userName: p?.full_name?.trim() || p?.email || "Unknown",
+      userAgent: (r.user_agent as string | null) ?? null, registeredAt: String(r.created_at),
+      lastSuccessAt: (r.last_success_at as string | null) ?? null, lastFailureAt: (r.last_failure_at as string | null) ?? null,
+      lastFailure: (r.last_failure as string | null) ?? null,
+    };
+  });
+}
+
+/** Management only (the row policy returns nothing to anybody else). Read on open; never polled. */
+export function usePushDevices() {
+  const auth = useAuth();
+  return useQuery({
+    queryKey: ["push-delivery", "devices"],
+    queryFn: fetchPushDevices,
+    enabled: auth.mode === "live" && auth.status === "signed-in",
+    staleTime: 60_000,
+  });
+}
