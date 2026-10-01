@@ -4,7 +4,7 @@
 import { describe, expect, it } from "vitest";
 import type { WorkItem } from "@/lib/bes-domain";
 import {
-  actionableCount, dueLabel, dueTone, groupMyWork, isWaiting, workHref,
+  actionableCount, attentionHref, dueLabel, dueTone, groupMyWork, isWaiting, workHref,
 } from "./my-work-view";
 
 const NOW = new Date("2026-09-21T10:00:00");
@@ -72,6 +72,17 @@ describe("the day's order", () => {
   it("draws no empty group and never lists completed work", () => {
     const groups = groupMyWork([item({ id: "only", dueAt: at("2026-09-21T17:00:00") })], NOW);
     expect(groups.map((g) => g.key)).toEqual(["today"]);
+  });
+});
+
+describe("an Attention Center row always opens somewhere", () => {
+  it("opens the record the work is about", () => {
+    expect(attentionHref({ id: "w1", relatedType: "project", relatedId: "p1" })).toBe("/app/bes-crm?project=p1");
+    expect(attentionHref({ id: "w1", relatedType: "fulfillment", relatedId: "c1" })).toBe("/app/creditops?client=c1");
+  });
+  it("falls back to the work item itself when there is no related record", () => {
+    expect(attentionHref({ id: "w1", relatedType: "support", relatedId: "" })).toBe("/app/my-work?item=w1");
+    expect(attentionHref({ id: "w 2", relatedType: "credit_case", relatedId: null as unknown as string })).toBe("/app/my-work?item=w%202");
   });
 });
 

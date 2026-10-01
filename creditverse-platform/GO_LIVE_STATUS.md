@@ -22,7 +22,7 @@ account are `agency_admin`) · **Partner Portal User** (Kaori).
 
 | Role | Module | Can View | Can Edit | Scope | Tested | Issues Remaining |
 |---|---|---|---|---|---|---|
-| Agent | Home / Attention / Notifications | Yes | Own items | Own | matrix phases 2–77 (bootstrap), DB proof | none known |
+| Agent | Home / Attention / Notifications | Yes | Own items | Own | matrix phases 2–77 (bootstrap), DB proof; Attention rows link to their record (fixed 2026-10-01) | none known |
 | Agent | My Work | Yes | Own work items | Own + team reach | matrix (`work_items_select`) | HUMAN TEST REQUIRED on phone |
 | Agent | End of Day | Yes | Own EOD | Own | matrix phase 70, EOD tests, browser as Dee | HUMAN TEST REQUIRED (real agent submit) |
 | Agent | Time & Attendance (Overview, My Time, My Attendance, My Time Off, **My pay**) | Yes | Own clock, own requests | Own; payslips only once released | DB proof (Jet: 0 others' rows; Archie: own rate only), phase 70 | My pay shows "Nothing released yet" until a cutoff is released — correct today |
@@ -73,6 +73,11 @@ through two pricing functions; no payroll adjustment could be saved.)
 
 ## WORKING (verified today)
 
+- Attention Center rows open the thing that needs attention (Dee's report,
+  2026-10-01 PM): the client file, the funding file or the BES CRM project
+  the work is about, otherwise the work item on My Work. Rows were plain
+  boxes before. Real click verified as Dee: an overdue CRM work unit opened
+  its project board.
 - Finance: every tab loads for the executive (`useFinancialInputs` is
   disabled for sections that do not use a month instead of sending a
   placeholder date).

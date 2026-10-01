@@ -121,6 +121,21 @@ export const actionableCount = <T extends Pick<WorkItem, "stage" | "completedAt"
  * the row is then not a link — an inert link that pretends to lead somewhere
  * is worse than plain text (rule 12: no dead controls).
  */
+/**
+ * Where an Attention Center row opens (Dee, 2026-10-01: "it's not routing me
+ * directly to the place that needs my attention"). The record the work is
+ * about when there is one — the client file, the funding file, the CRM
+ * project — otherwise the work item itself on My Work. Never null: an
+ * exception that cannot be opened is an exception nobody can clear.
+ */
+export function attentionHref(
+  item: Pick<WorkItem, "relatedType" | "relatedId"> & { id: string },
+  viewMode: "agency" | "organization" = "agency",
+): string {
+  return workHref({ ...item, workspaceId: undefined }, viewMode)
+    ?? `/app/my-work?item=${encodeURIComponent(item.id)}`;
+}
+
 export function workHref(
   item: Pick<WorkItem, "relatedType" | "relatedId" | "workspaceId">,
   viewMode: "agency" | "organization" = "agency",

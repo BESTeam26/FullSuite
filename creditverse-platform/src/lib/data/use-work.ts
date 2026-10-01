@@ -10,7 +10,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useAgency } from "@/lib/agency-context";
-import type { WorkItem } from "@/lib/bes-domain";
+import type { WorkItem, WorkRelatedType } from "@/lib/bes-domain";
 import {
   fetchAgencyWork,
   fetchAttention,
@@ -97,6 +97,9 @@ export interface AttentionItem {
   reason: AttentionReason;
   hoursRemaining: number | null;
   organizationId: string | null;
+  /** The record the work is about — what a tap on the row opens (`attentionHref`). */
+  relatedType: WorkRelatedType;
+  relatedId: string | null;
 }
 
 export interface AttentionResult {
@@ -134,6 +137,8 @@ function attentionFromWork(items: WorkItem[]): AttentionItem[] {
             : ("sla_risk" as const),
       hoursRemaining: w.slaHoursRemaining ?? null,
       organizationId: w.organizationId ?? null,
+      relatedType: w.relatedType,
+      relatedId: w.relatedId || null,
     }));
 }
 
@@ -194,6 +199,8 @@ export function useAttention(): AttentionResult {
     reason: reasonOf(row),
     hoursRemaining: row.hours_remaining ?? hoursUntil(row.due_at) ?? null,
     organizationId: row.organization_id,
+    relatedType: (row.related_type ?? "support") as WorkRelatedType,
+    relatedId: row.related_ref ?? null,
   }));
 
   return {

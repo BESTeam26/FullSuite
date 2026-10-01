@@ -14,7 +14,7 @@ import { useMyWork, useAttention } from "@/lib/data/use-work";
 import { useMyDepartmentFiles } from "@/lib/data/use-my-department-files";
 import { MyWorkCards } from "@/components/work/MyWorkCards";
 import { MyDepartmentFileCards } from "@/components/work/MyDepartmentFileCards";
-import { actionableCount, dueLabel, isWaiting, workHref } from "@/lib/work/my-work-view";
+import { actionableCount, attentionHref, dueLabel, isWaiting, workHref } from "@/lib/work/my-work-view";
 import { useCreditOpsExceptions } from "@/lib/data/use-creditops-exceptions";
 import { useAgency } from "@/lib/agency-context";
 import {
@@ -49,7 +49,7 @@ import {
   ShieldAlert,
   CalendarOff,
   CalendarClock,
-  Receipt,
+  Receipt, ChevronRight,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -186,11 +186,15 @@ export const AttentionCenter = () => {
         {items.map((item) => {
           const meta = reasonMeta[item.reason];
           const Icon = meta.icon;
+          /* Dee, 2026-10-01: a row IS the way to the thing that needs
+             attention — the client file, the project, or the work item. */
           return (
-            <div
+            <Link
               key={item.id}
+              to={attentionHref(item)}
               className={cn(
-                "flex items-center gap-3 rounded-xl border px-4 py-3",
+                "flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors",
+                "hover:bg-card hover:border-foreground/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 meta.cls,
               )}
             >
@@ -206,7 +210,8 @@ export const AttentionCenter = () => {
                 </p>
               </div>
               <StatusPill status={item.stage} />
-            </div>
+              <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+            </Link>
           );
         })}
       </div>
