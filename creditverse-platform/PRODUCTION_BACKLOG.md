@@ -42,8 +42,9 @@ Last reconciled: 2026-09-21, after the Eastern workday lock (`1f6b8e7`).
   unauthorized attempts, function failures, hand-off failures) written as
   they happen, a trigger alerting the owners once an hour per kind, and the
   card on Settings › Integrations. Proven on production 2026-10-01.
-  HUMAN TEST REQUIRED → BROWSER PUSH = VERIFIED once Dee confirms one real
-  laptop and one real phone.
+  Browser push on a LAPTOP: LIVE VERIFIED by Dee, 2026-10-01. Phone:
+  HUMAN TEST REQUIRED — VERIFIED in full once Dee confirms one real phone
+  (iPhone: Share → Add to Home Screen first, then turn it on from the bell).
 - **EOD cutoff still unset** — the reminder uses shift end until
   `agencies.eod_cutoff_local` is set (Dee's mockup: 7:00 PM ET).
 
