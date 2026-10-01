@@ -1462,3 +1462,24 @@ than the internal workspace. **The portal product rule (Dee, 2026-10-01):
 *if the Partner does not need a field to make a decision or take an
 action, do not expose it.* Files waits until the shared-client-document
 storage rule is fixed.**
+
+## 29. Go-Live Stabilization Pass (Dee, 2026-10-01 — the active program)
+
+**Full text, verbatim: `creditverse-platform/GO_LIVE_STABILIZATION_PASS.md`;
+status in `creditverse-platform/GO_LIVE_STATUS.md`.** Fix what exists; add
+nothing. Every role — Agent, Team Lead, Department Lead, Division Lead,
+Executive, Partner Portal user — every module, functionally verified, in
+Dee's priority: broken functionality → wrong permissions or exposure →
+navigation/loading → agent and manager workflow → payroll permissions →
+EOD/Attendance/Performance → Partner Portal → cosmetics → new features only
+after it is stable.
+
+**Payroll doctrine changed (supersedes the owner-only payroll rule):**
+operational leads manage AGENT payroll within their scope — team lead →
+team, department lead → department, division lead → division, executive →
+organization — read, hours, corrections, compensation, adjustments,
+calculations, processing, history. **Bryan's BES-side settlement (BES
+payment to Bryan, managing-partner settlement, BES margin, private
+settlement calculations, related company-cost data) stays separately
+protected, in the data and auth layer, never only hidden in the UI.** Do
+not force people into fake teams or assignments to grant access.
