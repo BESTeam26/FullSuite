@@ -29,6 +29,13 @@ import {
 import type { Enums, Tables } from "@/lib/supabase/database.types";
 import { authCallbackUrl, safeRedirectPath } from "@/lib/auth/safe-redirect";
 
+/** The three columns of a management seat the session needs to know it is live. */
+type ManagementSeatRow = Pick<Tables<"management_seats">, "seat" | "effective_from" | "effective_to">;
+
+/** Same rule as the database's `seat_is_live()`: open-ended or not yet ended, and already begun. */
+const seatIsLive = (s: ManagementSeatRow, today = new Date().toISOString().slice(0, 10)): boolean =>
+  s.effective_from <= today && (s.effective_to === null || s.effective_to >= today);
+
 export type Profile = Tables<"profiles">;
 export type AgencyMembership = Tables<"agency_memberships">;
 export type OrgMembership = Tables<"org_memberships">;
@@ -95,6 +102,11 @@ export interface AuthContextValue {
   /** Teams this user sits on, and the subset they lead. Stable ids only. */
   teamIds: string[];
   ledTeamIds: string[];
+  /** Kinds of the LIVE management seats this person holds (chief_operations,
+      division_manager, department_manager, …). Labels and offers only — the
+      database decides what a seat reaches (Dee, 2026-10-01: a seat, never the
+      admin role, is what places somebody over other people's payroll). */
+  liveSeatKinds: string[];
   hasAnyAccess: boolean;
   /** Set only when status is "unavailable": why their access could not be read. */
   identityError: string | null;
@@ -202,6 +214,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     ExternalMembership[]
   >([]);
   const [teamMemberships, setTeamMemberships] = useState<TeamMembership[]>([]);
+  const [seats, setSeats] = useState<ManagementSeatRow[]>([]);
   /**
    * The partner organizations this person is a CONTACT of.
    *
@@ -230,7 +243,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try { await supabase.rpc("activate_my_membership"); } catch { /* not fatal */ }
     /* Team roster rides in the same parallel batch as the rest of identity —
        one round, resolved once per session, no waterfall (rule 14). */
-    const [p, am, om, em, tm, pc] = await Promise.all([
+    const [p, am, om, em, tm, ms, pc] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
       supabase
         .from("agency_memberships")
@@ -240,6 +253,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       supabase.from("org_memberships").select("*").eq("user_id", userId),
       supabase.from("external_memberships").select("*").eq("user_id", userId),
       supabase.from("team_memberships").select("*").eq("user_id", userId),
+      /* Management seats, same batch: placement over other people comes from
+         a seat (D-021), and the interface offers payroll and people sections
+         only where one exists. */
+      supabase.from("management_seats").select("seat, effective_from, effective_to").eq("user_id", userId),
       /* Rides in the same batch — a partner's whole authorization, resolved
          in the one round with everything else (rule 14). `status` narrows to
          a contact whose access has not been revoked; RLS already limits the
@@ -273,6 +290,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       ["profile", p.error], ["agency membership", am.error],
       ["organization memberships", om.error], ["external memberships", em.error],
       ["team memberships", tm.error], ["partner contacts", pc.error],
+      ["management seats", ms.error],
     ].filter(([, e]) => e);
     if (failed.length > 0) {
       throw new Error(
@@ -286,6 +304,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setOrgMemberships(om.data ?? []);
     setExternalMemberships(em.data ?? []);
     setTeamMemberships(tm.data ?? []);
+    setSeats((ms.data ?? []) as ManagementSeatRow[]);
     setPartnerContacts((pc.data ?? []) as PartnerContact[]);
   }, []);
 
@@ -367,6 +386,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setOrgMemberships([]);
           setExternalMemberships([]);
           setTeamMemberships([]);
+          setSeats([]);
           setStatus("signed-out");
         }
       },
@@ -513,6 +533,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       agencyScope: agencyMembership?.scope ?? null,
       teamIds: teamMemberships.map((t) => t.team_id),
       ledTeamIds: teamMemberships.filter((t) => t.is_lead).map((t) => t.team_id),
+      liveSeatKinds: seats.filter((s) => seatIsLive(s)).map((s) => s.seat),
       partnerContacts,
       identityError,
       hasAnyAccess:
@@ -544,6 +565,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     orgMemberships,
     externalMemberships,
     teamMemberships,
+    seats,
     /* Both were read by the memo without being declared: `partnerContacts`
        decides `hasAnyAccess` for every portal user, so a stale closure here is
        exactly the "authorized person told they have no access" bug again. */

@@ -39,7 +39,6 @@ import {
 import { signingLink, useDocumentActions, useDocumentTemplates, useSignatureRequests } from "@/lib/data/documents";
 import { useAgencyPermissions } from "@/lib/data/agency-permissions";
 import { useAgencyAccessContext } from "@/lib/agency/use-access-context";
-import { managesAgency } from "@/lib/agency/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatDate } from "@/lib/format-date";
 import { formatCentsIn } from "@/lib/format-money";
@@ -400,7 +399,7 @@ export function CompensationTab({ member }: { member: AgencyMember }) {
   /* Agent payroll within people scope (Dee, 2026-10-01); rows arrive only for
      a person the database places under the viewer. */
   if (!perms.can("payroll.view") && !perms.can("payroll.manage")
-      && !access.ctx.leadsTeam && !managesAgency(access.ctx)) return null;
+      && !access.ctx.leadsTeam && !(access.ctx.holdsSeat ?? false)) return null;
 
   /* The cost side is a separate capability from payroll — holding payroll
      shows what the worker earns and not what BES pays for them. */

@@ -170,6 +170,9 @@ export interface AccessContext {
   can: (permission: string) => boolean;
   /** Leads at least one live team — a fact from team_memberships, not a rank. */
   leadsTeam: boolean;
+  /** Holds a live management seat (chief operations, division, department) —
+      placement, not a rank. Optional: absent means unknown, which gates shut. */
+  holdsSeat?: boolean;
 }
 
 /**

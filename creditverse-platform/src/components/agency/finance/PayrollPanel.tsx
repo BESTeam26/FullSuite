@@ -19,7 +19,6 @@ import { PAY_CURRENCIES, suggestFxRate } from "@/lib/data/people-management";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useAgencyPermissions } from "@/lib/data/agency-permissions";
 import { useAgencyAccessContext } from "@/lib/agency/use-access-context";
-import { managesAgency } from "@/lib/agency/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/format-date";
 import { formatCentsIn } from "@/lib/format-money";
@@ -37,7 +36,7 @@ export function PayrollPanel() {
      adjust. Releasing books BES's cost as an expense and stays with the
      payroll key. Which payslips arrive is the database's decision. */
   const access = useAgencyAccessContext();
-  const mayWork = canManage || access.ctx.leadsTeam || managesAgency(access.ctx);
+  const mayWork = canManage || access.ctx.leadsTeam || (access.ctx.holdsSeat ?? false);
   const cutoffs = useCutoffs();
   const actions = usePayrollActions();
   const { toast } = useToast();

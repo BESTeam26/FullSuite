@@ -212,6 +212,7 @@ export const Sidebar = () => {
     administers: navContext.role === "agency_admin",
     manages: navContext.role === "agency_admin" || navContext.can("ops.manage"),
     leadsTeam: navContext.leadsTeam,
+    holdsSeat: navContext.holdsSeat ?? false,
     payroll: navContext.can("payroll.view") || navContext.can("payroll.manage"),
   }), [navContext]);
   /* Grouped, and the ONLY copy. Dee, 2026-09-20, seeing the same eleven links

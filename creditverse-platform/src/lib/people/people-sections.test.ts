@@ -4,10 +4,12 @@ import {
   visiblePeopleSections,
 } from "./people-sections";
 
-const AGENT = { administers: false, manages: false, leadsTeam: false, payroll: false };
-const LEAD = { administers: false, manages: false, leadsTeam: true, payroll: false };
-const DIVISION_MANAGER = { administers: false, manages: true, leadsTeam: false, payroll: false };
-const EXECUTIVE = { administers: true, manages: true, leadsTeam: false, payroll: false };
+const AGENT = { administers: false, manages: false, leadsTeam: false, holdsSeat: false, payroll: false };
+const LEAD = { administers: false, manages: false, leadsTeam: true, holdsSeat: false, payroll: false };
+/* A division manager is a SEAT (D-021) plus the ops.manage capability. */
+const DIVISION_MANAGER = { administers: false, manages: true, leadsTeam: false, holdsSeat: true, payroll: false };
+/* An admin with no seat and no team: an access role, not a management level. */
+const EXECUTIVE = { administers: true, manages: true, leadsTeam: false, holdsSeat: false, payroll: false };
 const PAYROLL_ADMIN = { ...EXECUTIVE, payroll: true };
 const labels = (ctx: typeof AGENT) => visiblePeopleSections(ctx).map((s) => s.label);
 
@@ -35,8 +37,11 @@ describe("People & Teams is role-adaptive", () => {
   it("an Executive gets everything, in the locked order", () => {
     expect(labels(EXECUTIVE)).toEqual([
       "Overview", "Team Members", "Structure", "Positions", "Org Chart",
-      "Schedule", "Attendance", "Time Off", "End of Day", "Performance", "Pay & Payroll",
+      "Schedule", "Attendance", "Time Off", "End of Day", "Performance",
     ]);
+    /* Dee, 2026-10-01: "Agency Admin by itself must NOT grant organization-wide payroll." */
+    expect(labels(EXECUTIVE)).not.toContain("Pay & Payroll");
+    expect(labels({ ...EXECUTIVE, holdsSeat: true })).toContain("Pay & Payroll");
   });
 
   /* Dee, 2026-10-01 (PAYROLL RULE): agent payroll follows people scope. The

@@ -56,6 +56,7 @@ export function usePeopleAudience() {
     administers,
     manages: administers || ctx.can("ops.manage"),
     leadsTeam: ctx.leadsTeam,
+    holdsSeat: ctx.holdsSeat ?? false,
     payroll: ctx.can("payroll.view") || ctx.can("payroll.manage"),
   };
 }

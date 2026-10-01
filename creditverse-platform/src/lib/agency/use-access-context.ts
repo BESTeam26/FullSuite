@@ -46,6 +46,7 @@ export function useAgencyAccessContext(): AgencyAccessContext {
      memberships (`team_memberships.is_lead`), not a rank (0234). No second
      request (rule 14). */
   const leadsTeam = (useAuth().ledTeamIds ?? []).length > 0;
+  const holdsSeat = (useAuth().liveSeatKinds ?? []).length > 0;
 
   /* Agency routes answer to the AGENCY resolver alone. This context only
      exists for someone with an agency membership, and the organization
@@ -60,13 +61,14 @@ export function useAgencyAccessContext(): AgencyAccessContext {
       role: (agencyMembership?.role as AgencyRole) ?? null,
       can: (key) => agencyPermissions.can(key as AgencyPermission),
       leadsTeam,
+      holdsSeat,
     }),
-    [agencyMembership?.role, agencyPermissions, leadsTeam],
+    [agencyMembership?.role, agencyPermissions, leadsTeam, holdsSeat],
   );
 
   return {
     ctx: viewAs.previewing
-      ? { role: viewAs.effectiveRole, can: viewAs.effectiveCan, leadsTeam: false }
+      ? { role: viewAs.effectiveRole, can: viewAs.effectiveCan, leadsTeam: false, holdsSeat: false }
       : own,
     previewing: viewAs.previewing,
     loading: status === "loading" || permissions.loading || agencyPermissions.loading,
@@ -83,6 +85,7 @@ export function useOwnAccessContext(): AccessContext {
   const { agencyMembership } = useAuth();
   const agencyPermissions = useAgencyPermissions();
   const leadsTeam = (useAuth().ledTeamIds ?? []).length > 0;
+  const holdsSeat = (useAuth().liveSeatKinds ?? []).length > 0;
   /* The agency resolver alone — the same composition (and the same reason)
      as useAgencyAccessContext above. */
   return useMemo<AccessContext>(
@@ -90,7 +93,8 @@ export function useOwnAccessContext(): AccessContext {
       role: (agencyMembership?.role as AgencyRole) ?? null,
       can: (key) => agencyPermissions.can(key as AgencyPermission),
       leadsTeam,
+      holdsSeat,
     }),
-    [agencyMembership?.role, agencyPermissions, leadsTeam],
+    [agencyMembership?.role, agencyPermissions, leadsTeam, holdsSeat],
   );
 }

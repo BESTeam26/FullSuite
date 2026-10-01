@@ -109,10 +109,9 @@ check("reads no pay rates, payslips or others' payout accounts", [r.pay_rates, r
 console.log("\nAdmin alone (Tech Support Team — agency_admin, no grants)\n");
 r = as(U["wecare@blessedempireservices.com"], S);
 check("admin reaches operations", r.clients, total);
-/* An executive (agency_admin) reads AGENT payroll organization-wide (Dee,
-   2026-10-01) — and still nothing BES-side, and still no money key. */
-check("admin reads agent payroll organization-wide", r.pay_rates > 0, true);
-check("admin alone never reaches BES cost, and holds no money key", [r.bes_slips, r.bes_arr, r.settlements, r.payroll_view, r.compensation_view], [0, 0, 0, false, false]);
+/* Dee, 2026-10-01: "Agency Admin by itself must NOT grant organization-wide
+   payroll." No seat, no team — no pay, no BES side, no money key. */
+check("admin alone grants zero payroll", [r.pay_rates, r.payslips, r.bes_slips, r.bes_arr, r.settlements, r.payroll_view, r.compensation_view], [0, 0, 0, 0, 0, false, false]);
 
 console.log("\nSeats are administered, never self-granted\n");
 const tryAs = (u, sql) => q.query(`begin; ${session(u)} do $c$ begin ${sql}; perform set_config('probe.r','ok',true); exception when others then perform set_config('probe.r', sqlstate, true); end $c$; select current_setting('probe.r', true) as r; rollback;`)[0].r;

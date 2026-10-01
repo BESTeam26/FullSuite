@@ -112,6 +112,8 @@ export interface PeopleAudienceContext {
   manages: boolean;
   /** Leads at least one team — a relationship, not a role name. */
   leadsTeam: boolean;
+  /** Holds a live management seat — chief operations, a division or a department. */
+  holdsSeat: boolean;
   /** Holds payroll.view or payroll.manage — the explicit key, which opens the
       section even for somebody who manages nobody. */
   payroll: boolean;
@@ -119,12 +121,14 @@ export interface PeopleAudienceContext {
 
 const admits = (audience: PeopleAudience, ctx: PeopleAudienceContext): boolean => {
   switch (audience) {
-    case "lead": return ctx.leadsTeam || ctx.manages || ctx.administers;
+    case "lead": return ctx.leadsTeam || ctx.holdsSeat || ctx.manages || ctx.administers;
     case "manages": return ctx.manages || ctx.administers;
     case "admin": return ctx.administers;
     /* Dee, 2026-10-01 (PAYROLL RULE): leads work their people's agent payroll
        within their scope — the same scope as every other section here. */
-    case "payroll": return ctx.payroll || ctx.leadsTeam || ctx.manages || ctx.administers;
+    /* …but Agency Admin is an access role, not a management level: admin
+       alone (and ops.manage alone) places nobody over anyone's pay. */
+    case "payroll": return ctx.payroll || ctx.leadsTeam || ctx.holdsSeat;
   }
 };
 

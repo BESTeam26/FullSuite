@@ -1886,15 +1886,16 @@ if (runs(37)) {
       () => w37(ADMIN, `select (public.agency_can('finance.dashboard.view') or public.agency_can('payroll.view') or public.agency_can('payroll.manage') or public.agency_can('expenses.view') or public.agency_can('expenses.manage'))::text as rows`), "false"],
     ["…and the admin still holds everything that is not money",
       () => w37(ADMIN, `select (public.agency_can('partners.view') and public.agency_can('team.manage') and public.agency_can('ops.manage'))::text as rows`), "true"],
-    /* Dee, 2026-10-01 (PAYROLL RULE): an executive reads AGENT payroll
-       organization-wide. The BES side — cost, margin, settlement — stays behind
-       compensation.bes_cost.view, which no role confers. */
-    ["an admin reads the agent side of pay organization-wide (executive)",
+    /* Dee, 2026-10-01 (PAYROLL RULE, corrected the same day): "Agency Admin is
+       an access role, not an organizational management level." Admin alone —
+       no seat, no team — reads nobody's pay. Organization-wide agent payroll
+       comes from the chief_operations seat or the explicit payroll key. */
+    ["an admin alone reads no pay — Agency Admin is an access role, not a management level",
       () => w37(ADMIN, `set local role postgres;
         insert into public.member_pay_rates (agency_id, user_id, rate_type, rate_cents, currency, effective_from)
           values ((select agency_id from public.agency_memberships limit 1), '${AGENT}', 'hourly', 5000, 'USD', current_date - 10);
         set local role authenticated; set local request.jwt.claims = '{"sub":"${ADMIN}","role":"authenticated"}';
-        select (count(*) > 0)::text as rows from public.member_pay_rates where user_id = '${AGENT}'`), "true"],
+        select count(*)::int as rows from public.member_pay_rates where user_id = '${AGENT}'`), 0],
     ["…and never the BES side: the internal views are empty for an admin without the cost key",
       () => w37(ADMIN, `select ((select count(*) from public.payslips_internal) + (select count(*) from public.compensation_arrangements_internal) + (select count(*) from public.managing_partner_settlements))::int as rows`), 0],
     ["…while the owner can",
@@ -6908,10 +6909,16 @@ if (runs(70)) {
     ["an agent cannot state anybody's rate — their own included",
       () => p70(AGENT70, `select public.set_member_pay_rate('${AGENT70}', 'hourly', 1500) as rows`), "ERR 42501"],
 
-    ["a lead sees no colleague's rate",
+    /* Dee, 2026-10-01 (PAYROLL RULE): a lead reads the agent-side pay of the
+       people on the teams they lead — and nobody else's, and never the BES
+       side. bes.funding sits on no team, so the lead has no placement over them. */
+    ["a lead reads their own team member's rate, nobody else's, and nothing BES-side",
       () => p70(PAY70, `select public.set_member_pay_rate('${AGENT70}', 'hourly', 1500);
+        select public.set_member_pay_rate('${U["bes.funding@bes.test"]}', 'hourly', 1700);
         set local request.jwt.claims = '{"sub":"${LEAD70}","role":"authenticated"}';
-        select count(*)::int as rows from public.member_pay_rates where user_id = '${AGENT70}'`), 0],
+        select ((select count(*) from public.member_pay_rates where user_id = '${AGENT70}') = 1
+            and (select count(*) from public.member_pay_rates where user_id = '${U["bes.funding@bes.test"]}') = 0
+            and (select count(*) from public.compensation_arrangements_internal) = 0)::text as rows`), "true"],
 
     /* The agency may now hold rates in more than one currency, so a probe
        that RELEASES must have a rate for every pair present — otherwise it is

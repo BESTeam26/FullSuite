@@ -15,8 +15,32 @@ walk it before it is called working.
 Roles: **Agent** (Jet, Archie) · **Team Lead** (Allyssa — department seat,
 leads one team; Daniel — two teams) · **Department Lead** (Allyssa, Daniel —
 `department_manager` seats) · **Division Lead** (Rowell — `division_manager`
-seats; also `agency_admin`) · **Executive** (Dee, Aaron; Bryan and the Tech
-account are `agency_admin`) · **Partner Portal User** (Kaori).
+seats; also `agency_admin`) · **Executive** (Dee and Aaron, owners; Aaron
+holds the `chief_operations` seat) · **Partner Portal User** (Kaori). Bryan
+and the Tech account are `agency_admin`: an access role, not a management
+level (Dee, 2026-10-01).
+
+## Payroll — who can view and edit whose (corrected 2026-10-01 PM)
+
+Scope comes from the person's seat, team leadership or an explicit payroll
+key. `agency_admin` by itself grants nothing. The BES side (BES cost, margin,
+Bryan's managing-partner settlement, internal cost calculations) answers only
+to `compensation.bes_cost.view`, held by the owners and Bryan.
+
+| Person | Placement | Agent payroll: view | Agent payroll: edit (generate, adjust, direct rate, time corrections) | Release / settings / FX / cutoffs | BES side |
+|---|---|---|---|---|---|
+| Dee, Aaron | Owners (payroll key by definition); Aaron also chief operations | Everyone (25) | Everyone | Yes | Yes |
+| Bryan | `agency_admin` + explicit payroll and cost keys; managing partner | Everyone (25) | Everyone | Yes | Yes |
+| Rowell | Two `division_manager` seats; `agency_admin` | His two divisions' people (14) | Same 14 | No | No |
+| Daniel | Two `department_manager` seats; leads two teams | His departments' people (7) | Same 7 | No | No |
+| Allyssa | One `department_manager` seat; leads one team | Her department's people (2) | Same 2 | No | No |
+| Tech account | `agency_admin`, no seat, no team | Nobody (0) | Nobody | No | No |
+| JM | `executive_assistant` seat (corporate, no scope) | Nobody | Nobody | No | No |
+| Agents (Jet, Archie, …) | — | Own released payslips and own rate | — | No | No |
+
+Counts are from the rolled-back per-person proof on 2026-10-01 after
+migration 20261001015000. A person never appears in their own placement
+scope; their own pay is the released-payslip self branch.
 
 ## Matrix — 2026-10-01
 
@@ -37,11 +61,12 @@ account are `agency_admin`) · **Partner Portal User** (Kaori).
 | Team Lead | Finance, Structure, Positions, BES-side pay | No | No | — | DB proof, probes | none |
 | Department Lead | Everything a Team Lead has | Yes | Within department | Department (seat) | DB proof (Allyssa, Daniel), `management-placement-probe` | HUMAN TEST REQUIRED |
 | Department Lead | Pay & Payroll | Yes | Agent side | Department; never BES cost | DB proof | none known |
-| Division Lead | Everything above + Org Chart | Yes | Within division | Division (seat) | DB proof (Rowell), `management-placement-probe`, `profile-access-matrix-probe` | Rowell is also `agency_admin`, so his reach is the whole company (see BLOCKING/DECIDE) |
-| Division Lead | Pay & Payroll | Yes | Agent side | Division; never BES cost | DB proof (Rowell: 4 payslips, 0 internal, 0 settlements) | none known |
+| Division Lead | Everything above + Org Chart | Yes | Within division | Division (seat) | DB proof (Rowell), `management-placement-probe`, `profile-access-matrix-probe` | none known |
+| Division Lead | Pay & Payroll | Yes | Agent side | His two divisions only (14 people), from the seats, not the admin role; never BES cost | DB proof (Rowell: scope 14, 0 internal, 0 settlements), phase 37 | none known |
 | Executive | Every module | Yes | Yes | Company | browser sweep as Dee over 44 routes (all 21 sidebar + 23 sub-routes), 0 failed requests after fixes | CreditOps cold load 4.3 s (18 requests) — investigate per §26 |
 | Executive | Finance (Overview, Invoices, Payments, Billing, Expenses, Payroll, Reports) | Yes | Yes | Company | browser as Dee (was 400 on every tab — fixed) | none known |
 | Executive | BES Partners | Yes | Yes | Company | browser as Dee (was 400 — fixed), DB proof 20/1,468/2,144 | none known |
+| Executive | Payroll: agent side organization-wide | Owners, Aaron (chief operations seat), Bryan (payroll key) | Same | seat or explicit key, never `agency_admin` | DB proof (Tech account, admin alone: 0), phase 37, `management-placement-probe` | none |
 | Executive | Payroll: BES side (cost, margin, settlement) | Owners + Bryan only | Owners + Bryan | `compensation.bes_cost.view` | DB proof (Dee, Bryan see 4 internal rows; Rowell, Tech, leads see 0), `compensation-probe` 37/37 | none |
 | Executive (Bryan) | Payroll + compensation, no finance | Yes | Yes | Company | `release-personas-probe` 46/46 | none |
 | Partner Portal User | Overview, Clients, Actions Needed, Messages | Yes | Respond, sign, message | Own partner only; no internal fields | phase 77 (12 checks), DB proof as Kaori (earlier today) | Projects & Services, Billing, Updates, Account Settings not re-walked today; **Files waits** on the shared-document storage rule |
@@ -100,16 +125,18 @@ through two pricing functions; no payroll adjustment could be saved.)
   pay. Partner user: every internal module. Leads: BES-side pay, release
   payroll, payroll settings, exchange rates, manual cutoffs (payroll key).
 
-## DEE TO DECIDE
+## DECIDED BY DEE, 2026-10-01 PM — DONE
 
-- **Executive = `agency_admin`.** The brief gives the Executive
-  organization-wide agent payroll; rule 20b defines Executive as
-  `agency_admin` / owner. That now includes Rowell and the "Tech" account.
-  If the Tech account should not read company payroll, it should not be an
-  admin.
-- Real partner **Kevin Hernandez** has a live assignment to the fixture team
-  **[TEST] Team A** since 2026-09-25 (a probe side effect). End it from BES
-  Partners › Assignments if unintended.
+- **`agency_admin` is not Executive.** Payroll scope now comes from the
+  seat, team leadership or the explicit payroll key (migration
+  20261001015000). Rowell: his two divisions. Tech account: nobody.
+- **Production partners on the fixture team.** Seven live assignments of
+  real partners (Approve with Tiff, Business Made Fair, Credit by Nainoa,
+  EDP Management Group, Kevin Hernandez, Vanquish Ventures, Wavy One
+  Solutions) to **[TEST] Team A** were ended on 2026-10-01 with the reason
+  written on each row. Division visibility for those partners comes from
+  the division seats and live engagements, which `can_see_partner()`
+  already honours; nothing a real person could see was lost.
 
 ## Test runs recorded today
 
