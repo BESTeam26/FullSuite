@@ -7,7 +7,7 @@
  * completely correct on screen.
  */
 import { describe, expect, it } from "vitest";
-import { buildMessageBody, effectiveMentions, splitBody } from "./message-body";
+import { buildMessageBody, effectiveMentions, linkify, splitBody } from "./message-body";
 import { mentionedUserIds } from "@/lib/activity/mentions";
 
 const SAM = { userId: "11111111-1111-4111-8111-111111111111", label: "Sam" };
@@ -119,5 +119,35 @@ describe("reading the mentions back out for display", () => {
 
   it("returns nothing for an empty message", () => {
     expect(splitBody("", [ROWELL])).toEqual([]);
+  });
+});
+
+/* Dee, 2026-10-01: "the message in communication is not hyperlink." */
+describe("links in a message", () => {
+  it("turns a web address into a link and leaves the sentence's full stop as text", () => {
+    expect(linkify("see https://example.com/a?b=1. ok")).toEqual([
+      { kind: "text", text: "see " },
+      { kind: "link", text: "https://example.com/a?b=1", href: "https://example.com/a?b=1" },
+      { kind: "text", text: ". ok" },
+    ]);
+  });
+  it("gives a bare www address a scheme and an email a mailto", () => {
+    expect(linkify("www.bescrm.net and dee@example.com")).toEqual([
+      { kind: "link", text: "www.bescrm.net", href: "https://www.bescrm.net" },
+      { kind: "text", text: " and " },
+      { kind: "link", text: "dee@example.com", href: "mailto:dee@example.com" },
+    ]);
+  });
+  it("keeps a closing bracket out of the address", () => {
+    expect(linkify("(https://x.io/p)")).toEqual([
+      { kind: "text", text: "(" }, { kind: "link", text: "https://x.io/p", href: "https://x.io/p" }, { kind: "text", text: ")" },
+    ]);
+  });
+  it("links and mentions coexist, each where it was typed", () => {
+    const parts = splitBody("@Sam look https://a.b/c", [SAM]);
+    expect(parts.map((p) => p.kind)).toEqual(["mention", "text", "link"]);
+  });
+  it("leaves plain words alone", () => {
+    expect(linkify("nothing to see here")).toEqual([{ kind: "text", text: "nothing to see here" }]);
   });
 });

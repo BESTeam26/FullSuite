@@ -290,10 +290,15 @@ export async function attachToMessage(input: {
   if (error) throw error;
 }
 
-/** A short-lived link. The bucket is private; there is no public URL to leak. */
-export async function signedAttachmentUrl(path: string, seconds = 300): Promise<string> {
+/**
+ * A short-lived link. The bucket is private; there is no public URL to leak.
+ * With `downloadAs`, the link asks the browser to SAVE the file under that
+ * name instead of displaying it.
+ */
+export async function signedAttachmentUrl(path: string, seconds = 300, downloadAs?: string): Promise<string> {
   const sb = requireSupabase();
-  const { data, error } = await sb.storage.from("bes-files").createSignedUrl(path, seconds);
+  const { data, error } = await sb.storage.from("bes-files")
+    .createSignedUrl(path, seconds, downloadAs ? { download: downloadAs } : undefined);
   if (error) throw error;
   return data.signedUrl;
 }

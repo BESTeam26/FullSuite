@@ -127,7 +127,38 @@ export function effectiveMentions(
 
 export type BodyPart =
   | { kind: "text"; text: string }
-  | { kind: "mention"; text: string; userId: string; isMe: boolean };
+  | { kind: "mention"; text: string; userId: string; isMe: boolean }
+  | { kind: "link"; text: string; href: string };
+
+/**
+ * A web address or an email, where somebody typed one (Dee, 2026-10-01: "the
+ * message in communication is not hyperlink"). `https://…`, `http://…` and
+ * `www.…` become links; a bare email becomes `mailto:`. Trailing punctuation
+ * that ends the sentence rather than the address — ".", ",", ")" — stays
+ * text, so "see https://example.com." links to example.com.
+ */
+const LINK = /\b(?:https?:\/\/[^\s<>"'`]+|www\.[^\s<>"'`]+|[\w.+-]+@[\w-]+(?:\.[\w-]+)+)/g;
+const TRAILING = /[.,;:!?)\]}'"]+$/;
+
+export function linkify(text: string): BodyPart[] {
+  const out: BodyPart[] = [];
+  let cursor = 0;
+  for (const match of text.matchAll(LINK)) {
+    const at = match.index ?? 0;
+    let raw = match[0];
+    const trail = TRAILING.exec(raw)?.[0] ?? "";
+    raw = raw.slice(0, raw.length - trail.length);
+    if (!raw) continue;
+    if (at > cursor) out.push({ kind: "text", text: text.slice(cursor, at) });
+    const href = raw.includes("@") && !/^https?:\/\//i.test(raw)
+      ? `mailto:${raw}`
+      : /^www\./i.test(raw) ? `https://${raw}` : raw;
+    out.push({ kind: "link", text: raw, href });
+    cursor = at + raw.length;
+  }
+  if (cursor < text.length) out.push({ kind: "text", text: text.slice(cursor) });
+  return out;
+}
 
 /**
  * The message text, cut into the runs a reader should see differently.
@@ -149,13 +180,13 @@ export function splitBody(
   meUserId?: string | null,
 ): BodyPart[] {
   const segments = locate(text, mentions);
-  if (segments.length === 0) return text ? [{ kind: "text", text }] : [];
+  if (segments.length === 0) return text ? linkify(text) : [];
 
   const parts: BodyPart[] = [];
   let cursor = 0;
   for (const segment of segments) {
     if (segment.from > cursor) {
-      parts.push({ kind: "text", text: text.slice(cursor, segment.from) });
+      parts.push(...linkify(text.slice(cursor, segment.from)));
     }
     parts.push({
       kind: "mention",
@@ -165,6 +196,6 @@ export function splitBody(
     });
     cursor = segment.to;
   }
-  if (cursor < text.length) parts.push({ kind: "text", text: text.slice(cursor) });
+  if (cursor < text.length) parts.push(...linkify(text.slice(cursor)));
   return parts;
 }

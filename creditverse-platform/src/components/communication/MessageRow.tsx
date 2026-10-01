@@ -187,6 +187,13 @@ export function MessageRow({
                 )}>
                 {part.text}
               </span>
+            ) : part.kind === "link" ? (
+              /* A real link: new tab, no referrer, and never a handle on this
+                 window for the page it opens. */
+              <a key={i} href={part.href} target="_blank" rel="noopener noreferrer"
+                className="break-all text-primary underline underline-offset-2 hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                {part.text}
+              </a>
             ) : (
               <span key={i}>{part.text}</span>
             ),

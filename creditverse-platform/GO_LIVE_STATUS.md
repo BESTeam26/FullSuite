@@ -105,6 +105,16 @@ through two pricing functions; no payroll adjustment could be saved.)
 
 ## WORKING (verified today)
 
+- Communication (Dee, 2026-10-01 night): web addresses and emails in a
+  message are links (new tab, no referrer); every attachment opens over the
+  conversation by what it is — image, PDF (browser reader), HTML (rendered
+  in a sandboxed frame: no scripts, no access to the app; the storage
+  service serves HTML as plain text, which is why "open in a tab" showed
+  source), text and CSV, video, audio — and anything else says it has no
+  preview and downloads. Download sits beside every attachment and inside
+  the viewer. Any file type can be sent (five per message; the project's
+  storage size limit applies). Verified as Dee on the CRM Team conversation:
+  the 2.1 MB EDP website mock-up renders, the PDF opens in the reader.
 - Dee's three instructions of 2026-10-01 evening, done:
   (1) the "Tech Support Team" sample account is deactivated through the
   canonical member-status path as Dee (audited); its login row is kept only

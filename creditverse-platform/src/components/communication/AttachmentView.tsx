@@ -24,25 +24,27 @@
  * just to view the image." A tab loses your place and hands somebody a bare
  * storage URL with no way back. Download is still one click inside it.
  *
- * A non-image still opens in a tab, because that is what a PDF or a
- * spreadsheet wants.
+ * ── EVERY KIND, IN THE APP ────────────────────────────────────────────────
+ *
+ * Dee, 2026-10-01: a PDF, an HTML mock-up, a note, a clip — all open over the
+ * conversation too (AttachmentViewer), and every attachment has a Download
+ * beside it. A spreadsheet or a Word file, which the browser cannot show,
+ * says so and downloads.
  */
 import { useEffect, useRef, useState } from "react";
-import { Download, ImageOff, Paperclip } from "lucide-react";
+import { Download, FileText, ImageOff, Loader2 } from "lucide-react";
 import { signedAttachmentUrl, type Attachment } from "@/lib/data/messages";
-import { ImageViewer } from "@/components/communication/ImageViewer";
+import { AttachmentViewer } from "@/components/communication/AttachmentViewer";
+import { downloadAttachment } from "@/components/communication/attachment-download";
+import { attachmentKind, canPreview, formatBytes } from "@/lib/communication/attachment-kind";
 import { cn } from "@/lib/utils";
 
 /** How long a signed URL lasts, and when to renew it. */
 const URL_SECONDS = 600;
 const RENEW_AFTER_MS = (URL_SECONDS - 60) * 1000;
 
-/** Rendered inline. Anything else stays a row you can download. */
-const isImage = (mime: string | null, name: string): boolean => {
-  if (mime?.startsWith("image/")) return true;
-  /* A file uploaded without a type still looks like what it is called. */
-  return /\.(png|jpe?g|gif|webp|avif|bmp|svg)$/i.test(name);
-};
+/** Rendered inline. Anything else is a row that previews or downloads. */
+const isImage = (mime: string | null, name: string): boolean => attachmentKind(mime, name) === "image";
 
 const isAnimated = (mime: string | null, name: string): boolean =>
   mime === "image/gif" || /\.gif$/i.test(name) || mime === "image/webp";
@@ -77,11 +79,14 @@ export function AttachmentView({ attachment }: { attachment: Attachment }) {
     return () => { alive = false; window.clearTimeout(timer.current); };
   }, [image, attachment.path]);
 
+  const kind = attachmentKind(attachment.mime, attachment.name);
+
+  /* A document gets its URL when it is asked for, and opens over the app. */
   const open = async () => {
     setBusy(true); setError(null);
     try {
-      const href = await signedAttachmentUrl(attachment.path);
-      window.open(href, "_blank", "noopener,noreferrer");
+      setUrl(await signedAttachmentUrl(attachment.path, URL_SECONDS));
+      setViewing(true);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -89,13 +94,20 @@ export function AttachmentView({ attachment }: { attachment: Attachment }) {
     }
   };
 
-  const kb = attachment.size ? Math.max(1, Math.round(attachment.size / 1024)) : null;
+  const save = async () => {
+    setBusy(true); setError(null);
+    try { await downloadAttachment(attachment); }
+    catch (e) { setError((e as Error).message); }
+    finally { setBusy(false); }
+  };
+
+  const size = formatBytes(attachment.size);
 
   if (image && !failed) {
     return (
       <figure className="mt-1.5">
         {viewing && url && (
-          <ImageViewer url={url} name={attachment.name} onClose={() => setViewing(false)} />
+          <AttachmentViewer attachment={attachment} url={url} onClose={() => setViewing(false)} />
         )}
         <button
           type="button"
@@ -129,26 +141,43 @@ export function AttachmentView({ attachment }: { attachment: Attachment }) {
             </span>
           )}
           <span className="min-w-0 truncate">{attachment.name}</span>
-          {kb && <span className="shrink-0">· {kb} KB</span>}
+          {size && <span className="shrink-0">· {size}</span>}
+          <button type="button" onClick={() => void save()} disabled={busy} aria-label={`Download ${attachment.name}`}
+            className="ml-auto shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60">
+            <Download className="h-3.5 w-3.5" aria-hidden />
+          </button>
         </figcaption>
+        {error && <p role="alert" className="text-[11px] text-status-danger">{error}</p>}
       </figure>
     );
   }
 
+  const previewable = canPreview(kind) && !failed;
   return (
     <>
-      <button type="button" onClick={() => void open()} disabled={busy}
-        className={cn(
-          "flex w-full max-w-full items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1.5 text-left text-xs transition-colors sm:max-w-sm",
-          "hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60",
-        )}>
-        {failed
-          ? <ImageOff className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          : <Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
-        <span className="min-w-0 flex-1 truncate text-foreground">{attachment.name}</span>
-        {kb && <span className="shrink-0 text-[10px] text-muted-foreground">{kb} KB</span>}
-        <Download className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-      </button>
+      {viewing && url && (
+        <AttachmentViewer attachment={attachment} url={url} onClose={() => setViewing(false)} />
+      )}
+      <div className={cn(
+        "flex w-full max-w-full items-center gap-1 rounded-lg border border-border bg-card pr-1 text-xs sm:max-w-sm",
+      )}>
+        <button type="button" onClick={() => void (previewable ? open() : save())} disabled={busy}
+          aria-label={`${previewable ? "Open" : "Download"} ${attachment.name}`}
+          className="flex min-w-0 flex-1 items-center gap-2 rounded-l-lg px-2.5 py-1.5 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60">
+          {failed
+            ? <ImageOff className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            : busy ? <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
+            : <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+          <span className="min-w-0 flex-1 truncate text-foreground">{attachment.name}</span>
+          <span className="shrink-0 text-[10px] text-muted-foreground">
+            {size ? `${size} · ` : ""}{previewable ? "Preview" : "Download"}
+          </span>
+        </button>
+        <button type="button" onClick={() => void save()} disabled={busy} aria-label={`Download ${attachment.name}`}
+          className="shrink-0 rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60">
+          <Download className="h-3.5 w-3.5" aria-hidden />
+        </button>
+      </div>
       {error && <p role="alert" className="text-[11px] text-status-danger">{error}</p>}
     </>
   );
