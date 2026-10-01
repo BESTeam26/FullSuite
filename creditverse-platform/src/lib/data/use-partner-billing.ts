@@ -80,14 +80,17 @@ export function usePartnerSchedule(groupId: string | null) {
  * tested against Dee's nine cases. One implementation, so the dashboard and a
  * partner profile cannot disagree about what MRR means.
  */
-export function useFinancialInputs(month: Month) {
+export function useFinancialInputs(month: Month, options: { enabled?: boolean } = {}) {
   const auth = useAuth();
   const perms = useAgencyPermissions();
   const allowed = perms.can("finance.dashboard.view");
+  /* A section that does not use the month passes `enabled: false` rather than
+     a placeholder month. A placeholder reached PostgREST as "0-01-01" and every
+     Finance tab opened with two 400s (go-live sweep, 2026-10-01). */
   const q = useQuery({
     queryKey: financeKey(month),
     queryFn: () => fetchFinancialInputs(month),
-    enabled: live(auth) && allowed,
+    enabled: live(auth) && allowed && options.enabled !== false,
     staleTime: 60_000,
   });
   return { ...q, allowed, permissionsLoading: perms.loading };

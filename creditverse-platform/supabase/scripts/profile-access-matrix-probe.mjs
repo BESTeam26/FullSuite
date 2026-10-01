@@ -41,7 +41,9 @@ check("own Agent ID view — ALLOW", as(AGENT, `select employee_code is not null
 check("Agent ID edit — DENY", tryAs(AGENT, `update public.agency_memberships set employee_code='XX-0000-99' where user_id='${AGENT}'`) === "ok" && as(AGENT, `select employee_code as c from agency_memberships where user_id='${AGENT}'`).c === "XX-0000-99", false);
 check("performance weighting (management intelligence) — DENY", n(AGENT, "performance_policy"), 0);
 check("QA sampling / reward exceptions — DENY", n(AGENT, "reward_sweep_exceptions where user_id is distinct from auth.uid()"), 0);
-check("compensation — DENY", n(AGENT, "member_pay_rates"), 0);
+/* Dee, 2026-10-01: an agent reads their OWN pay and nobody else's. */
+check("compensation — own rate only, nobody else's", n(AGENT, `member_pay_rates where user_id <> '${AGENT}'`), 0);
+check("compensation — never the BES side", n(AGENT, "payslips_internal") + n(AGENT, "compensation_arrangements_internal"), 0);
 check("access administration — DENY (others' grants)", n(AGENT, `agency_member_permissions ap join agency_memberships m on m.id=ap.membership_id where m.user_id<>'${AGENT}'`), 0);
 check("another team member's management records — DENY (goals, corrections, production)", n(AGENT, `(select user_id from member_goals where user_id<>'${AGENT}' union all select user_id from attendance_corrections where user_id<>'${AGENT}' union all select employee_id from production_logs where employee_id<>'${AGENT}') x`), 0);
 check("managed_people() is empty", n(AGENT, "public.managed_people()"), 0);
@@ -50,13 +52,19 @@ console.log("\nTeam Lead (built)");
 check("authorized team member's operational records — ALLOW", n(AGENT, `public.managed_people() where user_id='${TEAMMATE}'`, asLead), 1);
 check("performance weighting — ALLOW (reads the machinery)", n(AGENT, "performance_policy", asLead), 1);
 check("unrelated team member — DENY", OUTSIDER ? n(AGENT, `public.managed_people() where user_id='${OUTSIDER}'`, asLead) : 0, 0);
-check("compensation — DENY unless explicitly granted", n(AGENT, "member_pay_rates", asLead), 0);
+/* Dee, 2026-10-01 (PAYROLL RULE): a lead works their people's agent payroll;
+   the BES side stays behind its own key. */
+check("agent payroll scope — ALLOW over the team member", n(AGENT, `public.payroll_people() where user_id='${TEAMMATE}'`, asLead), 1);
+check("agent payroll scope — DENY outside the team", OUTSIDER ? n(AGENT, `public.payroll_people() where user_id='${OUTSIDER}'`, asLead) : 0, 0);
+check("BES cost, margin, settlement — DENY", n(AGENT, "payslips_internal", asLead) + n(AGENT, "compensation_arrangements_internal", asLead) + n(AGENT, "managing_partner_settlements", asLead), 0);
 check("access administration — DENY unless explicitly granted", n(AGENT, `agency_member_permissions ap join agency_memberships m on m.id=ap.membership_id where m.user_id<>'${AGENT}'`, asLead), 0);
 
 console.log("\nDivision Manager (built)");
 check("legitimate division workforce — ALLOW", n(AGENT, `public.managed_people() where user_id='${TEAMMATE}'`, asDivMgr), 1);
 check("outside the division — DENY", OUTSIDER ? n(AGENT, `public.managed_people() where user_id='${OUTSIDER}'`, asDivMgr) : 0, 0);
-check("compensation still independently gated — DENY", n(AGENT, "member_pay_rates", asDivMgr), 0);
+check("agent payroll scope — ALLOW over the division", n(AGENT, `public.payroll_people() where user_id='${TEAMMATE}'`, asDivMgr), 1);
+check("agent payroll scope — DENY outside the division", OUTSIDER ? n(AGENT, `public.payroll_people() where user_id='${OUTSIDER}'`, asDivMgr) : 0, 0);
+check("BES cost still independently gated — DENY", n(AGENT, "payslips_internal", asDivMgr) + n(AGENT, "compensation_arrangements_internal", asDivMgr), 0);
 
 console.log("\nExecutive (owner)");
 check("organization-wide workforce — ALLOW", n(OWNER, "public.managed_people()") > 1, true);

@@ -58,8 +58,8 @@ export function CompensationRoster() {
                 <th className="py-1.5 pr-3 font-medium">Person</th>
                 <th className="py-1.5 pr-3 text-right font-medium">Worker earns</th>
                 <th className="py-1.5 pr-3 font-medium">Paid by</th>
-                <th className="py-1.5 pr-3 text-right font-medium">BES pays</th>
-                <th className="py-1.5 pr-3 text-right font-medium">Margin</th>
+                {anyCost && <th className="py-1.5 pr-3 text-right font-medium">BES pays</th>}
+                {anyCost && <th className="py-1.5 pr-3 text-right font-medium">Margin</th>}
                 <th className="py-1.5 font-medium">Since</th>
               </tr>
             </thead>
@@ -79,12 +79,16 @@ export function CompensationRoster() {
                   <td className="py-1.5 pr-3 text-muted-foreground">
                     {r.arrangementType === "managing_partner" ? (r.managingPartnerName ?? "A managing partner") : "BES directly"}
                   </td>
-                  <td className="py-1.5 pr-3 text-right text-muted-foreground">
-                    {r.besCostCents === null ? "—" : formatCentsIn(r.besCostCents, r.currency)}
-                  </td>
-                  <td className="py-1.5 pr-3 text-right text-muted-foreground">
-                    {r.marginCents === null ? "—" : formatCentsIn(r.marginCents, r.currency)}
-                  </td>
+                  {anyCost && (
+                    <td className="py-1.5 pr-3 text-right text-muted-foreground">
+                      {r.besCostCents === null ? "—" : formatCentsIn(r.besCostCents, r.currency)}
+                    </td>
+                  )}
+                  {anyCost && (
+                    <td className="py-1.5 pr-3 text-right text-muted-foreground">
+                      {r.marginCents === null ? "—" : formatCentsIn(r.marginCents, r.currency)}
+                    </td>
+                  )}
                   <td className="py-1.5 text-muted-foreground">{formatDate(r.effectiveFrom)}</td>
                 </tr>
               ))}

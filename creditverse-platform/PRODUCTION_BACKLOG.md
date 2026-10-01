@@ -9,6 +9,27 @@ Last reconciled: 2026-09-21, after the Eastern workday lock (`1f6b8e7`).
 
 ## NOW — affecting daily operations
 
+- **Go-Live Stabilization Pass, day 1 (2026-10-01).** Status matrix and
+  the four lists live in `GO_LIVE_STATUS.md`. Fixed: Finance opened with two
+  400s on every tab (a placeholder month reached PostgREST as `0-01-01`);
+  BES Partners 400 on `partner_client_counts` (an archived enum value —
+  counts now read the lifecycle); `compensation_segments` /
+  `compensation_for_period` / `payable_minutes` / `paid_scheduled_days`
+  were callable by any signed-in user and returned BES cost and margin
+  (execute revoked); `adjust_payslip` inserted a type the check constraint
+  refused, so every non-zero adjustment failed; the release event and
+  bes_only adjustment audit carried BES-side figures. **PAYROLL RULE
+  implemented** (migrations 20261001012000–014000): leads work their
+  people's agent payroll in placement scope, executives org-wide, agents see
+  their own released payslips (My pay on Time & Attendance); BES side
+  unchanged and re-proven. DEE TO DECIDE: every `agency_admin` (Rowell and
+  the "Tech" account) now reads agent-side payroll organization-wide — the
+  brief says Executive is org-wide; say if the Tech account should lose the
+  admin role. DEE TO DECIDE: real partner "Kevin Hernandez" has carried a
+  live assignment to the fixture team "[TEST] Team A" since 2026-09-25 (a
+  probe side effect); end it from BES Partners › Assignments if it is not
+  intended.
+
 - **Partner Portal: doctrine recorded (CLAUDE.md §28), inventory done,
   exposure closed 2026-10-01 (migration 20261001008000).** A partner
   contact could read the full `outsourcing_groups` and `partner_services`

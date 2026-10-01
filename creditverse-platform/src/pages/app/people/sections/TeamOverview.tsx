@@ -43,6 +43,8 @@ import { useAgencyWork } from "@/lib/data/use-work";
 import { useMemberDocuments, MEMBER_DOCUMENT_KINDS } from "@/lib/data/member-documents";
 import { useWorkforce } from "@/lib/data/use-workforce";
 import { useAgencyPermissions } from "@/lib/data/agency-permissions";
+import { useAgencyAccessContext } from "@/lib/agency/use-access-context";
+import { managesAgency } from "@/lib/agency/navigation";
 import { orgDivisionLabel } from "@/lib/agency/division-label";
 import { formatDate } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
@@ -64,7 +66,10 @@ export function TeamOverview({ canSeePositions }: { canSeePositions: boolean }) 
   const birthdays = useAgencyBirthdays();
   const work = useAgencyWork();
   const perms = useAgencyPermissions();
-  const canPayroll = perms.can("payroll.view") || perms.can("payroll.manage");
+  const access = useAgencyAccessContext();
+  /* Agent payroll within people scope (Dee, 2026-10-01). */
+  const canPayroll = perms.can("payroll.view") || perms.can("payroll.manage")
+    || access.ctx.leadsTeam || managesAgency(access.ctx);
   const week = weekToDate(today), month = monthToDate(today), lastMonth = previousMonth(today);
   /* The month's submissions cover the week too — one request serves the EOD
      ring, the Avg. Performance tile and the person's Quick Stats. */

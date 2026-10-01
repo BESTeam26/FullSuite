@@ -54,7 +54,9 @@ export type PeopleAudience =
   | "manages"
   /** Agency admins: structure and positions are administration. */
   | "admin"
-  /** The payroll capability (payroll.view / payroll.manage) — never implied by anything else. */
+  /** Agent payroll within the viewer's people scope (Dee, 2026-10-01): leads and
+      managers, or the explicit payroll capability. The database decides whose
+      payslips arrive; BES-side cost stays behind its own key. */
   | "payroll";
 
 /** The question a cluster of sections answers. Presentation only. */
@@ -100,7 +102,7 @@ export const PEOPLE_SECTIONS: PeopleSection[] = [
   { slug: "performance", label: "Performance", audience: "lead", group: "operations",
     description: "Your team's performance based on attendance, productivity, quality, and accountability." },
   { slug: "payroll", label: "Pay & Payroll", audience: "payroll", group: "pay",
-    description: "What each person is paid, and the cutoffs that pay them — for payroll eyes only." },
+    description: "What each person in your scope is paid, and the cutoffs that pay them." },
 ];
 
 export interface PeopleAudienceContext {
@@ -110,7 +112,8 @@ export interface PeopleAudienceContext {
   manages: boolean;
   /** Leads at least one team — a relationship, not a role name. */
   leadsTeam: boolean;
-  /** Holds payroll.view or payroll.manage. Dee: never visible merely for Finance or admin. */
+  /** Holds payroll.view or payroll.manage — the explicit key, which opens the
+      section even for somebody who manages nobody. */
   payroll: boolean;
 }
 
@@ -119,7 +122,9 @@ const admits = (audience: PeopleAudience, ctx: PeopleAudienceContext): boolean =
     case "lead": return ctx.leadsTeam || ctx.manages || ctx.administers;
     case "manages": return ctx.manages || ctx.administers;
     case "admin": return ctx.administers;
-    case "payroll": return ctx.payroll;
+    /* Dee, 2026-10-01 (PAYROLL RULE): leads work their people's agent payroll
+       within their scope — the same scope as every other section here. */
+    case "payroll": return ctx.payroll || ctx.leadsTeam || ctx.manages || ctx.administers;
   }
 };
 

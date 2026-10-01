@@ -14,12 +14,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  ArrowRight, BarChart3, CalendarDays, CheckSquare, Clock, FileText, History,
+  ArrowRight, Banknote, BarChart3, CalendarDays, CheckSquare, Clock, FileText, History,
   Megaphone, Play, Square, Trophy,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useTimesheet, useEod } from "@/lib/data/use-time";
-import { useMyLeave, useLeaveTypes } from "@/lib/data/use-people";
+import { useMyLeave, useLeaveTypes, useMyPayslips } from "@/lib/data/use-people";
+import { formatCentsIn } from "@/lib/format-money";
 import { useMyWork } from "@/lib/data/use-work";
 import { useMyAttendanceScore } from "@/lib/attendance/use-attendance-score";
 import {
@@ -89,6 +90,7 @@ export function TimeOverview() {
   const t = useTimesheet();
   const eod = useEod();
   const leave = useMyLeave();
+  const pay = useMyPayslips();
   const leaveTypes = useLeaveTypes();
   const work = useMyWork();
   const { score } = useMyAttendanceScore();
@@ -342,8 +344,8 @@ export function TimeOverview() {
         </Panel>
       </div>
 
-      {/* ── Leave, what just happened, and what BES is saying ─────────── */}
-      <div className="grid gap-3 lg:grid-cols-3">
+      {/* ── Leave, what just happened, my pay, and what BES is saying ─── */}
+      <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
         <Panel title="Upcoming time off" icon={CalendarDays} to="/app/time/time-off">
           {next.length === 0 ? (
             <p className="py-6 text-center text-xs text-muted-foreground">Nothing booked.</p>
@@ -385,6 +387,39 @@ export function TimeOverview() {
                     </span>
                   </span>
                   <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">{clock(a.at)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+
+        {/* Dee, 2026-10-01: an agent sees their OWN pay. Released payslips
+            only — a draft is still being verified — and the agent side only:
+            the view carries nothing BES-side. */}
+        <Panel title="My pay" icon={Banknote}>
+          {pay.isLoading ? (
+            <p className="py-6 text-center text-xs text-muted-foreground">Loading…</p>
+          ) : (pay.data ?? []).length === 0 ? (
+            <p className="py-6 text-center text-xs text-muted-foreground">
+              Nothing released yet. A payslip appears here once its pay period is released.
+            </p>
+          ) : (
+            <ul className="divide-y divide-border/60">
+              {(pay.data ?? []).slice(0, 3).map((p) => (
+                <li key={p.id} className="flex items-start justify-between gap-2 py-2">
+                  <span className="min-w-0">
+                    <span className="block truncate text-xs font-semibold text-foreground">
+                      {formatDate(p.periodStart)} – {formatDate(p.periodEnd)}
+                    </span>
+                    <span className="block truncate text-[11px] text-muted-foreground">
+                      {pretty(p.workMinutes / 60)} h worked{p.payday ? ` · paid ${formatDate(p.payday)}` : ""}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-xs font-bold tabular-nums text-foreground">
+                    {p.payoutCents !== null && p.payoutCurrency
+                      ? formatCentsIn(p.payoutCents, p.payoutCurrency)
+                      : formatCentsIn(p.grossCents, p.currency)}
+                  </span>
                 </li>
               ))}
             </ul>

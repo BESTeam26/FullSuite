@@ -246,13 +246,25 @@ check("20 — a direct arrangement cannot hide a margin",
   } catch (e) { return /check|constraint/i.test(e.message) ? "refused" : `other: ${e.message.slice(0, 70)}`; } })(),
   "refused");
 
-check("21 — payroll permission alone cannot set an arrangement",
+/* Dee, 2026-10-01 (PAYROLL RULE): payroll scope sets what a DIRECTLY paid
+   worker earns — BES's cost is that same figure. An arrangement through a
+   managing partner is BES-side and needs compensation.bes_cost.view. */
+check("21a — payroll permission sets a direct arrangement (agent side)",
   (() => { try {
     asUser("00000000-0000-4000-8000-0000000000c1",
       `select public.set_compensation_arrangement(${P},'direct_bes','hourly',8000,8000,null,'PHP','2026-01-01','Probe.');`,
       PAYROLL_ONLY);
     return "allowed";
-  } catch (e) { return /42501|compensation permission/i.test(e.message) ? "refused" : `other: ${e.message.slice(0, 70)}`; } })(),
+  } catch (e) { return /42501/.test(e.message) ? "refused" : `other: ${e.message.slice(0, 70)}`; } })(),
+  "allowed");
+
+check("21b — payroll permission alone cannot open a managing-partner arrangement",
+  (() => { try {
+    asUser("00000000-0000-4000-8000-0000000000c1",
+      `select public.set_compensation_arrangement(${P},'managing_partner','hourly',8000,10000,'00000000-0000-4000-8000-0000000000c1','PHP','2026-01-01','Probe.');`,
+      PAYROLL_ONLY);
+    return "allowed";
+  } catch (e) { return /42501|BES cost permission/i.test(e.message) ? "refused" : `other: ${e.message.slice(0, 70)}`; } })(),
   "refused");
 
 console.log("\nEND TO END: GENERATE AND RELEASE");

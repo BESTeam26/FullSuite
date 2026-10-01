@@ -1886,12 +1886,17 @@ if (runs(37)) {
       () => w37(ADMIN, `select (public.agency_can('finance.dashboard.view') or public.agency_can('payroll.view') or public.agency_can('payroll.manage') or public.agency_can('expenses.view') or public.agency_can('expenses.manage'))::text as rows`), "false"],
     ["…and the admin still holds everything that is not money",
       () => w37(ADMIN, `select (public.agency_can('partners.view') and public.agency_can('team.manage') and public.agency_can('ops.manage'))::text as rows`), "true"],
-    ["an admin cannot READ payslips, not merely fail to see the menu",
+    /* Dee, 2026-10-01 (PAYROLL RULE): an executive reads AGENT payroll
+       organization-wide. The BES side — cost, margin, settlement — stays behind
+       compensation.bes_cost.view, which no role confers. */
+    ["an admin reads the agent side of pay organization-wide (executive)",
       () => w37(ADMIN, `set local role postgres;
         insert into public.member_pay_rates (agency_id, user_id, rate_type, rate_cents, currency, effective_from)
           values ((select agency_id from public.agency_memberships limit 1), '${AGENT}', 'hourly', 5000, 'USD', current_date - 10);
         set local role authenticated; set local request.jwt.claims = '{"sub":"${ADMIN}","role":"authenticated"}';
-        select count(*)::int as rows from public.member_pay_rates`), 0],
+        select (count(*) > 0)::text as rows from public.member_pay_rates where user_id = '${AGENT}'`), "true"],
+    ["…and never the BES side: the internal views are empty for an admin without the cost key",
+      () => w37(ADMIN, `select ((select count(*) from public.payslips_internal) + (select count(*) from public.compensation_arrangements_internal) + (select count(*) from public.managing_partner_settlements))::int as rows`), 0],
     ["…while the owner can",
       () => w37(OWNER, `set local role postgres;
         insert into public.member_pay_rates (agency_id, user_id, rate_type, rate_cents, currency, effective_from)
@@ -6942,28 +6947,42 @@ if (runs(70)) {
         set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
         select count(*)::int as rows from public.payslips`), 0],
 
-    ["…and no rate — not even their own",
+    /* Dee, 2026-10-01: an agent reads their OWN rate — and nobody else's. */
+    ["…but their own rate, and only their own",
       () => p70(PAY70, `select public.set_member_pay_rate('${AGENT70}', 'hourly', 1500, 'USD', current_date - 30);
+        select public.set_member_pay_rate('${LEAD70}', 'hourly', 1700, 'USD', current_date - 30);
         set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
-        select count(*)::int as rows from public.member_pay_rates`), 0],
+        select ((select count(*) from public.member_pay_rates where user_id = '${AGENT70}') = 1
+            and (select count(*) from public.member_pay_rates where user_id <> '${AGENT70}') = 0)::text as rows`), "true"],
     /* ── automation (0255): the cutoff runs itself, deterministically ──── */
     ["payroll settings are written only with the payroll permission",
       () => p70(AGENT70, `select public.set_payroll_settings(true, 15, 25, 10, 5, 'UTC') as rows`), "ERR 42501"],
 
+    /* The live sweep runs daily and may already have made this period's
+       cutoff (it had, on 2026-10-01), so the check reads the LIVE settings
+       and asserts the invariant: exactly one cutoff covers the most recent
+       completed period, with that period's payday math, and a second run
+       adds nothing. */
     ["the sweep creates ONE cutoff with Dee's payday math, however often it runs",
       () => p70(PAY70, `set local role postgres;
-        update public.payroll_settings set enabled = true, split_day = 15, payday_first = 25, payday_second = 10, verify_window_days = 5, timezone = 'UTC';
+        update public.payroll_settings set enabled = true;
         insert into public.member_pay_rates (agency_id, user_id, rate_type, rate_cents, currency, effective_from)
           values ('${AG70}', '${AGENT70}', 'hourly', 1500, 'USD', current_date - 90);
-        select public.payroll_auto_sweep(); select public.payroll_auto_sweep();
-        select (count(*) = 1
-            and bool_and(auto_generated)
-            and bool_and(verification_locks_on = period_end + 5)
-            and bool_and(case when extract(day from period_end)::int = 15
-                              then payday = make_date(extract(year from period_end)::int, extract(month from period_end)::int, 25)
-                              else payday = (date_trunc('month', period_end) + interval '1 month' + interval '9 days')::date end)
-           )::text as rows
-          from public.payroll_cutoffs`), "true"],
+        select public.payroll_auto_sweep();
+        select set_config('probe.n', (select count(*)::text from public.payroll_cutoffs), true);
+        select public.payroll_auto_sweep();
+        with s as (select * from public.payroll_settings where agency_id = '${AG70}'),
+        p as (select case when extract(day from current_date)::int > s.split_day
+                          then make_date(extract(year from current_date)::int, extract(month from current_date)::int, s.split_day)
+                          else (date_trunc('month', current_date) - interval '1 day')::date end as period_end, s.* from s)
+        select ((select count(*) from public.payroll_cutoffs) = current_setting('probe.n')::int
+            and (select count(*) from public.payroll_cutoffs c, p where c.period_end = p.period_end) = 1
+            and (select bool_and(c.auto_generated
+                     and c.verification_locks_on = c.period_end + p.verify_window_days
+                     and c.payday = case when extract(day from c.period_end)::int = p.split_day
+                                         then make_date(extract(year from c.period_end)::int, extract(month from c.period_end)::int, p.payday_first)
+                                         else (date_trunc('month', c.period_end) + interval '1 month' + make_interval(days => p.payday_second - 1))::date end)
+                   from public.payroll_cutoffs c, p where c.period_end = p.period_end))::text as rows`), "true"],
 
     ["a locked period refuses NEW adjustment requests by name",
       () => p70(AGENT70, `insert into public.time_entries (agency_id, employee_id, division_id, work_date, started_at, ended_at)
@@ -7226,7 +7245,17 @@ if (runs(70)) {
        AGENT's own RLS, return nothing, and insert a NULL partner — the probe
        would pass while testing nothing (the same trap as phase 55's upload). */
     ["logging time against a partner you cannot see is refused",
-      () => { const g = q(`select id::text as rows from public.outsourcing_groups where is_fixture = false order by created_at limit 1`)[0].rows;
+      /* A real partner the fixture agent genuinely cannot reach. The first
+         real partner by age is assigned to [TEST] Team A since 2026-09-25 (a
+         probe side effect left in place), which made this check assert the
+         wrong thing about the right rule. */
+      () => { const g = q(`select g.id::text as rows from public.outsourcing_groups g
+                where g.is_fixture = false
+                  and not exists (select 1 from public.partner_assignments a
+                                   where a.group_id = g.id and a.ended_on is null
+                                     and (a.user_id = '${AGENT70}'
+                                          or a.team_id in (select tm.team_id from public.team_memberships tm where tm.user_id = '${AGENT70}')))
+                order by g.created_at limit 1`)[0].rows;
               return p70(ADM70, `set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
         insert into public.time_entries (agency_id, employee_id, division_id, work_date, partner_group_id)
         values ('${AG70}', '${AGENT70}', 'creditops', current_date, '${g}'::uuid);

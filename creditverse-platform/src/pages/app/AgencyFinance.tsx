@@ -67,7 +67,7 @@ export const AgencyFinance = () => {
   /* Only fetched for the sections that use it. Rule 14: do not preload a tab
      nobody opened. */
   const wantsMonth = NEEDS_MONTH.has(slug ?? "");
-  const inputs = useFinancialInputs(wantsMonth ? month : { year: 0, month: 1 });
+  const inputs = useFinancialInputs(month, { enabled: wantsMonth });
 
   if (perms.loading) {
     return (

@@ -36,6 +36,9 @@ const S = `select
   (select count(*)::int from public.workspaces where module='talentops') as talentops_ws,
   (select count(*)::int from public.member_pay_rates) as pay_rates,
   (select count(*)::int from public.payslips) as payslips,
+  (select count(*)::int from public.payslips_internal) as bes_slips,
+  (select count(*)::int from public.compensation_arrangements_internal) as bes_arr,
+  (select count(*)::int from public.managing_partner_settlements) as settlements,
   (select count(*)::int from public.member_payout_accounts where user_id <> auth.uid()) as others_payout,
   public.agency_can('payroll.view') as payroll_view,
   (public.agency_can('compensation.agent_rate.view') or public.agency_can('compensation.bes_cost.view') or public.agency_can('compensation.arrangement.manage')) as compensation_view,
@@ -73,7 +76,11 @@ r = as(U["bes.manager@bes.test"], S);
 check("reaches every live CreditOps client (Lakeside and Cedar)", [r.lakeside, r.cedar], [1, 1]);
 check("reaches at least the fixture division's clients", r.clients >= 2, true);
 check("does not reach a TalentOps workspace", r.talentops_ws, 0);
-check("no pay rates, no payslips, no money capability", [r.pay_rates, r.payslips, r.payroll_view, r.compensation_view, r.finance_view], [0, 0, false, false, false]);
+/* Dee, 2026-10-01 (PAYROLL RULE): a division lead works their people's AGENT
+   payroll. The BES side — cost, margin, the managing partner's settlement —
+   stays behind compensation.bes_cost.view, and no money KEY comes with it. */
+check("reads their people's agent-side pay (division scope)", r.pay_rates > 0, true);
+check("never BES cost, margin or settlement; holds no money key", [r.bes_slips, r.bes_arr, r.settlements, r.payroll_view, r.compensation_view, r.finance_view], [0, 0, 0, false, false, false]);
 check("may write a department status for a division client", (() => { try { return as(U["bes.manager@bes.test"], `select public.set_client_department_status('${LAKESIDE}','Support','billing issue',null,null) as r`).r !== undefined; } catch { return false; } })(), true);
 
 console.log("\nChief Operations (bes.restricted + a chief_operations seat in-transaction)\n");
@@ -83,11 +90,13 @@ r = as(U["bes.restricted@bes.test"], S, seat(U["bes.restricted@bes.test"], "chie
    engagement with, which is the assignment rule, not the seat. */
 check("reaches at least everything an owner reaches", r.clients >= total && r.lakeside === 1 && r.cedar === 1, true);
 check("reaches TalentOps workspaces too", r.talentops_ws > 0, true);
-check("still no payroll, compensation or finance", [r.pay_rates, r.payslips, r.payroll_view, r.compensation_view, r.finance_view, r.expenses_view], [0, 0, false, false, false, false]);
+check("reads agent payroll through the operations seat (everyone is in scope)", r.pay_rates > 0, true);
+check("never BES cost, margin or settlement; no payroll, compensation or finance key", [r.bes_slips, r.bes_arr, r.settlements, r.payroll_view, r.compensation_view, r.finance_view, r.expenses_view], [0, 0, 0, false, false, false, false]);
 
 console.log("\nManaging Partner (Bryan — workforce + payroll + compensation, no finance)\n");
 r = as(U["lordvrye.bes@gmail.com"], S);
 check("reads pay rates and payslips", [r.pay_rates > 0, r.payroll_view, r.compensation_view], [true, true, true]);
+check("reads the BES side (cost key)", r.bes_arr > 0, true);
 check("reads others' payout accounts (payroll capability)", r.others_payout > 0, true);
 check("holds no company finance capability", [r.finance_view, r.expenses_view], [false, false]);
 
@@ -100,7 +109,10 @@ check("reads no pay rates, payslips or others' payout accounts", [r.pay_rates, r
 console.log("\nAdmin alone (Tech Support Team — agency_admin, no grants)\n");
 r = as(U["wecare@blessedempireservices.com"], S);
 check("admin reaches operations", r.clients, total);
-check("admin alone grants zero payroll", [r.pay_rates, r.payslips, r.payroll_view, r.compensation_view], [0, 0, false, false]);
+/* An executive (agency_admin) reads AGENT payroll organization-wide (Dee,
+   2026-10-01) — and still nothing BES-side, and still no money key. */
+check("admin reads agent payroll organization-wide", r.pay_rates > 0, true);
+check("admin alone never reaches BES cost, and holds no money key", [r.bes_slips, r.bes_arr, r.settlements, r.payroll_view, r.compensation_view], [0, 0, 0, false, false]);
 
 console.log("\nSeats are administered, never self-granted\n");
 const tryAs = (u, sql) => q.query(`begin; ${session(u)} do $c$ begin ${sql}; perform set_config('probe.r','ok',true); exception when others then perform set_config('probe.r', sqlstate, true); end $c$; select current_setting('probe.r', true) as r; rollback;`)[0].r;

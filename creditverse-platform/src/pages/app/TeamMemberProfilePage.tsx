@@ -40,6 +40,7 @@ import {
 import { useAgencyMembers, useMemberActions } from "@/lib/data/use-agency-teams";
 import { useMemberLeave, usePayRates, useSchedules } from "@/lib/data/use-people";
 import { useAgencyAccessContext } from "@/lib/agency/use-access-context";
+import { managesAgency } from "@/lib/agency/navigation";
 
 /* The four doors into operational work. */
 /* Division codes as the team rows carry them, shown as names (§44). */
@@ -104,7 +105,10 @@ export default function TeamMemberProfilePage() {
   const hasModule = isSelf
     ? MODULE_KEYS.some((k) => myAccess.ctx.can(k))
     : MODULE_KEYS.some((k) => member?.moduleGrants?.includes(k) ?? false);
-  const canMoney = perms.can("payroll.view") || perms.can("payroll.manage");
+  /* Agent payroll within people scope (Dee, 2026-10-01). The database returns
+     nothing for a person outside it, and never the BES-side figures. */
+  const canMoney = perms.can("payroll.view") || perms.can("payroll.manage")
+    || myAccess.ctx.leadsTeam || managesAgency(myAccess.ctx);
   const canDocs = perms.can("people.documents.manage");
   const seesOwnDocs = isSelf && !canDocs;
   const positions = usePositions();

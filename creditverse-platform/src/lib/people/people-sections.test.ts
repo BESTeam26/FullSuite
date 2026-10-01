@@ -18,30 +18,34 @@ describe("People & Teams is role-adaptive", () => {
     expect(seesPeopleAndTeams(AGENT)).toBe(false);
   });
 
-  it("a Team Lead gets the operational sections over their team", () => {
+  it("a Team Lead gets the operational sections over their team, and their agents' payroll", () => {
     expect(labels(LEAD)).toEqual([
       "Overview", "Team Members", "Schedule", "Attendance", "Time Off", "End of Day", "Performance",
+      "Pay & Payroll",
     ]);
   });
 
   it("a Division Manager gets the same, plus organizational visibility", () => {
     expect(labels(DIVISION_MANAGER)).toEqual([
       "Overview", "Team Members", "Org Chart", "Schedule", "Attendance", "Time Off", "End of Day", "Performance",
+      "Pay & Payroll",
     ]);
   });
 
   it("an Executive gets everything, in the locked order", () => {
     expect(labels(EXECUTIVE)).toEqual([
       "Overview", "Team Members", "Structure", "Positions", "Org Chart",
-      "Schedule", "Attendance", "Time Off", "End of Day", "Performance",
+      "Schedule", "Attendance", "Time Off", "End of Day", "Performance", "Pay & Payroll",
     ]);
-    expect(labels(EXECUTIVE)).not.toContain("Payroll");
   });
 
-  it("Payroll appears only with the payroll capability — never for being an admin", () => {
+  /* Dee, 2026-10-01 (PAYROLL RULE): agent payroll follows people scope. The
+     explicit key still opens the section on its own; an agent never gets it. */
+  it("Pay & Payroll follows people scope, and the payroll key alone still opens it", () => {
     expect(labels(PAYROLL_ADMIN)).toEqual(PEOPLE_SECTIONS.map((s) => s.label));
-    expect(labels(PAYROLL_ADMIN).at(-1)).toBe("Pay & Payroll");
+    expect(labels(LEAD).at(-1)).toBe("Pay & Payroll");
     expect(labels({ ...AGENT, payroll: true })).toEqual(["Pay & Payroll"]);
+    expect(labels(AGENT)).toEqual([]);
   });
 });
 

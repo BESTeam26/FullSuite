@@ -603,6 +603,47 @@ const mapPayslip = (r: Record<string, unknown>): Payslip => {
   };
 };
 
+/**
+ * My own RELEASED payslips — the agent side of my pay, nothing about anyone
+ * else and nothing BES-side (Dee, 2026-10-01: "Agent sees … own
+ * payroll/payment information"). `my_payslips` is a security_invoker view,
+ * so the payslip policy's self branch is what answers, and a draft that is
+ * still being verified is not in it.
+ */
+export interface MyPayslip {
+  id: string;
+  periodStart: string;
+  periodEnd: string;
+  payday: string | null;
+  currency: string;
+  workMinutes: number;
+  grossCents: number;
+  payoutCurrency: string | null;
+  payoutCents: number | null;
+}
+
+export async function fetchMyPayslips(limit = 6): Promise<MyPayslip[]> {
+  const sb = requireSupabase();
+  const { data, error } = await sb
+    .from("my_payslips")
+    .select("id, period_start, period_end, payday, currency, work_minutes, gross_cents, payout_currency, payout_cents")
+    .eq("status", "released")
+    .order("period_end", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    periodStart: r.period_start as string,
+    periodEnd: r.period_end as string,
+    payday: (r.payday as string | null) ?? null,
+    currency: (r.currency as string) ?? "PHP",
+    workMinutes: Number(r.work_minutes ?? 0),
+    grossCents: Number(r.gross_cents ?? 0),
+    payoutCurrency: (r.payout_currency as string | null) ?? null,
+    payoutCents: r.payout_cents === null || r.payout_cents === undefined ? null : Number(r.payout_cents),
+  }));
+}
+
 const mapRateBasis = (v: unknown): Payslip["rateBasis"] => {
   if (!v || typeof v !== "object") return null;
   const b = v as Record<string, unknown>;

@@ -18,6 +18,8 @@ import { useAddFxRate, useFxRates } from "@/lib/data/use-people";
 import { PAY_CURRENCIES, suggestFxRate } from "@/lib/data/people-management";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useAgencyPermissions } from "@/lib/data/agency-permissions";
+import { useAgencyAccessContext } from "@/lib/agency/use-access-context";
+import { managesAgency } from "@/lib/agency/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/format-date";
 import { formatCentsIn } from "@/lib/format-money";
@@ -31,6 +33,11 @@ const money = (cents: number, currency: string) => formatCentsIn(cents, currency
 export function PayrollPanel() {
   const perms = useAgencyPermissions();
   const canManage = perms.can("payroll.manage");
+  /* Dee, 2026-10-01: leads work their people's AGENT payroll — generate and
+     adjust. Releasing books BES's cost as an expense and stays with the
+     payroll key. Which payslips arrive is the database's decision. */
+  const access = useAgencyAccessContext();
+  const mayWork = canManage || access.ctx.leadsTeam || managesAgency(access.ctx);
   const cutoffs = useCutoffs();
   const actions = usePayrollActions();
   const { toast } = useToast();
@@ -103,12 +110,14 @@ export function PayrollPanel() {
         )}
       </ContentCard>
 
-      {active && <CutoffDetail cutoffId={active.id} released={active.status === "released"} canManage={canManage} />}
+      {active && <CutoffDetail cutoffId={active.id} released={active.status === "released"} canManage={canManage} mayWork={mayWork} />}
     </div>
   );
 }
 
-function CutoffDetail({ cutoffId, released, canManage }: { cutoffId: string; released: boolean; canManage: boolean }) {
+function CutoffDetail({ cutoffId, released, canManage, mayWork }: {
+  cutoffId: string; released: boolean; canManage: boolean; mayWork: boolean;
+}) {
   const slips = usePayslips(cutoffId);
   const actions = usePayrollActions();
   const { toast } = useToast();
@@ -133,7 +142,7 @@ function CutoffDetail({ cutoffId, released, canManage }: { cutoffId: string; rel
   return (
     <ContentCard
       title={<span className="flex items-center gap-2"><Banknote className="h-4 w-4 text-muted-foreground" /> Payslips{rows.length > 0 && <span className="font-normal text-muted-foreground">— total {money(total, currency)}</span>}</span>}
-      action={canManage && !released && (
+      action={mayWork && !released && (
         <span className="flex gap-1.5">
           <Button size="sm" variant="outline" className="h-7 text-xs" disabled={actions.generate.isPending}
             onClick={() => actions.generate.mutate(cutoffId, {
@@ -143,7 +152,7 @@ function CutoffDetail({ cutoffId, released, canManage }: { cutoffId: string; rel
             {actions.generate.isPending && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
             {rows.length > 0 ? "Regenerate" : "Generate"}
           </Button>
-          {rows.length > 0 && (
+          {rows.length > 0 && canManage && (
             <Button size="sm" className="h-7 text-xs" disabled={actions.release.isPending}
               onClick={() => actions.release.mutate(cutoffId, {
                 onSuccess: () => toast({ title: "Payroll released", description: "The total is now an agency expense, due at period end." }),
@@ -203,7 +212,7 @@ function CutoffDetail({ cutoffId, released, canManage }: { cutoffId: string; rel
                       </span>
                     )}
                   </span>
-                  {canManage && !released && (
+                  {mayWork && !released && (
                     <button type="button" className="text-[10px] text-primary underline-offset-2 hover:underline"
                       onClick={() => { setAdjusting(adjusting === p.id ? null : p.id); setAmount(""); setNote(""); }}>
                       Adjust

@@ -8,7 +8,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import {
   adjustPayslip, cancelLeave, createCutoff, decideLeave, fetchAttendance,
   fetchCutoffs, fetchLeaveTypes, fetchMyLeave, fetchPayRates,
-  fetchPayslips, fetchPendingLeave, fetchTeamUpcomingLeave, fetchSchedules, generatePayroll,
+  fetchPayslips, fetchMyPayslips, fetchPendingLeave, fetchTeamUpcomingLeave, fetchSchedules, generatePayroll,
   fetchPayrollSettings,
   fetchFxRates,
   addFxRate, releasePayroll, setPayRate, setPayrollSettings,
@@ -167,6 +167,12 @@ export function useSetPayRate() {
 export function useCutoffs() {
   const { live } = useLive();
   return useQuery({ queryKey: ["people", "payroll", "cutoffs"], queryFn: fetchCutoffs, enabled: live, staleTime: 30_000 });
+}
+
+/** My own released payslips, for the Time & Attendance home (Dee, 2026-10-01). */
+export function useMyPayslips() {
+  const { live } = useLive();
+  return useQuery({ queryKey: ["time", "my-payslips"], queryFn: () => fetchMyPayslips(), enabled: live, staleTime: 60_000 });
 }
 
 export function usePayslips(cutoffId: string | null) {

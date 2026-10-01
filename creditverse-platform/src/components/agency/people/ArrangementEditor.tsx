@@ -51,6 +51,10 @@ export function ArrangementEditor({ userId, current, canSeeCost }: {
   const [from, setFrom] = useState(today());
   const [reason, setReason] = useState("");
 
+  /* Dee, 2026-10-01: an arrangement through a managing partner is BES-side.
+     Without the cost permission this form neither opens one nor changes one —
+     set_compensation_arrangement refuses too (42501); this only says so first. */
+  const locked = !canSeeCost && current?.arrangementType === "managing_partner";
   const agentCents = toCents(agent);
   const costCents = type === "direct_bes" ? agentCents : toCents(cost);
   const margin = costCents - agentCents;
@@ -73,16 +77,26 @@ export function ArrangementEditor({ userId, current, canSeeCost }: {
     );
   };
 
+  if (locked) {
+    return (
+      <p className="text-[11px] text-muted-foreground">
+        This person is paid through a managing partner. Changing that arrangement needs the BES cost permission.
+      </p>
+    );
+  }
+
   return (
     <div className="space-y-2 text-xs">
       <div className="flex flex-wrap items-end gap-2">
-        <Field label="Who pays the worker">
-          <OpsSelect size="sm" value={type} onValueChange={(v) => setType(v as ArrangementType)}
-            options={[
-              { value: "direct_bes", label: "BES pays them directly" },
-              { value: "managing_partner", label: "A managing partner pays them" },
-            ]} />
-        </Field>
+        {canSeeCost && (
+          <Field label="Who pays the worker">
+            <OpsSelect size="sm" value={type} onValueChange={(v) => setType(v as ArrangementType)}
+              options={[
+                { value: "direct_bes", label: "BES pays them directly" },
+                { value: "managing_partner", label: "A managing partner pays them" },
+              ]} />
+          </Field>
+        )}
         <Field label="Basis">
           <OpsSelect size="sm" value={basis} onValueChange={(v) => setBasis(v as CompensationBasis)} options={BASES} />
         </Field>
