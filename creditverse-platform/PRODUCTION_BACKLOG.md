@@ -20,8 +20,11 @@ Last reconciled: 2026-09-21, after the Eastern workday lock (`1f6b8e7`).
   and roster show partners names as "BES team" / "Partner contact" with no
   email, role or team; a suspended partner's contact can still read their
   own row (the whole-portal lockout). Proven as the real partner contact
-  before/after and as the owner (unchanged). Portal work order next:
-  Overview (in progress) → Clients → Actions Needed → Messages → Projects
+  before/after and as the owner (unchanged). **Overview rebuilt the same
+  day** to the doctrine list — BES contact, services and build progress,
+  important updates, message previews, next billing — all from the
+  partner-scoped functions, with a render test. Portal work order next:
+  Clients → Actions Needed → Messages → Projects
   & Services → Billing → Files (also: shared CLIENT documents live under
   clients/… and the partner storage rule covers only agency/partner/…, so
   downloads will fail once a client file is shared — none exists yet) →

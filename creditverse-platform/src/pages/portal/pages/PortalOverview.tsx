@@ -9,14 +9,27 @@
  * BES is doing for them, then updates and messages — and billing last, as a
  * summary with a link rather than a table. A portal that opens on a balance
  * reads as a debt collector.
+ *
+ * PARTNER_PORTAL_DOCTRINE (Dee, 2026-10-01): the Overview is the partner's
+ * command centre — active services, active clients, items needing their
+ * action, important updates, upcoming billing, recent messages, current
+ * project/build status, and their BES contact. Every number here is a
+ * filtered projection of canonical data through a partner-scoped function;
+ * nothing is stored for the portal.
  */
 import { Link } from "react-router-dom";
-import { AlertTriangle, ArrowRight, CheckCircle2, ClipboardList, MessagesSquare, Users, Wallet, Workflow } from "lucide-react";
+import { AlertTriangle, ArrowRight, CheckCircle2, ClipboardList, Megaphone, MessagesSquare, Users, Wallet, Workflow } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { formatDate } from "@/lib/format-date";
 import { formatMoneyIn } from "@/lib/format-money";
 import { cn } from "@/lib/utils";
 import { useMyPartnerActions, useMyPartnerUpdates } from "@/lib/data/use-partner-portal-actions";
-import { useMyPartnerClients } from "@/lib/data/use-agency-partners";
+import { useMyPartnerClients, useMyPartnerProjects } from "@/lib/data/use-agency-partners";
+import { useMyPartnerServices, useMyPartnerTeam } from "@/lib/data/use-portal-conversations";
+import { fetchPortalBilling } from "@/lib/data/portal-billing";
+import { requireSupabase } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/auth/auth-context";
+import { Avatar } from "@/components/common/Avatar";
 import { useChannels } from "@/lib/data/use-channels";
 import { PanelState } from "@/components/common/QueryState";
 import { hasRows } from "@/lib/ui/query-rows";
@@ -57,6 +70,26 @@ export function PortalOverview({ summary }: { summary: PortalSummary }) {
   const clients = useMyPartnerClients(false);
   const updates = useMyPartnerUpdates(5);
   const channels = useChannels();
+  const services = useMyPartnerServices();
+  const projects = useMyPartnerProjects();
+  const team = useMyPartnerTeam();
+  const auth = useAuth();
+  const live = auth.mode === "live" && auth.status === "signed-in";
+  /* The same keys the Billing and Updates pages use, so a visit there
+     serves this from cache (rule 14). */
+  const billing = useQuery({ queryKey: ["portal", "billing", "summary"], queryFn: fetchPortalBilling, enabled: live, staleTime: 60_000 });
+  const announcements = useQuery({
+    queryKey: ["portal", "announcements"], enabled: live, staleTime: 5 * 60_000,
+    queryFn: async (): Promise<{ id: string; title: string; pinned: boolean; publishedAt: string }[]> => {
+      const { data, error } = await requireSupabase().rpc("my_partner_announcements" as never, { p_limit: 20 } as never);
+      if (error) throw error;
+      return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+        id: r.id as string, title: r.title as string, pinned: r.pinned === true, publishedAt: r.published_at as string,
+      }));
+    },
+  });
+  const contact = (team.data ?? []).find((m) => m.isPrimary) ?? (team.data ?? [])[0] ?? null;
+  const important = (announcements.data ?? []).slice().sort((a, b) => Number(b.pinned) - Number(a.pinned)).slice(0, 3);
 
   const open = (actions.data ?? []).filter((a) => a.status === "open");
   const someClients = (clients.data ?? []).slice(0, 5);
@@ -89,6 +122,25 @@ export function PortalOverview({ summary }: { summary: PortalSummary }) {
               <MessagesSquare className="h-3.5 w-3.5" /> Contact BES
             </Link>
           </div>
+        </section>
+      )}
+
+      {/* Who they talk to at BES — the primary assignment, by name and role,
+          with the one honest control: a message. */}
+      {contact && (
+        <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3">
+          <div className="flex items-center gap-3">
+            <Avatar name={contact.name} size="md" />
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Your BES contact</p>
+              <p className="text-sm font-bold text-foreground">{contact.name}</p>
+              {contact.roleLabel && <p className="text-xs text-muted-foreground">{contact.roleLabel}</p>}
+            </div>
+          </div>
+          <Link to="/partner/messages"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <MessagesSquare className="h-3.5 w-3.5" /> Send a message
+          </Link>
         </section>
       )}
 
@@ -165,6 +217,59 @@ export function PortalOverview({ summary }: { summary: PortalSummary }) {
         </Panel>
       )}
 
+      {!summary.suspended && (
+        <Panel title="Projects & services" to="/partner/services" linkLabel="View all">
+          {!hasRows(services) && !hasRows(projects)
+            ? <PanelState query={services} empty={<p className="py-2 text-sm text-muted-foreground">No active services yet.</p>} />
+            : (
+            <ul className="divide-y divide-border/50">
+              {(services.data ?? []).slice(0, 4).map((sv) => (
+                <li key={sv.engagementId} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium text-foreground">{sv.moduleLabel}{sv.serviceLabel && sv.serviceLabel !== sv.moduleLabel ? ` · ${sv.serviceLabel}` : ""}</span>
+                    <span className="block text-[11px] text-muted-foreground">
+                      {sv.status}{sv.startedOn ? ` · Started ${formatDate(sv.startedOn)}` : ""}{sv.milestone ? ` · ${sv.milestone}` : ""}
+                    </span>
+                  </span>
+                  {sv.openItems > 0 && <span className="shrink-0 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-800">{sv.openItems} need{sv.openItems === 1 ? "s" : ""} you</span>}
+                </li>
+              ))}
+              {(projects.data ?? []).slice(0, 3).map((pr) => (
+                <li key={pr.id} className="py-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="min-w-0 truncate text-sm font-medium text-foreground">{pr.name}</span>
+                    <span className="text-[11px] text-muted-foreground">{pr.wentLiveAt ? `Live ${formatDate(pr.wentLiveAt)}` : pr.targetGoLive ? `Target ${formatDate(pr.targetGoLive)}` : pr.journey}</span>
+                  </div>
+                  {pr.progress !== null && (
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.max(0, Math.min(100, pr.progress))}%` }} /></div>
+                      <span className="text-[11px] font-semibold tabular-nums text-foreground">{Math.round(pr.progress)}%</span>
+                    </div>
+                  )}
+                  {pr.openRequirements > 0 && <p className="mt-1 text-[11px] text-amber-800">{pr.openRequirements} item{pr.openRequirements === 1 ? "" : "s"} BES needs from you</p>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+      )}
+
+      {important.length > 0 && (
+        <Panel title="Important updates" to="/partner/updates">
+          <ul className="divide-y divide-border/50">
+            {important.map((a) => (
+              <li key={a.id} className="flex items-start gap-2 py-1.5">
+                <Megaphone className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                <span className="min-w-0">
+                  <span className="block text-sm text-foreground">{a.title}</span>
+                  <span className="block text-[11px] text-muted-foreground">{formatDate(a.publishedAt.slice(0, 10))}{a.pinned ? " · Pinned" : ""}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      )}
+
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel title="Recent updates" to="/partner/updates">
           {!hasRows(updates)
@@ -193,7 +298,14 @@ export function PortalOverview({ summary }: { summary: PortalSummary }) {
             <ul className="divide-y divide-border/50">
               {conversations.map((c) => (
                 <li key={c.id} className="flex items-center justify-between gap-2 py-1.5">
-                  <span className="min-w-0 flex-1 truncate text-xs text-foreground">{c.name}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-xs font-medium text-foreground">{c.displayName || c.name}</span>
+                    {c.lastMessageText && (
+                      <span className="block truncate text-[11px] text-muted-foreground">
+                        {c.lastMessageAuthor ? `${c.lastMessageAuthor}: ` : ""}{c.lastMessageText}
+                      </span>
+                    )}
+                  </span>
                   {c.unread > 0 && (
                     <span className="shrink-0 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground">
                       {c.unread}
@@ -208,7 +320,14 @@ export function PortalOverview({ summary }: { summary: PortalSummary }) {
 
       {/* Last, and a summary rather than a table. */}
       <Panel title="Billing" to="/partner/billing" linkLabel="View billing">
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-4">
+          <div>
+            <p className="text-[11px] text-muted-foreground">Next billing</p>
+            <p className="text-lg font-bold text-foreground">
+              {billing.data?.nextBillingOn ? formatMoneyIn(billing.data.nextBillingCents / 100, "USD") : "—"}
+            </p>
+            {billing.data?.nextBillingOn && <p className="text-[11px] text-muted-foreground">Due {formatDate(billing.data.nextBillingOn)}</p>}
+          </div>
           <div>
             <p className="text-[11px] text-muted-foreground">Current balance</p>
             <p className={cn("text-lg font-bold", summary.balanceCents > 0 ? "text-foreground" : "text-status-success")}>
