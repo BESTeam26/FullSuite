@@ -8152,6 +8152,18 @@ if (runs(77)) {
       () => as77(PC, `select (to_jsonb(r) ? 'next_step' and not (to_jsonb(r) ?| array['current_department','current_work','assignee_id','next_action']))::text as rows from public.my_partner_clients() r limit 1`), "true"],
     ["a shared timeline entry by an unassigned BES person names nobody",
       () => as77(PC, `select coalesce((select t.actor_name from public.my_partner_clients() c, lateral public.my_partner_client_timeline(c.public_id, 20) t where t.action = 'Status changed' limit 1), 'nobody') as rows`), "nobody"],
+    /* Actions Needed is one list over four canonical sources, partner-scoped. */
+    ["a partner's Actions Needed lists their open ask and nothing of another partner's",
+      () => as77(PC, `select string_agg(title, ',') as rows from public.my_partner_actions_needed()`,
+        `insert into public.partner_action_items (agency_id, group_id, fulfillment_client_id, audience, kind, title, status)
+           values (${AG77}, '${G}'::uuid, '44444444-0000-4000-8000-0000000000c7'::uuid, 'partner', 'document_required', 'Probe Ask', 'open');
+         insert into public.outsourcing_groups (id, agency_id, name, contact_email) values ('44444444-0000-4000-8000-0000000000e8'::uuid, ${AG77}, 'Other Partner', 'op@example.test');
+         insert into public.partner_action_items (agency_id, group_id, audience, kind, title, status)
+           values (${AG77}, '44444444-0000-4000-8000-0000000000e8'::uuid, 'partner', 'document_required', 'Other Ask', 'open');`), "Probe Ask"],
+    ["…and the summary badge counts that same list",
+      () => as77(PC, `select (select actions_needed from public.my_partner_portal_summary())::int as rows`,
+        `insert into public.partner_action_items (agency_id, group_id, fulfillment_client_id, audience, kind, title, status)
+           values (${AG77}, '${G}'::uuid, '44444444-0000-4000-8000-0000000000c7'::uuid, 'partner', 'document_required', 'Probe Ask', 'open');`), 1],
     ["…and the same entry names the person once they are assigned to the partner",
       () => as77(PC, `select coalesce((select t.actor_name from public.my_partner_clients() c, lateral public.my_partner_client_timeline(c.public_id, 20) t where t.action = 'Status changed' limit 1), 'nobody') as rows`,
         `insert into public.partner_assignments (group_id, agency_id, user_id, is_primary) values ('${G}'::uuid, ${AG77}, '${OWNER77}'::uuid, true);`), "Owner Name"],

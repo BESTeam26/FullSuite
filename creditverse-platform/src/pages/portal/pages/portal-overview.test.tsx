@@ -14,7 +14,7 @@ vi.mock("@/lib/auth/auth-context", () => ({ useAuth: () => ({ mode: "live", stat
 vi.mock("@/lib/supabase/client", () => ({ requireSupabase: () => ({ rpc: async () => ({ data: [{ id: "a1", title: "Office closed Oct 10", pinned: true, published_at: "2026-10-01T10:00:00Z" }], error: null }) }) }));
 vi.mock("@/lib/data/portal-billing", () => ({ fetchPortalBilling: async () => ({ groupId: "g", partnerName: "Test Partner", balanceCents: 20000, overdueCents: 20000, overdueInvoices: 1, nextBillingOn: "2026-10-07", nextBillingCents: 42500, paymentMethods: "card", suspended: false, suspendedAt: null, suspensionDetail: null }) }));
 vi.mock("@/lib/data/use-partner-portal-actions", () => ({
-  useMyPartnerActions: () => ok([{ id: "x1", status: "open", title: "Upload missing document", clientName: "Jensen Cedacero", requestedAt: "2026-10-01", requestedByName: null }]),
+  useMyPartnerActionsNeeded: () => ok([{ kind: "document_required", source: "action", sourceId: "x1", title: "Upload missing document", detail: null, clientName: "Jensen Cedacero", requestedAt: "2026-10-01", dueOn: null, href: null }]),
   useMyPartnerUpdates: () => ok([{ id: "u1", clientName: "Mikia Edwards", action: "moved to Completed", happenedAt: "2026-09-29T10:00:00Z" }]),
 }));
 vi.mock("@/lib/data/use-agency-partners", () => ({

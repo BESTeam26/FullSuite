@@ -13,9 +13,10 @@
  */
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
-import type { PartnerActionItem } from "@/lib/data/use-partner-portal-actions";
+import { MemoryRouter } from "react-router-dom";
+import type { PartnerActionNeeded } from "@/lib/data/use-partner-portal-actions";
 
-let actions: PartnerActionItem[];
+let actions: PartnerActionNeeded[];
 const respondMutate = vi.fn().mockResolvedValue(undefined);
 const reviewMutate = vi.fn().mockResolvedValue(undefined);
 const toast = vi.fn();
@@ -27,7 +28,7 @@ vi.mock("@/lib/data/use-partner-portal-actions", async () => {
   );
   return {
     ...actual,
-    useMyPartnerActions: () => ({ data: actions, isLoading: false }),
+    useMyPartnerActionsNeeded: () => ({ data: actions, isLoading: false }),
     useRespondToPartnerAction: () => ({ mutateAsync: respondMutate, isPending: false }),
     useMyPartnerReview: () => ({ mutateAsync: reviewMutate, isPending: false }),
   };
@@ -35,11 +36,9 @@ vi.mock("@/lib/data/use-partner-portal-actions", async () => {
 
 const { PortalActionNeeded } = await import("./PortalActionNeeded");
 
-const action = (over: Partial<PartnerActionItem>): PartnerActionItem => ({
-  id: "a1", kind: "partner_confirmation", title: "Confirm the reimport",
-  detail: null, status: "open", clientName: "Bryan Rodriguez",
-  requestedByName: "Dee", requestedAt: "2026-09-12T00:00:00Z",
-  respondedAt: null, response: null, ...over,
+const action = (over: Partial<PartnerActionNeeded>): PartnerActionNeeded => ({
+  kind: "partner_confirmation", source: "action", sourceId: "a1", title: "Confirm the reimport",
+  detail: null, clientName: "Bryan Rodriguez", requestedAt: "2026-09-12T00:00:00Z", dueOn: null, href: null, ...over,
 });
 
 describe("what the partner is asked, and how they answer", () => {
@@ -51,7 +50,7 @@ describe("what the partner is asked, and how they answer", () => {
 
   it("offers Confirm for a CreditOps confirmation", () => {
     actions = [action({})];
-    render(<PortalActionNeeded />);
+    render(<MemoryRouter><PortalActionNeeded /></MemoryRouter>);
     fireEvent.click(screen.getByRole("button", { name: "Review" }));
     expect(screen.getByRole("button", { name: "Confirm" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Approve" })).toBeNull();
@@ -59,7 +58,7 @@ describe("what the partner is asked, and how they answer", () => {
 
   it("offers Approve and Request changes for a content approval", () => {
     actions = [action({ kind: "content_approval", title: "October carousel", clientName: null })];
-    render(<PortalActionNeeded />);
+    render(<MemoryRouter><PortalActionNeeded /></MemoryRouter>);
     fireEvent.click(screen.getByRole("button", { name: "Review it" }));
     expect(screen.getByRole("button", { name: "Approve" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Request changes" })).toBeInTheDocument();
@@ -70,7 +69,7 @@ describe("what the partner is asked, and how they answer", () => {
     /* The whole reason this test exists: the CreditOps call would mark the
        item completed and leave the work item exactly where it was. */
     actions = [action({ kind: "content_approval" })];
-    render(<PortalActionNeeded />);
+    render(<MemoryRouter><PortalActionNeeded /></MemoryRouter>);
     fireEvent.click(screen.getByRole("button", { name: "Review it" }));
     fireEvent.click(screen.getByRole("button", { name: "Approve" }));
     expect(reviewMutate).toHaveBeenCalledWith({ id: "a1", approved: true, comment: "" });
@@ -79,7 +78,7 @@ describe("what the partner is asked, and how they answer", () => {
 
   it("refuses Request changes with nothing written", () => {
     actions = [action({ kind: "content_approval" })];
-    render(<PortalActionNeeded />);
+    render(<MemoryRouter><PortalActionNeeded /></MemoryRouter>);
     fireEvent.click(screen.getByRole("button", { name: "Review it" }));
     fireEvent.click(screen.getByRole("button", { name: "Request changes" }));
     expect(reviewMutate).not.toHaveBeenCalled();
@@ -88,7 +87,7 @@ describe("what the partner is asked, and how they answer", () => {
 
   it("sends the comment with a changes request", () => {
     actions = [action({ kind: "campaign_approval" })];
-    render(<PortalActionNeeded />);
+    render(<MemoryRouter><PortalActionNeeded /></MemoryRouter>);
     fireEvent.click(screen.getByRole("button", { name: "Review it" }));
     fireEvent.change(screen.getByLabelText("Your response"), { target: { value: "Swap the headline" } });
     fireEvent.click(screen.getByRole("button", { name: "Request changes" }));
@@ -97,7 +96,25 @@ describe("what the partner is asked, and how they answer", () => {
 
   it("says so when there is nothing to do", () => {
     actions = [];
-    render(<PortalActionNeeded />);
+    render(<MemoryRouter><PortalActionNeeded /></MemoryRouter>);
     expect(screen.getByText(/all caught up/i)).toBeInTheDocument();
   });
 });
+
+/* The doctrine's derived kinds are acted on where they live. */
+describe("the kinds that are not an ask BES typed", () => {
+  it("links an unsigned agreement to the signing page and a past-due invoice to Billing", () => {
+    actions = [
+      action({ kind: "signature", source: "signature_request", sourceId: "s1", title: "Service Agreement", href: "/sign/tok", dueOn: "2026-10-15" }),
+      action({ kind: "billing", source: "invoice", sourceId: "i1", title: "Invoice INV-000183 is past due", href: "/partner/billing" }),
+      action({ kind: "project_approval", source: "requirement", sourceId: "r1", title: "Logo files", href: "/partner/services" }),
+    ];
+    render(<MemoryRouter><PortalActionNeeded /></MemoryRouter>);
+    expect(screen.getByText("Agreement to sign")).toBeTruthy();
+    expect(screen.getByRole("link", { name: /review and sign/i }).getAttribute("href")).toBe("/sign/tok");
+    expect(screen.getByRole("link", { name: /view invoice/i }).getAttribute("href")).toBe("/partner/billing");
+    expect(screen.getByRole("link", { name: /view project/i }).getAttribute("href")).toBe("/partner/services");
+    expect(screen.queryByRole("button", { name: /^review$/i })).toBeNull();
+  });
+});
+

@@ -20507,6 +20507,20 @@ export type Database = {
           title: string
         }[]
       }
+      my_partner_actions_needed: {
+        Args: never
+        Returns: {
+          client_name: string
+          detail: string
+          due_on: string
+          href: string
+          kind: string
+          requested_at: string
+          source: string
+          source_id: string
+          title: string
+        }[]
+      }
       my_partner_agreements: {
         Args: never
         Returns: {

@@ -43,6 +43,40 @@ export interface PartnerUpdate {
   detail: string | null;
 }
 
+/** One row of everything the partner must act on, from any canonical source. */
+export interface PartnerActionNeeded {
+  kind: string;
+  /** action · signature_request · invoice · requirement */
+  source: string;
+  sourceId: string;
+  title: string;
+  detail: string | null;
+  clientName: string | null;
+  requestedAt: string;
+  dueOn: string | null;
+  /** Where a derived row is acted on; null for an ask answered on the page. */
+  href: string | null;
+}
+
+export function useMyPartnerActionsNeeded() {
+  const auth = useAuth();
+  return useQuery({
+    queryKey: ["portal", "partner", "actions-needed"],
+    enabled: auth.mode === "live" && auth.status === "signed-in",
+    staleTime: 30_000,
+    queryFn: async (): Promise<PartnerActionNeeded[]> => {
+      const sb = requireSupabase();
+      const { data, error } = await sb.rpc("my_partner_actions_needed" as never);
+      if (error) throw error;
+      return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+        kind: r.kind as string, source: r.source as string, sourceId: r.source_id as string,
+        title: r.title as string, detail: (r.detail as string) ?? null, clientName: (r.client_name as string) ?? null,
+        requestedAt: r.requested_at as string, dueOn: (r.due_on as string) ?? null, href: (r.href as string) ?? null,
+      }));
+    },
+  });
+}
+
 export function useMyPartnerActions() {
   const auth = useAuth();
   return useQuery({

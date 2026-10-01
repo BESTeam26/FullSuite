@@ -23,7 +23,8 @@ import { useQuery } from "@tanstack/react-query";
 import { formatDate } from "@/lib/format-date";
 import { formatMoneyIn } from "@/lib/format-money";
 import { cn } from "@/lib/utils";
-import { useMyPartnerActions, useMyPartnerUpdates } from "@/lib/data/use-partner-portal-actions";
+import { useMyPartnerActionsNeeded, useMyPartnerUpdates } from "@/lib/data/use-partner-portal-actions";
+import { actionKindLabel, sortByKindThenDate } from "@/lib/portal/action-kinds";
 import { useMyPartnerClients, useMyPartnerProjects } from "@/lib/data/use-agency-partners";
 import { useMyPartnerServices, useMyPartnerTeam } from "@/lib/data/use-portal-conversations";
 import { fetchPortalBilling } from "@/lib/data/portal-billing";
@@ -66,7 +67,7 @@ const Panel = ({ title, to, linkLabel, children }: {
 );
 
 export function PortalOverview({ summary }: { summary: PortalSummary }) {
-  const actions = useMyPartnerActions();
+  const actions = useMyPartnerActionsNeeded();
   const clients = useMyPartnerClients(false);
   const updates = useMyPartnerUpdates(5);
   const channels = useChannels();
@@ -91,7 +92,7 @@ export function PortalOverview({ summary }: { summary: PortalSummary }) {
   const contact = (team.data ?? []).find((m) => m.isPrimary) ?? (team.data ?? [])[0] ?? null;
   const important = (announcements.data ?? []).slice().sort((a, b) => Number(b.pinned) - Number(a.pinned)).slice(0, 3);
 
-  const open = (actions.data ?? []).filter((a) => a.status === "open");
+  const open = sortByKindThenDate(actions.data ?? []);
   const someClients = (clients.data ?? []).slice(0, 5);
   const conversations = (channels.data ?? []).slice(0, 3);
   const caughtUp = (
@@ -163,16 +164,16 @@ export function PortalOverview({ summary }: { summary: PortalSummary }) {
           : open.length === 0 ? caughtUp : (
           <ul className="divide-y divide-border/50">
             {open.slice(0, 4).map((a) => (
-              <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+              <li key={`${a.source}:${a.sourceId}`} className="flex flex-wrap items-center justify-between gap-2 py-2">
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-medium text-foreground">
                     {a.clientName ? `${a.clientName} — ` : ""}{a.title}
                   </span>
                   <span className="block text-[11px] text-muted-foreground">
-                    Requested {formatDate(a.requestedAt)}{a.requestedByName ? ` by ${a.requestedByName}` : ""}
+                    {actionKindLabel(a.kind)} · Requested {formatDate(a.requestedAt)}
                   </span>
                 </span>
-                <Link to="/partner/actions"
+                <Link to={a.href ?? "/partner/actions"}
                   className="shrink-0 rounded-lg bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                   Review
                 </Link>

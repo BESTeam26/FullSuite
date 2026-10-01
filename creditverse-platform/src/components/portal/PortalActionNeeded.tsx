@@ -22,7 +22,9 @@
  * approval through the CreditOps path would mark it done and move nothing.
  */
 import { useState } from "react";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
+import { actionKindLabel, actionLinkLabel, sortByKindThenDate } from "@/lib/portal/action-kinds";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
@@ -30,13 +32,16 @@ import { formatDate } from "@/lib/format-date";
 import { PageLoadError } from "@/components/common/QueryState";
 import {
   isReview,
-  useMyPartnerActions,
+  useMyPartnerActionsNeeded,
   useMyPartnerReview,
   useRespondToPartnerAction,
 } from "@/lib/data/use-partner-portal-actions";
 
 export function PortalActionNeeded() {
-  const actions = useMyPartnerActions();
+  /* Every kind the doctrine names, from one list over the canonical sources
+     (asks BES raised, unsigned agreements, past-due invoices, open build
+     requirements). The badge counts the same list. */
+  const actions = useMyPartnerActionsNeeded();
   const respond = useRespondToPartnerAction();
   const review = useMyPartnerReview();
   const { toast } = useToast();
@@ -44,7 +49,7 @@ export function PortalActionNeeded() {
   const [note, setNote] = useState("");
   const busy = respond.isPending || review.isPending;
 
-  const open = (actions.data ?? []).filter((a) => a.status === "open");
+  const open = sortByKindThenDate(actions.data ?? []);
 
   if (actions.isLoading) {
     return (
@@ -120,17 +125,26 @@ export function PortalActionNeeded() {
       </h2>
       <ul className="mt-3 space-y-3">
         {open.map((a) => (
-          <li key={a.id} className="rounded-lg border border-border bg-card p-3">
-            <p className="text-sm font-semibold text-foreground">
+          <li key={`${a.source}:${a.sourceId}`} className="rounded-lg border border-border bg-card p-3">
+            <span className="inline-block rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              {actionKindLabel(a.kind)}
+            </span>
+            <p className="mt-1 text-sm font-semibold text-foreground">
               {a.clientName ? `${a.clientName} — ` : ""}{a.title}
             </p>
             {a.detail && <p className="mt-0.5 text-xs text-muted-foreground">{a.detail}</p>}
             <p className="mt-1 text-[11px] text-muted-foreground">
-              Requested {formatDate(a.requestedAt)}
-              {a.requestedByName ? ` by ${a.requestedByName}` : ""}
+              Requested {formatDate(a.requestedAt)}{a.dueOn ? ` · Due ${formatDate(a.dueOn)}` : ""}
             </p>
 
-            {answering === a.id ? (
+            {a.href ? (
+              /* A derived ask is acted on where it lives: the signing page,
+                 the invoice, the project. */
+              <Link to={a.href}
+                className="mt-3 inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                {actionLinkLabel(a.kind)} <ArrowRight className="h-3 w-3" />
+              </Link>
+            ) : answering === a.sourceId ? (
               <div className="mt-3 space-y-2">
                 <Textarea
                   value={note}
@@ -145,16 +159,16 @@ export function PortalActionNeeded() {
                 <div className="flex flex-wrap gap-2">
                   {isReview(a.kind) ? (
                     <>
-                      <Button size="sm" disabled={busy} onClick={() => void answer(a.id, true)}>
+                      <Button size="sm" disabled={busy} onClick={() => void answer(a.sourceId, true)}>
                         {busy ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
                         Approve
                       </Button>
-                      <Button size="sm" variant="outline" disabled={busy} onClick={() => void answer(a.id, false)}>
+                      <Button size="sm" variant="outline" disabled={busy} onClick={() => void answer(a.sourceId, false)}>
                         Request changes
                       </Button>
                     </>
                   ) : (
-                    <Button size="sm" disabled={busy} onClick={() => void send(a.id)}>
+                    <Button size="sm" disabled={busy} onClick={() => void send(a.sourceId)}>
                       {busy ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
                       Confirm
                     </Button>
@@ -165,7 +179,7 @@ export function PortalActionNeeded() {
                 </div>
               </div>
             ) : (
-              <Button size="sm" className="mt-3" onClick={() => { setAnswering(a.id); setNote(""); }}>
+              <Button size="sm" className="mt-3" onClick={() => { setAnswering(a.sourceId); setNote(""); }}>
                 {isReview(a.kind) ? "Review it" : "Review"}
               </Button>
             )}

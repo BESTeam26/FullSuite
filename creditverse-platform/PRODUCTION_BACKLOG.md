@@ -30,8 +30,17 @@ Last reconciled: 2026-09-21, after the Eastern workday lock (`1f6b8e7`).
   (one rule over the department status, worded in `lib/portal/next-step.ts`);
   the timeline names a BES person only when they hold a live partner
   assignment; history and documents load on demand. Matrix phase 77 holds
-  it. Portal work order next:
-  Actions Needed → Actions Needed → Messages → Projects
+  it. **Actions Needed done the same day** (migration 20261001010000):
+  `my_partner_actions_needed()` is ONE list over four canonical sources —
+  asks BES raised (documents, confirmations, approvals, information
+  requests, monitoring login), unsigned agreements (signature_requests →
+  the signing page), past-due invoices (→ Billing), open build
+  requirements (→ Projects & Services) — and the badge counts the same
+  list. Kinds `monitoring_login` and `information_request` exist; nothing
+  raises `monitoring_login` yet — DEE TO DECIDE: should the Support status
+  MONITORING ISSUE raise it automatically, or should an agent ask
+  explicitly (a staff control)? Portal work order next:
+  Messages → Actions Needed → Messages → Projects
   & Services → Billing → Files (also: shared CLIENT documents live under
   clients/… and the partner storage rule covers only agency/partner/…, so
   downloads will fail once a client file is shared — none exists yet) →
