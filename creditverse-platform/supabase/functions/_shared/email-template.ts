@@ -23,6 +23,8 @@
  * expecting this" sentence. Both are gone.
  */
 
+import { renderSectionsHtml, sectionsText, type EmailSection } from "./email-sections.ts";
+
 export interface EmailBrand {
   /** The organization's name, or "Blessed Empire Services" for BES itself. */
   name: string;
@@ -76,6 +78,8 @@ export interface EmailContent {
   security?: string[];
   /** Anything else small under the button. Rare; prefer `security`. */
   footnote?: string;
+  /** Tables (or titled line blocks) after the paragraphs — the End of Day report's rows. */
+  sections?: EmailSection[];
 }
 
 /**
@@ -138,7 +142,8 @@ export function renderEmail(content: EmailContent): string {
     ? `<img src="${logo}" alt="${name}" width="120" style="max-width:120px;height:auto;display:block;margin:0 auto 8px" />`
     : `<div style="font-size:18px;font-weight:700;color:${colour};text-align:center;margin-bottom:8px">${name}</div>`;
 
-  const body = content.paragraphs.map((p) => renderBlock(p, colour)).join("");
+  const body = content.paragraphs.map((p) => renderBlock(p, colour)).join("")
+    + renderSectionsHtml(content.sections ?? [], colour);
 
   const button = content.action
     ? `<p style="margin:24px 0">
@@ -198,7 +203,7 @@ export function renderEmail(content: EmailContent): string {
 
 /** The same message as plain text, for clients that will not render HTML. */
 export function renderEmailText(content: EmailContent): string {
-  const lines = [content.brand.name, "", content.heading, "", ...content.paragraphs];
+  const lines = [content.brand.name, "", content.heading, "", ...content.paragraphs, ...sectionsText(content.sections ?? [])];
   if (content.action) lines.push("", `${content.action.label}: ${content.action.url}`);
   if (content.footnote) lines.push("", content.footnote);
   for (const line of content.security ?? []) lines.push("", line);
