@@ -42,7 +42,13 @@ Last reconciled: 2026-09-21, after the Eastern workday lock (`1f6b8e7`).
   unauthorized attempts, function failures, hand-off failures) written as
   they happen, a trigger alerting the owners once an hour per kind, and the
   card on Settings › Integrations. Proven on production 2026-10-01.
-  Correction, later on 2026-10-01: Dee's laptop test saw the in-app desktop
+  Laptop (Chrome on Mac), 2026-10-01 12:40 PM ET: steps 1–6 proven by the
+  database (device row 12:11 PM; a real EOD reminder created; the sender
+  answered sent:1 and the device's last successful push is recorded).
+  Steps 7–8 — the OS push appeared and tapping it opened End of Day — are
+  Dee's to confirm for THAT 12:40 PM message; the earlier "verified" came
+  before any push had been sent to the device.
+  Correction, earlier the same day: Dee's first laptop test saw the in-app desktop
   alert, not closed-app push — NO device had registered for anyone, because
   `push_subscriptions` had row policies but no table grant (fixed in
   20261001006000; proven per account). Registration failures now show their
