@@ -1444,3 +1444,18 @@ process depth matches task risk.
 > earlier rules define the domain (tenancy, four views, cost, production
 > mode, performance targets); this one defines how the work is done and the
 > completion gate it is held to.
+
+## 28. Partner Portal doctrine (Dee, 2026-10-01 — permanent)
+
+**Full text, verbatim: `creditverse-platform/PARTNER_PORTAL_DOCTRINE.md`.
+Read it before any portal change. This section is a pointer, not a
+summary.** The one rule above the rest: *the Partner Portal is a filtered
+external projection of the same canonical BES data* — never a duplicate
+partner, client, billing or project record; partner-visible fields are
+explicitly exposed, internal-only fields stay internal, and every portal
+query, RPC, file, message, invoice, client and project is tenant-scoped
+and enforced server-side (rule 16's model 2/3 boundary, rule 1's "hidden UI
+is not security"). Navigation is locked to the nine entries; work order:
+Overview → Clients → Actions Needed → Messages → Projects & Services →
+Billing → Files → Updates → Account Settings. Keep it noticeably simpler
+than the internal workspace.
