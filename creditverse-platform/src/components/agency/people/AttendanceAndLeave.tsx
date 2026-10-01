@@ -3,6 +3,7 @@
  * and the HR page (management's home for people matters). One component,
  * two doors; the data functions gate who sees whom either way.
  */
+import { ATTENDANCE_LABEL, applyCorrection } from "@/lib/attendance/attendance-day-label";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { ContentCard } from "@/components/dashboard/DivisionLayout";
@@ -98,19 +99,6 @@ const ATTENDANCE_TONE: Record<string, string> = {
   off: "border-border bg-muted text-muted-foreground",
   no_schedule: "border-border bg-muted text-muted-foreground",
 };
-/** What a correction's classification reads as on the day card. */
-const CORRECTED_STATUS: Record<string, string> = {
-  on_time: "present", late: "late", absent: "absent", ncns: "absent", approved_leave: "on_leave", half_day: "present",
-};
-const ATTENDANCE_LABEL: Record<string, string> = {
-  present: "On time",
-  late: "Late",
-  absent: "Absent",
-  on_leave: "On leave",
-  not_in_yet: "Not in yet",
-  off: "Day off",
-  no_schedule: "No schedule",
-};
 
 /**
  * The chosen day's attendance, DERIVED — late, absent, over-break and
@@ -125,10 +113,8 @@ export const AttendanceCard = ({ date, names }: { date: string; names: Map<strin
      does in the quarter score — the card showed "Late" for a day already
      corrected to on time (Dee, 2026-09-21: "remove all late remark today").
      One rule, `latestPerDay`, decides which correction is current. */
-  const corrected = (attendance.data ?? []).map((a) => {
-    const c = latestPerDay(corrections.data ?? [], a.userId).find((x) => x.day === a.day);
-    return c ? { ...a, status: CORRECTED_STATUS[c.to] ?? a.status, lateMinutes: c.to === "late" ? a.lateMinutes : 0, correctedBy: c.by } : a;
-  });
+  const corrected = (attendance.data ?? []).map((a) =>
+    applyCorrection(a, latestPerDay(corrections.data ?? [], a.userId).find((x) => x.day === a.day)));
   const rows = corrected.filter((a) => a.status !== "no_schedule");
   const unscheduled = (attendance.data ?? []).filter((a) => a.status === "no_schedule").length;
 

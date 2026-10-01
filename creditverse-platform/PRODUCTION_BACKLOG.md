@@ -9,6 +9,20 @@ Last reconciled: 2026-09-21, after the Eastern workday lock (`1f6b8e7`).
 
 ## NOW — affecting daily operations
 
+- **EOD hierarchy, next step after the Agent view (Dee, 2026-10-01).** The
+  Agent EOD Submission View shipped on the existing engine (submit → locked
+  snapshot → routed to the lead → email → notification → rollup). Still to
+  build for the Team Lead view, in Dee's words: actual client count and
+  action totals per person on the team report rows (today only on
+  drill-in), a narrative team summary field, and an explicit "Submit to
+  Department Lead" control (today the lead's own Submit routes the team
+  document upward). Then the same shape for Department Lead → Division
+  Head → Executive, which `eod_scopes_led` already routes.
+- **EOD cutoff is unset.** `agencies.eod_cutoff_local` is null, so the
+  Agent EOD header shows no "Due today by …" line and nothing auto-submits.
+  Dee's mockup says 7:00 PM — confirm the time and whether unsubmitted
+  days should auto-submit at that time (`eod_auto_submit`).
+
 | # | Item | Why it matters today |
 |---|---|---|
 | N-1 | **Bureau Calling team has no members** | The queue routes work to a team with nobody on it; files would sit unassigned. Needs Dee to place somebody, or the queue stays empty by choice. |

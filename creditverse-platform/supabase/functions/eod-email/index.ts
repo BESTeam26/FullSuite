@@ -264,12 +264,16 @@ function compose(row: OutboxRow, brand: EmailBrand, appUrl: string) {
     }
   }
 
+  /* The agent types three things (Dee, 2026-10-01): blockers, follow-ups,
+     notes. The two older fields still print when an older report has them;
+     "accomplishments" in the payload is the old Carryover field and was
+     mislabelled ACCOMPLISHMENTS before. */
   const written = [
-    section("ACCOMPLISHMENTS", p.accomplishments),
-    section("BLOCKERS & ISSUES", p.blockers),
-    section("HELP NEEDED", p.help_needed),
-    section("HANDOFF / NOTES FOR TOMORROW", p.handoff),
+    section("BLOCKERS / ISSUES", p.blockers),
+    section("FOLLOW-UPS NEEDED", p.handoff),
     section("NOTES", p.notes),
+    section("HELP NEEDED", p.help_needed),
+    section("CARRYOVER", p.accomplishments),
   ].filter((x): x is string => x !== null);
 
   const levelHeading = {

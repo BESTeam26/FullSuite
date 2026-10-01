@@ -27,6 +27,8 @@ export interface EodFile {
   notes: string | null;
   resulting_status: string | null;
   completed_at: string;
+  /** The client's dispute round at the time of reading; null for non-client work. */
+  round: string | null;
 }
 
 export interface EodDepartmentTotals {
@@ -80,7 +82,9 @@ export function mapActivity(json: unknown, workDate: string): EodActivity {
     actionsCompleted: typeof j.actions_completed === "number" ? j.actions_completed : 0,
     actionBreakdown: Array.isArray(j.action_breakdown) ? (j.action_breakdown as EodActionCount[]) : [],
     byDepartment: Array.isArray(j.by_department) ? (j.by_department as EodDepartmentTotals[]) : [],
-    files: Array.isArray(j.files) ? (j.files as EodFile[]) : [],
+    files: Array.isArray(j.files)
+      ? (j.files as Record<string, unknown>[]).map((f) => ({ round: null, ...f } as unknown as EodFile))
+      : [],
     minutesLogged: typeof j.minutes_logged === "number" ? j.minutes_logged : 0,
   };
 }
@@ -349,6 +353,21 @@ export async function fetchTeamEod(agencyId: string, workDate: string): Promise<
  * submitted. A no-op when the agency has not switched auto-submit on.
  */
 /** One submission, reduced to what compliance counting needs. */
+/** The agency's EOD cutoff: the clock an unsubmitted day is judged against. */
+export interface EodCutoff { cutoffLocal: string | null; timezone: string | null; autoSubmit: boolean }
+
+export async function fetchEodCutoff(agencyId: string): Promise<EodCutoff> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.from("agencies")
+    .select("eod_cutoff_local, eod_timezone, eod_auto_submit").eq("id", agencyId).maybeSingle();
+  if (error) throw error;
+  return {
+    cutoffLocal: (data?.eod_cutoff_local as string | null) ?? null,
+    timezone: (data?.eod_timezone as string | null) ?? null,
+    autoSubmit: data?.eod_auto_submit === true,
+  };
+}
+
 export interface EodSubmissionMark {
   employeeId: string;
   workDate: string;

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth/auth-context";
 import {
-  fetchEodActivity, fetchEodDay, fetchTeamEod, runEodCutoff, saveEodDay,
+  fetchEodActivity, fetchEodCutoff, fetchEodDay, fetchTeamEod, runEodCutoff, saveEodDay,
   reviewEod,
   type EodNotes, type ReviewDecision,
   fetchEodSubmissionsRange,
@@ -47,6 +47,16 @@ export function useEodDay(date: string, employeeId?: string) {
     queryFn: () => fetchEodDay(id!, date, name),
     enabled: live && !!id,
     staleTime: 15_000,
+  });
+}
+
+export function useEodCutoff() {
+  const { live, agencyId } = useCtx();
+  return useQuery({
+    queryKey: ["eod", "cutoff", agencyId ?? ""],
+    queryFn: () => fetchEodCutoff(agencyId!),
+    enabled: live && !!agencyId,
+    staleTime: 300_000,
   });
 }
 
