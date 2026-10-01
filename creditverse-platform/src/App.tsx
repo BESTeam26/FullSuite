@@ -1,3 +1,4 @@
+import { RouteErrorBoundary } from "@/components/common/RouteErrorBoundary";
 import { lazy, Suspense } from "react";
 import { NewVersionBanner } from "@/components/common/NewVersionBanner";
 import { Toaster } from "@/components/ui/toaster";
@@ -200,6 +201,7 @@ const App = () => (
           Dispute Queue 1,256 ms to next paint, Main Client List 752 ms
           (FullSuite audit, 2026-09-30). */}
       <BrowserRouter future={{ v7_startTransition: true }}>
+        <RouteErrorBoundary homeHref="/">
         <AuthProvider>
           <ReferralProvider>
             <RoleProvider>
@@ -219,6 +221,7 @@ const App = () => (
             </RoleProvider>
           </ReferralProvider>
         </AuthProvider>
+        </RouteErrorBoundary>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

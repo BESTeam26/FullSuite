@@ -1,3 +1,4 @@
+import { RouteErrorBoundary } from "@/components/common/RouteErrorBoundary";
 import { Suspense, useLayoutEffect, useRef } from "react";
 import { Outlet } from "react-router-dom";
 import { Sidebar } from "@/components/dashboard/Sidebar";
@@ -89,9 +90,13 @@ const AgencyShell = () => {
                     guard reads the same spec the menu does, and the database
                     still decides what rows anybody receives. */}
                 <RequireAgencyRoute>
-                  <Suspense fallback={<PageFallback />}>
-                    <Outlet />
-                  </Suspense>
+                  {/* No blank pages: a stale-build chunk reloads once, anything
+                      else shows a notice — and the menu stays either way. */}
+                  <RouteErrorBoundary>
+                    <Suspense fallback={<PageFallback />}>
+                      <Outlet />
+                    </Suspense>
+                  </RouteErrorBoundary>
                 </RequireAgencyRoute>
               </main>
             </div>

@@ -112,6 +112,16 @@ could make on its own; all three were hers, and she answered them directly.
 
 ## HUMAN GATE — needs Dee or a real operator
 
+- **Blank page after a search on 2026-10-01 — fixed, one refresh needed.**
+  A tab open since before the day's deploys navigated to CreditOps and
+  fetched a page chunk the deploy had removed; nothing caught it, so React
+  unmounted everything. Now a stale chunk reloads the page once at the same
+  address, and any other page error shows "This page hit a problem" with
+  Reload and Home while the menu stays (`RouteErrorBoundary`). Tabs still
+  running the old build need ONE manual refresh to pick this up; after that
+  it protects them. FIXED AWAITING LIVE RETEST — the next deploy with staff
+  signed in is the test.
+
 - **Scores count from October 1, 2026 (Dee, 2026-09-30: September was the
   testing phase).** `attendance_policy.scoring_starts_on = 2026-10-01`
   (migration 20260930037000). Attendance points, lates, coaching alerts,

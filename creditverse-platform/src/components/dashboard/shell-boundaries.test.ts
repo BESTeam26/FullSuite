@@ -35,8 +35,11 @@ describe("the shell stays mounted while a page loads", () => {
   it("the page area has its own Suspense boundary around the Outlet", () => {
     /* The guard OUTSIDE the boundary, so a refused page never loads its
        chunk; Suspense inside it, so only the content waits. */
+    /* Since 2026-10-01 an error boundary sits between the guard and the
+       Suspense: a stale-build chunk reloads once, anything else shows a
+       notice, and the shell stays mounted either way (no blank pages). */
     expect(layout).toMatch(
-      /<RequireAgencyRoute>[\s\S]{0,120}<Suspense[\s\S]{0,80}<Outlet\s*\/>[\s\S]{0,80}<\/Suspense>[\s\S]{0,60}<\/RequireAgencyRoute>/,
+      /<RequireAgencyRoute>[\s\S]{0,320}<RouteErrorBoundary>[\s\S]{0,80}<Suspense[\s\S]{0,80}<Outlet\s*\/>[\s\S]{0,80}<\/Suspense>[\s\S]{0,60}<\/RouteErrorBoundary>[\s\S]{0,60}<\/RequireAgencyRoute>/,
     );
   });
 
