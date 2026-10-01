@@ -192,6 +192,7 @@ export type Database = {
           eod_timezone: string
           id: string
           name: string
+          push_public_key: string | null
           slug: string
           updated_at: string
         }
@@ -203,6 +204,7 @@ export type Database = {
           eod_timezone?: string
           id?: string
           name: string
+          push_public_key?: string | null
           slug: string
           updated_at?: string
         }
@@ -214,6 +216,7 @@ export type Database = {
           eod_timezone?: string
           id?: string
           name?: string
+          push_public_key?: string | null
           slug?: string
           updated_at?: string
         }
@@ -14096,6 +14099,60 @@ export type Database = {
           domain?: string
         }
         Relationships: []
+      }
+      push_subscriptions: {
+        Row: {
+          agency_id: string
+          auth: string
+          created_at: string
+          endpoint: string
+          failed_at: string | null
+          id: string
+          last_seen_at: string
+          p256dh: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          agency_id: string
+          auth: string
+          created_at?: string
+          endpoint: string
+          failed_at?: string | null
+          id?: string
+          last_seen_at?: string
+          p256dh: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          agency_id?: string
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          failed_at?: string | null
+          id?: string
+          last_seen_at?: string
+          p256dh?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_subscriptions_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "push_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       record_grants: {
         Row: {

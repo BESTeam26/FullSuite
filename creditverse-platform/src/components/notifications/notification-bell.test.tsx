@@ -10,6 +10,9 @@ import { NotificationBell } from "./NotificationBell";
 import type { Notification } from "@/lib/data/notifications";
 
 const state = vi.hoisted(() => ({ unread: 0, items: [] as Notification[] }));
+vi.mock("@/lib/auth/auth-context", () => ({ useAuth: () => ({ user: { id: "u1" }, agencyId: "a1", mode: "live", status: "signed-in" }) }));
+vi.mock("@/lib/supabase/client", () => ({ requireSupabase: () => ({}) }));
+vi.mock("@/lib/notifications/push-subscription", () => ({ ensurePushSubscription: async () => "subscribed", isIosWithoutInstall: () => false }));
 vi.mock("@/lib/data/use-notifications", () => ({
   useUnreadNotificationCount: () => state.unread,
   useRecentUnreadNotifications: (open: boolean) => ({ items: open ? state.items : [], isLoading: false, error: null, live: true }),

@@ -22,13 +22,18 @@ Last reconciled: 2026-09-21, after the Eastern workday lock (`1f6b8e7`).
   on/off in the bell), the unread count in the tab title, and the bell
   rings for 8 seconds. First live run: 9:25 AM ET today, four people got
   the clock-in reminder.
-  **Next step (not built): notifications when the app is CLOSED or on a
-  phone that is locked** — Web Push: a service worker, VAPID keys in the
-  Vault, a `push_subscriptions` table under RLS, a `push-notify` Edge
-  Function triggered from `notifications` inserts, and the PWA installed
-  on iPhones (iOS only delivers push to an installed web app). The
-  manifest exists; nothing else does. Cost scales with: one push message
-  per notification per subscribed device.
+  **Web Push shipped the same day (Dee: "Build Now"):** a device that
+  turns on notifications in the bell is registered (`push_subscriptions`,
+  own rows only); every new notification nudges the `push-notify` Edge
+  Function (trigger `notifications_push` → pg_net, Vault secret), which
+  sends to the recipient's devices with VAPID and deletes a device the push
+  service reports gone. `public/sw.js` shows the message only when no
+  FullSuite window is focused and opens the page on tap; it caches nothing.
+  iPhones: Share → Add to Home Screen first; the bell says so. VAPID keys
+  rotated 2026-10-01 (function secrets + `agencies.push_public_key`).
+  Cost scales with: one push message per notification per subscribed
+  device. HUMAN TEST REQUIRED: Dee, turn it on in the bell on your laptop
+  and phone, close FullSuite, and wait for the next reminder or DM.
 - **EOD cutoff still unset** — the reminder uses shift end until
   `agencies.eod_cutoff_local` is set (Dee's mockup: 7:00 PM ET).
 

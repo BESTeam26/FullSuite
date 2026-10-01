@@ -21,6 +21,7 @@ import { NOTIFICATIONS_KEY, useUnreadNotificationCount } from "@/lib/data/use-no
 import {
   badgedTitle, describeForAlert, nativePermission, playChime, shouldNotifyNatively, soundEnabled,
 } from "./notification-delivery";
+import { ensurePushSubscription } from "./push-subscription";
 
 const mapRow = (row: Record<string, unknown>): Notification => ({
   id: Number(row.id),
@@ -50,6 +51,14 @@ export function useNotificationDelivery(): void {
   useEffect(() => {
     document.title = badgedTitle(document.title, unread);
   }, [unread, location.pathname]);
+
+  /* With permission already granted, keep this device's push subscription
+     current (endpoints rotate). One call per signed-in session. */
+  const agencyId = auth.agencyId ?? null;
+  useEffect(() => {
+    if (!live || !userId || !agencyId || nativePermission() !== "granted") return;
+    void ensurePushSubscription(requireSupabase(), userId, agencyId);
+  }, [live, userId, agencyId]);
 
   useEffect(() => {
     if (!live || !userId) return;
