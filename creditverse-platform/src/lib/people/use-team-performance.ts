@@ -15,7 +15,8 @@ import { useAgencyWork } from "@/lib/data/use-work";
 import { factsFrom } from "@/lib/attendance/attendance-facts";
 import { latestPerDay } from "@/lib/attendance/use-attendance-corrections";
 import { useAttendanceCorrections } from "@/lib/attendance/use-attendance-corrections";
-import { lastMonths, personScore, type PersonScore } from "@/lib/people/performance-metrics";
+import { lastMonths, leaderScore, personScore, type PersonScore } from "@/lib/people/performance-metrics";
+import { useLeadershipScopes } from "@/lib/data/use-workforce";
 import { usePerformancePolicy } from "@/lib/people/use-performance-policy";
 import type { DateRange } from "@/lib/people/overview-metrics";
 import type { AgencyPerson } from "@/lib/data/agency-workforce";
@@ -30,6 +31,8 @@ export interface ScoredPerson {
   previous: PersonScore;
   /** One score per trend month, oldest first. */
   months: PersonScore[];
+  /** How many people this person is measured on (0 = their own records). */
+  scopeSize: number;
 }
 
 export function useTeamPerformance(period: DateRange) {
@@ -41,6 +44,7 @@ export function useTeamPerformance(period: DateRange) {
   const eod = useEodSubmissionsRange(span.from, span.to);
   const work = useAgencyWork();
   const weighting = usePerformancePolicy();
+  const scopes = useLeadershipScopes();
   const { people, schedules, policy, today } = team;
 
   const previousOf = (r: DateRange): DateRange => {
@@ -53,7 +57,7 @@ export function useTeamPerformance(period: DateRange) {
     if (!attendance.data) return [];
     const marks = eod.data ?? [];
     const items = work.source === "live" ? work.items : [];
-    return people.map((person) => {
+    const own = people.map((person) => {
       const theirs = attendance.data!.filter((d) => d.userId === person.userId);
       const schedule = schedules.find((s) => s.userId === person.userId);
       const facts = factsFrom(theirs, schedule, { today, scoringStartsOn: policy.scoringStartsOn });
@@ -67,9 +71,25 @@ export function useTeamPerformance(period: DateRange) {
         score: personScore(input, period, weighting),
         previous: personScore(input, previousOf(period), weighting),
         months: months.map((m) => personScore(input, m, weighting)),
+        scopeSize: 0,
       };
     });
-  }, [attendance.data, corrections.data, eod.data, work.items, work.source, people, schedules, policy, weighting, today, period, months]);
+    /* A leader is measured by their scope (Dee, 2026-10-01): the same months,
+       each replaced by the mean over the people they lead; attendance stays
+       their own. Members outside the viewer's data simply do not count. */
+    const byId = new Map(own.map((s) => [s.person.userId, s]));
+    return own.map((s) => {
+      const members = (scopes.get(s.person.userId) ?? []).map((id) => byId.get(id)).filter((m): m is ScoredPerson => !!m);
+      if (members.length === 0) return s;
+      return {
+        ...s,
+        score: leaderScore(s.score, members.map((m) => m.score), weighting),
+        previous: leaderScore(s.previous, members.map((m) => m.previous), weighting),
+        months: s.months.map((month, i) => leaderScore(month, members.map((m) => m.months[i]), weighting)),
+        scopeSize: members.length,
+      };
+    });
+  }, [attendance.data, corrections.data, eod.data, work.items, work.source, people, schedules, policy, weighting, today, period, months, scopes]);
 
   return {
     weighting,

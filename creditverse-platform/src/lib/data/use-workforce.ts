@@ -1,10 +1,21 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth/auth-context";
-import { fetchWorkforce } from "@/lib/data/agency-workforce";
+import { fetchLeadershipScopes, fetchWorkforce } from "@/lib/data/agency-workforce";
 import type { AssignedPerson } from "@/lib/fulfillment/ops-client-domain";
 
 export const workforceKey = ["agency", "workforce"] as const;
+export const leadershipScopesKey = ["agency", "leadership-scopes"] as const;
+
+/** Leader → the people they are measured on. Empty until it loads; a leader
+    with no entry is scored on their own records. */
+export function useLeadershipScopes() {
+  const auth = useAuth();
+  const live = auth.mode === "live" && auth.status === "signed-in" && auth.isAgencyStaff;
+  const q = useQuery({ queryKey: leadershipScopesKey, queryFn: fetchLeadershipScopes, enabled: live, staleTime: 300_000 });
+  return q.data ?? EMPTY_SCOPES;
+}
+const EMPTY_SCOPES = new Map<string, string[]>();
 /**
  * One batch for People, Teams and Workforce; BES staff only by policy (others
  * get empty rows). Callers that only sometimes need it — the mention picker on

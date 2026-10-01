@@ -134,6 +134,37 @@ export function overallOf(
   return Math.round(sum / weight);
 }
 
+/**
+ * A leader's score (Dee, 2026-10-01): "team leads and department leads and
+ * division leads overall performance are the combination and average of
+ * their team or scope of leadership plus attendance performance as well —
+ * they keep their own attendance records but they will be measured based on
+ * their designated team, department or division performance."
+ *
+ * Quality, Output and Compliance are the mean over the people in the
+ * leader's scope; Attendance stays the leader's own; delivered is the scope's
+ * total. Who is in the scope is the database's answer (`leadership_scopes()`),
+ * never guessed here. With nobody measurable in scope, the leader's own score
+ * stands rather than an empty one.
+ */
+export function leaderScore(
+  own: PersonScore, scope: readonly PersonScore[], policy: PerformancePolicy = DEFAULT_PERFORMANCE_POLICY,
+): PersonScore {
+  if (scope.length === 0) return own;
+  const parts = {
+    attendance: own.attendance,
+    quality: averageOf(scope, "quality"),
+    compliance: averageOf(scope, "compliance"),
+    output: averageOf(scope, "output"),
+  };
+  return {
+    ...parts,
+    delivered: scope.reduce((s, x) => s + x.delivered, 0),
+    overall: overallOf(parts, policy),
+    belowMinimum: isBelowMinimum(parts, policy),
+  };
+}
+
 /** The team figure for one component: the mean over people who have it. */
 export function averageOf(scores: readonly PersonScore[], key: keyof PersonScore): number | null {
   const present = scores.map((s) => s[key]).filter((v): v is number => v !== null);

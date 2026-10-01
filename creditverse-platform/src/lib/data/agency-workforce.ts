@@ -14,6 +14,24 @@ export interface Workforce { people: AgencyPerson[]; teams: AgencyTeam[]; time: 
 
 const startOfWeekUtc = (now: Date) => { const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())); const dow = (d.getUTCDay() + 6) % 7; d.setUTCDate(d.getUTCDate() - dow); return d; };
 
+/**
+ * Who leads whom, for scoring (Dee, 2026-10-01): a leader is measured by
+ * their scope. `leadership_scopes()` derives the pairs from team leadership
+ * and management seats and returns only people the viewer may already see.
+ */
+export async function fetchLeadershipScopes(): Promise<Map<string, string[]>> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("leadership_scopes" as never);
+  if (error) throw error;
+  const out = new Map<string, string[]>();
+  for (const r of (data ?? []) as { leader_id: string; member_id: string }[]) {
+    const list = out.get(r.leader_id) ?? [];
+    list.push(r.member_id);
+    out.set(r.leader_id, list);
+  }
+  return out;
+}
+
 export async function fetchWorkforce(now: Date = new Date()): Promise<Workforce> {
   const sb = requireSupabase();
   const weekStart = startOfWeekUtc(now);

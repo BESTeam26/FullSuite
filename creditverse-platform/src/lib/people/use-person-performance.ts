@@ -14,7 +14,8 @@ import { latestPerDay, useAttendanceCorrections } from "@/lib/attendance/use-att
 import { useAttendancePolicy } from "@/lib/attendance/use-attendance-policy";
 import { usePerformancePolicy } from "@/lib/people/use-performance-policy";
 import { businessToday } from "@/lib/calendar/us-federal-holidays";
-import { lastMonths, personScore, type PersonScore } from "@/lib/people/performance-metrics";
+import { lastMonths, leaderScore, personScore, type PersonScore } from "@/lib/people/performance-metrics";
+import { useLeadershipScopes } from "@/lib/data/use-workforce";
 import { monthToDate, previousMonth, type DateRange } from "@/lib/people/overview-metrics";
 
 export function usePersonPerformance(userId: string, period?: DateRange) {
@@ -28,28 +29,37 @@ export function usePersonPerformance(userId: string, period?: DateRange) {
   const work = useAgencyWork();
   const policy = useAttendancePolicy();
   const weighting = usePerformancePolicy();
+  const scopes = useLeadershipScopes();
 
   const scored = useMemo(() => {
     if (!attendance.data) return null;
-    const theirs = attendance.data.filter((d) => d.userId === userId);
-    const schedule = (schedules.data ?? []).find((s) => s.userId === userId);
-    const input = {
-      userId, facts: factsFrom(theirs, schedule, { today, scoringStartsOn: policy.scoringStartsOn }), policy,
-      corrections: latestPerDay(corrections.data ?? [], userId),
+    const inputFor = (id: string) => ({
+      userId: id,
+      facts: factsFrom(attendance.data!.filter((d) => d.userId === id), (schedules.data ?? []).find((s) => s.userId === id),
+        { today, scoringStartsOn: policy.scoringStartsOn }),
+      policy,
+      corrections: latestPerDay(corrections.data ?? [], id),
       eodMarks: eod.data ?? [], items: work.source === "live" ? work.items : [],
-    };
+    });
+    const input = inputFor(userId);
+    /* A leader is measured by their scope (Dee, 2026-10-01); a member whose
+       records the viewer cannot see contributes nothing. */
+    const members = (scopes.get(userId) ?? []).filter((id) => attendance.data!.some((d) => d.userId === id)).map(inputFor);
+    const at = (r: DateRange) =>
+      leaderScore(personScore(input, r, weighting), members.map((m) => personScore(m, r, weighting)), weighting);
     return {
-      score: personScore(input, range, weighting),
-      previous: personScore(input, previousMonth(range.from), weighting),
-      months: months.map((m) => ({ range: m, score: personScore(input, m, weighting) })),
-    } as { score: PersonScore; previous: PersonScore; months: { range: DateRange; score: PersonScore }[] };
-  }, [attendance.data, schedules.data, corrections.data, eod.data, work.items, work.source, userId, today, policy, weighting, range, months]);
+      score: at(range),
+      previous: at(previousMonth(range.from)),
+      months: months.map((m) => ({ range: m, score: at(m) })),
+      scopeSize: members.length,
+    } as { score: PersonScore; previous: PersonScore; months: { range: DateRange; score: PersonScore }[]; scopeSize: number };
+  }, [attendance.data, schedules.data, corrections.data, eod.data, work.items, work.source, userId, today, policy, weighting, range, months, scopes]);
 
   return {
     loading: attendance.isLoading || eod.isLoading,
     today, range, weighting,
     scoringStartsOn: policy.scoringStartsOn,
     items: work.source === "live" ? work.items : [],
-    ...(scored ?? { score: null, previous: null, months: [] }),
+    ...(scored ?? { score: null, previous: null, months: [], scopeSize: 0 }),
   };
 }

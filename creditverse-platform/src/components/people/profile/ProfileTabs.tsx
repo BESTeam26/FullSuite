@@ -35,6 +35,12 @@ export function PersonPerformanceTab({ member, title, teamName, nameOf }: {
           Overall = Quality {perf.weighting.weights.quality}% + Productivity &amp; Output {perf.weighting.weights.output}% + Compliance {perf.weighting.weights.compliance}% + Attendance {perf.weighting.weights.attendance}%,
           over the components with data. Output joins the overall once a target exists for the position.
         </p>
+        {perf.scopeSize > 0 && (
+          <p className="mt-1 text-[10px] text-muted-foreground">
+            Measured on the {perf.scopeSize} {perf.scopeSize === 1 ? "person" : "people"} they lead: Quality, Output and Compliance are the
+            scope&apos;s average; Attendance is their own.
+          </p>
+        )}
       </Card>
       {perf.score && perf.previous && (
         <PerformancePersonColumn member={member} title={title} teamName={teamName} score={perf.score} previous={perf.previous}

@@ -161,6 +161,11 @@ export function TeamPerformance() {
           <Button size="sm" className="h-8 text-xs" onClick={exportCsv} disabled={rows.length === 0}>
             <Download className="mr-1.5 h-3.5 w-3.5" aria-hidden /> Export Report
           </Button>
+          {perf.scored.some((s) => s.scopeSize > 0) && (
+            <span className="text-[11px] text-muted-foreground">
+              Leads are measured on their scope: Quality, Output and Compliance average their people; Attendance is their own.
+            </span>
+          )}
         </div>
       </div>
 

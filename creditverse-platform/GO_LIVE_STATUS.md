@@ -34,7 +34,7 @@ to `compensation.bes_cost.view`, held by the owners and Bryan.
 | Rowell | Two `division_manager` seats; `agency_admin` | His two divisions' people (14) | Same 14 | No | No |
 | Daniel | Two `department_manager` seats; leads two teams | His departments' people (7) | Same 7 | No | No |
 | Allyssa | One `department_manager` seat; leads one team | Her department's people (2) | Same 2 | No | No |
-| Tech account | `agency_admin`, no seat, no team | Nobody (0) | Nobody | No | No |
+| Tech account | sample account — deactivated 2026-10-01 | — | — | — | — |
 | JM | `executive_assistant` seat (corporate, no scope) | Nobody | Nobody | No | No |
 | Agents (Jet, Archie, …) | — | Own released payslips and own rate | — | No | No |
 
@@ -105,6 +105,19 @@ through two pricing functions; no payroll adjustment could be saved.)
 
 ## WORKING (verified today)
 
+- Dee's three instructions of 2026-10-01 evening, done:
+  (1) the "Tech Support Team" sample account is deactivated through the
+  canonical member-status path as Dee (audited); its login row is kept only
+  so its 38 history entries still name who did them — say the word and the
+  login itself goes; (2) Bryan, the managing partner, is outside workforce
+  management like the owners (no schedule expected, no attendance score, no
+  End of Day expected, no reminders, not in any management list; his pay
+  arrangement untouched) — the rule is the live `managing_partner` seat
+  (migration 20261001017000); (3) a lead is measured by their scope: Quality,
+  Output and Compliance average the people they lead, Attendance stays their
+  own (`leaderScore`, `leadership_scopes()`, migration 20261001018000), on
+  the Performance section and the profile's Performance tab, with the rule
+  stated on both. Daniel's scope: Alvaro, Archie, Ivan, Julius, Paul.
 - End of Day is filed for the Eastern workday (found 2026-10-01 evening):
   six people in Manila submitted between 5 and 6 PM Eastern with the
   device's date (October 2) and an empty snapshot, and six lead emails said

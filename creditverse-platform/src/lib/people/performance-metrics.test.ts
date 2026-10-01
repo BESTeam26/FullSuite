@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_POLICY, type AttendanceFact } from "@/lib/attendance/attendance-score";
 import {
-  averageOf, bandOf, belowStandard, deliveredCount, distribution, lastMonths, outputRate, overallOf, performanceCsv, personScore, trendOf,
+  averageOf, bandOf, belowStandard, deliveredCount, distribution, lastMonths, leaderScore, outputRate, overallOf, performanceCsv, personScore, trendOf,
 } from "./performance-metrics";
 import { DEFAULT_PERFORMANCE_POLICY } from "./performance-policy";
 
@@ -75,6 +75,27 @@ describe("a person's score", () => {
     expect(score.output).toBeNull();
     expect(score.overall).toBe(69);      // (33·10 + 100·35 + 33·20) / 65
     expect(score.belowMinimum).toBe(false);
+  });
+});
+
+/* Dee, 2026-10-01: a lead is measured by their scope, and keeps their own attendance. */
+describe("a leader's score", () => {
+  const score = (p: Partial<Record<"attendance" | "quality" | "compliance" | "output", number | null>>, delivered = 0) =>
+    ({ ...parts(p), delivered, overall: null, belowMinimum: false });
+  it("averages Quality, Output and Compliance over the scope and keeps the leader's own Attendance", () => {
+    const own = score({ attendance: 70, quality: 100, compliance: 100, output: 100 }, 9);
+    const team = [score({ attendance: 90, quality: 80, compliance: 60, output: 40 }, 2), score({ attendance: 50, quality: 90, compliance: 80, output: 60 }, 3)];
+    const s = leaderScore(own, team);
+    expect([s.attendance, s.quality, s.compliance, s.output, s.delivered]).toEqual([70, 85, 70, 50, 5]);
+    expect(s.overall).toBe(overallOf({ attendance: 70, quality: 85, compliance: 70, output: 50 }));
+  });
+  it("ignores a member's missing component rather than counting it as zero", () => {
+    const s = leaderScore(score({ attendance: 80, quality: 10 }), [score({ quality: 90 }), score({ quality: null, compliance: 70 })]);
+    expect([s.quality, s.compliance, s.output]).toEqual([90, 70, null]);
+  });
+  it("is the leader's own score when nobody measurable is in scope", () => {
+    const own = score({ attendance: 80, quality: 95, compliance: 90, output: null }, 4);
+    expect(leaderScore(own, [])).toBe(own);
   });
 });
 
