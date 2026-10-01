@@ -6,8 +6,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
-/* A bell mount is slow in jsdom (popover + portal); give each case room. */
-vi.setConfig({ testTimeout: 30_000 });
+/* A bell mount is slow in jsdom (popover + portal): 17–34 s per device case
+   on a loaded machine (2026-10-01, load average 6). The allowance covers it;
+   the cost itself is a PRODUCTION_BACKLOG item — a mount should not take
+   seconds. */
+vi.setConfig({ testTimeout: 90_000 });
 afterEach(cleanup);
 import { MemoryRouter } from "react-router-dom";
 import { NotificationBell } from "./NotificationBell";

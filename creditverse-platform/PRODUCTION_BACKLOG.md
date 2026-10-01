@@ -185,6 +185,12 @@ says feels slow is profiled as a real session):**
 
 ## LATER — useful, not currently blocking operations
 
+- **The notification bell mounts slowly in jsdom** (17–34 s per device-state
+  case under load, 2026-10-01; the suite failed twice on the 30 s limit after
+  passing three times earlier the same day). The test allowance is 90 s now;
+  the real item is whatever the popover + portal mount does that costs
+  seconds — profile `NotificationBell` under vitest and cut it.
+
 - **Bounded rendering for every high-volume list (Dee's rule, 2026-09-30) — DONE 2026-09-30.**
   Every list past a few hundred rows now renders through `useVirtualRows`
   (the list is in `FULLSUITE_PERFORMANCE_RULE.md`); People › Team Members
