@@ -10,7 +10,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Bell, BellRing, CheckCheck, Volume2, VolumeX } from "lucide-react";
 import { SOUND_PREF_KEY, nativePermission, soundEnabled } from "@/lib/notifications/notification-delivery";
 import { requestNativePermission } from "@/lib/notifications/use-notification-delivery";
-import { blockedInstructions, currentDeviceState, ensurePushSubscription, type DeviceState } from "@/lib/notifications/push-subscription";
+import { blockedInstructions, currentDeviceState, ensurePushSubscription, lastPushFailure, type DeviceState } from "@/lib/notifications/push-subscription";
 import { requireSupabase } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth/auth-context";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -35,6 +35,7 @@ export function NotificationBell() {
   }, [unread]);
   const [device, setDevice] = useState<DeviceState | null>(null);
   const [enabling, setEnabling] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
   const auth = useAuth();
   /* Read-only, each time the popover opens: nothing here prompts. */
   useEffect(() => { if (open) void currentDeviceState().then(setDevice); }, [open]);
@@ -43,7 +44,8 @@ export function NotificationBell() {
     setEnabling(true);
     try {
       const granted = nativePermission() === "granted" ? "granted" : await requestNativePermission();
-      if (granted === "granted") await ensurePushSubscription(requireSupabase(), auth.user.id, auth.agencyId);
+      const result = granted === "granted" ? await ensurePushSubscription(requireSupabase(), auth.user.id, auth.agencyId) : "denied";
+      setFailure(result === "failed" ? (lastPushFailure.reason ?? "this device could not be registered") : result === "no_key" ? "push is not set up on the server yet" : null);
       setDevice(await currentDeviceState());
     } finally { setEnabling(false); }
   };
@@ -119,6 +121,9 @@ export function NotificationBell() {
               className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60">
               <BellRing className="h-3.5 w-3.5" aria-hidden /> {enabling ? "Turning on…" : "Turn on notifications"}
             </button>
+          )}
+          {failure && device !== "subscribed" && (
+            <span role="alert" className="basis-full text-status-danger">Could not turn on notifications: {failure}. Tell your team lead; nothing else is affected.</span>
           )}
           {device === "subscribed" && (
             <span className="text-muted-foreground">Notifications are on for this device, including when FullSuite is closed.</span>

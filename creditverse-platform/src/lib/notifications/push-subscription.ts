@@ -14,6 +14,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type PushState = "subscribed" | "unsupported" | "no_key" | "denied" | "needs_install" | "failed";
 
+/** Why the last registration on this device failed, for the bell to say. */
+export const lastPushFailure: { reason: string | null } = { reason: null };
+
 const PUBLIC_KEY_CACHE: { key: string | null } = { key: null };
 
 export function isIosWithoutInstall(nav: Navigator = navigator): boolean {
@@ -59,9 +62,19 @@ export async function ensurePushSubscription(sb: SupabaseClient, userId: string,
       agency_id: agencyId, user_id: userId, endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth,
       user_agent: navigator.userAgent.slice(0, 200), last_seen_at: new Date().toISOString(), failed_at: null,
     } as never, { onConflict: "endpoint" });
-    if (error) return "failed";
+    if (error) {
+      /* Found 2026-10-01: a missing table grant refused every registration
+         and nothing said so. A failure here is named, in the console and in
+         the bell. */
+      lastPushFailure.reason = `could not save this device (${error.message})`;
+      console.warn("[FullSuite] push registration", error.message);
+      return "failed";
+    }
+    lastPushFailure.reason = null;
     return "subscribed";
-  } catch {
+  } catch (e) {
+    lastPushFailure.reason = e instanceof Error ? e.message : String(e);
+    console.warn("[FullSuite] push registration", lastPushFailure.reason);
     return "failed";
   }
 }

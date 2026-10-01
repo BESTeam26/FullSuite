@@ -42,7 +42,13 @@ Last reconciled: 2026-09-21, after the Eastern workday lock (`1f6b8e7`).
   unauthorized attempts, function failures, hand-off failures) written as
   they happen, a trigger alerting the owners once an hour per kind, and the
   card on Settings › Integrations. Proven on production 2026-10-01.
-  Browser push on a LAPTOP: LIVE VERIFIED by Dee, 2026-10-01. Phone:
+  Correction, later on 2026-10-01: Dee's laptop test saw the in-app desktop
+  alert, not closed-app push — NO device had registered for anyone, because
+  `push_subscriptions` had row policies but no table grant (fixed in
+  20261001006000; proven per account). Registration failures now show their
+  reason in the bell. Browser push on a LAPTOP: HUMAN TEST REQUIRED again —
+  Dee, open the bell, press Turn on notifications, and the line must read
+  "Notifications are on for this device, including when FullSuite is closed." Phone:
   HUMAN TEST REQUIRED — VERIFIED in full once Dee confirms one real phone
   (iPhone: Share → Add to Home Screen first, then turn it on from the bell).
 - **EOD cutoff still unset** — the reminder uses shift end until
