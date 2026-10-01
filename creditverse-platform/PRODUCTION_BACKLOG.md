@@ -23,8 +23,15 @@ Last reconciled: 2026-09-21, after the Eastern workday lock (`1f6b8e7`).
   before/after and as the owner (unchanged). **Overview rebuilt the same
   day** to the doctrine list — BES contact, services and build progress,
   important updates, message previews, next billing — all from the
-  partner-scoped functions, with a render test. Portal work order next:
-  Clients → Actions Needed → Messages → Projects
+  partner-scoped functions, with a render test. **Clients done the same
+  day** (migration 20261001009000): the list is Client · Status · Round ·
+  Last update · Next step · Action needed; the department and its status
+  text left the projection, replaced by `creditops_partner_next_step()`
+  (one rule over the department status, worded in `lib/portal/next-step.ts`);
+  the timeline names a BES person only when they hold a live partner
+  assignment; history and documents load on demand. Matrix phase 77 holds
+  it. Portal work order next:
+  Actions Needed → Actions Needed → Messages → Projects
   & Services → Billing → Files (also: shared CLIENT documents live under
   clients/… and the partner storage rule covers only agency/partner/…, so
   downloads will fail once a client file is shared — none exists yet) →

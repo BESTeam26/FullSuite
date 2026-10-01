@@ -7,12 +7,13 @@
  * an empty list.
  */
 import type { PartnerPortalClient } from "@/lib/data/agency-partners";
+import { nextStepLabel } from "./next-step";
 
 export interface ClientFilters {
   search?: string;
   status?: string | null;
   round?: string | null;
-  department?: string | null;
+  nextStep?: string | null;
   actionNeeded?: boolean;
   /** One of the summary strip's four buckets. */
   bucket?: ClientBucket | null;
@@ -53,15 +54,15 @@ export function filterClients(clients: PartnerPortalClient[], f: ClientFilters):
     if (f.bucket && bucketOf(c) !== f.bucket) return false;
     if (f.status && c.status !== f.status) return false;
     if (f.round && c.round !== f.round) return false;
-    if (f.department && c.currentDepartment !== f.department) return false;
+    if (f.nextStep && c.nextStep !== f.nextStep) return false;
     if (f.actionNeeded && !c.actionNeeded) return false;
     if (!q) return true;
-    return [c.name, c.email, c.publicId, c.currentWork, c.actionTitle]
+    return [c.name, c.email, c.publicId, nextStepLabel(c.nextStep), c.actionTitle]
       .some((v) => v?.toLowerCase().includes(q));
   });
 }
 
 /** Distinct values present in the rows, so a filter never offers an empty result. */
-export const optionsIn = (clients: PartnerPortalClient[], key: "status" | "round" | "currentDepartment"): string[] =>
+export const optionsIn = (clients: PartnerPortalClient[], key: "status" | "round" | "nextStep"): string[] =>
   [...new Set(clients.map((c) => c[key]).filter((v): v is string => !!v?.trim()))]
     .sort((a, b) => a.localeCompare(b));

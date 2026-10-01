@@ -169,3 +169,35 @@ If you want, I can do the next step as either:
 
 * show you the Partner Overview UI, or
 * give you the exact simple Claude instruction to start cleaning the Partner Portal.
+
+---
+
+## Addendum — Dee, 2026-10-01 (Clients step), verbatim
+
+The Partner Client list should focus on:
+
+* Client
+* Current Status
+* Round / Stage
+* Last Update
+* Next Step
+* Action Needed from Partner
+
+Keep internal-only details out:
+
+* internal department
+* internal processor/agent
+* internal SLA
+* internal queue
+* QA/internal notes
+* internal routing
+* internal staff activity names
+
+Do not duplicate client data for the portal. Keep using the canonical client record through partner-safe views/RPCs.
+Also check the full client detail page and timeline for the same exposure rules, not just the list.
+After Clients, move to Actions Needed and cover the missing action types.
+Do not start Files until the shared-client-document storage rule is fixed, because we already know downloads will fail when the first shared document appears.
+Keep portal performance fast and lazy-load heavier client history/detail sections.
+I’d also add one product rule for the portal:
+If the Partner does not need a field to make a decision or take an action, do not expose it.
+That will keep the portal clean and protect you from slowly leaking internal operations back into the client-facing experience.

@@ -19512,6 +19512,13 @@ export type Database = {
           department: Database["public"]["Enums"]["fulfillment_department"]
         }[]
       }
+      creditops_partner_next_step: {
+        Args: {
+          p_department: Database["public"]["Enums"]["fulfillment_department"]
+          p_status: string
+        }
+        Returns: string
+      }
       creditops_pick_assignee: {
         Args: {
           p_agency: string
@@ -20577,12 +20584,11 @@ export type Database = {
           action_needed: boolean
           action_title: string
           created_at: string
-          current_department: string
-          current_work: string
           email: string
           last_activity_at: string
           lifecycle: string
           name: string
+          next_step: string
           open_items: number
           phone: string
           processed_on: string
@@ -20619,12 +20625,11 @@ export type Database = {
           action_needed: boolean
           action_title: string
           created_at: string
-          current_department: string
-          current_work: string
           email: string
           last_activity_at: string
           lifecycle: string
           name: string
+          next_step: string
           open_items: number
           processed_on: string
           public_id: string

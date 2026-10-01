@@ -25,8 +25,7 @@ export interface PortalClientDetail {
   createdAt: string;
   lastActivityAt: string | null;
   processedOn: string | null;
-  currentDepartment: string | null;
-  currentWork: string | null;
+  nextStep: string;
   waiting: boolean;
   actionNeeded: boolean;
   actionId: string | null;
@@ -79,8 +78,7 @@ export function usePortalClient(publicId: string | undefined) {
         createdAt: r.created_at as string,
         lastActivityAt: (r.last_activity_at as string) ?? null,
         processedOn: (r.processed_on as string) ?? null,
-        currentDepartment: (r.current_department as string) ?? null,
-        currentWork: (r.current_work as string) ?? null,
+        nextStep: (r.next_step as string) ?? "not_started",
         waiting: r.waiting === true,
         actionNeeded: r.action_needed === true,
         actionId: (r.action_id as string) ?? null,
@@ -92,11 +90,13 @@ export function usePortalClient(publicId: string | undefined) {
   });
 }
 
-export function usePortalClientTimeline(publicId: string | undefined) {
+/* History and documents load only when the partner opens them (doctrine:
+   keep the portal fast; lazy-load heavier client sections). */
+export function usePortalClientTimeline(publicId: string | undefined, enabled = true) {
   const auth = useAuth();
   return useQuery({
     queryKey: ["portal", "client", publicId, "timeline"],
-    enabled: live(auth) && !!publicId,
+    enabled: live(auth) && !!publicId && enabled,
     staleTime: 30_000,
     queryFn: async (): Promise<PortalClientEvent[]> => {
       const { data, error } = await requireSupabase()
@@ -111,11 +111,11 @@ export function usePortalClientTimeline(publicId: string | undefined) {
   });
 }
 
-export function usePortalClientFiles(publicId: string | undefined) {
+export function usePortalClientFiles(publicId: string | undefined, enabled = true) {
   const auth = useAuth();
   return useQuery({
     queryKey: ["portal", "client", publicId, "files"],
-    enabled: live(auth) && !!publicId,
+    enabled: live(auth) && !!publicId && enabled,
     staleTime: 60_000,
     queryFn: async (): Promise<PortalClientFile[]> => {
       const { data, error } = await requireSupabase()

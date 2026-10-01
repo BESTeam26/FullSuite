@@ -8120,9 +8120,13 @@ if (runs(77)) {
                 insert into public.partner_contacts (group_id, agency_id, full_name, email, user_id, status)
                   values ('${G}'::uuid, ${AG77}, 'Probe Contact', 'probe.contact@example.test', '${PC}'::uuid, 'active');
                 insert into public.partner_services (group_id, agency_id, name, status, notes)
-                  values ('${G}'::uuid, ${AG77}, 'Probe Service', 'active', 'INTERNAL SERVICE NOTE');`;
-  const as77 = (uid, sql) => {
-    try { return q(`begin; ${seed} set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; }
+                  values ('${G}'::uuid, ${AG77}, 'Probe Service', 'active', 'INTERNAL SERVICE NOTE');
+                insert into public.fulfillment_clients (id, agency_id, name, email, mode, outsourcing_group_id)
+                  values ('44444444-0000-4000-8000-0000000000c7'::uuid, ${AG77}, 'Probe Client', 'pclient@example.test', 'outsourcing_only', '${G}'::uuid);
+                insert into public.activity_events (agency_id, actor_id, actor_name, entity_type, entity_id, action, visibility)
+                  values (${AG77}, '${OWNER77}'::uuid, 'Owner Name', 'fulfillment_client', '44444444-0000-4000-8000-0000000000c7', 'Status changed', 'shared_with_partner');`;
+  const as77 = (uid, sql, extra = "") => {
+    try { return q(`begin; ${seed} ${extra} set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; }
     catch (e) { const m = (String(e.message) + "\n" + String(e.stdout ?? "")).match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); }
   };
   const P77 = [
@@ -8142,6 +8146,15 @@ if (runs(77)) {
       () => as77(PC, `select count(*)::int as rows from public.partner_contacts where user_id = auth.uid()`), 1],
     ["the owner still reads the probe group with its internal note",
       () => as77(OWNER77, `select (notes = 'INTERNAL NOTE')::text as rows from public.outsourcing_groups where id = '${G}'::uuid`), "true"],
+    /* The Clients step (doctrine addendum): no department, no internal
+       status text, a next-step key; the timeline names nobody internal. */
+    ["a partner's client list carries a next step and no department or internal status text",
+      () => as77(PC, `select (to_jsonb(r) ? 'next_step' and not (to_jsonb(r) ?| array['current_department','current_work','assignee_id','next_action']))::text as rows from public.my_partner_clients() r limit 1`), "true"],
+    ["a shared timeline entry by an unassigned BES person names nobody",
+      () => as77(PC, `select coalesce((select t.actor_name from public.my_partner_clients() c, lateral public.my_partner_client_timeline(c.public_id, 20) t where t.action = 'Status changed' limit 1), 'nobody') as rows`), "nobody"],
+    ["…and the same entry names the person once they are assigned to the partner",
+      () => as77(PC, `select coalesce((select t.actor_name from public.my_partner_clients() c, lateral public.my_partner_client_timeline(c.public_id, 20) t where t.action = 'Status changed' limit 1), 'nobody') as rows`,
+        `insert into public.partner_assignments (group_id, agency_id, user_id, is_primary) values ('${G}'::uuid, ${AG77}, '${OWNER77}'::uuid, true);`), "Owner Name"],
   ];
   runPhase("phase 77", P77, { strict: true });
 }

@@ -1458,4 +1458,7 @@ and enforced server-side (rule 16's model 2/3 boundary, rule 1's "hidden UI
 is not security"). Navigation is locked to the nine entries; work order:
 Overview → Clients → Actions Needed → Messages → Projects & Services →
 Billing → Files → Updates → Account Settings. Keep it noticeably simpler
-than the internal workspace.
+than the internal workspace. **The portal product rule (Dee, 2026-10-01):
+*if the Partner does not need a field to make a decision or take an
+action, do not expose it.* Files waits until the shared-client-document
+storage rule is fixed.**

@@ -165,8 +165,7 @@ const CLIENT: PartnerPortalClient = {
   lifecycle: "active", lastActivityAt: "2026-09-08T12:00:00Z",
   processedOn: null, createdAt: "2026-08-01T00:00:00Z",
   /* The partner-safe projection carries what BES is doing, and whether the
-     PARTNER owes an action — added 2026-09-13 for the Clients page. */
-  currentDepartment: "Dispute", currentWork: "DISPUTE PROCESSING",
+     PARTNER owes an action — added 2026-09-13 for the Clients page. */ nextStep: "in_progress",
   waiting: false, actionNeeded: false, actionTitle: null,
 };
 

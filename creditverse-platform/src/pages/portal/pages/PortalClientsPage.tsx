@@ -27,6 +27,7 @@ import {
   BUCKET_LABEL, bucketCounts, filterClients, optionsIn,
   type ClientBucket, type ClientFilters,
 } from "@/lib/portal/client-filters";
+import { NEXT_STEP_LABEL, NEXT_STEP_ORDER, nextStepLabel, nextStepTone, type NextStepKey } from "@/lib/portal/next-step";
 
 const ALL = "__all__";
 
@@ -53,7 +54,7 @@ export function PortalClientsPage() {
   const virtual = useVirtualRows(rows.length, tableRef);
   const set = (patch: Partial<ClientFilters>) => setFilters((f) => ({ ...f, ...patch }));
   const pick = (v: string) => (v === ALL ? null : v);
-  const narrowed = !!(filters.bucket || filters.status || filters.round || filters.department || filters.actionNeeded);
+  const narrowed = !!(filters.bucket || filters.status || filters.round || filters.nextStep || filters.actionNeeded);
 
   if (clients.isLoading) {
     return <p className="py-10 text-center"><Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" /></p>;
@@ -97,7 +98,7 @@ export function PortalClientsPage() {
           <Input
             value={filters.search ?? ""}
             onChange={(e) => set({ search: e.target.value })}
-            placeholder="Name, reference or what is being done"
+            placeholder="Name, reference or next step"
             aria-label="Search clients"
             className="h-8 pl-8 text-xs"
           />
@@ -110,10 +111,10 @@ export function PortalClientsPage() {
           onValueChange={(v) => set({ round: pick(v) })}
           options={[{ value: ALL, label: "Every round" },
             ...optionsIn(all, "round").map((s) => ({ value: s, label: s }))]} />
-        <OpsSelect aria-label="Current department" size="sm" value={filters.department ?? ALL}
-          onValueChange={(v) => set({ department: pick(v) })}
-          options={[{ value: ALL, label: "Every department" },
-            ...optionsIn(all, "currentDepartment").map((s) => ({ value: s, label: s }))]} />
+        <OpsSelect aria-label="Next step" size="sm" value={filters.nextStep ?? ALL}
+          onValueChange={(v) => set({ nextStep: pick(v) })}
+          options={[{ value: ALL, label: "Every next step" },
+            ...NEXT_STEP_ORDER.filter((k) => optionsIn(all, "nextStep").includes(k)).map((k) => ({ value: k, label: NEXT_STEP_LABEL[k as NextStepKey] }))]} />
         <label className="flex items-center gap-1.5 text-xs text-foreground">
           <input type="checkbox" checked={filters.actionNeeded ?? false}
             onChange={(e) => set({ actionNeeded: e.target.checked })}
@@ -148,8 +149,7 @@ export function PortalClientsPage() {
                 <th className="px-3 py-2 font-semibold text-muted-foreground">Client</th>
                 <th className="px-3 py-2 font-semibold text-muted-foreground">Credit status</th>
                 <th className="px-3 py-2 font-semibold text-muted-foreground">Round</th>
-                <th className="px-3 py-2 font-semibold text-muted-foreground">Department</th>
-                <th className="px-3 py-2 font-semibold text-muted-foreground">Current work</th>
+                <th className="px-3 py-2 font-semibold text-muted-foreground">Next step</th>
                 <th className="px-3 py-2 font-semibold text-muted-foreground">Last update</th>
                 <th className="px-3 py-2 font-semibold text-muted-foreground">Action needed</th>
               </tr>
@@ -167,14 +167,13 @@ export function PortalClientsPage() {
                   </td>
                   <td className="px-3 py-2 text-foreground">{c.status}</td>
                   <td className="px-3 py-2 text-muted-foreground">{c.round}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{c.currentDepartment ?? "—"}</td>
                   <td className="px-3 py-2">
-                    <span className="text-muted-foreground">{c.currentWork ?? "—"}</span>
-                    {c.waiting && (
-                      <span className="ml-1.5 rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-900">
-                        Waiting
-                      </span>
-                    )}
+                    <span className={cn("rounded border px-1.5 py-0.5 text-[11px] font-medium",
+                      nextStepTone(c.nextStep) === "waiting" ? "border-amber-500/40 bg-amber-500/10 text-amber-900"
+                        : nextStepTone(c.nextStep) === "done" ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-900"
+                        : "border-border bg-muted text-foreground")}>
+                      {nextStepLabel(c.nextStep)}
+                    </span>
                   </td>
                   <td className="px-3 py-2 text-muted-foreground">
                     {c.lastActivityAt ? formatDate(c.lastActivityAt.slice(0, 10)) : "—"}

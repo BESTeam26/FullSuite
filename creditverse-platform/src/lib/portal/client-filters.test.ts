@@ -6,7 +6,7 @@ const client = (over: Partial<PartnerPortalClient>): PartnerPortalClient => ({
   publicId: "CN-1", name: "Bryan Rodriguez", email: "b@x.test", status: "Round 1",
   round: "Round 1", openItems: 2, lifecycle: "active",
   lastActivityAt: "2026-09-12T00:00:00Z", processedOn: null, createdAt: "2026-08-01T00:00:00Z",
-  currentDepartment: "Dispute", currentWork: "DISPUTE PROCESSING",
+  nextStep: "in_progress",
   waiting: false, actionNeeded: false, actionTitle: null, ...over,
 });
 
@@ -47,9 +47,9 @@ describe("which bucket a client sits in", () => {
 describe("narrowing the client list", () => {
   /* Real-shaped references, because searching one is the point of the test. */
   const rows = [
-    client({ publicId: "CN-AAA111", name: "Bryan Rodriguez", round: "Round 1", currentDepartment: "Dispute" }),
-    client({ publicId: "CN-BBB222", name: "Jane Smith", round: "Round 2", currentDepartment: "Support", waiting: true }),
-    client({ publicId: "CN-CCC333", name: "Sam Lee", round: "Round 1", currentDepartment: "Dispute", actionNeeded: true, actionTitle: "Partner Confirmation Required" }),
+    client({ publicId: "CN-AAA111", name: "Bryan Rodriguez", round: "Round 1", nextStep: "in_progress" }),
+    client({ publicId: "CN-BBB222", name: "Jane Smith", round: "Round 2", nextStep: "waiting_on_client", waiting: true }),
+    client({ publicId: "CN-CCC333", name: "Sam Lee", round: "Round 1", nextStep: "in_progress", actionNeeded: true, actionTitle: "Partner Confirmation Required" }),
   ];
 
   it("clicking a summary tile narrows to exactly what it counted", () => {
@@ -64,12 +64,12 @@ describe("narrowing the client list", () => {
   });
 
   it("combines filters rather than replacing one with the next", () => {
-    expect(filterClients(rows, { round: "Round 1", department: "Dispute", actionNeeded: true })
+    expect(filterClients(rows, { round: "Round 1", nextStep: "in_progress", actionNeeded: true })
       .map((c) => c.publicId)).toEqual(["CN-CCC333"]);
   });
 
   it("offers only values that are actually present", () => {
     expect(optionsIn(rows, "round")).toEqual(["Round 1", "Round 2"]);
-    expect(optionsIn(rows, "currentDepartment")).toEqual(["Dispute", "Support"]);
+    expect(optionsIn(rows, "nextStep")).toEqual(["in_progress", "waiting_on_client"]);
   });
 });

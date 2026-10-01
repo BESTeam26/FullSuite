@@ -2,7 +2,7 @@
  * One client, partner-safe.
  *
  * Dee, 2026-09-13, listing what this page may show and what it must never:
- * current department, current work, status, round, action needed, a
+ * status, round, a partner-safe next step, action needed, a
  * partner-safe timeline and shared files — and never internal BES notes, the
  * internal assignee, raw SLA, the audit trail or credentials.
  *
@@ -24,6 +24,7 @@ import { formatDate, formatDateTime } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
 import { PanelState } from "@/components/common/QueryState";
 import { hasRows } from "@/lib/ui/query-rows";
+import { nextStepLabel } from "@/lib/portal/next-step";
 import {
   usePortalClient, usePortalClientFiles, usePortalClientTimeline,
 } from "@/lib/data/use-portal-client";
@@ -45,8 +46,11 @@ const Panel = ({ title, children }: { title: string; children: React.ReactNode }
 export function PortalClientDetail() {
   const { publicId } = useParams<{ publicId: string }>();
   const client = usePortalClient(publicId);
-  const timeline = usePortalClientTimeline(publicId);
-  const files = usePortalClientFiles(publicId);
+  /* History and documents load when opened, not with the page. */
+  const [showHistory, setShowHistory] = useState(false);
+  const [showFiles, setShowFiles] = useState(false);
+  const timeline = usePortalClientTimeline(publicId, showHistory);
+  const files = usePortalClientFiles(publicId, showFiles);
   const [failedId, setFailedId] = useState<string | null>(null);
   /* Partner files all live in the same bucket the download helper reads. */
   const previews = useFilePreviews(
@@ -117,8 +121,7 @@ export function PortalClientDetail() {
         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Fact label="Credit status" value={c.status} />
           <Fact label="Round" value={c.round} />
-          <Fact label="Current department" value={c.currentDepartment} />
-          <Fact label="Current work" value={c.currentWork} />
+          <Fact label="Next step" value={nextStepLabel(c.nextStep)} />
           <Fact label="Client since" value={c.createdAt ? formatDate(c.createdAt.slice(0, 10)) : null} />
           <Fact label="Last update" value={c.lastActivityAt ? formatDate(c.lastActivityAt.slice(0, 10)) : null} />
           <Fact label="Last processed" value={c.processedOn ? formatDate(c.processedOn) : null} />
@@ -127,7 +130,12 @@ export function PortalClientDetail() {
       </section>
 
       <Panel title="Updates">
-        {!hasRows(timeline) ? (
+        {!showHistory ? (
+          <button type="button" onClick={() => setShowHistory(true)}
+            className="text-xs font-semibold text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm">
+            Show updates BES has shared about this client
+          </button>
+        ) : !hasRows(timeline) ? (
           <PanelState query={timeline} empty={
             <p className="py-2 text-sm text-muted-foreground">
               No updates have been shared yet. What BES shares about this client appears here.
@@ -148,7 +156,12 @@ export function PortalClientDetail() {
       </Panel>
 
       <Panel title="Shared documents">
-        {!hasRows(files) ? (
+        {!showFiles ? (
+          <button type="button" onClick={() => setShowFiles(true)}
+            className="text-xs font-semibold text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm">
+            Show shared documents
+          </button>
+        ) : !hasRows(files) ? (
           <PanelState query={files} empty={
             <p className="py-2 text-sm text-muted-foreground">
               Nothing has been shared for this client yet.
