@@ -10,7 +10,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Bell, BellRing, CheckCheck, Volume2, VolumeX } from "lucide-react";
 import { SOUND_PREF_KEY, nativePermission, soundEnabled } from "@/lib/notifications/notification-delivery";
 import { requestNativePermission } from "@/lib/notifications/use-notification-delivery";
-import { ensurePushSubscription, isIosWithoutInstall, type PushState } from "@/lib/notifications/push-subscription";
+import { blockedInstructions, currentDeviceState, ensurePushSubscription, type DeviceState } from "@/lib/notifications/push-subscription";
 import { requireSupabase } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth/auth-context";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -33,17 +33,20 @@ export function NotificationBell() {
     if (unread > previous.current) { setRinging(true); const t = setTimeout(() => setRinging(false), 8_000); previous.current = unread; return () => clearTimeout(t); }
     previous.current = unread;
   }, [unread]);
-  const [permission, setPermission] = useState(nativePermission());
-  const [push, setPush] = useState<PushState | null>(null);
+  const [device, setDevice] = useState<DeviceState | null>(null);
+  const [enabling, setEnabling] = useState(false);
   const auth = useAuth();
+  /* Read-only, each time the popover opens: nothing here prompts. */
+  useEffect(() => { if (open) void currentDeviceState().then(setDevice); }, [open]);
   const enableOnThisDevice = async () => {
-    const granted = await requestNativePermission();
-    setPermission(granted);
-    if (granted === "granted" && auth.user && auth.agencyId) {
-      setPush(await ensurePushSubscription(requireSupabase(), auth.user.id, auth.agencyId));
-    }
+    if (!auth.user || !auth.agencyId) return;
+    setEnabling(true);
+    try {
+      const granted = nativePermission() === "granted" ? "granted" : await requestNativePermission();
+      if (granted === "granted") await ensurePushSubscription(requireSupabase(), auth.user.id, auth.agencyId);
+      setDevice(await currentDeviceState());
+    } finally { setEnabling(false); }
   };
-  const iosNeedsInstall = typeof navigator !== "undefined" && isIosWithoutInstall();
   const [sound, setSound] = useState(soundEnabled());
   const toggleSound = () => {
     const next = !sound; setSound(next);
@@ -111,24 +114,26 @@ export function NotificationBell() {
         )}
         {/* Delivery on this device: desktop notifications and the chime. */}
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-2 text-xs">
-          {permission === "default" && !iosNeedsInstall && (
-            <button type="button" onClick={() => void enableOnThisDevice()}
-              className="font-semibold text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm">
-              Turn on notifications on this device
+          {(device === "can_enable" || device === "needs_registration") && (
+            <button type="button" onClick={() => void enableOnThisDevice()} disabled={enabling}
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60">
+              <BellRing className="h-3.5 w-3.5" aria-hidden /> {enabling ? "Turning on…" : "Turn on notifications"}
             </button>
           )}
-          {iosNeedsInstall && (
-            <span className="text-muted-foreground">On iPhone: Share → Add to Home Screen, then open FullSuite from there to get notifications.</span>
+          {device === "subscribed" && (
+            <span className="text-muted-foreground">Notifications are on for this device, including when FullSuite is closed.</span>
           )}
-          {permission === "granted" && (
+          {device === "blocked" && (
             <span className="text-muted-foreground">
-              {push === "failed" ? "Notifications on here; this device could not be registered for push."
-                : push === "no_key" ? "Notifications on here; push is not set up yet."
-                : "Notifications on — also when the app is closed."}
+              <span className="font-semibold text-foreground">Notifications are blocked for FullSuite in this browser.</span> {blockedInstructions()}
             </span>
           )}
-          {permission === "denied" && <span className="text-muted-foreground">Desktop notifications blocked in your browser settings</span>}
-          {permission === "unsupported" && <span className="text-muted-foreground">This browser cannot show desktop notifications</span>}
+          {device === "needs_install" && (
+            <span className="text-muted-foreground">
+              <span className="font-semibold text-foreground">On iPhone, FullSuite must be on your Home Screen first.</span> In Safari tap Share, then Add to Home Screen, then open FullSuite from that icon and turn notifications on here.
+            </span>
+          )}
+          {device === "unsupported" && <span className="text-muted-foreground">This browser cannot show notifications.</span>}
           <button type="button" onClick={toggleSound} aria-pressed={sound}
             className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-medium text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             {sound ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />} {sound ? "Sound on" : "Sound off"}

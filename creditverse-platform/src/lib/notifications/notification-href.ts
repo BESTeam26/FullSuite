@@ -45,6 +45,9 @@ export function hrefForEntity(
     /* A clock-in or clock-out reminder opens My Time. */
     case "time_clock":
       return "/app/time";
+    /* A push delivery warning opens the health card. */
+    case "push_delivery":
+      return "/app/settings?section=integrations";
     /* The board highlights the one that was announced. */
     case "announcement":
       return `/app/announcements?announcement=${id}`;

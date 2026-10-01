@@ -14100,6 +14100,47 @@ export type Database = {
         }
         Relationships: []
       }
+      push_delivery_events: {
+        Row: {
+          agency_id: string
+          created_at: string
+          detail: string | null
+          id: number
+          kind: string
+          notification_id: number | null
+          subscription_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          detail?: string | null
+          id?: never
+          kind: string
+          notification_id?: number | null
+          subscription_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          detail?: string | null
+          id?: never
+          kind?: string
+          notification_id?: number | null
+          subscription_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_delivery_events_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       push_subscriptions: {
         Row: {
           agency_id: string

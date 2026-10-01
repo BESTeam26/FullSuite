@@ -32,8 +32,18 @@ Last reconciled: 2026-09-21, after the Eastern workday lock (`1f6b8e7`).
   iPhones: Share → Add to Home Screen first; the bell says so. VAPID keys
   rotated 2026-10-01 (function secrets + `agencies.push_public_key`).
   Cost scales with: one push message per notification per subscribed
-  device. HUMAN TEST REQUIRED: Dee, turn it on in the bell on your laptop
-  and phone, close FullSuite, and wait for the next reminder or DM.
+  device. The bell reads the device each time it opens and offers Turn on
+  notifications only when a click can change something; a subscribed device
+  is never asked again; a blocked browser gets its own unblock steps; an
+  iPhone is told Share → Add to Home Screen first; a device with push does
+  not also raise an in-page desktop alert, and the worker stays silent
+  while a FullSuite window is in front. **Push delivery health** is
+  event-driven: `push_delivery_events` (failed sends, dead devices removed,
+  unauthorized attempts, function failures, hand-off failures) written as
+  they happen, a trigger alerting the owners once an hour per kind, and the
+  card on Settings › Integrations. Proven on production 2026-10-01.
+  HUMAN TEST REQUIRED → BROWSER PUSH = VERIFIED once Dee confirms one real
+  laptop and one real phone.
 - **EOD cutoff still unset** — the reminder uses shift end until
   `agencies.eod_cutoff_local` is set (Dee's mockup: 7:00 PM ET).
 

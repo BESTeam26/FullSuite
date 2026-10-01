@@ -21,6 +21,8 @@ import type { AuditRow } from "@/lib/data/audit";
 import { formatDateTime } from "@/lib/format-date";
 import { useQuery } from "@tanstack/react-query";
 import { errorMessage } from "@/lib/data/error-message";
+import { cn } from "@/lib/utils";
+import { PUSH_EVENT_LABEL, usePushDeliveryHealth, type PushEventKind } from "@/lib/data/push-delivery";
 import {
   STATE_LABEL,
   fetchIntegrationHealth,
@@ -101,6 +103,53 @@ export const UsageSection = () => (
  * Nothing here sends, posts, charges or spends. The check is manual because a
  * background poll would make provider calls nobody asked for.
  */
+/**
+ * Push delivery health — the events the sender writes as they happen.
+ * Event-driven (Dee, 2026-10-01): the owners are alerted by a trigger when
+ * something is wrong; this card is where the alert points.
+ */
+const PushDeliveryHealth = () => {
+  const health = usePushDeliveryHealth();
+  const kinds: PushEventKind[] = ["failed_send", "device_gone", "unauthorized", "function_error", "dispatch_error"];
+  const tone = (k: PushEventKind, n: number) =>
+    n === 0 ? "text-foreground" : k === "device_gone" ? "text-foreground" : "text-status-danger";
+  return (
+    <div className="mt-6 rounded-xl border border-border p-4">
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="text-sm font-medium text-foreground">Push delivery</p>
+          <p className="text-[11px] text-muted-foreground">Notifications sent to closed apps and locked phones. Owners are told the moment a send fails, a request is refused, or the sender errors; dead devices are removed automatically.</p>
+        </div>
+      </div>
+      {health.error && <p role="alert" className="mt-2 text-xs text-status-danger">{errorMessage(health.error, "Could not read push delivery events.")}</p>}
+      <table className="mt-3 w-full text-xs">
+        <thead className="text-[10px] uppercase tracking-wider text-muted-foreground"><tr><th className="py-1 text-left font-bold">Event</th><th className="py-1 text-right font-bold">24 h</th><th className="py-1 text-right font-bold">7 days</th></tr></thead>
+        <tbody>
+          {kinds.map((k) => (
+            <tr key={k} className="border-t border-border/60">
+              <td className="py-1.5 text-foreground">{PUSH_EVENT_LABEL[k]}</td>
+              <td className={cn("py-1.5 text-right font-semibold tabular-nums", tone(k, health.data?.last24h[k] ?? 0))}>{health.data?.last24h[k] ?? "—"}</td>
+              <td className={cn("py-1.5 text-right font-semibold tabular-nums", tone(k, health.data?.last7d[k] ?? 0))}>{health.data?.last7d[k] ?? "—"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {(health.data?.recent.length ?? 0) > 0 && (
+        <ul className="mt-3 space-y-1 border-t border-border/60 pt-2">
+          {health.data!.recent.map((e) => (
+            <li key={e.id} className="flex flex-wrap items-baseline gap-x-2 text-[11px]">
+              <span className="text-muted-foreground">{formatDateTime(e.createdAt)}</span>
+              <span className="font-semibold text-foreground">{PUSH_EVENT_LABEL[e.kind]}</span>
+              {e.detail && <span className="text-muted-foreground">{e.detail}</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+      {health.data && health.data.recent.length === 0 && <p className="mt-2 text-[11px] text-muted-foreground">No push delivery events in the last 7 days.</p>}
+    </div>
+  );
+};
+
 export const IntegrationsSection = () => {
   const health = useQuery({
     queryKey: ["integration-health"],
@@ -171,6 +220,7 @@ export const IntegrationsSection = () => {
         dashboard, not in this app. The way to prove them is to request a password reset on your own
         account and see whether the mail arrives.
       </p>
+      <PushDeliveryHealth />
     </SectionCard>
   );
 };

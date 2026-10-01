@@ -45,6 +45,10 @@ export function useNotificationDelivery(): void {
   const location = useLocation();
   const unread = useUnreadNotificationCount();
   const seen = useRef(new Set<number>());
+  /* Once this device has push, the service worker shows the message whenever
+     no FullSuite window is in front — so the page must not ALSO raise one
+     (Dee: never a duplicate while actively viewing FullSuite). */
+  const pushActive = useRef(false);
 
   /* The tab title carries the unread count. Re-applied on every route change
      because each page sets its own title. */
@@ -57,7 +61,7 @@ export function useNotificationDelivery(): void {
   const agencyId = auth.agencyId ?? null;
   useEffect(() => {
     if (!live || !userId || !agencyId || nativePermission() !== "granted") return;
-    void ensurePushSubscription(requireSupabase(), userId, agencyId);
+    void ensurePushSubscription(requireSupabase(), userId, agencyId).then((state) => { pushActive.current = state === "subscribed"; });
   }, [live, userId, agencyId]);
 
   useEffect(() => {
@@ -79,7 +83,7 @@ export function useNotificationDelivery(): void {
         action: href ? { label: "Open", onClick: () => navigate(href) } : undefined,
       });
 
-      if (shouldNotifyNatively(nativePermission(), document.hidden, document.hasFocus())) {
+      if (!pushActive.current && shouldNotifyNatively(nativePermission(), document.hidden, document.hasFocus())) {
         try {
           const native = new Notification(title, { body: body ?? undefined, icon: "/bes-logo.png", tag: `fullsuite-${n.id}` });
           native.onclick = () => { window.focus(); if (href) navigate(href); native.close(); };

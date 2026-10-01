@@ -66,6 +66,38 @@ export async function ensurePushSubscription(sb: SupabaseClient, userId: string,
   }
 }
 
+/**
+ * What this device is, read-only — never prompts, never subscribes. The
+ * bell shows one line from it and offers the button only when a click can
+ * change something (Dee: "if already subscribed, do not keep asking").
+ */
+export type DeviceState = "subscribed" | "can_enable" | "needs_registration" | "blocked" | "needs_install" | "unsupported";
+
+export async function currentDeviceState(): Promise<DeviceState> {
+  if (typeof window === "undefined") return "unsupported";
+  if (isIosWithoutInstall()) return "needs_install";
+  if (!pushSupported()) return "unsupported";
+  if (Notification.permission === "denied") return "blocked";
+  if (Notification.permission === "default") return "can_enable";
+  try {
+    const registration = await navigator.serviceWorker.getRegistration("/");
+    const subscription = await registration?.pushManager.getSubscription();
+    return subscription ? "subscribed" : "needs_registration";
+  } catch {
+    return "needs_registration";
+  }
+}
+
+/** How to unblock notifications for this site, in the words of the browser being used. */
+export function blockedInstructions(userAgent: string = navigator.userAgent): string {
+  const ua = userAgent;
+  if (/iPhone|iPad|iPod/.test(ua)) return "On iPhone: Settings → Notifications → FullSuite → Allow Notifications.";
+  if (/Edg\//.test(ua)) return "In Edge: click the lock icon left of the address bar → Permissions for this site → Notifications → Allow, then reload.";
+  if (/Firefox\//.test(ua)) return "In Firefox: click the icon left of the address bar → Permissions → Notifications → Allow, then reload.";
+  if (/Safari\//.test(ua) && !/Chrome\//.test(ua)) return "In Safari: Safari menu → Settings → Websites → Notifications → set app.bescrm.net to Allow, then reload.";
+  return "In Chrome: click the lock icon left of the address bar → Site settings → Notifications → Allow, then reload.";
+}
+
 /** Forget this device: the browser's subscription and our row. */
 export async function removePushSubscription(sb: SupabaseClient): Promise<void> {
   if (!pushSupported()) return;
