@@ -394,9 +394,6 @@ through two pricing functions; no payroll adjustment could be saved.)
 
 ## NEEDS FIX
 
-- Notification bell for people with many unread rows: 1.14 s per poll
-  (every page, every minute) for Allyssa (171 unread). Over the 300 ms
-  target; the fix is bounding the unread query, not the policy.
 - CreditOps cold load as the executive: 4.3 s, 18 requests (§26 says 3–5 s
   is "investigate"). Not measured as an agent today; the latency gate run is
   recorded below when it finishes.
@@ -410,12 +407,41 @@ through two pricing functions; no payroll adjustment could be saved.)
   or `is_manager_of`); the rollup function still serves them. No real lead is
   in that position today (all three hold management access). Watch it when
   a plain team lead is appointed.
-- Production units read 0 on every report tonight; minutes are right. Not
-  yet determined whether that is correct for the day or a derivation gap.
 - `managed_people()` excludes fixture profiles by design; authorization that
   must also work for the matrix's fixture leads keeps the direct team-lead
   branch (migration 20261001014000). Any future "in scope" check must do the
   same or the matrix goes red for the wrong reason.
+
+## FIXED 2026-10-02 — the notification bell poll
+
+The unread badge polls once a minute on every page. Clearing old
+notifications had brought Allyssa's poll from 1.14 s to ~300 ms, but the
+cost was FIXED, not per row: the read rule built the caller's entire
+visible client list (2,144 clients) and checked every channel before
+looking at one notification, and the catch-all `entity_visible()` compared
+ids as text, so each EOD notification read the whole EOD table (~40 ms
+each). Migration 20261002009000: subjects are looked up by primary key,
+through the same row rules. Live after: Allyssa 87 ms, Daniel 81 ms, Dee
+55 ms. `entity_visible()` also serves the activity history and files
+rules, which get the same speed-up.
+
+Proof, old against new inside rolled-back transactions: the notifications
+rule for all 29 recipients (2,485 rows, identical); `entity_visible()` for
+all 35 accounts with access over 10,710 sampled subjects from activity
+history, files and notifications (0 differences; ~7× faster).
+
+## DETERMINED 2026-10-02
+
+- **Production units reading 0 is correct, not a derivation gap.** The
+  team EOD report for the Complaints & Mailing team on Oct 1, run as Dee,
+  shows Ivan's 8 Complaints units (total 8) exactly as logged. The zeros
+  are adoption: since Oct 1 the whole company has made about 15 CreditOps
+  department status changes in FullSuite (Sep 28–29 were the import), and
+  production is written only by Complete Work or by reaching a
+  completion status (`creditops_production_events`: Onboarding Ready for
+  Round 1, Dispute Round Sent / Completed, Support Resolved, Complaint
+  Completed, Bureau Calling Completed). Ivan is the only person using
+  Complete Work. Operational follow-up for Dee, not code.
 
 ## WORKING (verified today)
 
