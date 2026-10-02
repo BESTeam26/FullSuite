@@ -11,6 +11,7 @@
  * they just agreed terms with — a blank field is honest, and a form that
  * refuses is how records fill up with "n/a".
  */
+import type { PartnerMilestone, PartnerProjectEngine } from "@/lib/portal/project-progress";
 import { requireSupabase } from "@/lib/supabase/client";
 import { sendInvitationEmail, type EmailOutcome } from "@/lib/data/emails";
 import type { PartnerHealth, PartnerLifecycle } from "@/lib/partners/partner-account";
@@ -669,6 +670,38 @@ export async function fetchMyPartnerProjects(): Promise<PartnerPortalProject[]> 
     targetGoLive: (r.target_go_live as string) ?? null,
     wentLiveAt: (r.went_live_at as string) ?? null,
     openRequirements: Number(r.open_requirements ?? 0),
+  }));
+}
+
+/** Per build engine: counts and a partner-facing stage (20261002004000). */
+export async function fetchMyPartnerProjectEngines(): Promise<PartnerProjectEngine[]> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("my_partner_project_engines" as never);
+  if (error) throw error;
+  return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+    projectId: r.project_id as string,
+    engineKey: r.engine_key as string,
+    label: r.label as string,
+    units: Number(r.units ?? 0),
+    completed: Number(r.completed ?? 0),
+    percent: r.percent === null || r.percent === undefined ? null : Number(r.percent),
+    stage: r.stage as PartnerProjectEngine["stage"],
+  }));
+}
+
+/** Only the milestones BES published to the partner (client_visible). */
+export async function fetchMyPartnerMilestones(): Promise<PartnerMilestone[]> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("my_partner_milestones" as never);
+  if (error) throw error;
+  return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+    id: r.id as string,
+    projectId: r.project_id as string,
+    label: r.label as string,
+    engineLabel: (r.engine_label as string) ?? null,
+    scheduledAt: (r.scheduled_at as string) ?? null,
+    completedAt: (r.completed_at as string) ?? null,
+    linkUrl: (r.link_url as string) ?? null,
   }));
 }
 

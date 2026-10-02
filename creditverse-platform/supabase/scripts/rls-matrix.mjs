@@ -8286,6 +8286,29 @@ if (runs(77)) {
     ["…and the same entry names the person once they are assigned to the partner",
       () => as77(PC, `select coalesce((select t.actor_name from public.my_partner_clients() c, lateral public.my_partner_client_timeline(c.public_id, 20) t where t.action = 'Status changed' limit 1), 'nobody') as rows`,
         `insert into public.partner_assignments (group_id, agency_id, user_id, is_primary) values ('${G}'::uuid, ${AG77}, '${OWNER77}'::uuid, true);`), "Owner Name"],
+
+    /* Projects & Services (20261002004000): progress by engine and only the
+       milestones BES published — and nothing for a partner not party to it. */
+    ...(() => {
+      const PR = "44444444-0000-4000-8000-0000000000a7";
+      const build = `insert into public.crm_projects (id, agency_id, partner_group_id, name) values ('${PR}'::uuid, ${AG77}, '${G}'::uuid, 'Probe Build');
+        insert into public.crm_project_engines (project_id, engine_key, template_id)
+          select '${PR}'::uuid, 'project_setup', t.id from public.crm_engine_templates t
+           where t.engine_key = 'project_setup' order by t.version desc limit 1;
+        insert into public.crm_milestones (project_id, key, label, client_visible, completed_at, notes) values
+          ('${PR}'::uuid, 'probe_published', 'Published milestone', true, now(), 'INTERNAL MILESTONE NOTE'),
+          ('${PR}'::uuid, 'probe_private', 'Private milestone', false, now(), null);`;
+      return [
+        ["a partner sees their build's engines",
+          () => as77(PC, `select count(*)::int as rows from public.my_partner_project_engines() where project_id = '${PR}'`, build), 1],
+        ["…and only the milestone BES published, never the private one",
+          () => as77(PC, `select string_agg(label, ',') as rows from public.my_partner_milestones() where project_id = '${PR}'`, build), "Published milestone"],
+        ["…and no milestone note reaches them in any column",
+          () => as77(PC, `select count(*)::int as rows from public.my_partner_milestones() m where row_to_json(m)::text like '%INTERNAL MILESTONE NOTE%'`, build), 0],
+        ["a BES owner, who is no partner's contact, gets no partner build through these",
+          () => as77(OWNER77, `select ((select count(*) from public.my_partner_project_engines()) + (select count(*) from public.my_partner_milestones()))::int as rows`, build), 0],
+      ];
+    })(),
   ];
   runPhase("phase 77", P77, { strict: true });
 }

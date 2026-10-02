@@ -8,10 +8,12 @@
  * each has its own page.
  */
 import { useMemo, useState } from "react";
-import { ClipboardList, Download, FileText, Loader2, MessagesSquare, Search, Users, Workflow } from "lucide-react";
+import { CheckCircle2, CircleDashed, ClipboardList, Download, ExternalLink, FileText, Loader2, MessagesSquare, Search, Users, Workflow } from "lucide-react";
 import {
-  useMyPartnerClients, useMyPartnerProjects, useMyPartnerRequirements, useMySharedFiles,
+  useMyPartnerClients, useMyPartnerMilestones, useMyPartnerProjectEngines, useMyPartnerProjects,
+  useMyPartnerRequirements, useMySharedFiles,
 } from "@/lib/data/use-agency-partners";
+import { ENGINE_STAGE_LABEL, enginesFor, milestonesFor } from "@/lib/portal/project-progress";
 import { partnerFileUrl } from "@/lib/data/agency-partners";
 import { FilePreviewCard, FilePreviewGrid } from "@/components/common/FilePreviewCard";
 import { useFilePreviews } from "@/lib/data/use-file-previews";
@@ -38,6 +40,11 @@ import { hasRows } from "@/lib/ui/query-rows";
 export function PortalProjects() {
   const projects = useMyPartnerProjects();
   const requirements = useMyPartnerRequirements();
+  /* Per-engine progress and published milestones (2026-10-02): asked for only
+     once the partner has a build to show them on (rule 14). */
+  const hasBuilds = (projects.data ?? []).length > 0;
+  const engines = useMyPartnerProjectEngines(hasBuilds);
+  const milestones = useMyPartnerMilestones(hasBuilds);
   const list = projects.data ?? [];
   const asks = requirements.data ?? [];
   /* Hidden only when the answer really is "no builds". A failed request must
@@ -87,6 +94,10 @@ export function PortalProjects() {
                   </span>
                 )}
               </div>
+              <ProjectDetail
+                engines={enginesFor(pr.id, engines.data ?? [])}
+                milestones={milestonesFor(pr.id, milestones.data ?? [])}
+                failed={engines.isError || milestones.isError} />
             </li>
           ))}
         </ul>
@@ -118,6 +129,77 @@ export function PortalProjects() {
   );
 }
 
+
+/**
+ * One build's engines, milestones and deliverables — what the doctrine asks
+ * Projects & Services to show. Counts and published milestones only; the
+ * partner never sees a work unit, who holds it or a QA verdict.
+ */
+function ProjectDetail({ engines, milestones, failed }: {
+  engines: ReturnType<typeof enginesFor>;
+  milestones: ReturnType<typeof milestonesFor>;
+  failed: boolean;
+}) {
+  if (failed) {
+    return <p className="mt-2 text-[11px] text-status-danger">Progress and milestones could not be loaded. Reload to try again.</p>;
+  }
+  if (engines.length === 0 && milestones.reached.length === 0 && milestones.upcoming.length === 0) return null;
+  return (
+    <div className="mt-3 grid gap-3 border-t border-border/60 pt-3 md:grid-cols-2">
+      {engines.length > 0 && (
+        <div>
+          <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Progress by area</p>
+          <ul className="space-y-1.5">
+            {engines.map((e) => (
+              <li key={e.engineKey} className="text-xs">
+                <span className="flex items-center justify-between gap-2">
+                  <span className="truncate text-foreground">{e.label}</span>
+                  <span className="shrink-0 text-[11px] text-muted-foreground">
+                    {e.percent === null ? ENGINE_STAGE_LABEL[e.stage] : `${e.percent}% · ${ENGINE_STAGE_LABEL[e.stage]}`}
+                  </span>
+                </span>
+                <span className="mt-0.5 block h-1 overflow-hidden rounded-full bg-muted" role="progressbar"
+                  aria-label={`${e.label} progress`} aria-valuenow={e.percent ?? 0} aria-valuemin={0} aria-valuemax={100}>
+                  <span className="block h-full bg-primary" style={{ width: `${e.percent ?? 0}%` }} />
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {(milestones.reached.length > 0 || milestones.upcoming.length > 0) && (
+        <div>
+          <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Milestones</p>
+          <ul className="space-y-1 text-xs">
+            {milestones.upcoming.slice(0, 3).map((m) => (
+              <li key={m.id} className="flex items-start gap-1.5 text-muted-foreground">
+                <CircleDashed className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
+                <span className="min-w-0">
+                  <span className="text-foreground">{m.label}</span>
+                  {m.scheduledAt && <> · planned {formatDate(m.scheduledAt)}</>}
+                </span>
+              </li>
+            ))}
+            {milestones.reached.slice(0, 4).map((m) => (
+              <li key={m.id} className="flex items-start gap-1.5 text-muted-foreground">
+                <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0 text-status-success" aria-hidden />
+                <span className="min-w-0">
+                  <span className="text-foreground">{m.label}</span> · reached {formatDate(m.completedAt as string)}
+                  {m.linkUrl && (
+                    <a href={m.linkUrl} target="_blank" rel="noopener noreferrer"
+                      className="ml-1.5 inline-flex items-center gap-0.5 font-semibold text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                      View deliverable <ExternalLink className="h-2.5 w-2.5" aria-hidden />
+                    </a>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
 
 /**
  * The partner's own clients — the canonical BES records, not a copy.

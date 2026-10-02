@@ -7,6 +7,7 @@ import {
   fetchPartnerContacts, invitePartnerContact, setContactStatus, setPartnerHealth,
   setPartnerLifecycle, updateAgencyPartner, type NewPartner,
   fetchMyPartnerProjects, fetchMyPartnerRequirements,
+  fetchMyPartnerProjectEngines, fetchMyPartnerMilestones,
 } from "@/lib/data/agency-partners";
 
 export const partnersKey = (archived: boolean) => ["agency", "partners", archived] as const;
@@ -136,6 +137,26 @@ export function useMyPartnerProjects() {
     enabled: live,
     staleTime: 60_000,
     retry: false,
+  });
+}
+
+/** Per-engine progress for the partner's builds. Fetched on Projects & Services only. */
+export function useMyPartnerProjectEngines(enabled = true) {
+  const { live } = useLive();
+  return useQuery({
+    queryKey: ["partner", "me", "project-engines"],
+    queryFn: fetchMyPartnerProjectEngines,
+    enabled: live && enabled, staleTime: 60_000, retry: false,
+  });
+}
+
+/** The milestones BES published to the partner. Fetched on Projects & Services only. */
+export function useMyPartnerMilestones(enabled = true) {
+  const { live } = useLive();
+  return useQuery({
+    queryKey: ["partner", "me", "milestones"],
+    queryFn: fetchMyPartnerMilestones,
+    enabled: live && enabled, staleTime: 60_000, retry: false,
   });
 }
 

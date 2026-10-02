@@ -40,6 +40,8 @@ let messages: RichMessage[];
 let portalClients: PartnerPortalClient[];
 let sharedFiles: Partial<PartnerFile>[];
 let portalProjects: PartnerPortalProject[];
+let portalEngines: import("@/lib/portal/project-progress").PartnerProjectEngine[] = [];
+let portalMilestones: import("@/lib/portal/project-progress").PartnerMilestone[] = [];
 let portalRequirements: PartnerPortalRequirement[];
 const sendMutate = vi.fn().mockResolvedValue({ id: 1 });
 /* Messages offers a conversation per live engagement and a DM per person on
@@ -59,6 +61,8 @@ vi.mock("@/lib/data/use-agency-partners", () => ({
   useMySharedFiles: () => ({ data: sharedFiles, isLoading: false }),
   useMyPartnerProjects: () => ({ data: portalProjects, isLoading: false }),
   useMyPartnerRequirements: () => ({ data: portalRequirements, isLoading: false }),
+  useMyPartnerProjectEngines: () => ({ data: portalEngines, isLoading: false, isError: false }),
+  useMyPartnerMilestones: () => ({ data: portalMilestones, isLoading: false, isError: false }),
   usePartnerContacts: () => ({ data: [], isLoading: false }),
 }));
 vi.mock("@/lib/data/use-partner-credentials", () => ({
@@ -154,6 +158,8 @@ beforeEach(() => {
   channels = [CHANNEL];
   messages = [];
   portalClients = [];
+  portalEngines = [];
+  portalMilestones = [];
   sharedFiles = [];
   liveServices = [{ module: "creditops", status: "Active" }];
   accountTeam = [];
@@ -368,6 +374,25 @@ describe("the partner's BES CRM build (0293)", () => {
     expect(screen.getByText("40% complete")).toBeInTheDocument();
     expect(screen.getByText("Logo files")).toBeInTheDocument();
     expect(screen.getByText(/SVG or PNG/)).toBeInTheDocument();
+  });
+
+  /* Dee, 2026-10-01 doctrine: progress, milestones and deliverables — counts
+     and only what BES published, never a work unit or who holds it. */
+  it("shows progress by area, published milestones and what was delivered", () => {
+    portalProjects = [PROJECT];
+    portalEngines = [
+      { projectId: "p1", engineKey: "website_funnel", label: "Website & Funnel", units: 4, completed: 2, percent: 50, stage: "in_progress" },
+    ];
+    portalMilestones = [
+      { id: "m1", projectId: "p1", label: "Website live", engineLabel: "Website & Funnel", scheduledAt: null,
+        completedAt: "2026-09-20T00:00:00Z", linkUrl: "https://example.com/site" },
+      { id: "m2", projectId: "p1", label: "Go-live", engineLabel: null, scheduledAt: "2026-10-10T00:00:00Z", completedAt: null, linkUrl: null },
+    ];
+    render(<PortalProjects />);
+    expect(screen.getByText("Website & Funnel")).toBeInTheDocument();
+    expect(screen.getByText("50% · In progress")).toBeInTheDocument();
+    expect(screen.getByText("Go-live")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /View deliverable/ }).getAttribute("href")).toBe("https://example.com/site");
   });
 
   it("offers the partner no way to mark a requirement received — BES records the receipt", () => {

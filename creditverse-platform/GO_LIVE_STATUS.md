@@ -105,6 +105,36 @@ The three End of Day computations flagged by the privileged-helper check are
 deliberate (they compute the caller's own day or team report) and are now
 named exceptions in that check; every other pair still fails it.
 
+## 2026-10-02 — Partner Portal: Projects & Services (step 5)
+
+Done to PARTNER_PORTAL_DOCTRINE.md's list ("what BES is doing for them …
+builds/projects · start date · progress · milestones · deliverables ·
+approvals needed"):
+- **Services** stay one card per live engagement (CreditOps, BES CRM,
+  TalentOps, FundingOps, Sales & Marketing) with status, start and end date,
+  and the module's own summary.
+- **Builds now appear on this page.** The builds section existed but was
+  mounted nowhere. Each build shows its scope, journey stage, overall
+  progress, target or live date, **progress by area** (one bar per engine:
+  percent and Not started · In progress · Complete), **milestones** (coming
+  up and reached), **deliverables** (a reached milestone with a link opens
+  it), and what BES still needs from the partner.
+- **Approvals needed:** a callout at the top counts the build requirements,
+  agreements and approvals waiting on the partner and opens Actions Needed
+  — one place to act.
+- Server (migration 20261002004000): `my_partner_project_engines()` returns
+  counts only, the same count the project's own progress uses;
+  `my_partner_milestones()` returns only milestones BES marked client-visible,
+  never notes or who completed them. Both are behind the partner gate.
+  Proven with a temporary contact on 8F Solutions: 13 of 13 engines (intake
+  33%, matching the BES CRM board), 12 published milestones, the 1
+  unpublished hidden; a BES owner gets nothing. Matrix phase 77 holds four
+  new checks.
+- Not verifiable live: Kaori's partner has no active build, so a real
+  partner has not seen the section yet.
+
+Next in the doctrine's order: Billing.
+
 ## 2026-10-02 — Partner Portal: Messages (step 4 of the doctrine's order)
 
 Done to PARTNER_PORTAL_DOCTRINE.md's Messages list:
