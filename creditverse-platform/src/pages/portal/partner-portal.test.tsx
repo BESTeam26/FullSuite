@@ -38,7 +38,9 @@ let partner: AgencyPartner | null;
 let channels: Channel[];
 let messages: RichMessage[];
 let portalClients: PartnerPortalClient[];
-let sharedFiles: Partial<PartnerFile>[];
+let sharedFiles: import("@/lib/portal/portal-files").PartnerPortalFile[];
+let sharedClientFiles: import("@/lib/portal/portal-files").SharedClientFile[] = [];
+const uploadMutate = vi.fn();
 let portalProjects: PartnerPortalProject[];
 let portalEngines: import("@/lib/portal/project-progress").PartnerProjectEngine[] = [];
 let portalMilestones: import("@/lib/portal/project-progress").PartnerMilestone[] = [];
@@ -58,7 +60,9 @@ vi.mock("@/lib/auth/auth-context", () => ({
 vi.mock("@/lib/data/use-agency-partners", () => ({
   useMyPartner: () => ({ data: partner, isLoading: false }),
   useMyPartnerClients: () => ({ data: portalClients, isLoading: false }),
-  useMySharedFiles: () => ({ data: sharedFiles, isLoading: false }),
+  useMyPartnerFiles: () => ({ data: sharedFiles, isPending: false, isError: false }),
+  useMySharedClientFiles: () => ({ data: sharedClientFiles, isPending: false, isError: false }),
+  useUploadMyPartnerFile: () => ({ mutate: uploadMutate, isPending: false, error: null }),
   useMyPartnerProjects: () => ({ data: portalProjects, isLoading: false }),
   useMyPartnerRequirements: () => ({ data: portalRequirements, isLoading: false }),
   useMyPartnerProjectEngines: () => ({ data: portalEngines, isLoading: false, isError: false }),
@@ -161,6 +165,8 @@ beforeEach(() => {
   portalEngines = [];
   portalMilestones = [];
   sharedFiles = [];
+  sharedClientFiles = [];
+  uploadMutate.mockClear();
   liveServices = [{ module: "creditops", status: "Active" }];
   accountTeam = [];
   sendMutate.mockClear();
@@ -339,14 +345,44 @@ describe("the partner's own clients", () => {
   });
 });
 
+/* Dee, 2026-10-01 doctrine: Files is shared files only — the partner's
+   uploads, BES's shared documents, reports and client documents. */
 describe("files shared with the partner", () => {
-  it("lists a shared file with a download control", () => {
-    sharedFiles = [{ id: "f1", name: "August progress report.pdf", path: "agency/partner/g1/x.pdf",
+  it("lists a document BES shared, with a download control", () => {
+    sharedFiles = [{ id: "f1", name: "Onboarding guide.pdf", path: "agency/partner/g1/x.pdf",
       sharedAt: "2026-09-05T00:00:00Z", createdAt: "2026-09-05T00:00:00Z",
-      mimeType: "application/pdf", sizeBytes: 1000, sharedWithPartner: true, sharedByName: null }];
+      mimeType: "application/pdf", sizeBytes: 1000, fromPartner: false }];
     render(<PortalFiles partnerGroupId="g1" />);
-    expect(screen.getByText("August progress report.pdf")).toBeInTheDocument();
+    expect(screen.getByText("Onboarding guide.pdf")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Download/ })).toBeInTheDocument();
+  });
+
+  it("files a report under Reports and the partner's own upload under Your uploads", () => {
+    sharedFiles = [
+      { id: "r1", name: "Progress Report - August.pdf", path: "agency/partner/g1/r.pdf", sharedAt: null,
+        createdAt: "2026-09-05T00:00:00Z", mimeType: "application/pdf", sizeBytes: 10, fromPartner: false },
+      { id: "u1", name: "Our logo.png", path: "agency/partner/g1/uploads/u.png", sharedAt: null,
+        createdAt: "2026-09-06T00:00:00Z", mimeType: "image/png", sizeBytes: 10, fromPartner: true },
+    ];
+    render(<PortalFiles partnerGroupId="g1" />);
+    const reports = screen.getByText("Reports").closest("section") as HTMLElement;
+    expect(within(reports).getByText("Progress Report - August.pdf")).toBeInTheDocument();
+    const mine = screen.getByText("Your uploads").closest("section") as HTMLElement;
+    expect(within(mine).getByText("Our logo.png")).toBeInTheDocument();
+  });
+
+  it("shows a shared client document with the client it belongs to", () => {
+    sharedClientFiles = [{ id: "c1", name: "Round 2 results.pdf", path: "clients/x/r2.pdf", mimeType: "application/pdf",
+      sizeBytes: 10, sharedAt: "2026-10-01T00:00:00Z", clientName: "Jordan Reyes", clientPublicId: "BES-1001" }];
+    render(<PortalFiles partnerGroupId="g1" />);
+    const section = screen.getByText("Client documents").closest("section") as HTMLElement;
+    expect(within(section).getByText("Round 2 results.pdf")).toBeInTheDocument();
+    expect(within(section).getByText(/Jordan Reyes/)).toBeInTheDocument();
+  });
+
+  it("lets the partner send BES a file", () => {
+    render(<PortalFiles partnerGroupId="g1" />);
+    expect(screen.getByRole("button", { name: /Upload a file/ })).toBeInTheDocument();
   });
 
   it("says honestly when nothing has been shared", () => {

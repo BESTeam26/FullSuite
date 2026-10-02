@@ -6,19 +6,12 @@
  * copy, which is why a signed agreement stays readable here forever without
  * anybody filing a second one.
  */
-import { useQuery } from "@tanstack/react-query";
 import { FileSignature, Loader2, PenLine } from "lucide-react";
-import { useAuth } from "@/lib/auth/auth-context";
-import { requireSupabase } from "@/lib/supabase/client";
+import { useMyPartnerAgreements } from "@/lib/data/use-partner-agreements";
 import { formatDate } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
 import { PageLoadError } from "@/components/common/QueryState";
 
-interface Agreement {
-  id: string; title: string; status: string; service: string | null;
-  sentAt: string | null; signedAt: string | null; expiresAt: string | null;
-  signerName: string | null; signatureName: string | null; token: string | null;
-}
 
 const TONE: Record<string, string> = {
   signed: "border-emerald-500/40 bg-emerald-500/10 text-emerald-900",
@@ -33,25 +26,7 @@ const LABEL: Record<string, string> = {
 };
 
 export function PortalAgreements() {
-  const auth = useAuth();
-  const agreements = useQuery({
-    queryKey: ["portal", "agreements"],
-    enabled: auth.mode === "live" && auth.status === "signed-in",
-    staleTime: 60_000,
-    queryFn: async (): Promise<Agreement[]> => {
-      const { data, error } = await requireSupabase().rpc("my_partner_agreements" as never);
-      if (error) throw error;
-      return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
-        id: r.id as string, title: r.title as string, status: r.status as string,
-        service: (r.service as string) ?? null,
-        sentAt: (r.sent_at as string) ?? null, signedAt: (r.signed_at as string) ?? null,
-        expiresAt: (r.expires_at as string) ?? null,
-        signerName: (r.signer_name as string) ?? null,
-        signatureName: (r.signature_name as string) ?? null,
-        token: (r.token as string) ?? null,
-      }));
-    },
-  });
+  const agreements = useMyPartnerAgreements();
 
   if (agreements.isLoading) {
     return <p className="py-8 text-center text-sm text-muted-foreground"><Loader2 className="mx-auto h-4 w-4 animate-spin" /></p>;

@@ -7,12 +7,15 @@
  * what they read — they simply have somewhere to be imported from now that
  * each has its own page.
  */
-import { useMemo, useState } from "react";
-import { CheckCircle2, CircleDashed, ClipboardList, Download, ExternalLink, FileText, Loader2, MessagesSquare, Search, Users, Workflow } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { CheckCircle2, CircleDashed, ClipboardList, Download, ExternalLink, FileText, Loader2, MessagesSquare, Search, Upload, Users, Workflow } from "lucide-react";
 import {
-  useMyPartnerClients, useMyPartnerMilestones, useMyPartnerProjectEngines, useMyPartnerProjects,
-  useMyPartnerRequirements, useMySharedFiles,
+  useMyPartnerClients, useMyPartnerFiles, useMyPartnerMilestones, useMyPartnerProjectEngines, useMyPartnerProjects,
+  useMyPartnerRequirements, useMySharedClientFiles, useUploadMyPartnerFile,
 } from "@/lib/data/use-agency-partners";
+import { useMyPartnerAgreements } from "@/lib/data/use-partner-agreements";
+import { groupPartnerFiles } from "@/lib/portal/portal-files";
+import { Link } from "react-router-dom";
 import { ENGINE_STAGE_LABEL, enginesFor, milestonesFor } from "@/lib/portal/project-progress";
 import { partnerFileUrl } from "@/lib/data/agency-partners";
 import { FilePreviewCard, FilePreviewGrid } from "@/components/common/FilePreviewCard";
@@ -305,12 +308,26 @@ export function PortalClients() {
  * row. An unshared file is not a hidden row here — it never arrives at all.
  */
 export function PortalFiles({ partnerGroupId }: { partnerGroupId: string }) {
-  const files = useMySharedFiles(partnerGroupId);
+  /* Dee, 2026-10-01 doctrine: Files is shared files only — the partner's own
+     uploads, what BES shared, reports, client documents, agreements and
+     deliverables. Each list comes from a partner-scoped function; the storage
+     rule decides every download (20261002006000 / 007000). */
+  const files = useMyPartnerFiles();
+  const clientFiles = useMySharedClientFiles();
+  const agreements = useMyPartnerAgreements();
+  const milestones = useMyPartnerMilestones();
+  const upload = useUploadMyPartnerFile(partnerGroupId);
+  const inputRef = useRef<HTMLInputElement>(null);
   const [failedId, setFailedId] = useState<string | null>(null);
-  /* One signing request for the whole page of thumbnails, not one per file. */
-  const previews = useFilePreviews(
-    (files.data ?? []).map((f) => ({ bucket: "bes-files", path: f.path })),
-  );
+  const groups = groupPartnerFiles(files.data ?? []);
+  const signed = (agreements.data ?? []).filter((a) => a.status === "signed");
+  const deliverables = (milestones.data ?? []).filter((m) => m.completedAt && m.linkUrl);
+
+  /* One signing request for every thumbnail on the page, not one per file. */
+  const previews = useFilePreviews([
+    ...(files.data ?? []).map((f) => ({ bucket: "bes-files", path: f.path })),
+    ...(clientFiles.data ?? []).map((f) => ({ bucket: "bes-files", path: f.path })),
+  ]);
 
   const open = async (id: string, path: string) => {
     try {
@@ -322,42 +339,122 @@ export function PortalFiles({ partnerGroupId }: { partnerGroupId: string }) {
     }
   };
 
+  const grid = (rows: { id: string; name: string; path: string; mimeType: string | null; sizeBytes: number | null; caption: string }[]) => (
+    <FilePreviewGrid>
+      {rows.map((f) => (
+        <FilePreviewCard key={f.id}
+          file={{ id: f.id, name: f.name, mimeType: f.mimeType, sizeBytes: f.sizeBytes, caption: f.caption }}
+          url={previews.data?.[`bes-files/${f.path}`]}
+          onOpen={() => void open(f.id, f.path)}
+          actions={
+            <span className="flex items-center justify-between gap-2">
+              <span className="truncate text-[11px] text-destructive">{failedId === f.id ? "Could not open — try again" : ""}</span>
+              <button type="button" onClick={() => void open(f.id, f.path)}
+                className="inline-flex shrink-0 items-center gap-1 text-[11px] font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <Download className="h-3 w-3" /> Download
+              </button>
+            </span>
+          } />
+      ))}
+    </FilePreviewGrid>
+  );
+  const when = (f: { sharedAt: string | null; createdAt?: string }) => formatDate(f.sharedAt ?? f.createdAt ?? null);
+
+  return (
+    <div className="space-y-3">
+      <section className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-card p-4">
+        <div>
+          <h2 className="text-sm font-bold text-foreground">Send BES a file</h2>
+          <p className="text-[11px] text-muted-foreground">Documents, logos, exports — BES is told the moment it arrives.</p>
+        </div>
+        <input ref={inputRef} type="file" className="hidden"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) upload.mutate(f); e.target.value = ""; }} />
+        <button type="button" disabled={upload.isPending} onClick={() => inputRef.current?.click()}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60">
+          {upload.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />} Upload a file
+        </button>
+        {upload.error && <p role="alert" className="w-full text-[11px] text-status-danger">{(upload.error as Error).message}</p>}
+      </section>
+
+      <FileSection icon={FileText} title="Shared by BES" query={files} empty="Nothing has been shared yet. Documents BES shares with you appear here."
+        count={groups.documents.length}>
+        {grid(groups.documents.map((f) => ({ ...f, caption: `Shared ${when(f)}` })))}
+      </FileSection>
+
+      {groups.reports.length > 0 && (
+        <FileSection icon={FileText} title="Reports" query={files} count={groups.reports.length}>
+          {grid(groups.reports.map((f) => ({ ...f, caption: `Shared ${when(f)}` })))}
+        </FileSection>
+      )}
+
+      <FileSection icon={Users} title="Client documents" query={clientFiles} count={(clientFiles.data ?? []).length}
+        empty="Client documents BES shares with you appear here, with the client they belong to.">
+        {grid((clientFiles.data ?? []).map((f) => ({ ...f, caption: `${f.clientName} · shared ${formatDate(f.sharedAt)}` })))}
+      </FileSection>
+
+      {groups.uploads.length > 0 && (
+        <FileSection icon={Upload} title="Your uploads" query={files} count={groups.uploads.length}>
+          {grid(groups.uploads.map((f) => ({ ...f, caption: `Uploaded ${formatDate(f.createdAt)}` })))}
+        </FileSection>
+      )}
+
+      {(signed.length > 0 || deliverables.length > 0) && (
+        <section className="grid gap-3 md:grid-cols-2">
+          {signed.length > 0 && (
+            <div className="rounded-xl border border-border bg-card p-4">
+              <h2 className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">Agreements</h2>
+              <ul className="space-y-1 text-xs">
+                {signed.slice(0, 5).map((a) => (
+                  <li key={a.id} className="flex items-center justify-between gap-2">
+                    <span className="truncate text-foreground">{a.title}</span>
+                    <span className="shrink-0 text-muted-foreground">signed {formatDate(a.signedAt)}</span>
+                  </li>
+                ))}
+              </ul>
+              <Link to="/partner/agreements" className="mt-2 inline-block text-xs font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                Open agreements →
+              </Link>
+            </div>
+          )}
+          {deliverables.length > 0 && (
+            <div className="rounded-xl border border-border bg-card p-4">
+              <h2 className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">Deliverables</h2>
+              <ul className="space-y-1 text-xs">
+                {deliverables.slice(0, 6).map((m) => (
+                  <li key={m.id} className="flex items-center justify-between gap-2">
+                    <span className="truncate text-foreground">{m.label}</span>
+                    <a href={m.linkUrl as string} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex shrink-0 items-center gap-0.5 font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                      Open <ExternalLink className="h-2.5 w-2.5" aria-hidden />
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
+      )}
+    </div>
+  );
+}
+
+/** A titled list that never reads a failed load as "nothing here". */
+function FileSection({ icon: Icon, title, query, count, empty, children }: {
+  icon: typeof FileText; title: string; query: { isPending: boolean; isError: boolean };
+  count: number; empty?: string; children: React.ReactNode;
+}) {
   return (
     <section className="rounded-xl border border-border bg-card p-4">
       <h2 className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-        <FileText className="h-3.5 w-3.5" /> Shared with you
+        <Icon className="h-3.5 w-3.5" /> {title}{count > 0 && <span className="font-normal normal-case">— {count}</span>}
       </h2>
-      {!hasRows(files) ? (
-        <PanelState query={files} empty={
-          <p className="py-4 text-center text-sm text-muted-foreground">
-            Nothing has been shared yet. Documents BES shares with you will appear here.
-          </p>} />
-      ) : (
-        <FilePreviewGrid>
-          {(files.data ?? []).map((f) => (
-            <FilePreviewCard
-              key={f.id}
-              file={{
-                id: f.id, name: f.name, mimeType: f.mimeType, sizeBytes: f.sizeBytes,
-                caption: f.sharedAt ? `Shared ${formatDate(f.sharedAt)}` : formatDate(f.createdAt),
-              }}
-              url={previews.data?.[`bes-files/${f.path}`]}
-              onOpen={() => void open(f.id, f.path)}
-              actions={
-                <span className="flex items-center justify-between gap-2">
-                  <span className="truncate text-[11px] text-destructive">
-                    {failedId === f.id ? "Could not open — try again" : ""}
-                  </span>
-                  <button type="button" onClick={() => void open(f.id, f.path)}
-                    className="inline-flex shrink-0 items-center gap-1 text-[11px] font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                    <Download className="h-3 w-3" /> Download
-                  </button>
-                </span>
-              }
-            />
-          ))}
-        </FilePreviewGrid>
-      )}
+      {query.isPending ? (
+        <p className="py-4 text-center"><Loader2 className="mx-auto h-4 w-4 animate-spin text-muted-foreground" /></p>
+      ) : query.isError ? (
+        <p role="alert" className="py-4 text-center text-sm text-status-danger">These files could not be loaded. Reload to try again.</p>
+      ) : count === 0 ? (
+        empty ? <p className="py-4 text-center text-sm text-muted-foreground">{empty}</p> : null
+      ) : children}
     </section>
   );
 }

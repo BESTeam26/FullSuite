@@ -12,6 +12,7 @@
  * refuses is how records fill up with "n/a".
  */
 import type { PartnerMilestone, PartnerProjectEngine } from "@/lib/portal/project-progress";
+import { partnerUploadPath, type PartnerPortalFile, type SharedClientFile } from "@/lib/portal/portal-files";
 import { requireSupabase } from "@/lib/supabase/client";
 import { sendInvitationEmail, type EmailOutcome } from "@/lib/data/emails";
 import type { PartnerHealth, PartnerLifecycle } from "@/lib/partners/partner-account";
@@ -536,6 +537,51 @@ export async function setPartnerFileShared(fileId: string, shared: boolean): Pro
 }
 
 /** A five-minute download link; storage RLS decides who may mint one. */
+/** The partner's own visible files, saying which side added each (20261002007000). */
+export async function fetchMyPartnerFiles(): Promise<PartnerPortalFile[]> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("my_partner_files" as never);
+  if (error) throw error;
+  return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+    id: r.id as string, name: r.name as string, path: r.path as string,
+    mimeType: (r.mime_type as string) ?? null,
+    sizeBytes: r.size_bytes === null || r.size_bytes === undefined ? null : Number(r.size_bytes),
+    createdAt: r.created_at as string, sharedAt: (r.shared_at as string) ?? null,
+    fromPartner: !!r.from_partner,
+  }));
+}
+
+/** Client documents BES shared with this partner, across their clients. */
+export async function fetchMySharedClientFiles(): Promise<SharedClientFile[]> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("my_partner_shared_client_files" as never);
+  if (error) throw error;
+  return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+    id: r.id as string, name: r.name as string, path: r.path as string,
+    mimeType: (r.mime_type as string) ?? null,
+    sizeBytes: r.size_bytes === null || r.size_bytes === undefined ? null : Number(r.size_bytes),
+    sharedAt: r.shared_at as string, clientName: r.client_name as string, clientPublicId: r.client_public_id as string,
+  }));
+}
+
+/**
+ * A partner contact's upload: the object into their own uploads folder (the
+ * storage rule refuses anywhere else), then the record — which checks the
+ * path again and writes an audited entry so BES sees it arrive.
+ */
+export async function uploadMyPartnerFile(groupId: string, file: File): Promise<void> {
+  const sb = requireSupabase();
+  const path = partnerUploadPath(groupId, file.name, crypto.randomUUID());
+  const { error: uploadError } = await sb.storage.from("bes-files").upload(path, file, {
+    contentType: file.type || "application/octet-stream", upsert: false,
+  });
+  if (uploadError) throw uploadError;
+  const { error } = await sb.rpc("my_partner_record_upload" as never, {
+    p_path: path, p_name: file.name, p_mime: file.type || null, p_size: file.size,
+  } as never);
+  if (error) throw error;
+}
+
 export async function partnerFileUrl(path: string): Promise<string> {
   const sb = requireSupabase();
   const { data, error } = await sb.storage.from("bes-files").createSignedUrl(path, 5 * 60);
@@ -590,11 +636,6 @@ export async function fetchMyPartnerClients(includeClosed: boolean): Promise<Par
     actionNeeded: r.action_needed === true,
     actionTitle: (r.action_title as string) ?? null,
   }));
-}
-
-/** Files BES shared with the signed-in partner (RLS returns shared rows only). */
-export async function fetchMySharedFiles(groupId: string): Promise<PartnerFile[]> {
-  return fetchPartnerFiles(groupId);
 }
 
 /* ── Portal invitations ──────────────────────────────────────────────── */

@@ -105,6 +105,34 @@ The three End of Day computations flagged by the privileged-helper check are
 deliberate (they compute the caller's own day or team report) and are now
 named exceptions in that check; every other pair still fails it.
 
+## 2026-10-02 — Partner Portal: Files (step 7)
+
+Done to PARTNER_PORTAL_DOCTRINE.md's Files list ("shared files only"):
+- **Partner uploads:** "Upload a file" puts it in the partner's own uploads
+  folder only (storage rule refuses any other folder and any other partner),
+  then records it — the path is checked again, the file is listed as theirs,
+  and an audited "Partner uploaded a file" entry lands on the partner record
+  so BES sees it. Staff open it like any partner file.
+- **Shared by BES** and **Reports** (a shared file named as a report), from
+  `my_partner_files()` — never a file BES kept private.
+- **Client documents** BES shared, with the client each belongs to, from
+  `my_partner_shared_client_files()` (only files the storage rule lets them
+  open).
+- **Agreements** (signed ones, linking to the Agreements page — the query is
+  now one shared hook for both pages) and **Deliverables** (reached
+  milestones with a link).
+- Removed the superseded shared-files hook and fetcher (no other users).
+
+Proven with a temporary partner contact: upload into own folder allowed,
+another partner's folder and outside uploads refused, recording a foreign
+path refused; the recorded upload is listed as theirs, opens for them and
+for staff, and is audited; Dee sharing a client file makes it appear with
+the client's name; staff get nothing from the partner readers. Matrix phase
+77 now 105/106 (only the old mismatch).
+
+Not verified live: no partner has uploaded or been shared a client file
+yet. Next in the doctrine's order: Updates, then Account Settings.
+
 ## 2026-10-02 — Client document storage rule (unblocks Files)
 
 Client documents live under clients/<client id>/… (29,615 files, nearly all

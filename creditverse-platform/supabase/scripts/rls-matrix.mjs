@@ -8321,6 +8321,24 @@ if (runs(77)) {
                          from pg_policies where schemaname='storage' and tablename='objects' and policyname='bes_files_select'`)[0].rows, "true"],
           ];
         })(),
+        /* Files (20261002007000): a partner writes only into their own uploads
+           folder, and recording an upload refuses any other path. */
+        ["a partner can upload into their own uploads folder",
+          () => as77(PC, `insert into storage.objects (bucket_id, name, owner) values ('bes-files', 'agency/partner/${G}/uploads/probe.pdf', '${PC}'::uuid); select 'ok' as rows`), "ok"],
+        ["…but not into another partner's folder",
+          () => as77(PC, `insert into storage.objects (bucket_id, name, owner) values ('bes-files', 'agency/partner/44444444-0000-4000-8000-0000000000e8/uploads/probe.pdf', '${PC}'::uuid); select 'ok' as rows`), "ERR 42501"],
+        ["…nor outside the uploads folder",
+          () => as77(PC, `insert into storage.objects (bucket_id, name, owner) values ('bes-files', 'agency/partner/${G}/probe.pdf', '${PC}'::uuid); select 'ok' as rows`), "ERR 42501"],
+        ["recording an upload for a path that is not theirs is refused",
+          () => as77(PC, `select public.my_partner_record_upload('agency/partner/44444444-0000-4000-8000-0000000000e8/uploads/x.pdf', 'x.pdf', null, 1)::text as rows`), "ERR 42501"],
+        ["a partner's own upload is listed as theirs",
+          () => as77(PC, `select count(*)::int as rows from public.my_partner_files() where from_partner`,
+            `insert into public.files (agency_id, entity_type, entity_id, bucket, path, name, uploaded_by, shared_with_partner)
+               values (${AG77}, 'partner', '${G}', 'bes-files', 'agency/partner/${G}/uploads/mine.pdf', 'mine.pdf', '${PC}'::uuid, true);`), 1],
+        ["a file BES kept private is never listed to the partner",
+          () => as77(PC, `select count(*)::int as rows from public.my_partner_files()`,
+            `insert into public.files (agency_id, entity_type, entity_id, bucket, path, name, shared_with_partner)
+               values (${AG77}, 'partner', '${G}', 'bes-files', 'agency/partner/${G}/private.pdf', 'private.pdf', false);`), 0],
         /* Billing (20261002005000): who receives invoices is the partner's own
            business, and no signed-in user reads another partner's. */
         ["no signed-in user can ask for another partner's billing contact",

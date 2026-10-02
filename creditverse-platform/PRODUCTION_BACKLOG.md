@@ -60,8 +60,9 @@ Last reconciled: 2026-10-01, after the full review (stale entries corrected agai
   MONITORING ISSUE raise it automatically, or should an agent ask
   explicitly (a staff control)? Messages done 2026-10-02 (see
   GO_LIVE_STATUS.md); Projects & Services done the same day. Portal work
-  order next (Billing done 2026-10-02):
-  Files (also: shared CLIENT documents live under
+  order next (Billing, the client-document storage rule and Files done
+  2026-10-02):
+  Updates (Files (also: shared CLIENT documents live under
   clients/… and the partner storage rule covers only agency/partner/…, so
   downloads will fail once a client file is shared — none exists yet) →
   Updates → Account Settings.

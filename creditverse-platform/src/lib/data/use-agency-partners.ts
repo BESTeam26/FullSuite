@@ -3,11 +3,12 @@ import { useAuth } from "@/lib/auth/auth-context";
 import type { PartnerHealth, PartnerLifecycle } from "@/lib/partners/partner-account";
 import {
   createAgencyPartner, createPartnerContact, fetchAgencyPartner, fetchAgencyPartners,
-  fetchPartnerClientCounts, fetchMyPartner, fetchMyPartnerClients, fetchMySharedFiles,
+  fetchPartnerClientCounts, fetchMyPartner, fetchMyPartnerClients,
   fetchPartnerContacts, invitePartnerContact, setContactStatus, setPartnerHealth,
   setPartnerLifecycle, updateAgencyPartner, type NewPartner,
   fetchMyPartnerProjects, fetchMyPartnerRequirements,
   fetchMyPartnerProjectEngines, fetchMyPartnerMilestones,
+  fetchMyPartnerFiles, fetchMySharedClientFiles, uploadMyPartnerFile,
 } from "@/lib/data/agency-partners";
 
 export const partnersKey = (archived: boolean) => ["agency", "partners", archived] as const;
@@ -160,6 +161,23 @@ export function useMyPartnerMilestones(enabled = true) {
   });
 }
 
+/** The partner's own files and the client documents shared with them — the Files page only. */
+export function useMyPartnerFiles() {
+  const { live } = useLive();
+  return useQuery({ queryKey: ["partner", "me", "files"], queryFn: fetchMyPartnerFiles, enabled: live, staleTime: 30_000, retry: false });
+}
+export function useMySharedClientFiles() {
+  const { live } = useLive();
+  return useQuery({ queryKey: ["partner", "me", "client-files"], queryFn: fetchMySharedClientFiles, enabled: live, staleTime: 30_000, retry: false });
+}
+export function useUploadMyPartnerFile(groupId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (file: File) => uploadMyPartnerFile(groupId, file),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["partner", "me", "files"] }),
+  });
+}
+
 /** What BES is waiting on the signed-in partner for. */
 export function useMyPartnerRequirements() {
   const { live } = useLive();
@@ -172,14 +190,3 @@ export function useMyPartnerRequirements() {
   });
 }
 
-/** Files BES shared with the signed-in partner (RLS returns shared rows only). */
-export function useMySharedFiles(groupId: string | null) {
-  const { live } = useLive();
-  return useQuery({
-    queryKey: ["partner", "me", "files", groupId],
-    queryFn: () => fetchMySharedFiles(groupId as string),
-    enabled: live && !!groupId,
-    staleTime: 60_000,
-    retry: false,
-  });
-}
