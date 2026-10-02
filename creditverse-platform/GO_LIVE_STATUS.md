@@ -68,14 +68,42 @@ key pasted by Dee; the documents' older claims that these worked are stale.
   ClickUp import. A very long unread list slows the bell (1.1 s at 171).
 - Four expired, never-accepted invitations remain (housekeeping).
 
-**Security gate.** The full matrix was started at 8 PM. Phase 2 counts
-whole tables as each persona; one such count of 20,000 activity rows as an
-agent does not finish within 60 seconds. No screen issues that read (every
-app read of activity is filtered to one record, measured at 2.3 s under the
-matrix's own load), so this is a harness cost, not a user-facing defect —
-but it is why the full gate has not completed since mid-September (P-011).
-The targeted phases for everything changed today passed (37, 70, 71, 77)
-and the latency gate passed across six roles.
+**Security gate (full matrix, 8 PM–midnight).** Phases 1–70 ran in one
+pass before its one-hour limit; 72–76 and every phase touched tonight were
+re-run separately. Final state: every check passes except two —
+
+1. the long-standing bootstrap mismatch (`org.owner attention=2, want 1`),
+   untouched;
+2. **NEEDS FIX — CreditOps, latent:** an agent who reaches a client only by
+   being assigned to it by name (the P-013 shape) cannot hand it off. Since
+   2026-09-28 the client's headline assignee is derived from department
+   assignees, so the handoff clears the agent's assignment first, and their
+   own handoff activity entry is then refused because they can no longer see
+   the file. No real person is affected today (every real agent sees the
+   whole client directory). Fixing it touches the CreditOps write path, so it
+   is recorded, not changed tonight.
+
+**Fixed tonight — data exposure (migration 20261001019000).** The client
+conversation functions (`client_feed`, `client_posts`) checked access with a
+helper that is only honest under the caller's own row rules; inside those
+privileged functions it answered "yes" for every client, leaving only the
+partner check. Two people who see no client files could read client
+comments by calling them directly with a client's id: JM 13,661 comments on
+2,146 clients, James 1,510 on 111. No screen offered it. Both now ask
+`fulfillment_client_readable()`, an exact copy of the client-file rule that
+works inside privileged functions; matrix phase 47 proves, for seven kinds of
+reader, that it always agrees with the table's own rules. Proven after the
+fix: JM and James read nothing; Jet, Allyssa, Rowell and Dee read the same 45
+feed entries and 15 posts as before.
+
+Six other failures were stale checks, each updated with its reason: two
+structure checks that predated the September 28–29 performance rewrites, the
+realtime allowlist (notifications joined deliberately today), a partner
+reason label, the handoff check written for the pre-September-28 assignee
+model, and a due-date check that became false on the calendar, not in code.
+The three End of Day computations flagged by the privileged-helper check are
+deliberate (they compute the caller's own day or team report) and are now
+named exceptions in that check; every other pair still fails it.
 
 ## Payroll — who can view and edit whose (corrected 2026-10-01 PM)
 

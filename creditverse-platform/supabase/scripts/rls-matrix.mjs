@@ -2744,7 +2744,33 @@ if (runs(47)) {
         )
         select count(*)::int as rows
           from definers d join rls_dependent r on d.prosrc ~ ('public\\.' || r.proname || '[[:space:]]*\\(')
-         where d.proname <> r.proname`)[0].rows, 0],
+         where d.proname <> r.proname
+           /* Deliberate elevated COMPUTATIONS, not authorization: each
+              computes the caller's own day or the caller's own team report
+              and stores or returns it; nothing is decided by them. Every
+              other pair still fails this check. (2026-10-01 review.) */
+           and (d.proname, r.proname) not in (
+             ('eod_set_routing', 'eod_day_activity'),   -- the employee's own day, at submission
+             ('eod_set_routing', 'eod_documents_for'),  -- the lead's own team report, at submission
+             ('eod_my_report',   'eod_documents_for'))  -- the caller's own team report, live`)[0].rows, 0],
+
+    /* A client's conversation asks the client rule (20261001019000).
+       fulfillment_client_readable() copies the fulfillment_clients select
+       policy so definers can use it; it is only safe while it agrees with the
+       table's own row rules, for every kind of reader. */
+    ...["org.owner@bes.test", "org2.owner@bes.test", "bes.credit@bes.test", "bes.lead@bes.test",
+        "bes.manager@bes.test", "bes.restricted@bes.test", "probe.agent@bes.test"].filter((e) => U[e]).map((e) =>
+      [`fulfillment_client_readable agrees with the client row rules for ${e}`,
+        /* Seen under the caller's row rules, then the helper asked over the
+           WHOLE table as the superuser with the caller's claims still set —
+           otherwise the right side is a subset of the left by construction
+           and the check could never fail. */
+        () => w47(U[e], `create temp table seen47 on commit drop as select id from public.fulfillment_clients;
+                 set local role postgres;
+                 select ((select count(*) from seen47)
+                   = (select count(*) from public.fulfillment_clients c where public.fulfillment_client_readable(c.id))
+                   and not exists (select 1 from public.fulfillment_clients c
+                                    where public.fulfillment_client_readable(c.id) and c.id not in (select id from seen47)))::text as rows`), "true"]),
 
     /* The three defects this sweep found, each asserted in both directions. */
     ["client_birthdays does not leak another organization's clients",
@@ -4593,7 +4619,10 @@ if (runs(59)) {
     ["…and every one of them is reached FOR that reason, not by assignment",
       () => p59(MGR59, "", `select count(*)::int as rows
         from public.partners_visible_to_user('${MGR59}') v
-        where v.allowed and v.reason not like '%division they manage%'`), 0],
+        /* "…they manage" covers the division and the departments inside it;
+           the claim is that none comes from an assignment (2026-10-01: the
+           reason names the department when one carries the reach). */
+        where v.allowed and v.reason not like '%they manage%'`), 0],
     ["…and the list agrees with the gate, partner for partner",
       () => p59(MGR59, "", `select count(*)::int as rows
         from public.partners_visible_to_user('${MGR59}') v
@@ -4628,8 +4657,12 @@ if (runs(59)) {
     /* ── The FOR ALL trap, closed and kept closed (0185) ─────────── */
     ["no policy on partners is FOR ALL any more",
       () => q(`select count(*)::int as rows from pg_policy where polrelid='public.outsourcing_groups'::regclass and polcmd='*'`)[0].rows, 0],
-    ["…and the select policy asks can_see_partner",
-      () => q(`select (position('can_see_partner' in pg_get_expr(polqual, polrelid)) > 0)::text as rows from pg_policy where polname='outsourcing_groups_select'`)[0].rows, "true"],
+    /* Since 2026-09-28 (9816922) the policy reads the viewer's partner set
+       once, my_visible_partner_ids(), instead of can_see_partner() per row;
+       "the list agrees with the gate, partner for partner" above is what
+       keeps the two the same. */
+    ["…and the select policy asks the viewer's partner set",
+      () => q(`select (position('my_visible_partner_ids' in pg_get_expr(polqual, polrelid)) > 0)::text as rows from pg_policy where polname='outsourcing_groups_select'`)[0].rows, "true"],
 
     /* ── An assignment is ended, never deleted (rule 11) ─────────── */
     ["there is no delete policy on assignments",
@@ -5181,10 +5214,13 @@ if (runs(61)) {
        keeping — realtime is a standing cost and an exposure surface (rule 22),
        so the set is an ALLOWLIST of two, not a free-for-all. Anything else
        appearing here fails. */
-    ["only messages and reactions are published to realtime, and NOTHING else",
+    /* `notifications` joined deliberately on 2026-10-01 (20261001002000):
+       live delivery of reminders, mentions and handoffs in the shell. Still
+       an ALLOWLIST — now of three. */
+    ["only messages, reactions and notifications are published to realtime, and NOTHING else",
       () => q(`select count(*)::int as rows from pg_publication_tables
                 where pubname='supabase_realtime'
-                  and not (schemaname='public' and tablename in ('messages','message_reactions'))`)[0].rows, 0],
+                  and not (schemaname='public' and tablename in ('messages','message_reactions','notifications'))`)[0].rows, 0],
     ["…and messages IS published",
       () => q(`select count(*)::int as rows from pg_publication_tables
                 where pubname='supabase_realtime' and schemaname='public' and tablename='messages'`)[0].rows, 1],
@@ -5564,9 +5600,13 @@ if (runs(62)) {
         deptCount), 0],
 
     /* ── The shape that makes it all hold ───────────────────────────── */
-    ["the department policies ask client_department_writable, not is_staff_of",
+    /* The WRITE policies ask client_department_writable. The read policy has
+       asked the viewer's (client, department) set, computed once, since
+       2026-09-29 (ca6cf1f) — proven per role then. */
+    ["the department write policies ask client_department_writable, and the read policy the viewer's pair set",
       () => q(`select count(*)::int as rows from pg_policy where polrelid='public.client_department_statuses'::regclass
-                and coalesce(pg_get_expr(polqual, polrelid), pg_get_expr(polwithcheck, polrelid)) not like '%client_department_writable%'`)[0].rows, 0],
+                and ((polcmd in ('a','w') and coalesce(pg_get_expr(polqual, polrelid), pg_get_expr(polwithcheck, polrelid)) not like '%client_department_writable%')
+                  or (polcmd = 'r' and pg_get_expr(polqual, polrelid) not like '%creditops_department_pairs_visible%'))`)[0].rows, 0],
     ["…there are exactly three of them — no organization-only twin OR-ed beside",
       () => q(`select count(*)::int as rows from pg_policy where polrelid='public.client_department_statuses'::regclass`)[0].rows, 3],
     ["…none is FOR ALL",
@@ -5908,9 +5948,14 @@ if (runs(64)) {
       q(`select name as rows from public.channels where id='${GEN64}'`)[0].rows],
 
     /* ── handoff ─────────────────────────────────────────────────────── */
-    ["a handoff tells the client's assigned agent",
+    /* Since 2026-09-28 a client's headline assignee is DERIVED from its
+       department assignees (creditops_refresh_headline): handing the file to
+       a department with nobody assigned clears it before the notifier reads
+       it, and the client team's lead is told instead. The rule worth pinning
+       is that somebody who can act is told — the lead, here. */
+    ["a handoff to an unassigned department tells the client team's lead",
       () => act64(OWN64, `select public.handoff_client_departments('${EVAN64}','Onboarding',array['Dispute']::public.fulfillment_department[],array['Ready for Processing'],'probe');`,
-        nCount(`kind='handoff' and recipient_id='${CO64}' and entity_id='${EVAN64}'`), ready64(EVAN64, CO64, 'Dispute')), 1],
+        nCount(`kind='handoff' and recipient_id='${LEAD64}' and entity_id='${EVAN64}'`), ready64(EVAN64, CO64, 'Dispute')), 1],
     ["…and the lead of a team attached to the DESTINATION department, on a client whose own team has no lead",
       () => act64(OWN64, `select public.handoff_client_departments('${CLEO64}','Onboarding',array['Dispute']::public.fulfillment_department[],array['Ready for Processing'],'probe');`,
         nCount(`kind='handoff' and recipient_id='${LEAD64}' and entity_id='${CLEO64}'`)), 1],
@@ -7822,8 +7867,13 @@ if (runs(74)) {
     ["the client's own due date is the soonest of its open queues",
       () => p74(OWN74, `select public.mark_client_mailed('${CL74}', timestamptz '2026-09-01 12:00+00');
                         select public.open_complaint('${CL74}', 'FTC Needed');
-                        select (due_at::date = (now() + interval '5 days')::date)::text as rows
-                          from public.fulfillment_clients where id='${CL74}'`),
+                        /* The soonest of the two queues' own dates — not "now + 5 days",
+                           which stopped being the soonest the day the Dispute date
+                           (mailed + 30) arrived: 2026-10-01. */
+                        select (fc.due_at = (select min(coalesce(s.manual_due_at, s.system_due_at))
+                                               from public.client_department_statuses s
+                                              where s.client_id = fc.id and s.department in ('Dispute','Complaints')))::text as rows
+                          from public.fulfillment_clients fc where fc.id='${CL74}'`),
       "true"],
 
     ["14 — an imported ClickUp due date does not survive its own anchor",
